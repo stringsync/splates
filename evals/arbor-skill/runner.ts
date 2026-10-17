@@ -10,6 +10,7 @@ import {
 	type ProbeRun,
 } from "./probe";
 import { cliAdapter } from "./probe-adapters";
+import { type Allowance, admit } from "./probe-affordability";
 import {
 	assessRun,
 	configurationHash,
@@ -75,12 +76,14 @@ export async function runProbes(
 				})),
 			),
 	);
+	const allowances = opts.budget ? admit(jobs, opts.budget) : undefined;
 	await mkdir(opts.directory, { recursive: true });
 	const results: StoredRun[] = [];
 	let index = 0;
 	const worker = async () => {
 		for (;;) {
-			const job = jobs[index++];
+			const jobIndex = index++;
+			const job = jobs[jobIndex];
 			if (!job) {
 				return;
 			}
@@ -93,6 +96,7 @@ export async function runProbes(
 				),
 				target: job.target,
 				repetition: job.repetition,
+				allowance: allowances?.[jobIndex],
 			});
 			results.push(stored.value);
 			opts.completed?.(stored.value, stored.path);
@@ -106,7 +110,12 @@ export async function runProbes(
 
 async function runOne(
 	probe: Probe,
-	opts: RunOptions & { seed?: Seed; target: Target; repetition: number },
+	opts: RunOptions & {
+		seed?: Seed;
+		target: Target;
+		repetition: number;
+		allowance?: Readonly<Allowance>;
+	},
 ): Promise<{ value: StoredRun; path: string }> {
 	const { seed, target, repetition } = opts;
 	const start = performance.now();
@@ -172,7 +181,9 @@ async function runOne(
 			"1",
 		],
 	};
-	const runtime: Record<string, Json> = {};
+	const runtime: Record<string, Json> = opts.allowance
+		? { reserved: { ...opts.allowance }, aggregateBudget: { ...opts.budget } }
+		: {};
 	const adapterIdentity = {
 		version: target.adapter.version,
 		config: target.adapter.config,
@@ -301,13 +312,18 @@ async function runOne(
 		} else if (
 			probe.execution.kind === "agent" &&
 			!target.adapter.tokenBound &&
+			!opts.allowance &&
 			!opts.allowUnmetered
 		) {
 			evidence.termination = "unsupported";
 			evidence.detail =
 				"adapter cannot enforce token bound; explicitly select --allow-unmetered to use time/turn bounds";
 		} else if (!controller.signal.aborted) {
-			if (probe.execution.kind === "agent" && !target.adapter.tokenBound) {
+			if (
+				probe.execution.kind === "agent" &&
+				!target.adapter.tokenBound &&
+				!opts.allowance
+			) {
 				warnings.push(
 					"Token bound unavailable; token usage/cost may be unknown. Time and turn bounds remain active.",
 				);
@@ -320,7 +336,15 @@ async function runOne(
 				}
 				executing = true;
 				adapterStart = performance.now();
-				await target.adapter.run(context, target.model);
+				if (opts.allowance) {
+					await target.adapter.metering?.run(
+						context,
+						target.model,
+						opts.allowance,
+					);
+				} else {
+					await target.adapter.run(context, target.model);
+				}
 			})();
 			await Promise.race([work, aborted]);
 			if (controller.signal.aborted) {
@@ -390,6 +414,21 @@ async function runOne(
 	) {
 		evidence.termination = "bound";
 		evidence.detail = "observed turn/token bound exceeded";
+	}
+	if (
+		opts.allowance &&
+		((usage.tokens !== null &&
+			(!Number.isSafeInteger(usage.tokens) ||
+				usage.tokens < 0 ||
+				usage.tokens > opts.allowance.tokens)) ||
+			(usage.costUsd !== null &&
+				(!Number.isFinite(usage.costUsd) ||
+					usage.costUsd < 0 ||
+					usage.costUsd * 1000000 > opts.allowance.microUsd)))
+	) {
+		evidence.termination = "infrastructure-error";
+		evidence.detail =
+			"Provider violated its reserved metering contract; cost guarantee cannot be claimed";
 	}
 	traceClosed = true;
 	async function disposeResources() {

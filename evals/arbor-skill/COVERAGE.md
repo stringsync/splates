@@ -1,9 +1,114 @@
 # Arbor focused coverage audit
 
-Audit baseline: contract commit `9a41517a` (#337), arbor skill 0.0.44.
-This is a requirements inventory, not measured model adherence. #338 is being
-implemented independently. The five aspect tasks below start after #338;
-none of their planned probes is counted as implemented by this audit.
+Integrated inventory: six aspect modules, all version 1. This records implemented
+assertion contracts and free CLI boundaries, **not measured model adherence**.
+The original requirements map below remains a broader target, not a claim that
+every mapped requirement is now covered.
+
+## Affordability controls and remaining provider blocker
+
+The CLI now requires an immutable skill baseline, skips unchanged instructions,
+selects at most two targeted smoke probes by default, and admits the entire batch
+only within hard aggregate token/microdollar reservations. `probe-affordability.test.ts`
+free-tests the gate, selection, safe budgets and bounded-provider dispatch. See
+RUNNER.md for exact limits and unsupported cases. ACP has no certified metering
+integration and is refused before launch; these controls do not establish a useful
+real-model eval or empirical cost. #371 still owns native provider enforcement.
+AGENTS.md is unchanged; #365 needs the user's later approval and must retain
+skill-change-only execution and low enforced aggregate budgets.
+
+## Registered probes
+
+73 cases: 11 local CLI cases and 62 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+
+`integration.test.ts` checks this inventory against automatic discovery and runs
+all eleven CLI cases together: ten pass; `delegation/cli-no-dev-relay` remains
+uncovered because nested command capture is incomplete. Its separate assertion
+test verifies the actual refusal. An all-unsupported agent run is not a useful
+quick eval and must not be presented as validated adherence.
+
+Each aspect document defines the actual evidence and limitations for these ids:
+[LIFECYCLE.md](LIFECYCLE.md), [DECISIONS.md](DECISIONS.md),
+[ORCHESTRATION.md](ORCHESTRATION.md), [DELEGATION.md](DELEGATION.md),
+[CONTINUITY.md](CONTINUITY.md), [DISCOVERY.md](DISCOVERY.md).
+These boundaries, including explicit uncovered assertions, take precedence over
+the broader proposed coverage in the requirements map.
+
+| Probe | Version | Requirement | Execution |
+| --- | --- | --- | --- |
+| `continuity/checkpoint` | 1 | continuity-checkpoint | agent |
+| `continuity/resume` | 1 | continuity-checkpoint | agent |
+| `continuity/reconnect-completed` | 1 | continuity-reconnect | agent |
+| `continuity/reconnect-partial` | 1 | continuity-reconnect | agent |
+| `continuity/reconnect-failed` | 1 | continuity-reconnect | agent |
+| `continuity/update` | 1 | continuity-update | agent |
+| `continuity/removed-report` | 1 | continuity-report | agent |
+| `decisions/local-choice` | 1 | decisions-local | agent |
+| `decisions/external-blocker` | 1 | decisions-local | agent |
+| `decisions/answer` | 1 | decisions-local | agent |
+| `decisions/approval` | 1 | decisions-approval | agent |
+| `decisions/review-request` | 1 | decisions-review | agent |
+| `decisions/review-follow-up` | 1 | decisions-review | agent |
+| `decisions/system-proposal` | 1 | decisions-systems | agent |
+| `decisions/cli-review-ready` | 1 | decisions-review | cli |
+| `decisions/cli-review-blocked` | 1 | decisions-review | cli |
+| `delegation/handoff-checkpoint` | 1 | delegation-handoff | agent |
+| `delegation/part-base` | 1 | delegation-parts | agent |
+| `delegation/part-return` | 1 | delegation-parts | agent |
+| `delegation/part-decisions` | 1 | delegation-parts | agent |
+| `delegation/takeover` | 1 | delegation-handoff | agent |
+| `delegation/relay-blocker` | 1 | delegation-handoff | agent |
+| `delegation/heartbeat` | 1 | delegation-handoff | agent |
+| `delegation/no-dev-relay` | 1 | delegation-no-dev | agent |
+| `delegation/cli-no-dev-relay` | 1 | delegation-no-dev | cli |
+| `discovery/implicit` | 1 | discovery-implicit | agent |
+| `discovery/explicit` | 1 | discovery-explicit | agent |
+| `discovery/todos` | 1 | discovery-todos | agent |
+| `discovery/parts` | 1 | discovery-parts | agent |
+| `discovery/handoff` | 1 | discovery-handoff | agent |
+| `discovery/checkpoint` | 1 | discovery-checkpoint | agent |
+| `discovery/setup` | 1 | discovery-setup | agent |
+| `discovery/nested` | 1 | discovery-nested | agent |
+| `discovery/symlink` | 1 | discovery-symlink | agent |
+| `discovery/root-truncated` | 1 | discovery-root-truncated | agent |
+| `discovery/reference-truncated` | 1 | discovery-reference-truncated | agent |
+| `discovery/chunk-recovery` | 1 | discovery-chunk-recovery | agent |
+| `discovery/missing` | 1 | discovery-missing | agent |
+| `discovery/unreadable` | 1 | discovery-unreadable | agent |
+| `discovery/later-turn` | 1 | discovery-later-turn | agent |
+| `discovery/resumed` | 1 | discovery-resumed | agent |
+| `lifecycle/start` | 1 | lifecycle-start | agent |
+| `lifecycle/claim` | 1 | lifecycle-start | agent |
+| `lifecycle/plan` | 1 | lifecycle-plan | agent |
+| `lifecycle/verify-land` | 1 | lifecycle-land | agent |
+| `lifecycle/requested-todo` | 1 | lifecycle-start | agent |
+| `lifecycle/recover-conflict` | 1 | lifecycle-recovery | agent |
+| `lifecycle/recover-failed-check` | 1 | lifecycle-recovery | agent |
+| `lifecycle/recover-budget` | 1 | lifecycle-recovery | agent |
+| `lifecycle/remove-moot` | 1 | lifecycle-cleanup | agent |
+| `lifecycle/cli-working` | 1 | lifecycle-land | cli |
+| `lifecycle/cli-merged` | 1 | lifecycle-land | cli |
+| `lifecycle/cli-tests_failed` | 1 | lifecycle-recovery | cli |
+| `lifecycle/cli-conflict` | 1 | lifecycle-recovery | cli |
+| `lifecycle/cli-budget_exhausted` | 1 | lifecycle-recovery | cli |
+| `lifecycle/cli-escalated` | 1 | lifecycle-land | cli |
+| `lifecycle/cli-removed` | 1 | lifecycle-land | cli |
+| `orchestration/independent` | 1 | lanes-dispatch | agent |
+| `orchestration/dependency` | 1 | lanes-dispatch | agent |
+| `orchestration/implicit-dependency` | 1 | lanes-dispatch | agent |
+| `orchestration/shared-files` | 1 | lanes-dispatch | agent |
+| `orchestration/triage` | 1 | lanes-dispatch | agent |
+| `orchestration/taken-todo` | 1 | todos-groom | agent |
+| `orchestration/idle` | 1 | lanes-events | agent |
+| `orchestration/idle-again` | 1 | lanes-events | agent |
+| `orchestration/todo-open` | 1 | lanes-events | agent |
+| `orchestration/todo-done` | 1 | lanes-events | agent |
+| `orchestration/report` | 1 | lanes-events | agent |
+| `orchestration/stopped` | 1 | lanes-events | agent |
+| `orchestration/lanes-done` | 1 | lanes-events | agent |
+| `orchestration/pivot` | 1 | lanes-events | agent |
+| `orchestration/defer` | 1 | todos-defer | agent |
+| `orchestration/cli-link` | 1 | todos-intake | cli |
 
 ## Evidence and implementation status
 
@@ -13,8 +118,8 @@ none of their planned probes is counted as implemented by this audit.
 | Audit regressions | `probe-audit.test.ts` | Failed/unfinished forbidden attempts, argv scope, repeated order violations, channel completeness, status precedence, report claim separation | Executed CLI or agent conformance; fixtures are synthetic |
 | Existing free checks | `checks.test.ts`, `packages/arbor/skill-checks.test.ts` and production parser tests | Existing check/parser behavior on their fixtures | New focused probe coverage or proof that an agent obeys a directive |
 | Legacy scenarios | `scenarios.ts`, `lanes.ts`, `resumed.ts` | Existing selectable scenario definitions and checks | A new baseline; no runs were performed for this audit |
-| Runner and adapters | #338, outside this audit | Planned validation, isolation, instrumentation, execution and comparison | Must be verified after integration; contract types alone enforce none of these |
-| Five aspect suites | #339, #355, #340, #356, #357 | Planned focused CLI and agent cases | No implemented aspect coverage is claimed here |
+| Runner and adapters | `runner.test.ts`, `probe-cli.test.ts`, `integration.test.ts` | Free stand-ins verify selection, isolation, bounds, cancellation, comparison identity and reporting | Generic ACP tool instrumentation remains unsupported |
+| Six aspect suites | Registered inventory above and dedicated aspect tests | Actual local CLI boundaries and synthetic positive/negative assertion contracts | No measured model adherence, live worker/notification transport or complete tool capture |
 
 A CLI directive emission test proves the CLI emitted a payload, not that an
 agent followed it. A parsed report proves recognized structure, not that its
@@ -28,7 +133,7 @@ separate from results of authorized model runs.
 
 Sources below are sections of `.agents/skills/arbor/SKILL.md` unless a
 `references/` file is named. Stable audit ids identify requirement groups,
-not runnable probe ids. All rows in this table are **planned**. CLI means a
+not runnable probe ids. Rows describe **broader requirements**, only partially implemented by the registered cases above. CLI means a
 free actual local command/state contract; agent means a short seeded model
 probe requiring later explicit authorization. E2E means optional, separately
 selected real integration, never a prerequisite for this audit.
@@ -64,7 +169,7 @@ cases. Reports from child tasks and lane events need actor/origin separation.
 
 ## Remaining requirements and explicit gaps
 
-These are **uncovered by focused aspect implementations at this baseline**,
+These are **uncovered by focused aspect implementations after integration**,
 not permission to omit them. #342 should retain explicit uncovered entries
 unless it can link an implemented case. No downstream task is taken here.
 
@@ -143,27 +248,39 @@ Counts of mapped requirements, implemented cases and measured outcomes are
 three separate quantities. No adherence rate, speedup or ranking is measured
 by this audit; retired 80%/90% E2E targets do not apply.
 
-## Integration checklist for #342
+## Integration verification and remaining blockers
 
-- [ ] Reconcile this baseline with #338 and each aspect's actual registry; add
+- [x] Reconcile this baseline with #338 and each aspect's actual registry; add
   concrete probe ids and versions without upgrading planned rows by inference.
-- [ ] Verify free CLI emission fixtures separately from agent response fixtures;
+- [x] Verify free CLI emission fixtures separately from agent response fixtures;
   require positive, missing, forbidden and wrong-order evidence for each rule.
-- [ ] Validate malformed schemas, duplicate ids, nonfinite/nonpositive bounds,
+- [x] Validate malformed schemas, duplicate ids, nonfinite/nonpositive bounds,
   contradictory count ranges and unsupported capabilities before execution.
-- [ ] Test actual execution capture (nested shells, argv variants, individual
-  process exits, reads/writes, directive decoding); unsupported capture must
-  leave channels incomplete. Synthetic audit fixtures cannot validate this.
-- [ ] Resolve UPDATE's intermediate user-visible reply ordering and multiple
+- [x] Retain unsupported capture: direct CLI argv/exit capture is tested, but nested
+  shells, comprehensive reads/writes and live directive delivery are not certified.
+  A native instrumented adapter is still an implementation blocker for agent runs.
+- [x] Resolve UPDATE's intermediate user-visible reply ordering and multiple
   report coherence explicitly. If adapters cannot observe these, publish gaps;
   do not substitute final reply order or generic edits for compliance.
-- [ ] Exercise stop/bound enforcement, cancellation, cleanup and port/home/repo
-  isolation with free stand-ins, including errors during seed/run/persistence.
-- [ ] Check failed-case/aspect/single-probe selection, bounded parallelism,
+- [x] Exercise stop/bound enforcement, cancellation, cleanup and port/home/repo
+  isolation with free stand-ins, adapter errors, bounded observations and cleanup failures.
+  Persistence round-trips and tamper detection are covered; injected disk-write
+  failures and seed-throw cleanup are not independently exercised by these tests.
+- [x] Check failed-case/aspect/single-probe selection, bounded parallelism,
   partial model failures, all result categories, raw evidence, reproduction,
   repetition/config identity and unknown usage versus zero through free tests.
-- [ ] Keep legacy E2E and external/slow cases explicitly optional; do not import
+- [x] Keep legacy E2E execution blocked until affordability controls exist, and reports free; do not import
   legacy LLM grading into the fast path or regrade old traces as complete evidence.
-- [ ] Document exact bounded paid smoke/comparison commands only after CLI flags
+- [x] Document exact bounded paid smoke/comparison commands only after CLI flags
   exist; do not run them without authorization. Run `bin/wiz dev fix` and
   `bin/wiz dev test` for free verification. No paid run is a completion gate.
+
+The remaining blocker for meaningful focused model comparisons is a native,
+authenticated adapter that enforces tool permissions and bounds and certifies
+complete ordered execution and delivered read bytes, without injecting the root
+skill for discovery experiments. CLI target selection currently constructs only
+generic ACP adapters; a custom adapter is injectable through `runProbes`, not a
+CLI plugin flag. Implement and independently test that integration before using
+the model command examples. Also retain UPDATE intermediate reply/mid-turn
+ordering, coherent-report checks, alternate argv semantics and discovery fixture
+gaps; instrumenting tools alone does not close these requirements.

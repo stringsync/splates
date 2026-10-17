@@ -1,59 +1,36 @@
 # Evals for the arbor skill
 
-Focused probes are the default. See [RUNNER.md](RUNNER.md) for selection,
-configured model comparisons, adapter limitations, result reporting and the
-stable aspect-module seam; [PROBES.md](PROBES.md) defines evidence semantics.
-The sections below describe the explicitly selected legacy end-to-end suite,
-which can spend tokens and use a model judge.
+Focused probes use deterministic assertions without an LLM judge. Read
+[RUNNER.md](RUNNER.md) for commands and guarantees, [COVERAGE.md](COVERAGE.md)
+for all 73 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
 
-Runs agents through situations the arbor skill has to handle, each in a
-throwaway repository, and grades what they did: by code wherever a program can
-tell, with the checks `arbor dev` runs on real conversations
-(`@webappwiz/arbor/skill-checks`) and a few more only an eval can see, and by a
-model only for the items that take judgment.
+Today `fast --kind cli` runs eleven local CLI contracts: ten pass and delegation's
+incomplete nested capture remains explicitly uncovered. All 62 agent probes need
+native tool instrumentation unavailable in generic ACP. Synthetic tests establish
+assertion behavior, not measured model adherence.
 
-Each run uses tokens someone pays for (about $0.35 on Opus at API prices),
-billed to an API key, or counted against a Claude plan's usage limits when
-`claude` is logged in to claude.ai, so only a person starts one, from a
-terminal. Nothing here runs under `bin/wiz dev test` or CI but its unit tests.
+The model CLI requires a changed Arbor skill/reference snapshot against an
+explicit `--baseline` Git commit. `plan` is free. Defaults are at most two targeted
+probes, one repetition, parallel one, 4,000 aggregate tokens and USD 0.10.
+Missing enforceable provider metering is refused before launch, including ACP;
+`--allow-unmetered` cannot bypass this policy. #371 still owns native instrumentation
+and provider enforcement. No empirical model cost has been measured.
 
 ```sh
-bin/wiz dev eval e2e                  # main's skill against this tree's
-bin/wiz dev eval e2e main ../other/skills/arbor --reps 5
-bin/wiz dev eval e2e --scenario lane      # whatever changed
-bin/wiz dev eval e2e report           # the kept runs; uses nothing
+bin/wiz dev eval plan --baseline BASE_COMMIT
+bin/wiz dev eval fast --kind cli --directory /tmp/arbor-cli-results
+bin/wiz dev eval report --directory /tmp/arbor-cli-results
+bin/wiz dev fix
+bin/wiz dev test
 ```
 
-`bin/wiz dev eval e2e` explicitly selects `e2e.ts` through the entry point,
-with your terminal, so the question before anything is used is asked there.
-Bare `eval`, `eval fast` and `eval run` select focused probes instead.
+These are instructions for later use. Implementation used only free tests, not
+paid evaluations. AGENTS.md remains unchanged pending the user's later approval;
+any replacement must retain skill-change-only model execution and low enforced
+aggregate budgets.
 
-Each skill version is a directory holding `SKILL.md`, or a git ref whose
-`skills/arbor` is read; the first is the baseline. With two or more, only the
-scenarios whose skill sections changed run, each section found by its heading
-in whatever file it lives in, so a section moved to another file unchanged
-runs nothing. `run` prints what is already kept, and what the rest should
-cost at API prices and in tokens from past runs. It asks before using
-anything, naming who pays: an `ANTHROPIC_API_KEY` in the environment, which
-`claude -p` takes over a login, or else the plan `claude auth status` names.
-
-Runs are kept in `~/.arbor/skill-evals`, by a hash of the skill's words (its
-`version:` line left out), the scenario and the fixture, so a version already
-run costs nothing again, and each run and grade keeps what it cost. A changed
-rubric grades the kept runs again; a changed fixture or prompt runs them again.
-
-An agent can wait forever, as on a subagent that waits on it, so each turn
-stops after `--limit` minutes (10 by default), with every process it started.
-The run is kept as timed out: the report counts it, it is never graded, and
-it is not paid for again until its directory, which the log names, is deleted.
-
-The scenarios, their prompts, and their checks and rubric are in
-`scenarios.ts`; the throwaway repository is in `fixture.ts`.
-
-A scenario marked `dev` runs the agent as one `arbor dev` started, with a
-stand-in server that takes every `arbor tell` and report and starts no
-agent. So a lane orchestrator hands its todos out and ends its turn, as it
-would on the page. Each event it acts on (a report, an agent gone idle, a
-change of course) is its own scenario: setup seeds the state the event
-finds, rather than an earlier turn reaching it. `lane-no-dev` keeps the path
-without `arbor dev`, landing the lane through the agent's own subagents.
+Legacy scenarios remain in `scenarios.ts`, `lanes.ts` and `resumed.ts`, with their
+old checks and optional model grading. Their execution is now disabled at the
+eval entry point because it lacks the required change gate and aggregate budget
+enforcement. `bin/wiz dev eval e2e report` still reads saved results for free.
+Legacy grades do not establish focused tool capture or affordable model execution.

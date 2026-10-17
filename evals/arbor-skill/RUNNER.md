@@ -5,9 +5,84 @@ execution without changing that contract. Read `PROBES.md` and `COVERAGE.md`
 for evidence semantics and the audit's planned requirements. Runner unit tests
 and fake-agent results are **not measured model adherence**.
 
-## Stable seam for the five aspect owners
+## Affordability admission and current guarantees
 
-#339, #340, #355, #356 and #357 each own a separate `*.probes.ts` module beside
+The model CLI requires `--baseline REV`, resolved to an immutable Git commit.
+It compares the selected `SKILL.md` and every file under `references/` against
+that commit, including current dirty/untracked additions, deletions and renames.
+Unchanged bytes skip before roster lookup, authentication, confirmation or model
+launch. Unrelated application changes do not trigger model execution. Missing
+baselines, missing root instructions, unsupported entries and symlinked selected
+sources/references fail closed. Alternate skill sources must live within their
+own Git repository and exist at the selected baseline path. Choose the commit
+before the instruction edit; choosing HEAD compares only uncommitted edits.
+There is no automatic advancing baseline or hidden repeat scheduler.
+
+A free `plan` command displays changed files, immutable baseline/hash identities,
+targeted selection and ceilings without consulting model accounts. Default smoke
+selection maps changed root instructions to `discovery/implicit`, and references
+to their owning aspect. It selects at most two cases in sorted file order, one
+repetition, parallel one. This is a targeted smoke sample, not complete coverage
+of all changed requirements. Unmapped reference changes require explicit probe
+selection; they never expand into the full suite. Explicit probe/aspect/requirement
+selection and `--failed` still require a skill change and the same budget gate.
+
+Default aggregate admission ceilings are **4,000 tokens and USD 0.10** per
+invocation. `--max-tokens` and `--max-usd` may adjust these up to hard maxima of
+**10,000 tokens and USD 0.25**. There is no automatic cross-invocation spending
+allowance: each deliberate invocation has its own cap. Positive integer tokens
+and integer microdollars avoid rounding past a ceiling. The runner reserves the
+worst-case charge for every selected probe × target × repetition before any seed
+or agent starts; concurrency cannot multiply the admitted budget. It does not
+refund failures, cancellations or unknown usage. Retries and all input, output,
+hidden reasoning and billable tool usage must fit each provider reservation.
+
+Only an adapter implementing the trusted `Metering` contract can receive an
+admitted invocation: its non-billable quote must bound the whole probe, and its
+bounded execution method must enforce that allowance before sending requests.
+Unknown pricing/ceilings or a missing integration refuse the entire batch before
+launch. A reported charge above a reservation becomes an infrastructure error,
+not success; this diagnostic is not retroactive cost enforcement. Just as with
+trusted tool capture, a custom adapter's false certification cannot be made safe
+by the runner. Provider-specific enforcement must be independently verified.
+
+**Generic ACP has no such metering integration and is rejected.**
+`--allow-unmetered` cannot bypass the model CLI policy. The low-level `runProbes`
+API remains injectable for free synthetic tests; calls omitting a budget are not
+the affordable CLI workflow. The CLI always supplies the budget. No production
+model provider is certified yet; #371 owns native tool capture, authentication
+and provider-enforced input/output/retry metering. Unsupported ACP runs are not
+a useful cheap eval. Free fake-provider tests prove admission mechanics only.
+Local CLI cases use zero model tokens/dollars; refused model execution launches
+nothing. There is still **no empirical model-cost, latency or adherence evidence**.
+
+Legacy E2E execution lacks these controls and is now refused at the eval entry
+point. `e2e report` remains available without models; its historical results do
+not become focused evidence. Do not bypass the entry point to claim affordability.
+
+AGENTS.md remains unchanged. #365 may change it only after the user's later
+approval, and any replacement must retain skill-change-only model execution and
+low enforced aggregate budgets. The policy controls are free-tested here; a useful
+real-model workflow and production metering evidence remain #371 prerequisites.
+
+## Free planning and later execution syntax
+
+```sh
+bin/wiz dev eval plan --baseline BASE_COMMIT
+bin/wiz dev eval plan --baseline BASE_COMMIT --probe continuity/checkpoint --max-tokens 2000 --max-usd 0.05
+bin/wiz dev eval list --kind cli
+bin/wiz dev eval fast --kind cli --directory /tmp/arbor-cli-results
+bin/wiz dev eval report --directory /tmp/arbor-cli-results
+```
+
+These are instructions, not eval commands executed during implementation.
+`BASE_COMMIT` must contain the selected skill before its changed instructions.
+The plan is free and does not certify a provider. Model execution still needs an
+explicit configured target and terminal confirmation after metering admission.
+
+## Stable seam for the six aspects
+
+#339, #340, #355, #356, #357 and #367 each own a separate `*.probes.ts` module beside
 this file. Export a default object satisfying `ProbeModule` from `./runner`:
 
 ```ts
@@ -90,50 +165,93 @@ unsupported. Authenticated tool-capable adapters need an explicitly instrumented
 integration; do not weaken completeness or copy credentials to make a probe pass.
 Directory isolation is not an OS security sandbox for arbitrary custom code.
 
-Without `--allow-unmetered`, an ACP target reports unsupported without launch
-because ACP supplies no hard token ceiling. With that explicit opt-in, time and
-one-turn bounds apply, token usage is captured when returned, and USD cost is
-captured only when supplied in USD. Unknown usage is `null`, not zero. Token
-bounds are never described as enforced in this mode; there is no spend cap.
-Other adapters declaring `tokenBound: true` must enforce it before more tokens
-can be spent. Overshooting reported turn/token bounds cannot pass.
+The model CLI rejects ACP for missing enforceable metering before launch, even
+for tool-free probes. Free low-level ACP transport tests may opt into unmetered
+stand-ins to exercise final-reply, unknown-usage and cancellation behavior; this
+is not a production cost guarantee or the affordable execution path.
 
 UPDATE's ARBOR.md update -> intermediate user-visible reply -> next tool ->
 meaningful continuation is an **explicit gap**. Final-reply parsing does not
-establish this ordering. Aspect #357 must keep an `uncovered` assertion until
+establish this ordering. Continuity keeps an `uncovered` assertion until
 an adapter can observe it; current event kinds do not represent that reply.
 Similarly, parsed fields across different reports do not establish one coherent
 report, and final state does not prove the order of operations.
 
-No aspect probes are supplied by this runner task. Until aspect modules land,
-`list` reports no registered cases and a default execution fails explicitly;
-it never falls back to legacy scenarios. Keep CLI emission checks distinct
-from agent-response conformance. An event may satisfy a stopping boundary while
-its entire channel remains incomplete for grading: incomplete capture must not
-pass a forbidden-action or ordering assertion.
+Six modules now register 73 probes (11 CLI, 62 agent); see the exact versioned
+inventory in `COVERAGE.md`. Every registered agent probe declares tools, so
+**none is executable with generic ACP today**. An all-unsupported run is not a
+useful quick eval. `--allow-unmetered` does not repair tool capture. The free
+synthetic tests validate contracts, not real model adherence.
 
-## CLI and later authorized comparisons
+## Meaningful commands today
 
-Commands below are examples for a user to run **after** the selected aspect
-probe exists. They were not executed as paid evaluations during implementation.
-First replace `PROBE_ID` with a real id from `list`; do not invent a coverage id.
+The following local checks need no model, credentials or paid evaluation.
+The implementation validation used free tests only, not `bin/wiz dev eval` runs.
 
 ```sh
+bin/wiz dev fix
+bin/wiz dev test
 bin/wiz dev eval list
-bin/wiz dev eval fast --probe PROBE_ID --target claude:opus --parallel 1 --reps 1 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval fast --probe PROBE_ID --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval fast --aspect ASPECT --target claude:opus --parallel 2 --reps 1 --allow-unmetered
-bin/wiz dev eval fast --requirement REQUIREMENT_ID --target claude:opus --parallel 1 --reps 1 --allow-unmetered
-bin/wiz dev eval report --directory /path/to/results
-bin/wiz dev eval fast --probe PROBE_ID --target claude:opus --failed --directory /path/to/results --allow-unmetered
-bin/wiz dev eval e2e run --scenario lane --reps 1
-bin/wiz dev eval e2e report --scenario lane
+bin/wiz dev eval list --kind cli
+bin/wiz dev eval fast --kind cli --parallel 2 --reps 1 --directory /tmp/arbor-cli-results
+bin/wiz dev eval fast --probe lifecycle/cli-merged --parallel 1 --reps 1 --directory /tmp/arbor-cli-smoke
+bin/wiz dev eval report --directory /tmp/arbor-cli-results
+bin/wiz dev eval fast --kind cli --failed --directory /tmp/arbor-cli-results
 ```
 
+The eleven-case CLI suite tests actual local lifecycle outcomes, review gates,
+todo linking and no-dev refusal. Ten cases pass in free integration tests;
+`delegation/cli-no-dev-relay` reports `uncovered`, so the full command exits 1.
+The dedicated delegation test verifies refusal independently, but incomplete
+nested events cannot prove its forbidden-action assertion. `--failed` retains
+and reruns that uncovered case; it does not magically resolve the gap. Select
+`lifecycle/cli-merged` for a narrow passing local smoke check. CLI zero token/cost
+usage is meaningful; it says nothing about model speed or adherence.
+
+The fast path uses deterministic assertions only. Legacy E2E definitions remain
+available, but execution is blocked until equivalent affordability controls exist;
+reading saved reports is still free. No E2E execution is needed for validation.
+
+## Iteration loop and implementation blocker
+
+Choose the behavior and exact registered id from the inventory; select it or its
+aspect, inspect expected/actual evidence and raw trace, change the relevant CLI
+feedback or skill wording, then rerun the same cases and budgets. Use `--failed`
+only while identities match: a wording/code change requires a fresh selection.
+Reserve independently authored variations before tuning and report every
+repetition, including gaps and failures. Published fixtures are tuning cases.
+
+Today this loop measures local CLI contracts and tests assertion logic. Skill
+wording comparisons between real models remain blocked on a native authenticated
+adapter with enforced tools/bounds, complete ordered commands/reads/writes and
+trusted delivered-byte evidence. Discovery additionally needs native activation
+without injected root instructions, alternate skill source wiring and controlled
+truncation/session fixtures. UPDATE needs intermediate reply and real mid-turn
+delivery observations; coherent reports and equivalent argv need stronger checks.
+Do not remove explicit uncovered assertions merely because tool capture improves.
+
+`runProbes` accepts a custom adapter programmatically; CLI `--target` currently
+constructs generic ACP only. There is no supported CLI flag that turns it into an
+instrumented adapter. Implement that connection and free execution tests before
+calling a focused model smoke/comparison meaningful.
+
+## Later authorized comparisons
+
+After #371 supplies a certified provider, a bounded selection could use:
+
+```sh
+bin/wiz dev eval fast --baseline BASE_COMMIT --probe lifecycle/claim --target claude:opus --parallel 1 --reps 1 --tokens 2000 --max-tokens 2000 --max-usd 0.05
+bin/wiz dev eval fast --baseline BASE_COMMIT --probe lifecycle/claim --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 1 --tokens 2000 --max-tokens 4000 --max-usd 0.10
+```
+
+These exact selectors remain refused with current ACP; neither command is an
+operational affordable model smoke test today. No paid run was executed here.
+Each provider's full reservation must fit, or the command refuses the whole batch.
+
 Target syntax is `agent:model` using the configured arbor roster, repeated for
-comparison. Selection groups intersect; within each flag, repeated values form
+comparison. `--kind cli|agent` also filters list, run and report. Selection groups intersect; within each flag, repeated values form
 a union. Unknown selectors and invalid positive integer budgets are rejected.
-`--parallel` defaults to 2, `--reps` to 1. CLI-only probes run once per repetition,
+`--parallel` defaults to 1, `--reps` to 1. CLI-only probes run once per repetition,
 not once per model. Every agent invocation requires terminal confirmation;
 no legacy LLM grader is imported on the fast execution path. `report` is free
 and read-only; it does not load aspect modules, call agents or regrade with models.
@@ -172,5 +290,5 @@ production fake ACP transport, throwaway git repos and local CLI commands, never
 paid models. A representative standalone free direct-CLI test took about 19ms
 in one local test invocation; this is an observation of that fixture, **not a
 performance target**. Required workspace checks are `bin/wiz dev fix` and
-`bin/wiz dev test`. The audit's planned aspect rows remain planned until their
-owners supply actual cases and independently observed evidence.
+`bin/wiz dev test`. The integrated registry is pinned by `integration.test.ts`; broader audit rows
+remain partial wherever the aspect documents identify gaps.

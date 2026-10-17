@@ -10,6 +10,7 @@ import {
 	type ProbeResult,
 	type ProbeRun,
 } from "./probe";
+import type { Allowance, Metering } from "./probe-affordability";
 import { evidenceSchema, probeSchema } from "./probe-schema";
 
 export function hash(value: unknown): string {
@@ -173,6 +174,8 @@ export interface Adapter {
 	config: Json;
 	/** A missing hard token bound requires an explicit opt-in per invocation. */
 	tokenBound: boolean;
+	/** Optional trusted provider integration. CLI refuses model calls without it. */
+	metering?: Metering;
 	run(context: RunContext, model: string | null): Promise<void>;
 }
 export interface Target {
@@ -213,6 +216,8 @@ export interface RunOptions {
 	skillHash: string;
 	cliHash: string;
 	allowUnmetered?: boolean;
+	/** Mandatory in the model CLI; low-level synthetic runner tests may omit it. */
+	budget?: Allowance;
 	signal?: AbortSignal;
 	reproduction: string[];
 	include?: (probe: Probe, target: Target) => boolean;

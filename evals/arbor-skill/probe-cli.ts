@@ -7,6 +7,8 @@ import { Roster } from "@webappwiz/arbor/probe-runtime";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
 import { acpAdapter, cliAdapter } from "./probe-adapters";
+import { admit, budget } from "./probe-affordability";
+import { skillChange, smokeProbes } from "./probe-change";
 import { probeReport } from "./probe-report";
 import {
 	configurationHash,
@@ -93,12 +95,16 @@ export async function fastCli(
 		allowPositionals: true,
 		options: {
 			probe: { type: "string", multiple: true },
+			kind: { type: "string" },
 			aspect: { type: "string", multiple: true },
 			requirement: { type: "string", multiple: true },
 			module: { type: "string", multiple: true },
 			target: { type: "string", multiple: true },
 			reps: { type: "string", default: "1" },
-			parallel: { type: "string", default: "2" },
+			parallel: { type: "string", default: "1" },
+			baseline: { type: "string" },
+			"max-tokens": { type: "string" },
+			"max-usd": { type: "string" },
 			milliseconds: { type: "string" },
 			turns: { type: "string" },
 			tokens: { type: "string" },
@@ -116,18 +122,26 @@ export async function fastCli(
 	}
 	if (
 		positionals.length > 1 ||
-		!["fast", "run", "list", "report"].includes(command)
+		!["fast", "run", "list", "plan", "report"].includes(command)
 	) {
-		throw new Error("Select fast, list, report, or explicit e2e. Use --help.");
+		throw new Error(
+			"Select fast, list, plan, report, or explicit e2e. Use --help.",
+		);
+	}
+	if (values.kind !== undefined && !["cli", "agent"].includes(values.kind)) {
+		throw new Error("--kind must be cli or agent");
 	}
 	const directory = resolve(values.directory);
-	const parallel = number(values.parallel, 2);
+	const parallel = number(values.parallel, 1);
+	const spending = budget(values["max-tokens"], values["max-usd"]);
 	const reps = number(values.reps, 1);
 	const selected = (value: {
 		id: string;
 		aspect: string;
 		requirement: { id: string };
+		execution: { kind: string };
 	}) =>
+		(!values.kind || values.kind === value.execution.kind) &&
 		(!values.probe?.length || values.probe.includes(value.id)) &&
 		(!values.aspect?.length || values.aspect.includes(value.aspect)) &&
 		(!values.requirement?.length ||
@@ -182,6 +196,54 @@ export async function fastCli(
 		);
 	}
 	const skill = resolve(values.skill);
+	let baseline: string | undefined;
+	const hasAgents = module.probes.some(
+		(probe) => probe.execution.kind === "agent",
+	);
+	if (hasAgents) {
+		if (values["allow-unmetered"]) {
+			throw new Error(
+				"--allow-unmetered is forbidden for model execution: enforceable aggregate token/USD budgets are required",
+			);
+		}
+		const change = await skillChange(skill, values.baseline);
+		baseline = change.baseline;
+		log.info(
+			`Skill baseline ${baseline}; ${change.beforeHash} -> ${change.afterHash}; changed: ${change.files.join(", ") || "none"}`,
+		);
+		if (!change.files.length) {
+			log.info(
+				"Skipped model execution: Arbor skill/references unchanged. Zero model requests.",
+			);
+			return;
+		}
+		if (
+			!values.probe?.length &&
+			!values.aspect?.length &&
+			!values.requirement?.length &&
+			!values.failed
+		) {
+			module.probes = smokeProbes(module.probes, change.files);
+		}
+		// A per-probe limit can only be smaller than the aggregate invocation cap.
+		module.probes = module.probes.map((probe) => ({
+			...probe,
+			bounds: {
+				...probe.bounds,
+				tokens: Math.min(probe.bounds.tokens, spending.tokens),
+			},
+		}));
+	}
+
+	log.info(
+		`Selected: ${module.probes.map((probe) => probe.id).join(", ")}; reps ${reps}; parallel ${parallel}; aggregate ceilings ${spending.tokens} tokens / USD ${(spending.microUsd / 1000000).toFixed(6)}`,
+	);
+	if (command === "plan") {
+		log.info(
+			"Plan only: no roster/authentication/model execution. Generic ACP has no supported hard metering.",
+		);
+		return;
+	}
 	const [skillHash, cliHash] = await Promise.all([
 		treeHash(skill),
 		treeHash(join(root, "packages/arbor")),
@@ -248,11 +310,19 @@ export async function fastCli(
 		}
 	}
 	if (module.probes.some((probe) => probe.execution.kind === "agent")) {
+		admit(
+			module.probes.flatMap((probe) =>
+				targets.flatMap((target) =>
+					Array.from({ length: reps }, () => ({ probe, target })),
+				),
+			),
+			spending,
+		);
 		if (!process.stdin.isTTY) {
 			throw new Error("Paid agent probes require a terminal and confirmation");
 		}
 		log.info(
-			`${module.probes.length} probes, ${targets.length} targets, ${values.reps} repetitions; parallel ${values.parallel}. Bounds are per probe, not a total spend cap. ACP cannot enforce token/spend limits. Authentication and native tools may be unsupported in isolated homes.`,
+			`${module.probes.length} probes, ${targets.length} targets, ${values.reps} repetitions; parallel ${values.parallel}. Aggregate hard ceilings: ${spending.tokens} tokens, USD ${(spending.microUsd / 1000000).toFixed(6)}. All calls/retries must fit reserved provider maxima; unknown metering is refused.`,
 		);
 		if (
 			prompt("Start these potentially paid agent probes? [y/N]")
@@ -277,7 +347,16 @@ export async function fastCli(
 			"--directory",
 			directory,
 			...(values.module?.flatMap((path) => ["--module", resolve(path)]) ?? []),
-			...(values["allow-unmetered"] ? ["--allow-unmetered"] : []),
+			...(baseline
+				? [
+						"--baseline",
+						baseline,
+						"--max-tokens",
+						String(spending.tokens),
+						"--max-usd",
+						(spending.microUsd / 1000000).toFixed(6),
+					]
+				: []),
 			...["milliseconds", "turns", "tokens"].flatMap((key) => {
 				const value = values[key as "milliseconds" | "turns" | "tokens"];
 				return value ? [`--${key}`, value] : [];
@@ -292,7 +371,8 @@ export async function fastCli(
 			reps,
 			skillHash,
 			cliHash,
-			allowUnmetered: values["allow-unmetered"],
+			allowUnmetered: false,
+			budget: spending,
 			signal: controller.signal,
 			reproduction,
 			include: (probe, target) =>
@@ -345,14 +425,18 @@ function number(value: string | undefined, fallback: number): number {
 	}
 	return parsed;
 }
-const HELP = `bin/wiz dev eval [fast|list|report] [options]
+const HELP = `bin/wiz dev eval [fast|list|plan|report] [options]
   --probe ID | --aspect NAME | --requirement ID (repeatable; groups intersect)
+  --kind cli|agent        select local CLI checks or agent probes
   --module PATH            explicit ProbeModule; default discovers *.probes.ts
   --target agent:model     repeat to compare configured ACP agents
-  --parallel 2 --reps 1    bounded independent combinations
+  --parallel 1 --reps 1    bounded independent combinations
   --milliseconds N --turns N --tokens N   override each probe's bounds
-  --allow-unmetered        explicitly accept adapters without hard token bounds
+  --baseline REV          required Git baseline for skill/reference change gate
+  --max-tokens 4000 --max-usd 0.10  aggregate ceilings (hard maxima 10000 / 0.25)
+  --allow-unmetered        rejected for model execution
   --failed                 rerun compatible non-passing probes; report filters non-passes
   --skill DIR --directory DIR
+  plan                     free change-gated smoke selection; no model launch
   report                   read-only deterministic report, no agent or grader
-  e2e [run|report] ...      explicit legacy end-to-end suite (may use an LLM grader)`;
+  e2e report ...           free saved legacy reports; execution lacks enforced metering`;

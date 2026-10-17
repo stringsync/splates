@@ -53,6 +53,11 @@ export function probeReport(values: StoredRun[]): string {
 				lines.push(
 					`    ${run.run.usage.milliseconds.toFixed(1)}ms; tokens ${run.run.usage.tokens ?? "unknown"}; USD ${run.run.usage.costUsd ?? "unknown"}; overhead ${run.overheadMs.toFixed(1)}ms`,
 				);
+				if (run.adapter.runtime.reserved) {
+					lines.push(
+						`    reserved maximum (not measured cost): ${JSON.stringify(run.adapter.runtime.reserved)}; aggregate ceiling: ${JSON.stringify(run.adapter.runtime.aggregateBudget)}`,
+					);
+				}
 				for (const verdict of run.result.verdicts) {
 					lines.push(
 						`    ${verdict.id}: ${verdict.status}; expected ${JSON.stringify(verdict.expected)}; actual ${JSON.stringify(verdict.actual)}; evidence ${verdict.evidence.join(",")}`,
