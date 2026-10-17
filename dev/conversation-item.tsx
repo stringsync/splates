@@ -214,6 +214,7 @@ export function Item({
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
 					<Mark
+						starting={conversation.status === "starting"}
 						need={need}
 						reported={reported}
 						unread={conversation.unread}
@@ -444,7 +445,7 @@ export function useArchive(
 							{along
 								.map(
 									(each) =>
-										`${nameOf(each)}${each.status === "running" || each.status === "starting" ? " (working)" : ""}`,
+										`${nameOf(each)}${each.status === "starting" ? " (waiting for agent to start)" : each.status === "running" ? " (working)" : ""}`,
 								)
 								.join(", ")}
 							.

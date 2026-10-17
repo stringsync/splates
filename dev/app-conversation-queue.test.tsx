@@ -36,6 +36,47 @@ describe("App's composer queue", () => {
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
 
+	it("shows startup-held work as waiting, then changes to working when its first turn starts", async () => {
+		const first = message("user", "Fix login");
+		const state = conversation({
+			id: "c1",
+			title: "Fix login",
+			status: "starting",
+			messages: [{ ...first, queued: true }],
+		});
+		const view = await testing.openConversations([state], "c1");
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(
+			within(queued).getByText("Queued until the agent is ready"),
+		).toBeTruthy();
+		expect(
+			view.getByText(/Waiting for agent to start\. Your messages/),
+		).toBeTruthy();
+		expect(
+			view.getByRole("status", { name: "waiting for agent to start" }),
+		).toBeTruthy();
+		expect(view.queryByRole("status", { name: "working" })).toBeNull();
+		expect(
+			within(queued).queryByRole("button", { name: /Send now/ }),
+		).toBeNull();
+		expect(within(queued).queryByText(/turn ends/)).toBeNull();
+
+		await testing.say({ ...state, status: "running", messages: [first] });
+
+		await waitFor(() =>
+			expect(
+				view.queryByRole("region", { name: "queued messages" }),
+			).toBeNull(),
+		);
+		expect(
+			view.queryByText(/Waiting for agent to start\. Your messages/),
+		).toBeNull();
+		expect(
+			view.queryByRole("status", { name: "waiting for agent to start" }),
+		).toBeNull();
+		expect(view.getByRole("status", { name: "working" })).toBeTruthy();
+	});
+
 	it("sends while the agent works, offering Send over Stop once something is typed", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login", status: "running" })],

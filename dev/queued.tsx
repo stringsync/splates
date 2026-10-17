@@ -29,9 +29,12 @@ export function Queued({
 	conversation,
 	messages,
 	pending,
+	starting = false,
 	edits,
 }: {
 	conversation: string;
+	/** Held until the agent opens its session, before any turn can run. */
+	starting?: boolean;
 	messages: Message[];
 	/** How many of `messages`, the last ones, the server has yet to record. */
 	pending: number;
@@ -55,9 +58,11 @@ export function Queued({
 		>
 			<header className="flex items-center gap-2 pl-2">
 				<h3 className="flex-1 text-muted-foreground text-xs">
-					Queued for when the agent's turn ends
+					{starting
+						? "Queued until the agent is ready"
+						: "Queued for when the agent's turn ends"}
 				</h3>
-				{edits !== null && (
+				{edits !== null && !starting && (
 					<Button
 						size="sm"
 						variant="outline"

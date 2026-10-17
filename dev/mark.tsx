@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { HourglassIcon, Loader2Icon } from "lucide-react";
 import type { JSX } from "react";
 import type { Ending } from "../asked";
 import type { Need } from "../needs";
@@ -26,8 +26,11 @@ export function Mark({
 	unread = false,
 	hosting = false,
 	subagent = false,
+	starting = false,
 }: {
 	need: Need;
+	/** Its agent has yet to open a session, so no work is running. */
+	starting?: boolean;
 	reported?: Ending | null;
 	unread?: boolean;
 	/** Whether an agent it handed a task to is at work. */
@@ -35,6 +38,18 @@ export function Mark({
 	/** Whether it answers to another agent rather than to you. */
 	subagent?: boolean;
 }): JSX.Element {
+	if (starting) {
+		return (
+			<span
+				role="status"
+				aria-label="waiting for agent to start"
+				title="Waiting for agent to start"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<HourglassIcon className="size-3.5 text-muted-foreground" />
+			</span>
+		);
+	}
 	if (subagent && !(need.kind === "waiting" && need.why === "failed")) {
 		return (
 			<Mark
