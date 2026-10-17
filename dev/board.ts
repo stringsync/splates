@@ -87,6 +87,22 @@ export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 export const touchButton = "pointer-coarse:h-10 pointer-coarse:px-3";
 
 /**
+ * How tall a card that spans one line stands, kept in `--line-card` so what
+ * stands beside one, as the message stuck atop a phone's thread, matches it:
+ * its call to action (`touchButton`), `lineCard`'s inset above and below
+ * it, and the card's border.
+ */
+export const lineCardHeight =
+	"[--line-card:calc(1.75rem+0.75rem+2px)] pointer-coarse:[--line-card:calc(2.5rem+1.25rem+2px)]";
+
+/**
+ * A card that spans one line, as a waiting card's line in a phone's thread
+ * or a bar above the composer: its call to action set in as far from the
+ * card's end as from its top and bottom, as a longer card sets in its own.
+ */
+export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5 pointer-coarse:py-2.5 pointer-coarse:pr-2.5`;
+
+/**
  * A small control in a line of text, its tap target stretched to a finger's
  * height on a touch screen without moving the text around it. The control
  * has to be `relative`.

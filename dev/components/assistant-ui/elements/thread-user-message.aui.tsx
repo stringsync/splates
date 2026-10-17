@@ -23,6 +23,7 @@ import {
 	useState,
 } from "react";
 import { linkAttachments } from "#dev/attachment-chips.tsx";
+import { lineCardHeight } from "#dev/board.ts";
 import { repliesToReview } from "#dev/card-reply.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
 import {
@@ -203,7 +204,13 @@ export const UserMessage: FC = () => {
 	}
 	const body = (
 		<>
-			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
+			{/* On a phone, as tall at one line as a card that spans one. */}
+			<div
+				className={cn(
+					"aui-user-message-content-wrapper group/user relative min-w-0",
+					lineCardHeight,
+				)}
+			>
 				<Clamped watch={id} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
 				their chips. */}
@@ -323,7 +330,10 @@ const UserCopy: FC = () => (
 			<TooltipIconButton
 				tooltip="Copy"
 				className={cn(
-					"aui-user-action-copy text-muted-foreground absolute end-1.5 top-1.5 size-6 pointer-coarse:end-0 pointer-coarse:top-0 pointer-coarse:size-10",
+					"aui-user-action-copy text-muted-foreground absolute end-(--copy-at) top-(--copy-at) size-6 pointer-coarse:size-10 [--copy-at:0.375rem] pointer-coarse:[--copy-at:0px]",
+					// On a phone, set in from the box's end as far as from its top
+					// and bottom at one line, as a one-line card's call to action.
+					"max-sm:[--copy-at:calc((var(--line-card)-1.5rem)/2)] max-sm:pointer-coarse:[--copy-at:calc((var(--line-card)-2.5rem)/2)]",
 					"opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100 data-copied:opacity-100 pointer-coarse:opacity-100",
 				)}
 			/>
@@ -340,18 +350,20 @@ const UserCopy: FC = () => (
 /**
  * What the person said, across the thread's full width like the reply: the
  * theme's muted fill, set apart from the page, with room at its end for the
- * copy button. Smaller and tighter on a phone, where it sits atop a short
- * screen.
+ * copy button. Smaller on a phone, where it sits atop a short screen, and at
+ * one line as tall as a card that spans one (`--line-card`), its line or
+ * row of chips centered in it.
  */
 const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:ps-3 max-sm:py-1.5 max-sm:text-sm wrap-break-word";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:ps-3 max-sm:pe-11 max-sm:pointer-coarse:pe-16 max-sm:text-sm max-sm:leading-relaxed max-sm:py-[calc((var(--line-card)-2px-1lh)/2)] max-sm:has-[.aui-user-message-directives]:py-[calc((var(--line-card)-2px-1.75rem)/2)] wrap-break-word";
 /**
  * Room at the box's start for the mic a dictated message shows, in the top
- * corner by its first line, which stays in view on a phone's one.
+ * corner by its first line, which stays in view on a phone's one, centered
+ * on it there.
  */
 const DICTATED_BOX = "ps-9 max-sm:ps-8";
 const DICTATED_MIC =
-	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-2.5 max-sm:top-2.5 max-sm:size-3.5";
+	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-2.5 max-sm:top-[calc((var(--line-card)-2px-0.875rem)/2)] max-sm:size-3.5";
 /**
  * Lines of a message shown before it is clicked open: one on a phone, four
  * on a wider screen. On a phone it sets the words' line height, so `1lh` is

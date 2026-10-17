@@ -27,6 +27,12 @@ import { LaneIcon } from "./task-icon";
  * the card is, and the task it is about, then whatever the card holds. A
  * folded card shows only its header until it is opened.
  */
+/**
+ * The room above and below a card in a thread, apart from the agent's words
+ * around it: more than between two paragraphs, so a card never reads as one.
+ */
+export const CARD_SPACE = "my-6 @max-md:my-4";
+
 export function CardShell({
 	label,
 	Icon,
@@ -66,7 +72,8 @@ export function CardShell({
 	// Ringed in its tone while focus is inside it, as when it comes up to be
 	// answered, so it is plain where the keys go.
 	const frame = cn(
-		"group/card my-6 overflow-hidden rounded-xl border @max-md:my-3 bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
+		"group/card overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
+		CARD_SPACE,
 		ringed && ["focus-within:ring-3", TONES[tone].focus],
 	);
 	const header = (

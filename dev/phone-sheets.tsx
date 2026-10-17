@@ -21,8 +21,9 @@ import {
 import { raises } from "#dev/hooks/use-touch.ts";
 import { useViewport } from "#dev/hooks/use-viewport.ts";
 import { cn } from "#dev/lib/utils.ts";
+import { lineCard } from "./board";
 import { useCardReply } from "./card-reply";
-import { TONES, type Tone } from "./card-shell";
+import { CARD_SPACE, TONES, type Tone } from "./card-shell";
 import { backTo } from "./page-address";
 import { useArrived } from "./task-view";
 
@@ -322,7 +323,10 @@ export function NeedsYouBar(): ReactNode {
 			<button
 				type="button"
 				onClick={() => open()}
-				className="group flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-xs"
+				className={cn(
+					"group flex w-full items-center gap-2 rounded-lg border bg-card pl-3 text-left text-sm shadow-xs",
+					lineCard,
+				)}
 			>
 				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 				<span className="min-w-0 flex-1 truncate">{title}</span>
@@ -396,7 +400,11 @@ function SheetLine({
 			ref={ref}
 			type="button"
 			onClick={onOpen}
-			className="group flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card pr-3 pl-4 text-left shadow-xs"
+			className={cn(
+				"group flex w-full items-center gap-3 rounded-xl border bg-card pl-4 text-left shadow-xs",
+				lineCard,
+				CARD_SPACE,
+			)}
 		>
 			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>

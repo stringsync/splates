@@ -12,7 +12,7 @@ import {
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Report } from "../asked";
-import { touchButton } from "./board";
+import { lineCard, touchButton } from "./board";
 import { ENDINGS, TONES } from "./card-shell";
 
 /**
@@ -121,7 +121,10 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	return (
 		<section
 			aria-label="archive"
-			className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm shadow-xs"
+			className={cn(
+				"flex items-center gap-2 rounded-lg border bg-card pl-3 text-sm shadow-xs",
+				lineCard,
+			)}
 		>
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">

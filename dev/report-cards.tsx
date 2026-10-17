@@ -392,7 +392,7 @@ function TodoRun({
 						))
 					)
 				) : (
-					<div key={proposals[0]?.id} className="my-3">
+					<div key={proposals[0]?.id} className="my-3 @max-md:my-4">
 						<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
 							<ListPlusIcon aria-hidden className="size-3.5 text-primary" />
 							<span>
@@ -452,7 +452,8 @@ export function TodoCard({
 			aria-label={`todo ${proposal.id}`}
 			className={cn(
 				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
-				!grouped && "my-3",
+				// On a phone, as far from the words as any card.
+				!grouped && "my-3 @max-md:my-4",
 				gone && "opacity-60",
 			)}
 		>
