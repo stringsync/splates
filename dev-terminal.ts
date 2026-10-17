@@ -1,12 +1,9 @@
+import { SystemTimer, type Timer } from "webappwiz/time";
 import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
+import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./dev-shell";
 import type { Connection } from "./dev-sockets";
-import {
-	MAX_SIZE,
-	type ShellHost,
-	TerminalConnection,
-	type TerminalShell,
-} from "./dev-terminal-connection";
+import { TerminalConnection } from "./dev-terminal-connection";
 import { fail } from "./exit";
 
 /** How a terminal finds the project its request names. */
@@ -15,12 +12,15 @@ export interface TerminalProjects {
 }
 
 /**
- * The shells a page opens, each over a WebSocket in the main tree or a
- * task's worktree, kept so stopping the server hangs up on them all.
+ * The shells a page opens over `/api/terminal`, each in the main tree or a
+ * task's worktree. Open one with `?terminal=<key>` to come back to it by
+ * that key after a reload or a restart of `arbor dev`; `handOver` and
+ * `takeBack` carry keyed shells across the restart, and `disposeAsync`
+ * hangs up on them all.
  */
 export class Terminals {
-	// Every shell a page has open, so stopping the server hangs up on them all.
-	private readonly shells = new Set<TerminalShell>();
+	private readonly shells = new Set<Shell>();
+	private readonly timer: Timer;
 
 	constructor(
 		private readonly gate: HostGate,
@@ -28,13 +28,43 @@ export class Terminals {
 		private readonly projects: TerminalProjects,
 		/** The worker the shells run on, whose process table says their jobs in front. */
 		private readonly worker: ShellHost,
-	) {}
+		{ timer = new SystemTimer() }: { timer?: Timer } = {},
+	) {
+		this.timer = timer;
+	}
 
-	/** The pid of each shell open now. */
-	get pids(): number[] {
-		return [...this.shells].flatMap((pty) =>
-			pty.pid === null ? [] : [pty.pid],
-		);
+	/**
+	 * Takes back the shells the last run let go of, each waiting for its page
+	 * to come back; before the worker joins, whose hello says which it kept.
+	 */
+	takeBack(kept: KeptShell[]): void {
+		for (const { key, handle } of kept) {
+			const shell = new Shell(
+				key,
+				this.worker.resumePty(handle),
+				this.worker,
+				this.timer,
+				(gone) => this.shells.delete(gone),
+			);
+			this.shells.add(shell);
+			shell.wait();
+		}
+	}
+
+	/**
+	 * Lets go of every keyed shell for the next run to take back, and says
+	 * which; the rest end with the server.
+	 */
+	handOver(): KeptShell[] {
+		const kept: KeptShell[] = [];
+		for (const shell of [...this.shells]) {
+			const each = shell.kept;
+			if (each !== null) {
+				kept.push(each);
+				shell.release();
+			}
+		}
+		return kept;
 	}
 
 	// A shell runs anything typed at it, so it gets the conversations' rule (this
@@ -56,27 +86,57 @@ export class Terminals {
 				if (this.shell === null) {
 					fail("not_found", "terminals are off", {});
 				}
+				const params = new URL(request.url).searchParams;
+				const key = params.get("terminal");
+				const back = [...this.shells].find(
+					(each) => key !== null && each.key === key,
+				);
+				if (back !== undefined) {
+					return server.upgrade(request, {
+						data: new TerminalConnection(back, true),
+					})
+						? undefined
+						: refuse(
+								400,
+								"usage",
+								"a terminal is a WebSocket: connect with one",
+							);
+				}
 				const project = await this.projects.projectFor(request);
 				await project.format.check();
 				const cwd = await project.terminalTree(request);
-				const params = new URL(request.url).searchParams;
-				const data = new TerminalConnection(
-					this.shells,
-					this.shell ?? [],
-					cwd,
-					dimension(params.get("cols"), 80),
-					dimension(params.get("rows"), 24),
+				const shell = new Shell(
+					key,
+					this.worker.pty({
+						argv: this.shell ?? [],
+						cwd,
+						cols: dimension(params.get("cols"), 80),
+						rows: dimension(params.get("rows"), 24),
+					}),
 					this.worker,
+					this.timer,
+					(gone) => this.shells.delete(gone),
 				);
+				this.shells.add(shell);
 				// Bun answers an upgrade itself, so there is nothing to return.
-				return server.upgrade(request, { data })
-					? undefined
-					: refuse(400, "usage", "a terminal is a WebSocket: connect with one");
+				if (
+					server.upgrade(request, {
+						data: new TerminalConnection(shell, false),
+					})
+				) {
+					return undefined;
+				}
+				await shell.disposeAsync();
+				return refuse(
+					400,
+					"usage",
+					"a terminal is a WebSocket: connect with one",
+				);
 			}),
 		)(request);
 
 	async disposeAsync(): Promise<void> {
-		await Promise.all([...this.shells].map((pty) => pty.disposeAsync()));
+		await Promise.all([...this.shells].map((shell) => shell.disposeAsync()));
 	}
 }
 

@@ -44,13 +44,14 @@ export interface Countdown {
 }
 
 /**
- * Power: restarts or shuts down `arbor dev`, checkpointing every agent at
- * work first unless unticked, and resuming them after a restart, or counts
- * down to an auto restart, which can be cancelled or done now; then one
- * screen for the whole run, its title held throughout, its steps in a line
- * with the one under way spinning, a sentence on where it is, and only the
- * agents that missed. The agents carry on by themselves after the restart,
- * or on the next start after a shutdown.
+ * Power: restarts `arbor dev` at once, its agents on a worker carrying on
+ * through it, or shuts it down, checkpointing every agent at work first
+ * unless unticked, or counts down to an auto restart, which can be cancelled
+ * or done now; then one screen for the whole run, its title held throughout,
+ * its steps in a line with the one under way spinning, a sentence on where
+ * it is, and only the agents that missed. Agents a checkpoint stopped carry
+ * on by themselves on the next start, or after a restart asked for over the
+ * API.
  */
 export function CheckpointDialog({
 	open,
@@ -75,7 +76,7 @@ export function CheckpointDialog({
 	onChange,
 }: {
 	open: boolean;
-	/** Whether a restart or shutdown checkpoints first, as picked. */
+	/** Whether a shutdown checkpoints first, as picked. */
 	checkpoint: boolean;
 	onCheckpoint: (checkpoint: boolean) => void;
 	onClose: () => void;
@@ -167,12 +168,12 @@ export function CheckpointDialog({
 							held={held}
 							onClose={onClose}
 							onPower={(shutdown) =>
-								projects.length > 0 && checkpoint
+								shutdown && projects.length > 0 && checkpoint
 									? act(
 											() =>
 												checkpointProjects(
 													projects.map((each) => each.slug),
-													shutdown ? "shutdown" : "resume",
+													"shutdown",
 												),
 											"Not checkpointed",
 										)

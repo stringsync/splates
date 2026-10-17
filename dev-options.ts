@@ -3,6 +3,7 @@ import type { PortProvider } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import type { Config } from "./config";
 import type { Conversations } from "./conversations";
+import type { CoordinatorState } from "./coordinator-state";
 import type { AccessConfig } from "./dev-access";
 import type { Project } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
@@ -24,6 +25,13 @@ export interface DevOptions {
 	workerSocket?: string | null;
 	/** Where workers are taken in; one of its own by default. */
 	workers?: DevWorkers | null;
+	/**
+	 * What this coordinator keeps across its restarts: the roots of the
+	 * projects whose agents the last run let go of, served before the worker
+	 * joins so they are taken back, and written again at the next restart;
+	 * null keeps nothing, and a restart ends every agent.
+	 */
+	coordinator?: CoordinatorState | null;
 	/**
 	 * The worker agents and terminals run on, whose process table a restart
 	 * reads; this machine, read directly, by default.

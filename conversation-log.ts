@@ -1,9 +1,13 @@
 import type * as acp from "@agentclientprotocol/sdk";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Fs } from "webappwiz/system";
 import { Duration, Throttler, type Timer } from "webappwiz/time";
+import { type AsyncTaskUpdate, foldBackground } from "./acp-extensions";
+import type { ProcessHandle } from "./agent-process";
 import { type ArtifactChange, applyArtifact } from "./artifacts";
 import { delivered, said, sent, takeBack } from "./conversation-messages";
 import {
+	type Ask,
 	type Attached,
 	blank,
 	type Checkpoint,
@@ -15,22 +19,37 @@ import {
 	type Limit,
 	type Setting,
 } from "./conversation-state";
-import { agentTurn, fold, heard, tally } from "./fold";
+import { agentTurn, fold, heard, result, tally } from "./fold";
 import { toolIn } from "./tool-calls";
 import type { Flag } from "./watch";
 
 /** How often a live conversation's log is saved while the agent streams. */
 const SAVE_EVERY = Duration.ms(500);
 
+/** What a `ConversationLog` says of its saves. */
+export interface ConversationLogEvents extends Record<string, unknown> {
+	/** A save reached the file: `savedThrough` may have moved. */
+	saved: undefined;
+}
+
 /**
  * A conversation's log: one JSON line per entry, appended a little behind
  * what happens, so an agent streaming chunks does not write a line each.
+ * Each entry carries the seq of the agent's frame being handled as it was
+ * written, so a coordinator started again knows where its process's replay
+ * carries on from, and acks the worker only for what the file holds.
  */
-export class ConversationLog {
-	/** The lines not yet appended to the file. */
-	private readonly unsaved: string[] = [];
+export class ConversationLog implements Eventful<ConversationLogEvents> {
+	private readonly dispatcher = new Dispatcher<ConversationLogEvents>();
+	readonly events = this.dispatcher.events;
+	/** The lines not yet appended to the file, each with its seq. */
+	private readonly unsaved: { line: string; seq: number }[] = [];
 	private saving: Promise<void> = Promise.resolve();
 	private readonly saves: Throttler;
+	/** The seq of the agent's frame being handled; 0 before the first. */
+	private seq = 0;
+	/** The seq of the last entry the file holds. */
+	private lastSaved = 0;
 
 	constructor(
 		readonly path: string,
@@ -41,9 +60,25 @@ export class ConversationLog {
 	}
 
 	/**
+	 * The highest seq every entry at or under which the file holds: the seq
+	 * before the first unsaved entry, or the last saved one with none unsaved.
+	 */
+	get savedThrough(): number {
+		const first = this.unsaved[0];
+		return first === undefined ? this.lastSaved : Math.max(0, first.seq - 1);
+	}
+
+	/** Stamps what is written from now on with frame `seq`. */
+	heard(seq: number): void {
+		this.seq = seq;
+	}
+
+	/**
 	 * What the log adds up to, read back: the conversation as its entries
-	 * left it, stopped, whatever it was doing. Null for a log that does not
-	 * start one.
+	 * left it, stopped, whatever it was doing, unless its process is still
+	 * out there (`live`), in which case it is left as it stands for whoever
+	 * takes the process back, or `stopped` once nobody can. Null for a log
+	 * that does not start one.
 	 */
 	async replay(): Promise<Replayed | null> {
 		const text = await this.fs.read(this.path);
@@ -61,7 +96,7 @@ export class ConversationLog {
 		}
 		// A line cut short, as by a crash mid-save, stays apart from the next.
 		if (text !== "" && !text.endsWith("\n")) {
-			this.unsaved.push("\n");
+			this.unsaved.push({ line: "\n", seq: 0 });
 		}
 		const state = blank(
 			start.id,
@@ -80,13 +115,22 @@ export class ConversationLog {
 			session: null,
 			cwd: start.cwd ?? null,
 			picks: {},
+			live: null,
+			running: false,
+			last: null,
 		};
-		let running = false;
-		let last: string | null = null;
+		let launched: Extract<Entry, { kind: "launched" }> | null = null;
+		let requests: { id: number; method: string }[] = [];
+		/** The prompt request a turn runs on, until the turn ends. */
+		let prompt: number | null = null;
+		let ask: { rpc: acp.JsonRpcId | null; ask: Ask } | null = null;
+		let tells = false;
+		let seq = 0;
 		for (const entry of entries) {
 			if ("at" in entry && typeof entry.at === "string") {
-				last = entry.at;
+				replayed.last = entry.at;
 			}
+			seq = Math.max(seq, entry.seq ?? 0);
 			if (entry.kind === "prompt") {
 				state.messages.push({
 					...said(entry.text, entry.at ?? null, [
@@ -112,6 +156,7 @@ export class ConversationLog {
 				takeBack(state.messages, entry.index);
 			} else if (entry.kind === "update") {
 				fold(state, entry.update, entry.at ?? null);
+				tells ||= result(entry.update);
 			} else if (entry.kind === "usage") {
 				tally(state, entry.usage);
 			} else if (entry.kind === "limits") {
@@ -160,45 +205,110 @@ export class ConversationLog {
 			} else if (entry.kind === "artifact") {
 				applyArtifact(state.artifacts, entry.change);
 			} else if (entry.kind === "turn") {
-				running = entry.running;
+				replayed.running = entry.running;
+				if (!entry.running) {
+					prompt = null;
+				}
+			} else if (entry.kind === "launched") {
+				launched = entry;
+			} else if (entry.kind === "request") {
+				requests.push({ id: entry.id, method: entry.method });
+				if (entry.method === "session/prompt") {
+					prompt = entry.id;
+				}
+			} else if (entry.kind === "ask") {
+				ask = entry.ask === null ? null : { rpc: entry.rpc, ask: entry.ask };
+				state.ask = entry.ask;
+			} else if (entry.kind === "background") {
+				foldBackground(state, entry.update);
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
+				launched = null;
+				requests = [];
+				prompt = null;
+				ask = null;
 			}
-		}
-		// Its process died mid-turn, as when `arbor dev` was killed: kept, so
-		// the mark outlives the turns that follow.
-		if (running) {
-			const turn = agentTurn(state, null);
-			if (turn.stopped === undefined) {
-				const at = last ?? turn.at ?? start.createdAt;
-				turn.interrupted = at;
-				this.write({ kind: "interrupted", at });
-			}
-			this.write({ kind: "turn", running: false });
-			await this.flush();
-		}
-		state.status = state.error === null ? "stopped" : "failed";
-		// Its commands ended with its process, though a crash said nothing.
-		state.background = [];
-		// Its process ended before the agent answered.
-		if (state.checkpoint === "asked") {
-			state.checkpoint = "unanswered";
 		}
 		// As last set, for the resumed session to match, picks made while
 		// stopped among them.
 		replayed.picks = Object.fromEntries(
 			state.settings.map((each) => [each.id, each.current]),
 		);
+		if (launched === null) {
+			await this.stopped(replayed);
+			return replayed;
+		}
+		replayed.live = {
+			handle: launched.handle,
+			held: seq,
+			lastId: Math.max(0, ...requests.map((each) => each.id)),
+			prompt: replayed.running ? prompt : null,
+			ask,
+			steers: launched.steers,
+			sees: launched.sees,
+			tells,
+		};
+		state.status = replayed.running ? "running" : "idle";
+		this.seq = seq;
+		this.lastSaved = seq;
 		return replayed;
+	}
+
+	/**
+	 * Leaves `replayed` as a conversation whose process is gone: its turn cut
+	 * short, its commands ended, its question unanswered, and, for one read
+	 * back live, an `end` so the next read finds it stopped too.
+	 */
+	async stopped(replayed: Replayed): Promise<void> {
+		const { state } = replayed;
+		const live = replayed.live !== null;
+		// Its process died mid-turn, as when `arbor dev` was killed: kept, so
+		// the mark outlives the turns that follow.
+		if (replayed.running) {
+			const turn = agentTurn(state, null);
+			if (turn.stopped === undefined) {
+				const at = replayed.last ?? turn.at ?? state.createdAt;
+				turn.interrupted = at;
+				this.write({ kind: "interrupted", at });
+			}
+			this.write({ kind: "turn", running: false });
+		}
+		if (live) {
+			this.write({ kind: "end", error: null });
+			if (state.ask !== null) {
+				this.write({ kind: "ask", ask: null });
+			}
+		}
+		if (replayed.running || live) {
+			await this.flush();
+		}
+		replayed.live = null;
+		replayed.running = false;
+		state.status = state.error === null ? "stopped" : "failed";
+		state.ask = null;
+		// Its commands ended with its process, though a crash said nothing.
+		state.background = [];
+		// Its process ended before the agent answered.
+		if (state.checkpoint === "asked") {
+			state.checkpoint = "unanswered";
+		}
 	}
 
 	/** Appends `entry`, with whatever else is written before the next save. */
 	write(entry: Entry): void {
-		this.unsaved.push(`${JSON.stringify(entry)}\n`);
+		const { seq } = this;
+		const stamped = seq === 0 ? entry : { ...entry, seq };
+		this.unsaved.push({ line: `${JSON.stringify(stamped)}\n`, seq });
 		this.saves.call(() => {
-			const lines = this.unsaved.splice(0).join("");
+			const taken = this.unsaved.splice(0);
+			const lines = taken.map((each) => each.line).join("");
+			const last = taken.at(-1)?.seq ?? this.lastSaved;
 			this.saving = this.saving
 				.then(() => this.fs.append(this.path, lines))
+				.then(() => {
+					this.lastSaved = Math.max(this.lastSaved, last);
+					this.dispatcher.dispatch("saved");
+				})
 				.catch(() => {});
 		});
 	}
@@ -225,10 +335,41 @@ export interface Replayed {
 	cwd: string | null;
 	/** Its settings as last set, by id, for the resumed session to match. */
 	picks: Record<string, string>;
+	/** Its process, still running on a worker; null once it is gone. */
+	live: Live | null;
+	/** Whether the log says a turn is running. */
+	running: boolean;
+	/** When the log last said anything happened; null for one that never did. */
+	last: string | null;
 }
 
-/** A line of a conversation's log: what was said, in the order it was. */
-export type Entry =
+/** What a log read back live says of the process to take back. */
+export interface Live {
+	handle: ProcessHandle;
+	/** The last frame the log holds, past which the worker's replay carries on. */
+	held: number;
+	/** The highest request id this side sent, past which the next stream numbers its own. */
+	lastId: number;
+	/** The prompt request still open, by its id; null when no turn waits on one. */
+	prompt: number | null;
+	/** What the agent is asking, and the request id to answer it on, when known; null for nothing. */
+	ask: { rpc: acp.JsonRpcId | null; ask: Ask } | null;
+	/** Whether the agent takes a prompt into its running turn. */
+	steers: boolean;
+	/** Whether the agent takes images in a prompt. */
+	sees: boolean;
+	/** Whether the agent has said a turn ended, so one it starts can end. */
+	tells: boolean;
+}
+
+/**
+ * A line of a conversation's log: what was said, in the order it was. Each
+ * carries the `seq` of the agent's frame being handled when it was written;
+ * missing before the first frame, and from older logs.
+ */
+export type Entry = Said & { seq?: number };
+
+type Said =
 	| {
 			kind: "start";
 			id: string;
@@ -316,4 +457,23 @@ export type Entry =
 	| { kind: "decision"; tool: string; decision: Decision }
 	/** An artifact added, removed, or its bytes deleted. */
 	| { kind: "artifact"; change: ArtifactChange }
+	/**
+	 * The agent's session is open on a process a worker runs, which a
+	 * coordinator started again takes back by `handle`, until `end`.
+	 */
+	| {
+			kind: "launched";
+			handle: ProcessHandle;
+			/** Whether the agent takes a prompt into its running turn. */
+			steers: boolean;
+			/** Whether the agent takes images in a prompt. */
+			sees: boolean;
+	  }
+	/** A request this side sent the agent, by the id it went out with. */
+	| { kind: "request"; id: number; method: string }
+	/** What the agent asks the person, by the request id `rpc` to answer on, when known; null once answered. */
+	| { kind: "ask"; rpc: acp.JsonRpcId | null; ask: Ask }
+	| { kind: "ask"; ask: null }
+	/** Word of a command the agent left running in the background. */
+	| { kind: "background"; update: AsyncTaskUpdate }
 	| { kind: "end"; error: string | null };

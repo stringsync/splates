@@ -12,6 +12,7 @@ import {
 import { artifactLimits } from "./artifacts";
 import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations } from "./conversations";
+import { CoordinatorState } from "./coordinator-state";
 import { type DevServer, dev, devPorts } from "./dev";
 import { accessConfig } from "./dev-access";
 import { devServers } from "./dev-servers";
@@ -152,8 +153,14 @@ export async function serveDev(
 		arborHome(ctx.ps),
 	);
 	// Agents run on this machine's worker, which the supervisor starts beside
-	// this server; what they are sent waits for it to join.
-	const workers = new DevWorkers(ctx.log);
+	// this server; what they are sent waits for it to join. The worker knows
+	// this server by a session that outlives its restarts, so it keeps them
+	// running through one.
+	const coordinator = await CoordinatorState.open(
+		`${arborHome(ctx.ps)}/coordinator.json`,
+		ctx.fs,
+	);
+	const workers = new DevWorkers(ctx.log, { session: coordinator.session });
 	const worker = workers.local;
 	const server = await dev(
 		{ ...ctx, projects },
@@ -170,7 +177,7 @@ export async function serveDev(
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
-					launch: worker.launch,
+					launcher: worker,
 					machine: worker,
 					starting,
 					offered,
@@ -204,6 +211,7 @@ export async function serveDev(
 			workerSocket: workerSocketPath(ctx.ps),
 			workers,
 			worker,
+			coordinator,
 		},
 	);
 	return {

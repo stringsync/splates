@@ -18,7 +18,9 @@ import type { Adherence } from "./adherence";
 import {
 	type Agent,
 	type Launch,
+	type Launcher,
 	launch,
+	launcherOf,
 	listSessions,
 	type Session,
 } from "./agent-process";
@@ -40,6 +42,7 @@ export type {
 	Agent,
 	AgentProcess,
 	Launch,
+	Launcher,
 	Session,
 } from "./agent-process";
 export { launch } from "./agent-process";
@@ -96,7 +99,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly known = new Map<string, Conversation>();
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
-	private readonly run: Launch;
+	private readonly launcher: Launcher;
 	private readonly machine: WorkerMachine;
 	private readonly starting: Lock;
 	private readonly timer: Timer;
@@ -129,7 +132,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
-		this.run = opts.launch ?? launch;
+		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
 		this.machine =
 			opts.machine ?? new LocalWorkerMachine(new NodePs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
@@ -172,7 +175,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			room: this.room,
 			timer: this.timer,
 			clock: this.clock,
-			launch: this.run,
+			launcher: this.launcher,
 			machine: this.machine,
 			starting: this.starting,
 			watch: this.watch,
@@ -319,7 +322,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		);
 		const listed = await Promise.all(
 			this.agents.map((agent) =>
-				listSessions(agent, cwd, this.run, this.timer).catch(
+				listSessions(agent, cwd, this.launcher.launch, this.timer).catch(
 					(): Session[] => [],
 				),
 			),
@@ -411,6 +414,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	/** Stops every live conversation, so no agent outlives the server. */
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.known.values()].map((each) => each.stop()));
+	}
+
+	/**
+	 * Lets go of every agent a worker runs, for a coordinator started again
+	 * to take back, and says whether there was any: the rest stop as ever.
+	 */
+	async detachAsync(): Promise<boolean> {
+		const detached = await Promise.all(
+			[...this.known.values()].map((each) => each.detach()),
+		);
+		return detached.some(Boolean);
 	}
 
 	dispose(): void {
@@ -566,10 +580,13 @@ export interface ConversationsOptions {
 	/** How many bytes of artifacts each may keep; `ARTIFACT_LIMITS` by default. */
 	artifacts?: ArtifactLimits;
 	ids?: IdProvider;
+	/** What starts agents, when nothing takes one back after a restart; this process by default. */
 	launch?: Launch;
+	/** What starts agents and takes them back after a restart, over `launch`: a worker. */
+	launcher?: Launcher;
 	/**
-	 * Where `launch` starts agents, which their background output is read
-	 * from; this machine by default.
+	 * Where agents run, which their background output is read from; this
+	 * machine by default.
 	 */
 	machine?: WorkerMachine;
 	/**

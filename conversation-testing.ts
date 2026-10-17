@@ -49,6 +49,15 @@ export async function working(
 	return conversation;
 }
 
+/**
+ * Settles once the conversation has heard what the agent just said: await it
+ * after a `sessionUpdate` sent outside a turn, before reading the state.
+ */
+export function handled(): Promise<void> {
+	// The stream hands each message over a macrotask apart, as over stdio.
+	return new Promise((resolve) => setImmediate(resolve));
+}
+
 /** Settles once `done` holds, or after a hundred tries `ms` apart. */
 export async function eventually(
 	done: () => boolean | Promise<boolean>,

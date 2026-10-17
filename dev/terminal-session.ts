@@ -3,7 +3,12 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import { Disposer, disposables, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { scoped } from "./api";
+import { tabId } from "./tab";
+
+/** How long after its socket goes short of an exit a session tries the shell again. */
+export const RECONNECT = Duration.secs(2);
 
 export type TerminalSessionEvents = { changed: undefined };
 
@@ -13,7 +18,10 @@ export type TerminalStatus = "connecting" | "open" | "exited" | "closed";
 /**
  * One shell in the page: the server's, over a WebSocket, drawn by xterm.js
  * into an element of its own, which goes wherever the page mounts it and
- * keeps its screen while it is not mounted anywhere.
+ * keeps its screen while it is not mounted anywhere. The server keeps the
+ * shell by this tab and `key`, so a socket that goes short of the shell's
+ * exit, as it does while `arbor dev` restarts, is tried again, and the
+ * shell comes back with its screen redrawn; after a reload, the same.
  */
 export class TerminalSession
 	implements Eventful<TerminalSessionEvents>, Resource
@@ -31,16 +39,24 @@ export class TerminalSession
 	private socket: WebSocket | null = null;
 	/** Each `front` waiting on the shell's answer, oldest first. */
 	private asking: ((command: string | null) => void)[] = [];
+	private readonly timer: Timer;
+	/** The try to come, once the socket went short of an exit. */
+	private retrying: Resource | null = null;
+	private disposed = false;
 
 	/**
-	 * A shell in `task`'s worktree, or the main tree for null, which leaves to
-	 * the page each key `toggles` says shows or hides it.
+	 * A shell in `task`'s worktree, or the main tree for null, kept by the
+	 * server under `key` for this tab, which leaves to the page each key
+	 * `toggles` says shows or hides it.
 	 */
 	constructor(
+		readonly key: string,
 		readonly task: string | null,
 		// scry-ignore objects-over-callbacks: a test of one key, read as each key comes
 		toggles: (event: KeyboardEvent) => boolean,
+		{ timer = new SystemTimer() }: { timer?: Timer } = {},
 	) {
+		this.timer = timer;
 		this.element.className = "h-full w-full";
 		this.terminal = new Terminal({
 			cursorBlink: true,
@@ -114,8 +130,13 @@ export class TerminalSession
 		});
 	}
 
+	/** Hangs up for good: the server ends the shell now rather than waiting for this tab. */
 	dispose(): void {
+		this.disposed = true;
+		this.retrying?.dispose();
+		this.retrying = null;
 		this.answered(null);
+		this.send(JSON.stringify({ type: "close" }));
 		this.socket?.close();
 		this.socket = null;
 		this.disposer.dispose();
@@ -145,9 +166,11 @@ export class TerminalSession
 	}
 
 	private connect(): void {
+		this.retrying = null;
 		const query = new URLSearchParams({
 			cols: String(this.terminal.cols),
 			rows: String(this.terminal.rows),
+			terminal: `${tabId()}/${this.key}`,
 		});
 		if (this.task !== null) {
 			query.set("task", this.task);
@@ -186,9 +209,16 @@ export class TerminalSession
 		};
 		socket.onclose = () => {
 			this.answered(null);
-			if (this.status !== "exited") {
-				this.set("closed");
+			if (this.status === "exited" || this.disposed || this.socket !== socket) {
+				return;
 			}
+			this.set("closed");
+			// The server, or the shell it kept, may be back in a moment: the
+			// screen is cleared first, since the server redraws it.
+			this.retrying = this.timer.setTimeout(() => {
+				this.terminal.reset();
+				this.connect();
+			}, RECONNECT);
 		};
 		this.socket = socket;
 	}

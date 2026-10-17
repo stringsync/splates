@@ -16,6 +16,8 @@ export const ProcessParams = z.object({
 const ProcessMessage = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("kill"), signal: z.string().optional() }),
 	z.object({ type: z.literal("end") }),
+	/** Say `started` again, for a coordinator that took the channel back and never heard it. */
+	z.object({ type: z.literal("describe") }),
 ]);
 
 /**
@@ -57,6 +59,8 @@ export class WorkerProcessHost implements Resource {
 		}
 		if (parsed.data.type === "kill") {
 			this.child.kill(parsed.data.signal as NodeJS.Signals | undefined);
+		} else if (parsed.data.type === "describe") {
+			this.channel.send({ type: "started", pid: this.child.pid });
 		} else {
 			void this.stdin.close().catch(() => {});
 		}

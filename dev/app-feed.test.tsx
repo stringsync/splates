@@ -86,7 +86,7 @@ describe("App's feed", () => {
 		expect(badge.title).toContain("the terminal running arbor dev says why");
 	});
 
-	it("keeps Power in the sidebar, offering a newer arbor on it, checkpointing, restarting and resuming from it", async () => {
+	it("keeps Power in the sidebar, offering a newer arbor on it, and restarting from it", async () => {
 		testing.projects = [
 			{
 				slug: "shop",
@@ -99,6 +99,7 @@ describe("App's feed", () => {
 						name: "Fix checkout",
 						status: "running",
 						checkpoint: null,
+						survives: false,
 					},
 				],
 				waiting: 0,
@@ -126,9 +127,9 @@ describe("App's feed", () => {
 		);
 		expect(
 			testing.posts
-				.filter((each) => each.path === "/api/checkpoint")
+				.filter((each) => each.path === "/api/power")
 				.map((each) => JSON.parse(String(each.body))),
-		).toEqual([{ projects: ["shop"], after: "resume" }]);
+		).toEqual([{ shutdown: false }]);
 	});
 
 	it("offers a restart once commits land on the source it runs from", async () => {

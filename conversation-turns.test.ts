@@ -7,6 +7,7 @@ import {
 	eventually,
 	finish,
 	type Held,
+	handled,
 	thread,
 	until,
 	working,
@@ -82,15 +83,29 @@ describe("Conversation turns", () => {
 		const conversation = await working(conversations, held);
 		await update(result("human"));
 		await finish(conversation, held);
-		await client?.sessionUpdate({
-			sessionId: "s1",
-			update: say("The tests passed."),
-		});
+		await update(say("The tests passed."));
 		return conversation;
 	};
 
+	/** A turn on "one" under way, with an agent that takes a word into it. */
+	const steering = async () => {
+		agent.steering = "injected";
+		return working(conversations, held);
+	};
+
+	/** The same logs as another server reads them back. */
+	const readBack = () =>
+		new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			launch: agent.launch,
+		});
+
+	/** Says `update` outside any turn, and waits for the conversation to hear it. */
 	const update = async (update: acp.SessionUpdate) => {
 		await client?.sessionUpdate({ sessionId: "s1", update });
+		await handled();
 	};
 
 	it("runs a turn, folding streamed text and tool calls into one message", async () => {
@@ -173,8 +188,7 @@ describe("Conversation turns", () => {
 	});
 
 	it("joins the running turn when the agent steers", async () => {
-		agent.steering = "injected";
-		const conversation = await working(conversations, held);
+		const conversation = await steering();
 
 		await conversation.prompt("two");
 
@@ -189,17 +203,12 @@ describe("Conversation turns", () => {
 	});
 
 	it("marks a message the agent steered in, after a restart too", async () => {
-		agent.steering = "injected";
-		const conversation = await working(conversations, held);
+		const conversation = await steering();
 
 		await conversation.prompt("two");
 		await finish(conversation, held);
 		await conversation.stop();
-		const [read] = await new Conversations(
-			"/repo/.git/arbor/conversations",
-			[AGENT],
-			{ fs, timer, clock, launch: agent.launch },
-		).list();
+		const [read] = await readBack().list();
 
 		const steered = (each: Conversation | undefined) =>
 			each?.state.messages
@@ -332,11 +341,7 @@ describe("Conversation turns", () => {
 		expect(reply?.role).toBe("agent");
 		expect(typeof stopped).toBe("string");
 		await conversation.stop();
-		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
-			[AGENT],
-			{ fs, timer, launch: agent.launch },
-		);
+		const reread = readBack();
 		const [read] = await reread.list();
 		expect(read?.state.messages.at(-1)?.stopped).toBe(stopped);
 		await reread.disposeAsync();
@@ -354,11 +359,7 @@ describe("Conversation turns", () => {
 		expect(typeof interrupted).toBe("string");
 		expect(reply?.stopped).toBeUndefined();
 		await conversation.stop();
-		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
-			[AGENT],
-			{ fs, timer, launch: agent.launch },
-		);
+		const reread = readBack();
 		const [read] = await reread.list();
 		expect(read?.state.messages.at(-1)?.interrupted).toBe(interrupted);
 		await reread.disposeAsync();
@@ -369,11 +370,7 @@ describe("Conversation turns", () => {
 
 		await conversations.disposeAsync();
 
-		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
-			[AGENT],
-			{ fs, timer, launch: agent.launch },
-		);
+		const reread = readBack();
 		const [read] = await reread.list();
 		expect(typeof read?.state.messages.at(-1)?.interrupted).toBe("string");
 		expect(conversation.state.status).toBe("stopped");
@@ -387,20 +384,14 @@ describe("Conversation turns", () => {
 		await Bun.sleep(1);
 
 		// Read as the next server would, the first never having stopped.
-		const next = () =>
-			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-				fs,
-				timer,
-				launch: agent.launch,
-			});
-		const reread = next();
+		const reread = readBack();
 		const [read] = await reread.list();
 		const interrupted = read?.state.messages.at(-1)?.interrupted;
 		expect(typeof interrupted).toBe("string");
 		expect(read?.state.messages.at(-1)?.role).toBe("agent");
 		await reread.disposeAsync();
 
-		const again = next();
+		const again = readBack();
 		const [after] = await again.list();
 		expect(after?.state.messages.at(-1)?.interrupted).toBe(interrupted);
 		await again.disposeAsync();

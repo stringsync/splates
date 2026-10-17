@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: one end of the link, whose handshake, replay, acks and channel bookkeeping are one state machine
 import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
@@ -29,14 +30,24 @@ export type WorkerHello = Extract<Frame, { type: "hello" }>;
 export interface WorkerSessionEvents extends Record<string, unknown> {
 	/** The other end opened a channel. */
 	channel: WorkerChannel;
+	/** A handshake settled, and what the other end missed has been sent again. */
+	connected: undefined;
 	/** The connection went, by hang-up, missed heartbeats or a bad frame; channels stay. */
 	lost: { reason: string };
 	/** Acks brought unacked bytes back under the bound: writers may go on. */
 	drain: undefined;
+	/** The other end acked something; `acked()` waits on it. */
+	acked: undefined;
 }
 
 /** How a `WorkerSession` paces and bounds itself. */
 export interface WorkerSessionOptions {
+	/**
+	 * What its hello or welcome names it by: the id a coordinator started
+	 * again answers as, so its worker finds it unchanged and keeps every
+	 * channel; new by default.
+	 */
+	id?: string;
 	capabilities?: string[];
 	/** Unacked bytes kept for replay before writes return `false`. */
 	bufferBytes?: number;
@@ -66,13 +77,22 @@ export interface WorkerSessionOptions {
  */
 export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	/** What its hello or welcome names it by, so the other end can tell one started again. */
-	readonly id = crypto.randomUUID();
+	readonly id: string;
 	private readonly dispatcher = new Dispatcher<WorkerSessionEvents>();
 	readonly events = this.dispatcher.events;
 	private readonly channels = new Map<number, WorkerChannel>();
 	private readonly replay: WorkerReplay;
 	private readonly sent = new Map<number, number>();
 	private readonly received = new Map<number, number>();
+	/** Channels taken back without knowing where the other end's replay starts: its first frame says. */
+	private readonly unplaced = new Set<number>();
+	/** Channels taken back from the session this one resumes, until the first handshake says the other end holds them. */
+	private readonly taken = new Set<number>();
+	/**
+	 * What was sent on a taken channel before that handshake, which says
+	 * where its seqs carry on from: numbered and sent then.
+	 */
+	private readonly deferred = new Map<number, Unnumbered[]>();
 	private readonly held = new Map<number, number>();
 	private readonly pendingAcks = new Map<number, number>();
 	/** Channels both ends closed, kept until a pong proves the other end has their ack. */
@@ -93,6 +113,10 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private _negotiated: Negotiated | undefined;
 	private _lastHeard: number | null = null;
 	private disposed = false;
+	/** Hung up for a restart: its channels live on at the other end, for the next session to take back. */
+	private detached = false;
+	/** Made with an id, so the other end may hold channels of the session it resumes. */
+	private readonly resumed: boolean;
 	/** The other end's session at the last handshake; null before the first. */
 	private peer: string | null = null;
 
@@ -100,6 +124,8 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		readonly role: "worker" | "coordinator",
 		opts: WorkerSessionOptions = {},
 	) {
+		this.id = opts.id ?? crypto.randomUUID();
+		this.resumed = opts.id !== undefined;
 		this.capabilities = opts.capabilities ?? [];
 		this.replay = new WorkerReplay(opts.bufferBytes ?? 8 * 1024 * 1024);
 		this.heartbeat = opts.heartbeat ?? Duration.secs(10);
@@ -113,7 +139,13 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.nextChannel = role === "worker" ? 1 : 2;
 		this.link = {
 			send: (channel, frame) =>
-				this.sendOnChannel({ ...frame, channel, seq: this.nextSeq(channel) }),
+				this.taken.has(channel)
+					? this.defer({ ...frame, channel })
+					: this.sendOnChannel({
+							...frame,
+							channel,
+							seq: this.nextSeq(channel),
+						}),
 			ack: (channel, seq) => this.ack(channel, seq),
 			done: (channel) => this.channelDone(channel),
 		};
@@ -197,6 +229,35 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	}
 
 	/**
+	 * Takes back channel `id`, which the other end still holds from the
+	 * session this one resumes, before the handshake: `held` is the last seq
+	 * of the other end's this end has, which its replay then follows, or null
+	 * to take the replay from wherever it starts. What this end sends on it
+	 * carries on from what the other end's hello says it received.
+	 */
+	resume(
+		id: number,
+		kind: string,
+		params: Json,
+		held: number | null,
+	): WorkerChannel {
+		this.assertOpen();
+		if (this.channels.has(id)) {
+			throw new Error(`channel ${id} is open already`);
+		}
+		const channel = new WorkerChannel(id, kind, params, this.link);
+		this.channels.set(id, channel);
+		this.taken.add(id);
+		if (held === null) {
+			this.unplaced.add(id);
+		} else {
+			this.received.set(id, held);
+			this.held.set(id, held);
+		}
+		return channel;
+	}
+
+	/**
 	 * The worker's side of a handshake: says hello on `socket`, and on welcome
 	 * replays what the coordinator does not hold. Resolves with what was
 	 * negotiated, or why not: refused for another major, or the link went.
@@ -238,6 +299,9 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			return { ok: false, reason, refused: true };
 		}
 		const connection = this.attach(socket);
+		if (this.resumed && this.peer === null) {
+			this.takeBack(hello.held);
+		}
 		this.write(socket, {
 			type: "welcome",
 			protocol: WorkerProtocol.version,
@@ -249,13 +313,86 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		return negotiated;
 	}
 
+	/**
+	 * What the worker's hello says it holds of the channels of the session
+	 * this one resumes, at its first handshake: this end sends on each from
+	 * past that, opens new ones past them all, and closes those nobody took
+	 * back, which ends what they ran. One taken back that the worker does
+	 * not hold, as after the worker too started again, ends here.
+	 */
+	private takeBack(held: Held): void {
+		const holds = new Set(held.map(([channel]) => channel));
+		for (const id of this.taken) {
+			const channel = this.channels.get(id);
+			if (channel !== undefined && !holds.has(id)) {
+				for (const state of [this.channels, this.received, this.held]) {
+					state.delete(id);
+				}
+				this.unplaced.delete(id);
+				channel.drop();
+			}
+		}
+		this.taken.clear();
+		// What was deferred on one the worker dropped goes with it.
+		const deferred = new Map(this.deferred);
+		this.deferred.clear();
+		for (const [channel, seq] of held) {
+			if (seq > (this.sent.get(channel) ?? 0)) {
+				this.sent.set(channel, seq);
+			}
+			for (const frame of deferred.get(channel) ?? []) {
+				this.sendOnChannel({ ...frame, seq: this.nextSeq(channel) });
+			}
+			if (channel % 2 === this.nextChannel % 2 && channel >= this.nextChannel) {
+				this.nextChannel = channel + 2;
+			}
+			if (!this.channels.has(channel)) {
+				const unclaimed = new WorkerChannel(
+					channel,
+					"unclaimed",
+					null,
+					this.link,
+				);
+				this.channels.set(channel, unclaimed);
+				this.unplaced.add(channel);
+				unclaimed.dispose();
+			}
+		}
+	}
+
+	/**
+	 * Hangs up for a restart, keeping every channel open at the other end:
+	 * a session with this id takes them back once it comes up.
+	 */
+	detach(): void {
+		this.detached = true;
+		this.lose("the coordinator is restarting");
+	}
+
+	/** Settles once the other end has acked everything sent, or at once with nothing out. */
+	acked(): Promise<void> {
+		if (this.replay.bytes === 0) {
+			return Promise.resolve();
+		}
+		return new Promise((resolve) => {
+			const off = this.events.on("acked", () => {
+				if (this.replay.bytes === 0) {
+					off();
+					resolve();
+				}
+			});
+		});
+	}
+
 	/** Hangs up and closes every channel; the other end hears them close. */
 	dispose(): void {
 		if (this.disposed) {
 			return;
 		}
-		for (const channel of [...this.channels.values()]) {
-			channel.dispose();
+		if (!this.detached) {
+			for (const channel of [...this.channels.values()]) {
+				channel.dispose();
+			}
 		}
 		this.flushAcks();
 		this.disposed = true;
@@ -305,6 +442,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 				this.forgetting.set(channel, this.nextPing);
 			}
 		}
+		this.dispatcher.dispatch("connected");
 		connection.settled.resolve(negotiated);
 	}
 
@@ -379,6 +517,10 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	}
 
 	private receive(frame: ChannelFrame): void {
+		// Taken back blind: the other end's replay starts where it starts.
+		if (this.unplaced.delete(frame.channel)) {
+			this.received.set(frame.channel, frame.seq - 1);
+		}
 		const last = this.received.get(frame.channel) ?? 0;
 		if (frame.seq <= last) {
 			return;
@@ -408,6 +550,12 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		}
 		const channel = this.channels.get(frame.channel);
 		if (!channel) {
+			// A close for a channel closed here already, as a session started
+			// again sends for one it found closed, is nothing to do.
+			if (frame.type === "close") {
+				this.ack(frame.channel, frame.seq);
+				return;
+			}
 			this.lose(`${frame.type} on channel ${frame.channel}, which is not open`);
 			return;
 		}
@@ -415,6 +563,14 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		if (!heard || this.acks === "delivery") {
 			this.ack(frame.channel, frame.seq);
 		}
+	}
+
+	/** Holds `frame` for the handshake that says what seq it goes out as. */
+	private defer(frame: Unnumbered): boolean {
+		const kept = this.deferred.get(frame.channel) ?? [];
+		kept.push(frame);
+		this.deferred.set(frame.channel, kept);
+		return !this.replay.full;
 	}
 
 	private sendOnChannel(frame: ChannelFrame): boolean {
@@ -471,6 +627,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 
 	private acknowledged(acks: Held): void {
 		this.replay.ack(acks);
+		this.dispatcher.dispatch("acked");
 		if (this.wasFull && !this.replay.full) {
 			this.wasFull = false;
 			this.dispatcher.dispatch("drain");
@@ -487,6 +644,9 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			this.channels,
 			this.sent,
 			this.received,
+			this.unplaced,
+			this.taken,
+			this.deferred,
 			this.held,
 			this.pendingAcks,
 			this.forgetting,
@@ -503,6 +663,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private channelDone(channel: number): void {
 		this.channels.delete(channel);
 		this.sent.delete(channel);
+		// Closed at both ends, nothing will take it back, so what the other
+		// end never acked, as a coordinator acking by hand does for a process
+		// it only listed, goes with it.
+		this.replay.drop(channel);
+		this.acknowledged([]);
 		// Its close is acked once the ack has gone out; a pong after that proves it arrived.
 		this.forgetting.set(channel, undefined);
 	}
@@ -560,8 +725,13 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	}
 
 	private assertOpen(): void {
-		if (this.disposed) {
+		if (this.disposed || this.detached) {
 			throw new Error("the session is disposed");
 		}
 	}
 }
+
+/** A channel frame before the session numbers it. */
+type Unnumbered = {
+	[K in ChannelFrame["type"]]: Omit<Extract<ChannelFrame, { type: K }>, "seq">;
+}[ChannelFrame["type"]];

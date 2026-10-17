@@ -1,6 +1,6 @@
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
-import type { Launch } from "./agent-process";
+import type { Launch, ProcessHandle } from "./agent-process";
 import type { GitResult } from "./git";
 import { RemoteProcess } from "./remote-process";
 import { RemotePty } from "./remote-pty";
@@ -67,6 +67,27 @@ export class RemoteWorker implements WorkerMachine {
 		return new RemoteProcess(
 			this.session.open("process", { argv, cwd, env }),
 			this.session,
+			this.id,
+		);
+	}
+
+	/**
+	 * Takes back the process `handle` names, which this worker kept running
+	 * while its coordinator restarted: its output replays from past `held`,
+	 * the last frame the coordinator wrote down, or from wherever the worker's
+	 * replay starts for null.
+	 */
+	resume(handle: ProcessHandle, held: number | null): RemoteProcess {
+		if (handle.worker !== this.id) {
+			throw new Error(
+				`the process runs on worker ${handle.worker}, not ${this.id}`,
+			);
+		}
+		return new RemoteProcess(
+			this.session.resume(handle.channel, "process", null, held),
+			this.session,
+			this.id,
+			{ resumed: true },
 		);
 	}
 
@@ -74,6 +95,24 @@ export class RemoteWorker implements WorkerMachine {
 	pty({ argv, cwd, cols, rows, env = {} }: RemotePtyOptions): RemotePty {
 		return new RemotePty(
 			this.session.open("pty", { argv, cwd, cols, rows, env }),
+			this.id,
+		);
+	}
+
+	/**
+	 * Takes back a shell the worker kept through a coordinator restart, by
+	 * the `handle` the last run's `pty` had; it says its pid and screen again
+	 * once asked to describe itself. One the worker no longer runs exits.
+	 */
+	resumePty(handle: ProcessHandle): RemotePty {
+		if (handle.worker !== this.id) {
+			throw new Error(
+				`the shell runs on worker ${handle.worker}, not ${this.id}`,
+			);
+		}
+		return new RemotePty(
+			this.session.resume(handle.channel, "pty", null, null),
+			this.id,
 		);
 	}
 
@@ -122,7 +161,9 @@ export class RemoteWorker implements WorkerMachine {
 			return this.calls;
 		}
 		const calls = this.session.open("calls");
-		calls.events.on("message", ({ body }) => {
+		calls.events.on("message", ({ body, seq }) => {
+			// Nothing here outlives a restart, so an answer is held once heard.
+			calls.ack(seq);
 			const answer = CallAnswer.safeParse(body);
 			if (!answer.success) {
 				return;

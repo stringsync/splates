@@ -26,8 +26,8 @@ export interface AutoRestartServer {
 }
 
 /**
- * How long every agent, and the person on the page, stay idle before a
- * countdown starts.
+ * How long every agent a restart would stop, and the person on the page,
+ * stay idle before a countdown starts.
  */
 export const IDLE = Duration.mins(1);
 
@@ -45,8 +45,9 @@ const TICK = Duration.secs(1);
 
 /**
  * Restarts `arbor dev` on its own once it is out of date, a newer arbor out
- * or commits on the source it runs from, and every agent and the person on
- * the page have been idle for `IDLE`, after a `COUNTDOWN` the person can
+ * or commits on the source it runs from, and every agent a restart would
+ * stop and the person on the page have been idle for `IDLE` (an agent on a
+ * worker carries on through one), after a `COUNTDOWN` the person can
  * cancel, as the `restart.auto` setting asks, and never while held, as while
  * Power is open. Once gone to restart, Power waits on it and reloads the page.
  * Cancelled, it waits for the next thing to restart onto.
@@ -57,7 +58,7 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 
 	state: AutoRestartState = { step: "watching" };
 
-	/** When every agent was last seen to go idle; null while one works. */
+	/** When every agent a restart would stop was last seen to go idle; null while one works. */
 	private idleSince: Duration | null = null;
 	/** When the person last pressed, clicked, scrolled or touched the page. */
 	private inputAt: Duration;
@@ -233,7 +234,7 @@ function idleIn(listed: Projects): boolean {
 		listed.projects.every((project) =>
 			project.conversations.every(
 				(each) =>
-					each.status !== "running" &&
+					(each.status !== "running" || each.survives) &&
 					each.status !== "starting" &&
 					each.checkpoint !== "asked",
 			),

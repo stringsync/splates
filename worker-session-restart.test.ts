@@ -59,8 +59,11 @@ describe("WorkerSession after the other end starts again", () => {
 	});
 });
 
-async function link(worker: WorkerSession, coordinator: WorkerSession) {
-	const pair = new WorkerSocketPair();
+async function link(
+	worker: WorkerSession,
+	coordinator: WorkerSession,
+	pair = new WorkerSocketPair(),
+) {
 	const connecting = worker.connect(pair.worker, { id: "mac" });
 	coordinator.accept(
 		pair.coordinator,

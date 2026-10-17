@@ -100,7 +100,7 @@ export function CheckpointProvider({
 	useEffect(() => sessionStorage.removeItem(RESTARTED), []);
 	// The arbor this run runs, as the restart it may yet leave on finds it.
 	const running = useRef<string | null>(null);
-	// Whether a restart or shutdown checkpoints first, as last picked.
+	// Whether a shutdown checkpoints first, as last picked.
 	const [checkpoint, setCheckpoint] = useState(true);
 	// How to reload the page once a restart is back, as of the last render.
 	const reloads = useRef(reload);

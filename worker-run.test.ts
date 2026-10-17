@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
+import { printed } from "./agent-process-testing";
 import type { RemoteWorker } from "./remote-worker";
 import { UnixWorkerListener } from "./unix-worker-listener";
 import { WorkerRegistry } from "./worker-registry";
@@ -58,7 +59,7 @@ describe("arbor worker run", () => {
 		const child = worker.start(["echo", "from the daemon"], dir);
 
 		expect(worker).toMatchObject({ id: "cli", info: { slots: 2 } });
-		expect(await new Response(child.output).text()).toBe("from the daemon\n");
+		expect(await printed(child)).toBe("from the daemon\n");
 
 		daemon.kill("SIGTERM");
 

@@ -177,6 +177,7 @@ export function App({
 				(event) =>
 					matches(event, settings.get("shortcuts.terminal")) ||
 					matches(event, settings.get("shortcuts.newTerminal")),
+				{ timer },
 			),
 	);
 	const [autoRestart] = useState(

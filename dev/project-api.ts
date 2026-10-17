@@ -99,7 +99,7 @@ export async function powerNow(shutdown: boolean): Promise<void> {
 
 /**
  * Restarts `arbor dev` now, as when every agent is idle: refused while one
- * is at work.
+ * is at work that a restart would stop.
  */
 export async function restartIdle(): Promise<void> {
 	await send("/api/restart", {});
@@ -138,7 +138,8 @@ export interface Projects {
 	restartable: boolean;
 	/**
 	 * What a restart would kill, which holds an auto restart off: jobs in
-	 * front in the page's shells, and commands idle agents left running.
+	 * front in the page's shells, and commands idle agents left running off
+	 * a worker.
 	 */
 	held: Held[];
 }
@@ -164,4 +165,6 @@ export interface ProjectConversation {
 	status: string;
 	/** Where its checkpoint stands; null when none was asked for. */
 	checkpoint: Checkpoint | null;
+	/** Whether a restart keeps it at work: its agent runs on a worker, which keeps it through one. */
+	survives: boolean;
 }

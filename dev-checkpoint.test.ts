@@ -103,7 +103,13 @@ describe("dev checkpoint", () => {
 		await idle();
 
 		expect(await listed()).toEqual([
-			{ id, name: "fake", status: "running", checkpoint: null },
+			{
+				id,
+				name: "fake",
+				status: "running",
+				checkpoint: null,
+				survives: false,
+			},
 		]);
 	});
 

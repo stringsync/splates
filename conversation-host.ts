@@ -2,7 +2,7 @@ import type { Events } from "webappwiz/events";
 import type { IdProvider } from "webappwiz/id";
 import type { Fs, Lock } from "webappwiz/system";
 import type { Timer, WallClock } from "webappwiz/time";
-import type { Agent, Launch } from "./agent-process";
+import type { Agent, Launcher } from "./agent-process";
 import type { ArtifactRoom } from "./artifact-room";
 import type { ArtifactLimits } from "./artifacts";
 import type { ConversationLog } from "./conversation-log";
@@ -55,7 +55,8 @@ export interface ConversationDeps {
 	room?: ArtifactRoom;
 	timer: Timer;
 	clock: WallClock;
-	launch: Launch;
+	/** What starts each agent, and takes one back after a restart. */
+	launcher: Launcher;
 	/** Where the agent runs, which its background commands' output is read from. */
 	machine: WorkerMachine;
 	/**

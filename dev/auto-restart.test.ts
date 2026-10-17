@@ -87,6 +87,13 @@ describe("AutoRestart", () => {
 		expect(restart.state.step).toBe("counting");
 	});
 
+	it("counts on while an agent at work is on a worker, which a restart keeps", async () => {
+		server.working(true, true);
+		await pass(65);
+
+		expect(restart.state.step).toBe("counting");
+	});
+
 	it("waits for a minute without the person pressing, clicking, scrolling or touching", async () => {
 		await pass(30);
 		input.dispatchEvent(new Event("keydown"));

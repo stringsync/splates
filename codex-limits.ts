@@ -57,8 +57,8 @@ export async function codexLimits(deps: {
 		});
 		const decoder = new TextDecoder();
 		let buffered = "";
-		for await (const chunk of server.output) {
-			buffered += decoder.decode(chunk, { stream: true });
+		for await (const { bytes } of server.output) {
+			buffered += decoder.decode(bytes, { stream: true });
 			const lines = buffered.split("\n");
 			buffered = lines.pop() ?? "";
 			for (const line of lines) {

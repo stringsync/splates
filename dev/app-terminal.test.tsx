@@ -80,7 +80,10 @@ describe("App's terminal", () => {
 		const pane = view.getByRole("complementary", { name: "terminal" });
 		const [shell] = testing.shells;
 		expect(shell?.task).toBeNull();
-		expect(shell?.url).toMatch(/\/api\/terminal\?cols=\d+&rows=\d+$/);
+		// Keyed by this tab and the conversation, so the server keeps it for them.
+		expect(shell?.url).toMatch(
+			/\/api\/terminal\?cols=\d+&rows=\d+&terminal=[\w-]+%2Fc1$/,
+		);
 		expect(within(pane).getByRole("status").textContent).toBe("Connecting");
 
 		await act(async () => {
@@ -408,6 +411,8 @@ describe("App's terminal", () => {
 
 		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
 		expect(testing.shells).toHaveLength(2);
+		// Under the same key, so the server gives the tab its shell back.
+		expect(testing.shells[1]?.url).toBe(testing.shells[0]?.url ?? "");
 	});
 
 	it("leaves ⌥⌘B to the browser", async () => {
@@ -453,8 +458,30 @@ describe("App's terminal", () => {
 		);
 
 		expect(shell?.readyState).toBe(3);
+		// Told, so the server ends the shell now rather than keeping it for this tab.
+		expect(shell?.sent).toEqual([sized, { type: "front" }, { type: "close" }]);
 		expect(testing.shells).toHaveLength(1);
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+	});
+
+	it("comes back to the same shell once its socket goes short of an exit, as while arbor dev restarts", async () => {
+		const view = await reading();
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => {
+			shell?.accept();
+			shell?.close();
+		});
+		const pane = view.getByRole("complementary", { name: "terminal" });
+		expect(within(pane).getByRole("status").textContent).toBe("Disconnected");
+
+		await act(async () => testing.timer.fireTimeouts());
+
+		const [, again] = testing.shells;
+		expect(again?.url).toBe(shell?.url ?? "");
+		expect(again?.sent).toEqual([]);
+		await act(async () => again?.accept());
+		expect(within(pane).getByRole("status").textContent).toBe("");
 	});
 
 	it("renames the shell nested under its conversation, keeping the name for its next", async () => {

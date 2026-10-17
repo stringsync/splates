@@ -35,7 +35,9 @@ export class PortPipe implements Resource {
 		private readonly channel: WorkerChannel,
 		private readonly session: WorkerSession,
 	) {
-		channel.events.on("data", ({ bytes }) => {
+		// Nothing here outlives a restart, so a chunk is held once heard.
+		channel.events.on("data", ({ bytes, seq }) => {
+			channel.ack(seq);
 			this.unsent.push(bytes);
 			this.flush();
 		});

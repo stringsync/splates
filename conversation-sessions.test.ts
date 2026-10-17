@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { printed } from "./agent-process-testing";
 import { until } from "./conversation-testing";
 import { type Conversation, Conversations, launch } from "./conversations";
 import { AGENT, FakeAgent, heard, say } from "./fake-agent";
@@ -173,6 +174,6 @@ describe("Conversation sessions", () => {
 
 		expect(await agent.exited).toBe(127);
 		expect(agent.stderr()).toStartWith("cannot start sh in /no/such/tree: ");
-		expect(agent.output.getReader().read()).rejects.toThrow();
+		expect(printed(agent)).rejects.toThrow();
 	});
 });

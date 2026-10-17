@@ -38,6 +38,8 @@ export interface RestartsHome {
 	machine: Pick<WorkerMachine, "processes">;
 	/** Stops the whole server, before a restart ends the process. */
 	server: AsyncResource;
+	/** Hands every agent and shell on a worker to the next run, which takes them back; called before the server stops. */
+	handOver(): Promise<void>;
 }
 
 /** What `Restarts` takes from `dev`'s options. */
@@ -236,7 +238,8 @@ export class Restarts {
 	};
 
 	/**
-	 * Restarts `arbor dev` now, refused while any agent is at work, or a
+	 * Restarts `arbor dev` now, refused while an agent is at work that a
+	 * restart would stop (one on a worker carries on through it), or a
 	 * command it would kill runs: a job in front in a shell, or one an idle
 	 * agent left running.
 	 */
@@ -247,8 +250,12 @@ export class Restarts {
 		const working: { id: string; name: string }[] = [];
 		for (const project of await this.opened()) {
 			const lanes = await project.lanes();
-			for (const { state } of (await project.conversations?.list()) ?? []) {
-				if (state.status === "running" || state.status === "starting") {
+			for (const each of (await project.conversations?.list()) ?? []) {
+				const { state } = each;
+				if (
+					state.status === "starting" ||
+					(state.status === "running" && each.handle === null)
+				) {
 					working.push({
 						id: state.id,
 						name: realName(state, lanes) ?? state.agent,
@@ -259,7 +266,7 @@ export class Restarts {
 		if (working.length > 0) {
 			fail(
 				"usage",
-				`agents are at work: ${working.map((each) => each.name).join(", ")}`,
+				`agents are at work that a restart would stop: ${working.map((each) => each.name).join(", ")}`,
 				{ conversations: working.map((each) => each.id) },
 			);
 		}
@@ -313,9 +320,10 @@ export class Restarts {
 	}
 
 	/**
-	 * What a restart would kill: the job in front in each of the page's
-	 * shells, and each command an idle agent left running. An agent at work
-	 * holds a restart off on its own.
+	 * What a restart would kill: each command an idle agent left running,
+	 * unless the agent runs on a worker, which keeps its commands as it keeps
+	 * it; the page's shells run there too, and stay. An agent at work that a
+	 * restart would stop holds one off on its own.
 	 */
 	private async holding(): Promise<Held[]> {
 		const agents: { name: string; pid: number }[] = [];
@@ -325,6 +333,7 @@ export class Restarts {
 				const { state, pid } = each;
 				if (
 					pid !== null &&
+					each.handle === null &&
 					state.status !== "running" &&
 					state.status !== "starting"
 				) {
@@ -332,11 +341,13 @@ export class Restarts {
 				}
 			}
 		}
-		const shells = this.home.terminals.pids;
-		if (shells.length === 0 && agents.length === 0) {
+		if (agents.length === 0) {
 			return [];
 		}
-		return heldBy(await this.home.machine.processes(), { shells, agents });
+		return heldBy(await this.home.machine.processes(), {
+			shells: [],
+			agents,
+		});
 	}
 
 	// Those at work, or asked already: an idle one has no turn to stop. A
@@ -366,13 +377,13 @@ export class Restarts {
 		const project = await this.home.served.served.get(root)?.catch(() => null);
 		const lanes = (await project?.lanes()) ?? [];
 		return ((await project?.conversations?.list()) ?? [])
-			.map(({ state }) => state)
-			.filter(keep)
-			.map((state) => ({
+			.filter(({ state }) => keep(state))
+			.map(({ state, handle }) => ({
 				id: state.id,
 				name: realName(state, lanes) ?? state.agent,
 				status: state.status,
 				checkpoint: state.checkpoint,
+				survives: handle !== null,
 			}));
 	}
 
@@ -441,6 +452,10 @@ export class Restarts {
 						? "arbor dev restarting"
 						: `arbor dev restarting on arbor ${release.newest}`,
 			);
+			// A shutdown ends the worker too: its agents stop, as ever.
+			if (!shutdown) {
+				await this.home.handOver();
+			}
 			await server.disposeAsync();
 			this.opts.exit?.(code);
 		});

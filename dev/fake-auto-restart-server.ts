@@ -34,14 +34,22 @@ export class FakeServer implements AutoRestartServer {
 		this.down = true;
 	}
 
-	/** Puts one agent at work, or none. */
-	working(on: boolean): void {
+	/** Puts one agent at work, or none, one on a worker when it `survives` a restart. */
+	working(on: boolean, survives = false): void {
 		this.listed = {
 			...this.listed,
 			projects: [
 				here(
 					on
-						? [{ id: "c1", name: "c1", status: "running", checkpoint: null }]
+						? [
+								{
+									id: "c1",
+									name: "c1",
+									status: "running",
+									checkpoint: null,
+									survives,
+								},
+							]
 						: [],
 				),
 			],

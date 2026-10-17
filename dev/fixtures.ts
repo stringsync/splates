@@ -15,12 +15,14 @@ export function live(
 	id: string,
 	name: string,
 	checkpoint: Checkpoint | null = null,
+	survives = false,
 ) {
 	return {
 		id,
 		name,
 		status: checkpoint === "done" ? "stopped" : "running",
 		checkpoint,
+		survives,
 	};
 }
 

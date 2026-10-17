@@ -1,4 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
+import { Disposer } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import {
 	ASYNC_TASK_STOP,
@@ -11,8 +12,10 @@ import {
 	STEER,
 	steers,
 } from "./acp-extensions";
-import type { Agent, AgentProcess } from "./agent-process";
+import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
+import { AgentStream } from "./agent-stream";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
+import type { Live } from "./conversation-log";
 import { messageOf, said } from "./conversation-messages";
 import type { Answer, Asked, Decision, Setting } from "./conversation-state";
 import { fail } from "./exit";
@@ -34,15 +37,22 @@ const START_WAIT = Duration.secs(30);
 /** How long a failed start waits for its process to exit, to say why it died. */
 const DEATH_WAIT = Duration.secs(1);
 
+/** The options of a permission the agent asks, as the state keeps them. */
+type Options = Extract<Asked, { type: "permission" }>["options"];
+
 /**
  * A conversation's side of ACP: the agent's process and the connection to
  * it, what the agent asks of this side, routed to the person, and the calls
  * the conversation makes on it. Opened anew each time the agent starts or
- * comes back, with the same session.
+ * comes back, with the same session, or reattached to a process a worker
+ * kept running while the coordinator restarted.
  */
 export class AgentConnection {
 	private connection: acp.ClientSideConnection | null = null;
 	private process: AgentProcess | null = null;
+	private stream: AgentStream | null = null;
+	/** What listens on the stream and the log while they are up. */
+	private listening: Disposer | null = null;
 	/** How many times `open` has run, so a start that fails late knows it is still the latest. */
 	private opens = 0;
 	/** The agent's session, once it has opened one. */
@@ -100,6 +110,11 @@ export class AgentConnection {
 		return this.process?.pid ?? null;
 	}
 
+	/** What takes the agent's process back after a restart; null while none could. */
+	get handle(): ProcessHandle | null {
+		return this.connection === null ? null : (this.process?.handle ?? null);
+	}
+
 	get sessionId(): string | null {
 		return this.session;
 	}
@@ -142,7 +157,9 @@ export class AgentConnection {
 			// One a lane's orchestrator started finds it as the one that started
 			// it, not one it reports to: it answers to the person.
 			const { id, lastCaller, startedBy } = host.state;
-			process = this.deps.launch(agent.argv, cwd, {
+			// A new process numbers its frames from one again.
+			host.log.heard(0);
+			process = this.deps.launcher.launch(agent.argv, cwd, {
 				ARBOR_CONVERSATION: id,
 				...(startedBy !== null
 					? { ARBOR_STARTED_BY: startedBy }
@@ -152,22 +169,8 @@ export class AgentConnection {
 				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
 			});
 			const launched = process;
-			this.process = launched;
 			void launched.exited.then(started, started);
-			void launched.exited.then((code) => {
-				if (this.process === launched) {
-					void host.close(
-						launched.stderr().trim() ||
-							`${agent.name} exited with code ${code}`,
-					);
-				}
-			});
-			const stream = acp.ndJsonStream(launched.input, launched.output);
-			const connection = new acp.ClientSideConnection(() => this.client(), {
-				writable: stream.writable,
-				readable: asyncTasks(stream.readable),
-			});
-			this.connection = connection;
+			const connection = this.attach(agent, launched, {});
 			const initialized = await connection.initialize({
 				protocolVersion: acp.PROTOCOL_VERSION,
 				// A form is how an agent asks the person something, as an MCP
@@ -248,6 +251,16 @@ export class AgentConnection {
 				}
 			}
 			host.log.write({ kind: "settings", settings: host.state.settings });
+			// On a worker, the process outlives a restart from here on: the
+			// log says what to take back and what the agent can do.
+			if (launched.handle !== null) {
+				host.log.write({
+					kind: "launched",
+					handle: launched.handle,
+					steers: this.steering,
+					sees: this.seeing,
+				});
+			}
 			host.set({ status: "idle" });
 		} catch (error) {
 			started();
@@ -259,6 +272,130 @@ export class AgentConnection {
 			// its stderr, which says why, is waited for.
 			await host.close((await this.diedSaying(process)) ?? messageOf(error));
 		}
+	}
+
+	/**
+	 * Speaks ACP again to `process`, which a worker kept running while the
+	 * coordinator restarted, where the log left off: `live` says what was in
+	 * flight. A late answer to the prompt it was on ends the turn, and the
+	 * question it was asking is answered on the request it came in.
+	 */
+	reattach(agent: Agent, process: AgentProcess, live: Live): void {
+		const { host } = this;
+		this.attach(agent, process, { base: live.lastId + 1 });
+		this.steering = live.steers;
+		this.seeing = live.sees;
+		this.tells = live.tells;
+		this.unprompted = host.state.status === "running" && live.prompt === null;
+		const stream = this.stream;
+		if (stream !== null) {
+			this.listening?.defer(
+				stream.events.on("stale", (response) => {
+					if (response.id !== live.prompt) {
+						return;
+					}
+					if ("error" in response) {
+						host.ended(response.error.message);
+						return;
+					}
+					const { usage } = response.result as acp.PromptResponse;
+					if (usage != null) {
+						host.log.write({ kind: "usage", usage });
+					}
+					host.ended(null);
+				}),
+			);
+		}
+		if (live.ask !== null && live.ask.rpc !== null && stream !== null) {
+			const { rpc, ask } = live.ask;
+			this.settle = (answer) => {
+				if (ask.type === "permission") {
+					this.decided(ask.id, ask.options, answer, ask.at);
+				}
+				void stream.respond(rpc, { result: answered(ask, answer) });
+			};
+		} else if (host.state.ask !== null) {
+			host.log.write({ kind: "ask", ask: null });
+			host.state.ask = null;
+		}
+		host.changed();
+	}
+
+	/**
+	 * Lets go of the process without ending it, for a coordinator started
+	 * again to take back, once the stream has handed over whole frames only:
+	 * the log flushed after this says where it stopped.
+	 */
+	async detach(): Promise<void> {
+		await this.stream?.detach();
+		this.listening?.dispose();
+		this.listening = null;
+		this.stream = null;
+		this.process = null;
+		this.connection = null;
+	}
+
+	/**
+	 * Opens ACP over `process`, which from here is the one this conversation
+	 * runs: its frames stamp the log, its exit closes the conversation, and
+	 * the worker is acked for each frame once the log holds it.
+	 */
+	private attach(
+		agent: Agent,
+		process: AgentProcess,
+		opts: { base?: number },
+	): acp.ClientSideConnection {
+		const { host } = this;
+		this.listening?.dispose();
+		this.process = process;
+		void process.exited.then((code) => {
+			if (this.process !== process) {
+				return;
+			}
+			// One taken back that the worker turns out not to hold any more
+			// stops as an idle agent does, when no turn was on it.
+			const lost = opts.base !== undefined && host.state.status !== "running";
+			void host.close(
+				lost
+					? null
+					: process.stderr().trim() || `${agent.name} exited with code ${code}`,
+			);
+		});
+		const stream = new AgentStream(process, opts);
+		this.stream = stream;
+		const listening = new Disposer();
+		this.listening = listening;
+		// Only a process a worker can hand back after a restart has its
+		// frames and requests written down: one that ends with this process
+		// leaves nothing to take back.
+		if (process.handle !== null) {
+			listening.defer(
+				stream.events.on("handling", (seq) => host.log.heard(seq)),
+			);
+			listening.defer(
+				stream.events.on("request", ({ id, method }) =>
+					host.log.write({ kind: "request", id, method }),
+				),
+			);
+			// Acked only for what the file holds of every frame up to it, so a
+			// restart replays from where the log leaves off.
+			let acked = 0;
+			const ack = () => {
+				const through = Math.min(host.log.savedThrough, stream.dispatched);
+				if (through > acked) {
+					acked = through;
+					process.ack(through);
+				}
+			};
+			listening.defer(stream.events.on("dispatched", ack));
+			listening.defer(host.log.events.on("saved", ack));
+		}
+		const connection = new acp.ClientSideConnection(() => this.client(), {
+			writable: stream.writable,
+			readable: asyncTasks(stream.readable),
+		});
+		this.connection = connection;
+		return connection;
 	}
 
 	/** What `process` said on stderr if it exits within `DEATH_WAIT`, else null. */
@@ -384,16 +521,15 @@ export class AgentConnection {
 				conversation: host.state.id,
 			});
 		}
-		const settle = this.settle;
-		this.settle = null;
-		host.set({ ask: null });
-		settle?.(answer);
+		this.settled(answer);
 	}
 
 	/** Ends the process, dismissing whatever the agent was asking. */
 	close(): void {
-		this.settle?.({ type: "dismiss" });
-		this.settle = null;
+		this.settled({ type: "dismiss" });
+		this.listening?.dispose();
+		this.listening = null;
+		this.stream = null;
 		this.process?.kill();
 		this.process = null;
 		this.connection = null;
@@ -461,43 +597,39 @@ export class AgentConnection {
 					fold(host.state, update, at);
 				}
 				const askedAt = host.now();
-				const answer = await this.ask(
-					{
-						type: "permission",
-						id: toolCall.toolCallId,
-						title,
-						options: params.options.map((option) => ({
-							id: option.optionId,
-							name: option.name,
-							kind: option.kind,
-						})),
-					},
-					askedAt,
-				);
-				this.decided(toolCall.toolCallId, params.options, answer, askedAt);
-				return answer.type === "permission"
-					? { outcome: { outcome: "selected", optionId: answer.option } }
-					: { outcome: { outcome: "cancelled" } };
+				const asked: Asked = {
+					type: "permission",
+					id: toolCall.toolCallId,
+					title,
+					options: params.options.map((option) => ({
+						id: option.optionId,
+						name: option.name,
+						kind: option.kind,
+					})),
+				};
+				const answer = await this.ask(asked, askedAt);
+				this.decided(toolCall.toolCallId, asked.options, answer, askedAt);
+				return permitted(answer);
 			},
 			createElicitation: async (params) => {
 				if (params.mode !== "form") {
 					return { action: "decline" };
 				}
-				const answer = await this.ask({
+				const asked: Asked = {
 					type: "question",
 					id: crypto.randomUUID(),
 					message: params.message,
 					fields: fieldsIn(params.requestedSchema),
-				});
-				return answer.type === "question"
-					? { action: "accept", content: answer.values }
-					: { action: "decline" };
+				};
+				return elicited(await this.ask(asked));
 			},
-			// Left out of the log: its commands end with its process, so one
-			// read back has none running.
+			// Kept, since on a worker its commands outlive a restart; a log
+			// read back with its process gone has none running.
 			extNotification: async (method, params) => {
 				if (method === ASYNC_TASK_UPDATE && !this.loading) {
-					foldBackground(host.state, params.update as AsyncTaskUpdate);
+					const update = params.update as AsyncTaskUpdate;
+					host.log.write({ kind: "background", update });
+					foldBackground(host.state, update);
 					host.changed();
 				}
 			},
@@ -562,7 +694,7 @@ export class AgentConnection {
 	/** Keeps how the person answered the permission asked for tool call `id`. */
 	private decided(
 		id: string,
-		options: acp.PermissionOption[],
+		options: Options,
 		answer: Answer,
 		askedAt: string,
 	): void {
@@ -573,7 +705,7 @@ export class AgentConnection {
 		}
 		const picked =
 			answer.type === "permission"
-				? options.find((option) => option.optionId === answer.option)
+				? options.find((option) => option.id === answer.option)
 				: undefined;
 		const decision: Decision = {
 			askedAt,
@@ -586,12 +718,54 @@ export class AgentConnection {
 		host.changed();
 	}
 
-	/** Holds `asked` until the person answers it, or the turn is cancelled. */
+	/**
+	 * Holds `asked` until the person answers it, or the turn is cancelled,
+	 * logged with the request it came in, so a coordinator started again can
+	 * answer it there.
+	 */
 	private ask(asked: Asked, at = this.host.now()): Promise<Answer> {
-		this.settle?.({ type: "dismiss" });
+		this.settled({ type: "dismiss" });
 		return new Promise((resolve) => {
 			this.settle = resolve;
-			this.host.set({ ask: { ...asked, at } });
+			const ask = { ...asked, at };
+			this.host.log.write({
+				kind: "ask",
+				rpc: this.stream?.asking ?? null,
+				ask,
+			});
+			this.host.set({ ask });
 		});
 	}
+
+	/** Settles the pending ask, if any, with `answer`, and logs that it is answered. */
+	private settled(answer: Answer): void {
+		const settle = this.settle;
+		this.settle = null;
+		if (settle === null && this.host.state.ask === null) {
+			return;
+		}
+		this.host.log.write({ kind: "ask", ask: null });
+		this.host.set({ ask: null });
+		settle?.(answer);
+	}
+}
+
+/** What the agent hears back for `asked`, as the person answered it. */
+function answered(
+	asked: Asked,
+	answer: Answer,
+): acp.RequestPermissionResponse | acp.CreateElicitationResponse {
+	return asked.type === "permission" ? permitted(answer) : elicited(answer);
+}
+
+function permitted(answer: Answer): acp.RequestPermissionResponse {
+	return answer.type === "permission"
+		? { outcome: { outcome: "selected", optionId: answer.option } }
+		: { outcome: { outcome: "cancelled" } };
+}
+
+function elicited(answer: Answer): acp.CreateElicitationResponse {
+	return answer.type === "question"
+		? { action: "accept", content: answer.values }
+		: { action: "decline" };
 }

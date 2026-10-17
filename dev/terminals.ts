@@ -1,5 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { SystemTimer, type Timer } from "webappwiz/time";
 import { TerminalSession } from "./terminal-session";
 
 export type TerminalsEvents = {
@@ -44,12 +45,16 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	 */
 	names: Record<string, string>;
 
+	private readonly timer: Timer;
+
 	/** Its shells leave to the page each key `toggles` says shows or hides one. */
 	constructor(
 		private readonly storage: Storage,
 		// scry-ignore objects-over-callbacks: a test of one key, handed to each shell
 		private readonly toggles: (event: KeyboardEvent) => boolean,
+		{ timer = new SystemTimer() }: { timer?: Timer } = {},
 	) {
+		this.timer = timer;
 		this.open = this.stored() === "open";
 		this.names = this.storedNames();
 	}
@@ -87,7 +92,9 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		}
 		let session = this.sessions.get(conversation);
 		if (session === undefined) {
-			const made = new TerminalSession(task, this.toggles);
+			const made = new TerminalSession(conversation, task, this.toggles, {
+				timer: this.timer,
+			});
 			made.events.on("changed", () => {
 				if (made.status === "exited") {
 					this.exited(conversation);

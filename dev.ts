@@ -78,6 +78,7 @@ export async function dev(
 		workerSocket = null,
 		workers: givenWorkers = null,
 		worker = null,
+		coordinator = null,
 		portsHost = null,
 		pusher,
 		open = async (root) => ({
@@ -219,7 +220,15 @@ export async function dev(
 			})(request);
 
 	const workers = givenWorkers ?? new DevWorkers(log);
+	if (
+		(coordinator?.roots.length ?? 0) > 0 ||
+		(coordinator?.terminals.length ?? 0) > 0
+	) {
+		workers.takingBack();
+	}
 	const terminals = new Terminals(gate, shell, { projectFor }, workers.local);
+	// Before the worker joins, whose hello says which it kept.
+	terminals.takeBack(coordinator?.terminals ?? []);
 	const dictations = new Dictations(gate, { projectFor });
 
 	const disposer = new AsyncDisposer();
@@ -240,6 +249,17 @@ export async function dev(
 			terminals,
 			machine: worker ?? new LocalWorkerMachine(ps, fs),
 			server: disposer,
+			handOver: async () => {
+				const roots: string[] = [];
+				for (const [root, opened] of served) {
+					const project = await opened.catch(() => null);
+					if (await project?.conversations?.detachAsync()) {
+						roots.push(root);
+					}
+				}
+				await coordinator?.write(roots, terminals.handOver());
+				await workers.detach();
+			},
 		},
 		versions,
 		{ exit, open, servers },
@@ -283,9 +303,6 @@ export async function dev(
 	);
 
 	disposer.defer(() => workers.disposeAsync());
-	if (workerSocket !== null) {
-		await workers.listen(workerSocket, fs);
-	}
 	const taskPorts = new DevTaskPorts({
 		worker: workers.local,
 		owners: () => portOwnersOf(served),
@@ -536,6 +553,20 @@ export async function dev(
 		await servedAt(focused.root).catch((error: unknown) =>
 			log.error(`${focused.root} did not open: ${String(error)}`),
 		);
+	}
+	// And those the last run let go of agents in, whose conversations take
+	// their processes back from the worker: read before it joins, since its
+	// hello settles which channels live on.
+	for (const root of coordinator?.roots ?? []) {
+		await servedAt(root)
+			.then((project) => project.conversations?.list())
+			.catch((error: unknown) =>
+				log.error(`${root} did not open: ${String(error)}`),
+			);
+	}
+	workers.serving();
+	if (workerSocket !== null) {
+		await workers.listen(workerSocket, fs);
 	}
 	// And those a restart stopped agents in, which carry on once served.
 	await restarts.reopenStopped();

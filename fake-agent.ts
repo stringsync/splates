@@ -1,4 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
+import { framed } from "./agent-process";
 import type { Agent, AgentProcess } from "./conversations";
 import type { RosterAgent } from "./roster";
 
@@ -92,7 +93,9 @@ export class FakeAgent {
 		return {
 			pid: this.pid,
 			input: toAgent.writable,
-			output: toClient.readable,
+			output: framed(toClient.readable),
+			ack: () => {},
+			handle: null,
 			stderr: () => "fake agent fell over",
 			exited,
 			kill: () => {

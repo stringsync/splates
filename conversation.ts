@@ -2,7 +2,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { AgentConnection } from "./agent-connection";
-import type { Agent } from "./agent-process";
+import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
 import { Artifacts, applyArtifact } from "./artifacts";
 import { ConversationBackground } from "./conversation-background";
 import { ConversationFiles } from "./conversation-files";
@@ -11,7 +11,7 @@ import type {
 	ConversationEvents,
 	ConversationHost,
 } from "./conversation-host";
-import { ConversationLog } from "./conversation-log";
+import { ConversationLog, type Live } from "./conversation-log";
 import { sent } from "./conversation-messages";
 import {
 	type Answer,
@@ -48,6 +48,8 @@ export class Conversation
 	opening: Promise<void> | null = null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
 	private resting: Resource | null = null;
+	/** Let go of its process for a restart: nothing here ends it now. */
+	private detached = false;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -87,7 +89,11 @@ export class Conversation
 		this.background = new ConversationBackground(this, deps, this.connection);
 	}
 
-	/** A conversation as its log at `path` left it: stopped, whatever it was doing. */
+	/**
+	 * A conversation as its log at `path` left it: stopped, whatever it was
+	 * doing, unless its agent still runs on a worker, which the launcher
+	 * takes back, and the conversation carries on where the log leaves off.
+	 */
 	static async read(
 		path: string,
 		agents: Agent[],
@@ -99,14 +105,32 @@ export class Conversation
 			return null;
 		}
 		const { state, session, cwd, picks } = replayed;
-		return new Conversation(
-			state,
-			log,
-			deps,
-			agents.find((each) => each.id === state.agent) ?? null,
-			cwd,
-			{ session, picks },
-		);
+		const agent = agents.find((each) => each.id === state.agent) ?? null;
+		let taken: { process: AgentProcess; live: Live } | null = null;
+		if (replayed.live !== null) {
+			const { live } = replayed;
+			try {
+				if (agent !== null) {
+					taken = {
+						process: deps.launcher.resume(live.handle, live.held),
+						live,
+					};
+				}
+			} catch {
+				// Nothing here runs it any more: stopped, as any dead process is.
+			}
+			if (taken === null) {
+				await log.stopped(replayed);
+			}
+		}
+		const conversation = new Conversation(state, log, deps, agent, cwd, {
+			session,
+			picks,
+		});
+		if (taken !== null && agent !== null) {
+			conversation.connection.reattach(agent, taken.process, taken.live);
+		}
+		return conversation;
 	}
 
 	/** Starts `agent` in `cwd` and opens a session with it. */
@@ -226,6 +250,15 @@ export class Conversation
 	/** The agent's pid while it runs, for the commands it left running. */
 	get pid(): number | null {
 		return this.connection.pid;
+	}
+
+	/**
+	 * What takes the agent's process back after a coordinator restart: it
+	 * runs on a worker, which keeps it through one; null while a restart
+	 * would stop it.
+	 */
+	get handle(): ProcessHandle | null {
+		return this.connection.handle;
 	}
 
 	/** The agent's session, once it has opened one. */
@@ -393,6 +426,8 @@ export class Conversation
 			}
 			this.move(null, this.deps.root);
 		}
+		// A start that failed may still be settling: the next one is new.
+		await this.opening;
 		this.opening ??= this.wake(this.agent, this.dir);
 		await this.opening;
 	}
@@ -421,6 +456,27 @@ export class Conversation
 	/** Stops the agent; the next prompt resumes where it left off. */
 	async stop(): Promise<void> {
 		await this.close(null);
+	}
+
+	/**
+	 * Lets go of the agent's process without ending it, for a coordinator
+	 * started again to take back from the worker: its log, flushed, says
+	 * where it stopped. Answers whether there was one to let go of; a
+	 * conversation with none, or one nothing could take back, stops as ever.
+	 */
+	async detach(): Promise<boolean> {
+		if (this.detached) {
+			return true;
+		}
+		if (!this.connection.connected || this.connection.handle === null) {
+			return false;
+		}
+		this.detached = true;
+		this.resting?.dispose();
+		this.resting = null;
+		await this.connection.detach();
+		await this.log.flush();
+		return true;
 	}
 
 	/**
@@ -513,7 +569,11 @@ export class Conversation
 
 	/** Ends the agent's process, with `error` for one that failed, and keeps that it stopped. */
 	async close(error: string | null): Promise<void> {
-		if (this.state.status === "stopped" || this.state.status === "failed") {
+		if (
+			this.detached ||
+			this.state.status === "stopped" ||
+			this.state.status === "failed"
+		) {
 			return;
 		}
 		this.connection.close();

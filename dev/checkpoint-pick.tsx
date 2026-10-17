@@ -11,9 +11,10 @@ import { PowerTitle, plural } from "./checkpoint-slide";
 import type { ProjectChoice } from "./project-api";
 
 /**
- * Power's first slide: restart or shut down `arbor dev`, every agent at work
- * checkpointing first while `checkpoint` is ticked, and resuming after a
- * restart; unticked, saying what going on stops as it is.
+ * Power's first slide: restart or shut down `arbor dev`. A restart is at
+ * once, and keeps every agent at work on a worker; a shutdown stops them
+ * all, every one checkpointing first while `checkpoint` is ticked. Says what
+ * each stops as it is.
  */
 export function PickSlide({
 	projects,
@@ -28,6 +29,7 @@ export function PickSlide({
 }: {
 	/** The projects with agents at work. */
 	projects: ProjectChoice[];
+	/** Whether a shutdown checkpoints first. */
 	checkpoint: boolean;
 	onCheckpoint: (checkpoint: boolean) => void;
 	busy: boolean;
@@ -37,11 +39,18 @@ export function PickSlide({
 	/** The commands a restart or shutdown would kill. */
 	held: Held[];
 	onClose: () => void;
-	/** Restarts, or with `shutdown` shuts down, checkpointing first when ticked. */
+	/** Restarts at once, or with `shutdown` shuts down, checkpointing first when ticked. */
 	onPower: (shutdown: boolean) => Promise<void>;
 }): JSX.Element {
 	const working = projects.flatMap((each) => each.conversations);
+	// What a restart stops: those off a worker.
+	const dies = working.filter((each) => !each.survives);
 	const checkpointing = working.length > 0 && checkpoint;
+	const stops = lines({
+		restart: dies.map((each) => each.name),
+		shutdown: checkpointing ? [] : working.map((each) => each.name),
+		held,
+	});
 	return (
 		<>
 			<DialogHeader>
@@ -50,6 +59,10 @@ export function PickSlide({
 					{working.length === 0
 						? "No agent is running."
 						: `${plural(working.length)} at work in ${projects.length === 1 ? "1 project" : `${projects.length} projects`}.`}
+					{working.length > 0 &&
+						dies.length === 0 &&
+						restartable &&
+						" A restart keeps them at work."}
 					{!restartable && " arbor dev cannot restart itself here."}
 				</DialogDescription>
 			</DialogHeader>
@@ -61,16 +74,10 @@ export function PickSlide({
 						onChange={(event) => onCheckpoint(event.target.checked)}
 						className="accent-primary"
 					/>
-					Checkpoint first
+					Checkpoint before shutting down
 				</label>
 			)}
-			{restartable &&
-				((!checkpointing && working.length > 0) || held.length > 0) && (
-					<Stops
-						agents={checkpointing ? [] : working.map((each) => each.name)}
-						held={held}
-					/>
-				)}
+			{restartable && stops.length > 0 && <Stops lines={stops} />}
 			<DialogFooter>
 				<Button variant="outline" onClick={onClose}>
 					Close
@@ -94,25 +101,44 @@ export function PickSlide({
 	);
 }
 
-/** What going on without a checkpoint stops as it is. */
-function Stops({
-	agents,
+/**
+ * What going on stops as it is, a line each: the agents a restart stops
+ * mid-turn, those a shutdown without a checkpoint stops, as one line when
+ * they are the same, and the commands either kills.
+ */
+function lines({
+	restart,
+	shutdown,
 	held,
 }: {
-	agents: string[];
+	restart: string[];
+	shutdown: string[];
 	held: Held[];
-}): JSX.Element {
+}): string[] {
+	const same = restart.length === shutdown.length;
+	return [
+		...(restart.length > 0
+			? [`${same ? "Stops" : "Restart stops"} mid-turn: ${restart.join(", ")}.`]
+			: []),
+		...(shutdown.length > 0 && !same
+			? [`Shutdown stops mid-turn: ${shutdown.join(", ")}.`]
+			: []),
+		...(held.length > 0
+			? [
+					`Kills: ${held.map((each) => `${each.command} (${each.where})`).join(", ")}.`,
+				]
+			: []),
+	];
+}
+
+function Stops({ lines }: { lines: string[] }): JSX.Element {
 	return (
 		<div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
 			<TriangleAlertIcon aria-hidden className="mt-px size-3.5 shrink-0" />
 			<span className="flex flex-col gap-0.5">
-				{agents.length > 0 && <span>Stops mid-turn: {agents.join(", ")}.</span>}
-				{held.length > 0 && (
-					<span>
-						Kills:{" "}
-						{held.map((each) => `${each.command} (${each.where})`).join(", ")}.
-					</span>
-				)}
+				{lines.map((line) => (
+					<span key={line}>{line}</span>
+				))}
 			</span>
 		</div>
 	);

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
+import { printed } from "./agent-process-testing";
 import type { RemoteWorker } from "./remote-worker";
 import { UnixWorkerListener } from "./unix-worker-listener";
 import { UnixWorkerSocket } from "./unix-worker-socket";
@@ -65,7 +66,7 @@ describe("WorkerDaemon", () => {
 			dir,
 		);
 
-		expect(await new Response(child.output).text()).toBe("out\n");
+		expect(await printed(child)).toBe("out\n");
 		expect(await child.exited).toBe(3);
 		expect(child.stderr()).toBe("err\n");
 		expect(child.pid).toBeNumber();
@@ -78,7 +79,7 @@ describe("WorkerDaemon", () => {
 		await input.write(new TextEncoder().encode("hello\n"));
 		await input.close();
 
-		expect(await new Response(child.output).text()).toBe("hello\n");
+		expect(await printed(child)).toBe("hello\n");
 		expect(await child.exited).toBe(0);
 	});
 
@@ -145,7 +146,7 @@ describe("WorkerDaemon", () => {
 			["/bin/sh", "-c", "sleep 0.3; head -c 20000000 /dev/zero"],
 			dir,
 		);
-		const received = new Response(child.output).arrayBuffer();
+		const received = printed(child);
 		await sleep(Duration.ms(100));
 		const pid = child.pid as number;
 
@@ -158,7 +159,7 @@ describe("WorkerDaemon", () => {
 		listener = await UnixWorkerListener.listen(listener.path, new NodeFs());
 		listener.events.on("socket", (socket) => void registry.accept(socket));
 
-		expect((await received).byteLength).toBe(20_000_000);
+		expect((await received).length).toBe(20_000_000);
 		expect(await child.exited).toBe(0);
 	});
 });

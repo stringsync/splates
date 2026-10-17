@@ -12,6 +12,16 @@ import { WorkerRegistry } from "./worker-registry";
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
 
+/** What `DevWorkers` answers workers as. */
+export interface DevWorkersOptions {
+	/**
+	 * The session id every worker hears in its welcome: the same across
+	 * restarts, so a worker keeps what it runs for the next run to take
+	 * back; new by default, which ends what the worker held.
+	 */
+	session?: string;
+}
+
 /**
  * Where `arbor dev` takes its workers in, as their coordinator: the local
  * worker through a Unix socket only this user may open, and others through
@@ -23,10 +33,41 @@ export class DevWorkers implements AsyncResource {
 	/** This machine's worker, which agents run on; work waits for it to join. */
 	readonly local: RemoteWorker;
 	private listener: UnixWorkerListener | null = null;
+	/** Whether a worker may join: not while what the last run let go of is being taken back. */
+	private ready = true;
 
-	constructor(private readonly log: Logger) {
-		this.registry = new WorkerRegistry(log);
+	constructor(
+		private readonly log: Logger,
+		{ session }: DevWorkersOptions = {},
+	) {
+		// Acked by hand: an agent's frame is acked once its log holds it, so
+		// a restart replays from where the log leaves off.
+		this.registry = new WorkerRegistry(log, {
+			session: {
+				...(session === undefined ? {} : { id: session }),
+				acks: "manual",
+			},
+		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
+	}
+
+	/**
+	 * Turns workers away until `serving`, while the conversations the last
+	 * run let go of take their processes back, since a worker's hello
+	 * settles which channels live on.
+	 */
+	takingBack(): void {
+		this.ready = false;
+	}
+
+	/** Lets workers join again. */
+	serving(): void {
+		this.ready = true;
+	}
+
+	/** Hangs up on every worker for a restart, keeping what each runs (see `WorkerRegistry.detach`). */
+	detach(): Promise<void> {
+		return this.registry.detach();
 	}
 
 	/**
@@ -54,6 +95,13 @@ export class DevWorkers implements AsyncResource {
 		request: Request,
 		server: Bun.Server<Connection>,
 	): Response | undefined => {
+		if (!this.ready) {
+			return refuse(
+				503,
+				"unavailable",
+				"arbor dev is still taking back what its last run left: dial again",
+			);
+		}
 		const host = request.headers.get("host") ?? "";
 		if (!LOCAL_HOSTS.includes(hostname(host))) {
 			return refuse(

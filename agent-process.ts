@@ -2,6 +2,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { NodePs } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
+import { AgentStream } from "./agent-stream";
 import { SERVING } from "./supervise";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -11,16 +12,48 @@ export interface Agent {
 	argv: string[];
 }
 
-/** A running agent: bytes in, bytes out, and a way to stop it. */
+/** What a process wrote to stdout, numbered from 1 so a restart can say what it holds. */
+export interface AgentFrame {
+	bytes: Uint8Array;
+	seq: number;
+}
+
+/** What finds a process again after a restart: the worker it runs on and its channel there. */
+export interface ProcessHandle {
+	worker: string;
+	channel: number;
+}
+
+/** A running agent: bytes in, frames out, and a way to stop it. */
 export interface AgentProcess {
 	/** Its pid, for what runs under it; null for one that never started. */
 	pid: number | null;
 	input: WritableStream<Uint8Array>;
-	output: ReadableStream<Uint8Array>;
+	output: ReadableStream<AgentFrame>;
+	/**
+	 * Says everything up to frame `seq` is written down, so a restart replays
+	 * from past it; nothing to do for a process that ends with this one.
+	 */
+	ack(seq: number): void;
+	/** What takes it back after a restart; null for one that ends with this process. */
+	handle: ProcessHandle | null;
 	/** What it last wrote to stderr, for when it dies before saying why. */
 	stderr(): string;
 	exited: Promise<number>;
 	kill(): void;
+}
+
+/** `bytes` as frames, numbered from 1 as they come. */
+export function framed(
+	bytes: ReadableStream<Uint8Array>,
+): ReadableStream<AgentFrame> {
+	let seq = 0;
+	return bytes.pipeThrough(
+		new TransformStream<Uint8Array, AgentFrame>({
+			transform: (chunk, controller) =>
+				controller.enqueue({ bytes: chunk, seq: ++seq }),
+		}),
+	);
 }
 
 /** Starts `argv` in `cwd`, with `env` added to its own, its stdio piped. */
@@ -29,6 +62,29 @@ export type Launch = (
 	cwd: string,
 	env: Record<string, string>,
 ) => AgentProcess;
+
+/** What starts a conversation's agent, and takes one back after a restart. */
+export interface Launcher {
+	launch: Launch;
+	/**
+	 * The process `handle` names, kept running while this coordinator was
+	 * away, its output carrying on from past frame `held`, the last one the
+	 * log holds. Throws when nothing here can take it back.
+	 */
+	resume(handle: ProcessHandle, held: number): AgentProcess;
+}
+
+/** `launch` alone, for a process that ends with this one: nothing takes one back. */
+export function launcherOf(launch: Launch): Launcher {
+	return {
+		launch,
+		resume: (handle) => {
+			throw new Error(
+				`nothing here takes back channel ${handle.channel} of worker ${handle.worker}`,
+			);
+		},
+	};
+}
 
 export const launch: Launch = (argv, cwd, env) => {
 	// So an `arbor dev` the agent runs supervises itself rather than serving
@@ -46,7 +102,9 @@ export const launch: Launch = (argv, cwd, env) => {
 	return {
 		pid: child.pid,
 		input: child.stdin,
-		output: child.stdout,
+		output: framed(child.stdout),
+		ack: () => {},
+		handle: null,
 		stderr: () => tail,
 		exited: child.exited.catch((error: unknown) => {
 			tail = `cannot start ${argv[0]} in ${cwd}: ${error instanceof Error ? error.message : String(error)}`;
@@ -92,7 +150,7 @@ export async function listSessions(
 				sessionUpdate: async () => {},
 				requestPermission: async () => ({ outcome: { outcome: "cancelled" } }),
 			}),
-			acp.ndJsonStream(process.input, process.output),
+			new AgentStream(process),
 		);
 		const listing = (async () => {
 			const initialized = await connection.initialize({

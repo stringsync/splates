@@ -215,6 +215,28 @@ out one worker at a time by drain and resume, never re-adopting live agents;
 new tasks go to updated workers first; the pool view, a Workers page in the
 nav, shows each worker's build.
 
+How a restart keeps its agents (built 2026-10-17, todo #279). Each
+coordinator answers its workers by one session id, kept with the roots and
+shells it let go of in `~/.arbor/coordinator.json`, so the next run is the
+same coordinator to them and they keep every channel. A conversation's log
+stamps each entry with the seq of the agent's frame being handled, and the
+coordinator acks a frame only once the log holds it, so the worker replays
+from exactly where the log leaves off; the log also records every request
+id this side sent, so the new run's ids start past them and a late answer
+to the open prompt is told apart and ends the turn once. A restart detaches
+at a frame boundary, flushes the logs, waits a bound for acks, and hangs up
+without closing anything; the next run serves those roots and takes their
+shells back before the worker joins, since the worker's hello settles which
+channels live on, and ends a channel it kept that nobody took back. A
+page's shell is keyed by its tab and conversation, kept two minutes after
+its socket goes, and redrawn from the worker's screen buffer for the page
+that comes back. Power's Restart is at once; the checkpoint tick is a
+shutdown's, which ends everything as before.
+
+That makes the log, the frame numbering and the worker protocol formats a
+restart reads across versions: a change to any of them has to stay readable
+by the next run, or the restart that deploys it loses the agents mid-turn.
+
 ## Sizing
 
 Measured 2026-10-16 on an M4 Max (16 cores, 64 GB) with ~8 live sessions;

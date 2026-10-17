@@ -16,6 +16,9 @@ import { WORKER_CAPABILITIES } from "./worker-daemon";
 import { WorkerSession, type WorkerSessionOptions } from "./worker-session";
 import type { WorkerSocket } from "./worker-socket";
 
+/** How long a restart waits for a worker to ack what it was sent. */
+const ACK_WAIT = Duration.secs(5);
+
 /** A worker turned away, and why, so the coordinator can drain it. */
 export interface RefusedWorker {
 	id: string;
@@ -142,6 +145,20 @@ export class WorkerRegistry
 		worker.kind = kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
+	}
+
+	/**
+	 * Hangs up on every worker for a restart, keeping what each runs for
+	 * the next run to take back, once each holds everything it was sent, or
+	 * `ACK_WAIT` is up.
+	 */
+	async detach(): Promise<void> {
+		await Promise.all(
+			this.workers.map(async ({ session }) => {
+				await timeouts.race(this.timer, session.acked(), ACK_WAIT);
+				session.detach();
+			}),
+		);
 	}
 
 	private session(): WorkerSession {

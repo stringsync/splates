@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import { printed } from "./agent-process-testing";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevWorkers } from "./dev-workers";
 import type { RemoteWorker } from "./remote-worker";
@@ -50,7 +51,7 @@ describe("DevWorkers", () => {
 		const worker = await joined;
 		const child = worker.start(["echo", "over a websocket"], "/");
 
-		expect(await new Response(child.output).text()).toBe("over a websocket\n");
+		expect(await printed(child)).toBe("over a websocket\n");
 		await daemon.disposeAsync();
 	});
 

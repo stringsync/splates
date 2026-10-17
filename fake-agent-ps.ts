@@ -18,8 +18,8 @@ export class FakeAgentPs extends FakePs {
 		const process = this.agent.launch(argv, opts?.cwd ?? "/", opts?.env ?? {});
 		void child.received.pipeTo(process.input).catch(() => {});
 		void (async () => {
-			for await (const chunk of process.output) {
-				child.print(chunk);
+			for await (const { bytes } of process.output) {
+				child.print(bytes);
 			}
 		})().catch(() => {});
 		void process.exited.then((code) => child.exit(code));

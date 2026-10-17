@@ -24,10 +24,13 @@ describe("App's checkpoint dialog", () => {
 		testing.dispose();
 	});
 
-	it("checkpoints every project with agents at work, then restarts and resumes them", async () => {
+	it("restarts at once with agents at work, naming the one a restart stops, and checkpoints none", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "Fix login")], true),
-			project("shop", [live("s1", "Fix cart"), live("s2", "Fix tax")]),
+			project("shop", [
+				live("s1", "Fix cart", null, true),
+				live("s2", "Fix tax", null, true),
+			]),
 			project("quiet", []),
 		];
 		const view = await testing.openConversations(
@@ -42,21 +45,21 @@ describe("App's checkpoint dialog", () => {
 		expect(
 			(
 				within(dialog).getByRole("checkbox", {
-					name: "Checkpoint first",
+					name: "Checkpoint before shutting down",
 				}) as HTMLInputElement
 			).checked,
 		).toBe(true);
-		expect(testing.posted("/api/checkpoint")).toEqual([]);
+		expect(dialog.textContent).toContain("Restart stops mid-turn: Fix login.");
+		expect(dialog.textContent).not.toContain("Fix cart");
+		testing.restarting = { resume: false, shutdown: false };
 
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Restart" })),
 		);
 
-		expect(testing.posted("/api/checkpoint")).toEqual([
-			{
-				method: "POST",
-				body: { projects: ["webappwiz", "shop"], after: "resume" },
-			},
+		expect(testing.posted("/api/checkpoint")).toEqual([]);
+		expect(testing.posted("/api/power")).toEqual([
+			{ method: "POST", body: { shutdown: false } },
 		]);
 	});
 
@@ -79,10 +82,12 @@ describe("App's checkpoint dialog", () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
-		testing.restarting = { resume: true, shutdown: false };
+		testing.restarting = { resume: false, shutdown: true };
 
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Restart" })),
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Shut down" }),
+			),
 		);
 		const going = await waitFor(() =>
 			view.getByText("0 of 1 agent checkpointed."),
@@ -90,7 +95,7 @@ describe("App's checkpoint dialog", () => {
 		await act(async () => release());
 
 		expect(
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Shutting down arbor dev" }),
 		).toBeTruthy();
 		expect(going.isConnected).toBe(true);
 	});
@@ -154,14 +159,17 @@ describe("App's checkpoint dialog", () => {
 			view.getByRole("dialog", { name: "Power" }),
 		);
 		expect(dialog.textContent).toContain("Kills: vim (terminal).");
-		expect(dialog.textContent).not.toContain("Stops mid-turn");
+		expect(dialog.textContent).toContain("Restart stops mid-turn: Fix login.");
 
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("checkbox", { name: "Checkpoint first" }),
+				within(dialog).getByRole("checkbox", {
+					name: "Checkpoint before shutting down",
+				}),
 			),
 		);
 		expect(dialog.textContent).toContain("Stops mid-turn: Fix login.");
+		expect(dialog.textContent).not.toContain("Restart stops");
 		testing.restarting = { resume: false, shutdown: false };
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Restart" })),
@@ -185,8 +193,10 @@ describe("App's checkpoint dialog", () => {
 		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
 	});
 
-	it("shuts down with no checkpoint", async () => {
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+	it("shuts down with no checkpoint, saying what that stops where a restart would keep it", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", null, true)], true),
+		];
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
@@ -195,11 +205,19 @@ describe("App's checkpoint dialog", () => {
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Power" }),
 		);
+		expect(dialog.textContent).toContain(
+			"1 agent at work in 1 project. A restart keeps them at work.",
+		);
+		expect(dialog.textContent).not.toContain("mid-turn");
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("checkbox", { name: "Checkpoint first" }),
+				within(dialog).getByRole("checkbox", {
+					name: "Checkpoint before shutting down",
+				}),
 			),
 		);
+		expect(dialog.textContent).toContain("Shutdown stops mid-turn: One.");
+		expect(dialog.textContent).not.toContain("Restart stops");
 		testing.restarting = { resume: false, shutdown: true };
 		await act(async () =>
 			fireEvent.click(
