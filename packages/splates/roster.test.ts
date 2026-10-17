@@ -13,6 +13,36 @@ async function setup() {
 }
 
 describe("Roster", () => {
+	it("chooses models for one agent, keeping the others, its launch arguments and models of its own", async () => {
+		await using deps = await setup();
+		await deps.fs.mkdir(deps.splatesHome, { recursive: true });
+		await deps.fs.write(
+			deps.roster.path,
+			JSON.stringify({
+				agents: [
+					{
+						id: "claude",
+						name: "Claude",
+						argv: ["custom-claude"],
+						models: [{ id: "mine", name: "Mine", strengths: "", cost: "" }],
+					},
+					{ id: "x", name: "X", argv: ["x"], models: [] },
+				],
+			}),
+		);
+
+		await deps.roster.choose("claude", ["sonnet", "opus"]);
+
+		const agents = await deps.roster.agents();
+		expect(agents.map((agent) => agent.id)).toEqual(["claude", "x"]);
+		expect(agents[0]?.argv).toEqual(["custom-claude"]);
+		expect(agents[0]?.models.map((model) => model.id)).toEqual([
+			"opus",
+			"sonnet",
+			"mine",
+		]);
+	});
+
 	it("ranks a model from an older roster by the defaults' traits", async () => {
 		await using deps = await setup();
 		const old = [

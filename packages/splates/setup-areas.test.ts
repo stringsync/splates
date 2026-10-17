@@ -23,13 +23,12 @@ describe("SETUP_AREAS", () => {
 				step.after.length === 0 ? "ready" : "waiting",
 			]),
 		);
-		expect(progress.next).toBe("agent-roster");
-		expect(progress.required).toBe(true);
+		expect(progress.next).toBe("opencode-install");
+		expect(progress.required).toBe(false);
 	});
 
-	it("lists the agents first, and each journey once", () => {
+	it("lists each journey once, the agents first", () => {
 		expect(SETUP_AREAS.map((area) => area.id)).toEqual([
-			"agents",
 			"opencode",
 			"remote-access",
 			"notifications",

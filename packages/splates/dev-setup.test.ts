@@ -30,7 +30,7 @@ describe("dev's setup routes", () => {
 				answers: {},
 			});
 
-			expect(fresh.next).toBe("agent-roster");
+			expect(fresh.next).toBe("opencode-install");
 			expect(unsaved.status).toBe(422);
 			expect(await unsaved.json()).toEqual({
 				reason: "step",

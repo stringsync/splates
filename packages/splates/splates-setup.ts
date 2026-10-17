@@ -19,7 +19,7 @@ export function setupOf({
 	fetch,
 }: SplatesDeps): Setup {
 	return new Setup(
-		{ fs, home: splatesHome(ps), device: secrets.device, fetch },
+		{ fs, ps, home: splatesHome(ps), device: secrets.device, fetch },
 		SETUP_AREAS,
 	);
 }

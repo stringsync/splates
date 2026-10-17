@@ -66,7 +66,7 @@ describe("splates cli", () => {
 		await splates.run(deps, ["setup", "--json"]);
 
 		const progress = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(progress.next).toBe("agent-roster");
+		expect(progress.next).toBe("opencode-install");
 		expect(
 			progress.areas.find((area: { id: string }) => area.id === "dictation")
 				.skipped,

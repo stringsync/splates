@@ -1,5 +1,5 @@
 import type { SecretStore } from "webappwiz/creds";
-import type { Fs } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "./exit";
 import type { OpenCodeSetup } from "./setup-opencode";
@@ -215,6 +215,8 @@ export interface SetupMachine {
 	/** Explicit checks from the optional native setup panel; never launch on page load. */
 	opencode?: OpenCodeSetup;
 	fs: Fs;
+	/** How a step runs a program, as `claude --version`; none runs nothing. */
+	ps?: Ps;
 	/** `~/.splates`, or a test's own. */
 	home: string;
 	/** The device's secret store, where creds kept for every project live. */

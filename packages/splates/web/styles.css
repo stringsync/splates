@@ -144,6 +144,7 @@
 @source "./setup-state.tsx";
 @source "./setup-steps.tsx";
 @source "./setup-opencode-steps.tsx";
+@source "./setup-native-steps.tsx";
 @source "./kept-creds.tsx";
 @source "./systems.tsx";
 @source "./system-view.tsx";

@@ -321,6 +321,7 @@ export async function dev(
 		new Setup(
 			{
 				fs,
+				ps,
 				home: splatesHome(ps),
 				device: (deps.secrets ?? SYSTEM_STORES).device,
 				opencode: opencode.setup,

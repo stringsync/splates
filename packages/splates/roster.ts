@@ -36,6 +36,47 @@ export class Roster {
 		return true;
 	}
 
+	/**
+	 * Puts `agent` on the roster running `models`, in the default roster's
+	 * order, creating the file when there is none. Only that agent's entry
+	 * changes: another agent, this one's launch arguments and any model of its
+	 * own that the defaults do not list stay as they are.
+	 */
+	async choose(agent: string, models: readonly string[]): Promise<void> {
+		const base = DEFAULT_AGENTS.find((each) => each.id === agent);
+		if (base === undefined) {
+			fail("usage", `no default agent '${agent}' to choose models for`, {
+				agent,
+			});
+		}
+		// Read first, so a roster that will not parse is reported, not overwritten.
+		await this.agents();
+		const raw = await this.deps.fs.read(this.path).catch(() => null);
+		const file: { format?: number; agents: RosterEntry[] } =
+			raw === null ? { agents: [] } : JSON.parse(raw);
+		const entry = file.agents.find((each) => each.id === agent);
+		const own = entry?.models ?? [];
+		const listed = base.models.map((each) => each.id);
+		const chosen = base.models
+			.filter((each) => models.includes(each.id))
+			.map((each) => own.find((kept) => kept.id === each.id) ?? each);
+		const custom = own.filter((kept) => !listed.includes(kept.id));
+		const written = { ...(entry ?? base), models: [...chosen, ...custom] };
+		file.agents = entry
+			? file.agents.map((each) => (each === entry ? written : each))
+			: [...file.agents, written];
+		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
+			recursive: true,
+		});
+		// Through a temporary file, so a reader never sees half of it.
+		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
+		await this.deps.fs.write(
+			tmp,
+			`${JSON.stringify({ format: FORMAT, ...file }, null, "\t")}\n`,
+		);
+		await this.deps.fs.rename(tmp, this.path);
+	}
+
 	/** Every agent on the roster, in its order; the defaults when there is none. */
 	async agents(): Promise<RosterAgent[]> {
 		const raw = await this.deps.fs.read(this.path).catch(() => null);
@@ -83,6 +124,13 @@ export class Roster {
 		}
 		return agents;
 	}
+}
+
+/** An agent as the file holds it, with whatever else a user kept on it. */
+interface RosterEntry {
+	id: string;
+	models: RosterModel[];
+	[key: string]: unknown;
 }
 
 /** The roster's own format. */

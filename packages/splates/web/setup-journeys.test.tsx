@@ -69,23 +69,28 @@ describe("Setup journeys", () => {
 		expect(view.getByRole("button", { name: "Set up Dictation" })).toBeTruthy();
 		await click(view, "Set up Claude");
 
-		expect(view.getByRole("form", { name: "Register Claude in splates" }));
+		expect(view.getByRole("form", { name: "Install and sign in to Claude" }));
 		expect(view.getByText("1 of 2")).toBeTruthy();
 		expect(view.queryByRole("progressbar")).toBeNull();
 		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
 		expect(view.queryByRole("button", { name: "Skip" })).toBeNull();
 
-		testing.reply = with_({ "claude-roster": "done" });
+		testing.reply = with_({ "claude-signin": "done" });
 		await click(view, "Next");
-		expect(testing.posted("/api/setup/claude-roster/next")[0]?.body).toEqual({
+		expect(testing.posted("/api/setup/claude-signin/next")[0]?.body).toEqual({
 			answers: {},
 		});
 		await waitFor(() =>
-			view.getByRole("form", { name: "Review Claude models" }),
+			view.getByRole("form", { name: "Choose Claude models" }),
 		);
 		expect(view.getByText("2 of 2")).toBeTruthy();
+		expect(
+			view
+				.getAllByRole("switch")
+				.every((each) => each.getAttribute("aria-checked") === "true"),
+		).toBe(true);
 
-		testing.reply = with_({ "claude-roster": "done", "claude-models": "done" });
+		testing.reply = with_({ "claude-signin": "done", "claude-models": "done" });
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
 		await click(view, "Back to setup");
@@ -100,30 +105,30 @@ describe("Setup journeys", () => {
 		await click(view, "Set up Codex");
 		testing.refuseWrites = {
 			reason: "step",
-			message: "Codex is not on the roster yet.",
+			message: "Codex is not installed here.",
 		};
 
 		await click(view, "Next");
 
 		await waitFor(() =>
 			expect(view.getByRole("alert").textContent).toBe(
-				"Codex is not on the roster yet.",
+				"Codex is not installed here.",
 			),
 		);
-		expect(view.getByRole("form", { name: "Register Codex in splates" }));
+		expect(view.getByRole("form", { name: "Install and sign in to Codex" }));
 		testing.refuseWrites = null;
-		testing.reply = with_({ "codex-roster": "done" });
+		testing.reply = with_({ "codex-signin": "done" });
 		await click(view, "Try again");
 		await waitFor(() =>
-			view.getByRole("form", { name: "Review Codex models" }),
+			view.getByRole("form", { name: "Choose Codex models" }),
 		);
 	});
 
 	it("opens a journey at its first step not done, and a finished one at its first", async () => {
-		progress = with_({ "codex-roster": "done", dictation: "done" });
+		progress = with_({ "codex-signin": "done", dictation: "done" });
 		const view = open();
 		await click(view, "Set up Codex");
-		expect(view.getByRole("form", { name: "Review Codex models" }));
+		expect(view.getByRole("form", { name: "Choose Codex models" }));
 		await click(view, "Setup");
 		await click(view, "Set up Dictation Done");
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
