@@ -40,6 +40,7 @@ export class UnixWorkerListener
 			await fs.rm(path, { force: true });
 		}
 		let listening: UnixWorkerListener | undefined;
+		let ready = false;
 		const listener = Bun.listen<UnixWorkerSocket>({
 			unix: path,
 			socket: {
@@ -48,12 +49,20 @@ export class UnixWorkerListener
 					const adapter = new UnixWorkerSocket();
 					socket.data = adapter;
 					adapter.attach(socket);
+					// The daemon may redial while chmod is pending, before the
+					// caller can subscribe. Close it so it retries instead of
+					// losing its hello on a connection nobody will accept.
+					if (!ready) {
+						adapter.dispose();
+						return;
+					}
 					listening?.dispatcher.dispatch("socket", adapter);
 				},
 			},
 		});
 		listening = new UnixWorkerListener(path, listener, fs);
 		await fs.chmod(path, 0o600);
+		ready = true;
 		return listening;
 	}
 
