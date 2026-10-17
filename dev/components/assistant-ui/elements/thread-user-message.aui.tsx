@@ -367,8 +367,12 @@ const CLAMP =
  */
 const CUT_FADE =
 	"sm:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
-/** A message cut to one line on a phone, ending in an ellipsis. */
-const CUT_LINE = "max-sm:line-clamp-1";
+/**
+ * A message cut to one line on a phone, ending in an ellipsis. Not one that
+ * starts with a row of chips: WebKit takes the first line inside a chip as
+ * the one to clamp, cutting the chip short with an ellipsis in its label.
+ */
+const CUT_LINE = "max-sm:not-has-[.aui-user-message-directives]:line-clamp-1";
 /**
  * A message cut to four lines (one on a phone), fading out where it is cut,
  * and opened or closed again by a click (or Enter) when there is more than
