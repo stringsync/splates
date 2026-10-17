@@ -17,6 +17,8 @@
 	"exports": {
 		".": "./index.ts",
 		"./asked": "./asked.ts",
+		"./probe-runtime": "./probe-runtime.ts",
+		"./testing/agent": "./fake-agent.ts",
 		"./config": "./config.ts",
 		"./heavy": "./heavy.ts",
 		"./skill-checks": "./skill-checks.ts",

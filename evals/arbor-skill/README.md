@@ -1,8 +1,10 @@
 # Evals for the arbor skill
 
-The new focused contract and free deterministic assertions are documented in
-[PROBES.md](PROBES.md). The runner is downstream work; the commands below still
-select the legacy end-to-end suite, which can spend tokens and use a model judge.
+Focused probes are the default. See [RUNNER.md](RUNNER.md) for selection,
+configured model comparisons, adapter limitations, result reporting and the
+stable aspect-module seam; [PROBES.md](PROBES.md) defines evidence semantics.
+The sections below describe the explicitly selected legacy end-to-end suite,
+which can spend tokens and use a model judge.
 
 Runs agents through situations the arbor skill has to handle, each in a
 throwaway repository, and grades what they did: by code wherever a program can
@@ -16,15 +18,15 @@ billed to an API key, or counted against a Claude plan's usage limits when
 terminal. Nothing here runs under `bin/wiz dev test` or CI but its unit tests.
 
 ```sh
-bin/wiz dev eval                      # main's skill against this tree's
-bin/wiz dev eval main ../other/skills/arbor --reps 5
-bin/wiz dev eval --scenario lane      # whatever changed
-bin/wiz dev eval report               # the kept runs; uses nothing
+bin/wiz dev eval e2e                  # main's skill against this tree's
+bin/wiz dev eval e2e main ../other/skills/arbor --reps 5
+bin/wiz dev eval e2e --scenario lane      # whatever changed
+bin/wiz dev eval e2e report           # the kept runs; uses nothing
 ```
 
-`bin/wiz dev eval` hands its arguments to `bun evals/arbor-skill/index.ts`
-(`run` unless the first is `report`), with your terminal, so the question
-before anything is used is asked there.
+`bin/wiz dev eval e2e` explicitly selects `e2e.ts` through the entry point,
+with your terminal, so the question before anything is used is asked there.
+Bare `eval`, `eval fast` and `eval run` select focused probes instead.
 
 Each skill version is a directory holding `SKILL.md`, or a git ref whose
 `skills/arbor` is read; the first is the baseline. With two or more, only the

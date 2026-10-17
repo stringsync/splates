@@ -4,7 +4,7 @@
 `Evidence`, `ProbeRun`, `Assertion`, and `assess`. It is pure and synchronous;
 it imports the production reply parser, but no legacy grader, agent SDK,
 fixture runner or model. Its free fixtures run with `bin/wiz dev test`.
-This change defines the contract, not a new runnable CLI suite.
+The runnable integration and stable aspect-module seam are in [RUNNER.md](RUNNER.md).
 
 Each probe names one skill requirement (stable id, text and source), its
 aspect and version, a versioned seed with JSON parameters, one input message
@@ -106,10 +106,9 @@ cost. Assertions remain deterministic even though agent behavior is not.
 
 ## Migration and unsupported coverage
 
-The existing `scenarios.ts`, `checks.ts`, `grader.ts`, `results.ts` and CLI
-still implement legacy end-to-end runs; no existing command silently switches
-behavior in this contract-only change. #338 will put those runs behind an
-explicit optional selection and make the fast selection call only `assess`.
+The existing `scenarios.ts`, `checks.ts`, `grader.ts`, `results.ts` implement legacy end-to-end runs, now explicitly selected with `eval e2e`.
+The default fast path calls deterministic `assess` plus runner capture checks;
+see [RUNNER.md](RUNNER.md) for selection and current adapter limitations.
 Do not import the legacy LLM grader into that path or regrade stored E2E
 traces as focused evidence: their shell-string heuristics and missing
 observations cannot establish this contract's completeness guarantees.
