@@ -45,7 +45,14 @@ export class Pages {
 		};
 	}
 
-	/** `body` as `type`, or a 304 for a request that holds this very build. */
+	/** What each body gzips to, made on first ask and kept for the run. */
+	private readonly gzipped = new Map<string, Uint8Array<ArrayBuffer>>();
+
+	/**
+	 * `body` as `type`, or a 304 for a request that holds this very build.
+	 * A request for the stamped `?v=` name of a body it holds may keep it
+	 * for good, since a new build is a new name.
+	 */
 	respond(
 		request: Request,
 		body: string | Uint8Array<ArrayBuffer>,
@@ -53,20 +60,39 @@ export class Pages {
 	): Response {
 		// Answered by hand, since a route that reads what is served on each
 		// request gets no ETag from Bun.
-		const etag = `"${Bun.hash(body).toString(36)}"`;
+		const hash = Bun.hash(body).toString(36);
+		const etag = `"${hash}"`;
+		const stamp = new URL(request.url).searchParams.get("v");
 		const headers = {
 			etag,
 			// Ask again each time, so a restart's build reaches the page. The
 			// ETag makes asking cheap. Without it, Cloudflare keeps the .js,
 			// .css and .png at its edge, and has a phone keep them too, for
-			// hours after the server moved on.
-			"cache-control": "no-cache",
+			// hours after the server moved on. Only the name stamped with the
+			// body's own hash is safe to keep.
+			"cache-control":
+				stamp === hash ? "public, max-age=31536000, immutable" : "no-cache",
+			vary: "accept-encoding",
 		};
 		if (request.headers.get("if-none-match") === etag) {
 			return new Response(null, { status: 304, headers });
 		}
-		return new Response(body, {
-			headers: { ...headers, "content-type": type },
+		const compress =
+			typeof body === "string" &&
+			body.length > 1024 &&
+			/\bgzip\b/.test(request.headers.get("accept-encoding") ?? "");
+		if (!compress) {
+			return new Response(body, {
+				headers: { ...headers, "content-type": type },
+			});
+		}
+		let packed = this.gzipped.get(hash);
+		if (!packed) {
+			packed = Bun.gzipSync(body, { level: 9 });
+			this.gzipped.set(hash, packed);
+		}
+		return new Response(packed, {
+			headers: { ...headers, "content-type": type, "content-encoding": "gzip" },
 		});
 	}
 }
