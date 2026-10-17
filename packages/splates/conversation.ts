@@ -236,6 +236,7 @@ export class Conversation
 			cwd,
 			log: path,
 			assigned = false,
+			auto = false,
 			handedBy = null,
 			startedBy = null,
 			skill = null,
@@ -257,6 +258,7 @@ export class Conversation
 			startedBy,
 		);
 		state.skill = skill;
+		state.auto = auto;
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -268,6 +270,7 @@ export class Conversation
 			caller,
 			createdAt,
 			...(assigned ? { assigned } : {}),
+			...(auto ? { auto } : {}),
 			...(handedBy === null ? {} : { handedBy }),
 			...(startedBy === null ? {} : { startedBy }),
 			...(skill === null ? {} : { skill }),
@@ -758,6 +761,8 @@ interface Opening {
 	log: string;
 	/** Started on what a todo or `splates add --agent` assigned. */
 	assigned?: boolean;
+	/** Started on what Auto picked. */
+	auto?: boolean;
 	/** The conversation that handed it its task, which it answers to. */
 	handedBy?: string | null;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */

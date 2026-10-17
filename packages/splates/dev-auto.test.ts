@@ -49,9 +49,18 @@ describe("dev Auto", () => {
 						task: null,
 						prompt: "Rename `foo` to `bar`",
 					})
-				).json()) as { id: string; agent: string; assigned: boolean };
+				).json()) as {
+					id: string;
+					agent: string;
+					assigned: boolean;
+					auto: boolean;
+				};
 			const started = await start();
-			expect(started).toMatchObject({ agent: "fake", assigned: true });
+			expect(started).toMatchObject({
+				agent: "fake",
+				assigned: true,
+				auto: true,
+			});
 
 			const events = await deps.journal.tail(10);
 			expect(events).toContainEqual(

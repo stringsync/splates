@@ -13,7 +13,13 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { AUTO_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import { AUTO, agentFor, NEW, startsOne } from "./conversation-address";
+import {
+	AUTO,
+	agentFor,
+	autoLast,
+	NEW,
+	startsOne,
+} from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -29,7 +35,8 @@ import type { Terminals } from "./terminals";
  * of the agents to start a conversation with, Auto first, which picks one
  * for the first prompt, and a terminal. ⌥⌘N (Ctrl+Alt+N
  * off a Mac), as the settings bind it, starts one as the last was started,
- * and shows beside New while ⌥⌘ is held; ⌥` opens another terminal.
+ * on Auto when that was, and shows beside New while ⌥⌘ is held; ⌥` opens
+ * another terminal.
  */
 export function NewMenu({
 	feed,
@@ -52,8 +59,10 @@ export function NewMenu({
 	const picked = useRef(false);
 	const touch = useTouch();
 	const held = useHeld();
-	// With the agent, model, and settings the last one started with.
-	useShortcut("shortcuts.new", () => onOpen(NEW));
+	// With the agent, model, and settings the last one started with, or on
+	// Auto when it started there.
+	const auto = autoLast(conversations);
+	useShortcut("shortcuts.new", () => onOpen(auto ? `${NEW}/${AUTO}` : NEW));
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
 	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));
@@ -108,6 +117,9 @@ export function NewMenu({
 				>
 					<AutoIcon />
 					{AUTO_NAME}
+					{newShortcut !== null && auto && (
+						<Kbd className="ml-auto">{newShortcut}</Kbd>
+					)}
 				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem
@@ -120,6 +132,7 @@ export function NewMenu({
 						<AgentIcon agent={each.id} name={each.name} />
 						{each.name}
 						{newShortcut !== null &&
+							!auto &&
 							each.id === agentFor(NEW, agents, conversations) && (
 								<Kbd className="ml-auto">{newShortcut}</Kbd>
 							)}

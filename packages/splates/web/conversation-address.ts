@@ -68,6 +68,16 @@ export function autoIn(open: string | null): boolean {
 	);
 }
 
+/**
+ * Whether a new conversation started as the last was starts on Auto: the
+ * newest the person started, rather than a todo assigned, was Auto's.
+ */
+export function autoLast(conversations: ConversationState[]): boolean {
+	return (
+		conversations.find((each) => !each.assigned || each.auto)?.auto === true
+	);
+}
+
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);

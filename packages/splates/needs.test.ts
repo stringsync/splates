@@ -425,6 +425,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		auto: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

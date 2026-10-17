@@ -40,7 +40,8 @@ export class AutoRoutes {
 			conversations,
 			prompt: String(prompt ?? ""),
 			task: named,
-			// No pick of the person's, so the next start does not follow it.
+			// No pick of the person's, so the next start does not take its
+			// settings, though the next can start on Auto again.
 			start: (agent, { model, settings }) =>
 				conversations.start(agent, {
 					task: named,
@@ -50,6 +51,7 @@ export class AutoRoutes {
 					model,
 					settings,
 					assigned: true,
+					auto: true,
 				}),
 		});
 		return Response.json(conversation.state);

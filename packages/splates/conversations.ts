@@ -223,6 +223,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			settings,
 			model,
 			assigned,
+			auto,
 			handedBy,
 			startedBy,
 		}: {
@@ -237,6 +238,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model?: string;
 			/** Whether a todo or `splates add --agent` assigned the agent and model. */
 			assigned?: boolean;
+			/** Whether Auto picked the agent and model. */
+			auto?: boolean;
 			/** The conversation that handed it its task, which it answers to. */
 			handedBy?: string | null;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
@@ -266,6 +269,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				settings,
 				model,
 				assigned,
+				auto,
 				handedBy,
 				startedBy,
 				skill: await installedVersion(this.fs, this.root ?? cwd),

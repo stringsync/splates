@@ -118,6 +118,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.startedBy ?? null,
 		);
 		state.skill = start.skill ?? null;
+		state.auto = start.auto ?? false;
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -425,6 +426,8 @@ type Said =
 			createdAt: string;
 			/** Missing from logs written before assignments were kept apart. */
 			assigned?: boolean;
+			/** Started on what Auto picked; missing for one it did not. */
+			auto?: boolean;
 			/** Who handed it its task; missing for one nobody did. */
 			handedBy?: string;
 			/** The lane orchestrator that handed it its task; missing for one nobody did. */

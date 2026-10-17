@@ -133,6 +133,7 @@ export function conversation(
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		auto: false,
 		unread: false,
 		seen: 0,
 		messages: [],
