@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
-import { FileLock, NodeFs, NodePs } from "webappwiz/system";
+import { FileLock, HeavyJobs, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
 import { Adherence } from "./adherence";
 import type { Config } from "./config";
@@ -14,7 +14,7 @@ import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
-import { HeavyJobs } from "./heavy";
+import { HEAVY_HELD } from "./heavy";
 import { Journal } from "./journal";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
@@ -124,16 +124,12 @@ export class Testing implements AsyncDisposable {
 			adherence: this.adherence,
 		});
 		this.shell = new Shell({ ps: this.ps });
-		this.heavy = new HeavyJobs(join(this.arborHome, "heavy.json"), {
+		this.heavy = HeavyJobs.under(this.arborHome, {
 			fs: this.fs,
 			ps: this.ps,
-			lock: new FileLock(join(this.arborHome, "heavy.lock"), {
-				fs: this.fs,
-				ps: this.ps,
-				log: this.log,
-			}),
 			log: this.log,
 			cap: 2,
+			held: HEAVY_HELD,
 		});
 		this.journal = new Journal(
 			join(this.arborDir, "log.jsonl"),

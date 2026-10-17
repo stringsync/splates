@@ -59,7 +59,12 @@ What it would look like, if the user chooses to sell (not planned):
    `@webappwiz/arbor/skills` and `@webappwiz/arbor/update`, and `wiz`
    imports `@webappwiz/arbor/heavy` and ships `skills/arbor`. What both
    need moves into `webappwiz` or `@webappwiz/cli`; the dependency then runs
-   one way, splates on webappwiz from npm.
+   one way, splates on webappwiz from npm. Done: `ProjectSkills` is
+   `webappwiz/skills`, the slots `HeavyJobs` in `webappwiz/system`;
+   `webappwiz update` tells a project with the arbor skill to run
+   `arbor update`; `packages/wiz/arbor.ts` holds what `wiz ship` and
+   `wiz eval` do for arbor, and `packages/wiz/heavy.ts` reads arbor's slot
+   names without importing it.
 2. **Extract with history** into `stringsync/splates` with
    `git filter-repo`, keeping the three paths, `packages/arbor` at the
    root. The repo setup comes along (biome, tsconfig, scry config and the

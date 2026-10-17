@@ -1,5 +1,5 @@
+import type { HeavyCap } from "webappwiz/system";
 import type { FakeChild, FakePs } from "webappwiz/system/testing";
-import type { HeavyCap } from "./heavy";
 
 /** Lets a `SharedBrowser`'s awaits run until it has started its `count`th MCP. */
 export async function served(

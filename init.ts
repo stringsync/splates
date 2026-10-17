@@ -3,7 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import type { Git } from "./git";
 import type { Projects } from "./projects";
 import { RUNNING } from "./release";
-import { ProjectSkills } from "./skills";
+import { projectSkills } from "./skills";
 
 /**
  * Makes this repository an arbor project: `repository` has set up its records
@@ -26,7 +26,7 @@ export async function init({
 	ps: Ps;
 	log: Logger;
 }): Promise<void> {
-	await new ProjectSkills(git.root, { fs, ps, log }).add(["arbor"], RUNNING);
+	await projectSkills(git.root, { fs, ps, log }).add(["arbor"], RUNNING);
 	if (await projects.register(git.root)) {
 		log.info(`${color.green("registered")} ${git.root} in ${projects.path}`);
 	} else {

@@ -5,10 +5,10 @@
  * caller can show it.
  */
 
+import type { HeavyJobsReading } from "webappwiz/system";
 import type { KeptCred, Scope } from "../creds";
 import type { PortLink } from "../dev-task-ports";
 import type { FileDiff } from "../diff";
-import type { HeavyJobsReading } from "../heavy";
 import type { Landed } from "../landed";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";

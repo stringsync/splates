@@ -1,5 +1,5 @@
 import type { Pusher, VapidKeys } from "webappwiz/push";
-import type { PortProvider } from "webappwiz/system";
+import type { HeavyCap, PortProvider } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import type { Config } from "./config";
 import type { Conversations } from "./conversations";
@@ -11,7 +11,6 @@ import type { TranscriberFor } from "./dev-transcriber";
 import type { TunnelConfig } from "./dev-tunnel";
 import type { DevWorkers } from "./dev-workers";
 import type { Git } from "./git";
-import type { HeavyCap } from "./heavy";
 import type { MachineSensors } from "./machine";
 import type { Slot } from "./slots";
 import type { WorkerMachine } from "./worker-machine";

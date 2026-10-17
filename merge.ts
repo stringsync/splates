@@ -1,10 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Fs, Lock } from "webappwiz/system";
+import type { Fs, HeavyCap, Lock } from "webappwiz/system";
 import type { Config } from "./config";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import type { HeavyCap } from "./heavy";
 import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";

@@ -3,7 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { lanesFromTags } from "./lanes-from-tags";
 import { moveSystems, typeConfig } from "./migrate-config";
 import { isNewer, RUNNING } from "./release";
-import { ProjectSkills } from "./skills";
+import { projectSkills } from "./skills";
 
 /**
  * Set in the environment of the arbor `update` hands itself to, so that one
@@ -54,10 +54,7 @@ export async function update({
 		}
 	}
 	await lanesFromTags({ dir: root, fs, ps, log });
-	await new ProjectSkills(root, { fs, ps, log }).add(
-		["arbor"],
-		release ?? RUNNING,
-	);
+	await projectSkills(root, { fs, ps, log }).add(["arbor"], release ?? RUNNING);
 	const code = await moveSystems({ root, fs, log });
 	await typeConfig({ root, fs, log });
 	return code;

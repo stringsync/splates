@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Fs, HeavyCap, Ps } from "webappwiz/system";
 import { fail } from "./exit";
-import { type HeavyCap, HeavyJobs } from "./heavy";
+import { heavyJobsOfMachine } from "./heavy";
 
 /**
  * Runs `argv` in one of the machine's heavy-job slots, waiting for one to
@@ -11,7 +11,7 @@ import { type HeavyCap, HeavyJobs } from "./heavy";
 export async function runHeavy(
 	ctx: { fs: Fs; ps: Ps; log: Logger },
 	argv: string[],
-	heavy: HeavyCap = HeavyJobs.ofMachine(ctx),
+	heavy: HeavyCap = heavyJobsOfMachine(ctx),
 ): Promise<number> {
 	if (argv.length === 0) {
 		fail("usage", "name the command to run: `arbor heavy -- <command>`", {});

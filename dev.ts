@@ -31,7 +31,7 @@ import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
 import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
-import { HeavyJobs } from "./heavy";
+import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
@@ -291,7 +291,7 @@ export async function dev(
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
-	const jobs = heavy ?? HeavyJobs.ofMachine({ fs, ps, log });
+	const jobs = heavy ?? heavyJobsOfMachine({ fs, ps, log });
 	const opencode = new OpenCodeSetupRoutes(
 		new OpenCodeSetup({ fs, ps, home: arborHome(ps) }),
 		ps,

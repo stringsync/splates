@@ -1,9 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
-import type { Fs } from "webappwiz/system";
+import type { Fs, HeavyCap } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import type { HeavyCap } from "./heavy";
 import { PLAN_FILE, STUB_STEP } from "./plan";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";

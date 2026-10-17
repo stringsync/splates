@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useState } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
+import type { HeavyJob } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
 import {
 	Popover,
@@ -7,7 +8,6 @@ import {
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { HeavyJob } from "../heavy";
 import { type MachineStatus, machine } from "./api";
 
 /** How often the page asks how the machine is doing, while in front. */

@@ -1,5 +1,6 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
+import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { Adherence } from "./adherence";
 import type { Config } from "./config";
@@ -7,7 +8,7 @@ import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
-import { type HeavyCap, HeavyJobs } from "./heavy";
+import { heavyJobsOfMachine } from "./heavy";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
@@ -244,7 +245,7 @@ export async function openRepository(
 	return {
 		projects,
 		slots: Slots.ofMachine({ fs, ps, log }),
-		heavy: HeavyJobs.ofMachine({ fs, ps, log }),
+		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		creds: await Creds.open(
 			arborDir,
 			git.root,

@@ -21,7 +21,7 @@ import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { fail } from "./exit";
 import { Git } from "./git";
-import { HeavyJobs } from "./heavy";
+import { heavyJobsOfMachine } from "./heavy";
 import { Limits } from "./limits";
 import { loadConfig } from "./load-config";
 import { Offered } from "./offered";
@@ -148,7 +148,7 @@ export async function serveDev(
 			fs: ctx.fs,
 			timer: new SystemTimer(),
 			log: ctx.log,
-			heavy: HeavyJobs.ofMachine(ctx),
+			heavy: heavyJobsOfMachine(ctx),
 		},
 		arborHome(ctx.ps),
 	);

@@ -20,9 +20,7 @@
 		"./probe-runtime": "./probe-runtime.ts",
 		"./testing/agent": "./fake-agent.ts",
 		"./config": "./config.ts",
-		"./heavy": "./heavy.ts",
 		"./skill-checks": "./skill-checks.ts",
-		"./skills": "./skills.ts",
 		"./systems": "./systems.ts",
 		"./tunnel-provider": "./tunnel-provider.ts",
 		"./update": "./update.ts"
