@@ -5,6 +5,7 @@ import { type Conversation, Conversations } from "./conversations";
 import { dev } from "./dev";
 import { json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
+import { CHECKPOINT, RESUME } from "./prompts";
 import { remove } from "./remove";
 import { Testing } from "./testing";
 
@@ -92,6 +93,49 @@ describe("dev conversations handed a task", () => {
 		expect((await stranger.json()).reason).toBe("usage");
 		expect(told.status).toBe(200);
 		expect(said).toEqual(["> **Keep it?**\n- (a) Keep it"]);
+	});
+
+	it("carries on from a checkpoint when the page resumes the conversation it answers to", async () => {
+		await handed.prompt(CHECKPOINT);
+		await orchestrator.prompt(CHECKPOINT);
+		await until(() => said.length === 2);
+		await handed.stop();
+		await orchestrator.stop();
+		const form = new FormData();
+		form.set("text", RESUME);
+		const resumed = await fetch(
+			`http://127.0.0.1:${server.port}/api/conversations/${orchestrator.id}/prompt`,
+			{
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${server.port}` },
+				body: form,
+			},
+		);
+		await until(() => said.length === 4);
+
+		expect(resumed.status).toBe(200);
+		expect(said).toEqual([CHECKPOINT, CHECKPOINT, RESUME, RESUME]);
+	});
+
+	it("stays stopped when the page resumes the conversation it answers to without a checkpoint", async () => {
+		await orchestrator.prompt(CHECKPOINT);
+		await until(() => said.length === 1);
+		await handed.stop();
+		await orchestrator.stop();
+		const form = new FormData();
+		form.set("text", RESUME);
+		await fetch(
+			`http://127.0.0.1:${server.port}/api/conversations/${orchestrator.id}/prompt`,
+			{
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${server.port}` },
+				body: form,
+			},
+		);
+		await until(() => said.length === 2);
+
+		expect(said).toEqual([CHECKPOINT, RESUME]);
+		expect(handed.state.status).toBe("stopped");
 	});
 
 	it("terminates its agent and tells the conversation that handed it out", async () => {

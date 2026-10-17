@@ -1,6 +1,8 @@
+import { paused } from "./conversation-messages";
 import type { Conversation, Conversations } from "./conversations";
 import type { Served } from "./dev-project";
 import type { Projects } from "./projects";
+import { RESUME } from "./prompts";
 
 /**
  * The conversations of every project `splates server` serves, so a conversation
@@ -63,6 +65,28 @@ export class Everywhere {
 		return (await this.placing.list()).find(
 			(each) => each.conversation.id === id,
 		);
+	}
+
+	/**
+	 * Tells each agent the conversation `id` handed a task to, and a
+	 * checkpoint stopped, to carry on with it, as that one is resumed: the
+	 * page shows such an agent read-only, and after a restart by hand nothing
+	 * else would. One that fails to come back is left failed, for the person
+	 * to open.
+	 */
+	async resumeHandedOut(id: string): Promise<void> {
+		for (const { conversation } of await this.placing.list()) {
+			const { handedBy, archived, status } = conversation.state;
+			if (
+				handedBy === id &&
+				!archived &&
+				status !== "running" &&
+				status !== "starting" &&
+				paused(conversation.state)
+			) {
+				void conversation.prompt(RESUME).catch(() => {});
+			}
+		}
 	}
 
 	/**

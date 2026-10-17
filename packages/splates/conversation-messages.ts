@@ -1,4 +1,11 @@
-import type { Attached, Image, Message, Sent } from "./conversation-state";
+import type {
+	Attached,
+	ConversationState,
+	Image,
+	Message,
+	Sent,
+} from "./conversation-state";
+import { CHECKPOINT, directive } from "./prompts";
 
 /** What the person said, `at`: what they sent with it, then their words. */
 export function said(
@@ -49,6 +56,17 @@ export function textOf(message: Message): string {
 	return message.parts
 		.map((part) => (part.type === "text" ? part.text : ""))
 		.join("");
+}
+
+/**
+ * Whether the person's last word to the conversation was its checkpoint, so
+ * `[SPLATES RESUME]` carries it on.
+ */
+export function paused({ messages }: ConversationState): boolean {
+	const last = messages.findLast(
+		(message) => message.role === "user" && message.queued !== true,
+	);
+	return last !== undefined && directive(textOf(last)) === CHECKPOINT;
 }
 
 /** Marks up to `count` queued messages as gone out, all by default. */

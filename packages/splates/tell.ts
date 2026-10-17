@@ -46,6 +46,13 @@ export async function tell(
 ): Promise<string> {
 	const url = ps.env("SPLATES_DEV");
 	const id = ps.env("SPLATES_CONVERSATION");
+	if (url === undefined && id !== undefined) {
+		fail(
+			"usage",
+			"SPLATES_DEV is not set, though SPLATES_CONVERSATION is: `splates server` started this agent without its url, so tell the user, who can stop and resume this conversation to give it one",
+			{ task },
+		);
+	}
 	if (url === undefined || id === undefined) {
 		fail(
 			"usage",

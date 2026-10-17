@@ -26,7 +26,7 @@ import {
 import type { Project } from "./dev-project";
 import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
-import { stoppedReference } from "./prompts";
+import { directive, RESUME, stoppedReference } from "./prompts";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its
@@ -236,10 +236,14 @@ export class ConversationRoutes {
 		const from = DEVICES.find(
 			(each) => each === request.headers.get(FROM_HEADER),
 		);
-		await conversation.prompt(String(form.get("text") ?? ""), files, from, {
+		const text = String(form.get("text") ?? "");
+		await conversation.prompt(text, files, from, {
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
 		});
+		if (directive(text) === RESUME) {
+			await this.#anywhere().resumeHandedOut(conversation.id);
+		}
 		return Response.json(conversation.state);
 	};
 

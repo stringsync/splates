@@ -87,6 +87,14 @@ describe("tell", () => {
 		});
 	});
 
+	it("names the url it misses in an agent of splates server that lost it", async () => {
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "orch" };
+
+		await expect(tell({ ...deps, send }, "alpha", "merge")).toBail("usage", {
+			message: "SPLATES_DEV is not set",
+		});
+	});
+
 	it("reports a task stopping to the conversation that handed it out", async () => {
 		runAs("agent");
 		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);

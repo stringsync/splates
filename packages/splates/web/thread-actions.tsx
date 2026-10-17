@@ -11,15 +11,9 @@ import {
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
-import { textOf } from "../conversation-messages";
+import { paused } from "../conversation-messages";
 import type { ConversationState } from "../conversations";
-import {
-	CHECKPOINT,
-	DEFER,
-	directive,
-	handoffToReference,
-	RESUME,
-} from "../prompts";
+import { DEFER, handoffToReference, RESUME } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import type { Action } from "./actions";
@@ -242,12 +236,4 @@ function pauseActions(
 					.catch((error: unknown) => refused("Not deferred", error)),
 		},
 	];
-}
-
-/** Whether the person's last word to the conversation was its checkpoint. */
-function paused({ messages }: ConversationState): boolean {
-	const last = messages.findLast(
-		(message) => message.role === "user" && message.queued !== true,
-	);
-	return last !== undefined && directive(textOf(last)) === CHECKPOINT;
 }
