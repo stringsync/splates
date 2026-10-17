@@ -18,6 +18,7 @@
 	"exports": {
 		".": "./index.ts",
 		"./asked": "./asked.ts",
+		"./auto-pick": "./auto-pick.ts",
 		"./probe-runtime": "./probe-runtime.ts",
 		"./testing/agent": "./fake-agent.ts",
 		"./config": "./config.ts",
