@@ -65,11 +65,39 @@ describe("App's projects", () => {
 		);
 		await waitFor(() => expect(view.getByText("/code/shop")).toBeTruthy());
 		await act(async () => fireEvent.change(find, { target: { value: "sh" } }));
-		expect(view.queryByText("/code/webappwiz")).toBeNull();
+		const projects = view.getByRole("list", { name: "projects" });
+		expect(within(projects).queryByText("/code/webappwiz")).toBeNull();
 		await act(async () => fireEvent.keyDown(find, { key: "Enter" }));
 
 		expect(testing.visited).toHaveLength(1);
 		expect(new URL(String(testing.visited[0])).search).toBe("?project=shop");
+	});
+
+	it("covers the page, and leaves nothing on it to use, while the pick opens", async () => {
+		const view = await testing.open();
+		await openSwitcher(view);
+		const trigger = view.getByRole("button", { name: /^Switch project/ });
+
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
+		);
+
+		const screen = within(document.body);
+		expect(screen.getByText("Opening shop").getAttribute("role")).toBe(
+			"status",
+		);
+		expect(trigger.closest<HTMLElement>("[inert]")).not.toBeNull();
+		await act(async () =>
+			// Back from the browser's cache: the test DOM's event has no
+			// `persisted` of its own.
+			dispatchEvent(
+				Object.defineProperty(new Event("pageshow"), "persisted", {
+					value: true,
+				}),
+			),
+		);
+		expect(screen.queryByText("Opening shop")).toBeNull();
+		expect(trigger.closest("[inert]")).toBeNull();
 	});
 
 	it("lists this machine's splates server and its slots, and opens the one picked", async () => {
@@ -175,11 +203,15 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
+		await openMenu(view, "shop");
 		const shop = await waitFor(() =>
-			view.getByRole("link", { name: "Open shop in Cursor" }),
+			view.getByRole("menuitem", { name: "Open in Cursor" }),
 		);
 		expect(shop.getAttribute("href")).toBe("cursor://file/code/shop");
-		expect(view.queryByRole("link", { name: "Open old in Cursor" })).toBeNull();
+		await act(async () => fireEvent.keyDown(shop, { key: "Escape" }));
+		await openMenu(view, "old");
+		await waitFor(() => view.getByRole("menuitem", { name: "Forget old" }));
+		expect(view.queryByRole("menuitem", { name: "Open in Cursor" })).toBeNull();
 		localStorage.clear();
 	});
 
@@ -187,8 +219,9 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
+		await openMenu(view, "old");
 		const forget = await waitFor(() =>
-			view.getByRole("button", { name: "Forget old" }),
+			view.getByRole("menuitem", { name: "Forget old" }),
 		);
 		await act(async () => fireEvent.click(forget));
 
@@ -202,10 +235,15 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
+		expect(
+			await waitFor(() =>
+				view.getByRole("button", { name: "More for webappwiz" }),
+			),
+		).toBeTruthy();
+		await openMenu(view, "shop");
 		const forget = await waitFor(() =>
-			view.getByRole("button", { name: "Forget shop" }),
+			view.getByRole("menuitem", { name: "Forget shop" }),
 		);
-		expect(view.getByRole("button", { name: "Forget webappwiz" })).toBeTruthy();
 		await act(async () => fireEvent.click(forget));
 
 		expect(testing.posts).toContainEqual(
@@ -220,9 +258,12 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
+		await openMenu(view, "shop");
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Forget shop" })),
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Forget shop" }),
+				),
 			),
 		);
 
@@ -239,9 +280,12 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
+		await openMenu(view, "shop");
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Forget shop" })),
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Forget shop" }),
+				),
 			),
 		);
 
@@ -378,5 +422,19 @@ describe("App's projects", () => {
 async function openSwitcher(view: ReturnType<typeof within>): Promise<void> {
 	await act(async () =>
 		fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
+	);
+}
+
+/** Opens the menu of the switcher's row for `slug`. */
+async function openMenu(
+	view: ReturnType<typeof within>,
+	slug: string,
+): Promise<void> {
+	await act(async () =>
+		fireEvent.click(
+			await waitFor(() =>
+				view.getByRole("button", { name: `More for ${slug}` }),
+			),
+		),
 	);
 }

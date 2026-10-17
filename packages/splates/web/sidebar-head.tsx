@@ -57,7 +57,7 @@ export function SidebarHead({
 			)}
 		>
 			<SlotMark snapshot={snapshot} />
-			<ProjectSwitcher name={name} />
+			<ProjectSwitcher name={name} className="flex-1" />
 			<BarButton
 				label={key === null ? label : `${label} (${key})`}
 				onClick={() => sidebar.toggle()}

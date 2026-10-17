@@ -97,6 +97,7 @@
 @source "./reference-chip.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
+@source "./leaving.tsx";
 @source "./checkpoint.tsx";
 @source "./checkpoint-asked.tsx";
 @source "./checkpoint-dialog.tsx";

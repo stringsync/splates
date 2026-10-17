@@ -72,9 +72,8 @@ describe("App at a project's address", () => {
 		const screen = within(document.body);
 		const status = await waitFor(() => screen.getByText("Opening shop"));
 		expect(status.getAttribute("role")).toBe("status");
-		expect(
-			screen.getByRole("button", { name: /^Switch project/ }).textContent,
-		).toBe("shop");
+		const trigger = screen.getByRole("button", { name: /^Switch project/ });
+		expect(within(trigger).getByRole("heading").textContent).toBe("shop");
 		arrive();
 		await opening;
 
