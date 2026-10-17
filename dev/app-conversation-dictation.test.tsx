@@ -58,6 +58,39 @@ describe("App's composer mic", () => {
 		expect(textIn(box)).toBe("something more");
 	});
 
+	it("stops with Escape from the editor and keeps the transcript without sending", async () => {
+		const { view, box } = await composer();
+		await typeIn(box, "Please");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		act(() => microphone.speak(" more"));
+
+		await act(async () => {
+			expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(false);
+		});
+
+		await waitFor(() => expect(textIn(box)).toBe("Please something more"));
+		expect(microphone.open).toBe(false);
+		expect(testing.posted(`/api/conversations/${talk.id}/prompt`)).toEqual([]);
+		expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(true);
+	});
+
+	it("stops startup with Escape as Cancel dictation does", async () => {
+		microphone.speak = () => {};
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		expect(view.getByRole("button", { name: "Cancel dictation" })).toBeTruthy();
+
+		await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
+
+		await waitFor(() => expect(testing.dictation?.state.phase).toBe("idle"));
+		expect(microphone.open).toBe(false);
+	});
+
 	it("keeps an edit made mid-take, appending the complete transcript", async () => {
 		const { view, box } = await composer();
 

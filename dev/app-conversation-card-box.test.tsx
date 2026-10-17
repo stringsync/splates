@@ -81,6 +81,31 @@ describe("App's card answer boxes", () => {
 		expect(textIn(answer(view, "2"))).toBe("something more");
 	});
 
+	it("stops a card's take with Escape even when focus moves to the message composer", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "2")).getByRole("button", { name: "Dictate" }),
+			),
+		);
+		await waitFor(() =>
+			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+		const composer = view.getByRole("textbox", { name: "Message input" });
+
+		await act(async () => {
+			composer.focus();
+			fireEvent.keyDown(composer, { key: "Escape" });
+		});
+
+		await waitFor(() =>
+			expect(textIn(answer(view, "2"))).toBe("something more"),
+		);
+		expect(textIn(composer)).toBe("");
+	});
+
 	it("keeps an edit made mid-take, appending the full transcript", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));

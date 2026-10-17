@@ -11,6 +11,7 @@ import {
 import { useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
 import { useDictateKey } from "./dictate-button";
+import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
 import { type Move, PageAddress } from "./page-address";
@@ -140,6 +141,7 @@ export function PageShortcuts({
 	useFullscreenKey();
 	useAttachKey();
 	useDictateKey();
+	useEscapeStopsDictation();
 	return null;
 }
 
