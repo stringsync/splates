@@ -128,7 +128,13 @@ describe("App's composer mic", () => {
 			fireEvent.click(view.getByRole("button", { name: "Stop dictation" })),
 		);
 		expect(textIn(box)).toBe("Please");
-		expect(view.getByText("Transcribing").className).toContain("shimmer");
+		expect(view.getByText("Transcribing").className).toContain("sr-only");
+		expect(view.container.querySelector(".dictation-waveform")).not.toBeNull();
+		expect(
+			view
+				.getByRole("button", { name: "Transcribing" })
+				.querySelector(".lucide-loader-circle"),
+		).not.toBeNull();
 		await act(async () => {
 			fireEvent.click(view.getByRole("button", { name: "Send message" }));
 			fireEvent.click(view.getByRole("button", { name: "Send message" }));
@@ -187,13 +193,19 @@ describe("App's composer mic", () => {
 		expect(textIn(box)).toBe("Please something");
 	});
 
-	it("shows Starting immediately while the microphone is opening", async () => {
+	it("keeps startup text accessible while showing a waveform and loading control", async () => {
 		microphone.speak = () => {};
 		const { view } = await composer();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
 		);
-		expect(view.getByText("Starting").className).toContain("shimmer");
+		expect(view.getByText("Starting").className).toContain("sr-only");
+		expect(view.container.querySelector(".dictation-waveform")).not.toBeNull();
+		expect(
+			view
+				.getByRole("button", { name: "Cancel dictation" })
+				.querySelector(".lucide-loader-circle"),
+		).not.toBeNull();
 	});
 
 	it("starts and stops a take with ⌥⌘V", async () => {

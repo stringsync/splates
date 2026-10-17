@@ -1,6 +1,11 @@
 import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
 import { useReactive } from "@webappwiz/react";
-import { MicIcon, MicOffIcon, SquareIcon } from "lucide-react";
+import {
+	LoaderCircleIcon,
+	MicIcon,
+	MicOffIcon,
+	SquareIcon,
+} from "lucide-react";
 import { useContext } from "react";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
@@ -96,8 +101,20 @@ function Mic({ dictation }: { dictation: Dictation }) {
 				/>
 			}
 		>
-			<SquareIcon className="fill-current" />
+			<DictationControl phase={phase} />
 		</ComposerPrimitive.StopDictation>
+	);
+}
+
+/** Waiting stays in the control, leaving the waveform strip undisturbed. */
+function DictationControl({ phase }: { phase: DictationPhase }) {
+	return phase === "recording" ? (
+		<SquareIcon aria-hidden="true" className="fill-current" />
+	) : (
+		<LoaderCircleIcon
+			aria-hidden="true"
+			className="animate-spin motion-reduce:animate-none"
+		/>
 	);
 }
 
@@ -141,7 +158,7 @@ export function BoxMic({ box }: { box: BoxDictation }) {
 			{held && key !== null && !live ? (
 				<Kbd aria-hidden>{key}</Kbd>
 			) : live ? (
-				<SquareIcon className="fill-current" />
+				<DictationControl phase={phase} />
 			) : phase === "denied" ? (
 				<MicOffIcon className="size-4 pointer-coarse:size-5" />
 			) : (

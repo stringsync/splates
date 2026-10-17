@@ -16,8 +16,8 @@ import { COMPOSER, type Dictation, type DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
 
 /**
- * What the mic is doing, in words, so no state rests on color or motion
- * alone, each a word or two so it fits beside the controls on a phone.
+ * Screen-reader announcements for the mic state. Waiting states use the
+ * waveform and a loading control rather than centered status text.
  */
 const WORDS: Partial<Record<DictationPhase, string>> = {
 	asking: "Starting",
@@ -67,28 +67,19 @@ function Status({
 			)}
 			data-phase={phase}
 		>
-			{phase === "recording" && (
-				<>
-					<span
-						aria-hidden="true"
-						className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-opacity duration-75 motion-reduce:transition-none"
-						style={{ opacity: 0.2 + Math.sqrt(level) * 0.8 }}
-					/>
-					<Waveform levels={levels} expanded={expanded} />
-				</>
-			)}
+			<span
+				aria-hidden="true"
+				className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-opacity duration-75 motion-reduce:transition-none"
+				style={{ opacity: 0.2 + Math.sqrt(level) * 0.8 }}
+			/>
+			<Waveform levels={levels} expanded={expanded} />
 			<span
 				aria-live="polite"
-				className={cn(
-					"truncate",
-					expanded &&
-						phase !== "recording" &&
-						"pointer-events-none absolute inset-x-0 text-center",
-					phase === "recording" && silent && "absolute inset-x-0 text-center",
-					phase === "recording" && !silent
-						? "sr-only"
-						: phase !== "recording" && "shimmer motion-reduce:animate-none",
-				)}
+				className={
+					phase === "recording" && silent
+						? "absolute inset-x-0 text-center truncate"
+						: "sr-only"
+				}
 			>
 				{phase === "recording" && silent ? (
 					<span className="bg-background/90 rounded px-2 text-amber-600 dark:text-amber-400">
