@@ -4,6 +4,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState, Setting, Tool } from "../conversations";
 import { AskPanel } from "./ask-panel";
+import { touchButton } from "./board";
 import { terminateConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import type { Drafts } from "./drafts";
@@ -91,6 +92,7 @@ export function HandedOut({
 					<Button
 						variant="outline"
 						size="sm"
+						className={touchButton}
 						onClick={() =>
 							void attempt(
 								terminateConversation(conversation.id),

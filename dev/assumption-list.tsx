@@ -23,6 +23,7 @@ import {
 	replyOf,
 	takenOf,
 } from "../reply";
+import { touchButton } from "./board";
 import { WhyLine, WhySwitch } from "./choice-body";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
@@ -102,7 +103,7 @@ export function AssumptionList({
 								onAnswer(assumed, takenOf(assumed));
 								toggle(assumed.number, false);
 							}}
-							className="shrink-0 text-muted-foreground"
+							className={cn("shrink-0 text-muted-foreground", touchButton)}
 						>
 							<UndoIcon data-icon="inline-start" />
 							Keep
@@ -337,7 +338,12 @@ export function AssumptionsChanged({
 						: `Reloading keeps your challenges to those still there, and drops ${dropped === 1 ? "the one" : dropped} now gone.`}
 				</span>
 			</span>
-			<Button size="xs" variant="outline" onClick={onReload}>
+			<Button
+				size="xs"
+				variant="outline"
+				onClick={onReload}
+				className={touchButton}
+			>
 				<RotateCwIcon data-icon="inline-start" />
 				Reload
 			</Button>
@@ -426,7 +432,7 @@ function AssumptionRow({
 			// Its name, for where it shows as an icon alone.
 			title="Challenge"
 			onClick={onChallenge}
-			className="shrink-0 text-muted-foreground"
+			className={cn("shrink-0 text-muted-foreground", touchButton)}
 		>
 			<MessageSquareWarningIcon data-icon="inline-start" />
 			<span className="hidden @sm:inline">Challenge</span>

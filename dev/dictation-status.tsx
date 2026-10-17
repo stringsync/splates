@@ -100,7 +100,7 @@ function Notice({ dictation, by }: { dictation: Dictation; by: string }) {
 				type="button"
 				variant="ghost"
 				size="icon"
-				className="text-muted-foreground size-6 shrink-0 rounded-full"
+				className="text-muted-foreground size-6 pointer-coarse:size-10 shrink-0 rounded-full"
 				aria-label="Dismiss"
 				onClick={() => dictation.dismiss()}
 			>

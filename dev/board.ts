@@ -80,6 +80,13 @@ export const still = {
 export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
 
 /**
+ * A small button at a finger's height on a touch screen: the size a card's
+ * call to action takes there, such as a review's Merge, so every button in
+ * the conversation a person taps reads as one size.
+ */
+export const touchButton = "pointer-coarse:h-10 pointer-coarse:px-3";
+
+/**
  * A small control in a line of text, its tap target stretched to a finger's
  * height on a touch screen without moving the text around it. The control
  * has to be `relative`.

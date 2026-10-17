@@ -6,6 +6,7 @@ import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
 import type { Message } from "../conversations";
 import { leadingDirectives } from "../prompts";
+import { touchButton } from "./board";
 import { focusComposer } from "./composer-editor";
 import {
 	conversationAttachment,
@@ -52,7 +53,12 @@ export function Queued({
 					Queued for when the agent's turn ends
 				</h3>
 				{edits !== null && (
-					<Button size="xs" variant="outline" onClick={edits.onSendNow}>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={edits.onSendNow}
+						className={touchButton}
+					>
 						<SendHorizontalIcon />
 						Send now
 						{empty && !touch && (
@@ -113,6 +119,7 @@ export function Queued({
 									<Button
 										size="icon-xs"
 										variant="ghost"
+										className="pointer-coarse:size-10"
 										aria-label={`Edit ${label}`}
 										disabled={unrecorded}
 										onClick={() => edits.onEdit(index)}
@@ -122,6 +129,7 @@ export function Queued({
 									<Button
 										size="icon-xs"
 										variant="ghost"
+										className="pointer-coarse:size-10"
 										aria-label={`Discard ${label}`}
 										disabled={unrecorded}
 										onClick={() => edits.onDiscard(index)}

@@ -20,6 +20,7 @@ import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
+import { touchButton } from "./board";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
 import { Hearing, hears } from "./check-in";
@@ -490,7 +491,7 @@ function ArchiveBar({
 				size="sm"
 				variant="outline"
 				onClick={onArchive}
-				className="ml-auto h-7 gap-1.5 bg-background"
+				className={cn("ml-auto h-7 gap-1.5 bg-background", touchButton)}
 			>
 				<ArchiveIcon data-icon="inline-start" />
 				Archive

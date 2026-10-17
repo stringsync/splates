@@ -332,7 +332,7 @@ export function NeedsYouBar(): ReactNode {
  */
 function Answer(): JSX.Element {
 	return (
-		<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium text-sm shadow-xs group-active:bg-muted">
+		<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium text-[0.8rem] shadow-xs group-active:bg-muted pointer-coarse:h-10 pointer-coarse:pr-2 pointer-coarse:pl-3">
 			Answer
 			<ChevronRightIcon className="size-4 text-muted-foreground" />
 		</span>
