@@ -441,17 +441,21 @@ export class AgentConnection {
 					host.log.write({ kind: "update", update, at });
 					fold(host.state, update, at);
 				}
-				const answer = await this.ask({
-					type: "permission",
-					id: toolCall.toolCallId,
-					title,
-					options: params.options.map((option) => ({
-						id: option.optionId,
-						name: option.name,
-						kind: option.kind,
-					})),
-				});
-				this.decided(toolCall.toolCallId, params.options, answer);
+				const askedAt = host.now();
+				const answer = await this.ask(
+					{
+						type: "permission",
+						id: toolCall.toolCallId,
+						title,
+						options: params.options.map((option) => ({
+							id: option.optionId,
+							name: option.name,
+							kind: option.kind,
+						})),
+					},
+					askedAt,
+				);
+				this.decided(toolCall.toolCallId, params.options, answer, askedAt);
 				return answer.type === "permission"
 					? { outcome: { outcome: "selected", optionId: answer.option } }
 					: { outcome: { outcome: "cancelled" } };
@@ -541,6 +545,7 @@ export class AgentConnection {
 		id: string,
 		options: acp.PermissionOption[],
 		answer: Answer,
+		askedAt: string,
 	): void {
 		const { host } = this;
 		const tool = toolIn(host.state, id);
@@ -552,6 +557,7 @@ export class AgentConnection {
 				? options.find((option) => option.optionId === answer.option)
 				: undefined;
 		const decision: Decision = {
+			askedAt,
 			option:
 				picked === undefined ? null : { name: picked.name, kind: picked.kind },
 			at: host.now(),
@@ -562,11 +568,11 @@ export class AgentConnection {
 	}
 
 	/** Holds `asked` until the person answers it, or the turn is cancelled. */
-	private ask(asked: Asked): Promise<Answer> {
+	private ask(asked: Asked, at = this.host.now()): Promise<Answer> {
 		this.settle?.({ type: "dismiss" });
 		return new Promise((resolve) => {
 			this.settle = resolve;
-			this.host.set({ ask: { ...asked, at: this.host.now() } });
+			this.host.set({ ask: { ...asked, at } });
 		});
 	}
 }

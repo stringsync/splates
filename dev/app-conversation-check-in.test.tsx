@@ -42,6 +42,24 @@ describe("App's check-in on a long turn", () => {
 		]);
 	});
 
+	it("freezes working time at a pending permission request", async () => {
+		const state = workingFor(12);
+		const view = await testing.openConversations([
+			{
+				...state,
+				ask: {
+					type: "permission",
+					id: "t1",
+					at: new Date(Date.now() - 4 * 60_000).toISOString(),
+					title: "bun test",
+					options: [],
+				},
+			},
+		]);
+		await waitFor(() => view.getByText("Working 8m 0s"));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
+
 	it("offers none before ten minutes", async () => {
 		const view = await testing.openConversations([workingFor(8)]);
 		await waitFor(() => view.getByText(/^Working 8m/));

@@ -70,6 +70,11 @@ export function useThreadMessages(
 				now,
 				conversation.lastTask,
 				happened[index],
+				writing &&
+					index === said.length - 1 &&
+					conversation.ask?.type === "permission"
+					? conversation.ask.at
+					: null,
 			),
 		);
 		// The reply's place while the agent has yet to say anything, under the
@@ -108,6 +113,7 @@ export function useThreadMessages(
 		];
 	}, [
 		conversation.messages,
+		conversation.ask,
 		conversation.events,
 		conversation.id,
 		conversation.lastTask,
@@ -178,6 +184,7 @@ export function like(
 	task: string | null = null,
 	/** What arbor did at the agent's word in this turn, oldest first. */
 	events: readonly Event[] = [],
+	waiting: string | null = null,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -210,7 +217,7 @@ export function like(
 	// Its work and the words it said along the way as one row, but for its
 	// word that it added a task, then the last thing it said. Once the turn is
 	// over, that is its reply, read for cards, even with tool calls after it.
-	const all = stretchesOf(message, began, !settled, now, events);
+	const all = stretchesOf(message, began, !settled, now, events, waiting);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,

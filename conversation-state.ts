@@ -285,6 +285,8 @@ export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
 /** How the person answered an agent asking permission for a tool call. */
 export interface Decision {
+	/** When permission was requested; absent in older logs. */
+	askedAt?: string;
 	/** The option they picked; null for an ask dismissed, as by stopping the turn. */
 	option: { name: string; kind: string } | null;
 	at: string;

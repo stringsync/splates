@@ -3,12 +3,15 @@ import { stretches } from "../asked";
 import type { Decision, Message, Part, Step, Tool } from "../conversations";
 import type { Event } from "../events";
 import type { Flag } from "../watch";
+import { workingSpan } from "./work-time";
 
 /**
  * What an agent did before its reply: its thoughts, its tool calls, and the
  * words it said between them, which the page folds into one row.
  */
 export interface Work {
+	/** Permission waits across this turn, clipped to this row when timed. */
+	waits?: { from: string; to: string | null }[];
 	/** Its thoughts, tool calls, and words, in the order it went. */
 	parts: Part[];
 	/** The turn's plan, on its last row; null on the others. */
@@ -56,6 +59,7 @@ export function stretchesOf(
 	now = Number.POSITIVE_INFINITY,
 	/** What arbor did at its word during it, oldest first. */
 	events: readonly Event[] = [],
+	waiting: string | null = null,
 ): Stretch[] {
 	const parts = spoken(message);
 	// While the turn goes on, words with work after them were on the way, and
@@ -109,6 +113,14 @@ export function stretchesOf(
 			type: "work",
 			work: {
 				parts: run,
+				waits: [
+					...message.parts.flatMap((part) =>
+						part.type === "tool" && part.decision?.askedAt != null
+							? [{ from: part.decision.askedAt, to: part.decision.at }]
+							: [],
+					),
+					...(waiting === null ? [] : [{ from: waiting, to: null }]),
+				],
 				plan: run === final ? message.plan : null,
 				at: run === works[0] ? began : startOf(run),
 				until:
@@ -562,7 +574,7 @@ export function warning(flag: Flag): string {
 export function worked(work: Work): string {
 	return work.at === null || work.until === null
 		? "Worked"
-		: `Worked ${span(work.at, work.until)}`;
+		: `Worked ${workingSpan(work, work.until)}`;
 }
 
 /** How long from `from` to `to`, to the second: "41s", "2m 14s", "1h 3m". */

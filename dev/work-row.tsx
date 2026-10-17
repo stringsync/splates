@@ -4,6 +4,7 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	LoaderIcon,
+	ShieldIcon,
 	SquareIcon,
 	TriangleAlertIcon,
 	UnplugIcon,
@@ -20,13 +21,13 @@ import {
 	flagged,
 	label,
 	relative,
-	span,
 	type Trees,
 	timeline,
 	type Work,
 	warning,
 	worked,
 } from "./work";
+import { workingSpan } from "./work-time";
 import { Going, TimelineItem } from "./work-timeline";
 
 /**
@@ -76,7 +77,8 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	// It counts up only once the agent has moved, so the row never sits at
 	// 0s while the agent has yet to start.
 	const since = work.until === null ? null : work.at;
-	const now = useNow(work.working && since !== null);
+	const waiting = work.waits?.some((wait) => wait.to === null) ?? false;
+	const now = useNow(work.working && since !== null && !waiting);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -109,7 +111,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								? worked(work)
 								: since === null
 									? "Working"
-									: `Working ${span(since, now)}`}
+									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
 					</summary>
 					<ol
@@ -122,20 +124,35 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								<Plan steps={work.plan} />
 							</li>
 						)}
-						{items.map((item, index) => (
-							<li
-								// The timeline only grows at its end, so an index is stable.
-								// biome-ignore lint/suspicious/noArrayIndexKey: as above
-								key={index}
-								// The agent's words stand apart from the calls around them.
-								className={cn(item.type === "said" && "py-2")}
-							>
-								<TimelineItem item={item} short={short} />
-							</li>
-						))}
+						{items
+							.filter((item) => item.type !== "decision")
+							.map((item, index) => (
+								<li
+									// The timeline only grows at its end, so an index is stable.
+									// biome-ignore lint/suspicious/noArrayIndexKey: as above
+									key={index}
+									// The agent's words stand apart from the calls around them.
+									className={cn(item.type === "said" && "py-2")}
+								>
+									<TimelineItem item={item} short={short} />
+								</li>
+							))}
 					</ol>
 				</details>
-				{work.working && since !== null && (
+				{items
+					.filter((item) => item.type === "decision")
+					.map((item, index) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: decisions retain their order
+							key={index}
+							data-slot="permission-decision"
+							className="flex items-center gap-1.5 text-muted-foreground text-sm"
+						>
+							<ShieldIcon className="size-3 shrink-0" />
+							<TimelineItem item={item} short={short} />
+						</div>
+					))}
+				{work.working && !waiting && since !== null && (
 					<InMessage>
 						<CheckIn since={latest(since, work.replied)} now={now} />
 					</InMessage>
