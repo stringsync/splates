@@ -43,7 +43,7 @@ export interface BarFrame {
 	badge?: ReactNode;
 	/**
 	 * Heads every bar with no way back in place of its title, as the phone's
-	 * project switcher atop each page its drawer goes to.
+	 * slot mark atop each page its drawer goes to.
 	 */
 	project?: ReactNode;
 }

@@ -760,12 +760,12 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("heads the inbox and every page the menu opens with the slot's mark and the project switcher", async () => {
+	it("keeps the project switcher in the drawer alone, with the slot mark in mobile headers", async () => {
 		const view = await testing.openConversations([], null);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		expect(
-			within(inbox).getByRole("button", { name: "Switch project" }),
-		).toBeTruthy();
+			within(inbox).queryByRole("button", { name: "Switch project" }),
+		).toBeNull();
 		expect(within(inbox).getByRole("img", { name: "arbor" })).toBeTruthy();
 
 		await act(async () =>
@@ -774,6 +774,9 @@ describe("App on a phone", () => {
 		const drawer = await waitFor(() =>
 			view.getByRole("dialog", { name: "Pages" }),
 		);
+		expect(
+			within(drawer).getByRole("button", { name: "Switch project" }),
+		).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);
@@ -786,8 +789,8 @@ describe("App on a phone", () => {
 		});
 		await waitFor(() =>
 			expect(
-				within(bar).getByRole("button", { name: "Switch project" }),
-			).toBeTruthy(),
+				within(bar).queryByRole("button", { name: "Switch project" }),
+			).toBeNull(),
 		);
 		expect(within(bar).getByRole("img", { name: "arbor" })).toBeTruthy();
 		expect(within(bar).queryByRole("heading", { name: "Stats" })).toBeNull();

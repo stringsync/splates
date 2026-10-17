@@ -48,8 +48,7 @@ import { unanswered } from "./unanswered";
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
- * left archives it, asking first as Archive does. The project's name picks
- * another project, the menu opens the drawer, and the pen, like the composer
+ * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen, like the composer
  * along the bottom, starts a new conversation. Under each conversation, as in
  * the sidebar, sit its terminal while its shell is up and each command its
  * agent left running, each opening the conversation with it on the screen.
@@ -70,9 +69,9 @@ export function Inbox({
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
-	/** The project's switcher, heading the inbox. */
+	/** The slot mark, heading the inbox. */
 	project: ReactNode;
-	/** Whether the server is offline or outdated, said beside the switcher. */
+	/** Whether the server is offline or outdated, said beside the slot mark. */
 	status: ReactNode;
 	onMenu: () => void;
 	onOpen: (id: string) => void;

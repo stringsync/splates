@@ -479,7 +479,6 @@ export function App({
 																				page={page}
 																				open={open}
 																				go={go}
-																				name={name}
 																				header={header}
 																				offline={offline}
 																				body={
