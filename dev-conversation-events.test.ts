@@ -25,13 +25,31 @@ describe("conversation events", () => {
 		// Logged before the server opened the project.
 		await claimed("alpha", conversation.id);
 		await claimed("external", null);
+		// The OS takes a moment to start a watch, and drops what is written in
+		// that moment, so the test writes nothing it counts until one has fired.
+		let heard = 0;
+		const fs = Object.create(deps.fs) as Testing["fs"];
+		fs.watch = (path, onChange, opts) =>
+			deps.fs.watch(
+				path,
+				(changed) => {
+					heard++;
+					onChange(changed);
+				},
+				opts,
+			);
 		following = await ConversationEvents.follow({
 			journal: deps.journal,
 			conversations,
-			fs: deps.fs,
+			fs,
 			arborDir: deps.arborDir,
 			log: deps.log,
 		});
+		for (let i = 0; i < 500 && heard === 0; i++) {
+			await claimed("primer", null);
+			await Bun.sleep(10);
+		}
+		expect(heard).toBeGreaterThan(0);
 	});
 
 	afterEach(async () => {

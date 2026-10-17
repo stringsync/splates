@@ -56,6 +56,8 @@ export class ConversationEvents implements Resource {
 		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER));
 		try {
 			following.#watching = fs.watch(arborDir, () => following.changed());
+			// Anything logged between the read above and the watch starting.
+			await following.changed();
 		} catch (error) {
 			log.error(
 				`arbor dev cannot watch ${arborDir}, so arbor's events show in a conversation only once the server restarts: ${String(error)}`,
