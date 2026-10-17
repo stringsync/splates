@@ -98,7 +98,7 @@ export function Queued({
 							// each one's words are what the person sees.
 							// biome-ignore lint/suspicious/noArrayIndexKey: see above
 							key={index}
-							className="group/queued flex items-center gap-2 rounded-lg py-1 pr-1 pl-2 hover:bg-foreground/[0.04]"
+							className="flex items-center gap-2 rounded-lg py-1 pr-1 pl-2"
 						>
 							{images.map((image) => (
 								<img
@@ -118,7 +118,7 @@ export function Queued({
 								<>
 									<Button
 										size="icon-xs"
-										variant="ghost"
+										variant="outline"
 										className="pointer-coarse:size-10"
 										aria-label={`Edit ${label}`}
 										disabled={unrecorded}
@@ -128,7 +128,7 @@ export function Queued({
 									</Button>
 									<Button
 										size="icon-xs"
-										variant="ghost"
+										variant="outline"
 										className="pointer-coarse:size-10"
 										aria-label={`Discard ${label}`}
 										disabled={unrecorded}
