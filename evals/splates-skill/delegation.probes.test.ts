@@ -7,7 +7,7 @@ import {
 	handoffReference,
 	handoffToReference,
 	reportReference,
-} from "../../prompts";
+} from "../../packages/splates/prompts";
 import module from "./delegation.probes";
 import { assess, type Event, type Evidence, type Probe } from "./probe";
 import { cliAdapter } from "./probe-adapters";

@@ -8,7 +8,7 @@ import {
 import { CORE, type Scenario } from "./scenario";
 
 // The scenarios that resume a task already planned, retry-413, and send it a
-// directive from the `splates dev` page as their second turn.
+// directive from the `splates server` page as their second turn.
 
 /** The prompt that claims the planned task, stopping before any code changes. */
 const PICK_UP =

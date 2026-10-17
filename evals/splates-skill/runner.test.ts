@@ -675,7 +675,7 @@ async function options(extra: Partial<RunOptions> = {}): Promise<RunOptions> {
 		reps: 1,
 		skillHash: "skill",
 		cliHash: "cli",
-		reproduction: ["bin/wiz", "dev", "eval", "fast"],
+		reproduction: ["bin/splates", "dev", "eval", "fast"],
 		...extra,
 	};
 }

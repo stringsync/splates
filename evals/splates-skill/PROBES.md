@@ -3,7 +3,7 @@
 `probe.ts` is the public seam for #338 and the aspect modules. Import `Probe`,
 `Evidence`, `ProbeRun`, `Assertion`, and `assess`. It is pure and synchronous;
 it imports the production reply parser, but no legacy grader, agent SDK,
-fixture runner or model. Its free fixtures run with `bin/wiz dev test`.
+fixture runner or model. Its free fixtures run with `splates dev test`.
 The runnable integration and stable aspect-module seam are in [RUNNER.md](RUNNER.md).
 
 Each probe names one skill requirement (stable id, text and source), its

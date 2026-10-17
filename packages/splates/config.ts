@@ -1,0 +1,103 @@
+import type { TunnelProvider } from "./tunnel-provider";
+
+export interface Config {
+	/**
+	 * The integration branch name. `merge` rebases a task onto this branch and
+	 * then fast-forwards it to the result; new worktrees start from it.
+	 */
+	trunk: string;
+	/** Directory holding one worktree per task, a sibling of the repo. */
+	worktreeRoot: string;
+	/** Command run by `add` in the new worktree, via `sh -c`. */
+	postCheckout: string | null;
+	/**
+	 * Command run by `merge` after the rebase, before `preMerge`, via `sh -c`.
+	 * A rebase can bring in a dependency the worktree has never installed, and
+	 * whatever `preMerge` runs needs it.
+	 */
+	postRewrite: string | null;
+	/**
+	 * Command run by `merge` after the rebase, via `sh -c`. The last gate before
+	 * the branch lands: a nonzero exit rolls the branch back and leaves the base
+	 * untouched. Tests are the obvious thing to put here, but splates has no
+	 * opinion; a repo with nothing to run leaves it null and merges on a green
+	 * rebase alone.
+	 */
+	preMerge: string | null;
+	/** How long since its last heartbeat before a task's lease is up for grabs. */
+	leaseStalenessMs: number;
+	/**
+	 * How many agents one agent may have started at once: the tasks it
+	 * handed out with `splates add --agent` and that are still out. A lane
+	 * orchestrator hands out every todo that can go, each to an agent of
+	 * its own. Past it, `add --agent` refuses, unless the person asked for
+	 * more and it passes `--over-capacity`.
+	 */
+	agentsPerAgent: number;
+	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
+	mergeRetryCount: number;
+	/**
+	 * How many removed task names to keep, so `remove` can say "already removed"
+	 * rather than "never existed". A flat cap with no age policy: losing the
+	 * oldest costs a nicer message and nothing else.
+	 */
+	removedCapacity: number;
+	/**
+	 * How many events the log holds before it is moved aside and a fresh one
+	 * starts; moved files are kept for `LOG_KEPT_MS` (`journal.ts`).
+	 */
+	logCapacity: number;
+	/**
+	 * How long a todo can wait before `merge` stops recommending it and offers
+	 * it for removal instead: work deferred that long has usually been done
+	 * some other way, or stopped mattering.
+	 */
+	todoStalenessMs: number;
+	/**
+	 * How many bytes of files `splates attach` lets one task hold, all of them
+	 * together: a screen recording is the one thing here that grows fast.
+	 */
+	attachmentCapacity: number;
+	/** How many bytes one artifact a conversation keeps may be (`artifacts.ts`). */
+	artifactFileCapacity: number;
+	/**
+	 * How many bytes of artifacts one conversation may keep, every version
+	 * whose bytes have not been deleted.
+	 */
+	artifactConversationCapacity: number;
+	/** How many bytes of artifacts every conversation in the project may keep together. */
+	artifactProjectCapacity: number;
+	/**
+	 * The command the `splates server` Budget page runs `scry budgets` with, from
+	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
+	 * name a wrapper of the repo's own otherwise, like `"./bin/splates dev"`.
+	 */
+	wiz: string;
+	/**
+	 * What carries `splates server --tunnel` to its public host, a TunnelProvider
+	 * of your own for any tunnel; null runs `cloudflared`.
+	 */
+	tunnel: TunnelProvider | null;
+}
+
+/**
+ * What `splates.config.ts` exports as its default, typed by a type-only import
+ * so a reader can import the file without splates installed:
+ *
+ * ```ts
+ * import type { ConfigFile } from "splates/config";
+ *
+ * export default { preMerge: "bun test" } satisfies ConfigFile;
+ * ```
+ */
+export type ConfigFile = Partial<Config>;
+
+/**
+ * Types a config written before `ConfigFile`, which wraps its default in
+ * `defineConfig(...)`, so it still loads until `splates update` rewrites it.
+ *
+ * @deprecated `satisfies ConfigFile` instead.
+ */
+export function defineConfig(config: Partial<Config>): Partial<Config> {
+	return config;
+}

@@ -101,9 +101,9 @@ All examples are instructions for a later explicitly authorized run, not command
 executed during implementation. With current ACP these report unsupported.
 
 ```sh
-bin/wiz dev eval fast --probe discovery/implicit --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval fast --aspect discovery --requirement discovery-explicit --target codex:gpt-6-astra --parallel 1 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval report --directory /path/to/results
+splates dev eval fast --probe discovery/implicit --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval fast --aspect discovery --requirement discovery-explicit --target codex:gpt-6-astra --parallel 1 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval report --directory /path/to/results
 ```
 
 `--allow-unmetered` does not enforce a token/spend ceiling. Compare only identical

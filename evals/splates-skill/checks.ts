@@ -17,9 +17,9 @@ export interface EvalRun {
 }
 
 /**
- * The checks every scenario runs: `skill-checks`, which `splates dev` runs on
+ * The checks every scenario runs: `skill-checks`, which `splates server` runs on
  * real conversations too, then the ones only an eval can tell, since they
- * need the repository a run left behind or the reads `splates dev` does not
+ * need the repository a run left behind or the reads `splates server` does not
  * keep.
  */
 export const COMMON: readonly EvalCheck[] = [

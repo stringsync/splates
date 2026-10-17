@@ -1,0 +1,406 @@
+import {
+	CheckIcon,
+	ChevronsUpDownIcon,
+	ExternalLinkIcon,
+	HouseIcon,
+	PlusIcon,
+	XIcon,
+} from "lucide-react";
+import {
+	type JSX,
+	use,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
+import { Button, buttonVariants } from "#dev/components/ui/button.tsx";
+import { Input } from "#dev/components/ui/input.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "#dev/components/ui/popover.tsx";
+import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
+import { cn } from "#dev/lib/utils.ts";
+import type { ServerChoice } from "../dev-servers";
+import { AddProject } from "./add-project";
+import { Dot } from "./dot";
+import { NavigationContext } from "./navigation";
+import { OpenerContext } from "./openers";
+import {
+	focusProject,
+	forgetProject,
+	listProjects,
+	type ProjectChoice,
+} from "./project-api";
+import {
+	placeOf,
+	projectUrl,
+	rememberPlace,
+	shownProject,
+} from "./project-places";
+import { Refusal, useRefusal } from "./refusal";
+import { TITLE } from "./top-bar";
+
+/**
+ * How often the projects are asked again, while the tab shows, for the
+ * switcher to say when another one has agents waiting on you.
+ */
+const LISTED = Duration.secs(15);
+
+/**
+ * The project's name, heading the page, as a picker of every project on this
+ * machine, each marked with how many agents wait on you there: its
+ * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
+ * while another project has agents waiting on you. Below them, when this
+ * machine runs slots, every `splates server` it has a host for, picked to open
+ * that one's page instead. Last, a way to add a project by its path. Each
+ * project opens in the editor Settings names, too.
+ */
+export function ProjectSwitcher({
+	name,
+	keyed = true,
+}: {
+	name: string;
+	/** Whether its shortcut opens it: false for a second on the page, so one press opens one. */
+	keyed?: boolean;
+}): JSX.Element {
+	const [open, setOpen] = useState(false);
+	const [query, setQuery] = useState("");
+	const [active, setActive] = useState(0);
+	// Null until first listed, so it never says none match before it knows.
+	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
+	const [servers, setServers] = useState<ServerChoice[]>([]);
+	const [adding, setAdding] = useState(false);
+	const shown = shownProject();
+	const navigation = useContext(NavigationContext);
+	const opener = use(OpenerContext);
+	const { refusal, refuse: refused } = useRefusal();
+
+	const load = useCallback(
+		() =>
+			listProjects().then(
+				(listed) => {
+					setProjects(listed.projects);
+					setServers(listed.servers);
+				},
+				(error: unknown) => refused("Projects not listed", error),
+			),
+		[refused],
+	);
+	useEffect(() => {
+		if (open) {
+			void load();
+		}
+	}, [open, load]);
+	// Only the mark on the trigger hangs on these: one that fails says nothing,
+	// and the next tries again.
+	useEffect(() => {
+		const list = () =>
+			listProjects().then(
+				(listed) => {
+					setProjects(listed.projects);
+					setServers(listed.servers);
+				},
+				() => {},
+			);
+		void list();
+		const tick = new SystemTimer().setInterval(() => {
+			if (!document.hidden) {
+				void list();
+			}
+		}, LISTED);
+		return () => tick.dispose();
+	}, []);
+	useShortcut("shortcuts.projects", () => setOpen((was) => !was), keyed);
+	const shortcut = useShortcutLabel("shortcuts.projects");
+
+	const words = query.trim().toLowerCase();
+	const matching = (projects ?? []).filter(
+		(each) =>
+			words === "" ||
+			each.slug.toLowerCase().includes(words) ||
+			each.root.toLowerCase().includes(words),
+	);
+	// Only worth listing when there is another to go to.
+	const otherServers = servers.length > 1 ? servers : [];
+	const matchingServers = otherServers.filter(
+		(each) =>
+			words === "" ||
+			serverName(each).toLowerCase().includes(words) ||
+			(each.tree ?? "").toLowerCase().includes(words),
+	);
+	const picks = matching.length + matchingServers.length;
+	const current = (each: ProjectChoice) =>
+		shown === null ? each.focused : each.slug === shown;
+	// This one's own are on the page already.
+	const elsewhere = (projects ?? []).filter(
+		(each) => each.waiting > 0 && !current(each),
+	);
+	const waitingElsewhere = elsewhere
+		.map((each) => `${each.waiting} waiting on you in ${each.slug}`)
+		.join(", ");
+	const go = (each: ProjectChoice | undefined) => {
+		if (each === undefined || each.gone) {
+			return;
+		}
+		setOpen(false);
+		// What an address naming none shows next, on any device; going there
+		// waits on it no more than on a refusal.
+		void focusProject(each.slug).catch(() => {});
+		if (!current(each)) {
+			// So coming back lands here, and the page names `each` while it opens.
+			const leaving =
+				shown ?? (projects ?? []).find((one) => one.focused)?.slug ?? "";
+			rememberPlace(leaving, { hash: location.hash });
+			if (placeOf(each.slug).name === undefined) {
+				rememberPlace(each.slug, { name: each.slug });
+			}
+			navigation.go(projectUrl(each));
+		}
+	};
+
+	const goServer = (each: ServerChoice | undefined) => {
+		if (each === undefined) {
+			return;
+		}
+		setOpen(false);
+		if (!each.here) {
+			navigation.go(each.url);
+		}
+	};
+
+	return (
+		<Popover
+			open={open}
+			onOpenChange={(next) => {
+				setOpen(next);
+				setQuery("");
+				setActive(0);
+				setAdding(false);
+			}}
+		>
+			<PopoverTrigger
+				render={
+					<button
+						type="button"
+						aria-label={
+							elsewhere.length > 0
+								? `Switch project: ${waitingElsewhere}`
+								: "Switch project"
+						}
+						title={`Switch project${shortcut === null ? "" : ` (${shortcut})`}${
+							elsewhere.length > 0 ? `: ${waitingElsewhere}` : ""
+						}`}
+						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted max-md:h-11 max-md:py-0 max-md:hover:bg-transparent max-md:active:bg-muted"
+					/>
+				}
+			>
+				<h1 className={cn(TITLE, "truncate")}>{name}</h1>
+				{elsewhere.length > 0 && <Dot aria-hidden color="bg-warning" />}
+				<ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground max-md:size-4" />
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-80 gap-2 p-2">
+				<Input
+					autoFocus
+					aria-label="find a project"
+					placeholder="Find a project"
+					value={query}
+					onChange={(event) => {
+						setQuery(event.target.value);
+						setActive(0);
+					}}
+					onKeyDown={(event) => {
+						if (event.key === "ArrowDown") {
+							event.preventDefault();
+							setActive((at) => Math.min(at + 1, picks - 1));
+						} else if (event.key === "ArrowUp") {
+							event.preventDefault();
+							setActive((at) => Math.max(at - 1, 0));
+						} else if (event.key === "Enter") {
+							event.preventDefault();
+							if (active < matching.length) {
+								go(matching[active]);
+							} else {
+								goServer(matchingServers[active - matching.length]);
+							}
+						}
+					}}
+				/>
+				<ul className="flex max-h-72 flex-col overflow-y-auto">
+					{projects !== null && matching.length === 0 && (
+						<li className="px-2 py-1.5 text-muted-foreground text-sm">
+							No project matches
+						</li>
+					)}
+					{matching.map((each, at) => (
+						<li key={each.slug} className="group/project flex items-center">
+							<button
+								type="button"
+								disabled={each.gone}
+								title={each.gone ? `${each.root} is gone` : each.root}
+								onMouseEnter={() => setActive(at)}
+								onClick={() => go(each)}
+								className={cn(
+									"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm disabled:cursor-default disabled:opacity-50",
+									at === active && !each.gone && "bg-muted",
+								)}
+							>
+								<CheckIcon
+									className={cn(
+										"size-3.5 shrink-0",
+										!current(each) && "invisible",
+									)}
+								/>
+								<span className="flex min-w-0 flex-1 flex-col">
+									<span className={cn("truncate", each.gone && "line-through")}>
+										{each.slug}
+									</span>
+									<span className="truncate text-muted-foreground text-xs">
+										{each.root}
+									</span>
+								</span>
+								{each.waiting > 0 && (
+									<span
+										role="status"
+										aria-label={`${each.waiting} waiting on you`}
+										title={`${each.waiting} waiting on you`}
+										className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
+									>
+										<Dot aria-hidden color="bg-warning" />
+										{each.waiting}
+									</span>
+								)}
+							</button>
+							{!each.gone && (
+								<a
+									href={opener.url(each.root, null)}
+									aria-label={`Open ${each.slug} in ${opener.label}`}
+									title={`Open in ${opener.label}`}
+									className={cn(
+										buttonVariants({ variant: "ghost", size: "icon-xs" }),
+										at !== active &&
+											"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
+									)}
+								>
+									<ExternalLinkIcon />
+								</a>
+							)}
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Forget ${each.slug}`}
+								title={
+									each.gone
+										? "Forget it: its repository is gone"
+										: current(each)
+											? "Forget it, going back to the project before it: adding it again brings it back"
+											: "Forget it: adding it again brings it back"
+								}
+								className={cn(
+									!each.gone &&
+										at !== active &&
+										"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
+								)}
+								onClick={() =>
+									forgetProject(each.slug).then(
+										(next) => {
+											if (!current(each)) {
+												return load();
+											}
+											// The page showed it: on to the one focused
+											// before it, or to none left.
+											setOpen(false);
+											const url = new URL(location.href);
+											url.searchParams.delete("project");
+											url.hash = "";
+											navigation.go(
+												next === null ? url.toString() : projectUrl(next),
+											);
+										},
+										(error: unknown) =>
+											refused(`${each.slug} not forgotten`, error),
+									)
+								}
+							>
+								<XIcon />
+							</Button>
+						</li>
+					))}
+				</ul>
+				{matchingServers.length > 0 && (
+					<ul aria-label="slots" className="flex flex-col border-t pt-2">
+						{matchingServers.map((each, index) => {
+							const at = matching.length + index;
+							return (
+								<li key={each.url} className="flex items-center">
+									<button
+										type="button"
+										title={each.url}
+										onMouseEnter={() => setActive(at)}
+										onClick={() => goServer(each)}
+										className={cn(
+											"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+											at === active && "bg-muted",
+										)}
+									>
+										<CheckIcon
+											className={cn(
+												"size-3.5 shrink-0",
+												!each.here && "invisible",
+											)}
+										/>
+										{each.slot === null ? (
+											<HouseIcon
+												aria-hidden
+												className="size-3.5 shrink-0 text-muted-foreground"
+											/>
+										) : (
+											<span aria-hidden className="shrink-0 leading-none">
+												{each.slot.emoji}
+											</span>
+										)}
+										<span className="flex min-w-0 flex-1 flex-col">
+											<span className="truncate">{serverName(each)}</span>
+											<span className="truncate text-muted-foreground text-xs">
+												{each.tree ?? new URL(each.url).host}
+											</span>
+										</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+				<div className="border-t pt-2">
+					{adding ? (
+						<AddProject autoFocus />
+					) : (
+						<button
+							type="button"
+							onClick={() => setAdding(true)}
+							className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-muted-foreground text-sm hover:bg-muted hover:text-foreground"
+						>
+							<PlusIcon className="size-3.5 shrink-0" />
+							Add a project
+						</button>
+					)}
+				</div>
+				<Refusal refusal={refusal} className="px-2" />
+				{shortcut !== null && (
+					<p className="px-2 text-muted-foreground text-xs">
+						<Kbd>{shortcut}</Kbd> opens this anywhere
+					</p>
+				)}
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+/** What the switcher calls `server`: its slot's word, or the machine's own. */
+function serverName(server: ServerChoice): string {
+	return server.slot === null ? "this machine" : server.slot.word;
+}

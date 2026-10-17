@@ -103,10 +103,10 @@ Reserve independently authored variations before future tuning.
 These commands are documentation only, not permission to run paid models:
 
 ```sh
-bin/wiz dev eval fast --probe lifecycle/claim --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval fast --aspect lifecycle --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval report --directory /path/to/results
-bin/wiz dev eval e2e run --scenario todo --reps 1
+splates dev eval fast --probe lifecycle/claim --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval fast --aspect lifecycle --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval report --directory /path/to/results
+splates dev eval e2e run --scenario todo --reps 1
 ```
 
 Tool-capable probes currently report unsupported with generic ACP; these are
@@ -114,4 +114,4 @@ selection examples for a later supported adapter, not executable adherence
 claims. `--allow-unmetered` does not enforce tokens or spend. Compare identical
 probe/seed/assertion/skill/CLI/adapter/budget identities and retain every
 repetition, including failures, unsupported, uncovered and bound outcomes.
-Use free `bin/wiz dev fix` and `bin/wiz dev test` to verify this implementation.
+Use free `splates dev fix` and `splates dev test` to verify this implementation.

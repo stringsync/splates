@@ -19,11 +19,11 @@ prerequisites and narrow-profile refusals are detailed in RUNNER.md. No empirica
 model cost or live adherence has been measured; #365 remains for user review.
 
 ```sh
-bin/wiz dev eval plan --baseline BASE_COMMIT
-bin/wiz dev eval fast --kind cli --directory /tmp/splates-cli-results
-bin/wiz dev eval report --directory /tmp/splates-cli-results
-bin/wiz dev fix --code-only
-bin/wiz dev test
+splates dev eval plan --baseline BASE_COMMIT
+splates dev eval fast --kind cli --directory /tmp/splates-cli-results
+splates dev eval report --directory /tmp/splates-cli-results
+splates dev fix --code-only
+splates dev test
 ```
 
 These are instructions for later use. Implementation used only free tests, not
@@ -34,5 +34,5 @@ aggregate budgets.
 Legacy scenarios remain in `scenarios.ts`, `lanes.ts` and `resumed.ts`, with their
 old checks and optional model grading. Their execution is now disabled at the
 eval entry point because it lacks the required change gate and aggregate budget
-enforcement. `bin/wiz dev eval e2e report` still reads saved results for free.
+enforcement. `splates dev eval e2e report` still reads saved results for free.
 Legacy grades do not establish focused tool capture or affordable model execution.

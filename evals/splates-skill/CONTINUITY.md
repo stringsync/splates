@@ -60,13 +60,13 @@ aspect tests; they do not prove UI transport or agent response conformance.
 
 ## Free verification and later authorized runs
 
-`bin/wiz dev fix` and `bin/wiz dev test` include the dedicated aspect tests.
+`splates dev fix` and `splates dev test` include the dedicated aspect tests.
 No paid eval is a completion gate. After an instrumented adapter exists and
 execution is explicitly authorized, a bounded selection example is:
 
 ```sh
-bin/wiz dev eval fast --probe continuity/resume --target codex:gpt-6-astra --parallel 1 --reps 1 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval report --directory /path/to/results
+splates dev eval fast --probe continuity/resume --target codex:gpt-6-astra --parallel 1 --reps 1 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval report --directory /path/to/results
 ```
 
 With current generic ACP the first command remains unsupported; opting into

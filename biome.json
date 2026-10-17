@@ -2,7 +2,7 @@
 	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
 	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
 	"files": {
-		"includes": ["**", "!.wiz/scry/*/evals"]
+		"includes": ["**", "!.agents", "!.wiz/scry/*/evals"]
 	},
 	"css": { "parser": { "tailwindDirectives": true } },
 	"linter": {
@@ -39,9 +39,9 @@
 	"overrides": [
 		{
 			"includes": [
-				"dev/components/ui/**",
-				"dev/components/assistant-ui/**",
-				"dev/hooks/**"
+				"packages/splates/dev/components/ui/**",
+				"packages/splates/dev/components/assistant-ui/**",
+				"packages/splates/dev/hooks/**"
 			],
 			"linter": { "enabled": false }
 		}

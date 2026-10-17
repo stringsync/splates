@@ -1,2 +1,11 @@
 #!/usr/bin/env bash
-exec "$(dirname "${BASH_SOURCE[0]}")/_run" index.ts "$@"
+# In a checkout, `splates dev <command>` runs the commands for working on
+# splates itself (packages/dev), which never ship; anything else is the CLI
+# users get from `bunx splates`. A bare `splates dev`, or one with only
+# options, is the server's old name, which the CLI still answers to.
+here="$(dirname "${BASH_SOURCE[0]}")"
+if [[ "${1:-}" == "dev" && -n "${2:-}" && "$2" != -* ]]; then
+	shift
+	exec "$here/_run" packages/dev/index.ts "$@"
+fi
+exec "$here/_run" packages/splates/index.ts "$@"

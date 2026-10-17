@@ -1,4 +1,4 @@
-// fix.ts, the action behind `wiz dev fix`, with fix.test.ts beside it
+// fix.ts, the action behind `splates dev fix`, with fix.test.ts beside it
 export interface FixOptions {
 	/** Report problems without writing fixes, as CI wants it. */
 	check: boolean;

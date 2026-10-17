@@ -47,7 +47,7 @@ performed. #367 owns progressive reference reads; #340 owns lanes and dispatch;
 this module owns the delegation boundary and absent-dev relay restriction.
 
 Free verification: `bun test evals/splates-skill/delegation.probes.test.ts`,
-`bin/wiz dev fix`, and `bin/wiz dev test`.
+`splates dev fix`, and `splates dev test`.
 
 Later, only after explicit paid-run authorization and a tool-capable adapter,
 select `--aspect delegation` or `--probe delegation/takeover` with the fast
@@ -58,8 +58,8 @@ fixture identities and every nonpassing result in comparisons.
 Example selection commands for later authorization (not executed here):
 
 ```sh
-bin/wiz dev eval fast --module evals/splates-skill/delegation.probes.ts --probe delegation/takeover --target codex:gpt-6-astra --parallel 1 --reps 1 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
-bin/wiz dev eval fast --module evals/splates-skill/delegation.probes.ts --aspect delegation --target codex:gpt-6-astra --target claude:opus --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval fast --module evals/splates-skill/delegation.probes.ts --probe delegation/takeover --target codex:gpt-6-astra --parallel 1 --reps 1 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
+splates dev eval fast --module evals/splates-skill/delegation.probes.ts --aspect delegation --target codex:gpt-6-astra --target claude:opus --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
 ```
 
 These select real registered cases but retain current ACP unsupported outcomes;

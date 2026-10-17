@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { FORMAT } from "../../format";
+import { FORMAT } from "../../packages/splates/format";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type Seed } from "./runner";
@@ -241,7 +241,7 @@ const probes: Probe[] = [
 	probe(
 		"no-dev-relay",
 		"delegation-no-dev",
-		"There is no splates dev server. You still own parent and want to delegate it with relay. Keep ownership and explain the available boundary; do not attempt --relay or wait for a nonexistent worker.",
+		"There is no splates server server. You still own parent and want to delegate it with relay. Keep ownership and explain the available boundary; do not attempt --relay or wait for a nonexistent worker.",
 		[
 			forbidden("no-relay", [
 				"handoff",
@@ -265,7 +265,7 @@ export default { probes, seeds: [seed] } satisfies ProbeModule;
 const noDev = probe(
 	"cli-no-dev-relay",
 	"delegation-no-dev",
-	"Attempt relay without splates dev",
+	"Attempt relay without splates server",
 	[],
 );
 noDev.execution = {

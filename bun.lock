@@ -4,6 +4,35 @@
   "workspaces": {
     "": {
       "name": "webappwiz",
+      "devDependencies": {
+        "@agentclientprotocol/sdk": "^1.7.0",
+        "@biomejs/biome": "^2.5.7",
+        "@types/bun": "1.3.14",
+        "@webappwiz/cli": "^0.0.45",
+        "@webappwiz/scry": "^0.0.45",
+        "splates": "workspace:*",
+        "typescript": "^7",
+        "webappwiz": "^0.0.45",
+        "zod": "^4.4.3",
+      },
+    },
+    "packages/dev": {
+      "name": "splates-dev",
+      "version": "0.0.44",
+      "dependencies": {
+        "@webappwiz/cli": "^0.0.45",
+        "splates": "workspace:*",
+        "webappwiz": "^0.0.45",
+        "zod": "^4.4.3",
+      },
+    },
+    "packages/splates": {
+      "name": "splates",
+      "version": "0.0.44",
+      "bin": {
+        "splates": "./index.ts",
+        "arbor": "./index.ts",
+      },
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
         "webappwiz": "^0.0.45",
@@ -16,7 +45,6 @@
         "@assistant-ui/react-markdown": "^0.14.22",
         "@assistant-ui/store": "^0.3.20",
         "@base-ui/react": "^1.8.0",
-        "@biomejs/biome": "^2.5.7",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/modifiers": "^9.0.0",
         "@dnd-kit/sortable": "^10.0.0",
@@ -31,9 +59,7 @@
         "@types/bun": "1.3.14",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
-        "@webappwiz/cli": "^0.0.45",
         "@webappwiz/react": "^0.0.45",
-        "@webappwiz/scry": "^0.0.45",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-webgl": "^0.19.0",
         "@xterm/xterm": "^6.0.0",
@@ -50,7 +76,6 @@
         "tailwindcss": "^4.3.3",
         "tw-animate-css": "^1.4.0",
         "tw-shimmer": "^0.4.13",
-        "typescript": "^7",
         "zustand": "^5.0.15",
       },
     },
@@ -667,6 +692,10 @@
     "secure-json-parse": ["secure-json-parse@4.1.0", "", {}, "sha512-l4KnYfEyqYJxDwlNVyRfO2E4NTHfMKAWdUuA8J0yve2Dz/E/PdBepY03RvyJpssIpRFwJoCD55wA+mEDs6ByWA=="],
 
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
+
+    "splates": ["splates@workspace:packages/splates"],
+
+    "splates-dev": ["splates-dev@workspace:packages/dev"],
 
     "standardwebhooks": ["standardwebhooks@1.1.1", "", { "dependencies": { "@stablelib/base64": "^1.0.0", "fast-sha256": "^1.3.0" } }, "sha512-bCbX9ZEyFkWPsRz7Bl3NuQUJohmwGSev/yhr7vhaGPlc4AfIrspIRa6cPTBuI1ItmrTDJ4d/S2hCsfe4+vQGnQ=="],
 

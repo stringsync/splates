@@ -72,11 +72,11 @@ real-model validation still requires separately authorized live smoke testing.
 ## Free planning and later execution syntax
 
 ```sh
-bin/wiz dev eval plan --baseline BASE_COMMIT
-bin/wiz dev eval plan --baseline BASE_COMMIT --probe continuity/checkpoint --max-tokens 2000 --max-usd 0.05
-bin/wiz dev eval list --kind cli
-bin/wiz dev eval fast --kind cli --directory /tmp/splates-cli-results
-bin/wiz dev eval report --directory /tmp/splates-cli-results
+splates dev eval plan --baseline BASE_COMMIT
+splates dev eval plan --baseline BASE_COMMIT --probe continuity/checkpoint --max-tokens 2000 --max-usd 0.05
+splates dev eval list --kind cli
+splates dev eval fast --kind cli --directory /tmp/splates-cli-results
+splates dev eval report --directory /tmp/splates-cli-results
 ```
 
 These are instructions, not eval commands executed during implementation.
@@ -190,17 +190,17 @@ synthetic tests validate contracts, not real model adherence.
 ## Meaningful commands today
 
 The following local checks need no model, credentials or paid evaluation.
-The implementation validation used free tests only, not `bin/wiz dev eval` runs.
+The implementation validation used free tests only, not `splates dev eval` runs.
 
 ```sh
-bin/wiz dev fix
-bin/wiz dev test
-bin/wiz dev eval list
-bin/wiz dev eval list --kind cli
-bin/wiz dev eval fast --kind cli --parallel 2 --reps 1 --directory /tmp/splates-cli-results
-bin/wiz dev eval fast --probe lifecycle/cli-merged --parallel 1 --reps 1 --directory /tmp/splates-cli-smoke
-bin/wiz dev eval report --directory /tmp/splates-cli-results
-bin/wiz dev eval fast --kind cli --failed --directory /tmp/splates-cli-results
+splates dev fix
+splates dev test
+splates dev eval list
+splates dev eval list --kind cli
+splates dev eval fast --kind cli --parallel 2 --reps 1 --directory /tmp/splates-cli-results
+splates dev eval fast --probe lifecycle/cli-merged --parallel 1 --reps 1 --directory /tmp/splates-cli-smoke
+splates dev eval report --directory /tmp/splates-cli-results
+splates dev eval fast --kind cli --failed --directory /tmp/splates-cli-results
 ```
 
 The eleven-case CLI suite tests actual local lifecycle outcomes, review gates,
@@ -239,9 +239,9 @@ make a native result look fully passing.
 Free inspection and tests:
 
 ```sh
-bin/wiz dev eval plan --baseline BASE_COMMIT --probe decisions/local-choice
-bin/wiz dev eval budgets
-bin/wiz dev eval report --directory /tmp/splates-native-results
+splates dev eval plan --baseline BASE_COMMIT --probe decisions/local-choice
+splates dev eval budgets
+splates dev eval report --directory /tmp/splates-native-results
 bun test evals/splates-skill/native-integration.test.ts
 ```
 
@@ -254,9 +254,9 @@ with `--reserve-tokens` / `--reserve-usd`. They are reservations, not price esti
 All selected reservations must fit the aggregate defaults of 4,000 / USD 0.10.
 
 ```sh
-bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target claude:MODEL --directory /tmp/splates-native-results
-bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target codex:MODEL --codex-home /absolute/existing/native/codex-home --directory /tmp/splates-native-results
-bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target opencode:PROVIDER/MODEL --directory /tmp/splates-native-results
+splates dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target claude:MODEL --directory /tmp/splates-native-results
+splates dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target codex:MODEL --codex-home /absolute/existing/native/codex-home --directory /tmp/splates-native-results
+splates dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target opencode:PROVIDER/MODEL --directory /tmp/splates-native-results
 ```
 
 Use `--probe decisions/answer` for a second state-focused case. Repeat `--target`
@@ -326,8 +326,8 @@ independently owned `probe-audit.test.ts`. Tests use deterministic adapters,
 production fake ACP transport, throwaway git repos and local CLI commands, never
 paid models. A representative standalone free direct-CLI test took about 19ms
 in one local test invocation; this is an observation of that fixture, **not a
-performance target**. Required workspace checks are `bin/wiz dev fix` and
-`bin/wiz dev test`. Under this task’s no-paid constraint, fix ran with
+performance target**. Required workspace checks are `splates dev fix` and
+`splates dev test`. Under this task’s no-paid constraint, fix ran with
 `--code-only`: formatting, typechecking and non-model Scry ran; model-backed
 Scry (`som`/`llm`) was explicitly excluded, not claimed as passed. The integrated registry is pinned by `integration.test.ts`; broader audit rows
 remain partial wherever the aspect documents identify gaps.

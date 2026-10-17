@@ -5,9 +5,9 @@ import { lastSaid, splatesRuns, touchesCode, turnsOf } from "./reading";
 import { CORE, type Scenario } from "./scenario";
 
 // The scenarios that make the agent a lane's orchestrator. Run as an agent
-// `splates dev` started, it hands each todo to an agent of its own and does
+// `splates server` started, it hands each todo to an agent of its own and does
 // none itself, never waits on them, and acts when splates wakes it: a report,
-// an agent gone idle, a resume, a change of course. Without `splates dev`,
+// an agent gone idle, a resume, a change of course. Without `splates server`,
 // nothing starts those agents, so it lands the lane through its own
 // subagents instead.
 
@@ -62,7 +62,7 @@ function handsOut(...todos: string[]): EvalCheck {
 }
 
 /**
- * Does no todo itself: every one it hands out goes to an agent `splates dev`
+ * Does no todo itself: every one it hands out goes to an agent `splates server`
  * starts, and it neither writes code nor runs a subagent of its own.
  */
 const HANDS_OFF: EvalCheck = {
@@ -127,7 +127,7 @@ const WORKING: EvalCheck = {
 	},
 };
 
-/** What every scenario run as `splates dev`'s agent checks, beyond its own. */
+/** What every scenario run as `splates server`'s agent checks, beyond its own. */
 const AS_DEV = [HANDS_OFF, NEVER_WAITS, WORKING];
 
 /** #3, unlinked from #1, in a file of its own. */
@@ -189,7 +189,7 @@ export const SAME_FILES: Scenario = {
 	],
 };
 
-/** Todo #1 handed out as retry-413 to an agent `splates dev` started, which has yet to land it. */
+/** Todo #1 handed out as retry-413 to an agent `splates server` started, which has yet to land it. */
 const HANDED = `splates add retry-413 --todo 1 --agent claude --model sonnet --prompt 'Stop retrying on a 413.' >/dev/null && bun -e '
 const path = ".git/splates/tasks/retry-413.json";
 const state = await Bun.file(path).json();
@@ -354,7 +354,7 @@ export const PIVOT_LANE: Scenario = {
 };
 
 /**
- * Without `splates dev`, lands a lane's two unlinked todos through subagents
+ * Without `splates server`, lands a lane's two unlinked todos through subagents
  * of its own, since no agent it names would start.
  */
 export const NO_DEV: Scenario = {
@@ -397,7 +397,7 @@ export const NO_DEV: Scenario = {
 		},
 	],
 	rubric: [
-		"own-agents: #1 and #3 went to subagents of its own harness, each told to claim its task, or it did one itself saying why, since nothing starts an agent without splates dev",
+		"own-agents: #1 and #3 went to subagents of its own harness, each told to claim its task, or it did one itself saying why, since nothing starts an agent without splates server",
 	],
 };
 

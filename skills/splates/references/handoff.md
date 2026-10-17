@@ -2,7 +2,7 @@
 
 When the user asks for another agent to carry your task on, such as one of
 another model family, or sends `[SPLATES HANDOFF TO <agent> <model>]` from the
-`splates dev` page's Hand off action, naming the agent and any model to pass
+`splates server` page's Hand off action, naming the agent and any model to pass
 to `--agent` and `--model`, hand the whole task over rather than a part: the
 other agent takes over your tree, your branch and your `SPLATES.md`, and
 answers to the user as you did. Only the agent at work on a task hands it
@@ -19,18 +19,18 @@ to.
    The new agent never sees this conversation: this is all it gets.
 3. Read `splates agents`, then `splates handoff <task> --agent <id> --model
    <m>`, taking the agent and model the user names, else the ones whose
-   strengths fit what is left at the lowest cost it is worth. `splates dev`
+   strengths fit what is left at the lowest cost it is worth. `splates server`
    starts it in your tree, sent `[SPLATES HANDOFF <task>]` and any `--prompt`,
    and moves this conversation back to the main tree.
-4. End your turn, saying nothing of the handoff: the `splates dev` page shows
+4. End your turn, saying nothing of the handoff: the `splates server` page shows
    it as splates's own line, "Handed off" on the task, with the agent and
    model it went to on hover, and the `### Handoff` holds why and where it
    stands. The task is the other agent's from then on: run nothing on it
    again, and when the user asks you about it, point them to its
    conversation.
 
-Outside `splates dev`, nothing starts the agent until it runs: say so in a
-line, so the user can start `splates dev` or give another agent `[SPLATES
+Outside `splates server`, nothing starts the agent until it runs: say so in a
+line, so the user can start `splates server` or give another agent `[SPLATES
 HANDOFF <task>]` themselves.
 
 `[SPLATES HANDOFF <task>]` sent to you means another agent handed you `<task>`:
@@ -67,8 +67,8 @@ You stay the one the user talks to: the other agent answers to you.
    the reason: what failed or what is left, with the steps or files that
    show it.
 2. `splates handoff <task> --relay --agent <id> --model <m>`, the cheapest
-   model that fits. `splates dev` starts it in your tree, and moves this
-   conversation back to the main tree. Outside `splates dev`, `--relay`
+   model that fits. `splates server` starts it in your tree, and moves this
+   conversation back to the main tree. Outside `splates server`, `--relay`
    refuses: keep the task, or hand it to a subagent of your own harness on
    that model, told to `splates claim <task>` and work it as the skill says,
    reporting to you, and `splates wait <task>` on it in place of its reports.
@@ -112,7 +112,7 @@ questions up to the user and their answers down:
 
 ### Relaying
 
-The user talks to you, never to the agent: the `splates dev` page offers no
+The user talks to you, never to the agent: the `splates server` page offers no
 composer on its conversation, only a line pointing to yours, and its
 permission asks show above your composer. So you carry its questions up
 and the answers down, with `splates tell <task> '<text>'`, which says

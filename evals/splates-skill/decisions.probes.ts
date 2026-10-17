@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assumptions, questions } from "../../plan";
-import { APPROVE, MERGE } from "../../prompts";
+import { assumptions, questions } from "../../packages/splates/plan";
+import { APPROVE, MERGE } from "../../packages/splates/prompts";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";

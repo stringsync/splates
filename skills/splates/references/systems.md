@@ -2,7 +2,7 @@
 
 A system name looks like any other name in code, so say it is one: ask
 whether the code should be a splates system, and write every system name and
-alias in the question as `#name`, the way the user and the `splates dev` page
+alias in the question as `#name`, the way the user and the `splates server` page
 write them, so no one reads the choice as naming a class, a module or a
 directory.
 

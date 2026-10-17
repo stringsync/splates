@@ -347,7 +347,7 @@ export async function fastCli(
 	process.on("SIGTERM", cancel);
 	try {
 		const reproduction = [
-			"bin/wiz",
+			"bin/splates",
 			"dev",
 			"eval",
 			"fast",
@@ -448,7 +448,7 @@ function number(value: string | undefined, fallback: number): number {
 	}
 	return parsed;
 }
-const HELP = `bin/wiz dev eval [fast|list|plan|report] [options]
+const HELP = `splates dev eval [fast|list|plan|report] [options]
   --probe ID | --aspect NAME | --requirement ID (repeatable; groups intersect)
   --kind cli|agent        select local CLI checks or agent probes
   --module PATH            explicit ProbeModule; default discovers *.probes.ts

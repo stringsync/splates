@@ -1,6 +1,6 @@
 # Checkpoint
 
-`[SPLATES CHECKPOINT]`, sent by the `splates dev` page, means your process is
+`[SPLATES CHECKPOINT]`, sent by the `splates server` page, means your process is
 about to stop, as for a restart, and the next prompt picks the work up. Stop
 where you are and start nothing new:
 

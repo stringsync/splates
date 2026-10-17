@@ -4,7 +4,7 @@ import type { Event } from "./probe";
 import { launchIsolated } from "./probe-adapters";
 import type { RunContext } from "./runner";
 
-const splates = join(import.meta.dir, "../../index.ts");
+const splates = join(import.meta.dir, "../../packages/splates/index.ts");
 
 /** Minimal local CLI repository; no lanes, tasks, model setup or legacy fixture. */
 export async function seedRepository(context: RunContext): Promise<void> {

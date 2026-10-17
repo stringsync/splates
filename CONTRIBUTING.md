@@ -22,4 +22,4 @@ your contribution, or have your employer sign too.
 
 - Open an issue first for anything large, so we can agree on the direction.
 - Keep a pull request to one coherent change.
-- Run `bin/wiz dev fix` and `bin/wiz dev test` before you push.
+- Run `splates dev fix` and `splates dev test` before you push.

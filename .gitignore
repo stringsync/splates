@@ -27,7 +27,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
-# a release under way; the last part to land deletes it (wiz dev ship)
+# a release under way; the last part to land deletes it (splates dev ship)
 RELEASE
 
 # IntelliJ based IDEs
@@ -43,5 +43,5 @@ SPLATES.md
 .playwright-mcp
 .splates-shots
 
-# the splates dev page, compiled by build.ts
-dev/build
+# the splates server page, compiled by build.ts
+packages/splates/dev/build

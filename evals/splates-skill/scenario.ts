@@ -13,7 +13,7 @@ export interface Scenario {
 	/** Shell run in the repository after the todos are seeded. */
 	setup?: string;
 	/**
-	 * Whether the agent runs as one `splates dev` started, so `splates add
+	 * Whether the agent runs as one `splates server` started, so `splates add
 	 * --agent` hands a todo to an agent the page would start, and `splates
 	 * tell` reaches it; setup runs as that agent too.
 	 */

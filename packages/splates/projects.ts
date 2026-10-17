@@ -1,0 +1,372 @@
+import type { Logger } from "webappwiz/log";
+import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
+import { fail } from "./exit";
+import { splatesHome } from "./roster";
+
+/** The registry's own format, apart from each repository's records. */
+const FORMAT = 1;
+
+/** A repository splates has run in, as the registry keeps it. */
+export interface ProjectRecord {
+	/** The main tree's root, never a task's worktree. */
+	root: string;
+	/** When splates first ran there, as an ISO timestamp. */
+	added: string;
+	/**
+	 * What each other project may do here, by its root, those left out
+	 * `DEFAULT_REACH`.
+	 */
+	grants?: Record<string, Reach>;
+}
+
+/** A registered repository, as the registry reads it back. */
+export interface Project extends ProjectRecord {
+	/**
+	 * What a URL names it by: the root's last part, `webappwiz`, with `-2`
+	 * and on for a second of the same name, in the order they joined.
+	 */
+	slug: string;
+	/** The repository is no longer there: moved or deleted since. */
+	gone: boolean;
+}
+
+/** The registry's file as written: its records, and the projects focused. */
+interface RegistryFile {
+	projects: ProjectRecord[];
+	/**
+	 * The roots `splates server`'s page picked, the last first, the first of them
+	 * what an address naming none shows, the next what it shows once that
+	 * one is forgotten.
+	 */
+	focused: string[];
+}
+
+/** What `Projects` works with. */
+export interface ProjectsOptions {
+	fs: Fs;
+	/** Held while the file is rewritten, so two commands never drop each other's. */
+	lock: Lock;
+	/** The current time; a test passes its own. */
+	now?: () => Date;
+}
+
+/**
+ * Every splates project on this machine, kept in one file under the user's
+ * home: an explicit roster that `splates init` writes each into, so one
+ * `splates server` can find them all without scanning the disk.
+ */
+export class Projects {
+	private readonly fs: Fs;
+	private readonly lock: Lock;
+	private readonly now: () => Date;
+
+	/**
+	 * This machine's registry, in `SPLATES_HOME`, `~/.splates` for none, with a
+	 * lock that counts as stale after `stalenessMs`.
+	 */
+	static ofMachine(
+		{ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger },
+		stalenessMs?: number,
+	): Projects {
+		const home = splatesHome(ps);
+		return new Projects(`${home}/projects.json`, {
+			fs,
+			lock: new FileLock(`${home}/projects.lock`, {
+				fs,
+				ps,
+				log,
+				stalenessMs,
+			}),
+		});
+	}
+
+	constructor(
+		/** `~/.splates/projects.json`, or a test's own. */
+		readonly path: string,
+		{ fs, lock, now = () => new Date() }: ProjectsOptions,
+	) {
+		this.fs = fs;
+		this.lock = lock;
+		this.now = now;
+	}
+
+	/**
+	 * Adds the repository at `root`, once, saying whether it did: registering
+	 * it again changes nothing.
+	 */
+	async register(root: string): Promise<boolean> {
+		if ((await this.read()).projects.some((each) => each.root === root)) {
+			return false;
+		}
+		return this.change((file) => {
+			if (file.projects.some((each) => each.root === root)) {
+				return null;
+			}
+			return {
+				...file,
+				projects: [...file.projects, { root, added: this.now().toISOString() }],
+			};
+		});
+	}
+
+	/**
+	 * Makes the registered repository at `root` the one an address naming
+	 * none shows, as picking it on the page does, saying whether it is
+	 * registered.
+	 */
+	async focus(root: string): Promise<boolean> {
+		let registered = false;
+		await this.change((file) => {
+			registered = file.projects.some((each) => each.root === root);
+			return registered && file.focused[0] !== root
+				? {
+						...file,
+						focused: [root, ...file.focused.filter((each) => each !== root)],
+					}
+				: null;
+		});
+		return registered;
+	}
+
+	/**
+	 * The project an address naming none shows: the one focused last, else
+	 * the one focused before it, and so on, else the first registered,
+	 * skipping those gone; null while there is none.
+	 */
+	async focused(): Promise<Project | null> {
+		const { focused } = await this.read();
+		const open = (await this.list()).filter((each) => !each.gone);
+		for (const root of focused) {
+			const found = open.find((each) => each.root === root);
+			if (found !== undefined) {
+				return found;
+			}
+		}
+		return open[0] ?? null;
+	}
+
+	/**
+	 * Every registered project, in the order splates first ran in each, those
+	 * whose repository is gone flagged rather than dropped: one on a drive
+	 * that is not mounted comes back.
+	 */
+	async list(): Promise<Project[]> {
+		const projects: Project[] = [];
+		const taken = new Map<string, number>();
+		for (const record of (await this.read()).projects) {
+			const name = record.root.split("/").filter(Boolean).at(-1) ?? "project";
+			const seen = (taken.get(name) ?? 0) + 1;
+			taken.set(name, seen);
+			projects.push({
+				...record,
+				slug: seen === 1 ? name : `${name}-${seen}`,
+				gone: !(await this.fs.exists(`${record.root}/.git`)),
+			});
+		}
+		return projects;
+	}
+
+	/**
+	 * What the project at `from` may do in the one at `to`: what `to` granted
+	 * it, else `DEFAULT_REACH`.
+	 */
+	async reach(from: string, to: string): Promise<Reach> {
+		const record = (await this.read()).projects.find(
+			(each) => each.root === to,
+		);
+		return record?.grants?.[from] ?? DEFAULT_REACH;
+	}
+
+	/**
+	 * Lets the project at `from` do as much as `reach` in the registered one
+	 * at `to`, saying whether `to` is registered.
+	 */
+	async grant(to: string, from: string, reach: Reach): Promise<boolean> {
+		let registered = false;
+		await this.change((file) => {
+			registered = file.projects.some((each) => each.root === to);
+			if (!registered) {
+				return null;
+			}
+			return {
+				...file,
+				projects: file.projects.map((each) => {
+					if (each.root !== to) {
+						return each;
+					}
+					const { [from]: _, ...others } = each.grants ?? {};
+					// The default is kept by leaving it out, so it moves with it.
+					const grants =
+						reach === DEFAULT_REACH ? others : { ...others, [from]: reach };
+					return Object.keys(grants).length === 0
+						? { root: each.root, added: each.added }
+						: { ...each, grants };
+				}),
+			};
+		});
+		return registered;
+	}
+
+	/**
+	 * The registered project a command names as `slug`, refusing one that is
+	 * not there.
+	 */
+	async named(slug: string): Promise<Project> {
+		const all = await this.list();
+		const found = all.find((each) => each.slug === slug && !each.gone);
+		if (found === undefined) {
+			fail(
+				"not_found",
+				`no splates project here is called ${slug}: it is one of ${
+					all
+						.filter((each) => !each.gone)
+						.map((each) => each.slug)
+						.join(", ") || "none"
+				}. A repository that is not one yet joins once \`splates init\` runs there: ask the user before you run it.`,
+				{ project: slug },
+			);
+		}
+		return found;
+	}
+
+	/**
+	 * Drops the repository at `root`, saying whether it was there: one gone
+	 * for good, or one `splates server` should no longer offer.
+	 */
+	async forget(root: string): Promise<boolean> {
+		return this.change((file) => {
+			const kept = file.projects.filter((each) => each.root !== root);
+			return kept.length === file.projects.length
+				? null
+				: {
+						projects: kept,
+						focused: file.focused.filter((each) => each !== root),
+					};
+		});
+	}
+
+	/**
+	 * Rewrites the file as `edit` says, under the lock, saying whether it
+	 * did: `edit` returns null to leave it as it is.
+	 */
+	private async change(
+		edit: (file: RegistryFile) => RegistryFile | null,
+	): Promise<boolean> {
+		// The lock lives beside the file, so its directory comes first.
+		await this.fs.mkdir(this.dir);
+		// Read under the lock: another command may have just written it.
+		await this.lock.acquire();
+		try {
+			const changed = edit(await this.read());
+			if (changed === null) {
+				return false;
+			}
+			await this.write(changed);
+			return true;
+		} finally {
+			await this.lock.release();
+		}
+	}
+
+	private get dir(): string {
+		return this.path.slice(0, this.path.lastIndexOf("/"));
+	}
+
+	private async read(): Promise<RegistryFile> {
+		const raw = await this.fs.read(this.path).catch(() => null);
+		if (raw === null) {
+			return { projects: [], focused: [] };
+		}
+		let parsed: {
+			format?: number;
+			projects?: ProjectRecord[];
+			focused?: string[] | string | null;
+		};
+		try {
+			parsed = JSON.parse(raw);
+		} catch {
+			fail("usage", `${this.path} is not JSON: fix or delete it`, {
+				path: this.path,
+			});
+		}
+		if ((parsed.format ?? 1) > FORMAT) {
+			fail(
+				"outdated",
+				[
+					`${this.path} is in format ${parsed.format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
+					"Run `bunx splates@latest` instead.",
+				].join("\n"),
+				{ path: this.path, format: parsed.format, understood: FORMAT },
+			);
+		}
+		return {
+			projects: parsed.projects ?? [],
+			// A single root, as the splates that began focusing wrote it.
+			focused:
+				typeof parsed.focused === "string"
+					? [parsed.focused]
+					: (parsed.focused ?? []),
+		};
+	}
+
+	private async write({ projects, focused }: RegistryFile): Promise<void> {
+		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
+		await this.fs.write(
+			tmp,
+			`${JSON.stringify({ format: FORMAT, projects, focused }, null, "\t")}\n`,
+		);
+		await this.fs.rename(tmp, this.path);
+	}
+}
+
+/**
+ * What an agent working in one project may do in another through splates,
+ * each including those before it: read its tasks, todos, lanes and systems;
+ * add todos to its untriaged lane; or hand its tasks to agents and
+ * orchestrate them. Grants stop splates commands, not file edits.
+ */
+export const REACHES = ["read", "todos", "tasks"] as const;
+export type Reach = (typeof REACHES)[number];
+
+/** What a project lets another do that it has granted nothing. */
+export const DEFAULT_REACH: Reach = "todos";
+
+/** Whether `granted` covers what `needed` asks for. */
+export function reaches(granted: Reach, needed: Reach): boolean {
+	return REACHES.indexOf(granted) >= REACHES.indexOf(needed);
+}
+
+/**
+ * One line telling an agent where a project a prompt names as `#slug` sits,
+ * and how to change it:
+ *
+ * ```
+ * #shop is the splates project at /Users/me/shop: read its code there, and land any change to it from a task added there.
+ * ```
+ */
+export function projectLine({
+	slug,
+	root,
+	reach,
+}: {
+	slug: string;
+	root: string;
+	/**
+	 * What the project the prompt is in may do there; null when it is that
+	 * project, or in none.
+	 */
+	reach: Reach | null;
+}): string {
+	return reach === null
+		? `#${slug} is the splates project at ${root}: read its code there, and land any change to it from a task added there.`
+		: `#${slug} is the splates project at ${root}: read its code there, run splates on it as \`splates --project ${slug} <command>\`, and ${REACH_LINES[reach]}.`;
+}
+
+/** What `projectLine` says each reach lets an agent do there. */
+const REACH_LINES: Record<Reach, string> = {
+	read: "only read its tasks, todos, lanes and systems: ask the user for more when your work needs it",
+	todos:
+		"add todos for it, but hand it no task: ask the user for more when your work needs it",
+	tasks:
+		"add todos for it or hand its tasks to agents, never taking one yourself",
+};

@@ -16,7 +16,7 @@ import type { Scenario } from "./scenario";
 export class Fixture implements AsyncResource {
 	readonly repo: string;
 	private readonly env: Record<string, string | undefined>;
-	/** The stand-in for `splates dev`, for a scenario run as one it started. */
+	/** The stand-in for `splates server`, for a scenario run as one it started. */
 	private dev: ReturnType<typeof Bun.serve> | null = null;
 
 	constructor(
@@ -84,7 +84,7 @@ export class Fixture implements AsyncResource {
 	}
 
 	/**
-	 * Runs everything from here on as `splates dev` would run an agent it
+	 * Runs everything from here on as `splates server` would run an agent it
 	 * started, as conversation `orch`: `splates tell` and the reports that
 	 * `merge`, `remove` and `escalate` send its caller reach a stand-in that
 	 * takes them all, since no agent here is started to hear them.
@@ -95,7 +95,7 @@ export class Fixture implements AsyncResource {
 		this.env.SPLATES_CONVERSATION = DEV_CONVERSATION;
 	}
 
-	/** Stops the stand-in for `splates dev`, if one runs. */
+	/** Stops the stand-in for `splates server`, if one runs. */
 	async disposeAsync(): Promise<void> {
 		await this.dev?.stop(true);
 		this.dev = null;
@@ -265,7 +265,7 @@ interface Outcome {
 	commits?: string[];
 }
 
-const SPLATES = join(import.meta.dir, "../../index.ts");
+const SPLATES = join(import.meta.dir, "../../packages/splates/index.ts");
 
 const FILES: Record<string, string> = {
 	"package.json": `{ "name": "uploader", "private": true, "type": "module", "scripts": { "test": "bun test" } }\n`,
@@ -301,7 +301,7 @@ it("returns once the server accepts", async () => {
 `,
 };
 
-/** The conversation a scenario run as `splates dev`'s agent is, as its tasks' caller. */
+/** The conversation a scenario run as `splates server`'s agent is, as its tasks' caller. */
 export const DEV_CONVERSATION = "orch";
 
 /** The commits on main before the agent starts. */

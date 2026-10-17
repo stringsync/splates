@@ -1,6 +1,6 @@
 # Setup
 
-`[SPLATES SETUP <step>]`, sent by the `splates dev` Setup page as the first
+`[SPLATES SETUP <step>]`, sent by the `splates server` Setup page as the first
 prompt of a new conversation, asks you to walk the user through one step of
 setting splates up on this machine. The steps are a roster in
 splates's `setup-areas.ts`, each with a check that decides whether it is

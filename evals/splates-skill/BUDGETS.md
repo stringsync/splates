@@ -26,11 +26,11 @@ export default {
 Free management commands (examples only, not model runs):
 
 ```sh
-bin/wiz dev eval budgets
-bin/wiz dev eval budgets --format json
-bin/wiz dev eval budgets set 20k/month,4k/7d
-bin/wiz dev eval budgets set nothing
-bin/wiz dev eval budgets reset
+splates dev eval budgets
+splates dev eval budgets --format json
+splates dev eval budgets set 20k/month,4k/7d
+splates dev eval budgets set nothing
+splates dev eval budgets reset
 ```
 
 All configured limits apply simultaneously. Scry's `check` means one invocation;

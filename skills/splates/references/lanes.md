@@ -1,13 +1,13 @@
 # Working a lane
 
 A lane is a named, ordered queue of todos that build on each other, landed
-top first, one task per todo, as many at once as their code allows. Lanes are the columns of the `splates dev`
+top first, one task per todo, as many at once as their code allows. Lanes are the columns of the `splates server`
 board; a todo in none is untriaged. Agents place the todos they add (see
 Lanes in [references/todos.md](todos.md)), and the user rearranges them. Each has a
 number, which commands and the prompt use, and a name, which says what its
 todos are for: `splates lane show N` prints them.
 
-`[SPLATES LANE N]`, copied from the `splates dev` page, makes you lane N's
+`[SPLATES LANE N]`, copied from the `splates server` page, makes you lane N's
 orchestrator, and your job is to burn it down: every todo in it landed, as
 soon as the order of their code allows. You do none of its todos yourself:
 you hand each to an agent of its own, every one that can go at once, on the
@@ -20,7 +20,7 @@ you are sent adds more to it. The lane is splates's, not the prompt's, so
 read it from splates each time.
 
 Once you have first read the lanes you were sent, before handing anything
-out, say so in a message of its own, which the `splates dev` page shows as a
+out, say so in a message of its own, which the `splates server` page shows as a
 card, and beside the thread until your finished report: a `## 🌱 Started lanes` title with the
 lanes' names as the board shows them, a blank line, and one or two lines on
 what they add up to. A lane you are sent later gets a Started card of its
@@ -43,7 +43,7 @@ stands, and those landed. So you change the plan by changing the lanes:
 1. `splates lane show N` prints the steps and who is on each. When it says the
    lane is done or gone, done by your agents or by ones you never started,
    say so in your next report. Once every lane you work is, end on a
-   finished report (see Reporting on lanes), so the `splates dev` page shows
+   finished report (see Reporting on lanes), so the `splates server` page shows
    you as done.
 2. Check each todo a task has taken, with `splates show <task>`, as for
    `[SPLATES IDLE <task>]` below: an agent that sits idle with nothing
@@ -62,7 +62,7 @@ stands, and those landed. So you change the plan by changing the lanes:
    <id> --agent <a> --model <m> --prompt '<what>'`, where `<what>` holds
    what the todo's detail does not and the lane taught you: names chosen,
    files moved, answers the user gave, what the tasks out beside it are
-   changing. `splates dev` starts the agent, nested under you on the page.
+   changing. `splates server` starts the agent, nested under you on the page.
    When `add` stops on `agents_full`, you have as many agents out as
    `agentsPerAgent` in `splates.config.ts` allows one agent: hand out nothing
    more, and
@@ -150,7 +150,7 @@ on it with what fits:
 Then update the lanes so the plan says what is next, and end on a working
 report.
 
-`splates dev` starts the agents you name, and sets `$SPLATES_CONVERSATION` in
+`splates server` starts the agents you name, and sets `$SPLATES_CONVERSATION` in
 yours; without it, nothing will start one. Hand each todo to a subagent of
 your own harness on the model it names instead, told to `splates claim
 <task>` and work it as the skill says, or, when your harness cannot run

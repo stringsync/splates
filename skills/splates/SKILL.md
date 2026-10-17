@@ -19,7 +19,7 @@ stderr says.
 
 ## Directives
 
-A prompt that starts with `[SPLATES ...]` comes from the `splates dev` page or
+A prompt that starts with `[SPLATES ...]` comes from the `splates server` page or
 from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says.
 
@@ -83,7 +83,7 @@ which remembers none of it.
    take it as `[SPLATES TODO #N]` says under Directives, and for any other
    directive, do what its row says. Pass `--base <branch>` only when invoked
    with a branch (`/splates feature/auth`) or the user names one; never guess a base from the
-   checked-out branch. Once `splates add` succeeds, the `splates dev` page shows
+   checked-out branch. Once `splates add` succeeds, the `splates server` page shows
    it in your conversation as splates's own line, the Goal on its task, so say
    nothing about adding it. When your harness asks right after for a word on
    what you are doing, say in one line what you will do next, without the
@@ -183,7 +183,7 @@ for Relaying and the lane reports):
 
 Write a todo's subject the way you write a question's, short enough to scan.
 Put the why, the where, and anything else in its detail, as markdown the
-`splates dev` page renders: paragraphs, lists, `- [ ]` steps, inline code for
+`splates server` page renders: paragraphs, lists, `- [ ]` steps, inline code for
 paths and commands, and fenced blocks for snippets. Single quotes keep the
 shell off the backticks. Before every `splates todo add`, read
 [references/todos.md](references/todos.md) on linking it to what blocks it,
@@ -281,7 +281,7 @@ shows the todo itself.
 It touches the retry loop this task just rewrote.
 ```
 
-A todo you add needs no heading in your reply: the `splates dev` page shows
+A todo you add needs no heading in your reply: the `splates server` page shows
 each `splates todo add` in the conversation as a line naming the todo, which
 opens it. Say more about it only what that line cannot, in your own words.
 That shrinks what you say, never the todo: its subject and detail stay as
@@ -300,7 +300,7 @@ prints them, `splates systems <name>` one by its name or an alias, and
 when you need them, never up front. Wherever a system covers what you mean,
 call it by its name in Goals, todos, questions and reports, so the user and
 every agent use one word for one part of the code. A prompt from the
-`splates dev` page that mentions `#name` ends with a line on what that system
+`splates server` page that mentions `#name` ends with a line on what that system
 is made of, or, when no system answers to it, a line saying so.
 
 A `#name` can name another splates project on this machine instead, and its
@@ -378,7 +378,7 @@ splates creds request CLOUDFLARE_TUNNEL_TOKEN --device --purpose 'To add the DNS
 `--device` keeps it for every project on this machine, for the user's own
 account; leave it off for a cred of this project's alone. When the store
 already keeps it, `request` asks nothing; `--replace` asks again when the
-kept one does not work. The `splates dev` page shows a "Requested" line in
+kept one does not work. The `splates server` page shows a "Requested" line in
 the conversation that opens the cred on its Creds page, with what it is for,
 your instructions and a field to paste it in; say nothing more of the
 request. The page's Creds item gets a yellow dot while any request is open, and its
@@ -395,7 +395,7 @@ kept.
 
 ## Remote access
 
-When the user asks to reach `splates dev` from elsewhere, that is the Remote
+When the user asks to reach `splates server` from elsewhere, that is the Remote
 access setup area, from its `cloudflare-token` step through `tunnel`, `access`
 and `slot-tunnels`: walk them through it as
 [references/setup.md](references/setup.md) says. Its `splates tunnel setup
@@ -407,7 +407,7 @@ it, and exits `requested`: say so and wait as for any cred (see Creds), then
 run it again. When the account has no Zero Trust organization, it asks for
 `--team <name>` to make one. Ask the user for the host, the emails and any
 team name rather than guessing them. By hand, or for a tunnel other than
-cloudflared, it is `splates dev --tunnel <host> --access-team <team>
+cloudflared, it is `splates server --tunnel <host> --access-team <team>
 --access-aud <aud>`: it runs `cloudflared tunnel run` against the page and
 allows that host, and it refuses to start without both Access flags, since
 who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
@@ -423,7 +423,7 @@ whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.
 `--tunnel-name` is refused beside it. Write one only when asked, as a
 separate task from whatever else is under way, and read
 splates's `tunnel-provider.ts` first. A provider that is not ready is
-logged and skipped, so check the `splates dev` log, not the page, to see
+logged and skipped, so check the `splates server` log, not the page, to see
 whether it came up.
 
 ## Asking as you go
@@ -478,7 +478,7 @@ Say each assumption in the conversation too, in the reply that ends the turn
 you wrote it in, so the user sees the call while it is cheap to undo: a
 `- Assumed <number>: <what you chose>` line each, its number the one it has
 in `SPLATES.md`, beyond any cap on `- ` lines, after the others and before any
-todo, demo or question, those an exhibit shows under it (see below). The `splates dev` page shows each as that item, with
+todo, demo or question, those an exhibit shows under it (see below). The `splates server` page shows each as that item, with
 its choices, for the user to challenge from the reply. A review leaves
 them out, since its Ready to merge card lists them, and a proposal lists them
 as Proposing says.
@@ -501,7 +501,7 @@ choices, each saying what happens, never a bare "Yes" or "No", so the answer
 cannot be read two ways. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Describe every choice, the one you went with too, and mark that one
-`(chosen)`: never a bare "That". List it first, as `(a)`: the `splates dev`
+`(chosen)`: never a bare "That". List it first, as `(a)`: the `splates server`
 page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which todo
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
@@ -509,7 +509,7 @@ reply lists every letter in the order picked, `4. b, a, c`.
 When the pick is a close call, or the user may well want to challenge it,
 give a choice a `Why:` line indented under it: one sentence on why you would
 take it, or why not. Any choice can have one, the `(chosen)` one most often;
-leave it off where the choice says it all. The `splates dev` page hides every
+leave it off where the choice says it all. The `splates server` page hides every
 `Why:` line until the user asks to see a question's reasons, so they never
 crowd the choices.
 
@@ -544,10 +544,10 @@ crowd the choices.
 Show what a question is about whenever it is something to see: a screenshot,
 or a short recording when it moves or takes steps. Save it outside the
 worktree, `splates attach` it, and name the path it prints as
-`![what](/abs/path.png)`. The `splates dev` page shows an attached file inline,
+`![what](/abs/path.png)`. The `splates server` page shows an attached file inline,
 in `SPLATES.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
 as a video. Only attached files show there, so never point a question at a
-file anywhere else. Attached from a conversation (`splates dev` gives its agents
+file anywhere else. Attached from a conversation (`splates server` gives its agents
 one; an agent outside it passes `--conversation <id>`), a file stays with it
 past the task, so the question still shows it when the user scrolls back;
 attached outside one, it goes when the task does. Such a file is no artifact
@@ -555,7 +555,7 @@ attached outside one, it goes when the task does. Such a file is no artifact
 
 Put each screenshot in the question it is for, under what it shows: under the
 question's line for what it asks about, or indented under a choice for what
-that choice looks like, which the `splates dev` page shows with the choice.
+that choice looks like, which the `splates server` page shows with the choice.
 Never gather them above the questions, or ask about them apart from the
 question they are for.
 
@@ -575,7 +575,7 @@ image (the page draws no diagram source), or a short code block or diff.
 Words alone are no exhibit; they stay its body. Leave a call with nothing to
 show (a name, a limit) a line. An exhibit captions one or two calls, never
 more: two shown by the same screenshot or snippet each carry it, line for
-line, and the `splates dev` page shows it once, open, with them under it, among
+line, and the `splates server` page shows it once, open, with them under it, among
 the rest by number.
 
 ```markdown
@@ -628,7 +628,7 @@ replies, after `splates claim` returns, and between steps), bring it up to date:
   page can count it, and check it off once you have acted on it;
 - add each question you now need.
 
-The user answers in chat. From the `splates dev` page, a reply quotes each
+The user answers in chat. From the `splates server` page, a reply quotes each
 question it answers, its line in bold (`> **How should …?**`), and answers
 under it: the choices picked as `- (b) <its text>`, numbered in the order
 picked for an order, then any words. Anything else they say comes before the
@@ -721,14 +721,14 @@ When the user has to see a change to judge it, make that cheap: run it for
 them where they can open it (a dev server on throwaway data that shows each
 case, never their own), and give them a demo (see Demos). Run splates in a
 throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
-stays out of the user's `splates dev` project list. Start the server from your
+stays out of the user's `splates server` project list. Start the server from your
 worktree, then `splates ports <task>` prints each port it listens on with two
 links: its remote one, `https://<task>-<port>.<base>` behind the user's
-Access, when `splates dev --ports-host` saved a base, and its local one on the
-machine `splates dev` runs on. Give the user both, the remote one first, in
+Access, when `splates server --ports-host` saved a base, and its local one on the
+machine `splates server` runs on. Give the user both, the remote one first, in
 the demo's line on where to open it; the task's dialog on the page lists
 them too. When `splates tunnel status`
-shows a tunnel, `splates dev --slot` from your worktree does both and prints a
+shows a tunnel, `splates server --slot` from your worktree does both and prints a
 `https://<word>.<zone>` the user can open on their phone too: give them that.
 Your worktree keeps its slot until the task merges or is removed, which stops
 its server. Every other slot is another task's: never kill its server or edit
@@ -776,7 +776,7 @@ In a task, write each call in `SPLATES.md` too, the chosen ones under
 Escalation says and end your turn, so the task shows as waiting on the user;
 the page draws the proposal as the escalation's card, so ask nothing else.
 
-The `splates dev` page shows a proposal as a questions card headed by it, each
+The `splates server` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is
 answered and the user has changed none of your choices, its button approves,
 sending `[SPLATES APPROVE]`, then the answer to each call you chose nothing
@@ -794,7 +794,7 @@ looks or feels, a test only they can run), show it as a demo rather than
 describing it: a `### 🎬 Demo: <what it shows>` heading, a line on where to
 open it, then the steps, numbered from 1. Each step's line is one thing to
 do; indented under it, one line on what they should see, and a screenshot or
-recording when it helps. The `splates dev` page shows a demo as a checklist
+recording when it helps. The `splates server` page shows a demo as a checklist
 they tick off as they go.
 
 ```markdown
@@ -823,7 +823,7 @@ through them as before.
 While a review waits on the user, every reply that ends your turn ends with
 the whole review report again, brought up to date, never its last line
 alone: after you answer a question about it, after the changes they asked
-for, or after anything else they say in between. The `splates dev` page shows
+for, or after anything else they say in between. The `splates server` page shows
 the Ready to merge card, which the user merges from, only for a whole report.
 
 ## Artifacts
@@ -844,7 +844,7 @@ simulation as such so it is clear what the user is seeing.
 An artifact is a file the user will come back for after the task is gone: a
 screenshot or recording of the finished work, an HTML page, a generated
 document. It belongs to the conversation, not the task, so it outlives every
-task the conversation runs, and the `splates dev` page lists the conversation's
+task the conversation runs, and the `splates server` page lists the conversation's
 artifacts beside its thread. It opens an image or a recording in its
 lightbox, an HTML page in a frame that runs its scripts but loads nothing
 else, so make a page one file with its styles, scripts and images inline,
@@ -856,7 +856,7 @@ again whenever it changes,
 rather than a new name per take. `splates artifact remove <name>` once it no
 longer stands, as when the work it shows was redone or dropped; `splates
 artifact list` and `splates artifact show <name>` read them back. It needs a
-conversation: `$SPLATES_CONVERSATION` from `splates dev`, or
+conversation: `$SPLATES_CONVERSATION` from `splates server`, or
 `--conversation <id>` from outside it.
 
 Archiving a conversation deletes the bytes of its removed artifacts and
@@ -867,7 +867,7 @@ One file may be 50 MB, one conversation's artifacts 250 MB, and the project's
 2 GB, counting every version whose bytes are kept and, toward the last two,
 the files attached from conversations (`artifactFileCapacity`,
 `artifactConversationCapacity` and `artifactProjectCapacity` in
-`splates.config.ts`). Past the project's, `splates dev` evicts the oldest bytes
+`splates.config.ts`). Past the project's, `splates server` evicts the oldest bytes
 first: removed and earlier versions of any conversation, then what archived
 conversations show, then what live ones do. Past the file's or the
 conversation's, or the project's when even eviction would not make room,
@@ -926,7 +926,7 @@ no line.
 
 One sentence on what changed.
 
-- Restart `splates dev` to see it.
+- Restart `splates server` to see it.
 
 ### 📝 <subject> [#<id>]
 
@@ -950,7 +950,7 @@ the report stays a glance.
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.
 
-A handoff makes no report: the `splates dev` page shows it as splates's own line,
+A handoff makes no report: the `splates server` page shows it as splates's own line,
 and the agent it went to as that line's hover. Say where the task stands in
 its `### Handoff`, then end your turn.
 
@@ -998,7 +998,7 @@ body under it, the choices exactly as in `SPLATES.md` (so a reply of `2. b`
 names one), each with its `Why:` line, which the page hides and the one line
 of body leaves out, and each screenshot or file by absolute path, under the question
 or choice it shows as in `SPLATES.md`. Inline a screenshot as
-`![what](/abs/path.png)` when the `splates dev` page or your harness shows
+`![what](/abs/path.png)` when the `splates server` page or your harness shows
 images in chat; otherwise link it as `[what](/abs/path.png)`. Leave an item
 bare when its subject says it all.
 
@@ -1033,7 +1033,7 @@ as the project's instructions name them, each in backticks, and under it,
 when one failed for a reason outside the task, a `Failed:` line naming each
 that failed the same way, then that last line exactly, so every review reads the same. Anything more the user may
 want before merging, such as how it works, goes in sections between the
-checks and the last line: the `splates dev` page folds it away as its details,
+checks and the last line: the `splates server` page folds it away as its details,
 below the assumptions it lists from `SPLATES.md` and the checks.
 
 Number questions the same way wherever you ask them: a mid-task reply, a

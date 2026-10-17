@@ -1,0 +1,288 @@
+import type { Fs } from "webappwiz/system";
+import type { Device } from "./conversation-state";
+import type { Finding } from "./findings";
+import type { Decision } from "./plan";
+import { type TaskUsage, taskLog } from "./task-log";
+import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
+
+/**
+ * Every task that has ended on this machine, across projects, in
+ * `~/.splates/outcomes.jsonl`, oldest first. Unlike the journal it is never
+ * trimmed: a trend needs months of it, and a line per task stays small.
+ */
+export class Outcomes {
+	constructor(
+		/** `~/.splates/outcomes.jsonl`, or a test's own. */
+		readonly path: string,
+		private readonly fs: Fs,
+	) {}
+
+	/**
+	 * Beside `path`, the usage of the turns tasks ended in, which `splates
+	 * merge` writes its line too early to see. Apart from `path`, so splates
+	 * versions that read only that never mistake one for a task.
+	 */
+	get turnsPath(): string {
+		return `${this.dir}/outcome-usage.jsonl`;
+	}
+
+	async record(outcome: Outcome): Promise<void> {
+		// Appending, rather than rewriting, keeps two agents ending tasks at once
+		// from dropping each other's line.
+		await this.fs.mkdir(this.dir);
+		await this.fs.append(this.path, `${JSON.stringify(outcome)}\n`);
+	}
+
+	async list(): Promise<Outcome[]> {
+		const turns = await lines<TurnUsage>(this.fs, this.turnsPath);
+		return (await lines<Outcome>(this.fs, this.path)).map((outcome) =>
+			known(
+				turns
+					.filter(
+						(turn) =>
+							turn.project === outcome.project &&
+							turn.task === outcome.task &&
+							turn.endedAt === outcome.endedAt,
+					)
+					.reduce(credited, outcome),
+			),
+		);
+	}
+
+	/**
+	 * Credits the task that `conversation`, logged at `log`, ended last in
+	 * its turn from `since` to `until` with what the rest of that turn used,
+	 * once the turn has ended and said it. Several ended in one turn: the
+	 * last one's is what the turn finished on.
+	 */
+	async creditTurn(
+		conversation: string,
+		log: string,
+		since: string,
+		until: string,
+	): Promise<void> {
+		const ended = (await lines<Outcome>(this.fs, this.path)).findLast(
+			(each) =>
+				each.conversation === conversation &&
+				each.usage !== undefined &&
+				each.endedAt >= since &&
+				each.endedAt <= until,
+		);
+		if (ended?.usage === undefined) {
+			return;
+		}
+		const whole = await taskLog(log, this.fs, ended.startedAt, until);
+		if (whole?.usage === undefined) {
+			return;
+		}
+		const usage = less(whole.usage, ended.usage);
+		if (usage.input === 0 && usage.output === 0 && !usage.cost?.amount) {
+			return;
+		}
+		const turn: TurnUsage = {
+			project: ended.project,
+			task: ended.task,
+			endedAt: ended.endedAt,
+			usage,
+		};
+		await this.fs.mkdir(this.dir);
+		await this.fs.append(this.turnsPath, `${JSON.stringify(turn)}\n`);
+	}
+
+	private get dir(): string {
+		return this.path.slice(0, this.path.lastIndexOf("/"));
+	}
+}
+
+/**
+ * What the rest of the turn a task ended in used, a line of
+ * `~/.splates/outcome-usage.jsonl`, naming its outcome by when it ended.
+ */
+interface TurnUsage {
+	project: string;
+	task: string;
+	endedAt: string;
+	usage: TaskUsage;
+}
+
+/** Each JSON line of the file at `path`; a torn one loses that line alone. */
+async function lines<T>(fs: Fs, path: string): Promise<T[]> {
+	const raw = await fs.read(path).catch(() => "");
+	return raw
+		.split("\n")
+		.filter(Boolean)
+		.flatMap((line) => {
+			try {
+				return [JSON.parse(line) as T];
+			} catch {
+				return [];
+			}
+		});
+}
+
+/** `outcome` with `turn`'s usage added to its own. */
+function credited(outcome: Outcome, turn: TurnUsage): Outcome {
+	const usage = outcome.usage;
+	if (usage === undefined) {
+		return outcome;
+	}
+	return {
+		...outcome,
+		usage: {
+			input: usage.input + turn.usage.input,
+			cached: usage.cached + turn.usage.cached,
+			output: usage.output + turn.usage.output,
+			cost:
+				usage.cost === null && turn.usage.cost === null
+					? null
+					: {
+							amount:
+								(usage.cost?.amount ?? 0) + (turn.usage.cost?.amount ?? 0),
+							currency:
+								usage.cost?.currency ?? turn.usage.cost?.currency ?? "USD",
+						},
+		},
+	};
+}
+
+/** What `whole` used past `part`. */
+function less(whole: TaskUsage, part: TaskUsage): TaskUsage {
+	return {
+		input: whole.input - part.input,
+		cached: whole.cached - part.cached,
+		output: whole.output - part.output,
+		cost:
+			whole.cost === null
+				? null
+				: {
+						amount: whole.cost.amount - (part.cost?.amount ?? 0),
+						currency: whole.cost.currency,
+					},
+	};
+}
+
+/**
+ * `outcome` with no usage when it kept none worth reading: no agent turn
+ * produced no tokens, so 0 out means the turn that did the work was never
+ * counted, as for a task merged in the turn it began in.
+ */
+function known(outcome: Outcome): Outcome {
+	if (outcome.usage === undefined || outcome.usage.output > 0) {
+		return outcome;
+	}
+	const { usage: _, ...rest } = outcome;
+	return rest;
+}
+
+/**
+ * How one task ended, written as it goes. Its record goes with it, so this is
+ * what is left to tell whether tasks are getting easier to land over time.
+ */
+export interface Outcome {
+	/** The main tree of the repository the task was in. */
+	project: string;
+	task: string;
+	/** Where it landed or would have: trunk, or `task/<parent>` for a part. */
+	base: string;
+	ended: "merged" | "removed";
+	/** When it was added, as an ISO timestamp. */
+	startedAt: string;
+	/** When it was merged or removed, as an ISO timestamp. */
+	endedAt: string;
+	/** How many times it was handed to a person with questions. */
+	questionRounds: number;
+	/** How many times it was handed to a person to approve. */
+	reviewRounds: number;
+	/** Merges that failed on a conflict, the gate, or a base that would not move. */
+	failedMerges: number;
+	/** `failedMerges` by why each failed. Absent from lines written before it was kept. */
+	failedMergesBy?: Partial<Record<MergeFailure, number>>;
+	/** The questions its plan asked under `## Blocked`. Absent from older lines. */
+	questionsAsked?: number;
+	/** Of those, the ones that offered a `(chosen)` pick and were answered with a choice. */
+	picksAsked?: number;
+	/** Of `picksAsked`, those answered with another choice than the agent's. */
+	picksOverturned?: number;
+	/** Of `picksAsked`, those answered with the agent's choice but with words added. */
+	picksAmended?: number;
+	/** The calls its plan made without asking, under `## Assumptions` or challenged out of it. Absent from older lines. */
+	assumptionsMade?: number;
+	/** Of `assumptionsMade`, those the person challenged. */
+	assumptionsChallenged?: number;
+	/**
+	 * Each call its plan made, asked or assumed, with its size and what became
+	 * of it. Absent from older lines, whose calls the counts above alone keep.
+	 */
+	decisions?: Decision[];
+	/** The systems its changed files fall in, by name. Absent from older lines. */
+	systems?: string[];
+	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */
+	waitedMs?: number;
+	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */
+	removedFor?: RemoveReason | null;
+	/** For a merge, each commit's message it landed, oldest first. Absent from older lines. */
+	commits?: string[];
+	/**
+	 * How many times the person spoke to its conversation from each layout of
+	 * the page while it ran. Absent from older lines.
+	 */
+	promptsFrom?: Partial<Record<Device, number>>;
+	/**
+	 * What its own turns used, not the rest of its conversation's, the turn it
+	 * ended in added from `turnsPath` once `splates server` saw it end. Absent from
+	 * older lines, for a task with no conversation log to read, and, as read,
+	 * for one with no tokens out, which never kept the turns that did its work.
+	 */
+	usage?: TaskUsage;
+	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */
+	workedMs?: number;
+	/** What it landed, or for a removed task, what its branch held. Absent from older lines. */
+	size?: DiffSize;
+	/** What went worse than it could have. Absent from older lines, never read as none. */
+	findings?: Finding[];
+	/** The `splates server` conversation that ended it; null for an external agent. */
+	conversation: string | null;
+	/** The agent `splates add --agent` handed it to, if any. */
+	agent: string | null;
+	/** The model it was handed over with, if any. */
+	model: string | null;
+}
+
+/**
+ * How many prompts the person said from each layout in the conversation
+ * logged at `log`, from `since` to `until`: a conversation can outlive the
+ * task, or come to it already under way.
+ */
+export async function promptsFrom(
+	log: string,
+	fs: Fs,
+	since: string,
+	until: string,
+): Promise<Partial<Record<Device, number>>> {
+	const counts: Partial<Record<Device, number>> = {};
+	const raw = await fs.read(log).catch(() => "");
+	// Each line is written with its kind first, so only prompts are parsed.
+	for (const line of raw.split("\n")) {
+		if (!line.startsWith('{"kind":"prompt"')) {
+			continue;
+		}
+		const entry = parsed(line);
+		if (
+			entry?.from !== undefined &&
+			entry.at !== undefined &&
+			entry.at >= since &&
+			entry.at <= until
+		) {
+			counts[entry.from] = (counts[entry.from] ?? 0) + 1;
+		}
+	}
+	return counts;
+}
+
+function parsed(line: string): { from?: Device; at?: string } | null {
+	try {
+		return JSON.parse(line);
+	} catch {
+		return null;
+	}
+}

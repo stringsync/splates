@@ -284,8 +284,8 @@ by this audit; retired 80%/90% E2E targets do not apply.
 - [x] Keep legacy E2E execution blocked until affordability controls exist, and reports free; do not import
   legacy LLM grading into the fast path or regrade old traces as complete evidence.
 - [x] Document exact bounded paid smoke/comparison commands only after CLI flags
-  exist; do not run them without authorization. Run `bin/wiz dev fix` and
-  `bin/wiz dev test` for free verification. No paid run is a completion gate.
+  exist; do not run them without authorization. Run `splates dev fix` and
+  `splates dev test` for free verification. No paid run is a completion gate.
 
 The remaining blocker for meaningful focused model comparisons is a native,
 authenticated adapter that enforces tool permissions and bounds and certifies

@@ -1,8 +1,8 @@
-import type { ConfigFile } from "./config";
+import type { ConfigFile } from "./packages/splates/config";
 
 export default {
 	postCheckout: "bun install",
 	postRewrite: "bun install",
-	preMerge: "./bin/wiz dev test",
-	wiz: "./bin/wiz",
+	preMerge: "./bin/splates dev test",
+	wiz: "./bin/splates dev",
 } satisfies ConfigFile;

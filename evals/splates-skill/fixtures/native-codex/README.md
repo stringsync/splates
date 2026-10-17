@@ -105,7 +105,7 @@ the native response confirmed the selected model, skill source and sandbox.
 **No `turn/start` or paid prompt was sent to the installed runtime.**
 
 Free validation: `bun test evals/splates-skill/native-codex.test.ts`,
-`bin/wiz dev fix --code-only` (format/typecheck and non-model Scry rules), and
-`bin/wiz dev test`. Model-backed Scry rules are excluded to honor no paid prompts.
+`splates dev fix --code-only` (format/typecheck and non-model Scry rules), and
+`splates dev test`. Model-backed Scry rules are excluded to honor no paid prompts.
 These tests establish transport behavior only; live auth, costs, sandbox execution,
 model adherence, complete read evidence and mid-turn steering remain unmeasured.

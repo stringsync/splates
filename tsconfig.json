@@ -32,5 +32,5 @@
 	},
 	// a rule's eval cases are code that breaks the rule on purpose, and only
 	// fragments of a program
-	"exclude": ["**/node_modules", ".wiz/scry/*/evals"]
+	"exclude": ["**/node_modules", ".agents", ".wiz/scry/*/evals"]
 }

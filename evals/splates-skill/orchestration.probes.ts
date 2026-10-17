@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { FORMAT } from "../../format";
+import { FORMAT } from "../../packages/splates/format";
 import type { Assertion, Json, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, Seed } from "./runner";
