@@ -17,6 +17,7 @@ import type { Report } from "../asked";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
+import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
@@ -445,6 +446,10 @@ export function Thread({
 								>
 									<StartedByCard conversation={conversation} onOpen={onOpen} />
 									<SystemsCard systems={task?.systems ?? []} />
+									<ArtifactsCard
+										conversation={id}
+										artifacts={conversation.artifacts}
+									/>
 									<CurrentTask version={version} />
 								</Widgets>
 							</div>

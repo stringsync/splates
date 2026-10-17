@@ -86,6 +86,22 @@ const LINES: {
 					];
 		return { words, at: event.at };
 	},
+	// A refused one changed nothing, and the agent says why itself.
+	"artifact add": (event) =>
+		event.reason === null
+			? {
+					words: [
+						"Added",
+						artifact(event),
+						...(event.version === 1 ? [] : [`(v${event.version})`]),
+					],
+					at: event.at,
+				}
+			: null,
+	"artifact remove": (event) =>
+		event.reason === null
+			? { words: ["Removed", artifact(event)], at: event.at }
+			: null,
 	merge: (event) =>
 		event.reason === null
 			? { mark: "landed", words: ["Merged", task(event)], at: event.at }
@@ -352,6 +368,18 @@ function waitedOn(event: Wait): Named {
 /** The task an event is about, as a chip. */
 function task(event: Event): { kind: "task"; task: string } {
 	return { kind: "task", task: event.task ?? "" };
+}
+
+/** The artifact an artifact command is about, as a chip opening the version it names. */
+function artifact(
+	event: EventOf<"artifact add" | "artifact remove"> & { reason: null },
+): Named {
+	return {
+		kind: "artifact",
+		conversation: event.conversation ?? "",
+		name: event.name,
+		version: event.version,
+	};
 }
 
 /** The line of a task removed, its reason and the todos put back on its chip's hover. */

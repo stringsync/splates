@@ -10,6 +10,7 @@ import {
 import { type JSX, type ReactNode, use, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { openArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
@@ -94,6 +95,13 @@ export type Named =
 	| { kind: "lane"; id: number; name: string }
 	| { kind: "branch"; branch: string }
 	| { kind: "file"; path: string }
+	| {
+			kind: "artifact";
+			/** The conversation that holds it. */
+			conversation: string;
+			name: string;
+			version: number;
+	  }
 	| { kind: "cred"; name: string };
 
 /**
@@ -319,6 +327,19 @@ function NamedChip({
 					{distinctNames([named.path]).get(named.path)}
 				</Chip>
 			);
+		case "artifact": {
+			const { conversation, name, version } = named;
+			return (
+				<Chip
+					Icon={FileIcon}
+					title={`Artifact ${name}, version ${version}`}
+					open={() => openArtifact(conversation, name, version)}
+					className={cn("font-mono", GIVES_WAY_FIRST)}
+				>
+					{name}
+				</Chip>
+			);
+		}
 		case "cred":
 			return (
 				<Chip
