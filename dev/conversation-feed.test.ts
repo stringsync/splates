@@ -91,9 +91,31 @@ describe("ConversationFeed", () => {
 		expect(feed.unsent.has("c1")).toBe(false);
 	});
 
+	it("places a message by how the server says it will take one, as the server changes its mind", async () => {
+		const running = conversation({
+			status: "running",
+			taking: "steer",
+			messages: [message("user", "go")],
+		});
+		feed.start();
+		await list([running]);
+
+		const steered = feed.send("c1", "now");
+		say({ ...running, taking: "queue" });
+		const queued = feed.send("c1", "later");
+		say({ ...running, taking: "start" });
+		const started = feed.send("c1", "then");
+
+		expect(steered.queued).toBe(false);
+		expect(queued.queued).toBe(true);
+		// Behind a message on its way, whatever the server says.
+		expect(started.queued).toBe(true);
+	});
+
 	it("keeps a message on its way while the server records one told, and drops it once its own copy comes", async () => {
 		const running = conversation({
 			status: "running",
+			taking: "queue",
 			messages: [message("user", "go")],
 		});
 		feed.start();

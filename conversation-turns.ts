@@ -18,6 +18,7 @@ import type {
 	Message,
 	Sent,
 	Status,
+	Taking,
 	Upload,
 } from "./conversation-state";
 import { fail } from "./exit";
@@ -203,6 +204,22 @@ export class ConversationTurns {
 		});
 		state.messages.push(message);
 		this.send([message]);
+	}
+
+	/**
+	 * What `prompt` would do with a message said now, which the page shows it
+	 * as: it follows the same rules as `prompt` does.
+	 */
+	taking(): Taking {
+		const { host, connection } = this;
+		switch (host.state.status) {
+			case "starting":
+				return "queue";
+			case "running":
+				return connection.canSteer && host.opening === null ? "steer" : "queue";
+			default:
+				return "start";
+		}
 	}
 
 	/**

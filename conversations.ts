@@ -626,6 +626,7 @@ export type {
 	Setting,
 	Status,
 	Step,
+	Taking,
 	Tool,
 	Upload,
 	Usage,

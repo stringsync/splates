@@ -117,6 +117,8 @@ export interface ConversationState {
 	 * alone and nothing resumes: forgotten once it ends.
 	 */
 	pausing: boolean;
+	/** What a message said now would do, so the page places it as the server will. */
+	taking: Taking;
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
@@ -129,6 +131,12 @@ export interface ConversationState {
  * prompt resumes the session in a new one.
  */
 export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
+
+/**
+ * What a message said to a conversation would do: `start` a turn of its own,
+ * `steer` into the running turn, or `queue` for the turn's end.
+ */
+export type Taking = "start" | "steer" | "queue";
 
 /** How long an agent sits idle before arbor stops its process. */
 export const IDLE_STOP = Duration.mins(30);
@@ -203,8 +211,7 @@ export interface Image {
 	name: string;
 	mimeType: string;
 	/**
-	 * Where the page reads one still on its way, before the server keeps it;
-	 * the server never sets it.
+	 * Where the page shows one still on its way, until the server keeps it.
 	 */
 	url?: string;
 }
@@ -486,6 +493,7 @@ export function blank(
 		seen: 0,
 		checkpoint: null,
 		pausing: false,
+		taking: "start",
 		usage: unused(),
 		background: [],
 		artifacts: [],

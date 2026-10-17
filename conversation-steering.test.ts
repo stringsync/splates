@@ -46,6 +46,19 @@ describe("Conversation steering, as Codex answers it", () => {
 
 	afterEach(() => conversations.disposeAsync());
 
+	it("says a message would be steered in, until the turn is on its final answer or the turn ends", async () => {
+		expect(conversation.state.taking).toBe("steer");
+
+		await agent.say({
+			...say("Done: the tests pass."),
+			_meta: { jetbrains: { air: { phase: "final_answer" } } },
+		});
+		await eventually(() => conversation.state.taking === "queue");
+		await finish(conversation, held);
+
+		await eventually(() => conversation.state.taking === "start");
+	});
+
 	it("queues what is said once the turn is on its final answer", async () => {
 		// As Codex marks each message for a client that declares AIR.
 		await agent.say({
@@ -70,6 +83,7 @@ describe("Conversation steering, as Codex answers it", () => {
 		agent.steering = "startedNewTurn";
 
 		await conversation.prompt("two");
+		expect(conversation.state.taking).toBe("queue");
 		await conversation.prompt("three");
 
 		expect(agent.steered).toEqual(["two"]);

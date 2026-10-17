@@ -142,6 +142,7 @@ export function conversation(
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
 		pausing: false,
+		taking: "start",
 		usage: {
 			context: null,
 			input: 0,

@@ -133,6 +133,7 @@ describe("App's composer queue", () => {
 					id: "c1",
 					title: "Fix login",
 					status: "running",
+					taking: "queue",
 					messages: [
 						message("user", "go"),
 						message("agent", { type: "text", text: "On it." }),

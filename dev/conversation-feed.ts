@@ -14,6 +14,7 @@ import type {
 	Limit,
 	Message,
 	Setting,
+	Taking,
 } from "../conversations";
 import { scoped } from "./api";
 import { LiveStream } from "./live-stream";
@@ -152,14 +153,13 @@ export class ConversationFeed
 			mimeType: file.type,
 			url: URL.createObjectURL(file),
 		}));
-		const held = this.recorded.find((each) => each.id === id);
 		const sending = this.sending.get(id);
 		const message = {
 			id: this.ids.next(),
 			text,
 			images: kept.filter((each) => SEEN.includes(each.mimeType)),
 			files: kept.filter((each) => !SEEN.includes(each.mimeType)),
-			queued: held?.status === "running" || sending !== undefined,
+			queued: this.placed(id) === "queue" || sending !== undefined,
 			typed,
 			attached: files,
 			dictated,
@@ -171,6 +171,15 @@ export class ConversationFeed
 		}
 		this.show(this.recorded);
 		return message;
+	}
+
+	/**
+	 * Where a message said now to conversation `id` would go, as the server
+	 * last said it will take one. Every place a message is put asks here, so
+	 * what decides it stays in one spot.
+	 */
+	private placed(id: string): Taking {
+		return this.recorded.find((each) => each.id === id)?.taking ?? "start";
 	}
 
 	/**

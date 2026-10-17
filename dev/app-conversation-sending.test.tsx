@@ -426,18 +426,24 @@ describe("App's sending messages", () => {
 		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(1);
 	});
 
-	it("shows a message sent mid-turn among the queued at once, before the server has it", async () => {
+	/** Says "and the logout" to a running conversation whose server will take it as `taking`. */
+	async function sayMidTurn(taking: "steer" | "queue") {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Login",
 				status: "running",
+				taking,
 				messages: [message("user", "go")],
 			}),
 		]);
 		const box = view.getByRole("textbox", { name: "Message input" });
 		await typeIn(box, "and the logout");
-
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		return view;
+	}
+
+	it("shows a message sent mid-turn among the queued at once when the server will queue it", async () => {
+		const view = await sayMidTurn("queue");
 
 		const queued = view.getByRole("region", { name: "queued messages" });
 		expect(
@@ -445,6 +451,13 @@ describe("App's sending messages", () => {
 				.getAllByRole("listitem")
 				.map((each) => each.textContent),
 		).toEqual([expect.stringContaining("and the logout")]);
+	});
+
+	it("shows a message sent mid-turn in the thread at once when the server will steer it in", async () => {
+		const view = await sayMidTurn("steer");
+
+		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
+		expect(view.getAllByText("and the logout")).toHaveLength(1);
 	});
 
 	it("names the layout each message is sent from, for the Stats page", async () => {

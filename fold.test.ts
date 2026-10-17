@@ -36,6 +36,7 @@ describe("fold", () => {
 		seen: 0,
 		checkpoint: null,
 		pausing: false,
+		taking: "start",
 		usage: unused(),
 		background: [],
 		artifacts: [],

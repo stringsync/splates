@@ -593,6 +593,7 @@ export class Conversation
 	}
 
 	changed(): void {
+		this.state.taking = this.turns.taking();
 		this.rest();
 		this.dispatcher.dispatch("changed");
 	}
