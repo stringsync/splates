@@ -156,7 +156,7 @@ export function useNewConversation({
 			// After the drop, or the thread would cut it short.
 			await dropped;
 			void slide(() => onOpen(state.id, "replace"));
-			await promptConversation(
+			const answered = await promptConversation(
 				state.id,
 				noted(text, files),
 				files,
@@ -170,7 +170,11 @@ export function useNewConversation({
 				} else {
 					refuseIn(state.id, "Not sent", error);
 				}
+				return null;
 			});
+			if (sending !== null && answered !== null) {
+				feed.answered(state.id, sending, answered);
+			}
 		},
 	});
 	restore.current = useDraft(

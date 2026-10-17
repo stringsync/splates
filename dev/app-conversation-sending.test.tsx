@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Duration } from "webappwiz/time";
 import {
 	act,
 	cleanup,
 	conversation,
 	fireEvent,
 	message,
+	newWith,
+	openRow,
 	resize,
 	Testing,
 	textIn,
@@ -24,6 +27,81 @@ describe("App's sending messages", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+	});
+
+	it("sends each note once while acknowledgements are delayed, without carrying notes into a new conversation", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "running", taking: "queue" }),
+		]);
+		testing.holdWrites();
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "first note");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await typeIn(box, "second note");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await newWith(view, "Claude");
+		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
+			"",
+		);
+		await openRow(view, "Login");
+		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(2);
+		expect(view.getAllByText("first note")).toHaveLength(1);
+		expect(view.getAllByText("second note")).toHaveLength(1);
+	});
+
+	// scry-ignore simple-test-setup: this scenario alone substitutes an HTTP acknowledgement without a stream echo
+	it("settles the first message from its HTTP acknowledgement before the live stream catches up", async () => {
+		const view = await testing.openConversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const fetch = globalThis.fetch;
+		globalThis.fetch = (async (path: string, init?: RequestInit) => {
+			const response = await fetch(path, init);
+			const form = init?.body;
+			// scry-ignore matchers-over-test-logic: fake server routing returns the acknowledgement only for the first prompt
+			if (
+				path === "/api/conversations/c9/prompt" &&
+				form instanceof FormData &&
+				form.get("text") === "first note"
+			) {
+				return Response.json(
+					conversation({
+						id: "c9",
+						status: "running",
+						taking: "queue",
+						messages: [
+							{
+								...message("user", "first note"),
+								id: form.get("id")?.toString(),
+							},
+						],
+					}),
+				);
+			}
+			return response;
+		}) as typeof globalThis.fetch;
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "first note");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c9/prompt")).toHaveLength(1),
+		);
+		await act(async () => {
+			testing.wall.advance(Duration.secs(4));
+			testing.timer.fireTimeouts();
+		});
+		expect(view.queryByText("Sending…")).toBeNull();
+		await typeIn(
+			view.getByRole("textbox", { name: "Message input" }),
+			"second note",
+		);
+		await act(async () =>
+			fireEvent.keyDown(view.getByRole("textbox", { name: "Message input" }), {
+				key: "Enter",
+			}),
+		);
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(within(queued).queryByText("first note")).toBeNull();
+		expect(within(queued).getByText("second note")).toBeTruthy();
 	});
 
 	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {

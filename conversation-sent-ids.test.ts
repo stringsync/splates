@@ -34,6 +34,42 @@ describe("A conversation's messages the page named", () => {
 
 	const ids = (of: Conversation) => of.state.messages.map((each) => each.id);
 
+	// scry-ignore simple-test-setup: only this scenario holds initialization to inspect a prompt queued before startup
+	it("keeps the page's id while startup waits and after the queued prompt runs", async () => {
+		let ready = () => {};
+		agent.hold = new Promise<void>((resolve) => {
+			ready = resolve;
+		});
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		const prompting = conversation.prompt("first note", [], "phone", {
+			id: "p1",
+			dictated: true,
+		});
+		try {
+			await eventually(() => conversation.state.messages.length > 0);
+			expect(conversation.state.messages).toEqual([
+				expect.objectContaining({ id: "p1", queued: true, dictated: true }),
+			]);
+		} finally {
+			ready();
+			await prompting;
+		}
+		expect(conversation.state.messages[0]?.id).toBe("p1");
+		await eventually(() => held.finish !== undefined);
+		await finish(conversation, held);
+		await conversation.stop();
+		const reread = new Conversations(DIR, [AGENT], deps());
+		try {
+			const [read] = await reread.list();
+			expect(read === undefined ? [] : ids(read)).toEqual(["p1"]);
+		} finally {
+			await reread.disposeAsync();
+		}
+	});
+
 	it("keeps each one's id queued, once sent, and read back from the log", async () => {
 		const conversation = await working(conversations, held);
 		await conversation.prompt("two", [], undefined, { id: "p2" });

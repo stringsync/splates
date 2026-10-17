@@ -86,6 +86,11 @@ export class ConversationTurns {
 		if (words === "" && files.length === 0) {
 			fail("usage", "say something to the agent", { conversation: state.id });
 		}
+		const marks: Marks = {
+			...(told === undefined ? {} : { told }),
+			...(dictated ? { dictated: true } : {}),
+			...(id === undefined ? {} : { id }),
+		};
 		// Save before waiting for startup: the session may never open before
 		// the server restarts. The durable queue then offers Send now / Edit.
 		if (state.status === "starting" && host.opening !== null) {
@@ -93,10 +98,7 @@ export class ConversationTurns {
 			// Capabilities are not known yet; keep uploads as files and choose
 			// their wire representation once the agent has initialized.
 			const kept = await this.files.keep(files, false);
-			this.queue(words, kept, from, {
-				...(told === undefined ? {} : { told }),
-				...(dictated ? { dictated: true } : {}),
-			});
+			this.queue(words, kept, from, marks);
 			await host.log.flush();
 			await opening;
 			if (
@@ -138,11 +140,6 @@ export class ConversationTurns {
 			this.mark(null);
 		}
 		const kept = await this.files.keep(files, connection.sees);
-		const marks: Marks = {
-			...(told === undefined ? {} : { told }),
-			...(dictated ? { dictated: true } : {}),
-			...(id === undefined ? {} : { id }),
-		};
 		if (state.status === "running") {
 			if (stop) {
 				this.queue(words, kept, from, marks);
