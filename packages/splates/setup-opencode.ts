@@ -205,7 +205,9 @@ export class OpenCodeSetup {
 			"OpenCode was not found or could not report its version. Install it, then check again. If already installed, restart splates so it sees the updated PATH.";
 		try {
 			await this.prepare();
-			const version = (await this.command(["--version"], signal)).trim();
+			const version = (await this.command(["--version"], signal))
+				.trim()
+				.replace(/^opencode v/, "");
 			// Never reflect arbitrary process output (including provider errors) into the page.
 			if (!/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(version)) {
 				throw new Error("version");
@@ -265,7 +267,6 @@ export class OpenCodeSetup {
 		// Drain and discard stderr: it may contain native provider diagnostics.
 		void (async () => {
 			for await (const _bytes of child.stderr) {
-				/* Discard native diagnostics. */
 			}
 		})().catch(() => {});
 		const process = {

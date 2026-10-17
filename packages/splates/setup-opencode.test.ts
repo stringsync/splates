@@ -31,6 +31,19 @@ describe("OpenCode setup checks", () => {
 		expect(await fs.exists("/splates/agents.json")).toBe(false);
 	});
 
+	it("recognizes the official CLI version output from an existing installation", async () => {
+		ps.version = "opencode v2.0.32\n";
+		expect(await setup.check()).toMatchObject({
+			version: "2.0.32",
+			auth: "stored",
+			protocol: "compatible",
+			problem: null,
+		});
+		expect(
+			ps.getCalls().every((command) => command.startsWith("opencode ")),
+		).toBe(true);
+	});
+
 	it("invalidates authentication observations when a native action begins", async () => {
 		await setup.check();
 		setup.invalidate();

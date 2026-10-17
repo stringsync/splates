@@ -336,7 +336,7 @@ const ComposerAction: FC = () => {
 				>
 					<ComposerAddAttachment />
 				</AuiIf>
-				{dictating ? <DictationStatus expanded /> : controls}
+				{dictating ? <DictationStatus expanded className="pr-0" /> : controls}
 			</div>
 			<div className="flex shrink-0 items-center gap-1.5">
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>

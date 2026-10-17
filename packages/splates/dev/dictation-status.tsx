@@ -33,19 +33,27 @@ const SILENT = "Can't hear you";
  * Says what the mic is doing, in the composer's action row while a take is
  * under way: waiting on the mic, recording, or that it hears nothing. Null otherwise, leaving the row to its own controls.
  */
-export function DictationStatus({ expanded = false }: { expanded?: boolean }) {
+export function DictationStatus({
+	expanded = false,
+	className,
+}: {
+	expanded?: boolean;
+	className?: string;
+}) {
 	const dictation = useContext(DictationContext);
 	return dictation === null ? null : (
-		<Status dictation={dictation} expanded={expanded} />
+		<Status dictation={dictation} expanded={expanded} className={className} />
 	);
 }
 
 function Status({
 	dictation,
 	expanded,
+	className,
 }: {
 	dictation: Dictation;
 	expanded: boolean;
+	className?: string;
 }) {
 	const phase = useReactive(dictation, (each) => each.state.phase, ["changed"]);
 	const silent = useReactive(dictation, (each) => each.state.silent, [
@@ -64,17 +72,23 @@ function Status({
 			className={cn(
 				"dictation-status text-muted-foreground relative flex min-w-0 items-center justify-center gap-2 px-1.5 text-sm",
 				expanded && "static h-7 flex-1 pointer-coarse:h-11",
+				className,
 			)}
 			data-phase={phase}
 		>
 			<Waveform levels={levels} expanded={expanded} />
 			<span
 				aria-hidden="true"
-				className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-[opacity,transform] duration-75 motion-reduce:transition-none"
+				className={cn(
+					"dictation-level size-2.5 shrink-0 rounded-full transition-[opacity,transform] duration-75 motion-reduce:transition-none",
+					phase === "recording" ? "bg-destructive" : "bg-foreground",
+				)}
 				style={{
 					opacity: 0.2 + Math.sqrt(level) * 0.8,
-					// Transform leaves the strip and controls fixed as loudness changes.
-					transform: `scale(${0.5 + Math.sqrt(level) * 0.75})`,
+					// Transform leaves the strip and controls fixed as loudness changes; it
+					// only shrinks, so the loudest dot fills its box and never reaches the
+					// stop button.
+					transform: `scale(${0.4 + Math.sqrt(level) * 0.6})`,
 				}}
 			/>
 			<span
