@@ -50,7 +50,7 @@ import {
 	unnamed,
 } from "#dev/sent-attachments.tsx";
 import { Stamp, useStamps } from "#dev/stamp.tsx";
-import { UnsentLine } from "#dev/unsent.tsx";
+import { SendingLine, UnsentLine } from "#dev/unsent.tsx";
 import { leadingDirectives, MERGE } from "../../../../prompts";
 
 /**
@@ -147,6 +147,9 @@ export const UserMessage: FC = () => {
 		const at = s.message.metadata.custom.unsent;
 		return typeof at === "number" ? at : null;
 	});
+	const sending = useAuiState(
+		(s) => s.message.metadata.custom.sending === true,
+	);
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -254,6 +257,7 @@ export const UserMessage: FC = () => {
 					)}
 				</div>
 			)}
+			{sending && <SendingLine />}
 			{unsent !== null && <UnsentLine at={unsent} />}
 		</>
 	);

@@ -2,6 +2,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import {
+	Duration,
 	SystemTimer,
 	SystemWallClock,
 	type Timer,
@@ -18,6 +19,9 @@ import type {
 } from "../conversations";
 import { scoped } from "./api";
 import { LiveStream } from "./live-stream";
+
+/** How long a message goes unanswered before the page says it is still sending. */
+export const STILL_SENDING = Duration.secs(3);
 
 export type ConversationFeedEvents = { changed: undefined };
 
@@ -38,6 +42,8 @@ export interface Sending {
 	attached: File[];
 	/** Whether the person said it into the mic. */
 	dictated: boolean;
+	/** When it was sent, as epoch ms, to tell when it has gone unanswered for `STILL_SENDING`. */
+	at: number;
 }
 
 /** A message the server refused, with why: shown until sent again or taken back. */
@@ -163,6 +169,7 @@ export class ConversationFeed
 			typed,
 			attached: files,
 			dictated,
+			at: this.wall.now(),
 		};
 		if (sending === undefined) {
 			this.sending.set(id, [message]);
@@ -208,6 +215,25 @@ export class ConversationFeed
 		this.show(this.recorded);
 	}
 
+	/**
+	 * Settles `message`, which `send` showed in conversation `id`, by the
+	 * server's answer `state` to it: when that holds the message, the server
+	 * has it, so the page takes `state` in at once if the stream has yet to
+	 * bring it, and gives up any unsent copy of it.
+	 */
+	answered(id: string, message: Sending, state: ConversationState): void {
+		if (!state.messages?.some((each) => each.id === message.id)) {
+			return;
+		}
+		if ((this.unsent.get(id) ?? []).some((each) => each.message === message)) {
+			this.take(id, message);
+		}
+		const held = this.recorded.find((each) => each.id === id);
+		if (!held?.messages.some((each) => each.id === message.id)) {
+			this.put(state);
+		}
+	}
+
 	/** Stops showing `message`, unsent in conversation `id`, to send again or edit. */
 	take(id: string, message: Sending): void {
 		const left = (this.unsent.get(id) ?? []).filter(
@@ -219,6 +245,23 @@ export class ConversationFeed
 			this.unsent.set(id, left);
 		}
 		forget(message);
+		this.show(this.recorded);
+	}
+
+	/**
+	 * When a message of conversation `id` next passes `STILL_SENDING`
+	 * unanswered, as epoch ms; null when none will.
+	 */
+	nextSlow(id: string): number | null {
+		const now = this.wall.now();
+		const due = (this.sending.get(id) ?? [])
+			.map((each) => each.at + STILL_SENDING.ms)
+			.filter((at) => at > now);
+		return due.length === 0 ? null : Math.min(...due);
+	}
+
+	/** Shows what is on its way afresh, as the clock now reads. */
+	recheck(): void {
 		this.show(this.recorded);
 	}
 
@@ -247,13 +290,22 @@ export class ConversationFeed
 			// `arbor tell` or another device, never stands in for one.
 			const kept = new Set(each.messages.map((message) => message.id));
 			const left = sending.filter((message) => !kept.has(message.id));
-			sending.filter((message) => kept.has(message.id)).forEach(forget);
+			for (const message of sending.filter((each) => kept.has(each.id))) {
+				forget(message);
+			}
 			if (left.length === 0) {
 				this.sending.delete(each.id);
 				return each;
 			}
 			this.sending.set(each.id, left);
-			return { ...each, messages: [...each.messages, ...left.map(messageOf)] };
+			const now = this.wall.now();
+			return {
+				...each,
+				messages: [
+					...each.messages,
+					...left.map((copy) => messageOf(copy, now)),
+				],
+			};
 		});
 		this.dispatcher.dispatch("changed");
 	}
@@ -271,8 +323,30 @@ export class ConversationFeed
 			// Back after the stream dropped, as when `arbor dev` restarts or the
 			// machine wakes: what the page holds may have moved meanwhile, so it
 			// is read again whole.
-			open: () => void this.list(),
+			open: (again) => void this.reopened(again),
 		});
+	}
+
+	/**
+	 * Reads every conversation afresh after the stream opens, `reconnect` when it
+	 * had before. Messages sent before it dropped that the listing still lacks are given up as unsent:
+	 * their requests may have died with the connection, and none would say so.
+	 */
+	private async reopened(reconnect: boolean): Promise<void> {
+		const before = [...this.sending].flatMap(([id, each]) =>
+			each.map((message) => ({ id, message })),
+		);
+		await this.list();
+		if (!reconnect) {
+			return;
+		}
+		for (const { id, message } of before) {
+			this.refused(
+				id,
+				message,
+				new Error("Lost the connection before the server had it"),
+			);
+		}
 	}
 
 	/**
@@ -341,7 +415,7 @@ export function agentName(agents: AgentChoice[], id: string): string {
 }
 
 /** `message` as the thread shows it, from the page's own copies of its files. */
-export function messageOf(message: Sending): Message {
+export function messageOf(message: Sending, now = message.at): Message {
 	return {
 		id: message.id,
 		role: "user",
@@ -356,6 +430,7 @@ export function messageOf(message: Sending): Message {
 		at: null,
 		until: null,
 		...(message.queued ? { queued: true as const } : {}),
+		...(now - message.at >= STILL_SENDING.ms ? { sending: true as const } : {}),
 		...(message.dictated ? { dictated: true as const } : {}),
 	};
 }

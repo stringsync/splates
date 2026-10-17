@@ -185,6 +185,11 @@ export interface Message {
 	dictated?: true;
 	/** The id the page gave it as it sent it, so it knows its own copy when it comes back. */
 	id?: string;
+	/**
+	 * Still on its way to the server, unanswered for a while: set only by the
+	 * page, on its own copy, never by the server.
+	 */
+	sending?: true;
 }
 
 /** One piece of what someone in a conversation said or did. */

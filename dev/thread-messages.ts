@@ -31,7 +31,9 @@ export function useThreadMessages(
 	feed: ConversationFeed,
 ): ThreadMessages {
 	const { id, status } = conversation;
-	const running = status === "running" || feed.sending.has(id);
+	// Only once the server says the agent works: a message still on its way
+	// has not woken it, or reached a turn it is in.
+	const running = status === "running";
 	const unsent = feed.unsent.get(id);
 	// The last message is still being written while the agent works. An agent
 	// starting is coming back to answer a prompt, never to go on with the turn
@@ -44,6 +46,18 @@ export function useThreadMessages(
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);
 	const due = writing && latest?.role === "agent" ? replyDue(latest) : null;
+	// A message still unanswered after a few seconds is shown as still sending.
+	const slowAt = feed.nextSlow(id);
+	useEffect(() => {
+		if (slowAt === null) {
+			return;
+		}
+		const timer = feed.timer.setTimeout(
+			() => feed.recheck(),
+			Duration.ms(slowAt - feed.wall.now()),
+		);
+		return () => timer.dispose();
+	}, [slowAt, feed]);
 	const [shown, show] = useState(0);
 	useEffect(() => {
 		const wait = due === null ? 0 : due - feed.wall.now();
@@ -214,6 +228,7 @@ export function like(
 					at: message.at,
 					told: message.told ?? null,
 					dictated: message.dictated ?? false,
+					sending: message.sending ?? false,
 				},
 			},
 		};

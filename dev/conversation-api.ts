@@ -76,7 +76,7 @@ export async function promptConversation(
 	dictated = false,
 	/** The id the feed gave the copy it shows, which the server keeps on its own. */
 	sent?: string,
-): Promise<void> {
+): Promise<ConversationState> {
 	const form = new FormData();
 	form.set("text", text);
 	if (sent !== undefined) {
@@ -88,10 +88,10 @@ export async function promptConversation(
 	for (const file of files) {
 		form.append("file", file, file.name);
 	}
-	await send(`/api/conversations/${id}/prompt`, {
+	return (await send(`/api/conversations/${id}/prompt`, {
 		body: form,
 		headers: { [FROM_HEADER]: matchMedia(WIDE).matches ? "desktop" : "phone" },
-	});
+	})) as ConversationState;
 }
 
 /** Where the page reads `file`, one the person sent in conversation `id`. */

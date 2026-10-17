@@ -1,5 +1,10 @@
 import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
-import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
+import {
+	Loader2Icon,
+	PencilIcon,
+	SendHorizontalIcon,
+	Trash2Icon,
+} from "lucide-react";
 import type { JSX, RefObject } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
@@ -92,6 +97,7 @@ export function Queued({
 					// Still on its way while the agent starts: the server has nothing
 					// to take back yet.
 					const unrecorded = index >= messages.length - pending;
+					const sending = message.sending === true;
 					return (
 						<li
 							// Only ever added at the end and taken from anywhere, but
@@ -114,6 +120,12 @@ export function Queued({
 							<span className="min-w-0 flex-1 truncate text-sm">
 								<Directed text={rest} />
 							</span>
+							{sending && (
+								<span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+									<Loader2Icon className="size-3 animate-spin" aria-hidden />
+									Sending…
+								</span>
+							)}
 							{edits !== null && (
 								<>
 									<Button

@@ -1,4 +1,4 @@
-import { CircleAlertIcon } from "lucide-react";
+import { CircleAlertIcon, Loader2Icon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import type { Sending, Unsent } from "./conversation-feed";
 
@@ -14,6 +14,19 @@ export const UnsentContext = createContext<UnsentActions>({
 	retry: () => {},
 	edit: () => {},
 });
+
+/** Under a message the server has yet to answer, after a while: still sending. */
+export function SendingLine(): JSX.Element {
+	return (
+		<div
+			data-slot="aui_user-message-sending"
+			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
+		>
+			<Loader2Icon className="size-3 animate-spin" aria-hidden />
+			Sending…
+		</div>
+	);
+}
 
 /**
  * Under a message the server refused, the `at`th: that it was not sent, why

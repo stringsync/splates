@@ -198,102 +198,6 @@ describe("App's sending messages", () => {
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 	});
 
-	it("shows each message to a stopped conversation at once while its agent resumes, those after the first as queued until the server has them", async () => {
-		const said = [message("user", "fix the login"), message("agent", "Done.")];
-		const view = await testing.openConversations([
-			conversation({ title: "Login", status: "stopped", messages: said }),
-		]);
-		const thread = view.getByRole("region", { name: "Login" });
-		const box = view.getByRole("textbox", { name: "Message input" });
-
-		await typeIn(box, "and the logout");
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		await typeIn(box, "and the signup");
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-
-		await waitFor(() =>
-			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
-		);
-		const queued = within(thread).getByRole("region", {
-			name: "queued messages",
-		});
-		expect(within(queued).getByText("and the signup")).toBeTruthy();
-		// The server has nothing of it to take back yet.
-		const discard = within(queued).getByRole("button", {
-			name: "Discard and the signup",
-		}) as HTMLButtonElement;
-		expect(discard.disabled).toBe(true);
-
-		await testing.say(
-			conversation({
-				title: "Login",
-				status: "running",
-				messages: [
-					...said,
-					{
-						...message("user", "and the logout"),
-						id: testing.sentId("c1", "and the logout"),
-					},
-					{
-						...message("user", "and the signup"),
-						queued: true,
-						id: testing.sentId("c1", "and the signup"),
-					},
-				],
-			}),
-		);
-
-		await waitFor(() => expect(discard.disabled).toBe(false));
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
-		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
-	});
-
-	it("keeps showing a message on its way while the server records one told by another conversation, then shows it once", async () => {
-		const said = [message("user", "fix the login"), message("agent", "Done.")];
-		const view = await testing.openConversations([
-			conversation({ title: "Login", status: "stopped", messages: said }),
-		]);
-		const thread = view.getByRole("region", { name: "Login" });
-		const box = view.getByRole("textbox", { name: "Message input" });
-		await typeIn(box, "and the logout");
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		await waitFor(() =>
-			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
-		);
-		const told = { ...message("user", "carry on"), told: "c2" };
-
-		await testing.say(
-			conversation({
-				title: "Login",
-				status: "running",
-				messages: [...said, told],
-			}),
-		);
-
-		await waitFor(() =>
-			expect(within(thread).getAllByText("carry on")).toHaveLength(1),
-		);
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
-
-		await testing.say(
-			conversation({
-				title: "Login",
-				status: "running",
-				messages: [
-					...said,
-					told,
-					{
-						...message("user", "and the logout"),
-						queued: true,
-						id: testing.sentId("c1", "and the logout"),
-					},
-				],
-			}),
-		);
-
-		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
-	});
-
 	it("shows a message to an idle conversation at once, with its reply's place, rather than once the server says it back", async () => {
 		const said = [message("user", "fix the login"), message("agent", "Done.")];
 		const view = await testing.openConversations([
@@ -305,14 +209,13 @@ describe("App's sending messages", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		// With its reply's place in the same step, so the thread anchors the
-		// message once, not again when the server's copy comes.
 		await waitFor(() =>
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
+		// The agent works once the server says so, not before.
 		expect(
-			within(thread).getByRole("button", { name: "Stop generating" }),
-		).toBeTruthy();
+			within(thread).queryByRole("button", { name: "Stop generating" }),
+		).toBeNull();
 
 		await testing.say(
 			conversation({

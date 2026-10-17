@@ -40,7 +40,7 @@ export function useThreadRuntime(
 				text !== "" || files.length > 0
 					? feed.send(id, noted(text, files), files, text, dictated)
 					: null;
-			await promptConversation(
+			const state = await promptConversation(
 				id,
 				noted(text, files),
 				files,
@@ -55,6 +55,11 @@ export function useThreadRuntime(
 				}
 				throw error;
 			});
+			// The answer holds the message when the server has it, whatever the
+			// stream has yet to say.
+			if (sending !== null) {
+				feed.answered(id, sending, state);
+			}
 		},
 		[id, feed, refused],
 	);

@@ -184,6 +184,8 @@ export class Testing implements Resource {
 	readonly shells: FakeShell[] = [];
 	#down = false;
 	#held: Promise<void> | null = null;
+	#heldWrites: Promise<void> | null = null;
+	#answerWrites = () => {};
 	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
@@ -206,6 +208,7 @@ export class Testing implements Resource {
 					body: init.body,
 					headers: init.headers,
 				});
+				await this.#heldWrites;
 				return this.refuseWrites === null
 					? Response.json(this.reply)
 					: Response.json(this.refuseWrites, { status: 409 });
@@ -344,13 +347,25 @@ export class Testing implements Resource {
 		);
 	}
 
-	/** Keeps every snapshot from arriving until the returned function is called. */
+	/** Keeps every snapshot from arriving until `release`. */
 	holdSnapshots(): () => void {
 		let arrive = () => {};
 		this.#held = new Promise<void>((resolve) => {
 			arrive = resolve;
 		});
 		return arrive;
+	}
+
+	/** Keeps every write unanswered (though posted) until `release`. */
+	holdWrites(): void {
+		this.#heldWrites = new Promise<void>((resolve) => {
+			this.#answerWrites = resolve;
+		});
+	}
+
+	/** Answers the writes `holdWrites` kept. */
+	release(): void {
+		this.#answerWrites();
 	}
 
 	/** Fails every fetch from now on, standing in for a server that went away. */
