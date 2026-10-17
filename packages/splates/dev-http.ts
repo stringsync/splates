@@ -119,7 +119,7 @@ export const MAX_BODY_BYTES = 25 * 1024 * 1024;
 
 /**
  * The images and recordings a todo or a task may hold, by extension, and how
- * each is served; `dev/media.tsx` shows the same ones inline.
+ * each is served; `web/media.tsx` shows the same ones inline.
  */
 export const MEDIA_TYPES: Record<string, string> = {
 	png: "image/png",

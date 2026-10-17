@@ -91,10 +91,10 @@ Depends on #352 merging. Use these files:
 - `packages/splates/roster.ts`, `roster.test.ts`, `models.ts`,
   `conversation-settings.test.ts`: editable models and full IDs; exact provider
   matching for OpenCode, including duplicate display names across providers.
-- `packages/splates/dev/conversation-home.tsx`, `packages/splates/dev/conversation-address.ts`,
-  `packages/splates/dev/setting-controls.tsx`,
-  `packages/splates/dev/app-conversation-settings.test.tsx`,
-  `packages/splates/dev/conversation-feed-defaults.test.ts`:
+- `packages/splates/web/conversation-home.tsx`, `packages/splates/web/conversation-address.ts`,
+  `packages/splates/web/setting-controls.tsx`,
+  `packages/splates/web/app-conversation-settings.test.tsx`,
+  `packages/splates/web/conversation-feed-defaults.test.ts`:
   use offered ACP settings and existing picker conventions. Clearly show
   OpenCode / Go / full model ID. Refresh config updates and remove stale options.
   Changing this selection must not change Claude/Codex defaults.
@@ -138,7 +138,7 @@ Depends on #352 and #353 merging. Exact locations:
 | --- | --- |
 | `packages/splates/agent-connection.ts`, `conversation-turns.ts`, `conversation-log.ts`, `conversation-state.ts` | Keep requested and confirmed full model IDs, turn timestamps, token provenance/availability and usage scope. Persist and replay without counting twice; old logs remain readable. |
 | `packages/splates/fold.ts`, `fold.test.ts`, `tool-calls.ts`, `limits.ts`, `limits.test.ts`, `conversation-log.test.ts` (new if needed) | Normalize only supported usage. Distinguish per-turn tokens from cumulative session cost. Recognize child-session metadata before folding context/cost. Test duplicate updates, load replay, resume, missing fields, model switches, and child exclusion. Keep Claude's process-reset cost handling intact. |
-| `packages/splates/dev/usage.tsx`, `packages/splates/dev/usage.test.tsx` (new), `conversation-settings.test.ts`, `conversations-limits.test.ts` | Label unknown metrics as unknown, show reported cost separately from actual additional charges, display confirmed provider/model and measured latency. Test quota absence and limit/retry errors. Link to Console when no authoritative quota is available. |
+| `packages/splates/web/usage.tsx`, `packages/splates/web/usage.test.tsx` (new), `conversation-settings.test.ts`, `conversations-limits.test.ts` | Label unknown metrics as unknown, show reported cost separately from actual additional charges, display confirmed provider/model and measured latency. Test quota absence and limit/retry errors. Link to Console when no authoritative quota is available. |
 | `designs/opencode-acp.md`, `packages/splates/README.md` | Record reproducible comparison inputs/results and limits verification date; never market token estimates as remaining quota. |
 
 Current usage starts token counters at zero and carries cost when an agent's
@@ -190,7 +190,7 @@ At planning time `splates list --files` showed:
   and add the dependency if still open. No billed runner execution is authorized.
 - `place-sent-as-server-takes`: conversation lifecycle/queue files. Recheck
   current code before #352; preserve its queue-versus-steer semantics.
-- `terminal-startup`: `packages/splates/dev/tab.ts` and tests; no changes needed.
+- `terminal-startup`: `packages/splates/web/tab.ts` and tests; no changes needed.
 - `working-elapsed`: report cards and working-time files; use existing timing
   helpers after merge if appropriate, without replacing its elapsed UI.
 
@@ -349,12 +349,12 @@ Implementation locations:
   single-operation exclusion, ephemeral terminal lifecycle and cancellation.
 - `dev.ts`: one service per server; `/api/setup/opencode` (GET observations),
   `/check` and `/cancel` (POST), `/native?action=install|login` (WebSocket).
-- `dev/setup-page.tsx`, `dev/setup-opencode.tsx`,
-  `dev/setup-opencode-terminal.tsx`: the existing wizard's native controls and
+- `web/setup-page.tsx`, `web/setup-opencode.tsx`,
+  `web/setup-opencode-terminal.tsx`: the existing wizard's native controls and
   disposable login terminal, with Console handoff, retry and skip/back.
 - `setup-opencode.test.ts`, `dev-setup-opencode.test.ts`,
-  `dev/setup-opencode.test.tsx`, `setup-areas.test.ts`: synthetic coverage;
-  `dev/testing.ts` supplies native-status UI fixtures.
+  `web/setup-opencode.test.tsx`, `setup-areas.test.ts`: synthetic coverage;
+  `web/testing.ts` supplies native-status UI fixtures.
 
 ### Supported native authentication interface
 
@@ -495,7 +495,7 @@ the separate landing/journey chooser and nudge removal.
 ## #374 readiness and completion
 
 `opencode-ready` extends the existing area after `opencode-models`.
-`dev/setup-opencode-ready.tsx` owns completion and repair/disable controls;
+`web/setup-opencode-ready.tsx` owns completion and repair/disable controls;
 `SetupPage` supplies its feed, open callback and navigation back to install.
 #378 alone owns the landing journey chooser and proactive nudge removal.
 

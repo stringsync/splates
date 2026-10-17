@@ -4,7 +4,7 @@ import { compile } from "tailwindcss";
 
 /**
  * Builds the `splates server` page: the React app as one script, and the stylesheet
- * with Tailwind compiled. `dev/assets.ts` imports both as text, so they end up
+ * with Tailwind compiled. `web/assets.ts` imports both as text, so they end up
  * inside the bundle a release publishes and the server hands them straight to
  * the browser.
  *
@@ -19,7 +19,7 @@ import { compile } from "tailwindcss";
  */
 
 const here = import.meta.dirname;
-const out = `${here}/dev/build`;
+const out = `${here}/web/build`;
 
 /** The app icon's sizes, the two a manifest needs for an install. */
 const ICON_SIZES = [192, 512] as const;
@@ -30,7 +30,7 @@ const ICON_SIZES = [192, 512] as const;
  */
 async function script(entry: string): Promise<{ code: string; map: string }> {
 	const built = await Bun.build({
-		entrypoints: [`${here}/dev/${entry}`],
+		entrypoints: [`${here}/web/${entry}`],
 		target: "browser",
 		// React's production build: the development one is several times the
 		// size, slower, and asks the person on the page to install DevTools.
@@ -84,7 +84,7 @@ async function stylesheet(id: string): Promise<string> {
 
 /** The stylesheet, with only the utilities the page actually uses in it. */
 async function styles(): Promise<string> {
-	const base = `${here}/dev`;
+	const base = `${here}/web`;
 	const compiler = await compile(await Bun.file(`${base}/styles.css`).text(), {
 		base,
 		loadStylesheet: async (id: string, from: string) => {
@@ -112,7 +112,7 @@ async function styles(): Promise<string> {
 // Bun's own types read `.html` and `.css` imports as something other than text.
 await Bun.write(
 	`${out}/shell.txt`,
-	await Bun.file(`${here}/dev/index.html`).text(),
+	await Bun.file(`${here}/web/index.html`).text(),
 );
 for (const [name, entry] of [
 	["main", "main.tsx"],
@@ -125,12 +125,12 @@ for (const [name, entry] of [
 await Bun.write(`${out}/styles.txt`, await styles());
 await Bun.write(
 	`${out}/manifest.txt`,
-	await Bun.file(`${here}/dev/manifest.webmanifest`).text(),
+	await Bun.file(`${here}/web/manifest.webmanifest`).text(),
 );
 // The icons as base64, so they travel as text like the rest. The PNGs are
-// committed rather than drawn here, since `dev/icons/render.swift` draws them
+// committed rather than drawn here, since `web/icons/render.swift` draws them
 // with macOS's own emoji, which only a Mac has.
 for (const size of ICON_SIZES) {
-	const png = await Bun.file(`${here}/dev/icons/icon-${size}.png`).bytes();
+	const png = await Bun.file(`${here}/web/icons/icon-${size}.png`).bytes();
 	await Bun.write(`${out}/icon-${size}.txt`, png.toBase64());
 }

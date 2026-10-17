@@ -9,7 +9,6 @@ import { attach } from "./attach";
 import { claim } from "./claim";
 import type { SecretStores } from "./creds";
 import { DEFAULT_PORT } from "./dev";
-import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import type { Facts } from "./events";
 import { exits, fail } from "./exit";
@@ -43,6 +42,7 @@ import { systems } from "./system";
 import { reportToCaller, tell } from "./tell";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, untilAfter, wait } from "./wait";
+import type { Assets } from "./web/assets";
 import { REMOVE_REASONS } from "./worktree";
 
 /** Everything `splates` is run with, before the repository middleware adds to it. */

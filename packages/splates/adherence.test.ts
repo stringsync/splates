@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Adherence, condense } from "./adherence";
 import type { ConversationState } from "./conversation-state";
-import { conversation, message, tool } from "./dev/fixtures";
 import { type Outcome, Outcomes } from "./outcomes";
+import { conversation, message, tool } from "./web/fixtures";
 
 const AT = "2026-10-14T10:00:00.000Z";
 

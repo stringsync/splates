@@ -1,4 +1,4 @@
-import type { Assets } from "./dev/assets";
+import type { Assets } from "./web/assets";
 
 /**
  * The page the server hands to browsers: the files built as this run
@@ -15,7 +15,7 @@ export class Pages {
 
 	/** The server's routes for the page's own files, spread into its `routes`. */
 	routes(): Record<string, (request: Request) => Response> {
-		// The page is a React app under `dev/`, built before publishing and
+		// The page is a React app under `web/`, built before publishing and
 		// carried in the bundle, so nothing here builds markup or reads it off
 		// disk.
 		const asset =

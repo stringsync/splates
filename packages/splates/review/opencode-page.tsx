@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Button } from "../dev/components/ui/button";
+import { Button } from "../web/components/ui/button";
 import {
 	NativeSelect,
 	NativeSelectOption,
-} from "../dev/components/ui/native-select";
-import { ConversationFeed } from "../dev/conversation-feed";
-import { SetupPage } from "../dev/setup-page";
-import { SetupContext, useSetupState } from "../dev/setup-state";
+} from "../web/components/ui/native-select";
+import { ConversationFeed } from "../web/conversation-feed";
+import { SetupPage } from "../web/setup-page";
+import { SetupContext, useSetupState } from "../web/setup-state";
 
 const feed = new ConversationFeed();
 function Review() {

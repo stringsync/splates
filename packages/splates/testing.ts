@@ -10,7 +10,6 @@ import { FakeProcess } from "webappwiz/system/testing";
 import { Adherence } from "./adherence";
 import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
-import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
@@ -22,6 +21,7 @@ import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { Todos } from "./todos";
+import { assets } from "./web/assets";
 import { WorktreeService } from "./worktree-service";
 
 /**

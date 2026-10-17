@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakePusher } from "webappwiz/push/testing";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "./conversations";
-import { conversation } from "./dev/fixtures";
-import type { Pushed } from "./dev/worker";
 import type { Served } from "./dev-project";
 import { Pushes } from "./dev-push";
 import { type Needing, need } from "./needs";
 import { Testing } from "./testing";
+import { conversation } from "./web/fixtures";
+import type { Pushed } from "./web/worker";
 
 describe("Pushes", () => {
 	let deps: Testing;

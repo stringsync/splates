@@ -28,7 +28,7 @@
 		"./update": "./update.ts"
 	},
 	"imports": {
-		"#dev/*": "./dev/*"
+		"#web/*": "./web/*"
 	},
 	"engines": {
 		"bun": ">=1.3"

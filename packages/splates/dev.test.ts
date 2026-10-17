@@ -248,7 +248,7 @@ describe("dev", () => {
 	});
 
 	it("names every file of the page as a source for Tailwind", async () => {
-		const dir = `${import.meta.dir}/dev`;
+		const dir = `${import.meta.dir}/web`;
 		const styles = await Bun.file(`${dir}/styles.css`).text();
 		const listed = [...styles.matchAll(/^@source "\.\/(.+\.tsx)";$/gm)].map(
 			([, file]) => file,

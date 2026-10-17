@@ -5,7 +5,6 @@ import { ConsoleLogger } from "webappwiz/log";
 import { NodeFs, NodePs, type TerminalOptions } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { SYSTEM_STORES } from "../creds";
-import { assets } from "../dev/assets";
 import { Access } from "../dev-access";
 import { HostGate } from "../dev-http";
 import { OpenCodeSetupRoutes } from "../dev-setup-opencode";
@@ -18,6 +17,7 @@ import { SETUP_AREAS } from "../setup-areas";
 import { OpenCodeSetup } from "../setup-opencode";
 import { OpenCodeFixturePs } from "../setup-opencode-fixture";
 import { SERVER_PID } from "../slots";
+import { assets } from "../web/assets";
 
 class DemoPs extends OpenCodeFixturePs {
 	override startOnTerminal(argv: string[], opts: TerminalOptions) {

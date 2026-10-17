@@ -10,8 +10,6 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { nameOf } from "./conversation-name";
-import { openedBy } from "./dev/conversation-address";
-import type { Pushed } from "./dev/worker";
 import { body } from "./dev-http";
 import type { Handler, Served } from "./dev-project";
 import { fail } from "./exit";
@@ -19,6 +17,8 @@ import type { Needing } from "./needs";
 import { keyOf, Notices } from "./notices";
 import type { Projects } from "./projects";
 import { splatesHome } from "./roster";
+import { openedBy } from "./web/conversation-address";
+import type { Pushed } from "./web/worker";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);

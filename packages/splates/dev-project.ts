@@ -6,7 +6,6 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
 import type { SecretStores } from "./creds";
-import type { Assets } from "./dev/assets";
 import { BudgetRoutes } from "./dev-budgets";
 import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
@@ -29,6 +28,7 @@ import type { Details } from "./show";
 import type { Slot } from "./slots";
 import { tasksOf } from "./snapshot";
 import type { PortOwners } from "./task-ports";
+import type { Assets } from "./web/assets";
 
 /**
  * Everything one project's page talks to: its records, its stream of
