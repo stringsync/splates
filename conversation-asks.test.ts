@@ -3,7 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { until } from "./conversation-testing";
+import { once, until } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
 
@@ -62,9 +62,7 @@ describe("Conversation asks", () => {
 		};
 		const conversation = await started();
 		await conversation.prompt("clean up");
-		for (let i = 0; i < 100 && conversation.state.ask === null; i++) {
-			await Bun.sleep(1);
-		}
+		await once(conversation, () => conversation.state.ask !== null);
 
 		expect(conversation.state.ask).toEqual({
 			type: "permission",
@@ -81,6 +79,42 @@ describe("Conversation asks", () => {
 
 		expect(conversation.state.ask).toBeNull();
 		expect(seen.outcome).toEqual({ outcome: "selected", optionId: "no" });
+	});
+
+	it("reuses a streamed tool title when approval omits it and keeps approval details", async () => {
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({
+				sessionId,
+				update: {
+					sessionUpdate: "tool_call",
+					toolCallId: "t1",
+					title: "mcp.cua_repl.js",
+					kind: "execute",
+				},
+			});
+			await client.requestPermission({
+				sessionId,
+				toolCall: {
+					toolCallId: "t1",
+					rawInput: { command: "select Chrome" },
+				},
+				options: [{ optionId: "no", name: "Reject", kind: "reject_once" }],
+			});
+			return "end_turn";
+		};
+		const conversation = await started();
+		await conversation.prompt("review the fixture");
+		await once(conversation, () => conversation.state.ask !== null);
+		expect(conversation.state.ask).toMatchObject({ title: "mcp.cua_repl.js" });
+		const tools = () =>
+			conversation.state.messages.flatMap((message) =>
+				message.parts.filter((part) => part.type === "tool"),
+			);
+		expect(tools()).toMatchObject([
+			{ title: "mcp.cua_repl.js", command: "select Chrome", kind: "execute" },
+		]);
+		conversation.answer("t1", { type: "permission", option: "no" });
+		await until(conversation, "idle");
 	});
 
 	it("keeps how a permission was answered on its tool call, and in the log", async () => {
@@ -106,9 +140,7 @@ describe("Conversation asks", () => {
 		};
 		const conversation = await started();
 		await conversation.prompt("clean up");
-		for (let i = 0; i < 100 && conversation.state.ask === null; i++) {
-			await Bun.sleep(1);
-		}
+		await once(conversation, () => conversation.state.ask !== null);
 		conversation.answer("t1", { type: "permission", option: "yes" });
 		await until(conversation, "idle");
 		const decisions = (each: Conversation) =>
@@ -134,6 +166,7 @@ describe("Conversation asks", () => {
 		await reread.disposeAsync();
 	});
 
+	// scry-ignore simple-test-setup: the elicitation payload belongs only to this question-form test.
 	it("asks the person an agent's question form and hands back the answer", async () => {
 		const seen: { response?: acp.CreateElicitationResponse } = {};
 		agent.turn = async (client, sessionId) => {
@@ -164,9 +197,7 @@ describe("Conversation asks", () => {
 		};
 		const conversation = await started();
 		await conversation.prompt("tidy the note");
-		for (let i = 0; i < 100 && conversation.state.ask === null; i++) {
-			await Bun.sleep(1);
-		}
+		await once(conversation, () => conversation.state.ask !== null);
 		const ask = conversation.state.ask;
 
 		expect(ask).toMatchObject({
@@ -214,9 +245,7 @@ describe("Conversation asks", () => {
 		};
 		const conversation = await started();
 		await conversation.prompt("ship it");
-		for (let i = 0; i < 100 && conversation.state.ask === null; i++) {
-			await Bun.sleep(1);
-		}
+		await once(conversation, () => conversation.state.ask !== null);
 
 		await conversation.cancel();
 		await until(conversation, "idle");

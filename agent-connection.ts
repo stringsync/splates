@@ -829,22 +829,23 @@ export class AgentConnection {
 					return { outcome: { outcome: "cancelled" } };
 				}
 				const { toolCall } = params;
-				const title = toolCall.title ?? "Allow this?";
-				// An agent may ask before it says it is making the call.
-				if (toolIn(host.state, toolCall.toolCallId) === null) {
-					const at = host.now();
-					const update: acp.SessionUpdate = {
-						sessionUpdate: "tool_call",
-						toolCallId: toolCall.toolCallId,
-						title,
-						kind: toolCall.kind ?? undefined,
-						rawInput: toolCall.rawInput,
-						locations: toolCall.locations ?? undefined,
-						_meta: toolCall._meta,
-					};
-					host.log.write({ kind: "update", update, at });
-					fold(host.state, update, at);
-				}
+				const existing = toolIn(host.state, toolCall.toolCallId);
+				const title = toolCall.title ?? existing?.title ?? "Allow this?";
+				// Approval requests may omit the title already streamed, or add
+				// command details to a call we have already seen. Keep both.
+				const at = host.now();
+				const update: acp.SessionUpdate = {
+					...toolCall,
+					sessionUpdate: "tool_call",
+					title,
+					kind: toolCall.kind ?? undefined,
+					status: toolCall.status ?? undefined,
+					name: toolCall.name ?? undefined,
+					content: toolCall.content ?? undefined,
+					locations: toolCall.locations ?? undefined,
+				};
+				host.log.write({ kind: "update", update, at });
+				fold(host.state, update, at);
 				const askedAt = host.now();
 				const asked: Asked = {
 					type: "permission",
