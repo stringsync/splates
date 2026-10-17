@@ -7,7 +7,9 @@ import {
 	NativeSelectOption,
 } from "#dev/components/ui/native-select.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
+import type { OpenCodeReadiness } from "../setup-opencode";
 import type { OpenCodeModelState } from "../setup-opencode-models";
+import { scoped } from "./api";
 import { SetupContext } from "./setup-state";
 
 /** Model selection continues the existing native setup; never sends a prompt. */
@@ -34,8 +36,23 @@ export function OpenCodeModelControls(): JSX.Element {
 				}
 			},
 		);
+		void fetch(scoped("/api/setup/opencode/readiness"))
+			.then(async (response) => {
+				if (!response.ok) {
+					return;
+				}
+				const value = (await response.json()) as OpenCodeReadiness;
+				if (mounted.current && value.selection) {
+					setModel(value.selection.model);
+					setAuxiliary(value.selection.auxiliary);
+				}
+			})
+			.catch(() => {});
 		return () => {
 			mounted.current = false;
+			void fetch("/api/setup/opencode/cancel", { method: "POST" }).catch(
+				() => {},
+			);
 		};
 	}, []);
 	const run = async (action: "refresh" | "preview" | "apply") => {

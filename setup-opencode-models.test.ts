@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { DEFAULT_AGENTS } from "./roster";
 import { OpenCodeModels } from "./setup-opencode-models";
+import type { OpenCodeRecipe } from "./setup-opencode-recipe";
 
 const selected = {
 	model: "opencode-go/Case.Main",
@@ -12,6 +13,68 @@ describe("OpenCode model setup", () => {
 	beforeEach(() => {
 		fixture = new ModelFixture();
 	});
+	it("reads the persisted recipe after memory expires and checks the actual conversation cwd", async () => {
+		await fixture.apply();
+		fixture.models.invalidate();
+		const calls = fixture.calls.length;
+		const recipe = (await fixture.models.recipes.stored()) as OpenCodeRecipe;
+		expect(recipe).toMatchObject(selected);
+		expect(fixture.calls).toHaveLength(calls);
+		expect(fixture.models.read().saved).toBeNull();
+		expect(recipe).not.toBeNull();
+		await fixture.models.verifyStored(
+			recipe,
+			"/project/conversation",
+			fixture.signal.signal,
+		);
+		expect(
+			fixture.calls
+				.slice(calls)
+				.filter((args) => args[0] === "api" && !args.includes("--help"))
+				.every((args) => args.includes("directory=/project/conversation")),
+		).toBe(true);
+		expect(fixture.directories.slice(calls)).toEqual(
+			Array(5).fill("/project/conversation"),
+		);
+	});
+	it("refuses new global agents, missing models and changed rosters on recheck", async () => {
+		await fixture.apply();
+		const recipe = (await fixture.models.recipes.stored()) as OpenCodeRecipe;
+		expect(recipe).not.toBeNull();
+		fixture.names.push("new-global-agent");
+		await expect(
+			fixture.models.verifyStored(recipe, "/project", fixture.signal.signal),
+		).rejects.toThrow();
+		fixture.names.pop();
+		fixture.catalog = `${selected.auxiliary}\n`;
+		await expect(
+			fixture.models.verifyStored(recipe, "/project", fixture.signal.signal),
+		).rejects.toThrow("unavailable");
+		fixture.catalog = `${selected.model}\n${selected.auxiliary}\n`;
+		await fixture.fs.write("/arbor/agents.json", `${recipe.raw} `);
+		await expect(
+			fixture.models.verifyStored(recipe, "/project", fixture.signal.signal),
+		).rejects.toThrow("roster changed");
+	});
+	it("disables only the wizard entry and preserves the roster on a failed rename", async () => {
+		await fixture.apply();
+		const before = await fixture.fs.read("/arbor/agents.json");
+		const rename = fixture.fs.rename.bind(fixture.fs);
+		fixture.fs.rename = async () => {
+			throw new Error("disk full");
+		};
+		await expect(
+			fixture.models.recipes.disable(fixture.signal.signal),
+		).rejects.toThrow();
+		expect(await fixture.fs.read("/arbor/agents.json")).toBe(before);
+		fixture.fs.rename = rename;
+		await fixture.models.recipes.disable(fixture.signal.signal);
+		expect(
+			JSON.parse(await fixture.fs.read("/arbor/agents.json")).agents,
+		).toEqual(DEFAULT_AGENTS);
+		expect(await fixture.models.recipes.stored()).toBeNull();
+	});
+
 	it("discovers exact Go IDs without prompts or hard-coded models", async () => {
 		expect(fixture.calls).toEqual([]);
 		const state = await fixture.models.refresh(fixture.signal.signal);
@@ -192,10 +255,12 @@ class ModelFixture {
 	providerConflict = false;
 	fail = false;
 	calls: string[][] = [];
+	directories: Array<string | undefined> = [];
 	models = new OpenCodeModels(
 		{ fs: this.fs, ps: this.ps, home: "/arbor" },
 		{
-			run: async (args, signal, env) => {
+			run: async (args, signal, env, cwd) => {
+				this.directories.push(cwd);
 				signal.throwIfAborted();
 				this.calls.push(args);
 				if (this.fail) {

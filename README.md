@@ -199,25 +199,39 @@ the same.
 
 ### Optional OpenCode ACP agent
 
-OpenCode can be added alongside the existing entries in the roster printed by
-`arbor agents`. It is opt-in; Claude and Codex remain the default roster. Add an
-entry with editable `models` (replace the example ID with one your agent offers):
+Open **Settings → Setup** and visit the optional OpenCode steps. Check this
+machine, install if needed, and connect an existing Go/Go Plus account through
+the native masked key prompt. The supported CLI exposes the V2 standalone login,
+auth listing and metadata APIs; unsupported installations show update guidance.
+No key belongs in chat, and arbor never reads or exports native credential files.
 
-```json
-{
-  "id": "opencode",
-  "name": "OpenCode",
-  "argv": ["opencode", "acp"],
-  "models": [
-    {
-      "id": "opencode-go/<discovered-model-id>",
-      "name": "My Go model",
-      "strengths": "Describe the intended experiment",
-      "cost": "Check the account's current plan"
-    }
-  ]
-}
-```
+Refresh the Go catalog, choose exact main and auxiliary models, review the
+configuration, and confirm **Use balance** is off in Console before applying.
+The save updates the running server's roster immediately. Claude/Codex entries,
+custom fields, model descriptions and defaults are preserved.
+
+The final **Check configuration** step rereads the saved recipe, including after
+a server restart, and checks it for the current project's main directory. It
+checks installation, stored authentication, ACP initialize, both model IDs and
+effective agent configuration. It sends no prompt. Project OpenCode configuration
+is disabled only for this launch recipe; global files remain untouched. New
+custom or managed configuration that conflicts with the recipe requires repair.
+
+**New OpenCode conversation** repeats that check, explicitly selects the saved
+main model and opens an empty conversation in the displayed directory. Its first
+message is your decision. Configuration readiness does not establish successful
+inference, entitlement, quota or billing. Console confirmation is your assertion;
+arbor cannot verify or change that setting. Revisit/repair returns to the existing
+steps. Disable removes only the wizard-owned roster entry for new conversations;
+existing conversations and native authentication remain.
+
+#### Advanced manual reference
+
+Manual roster editing remains available for custom launches; use the supported
+V2 recipe and inspection commands in [the setup contracts](design/opencode-acp.md#374-readiness-and-completion).
+A plain `opencode acp` entry or custom command does not establish wizard readiness.
+Custom commands are never replaced or removed automatically. Avoid the older V1
+`small_model`/provider recipe: it does not pin every V2 auxiliary/custom agent.
 
 Arbor requires the full, case-sensitive model ID returned in ACP settings for
 OpenCode. Missing choices or a different confirmed provider/model stop the turn;
@@ -230,20 +244,6 @@ replace the offered options. A removed selection is shown as unavailable until
 you explicitly choose a replacement; it is never silently changed to the current
 agent default. OpenCode choices do not change Claude/Codex saved settings.
 Usage provenance and comparisons are tracked in #354.
-
-For a separately authorized live setup, install OpenCode using its official
-instructions and record `opencode --version`; no minimum release is verified here.
-Connect an already-authorized Go account through OpenCode's `/connect`, then use
-`/models` or `opencode models opencode-go` to discover exact IDs. Update only the
-optional entry's `models` in the roster, preserving the other entries. Start a
-new session to obtain fresh ACP options; editing the roster alone does not make
-a model available to an existing session.
-
-Scope the experiment's effective OpenCode configuration to
-`enabled_providers: ["opencode-go"]`, with both `model` and `small_model` set to
-the discovered full ID. Check project and custom-agent overrides and auxiliary
-calls. Keep Console **Use balance** off separately; ACP does not verify that
-control. Do not replace global configuration or export native login credentials.
 
 OpenCode owns its native login and tools. Arbor neither imports its credentials
 nor exports OS-store secrets to it. Recovery uses advertised resume support, or

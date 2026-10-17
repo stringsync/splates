@@ -17,6 +17,7 @@ import { Paste } from "./cred-paste";
 import { Markdown } from "./markdown";
 import { OpenCodeControls } from "./setup-opencode";
 import { OpenCodeModelControls } from "./setup-opencode-models";
+import { OpenCodeReadyControls } from "./setup-opencode-ready";
 import { SetupContext } from "./setup-state";
 import { TopBar } from "./top-bar";
 
@@ -133,6 +134,13 @@ function Wizard({
 						here={here}
 						onAgent={startAgent}
 						onCheck={refresh}
+						feed={feed}
+						onOpen={onOpen}
+						onRepair={() =>
+							setAt(
+								steps.findIndex(({ step }) => step.id === "opencode-install"),
+							)
+						}
 					/>
 				)}
 				{error !== null && (
@@ -176,10 +184,16 @@ function Question({
 	here: { step, area },
 	onAgent,
 	onCheck,
+	feed,
+	onOpen,
+	onRepair,
 }: {
 	here: Placed;
 	onAgent: ((step: string) => void) | null;
 	onCheck: () => void;
+	feed: ConversationFeed | null;
+	onOpen: (id: string) => void;
+	onRepair: () => void;
 }): JSX.Element {
 	return (
 		<article aria-label={`step ${step.id}`} className="flex flex-col gap-8">
@@ -193,7 +207,13 @@ function Question({
 					<Markdown text={step.why} inline />
 				</p>
 			</header>
-			{step.id === "opencode-models" ? (
+			{step.id === "opencode-ready" ? (
+				<OpenCodeReadyControls
+					feed={feed}
+					onOpen={onOpen}
+					onRepair={onRepair}
+				/>
+			) : step.id === "opencode-models" ? (
 				<OpenCodeModelControls />
 			) : step.id === "opencode-install" || step.id === "opencode-connect" ? (
 				<OpenCodeControls step={step.id} />

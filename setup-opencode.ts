@@ -3,9 +3,10 @@ import * as acp from "@agentclientprotocol/sdk";
 import type { Fs, Ps } from "webappwiz/system";
 import { framed } from "./agent-process";
 import { AgentStream } from "./agent-stream";
+import { OpenCodeModelError } from "./setup-opencode-model-error";
 import {
-	type OpenCodeModelState,
 	OpenCodeModels,
+	type OpenCodeSelection,
 } from "./setup-opencode-models";
 
 /** Observations only: a stored credential is not proof of entitlement or inference. */
@@ -51,20 +52,22 @@ export class OpenCodeSetup {
 	readonly models: OpenCodeModels;
 	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {
 		this.models = new OpenCodeModels(deps, {
-			run: (args, signal, env) => this.command(args, signal, env),
+			run: (args, signal, env, cwd) => this.command(args, signal, env, cwd),
 		});
 	}
 
-	async configure(
-		operation: (signal: AbortSignal) => Promise<OpenCodeModelState>,
-	): Promise<OpenCodeModelState> {
+	async configure<T>(
+		operation: (signal: AbortSignal) => Promise<T>,
+		requireConnection = true,
+	): Promise<T> {
 		if (this.status.checking) {
 			throw new Error("busy");
 		}
 		if (
-			this.status.auth !== "stored" ||
-			this.status.protocol !== "compatible" ||
-			this.status.problem
+			requireConnection &&
+			(this.status.auth !== "stored" ||
+				this.status.protocol !== "compatible" ||
+				this.status.problem)
 		) {
 			throw new Error("Check installation and native Go authentication first.");
 		}
@@ -77,6 +80,55 @@ export class OpenCodeSetup {
 			this.status.checking = false;
 			this.controller = null;
 		}
+	}
+
+	async readiness(cwd: string, verify = false): Promise<OpenCodeReadiness> {
+		const result: OpenCodeReadiness = {
+			cwd,
+			selection: null,
+			ready: false,
+			checkedAt: null,
+			problem: null,
+		};
+		try {
+			if (this.status.checking) {
+				throw new OpenCodeModelError(
+					"Finish or cancel the current setup action first.",
+				);
+			}
+			const recipe = await this.models.recipes.stored();
+			if (!recipe) {
+				return result;
+			}
+			result.selection = { model: recipe.model, auxiliary: recipe.auxiliary };
+			if (!verify) {
+				return result;
+			}
+			const status = await this.check();
+			if (
+				status.problem ||
+				status.auth !== "stored" ||
+				status.protocol !== "compatible"
+			) {
+				throw new OpenCodeModelError(
+					status.problem ??
+						"Reconnect native Go authentication, then check again.",
+				);
+			}
+			await this.configure(async (signal) => {
+				await this.models.verifyStored(recipe, cwd, signal);
+				await this.handshake(signal, cwd, recipe.env);
+				await this.models.recipes.unchanged(recipe, signal);
+			});
+			result.ready = true;
+			result.checkedAt = new Date().toISOString();
+		} catch (error) {
+			result.problem =
+				error instanceof OpenCodeModelError
+					? error.message
+					: "Configuration could not be verified. Check the connection, revisit model selection and retry. No prompt was sent.";
+		}
+		return result;
 	}
 
 	get cwd(): string {
@@ -132,10 +184,11 @@ export class OpenCodeSetup {
 		args: string[],
 		signal: AbortSignal,
 		env?: Record<string, string>,
+		cwd = this.cwd,
 	): Promise<string> {
 		signal.throwIfAborted();
 		const result = await this.deps.ps.spawnCapture(["opencode", ...args], {
-			cwd: this.cwd,
+			cwd,
 			env,
 			signal,
 			timeoutMs: 15_000,
@@ -197,10 +250,15 @@ export class OpenCodeSetup {
 		return this.read();
 	}
 
-	private async handshake(signal: AbortSignal): Promise<void> {
+	private async handshake(
+		signal: AbortSignal,
+		cwd = this.cwd,
+		env?: Record<string, string>,
+	): Promise<void> {
 		signal.throwIfAborted();
 		const child = this.deps.ps.start(["opencode", "acp"], {
-			cwd: this.cwd,
+			cwd,
+			env,
 			signal,
 			timeoutMs: 15_000,
 		});
@@ -287,4 +345,12 @@ function storedGo(value: unknown): boolean {
 		}
 	}
 	return false;
+}
+
+export interface OpenCodeReadiness {
+	cwd: string;
+	selection: OpenCodeSelection | null;
+	ready: boolean;
+	checkedAt: string | null;
+	problem: string | null;
 }

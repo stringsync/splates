@@ -13,7 +13,7 @@ import type { FileDiff } from "../diff";
 import type { Held } from "../held";
 import type { Landed } from "../landed";
 import type { SetupProgress } from "../setup";
-import type { OpenCodeStatus } from "../setup-opencode";
+import type { OpenCodeReadiness, OpenCodeStatus } from "../setup-opencode";
 import type { OpenCodeModelState } from "../setup-opencode-models";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
@@ -186,6 +186,13 @@ export class Testing implements Resource {
 		preview: null,
 		saved: null,
 	};
+	opencodeReadiness: OpenCodeReadiness = {
+		cwd: "/fixture/project",
+		selection: null,
+		ready: false,
+		checkedAt: null,
+		problem: null,
+	};
 	opencode: OpenCodeStatus = {
 		version: null,
 		auth: "unchecked",
@@ -258,6 +265,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/push") {
 				return Response.json({ publicKey: this.pushKey });
+			}
+			if (route === "/api/setup/opencode/readiness") {
+				return Response.json(this.opencodeReadiness);
 			}
 			if (route === "/api/setup/opencode/models") {
 				return Response.json(this.opencodeModels);

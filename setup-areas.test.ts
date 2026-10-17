@@ -38,6 +38,7 @@ describe("SETUP_AREAS", () => {
 			"ready",
 			"waiting",
 			"waiting",
+			"waiting",
 			"ready",
 			"waiting",
 			"waiting",

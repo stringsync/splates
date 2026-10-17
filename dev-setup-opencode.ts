@@ -18,6 +18,7 @@ export class OpenCodeSetupRoutes {
 		readonly setup: OpenCodeSetup,
 		private readonly ps: Ps,
 		private readonly gate: HostGate,
+		private readonly roster: SetupRoster = { refresh: async () => {} },
 	) {}
 
 	readonly read = async (): Promise<Response> =>
@@ -57,10 +58,47 @@ export class OpenCodeSetupRoutes {
 				"Review the preview and confirm Use balance is off in Console.",
 			);
 		}
-		return this.modelOperation((signal) =>
-			this.setup.models.apply(input.data.token, input.data.balanceOff, signal),
-		);
+		return this.modelOperation(async (signal) => {
+			const state = await this.setup.models.apply(
+				input.data.token,
+				input.data.balanceOff,
+				signal,
+			);
+			await this.roster.refresh();
+			return state;
+		});
 	};
+	async readiness(cwd: string, verify: boolean): Promise<Response> {
+		if (this.terminal !== null) {
+			return refuse(409, "busy", "Finish or cancel native setup first.");
+		}
+		const state = await this.setup.readiness(cwd, verify);
+		if (state.ready) {
+			await this.roster.refresh();
+		}
+		return Response.json(state);
+	}
+	readonly disable = async (): Promise<Response> => {
+		if (this.terminal !== null || this.setup.read().checking) {
+			return refuse(409, "busy", "Finish or cancel setup first.");
+		}
+		try {
+			await this.setup.configure(
+				(signal) => this.setup.models.recipes.disable(signal),
+				false,
+			);
+			this.setup.models.invalidate();
+			await this.roster.refresh();
+			return Response.json({});
+		} catch {
+			return refuse(
+				400,
+				"setup",
+				"Could not disable the saved recipe. Custom or changed configuration is left untouched; repair it and retry.",
+			);
+		}
+	};
+
 	private async modelOperation(
 		operation: Parameters<OpenCodeSetup["configure"]>[0],
 	): Promise<Response> {
@@ -190,4 +228,8 @@ export class OpenCodeSetupRoutes {
 		this.setup.cancel();
 		this.terminal?.dispose();
 	}
+}
+
+export interface SetupRoster {
+	refresh(): Promise<void>;
 }

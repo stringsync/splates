@@ -91,3 +91,14 @@ export interface ProjectRef {
 	/** Its main tree's root. */
 	root: string;
 }
+
+/**
+ * `changed`, `ended` (a turn ended, however it did, or the agent failed to
+ * start) and `removed` each carry a conversation's id.
+ */
+export type ConversationsEvents = {
+	settings: undefined;
+	changed: string;
+	ended: string;
+	removed: string;
+};

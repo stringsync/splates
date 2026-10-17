@@ -174,14 +174,27 @@ function setupAreas(): readonly SetupArea[] {
 			"Use the native model controls; no prompts or credential exports. Saved configuration is not proof of inference or billing.",
 		optional: true,
 		after: [connectStep],
-		check: async ({ opencode }) => opencode?.models.read().saved != null,
+		check: async ({ opencode }) =>
+			(await opencode?.models.recipes.stored().catch(() => null)) != null,
 	};
+	const openCodeReadyStep: SetupStep = {
+		id: "opencode-ready",
+		title: "Check OpenCode configuration",
+		why: "Verify the saved recipe for a new conversation in this project.",
+		user: "Check configuration, then open a new conversation on your selected main model.",
+		agent:
+			"Metadata and ACP initialize only. Never send a paid test prompt or claim billing is verified.",
+		optional: true,
+		after: [openCodeModelsStep],
+		check: async () => false,
+	};
+
 	return [
 		{ id: "agents", title: "Agents", steps: [rosterStep, modelsStep] },
 		{
 			id: "opencode",
 			title: "OpenCode",
-			steps: [installStep, connectStep, openCodeModelsStep],
+			steps: [installStep, connectStep, openCodeModelsStep, openCodeReadyStep],
 		},
 		{
 			id: "remote-access",

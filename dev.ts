@@ -35,7 +35,7 @@ import { HeavyJobs } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
-import { arborHome } from "./roster";
+import { arborHome, Roster } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import { OpenCodeSetup } from "./setup-opencode";
@@ -296,6 +296,17 @@ export async function dev(
 		new OpenCodeSetup({ fs, ps, home: arborHome(ps) }),
 		ps,
 		gate,
+		{
+			refresh: async () => {
+				const agents = await new Roster(`${arborHome(ps)}/agents.json`, {
+					fs,
+				}).agents();
+				for (const opened of served.values()) {
+					const project = await opened.catch(() => null);
+					project?.conversations?.refreshRoster(agents);
+				}
+			},
+		},
 	);
 	disposer.defer(() => opencode.disposeAsync());
 	const setup = new SetupRoutes(
@@ -390,6 +401,53 @@ export async function dev(
 				},
 				"/api/setup/opencode/models/apply": {
 					POST: gate.local(guarded(opencode.applyModels)),
+				},
+				"/api/setup/opencode/readiness": {
+					GET: local(
+						scoped((project) => () => opencode.readiness(project.root, false)),
+					),
+					POST: local(
+						scoped((project) => () => opencode.readiness(project.root, true)),
+					),
+				},
+				"/api/setup/opencode/disable": {
+					POST: local(guarded(opencode.disable)),
+				},
+				"/api/setup/opencode/conversation": {
+					POST: local(
+						scoped((project) => async (request) => {
+							const input = await request.json().catch(() => null);
+							if (input?.balanceOff !== true) {
+								return Response.json(
+									{ message: "Confirm Use balance is off in Console." },
+									{ status: 400 },
+								);
+							}
+							const checked = await opencode.readiness(project.root, true);
+							if (!checked.ok) {
+								return checked;
+							}
+							const state = await checked.json();
+							if (!state.ready || !state.selection) {
+								return Response.json(
+									{ message: state.problem ?? "Check configuration first." },
+									{ status: 400 },
+								);
+							}
+							return project.startConversation(
+								new Request(request.url, {
+									method: "POST",
+									headers: { "content-type": "application/json" },
+									body: JSON.stringify({
+										agent: "opencode",
+										model: state.selection.model,
+										task: null,
+										assigned: true,
+									}),
+								}),
+							);
+						}),
+					),
 				},
 				"/api/setup/opencode/cancel": {
 					POST: gate.local(guarded(opencode.cancel)),

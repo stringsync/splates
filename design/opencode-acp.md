@@ -1,8 +1,11 @@
 # Opt-in OpenCode ACP experiments with Go Plus
 
-Plan for lane 45: #351 → #352 → #353 → #354. Verified against this
-checkout and official documentation on 2026-10-17. This document is an
-implementation plan, not a statement that the integration has shipped.
+The primary enablement path is **Settings → Setup → OpenCode**: native install
+and connection, model selection, then directory-scoped configuration readiness.
+See [#374 readiness and completion](#374-readiness-and-completion) for the current
+contract. The earlier lane 45 plan below is historical reference; its V1 CLI and
+configuration examples are superseded by the V2 setup contracts at the end.
+All compatibility evidence remains synthetic, not a successful live inference.
 
 ## Scope and evidence
 
@@ -488,3 +491,64 @@ Tests are synthetic fixtures, not proof of a released executable's compatibility
 subscription entitlement or billing. No installation, login or paid prompt was
 performed. #374 retains readiness/completion and full journey demo; #378 retains
 the separate landing/journey chooser and nudge removal.
+
+## #374 readiness and completion
+
+`opencode-ready` extends the existing area after `opencode-models`.
+`dev/setup-opencode-ready.tsx` owns completion and repair/disable controls;
+`SetupPage` supplies its feed, open callback and navigation back to install.
+#378 alone owns the landing journey chooser and proactive nudge removal.
+
+- GET `/api/setup/opencode/readiness?project=<slug>` reads the saved argv recipe
+  from `agents.json` on every visit. It returns `{cwd, selection, ready: false,
+  checkedAt: null, problem}` and performs no executable check. Malformed,
+  custom, symbolic-link, duplicate or newer-format rosters never become ready.
+- POST to the same route resolves the project's actual main conversation cwd,
+  freshly checks executable/auth/ACP, then checks models and effective config
+  under the stored launch environment and that cwd. A second initialize-only
+  handshake uses the same scope. Roster changes during verification invalidate
+  the result. The response is an observation, never a perpetual lock.
+- POST `/api/setup/opencode/conversation?project=<slug>` requires
+  `{balanceOff: true}`, repeats readiness and refreshes the roster, then creates
+  an empty OpenCode conversation with the explicit saved main model and
+  `assigned: true`. It uses the ordinary exact requested/confirmed model gate.
+  No prompt is sent. Configuration can still change after the observation;
+  new conversations in other directories need their own check.
+- POST `/api/setup/opencode/disable` removes only the recognized wizard entry,
+  under the roster lock and atomic rename. Failed writes preserve the roster.
+  It does not log out or alter existing conversations.
+
+All routes retain the local/Access and same-origin write protections. Native
+operations, checks and model changes exclude one another. Cancellation and
+navigation abort metadata work; native login disconnect still closes its
+terminal. Readiness returns fixed recovery messages without native stdout,
+stderr, effective config documents or credentials.
+
+`setup-opencode-recipe.ts` owns persisted recipe validation and disable;
+`setup-opencode-models.ts` verifies effective configuration for an explicit cwd.
+`Conversations.refreshRoster` replaces the available roster and broadcasts the
+existing settings event, so open pages refresh their choices without restart.
+Existing conversation agent snapshots and Claude/Codex defaults are unchanged.
+The model step reads persisted selections on revisit; in-memory `saved` remains
+an apply observation only. The final step deliberately requests a fresh check
+on revisit instead of keeping a machine-wide completed/readiness flag.
+
+Configuration checked, live inference and Console billing are three separate
+claims. Stored authentication is not entitlement. The Console switch is a user
+assertion, including on completion, never automatic billing verification.
+
+### Fixture review
+
+`review/opencode-dev.ts` serves the actual wizard components and setup services
+with `OpenCodeFixturePs` and an in-memory filesystem. It uses this task's existing
+Access slot and refuses account-changing requests if a slot is not already
+configured. Run `bun packages/arbor/review/opencode-dev.ts [port]` after building
+the UI. Scenarios cover saved setup, fresh install, missing login, invalid model,
+managed conflict and offline recovery. Native terminal actions are synthetic;
+never enter credentials. The completion screen is an empty conversation fixture.
+
+Backend/route tests additionally verify actual conversation cwd, explicit model
+selection, live roster refresh, retained existing snapshots, cancellation,
+restart/revisit, auth failures, unsupported CLI, origin checks, failed writes and
+recovery. `bin/wiz dev fix --code-only` and `bin/wiz dev test` require no paid
+prompts or evals. No production login, Console action or live inference was run.

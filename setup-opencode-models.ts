@@ -2,6 +2,14 @@ import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { DEFAULT_AGENTS, Roster } from "./roster";
 import { OpenCodeModelError } from "./setup-opencode-model-error";
+import {
+	contentPrefix,
+	id,
+	managedArgv,
+	type OpenCodeRecipe,
+	OpenCodeRecipes,
+	projectOff,
+} from "./setup-opencode-recipe";
 
 /** Only metadata commands. The configuration is embedded in the roster argv so
  * a single atomic rename activates both the models and their experiment policy. */
@@ -18,10 +26,13 @@ export class OpenCodeModels {
 		env: Record<string, string>;
 	} | null = null;
 	private saved: OpenCodeSelection | null = null;
+	readonly recipes: OpenCodeRecipes;
 	constructor(
 		private readonly deps: { fs: Fs; ps: Ps; home: string },
 		private readonly metadata: OpenCodeMetadata,
-	) {}
+	) {
+		this.recipes = new OpenCodeRecipes(deps);
+	}
 
 	read(): OpenCodeModelState {
 		return structuredClone({
@@ -113,7 +124,7 @@ export class OpenCodeModels {
 		};
 		const env = { ...baseEnv, OPENCODE_CONFIG_CONTENT: JSON.stringify(config) };
 		await this.verify(selection, config, signal, env);
-		const before = await this.rawRoster();
+		const before = await this.recipes.rawRoster();
 		const after = await this.roster(before, selection, env);
 		signal.throwIfAborted();
 		this.previewed = {
@@ -174,7 +185,7 @@ export class OpenCodeModels {
 		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
 		try {
 			signal.throwIfAborted();
-			if ((await this.rawRoster()) !== preview.before) {
+			if ((await this.recipes.rawRoster()) !== preview.before) {
 				throw new OpenCodeModelError(
 					"The roster changed after preview. Review again to preserve those changes.",
 				);
@@ -189,6 +200,42 @@ export class OpenCodeModels {
 			await lock.release();
 		}
 		return this.read();
+	}
+
+	async verifyStored(
+		recipe: OpenCodeRecipe,
+		cwd: string,
+		signal: AbortSignal,
+	): Promise<void> {
+		const help = await this.metadata.run(
+			["api", "--help"],
+			signal,
+			recipe.env,
+			cwd,
+		);
+		const modelsHelp = await this.metadata.run(
+			["models", "--help"],
+			signal,
+			recipe.env,
+			cwd,
+		);
+		if (
+			!help.includes("--standalone") ||
+			!help.includes("--param") ||
+			!modelsHelp.includes("--standalone")
+		) {
+			throw new OpenCodeModelError(
+				"Update OpenCode, then retry the configuration check.",
+			);
+		}
+		const models = await this.discover(signal, recipe.env, cwd);
+		if (!models.includes(recipe.model) || !models.includes(recipe.auxiliary)) {
+			throw new OpenCodeModelError(
+				"A saved Go model is unavailable. Revisit model selection and choose again.",
+			);
+		}
+		await this.verify(recipe, recipe.config, signal, recipe.env, cwd);
+		await this.recipes.unchanged(recipe, signal);
 	}
 
 	private requireModels(selection: OpenCodeSelection): void {
@@ -207,11 +254,13 @@ export class OpenCodeModels {
 	private async discover(
 		signal: AbortSignal,
 		env?: Record<string, string>,
+		cwd?: string,
 	): Promise<string[]> {
 		const text = await this.metadata.run(
 			["models", "--standalone"],
 			signal,
 			env,
+			cwd,
 		);
 		const lines = text.trim() ? text.trim().split(/\r?\n/) : [];
 		if (
@@ -229,19 +278,18 @@ export class OpenCodeModels {
 		}
 		return [...new Set(lines.filter((line) => id.safeParse(line).success))];
 	}
-	private async agents(signal: AbortSignal, env: Record<string, string>) {
+	private async agents(
+		signal: AbortSignal,
+		env: Record<string, string>,
+		cwd = `${this.deps.home}/setup-opencode`,
+	) {
 		return agentList.parse(
 			JSON.parse(
 				await this.metadata.run(
-					[
-						"api",
-						"agent.list",
-						"--standalone",
-						"--param",
-						`directory=${this.deps.home}/setup-opencode`,
-					],
+					["api", "agent.list", "--standalone", "--param", `directory=${cwd}`],
 					signal,
 					env,
+					cwd,
 				),
 			),
 		).data;
@@ -251,21 +299,17 @@ export class OpenCodeModels {
 		config: Record<string, unknown>,
 		signal: AbortSignal,
 		env: Record<string, string>,
+		cwd = `${this.deps.home}/setup-opencode`,
 	): Promise<void> {
 		// Inspect configuration through the supported API, never native credential
 		// files. Keep only comparisons; do not return or persist raw config output.
 		const sources = entries.parse(
 			JSON.parse(
 				await this.metadata.run(
-					[
-						"api",
-						"config.get",
-						"--standalone",
-						"--param",
-						`directory=${this.deps.home}/setup-opencode`,
-					],
+					["api", "config.get", "--standalone", "--param", `directory=${cwd}`],
 					signal,
 					env,
+					cwd,
 				),
 			),
 		);
@@ -278,7 +322,13 @@ export class OpenCodeModels {
 			if (
 				JSON.stringify(info.policies) === JSON.stringify(config.policies) &&
 				sameModel(info.model, selection.model) &&
-				info.warming === false
+				info.warming === false &&
+				info.default_agent === "build" &&
+				!(
+					typeof info.providers === "object" &&
+					info.providers !== null &&
+					"opencode-go" in info.providers
+				)
 			) {
 				found = true;
 				continue;
@@ -299,7 +349,11 @@ export class OpenCodeModels {
 				(typeof providers === "object" &&
 					providers !== null &&
 					"opencode-go" in providers) ||
-				(found && ("model" in info || "agents" in info || "warming" in info))
+				(found &&
+					("model" in info ||
+						"agents" in info ||
+						"warming" in info ||
+						"default_agent" in info))
 			) {
 				throw new OpenCodeModelError(
 					"Existing provider or managed configuration conflicts with this experiment. Resolve that configuration before applying; no files were changed.",
@@ -311,10 +365,11 @@ export class OpenCodeModels {
 				"OpenCode did not confirm the experiment provider policy. Update it and retry.",
 			);
 		}
-		const agents = await this.agents(signal, env);
+		const agents = await this.agents(signal, env, cwd);
 		const expected = config.agents as Record<string, { model: string }>;
 		if (
 			agents.length !== Object.keys(expected).length ||
+			new Set(agents.map((agent) => agent.id)).size !== agents.length ||
 			agents.some(
 				(agent) =>
 					!Object.hasOwn(expected, agent.id) ||
@@ -326,15 +381,6 @@ export class OpenCodeModels {
 				"A custom or managed agent overrides an experiment model. Refresh and review the configuration again.",
 			);
 		}
-	}
-	private async rawRoster(): Promise<string | null> {
-		const path = `${this.deps.home}/agents.json`;
-		if (await this.deps.fs.isSymlink(path)) {
-			throw new OpenCodeModelError(
-				"The roster is a symbolic link. Manage its target explicitly before using setup.",
-			);
-		}
-		return (await this.deps.fs.exists(path)) ? this.deps.fs.read(path) : null;
 	}
 	private async roster(
 		raw: string | null,
@@ -381,21 +427,6 @@ export class OpenCodeModels {
 	}
 }
 
-function managedArgv(value: unknown): boolean {
-	if (!Array.isArray(value)) {
-		return false;
-	}
-	return (
-		JSON.stringify(value) === JSON.stringify(["opencode", "acp"]) ||
-		(value.length === 5 &&
-			value[0] === "env" &&
-			value[1] === projectOff &&
-			typeof value[2] === "string" &&
-			value[2].startsWith(contentPrefix) &&
-			value[3] === "opencode" &&
-			value[4] === "acp")
-	);
-}
 function sameModel(value: unknown, expected: string): boolean {
 	return (
 		value === expected ||
@@ -407,10 +438,6 @@ function sameModel(value: unknown, expected: string): boolean {
 	);
 }
 
-const id = z
-	.string()
-	.max(240)
-	.regex(/^opencode-go\/[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
 export const openCodeSelection = z.object({ model: id, auxiliary: id });
 export type OpenCodeSelection = z.infer<typeof openCodeSelection>;
 export interface OpenCodeCatalog {
@@ -435,10 +462,10 @@ export interface OpenCodeMetadata {
 		args: string[],
 		signal: AbortSignal,
 		env?: Record<string, string>,
+		cwd?: string,
 	): Promise<string>;
 }
-const projectOff = "OPENCODE_CONFIG_PROJECT_DISABLE=1";
-const contentPrefix = "OPENCODE_CONFIG_CONTENT=";
+
 const agentList = z.object({
 	data: z.array(
 		z.object({
