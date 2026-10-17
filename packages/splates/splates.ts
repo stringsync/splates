@@ -5,6 +5,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
+import type { Assets } from "./assets";
 import { attach } from "./attach";
 import { checkpoint } from "./checkpoint";
 import { claim } from "./claim";
@@ -52,7 +53,6 @@ import { systems } from "./system";
 import { reportToCaller, tell } from "./tell";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, untilAfter, wait } from "./wait";
-import type { Assets } from "./web/assets";
 import { LOCAL_SLOTS } from "./worker-slots";
 import { REMOVE_REASONS } from "./worktree";
 

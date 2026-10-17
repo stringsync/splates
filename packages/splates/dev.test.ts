@@ -247,23 +247,6 @@ describe("dev", () => {
 		});
 	});
 
-	it("names every file of the page as a source for Tailwind", async () => {
-		const dir = `${import.meta.dir}/web`;
-		const styles = await Bun.file(`${dir}/styles.css`).text();
-		const listed = [...styles.matchAll(/^@source "\.\/(.+\.tsx)";$/gm)].map(
-			([, file]) => file,
-		);
-		// A file left off compiles to a page missing its classes, with no error.
-		const pages = [...new Bun.Glob("*.tsx").scanSync(dir)].filter(
-			(file) => !file.includes(".test."),
-		);
-
-		// `main.tsx` only mounts the app, and has no classes to find.
-		expect(listed.sort()).toEqual(
-			pages.filter((file) => file !== "main.tsx").sort(),
-		);
-	});
-
 	it("pushes over SSE when a task changes, and stays quiet when it does not", async () => {
 		await add(deps, "alpha");
 

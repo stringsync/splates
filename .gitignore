@@ -43,5 +43,5 @@ SPLATES.md
 .playwright-mcp
 .splates-shots
 
-# the splates server page, compiled by build.ts
-packages/splates/web/build
+# the splates server page, compiled by packages/web/build.ts
+packages/splates/web-build

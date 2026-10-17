@@ -4,6 +4,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
+import type { Assets } from "./assets";
 import type { ConversationState, Conversations } from "./conversations";
 import type { SecretStores } from "./creds";
 import { AutoRoutes } from "./dev-auto-routes";
@@ -32,7 +33,6 @@ import type { Slot } from "./slots";
 import { type Snapshot, tasksOf } from "./snapshot";
 import type { PortOwners } from "./task-ports";
 import type { Landed, LandRequest } from "./trunk-landing";
-import type { Assets } from "./web/assets";
 
 /**
  * Everything one project's page talks to: its records, its stream of

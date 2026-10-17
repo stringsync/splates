@@ -13,12 +13,10 @@ import { nameOf } from "./conversation-name";
 import { body } from "./dev-http";
 import type { Handler, Served } from "./dev-project";
 import { fail } from "./exit";
-import type { Needing } from "./needs";
+import { type Needing, openedBy } from "./needs";
 import { keyOf, Notices } from "./notices";
 import type { Projects } from "./projects";
 import { splatesHome } from "./roster";
-import { openedBy } from "./web/conversation-address";
-import type { Pushed } from "./web/worker";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);
@@ -236,4 +234,16 @@ export class Pushes {
 			JSON.stringify({ keys: this.keys, devices }, null, "\t"),
 		);
 	}
+}
+
+/** What the server pushes for a notice, as `Pushes` sends it. */
+export interface Pushed {
+	title: string;
+	body: string;
+	/** The row's key, which tags its notification and opens it. */
+	key: string;
+	/** The row's address, from the page's own: its `?project=` and hash. */
+	url: string;
+	/** Whether to show it even while a window of the page is in front. */
+	inFront: boolean;
 }

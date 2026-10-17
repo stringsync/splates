@@ -18,6 +18,6 @@
 		"zod": "^4.4.3"
 	},
 	"scripts": {
-		"postinstall": "bun run --cwd packages/splates build"
+		"postinstall": "bun run --cwd packages/web build"
 	}
 }

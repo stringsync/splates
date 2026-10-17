@@ -50,9 +50,9 @@
 	"overrides": [
 		{
 			"includes": [
-				"packages/splates/web/components/ui/**",
-				"packages/splates/web/components/assistant-ui/**",
-				"packages/splates/web/hooks/**"
+				"packages/web/components/ui/**",
+				"packages/web/components/assistant-ui/**",
+				"packages/web/hooks/**"
 			],
 			"linter": { "enabled": false }
 		}

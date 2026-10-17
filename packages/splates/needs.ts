@@ -385,3 +385,11 @@ function nextStep(plan: string): string | null {
 	}
 	return null;
 }
+
+/** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
+export const TASK = "task/";
+
+/** What opens `row`: its conversation's id, or its external agent's task. */
+export function openedBy(row: Needing): string {
+	return row.conversation?.id ?? `${TASK}${row.task?.task ?? ""}`;
+}

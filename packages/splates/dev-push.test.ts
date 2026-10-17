@@ -3,11 +3,11 @@ import { FakePusher } from "webappwiz/push/testing";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "./conversations";
 import type { Served } from "./dev-project";
+import type { Pushed } from "./dev-push";
 import { Pushes } from "./dev-push";
+import { conversation } from "./fixtures";
 import { type Needing, need } from "./needs";
 import { Testing } from "./testing";
-import { conversation } from "./web/fixtures";
-import type { Pushed } from "./web/worker";
 
 describe("Pushes", () => {
 	let deps: Testing;

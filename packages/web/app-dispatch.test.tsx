@@ -1,0 +1,420 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { ConversationState } from "@stringsync/splates/conversations";
+import type { Snapshot } from "@stringsync/splates/snapshot";
+import {
+	act,
+	cleanup,
+	conversation,
+	details,
+	fireEvent,
+	Testing,
+	textIn,
+	todo,
+	waitFor,
+	within,
+} from "./testing";
+
+const AGENTS = [
+	{
+		id: "claude",
+		name: "Claude",
+		models: [
+			{ id: "opus", name: "Opus" },
+			{ id: "haiku", name: "Haiku" },
+		],
+		settings: [],
+		limits: [],
+	},
+	{ id: "codex", name: "Codex", settings: [], limits: [] },
+];
+
+describe("App's controls that put agents to work", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+	});
+
+	/** Opens the board with conversations on, holding `held`. */
+	const board = async (
+		held: ConversationState[],
+		overrides: Partial<Snapshot> = {},
+	) => {
+		testing.talk = { agents: AGENTS, conversations: held };
+		const view = await testing.open({
+			tasks: [details({ task: "alpha" })],
+			todos: [
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+				todo({ id: 4, subject: "Retry on 413", lane: 1, takenBy: "alpha" }),
+			],
+			lanes: [{ id: 1, name: "Uploads" }],
+			...overrides,
+		});
+		// Conversations come in on their own feed, after the board.
+		await waitFor(() => view.getByRole("tab", { name: /Conversations/ }));
+		return view;
+	};
+
+	/** Opens task alpha's dialog from the Tasks page. */
+	const taskDialog = async (view: Awaited<ReturnType<typeof board>>) => {
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "tasks" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+		return waitFor(() => view.getByRole("dialog"));
+	};
+
+	/** Picks `item` from the menu `trigger` opens. */
+	const choose = async (
+		view: Awaited<ReturnType<typeof board>>,
+		trigger: HTMLElement,
+		item: RegExp,
+	) => {
+		await act(async () => fireEvent.click(trigger));
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: item })),
+			),
+		);
+	};
+
+	const composer = (view: Awaited<ReturnType<typeof board>>) =>
+		textIn(view.getByRole("textbox", { name: "Message input" }));
+
+	/** The directives the composer holds as chips, each by its title. */
+	const chips = (view: Awaited<ReturnType<typeof board>>) =>
+		Array.from(
+			view
+				.getByRole("textbox", { name: "Message input" })
+				.querySelectorAll<HTMLElement>('[title^="[SPLATES "]'),
+			(chip) => chip.title,
+		);
+
+	const posted = (path: string) =>
+		testing.posted(path).map((post) => post.body);
+
+	it("offers a todo's play button only once an agent is assigned", async () => {
+		const view = await board([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+
+		const play = within(dialog).getByRole("button", { name: "Start" });
+		expect((play as HTMLButtonElement).disabled).toBe(true);
+		expect(play.title).toBe("Pick an agent to start");
+		// One plain button: no menu of agents to start with.
+		expect(play.getAttribute("aria-haspopup")).toBeNull();
+	});
+
+	it("shows only a spinner, not its agent's logo, on a taken todo whose agent works", async () => {
+		const view = await board([
+			conversation({ id: "c1", task: "alpha", status: "running" }),
+		]);
+		const card = within(
+			view.getByRole("list", { name: "Uploads todos" }),
+		).getAllByRole("listitem")[1] as HTMLElement;
+		const chip = within(card).getByRole("button", { name: "Open alpha" });
+
+		expect(within(chip).getByRole("status").getAttribute("aria-label")).toBe(
+			"working",
+		);
+		expect(within(chip).queryByRole("img")).toBeNull();
+	});
+
+	it("shows the conversation on a taken todo, and opens it, saying Resume once its agent stopped", async () => {
+		const view = await board([
+			conversation({ id: "c1", task: "alpha", status: "stopped" }),
+		]);
+		const card = within(
+			view.getByRole("list", { name: "Uploads todos" }),
+		).getAllByRole("listitem")[1] as HTMLElement;
+
+		await act(async () =>
+			fireEvent.click(
+				within(card).getByRole("button", { name: "Resume alpha" }),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
+	it("puts a conversation already going on a lane, its reference held as a chip ahead of its draft", async () => {
+		localStorage.setItem("splates.draft.c2", "then stop");
+		const view = await board(
+			[conversation({ id: "c2", title: "Tidy the docs" })],
+			{
+				todos: [todo({ id: 3, subject: "Fix the upload", lane: 1 })],
+			},
+		);
+		const lane = view.getByRole("region", { name: "Uploads" });
+		await act(async () =>
+			fireEvent.click(within(lane).getByRole("button", { name: "Start lane" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "In a conversation" }),
+				),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: /Tidy the docs/ }),
+				),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/c2");
+		expect(chips(view)).toEqual(["[SPLATES LANE 1]"]);
+		expect(composer(view)).toBe("[SPLATES LANE 1]\n\nthen stop");
+	});
+
+	it("lists a task's conversations in its dialog, in place of starting another", async () => {
+		const view = await board([
+			conversation({ id: "c1", task: "alpha", status: "running" }),
+		]);
+		const dialog = await taskDialog(view);
+		expect(
+			within(dialog).getByRole("button", { name: "Open alpha" }),
+		).toBeTruthy();
+		expect(
+			within(dialog).queryByRole("button", { name: "Start a conversation" }),
+		).toBeNull();
+	});
+
+	it("starts a conversation in a task's tree from its dialog when none is on it", async () => {
+		const view = await board([]);
+		const dialog = await taskDialog(view);
+		testing.reply = conversation({
+			id: "c9",
+			task: "alpha",
+			status: "starting",
+		});
+
+		await choose(
+			view,
+			within(dialog).getByRole("button", { name: "Start a conversation" }),
+			/Claude/,
+		);
+		expect(location.hash).toBe("#conversations/new/claude/alpha");
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(posted("/api/conversations")).toEqual([
+			{ agent: "claude", task: "alpha", settings: {} },
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c9/prompt")).toEqual([
+				{ text: "[SPLATES TASK alpha]" },
+			]),
+		);
+	});
+
+	it("starts one orchestrator on the lanes ticked with no agent on them, sent them all at once", async () => {
+		const view = await board([], {
+			todos: [
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+				todo({ id: 5, subject: "Sign in", lane: 2 }),
+				todo({ id: 6, subject: "Bill", lane: 3, takenBy: "alpha" }),
+			],
+			lanes: [
+				{ id: 1, name: "Uploads" },
+				{ id: 2, name: "Accounts" },
+				{ id: 3, name: "Billing" },
+			],
+		});
+		testing.reply = conversation({ id: "c7", status: "starting" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
+		);
+		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
+		expect(ticks.map((each) => each.textContent)).toEqual([
+			"Uploads",
+			"Accounts",
+		]);
+		expect(
+			view
+				.getByRole("menuitem", { name: /Claude/ })
+				.hasAttribute("data-disabled"),
+		).toBe(true);
+
+		await act(async () => fireEvent.click(ticks[0] as HTMLElement));
+		await act(async () => fireEvent.click(ticks[1] as HTMLElement));
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
+		);
+
+		expect(posted("/api/conversations")).toEqual([
+			{ agent: "codex", task: null, settings: {} },
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c7/prompt")).toEqual([
+				{ text: "[SPLATES LANE 1]\n[SPLATES LANE 2]" },
+			]),
+		);
+		expect(location.hash).not.toContain("conversations");
+	});
+
+	it("offers Untriaged first among the lanes to start while a todo in no lane is open", async () => {
+		const view = await board([], {
+			todos: [
+				todo({ id: 2, subject: "Retry the upload" }),
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+			],
+			lanes: [{ id: 1, name: "Uploads" }],
+		});
+		testing.reply = conversation({ id: "c7", status: "starting" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
+		);
+		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
+		expect(ticks.map((each) => each.textContent)).toEqual([
+			"Untriaged",
+			"Uploads",
+		]);
+
+		await act(async () => fireEvent.click(ticks[0] as HTMLElement));
+		await act(async () => fireEvent.click(ticks[1] as HTMLElement));
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
+		);
+
+		await waitFor(() =>
+			expect(posted("/api/conversations/c7/prompt")).toEqual([
+				{ text: "[SPLATES LANE untriaged]\n[SPLATES LANE 1]" },
+			]),
+		);
+	});
+
+	it("starts a todo's assigned agent from its dialog, on its model, straight away, closing the dialog", async () => {
+		const view = await board([], {
+			todos: [
+				todo({
+					id: 3,
+					subject: "Fix the upload",
+					lane: 1,
+					assignee: { agent: "claude", model: "haiku" },
+				}),
+			],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog).getByRole("button", { name: "Assignee" }).textContent,
+		).toContain("Claude · Haiku");
+
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", {
+					name: "Start with Claude · Haiku",
+				}),
+			),
+		);
+
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		expect(posted("/api/conversations")).toEqual([
+			{
+				agent: "claude",
+				task: null,
+				settings: {},
+				model: "haiku",
+				assigned: true,
+			},
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c9/prompt")).toEqual([
+				{ text: "[SPLATES TODO #3]" },
+			]),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Todos/ })),
+		);
+		expect(view.queryByRole("dialog")).toBeNull();
+	});
+
+	it("starts a todo's assigned agent in one tap from its card", async () => {
+		const view = await board([], {
+			todos: [
+				todo({
+					id: 3,
+					subject: "Fix the upload",
+					lane: 1,
+					assignee: { agent: "claude", model: "haiku" },
+				}),
+				todo({ id: 5, subject: "Unassigned", lane: 1 }),
+				todo({
+					id: 6,
+					subject: "Taken",
+					lane: 1,
+					takenBy: "alpha",
+					assignee: { agent: "claude" },
+				}),
+			],
+		});
+		// Only the open todo with an agent on it offers one.
+		expect(
+			view
+				.getAllByRole("button", { name: /^Start with / })
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["Start with Claude · Haiku"]);
+
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Start with Claude · Haiku" }),
+			),
+		);
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		expect(posted("/api/conversations")).toEqual([
+			{
+				agent: "claude",
+				task: null,
+				settings: {},
+				model: "haiku",
+				assigned: true,
+			},
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c9/prompt")).toEqual([
+				{ text: "[SPLATES TODO #3]" },
+			]),
+		);
+	});
+
+	it("puts an agent on a todo from its dialog, or any agent", async () => {
+		const view = await board([], {
+			todos: [todo({ id: 3, subject: "Fix the upload", lane: 1 })],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Assignee" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitemcheckbox", { name: /Codex/ })),
+		);
+
+		expect(posted("/api/todos/3/assignee")).toEqual([{ agent: "codex" }]);
+	});
+});

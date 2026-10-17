@@ -1,0 +1,145 @@
+import type {
+	ConversationState,
+	Setting,
+} from "@stringsync/splates/conversations";
+import type { AgentChoice } from "./conversation-feed";
+
+export { openedBy, TASK } from "@stringsync/splates/needs";
+
+/** What `#conversations/archived` opens: every archived conversation. */
+export const ARCHIVED = "archived";
+/**
+ * In place of an id in the address: the screen that starts a conversation,
+ * with the agent after it, as `new/codex`, else the agent last used, and
+ * after that the task whose tree it starts in, as `new/codex/fix-upload`,
+ * else the main tree.
+ */
+export const NEW = "new";
+
+/**
+ * The conversation a `#conversations/<id>` address names, `ARCHIVED` for the
+ * archived ones, or null.
+ */
+export function conversationIn(hash: string): string | null {
+	const [, id] = hash.match(/^#conversations\/(.+)$/) ?? [];
+	return id ?? null;
+}
+
+/**
+ * After a conversation's id in the address, as `<id>/terminal`: its terminal
+ * on a page of its own, as one of the main tree's is.
+ */
+export const TERMINAL = "/terminal";
+
+/** The address of `conversation`'s terminal on a page of its own. */
+export function terminalAddress(conversation: string): string {
+	return `${conversation}${TERMINAL}`;
+}
+
+/**
+ * The conversation whose terminal `open` shows on a page of its own, or null.
+ * No id has a `/`, unlike the addresses of a task, a new conversation, or a
+ * main-tree terminal.
+ */
+export function terminalOf(open: string | null): string | null {
+	const [, id] = open?.match(/^([^/]+)\/terminal$/) ?? [];
+	return id === undefined || ["new", "task", "terminal"].includes(id)
+		? null
+		: id;
+}
+
+/**
+ * In place of an agent after `NEW`, as `new/auto`: the screen that starts a
+ * conversation on whatever Auto picks for its first prompt.
+ */
+export const AUTO = "auto";
+
+/** Whether `open` starts a conversation on what Auto picks. */
+export function autoIn(open: string | null): boolean {
+	return (
+		open?.startsWith(`${NEW}/`) === true &&
+		pathOf(open)
+			.slice(NEW.length + 1)
+			.split("/")[0] === AUTO
+	);
+}
+
+/**
+ * Whether a new conversation started as the last was starts on Auto: the
+ * newest the person started, rather than a todo assigned, was Auto's.
+ */
+export function autoLast(conversations: ConversationState[]): boolean {
+	return (
+		conversations.find((each) => !each.assigned || each.auto)?.auto === true
+	);
+}
+
+/** Whether `open` is the screen that starts a conversation, with any agent. */
+export function startsOne(open: string | null): boolean {
+	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);
+}
+
+/**
+ * The agent a new conversation starts with: the one `open` names, else the
+ * newest conversation's the person picked, else the newest's, else the first.
+ */
+export function agentFor(
+	open: string | null,
+	agents: AgentChoice[],
+	conversations: ConversationState[],
+): string {
+	const named = open?.startsWith(`${NEW}/`)
+		? pathOf(open)
+				.slice(NEW.length + 1)
+				.split("/")[0]
+		: null;
+	return (
+		agents.find((each) => each.id === named)?.id ??
+		agents.find((each) => each.id === picked(conversations)[0]?.agent)?.id ??
+		agents[0]?.id ??
+		""
+	);
+}
+
+/** The user's saved defaults, independent of live session settings. */
+export function settingsFor(
+	agent: string,
+	agents: AgentChoice[],
+	_conversations: ConversationState[],
+): Setting[] {
+	return agents.find((each) => each.id === agent)?.settings ?? [];
+}
+
+/**
+ * `conversations` with those started on an assignment last, since what a
+ * todo assigned is no pick of the person's: those count only for an agent
+ * never started otherwise.
+ */
+function picked(conversations: ConversationState[]): ConversationState[] {
+	return [
+		...conversations.filter((each) => !each.assigned),
+		...conversations.filter((each) => each.assigned),
+	];
+}
+
+/** The task a new conversation starts in, from `open`; null for the main tree. */
+export function taskFor(open: string | null): string | null {
+	return open?.startsWith(`${NEW}/`)
+		? (pathOf(open)
+				.slice(NEW.length + 1)
+				.split("/")[1] ?? null)
+		: null;
+}
+
+/** The model a new conversation starts on, `?model=` in `open`, or null. */
+export function modelFor(open: string | null): string | null {
+	const at = open?.indexOf("?") ?? -1;
+	return open === null || at === -1
+		? null
+		: new URLSearchParams(open.slice(at + 1)).get("model");
+}
+
+/** `open` without its `?` and what follows. */
+function pathOf(open: string): string {
+	return open.split("?")[0] ?? open;
+}
