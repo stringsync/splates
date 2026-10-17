@@ -22,7 +22,7 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { useWide } from "./app-nav";
-import { RestartButton } from "./checkpoint";
+import { RestartButton } from "./restart-button";
 
 /** What the page's shell gives every bar under it. */
 export interface BarFrame {
@@ -127,7 +127,9 @@ export function TopBar({
 					</div>
 				</div>
 				<div ref={restart} className="flex shrink-0 items-center empty:hidden">
-					{frame?.dot === true && <RestartButton wide={wide} />}
+					{frame?.dot !== undefined && (
+						<RestartButton wide={wide} update={frame.dot} />
+					)}
 				</div>
 				{(folded.length > 0 || menu !== null) && (
 					<Kebab actions={folded} menu={menu} wide={wide} />

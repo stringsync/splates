@@ -12,9 +12,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
+import { Duration, SystemClock, SystemTimer, type Timer } from "webappwiz/time";
 import { DropdownMenuItem } from "#dev/components/ui/dropdown-menu.tsx";
-import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
@@ -26,7 +25,12 @@ import {
 	standing,
 	titleOf,
 } from "./checkpoint-slide";
-import { listProjects, type ProjectChoice, type Projects } from "./project-api";
+import {
+	listProjects,
+	type ProjectChoice,
+	type Projects,
+	powerNow,
+} from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 import { ontoOf, UpdateDot } from "./release";
 
@@ -40,6 +44,9 @@ interface Checkpointing {
 	refusal: string | null;
 	/** Opens the dialog. */
 	open: () => void;
+	restart: () => void;
+	restartBusy: boolean;
+	restartDone: boolean;
 }
 
 const Checkpointing = createContext<Checkpointing | null>(null);
@@ -59,8 +66,7 @@ export function useCheckpoint(): Checkpointing {
  * or say how a restart stands. Pass this project's `conversations`, so a
  * checkpoint hears of their answers at once, and `autoRestart`, whose
  * countdown it shows; `every`, `restartShown` and `reload` are for tests.
- * After a restart's reload, it opens on how the restart ended and the arbor
- * it now runs.
+ * After a restart's reload, it confirms the restart inline.
  */
 export function CheckpointProvider({
 	conversations,
@@ -68,6 +74,7 @@ export function CheckpointProvider({
 	restartShown = RESTART_SHOWN,
 	reload = () => location.reload(),
 	autoRestart,
+	timer = NOTICE_TIMER,
 	children,
 }: {
 	conversations: ConversationState[];
@@ -76,13 +83,25 @@ export function CheckpointProvider({
 	/** Reloads the page, once a restart asked to is back. */
 	reload?: () => void;
 	autoRestart: AutoRestart;
+	/** What expires the inline restart confirmation. */
+	timer?: Timer;
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
 	// Back from a restart's reload, the arbor it left ("" when unknown).
 	const [returned] = useState(() => sessionStorage.getItem(RESTARTED));
-	// Back from a restart's reload, open on how it ended.
-	const [open, setOpen] = useState(returned !== null);
+	// Reloads confirm inline; Power opens only when explicitly requested.
+	const [open, setOpen] = useState(false);
+	const [restartDone, setRestartDone] = useState(returned !== null);
+	const [askingRestart, setAskingRestart] = useState(false);
+	const restartAsked = useRef(false);
+	useEffect(() => {
+		if (!restartDone) {
+			return;
+		}
+		const notice = timer.setTimeout(() => setRestartDone(false), ENDED);
+		return () => notice.dispose();
+	}, [restartDone, timer]);
 	useDisposerEffect(
 		(disposer) => disposer.use(autoRestart.start()),
 		[autoRestart],
@@ -112,7 +131,6 @@ export function CheckpointProvider({
 	useEffect(() => {
 		if (auto.step === "restarting") {
 			setRestarting({ run: auto.run, resume: false, shutdown: false });
-			setOpen(true);
 		}
 	}, [auto]);
 	// The arbor a restart with no agent to resume came back on, while it says
@@ -234,11 +252,12 @@ export function CheckpointProvider({
 			}
 			restartSince.current = null;
 			// Served afresh, so the page runs what the new run built, and
-			// opens there on how the restart ended.
+			// confirms there that the restart ended.
 			sessionStorage.setItem(RESTARTED, running.current ?? "");
 			setFrom(running.current);
 			reloads.current();
 			setRestarting(null);
+			setRestartDone(true);
 			// Carried on before the page saw them told to.
 			if (restarting.resume && listed.restarted === null) {
 				setEnded({ projects: last.current, restarted: listed.running });
@@ -325,9 +344,55 @@ export function CheckpointProvider({
 	// Checkpointed and not yet told to carry on.
 	const waiting = all.asked.filter((each) => each.checkpoint === "done").length;
 	const badge = badgeOf(slide, run, waiting);
+	const restart = useCallback(() => {
+		if (listed === null || restarting !== null || restartAsked.current) {
+			return;
+		}
+		restartAsked.current = true;
+		setAskingRestart(true);
+		setRestartDone(false);
+		setOpen(false);
+		autoRestart.cancel();
+		const started = () =>
+			setRestarting({ run: listed.run, resume: false, shutdown: false });
+		void powerNow(false)
+			.then(started, (error: unknown) => {
+				// A restart can stop the connection before its response arrives.
+				if (error instanceof TypeError) {
+					started();
+				} else {
+					refuse("Restart failed", error);
+				}
+			})
+			.finally(() => {
+				restartAsked.current = false;
+				setAskingRestart(false);
+			});
+	}, [listed, restarting, autoRestart, refuse]);
+	const restartBusy =
+		askingRestart || (restarting !== null && !restarting.shutdown);
 	const value = useMemo(
-		() => ({ slide, badge, title, refusal, open: opened }),
-		[slide, badge, title, refusal, opened],
+		() => ({
+			slide,
+			badge: restartBusy && !open ? null : badge,
+			title,
+			refusal,
+			open: opened,
+			restart,
+			restartBusy,
+			restartDone,
+		}),
+		[
+			slide,
+			badge,
+			title,
+			refusal,
+			opened,
+			restart,
+			restartBusy,
+			restartDone,
+			open,
+		],
 	);
 	return (
 		<Checkpointing.Provider value={value}>
@@ -422,34 +487,6 @@ export function CheckpointItem({
 }
 
 /**
- * Restart to update, as Zed's, in every bar before its kebab once a restart
- * would update arbor, opening Power; nothing while a run is under way, which
- * the header's badge says instead. Its words shrink to Update on a phone.
- */
-export function RestartButton({ wide }: { wide: boolean }): JSX.Element | null {
-	const { slide, open } = useCheckpoint();
-	if (slide !== "pick" && slide !== "counting") {
-		return null;
-	}
-	return (
-		<button
-			type="button"
-			aria-label="Restart to update"
-			title="Restart to update"
-			onClick={() => open()}
-			className={cn(
-				"flex shrink-0 items-center whitespace-nowrap border border-border bg-background font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-				wide
-					? "h-7 rounded-md px-2.5 text-xs"
-					: "h-8 rounded-full px-3 text-sm",
-			)}
-		>
-			{wide ? "Restart to update" : "Update"}
-		</button>
-	);
-}
-
-/**
  * The header's word on a restart under way, as plain text in the path's
  * place, opening Power; nothing otherwise.
  */
@@ -520,6 +557,7 @@ function endOf(
 
 /** How long a checkpoint whose agents carried on still says it is done. */
 const ENDED = Duration.mins(1);
+const NOTICE_TIMER = new SystemTimer();
 
 /**
  * How long the Restart slide shows at least, so a restart quicker than the

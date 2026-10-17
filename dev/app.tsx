@@ -454,6 +454,7 @@ export function App({
 																		restartShown={checkpointRestartShown}
 																		reload={reload}
 																		autoRestart={autoRestart}
+																		timer={timer}
 																	>
 																		{wide ? (
 																			<DesktopApp

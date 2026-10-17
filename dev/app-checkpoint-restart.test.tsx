@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Duration } from "webappwiz/time";
 import {
 	act,
 	cleanup,
@@ -88,7 +89,7 @@ describe("App's checkpoint restart", () => {
 		expect(current(dialog)).toBeNull();
 	});
 
-	it("opens, after the restart's reload, on its agents resuming, then on the arbor it runs", async () => {
+	it("confirms inline after reload while its agents resume", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
@@ -109,25 +110,18 @@ describe("App's checkpoint restart", () => {
 
 		const again = await testing.open();
 
-		const dialog = await waitFor(() =>
-			again.getByRole("dialog", { name: "Restarting arbor dev" }),
-		);
-		await waitFor(() => expect(current(dialog)).toBe("Resume"));
+		await waitFor(() => again.getByText("Restarted"));
+		expect(
+			again.getByText("Restarted").closest("[role=status]"),
+		).not.toBeNull();
+		expect(again.queryByRole("dialog")).toBeNull();
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
-
-		const restarted = await waitFor(
-			() => again.getByRole("dialog", { name: "arbor dev restarted" }),
-			{ timeout: 3000 },
-		);
-		within(restarted).getByText("1 agent back at work.");
-		within(restarted).getByText("arbor 0.0.1");
-		// The dialog says it, so the header does not.
-		expect(again.queryByRole("button", { name: "Restarted" })).toBeNull();
+		expect(again.queryByRole("dialog")).toBeNull();
 	});
 
-	it("opens, after a restart's reload with no agent to resume, on the arbor it updated to", async () => {
+	it("confirms inline after an update, until another update is needed", async () => {
 		testing.projects = [project("webappwiz", [], true)];
 		testing.restarting = { resume: false, shutdown: false };
 		const view = await testing.openConversations([], null, {
@@ -138,22 +132,42 @@ describe("App's checkpoint restart", () => {
 		testing.run = "run-2";
 		testing.served = {
 			...testing.served,
-			release: { running: "0.0.44", newest: "0.0.44" },
+			release: null,
 		};
 		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
 		cleanup();
 
 		const again = await testing.open({
-			release: { running: "0.0.44", newest: "0.0.44" },
+			release: null,
 		});
 
-		const restarted = await waitFor(() =>
-			again.getByRole("dialog", { name: "arbor dev restarted" }),
+		await waitFor(() => again.getByText("Restarted"));
+		expect(again.queryByRole("dialog")).toBeNull();
+		expect(
+			again.getByText("Restarted").classList.contains("text-success"),
+		).toBe(true);
+
+		testing.served = {
+			...testing.served,
+			release: { running: "0.0.44", newest: "0.0.45" },
+		};
+		await act(async () => testing.stream?.onmessage?.());
+		await waitFor(() =>
+			again.getByRole("button", { name: "Restart to update" }),
 		);
-		expect(restarted.textContent).toContain("arbor dev is back.");
-		within(restarted).getByText("arbor 0.0.44");
-		within(restarted).getByText("Updated from arbor 0.0.43");
-		expect(again.queryByRole("button", { name: "Restarted" })).toBeNull();
+		expect(again.queryByText("Restarted")).toBeNull();
+	});
+
+	it("dismisses the inline confirmation after a minute", async () => {
+		sessionStorage.setItem("arbor.power.restarted", "0.0.43");
+		const view = await testing.open();
+		await waitFor(() => view.getByText("Restarted"));
+		expect(testing.timer.timeouts).toContainEqual(
+			expect.objectContaining({ delay: Duration.mins(1), disposed: false }),
+		);
+		await act(async () => testing.timer.fireTimeouts());
+		expect(view.queryByText("Restarted")).toBeNull();
+		expect(view.queryByRole("dialog")).toBeNull();
 	});
 
 	it("names the agents a checkpoint missed, and no others", async () => {

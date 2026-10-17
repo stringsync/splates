@@ -118,6 +118,7 @@
 @source "./card-shell.tsx";
 @source "./refusal.tsx";
 @source "./release.tsx";
+@source "./restart-button.tsx";
 @source "./search-dialog.tsx";
 @source "./sent-attachments.tsx";
 @source "./settings-dialog.tsx";

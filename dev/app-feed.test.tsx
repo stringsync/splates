@@ -200,7 +200,7 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("opens Power from Restart to update, beside the kebab", async () => {
+	it("restarts directly from Restart to update, keeping a spinner beside the kebab", async () => {
 		const view = await testing.open();
 		expect(
 			view.queryByRole("button", { name: "Restart to update" }),
@@ -219,7 +219,40 @@ describe("App's feed", () => {
 		).toBe("More");
 		await act(async () => fireEvent.click(restart));
 
-		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
+		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(testing.posted("/api/power")).toEqual([
+			{ method: "POST", body: { shutdown: false } },
+		]);
+		expect(testing.posted("/api/checkpoint")).toEqual([]);
+		const busy = view.getByRole("button", { name: "Restarting" });
+		expect(busy.hasAttribute("disabled")).toBe(true);
+		expect(busy.querySelector(".animate-spin")).not.toBeNull();
+	});
+
+	it("keeps the update available to retry when a restart is refused", async () => {
+		const view = await testing.open({
+			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+		});
+		testing.refuseWrites = { reason: "cannot restart", message: "Try again" };
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Restart to update" })),
+		);
+		await waitFor(() =>
+			expect(
+				view
+					.getByRole("button", { name: "Restart to update" })
+					.hasAttribute("disabled"),
+			).toBe(false),
+		);
+		expect(view.queryByRole("button", { name: "Restarting" })).toBeNull();
+		expect(view.queryByRole("dialog")).toBeNull();
+		testing.refuseWrites = null;
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Restart to update" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		expect(testing.posted("/api/power")).toHaveLength(2);
 	});
 
 	it("grays out the tab's icon while offline, and brings it back", async () => {
