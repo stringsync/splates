@@ -16,6 +16,7 @@
 	},
 	"exports": {
 		".": "./index.ts",
+		"./asked": "./asked.ts",
 		"./config": "./config.ts",
 		"./heavy": "./heavy.ts",
 		"./skill-checks": "./skill-checks.ts",

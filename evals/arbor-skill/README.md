@@ -1,5 +1,9 @@
 # Evals for the arbor skill
 
+The new focused contract and free deterministic assertions are documented in
+[PROBES.md](PROBES.md). The runner is downstream work; the commands below still
+select the legacy end-to-end suite, which can spend tokens and use a model judge.
+
 Runs agents through situations the arbor skill has to handle, each in a
 throwaway repository, and grades what they did: by code wherever a program can
 tell, with the checks `arbor dev` runs on real conversations
