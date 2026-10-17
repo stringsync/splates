@@ -72,7 +72,7 @@ export class Outcomes {
 			return;
 		}
 		const whole = await taskLog(log, this.fs, ended.startedAt, until);
-		if (whole === null) {
+		if (whole?.usage === undefined) {
 			return;
 		}
 		const usage = less(whole.usage, ended.usage);

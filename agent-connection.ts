@@ -28,8 +28,10 @@ import {
 	result,
 	settingsIn,
 	starts,
+	tally,
 } from "./fold";
 import { modelOption } from "./models";
+import { safeOpenCodeUpdate } from "./opencode-usage";
 import { parentOf, toolIn } from "./tool-calls";
 import type { Watched } from "./watched";
 
@@ -370,12 +372,15 @@ export class AgentConnection {
 						return;
 					}
 					if ("error" in response) {
-						host.ended(response.error.message);
+						host.ended(agentError(response.error.message));
 						return;
 					}
 					const { usage } = response.result as acp.PromptResponse;
 					if (usage != null) {
 						host.log.write({ kind: "usage", usage });
+						if (host.state.agent === "opencode") {
+							tally(host.state, usage);
+						}
 					}
 					host.ended(null);
 				}),
@@ -529,6 +534,22 @@ export class AgentConnection {
 	): Promise<acp.PromptResponse | undefined> {
 		this.validateModel();
 		this.finishing = false;
+		const report = this.host.state.usage.opencode;
+		if (report !== undefined && this.connection !== null) {
+			const turn = {
+				at: this.host.now(),
+				until: null,
+				firstText: null,
+				requested: this.model,
+				confirmed:
+					this.host.state.settings.find((each) => each.category === "model")
+						?.current ?? null,
+				cwd: this.sessionCwd,
+				tokens: null,
+			};
+			this.host.log.write({ kind: "observed-turn", turn });
+			report.turns.push(turn);
+		}
 		return this.connection?.prompt({ sessionId: this.session ?? "", prompt });
 	}
 
@@ -657,6 +678,9 @@ export class AgentConnection {
 		const { host } = this;
 		return {
 			sessionUpdate: async ({ update }) => {
+				if (host.state.agent === "opencode") {
+					update = safeOpenCodeUpdate(update);
+				}
 				if (this.suppressReplay) {
 					return;
 				}

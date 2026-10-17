@@ -30,6 +30,7 @@ import {
 import { ConversationTurns, type PromptOptions } from "./conversation-turns";
 import { fail } from "./exit";
 import { fold, heard } from "./fold";
+import { finishObservation } from "./opencode-usage";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -600,7 +601,15 @@ export class Conversation
 			next.status !== undefined &&
 			running !== (this.state.status === "running")
 		) {
-			this.log.write({ kind: "turn", running });
+			const at = this.now();
+			this.log.write({
+				kind: "turn",
+				running,
+				...(this.state.agent === "opencode" ? { at } : {}),
+			});
+			if (!running) {
+				finishObservation(this.state, at);
+			}
 		}
 		Object.assign(this.state, next);
 		this.changed();

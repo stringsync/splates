@@ -65,6 +65,115 @@ describe("OpenCode ACP fixtures (not a recorded executable handshake)", () => {
 		return conversation;
 	};
 
+	it.each([true, false])(
+		"keeps usage across restart and negotiated recovery (resume=%s)",
+		async (resume) => {
+			agent.resumes = resume;
+			const usage = {
+				sessionUpdate: "usage_update" as const,
+				used: 10,
+				size: 1000,
+				cost: { amount: 2, currency: "USD" },
+			};
+			agent.held = [
+				{
+					sessionId: "s1",
+					cwd: "/repo",
+					replay: [heard("old"), usage, say("replayed text")],
+				},
+			];
+			agent.usage = { inputTokens: 10, outputTokens: 2, totalTokens: 12 };
+			agent.turn = async (client, sessionId) => {
+				await client.sessionUpdate({ sessionId, update: usage });
+				await client.sessionUpdate({ sessionId, update: say("answer") });
+				return "end_turn";
+			};
+			const conversation = await start();
+			await until(conversation, "idle");
+			await conversation.prompt("one");
+			await until(conversation, "idle");
+			await conversation.stop();
+			const reread = new Conversations("/logs", [OPENCODE], {
+				fs,
+				timer,
+				launch: agent.launch,
+			});
+			const read = await reread.find(conversation.id);
+			await read.resume();
+			expect(read.state.usage.opencode?.turns).toHaveLength(1);
+			expect(read.state.usage.opencode?.turns[0]).toMatchObject({
+				requested: MODEL,
+				confirmed: MODEL,
+				cwd: "/repo",
+				tokens: { input: 10 },
+			});
+			expect(read.state.usage.opencode?.turns[0]?.until).not.toBeNull();
+			expect(read.state.usage.cost?.amount).toBe(2);
+			expect(JSON.stringify(read.state.messages)).not.toContain(
+				"replayed text",
+			);
+			await read.choose("model", OTHER);
+			agent.usage = null;
+			await read.prompt("two");
+			await until(read, "idle");
+			expect(read.state.usage.opencode?.turns[1]).toMatchObject({
+				requested: OTHER,
+				confirmed: OTHER,
+				tokens: null,
+			});
+			expect(read.state.usage.cost?.amount).toBe(2);
+			await reread.disposeAsync();
+		},
+	);
+
+	it("persists sanitized retry status, allows cancellation, and never substitutes providers", async () => {
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({
+				sessionId,
+				update: {
+					sessionUpdate: "session_info_update",
+					_meta: {
+						"opencode/retry": {
+							attempt: 1,
+							error: {
+								message: "Rate limit Bearer sensitive",
+								response: { body: "private-body" },
+							},
+						},
+					},
+				},
+			});
+			await client.requestPermission({
+				sessionId,
+				toolCall: { toolCallId: "wait", title: "Wait" },
+				options: [],
+			});
+			return "cancelled";
+		};
+		const conversation = await start();
+		await until(conversation, "idle");
+		await conversation.prompt("one");
+		await once(conversation, () => conversation.state.ask !== null);
+		expect(conversation.state.usage.opencode?.retry?.message).toContain(
+			"Rate limit",
+		);
+		await conversation.saved();
+		const reread = new Conversations("/logs", [OPENCODE], {
+			fs,
+			timer,
+			launch: agent.launch,
+		});
+		const read = await reread.find(conversation.id);
+		expect(JSON.stringify(read.state)).not.toContain("sensitive");
+		expect(JSON.stringify(read.state)).not.toContain("private-body");
+		await conversation.cancel();
+		await until(conversation, "idle");
+		expect(conversation.state.usage.opencode?.retry).toBeNull();
+		expect(conversation.state.settings[0]?.current).toBe(MODEL);
+		expect(conversation.state.usage.limits).toEqual([]);
+		await reread.disposeAsync();
+	});
+
 	it.each([
 		"Test",
 		"test-model",

@@ -128,6 +128,12 @@ export function toolIn(state: ConversationState, id: string): Tool | null {
 export function parentOf(update: {
 	_meta?: { [key: string]: unknown } | null;
 }): string | null {
+	const child = update._meta?.["opencode/child-session"] as
+		| { id?: unknown }
+		| undefined;
+	if (child != null) {
+		return typeof child.id === "string" ? child.id : "opencode/child-session";
+	}
 	// Claude stamps it in `_meta`.
 	const claude = update._meta?.claudeCode as
 		| { parentToolUseId?: unknown }

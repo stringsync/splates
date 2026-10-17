@@ -261,3 +261,20 @@ requires recording a version and sanitized handshake separately; no paid smoke
 test was run. See [the experiment plan](design/opencode-acp.md) for opt-in setup,
 provider restrictions, and the separate paid-overflow control. Fixture checks
 never establish account entitlement or remaining quota.
+
+### OpenCode experiment usage
+
+OpenCode's Usage popover shows the last dispatched requested/confirmed full model
+IDs, measured first-text and elapsed latency, and parent-only per-turn ACP token
+counts. Missing fields read **Unknown**, including optional cache counts. Reported
+USD cost is a cumulative session observation, separate from unknown additional
+charges; it is not a subscription invoice. Quota and mixed-model remaining
+allowance stay unknown: consult OpenCode Console and keep **Use balance** disabled.
+Legacy task cost/token aggregates exclude these differently scoped observations.
+
+See [the manual comparison recipe](design/opencode-acp.md#354-implementation-and-manual-comparison-record)
+for identical baseline files, a results worksheet, provenance and the authorization
+gate. Fixtures need no production login. Live executable compatibility remains
+unverified and no real comparison was run. `bin/wiz dev fix --code-only` disables
+both Scry model roles and avoids opening credential stores; model-dependent rules
+are reported as unchecked. `bin/wiz dev test` runs the local fixture suites.

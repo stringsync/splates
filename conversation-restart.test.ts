@@ -71,7 +71,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 	/** The conversations of a coordinator running `session`, over the one log directory. */
 	const talk = (session: WorkerSession) => {
 		const remote = new RemoteWorker("local", {}, session);
-		return new Conversations(DIR, [AGENT], {
+		return new Conversations(DIR, [AGENT, { ...AGENT, id: "opencode" }], {
 			fs,
 			timer,
 			clock: new FakeWallClock(Date.parse("2026-10-16T10:00:00Z")),
@@ -190,6 +190,28 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		await until(after as Conversation, "idle");
 		expect(agent.launched).toHaveLength(1);
 		expect(agent.prompts).toHaveLength(2);
+	});
+
+	it("fills the in-flight OpenCode usage once after reattachment", async () => {
+		agent.usage = { inputTokens: 42, outputTokens: 7, totalTokens: 49 };
+		const before = await conversations.start("opencode", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		await until(before, "idle");
+		await before.prompt("one");
+		await eventually(() => words(before).includes("Hi."));
+		await settle();
+		const [after] = await restart();
+		goOn();
+		await until(after as Conversation, "idle");
+		expect(after?.state.usage.opencode?.turns).toHaveLength(1);
+		expect(after?.state.usage.opencode?.turns[0]?.tokens?.input).toBe(42);
+		expect(after?.state.usage.opencode?.turns[0]?.until).not.toBeNull();
+		await after?.saved();
+		const [again] = await restart();
+		expect(again?.state.usage.opencode).toEqual(after?.state.usage.opencode);
+		expect(agent.prompts).toHaveLength(1);
 	});
 
 	it("reads the same conversation back idle from its log, and carries on with the next prompt", async () => {

@@ -224,3 +224,107 @@ options, stale explicit New-screen requests and manual replacement. Existing
 recovery. No executable compatibility, login, entitlement, or quota was verified.
 #354 remains responsible for usage provenance and comparisons; #362 owns the
 separate automatic-routing entry, which is not implemented here.
+
+## #354 implementation and manual comparison record
+
+Instrumentation is fixture-verified, not executable-verified. Live OpenCode
+compatibility, account entitlement and quota remain **unverified**. Documentation
+was checked on 2026-10-17; recheck the linked Go limits page before any later run.
+No real comparison was executed. Production login is not needed for fixtures.
+
+The conversation's Usage popover is available even without context data. Its
+last-turn observation records the explicit request, confirmed full ID at dispatch,
+original cwd, dispatch/first-parent-text/end timestamps, and independently nullable
+input/output/cache-read/cache-write fields. These are ACP prompt-response counts
+for that turn's parent session; they do not count child sessions or represent a
+remaining subscription allowance. Missing cache fields are unknown, not zero.
+Arbor measures latency using its clock, including tools, permissions and retries;
+a missing end or first text stays unknown. A model snapshot describes dispatch,
+not proof that an auxiliary call used that model.
+
+`observed-turn` log entries snapshot the existing requested model and confirmed
+settings, not a second selection mechanism. Following `usage` entries fill a
+turn once; `turn` end timestamps close it. Older logs remain readable without
+invented observations. Recovery load suppression and worker sequence acknowledgments
+remain the replay boundary. `usage_update` replaces the cumulative session USD
+figure, including decreases; it never adds the same total per update or applies
+Claude's process-reset rule. An update without cost makes current cost unknown.
+Child updates cannot change parent context, cost, settings, retry or first text.
+Retry diagnostics retain sanitized messages and discard raw provider response
+bodies. Retry status clears on retry start or turn end; cancellation remains usable.
+
+Reported cost is not an independently verified additional charge. Charges, quota,
+mixed-model remaining allowance and quota reset times stay unknown; Console is
+the source to consult. OpenCode measurements are deliberately excluded from the
+legacy task aggregate (which assumes additive, fully known tokens and task cost).
+Use the scoped conversation observations for this experiment. Claude/Codex task
+accounting remains unchanged.
+
+### Prepare the identical baseline (local files only)
+
+In a new throwaway repository, create `unique.ts` with:
+
+```ts
+export function uniqueStable(values: string[]): string[] {
+  return [...new Set(values)].sort();
+}
+```
+
+Create `unique.test.ts` with one initial test:
+
+```ts
+import { expect, test } from "bun:test";
+import { uniqueStable } from "./unique";
+test("keeps first-occurrence order", () => {
+  expect(uniqueStable(["b", "a", "b"])).toEqual(["b", "a"]);
+});
+```
+
+Run `bun test unique.test.ts` locally to record the intentional failure, then
+commit this baseline and record its SHA. Use two fresh copies at that exact SHA.
+Use the exact prompt in “Controlled experiment” above and `bun test unique.test.ts`
+as the test command. No dependency installation is needed. Correctness review
+must include duplicates, case distinctions, empty strings, empty input and order;
+passing an agent's own tests alone is insufficient evidence.
+
+### Execution gate and worksheet
+
+First run synthetic transport fixtures, for example
+`bun test packages/arbor/conversation-opencode.test.ts packages/arbor/opencode-usage.test.ts`
+from this repository. They are synthetic client-contract tests, not comparison
+results or production compatibility evidence. `bin/wiz dev fix --code-only` runs
+formatting, types and code-only Scry without credentials or model requests;
+model-dependent Scry rules are explicitly listed as unchecked.
+
+Before any real run, obtain separate user authorization for the run count,
+wall-time cap and usage exposure. Verify the executable version and sanitized
+capabilities without copying credentials. Manually confirm Console **Use balance**
+is disabled, inspect effective provider/model/small-model/custom-agent configuration,
+and record catalog discovery time. Choose an exact discovered Go ID and an exact
+Claude or Codex baseline. Keep prompt, repository SHA, timeout, permissions, network
+restrictions and test command identical. Do not retry a failed experiment or swap
+a model automatically; record any provider's internal retries and stop at the cap.
+Stop on a rejected model, unexpected provider, authentication or limit error.
+
+For each authorized sample, fill this worksheet from observations rather than
+estimates. Record cancel/resume separately if attempted within the approved cap.
+Never include credentials or raw provider bodies in the results.
+
+| Field | OpenCode Go | Explicit Claude/Codex baseline |
+| --- | --- | --- |
+| Run status | Not run | Not run |
+| Baseline SHA; prompt; test command; permissions/network; timeout | Pending | Same inputs |
+| Agent and executable version; sanitized capability evidence | Unverified | Pending |
+| Requested full provider/model; confirmed ID at dispatch | Pending | Pending |
+| Outcome, test output and independent correctness review | Pending | Pending |
+| Dispatch / first text / end; elapsed and first-text latency | Unknown | Unknown |
+| Input / output / cache read / cache write; source and scope | Unknown; ACP prompt response, parent-only per turn | Record adapter's actual scope |
+| Reported cost; currency; source/time; scope | Unknown; ACP cumulative session total | Record adapter's actual scope |
+| Independently verified extra charge and evidence | Unknown | Unknown |
+| Quota source and observation time; reset; mixed-model allowance | Unknown; consult Console | Unknown until authoritative evidence |
+| Errors/retries; cancel/resume behavior | Not exercised live | Not exercised live |
+
+Do not subtract a guessed starting cost, infer extra charges from reported dollars,
+or convert token counts to quota. Preserve unsupported fields as unknown. A single
+sample is a debugging comparison, not a quality ranking. No eval runner or paid
+comparison is required to deliver this recipe.

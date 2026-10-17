@@ -9,6 +9,7 @@ import type {
 	Setting,
 	Tool,
 } from "./conversation-state";
+import { metric, observeTokens, safeOpenCodeUpdate } from "./opencode-usage";
 import { fill, parentOf, toolIn } from "./tool-calls";
 
 /**
@@ -20,6 +21,46 @@ export function fold(
 	update: acp.SessionUpdate,
 	at: string | null = null,
 ): void {
+	if (
+		state.agent === "opencode" &&
+		parentOf(update) !== null &&
+		update.sessionUpdate !== "tool_call" &&
+		update.sessionUpdate !== "tool_call_update"
+	) {
+		return;
+	}
+	const report = state.usage.opencode;
+	if (report !== undefined) {
+		const retry = safeOpenCodeUpdate(update)._meta?.["opencode/retry"];
+		if (retry !== undefined) {
+			const value = retry as {
+				attempt: number | null;
+				nextRetryAt: string | null;
+				error: { message: string; type: string | null; status: number | null };
+			} | null;
+			report.retry =
+				value === null
+					? null
+					: {
+							attempt: value.attempt,
+							nextRetryAt: value.nextRetryAt,
+							message: value.error.message,
+							type: value.error.type,
+							status: value.error.status,
+						};
+		}
+		const turn = report.turns.at(-1);
+		if (
+			turn !== undefined &&
+			turn.until === null &&
+			turn.firstText === null &&
+			update.sessionUpdate === "agent_message_chunk" &&
+			update.content.type === "text" &&
+			update.content.text.length > 0
+		) {
+			turn.firstText = at;
+		}
+	}
 	switch (update.sessionUpdate) {
 		case "agent_message_chunk":
 		case "agent_thought_chunk": {
@@ -144,6 +185,22 @@ export function fold(
 			}));
 			return;
 		case "usage_update":
+			if (state.agent === "opencode") {
+				state.usage.context =
+					metric(update.used) !== null && metric(update.size) !== null
+						? { used: update.used, size: update.size }
+						: null;
+				state.usage.cost =
+					update.cost != null &&
+					metric(update.cost.amount) !== null &&
+					update.cost.currency === "USD"
+						? { ...update.cost, said: update.cost.amount }
+						: null;
+				if (report !== undefined) {
+					report.costAt = at;
+				}
+				return;
+			}
 			// The plan's, whoever's turn it came in.
 			state.usage.limits = heard(state.usage.limits, limitsIn(update, at));
 			// A subagent's context is its own.
@@ -226,6 +283,10 @@ export function heard(limits: Limit[], news: Limit[]): Limit[] {
 
 /** Adds the tokens a turn used to those of the turns before it. */
 export function tally(state: ConversationState, usage: acp.Usage): void {
+	if (state.agent === "opencode") {
+		observeTokens(state, usage);
+		return;
+	}
 	const cached = usage.cachedReadTokens ?? 0;
 	state.usage.input +=
 		usage.inputTokens + cached + (usage.cachedWriteTokens ?? 0);

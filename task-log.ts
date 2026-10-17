@@ -20,7 +20,8 @@ export interface TaskUsage {
 
 /** What a task's stretch of its conversation shows of how the work went. */
 export interface TaskLog {
-	usage: TaskUsage;
+	/** OpenCode observations have different scope; kept in the conversation, not legacy task totals. */
+	usage: TaskUsage | undefined;
 	/** Each agent turn's span, start to last move, summed. */
 	workedMs: number;
 	/** When the person stopped the agent's turn, each time. */
@@ -99,18 +100,21 @@ function summed(
 ): TaskLog {
 	const after = state.usage;
 	const result: TaskLog = {
-		usage: {
-			input: after.input - before.input,
-			cached: after.cached - before.cached,
-			output: after.output - before.output,
-			cost:
-				after.cost === null
-					? null
-					: {
-							amount: after.cost.amount - (before.cost?.amount ?? 0),
-							currency: after.cost.currency,
-						},
-		},
+		usage:
+			state.agent === "opencode"
+				? undefined
+				: {
+						input: after.input - before.input,
+						cached: after.cached - before.cached,
+						output: after.output - before.output,
+						cost:
+							after.cost === null
+								? null
+								: {
+										amount: after.cost.amount - (before.cost?.amount ?? 0),
+										currency: after.cost.currency,
+									},
+					},
 		workedMs: 0,
 		stopped: [],
 		interrupted: [],

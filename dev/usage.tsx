@@ -60,6 +60,9 @@ export function ContextMeter({
 }): JSX.Element | null {
 	const { context, input, cached, output, cost } = usage;
 	const now = useNow(compactions.length > 0);
+	if (usage.opencode !== undefined) {
+		return <OpenCodeMeter usage={usage} />;
+	}
 	if (context === null || context.size <= 0) {
 		return null;
 	}
@@ -178,5 +181,93 @@ function Dot(): JSX.Element {
 		<span aria-hidden className="px-1.5 text-muted-foreground">
 			•
 		</span>
+	);
+}
+
+/** Draft ACP measurements retain their scope even when context is absent. */
+function OpenCodeMeter({ usage }: { usage: Usage }): JSX.Element {
+	return (
+		<Popover>
+			<PopoverTrigger
+				aria-label="OpenCode usage"
+				className="text-muted-foreground text-xs"
+			>
+				Usage
+			</PopoverTrigger>
+			<PopoverContent side="top" align="start" className="max-w-sm gap-0 p-0">
+				<OpenCodeReport usage={usage} />
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+/** Shared rendering for fixture inspection and the live meter. */
+export function OpenCodeReport({ usage }: { usage: Usage }): JSX.Element {
+	const report = usage.opencode;
+	const turn = report?.turns.at(-1);
+	const count = (value: number | null | undefined) =>
+		value == null ? "Unknown" : tokens(value);
+	const latency = (at: string | null | undefined) =>
+		turn === undefined || at == null
+			? "Unknown"
+			: `${Math.max(0, Date.parse(at) - Date.parse(turn.at))} ms`;
+	return (
+		<>
+			<Section
+				title="Last dispatched model"
+				hint={`Requested: ${turn?.requested ?? "Unknown"} · confirmed by ACP settings at dispatch`}
+			>
+				{turn?.confirmed ?? "Unknown"}
+			</Section>
+			<Section
+				title="Last turn tokens"
+				hint="ACP prompt response · parent session only · cache counts shown separately"
+			>
+				{count(turn?.tokens?.input)} in
+				<Dot />
+				{count(turn?.tokens?.output)} out
+				<br />
+				Cache read: {count(turn?.tokens?.cachedRead)}
+				<Dot />
+				Cache write: {count(turn?.tokens?.cachedWrite)}
+			</Section>
+			<Section
+				title="Measured latency"
+				hint="Arbor dispatch to first text / turn end; includes tools and waits"
+			>
+				First text: {latency(turn?.firstText)}
+				<br />
+				Elapsed: {latency(turn?.until)}
+			</Section>
+			<Section title="Context" hint="ACP usage update · parent session">
+				{usage.context === null
+					? "Unknown"
+					: `${tokens(usage.context.used)} / ${tokens(usage.context.size)}`}
+			</Section>
+			<Section
+				title="Reported cost"
+				hint={`ACP usage update · cumulative session total, not per turn · ${report?.costAt ?? "observation time unknown"}`}
+			>
+				{usage.cost === null ? "Unknown" : money(usage.cost)}
+			</Section>
+			<Section title="Additional charges">Unknown: not verified by ACP</Section>
+			<Section
+				title="Remaining quota"
+				hint="No authoritative ACP quota; mixed-model allowance and reset time unknown"
+			>
+				Unknown ·{" "}
+				<a href="https://opencode.ai/console" target="_blank" rel="noreferrer">
+					OpenCode Console
+				</a>
+			</Section>
+			{report?.retry != null && (
+				<Section
+					title="Provider retry"
+					hint={`${report.retry.type ?? "Provider error"} · HTTP ${report.retry.status ?? "unknown"} · ${report.retry.nextRetryAt ?? "Retry time unknown"}`}
+				>
+					Attempt {report.retry.attempt ?? "unknown"}: {report.retry.message}
+				</Section>
+			)}
+		</>
 	);
 }

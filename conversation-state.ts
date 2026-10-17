@@ -1,6 +1,7 @@
 import { Duration } from "webappwiz/time";
 import type { Artifact } from "./artifacts";
 import type { Event } from "./events";
+import type { OpenCodeUsage } from "./opencode-usage";
 import type { Flag } from "./watch";
 
 /** Everything the page shows of one conversation. */
@@ -402,6 +403,8 @@ export interface Command {
 
 /** What a session has used, as far as its agent says. */
 export interface Usage {
+	/** OpenCode draft ACP observations, separate from legacy accounting. */
+	opencode?: OpenCodeUsage;
 	/** Tokens in the context window, of the most it holds; null until said. */
 	context: { used: number; size: number } | null;
 	/** Tokens read over every turn the agent counted, those from cache among them. */
@@ -499,7 +502,12 @@ export function blank(
 		checkpoint: null,
 		pausing: false,
 		taking: "start",
-		usage: unused(),
+		usage: {
+			...unused(),
+			...(agent === "opencode"
+				? { opencode: { turns: [], costAt: null, retry: null } }
+				: {}),
+		},
 		background: [],
 		artifacts: [],
 	};

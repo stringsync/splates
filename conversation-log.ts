@@ -20,6 +20,7 @@ import {
 	type Setting,
 } from "./conversation-state";
 import { agentTurn, fold, heard, result, tally } from "./fold";
+import { finishObservation, type ObservedTurn } from "./opencode-usage";
 import { toolIn } from "./tool-calls";
 import type { Flag } from "./watch";
 
@@ -162,6 +163,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "update") {
 				fold(state, entry.update, entry.at ?? null);
 				tells ||= result(entry.update);
+			} else if (entry.kind === "observed-turn") {
+				state.usage.opencode?.turns.push(entry.turn);
 			} else if (entry.kind === "usage") {
 				tally(state, entry.usage);
 			} else if (entry.kind === "limits") {
@@ -215,6 +218,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "turn") {
 				replayed.running = entry.running;
 				if (!entry.running) {
+					finishObservation(state, entry.at ?? null);
 					prompt = null;
 				}
 			} else if (entry.kind === "launched") {
@@ -280,6 +284,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				this.write({ kind: "interrupted", at });
 			}
 			this.write({ kind: "turn", running: false });
+			finishObservation(state, null);
 		}
 		if (live) {
 			this.write({ kind: "end", error: null });
@@ -456,7 +461,8 @@ type Said =
 	/** The agent's turn ended early, its connection lost or its process gone. */
 	| { kind: "interrupted"; at: string }
 	/** A turn started or ended, so one a dead process left running shows as cut short. */
-	| { kind: "turn"; running: boolean }
+	| { kind: "turn"; running: boolean; at?: string }
+	| { kind: "observed-turn"; turn: ObservedTurn }
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */
