@@ -933,7 +933,7 @@ export class AgentConnection {
 		const watched = this.watching.get(tool.id);
 		if (tool.status !== "completed" && tool.status !== "failed") {
 			if (watched === undefined) {
-				this.watching.set(tool.id, watch.command(host.cwd));
+				this.watching.set(tool.id, watch.command(host.cwd, host.placedOn));
 			}
 			return;
 		}

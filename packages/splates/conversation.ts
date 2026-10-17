@@ -3,12 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { AgentConnection } from "./agent-connection";
-import type {
-	Agent,
-	AgentProcess,
-	Launch,
-	ProcessHandle,
-} from "./agent-process";
+import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
 import { Artifacts, applyArtifact } from "./artifacts";
 import { put } from "./conversation-archive";
 import { ConversationBackground } from "./conversation-background";
@@ -18,6 +13,7 @@ import type {
 	ConversationDeps,
 	ConversationEvents,
 	ConversationHost,
+	Placement,
 } from "./conversation-host";
 import { ConversationLog, type Live } from "./conversation-log";
 import { sent } from "./conversation-messages";
@@ -38,6 +34,7 @@ import { fail } from "./exit";
 import { fold, heard } from "./fold";
 import { finishObservation } from "./opencode-usage";
 import type { Grant } from "./scheduler";
+import type { WorkerMachine } from "./worker-machine";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -65,6 +62,8 @@ export class Conversation
 	private grant: Grant | null = null;
 	/** Takes its agent out of the queue for a slot; null while it waits in none. */
 	private placing: AbortController | null = null;
+	/** The worker other than this machine's it was last placed on; null for none. */
+	private placed: WorkerMachine | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -305,6 +304,10 @@ export class Conversation
 		return this.dir;
 	}
 
+	get placedOn(): WorkerMachine | null {
+		return this.placed;
+	}
+
 	/**
 	 * When it was archived, or when it started for a log too old to say; null
 	 * while it is not archived.
@@ -436,10 +439,7 @@ export class Conversation
 		}
 		// Its task landed or went without the agent's `splates` reaching this
 		// server to move it, so it carries on in the main tree.
-		if (
-			this.agent.id !== "opencode" &&
-			!(await this.deps.fs.exists(this.dir))
-		) {
+		if (this.agent.id !== "opencode" && !(await this.there(this.dir))) {
 			if (this.deps.root === null) {
 				fail(
 					"not_found",
@@ -673,14 +673,39 @@ export class Conversation
 	}
 
 	/**
+	 * Whether `dir` is still there: on the worker it was placed on, or for a
+	 * task cloned on a worker, taken to be, since the placement finds or
+	 * makes its clone again; else on this machine.
+	 */
+	private async there(dir: string): Promise<boolean> {
+		const { task } = this.state;
+		const { checkouts, fs } = this.deps;
+		if (this.placed !== null) {
+			return this.placed.exists(dir).catch(() => true);
+		}
+		return (
+			(await fs.exists(dir)) ||
+			(task !== null && checkouts !== undefined && spawned(this.state)
+				? await checkouts.elsewhere(task).catch(() => false)
+				: false)
+		);
+	}
+
+	/**
 	 * Opens the agent in `cwd` once it has a slot, clearing `opening` once it
-	 * has, failed to, or was stopped while it waited for one.
+	 * has, failed to, or was stopped while it waited for one. On a worker
+	 * other than this machine's it opens in its checkout there instead.
 	 */
 	private async wake(agent: Agent, cwd: string): Promise<void> {
 		try {
-			const launch = await this.place();
-			if (launch !== null) {
-				await this.connection.open(agent, cwd, launch);
+			const placement = await this.place();
+			if (placement === null) {
+				return;
+			}
+			this.placed = placement?.machine ?? null;
+			const at = await this.checkout(placement, cwd);
+			if (at !== null) {
+				await this.connection.open(agent, at, placement?.launch);
 			}
 		} finally {
 			this.opening = null;
@@ -688,13 +713,43 @@ export class Conversation
 	}
 
 	/**
+	 * Where its agent opens on the worker `placement` names: `cwd` on this
+	 * machine's, or with no placement; else the checkout `PlacedCheckouts`
+	 * finds or readies there, which it then runs in. Null once readying it
+	 * failed, which fails the conversation.
+	 */
+	private async checkout(
+		placement: Placement | undefined,
+		cwd: string,
+	): Promise<string | null> {
+		const { checkouts } = this.deps;
+		if (placement?.machine == null || checkouts === undefined) {
+			return cwd;
+		}
+		try {
+			const at = await checkouts.where(
+				placement.worker,
+				placement.machine,
+				this.state.task,
+			);
+			this.dir = at;
+			return at;
+		} catch (error) {
+			await this.close(
+				`could not ready a checkout on worker ${placement.worker}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return null;
+		}
+	}
+
+	/**
 	 * Waits in the queue for a slot for its agent, keeping where it waits in
-	 * its state: the launch on the worker it was placed on, undefined when it
-	 * takes no slot, or null once a stop takes it out of line. Only an agent
+	 * its state: its placement on the worker it was placed on, undefined when
+	 * it takes no slot, or null once a stop takes it out of line. Only an agent
 	 * another agent started takes one: slots cap how many agents agents
 	 * start, never how many the person does.
 	 */
-	private async place(): Promise<Launch | undefined | null> {
+	private async place(): Promise<Placement | undefined | null> {
 		const { slots } = this.deps;
 		if (slots === undefined || !spawned(this.state)) {
 			return undefined;
@@ -711,7 +766,7 @@ export class Conversation
 		try {
 			const placement = await slots.take({ id, task }, placing.signal);
 			this.grant = placement;
-			return placement.launch;
+			return placement;
 		} catch (error) {
 			if (placing.signal.aborted) {
 				return null;

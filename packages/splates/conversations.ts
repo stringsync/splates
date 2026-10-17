@@ -28,6 +28,7 @@ import type {
 	ConversationDeps,
 	ConversationSlots,
 	ConversationsEvents,
+	PlacedCheckouts,
 	ProjectRoster,
 } from "./conversation-host";
 import type { Limit, Setting } from "./conversation-state";
@@ -61,6 +62,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly ids: IdProvider;
 	private readonly launcher: Launcher;
 	private readonly slots: ConversationSlots | undefined;
+	private readonly checkouts: PlacedCheckouts | undefined;
 	private readonly machine: WorkerMachine;
 	private readonly starting: Lock;
 	private readonly timer: Timer;
@@ -101,6 +103,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
 		this.slots = opts.slots;
+		this.checkouts = opts.checkouts;
 		this.machine = opts.machine ?? new LocalWorkerMachine(systemPs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
 		this.timer = opts.timer ?? new SystemTimer();
@@ -144,6 +147,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			clock: this.clock,
 			launcher: this.launcher,
 			...(this.slots === undefined ? {} : { slots: this.slots }),
+			...(this.checkouts === undefined ? {} : { checkouts: this.checkouts }),
 			machine: this.machine,
 			starting: this.starting,
 			watch: this.watch,

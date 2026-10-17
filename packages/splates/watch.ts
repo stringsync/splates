@@ -1,5 +1,7 @@
 import type { Git } from "./git";
 import { Watched } from "./watched";
+import { workerGit } from "./worker-git";
+import type { WorkerMachine } from "./worker-machine";
 
 /** The git `Watch` runs, on whichever machine the agent works: `Git` here, or a worker's. */
 export type WatchGit = Pick<Git, "root" | "run" | "interruptedOps" | "at">;
@@ -41,8 +43,14 @@ export class Watch {
 		private readonly moves: BranchMoves | null = null,
 	) {}
 
-	/** Starts watching a command run in `cwd`, looking at git as it stands. */
-	command(cwd: string): Watched {
-		return Watched.start(this.git, cwd, this.moves);
+	/**
+	 * Starts watching a command run in `cwd`, looking at git as it stands:
+	 * on `machine`, a remote worker the agent was placed on, in the clone at
+	 * `cwd`, which holds its own stash and remotes and has no main tree
+	 * beside it; else on the machine `git` runs on.
+	 */
+	command(cwd: string, machine: WorkerMachine | null = null): Watched {
+		const git = machine === null ? this.git : workerGit(cwd, machine);
+		return Watched.start(git, cwd, this.moves);
 	}
 }

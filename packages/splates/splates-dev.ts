@@ -39,20 +39,20 @@ import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
 import { workerGit } from "./worker-git";
+import { WorkerPlacement } from "./worker-placement";
 import { workerSocketPath } from "./worker-run";
 
 /**
- * What `splates server` does with its flags: run itself as a supervised child, so
- * the page can restart it, which then serves the page, reached through the
- * tunnel and Access the flags name, or else the ones saved for this machine.
- * It serves every registered project wherever it is started; the page picks
- * which one it shows. The server, from the child; nothing from the
- * supervisor, which exits.
+ * Runs `splates server` with its flags: the page for every registered
+ * project, wherever it is started, reached through the tunnel and Access
+ * the flags name, or else the ones saved for this machine. Answers the
+ * server in the child it runs as, and nothing in the supervisor, which exits.
  */
 export async function serveDev(
 	ctx: SplatesDeps,
 	opts: DevFlags,
 ): Promise<DevServer | undefined> {
+	// It runs itself as a supervised child, so the page can restart it.
 	// Read before the child starts, so a half-given pair fails once.
 	let access = accessConfig(opts["access-team"], opts["access-aud"]);
 	const portsFlag = portsHostFlag(opts["ports-host"]);
@@ -197,13 +197,22 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ splatesDir, git, config, creds }) =>
-				new Conversations(`${splatesDir}/conversations`, roster, {
+			conversations: ({ splatesDir, git, config, creds, service }) => {
+				const branches = TaskBranches.of({ git, config, creds });
+				return new Conversations(`${splatesDir}/conversations`, roster, {
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
 					launcher: worker,
 					slots: slots.project(git.root, config.platform),
 					machine: worker,
+					checkouts: new WorkerPlacement({
+						service,
+						branches,
+						config,
+						slug: async () =>
+							(await projects.list()).find((each) => each.root === git.root)
+								?.slug ?? null,
+					}),
 					starting,
 					offered,
 					limits,
@@ -221,12 +230,13 @@ export async function serveDev(
 							: [],
 					watch: new Watch(
 						workerGit(git.root, worker),
-						pushOnMove(TaskBranches.of({ git, config, creds }), ctx.log),
+						pushOnMove(branches, ctx.log),
 					),
 					root: git.root,
 					projects,
 					servers: browser,
-				}),
+				});
+			},
 			// A login shell, as a terminal window opens, so the person's PATH
 			// and aliases are there.
 			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],

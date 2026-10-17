@@ -50,6 +50,7 @@ describe("Conversations waiting for a slot", () => {
 					worker: grant.worker,
 					dispose: grant.dispose,
 					launch: agent.launch,
+					machine: null,
 				};
 			},
 			hold: ({ id, task }, worker) =>

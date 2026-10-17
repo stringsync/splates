@@ -175,6 +175,21 @@ worker asks for one through the relay (`POST /api/token`, `RelayApp`),
 minted for the project's own repository alone and held in that process's
 memory. `SPLATES.md` is not in the clone it resumes into until #69 syncs it.
 
+How an agent starts there (remote-placement). A worker says
+`checkouts: true` in its hello, so placement may send it agents; only those
+other agents start ever are. Once a slot on a remote worker is granted, the
+`Placement` carries that worker's `WorkerMachine`, and `PlacedCheckouts`
+(`WorkerPlacement`) says where the agent opens: its task's clone when the
+record names that worker and the clone is there, else the project's clone
+`materialize` readies, from which the agent's `splates claim` clones the
+task again; a task still a worktree here is pushed to `splates/<task>`
+first. The conversation keeps the worker it was placed on: `Watch` runs its
+git there, rooted at the clone, so `pushOnMove` pushes from it, and
+background output is read there. A task whose record names a worker is not
+taken for landed when its directory is missing here. Not yet: taking back,
+after a coordinator restart, an agent still running on a remote worker
+(`Conversation.read` resumes only through the local launcher).
+
 ## Git credentials
 
 The repo and main are protected first. Workers never hold a credential that

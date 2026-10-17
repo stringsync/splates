@@ -132,7 +132,13 @@ export async function dev(
 		unbuilt,
 		slot,
 		conversationsFor: ({ splatesDir, git, service, creds }) =>
-			converse?.({ splatesDir, git, config: service.config, creds }) ?? null,
+			converse?.({
+				splatesDir,
+				git,
+				config: service.config,
+				creds,
+				service,
+			}) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 	};

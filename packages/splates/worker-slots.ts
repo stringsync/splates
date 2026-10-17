@@ -73,6 +73,7 @@ export class WorkerSlots implements Resource {
 					worker: grant.worker,
 					dispose: grant.dispose,
 					launch: worker.launch,
+					machine: worker.kind === "local" ? null : worker,
 				};
 			},
 			hold: (asked, worker) => scheduler.hold(request(asked), worker),

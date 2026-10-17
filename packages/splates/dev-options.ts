@@ -15,6 +15,7 @@ import type { Git } from "./git";
 import type { MachineSensors } from "./machine";
 import type { Slot } from "./slots";
 import type { WorkerMachine } from "./worker-machine";
+import type { WorktreeService } from "./worktree-service";
 
 /** What `dev` lets a caller choose. */
 export interface DevOptions {
@@ -68,7 +69,8 @@ export interface DevOptions {
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
 	 * records in `splatesDir`, its commands watched through `git`, its limits
-	 * from `config`; without it no page has any to show, and the routes
+	 * from `config`, its agents placed on a remote worker in its tasks'
+	 * clones that `service` records; without it no page has any to show, and the routes
 	 * say they are off.
 	 */
 	conversations?:
@@ -77,6 +79,8 @@ export interface DevOptions {
 				git: Git;
 				config: Config;
 				creds: Creds;
+				/** Its tasks, for where its agents start on a remote worker. */
+				service: WorktreeService;
 		  }) => Conversations)
 		| null;
 	/**

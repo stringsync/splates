@@ -144,6 +144,8 @@ export class WorkerDaemon implements AsyncResource {
 						slots: this.opts.slots,
 						platform: this.opts.ps.platform,
 						build: RUNNING,
+						// It clones each project and task it runs agents in (`checkout`).
+						checkouts: true,
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {

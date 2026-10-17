@@ -26,6 +26,12 @@ export interface ConversationHost {
 	readonly agent: Agent | null;
 	/** Where it runs; null for a log too old to say. */
 	readonly cwd: string | null;
+	/**
+	 * The worker it was placed on, when that is not this machine's own: where
+	 * its git and its background commands' output are read. Null on this
+	 * machine's worker.
+	 */
+	readonly placedOn: WorkerMachine | null;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
 	readonly opening: Promise<void> | null;
 	now(): string;
@@ -67,6 +73,11 @@ export interface ConversationDeps {
 	/** Where the agent runs, which its background commands' output is read from. */
 	machine: WorkerMachine;
 	/**
+	 * Where an agent placed on a worker other than this machine's starts;
+	 * without it, it starts where it was asked to.
+	 */
+	checkouts?: PlacedCheckouts;
+	/**
 	 * Hold it while an agent's process starts, until it answers
 	 * `initialize`, so agents start one at a time.
 	 */
@@ -104,6 +115,26 @@ export interface ConversationSlots {
 /** A slot on a worker, and how to start an agent there. */
 export interface Placement extends Grant {
 	launch: Launch;
+	/** The worker, when it is not this machine's own; null for that one. */
+	machine: WorkerMachine | null;
+}
+
+/**
+ * The checkouts an agent placed on a remote worker works in: its task's
+ * clone there, or the project's own clone, from which it clones the task.
+ */
+export interface PlacedCheckouts {
+	/**
+	 * Where an agent of `task`, or of none, starts on worker `worker`, which
+	 * `machine` reaches, readying the project there first when it must.
+	 */
+	where(
+		worker: string,
+		machine: WorkerMachine,
+		task: string | null,
+	): Promise<string>;
+	/** Whether `task`'s checkout is a clone on a worker, not on this machine. */
+	elsewhere(task: string): Promise<boolean>;
 }
 
 /** The splates projects on this machine, as `Projects` lists them. */

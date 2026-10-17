@@ -57,6 +57,7 @@ describe("WorkerDaemon", () => {
 			slots: 8,
 			platform: process.platform,
 			build: expect.any(String),
+			checkouts: true,
 		});
 		expect(worker.connected).toBe(true);
 	});
