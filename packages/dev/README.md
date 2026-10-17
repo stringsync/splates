@@ -1,7 +1,8 @@
-# Repository commands
+# splates dev
 
-`bin/splates dev` runs these scripts using the root development dependencies.
-They are not a workspace package and are never published.
+Private workspace for working on this repository, following webappwiz's
+`packages/wiz` convention. `bin/splates dev` dispatches here; the published
+`splates` CLI does not depend on this workspace.
 
 ```sh
 bin/splates dev --help
