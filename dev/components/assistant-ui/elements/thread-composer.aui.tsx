@@ -331,16 +331,12 @@ const ComposerAction: FC = () => {
 			>
 				{/* While a take is under way, what the mic is doing takes the
 				    row's left side, where there is room to say it. */}
-				{dictating ? (
-					<DictationStatus expanded />
-				) : (
-					<>
-						<AuiIf condition={(s) => s.thread.capabilities.attachments}>
-							<ComposerAddAttachment />
-						</AuiIf>
-						{controls}
-					</>
-				)}
+				<AuiIf
+					condition={(s) => dictating || s.thread.capabilities.attachments}
+				>
+					<ComposerAddAttachment />
+				</AuiIf>
+				{dictating ? <DictationStatus expanded /> : controls}
 			</div>
 			<div className="flex shrink-0 items-center gap-1.5">
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>

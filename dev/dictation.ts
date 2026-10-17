@@ -277,8 +277,8 @@ export class Dictation
 		}
 	}
 
-	/** Lets go of the take under way, keeping what it heard in the draft. */
-	private cancel(): void {
+	/** Discards the take without requesting or publishing its transcript. */
+	cancel(): void {
 		const { take } = this;
 		this.take = undefined;
 		if (this.current.phase === "recording") {

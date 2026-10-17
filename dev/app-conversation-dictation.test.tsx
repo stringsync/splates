@@ -15,14 +15,13 @@ import {
 describe("App's composer mic", () => {
 	let testing: Testing;
 	let microphone: FakeMicrophone;
+	let link: CountingDictationLink;
 
 	beforeEach(() => {
 		testing = new Testing();
 		microphone = new FakeMicrophone();
-		testing.dictation = new Dictation(
-			microphone,
-			async () => new FakeDictationLink(),
-		);
+		link = new CountingDictationLink();
+		testing.dictation = new Dictation(microphone, async () => link);
 	});
 
 	afterEach(() => {
@@ -56,6 +55,45 @@ describe("App's composer mic", () => {
 
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
 		expect(textIn(box)).toBe("something more");
+	});
+
+	it("discards a recording without transcribing, preserving the edited draft", async () => {
+		const { view, box } = await composer();
+		expect(view.getByRole("button", { name: "Attach files" })).toBeTruthy();
+		await typeIn(box, "Keep this");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		act(() => microphone.speak(" throw away"));
+		await typeIn(box, "Keep this edit");
+		expect(view.queryByRole("button", { name: "Attach files" })).toBeNull();
+		const discard = view.getByRole("button", { name: "Discard dictation" });
+		expect(discard.querySelector(".lucide-x")).not.toBeNull();
+
+		await act(async () => fireEvent.click(discard));
+
+		expect(textIn(box)).toBe("Keep this edit");
+		expect(microphone.open).toBe(false);
+		expect(link.open).toBe(false);
+		expect(link.finishes).toBe(0);
+		expect(view.getByRole("button", { name: "Attach files" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
+		expect(testing.posted(`/api/conversations/${talk.id}/prompt`)).toEqual([]);
+	});
+
+	it("discards while waiting for the microphone to start", async () => {
+		microphone.speak = () => {};
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Discard dictation" })),
+		);
+		expect(testing.dictation?.state.phase).toBe("idle");
+		expect(microphone.open).toBe(false);
+		expect(view.getByRole("button", { name: "Attach files" })).toBeTruthy();
 	});
 
 	it("stops with Escape from the editor and keeps the transcript without sending", async () => {
@@ -406,3 +444,13 @@ describe("App's composer mic", () => {
 		expect(view.queryByRole("button", { name: "Dictate" })).toBeNull();
 	});
 });
+
+/** Counts explicit transcription requests while retaining the fake link's behavior. */
+class CountingDictationLink extends FakeDictationLink {
+	finishes = 0;
+
+	override async finish(): Promise<string> {
+		this.finishes++;
+		return super.finish();
+	}
+}
