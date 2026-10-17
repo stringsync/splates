@@ -1,13 +1,7 @@
 import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-	CHECK_IN,
-	CHECKPOINT,
-	RECONNECT,
-	RESUME,
-	// biome-ignore lint/style/noRestrictedImports: Production directive contract has no public export.
-} from "../../packages/arbor/prompts";
+import { CHECK_IN, CHECKPOINT, RECONNECT, RESUME } from "../../prompts";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type RunContext, type Seed } from "./runner";

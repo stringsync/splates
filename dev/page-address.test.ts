@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
 import { PageAddress } from "./page-address";

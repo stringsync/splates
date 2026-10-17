@@ -21,7 +21,7 @@ describe("update", () => {
 
 	const run = (latest: string | null) =>
 		update({ root: "/repo", fs, ps, log, newest: async () => latest });
-	const INSTALL = `bunx skills@1 add jaredjj3/webappwiz#v${RUNNING} --yes --skill arbor`;
+	const INSTALL = `bunx skills@1 add stringsync/splates#v${RUNNING} --yes --skill arbor`;
 
 	it("runs update on the newer arbor npm has, and installs nothing itself", async () => {
 		ps.simulate(async () => 3);
@@ -75,7 +75,7 @@ describe("update", () => {
 			await update({ root: "/repo", fs, ps, log, release: "999.0.0" }),
 		).toBe(0);
 		expect(ps.getCalls()).toEqual([
-			"bunx skills@1 add jaredjj3/webappwiz#v999.0.0 --yes --skill arbor",
+			"bunx skills@1 add stringsync/splates#v999.0.0 --yes --skill arbor",
 		]);
 	});
 

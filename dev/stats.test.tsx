@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { combine, type PeriodId, rates, type Stats } from "../stats";

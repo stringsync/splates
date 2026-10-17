@@ -1,9 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-// biome-ignore lint/style/noRestrictedImports: focused probes use the production parser; adding shared package exports is outside this aspect.
-import { assumptions, questions } from "../../packages/arbor/plan";
-// biome-ignore lint/style/noRestrictedImports: test the production directive constants without changing shared exports.
-import { APPROVE, MERGE } from "../../packages/arbor/prompts";
+import { assumptions, questions } from "../../plan";
+import { APPROVE, MERGE } from "../../prompts";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";

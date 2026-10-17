@@ -674,7 +674,7 @@ describe("stretches", () => {
  * from its SKILL.md and every reference file alike.
  */
 async function skillExamples(): Promise<string[]> {
-	const dir = join(import.meta.dir, "../../skills/arbor");
+	const dir = join(import.meta.dir, "skills/arbor");
 	const files = await Array.fromAsync(new Bun.Glob("**/*.md").scan(dir));
 	const texts = await Promise.all(
 		files.toSorted().map((file) => Bun.file(join(dir, file)).text()),

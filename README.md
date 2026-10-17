@@ -57,7 +57,7 @@ running `arbor init` there and asking before it commits what that wrote.
 
 Start as many conversations as you like, each in a task of its own.
 
-![Several agents working at once](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/parallel.png)
+![Several agents working at once](https://raw.githubusercontent.com/stringsync/splates/main/screenshots/parallel.png)
 
 ### Questions and demos
 
@@ -65,19 +65,19 @@ Agents ask as they go instead of guessing. Each question comes with its
 choices, the one the agent would pick, and a screenshot of each when there is
 something to see. Answer in a click.
 
-![Questions with a screenshot per choice](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/questions.png)
+![Questions with a screenshot per choice](https://raw.githubusercontent.com/stringsync/splates/main/screenshots/questions.png)
 
 When work is ready, the agent hands you a demo: steps to try, what you should
 see, and a checklist to tick off before you merge or ask for changes.
 
-![A demo to try before merging](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/demo.png)
+![A demo to try before merging](https://raw.githubusercontent.com/stringsync/splates/main/screenshots/demo.png)
 
 ### Annotate any image
 
 Mark up any image, one you upload or one an agent shows you. Draw a box or an
 arrow, pin a note to each, and send it back.
 
-![An agent's screenshot, marked up](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/annotate.png)
+![An agent's screenshot, marked up](https://raw.githubusercontent.com/stringsync/splates/main/screenshots/annotate.png)
 
 ### Remote access
 

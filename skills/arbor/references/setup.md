@@ -3,7 +3,7 @@
 `[ARBOR SETUP <step>]`, sent by the `arbor dev` Setup page as the first
 prompt of a new conversation, asks you to walk the user through one step of
 setting arbor up on this machine. The steps are a roster in
-`packages/arbor/setup-areas.ts`, each with a check that decides whether it is
+arbor's `setup-areas.ts`, each with a check that decides whether it is
 done; `arbor setup` lists them by area. Setup changes the machine
 (`~/.arbor`, the creds store), not the repo, so it needs no task: stay in the
 main tree. A code change it turns up, such as a check that is wrong, goes in

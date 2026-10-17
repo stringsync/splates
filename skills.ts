@@ -6,7 +6,7 @@ import type { Fs, Ps } from "webappwiz/system";
  * The repository arbor's skill comes from: each release is a tag in it, and
  * the skill its `skills/arbor/SKILL.md`, which `bunx skills add` finds.
  */
-export const SOURCE = "jaredjj3/webappwiz";
+export const SOURCE = "stringsync/splates";
 
 /** The skills a project at `root` has, installing arbor's from `SOURCE`. */
 export function projectSkills(

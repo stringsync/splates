@@ -7,8 +7,7 @@ import {
 	handoffReference,
 	handoffToReference,
 	reportReference,
-	// biome-ignore lint/style/noRestrictedImports: test production directive constructors without adding shared exports.
-} from "../../packages/arbor/prompts";
+} from "../../prompts";
 import module from "./delegation.probes";
 import { assess, type Event, type Evidence, type Probe } from "./probe";
 import { cliAdapter } from "./probe-adapters";

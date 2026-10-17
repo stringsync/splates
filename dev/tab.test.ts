@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { tabId } from "./tab";
 

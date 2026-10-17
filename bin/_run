@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs an entry from the checkout you are standing in, so a git worktree gets
+# its own code without anyone having to remember `./bin/`. Set WEBAPPWIZ_ROOT
+# to pin one checkout instead: that is the escape hatch for a command that must
+# not run the tree it is about to rewrite, `arbor merge` above all.
+#
+# usage: _run <entry relative to a checkout root> [args...]
+set -euo pipefail
+
+entry="$1"
+shift
+
+if [[ -n "${WEBAPPWIZ_ROOT:-}" ]]; then
+	# An explicit pin that silently fell back would run the very code the
+	# caller pinned away from.
+	root="$WEBAPPWIZ_ROOT"
+	if [[ ! -f "$root/$entry" ]]; then
+		echo "WEBAPPWIZ_ROOT=$root has no $entry" >&2
+		exit 1
+	fi
+else
+	root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+	# Not in a checkout of this repo at all (someone else's project, or no git):
+	# the tree this shim was installed from is the only sensible answer.
+	[[ -n "$root" && -f "$root/$entry" ]] ||
+		root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+exec bun "$root/$entry" "$@"

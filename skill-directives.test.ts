@@ -56,7 +56,7 @@ describe("the arbor skill's Directives table", () => {
 /** The directive each row of the skill's Directives table is for. */
 async function rows(): Promise<string[]> {
 	const skill = await Bun.file(
-		join(import.meta.dir, "../../skills/arbor/SKILL.md"),
+		join(import.meta.dir, "skills/arbor/SKILL.md"),
 	).text();
 	const section = skill.slice(
 		skill.indexOf("## Directives\n"),

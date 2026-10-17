@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
 import { MAX, UNZOOMED, within, ZoomableImage, zoomAt } from "./zoom";

@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ArborEvent, type ArborEventView } from "./arbor-event";

@@ -265,7 +265,7 @@ interface Outcome {
 	commits?: string[];
 }
 
-const ARBOR = join(import.meta.dir, "../../packages/arbor/index.ts");
+const ARBOR = join(import.meta.dir, "../../index.ts");
 
 const FILES: Record<string, string> = {
 	"package.json": `{ "name": "uploader", "private": true, "type": "module", "scripts": { "test": "bun test" } }\n`,

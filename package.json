@@ -3,11 +3,10 @@
 	"version": "0.0.44",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
-	"author": "Jared Johnson",
+	"author": "stringsync LLC",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/jaredjj3/webappwiz.git",
-		"directory": "packages/arbor"
+		"url": "git+https://github.com/stringsync/splates.git"
 	},
 	"type": "module",
 	"module": "index.ts",
@@ -36,7 +35,7 @@
 	},
 	"dependencies": {
 		"@agentclientprotocol/sdk": "^1.7.0",
-		"webappwiz": "workspace:*",
+		"webappwiz": "^0.0.45",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
@@ -46,19 +45,24 @@
 		"@assistant-ui/react-markdown": "^0.14.22",
 		"@assistant-ui/store": "^0.3.20",
 		"@base-ui/react": "^1.8.0",
+		"@biomejs/biome": "^2.5.7",
 		"@dnd-kit/core": "^6.3.1",
 		"@dnd-kit/modifiers": "^9.0.0",
 		"@dnd-kit/sortable": "^10.0.0",
 		"@dnd-kit/utilities": "^3.2.2",
+		"@happy-dom/global-registrator": "^20.3.1",
 		"@lexical/history": "^0.52.0",
 		"@lexical/plain-text": "^0.52.0",
 		"@lexical/react": "^0.52.0",
 		"@lexical/utils": "^0.52.0",
 		"@tailwindcss/oxide": "^4.3.3",
 		"@testing-library/react": "^16.3.1",
+		"@types/bun": "1.3.14",
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.4",
-		"@webappwiz/react": "workspace:*",
+		"@webappwiz/cli": "^0.0.45",
+		"@webappwiz/react": "^0.0.45",
+		"@webappwiz/scry": "^0.0.45",
 		"@xterm/addon-fit": "^0.11.0",
 		"@xterm/addon-webgl": "^0.19.0",
 		"@xterm/xterm": "^6.0.0",
@@ -75,9 +79,11 @@
 		"tailwindcss": "^4.3.3",
 		"tw-animate-css": "^1.4.0",
 		"tw-shimmer": "^0.4.13",
+		"typescript": "^7",
 		"zustand": "^5.0.15"
 	},
 	"scripts": {
-		"build": "bun run build.ts"
+		"build": "bun run build.ts",
+		"postinstall": "bun run build"
 	}
 }

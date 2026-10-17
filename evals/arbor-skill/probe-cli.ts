@@ -46,13 +46,22 @@ export async function loadModules(paths: string[]): Promise<ProbeModule> {
 	return combined;
 }
 
-export async function treeHash(directory: string): Promise<string> {
+/**
+ * What sits beside the CLI's code at the repository's root without being part
+ * of it, so the CLI's hash moves only when the CLI does.
+ */
+const NOT_CLI = ["evals", "skills", ".agents", ".claude", ".wiz", "bin"];
+
+export async function treeHash(
+	directory: string,
+	skip: string[] = [],
+): Promise<string> {
 	const entries = await readdir(directory, { withFileTypes: true });
 	const files: unknown[] = [];
 	for (const entry of entries.sort((left, right) =>
 		left.name.localeCompare(right.name),
 	)) {
-		if (["node_modules", ".git", "dist"].includes(entry.name)) {
+		if (["node_modules", ".git", "dist", ...skip].includes(entry.name)) {
 			continue;
 		}
 		const path = join(directory, entry.name);
@@ -259,7 +268,7 @@ export async function fastCli(
 	}
 	const [skillHash, cliHash] = await Promise.all([
 		treeHash(skill),
-		treeHash(join(root, "packages/arbor")),
+		treeHash(root, NOT_CLI),
 	]);
 	const targets: Target[] = [];
 	for (const value of values.target ?? []) {

@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import type { Message } from "../conversations";
 import { like } from "./thread-messages";

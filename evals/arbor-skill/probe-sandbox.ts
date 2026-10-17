@@ -4,7 +4,7 @@ import type { Event } from "./probe";
 import { launchIsolated } from "./probe-adapters";
 import type { RunContext } from "./runner";
 
-const arbor = join(import.meta.dir, "../../packages/arbor/index.ts");
+const arbor = join(import.meta.dir, "../../index.ts");
 
 /** Minimal local CLI repository; no lanes, tasks, model setup or legacy fixture. */
 export async function seedRepository(context: RunContext): Promise<void> {

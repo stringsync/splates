@@ -128,7 +128,7 @@ the broader proposed coverage in the requirements map.
 | --- | --- | --- | --- |
 | Deterministic contract | `probe.ts`, `probe.test.ts` | Exact matching, strict ordering, observed state, parsed reply fields, explicit gaps and termination categories on synthetic evidence | Actual execution, trustworthy instrumentation, bounded runners or model behavior |
 | Audit regressions | `probe-audit.test.ts` | Failed/unfinished forbidden attempts, argv scope, repeated order violations, channel completeness, status precedence, report claim separation | Executed CLI or agent conformance; fixtures are synthetic |
-| Existing free checks | `checks.test.ts`, `packages/arbor/skill-checks.test.ts` and production parser tests | Existing check/parser behavior on their fixtures | New focused probe coverage or proof that an agent obeys a directive |
+| Existing free checks | `checks.test.ts`, `skill-checks.test.ts` and production parser tests | Existing check/parser behavior on their fixtures | New focused probe coverage or proof that an agent obeys a directive |
 | Legacy scenarios | `scenarios.ts`, `lanes.ts`, `resumed.ts` | Existing selectable scenario definitions and checks | A new baseline; no runs were performed for this audit |
 | Runner and adapters | `runner.test.ts`, `probe-cli.test.ts`, `integration.test.ts` | Free stand-ins verify selection, isolation, bounds, cancellation, comparison identity and reporting | Generic ACP tool instrumentation remains unsupported |
 | Six aspect suites | Registered inventory above and dedicated aspect tests | Actual local CLI boundaries and synthetic positive/negative assertion contracts | No measured model adherence, live worker/notification transport or complete tool capture |

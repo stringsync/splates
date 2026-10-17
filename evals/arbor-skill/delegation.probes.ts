@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-// biome-ignore lint/style/noRestrictedImports: fixture uses the production format marker; no public export exists.
-import { FORMAT } from "../../packages/arbor/format";
+import { FORMAT } from "../../format";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type Seed } from "./runner";

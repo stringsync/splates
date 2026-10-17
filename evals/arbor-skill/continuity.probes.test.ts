@@ -8,8 +8,7 @@ import {
 	leadingDirectives,
 	RECONNECT,
 	RESUME,
-	// biome-ignore lint/style/noRestrictedImports: Production directive contract has no public export.
-} from "../../packages/arbor/prompts";
+} from "../../prompts";
 import module from "./continuity.probes";
 import { assess, type Event, type Evidence } from "./probe";
 import { type Adapter, runProbes, validate } from "./runner";

@@ -1,6 +1,6 @@
 // Imported for the side effect, and before anything that touches a global:
 // it is what puts a DOM on `globalThis` for React to render into.
-import "../../../setup";
+import "./register-dom";
 
 // Loaded only once the DOM above is in place, and handed on from here so a test
 // file need not load them itself. Bun loads a package's CommonJS while it links

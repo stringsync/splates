@@ -419,7 +419,7 @@ whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.
 `--tunnel` runs it in place of cloudflared and still needs the Access flags;
 `--tunnel-name` is refused beside it. Write one only when asked, as a
 separate task from whatever else is under way, and read
-`packages/arbor/tunnel-provider.ts` first. A provider that is not ready is
+arbor's `tunnel-provider.ts` first. A provider that is not ready is
 logged and skipped, so check the `arbor dev` log, not the page, to see
 whether it came up.
 

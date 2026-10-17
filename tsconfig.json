@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		// Environment setup & latest features
+		// One tsc pass covers the server and the page, so the server gets the
+		// DOM globals in scope too; it simply does not use them.
+		"lib": ["ESNext", "DOM"],
+		"target": "ESNext",
+		"module": "Preserve",
+		"moduleDetection": "force",
+		"jsx": "react-jsx",
+		"allowJs": true,
+		"types": ["bun"],
+
+		// Bundler mode
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+
+		// Best practices
+		"strict": true,
+		"skipLibCheck": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+
+		// Some stricter flags (disabled by default)
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noPropertyAccessFromIndexSignature": false
+	},
+	// a rule's eval cases are code that breaks the rule on purpose, and only
+	// fragments of a program
+	"exclude": ["**/node_modules", ".wiz/scry/*/evals"]
+}

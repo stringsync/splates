@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, within } from "@testing-library/react";
 import { Annotate } from "./annotate";

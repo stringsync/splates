@@ -1,4 +1,4 @@
-import "../../../setup";
+import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module

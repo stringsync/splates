@@ -1,0 +1,49 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": ["**", "!.wiz/scry/*/evals"]
+	},
+	"css": { "parser": { "tailwindDirectives": true } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"style": {
+				"useBlockStatements": "error",
+				"useNamingConvention": {
+					"level": "error",
+					"options": {
+						"conventions": [
+							{
+								"selector": { "kind": "typeLike" },
+								"match": "([^I].*|I|I[^A-Z].*)"
+							},
+							{
+								"selector": { "kind": "variable" },
+								"match": "(.{2,}|[ijk])"
+							},
+							{
+								"selector": { "kind": "functionParameter" },
+								"match": "(.{2,}|[ijk])"
+							},
+							{ "selector": { "kind": "any" }, "match": ".*" }
+						]
+					}
+				}
+			},
+			"correctness": { "noUndeclaredDependencies": "error" }
+		}
+	},
+	"formatter": { "enabled": true },
+	"overrides": [
+		{
+			"includes": [
+				"dev/components/ui/**",
+				"dev/components/assistant-ui/**",
+				"dev/hooks/**"
+			],
+			"linter": { "enabled": false }
+		}
+	]
+}

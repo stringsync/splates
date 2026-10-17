@@ -24,7 +24,7 @@ import { arborHome } from "./roster";
 export const PUSH_EVERY = Duration.secs(5);
 
 /** Who push services may reach about this server's pushes, as VAPID asks. */
-const SUBJECT = "https://github.com/jaredjj3/webappwiz";
+const SUBJECT = "https://github.com/stringsync/splates";
 
 const WANTS = z.object({
 	waiting: z.boolean(),

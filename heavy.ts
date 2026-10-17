@@ -22,8 +22,8 @@ export const HEAVY_HELD = "ARBOR_HEAVY";
 /**
  * This machine's heavy-job slots, under the home `arbor dev --slot` names its
  * servers' machine by, else `ARBOR_HOME`, so every server on one machine
- * shares one cap; capped by `ARBOR_HEAVY_JOBS`. `wiz dev test` finds them
- * the same way, in `packages/wiz/heavy.ts`.
+ * shares one cap; capped by `ARBOR_HEAVY_JOBS`. `wiz dev test` takes one
+ * here too.
  */
 export function heavyJobsOfMachine({
 	fs,
