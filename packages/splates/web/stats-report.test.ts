@@ -171,6 +171,26 @@ describe("StatsReport", () => {
 		expect(report.buckets[0]?.label).toBe("Week of 2026-10-13");
 	});
 
+	it("asks for the project picked, and keeps offering every project", async () => {
+		const both = {
+			...stats,
+			projects: [
+				{ project: "/b/zed", ...combine([]) },
+				{ project: "/a/alpha", ...combine([]) },
+			],
+		};
+		const narrowed = { ...both, projects: [both.projects[0] as never] };
+		const source = new FakeSource(both);
+		const report = new StatsReport(source);
+
+		await report.refresh();
+		source.answer = narrowed;
+		await report.filter("/b/zed");
+
+		expect(source.askedProject).toEqual([undefined, "/b/zed"]);
+		expect(report.options.map((each) => each.name)).toEqual(["alpha", "zed"]);
+	});
+
 	// scry-ignore simple-test-setup: older than this task, which only gave its fixture baselines
 	it("drops a load that lands after a later one was asked for", async () => {
 		const slow = Promise.withResolvers<Stats>();
@@ -209,14 +229,16 @@ function bar(start: string, changes: Partial<Tally> = {}) {
 /** Answers with `stats`, or fails with `error` when given one; keeps what it was asked. */
 class FakeSource implements StatsSource {
 	readonly asked: PeriodId[] = [];
+	readonly askedProject: (string | undefined)[] = [];
 
 	constructor(
-		private readonly answer: Stats | null,
+		public answer: Stats | null,
 		private readonly error = "unreachable",
 	) {}
 
-	async stats(period: PeriodId): Promise<Stats> {
+	async stats(period: PeriodId, project?: string): Promise<Stats> {
 		this.asked.push(period);
+		this.askedProject.push(project);
 		if (this.answer === null) {
 			throw new Error(this.error);
 		}

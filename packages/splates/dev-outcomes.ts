@@ -26,9 +26,10 @@ export class DevOutcomes {
 		);
 	}
 
-	/** `?period=` names the period, as `PERIODS` does, or `all` for all time; 7 days for none. */
+	/** `?period=` names the period, as `PERIODS` does, or `all` for all time; 7 days for none. `?project=` narrows it to that main tree. */
 	readonly stats: Handler = async (request) => {
-		const period = new URL(request.url).searchParams.get("period") ?? "7d";
+		const params = new URL(request.url).searchParams;
+		const period = params.get("period") ?? "7d";
 		if (!isPeriodId(period)) {
 			fail(
 				"usage",
@@ -39,6 +40,7 @@ export class DevOutcomes {
 		return Response.json(
 			summarize(await this.outcomes.list(), {
 				period,
+				project: params.get("project") ?? undefined,
 				judged: await this.adherence.list(),
 			}),
 		);

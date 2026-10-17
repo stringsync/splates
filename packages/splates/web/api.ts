@@ -283,10 +283,13 @@ export async function removeTask(task: string): Promise<void> {
 
 /**
  * How tasks ended across every project, summed for the Stats page over
- * `period`.
+ * `period`, narrowed to the main tree `project` when given.
  */
-export async function stats(period: PeriodId): Promise<Stats> {
-	const path = `/api/stats?period=${period}`;
+export async function stats(
+	period: PeriodId,
+	project?: string,
+): Promise<Stats> {
+	const path = `/api/stats?period=${period}${project === undefined ? "" : `&project=${encodeURIComponent(project)}`}`;
 	const response = await fetch(path);
 	if (!response.ok) {
 		throw new ApiError("error", `${path}: ${response.status}`);

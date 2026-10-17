@@ -173,6 +173,8 @@ export interface SummarizeOptions {
 	now?: Date;
 	/** Each conversation's skill checks as last judged. */
 	judged?: Judged[];
+	/** Narrows every figure but `Stats.projects` to the tasks of this main tree. */
+	project?: string;
 }
 
 /**
@@ -182,7 +184,12 @@ export interface SummarizeOptions {
  */
 export function summarize(
 	outcomes: Outcome[],
-	{ period = "7d", now = new Date(), judged = [] }: SummarizeOptions = {},
+	{
+		period = "7d",
+		now = new Date(),
+		judged = [],
+		project,
+	}: SummarizeOptions = {},
 ): Stats {
 	const tasks = outcomes.filter((each) => !each.base.startsWith("task/"));
 	const since = tasks[0]?.endedAt ?? null;
@@ -201,16 +208,24 @@ export function summarize(
 				: Math.round((last - floor(Date.parse(since))) / WEEK) + 1
 			: PERIODS[period].span / bucket;
 	const first = last - (length - 1) * bucket;
-	const inPeriod = tasks.filter(
+	const everyInPeriod = tasks.filter(
 		(each) => floor(Date.parse(each.endedAt)) >= first,
 	);
+	const inPeriod =
+		project === undefined
+			? everyInPeriod
+			: everyInPeriod.filter((each) => each.project === project);
 	const before = first - length * bucket;
 	const earlier =
 		period === "all"
 			? null
 			: tasks.filter((each) => {
 					const at = floor(Date.parse(each.endedAt));
-					return at >= before && at < first;
+					return (
+						at >= before &&
+						at < first &&
+						(project === undefined || each.project === project)
+					);
 				});
 	return {
 		buckets: Array.from({ length }, (_, index) => {
@@ -231,7 +246,7 @@ export function summarize(
 			device,
 			...tally,
 		})),
-		projects: grouped(inPeriod, (each) => each.project).map(
+		projects: grouped(everyInPeriod, (each) => each.project).map(
 			([project, tally]) => ({ project, ...tally }),
 		),
 		systems: grouped(

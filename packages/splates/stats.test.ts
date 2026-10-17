@@ -119,6 +119,26 @@ describe("summarize", () => {
 		]);
 	});
 
+	it("narrows every figure to one project but keeps every project listed", () => {
+		const stats = summarize(
+			[
+				ended({ model: "Opus", project: "/other" }),
+				ended({ model: "Sonnet 5.5" }),
+				ended({ model: "Sonnet 5.5", ended: "removed" }),
+			],
+			{ now, project: "/repo" },
+		);
+
+		expect(stats.models).toMatchObject([
+			{ model: "Sonnet 5.5", merged: 1, removed: 1 },
+		]);
+		expect(combine(stats.buckets)).toMatchObject({ merged: 1, removed: 1 });
+		expect(stats.projects.map((each) => each.project)).toEqual([
+			"/repo",
+			"/other",
+		]);
+	});
+
 	it("groups by where the person worked each task from", () => {
 		const stats = summarize(
 			[

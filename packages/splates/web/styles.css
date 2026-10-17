@@ -131,6 +131,7 @@
 @source "./slot-queue.tsx";
 @source "./stamp.tsx";
 @source "./stats-decisions.tsx";
+@source "./stats-project-filter.tsx";
 @source "./stats.tsx";
 @source "./cred-paste.tsx";
 @source "./cred-privacy.tsx";

@@ -28,6 +28,7 @@ import {
 	type Column,
 } from "./stats-columns";
 import { Decisions } from "./stats-decisions";
+import { projectFilter } from "./stats-project-filter";
 import {
 	type Axis,
 	type Bucket,
@@ -41,7 +42,7 @@ import { SystemNameChip } from "./systems";
 import { TopBar } from "./top-bar";
 
 /**
- * What to change, from how tasks have ended across every project: the one or
+ * What to change, from how tasks have ended across every project, or the one picked in the header: the one or
  * two acts that stand out this period, each with the figures behind it, and
  * everything else folded away.
  */
@@ -66,6 +67,8 @@ export function StatsPage({
 		models,
 		devices,
 		projects,
+		project,
+		options,
 	} = useReactive(
 		report,
 		(report) => ({
@@ -81,6 +84,8 @@ export function StatsPage({
 			models: report.models,
 			devices: report.devices,
 			projects: report.projects,
+			project: report.project,
+			options: report.options,
 		}),
 		["changed"],
 	);
@@ -94,6 +99,7 @@ export function StatsPage({
 			<TopBar
 				title="Stats"
 				actions={[
+					projectFilter(report, project, options),
 					{
 						label: "Period",
 						icon: <CalendarRangeIcon />,
