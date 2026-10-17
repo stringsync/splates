@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
+	AUTO,
 	CHECK_IN,
 	CHECKPOINT,
 	DEFER,
@@ -48,6 +49,7 @@ describe("the splates skill's Directives table", () => {
 				CHECKPOINT,
 				RESUME,
 				RECONNECT,
+				AUTO,
 			].toSorted(),
 		);
 	});

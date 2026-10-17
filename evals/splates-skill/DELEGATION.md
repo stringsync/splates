@@ -17,6 +17,19 @@ started. The fake roster is disabled. `preMerge: true` is a check stand-in.
 | heartbeat | delegation-handoff | Inspect child; report truth and delivery remain uncovered |
 | no-dev-relay | delegation-no-dev | Forbid named relay/wait forms without dev |
 | cli-no-dev-relay | delegation-no-dev | Actual local CLI refusal, independently checked by free test |
+| auto-question | delegation-auto | No task started for a question |
+| auto-fits | delegation-auto | One task, nothing handed on |
+| auto-hand-up | delegation-auto | One task handed to `fake large`, without relay; Handoff context and reason line remain gaps |
+| auto-hand-down | delegation-auto | One task handed to `fake small`, without relay; spelled-out Next remains a gap |
+
+The `auto-` cases use `delegation/auto@1`: no tasks, a roster of one disabled
+agent with a cheap and a strong model, and code whose size differs from what
+each request sounds like (one value, one name in 25 files, three retry loops
+that disagree). The input stands in for the page's Auto line, telling the
+agent which roster model it runs as; the real model is whatever runs the
+probe. Tasks and their recorded dispatch are read from `.git/splates/tasks`,
+never from the reply. A free test plays the right moves on the real CLI to
+check the observer; bounds are 120 seconds, one turn, 8000 tokens.
 
 Each agent case stops at the first final reply (30 seconds, one turn, 2000
 tokens). Commands are exact argv selectors: they are deliberately not claims

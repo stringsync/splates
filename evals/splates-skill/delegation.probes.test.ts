@@ -12,7 +12,8 @@ import {
 import module from "./delegation.probes";
 import { assess, type Event, type Evidence, type Probe } from "./probe";
 import { cliAdapter } from "./probe-adapters";
-import { runProbes, validate } from "./runner";
+import { command } from "./probe-sandbox";
+import { type Adapter, runProbes, validate } from "./runner";
 
 it("validates independently selectable bounded delegation cases", () => {
 	validate(module.probes);
@@ -178,4 +179,118 @@ it("rejects a child on trunk or in the parent tree and preserves missing state",
 		}).status,
 	).toBe("fail");
 	expect(assess(probe, { ...evidence, state: {} }).status).toBe("uncovered");
+});
+
+// What a probe that sizes each request right does, run on the real CLI.
+const sized: Record<string, string[][]> = {
+	"delegation/auto-question": [],
+	"delegation/auto-fits": [["add", "retries", "--goal", "Retry five times"]],
+	"delegation/auto-hand-up": [
+		["add", "no-413", "--goal", "Stop retrying a 413"],
+		["handoff", "no-413", "--agent", "fake", "--model", "large"],
+	],
+	"delegation/auto-hand-down": [
+		["add", "retry-limit", "--goal", "Rename MAX_RETRIES"],
+		["handoff", "retry-limit", "--agent", "fake", "--model", "small"],
+	],
+};
+const scripted: Adapter = {
+	id: "scripted-auto-probe",
+	version: "1",
+	config: {},
+	tokenBound: true,
+	async run(context) {
+		for (const args of sized[context.probe.id] ?? []) {
+			const result = await command(context, ["splates", ...args], "agent");
+			if (result.exitCode !== 0) {
+				throw new Error(result.stderr);
+			}
+		}
+		context.reply("Scripted stand-in, not an agent.");
+	},
+};
+
+it("observes what an Auto probe kept or handed on, from the real task records", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "delegation-auto-"));
+	try {
+		const results = await runProbes(
+			{
+				...module,
+				probes: module.probes.filter((probe) => probe.id in sized),
+			},
+			[{ adapter: scripted, model: null }],
+			{
+				directory,
+				parallel: 2,
+				reps: 1,
+				skillHash: "free-fixture",
+				cliHash: "local",
+				reproduction: [],
+			},
+		);
+		expect(results).toHaveLength(4);
+		expect(
+			results.map(({ probe, result }) => ({
+				probe: probe.id,
+				failed: result.verdicts.filter((verdict) => verdict.status === "fail"),
+			})),
+		).toEqual(Object.keys(sized).map((probe) => ({ probe, failed: [] })));
+		const handUp = results.find(
+			(run) => run.probe.id === "delegation/auto-hand-up",
+		);
+		expect(handUp?.run.evidence.state["auto/handoffs"]).toEqual([
+			{ agent: "fake", model: "large", relay: false },
+		]);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+}, 60000);
+
+it("fails an Auto probe that hands on what fits, or picks the wrong weight", () => {
+	const evidence = (state: Evidence["state"]): Evidence => ({
+		events: [],
+		state,
+		complete: ["state"],
+		termination: "stop",
+	});
+	const find = (id: string) =>
+		module.probes.find((probe) => probe.id === `delegation/${id}`) as Probe;
+	const handed = (model: string) => [{ agent: "fake", model, relay: false }];
+	expect(
+		assess(
+			find("auto-fits"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": [] }),
+		).status,
+	).toBe("pass");
+	expect(
+		assess(
+			find("auto-fits"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": handed("large") }),
+		).status,
+	).toBe("fail");
+	expect(
+		assess(
+			find("auto-hand-up"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": handed("small") }),
+		).status,
+	).toBe("fail");
+	expect(
+		assess(
+			find("auto-hand-up"),
+			evidence({
+				"auto/tasks": 1,
+				"auto/handoffs": [{ agent: "fake", model: "large", relay: true }],
+			}),
+		).status,
+	).toBe("fail");
+	expect(
+		assess(
+			find("auto-hand-down"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": [] }),
+		).status,
+	).toBe("fail");
+	expect(
+		assess(find("auto-question"), evidence({ "auto/tasks": 1 })).status,
+	).toBe("fail");
+	expect(assess(find("auto-fits"), evidence({})).status).toBe("uncovered");
 });

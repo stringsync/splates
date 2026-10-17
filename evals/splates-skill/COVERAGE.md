@@ -31,7 +31,7 @@ AGENTS.md remains unchanged and #365 awaits user review.
 
 ## Registered probes
 
-73 cases: 11 local CLI cases and 62 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+77 cases: 11 local CLI cases and 66 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
 all eleven CLI cases together: ten pass; `delegation/cli-no-dev-relay` remains
@@ -73,6 +73,10 @@ the broader proposed coverage in the requirements map.
 | `delegation/heartbeat` | 1 | delegation-handoff | agent |
 | `delegation/no-dev-relay` | 1 | delegation-no-dev | agent |
 | `delegation/cli-no-dev-relay` | 1 | delegation-no-dev | cli |
+| `delegation/auto-question` | 1 | delegation-auto | agent |
+| `delegation/auto-fits` | 1 | delegation-auto | agent |
+| `delegation/auto-hand-up` | 1 | delegation-auto | agent |
+| `delegation/auto-hand-down` | 1 | delegation-auto | agent |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
 | `discovery/todos` | 1 | discovery-todos | agent |
@@ -168,6 +172,7 @@ selected real integration, never a prerequisite for this audit.
 | lanes-events / `references/lanes.md` | #340; `lane-report`, `lane-idle`, `lane-pivot` | CLI REPORT, TODO DONE/OPEN, IDLE, STOPPED, LANES DONE payloads; agent follow-up/stop/pivot state and order | Seed one transition; do not require full worker journeys |
 | delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
 | delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT/HEARTBEAT payloads; agent records handoff context, claims takeover, respects relay reporting ownership | Stand-ins do not prove transport, restart or delegated model execution |
+| delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff`, no `--relay` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
 | delegation-no-dev / `references/lanes.md`, `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |

@@ -56,7 +56,8 @@ could check against `SPLATES.md` or the tree:
 
 None of these is a reason: the request sounds hard or easy, your model
 seems too big or too small for it, or a cheaper model could probably do
-it. When you are unsure, keep it.
+it. When you are unsure, keep it. A conversation Auto started is the
+exception, since its pick never saw the code: see Sizing an Auto pick.
 
 Keep the task when the user named your model for it, or asked you to do it
 yourself. An agent that answers to another escalates instead, as above.
@@ -140,3 +141,40 @@ and the answers down, with `splates tell <task> '<text>'`, which says
 
 Never ask the user to go to the agent's conversation, or to send you on:
 whatever they say to you is yours to pass down.
+
+## Sizing an Auto pick
+
+`[SPLATES AUTO] <request>` means the person started this conversation from
+the New menu's Auto item: a router read only their words and picked your
+agent, model and thinking level, and the conversation already shows
+splates's line `Auto picked <model>, <effort>: <what it found>`, so say
+nothing of what you run as. You are a probe: you see the code the router
+never saw, so it is yours to judge whether the work fits you, and that
+judgment is the reason the section above asks for.
+
+1. A request that only needs an answer, you answer, with no task.
+2. Otherwise, `splates add` as always, and investigate in its worktree
+   until you can size the work: the files it touches, the calls it needs,
+   how much of it is mechanical. Write what you learn in `SPLATES.md` as
+   you go.
+3. Keep it when it fits your weight, or when you are unsure, and carry on
+   as for any task. Hand it on only when the code shows the work a tier off
+   from what the pick assumed, for a reason you can name in a sentence the
+   person could check against the tree:
+   - **up**, when it is bigger or more tangled than its words: a design
+     call, a change across systems, a bug whose cause you cannot place;
+   - **down**, when a strong pick finds a mechanical change: a rename, one
+     edit across many files, a value to change, each step one you can spell
+     out under `## Next`.
+4. To hand it on, read `splates agents`, pick the cheapest model whose
+   strengths cover the work, and do steps 1 and 2 of Handing off your task,
+   the `### Handoff` holding everything you learned. Then `splates handoff
+   <task> --agent <id> --model <m>`, without `--relay`: the person picked
+   Auto, not you, so the agent it goes to answers to them. Neither a
+   handoff nor a todo carries a thinking level: pick the model alone.
+5. End your turn on one line saying who it went to and why, such as
+   `Handed to Sonnet 5.5: one constant to rename across 30 files.`, so
+   the person, who never asked for a handoff, sees why Auto's pick moved.
+
+When `$SPLATES_CALLER` is set, `splates handoff` refuses: escalate instead,
+naming the model the work fits, as above.
