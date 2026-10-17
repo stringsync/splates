@@ -18,7 +18,7 @@
     },
     "packages/dev": {
       "name": "splates-dev",
-      "version": "0.0.44",
+      "version": "0.0.45",
       "dependencies": {
         "@webappwiz/cli": "^0.0.45",
         "splates": "workspace:*",
@@ -28,7 +28,7 @@
     },
     "packages/splates": {
       "name": "splates",
-      "version": "0.0.44",
+      "version": "0.0.45",
       "bin": {
         "splates": "./index.ts",
         "arbor": "./index.ts",
