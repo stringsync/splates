@@ -400,8 +400,8 @@ kept.
 ## Remote access
 
 When the user asks to reach `splates server` from elsewhere, that is the Remote
-access setup area, from its `cloudflare-token` step through `tunnel`, `access`
-and `slot-tunnels`: walk them through it as
+access setup area, from its `cloudflare-token` step through `tunnel`, `access`,
+`ports-host` and `slot-tunnels`: walk them through it as
 [references/setup.md](references/setup.md) says. Its `splates tunnel setup
 <host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
 Access application with an API token kept as the cred

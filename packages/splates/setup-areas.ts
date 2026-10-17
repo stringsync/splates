@@ -2,6 +2,7 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { OPENAI_KEY } from "./dev-transcriber";
 import { Roster } from "./roster";
+import { SavedPortsHost } from "./saved-ports-host";
 import { SavedTunnel, type TunnelRecord } from "./saved-tunnel";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 import { SLOT_POOL } from "./slots";
@@ -82,6 +83,19 @@ function setupAreas(): readonly SetupArea[] {
 			const saved = await savedTunnel(machine);
 			return saved !== null && guarded(saved, machine.fetch ?? fetch);
 		},
+	};
+
+	const portsStep: SetupStep = {
+		id: "ports-host",
+		title: "Open a task's ports from anywhere",
+		why: "With a wildcard base host saved, each port a task listens on opens at `https://<task>-<port>.<base>`, behind the same Access, so you can try its server on your phone.",
+		user: "Pick a base host in your zone, such as `ports.example.com`, and route its wildcard `*.ports.example.com` to `splates server`, its DNS and TLS included.",
+		agent:
+			"Have the user restart `splates server` with `--ports-host <base>`, which saves the base for this machine, then check this step again.",
+		optional: true,
+		after: [accessStep],
+		check: async ({ fs, home }) =>
+			(await new SavedPortsHost(`${home}/ports.json`, fs).read()) !== null,
 	};
 
 	const slotsStep: SetupStep = {
@@ -199,7 +213,7 @@ function setupAreas(): readonly SetupArea[] {
 		{
 			id: "remote-access",
 			title: "Remote access",
-			steps: [tokenStep, tunnelStep, accessStep, slotsStep],
+			steps: [tokenStep, tunnelStep, accessStep, portsStep, slotsStep],
 		},
 		{
 			id: "notifications",
