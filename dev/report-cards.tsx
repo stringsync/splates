@@ -485,7 +485,7 @@ export function TodoCard({
 				)}
 				{/* Its buttons end the line that numbers it, rather than take a
 				    row of their own. */}
-				<div className="flex items-center gap-3">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 					<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 						<span className="tabular-nums">#{proposal.id}</span>
 						{lane !== null && (
@@ -539,13 +539,13 @@ export function TodoCard({
 							)}
 							{startNew !== null && (
 								<Button
-									size="icon-sm"
+									size="sm"
 									variant="outline"
-									aria-label="Start in a new conversation"
-									title="Start in a new conversation"
+									title="Prepare a new chat with this to-do. Review before sending."
 									onClick={() => startNew(proposal.id, todo.assignee ?? null)}
 								>
-									<MessageSquarePlusIcon />
+									<MessageSquarePlusIcon data-icon="inline-start" />
+									Open in new chat
 								</Button>
 							)}
 						</span>

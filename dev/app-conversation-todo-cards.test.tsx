@@ -115,7 +115,7 @@ describe("App's todo cards", () => {
 		expect(view.getByText("Next up")).toBeTruthy();
 	});
 
-	it("starts a proposed todo in a new conversation straight away, on the agent and model it is assigned to", async () => {
+	it("drafts a proposed todo with its assigned agent and model, sending only after review", async () => {
 		const view = await testing.openConversations(
 			[conversation({ ...proposing, agent: "codex" })],
 			undefined,
@@ -138,7 +138,7 @@ describe("App's todo cards", () => {
 		const taken = view.getByRole("region", { name: "todo 14" });
 		expect(
 			within(taken).queryByRole("button", {
-				name: "Start in a new conversation",
+				name: "Open in new chat",
 			}),
 		).toBeNull();
 		testing.reply = conversation({ id: "c9", status: "starting" });
@@ -146,11 +146,22 @@ describe("App's todo cards", () => {
 		await act(async () =>
 			fireEvent.click(
 				within(open).getByRole("button", {
-					name: "Start in a new conversation",
+					name: "Open in new chat",
 				}),
 			),
 		);
 
+		await waitFor(() =>
+			expect(location.hash).toBe("#conversations/new/claude?model=haiku"),
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await waitFor(() => expect(textIn(box)).toBe("[ARBOR TODO #12]"));
+		expect(testing.posted("/api/conversations")).toEqual([]);
+		expect(testing.posted("/api/conversations/c9/prompt")).toEqual([]);
+		await typeIn(box, "[ARBOR TODO #12]\nPlease check the retry limit first.");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(
 			testing.posted("/api/conversations").map((each) => each.body),
@@ -166,12 +177,14 @@ describe("App's todo cards", () => {
 		await waitFor(() =>
 			expect(
 				testing.posted("/api/conversations/c9/prompt").map((each) => each.body),
-			).toEqual([{ text: "[ARBOR TODO #12]" }]),
+			).toEqual([
+				{ text: "[ARBOR TODO #12]\nPlease check the retry limit first." },
+			]),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
-	it("starts a proposed todo no one is assigned to with this conversation's agent", async () => {
+	it("drafts an unassigned todo with this conversation's agent and preserves both drafts", async () => {
 		const view = await testing.openConversations(
 			[conversation({ ...proposing, agent: "codex" })],
 			undefined,
@@ -180,25 +193,30 @@ describe("App's todo cards", () => {
 		const open = await waitFor(() =>
 			view.getByRole("region", { name: "todo 12" }),
 		);
+		await typeIn(
+			view.getByRole("textbox", { name: "Message input" }),
+			"Original chat draft",
+		);
+		localStorage.setItem("arbor.draft.new:", "Existing new chat draft");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 
 		await act(async () =>
 			fireEvent.click(
 				within(open).getByRole("button", {
-					name: "Start in a new conversation",
+					name: "Open in new chat",
 				}),
 			),
 		);
 
-		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
-		expect(
-			testing.posted("/api/conversations").map((each) => each.body.agent),
-		).toEqual(["codex"]);
+		await waitFor(() => expect(location.hash).toBe("#conversations/new/codex"));
 		await waitFor(() =>
-			expect(
-				testing.posted("/api/conversations/c9/prompt").map((each) => each.body),
-			).toEqual([{ text: "[ARBOR TODO #12]" }]),
+			expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
+				"[ARBOR TODO #12]\n\nExisting new chat draft",
+			),
 		);
+		expect(localStorage.getItem("arbor.draft.c1")).toBe("Original chat draft");
+		expect(testing.posted("/api/conversations")).toEqual([]);
+		expect(testing.posted("/api/conversations/c9/prompt")).toEqual([]);
 	});
 
 	it("keeps a todo as proposed once the person has replied, and says whether it was started", async () => {

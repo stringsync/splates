@@ -138,9 +138,8 @@ export function useThreadActions(
 		}
 	};
 	useShortcut("shortcuts.archive", fileByKey);
-	// A new conversation started on todo `id`, with the agent it is assigned
-	// to on its model, else with this one's agent; without dispatching, the
-	// new conversation screen with its prompt typed ahead of what waits there.
+	// A new conversation draft for todo `id`, with its assigned agent/model
+	// selected, else this conversation's agent. Nothing starts until Send.
 	const startNew = useCallback(
 		(todo: number, assignee: AgentPick | null) => {
 			const assignment = { kind: "todo", id: todo } as const;
@@ -150,12 +149,8 @@ export function useThreadActions(
 					dispatching.dispatch.agents.some(
 						(each) => each.id === assignee.agent,
 					);
-				void dispatching.dispatch
-					.begin(
-						onRoster ? assignee : { agent: conversation.agent },
-						assignment,
-					)
-					.then(onOpen);
+				const pick = onRoster ? assignee : { agent: conversation.agent };
+				onOpen(dispatching.dispatch.start(pick.agent, assignment, pick.model));
 				return;
 			}
 			const text = promptFor(assignment);
@@ -178,7 +173,7 @@ export interface ThreadActions {
 		confirm: JSX.Element;
 		files: boolean;
 	};
-	/** Starts todo `id` in a new conversation, with `assignee` when on the roster. */
+	/** Drafts todo `id` in a new chat, with `assignee` selected when on the roster. */
 	startNew: (id: number, assignee: AgentPick | null) => void;
 }
 
