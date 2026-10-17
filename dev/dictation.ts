@@ -222,7 +222,7 @@ export class Dictation
 			levels:
 				level === null
 					? this.current.levels
-					: [...this.current.levels.slice(-39), level],
+					: [...this.current.levels.slice(-255), level],
 			silent: take.quiet.isGreaterThanOrEqual(SILENCE),
 		});
 	}

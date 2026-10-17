@@ -323,11 +323,16 @@ const ComposerAction: FC = () => {
 
 	return (
 		<div className="aui-composer-action-wrapper relative flex items-center justify-between gap-2">
-			<div className="flex min-w-0 items-center gap-0 overflow-hidden">
+			<div
+				className={cn(
+					"flex min-w-0 items-center gap-0 overflow-hidden",
+					dictating && "flex-1",
+				)}
+			>
 				{/* While a take is under way, what the mic is doing takes the
 				    row's left side, where there is room to say it. */}
 				{dictating ? (
-					<DictationStatus />
+					<DictationStatus expanded />
 				) : (
 					<>
 						<AuiIf condition={(s) => s.thread.capabilities.attachments}>
@@ -337,7 +342,7 @@ const ComposerAction: FC = () => {
 					</>
 				)}
 			</div>
-			<div className="flex items-center gap-1.5">
+			<div className="flex shrink-0 items-center gap-1.5">
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
 					<DictateButton />
 				</AuiIf>
