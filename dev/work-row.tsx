@@ -17,6 +17,7 @@ import { RECONNECT } from "../prompts";
 import { InMessage, useCardReply } from "./card-reply";
 import { CheckIn } from "./check-in";
 import { useNow } from "./hooks/use-now";
+import { Markdown } from "./markdown";
 import { ThreadAction } from "./thread-action";
 import { timeline } from "./timeline";
 import { tokens } from "./usage";
@@ -294,31 +295,62 @@ function CompactionLine({
 }: {
 	compaction: Compaction;
 }): JSX.Element {
-	const { before, after, status } = compaction;
+	const { before, after, status, summary } = compaction;
+	const [open, setOpen] = useState(false);
+	const words = (
+		<>
+			<FoldVerticalIcon aria-hidden className="size-3.5" />
+			<span>
+				{status === "failed"
+					? "Failed to compact context"
+					: status === "in_progress"
+						? "Compacting context"
+						: "Compacted context"}
+			</span>
+			{before !== null && after !== null && (
+				<span className="tabular-nums">
+					{tokens(before)} → {tokens(after)}
+				</span>
+			)}
+		</>
+	);
 	return (
 		<div
 			role="note"
 			aria-label="context compacted"
 			data-slot="compaction"
-			className="my-4 flex items-center gap-3 text-muted-foreground text-xs"
+			className="my-4 text-muted-foreground text-xs"
 		>
-			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
-			<p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-				<FoldVerticalIcon aria-hidden className="size-3.5" />
-				<span>
-					{status === "failed"
-						? "Failed to compact context"
-						: status === "in_progress"
-							? "Compacting context"
-							: "Compacted context"}
-				</span>
-				{before !== null && after !== null && (
-					<span className="tabular-nums">
-						{tokens(before)} → {tokens(after)}
-					</span>
+			<div className="flex items-center gap-3">
+				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+				{summary === null ? (
+					<p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+						{words}
+					</p>
+				) : (
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={() => setOpen(!open)}
+						className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap hover:text-foreground"
+					>
+						{words}
+						<ChevronRightIcon
+							aria-hidden
+							className={cn("size-3.5", open && "rotate-90")}
+						/>
+					</button>
 				)}
-			</p>
-			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+			</div>
+			{open && summary !== null && (
+				<section
+					aria-label="compaction summary"
+					className="mt-3 rounded-md border bg-muted/30 p-3 text-foreground text-sm"
+				>
+					<Markdown text={summary} />
+				</section>
+			)}
 		</div>
 	);
 }

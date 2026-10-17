@@ -275,8 +275,62 @@ describe("fold", () => {
 				trigger: "automatic",
 				before: 317_025,
 				after: 8_589,
+				summary: null,
 				at: at(1),
 				until: at(75),
+			},
+		]);
+	});
+
+	it("folds ACP's compaction updates into the same part, keeping the summary", () => {
+		const into = state();
+		const text = (value: string) => ({ type: "text" as const, text: value });
+		foldAll(into, [
+			[
+				{
+					sessionUpdate: "compaction_update",
+					compactionId: "k1",
+					status: "in_progress",
+				},
+				at(1),
+			],
+			[
+				{
+					sessionUpdate: "compaction_summary_chunk",
+					compactionId: "k1",
+					content: text("We fixed "),
+				},
+				at(2),
+			],
+			[
+				{
+					sessionUpdate: "compaction_summary_chunk",
+					compactionId: "k1",
+					content: text("the bug."),
+				},
+				at(3),
+			],
+			[
+				{
+					sessionUpdate: "compaction_update",
+					compactionId: "k1",
+					status: "completed",
+				},
+				at(4),
+			],
+		]);
+
+		expect(into.messages[0]?.parts).toEqual([
+			{
+				type: "compaction",
+				id: "k1",
+				status: "completed",
+				trigger: null,
+				before: null,
+				after: null,
+				summary: "We fixed the bug.",
+				at: at(1),
+				until: at(4),
 			},
 		]);
 	});

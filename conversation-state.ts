@@ -300,6 +300,8 @@ export interface Compaction {
 	/** Tokens in context before and after; null until the agent says. */
 	before: number | null;
 	after: number | null;
+	/** What the agent kept of the thread above the line; null until it says, or when it does not. */
+	summary: string | null;
 	/** When it began and finished; null in a log too old to say, or until it has. */
 	at: string | null;
 	until: string | null;

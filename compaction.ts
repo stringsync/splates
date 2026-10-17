@@ -66,3 +66,60 @@ export function compactionIn(
 	}
 	return null;
 }
+
+/** A compaction `id` just begun at `at`, with nothing said of it yet. */
+export function newCompaction(id: string, at: string | null): Compaction {
+	return {
+		type: "compaction",
+		id,
+		status: "in_progress",
+		trigger: null,
+		before: null,
+		after: null,
+		summary: null,
+		at,
+		until: null,
+	};
+}
+
+/** The text of `blocks`, the summary's other content being nothing to show. */
+function textOf(blocks: readonly acp.ContentBlock[]): string {
+	return blocks
+		.map((block) => (block.type === "text" ? block.text : ""))
+		.join("");
+}
+
+/**
+ * Takes ACP's `compaction_update` into `part`: its status, and its summary,
+ * which replaces the one kept, or clears it when null or empty.
+ */
+export function updateCompaction(
+	part: Compaction,
+	update: acp.CompactionUpdate,
+	at: string | null,
+): void {
+	if (update.status === "in_progress") {
+		part.status = "in_progress";
+	} else if (update.status === "completed") {
+		part.status = "completed";
+		part.until ??= at;
+	} else if (update.status === "failed" || update.status === "cancelled") {
+		part.status = "failed";
+		part.until ??= at;
+	}
+	if (update.summary !== undefined) {
+		const text = update.summary === null ? "" : textOf(update.summary);
+		part.summary = text === "" ? null : text;
+	}
+}
+
+/** Appends a `compaction_summary_chunk`'s text to the summary `part` keeps. */
+export function appendSummary(
+	part: Compaction,
+	chunk: acp.CompactionSummaryChunk,
+): void {
+	const text = textOf([chunk.content]);
+	if (text !== "") {
+		part.summary = (part.summary ?? "") + text;
+	}
+}

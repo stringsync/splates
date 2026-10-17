@@ -1,5 +1,12 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { compactionIn, fillCompaction, isCompaction } from "./compaction";
+import {
+	appendSummary,
+	compactionIn,
+	fillCompaction,
+	isCompaction,
+	newCompaction,
+	updateCompaction,
+} from "./compaction";
 import type {
 	ConversationState,
 	Field,
@@ -98,16 +105,7 @@ export function fold(
 			if (isCompaction(update)) {
 				// Reported first as it ends, when its start was missed.
 				const known = compactionIn(state, update.toolCallId);
-				const part = known ?? {
-					type: "compaction" as const,
-					id: update.toolCallId,
-					status: "in_progress" as const,
-					trigger: null,
-					before: null,
-					after: null,
-					at,
-					until: null,
-				};
+				const part = known ?? newCompaction(update.toolCallId, at);
 				if (known === null) {
 					agentTurn(state, at).parts.push(part);
 				}
@@ -159,6 +157,25 @@ export function fold(
 			const compaction = compactionIn(state, update.toolCallId);
 			if (compaction !== null) {
 				fillCompaction(compaction, update, at);
+				moved(state, at);
+			}
+			return;
+		}
+		case "compaction_update": {
+			// Upserted by its id: the first update fixes its place.
+			const known = compactionIn(state, update.compactionId);
+			const part = known ?? newCompaction(update.compactionId, at);
+			if (known === null) {
+				agentTurn(state, at).parts.push(part);
+			}
+			updateCompaction(part, update, at);
+			moved(state, at);
+			return;
+		}
+		case "compaction_summary_chunk": {
+			const part = compactionIn(state, update.compactionId);
+			if (part !== null) {
+				appendSummary(part, update);
 				moved(state, at);
 			}
 			return;

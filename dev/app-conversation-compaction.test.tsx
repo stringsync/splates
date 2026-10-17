@@ -26,6 +26,7 @@ describe("App's compactions", () => {
 			trigger: "automatic",
 			before: 317_025,
 			after: 8_589,
+			summary: "We fixed the bug.",
 			at: second(10),
 			until: second(84),
 		};
@@ -68,6 +69,19 @@ describe("App's compactions", () => {
 				),
 			].map((each) => each.getAttribute("data-slot")),
 		).toEqual(["work", "compaction", "work"]);
+	});
+
+	it("opens what the agent kept of the thread from the compaction's line", async () => {
+		const view = await testing.openConversations([state]);
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: state.title ?? "" }),
+		);
+
+		expect(within(thread).queryByText("We fixed the bug.")).toBeNull();
+		fireEvent.click(
+			within(thread).getByRole("button", { name: /Compacted context/ }),
+		);
+		expect(within(thread).getByText("We fixed the bug.")).toBeTruthy();
 	});
 
 	it("says in the context meter's card how the conversation was compacted", async () => {

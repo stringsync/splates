@@ -212,7 +212,7 @@ export class AgentConnection {
 				// (see `SESSION_META`).
 				clientCapabilities: {
 					elicitation: { form: {} },
-					session: { configOptions: { boolean: {} } },
+					session: { configOptions: { boolean: {} }, compaction: {} },
 					// Claude says when a command it left in the background
 					// starts and ends only to a client that asks, and stops one
 					// on `ASYNC_TASK_STOP`; Codex lists its sessions' turns only
