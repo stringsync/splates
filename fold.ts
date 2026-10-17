@@ -1,4 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
+import { compactionIn, fillCompaction, isCompaction } from "./compaction";
 import type {
 	ConversationState,
 	Field,
@@ -53,6 +54,26 @@ export function fold(
 			return;
 		}
 		case "tool_call": {
+			if (isCompaction(update)) {
+				// Reported first as it ends, when its start was missed.
+				const known = compactionIn(state, update.toolCallId);
+				const part = known ?? {
+					type: "compaction" as const,
+					id: update.toolCallId,
+					status: "in_progress" as const,
+					trigger: null,
+					before: null,
+					after: null,
+					at,
+					until: null,
+				};
+				if (known === null) {
+					agentTurn(state, at).parts.push(part);
+				}
+				fillCompaction(part, update, at);
+				moved(state, at);
+				return;
+			}
 			// Already made, when asking permission for it came first.
 			const made = toolIn(state, update.toolCallId);
 			if (made !== null) {
@@ -91,6 +112,12 @@ export function fold(
 			const part = toolIn(state, update.toolCallId);
 			if (part !== null) {
 				fill(part, update, at);
+				moved(state, at);
+				return;
+			}
+			const compaction = compactionIn(state, update.toolCallId);
+			if (compaction !== null) {
+				fillCompaction(compaction, update, at);
 				moved(state, at);
 			}
 			return;

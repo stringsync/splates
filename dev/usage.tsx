@@ -5,7 +5,18 @@ import {
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Usage } from "../conversations";
+import type { Compaction, Message, Usage } from "../conversations";
+import { useNow } from "./hooks/use-now";
+import { span } from "./work";
+
+/** The compactions in `messages`, oldest first. */
+export function compactionsIn(messages: readonly Message[]): Compaction[] {
+	return messages.flatMap((message) =>
+		message.parts.flatMap((part) =>
+			part.type === "compaction" && part.status === "completed" ? [part] : [],
+		),
+	);
+}
 
 const COMPACT = new Intl.NumberFormat("en", {
 	notation: "compact",
@@ -39,13 +50,22 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * nears full; on hover, the context, the tokens read and written, and what
  * the session cost, as far as the agent says. Nothing until it says.
  */
-export function ContextMeter({ usage }: { usage: Usage }): JSX.Element | null {
+export function ContextMeter({
+	usage,
+	compactions = [],
+}: {
+	usage: Usage;
+	/** The conversation's compactions so far, oldest first. */
+	compactions?: readonly Compaction[];
+}): JSX.Element | null {
 	const { context, input, cached, output, cost } = usage;
+	const now = useNow(compactions.length > 0);
 	if (context === null || context.size <= 0) {
 		return null;
 	}
 	const share = Math.min(context.used / context.size, 1);
 	const percent = Math.round(share * 100);
+	const last = compactions.at(-1) ?? null;
 	return (
 		<Popover>
 			<PopoverTrigger
@@ -82,6 +102,10 @@ export function ContextMeter({ usage }: { usage: Usage }): JSX.Element | null {
 						strokeDashoffset={CIRCUMFERENCE * (1 - share)}
 						className={cn("stroke-current", share === 0 && "hidden")}
 					/>
+					{last !== null && (
+						// A dot in the ring: the context was folded at least once.
+						<circle cx="8" cy="8" r="1.75" className="fill-current" />
+					)}
 				</svg>
 			</PopoverTrigger>
 			<PopoverContent
@@ -108,6 +132,20 @@ export function ContextMeter({ usage }: { usage: Usage }): JSX.Element | null {
 					</Section>
 				)}
 				{cost !== null && <Section title="Cost">{money(cost)}</Section>}
+				{last !== null && (
+					<Section
+						title={
+							compactions.length === 1
+								? "Compacted"
+								: `Compacted ${compactions.length}×`
+						}
+						hint={last.until === null ? null : `${span(last.until, now)} ago`}
+					>
+						{last.before !== null && last.after !== null
+							? `${tokens(last.before)} → ${tokens(last.after)}`
+							: "once"}
+					</Section>
+				)}
 			</PopoverContent>
 		</Popover>
 	);

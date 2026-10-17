@@ -10,16 +10,8 @@ import type { Edit, Tool } from "../conversations";
 import { editLines } from "../diff";
 import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
-import {
-	decided,
-	files,
-	type Item,
-	resource,
-	type State,
-	span,
-	stateOf,
-	verb,
-} from "./work";
+import { decided, type Item } from "./timeline";
+import { files, resource, type State, span, stateOf, verb } from "./work";
 
 export function TimelineItem({
 	item,

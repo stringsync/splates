@@ -242,21 +242,28 @@ export function like(
 										},
 									},
 								]
-							: stretch.type === "added"
-								? stretches(stretch.text).flatMap((each): LikePart[] =>
-										each.type === "start"
-											? [{ type: "data-start", data: { start: each.start } }]
-											: each.type === "text"
-												? [{ type: "text", text: each.text }]
-												: [],
-									)
-								: at === reply
-									? replied(stretch.text, settled, {
-											task,
-											began,
-											until: message.until,
-										})
-									: [{ type: "text", text: stretch.text }],
+							: stretch.type === "compaction"
+								? [
+										{
+											type: "data-compaction",
+											data: { compaction: stretch.compaction },
+										},
+									]
+								: stretch.type === "added"
+									? stretches(stretch.text).flatMap((each): LikePart[] =>
+											each.type === "start"
+												? [{ type: "data-start", data: { start: each.start } }]
+												: each.type === "text"
+													? [{ type: "text", text: each.text }]
+													: [],
+										)
+									: at === reply
+										? replied(stretch.text, settled, {
+												task,
+												began,
+												until: message.until,
+											})
+										: [{ type: "text", text: stretch.text }],
 				),
 			),
 			...(message.stopped === undefined

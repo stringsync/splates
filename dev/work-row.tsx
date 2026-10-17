@@ -3,6 +3,7 @@ import {
 	CheckIcon,
 	ChevronRightIcon,
 	CircleIcon,
+	FoldVerticalIcon,
 	LoaderIcon,
 	ShieldIcon,
 	SquareIcon,
@@ -11,18 +12,19 @@ import {
 } from "lucide-react";
 import { createContext, type JSX, use, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
-import type { Step, Tool } from "../conversations";
+import type { Compaction, Step, Tool } from "../conversations";
 import { RECONNECT } from "../prompts";
 import { InMessage, useCardReply } from "./card-reply";
 import { CheckIn } from "./check-in";
 import { useNow } from "./hooks/use-now";
 import { ThreadAction } from "./thread-action";
+import { timeline } from "./timeline";
+import { tokens } from "./usage";
 import {
 	flagged,
 	label,
 	relative,
 	type Trees,
-	timeline,
 	type Work,
 	warning,
 	worked,
@@ -273,6 +275,50 @@ function Interrupted(): JSX.Element {
 					Reconnect
 				</ThreadAction>
 			) : null}
+		</div>
+	);
+}
+
+/**
+ * Renders a `data-compaction` part: the line where the agent folded its
+ * context into a summary, between the work before, which it now remembers
+ * only as that summary, and the work after.
+ */
+export const CompactionUI = makeAssistantDataUI<{ compaction: Compaction }>({
+	name: "compaction",
+	render: ({ data }) => <CompactionLine compaction={data.compaction} />,
+});
+
+function CompactionLine({
+	compaction,
+}: {
+	compaction: Compaction;
+}): JSX.Element {
+	const { before, after, status } = compaction;
+	return (
+		<div
+			role="note"
+			aria-label="context compacted"
+			data-slot="compaction"
+			className="my-4 flex items-center gap-3 text-muted-foreground text-xs"
+		>
+			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+			<p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+				<FoldVerticalIcon aria-hidden className="size-3.5" />
+				<span>
+					{status === "failed"
+						? "Failed to compact context"
+						: status === "in_progress"
+							? "Compacting context"
+							: "Compacted context"}
+				</span>
+				{before !== null && after !== null && (
+					<span className="tabular-nums">
+						{tokens(before)} → {tokens(after)}
+					</span>
+				)}
+			</p>
+			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
 		</div>
 	);
 }

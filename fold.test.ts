@@ -219,6 +219,67 @@ describe("fold", () => {
 		expect(into.messages[0]).toMatchObject({ at: at(0), until: at(30) });
 	});
 
+	it("folds Claude's compaction call into a part of its own, with the counts it says after it ends", () => {
+		const into = state();
+		const air = {
+			jetbrains: { air: { version: 1, contextCompaction: { version: 1 } } },
+		};
+		foldAll(into, [
+			[
+				{
+					sessionUpdate: "tool_call",
+					toolCallId: "c1",
+					title: "Compact conversation",
+					kind: "think",
+					status: "in_progress",
+					_meta: air,
+				},
+				at(1),
+			],
+			[
+				{
+					sessionUpdate: "tool_call_update",
+					toolCallId: "c1",
+					status: "completed",
+				},
+				at(75),
+			],
+			[
+				{
+					sessionUpdate: "tool_call_update",
+					toolCallId: "c1",
+					_meta: {
+						jetbrains: {
+							air: {
+								contextCompaction: {
+									version: 1,
+									trigger: "automatic",
+									preTokens: 317_025,
+									postTokens: 8_589,
+									durationMs: 74_223,
+								},
+							},
+						},
+					},
+				},
+				at(76),
+			],
+		]);
+
+		expect(into.messages[0]?.parts).toEqual([
+			{
+				type: "compaction",
+				id: "c1",
+				status: "completed",
+				trigger: "automatic",
+				before: 317_025,
+				after: 8_589,
+				at: at(1),
+				until: at(75),
+			},
+		]);
+	});
+
 	it("streams a command's output and fails it on a nonzero exit, as Codex sends them", () => {
 		const into = state();
 		fold(into, {

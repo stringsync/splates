@@ -74,8 +74,14 @@ import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
 import { UnsentContext } from "./unsent";
-import { ContextMeter } from "./usage";
-import { InterruptedUI, StoppedUI, TreesContext, WorkUI } from "./work-row";
+import { ContextMeter, compactionsIn } from "./usage";
+import {
+	CompactionUI,
+	InterruptedUI,
+	StoppedUI,
+	TreesContext,
+	WorkUI,
+} from "./work-row";
 
 /**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
@@ -328,6 +334,7 @@ function Conversation({
 											<WorkUI />
 											<EventUI />
 											<StoppedUI />
+											<CompactionUI />
 											<InterruptedUI />
 											<ArchiveOfferProvider value={offer}>
 												<Hearing value={hears(conversation)}>
@@ -362,6 +369,9 @@ function Conversation({
 																			<>
 																				<ContextMeter
 																					usage={conversation.usage}
+																					compactions={compactionsIn(
+																						conversation.messages,
+																					)}
 																				/>
 																				<SettingControls
 																					settings={settings}

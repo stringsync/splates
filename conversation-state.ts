@@ -193,7 +193,8 @@ export type Part =
 	  }
 	| ({ type: "image" } & Image)
 	| ({ type: "file" } & Attached)
-	| Tool;
+	| Tool
+	| Compaction;
 
 /** An image the person sent, kept beside the conversation's log as `name`. */
 export interface Image {
@@ -266,6 +267,25 @@ export interface Tool {
 	flags: Flag[];
 	/** How the person answered the agent asking to make it; null when it never asked. */
 	decision: Decision | null;
+}
+
+/**
+ * The agent folding its context into a summary, as Claude does at its
+ * window's limit or on `/compact`: what came before it is only remembered as
+ * that summary from then on.
+ */
+export interface Compaction {
+	type: "compaction";
+	id: string;
+	status: "in_progress" | "completed" | "failed";
+	/** Whether the agent compacted on its own, at its limit, or was told to; null until it says. */
+	trigger: "automatic" | "manual" | null;
+	/** Tokens in context before and after; null until the agent says. */
+	before: number | null;
+	after: number | null;
+	/** When it began and finished; null in a log too old to say, or until it has. */
+	at: string | null;
+	until: string | null;
 }
 
 /**

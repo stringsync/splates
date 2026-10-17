@@ -62,6 +62,7 @@ export type {
 	BackgroundState,
 	Checkpoint,
 	Command,
+	Compaction,
 	ConversationState,
 	Decision,
 	Device,
