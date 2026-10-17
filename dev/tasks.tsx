@@ -6,6 +6,7 @@ import {
 	useContext,
 	useState,
 } from "react";
+import { Duration } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -24,10 +25,12 @@ import {
 	EmptyTitle,
 } from "#dev/components/ui/empty.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { age } from "../age";
 import { questions } from "../plan";
 import type { Details } from "../show";
 import { NEW } from "./conversation-address";
 import { Dispatching, OnIt } from "./dispatching";
+import { useNow } from "./hooks/use-now";
 import { HEADING, Markdown } from "./markdown";
 import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
@@ -53,6 +56,7 @@ export function Tasks({
 }): JSX.Element {
 	const opened = tasks.find((task) => task.task === open) ?? null;
 	const dispatching = useContext(Dispatching);
+	useNow(tasks.length > 0, Duration.mins(1));
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
@@ -147,6 +151,15 @@ function TaskRows({
 						<span className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}>
 							{task.task}
 						</span>
+						{(task.createdAt !== null || task.age !== null) && (
+							<span
+								className="shrink-0 text-muted-foreground text-xs tabular-nums"
+								title="Elapsed time since this task started, including waits"
+							>
+								<span className="sr-only">Elapsed: </span>
+								{task.createdAt === null ? task.age : age(task.createdAt)}
+							</span>
+						)}
 						{/* Only marks, since the row is a button: its dialog opens them. */}
 						<OnIt task={task.task} variant="marks" />
 					</button>

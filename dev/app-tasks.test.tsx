@@ -61,10 +61,13 @@ describe("App's tasks", () => {
 		});
 
 		const parts = view.getByRole("list", { name: "parts of alpha" });
-		expect(parts.textContent).toBe("alpha-api");
+		expect(
+			within(parts).getByRole("button", { name: /alpha-api/ }),
+		).toBeTruthy();
 		expect(
 			[...view.getByRole("list", { name: "task list" }).children].map(
-				(item) => item.firstElementChild?.textContent,
+				(item) =>
+					item.firstElementChild?.querySelector(".truncate")?.textContent,
 			),
 		).toEqual(["alpha", "beta"]);
 	});
@@ -164,6 +167,7 @@ describe("App's tasks", () => {
 		expect(view.queryByRole("complementary")).toBeNull();
 	});
 
+	// scry-ignore simple-test-setup: the spent merge attempts belong only to this retry test, not shared setup
 	it("grants a task out of merge attempts another round, saying so where it was asked", async () => {
 		const spent = {
 			task: "alpha",
@@ -243,7 +247,7 @@ describe("App's tasks", () => {
 		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
 	});
 
-	it("shows only the conversations on a task in its row, not where it stands", async () => {
+	it("shows elapsed time beside a task without its plan or review", async () => {
 		const view = await testing.openTasks({
 			tasks: [
 				details({
@@ -256,7 +260,9 @@ describe("App's tasks", () => {
 		});
 
 		const row = view.getByRole("button", { name: /alpha/ });
-		expect(row.textContent).toBe("alpha");
+		expect(row.textContent).toContain("alpha");
+		expect(row.textContent).toContain("Elapsed:");
+		expect(row.textContent).not.toContain("drag a todo");
 		expect(view.queryByRole("progressbar")).toBeNull();
 	});
 
