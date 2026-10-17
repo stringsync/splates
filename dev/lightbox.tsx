@@ -31,6 +31,8 @@ export interface Shown {
 	url: string;
 	alt: string;
 	video: boolean;
+	/** Its file's name, where `url` does not end in it. */
+	name?: string;
 }
 
 /** Marks the media one lightbox steps through: the media of one document. */
@@ -311,10 +313,13 @@ export function useSendBack(): {
 }
 
 /**
- * A file name for `image`, from where it is kept: the file a `/api/file` link
- * reads, or the link's own last step.
+ * A file name for `image`: its own, else from where it is kept, the file a
+ * `/api/file` link reads, or the link's own last step.
  */
 function nameOf(image: Shown): string {
+	if (image.name !== undefined) {
+		return image.name;
+	}
 	const [link = "", query = ""] = image.url.split("?");
 	const path = new URLSearchParams(query).get("path") ?? link;
 	// Less the id arbor keeps an attached file under.

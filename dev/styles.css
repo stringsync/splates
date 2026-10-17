@@ -155,6 +155,7 @@
 @source "./background.tsx";
 @source "./terminal.tsx";
 @source "./arbor-event.tsx";
+@source "./artifact-open.tsx";
 @source "./artifacts-card.tsx";
 @source "./event-lines.tsx";
 @source "./added-line.tsx";

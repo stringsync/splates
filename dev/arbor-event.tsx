@@ -10,7 +10,7 @@ import {
 import { type JSX, type ReactNode, use, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { openArtifact } from "./artifact-open";
+import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
@@ -242,6 +242,7 @@ function NamedChip({
 	whole?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
+	const openArtifact = useOpenArtifact();
 	const opener = use(OpenerContext);
 	switch (named.kind) {
 		case "task": {

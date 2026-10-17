@@ -820,7 +820,10 @@ An artifact is a file the user will come back for after the task is gone: a
 screenshot or recording of the finished work, an HTML page, a generated
 document. It belongs to the conversation, not the task, so it outlives every
 task the conversation runs, and the `arbor dev` page lists the conversation's
-artifacts beside its thread. Keep one with `arbor artifact add <file>`, named
+artifacts beside its thread. It opens an image or a recording in its
+lightbox, an HTML page in a frame that runs its scripts but loads nothing
+else, so make a page one file with its styles, scripts and images inline,
+and offers anything else as a download. Keep one with `arbor artifact add <file>`, named
 for its basename, or `--name <name>` for another. Adding a name the
 conversation already holds makes that artifact's next version, the earlier
 ones kept until cleanup takes them, so give one thing one name and add it

@@ -17,6 +17,7 @@ import type { Report } from "../asked";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
+import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
@@ -76,9 +77,22 @@ import { InterruptedUI, StoppedUI, TreesContext, WorkUI } from "./work-row";
 /**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
  * with what the agent is asking above its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace
- * off a Mac) archives it; only Unarchive brings it back.
+ * off a Mac) archives it; only Unarchive brings it back. Its artifacts open
+ * in their viewers, from the card beside it and the lines in it alike.
  */
-export function Thread({
+export function Thread(props: Parameters<typeof Conversation>[0]): JSX.Element {
+	const { conversation } = props;
+	return (
+		<ArtifactViewer
+			conversation={conversation.id}
+			artifacts={conversation.artifacts}
+		>
+			<Conversation {...props} />
+		</ArtifactViewer>
+	);
+}
+
+function Conversation({
 	drafts,
 	conversation,
 	feed,

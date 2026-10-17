@@ -184,6 +184,109 @@ describe("App's artifacts", () => {
 		).toEqual([{ method: "DELETE", body: {} }]);
 	});
 
+	it("opens a page in a sandboxed frame that may run scripts and nothing more", async () => {
+		const { view } = await opened([
+			artifact("report.html", [
+				version(1, 10, "text/html"),
+				version(2, 10, "text/html"),
+			]),
+		]);
+
+		const card = view.getByRole("region", { name: "artifacts" });
+		await act(async () =>
+			fireEvent.click(
+				within(card).getByRole("button", { name: "report.html v2" }),
+			),
+		);
+		const viewer = await waitFor(() =>
+			view.getByRole("dialog", { name: "report.html v2" }),
+		);
+		const frame = within(viewer).getByTitle("report.html v2");
+		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
+		expect(frame.getAttribute("src")).toContain(
+			"/api/conversations/c1/artifacts/report.html/2",
+		);
+		expect(followed).toEqual([]);
+		await act(async () =>
+			fireEvent.click(within(viewer).getByRole("button", { name: "close" })),
+		);
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "report.html v2" })).toBeNull(),
+		);
+	});
+
+	it("opens an image or a recording in the lightbox among the others beside it, and downloads anything else", async () => {
+		const { view } = await opened([
+			artifact("a.png", [version(1, 10, "image/png")]),
+			artifact("notes.pdf", [version(1, 10, "application/pdf")]),
+			artifact("run.mp4", [version(1, 10, "video/mp4")]),
+			artifact("page.html", [version(1, 10, "text/html")]),
+			{
+				...artifact("old.png", [version(1, 10, "image/png")]),
+				removedAt: second(9),
+			},
+		]);
+
+		const card = view.getByRole("region", { name: "artifacts" });
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "run.mp4" })),
+		);
+		const lightbox = await waitFor(() =>
+			view.getByRole("dialog", { name: "run.mp4" }),
+		);
+		expect(lightbox.querySelector("video")?.getAttribute("src")).toContain(
+			"/artifacts/run.mp4/1",
+		);
+		// The listed images and recordings, the removed one apart.
+		expect(within(lightbox).getByText("2 of 2")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(lightbox).getByRole("button", { name: "next" })),
+		);
+		await waitFor(() => view.getByRole("dialog", { name: "a.png" }));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "close" })),
+		);
+
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "notes.pdf" })),
+		);
+		expect(followed).toEqual([
+			{
+				href: expect.stringContaining("/artifacts/notes.pdf/1"),
+				download: "notes.pdf",
+			},
+		]);
+
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Removed 1" })),
+		);
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "old.png v1" })),
+		);
+		const removed = await waitFor(() =>
+			view.getByRole("dialog", { name: "old.png v1" }),
+		);
+		expect(within(removed).queryByText(/of \d/)).toBeNull();
+	});
+
+	it("opens an artifact's chip in a line in its viewer", async () => {
+		const { thread } = await opened(
+			[artifact("shot.png", [version(1, 10, "image/png")])],
+			[added(1, "shot.png", 1)],
+		);
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "shot.png" })),
+		);
+		await waitFor(() =>
+			within(document.body).getByRole("dialog", { name: "shot.png" }),
+		);
+		expect(followed).toEqual([]);
+	});
+
 	it("shows no card while it keeps no artifacts", async () => {
 		const { view } = await opened([]);
 		expect(view.queryByRole("region", { name: "artifacts" })).toBeNull();
@@ -217,12 +320,16 @@ function artifact(name: string, versions: ArtifactVersion[]): Artifact {
 	};
 }
 
-/** Version `number` of an artifact, `bytes` long, its bytes kept. */
-function version(number: number, bytes = 100): ArtifactVersion {
+/** Version `number` of an artifact, `bytes` long of `mimeType`, its bytes kept. */
+function version(
+	number: number,
+	bytes = 100,
+	mimeType = "application/octet-stream",
+): ArtifactVersion {
 	return {
 		version: number,
 		file: `id${number}`,
-		mimeType: "application/octet-stream",
+		mimeType,
 		bytes,
 		addedAt: second(number),
 		gone: null,

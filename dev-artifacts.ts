@@ -1,3 +1,4 @@
+import { viewerOf } from "./artifact-viewers";
 import type { Conversation } from "./conversation";
 import { fileResponse, refuse } from "./dev-http";
 import { fail } from "./exit";
@@ -44,6 +45,14 @@ export async function artifactResponse(
 		"content-security-policy",
 		artifactPolicy(read.mimeType),
 	);
+	// A page that navigates itself away says nothing of where it was kept.
+	response.headers.set("referrer-policy", "no-referrer");
+	if (viewerOf(read.mimeType) === null) {
+		response.headers.set(
+			"content-disposition",
+			`attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+		);
+	}
 	return response;
 }
 

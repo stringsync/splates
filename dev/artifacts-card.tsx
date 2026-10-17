@@ -3,7 +3,7 @@ import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import type { Artifact, ArtifactGone, ArtifactVersion } from "../artifacts";
-import { openArtifact } from "./artifact-open";
+import { labelOf, shelves, useOpenArtifact } from "./artifact-open";
 import { deleteArtifactVersion } from "./conversation-api";
 import { FileIcon } from "./file-chip";
 
@@ -26,23 +26,7 @@ export function ArtifactsCard({
 	if (artifacts.length === 0) {
 		return null;
 	}
-	const listed = artifacts.flatMap((artifact) => {
-		const version = artifact.versions.find(
-			(each) => each.version === artifact.current,
-		);
-		return artifact.removedAt === null && version !== undefined
-			? [{ name: artifact.name, version }]
-			: [];
-	});
-	const hidden = artifacts.flatMap((artifact) =>
-		artifact.versions
-			.filter(
-				(each) =>
-					artifact.removedAt !== null || each.version !== artifact.current,
-			)
-			.reverse()
-			.map((version) => ({ name: artifact.name, version })),
-	);
+	const { listed, hidden } = shelves(artifacts);
 	return (
 		<section
 			aria-label="artifacts"
@@ -122,8 +106,9 @@ function ArtifactRow({
 	numbered?: boolean;
 	control?: ReactNode;
 }): JSX.Element {
+	const open = useOpenArtifact();
 	const tag = numbered || version.version > 1 ? `v${version.version}` : null;
-	const label = tag === null ? name : `${name} ${tag}`;
+	const label = labelOf(name, version.version, numbered);
 	const row = "flex min-h-8 min-w-0 flex-1 items-center gap-2 px-3 text-sm";
 	const inside = (
 		<>
@@ -154,7 +139,7 @@ function ArtifactRow({
 					type="button"
 					aria-label={label}
 					title={`Open ${label}`}
-					onClick={() => openArtifact(conversation, name, version.version)}
+					onClick={() => open(conversation, name, version.version)}
 					className={cn(
 						row,
 						"text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
