@@ -59,7 +59,6 @@ export function Inbox({
 	drafts,
 	terminals,
 	tasks,
-	project,
 	status,
 	onMenu,
 	onOpen,
@@ -69,9 +68,7 @@ export function Inbox({
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
-	/** The slot mark, heading the inbox. */
-	project: ReactNode;
-	/** Whether the server is offline or outdated, said beside the slot mark. */
+	/** Whether the server is offline or outdated, shown in the header. */
 	status: ReactNode;
 	onMenu: () => void;
 	onOpen: (id: string) => void;
@@ -118,12 +115,7 @@ export function Inbox({
 						<MenuIcon />
 					</BarButton>
 				}
-				title={
-					<div className="flex min-w-0 items-center gap-2">
-						{project}
-						{status}
-					</div>
-				}
+				title={status}
 				actions={[
 					{
 						label: "New conversation",

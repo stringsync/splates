@@ -760,13 +760,15 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("keeps the project switcher in the drawer alone, with the slot mark in mobile headers", async () => {
+	it("keeps branding and the project switcher in the drawer alone", async () => {
 		const view = await testing.openConversations([], null);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		expect(
 			within(inbox).queryByRole("button", { name: "Switch project" }),
 		).toBeNull();
-		expect(within(inbox).getByRole("img", { name: "arbor" })).toBeTruthy();
+		expect(
+			within(inbox).queryByRole("img", { name: /arbor|slot / }),
+		).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
@@ -777,6 +779,7 @@ describe("App on a phone", () => {
 		expect(
 			within(drawer).getByRole("button", { name: "Switch project" }),
 		).toBeTruthy();
+		expect(within(drawer).getByRole("img", { name: "arbor" })).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);
@@ -792,8 +795,8 @@ describe("App on a phone", () => {
 				within(bar).queryByRole("button", { name: "Switch project" }),
 			).toBeNull(),
 		);
-		expect(within(bar).getByRole("img", { name: "arbor" })).toBeTruthy();
-		expect(within(bar).queryByRole("heading", { name: "Stats" })).toBeNull();
+		expect(within(bar).queryByRole("img", { name: /arbor|slot / })).toBeNull();
+		expect(within(bar).getByRole("heading", { name: "Stats" })).toBeTruthy();
 	});
 
 	it("keeps its drawer's header to one line, leaving out the project's path", async () => {

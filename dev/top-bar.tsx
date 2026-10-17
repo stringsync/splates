@@ -41,11 +41,6 @@ export interface BarFrame {
 	end?: ReactNode;
 	/** Marks a bar's way back, as with how many agents wait on you. */
 	badge?: ReactNode;
-	/**
-	 * Heads every bar with no way back in place of its title, as the phone's
-	 * slot mark atop each page its drawer goes to.
-	 */
-	project?: ReactNode;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -86,8 +81,6 @@ export function TopBar({
 		menu !== null || kept.length > 0,
 	);
 	const folded = [...shown.slice(fit), ...kept];
-	// A bar with a way back heads a page within one, so keeps its own title.
-	const heading = (!leading && frame?.project) || title;
 	const row = (
 		<>
 			{leading && frame?.badge ? (
@@ -101,12 +94,12 @@ export function TopBar({
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
 					<div ref={titled} className="flex min-w-0 items-center">
-						{typeof heading === "string" ? (
-							<h2 title={heading} className={cn(TITLE, "truncate")}>
-								{heading}
+						{typeof title === "string" ? (
+							<h2 title={title} className={cn(TITLE, "truncate")}>
+								{title}
 							</h2>
 						) : (
-							heading
+							title
 						)}
 					</div>
 					{/* Whole up to a long branch, so its icons never spill over
