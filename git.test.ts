@@ -11,6 +11,21 @@ describe("Git", () => {
 
 	afterEach(() => env.disposeAsync());
 
+	// scry-ignore simple-test-setup: only this case changes stat data and compares raw index bytes; the shared repo is already in beforeEach.
+	it("does not refresh the index during background status reads", async () => {
+		const { readFile, utimes } = await import("node:fs/promises");
+		const index = join(env.root, ".git", "index");
+		const before = await readFile(index);
+		// Change only stat data: ordinary status would rewrite the cached entry.
+		await utimes(join(env.root, "README.md"), new Date(0), new Date(0));
+		expect(await env.git.porcelain(env.root)).toEqual([]);
+		expect(await readFile(index)).toEqual(before);
+		await env.git.run(env.root, "status", "--porcelain=v2");
+		expect(await readFile(index)).toEqual(before);
+		await env.gitCli(env.root, "status", "--porcelain");
+		expect(await readFile(index)).not.toEqual(before);
+	});
+
 	it("names the branch checked out", async () => {
 		expect(await env.git.currentBranch(env.root)).toBe("main");
 	});
@@ -31,6 +46,7 @@ describe("Git", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: this diverged branch and its uncommitted edits belong only to the diff case.
 	it("diffs a branch against where it left trunk, with its worktree's uncommitted edits", async () => {
 		await env.commit(env.root, "a.txt", "one\ntwo\n", "a");
 		const tree = join(dirname(env.root), "feature");

@@ -143,13 +143,19 @@ export async function merge(
 		const inProgress = (await git.interruptedOps(worktree.path)).length > 0;
 		const output = tail(`${rebase.stdout}\n${rebase.stderr}`);
 		await lock.release();
-		await bump(worktree, "conflict", {
+		await refuseIndexLock(
+			worktree,
+			`${rebase.stdout}\n${rebase.stderr}`,
+			paths,
+		);
+		const reason = paths.length > 0 ? "conflict" : "merge_failed";
+		await bump(worktree, reason, {
 			files: paths,
 			...(paths.length === 0 && { output }),
 		});
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		fail(
-			"conflict",
+			reason,
 			paths.length > 0
 				? [
 						`rebase onto ${base} conflicted in ${paths.length} file(s):`,
@@ -266,6 +272,7 @@ export async function merge(
 			: await git.mergeFfOnly(landing, service.branchFor(task));
 	if (merged.code !== 0) {
 		await lock.release();
+		await refuseIndexLock(worktree, `${merged.stdout}\n${merged.stderr}`);
 		await bump(worktree, "merge_failed", {
 			error: (merged.stderr || merged.stdout).trim(),
 		});
@@ -346,6 +353,32 @@ export async function merge(
 		);
 	}
 	log.info(lines.join("\n"));
+}
+
+/** Git owns its lock: neither its age nor an absent open fd proves it stale. */
+async function refuseIndexLock(
+	worktree: Worktree,
+	output: string,
+	conflicts: string[] = [],
+): Promise<void> {
+	if (
+		conflicts.length > 0 ||
+		!/Unable to create ['"].*[/\\]index\.lock['"]: File exists/i.test(output)
+	) {
+		return;
+	}
+	await worktree.take({ status: "working" });
+	fail(
+		"blocked",
+		[
+			"Git could not acquire index.lock; this is lock contention, not a content conflict. No merge attempt was spent.",
+			indent(tail(output)),
+			"Wait for the Git operation using this worktree to finish, then run `arbor merge` again. Arbor has left the lock untouched.",
+			"If Git left a rebase in progress, finish it after the lock is released (`git rebase --continue`) before merging again.",
+			"If it persists, investigate its owner before any manual recovery; never delete a lock held by a live operation.",
+		].join("\n"),
+		{ task: worktree.task },
+	);
 }
 
 async function bump(

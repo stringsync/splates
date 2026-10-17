@@ -121,6 +121,11 @@ which remembers none of it.
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else.
 
+   An existing Git `index.lock` stops merge as `blocked` without spending an
+   attempt. Wait for its owner to finish and merge again; never delete a lock
+   held by a live operation. A failed rebase with no unmerged paths is
+   `merge_failed`, not a content `conflict`.
+
    Each `conflict`, `tests_failed` or `merge_failed` spends one of the
    task's merge attempts, so write under `## Notes` what each one failed
    on. When `merge` stops on `budget_exhausted`, escalate (see Escalation)

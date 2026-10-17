@@ -45,6 +45,9 @@ export class Git {
 	async run(cwd: string, ...args: string[]): Promise<GitResult> {
 		const { exitCode, stdout, stderr } = await this.ps.spawnCapture([
 			"git",
+			// Background reads must not refresh the index while a merge writes it.
+			// Required locks for writes are still taken by Git.
+			"--no-optional-locks",
 			"-C",
 			cwd,
 			...args,
@@ -196,6 +199,7 @@ export class Git {
 		const raw = (cwd: string, ...args: string[]) =>
 			this.ps.spawnCapture([
 				"git",
+				"--no-optional-locks",
 				"-C",
 				cwd,
 				"diff",

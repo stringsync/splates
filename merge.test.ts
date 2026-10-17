@@ -160,6 +160,47 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it.each(["task", "base"])(
+		"preserves a %s index lock without spending an attempt",
+		async (where) => {
+			await using deps = await Testing.open();
+			await add(deps, "alpha");
+			const worktree = (await deps.service.find("alpha")).path;
+			await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+			await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
+			await deps.finish(worktree);
+			const trunkBefore = await deps.git.head(deps.root);
+			const dir = await deps.gitCli(
+				where === "task" ? worktree : deps.root,
+				"rev-parse",
+				"--absolute-git-dir",
+			);
+			const path = join(dir, "index.lock");
+			// Keep the lock open as a live writer would. Only this owner removes it.
+			const { open, unlink } = await import("node:fs/promises");
+			const owner = await open(path, "wx");
+			try {
+				await owner.writeFile("owned by the test");
+				const facts = {};
+				await expect(merge(deps, worktree, facts)).toBail("blocked", {
+					message: "lock contention",
+				});
+				expect(await deps.fs.read(path)).toBe("owned by the test");
+				const task = await deps.service.find("alpha");
+				expect(task.mergeAttempts).toBe(0);
+				expect(task.status).toBe("working");
+				expect(task.state?.gateFailures ?? []).toEqual([]);
+				expect(await deps.git.head(deps.root)).toBe(trunkBefore);
+				expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+			} finally {
+				await owner.close();
+				await unlink(path);
+			}
+			await merge(deps, worktree);
+			expect((await deps.service.find("alpha")).status).toBe("removed");
+		},
+	);
+
 	it("says why a rebase failed that left no file in conflict", async () => {
 		await using deps = await Testing.open();
 
@@ -179,7 +220,7 @@ describe.concurrent("merge", () => {
 		await Bun.spawn(["chmod", "+x", join(hooks, "pre-rebase")]).exited;
 
 		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("conflict", {
+		await expect(merge(deps, worktree)).toBail("merge_failed", {
 			message: "no file in conflict",
 		});
 		expect(
