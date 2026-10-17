@@ -241,7 +241,7 @@ existing conversations and native authentication remain.
 #### Advanced manual reference
 
 Manual roster editing remains available for custom launches; use the supported
-V2 recipe and inspection commands in [the setup contracts](design/opencode-acp.md#374-readiness-and-completion).
+V2 recipe and inspection commands in [the setup contracts](../../designs/opencode-acp.md#374-readiness-and-completion).
 A plain `opencode acp` entry or custom command does not establish wizard readiness.
 Custom commands are never replaced or removed automatically. Avoid the older V1
 `small_model`/provider recipe: it does not pin every V2 auxiliary/custom agent.
@@ -271,7 +271,7 @@ fixtures, not a recorded OpenCode executable. `opencode` was absent from the
 implementation environment's PATH, so no executable version or live login was
 verified and no minimum supported version is claimed. Production acceptance
 requires recording a version and sanitized handshake separately; no paid smoke
-test was run. See [the experiment plan](design/opencode-acp.md) for opt-in setup,
+test was run. See [the experiment plan](../../designs/opencode-acp.md) for opt-in setup,
 provider restrictions, and the separate paid-overflow control. Fixture checks
 never establish account entitlement or remaining quota.
 
@@ -285,7 +285,7 @@ charges; it is not a subscription invoice. Quota and mixed-model remaining
 allowance stay unknown: consult OpenCode Console and keep **Use balance** disabled.
 Legacy task cost/token aggregates exclude these differently scoped observations.
 
-See [the manual comparison recipe](design/opencode-acp.md#354-implementation-and-manual-comparison-record)
+See [the manual comparison recipe](../../designs/opencode-acp.md#354-implementation-and-manual-comparison-record)
 for identical baseline files, a results worksheet, provenance and the authorization
 gate. Fixtures need no production login. Live executable compatibility remains
 unverified and no real comparison was run. `splates dev fix --code-only` disables
@@ -305,5 +305,5 @@ Installation/connection is the first part of this wizard. Model selection and
 configuration (#373), then final conversation readiness (#374), remain separate
 lane steps. Until those land, this step does not add an agent roster entry. A
 stored credential and ACP handshake do not verify subscription access, billing,
-model availability or inference. See the [setup contract](design/opencode-acp.md#372-setup-wizard-contract-lane-53-step-1)
+model availability or inference. See the [setup contract](../../designs/opencode-acp.md#372-setup-wizard-contract-lane-53-step-1)
 for exact files and supported interfaces.

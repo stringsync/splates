@@ -139,7 +139,7 @@ Depends on #352 and #353 merging. Exact locations:
 | `packages/splates/agent-connection.ts`, `conversation-turns.ts`, `conversation-log.ts`, `conversation-state.ts` | Keep requested and confirmed full model IDs, turn timestamps, token provenance/availability and usage scope. Persist and replay without counting twice; old logs remain readable. |
 | `packages/splates/fold.ts`, `fold.test.ts`, `tool-calls.ts`, `limits.ts`, `limits.test.ts`, `conversation-log.test.ts` (new if needed) | Normalize only supported usage. Distinguish per-turn tokens from cumulative session cost. Recognize child-session metadata before folding context/cost. Test duplicate updates, load replay, resume, missing fields, model switches, and child exclusion. Keep Claude's process-reset cost handling intact. |
 | `packages/splates/dev/usage.tsx`, `packages/splates/dev/usage.test.tsx` (new), `conversation-settings.test.ts`, `conversations-limits.test.ts` | Label unknown metrics as unknown, show reported cost separately from actual additional charges, display confirmed provider/model and measured latency. Test quota absence and limit/retry errors. Link to Console when no authoritative quota is available. |
-| `packages/splates/design/opencode-acp.md`, `packages/splates/README.md` | Record reproducible comparison inputs/results and limits verification date; never market token estimates as remaining quota. |
+| `designs/opencode-acp.md`, `packages/splates/README.md` | Record reproducible comparison inputs/results and limits verification date; never market token estimates as remaining quota. |
 
 Current usage starts token counters at zero and carries cost when an agent's
 counter decreases. That is not sufficient evidence of zero usage, nor proof of
