@@ -237,6 +237,24 @@ That makes the log, the frame numbering and the worker protocol formats a
 restart reads across versions: a change to any of them has to stay readable
 by the next run, or the restart that deploys it loses the agents mid-turn.
 
+Each is stamped, so a restart that cannot read one declines to resume rather
+than resuming it wrongly:
+
+- **The conversation log** (the `launched`, `request` and `ask` entries and
+  every entry's `seq`) and **the frame numbering** of `AgentStream` carry
+  `LOG_FORMAT` (`conversation-log.ts`), stamped on `launched`; a missing
+  stamp is format 1. `ConversationLog.replay` stops a live log of another
+  format with an error saying so, and the agent's process is let go.
+- **The worker protocol's channel seqs and `held`** carry `WorkerProtocol.version`,
+  which `coordinator.json` records as `protocol`. `WorkerSession.takeBack`
+  drops the channels it was to take back when that major is not the
+  running one's.
+
+To bump one, change the format and raise its number in the same change: the
+major of `WorkerProtocol.version` (a minor negotiates by capability and
+never touches channels), or `LOG_FORMAT`. The restart that deploys it then
+ends the agents mid-turn once, instead of misreading them.
+
 ## Sizing
 
 Measured 2026-10-16 on an M4 Max (16 cores, 64 GB) with ~8 live sessions;

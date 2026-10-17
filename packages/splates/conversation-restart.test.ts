@@ -119,6 +119,19 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		return read;
 	};
 
+	/** Starts a conversation idle on the worker and rewrites its log as stamped by `format`. */
+	const stampedFormat = async (format: number) => {
+		const started = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await until(started, "idle");
+		await started.saved();
+		const path = `${DIR}/${started.state.id}.jsonl`;
+		const text = await fs.read(path);
+		await fs.write(path, text.replace('"format":1', `"format":${format}`));
+	};
+
 	/** Each line of conversation `id`'s log. */
 	const logged = async (id: string): Promise<Entry[]> =>
 		(await fs.read(`${DIR}/${id}.jsonl`))
@@ -230,6 +243,17 @@ describe("A conversation on a worker across a coordinator restart", () => {
 
 		expect(words(after as Conversation)).toEqual(["two", "Hi. Bye."]);
 		expect(agent.launched).toHaveLength(1);
+	});
+
+	it("stops a conversation whose log is of another format, rather than resuming it", async () => {
+		await stampedFormat(0);
+
+		const [after] = await restart();
+		await eventually(() => after?.state.status === "failed");
+
+		expect(after?.state.error).toContain("format 0");
+		expect(agent.launched).toHaveLength(1);
+		expect(agent.prompts).toHaveLength(0);
 	});
 
 	it("stops a conversation whose process the worker no longer holds, as one idled out", async () => {

@@ -21,7 +21,7 @@ import { agentError } from "./agent-errors";
 import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
 import { AgentStream } from "./agent-stream";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
-import type { Live } from "./conversation-log";
+import { type Live, LOG_FORMAT } from "./conversation-log";
 import { messageOf, said } from "./conversation-messages";
 import type { Answer, Asked, Decision, Setting } from "./conversation-state";
 import { fail } from "./exit";
@@ -366,6 +366,7 @@ export class AgentConnection {
 					steers: this.steering,
 					sees: this.seeing,
 					follows: this.follows,
+					format: LOG_FORMAT,
 				});
 			}
 			host.set({ status: "idle" });

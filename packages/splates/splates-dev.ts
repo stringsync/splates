@@ -170,7 +170,10 @@ export async function serveDev(
 		`${splatesHome(ctx.ps)}/coordinator.json`,
 		ctx.fs,
 	);
-	const workers = new DevWorkers(ctx.log, { session: coordinator.session });
+	const workers = new DevWorkers(ctx.log, {
+		session: coordinator.session,
+		protocol: coordinator.protocol,
+	});
 	const worker = workers.local;
 	const server = await dev(
 		{ ...ctx, projects },

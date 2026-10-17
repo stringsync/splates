@@ -48,6 +48,8 @@ export interface WorkerSessionOptions {
 	 * channel; new by default.
 	 */
 	id?: string;
+	/** The protocol the session it resumes spoke; of another major, none of its channels are taken back. */
+	resumedProtocol?: string;
 	capabilities?: string[];
 	/** Unacked bytes kept for replay before writes return `false`. */
 	bufferBytes?: number;
@@ -117,6 +119,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private detached = false;
 	/** Made with an id, so the other end may hold channels of the session it resumes. */
 	private readonly resumed: boolean;
+	private readonly priorFormat: boolean;
 	/** The other end's session at the last handshake; null before the first. */
 	private peer: string | null = null;
 
@@ -126,6 +129,10 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	) {
 		this.id = opts.id ?? crypto.randomUUID();
 		this.resumed = opts.id !== undefined;
+		this.priorFormat =
+			opts.resumedProtocol !== undefined &&
+			opts.resumedProtocol.split(".")[0] !==
+				WorkerProtocol.version.split(".")[0];
 		this.capabilities = opts.capabilities ?? [];
 		this.replay = new WorkerReplay(opts.bufferBytes ?? 8 * 1024 * 1024);
 		this.heartbeat = opts.heartbeat ?? Duration.secs(10);
@@ -324,7 +331,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		const holds = new Set(held.map(([channel]) => channel));
 		for (const id of this.taken) {
 			const channel = this.channels.get(id);
-			if (channel !== undefined && !holds.has(id)) {
+			if (channel !== undefined && (this.priorFormat || !holds.has(id))) {
 				for (const state of [this.channels, this.received, this.held]) {
 					state.delete(id);
 				}

@@ -27,6 +27,11 @@ import type { Flag } from "./watch";
 /** How often a live conversation's log is saved while the agent streams. */
 const SAVE_EVERY = Duration.ms(500);
 
+// Raise it with any change to the entries, their `seq`s or the frame
+// numbering that a log of the last format would be misread by.
+/** The format `ConversationLog` writes; a live log of another is stopped when read, not resumed. */
+export const LOG_FORMAT = 1;
+
 /** What a `ConversationLog` says of its saves. */
 export interface ConversationLogEvents extends Record<string, unknown> {
 	/** A save reached the file: `savedThrough` may have moved. */
@@ -250,6 +255,16 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			await this.stopped(replayed);
 			return replayed;
 		}
+		// Frame seqs and the entries replayed above are read by this version's
+		// rules only; another's would resume wrongly, so let the process go.
+		const format = launched.format ?? 1;
+		if (format !== LOG_FORMAT) {
+			await this.stopped(
+				replayed,
+				`the log is format ${format} and this version reads format ${LOG_FORMAT}: the agent was not resumed`,
+			);
+			return replayed;
+		}
 		replayed.live = {
 			handle: launched.handle,
 			held: seq,
@@ -272,7 +287,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	 * short, its commands ended, its question unanswered, and, for one read
 	 * back live, an `end` so the next read finds it stopped too.
 	 */
-	async stopped(replayed: Replayed): Promise<void> {
+	async stopped(
+		replayed: Replayed,
+		error: string | null = null,
+	): Promise<void> {
 		const { state } = replayed;
 		const live = replayed.live !== null;
 		// Its process died mid-turn, as when `splates server` was killed: kept, so
@@ -288,7 +306,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			finishObservation(state, null);
 		}
 		if (live) {
-			this.write({ kind: "end", error: null });
+			this.write({ kind: "end", error });
 			if (state.ask !== null) {
 				this.write({ kind: "ask", ask: null });
 			}
@@ -298,6 +316,9 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		}
 		replayed.live = null;
 		replayed.running = false;
+		if (error !== null) {
+			state.error = error;
+		}
 		state.status = state.error === null ? "stopped" : "failed";
 		state.ask = null;
 		// Its commands ended with its process, though a crash said nothing.
@@ -494,6 +515,8 @@ type Said =
 			sees: boolean;
 			/** Whether the agent says on its session list when a turn ends; missing from older logs. */
 			follows?: boolean;
+			/** The `LOG_FORMAT` that wrote the log; missing from logs before it was stamped, which are format 1. */
+			format?: number;
 	  }
 	/** A request this side sent the agent, by the id it went out with. */
 	| { kind: "request"; id: number; method: string }

@@ -1,10 +1,13 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { KeptShell } from "./dev-shell";
+import { WorkerProtocol } from "./worker-protocol";
 
 /** What `coordinator.json` holds. */
 const Kept = z.object({
 	session: z.string().min(1),
+	/** The worker protocol the run spoke; missing from files before it was stamped, which spoke 1.0. */
+	protocol: z.string().default("1.0"),
 	roots: z.array(z.string()).default([]),
 	terminals: z
 		.array(
@@ -30,6 +33,8 @@ export class CoordinatorState {
 		private readonly fs: Fs,
 		/** What this coordinator's worker sessions answer as, the same across restarts. */
 		readonly session: string,
+		/** The worker protocol the last run spoke; this run's on a fresh start. */
+		readonly protocol: string,
 		/** The projects with agents on the worker at the last restart; none after a fresh start. */
 		readonly roots: string[],
 		/** The pages' shells on the worker at the last restart, by key. */
@@ -49,6 +54,7 @@ export class CoordinatorState {
 					path,
 					fs,
 					kept.session,
+					kept.protocol,
 					kept.roots,
 					kept.terminals,
 				);
@@ -56,7 +62,14 @@ export class CoordinatorState {
 				// Unreadable: a new session, which ends what the worker held.
 			}
 		}
-		const state = new CoordinatorState(path, fs, crypto.randomUUID(), [], []);
+		const state = new CoordinatorState(
+			path,
+			fs,
+			crypto.randomUUID(),
+			WorkerProtocol.version,
+			[],
+			[],
+		);
 		await state.write([], []);
 		return state;
 	}
@@ -66,7 +79,12 @@ export class CoordinatorState {
 		await this.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
 		await this.fs.write(
 			this.path,
-			`${JSON.stringify({ session: this.session, roots, terminals })}\n`,
+			`${JSON.stringify({
+				session: this.session,
+				protocol: WorkerProtocol.version,
+				roots,
+				terminals,
+			})}\n`,
 		);
 	}
 }

@@ -36,11 +36,12 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 	});
 
 	/** The coordinator dies mid-stream, and one answering as it comes up. */
-	const restarted = () => {
+	const restarted = (resumedProtocol?: string) => {
 		coordinator.detach();
 		pair.drop();
 		return new WorkerSession("coordinator", {
 			id: "coordinator-1",
+			...(resumedProtocol === undefined ? {} : { resumedProtocol }),
 			acks: "manual",
 			timer,
 			clock,
@@ -160,6 +161,14 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 
 		expect(settled).toBe(true);
 		await expect(coordinator.acked()).resolves.toBeUndefined();
+	});
+
+	it("takes no channel back from a session of another protocol major", async () => {
+		const next = restarted("0.9");
+		next.resume(2, "pty", null, null);
+		await relink(next);
+
+		expect(opened.map(({ closed }) => closed)).toEqual([true]);
 	});
 });
 

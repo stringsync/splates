@@ -20,6 +20,8 @@ export interface DevWorkersOptions {
 	 * back; new by default, which ends what the worker held.
 	 */
 	session?: string;
+	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
+	protocol?: string;
 }
 
 /**
@@ -38,13 +40,14 @@ export class DevWorkers implements AsyncResource {
 
 	constructor(
 		private readonly log: Logger,
-		{ session }: DevWorkersOptions = {},
+		{ session, protocol }: DevWorkersOptions = {},
 	) {
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
 			session: {
 				...(session === undefined ? {} : { id: session }),
+				...(protocol === undefined ? {} : { resumedProtocol: protocol }),
 				acks: "manual",
 			},
 		});
