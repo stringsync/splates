@@ -296,7 +296,9 @@ describe("App's terminal", () => {
 			),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("menuitem", { name: /Archive/ })),
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: /Archive/ })),
+			),
 		);
 		await act(async () =>
 			fireEvent.click(
