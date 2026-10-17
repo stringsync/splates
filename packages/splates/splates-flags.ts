@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { SYSTEM_STORES } from "./creds";
+import { pickEffort } from "./effort";
 import { fail } from "./exit";
+import { Offered } from "./offered";
 import type { Repository } from "./repository";
 import {
 	type AgentPick,
@@ -18,28 +20,71 @@ import type { SplatesDeps } from "./splates";
 export const position = z.coerce.number().int().positive().optional();
 
 /**
- * The agent `--agent` and `--model` name off the roster: undefined when
- * neither is given, null for `--agent none`.
+ * The agent `--agent`, `--model` and `--effort` name off the roster:
+ * undefined when none is given, null for `--agent none`.
  */
 export async function assigneeIn(
 	deps: SplatesDeps,
 	agent: string,
 	model: string,
+	effort: string,
 ): Promise<AgentPick | null | undefined> {
 	if (agent === "") {
-		if (model !== "") {
-			fail("usage", "--model goes with --agent", { model });
+		if (model !== "" || effort !== "") {
+			fail("usage", "--model and --effort go with --agent", {
+				model,
+				effort,
+			});
 		}
 		return undefined;
 	}
 	if (agent === "none") {
 		return null;
 	}
-	return pickAgent(
-		await seeded(rosterOf(deps)),
+	return pickIn(deps, await seeded(rosterOf(deps)), agent, model, effort);
+}
+
+/**
+ * `agent` on `model` off `agents`, at the thinking level `effort` names
+ * among those it offers, each left out when empty.
+ */
+export async function pickIn(
+	deps: SplatesDeps,
+	agents: RosterAgent[],
+	agent: string,
+	model: string,
+	effort: string,
+	data: Record<string, unknown> = {},
+): Promise<AgentPick> {
+	const picked = pickAgent(
+		agents,
 		agent,
 		model === "" ? undefined : model,
+		data,
 	);
+	return { ...picked, ...(await effortIn(deps, picked.agent, effort, data)) };
+}
+
+/**
+ * `{ effort }` for the thinking level `effort` names among those `agent`
+ * offered when last started, or nothing when it is empty.
+ */
+export async function effortIn(
+	deps: SplatesDeps,
+	agent: string,
+	effort: string,
+	data: Record<string, unknown> = {},
+): Promise<{ effort?: string }> {
+	if (effort === "") {
+		return {};
+	}
+	const offered = (await offeredOf(deps).all())[agent];
+	return { effort: pickEffort(offered, agent, effort, data) };
+}
+
+/** The settings each agent offered when last started, from any project. */
+export function offeredOf({ ps, fs }: SplatesDeps): Offered {
+	return new Offered(`${splatesHome(ps)}/offered.json`, { fs });
 }
 
 /** The user's roster, beside the project registry. */

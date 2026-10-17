@@ -1,4 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Setting } from "./conversation-state";
+import { effortsOf } from "./effort";
 import { type Roster, traitsOf } from "./roster";
 import { table } from "./table";
 
@@ -8,21 +10,33 @@ export interface AgentsOptions {
 }
 
 /**
- * The roster: each agent, how it starts, and its models with what each is
- * good at and costs, for an orchestrator choosing whom to delegate to. Writes
- * the defaults first when there is none, and says where, so they can be edited.
+ * The roster: each agent, how it starts, its models with what each is good
+ * at and costs, and the thinking levels it offered when last started, for an
+ * orchestrator choosing whom to delegate to. Writes the defaults first when
+ * there is none, and says where, so they can be edited.
  */
 export async function agents(
-	{ roster, log }: { roster: Roster; log: Logger },
+	{
+		roster,
+		offered,
+		log,
+	}: {
+		roster: Roster;
+		/** What each agent's sessions last offered, by its id. */
+		offered: Record<string, Setting[]>;
+		log: Logger;
+	},
 	{ json = false }: AgentsOptions = {},
 ): Promise<void> {
 	const seeded = await roster.seed();
 	const found = await roster.agents();
+	const efforts = (agent: string) => effortsOf(offered[agent] ?? []);
 	if (json) {
 		log.info(
 			JSON.stringify(
 				found.map((agent) => ({
 					...agent,
+					efforts: efforts(agent.id),
 					models: agent.models.map((model) => ({
 						...model,
 						...traitsOf(found, { agent: agent.id, model: model.id }),
@@ -62,6 +76,9 @@ export async function agents(
 								.split("\n")
 								.map((line) => `  ${line}`)
 								.join("\n"),
+					...(efforts(agent.id).length === 0
+						? []
+						: [`  ${color.dim("THINKING")}  ${efforts(agent.id).join(", ")}`]),
 				].join("\n"),
 			)
 			.join("\n\n"),

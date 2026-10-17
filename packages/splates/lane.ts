@@ -188,7 +188,7 @@ function handTo({ assignee }: TodoState): string {
 	if (assignee === undefined) {
 		return "";
 	}
-	return ` --agent ${assignee.agent}${assignee.model === undefined ? "" : ` --model ${assignee.model}`}`;
+	return ` --agent ${assignee.agent}${assignee.model === undefined ? "" : ` --model ${assignee.model}`}${assignee.effort === undefined ? "" : ` --effort ${assignee.effort}`}`;
 }
 
 /** How a step stands, after its subject: taken, or what blocks it outside the lane. */

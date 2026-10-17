@@ -18,8 +18,9 @@ to.
    do next, and what you learned that the rest of `SPLATES.md` does not say.
    The new agent never sees this conversation: this is all it gets.
 3. Read `splates agents`, then `splates handoff <task> --agent <id> --model
-   <m>`, taking the agent and model the user names, else the ones whose
-   strengths fit what is left at the lowest cost it is worth. `splates server`
+   <m>`, taking the agent, model and any thinking level the user names, else
+   the ones whose strengths fit what is left at the lowest cost it is worth
+   (see Picking a thinking level). `splates server`
    starts it in your tree, sent `[SPLATES HANDOFF <task>]` and any `--prompt`,
    and moves this conversation back to the main tree.
 4. End your turn, saying nothing of the handoff: the `splates server` page shows
@@ -68,7 +69,7 @@ You stay the one the user talks to: the other agent answers to you.
    the reason: what failed or what is left, with the steps or files that
    show it.
 2. `splates handoff <task> --relay --agent <id> --model <m>`, the cheapest
-   model that fits. `splates server` starts it in your tree, and moves this
+   model that fits, with `--effort` as Picking a thinking level says. `splates server` starts it in your tree, and moves this
    conversation back to the main tree. Outside `splates server`, `--relay`
    refuses: keep the task, or hand it to a subagent of your own harness on
    that model, told to `splates claim <task>` and work it as the skill says,
@@ -142,6 +143,23 @@ and the answers down, with `splates tell <task> '<text>'`, which says
 Never ask the user to go to the agent's conversation, or to send you on:
 whatever they say to you is yours to pass down.
 
+## Picking a thinking level
+
+`splates handoff`, `splates add --agent` and `splates todo add` take
+`--effort <level>`, the thinking level the agent works at, one of those
+`splates agents` lists under THINKING for it; left off, the agent works at
+its own. Pick the model first, then the level for what is left on it:
+
+- **low**, when every step is spelled out under `## Next` and only needs
+  doing: a rename, one edit across many files, a value to change;
+- **high**, when what is left hinges on a call you could not settle, or a
+  bug whose cause you could not place;
+- otherwise leave it off: most work fits the agent's own.
+
+A higher level on a cheaper model can beat the next model up for work that
+is narrow but tricky; a lower one never makes up for a model too weak for
+the work.
+
 ## Sizing an Auto pick
 
 `[SPLATES AUTO] <request>` means the person started this conversation from
@@ -169,9 +187,10 @@ judgment is the reason the section above asks for.
 4. To hand it on, read `splates agents`, pick the cheapest model whose
    strengths cover the work, and do steps 1 and 2 of Handing off your task,
    the `### Handoff` holding everything you learned. Then `splates handoff
-   <task> --agent <id> --model <m>`, without `--relay`: the person picked
-   Auto, not you, so the agent it goes to answers to them. Neither a
-   handoff nor a todo carries a thinking level: pick the model alone.
+   <task> --agent <id> --model <m> --effort <level>`, without `--relay`:
+   the person picked Auto, not you, so the agent it goes to answers to them.
+   Auto picked a level from the words alone, so pick one again from what
+   you found, as Picking a thinking level says.
 5. End your turn on one line saying who it went to and why, such as
    `Handed to Sonnet 5.5: one constant to rename across 30 files.`, so
    the person, who never asked for a handoff, sees why Auto's pick moved.

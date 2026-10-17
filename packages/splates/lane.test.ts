@@ -404,17 +404,17 @@ describe.concurrent("todo links and lanes", () => {
 		expect((await deps.todos.find(1)).state.assignee).toBeUndefined();
 	});
 
-	it("hands the next todo out to the agent and model it names", async () => {
+	it("hands the next todo out to the agent, model and thinking level it names", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await todoAdd(deps, "first", null, {
 			lane: 1,
-			assignee: { agent: "claude", model: "sonnet" },
+			assignee: { agent: "claude", model: "sonnet", effort: "high" },
 		});
 		deps.log.clear();
 		await laneShow(deps, 1);
 		expect(color.strip(deps.out())).toContain(
-			"next: splates add <task> --todo 1 --agent claude --model sonnet",
+			"next: splates add <task> --todo 1 --agent claude --model sonnet --effort high",
 		);
 	});
 

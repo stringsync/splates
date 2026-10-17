@@ -1,13 +1,15 @@
 import type { Logger } from "webappwiz/log";
 import type { Conversations } from "./conversations";
+import { effortSettings } from "./effort";
 import { modelOption } from "./models";
 import { handoffReference, taskReference } from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
 /**
  * Starts the agent of each task `splates add --agent` or `splates handoff` handed
- * to one and that has none yet, in the task's tree, on the model asked for,
- * told to claim it, or to take it over for a handoff. The
+ * to one and that has none yet, in the task's tree, on the model and
+ * thinking level asked for, told to claim it, or to take it over for a
+ * handoff. The
  * conversation it starts goes on the record before the agent is told
  * anything, so a task is started once however often this runs, as long as
  * no two runs overlap. Answers once each is started, not told.
@@ -31,12 +33,14 @@ export async function startDispatched({
 		) {
 			continue;
 		}
+		const offered = (await conversations.settings())[dispatch.agent] ?? [];
 		const conversation = await conversations.start(dispatch.agent, {
 			task: worktree.task,
 			base: worktree.base,
 			caller: worktree.caller,
 			cwd: worktree.path,
 			model: dispatch.model,
+			settings: effortSettings(dispatch.effort, offered),
 			assigned: true,
 			// One handed on with `--relay` answers to whoever handed it on; one
 			// a lane's orchestrator handed out answers to the person, and that
@@ -71,6 +75,14 @@ export async function startDispatched({
 			) {
 				log.error(
 					`${dispatch.agent} offers no model '${dispatch.model}': ${worktree.task} started on its own`,
+				);
+			}
+			if (
+				dispatch.effort !== undefined &&
+				Object.keys(effortSettings(dispatch.effort, offered)).length === 0
+			) {
+				log.error(
+					`${dispatch.agent} offered no thinking level when ${worktree.task} started: it works at its own`,
 				);
 			}
 		})().catch((error: unknown) =>

@@ -1,4 +1,5 @@
 import type { ConversationState } from "../conversations";
+import { effortSettings } from "../effort";
 import { type Needing, needs } from "../needs";
 import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
@@ -93,7 +94,7 @@ export class Dispatch {
 	}
 
 	/**
-	 * Starts a conversation with `pick`'s agent on its model, and sends it
+	 * Starts a conversation with `pick`'s agent on its model and thinking level, and sends it
 	 * `assignment`'s prompt, answering its address once it is started, with the
 	 * prompt showing as sent. Each setting starts where a new conversation's
 	 * would. When it does not start, the address of the screen
@@ -107,7 +108,10 @@ export class Dispatch {
 		const started = await startConversation(
 			pick.agent,
 			task,
-			Object.fromEntries(left.map((each) => [each.id, each.current])),
+			{
+				...Object.fromEntries(left.map((each) => [each.id, each.current])),
+				...effortSettings(pick.effort, left),
+			},
 			pick.model,
 			true,
 		).catch(() => null);

@@ -31,7 +31,15 @@ import { show } from "./show";
 import { splatesArtifact } from "./splates-artifact";
 import { splatesCreds } from "./splates-creds";
 import { serveDev } from "./splates-dev";
-import { commaList, here, rosterOf, seeded, todoIds } from "./splates-flags";
+import {
+	commaList,
+	effortIn,
+	here,
+	offeredOf,
+	rosterOf,
+	seeded,
+	todoIds,
+} from "./splates-flags";
 import { splatesLane } from "./splates-lane";
 import { splatesProjects } from "./splates-projects";
 import { splatesQueue } from "./splates-queue";
@@ -173,6 +181,11 @@ splates
 		description:
 			"with --agent: the model it works on, by its id or name on the roster (default: the agent's own)",
 	})
+	.option("effort", z.string(), {
+		default: "",
+		description:
+			"with --agent: the thinking level it works at, one the agent offers (default: the agent's own)",
+	})
 	.option("prompt", z.string(), {
 		default: "",
 		description:
@@ -186,11 +199,16 @@ splates
 	.action(async (opts, ctx) => {
 		if (
 			opts.agent === "" &&
-			(opts.model !== "" || opts.prompt !== "" || opts["over-capacity"])
+			(opts.model !== "" ||
+				opts.effort !== "" ||
+				opts.prompt !== "" ||
+				opts["over-capacity"])
 		) {
-			fail("usage", "--model, --prompt and --over-capacity go with --agent", {
-				task: opts.task,
-			});
+			fail(
+				"usage",
+				"--model, --effort, --prompt and --over-capacity go with --agent",
+				{ task: opts.task },
+			);
 		}
 		if (opts.goal.trim() === "" && opts.todo === "") {
 			fail(
@@ -205,6 +223,9 @@ splates
 				: {
 						agent: opts.agent,
 						...(opts.model === "" ? {} : { model: opts.model }),
+						...(await effortIn(ctx, opts.agent, opts.effort, {
+							task: opts.task,
+						})),
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					};
 		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
@@ -480,11 +501,18 @@ splates
 splates
 	.command("agents")
 	.description(
-		"print the roster of agents splates can start, kept for every project in ~/.splates/agents.json: each agent's launch command and models, with what each model is good at and what it costs, for choosing whom to delegate to; writes the defaults (Claude, Codex) there first when there is none, and `splates server` starts conversations with those it lists",
+		"print the roster of agents splates can start, kept for every project in ~/.splates/agents.json: each agent's launch command and models, with what each model is good at and what it costs, and the thinking levels `--effort` takes, as the agent offered them when last started, for choosing whom to delegate to; writes the defaults (Claude, Codex) there first when there is none, and `splates server` starts conversations with those it lists",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) =>
-		agents({ roster: rosterOf(ctx), log: ctx.log }, { json: opts.json }),
+	.action(async (opts, ctx) =>
+		agents(
+			{
+				roster: rosterOf(ctx),
+				offered: await offeredOf(ctx).all(),
+				log: ctx.log,
+			},
+			{ json: opts.json },
+		),
 	);
 
 splates
@@ -610,6 +638,11 @@ splates
 		description:
 			"the model it works on, by its id or name on the roster (default: the agent's own)",
 	})
+	.option("effort", z.string(), {
+		default: "",
+		description:
+			"the thinking level it works at, one the agent offers (default: the agent's own)",
+	})
 	.option("prompt", z.string(), {
 		default: "",
 		description:
@@ -622,6 +655,9 @@ splates
 	})
 	.action(async (opts, ctx) => {
 		const agents = await seeded(rosterOf(ctx));
+		const effort = await effortIn(ctx, opts.agent, opts.effort, {
+			task: opts.task,
+		});
 		await ctx.journal.record(
 			"handoff",
 			opts.task,
@@ -632,6 +668,7 @@ splates
 					{
 						agent: opts.agent,
 						...(opts.model === "" ? {} : { model: opts.model }),
+						...effort,
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					},
 					agents,

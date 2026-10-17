@@ -264,6 +264,8 @@ export interface AgentPick {
 	agent: string;
 	/** The roster's id for the model, which the agent's Model setting takes. */
 	model?: string;
+	/** The thinking level, by the value the agent's thought_level setting takes; absent, the agent's own. */
+	effort?: string;
 }
 
 /** The models `agent` runs, as the roster lists them; none for an agent off it. */
@@ -304,9 +306,8 @@ export function traitsOf(
 
 /** `pick` in a word: `claude`, or `claude (opus)` on a model. */
 export function pickLabel(pick: AgentPick): string {
-	return pick.model === undefined
-		? pick.agent
-		: `${pick.agent} (${pick.model})`;
+	const on = [pick.model, pick.effort].filter((each) => each !== undefined);
+	return on.length === 0 ? pick.agent : `${pick.agent} (${on.join(", ")})`;
 }
 
 /**

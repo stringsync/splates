@@ -56,10 +56,11 @@ stands, and those landed. So you change the plan by changing the lanes:
    would cost both a hard rebase. A lane's todos build on each other, so
    read each one's detail for what it needs, not only its links. When you
    find such a need that no link says, link it, so the plan shows it.
-4. To hand one out, `splates todo show <id>` names its agent and model; when
-   it names none, pick one as for a todo you add (see Todos), and say which
-   in your report as `- Assumed: <what>`. Then `splates add <task> --todo
-   <id> --agent <a> --model <m> --prompt '<what>'`, where `<what>` holds
+4. To hand one out, `splates todo show <id>` names its agent, model and any
+   thinking level; when it names none, pick one as for a todo you add (see
+   Todos), and say which in your report as `- Assumed: <what>`. Then
+   `splates add <task> --todo <id> --agent <a> --model <m> --prompt
+   '<what>'`, with `--effort <level>` when the todo names one, where `<what>` holds
    what the todo's detail does not and the lane taught you: names chosen,
    files moved, answers the user gave, what the tasks out beside it are
    changing. `splates server` starts the agent, nested under you on the page.

@@ -420,6 +420,8 @@ export interface Dispatched {
 	agent: string;
 	/** The model to pick, by the session's model setting; absent, the agent's own. */
 	model?: string;
+	/** The thinking level, by the session's thought_level setting; absent, the agent's own. */
+	effort?: string;
 	/** What the agent is told beyond claiming the task. */
 	prompt?: string;
 	/** The conversation `splates server` started, once it has. */

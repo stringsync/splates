@@ -266,7 +266,7 @@ const probes: Probe[] = [
 const clients = Array.from({ length: 24 }, (_, i) => `client${i + 1}`);
 const auto: Seed = {
 	id: "delegation/auto",
-	version: "1",
+	version: "2",
 	fingerprint: "",
 	async prepare(context) {
 		await seedRepository(context);
@@ -297,6 +297,29 @@ const auto: Seed = {
 						],
 					},
 				],
+			}),
+		);
+		// The thinking levels `splates agents` lists, as a run of fake would leave them.
+		await writeFile(
+			join(context.isolation.splatesHome, "offered.json"),
+			JSON.stringify({
+				format: 1,
+				agents: {
+					fake: [
+						{
+							id: "effort",
+							name: "Effort",
+							type: "select",
+							category: "thought_level",
+							current: "medium",
+							options: ["low", "medium", "high"].map((value) => ({
+								value,
+								name: value,
+								description: null,
+							})),
+						},
+					],
+				},
 			}),
 		);
 		await seedFile(
@@ -346,7 +369,12 @@ const auto: Seed = {
 		const handoffs = [];
 		for (const { task } of tasks) {
 			const state: {
-				dispatch?: { agent: string; model?: string; relay?: boolean };
+				dispatch?: {
+					agent: string;
+					model?: string;
+					effort?: string;
+					relay?: boolean;
+				};
 			} = JSON.parse(
 				await readFile(
 					join(
@@ -361,6 +389,7 @@ const auto: Seed = {
 				handoffs.push({
 					agent: state.dispatch.agent,
 					model: state.dispatch.model ?? null,
+					effort: state.dispatch.effort ?? null,
 					relay: state.dispatch.relay ?? false,
 				});
 			}
@@ -395,12 +424,12 @@ function autoProbe(
 	made.bounds = { milliseconds: 120000, turns: 1, tokens: 8000 };
 	return made;
 }
-function handedTo(model: string): Assertion {
+function handedTo(model: string, effort: string): Assertion {
 	return {
 		id: "handoff",
 		kind: "state",
 		key: "auto/handoffs",
-		equals: [{ agent: "fake", model, relay: false }],
+		equals: [{ agent: "fake", model, effort, relay: false }],
 	};
 }
 const kept: Assertion = {
@@ -432,7 +461,7 @@ probes.push(
 		"Stop retrying a 413 anywhere, and tell the user the file is too big.",
 		[
 			{ id: "one-task", kind: "state", key: "auto/tasks", equals: 1 },
-			handedTo("large"),
+			handedTo("large", "high"),
 			gap(
 				"handoff-context",
 				"Whether the Handoff section names the three retry policies and the missing path to the user needs a structural observer.",
@@ -449,7 +478,7 @@ probes.push(
 		"Rename MAX_RETRIES to RETRY_LIMIT everywhere.",
 		[
 			{ id: "one-task", kind: "state", key: "auto/tasks", equals: 1 },
-			handedTo("small"),
+			handedTo("small", "low"),
 			gap(
 				"spelled-out",
 				"Whether Next lists the files to rename needs a structural SPLATES.md observer.",

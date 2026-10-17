@@ -153,8 +153,8 @@ export interface Facts {
 			attached?: string[];
 			/** Names of the files dropped. */
 			detached?: string[];
-			/** The agent and model it now names, null once it names none. */
-			assignee?: { agent: string; model?: string } | null;
+			/** The agent, model and thinking level it now names, null once it names none. */
+			assignee?: { agent: string; model?: string; effort?: string } | null;
 		};
 	};
 	"todo take": TodosFacts;

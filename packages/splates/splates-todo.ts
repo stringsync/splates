@@ -62,6 +62,11 @@ splatesTodo
 		default: "",
 		description: "with --agent: the model, by its id or name on the roster",
 	})
+	.option("effort", z.string(), {
+		default: "",
+		description:
+			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
+	})
 	.action(async (opts, ctx) => {
 		if (ctx.elsewhere !== null && opts.lane !== "") {
 			fail(
@@ -71,7 +76,7 @@ splatesTodo
 			);
 		}
 		const from = await here(ctx);
-		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		// Run with `--project`, the working directory is in the other project.
 		const origin =
 			ctx.elsewhere === null
@@ -186,8 +191,13 @@ splatesTodo
 		default: "",
 		description: "with --agent: the model, by its id or name on the roster",
 	})
+	.option("effort", z.string(), {
+		default: "",
+		description:
+			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
+	})
 	.action(async (opts, ctx) => {
-		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		await recordUpdate(ctx.journal, ctx.todos, opts.id, () =>
 			todoUpdate(ctx, opts.id, {
 				subject: opts.subject,

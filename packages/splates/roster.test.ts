@@ -204,7 +204,7 @@ describe("Roster", () => {
 	it("prints each agent's command and models, saying where it wrote the defaults", async () => {
 		await using deps = await setup();
 
-		await agents(deps);
+		await agents({ ...deps, offered: {} });
 
 		const out = deps.out();
 		expect(out).toContain(`wrote the default roster to ${deps.roster.path}`);
@@ -219,8 +219,10 @@ describe("Roster", () => {
 		await using deps = await setup();
 		await deps.roster.seed();
 
-		await agents(deps, { json: true });
+		await agents({ ...deps, offered: {} }, { json: true });
 
-		expect(JSON.parse(deps.out())).toEqual(DEFAULT_AGENTS);
+		expect(JSON.parse(deps.out())).toEqual(
+			DEFAULT_AGENTS.map((agent) => ({ ...agent, efforts: [] })),
+		);
 	});
 });

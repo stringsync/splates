@@ -206,7 +206,10 @@ Every todo you add names the model to run it with, `--agent <id> --model
 `splates agents` once per task for what each model is good at, how fast it is
 and what it costs, and pick the cheapest one the todo is worth: a cheap one for a
 mechanical change, a strong one for a design call or a long, tangled change.
-Keep the agent you run as unless another fits clearly better. When grooming
+Keep the agent you run as unless another fits clearly better. Add `--effort
+<level>`, one of those `splates agents` lists under THINKING, only when the
+todo needs a level off from the model's own: a low one for a change spelled
+out step by step, a high one for a call you could not settle. When grooming
 changes what a todo takes, `splates todo update <id> --agent <id> --model <m>`
 picks again.
 

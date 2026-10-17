@@ -1,7 +1,8 @@
-import { type AutoPick, JUDGE_CREDS, judgeFrom, pick } from "./auto-pick";
+import { JUDGE_CREDS, judgeFrom, pick } from "./auto-pick";
 import type { Conversation } from "./conversation";
-import type { Conversations, Setting } from "./conversations";
+import type { Conversations } from "./conversations";
 import type { Project } from "./dev-project";
+import { effortSettings } from "./effort";
 import { Roster, splatesHome } from "./roster";
 
 /** The cred Auto offers to ask for when no judge's is kept: Jev's, the one key. */
@@ -56,7 +57,7 @@ export async function startAuto({
 	});
 	const conversation = await start(picked.agent, {
 		...(picked.model === undefined ? {} : { model: picked.model }),
-		settings: effortSettings(picked, offered[picked.agent] ?? []),
+		settings: effortSettings(picked.effort, offered[picked.agent] ?? []),
 	});
 	const journal = project.journal.in(conversation.id);
 	await journal.record("auto", task, async () => {}, {
@@ -70,17 +71,6 @@ export async function startAuto({
 		await offerJudge(project, journal, task);
 	}
 	return conversation;
-}
-
-/** The setting `picked`'s thinking level goes in, by its id; none when it set none. */
-export function effortSettings(
-	picked: AutoPick,
-	offered: Setting[],
-): Record<string, string> {
-	const setting = offered.find((each) => each.category === "thought_level");
-	return picked.effort === undefined || setting === undefined
-		? {}
-		: { [setting.id]: picked.effort };
 }
 
 /**

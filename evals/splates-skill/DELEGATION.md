@@ -19,8 +19,8 @@ started. The fake roster is disabled. `preMerge: true` is a check stand-in.
 | cli-no-dev-relay | delegation-no-dev | Actual local CLI refusal, independently checked by free test |
 | auto-question | delegation-auto | No task started for a question |
 | auto-fits | delegation-auto | One task, nothing handed on |
-| auto-hand-up | delegation-auto | One task handed to `fake large`, without relay; Handoff context and reason line remain gaps |
-| auto-hand-down | delegation-auto | One task handed to `fake small`, without relay; spelled-out Next remains a gap |
+| auto-hand-up | delegation-auto | One task handed to `fake large` at `high` effort, without relay; Handoff context and reason line remain gaps |
+| auto-hand-down | delegation-auto | One task handed to `fake small` at `low` effort, without relay; spelled-out Next remains a gap |
 
 The `auto-` cases use `delegation/auto@1`: no tasks, a roster of one disabled
 agent with a cheap and a strong model, and code whose size differs from what

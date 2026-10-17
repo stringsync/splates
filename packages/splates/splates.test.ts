@@ -204,6 +204,75 @@ describe("splates cli", () => {
 		});
 	});
 
+	it("lists the thinking levels an agent offers, hands out a task at one, and refuses any other", async () => {
+		await env.fs.write(
+			join(env.splatesHome, "offered.json"),
+			JSON.stringify({
+				format: 1,
+				agents: {
+					claude: [
+						{
+							id: "effort",
+							name: "Effort",
+							type: "select",
+							category: "thought_level",
+							current: "default",
+							options: ["default", "low", "high"].map((value) => ({
+								value,
+								name: value,
+								description: null,
+							})),
+						},
+					],
+				},
+			}),
+		);
+		await splates.run(deps, ["agents"]);
+		expect(env.out()).toContain("THINKING  default, low, high");
+
+		env.proc.env.SPLATES_CONVERSATION = "c1";
+		await splates.run(deps, [
+			"add",
+			"alpha",
+			"--goal",
+			"Style it.",
+			"--agent",
+			"claude",
+			"--effort",
+			"max",
+		]);
+		expect(env.proc.lastExit()).toBe(1);
+		expect(env.out()).toContain("use one of default, low, high");
+
+		await splates.run(deps, ["add", "alpha", "--goal", "Style it."]);
+		await splates.run(deps, [
+			"handoff",
+			"alpha",
+			"--agent",
+			"claude",
+			"--effort",
+			"High",
+		]);
+		expect((await env.service.find("alpha")).state?.dispatch).toMatchObject({
+			agent: "claude",
+			effort: "high",
+		});
+
+		await splates.run(deps, [
+			"todo",
+			"add",
+			"Restyle the header",
+			"--agent",
+			"claude",
+			"--effort",
+			"low",
+		]);
+		expect((await env.todos.all()).at(-1)?.state.assignee).toEqual({
+			agent: "claude",
+			effort: "low",
+		});
+	});
+
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
 		// As the supervisor runs it.
 		env.proc.env[SERVING] = "1";

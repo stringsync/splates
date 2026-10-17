@@ -311,7 +311,9 @@ function updated(before: TodoState, after: TodoState): Facts["todo update"] {
 		(id) => !after.blockedBy.includes(id),
 	);
 	const same = (old?: AgentPick, now?: AgentPick) =>
-		old?.agent === now?.agent && old?.model === now?.model;
+		old?.agent === now?.agent &&
+		old?.model === now?.model &&
+		old?.effort === now?.effort;
 	const changed: Facts["todo update"]["changed"] = {
 		...(after.subject === before.subject ? {} : { subject: after.subject }),
 		...(after.text === before.text ? {} : { text: true as const }),

@@ -187,11 +187,29 @@ const sized: Record<string, string[][]> = {
 	"delegation/auto-fits": [["add", "retries", "--goal", "Retry five times"]],
 	"delegation/auto-hand-up": [
 		["add", "no-413", "--goal", "Stop retrying a 413"],
-		["handoff", "no-413", "--agent", "fake", "--model", "large"],
+		[
+			"handoff",
+			"no-413",
+			"--agent",
+			"fake",
+			"--model",
+			"large",
+			"--effort",
+			"high",
+		],
 	],
 	"delegation/auto-hand-down": [
 		["add", "retry-limit", "--goal", "Rename MAX_RETRIES"],
-		["handoff", "retry-limit", "--agent", "fake", "--model", "small"],
+		[
+			"handoff",
+			"retry-limit",
+			"--agent",
+			"fake",
+			"--model",
+			"small",
+			"--effort",
+			"low",
+		],
 	],
 };
 const scripted: Adapter = {
@@ -239,23 +257,27 @@ it("observes what an Auto probe kept or handed on, from the real task records", 
 			(run) => run.probe.id === "delegation/auto-hand-up",
 		);
 		expect(handUp?.run.evidence.state["auto/handoffs"]).toEqual([
-			{ agent: "fake", model: "large", relay: false },
+			{ agent: "fake", model: "large", effort: "high", relay: false },
 		]);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}
 }, 60000);
 
-it("fails an Auto probe that hands on what fits, or picks the wrong weight", () => {
-	const evidence = (state: Evidence["state"]): Evidence => ({
-		events: [],
-		state,
-		complete: ["state"],
-		termination: "stop",
-	});
-	const find = (id: string) =>
-		module.probes.find((probe) => probe.id === `delegation/${id}`) as Probe;
-	const handed = (model: string) => [{ agent: "fake", model, relay: false }];
+/** What an Auto probe's observer found, from the task records alone. */
+const evidence = (state: Evidence["state"]): Evidence => ({
+	events: [],
+	state,
+	complete: ["state"],
+	termination: "stop",
+});
+const find = (id: string) =>
+	module.probes.find((probe) => probe.id === `delegation/${id}`) as Probe;
+const handed = (model: string, effort: string | null = null) => [
+	{ agent: "fake", model, effort, relay: false },
+];
+
+it("fails an Auto probe that hands on what fits, or picks the wrong weight or level", () => {
 	expect(
 		assess(
 			find("auto-fits"),
@@ -279,10 +301,25 @@ it("fails an Auto probe that hands on what fits, or picks the wrong weight", () 
 			find("auto-hand-up"),
 			evidence({
 				"auto/tasks": 1,
-				"auto/handoffs": [{ agent: "fake", model: "large", relay: true }],
+				"auto/handoffs": [
+					{ agent: "fake", model: "large", effort: "high", relay: true },
+				],
 			}),
 		).status,
 	).toBe("fail");
+	expect(
+		assess(
+			find("auto-hand-up"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": handed("large") }),
+		).status,
+	).toBe("fail");
+	// Right, so short of a pass only for the gaps it still leaves.
+	expect(
+		assess(
+			find("auto-hand-up"),
+			evidence({ "auto/tasks": 1, "auto/handoffs": handed("large", "high") }),
+		).status,
+	).toBe("uncovered");
 	expect(
 		assess(
 			find("auto-hand-down"),
