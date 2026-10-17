@@ -13,7 +13,7 @@ import type { Landed } from "../landed";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";
 import type { AgentPick } from "../roster";
-import type { SetupProgress } from "../setup";
+import type { SetupProgress, StepAnswers } from "../setup";
 import type { PeriodId, Stats } from "../stats";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
@@ -338,15 +338,19 @@ export async function setup(): Promise<SetupProgress> {
 	return (await response.json()) as SetupProgress;
 }
 
-/** Skips setup step `step`, or asks for it again, answering the fresh progress. */
-export async function skipSetupStep(
+/**
+ * Presses Next on setup step `step` with what its page answered, answering
+ * the fresh progress once the step reads done; an `ApiError` whose message
+ * is one line on what went wrong otherwise.
+ */
+export async function nextSetupStep(
 	step: string,
-	skipped: boolean,
+	answers: StepAnswers,
 ): Promise<SetupProgress> {
 	return (await sendJson(
-		`/api/setup/${encodeURIComponent(step)}/skipped`,
-		"PUT",
-		{ skipped },
+		`/api/setup/${encodeURIComponent(step)}/next`,
+		"POST",
+		{ answers },
 	)) as SetupProgress;
 }
 

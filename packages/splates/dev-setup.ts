@@ -1,9 +1,10 @@
-import { body } from "./dev-http";
+import { body, refuse } from "./dev-http";
 import { fail } from "./exit";
-import type { Setup } from "./setup";
+import type { Setup, StepAnswers } from "./setup";
+import { StepProblem } from "./setup-step-problem";
 
 /**
- * How the page reads this machine's setup and skips its steps. Not any
+ * How the page reads this machine's setup and does its steps. Not any
  * project's: every page on the server shares one machine. Each handler is a
  * property, so `dev` hands them straight to its routes.
  */
@@ -24,18 +25,43 @@ export class SetupRoutes {
 		return Response.json(await this.#setup.read());
 	};
 
-	/** Skips the step `/api/setup/:step/skipped` names, or asks for it again. */
-	readonly skip = async (request: Request): Promise<Response> => {
+	/**
+	 * Does what the step `/api/setup/:step/next` names needs with the
+	 * answers its page sends, answering the fresh progress, or a 422 whose
+	 * message is the one line the page shows under its fields.
+	 */
+	readonly next = async (request: Request): Promise<Response> => {
 		const step = decodeURIComponent(
 			new URL(request.url).pathname.split("/")[3] ?? "",
 		);
-		const { skipped } = await body(request);
-		if (typeof skipped !== "boolean") {
-			fail("usage", "say whether the step is skipped: { skipped: boolean }", {
-				step,
-			});
+		const { answers = {} } = await body(request);
+		if (!isAnswers(answers)) {
+			fail(
+				"usage",
+				"send the page's answers: { answers: { [field]: string | boolean } }",
+				{
+					step,
+				},
+			);
 		}
-		await (skipped ? this.#setup.skip(step) : this.#setup.unskip(step));
-		return Response.json(await this.#setup.read());
+		try {
+			return Response.json(await this.#setup.submit(step, answers));
+		} catch (error) {
+			if (error instanceof StepProblem) {
+				return refuse(422, "step", error.message);
+			}
+			throw error;
+		}
 	};
+}
+
+function isAnswers(value: unknown): value is StepAnswers {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		Object.values(value).every(
+			(each) => typeof each === "string" || typeof each === "boolean",
+		)
+	);
 }

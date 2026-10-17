@@ -114,7 +114,7 @@ describe("OpenCode wizard controls", () => {
 		);
 	});
 
-	it("keeps the native controls in the existing wizard and its skip/back flow", async () => {
+	it("draws the install page from its native controls, under Next", async () => {
 		const progress = {
 			areas: [
 				{
@@ -135,6 +135,8 @@ describe("OpenCode wizard controls", () => {
 							status: "ready" as const,
 							problem: null,
 							cred: null,
+							fields: [],
+							doing: null,
 						},
 					],
 				},
@@ -152,23 +154,13 @@ describe("OpenCode wizard controls", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Set up OpenCode" })),
 		);
-		expect(
-			view.getByRole("article", { name: "step opencode-install" }),
-		).toBeTruthy();
+		expect(view.getByRole("form", { name: "Install OpenCode" })).toBeTruthy();
 		expect(
 			view.queryByRole("button", { name: "Set it up with an agent" }),
 		).toBeNull();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Skip" })),
-		);
-		expect(testing.posted("/api/setup/opencode-install/skipped")).toHaveLength(
-			1,
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back" })),
-		);
 		expect(
 			view.getByRole("button", { name: "Install OpenCode with npm" }),
 		).toBeTruthy();
+		expect(view.getByRole("button", { name: "Finish" })).toBeTruthy();
 	});
 });

@@ -30,6 +30,17 @@ export default {
 			"packages/splates/web/app-mentions.test.tsx",
 		],
 	},
+	setup: {
+		description: "Setting splates up on a machine",
+		globs: [
+			"packages/splates/setup*.ts",
+			"packages/splates/dev-setup*.ts",
+			"packages/splates/splates-setup.ts",
+			"packages/splates/web/setup-*.ts*",
+			"packages/splates/web/app-setup.test.tsx",
+			"packages/splates/review/setup-forms*",
+		],
+	},
 	checkpoint: {
 		description: "Restarting splates server without losing agents' work",
 		aliases: ["restart"],

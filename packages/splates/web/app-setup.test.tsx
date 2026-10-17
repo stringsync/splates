@@ -56,8 +56,9 @@ describe("App's setup", () => {
 		return view;
 	};
 
-	const step = (view: Awaited<ReturnType<Testing["open"]>>, id: string) =>
-		waitFor(() => view.getByRole("article", { name: `step ${id}` }));
+	/** The page a step's form is on, by its title. */
+	const step = (view: Awaited<ReturnType<Testing["open"]>>, title: string) =>
+		waitFor(() => view.getByRole("form", { name: title }));
 
 	const posted = (path: string) =>
 		testing.posted(path).map((post) => post.body);
@@ -69,116 +70,55 @@ describe("App's setup", () => {
 		expect(view.queryByRole("tab", { name: /Setup/ })).toBeNull();
 	});
 
-	it("asks the next step first, with progress, why and the one thing to do", async () => {
+	it("asks a journey's step as one page, its why and its field", async () => {
 		testing.setup = progress({ agents: "done", next: "dictation" });
 		const view = await openSetup("Dictation");
 
-		const current = await step(view, "dictation");
-		expect(current.textContent).toContain("Dictate prompts");
+		const current = await step(view, "Dictate prompts");
 		expect(current.textContent).toContain("The mic transcribes on your key.");
-		expect(current.textContent).toContain("Paste an OpenAI key.");
+		expect(within(current).getByLabelText("OpenAI API key")).toBeTruthy();
+		expect(current.textContent).toContain("1 of 1");
 		expect(
-			view
-				.getByRole("progressbar", { name: "setup done" })
-				.getAttribute("aria-valuenow"),
-		).toBe("0");
-		expect(view.getByText("0 of 1 done")).toBeTruthy();
+			within(current).getByRole("button", { name: "Finish" }),
+		).toBeTruthy();
 	});
 
-	it("keeps a journey focused and returns to the chooser without starting work", async () => {
+	it("returns to the index from a journey without starting work", async () => {
 		testing.setup = progress();
 		const view = await openSetup(null);
-		expect(view.queryByRole("article")).toBeNull();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Set up Agents" })),
 		);
-		await step(view, "agents");
+		await step(view, "Choose the agents splates starts");
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Finish" })),
-		);
-		expect(view.getByText("That's every step.")).toBeTruthy();
-		expect(view.queryByRole("article", { name: "step dictation" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back to journeys" })),
+			fireEvent.click(view.getByRole("button", { name: "Setup" })),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Set up Dictation" })),
 		);
-		await step(view, "dictation");
+		await step(view, "Dictate prompts");
 		expect(testing.posts).toEqual([]);
 	});
 
-	it("skips an optional step and moves on, but offers no skip on a required one", async () => {
-		testing.setup = progress({ agents: "done", next: "dictation" });
-		const view = await openSetup("Dictation");
-		await step(view, "dictation");
-		testing.reply = progress({ agents: "done", dictation: "skipped" });
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Skip" })),
-		);
-
-		expect(posted("/api/setup/dictation/skipped")).toEqual([{ skipped: true }]);
-		await waitFor(() =>
-			expect(view.getByText("That's every step.")).toBeTruthy(),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back" })),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back to journeys" })),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Agents" })),
-		);
-		await step(view, "agents");
-		expect(view.queryByRole("button", { name: "Skip" })).toBeNull();
-	});
-
-	it("checks a step again, showing it done", async () => {
+	it("moves on once Next finds the step done", async () => {
 		testing.setup = progress();
 		const view = await openSetup();
-		const current = await step(view, "agents");
-		testing.setup = progress({ agents: "done", next: "dictation" });
+		await step(view, "Choose the agents splates starts");
+		testing.reply = progress({ agents: "done", next: "dictation" });
 
 		await act(async () =>
-			fireEvent.click(
-				within(current).getByRole("button", { name: "Check again" }),
-			),
+			fireEvent.click(view.getByRole("button", { name: "Finish" })),
 		);
 
-		await waitFor(() =>
-			expect(
-				view.getByRole("article", { name: "step agents" }).textContent,
-			).toContain("Done"),
-		);
-	});
-
-	it("saves a step's cred in place, for the device", async () => {
-		testing.setup = progress({ agents: "done", next: "dictation" });
-		const view = await openSetup("Dictation");
-		const current = await step(view, "dictation");
-
-		fireEvent.change(
-			within(current).getByLabelText("Value of OPENAI_API_KEY"),
-			{
-				target: { value: "sk-secret" },
-			},
-		);
-		await act(async () =>
-			fireEvent.click(within(current).getByRole("button", { name: "Save" })),
-		);
-
-		expect(posted("/api/creds/OPENAI_API_KEY")).toEqual([
-			{ value: "sk-secret", scope: "device" },
-		]);
+		expect(posted("/api/setup/agents/next")).toEqual([{ answers: {} }]);
+		await waitFor(() => view.getByText("Agents is set up"));
 	});
 
 	it("starts an agent on the step, sent the setup directive", async () => {
 		testing.setup = progress();
 		testing.talk = { agents: AGENTS, conversations: [] };
 		const view = await openSetup();
-		const current = await step(view, "agents");
+		const current = await step(view, "Choose the agents splates starts");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 
 		await act(async () =>
@@ -204,7 +144,7 @@ describe("App's setup", () => {
 		const view = await openSetup();
 
 		expect(location.hash).toBe("#setup");
-		await step(view, "agents");
+		await step(view, "Choose the agents splates starts");
 	});
 
 	it("never nudges a fresh machine on desktop", async () => {
@@ -259,6 +199,8 @@ function progress({
 		status: agents,
 		problem: null,
 		cred: null,
+		fields: [],
+		doing: null,
 	};
 	const dictationStep: StepProgress = {
 		id: "dictation",
@@ -271,6 +213,16 @@ function progress({
 		status: dictation,
 		problem: null,
 		cred: "OPENAI_API_KEY",
+		fields: [
+			{
+				kind: "cred",
+				name: "OPENAI_API_KEY",
+				label: "OpenAI API key",
+				help: null,
+				saved: false,
+			},
+		],
+		doing: null,
 	};
 	const area = (id: string, title: string, step: StepProgress) => ({
 		id,

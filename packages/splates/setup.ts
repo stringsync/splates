@@ -3,6 +3,7 @@ import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "./exit";
 import type { OpenCodeSetup } from "./setup-opencode";
+import { StepProblem } from "./setup-step-problem";
 
 /**
  * Setting splates up on this machine: the roster's steps, which the user has
@@ -36,6 +37,62 @@ export class Setup {
 		});
 	}
 
+	/**
+	 * Does what step `id` needs with what the user answered on its page:
+	 * runs the step's `submit`, then checks it. The page saves a cred
+	 * pasted into it first, through the creds routes, so it fills any
+	 * request for it; here a cred need only be kept. Throws a `StepProblem`, one line for the
+	 * page, when an answer is missing, the work fails, or the step still
+	 * reads not done.
+	 */
+	async submit(id: string, answers: StepAnswers): Promise<SetupProgress> {
+		const step = this.step(id);
+		for (const before of step.after) {
+			if (!(await checked(before, this.#machine)).done) {
+				throw new StepProblem(`Do "${before.title}" first.`);
+			}
+		}
+		for (const field of step.fields ?? []) {
+			const answer = answers[field.name];
+			if (field.kind === "yes-no") {
+				if (typeof answer !== "boolean") {
+					throw new StepProblem(`Say yes or no to "${field.label}".`);
+				}
+				continue;
+			}
+			if (field.kind === "cred") {
+				if ((await this.#machine.device.get(field.name)) === undefined) {
+					throw new StepProblem(`Paste the ${field.label} first.`);
+				}
+				continue;
+			}
+			const text = typeof answer === "string" ? answer.trim() : "";
+			if (text === "") {
+				throw new StepProblem(`Fill in "${field.label}" first.`);
+			}
+			if (
+				field.kind === "choice" &&
+				!(await field.options(this.#machine)).some(
+					(option) => option.value === text,
+				)
+			) {
+				throw new StepProblem(`Pick one of the choices for "${field.label}".`);
+			}
+		}
+		try {
+			await step.submit?.(this.#machine, answers);
+		} catch (error) {
+			throw new StepProblem(
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+		const { done, problem } = await checked(step, this.#machine);
+		if (!done) {
+			throw new StepProblem(problem ?? step.notDone ?? NOT_DONE);
+		}
+		return this.read();
+	}
+
 	/** Every step checked, by area, and the one to do next. */
 	async read(): Promise<SetupProgress> {
 		const skipped = new Set(await this.#skipped());
@@ -65,7 +122,10 @@ export class Setup {
 					after: step.after.map((each) => each.id),
 					status,
 					problem,
-					cred: step.cred ?? null,
+					cred:
+						step.fields?.find((field) => field.kind === "cred")?.name ?? null,
+					fields: await fieldsOf(step, this.#machine),
+					doing: step.doing ?? null,
 				});
 			}
 			areas.push({
@@ -182,11 +242,67 @@ export interface SetupStep {
 	readonly optional: boolean;
 	/** The steps that must be done first, on the roster before this one. */
 	readonly after: readonly SetupStep[];
-	/** The cred the user pastes for it, when that is the one thing they do. */
-	readonly cred?: string;
 	/** Whether it is done, from real state. */
 	check(machine: SetupMachine): Promise<boolean>;
+	/**
+	 * What its page asks, in order; none when the user does the step
+	 * outside the page, as signing in on a phone, and Next only checks.
+	 */
+	readonly fields?: readonly StepField[];
+	/**
+	 * Does what the step needs once the user presses Next, each cred field
+	 * already saved for the device: runs an install, writes the roster. Throws an
+	 * error whose message is one line the page shows. Without one, Next only
+	 * checks.
+	 */
+	submit?(machine: SetupMachine, answers: StepAnswers): Promise<void>;
+	/** A line on what `submit` runs, as "Installing OpenCode with npm…". */
+	readonly doing?: string;
+	/**
+	 * What the page says when Next finds the step still not done, as "Sign
+	 * in on your phone, then press Next."
+	 */
+	readonly notDone?: string;
 }
+
+/**
+ * One thing a step's page asks. `name` keys its answer, and for a cred is
+ * the cred's own name, as `OPENAI_API_KEY`, which Next saves for the device
+ * before it submits, so a step's `submit` reads it from `machine.device`.
+ */
+export type StepField =
+	| { kind: "cred"; name: string; label: string; help?: string }
+	| { kind: "text"; name: string; label: string; placeholder?: string }
+	| { kind: "yes-no"; name: string; label: string }
+	| {
+			kind: "choice";
+			name: string;
+			label: string;
+			/** What may be picked, read each time the page reads setup. */
+			options(machine: SetupMachine): Promise<readonly StepOption[]>;
+	  };
+
+/** One choice a `choice` field lists. */
+export interface StepOption {
+	value: string;
+	label: string;
+}
+
+/** What the user answered on a step's page, by field name. */
+export type StepAnswers = Record<string, string | boolean>;
+
+/** A field as the page draws it: a choice's options listed, a cred saved or not. */
+export type FieldProgress =
+	| {
+			kind: "cred";
+			name: string;
+			label: string;
+			help: string | null;
+			saved: boolean;
+	  }
+	| { kind: "text"; name: string; label: string; placeholder: string | null }
+	| { kind: "yes-no"; name: string; label: string }
+	| { kind: "choice"; name: string; label: string; options: StepOption[] };
 
 /** A part of setup, such as remote access, and its steps in order. */
 export interface SetupArea {
@@ -212,6 +328,10 @@ export interface StepProgress {
 	problem: string | null;
 	/** The cred the user pastes for it, or null. */
 	cred: string | null;
+	/** What its page asks. */
+	fields: FieldProgress[];
+	/** A line on what its Next runs, or null. */
+	doing: string | null;
 }
 
 export interface AreaProgress {
@@ -241,6 +361,43 @@ const SKIPS = z.object({
 	format: z.number(),
 	skipped: z.array(z.string()),
 });
+
+/** What the page says when Next finds a step not done and it says nothing. */
+const NOT_DONE = "This step is not done yet: do it, then press Next.";
+
+/** `step`'s fields as the page draws them. */
+async function fieldsOf(
+	step: SetupStep,
+	machine: SetupMachine,
+): Promise<FieldProgress[]> {
+	const fields: FieldProgress[] = [];
+	for (const field of step.fields ?? []) {
+		switch (field.kind) {
+			case "cred":
+				fields.push({
+					...field,
+					help: field.help ?? null,
+					saved: (await machine.device.get(field.name)) !== undefined,
+				});
+				break;
+			case "text":
+				fields.push({ ...field, placeholder: field.placeholder ?? null });
+				break;
+			case "yes-no":
+				fields.push(field);
+				break;
+			case "choice": {
+				const { options, ...rest } = field;
+				// A list that will not read leaves the field empty, so the rest
+				// of setup still reads; Next then says to pick one.
+				const listed = await options(machine).catch(() => []);
+				fields.push({ ...rest, options: [...listed] });
+				break;
+			}
+		}
+	}
+	return fields;
+}
 
 /** A step's check, a throw turned into the problem it reports. */
 async function checked(

@@ -7,6 +7,7 @@ import {
 	type SetupMachine,
 	type SetupStep,
 } from "./setup";
+import { StepProblem } from "./setup-step-problem";
 
 const HOME = "/home/.splates";
 
@@ -172,5 +173,120 @@ describe("Setup", () => {
 					{ id: "b", title: "B", steps: [fake("same", done)] },
 				]),
 		).toThrow("setup names step 'same' twice");
+	});
+
+	/** A step that asks a host, a key and a yes, and is done once it ran. */
+	function asking(after: SetupStep[] = []): SetupStep {
+		return {
+			...fake("tunnel", done, { after }),
+			fields: [
+				{ kind: "cred", name: "TOKEN", label: "API token" },
+				{ kind: "text", name: "host", label: "Host" },
+				{
+					kind: "choice",
+					name: "zone",
+					label: "Zone",
+					options: async () => [{ value: "example.com", label: "example.com" }],
+				},
+				{ kind: "yes-no", name: "sure", label: "Sure" },
+			],
+			submit: async ({ device }, answers) => {
+				if (answers.host === "bad.example.com") {
+					throw new Error("bad.example.com is not in your zone");
+				}
+				if ((await device.get("TOKEN")) === "token") {
+					done.add("tunnel");
+				}
+			},
+			notDone: "Make the tunnel first.",
+		};
+	}
+	const answers = {
+		host: "splates.example.com",
+		zone: "example.com",
+		sure: true,
+	};
+
+	it("runs the step with its answers once each is given, then reads it done", async () => {
+		await machine.device.set("TOKEN", "token");
+		const setup = new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [asking()] },
+		]);
+
+		const progress = await setup.submit("tunnel", answers);
+
+		expect(progress.areas[0]?.steps[0]?.status).toBe("done");
+	});
+
+	it("says which answer is missing before running anything", async () => {
+		const setup = new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [asking()] },
+		]);
+
+		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+			"Paste the API token first.",
+		);
+		await machine.device.set("TOKEN", "token");
+		await expect(
+			setup.submit("tunnel", { ...answers, host: " " }),
+		).rejects.toThrow('Fill in "Host" first.');
+		await expect(
+			setup.submit("tunnel", { ...answers, zone: "other.com" }),
+		).rejects.toThrow('Pick one of the choices for "Zone".');
+		await expect(
+			setup.submit("tunnel", { host: "h", zone: "example.com" }),
+		).rejects.toThrow('Say yes or no to "Sure".');
+		expect(done.has("tunnel")).toBe(false);
+	});
+
+	it("turns what the work threw, or a step still not done, into one line", async () => {
+		await machine.device.set("TOKEN", "other");
+		const setup = new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [asking()] },
+		]);
+
+		const failed = await setup
+			.submit("tunnel", { ...answers, host: "bad.example.com" })
+			.catch((error: unknown) => error);
+		expect(failed).toBeInstanceOf(StepProblem);
+		expect((failed as Error).message).toBe(
+			"bad.example.com is not in your zone",
+		);
+		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+			"Make the tunnel first.",
+		);
+	});
+
+	it("asks for the steps it waits on first", async () => {
+		const token = fake("token", done);
+		const setup = new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [token, asking([token])] },
+		]);
+
+		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+			'Do "Set up token" first.',
+		);
+	});
+
+	it("lists each field for the page, a choice's options read and a cred's kept", async () => {
+		await machine.device.set("TOKEN", "token");
+		const progress = await new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [asking()] },
+		]).read();
+
+		expect(progress.areas[0]?.steps[0]).toMatchObject({
+			cred: "TOKEN",
+			doing: null,
+			fields: [
+				{ kind: "cred", name: "TOKEN", help: null, saved: true },
+				{ kind: "text", name: "host", placeholder: null },
+				{
+					kind: "choice",
+					name: "zone",
+					options: [{ value: "example.com", label: "example.com" }],
+				},
+				{ kind: "yes-no", name: "sure" },
+			],
+		});
 	});
 });

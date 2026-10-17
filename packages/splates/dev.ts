@@ -461,7 +461,7 @@ export async function dev(
 				},
 				"/api/setup": guarded(setup.read),
 				"/api/setup/seen": { PUT: guarded(setup.see) },
-				"/api/setup/:step/skipped": { PUT: guarded(setup.skip) },
+				"/api/setup/:step/next": { POST: guarded(setup.next) },
 				"/api/restart": { POST: talk(guarded(restartIdle)) },
 				"/api/power": { POST: talk(guarded(powerNow)) },
 				"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },

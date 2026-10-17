@@ -113,7 +113,8 @@ export function StepForm({
 	at: number;
 	of: number;
 	next: NextState;
-	onNext: () => void;
+	/** Presses Next, with the form its fields are read from. */
+	onNext: (form: HTMLFormElement) => void;
 	/** Starts a conversation on the step; null when no agent can be started. */
 	onAgent: (() => void) | null;
 	onLeave: () => void;
@@ -135,7 +136,7 @@ export function StepForm({
 				onSubmit={(event) => {
 					event.preventDefault();
 					if (!working) {
-						onNext();
+						onNext(event.currentTarget);
 					}
 				}}
 			>

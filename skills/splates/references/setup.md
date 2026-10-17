@@ -3,8 +3,8 @@
 `[SPLATES SETUP <step>]`, sent by the `splates server` Setup page as the first
 prompt of a new conversation, asks you to walk the user through one step of
 setting splates up on this machine. The steps are a roster in
-splates's `setup-areas.ts`, each with a check that decides whether it is
-done; `splates setup` lists them by area. Setup changes the machine
+splates's `setup-area-*.ts`, one file per area, each step with a check that
+decides whether it is done; `splates setup` lists them by area. Setup changes the machine
 (`~/.splates`, the creds store), not the repo, so it needs no task: stay in the
 main tree. A code change it turns up, such as a check that is wrong, goes in
 a task of its own, as Workflow says.
@@ -43,6 +43,8 @@ a task of its own, as Workflow says.
    offers it.
 
 When the user would rather not do a step, `splates setup <step> --skip`, which
-the page shows as skipped until `--unskip`, and name the next step as above.
+`splates setup` lists as skipped until `--unskip`, and name the next step as
+above. The page has no Skip: it still asks a skipped step when the user opens
+its area.
 A required step (`optional: false`) can be skipped too, but say first what
 stops working without it, from `why`.

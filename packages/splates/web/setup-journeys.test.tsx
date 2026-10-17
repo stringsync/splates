@@ -1,158 +1,173 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { Setup, type SetupProgress } from "../setup";
+import { Setup, type SetupProgress, type StepStatus } from "../setup";
 import { SETUP_AREAS } from "../setup-areas";
 import { SetupIndex, StepForm } from "./setup-form";
 import { SetupPage } from "./setup-page";
 import { SetupContext } from "./setup-state";
-import { act, cleanup, fireEvent, render, Testing } from "./testing";
+import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
-describe("Selectable setup journeys", () => {
+describe("Setup journeys", () => {
 	let testing: Testing;
 	let progress: SetupProgress;
-	let setup: Setup;
 	beforeEach(async () => {
 		testing = new Testing();
-		setup = new Setup(
+		progress = await new Setup(
 			{ fs: new FakeFs(), home: "/fixture", device: new FakeSecretStore() },
 			SETUP_AREAS,
-		);
-		progress = await setup.read();
+		).read();
 	});
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
 	});
 	function open() {
-		return render(
-			<SetupContext value={{ progress, refresh: () => {}, settle: () => {} }}>
-				<SetupPage feed={null} onOpen={() => {}} />
-			</SetupContext>,
-		);
+		let settled = progress;
+		const view = render(<Page />);
+		function Page() {
+			return (
+				<SetupContext
+					value={{
+						progress: settled,
+						refresh: () => {},
+						settle: (fresh) => {
+							settled = fresh;
+							view.rerender(<Page />);
+						},
+					}}
+				>
+					<SetupPage feed={null} onOpen={() => {}} />
+				</SetupContext>
+			);
+		}
+		return view;
 	}
+	/** `progress` with the steps `statuses` names set so. */
+	function with_(statuses: Record<string, StepStatus>): SetupProgress {
+		return {
+			...progress,
+			areas: progress.areas.map((area) => {
+				const steps = area.steps.map((step) => ({
+					...step,
+					status: statuses[step.id] ?? step.status,
+				}));
+				return {
+					...area,
+					steps,
+					done: steps.filter((step) => step.status === "done").length,
+				};
+			}),
+		};
+	}
+	const click = (view: ReturnType<typeof open>, name: string) =>
+		act(async () => fireEvent.click(view.getByRole("button", { name })));
 
-	it("opens only the selected agent and retains other machine discovery", async () => {
+	it("asks one page at a time, Next doing the step, until the journey is set up", async () => {
 		const view = open();
 		expect(view.getByRole("button", { name: "Set up OpenCode" })).toBeTruthy();
-		expect(view.getByRole("button", { name: "Set up Claude" })).toBeTruthy();
-		expect(view.getByRole("button", { name: "Set up Codex" })).toBeTruthy();
-		expect(
-			view.getByRole("button", { name: "Set up Remote access" }),
-		).toBeTruthy();
-		expect(
-			view.getByRole("button", { name: "Set up Notifications" }),
-		).toBeTruthy();
 		expect(view.getByRole("button", { name: "Set up Dictation" })).toBeTruthy();
+		await click(view, "Set up Claude");
+
+		expect(view.getByRole("form", { name: "Register Claude in splates" }));
+		expect(view.getByText("1 of 2")).toBeTruthy();
+		expect(view.queryByRole("progressbar")).toBeNull();
+		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Skip" })).toBeNull();
+
+		testing.reply = with_({ "claude-roster": "done" });
+		await click(view, "Next");
+		expect(testing.posted("/api/setup/claude-roster/next")[0]?.body).toEqual({
+			answers: {},
+		});
+		await waitFor(() =>
+			view.getByRole("form", { name: "Review Claude models" }),
+		);
+		expect(view.getByText("2 of 2")).toBeTruthy();
+
+		testing.reply = with_({ "claude-roster": "done", "claude-models": "done" });
+		await click(view, "Finish");
+		await waitFor(() => view.getByText("Claude is set up"));
+		await click(view, "Back to setup");
+		expect(
+			view.getByRole("button", { name: "Set up Claude Done" }),
+		).toBeTruthy();
 		expect(testing.asked).not.toContain("/api/setup/opencode");
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Claude" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step claude-roster" }),
-		).toBeTruthy();
-		expect(view.getByText("0 of 2 done")).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Next" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step claude-models" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Finish" })),
-		);
-		expect(view.queryByRole("article")).toBeNull();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Back to journeys" })),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Codex" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step codex-roster" }),
-		).toBeTruthy();
-		expect(testing.posts).toEqual([]);
 	});
 
-	it("keeps OpenCode install, login, models and readiness in one repairable journey", async () => {
+	it("stays on the page with one line on what went wrong, Next becoming Try again", async () => {
 		const view = open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up OpenCode" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step opencode-install" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Next" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step opencode-connect" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Next" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step opencode-models" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Next" })),
-		);
-		expect(
-			view.getByRole("article", { name: "step opencode-ready" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "Revisit / repair setup" }),
+		await click(view, "Set up Codex");
+		testing.refuseWrites = {
+			reason: "step",
+			message: "Codex is not on the roster yet.",
+		};
+
+		await click(view, "Next");
+
+		await waitFor(() =>
+			expect(view.getByRole("alert").textContent).toBe(
+				"Codex is not on the roster yet.",
 			),
 		);
-		expect(
-			view.getByRole("article", { name: "step opencode-install" }),
-		).toBeTruthy();
-		expect(testing.posts.map((post) => post.path)).toEqual([
-			"/api/setup/opencode/cancel",
-			"/api/setup/opencode/cancel",
-		]);
+		expect(view.getByRole("form", { name: "Register Codex in splates" }));
+		testing.refuseWrites = null;
+		testing.reply = with_({ "codex-roster": "done" });
+		await click(view, "Try again");
+		await waitFor(() =>
+			view.getByRole("form", { name: "Review Codex models" }),
+		);
 	});
 
-	it("stays on the step when skipping fails", async () => {
+	it("opens a journey at its first step not done, and a finished one at its first", async () => {
+		progress = with_({ "codex-roster": "done", dictation: "done" });
 		const view = open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Codex" })),
-		);
-		testing.refuseWrites = { reason: "failed", message: "Could not save skip" };
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Skip" })),
-		);
-		expect(view.getByRole("alert").textContent).toContain(
-			"Could not save skip",
-		);
-		expect(
-			view.getByRole("article", { name: "step codex-roster" }),
-		).toBeTruthy();
+		await click(view, "Set up Codex");
+		expect(view.getByRole("form", { name: "Review Codex models" }));
+		await click(view, "Setup");
+		await click(view, "Set up Dictation Done");
+		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});
 
-	it("resumes a skipped prerequisite when revisiting its dependent step", async () => {
-		await setup.skip("codex-roster");
-		progress = await setup.read();
-		testing.reply = progress;
+	it("saves a pasted cred for the device before Next checks the step", async () => {
 		const view = open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Set up Codex" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "2. Review Codex models" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Resume this step" })),
-		);
-		expect(testing.posted("/api/setup/codex-roster/skipped")[0]?.body).toEqual({
-			skipped: false,
+		await click(view, "Set up Dictation");
+		fireEvent.change(view.getByLabelText("OpenAI API key"), {
+			target: { value: " sk-secret " },
 		});
-		expect(testing.posted("/api/setup/codex-models/skipped")[0]?.body).toEqual({
-			skipped: false,
+		testing.reply = with_({ dictation: "done" });
+
+		await click(view, "Finish");
+
+		await waitFor(() => view.getByText("Dictation is set up"));
+		expect(testing.posted("/api/creds/OPENAI_API_KEY")[0]?.body).toEqual({
+			value: "sk-secret",
+			scope: "device",
 		});
+		expect(testing.posted("/api/setup/dictation/next")[0]?.body).toEqual({
+			answers: {},
+		});
+	});
+
+	it("draws OpenCode's pages from its own controls, repair going back to install", async () => {
+		progress = with_({
+			"opencode-install": "done",
+			"opencode-connect": "done",
+			"opencode-models": "done",
+		});
+		const view = open();
+		await click(view, "Set up OpenCode");
+		expect(view.getByRole("form", { name: "Check OpenCode configuration" }));
+
+		await click(view, "Revisit / repair setup");
+
+		expect(view.getByRole("form", { name: "Install OpenCode" }));
+		expect(
+			view.getByRole("button", { name: "Install OpenCode with npm" }),
+		).toBeTruthy();
+		expect(testing.posts.filter((post) => post.path.endsWith("/next"))).toEqual(
+			[],
+		);
 	});
 
 	it("lists areas as rows, marking those with every step done", () => {

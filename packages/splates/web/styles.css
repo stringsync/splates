@@ -140,6 +140,8 @@
 @source "./setup-opencode-ready.tsx";
 @source "./setup-opencode-terminal.tsx";
 @source "./setup-state.tsx";
+@source "./setup-steps.tsx";
+@source "./setup-opencode-steps.tsx";
 @source "./kept-creds.tsx";
 @source "./systems.tsx";
 @source "./system-view.tsx";

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { SavedPortsHost } from "./saved-ports-host";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
 import { Setup, type SetupMachine } from "./setup";
-import { SETUP_AREAS } from "./setup-areas";
+import { REMOTE_ACCESS_AREA } from "./setup-area-remote";
 import { API_TOKEN } from "./tunnel-setup";
 
 const HOME = "/home/.splates";
@@ -39,7 +40,7 @@ describe("the access setup step", () => {
 	});
 
 	async function access() {
-		const progress = await new Setup(machine, SETUP_AREAS).read();
+		const progress = await new Setup(machine, [REMOTE_ACCESS_AREA]).read();
 		return progress.areas
 			.flatMap((area) => area.steps)
 			.find((step) => step.id === "access");
@@ -90,5 +91,36 @@ describe("the access setup step", () => {
 
 		expect(step?.status).toBe("ready");
 		expect(step?.problem).toBeNull();
+	});
+
+	it("checks the ports host against the base `--ports-host` saved", async () => {
+		const step = REMOTE_ACCESS_AREA.steps.find(
+			(step) => step.id === "ports-host",
+		);
+
+		expect(await step?.check(machine)).toBe(false);
+		await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).save(
+			"ports.example.com",
+		);
+		expect(await step?.check(machine)).toBe(true);
+	});
+
+	it("is all done once the ports host and a slot's tunnel are saved", async () => {
+		answer = async () =>
+			new Response(null, {
+				status: 302,
+				headers: {
+					location: "https://crew.cloudflareaccess.com/cdn-cgi/access/login",
+				},
+			});
+		await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).save(
+			"ports.example.com",
+		);
+		await machine.fs.mkdir(`${HOME}/slots/bee`, { recursive: true });
+		await machine.fs.write(`${HOME}/slots/bee/tunnel.json`, "{}");
+
+		const progress = await new Setup(machine, [REMOTE_ACCESS_AREA]).read();
+
+		expect(progress.areas[0]?.left).toBe(0);
 	});
 });

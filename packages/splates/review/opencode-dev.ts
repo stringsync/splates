@@ -136,15 +136,17 @@ const handle = gate.local(
 			await setup.see();
 			return Response.json(await setup.read());
 		}
-		const skipped = /^\/api\/setup\/([^/]+)\/skipped$/.exec(path);
-		if (skipped?.[1]) {
-			const body = await request.json();
-			if (body.skipped) {
-				await setup.skip(skipped[1]);
-			} else {
-				await setup.unskip(skipped[1]);
+		const next = /^\/api\/setup\/([^/]+)\/next$/.exec(path);
+		if (next?.[1]) {
+			const { answers = {} } = await request.json();
+			try {
+				return Response.json(await setup.submit(next[1], answers));
+			} catch (error) {
+				return Response.json(
+					{ reason: "step", message: (error as Error).message },
+					{ status: 422 },
+				);
 			}
-			return Response.json(await setup.read());
 		}
 		if (path === "/api/setup") {
 			return Response.json(await setup.read());
