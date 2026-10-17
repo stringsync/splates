@@ -15,6 +15,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { thinkingOf } from "../effort";
 import type { LaneState } from "../lanes";
 import { laneReference } from "../prompts";
 import type { AgentPick } from "../roster";
@@ -274,7 +275,14 @@ export function AssigneeItems({
 	const is = (pick: AgentPick | null) =>
 		pick === null
 			? assignee === null
-			: assignee?.agent === pick.agent && assignee.model === pick.model;
+			: assignee?.agent === pick.agent &&
+				assignee.model === pick.model &&
+				assignee.effort === pick.effort;
+	// A pick of the agent already assigned keeps its thinking level.
+	const kept = (agent: string) =>
+		assignee?.agent === agent && assignee.effort !== undefined
+			? { effort: assignee.effort }
+			: {};
 	return (
 		<DropdownMenuGroup>
 			{label !== undefined && <DropdownMenuLabel>{label}</DropdownMenuLabel>}
@@ -307,22 +315,61 @@ export function AssigneeItems({
 						</DropdownMenuSubTrigger>
 						<DropdownMenuSubContent className={cn("w-48", touchItems)}>
 							<DropdownMenuCheckboxItem
-								checked={is({ agent: each.id })}
-								onCheckedChange={() => onPick({ agent: each.id })}
+								checked={is({ agent: each.id, ...kept(each.id) })}
+								onCheckedChange={() =>
+									onPick({ agent: each.id, ...kept(each.id) })
+								}
 							>
 								Its own model
 							</DropdownMenuCheckboxItem>
 							{(each.models ?? []).map((model) => (
 								<DropdownMenuCheckboxItem
 									key={model.id}
-									checked={is({ agent: each.id, model: model.id })}
+									checked={is({
+										agent: each.id,
+										model: model.id,
+										...kept(each.id),
+									})}
 									onCheckedChange={() =>
-										onPick({ agent: each.id, model: model.id })
+										onPick({
+											agent: each.id,
+											model: model.id,
+											...kept(each.id),
+										})
 									}
 								>
 									{model.name}
 								</DropdownMenuCheckboxItem>
 							))}
+							{thinkingOf(each.settings).length > 0 && (
+								<>
+									<DropdownMenuSeparator />
+									<DropdownMenuLabel>Thinking</DropdownMenuLabel>
+									{thinkingOf(each.settings).map((level) => {
+										const on =
+											assignee?.agent === each.id &&
+											assignee.effort === level.value;
+										return (
+											<DropdownMenuCheckboxItem
+												key={level.value}
+												checked={on}
+												onCheckedChange={() => {
+													const same = assignee?.agent === each.id;
+													onPick({
+														agent: each.id,
+														...(same && assignee.model !== undefined
+															? { model: assignee.model }
+															: {}),
+														...(on ? {} : { effort: level.value }),
+													});
+												}}
+											>
+												{level.name}
+											</DropdownMenuCheckboxItem>
+										);
+									})}
+								</>
+							)}
 						</DropdownMenuSubContent>
 					</DropdownMenuSub>
 				),

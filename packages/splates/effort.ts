@@ -4,13 +4,14 @@ import { fail } from "./exit";
 /** The setting a thinking level goes in, as ACP names its category. */
 const THOUGHT_LEVEL = "thought_level";
 
+/** The thinking levels `offered` lets an agent work at; none without a thinking setting. */
+export function thinkingOf(offered: Setting[]): Setting["options"] {
+	return offered.find((each) => each.category === THOUGHT_LEVEL)?.options ?? [];
+}
+
 /** The thinking levels `offered` lets an agent work at, by value; none without a thinking setting. */
 export function effortsOf(offered: Setting[]): string[] {
-	return (
-		offered
-			.find((each) => each.category === THOUGHT_LEVEL)
-			?.options.map((each) => each.value) ?? []
-	);
+	return thinkingOf(offered).map((each) => each.value);
 }
 
 /** The setting `effort` goes in, by its id; none when it is unset or `offered` has nowhere for it. */

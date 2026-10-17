@@ -2,25 +2,17 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { Conversations } from "./conversations";
 import { dev } from "./dev";
-import { json } from "./dev-testing";
-import { AGENT, FakeAgent, ROSTERED } from "./fake-agent";
+import { eventually, json } from "./dev-testing";
+import { FakeAgent, ROSTERED } from "./fake-agent";
 import { Testing } from "./testing";
 
 describe("dev assign", () => {
 	let deps: Testing;
 	let agent: FakeAgent;
-	let _conversations: Conversations;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
-		_conversations = new Conversations(
-			`${deps.splatesDir}/conversations`,
-			[AGENT],
-			{
-				launch: agent.launch,
-			},
-		);
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -63,6 +55,16 @@ describe("dev assign", () => {
 				agent: "fake",
 				model: "small",
 			});
+			await json(port, "/api/todos/1/assignee", "PUT", {
+				agent: "fake",
+				model: "small",
+				effort: "high",
+			});
+			expect((await deps.todos.find(1)).state.assignee).toEqual({
+				agent: "fake",
+				model: "small",
+				effort: "high",
+			});
 			const refused = await json(port, "/api/todos/1/assignee", "PUT", {
 				agent: "nobody",
 			});
@@ -76,9 +78,12 @@ describe("dev assign", () => {
 			});
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await rostered.find(id);
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			expect(
+				await eventually(
+					async () => conversation.state.status === "idle",
+					5000,
+				),
+			).toBe(true);
 			expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
 		} finally {
 			await server.disposeAsync();

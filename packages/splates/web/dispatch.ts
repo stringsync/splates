@@ -1,5 +1,5 @@
 import type { ConversationState } from "../conversations";
-import { effortSettings } from "../effort";
+import { effortSettings, thinkingOf } from "../effort";
 import { type Needing, needs } from "../needs";
 import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
@@ -126,14 +126,23 @@ export class Dispatch {
 		return started.id;
 	}
 
-	/** What `pick` reads as: "Claude", or "Claude · Opus 5.5" on a model. */
+	/**
+	 * What `pick` reads as: "Claude", or "Claude · Opus 5.5" on a model, and
+	 * "Claude · Opus 5.5 · High" at a thinking level.
+	 */
 	pickName(pick: AgentPick): string {
 		const agent = this.agents.find((each) => each.id === pick.agent);
 		const model = agent?.models?.find((each) => each.id === pick.model);
-		const name = agent?.name ?? pick.agent;
-		return pick.model === undefined
-			? name
-			: `${name} · ${model?.name ?? pick.model}`;
+		const level = thinkingOf(agent?.settings ?? []).find(
+			(each) => each.value === pick.effort,
+		);
+		return [
+			agent?.name ?? pick.agent,
+			pick.model === undefined ? undefined : (model?.name ?? pick.model),
+			pick.effort === undefined ? undefined : (level?.name ?? pick.effort),
+		]
+			.filter((each) => each !== undefined)
+			.join(" · ");
 	}
 
 	/**

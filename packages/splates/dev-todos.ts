@@ -2,6 +2,7 @@ import type { ConversationRoutes } from "./dev-conversation-routes";
 import { body, uploads } from "./dev-http";
 import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
+import { pickEffort } from "./effort";
 import { fail } from "./exit";
 import { laneUpdated, recordLaneRemove } from "./lane";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
@@ -235,23 +236,32 @@ export class TodoRoutes {
 	}
 
 	/**
-	 * The agent a body names, `{ agent, model }`, off the roster the page's
+	 * The agent a body names, `{ agent, model, effort }`, off the roster the page's
 	 * conversations start from; null for `{ agent: null }`, for none.
 	 */
 	private async assigneeIn(request: Request): Promise<AgentPick | null> {
-		const { agent, model } = await body(request);
+		const { agent, model, effort } = await body(request);
 		if (agent === null || agent === undefined || agent === "") {
 			return null;
 		}
-		return pickAgent(
-			this.#conversations
-				.held()
-				.agents.map((each) => ({ ...each, models: modelsOf(each) })),
+		const held = this.#conversations.held();
+		const picked = pickAgent(
+			held.agents.map((each) => ({ ...each, models: modelsOf(each) })),
 			String(agent),
 			model === null || model === undefined || model === ""
 				? undefined
 				: String(model),
 		);
+		return effort === null || effort === undefined || effort === ""
+			? picked
+			: {
+					...picked,
+					effort: pickEffort(
+						(await held.settings())[picked.agent],
+						picked.agent,
+						String(effort),
+					),
+				};
 	}
 }
 
