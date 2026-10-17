@@ -2,6 +2,7 @@ import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "./exit";
+import type { OpenCodeSetup } from "./setup-opencode";
 
 /**
  * Setting arbor up on this machine: the roster's steps, which the user has
@@ -151,6 +152,8 @@ export class Setup {
 
 /** What a step's check reads: this machine's arbor home and its device store. */
 export interface SetupMachine {
+	/** Explicit checks from the optional native setup panel; never launch on page load. */
+	opencode?: OpenCodeSetup;
 	fs: Fs;
 	/** `~/.arbor`, or a test's own. */
 	home: string;

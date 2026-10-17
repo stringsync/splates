@@ -140,8 +140,34 @@ function setupAreas(): readonly SetupArea[] {
 		cred: OPENAI_KEY,
 		check: async ({ device }) => (await device.get(OPENAI_KEY)) !== undefined,
 	};
+	const installStep: SetupStep = {
+		id: "opencode-install",
+		title: "Install OpenCode",
+		why: "Optionally add OpenCode alongside your existing agents.",
+		user: "Check this machine, or install OpenCode here with npm. No model prompt is sent.",
+		agent:
+			"Use the native OpenCode controls in Setup; do not start a paid conversation or edit the roster.",
+		optional: true,
+		after: [],
+		check: async ({ opencode }) => opencode?.read().version != null,
+	};
+	const connectStep: SetupStep = {
+		id: "opencode-connect",
+		title: "Connect OpenCode Go",
+		why: "Connect your existing Go or Go Plus account through OpenCode's own secure login.",
+		user: "Open your existing account in Console, then enter its key only into the native login prompt below. Return here and check again.",
+		agent:
+			"Never ask for keys in chat or read native credential files. Native auth listing confirms only stored credentials; ACP initialize checks protocol compatibility, not entitlement or billing.",
+		optional: true,
+		after: [installStep],
+		check: async ({ opencode }) =>
+			opencode?.read().auth === "stored" &&
+			opencode.read().protocol === "compatible" &&
+			opencode.read().problem === null,
+	};
 	return [
 		{ id: "agents", title: "Agents", steps: [rosterStep, modelsStep] },
+		{ id: "opencode", title: "OpenCode", steps: [installStep, connectStep] },
 		{
 			id: "remote-access",
 			title: "Remote access",

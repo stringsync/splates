@@ -278,3 +278,19 @@ gate. Fixtures need no production login. Live executable compatibility remains
 unverified and no real comparison was run. `bin/wiz dev fix --code-only` disables
 both Scry model roles and avoids opening credential stores; model-dependent rules
 are reported as unchecked. `bin/wiz dev test` runs the local fixture suites.
+
+### OpenCode setup wizard (optional)
+
+Open Settings → Set up arbor → OpenCode to check installation, explicitly install
+the official CLI with npm, and connect an existing Go/Go Plus account through
+OpenCode's masked native key prompt. Return and choose Check again to inspect
+native credential metadata and negotiate ACP without sending a model prompt.
+Older native login interfaces show recovery instructions. No keys belong in an
+agent conversation. The native controls currently require macOS or Linux.
+
+Installation/connection is the first part of this wizard. Model selection and
+configuration (#373), then final conversation readiness (#374), remain separate
+lane steps. Until those land, this step does not add an agent roster entry. A
+stored credential and ACP handshake do not verify subscription access, billing,
+model availability or inference. See the [setup contract](design/opencode-acp.md#372-setup-wizard-contract-lane-53-step-1)
+for exact files and supported interfaces.

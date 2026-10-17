@@ -37,6 +37,8 @@ describe("SETUP_AREAS", () => {
 			"waiting",
 			"ready",
 			"waiting",
+			"ready",
+			"waiting",
 			"waiting",
 			"waiting",
 			"ready",
@@ -79,7 +81,9 @@ describe("SETUP_AREAS", () => {
 		await machine.fs.write(`${HOME}/slots/bee/tunnel.json`, "{}");
 		await machine.device.set(OPENAI_KEY, "key");
 
-		const progress = await new Setup(machine, SETUP_AREAS).read();
+		const setup = new Setup(machine, SETUP_AREAS);
+		await setup.skip("opencode-install");
+		const progress = await setup.read();
 
 		expect(progress.areas.every((area) => area.left === 0)).toBe(true);
 		expect(progress.next).toBeNull();

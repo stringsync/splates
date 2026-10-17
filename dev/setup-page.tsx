@@ -15,6 +15,7 @@ import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Paste } from "./cred-paste";
 import { Markdown } from "./markdown";
+import { OpenCodeControls } from "./setup-opencode";
 import { SetupContext } from "./setup-state";
 import { TopBar } from "./top-bar";
 
@@ -191,7 +192,9 @@ function Question({
 					<Markdown text={step.why} inline />
 				</p>
 			</header>
-			{step.status === "done" ? (
+			{step.id === "opencode-install" || step.id === "opencode-connect" ? (
+				<OpenCodeControls step={step.id} />
+			) : step.status === "done" ? (
 				<p className="flex items-center gap-2 text-lg text-success">
 					<CheckIcon className="size-5" /> Done
 				</p>

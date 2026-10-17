@@ -21,6 +21,7 @@ import {
 import { Pushes } from "./dev-push";
 import { Restarts } from "./dev-restart";
 import { SetupRoutes } from "./dev-setup";
+import { OpenCodeSetupRoutes } from "./dev-setup-opencode";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { claimedFirst, DevTaskPorts, portOwnersOf } from "./dev-task-ports";
 import { Terminals } from "./dev-terminal";
@@ -37,6 +38,7 @@ import { openRepository } from "./repository";
 import { arborHome } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
+import { OpenCodeSetup } from "./setup-opencode";
 import { LocalWorkerMachine } from "./worker-machine";
 
 export type { DevOptions } from "./dev-options";
@@ -290,12 +292,19 @@ export async function dev(
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
 	const jobs = heavy ?? HeavyJobs.ofMachine({ fs, ps, log });
+	const opencode = new OpenCodeSetupRoutes(
+		new OpenCodeSetup({ fs, ps, home: arborHome(ps) }),
+		ps,
+		gate,
+	);
+	disposer.defer(() => opencode.disposeAsync());
 	const setup = new SetupRoutes(
 		new Setup(
 			{
 				fs,
 				home: arborHome(ps),
 				device: (deps.secrets ?? SYSTEM_STORES).device,
+				opencode: opencode.setup,
 				fetch: deps.fetch,
 			},
 			SETUP_AREAS,
@@ -365,6 +374,13 @@ export async function dev(
 				"/api/push/subscription": {
 					PUT: talk(guarded(pushes.subscribe)),
 					DELETE: talk(guarded(pushes.unsubscribe)),
+				},
+				"/api/setup/opencode": gate.local(guarded(opencode.read)),
+				"/api/setup/opencode/check": {
+					POST: gate.local(guarded(opencode.check)),
+				},
+				"/api/setup/opencode/cancel": {
+					POST: gate.local(guarded(opencode.cancel)),
 				},
 				"/api/setup": guarded(setup.read),
 				"/api/setup/seen": { PUT: guarded(setup.see) },
@@ -530,6 +546,9 @@ export async function dev(
 				return claimed;
 			}
 			const { pathname } = new URL(request.url);
+			if (pathname === "/api/setup/opencode/native") {
+				return opencode.open(request, server);
+			}
 			if (pathname === "/api/terminal") {
 				return terminals.open(request, server);
 			}

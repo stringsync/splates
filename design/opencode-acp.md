@@ -328,3 +328,79 @@ Do not subtract a guessed starting cost, infer extra charges from reported dolla
 or convert token counts to quota. Preserve unsupported fields as unknown. A single
 sample is a debugging comparison, not a quality ranking. No eval runner or paid
 comparison is required to deliver this recipe.
+
+## #372 setup wizard contract (lane 53 step 1)
+
+The existing Setup wizard now has optional `opencode-install` and
+`opencode-connect` steps in its OpenCode area. #373 must extend this wizard with
+model/configuration selection; #374 owns final conversation readiness and the
+complete enablement journey. Step 1 alone does not add OpenCode to the roster.
+
+Implementation locations:
+
+- `setup-areas.ts`: step IDs, ordering, optional status and progress checks.
+- `setup.ts`: `SetupMachine.opencode` supplies the native setup observations.
+- `setup-opencode.ts`: `OpenCodeSetup` and `OpenCodeStatus`, fixed installer/login
+  commands, version and native-auth metadata checks, initialize-only ACP probe.
+- `dev-setup-opencode.ts`, `dev-setup-native.ts`: native action WebSocket, local/Access and Origin guards,
+  single-operation exclusion, ephemeral terminal lifecycle and cancellation.
+- `dev.ts`: one service per server; `/api/setup/opencode` (GET observations),
+  `/check` and `/cancel` (POST), `/native?action=install|login` (WebSocket).
+- `dev/setup-page.tsx`, `dev/setup-opencode.tsx`,
+  `dev/setup-opencode-terminal.tsx`: the existing wizard's native controls and
+  disposable login terminal, with Console handoff, retry and skip/back.
+- `setup-opencode.test.ts`, `dev-setup-opencode.test.ts`,
+  `dev/setup-opencode.test.tsx`, `setup-areas.test.ts`: synthetic coverage;
+  `dev/testing.ts` supplies native-status UI fixtures.
+
+### Supported native authentication interface
+
+On 2026-10-17, current upstream `dev` source differs from the older V1 CLI docs.
+The supported interface is the current V2 native masked-key flow:
+
+- Explicit installation runs `npm install --global @opencode/cli@latest` without
+  sudo, only from the user's Install action. It refuses to overwrite a detected
+  installation; existing installations use official repair/update instructions.
+- `opencode --version` records the observed version. `auth login --help` must
+  advertise positional `target`, `--method`, and `--standalone`; `auth list
+  --help` must advertise `--format`. Older interfaces are shown as unsupported,
+  with guided recovery; do not silently substitute V1 key-entry behavior.
+- Native login runs exactly `opencode auth login opencode-go --method key
+  --standalone` in a short-lived POSIX terminal. Current native key login calls
+  Clack's password prompt. Users obtain their existing Go/Go Plus key in Console
+  and enter it only into that masked prompt. No Go OAuth contract was found.
+- Return/recheck runs `opencode auth list --format json --standalone`.
+  Its public metadata is an array of `{id, name, connections}`. Only exact
+  `id: "opencode-go"` with a connection of `type: "credential"` counts as stored
+  authentication. Other providers and environment entries do not. This is not
+  `auth export`: never invoke export or read/copy the native credential store.
+- `opencode acp` receives only `initialize`; matching the SDK protocol version
+  reports observed handshake compatibility. It never creates a session or sends
+  a prompt. Processes are bounded and checks can be canceled.
+- `OpenCodeStatus` keeps `version`, `auth` (`unchecked|missing|stored|unsupported`),
+  `protocol` (`unchecked|compatible|failed`), `checking`, `problem`, and `checkedAt`.
+  Observations live in this server's memory; reads do not launch commands. Recheck
+  is explicit, and a server restart requires another check. A successful check
+  does not prove inference, model availability, entitlement, quota, or billing.
+- Native terminal bytes are not conversation events and never go to worker
+  journals, saved screens, logs or artifacts. Leaving the step, disconnecting,
+  canceling or the ten-minute timeout closes it. Completed installation or
+  credentials already saved by OpenCode are not rolled back. Native terminals
+  require macOS/Linux; unsupported systems get official recovery instructions.
+
+Upstream references inspected for this contract:
+[command definitions](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/commands.ts),
+[native login](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/auth/login.ts),
+[masked input](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/auth/form.ts),
+[auth listing](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/auth/list.ts),
+and [installation](https://github.com/anomalyco/opencode#installation).
+These sources establish the interface, not live executable compatibility. No
+production installation, login, entitlement or inference was verified here.
+Fixtures labeled `2.0.0-fixture` are synthetic, not a supported release claim.
+
+#373 must verify the installed V2 catalog/configuration interface rather than
+blindly copying V1 `opencode models` instructions above. Keep exact provider IDs
+and existing no-fallback validation. #374 must distinguish stored authentication
+and successful initialization from complete configured-model readiness. Neither
+step may infer Console Use balance settings from ACP. Keep overflow off through
+an explicit Console handoff/confirmation, unless a supported interface is verified.
