@@ -212,12 +212,10 @@ export class WorkerDaemon implements AsyncResource {
 		try {
 			switch (channel.kind) {
 				case "process":
-					host = new WorkerProcessHost(
-						channel,
-						this.session,
-						ps,
-						this.relay?.url ?? null,
-					);
+					host = new WorkerProcessHost(channel, this.session, ps, {
+						relay: this.relay?.url ?? null,
+						timer: this.timer,
+					});
 					break;
 				case "pty":
 					host = new WorkerPtyHost(channel, ps);

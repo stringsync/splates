@@ -1,5 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Child, ProcessEntry, Ps } from "webappwiz/system";
+import type { Timer } from "webappwiz/time";
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { SERVING } from "./supervise";
 import type { WorkerChannel } from "./worker-channel";
@@ -21,6 +23,9 @@ const ProcessMessage = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("describe") }),
 ]);
 
+/** How often a running process's descendants are noted, for when it dies without ending them. */
+const WATCH_EVERY = Duration.secs(2);
+
 /**
  * One process a `process` channel started on the worker, such as an agent:
  * its stdout as the channel's bytes, its stdin from them, and its pid,
@@ -32,18 +37,18 @@ const ProcessMessage = z.discriminatedUnion("type", [
 export class WorkerProcessHost implements Resource {
 	private readonly child: Child;
 	private readonly stdin: WritableStreamDefaultWriter<Uint8Array>;
+	/** Every descendant seen while the child ran, for the ones it leaves behind. */
+	private readonly seen = new Set<number>();
+	private ended = false;
+	private watch: Resource | null = null;
 
 	constructor(
 		private readonly channel: WorkerChannel,
 		private readonly session: WorkerSession,
 		private readonly ps: Ps,
-		/**
-		 * This worker's relay, which a process told where `splates server` is
-		 * reaches it through instead, since the coordinator's own address is
-		 * its machine's loopback; null to leave its env as it is.
-		 */
-		relay: string | null = null,
+		opts: WorkerProcessHostOptions = {},
 	) {
+		const { relay = null, timer = null } = opts;
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
 		this.child = ps.start(argv, {
 			cwd,
@@ -60,11 +65,56 @@ export class WorkerProcessHost implements Resource {
 		});
 		channel.events.on("message", ({ body }) => this.told(body));
 		channel.events.on("close", () => this.dispose());
+		this.watch =
+			timer?.setInterval(() => void this.note(), WATCH_EVERY) ?? null;
 		void this.run(argv, cwd);
 	}
 
 	dispose(): void {
+		this.watch?.dispose();
 		void this.end();
+	}
+
+	/** Remembers what runs under the child now. */
+	private async note(): Promise<void> {
+		const { pid } = this.child;
+		if (pid === null || this.ended) {
+			return;
+		}
+		const table = await this.ps.processes().catch(() => []);
+		for (const each of descendants(table, pid)) {
+			this.seen.add(each);
+		}
+	}
+
+	/**
+	 * Ends what the child left running when it exited by itself: reparented
+	 * to init, those commands would keep their ports and memory after its
+	 * slot is freed. Only a remembered process still in the table whose
+	 * parent is init, gone, or another remembered one is ended, so a pid the
+	 * system has since reused is left alone.
+	 */
+	private async reap(): Promise<void> {
+		this.watch?.dispose();
+		if (this.ended || this.seen.size === 0) {
+			return;
+		}
+		const table = await this.ps.processes().catch(() => []);
+		const present = new Set(table.map((each) => each.pid));
+		const left = table
+			.filter(
+				(each) =>
+					this.seen.has(each.pid) &&
+					(each.ppid === 1 ||
+						!present.has(each.ppid) ||
+						this.seen.has(each.ppid)),
+			)
+			.map((each) => each.pid);
+		if (left.length > 0) {
+			await this.ps
+				.spawn(["kill", "-TERM", ...left.map(String)])
+				.catch(() => {});
+		}
 	}
 
 	/**
@@ -76,6 +126,7 @@ export class WorkerProcessHost implements Resource {
 	 */
 	private async end(signal?: NodeJS.Signals): Promise<void> {
 		const { pid } = this.child;
+		this.ended = true;
 		const under =
 			pid === null
 				? []
@@ -123,6 +174,7 @@ export class WorkerProcessHost implements Resource {
 			}
 			return 127;
 		});
+		await this.reap();
 		if (!this.channel.closed) {
 			this.channel.send({ type: "exit", code });
 			this.channel.dispose();
@@ -146,6 +198,18 @@ export class WorkerProcessHost implements Resource {
 			// A process that never started has no output; its exit says why.
 		}
 	}
+}
+
+/** What a {@link WorkerProcessHost} is set up with, beyond its channel. */
+export interface WorkerProcessHostOptions {
+	/**
+	 * This worker's relay, which a process told where `splates server` is
+	 * reaches it through instead, since the coordinator's own address is
+	 * its machine's loopback; absent to leave its env as it is.
+	 */
+	relay?: string | null;
+	/** What notes the child's descendants while it runs; absent to note none. */
+	timer?: Timer | null;
 }
 
 /** Every process under `pid` in `table`, children first. */
