@@ -820,6 +820,19 @@ the Ready to merge card, which the user merges from, only for a whole report.
 
 ## Artifacts
 
+Use artifacts proactively when the conversation warrants something the user
+can explore or return to, especially HTML artifacts: an interactive
+explanation, a comparison of options, a diagram with details to inspect, or
+a small tool for trying scenarios. Do not wait for the user to ask for an
+artifact when one would make the work easier to understand or judge. Choose
+one when its visual structure or interaction adds value, rather than for
+every reply.
+
+Screenshots remain the first choice for showing what the actual UI looks
+like, with recordings for behavior over time. An HTML artifact can complement
+that evidence with an explanation or exploration; label a mockup or
+simulation as such so it is clear what the user is seeing.
+
 An artifact is a file the user will come back for after the task is gone: a
 screenshot or recording of the finished work, an HTML page, a generated
 document. It belongs to the conversation, not the task, so it outlives every
