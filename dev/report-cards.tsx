@@ -8,7 +8,6 @@ import {
 	ArrowRightIcon,
 	CheckIcon,
 	ChevronDownIcon,
-	CodeIcon,
 	CopyIcon,
 	HourglassIcon,
 	ListPlusIcon,
@@ -34,7 +33,7 @@ import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
 import { CardArchive, useArchivable } from "./archive-offer";
-import { Board, touchArea } from "./board";
+import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
@@ -43,16 +42,23 @@ import { PlanBoard } from "./lane-plan";
 import { Markdown } from "./markdown";
 import { MergedStats } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
+import { ReportAside } from "./report-header";
 import { TaskIcon } from "./task-icon";
+import type { ReportTiming } from "./working-report-time";
 
 /**
  * Renders a `data-report` part: how a task ended, or what it waits on, as the
  * agent reported it then. It never follows the task afterwards, so a report
  * reads the same however the task has moved on since.
  */
-export const ReportUI = makeAssistantDataUI<{ report: Report }>({
+export const ReportUI = makeAssistantDataUI<{
+	report: Report;
+	timing?: ReportTiming;
+}>({
 	name: "report",
-	render: ({ data }) => <ReportCard report={data.report} />,
+	render: ({ data }) => (
+		<ReportCard report={data.report} timing={data.timing} />
+	),
 });
 
 /**
@@ -81,7 +87,13 @@ export function StartCard({ start }: { start: LanesStart }): JSX.Element {
 	);
 }
 
-export function ReportCard({ report }: { report: Report }): JSX.Element {
+export function ReportCard({
+	report,
+	timing,
+}: {
+	report: Report;
+	timing?: ReportTiming;
+}): JSX.Element {
 	const { title, Icon, tone } = ENDINGS[report.ending];
 	// A lane orchestrator's Working card says what changed; the plan, live,
 	// takes the place of its lines on each lane in the latest one only, the
@@ -111,21 +123,11 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 					? { lanes: report.lanes }
 					: { task: report.task, base: report.base, to: report.to })}
 				aside={
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label="Show source"
-						aria-pressed={showing}
-						title={showing ? "Hide source" : "Show source"}
-						onClick={() => setShowing(!showing)}
-						className={cn(
-							"relative",
-							touchArea,
-							showing && "bg-accent text-accent-foreground",
-						)}
-					>
-						<CodeIcon />
-					</Button>
+					<ReportAside
+						timing={report.ending === "working" ? timing : undefined}
+						showing={showing}
+						toggle={() => setShowing(!showing)}
+					/>
 				}
 			>
 				{showing ? (

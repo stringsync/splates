@@ -16,6 +16,7 @@ import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./message-questions";
 import type { Turn } from "./report-cards";
 import { replyDue, stretchesOf } from "./work";
+import { workingTimes } from "./working-report-time";
 
 /** One part of a message as assistant-ui takes it. */
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
@@ -60,22 +61,25 @@ export function useThreadMessages(
 		const now = feed.wall.now();
 		const said = conversation.messages.filter((each) => !each.queued);
 		const happened = turnsOf(said, conversation.events);
-		const liked = said.map((message, index) =>
-			like(
-				message,
-				index,
-				conversation.id,
-				!writing || index < said.length - 1,
-				said[index - 1]?.at ?? message.at,
-				now,
-				conversation.lastTask,
-				happened[index],
-				writing &&
-					index === said.length - 1 &&
-					conversation.ask?.type === "permission"
-					? conversation.ask.at
-					: null,
+		const liked = workingTimes(
+			said.map((message, index) =>
+				like(
+					message,
+					index,
+					conversation.id,
+					!writing || index < said.length - 1,
+					said[index - 1]?.at ?? message.at,
+					now,
+					conversation.lastTask,
+					happened[index],
+					writing &&
+						index === said.length - 1 &&
+						conversation.ask?.type === "permission"
+						? conversation.ask.at
+						: null,
+				),
 			),
+			said,
 		);
 		// The reply's place while the agent has yet to say anything, under the
 		// id the reply will take: assistant-ui's own placeholder has an id of its

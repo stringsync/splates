@@ -114,6 +114,7 @@
 @source "./review-panel.tsx";
 @source "./assumption-list.tsx";
 @source "./report-cards.tsx";
+@source "./report-header.tsx";
 @source "./merged-stats.tsx";
 @source "./card-shell.tsx";
 @source "./refusal.tsx";
