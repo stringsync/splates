@@ -12,7 +12,7 @@ import { UpdateDot } from "./release";
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
  * ChatGPT apps: the project's header up top, the inbox first, then the other
- * pages, each with what it counts, and the archived conversations last. The
+ * pages, and the archived conversations last. The
  * pages it opens take each other's place in history above the inbox, even while it loads, so back from any of them goes home, as Android's
  * top-level destinations do.
  */
@@ -58,14 +58,6 @@ export function Drawer({
 	};
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
-	const count = (page: Page) =>
-		snapshot === null
-			? 0
-			: page === "todos"
-				? snapshot.todos.length
-				: page === "tasks"
-					? snapshot.tasks.length
-					: 0;
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
 			<DialogPrimitive.Portal>
@@ -101,7 +93,6 @@ export function Drawer({
 										</span>
 									}
 									label={label}
-									count={count(value)}
 								/>
 							),
 						)}
@@ -126,20 +117,20 @@ export function Drawer({
 	);
 }
 
-/** One of the drawer's pages, a finger's height, with what it counts. */
+/** One of the drawer's pages, a finger's height, with what it counts, if anything. */
 function Entry({
 	current,
 	onClick,
 	icon,
 	label,
-	count,
+	count = 0,
 	urgent = false,
 }: {
 	current: boolean;
 	onClick: () => void;
 	icon: ReactNode;
 	label: string;
-	count: number;
+	count?: number;
 	/** Whether its count waits on you, and so stands out. */
 	urgent?: boolean;
 }): JSX.Element {

@@ -54,7 +54,7 @@ import {
 } from "./page-route";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
-import { placeOf, rememberPlace, shownProject } from "./project-places";
+import { useProjectName } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
@@ -221,18 +221,7 @@ export function App({
 			openSystem(found.system);
 		}
 	};
-	// Before the first snapshot, the name this tab last saw the project by,
-	// else the one the address names, so a switch heads the page with where it
-	// is going rather than "splates".
-	const project = shownProject() ?? "";
-	const name =
-		snapshot?.repo ?? placeOf(project).name ?? (project || "Spinning Plates");
-	const repo = snapshot?.repo;
-	useEffect(() => {
-		if (repo !== undefined) {
-			rememberPlace(project, { name: repo });
-		}
-	}, [repo, project]);
+	const name = useProjectName(snapshot?.repo);
 	const dispatching = useMemo(
 		() =>
 			available
@@ -480,6 +469,7 @@ export function App({
 																				page={page}
 																				open={open}
 																				go={go}
+																				name={name}
 																				header={header}
 																				offline={offline}
 																				body={

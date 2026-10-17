@@ -72,7 +72,7 @@ export function SystemsPage({
 	}
 	return (
 		<section aria-label="systems" className="flex flex-col gap-2">
-			<TopBar title="Systems" />
+			<TopBar title="Systems" project />
 			{systems.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No systems: name parts of the code in <code>splates.systems.ts</code>,

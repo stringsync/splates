@@ -50,9 +50,9 @@ describe("App at a project's address", () => {
 
 		await waitFor(() =>
 			expect(
-				view.getByRole("button", {
+				view.getAllByRole("button", {
 					name: "Switch project: 1 waiting on you in webappwiz",
-				}),
+				})[0],
 			).toBeTruthy(),
 		);
 	});
@@ -72,7 +72,9 @@ describe("App at a project's address", () => {
 		const screen = within(document.body);
 		const status = await waitFor(() => screen.getByText("Opening shop"));
 		expect(status.getAttribute("role")).toBe("status");
-		const trigger = screen.getByRole("button", { name: /^Switch project/ });
+		const trigger = screen.getAllByRole("button", {
+			name: /^Switch project/,
+		})[0] as HTMLElement;
 		expect(within(trigger).getByRole("heading").textContent).toBe("shop");
 		arrive();
 		await opening;

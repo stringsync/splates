@@ -41,6 +41,8 @@ export interface BarFrame {
 	end?: ReactNode;
 	/** Marks a bar's way back, as with how many agents wait on you. */
 	badge?: ReactNode;
+	/** The project switcher, after the title of a bar that asks for it. */
+	project?: ReactNode;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -48,7 +50,9 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
 /**
  * The bar atop every page and conversation, one line of text and icons at
  * `--top-bar-height`: what leads it, as a way back, then the title, the
- * page's status and what `detail` adds, then its actions. Those that do not
+ * page's status and what `detail` adds, then its actions. A page that shows
+ * one project of several asks for `project`, the shell's project switcher
+ * after its title. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
  * Update before it once a restart would update splates. Under
@@ -60,6 +64,7 @@ export function TopBar({
 	title,
 	detail,
 	actions = [],
+	project = false,
 	className,
 }: {
 	leading?: ReactNode;
@@ -68,6 +73,8 @@ export function TopBar({
 	/** After the title, smaller, as the branch a conversation runs on. */
 	detail?: ReactNode;
 	actions?: BarAction[];
+	/** Whether the shell's project switcher follows the title. */
+	project?: boolean;
 	/** For a bar in place: sticky, bordered, clear of a phone's notch. */
 	className?: string;
 }): ReactNode {
@@ -76,10 +83,9 @@ export function TopBar({
 	const menu = frame?.menu ?? null;
 	const kept = actions.filter((action) => action.kebab === true);
 	const shown = actions.filter((action) => action.kebab !== true);
-	const { room, titled, detailed, stated, restart, measure, fit } = useFit(
-		shown.length,
-		menu !== null || kept.length > 0,
-	);
+	const switcher = project ? (frame?.project ?? null) : null;
+	const { room, titled, picked, detailed, stated, restart, measure, fit } =
+		useFit(shown.length, menu !== null || kept.length > 0);
 	const folded = [...shown.slice(fit), ...kept];
 	const row = (
 		<>
@@ -93,7 +99,15 @@ export function TopBar({
 			)}
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
-					<div ref={titled} className="flex min-w-0 items-center">
+					{/* Whole beside the switcher, a page's one word, which gives way
+					    instead. */}
+					<div
+						ref={titled}
+						className={cn(
+							"flex min-w-0 items-center",
+							switcher !== null && "shrink-0",
+						)}
+					>
 						{typeof title === "string" ? (
 							<h2 title={title} className={cn(TITLE, "truncate")}>
 								{title}
@@ -102,6 +116,11 @@ export function TopBar({
 							title
 						)}
 					</div>
+					{switcher !== null && (
+						<div ref={picked} className="flex min-w-0 items-center">
+							{switcher}
+						</div>
+					)}
 					{/* Whole up to a long branch, so its icons never spill over
 					    the actions: the title gives way instead. */}
 					{Boolean(detail) && (
@@ -245,6 +264,7 @@ function useFit(
 ): {
 	room: React.RefObject<HTMLDivElement | null>;
 	titled: React.RefObject<HTMLDivElement | null>;
+	picked: React.RefObject<HTMLDivElement | null>;
 	detailed: React.RefObject<HTMLDivElement | null>;
 	stated: React.RefObject<HTMLDivElement | null>;
 	restart: React.RefObject<HTMLDivElement | null>;
@@ -253,6 +273,7 @@ function useFit(
 } {
 	const room = useRef<HTMLDivElement>(null);
 	const titled = useRef<HTMLDivElement>(null);
+	const picked = useRef<HTMLDivElement>(null);
 	const detailed = useRef<HTMLDivElement>(null);
 	const stated = useRef<HTMLDivElement>(null);
 	const restart = useRef<HTMLDivElement>(null);
@@ -277,6 +298,8 @@ function useFit(
 		// What the title would take untruncated: its heading's whole width.
 		const heading = titled.current?.firstElementChild;
 		const title = Math.min(heading?.scrollWidth ?? 0, TITLE_ROOM);
+		// The project switcher gives way as the title does.
+		const switcher = Math.min(picked.current?.scrollWidth ?? 0, TITLE_ROOM);
 		// The detail and the status keep their whole widths.
 		const detail = detailed.current?.offsetWidth ?? 0;
 		const status = stated.current?.offsetWidth ?? 0;
@@ -285,6 +308,7 @@ function useFit(
 		const space =
 			into.clientWidth -
 			title -
+			(switcher > 0 ? switcher + 8 : 0) -
 			(detail > 0 ? detail + 8 : 0) -
 			(status > 0 ? status + 8 : 0) -
 			(restarting > 0 ? restarting + GAP : 0);
@@ -305,6 +329,7 @@ function useFit(
 		for (const each of [
 			room.current,
 			titled.current,
+			picked.current,
 			detailed.current,
 			stated.current,
 			restart.current,
@@ -319,6 +344,7 @@ function useFit(
 	return {
 		room,
 		titled,
+		picked,
 		detailed,
 		stated,
 		restart,

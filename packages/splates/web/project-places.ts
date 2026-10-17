@@ -3,6 +3,8 @@
  * each: none of it hangs on the projects being listed.
  */
 
+import { useEffect } from "react";
+
 /** The project the address names: `?project=`, or none for the focused one. */
 export function shownProject(): string | null {
 	return new URLSearchParams(location.search).get("project") || null;
@@ -44,16 +46,38 @@ export function rememberPlace(project: string, place: Place): void {
  * Where the page goes to show `project`, named by its slug, so the address
  * keeps showing it whatever is focused later: where this tab last left it,
  * else the same page of it, and none of the last project's conversations,
- * which are its own.
+ * which are its own. With `stay`, the same page, at its top: the system or
+ * cred it was on is the last project's.
  */
-export function projectUrl(project: { slug: string }): string {
+export function projectUrl(
+	project: { slug: string },
+	{ stay = false }: { stay?: boolean } = {},
+): string {
 	const url = new URL(location.href);
 	url.searchParams.set("project", project.slug);
 	const { hash } = placeOf(project.slug);
-	if (hash !== undefined) {
+	if (stay) {
+		url.hash = url.hash.split("/")[0] ?? "";
+	} else if (hash !== undefined) {
 		url.hash = hash;
 	} else if (url.hash.startsWith("#conversations/")) {
 		url.hash = "#conversations";
 	}
 	return url.toString();
+}
+
+/**
+ * The project's name, `repo` once the snapshot gives it. Before the first
+ * snapshot, the name this tab last saw the project by, else the one the
+ * address names, so a switch heads the page with where it is going rather
+ * than "splates".
+ */
+export function useProjectName(repo: string | undefined): string {
+	const project = shownProject() ?? "";
+	useEffect(() => {
+		if (repo !== undefined) {
+			rememberPlace(project, { name: repo });
+		}
+	}, [repo, project]);
+	return repo ?? placeOf(project).name ?? (project || "Spinning Plates");
 }

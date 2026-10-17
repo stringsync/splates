@@ -71,16 +71,20 @@ const LISTED = Duration.secs(15);
  * Below them, when this machine runs slots, every `splates server` it has a
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
- * names, copies its path, or forgets it.
+ * names, copies its path, or forgets it. In a page's bar it is one muted
+ * line after the title, and a pick shows the same page of the other project.
  */
 export function ProjectSwitcher({
 	name,
 	keyed = true,
+	bar = false,
 	className,
 }: {
 	name: string;
 	/** Whether its shortcut opens it: false for a second on the page, so one press opens one. */
 	keyed?: boolean;
+	/** Whether it follows a page's title, picking which project the page shows. */
+	bar?: boolean;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
 	className?: string;
 }): JSX.Element {
@@ -192,7 +196,7 @@ export function ProjectSwitcher({
 				rememberPlace(each.slug, { name: each.slug });
 			}
 			setLeaving(each.slug);
-			navigation.go(projectUrl(each));
+			navigation.go(projectUrl(each, { stay: bar }));
 		}
 	};
 
@@ -263,14 +267,20 @@ export function ProjectSwitcher({
 						/>
 					}
 				>
-					<span className="flex min-w-0 flex-col">
-						<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
-						{here !== undefined && (
-							<span className="truncate text-muted-foreground text-xs leading-tight">
-								{shortPath(here.root)}
-							</span>
-						)}
-					</span>
+					{bar ? (
+						<span className="truncate text-muted-foreground text-sm max-md:text-base">
+							{name}
+						</span>
+					) : (
+						<span className="flex min-w-0 flex-col">
+							<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
+							{here !== undefined && (
+								<span className="truncate text-muted-foreground text-xs leading-tight">
+									{shortPath(here.root)}
+								</span>
+							)}
+						</span>
+					)}
 					<span className="ml-auto flex shrink-0 items-center gap-0.5">
 						{elsewhere.length > 0 && <Dot aria-hidden color="bg-warning" />}
 						<ChevronsUpDownIcon className="size-3.5 text-muted-foreground max-md:size-4" />

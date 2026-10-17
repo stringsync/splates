@@ -76,7 +76,9 @@ describe("App's projects", () => {
 	it("covers the page, and leaves nothing on it to use, while the pick opens", async () => {
 		const view = await testing.open();
 		await openSwitcher(view);
-		const trigger = view.getByRole("button", { name: /^Switch project/ });
+		const trigger = view.getAllByRole("button", {
+			name: /^Switch project/,
+		})[0] as HTMLElement;
 
 		await act(async () =>
 			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
@@ -188,9 +190,9 @@ describe("App's projects", () => {
 
 		await waitFor(() =>
 			expect(
-				view.getByRole("button", {
+				view.getAllByRole("button", {
 					name: "Switch project: 2 waiting on you in shop",
-				}),
+				})[0],
 			).toBeTruthy(),
 		);
 	});
@@ -421,7 +423,11 @@ describe("App's projects", () => {
 /** Clicks the project switcher open in `view`. */
 async function openSwitcher(view: ReturnType<typeof within>): Promise<void> {
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
+		fireEvent.click(
+			view.getAllByRole("button", {
+				name: /^Switch project/,
+			})[0] as HTMLElement,
+		),
 	);
 }
 

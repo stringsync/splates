@@ -11,6 +11,7 @@ import type { Drafts } from "./drafts";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
+import { ProjectSwitcher } from "./projects";
 import { Sidebar } from "./sidebar";
 import { SidebarHead } from "./sidebar-head";
 import type { Terminals } from "./terminals";
@@ -111,6 +112,8 @@ export function DesktopApp({
 		),
 		menu: menu.items,
 		dot: menu.dot,
+		// The sidebar's head takes the shortcut.
+		project: <ProjectSwitcher name={name} keyed={false} bar />,
 	};
 	return (
 		<TopBarFrame value={frame}>

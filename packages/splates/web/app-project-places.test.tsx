@@ -79,7 +79,11 @@ async function pick(
 	root: string,
 ): Promise<void> {
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
+		fireEvent.click(
+			view.getAllByRole("button", {
+				name: /^Switch project/,
+			})[0] as HTMLElement,
+		),
 	);
 	const project = await waitFor(() => view.getByText(root));
 	await act(async () => fireEvent.click(project));

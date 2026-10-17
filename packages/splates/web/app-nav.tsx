@@ -21,8 +21,8 @@ import type { Terminals } from "./terminals";
 export const WIDE = "(min-width: 768px)";
 
 /**
- * The page's tabs in a sidebar down the left, under New, each with what it
- * counts, the conversation list under them, and a handle to drag it wider,
+ * The page's tabs in a sidebar down the left, under New, each with its
+ * shortcut while ⌥⌘ is held, the conversation list under them, and a handle to drag it wider,
  * unless it is hidden. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
@@ -60,19 +60,6 @@ export function AppNav({
 	const pages = PAGES.filter(
 		({ value }) => value !== "conversations" || available,
 	);
-	// Todos and Tasks count what they list; Conversations counts nothing, as
-	// the list under it says what waits. None shows for nothing.
-	const count = (page: Page) => {
-		const counting =
-			snapshot === null
-				? 0
-				: page === "todos"
-					? snapshot.todos.length
-					: page === "tasks"
-						? snapshot.tasks.length
-						: 0;
-		return counting === 0 ? null : counting;
-	};
 	// Creds counts nothing: a dot says a request waits on the person.
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
@@ -110,13 +97,7 @@ export function AppNav({
 							)}
 						</span>
 						<span className="flex-1 text-left">{label}</span>
-						<HeldOr shortcut={shortcut} held={held}>
-							{count(value) !== null && (
-								<span className="text-muted-foreground tabular-nums">
-									{count(value)}
-								</span>
-							)}
-						</HeldOr>
+						<HeldKey shortcut={shortcut} held={held} />
 					</TabsTrigger>
 				))}
 				{/* Under their tab, so one is a click away from any page. */}
@@ -150,16 +131,14 @@ export function useWide(): boolean {
 	);
 }
 
-/** A page's shortcut key while ⌥⌘ is held, or else `children`. */
-function HeldOr({
+/** A page's shortcut key while ⌥⌘ is held. */
+function HeldKey({
 	shortcut,
 	held,
-	children,
 }: {
 	shortcut: ShortcutKey | undefined;
 	held: boolean;
-	children: ReactNode;
 }): ReactNode {
 	const key = useHeldKey(shortcut);
-	return held && key !== null ? <Kbd aria-hidden>{key}</Kbd> : children;
+	return held && key !== null ? <Kbd aria-hidden>{key}</Kbd> : null;
 }
