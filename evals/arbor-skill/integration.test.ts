@@ -91,6 +91,21 @@ it("executes the discovered CLI suite without models and retains its deliberate 
 		expect(runs.flatMap((run) => run.run.evidence.complete)).not.toContain(
 			"events",
 		);
+		const unexpected = runs.filter(
+			(run) =>
+				run.result.status !== "pass" &&
+				!(
+					run.probe.id === "delegation/cli-no-dev-relay" &&
+					run.result.status === "uncovered"
+				),
+		);
+		expect(
+			unexpected.map((run) => ({
+				probe: run.probe.id,
+				result: run.result,
+				evidence: run.run.evidence,
+			})),
+		).toEqual([]);
 		expect(
 			runs
 				.filter((run) => run.result.status !== "pass")

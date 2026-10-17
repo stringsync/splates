@@ -6,6 +6,7 @@ import { AGENT, FakeAgent } from "@webappwiz/arbor/testing/agent";
 import type { Probe } from "./probe";
 import { acpAdapter, cliAdapter, launchIsolated } from "./probe-adapters";
 import { comparisonKey, probeReport } from "./probe-report";
+import { command } from "./probe-sandbox";
 import {
 	type Adapter,
 	hash,
@@ -530,6 +531,62 @@ it("cannot satisfy a stop boundary during seeding, and records excessive usage a
 	);
 	expect(results[0]?.run.evidence.reply).toBe("actual reply");
 	expect(results[0]?.result.status).toBe("bound");
+});
+
+// scry-ignore simple-test-setup: this transport regression owns a process with a large stderr tail and a failed spawn.
+it("captures complete CLI stderr and settles failed spawns", async () => {
+	const observed = adapter(async (context) => {
+		const result = await command(context, [
+			process.execPath,
+			"-e",
+			'process.stdout.end("out"); process.stderr.write("x".repeat(262144), () => process.exit(7));',
+		]);
+		expect(result).toEqual({
+			stdout: "out",
+			stderr: "x".repeat(262144),
+			exitCode: 7,
+		});
+		const missing = await command(context, [
+			join(context.isolation.repository, "missing-executable"),
+		]);
+		expect(missing.exitCode).toBe(127);
+		expect(missing.stderr).toContain("ENOENT");
+		context.reply("done");
+	});
+	const [result] = await runProbes(
+		{ probes: [probe()], seeds: [seed] },
+		[{ adapter: observed, model: "free-process" }],
+		await options(),
+	);
+	expect(result?.result.status).toBe("pass");
+});
+
+// scry-ignore simple-test-setup: this test creates an orphan holding both output pipes to exercise natural parent exit.
+it("finishes CLI commands only after their inherited pipes and descendants close", async () => {
+	let pid = 0;
+	const observed = adapter(async (context) => {
+		const result = await command(context, [
+			process.execPath,
+			"-e",
+			`
+			const child = require("node:child_process").spawn("/bin/sleep", ["30"], { stdio: "inherit" });
+			console.log(child.pid);
+			process.exit(0);
+		`,
+		]);
+		pid = Number(result.stdout.trim());
+		expect(pid).toBeGreaterThan(0);
+		expect(result.exitCode).toBe(0);
+		expect(() => process.kill(pid, 0)).toThrow();
+		context.reply("done");
+	});
+	const [result] = await runProbes(
+		{ probes: [probe()], seeds: [seed] },
+		[{ adapter: observed, model: "free-process" }],
+		await options(),
+	);
+	expect(result?.result.status).toBe("pass");
+	expect(pid).toBeGreaterThan(0);
 });
 
 // scry-ignore simple-test-setup: only this cancellation test starts a real process tree and waits for a child readiness marker.

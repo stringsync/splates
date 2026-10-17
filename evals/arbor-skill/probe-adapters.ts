@@ -9,6 +9,7 @@ import type {
 } from "@webappwiz/arbor/probe-runtime";
 import { AgentStream, framed } from "@webappwiz/arbor/probe-runtime";
 import { command } from "./probe-sandbox";
+import { awaitProcessGroupExit } from "./process-group";
 import type { Adapter, RunContext } from "./runner";
 
 /** Launch commands inside this probe and stop their descendants when its scope ends. */
@@ -26,14 +27,26 @@ export function launchIsolated(context: RunContext): Launch {
 			stderr += bytes.toString();
 			context.trace({ stderr: bytes.toString() });
 		});
+		let failed = false;
+		child.stdin.on("error", () => {});
 		const exited = new Promise<number>((resolve) => {
 			child.once("error", (error) => {
 				stderr += String(error);
-				resolve(127);
+				failed = true;
 			});
-			child.once("exit", (code) => resolve(code ?? 1));
+			child.once("close", (code) => resolve(failed ? 127 : (code ?? 1)));
+		}).then(async (code) => {
+			await awaitProcessGroupExit(child.pid);
+			return code;
 		});
+		// Cleanup owns failures even when cancellation wins the adapter race.
+		void exited.catch(() => {});
+		let killed = false;
 		const kill = () => {
+			if (killed) {
+				return;
+			}
+			killed = true;
 			if (child.pid !== undefined) {
 				try {
 					process.kill(-child.pid, "SIGKILL");
@@ -42,6 +55,7 @@ export function launchIsolated(context: RunContext): Launch {
 				}
 			}
 		};
+		child.once("exit", kill);
 		context.cleanup(async () => {
 			kill();
 			await exited;
@@ -68,7 +82,8 @@ export function launchIsolated(context: RunContext): Launch {
 							context.trace({ stdout: bytes.toString() });
 							controller.enqueue(new Uint8Array(bytes));
 						});
-						child.stdout.once("end", () => controller.close());
+						// Failed spawns close stdout without emitting end.
+						child.stdout.once("close", () => controller.close());
 					},
 				}),
 			),

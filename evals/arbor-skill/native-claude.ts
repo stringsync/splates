@@ -8,6 +8,7 @@ import type {
 } from "./native-adapter";
 import type { Json } from "./probe";
 import type { Allowance } from "./probe-affordability";
+import { awaitProcessGroupExit } from "./process-group";
 
 /** Native Claude Code loop; no synthesized execution/read events or credential copying. */
 export function claudeDriver(opts: ClaudeOptions): NativeDriver {
@@ -93,6 +94,9 @@ const launchClaude: ClaudeLaunch = ({ argv, cwd, env, input, stdout }) => {
 			cancel();
 			resolve(code ?? 127);
 		});
+	}).then(async (code) => {
+		await awaitProcessGroupExit(child.pid);
+		return code;
 	});
 	return { completed, cancel };
 };
