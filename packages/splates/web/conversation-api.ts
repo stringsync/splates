@@ -41,6 +41,21 @@ export async function startConversation(
 }
 
 /**
+ * Starts a conversation on what Auto picks for `prompt`, its first prompt,
+ * in `task`'s tree or the main tree for null: the server picks the agent,
+ * model and thinking level, then the page sends `prompt` as for any start.
+ */
+export async function startAutoConversation(
+	task: string | null,
+	prompt: string,
+): Promise<ConversationState> {
+	return (await sendJson("/api/conversations/auto", "POST", {
+		task,
+		prompt,
+	})) as ConversationState;
+}
+
+/**
  * The sessions the agents hold in `task`'s tree that no conversation does,
  * such as ones started in their CLI, newest first.
  */

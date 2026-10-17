@@ -1,7 +1,7 @@
 import { stretches } from "./asked";
 import type { ConversationState } from "./conversations";
 import type { LaneRecord } from "./lanes";
-import { leadingDirectives, UNTRIAGED } from "./prompts";
+import { AUTO, leadingDirectives, UNTRIAGED } from "./prompts";
 
 /**
  * What a conversation goes by: its real name (see `realName`), else a
@@ -96,18 +96,30 @@ export function startedLanes(conversation: ConversationState): string[] {
 	);
 }
 
-/** The first line the person said in a conversation, or null before they say any. */
+/**
+ * The first line the person said in a conversation, or null before they say
+ * any, past the `AUTO` the page leads an Auto start's first prompt with.
+ */
 export function openingOf(conversation: ConversationState): string | null {
 	for (const message of conversation.messages) {
 		if (message.role !== "user") {
 			continue;
 		}
 		for (const part of message.parts) {
-			const line = part.type === "text" ? part.text.trim().split("\n")[0] : "";
+			const line =
+				part.type === "text"
+					? withoutAuto(part.text).trim().split("\n")[0]
+					: "";
 			if (line) {
 				return line;
 			}
 		}
 	}
 	return null;
+}
+
+/** `text` past the `AUTO` it leads with, if it does. */
+function withoutAuto(text: string): string {
+	const { directives, rest } = leadingDirectives(text);
+	return directives[0] === AUTO ? rest : text;
 }

@@ -17,6 +17,11 @@ export const LOG_KEPT_MS = 90 * 24 * 60 * 60 * 1000;
 export interface JournalOptions {
 	fs?: Fs;
 	ps?: Ps;
+	/**
+	 * The conversation each event is logged in, for what `splates server`
+	 * does there itself; `SPLATES_CONVERSATION` by default.
+	 */
+	conversation?: string;
 }
 
 /**
@@ -33,6 +38,7 @@ export class Journal {
 	private readonly fs: Fs;
 	private readonly ps: Ps;
 	private readonly archive: string;
+	private readonly conversation: string | undefined;
 
 	constructor(
 		private readonly path: string,
@@ -42,6 +48,16 @@ export class Journal {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
 		this.archive = join(dirname(path), "log");
+		this.conversation = opts.conversation;
+	}
+
+	/** This journal, logging each event in `conversation`. */
+	in(conversation: string): Journal {
+		return new Journal(this.path, this.capacity, {
+			fs: this.fs,
+			ps: this.ps,
+			conversation,
+		});
 	}
 
 	async record<A extends Action, T>(
@@ -127,7 +143,8 @@ export class Journal {
 			action,
 			task,
 			reason,
-			conversation: this.ps.env("SPLATES_CONVERSATION") ?? null,
+			conversation:
+				this.conversation ?? this.ps.env("SPLATES_CONVERSATION") ?? null,
 			...facts,
 		};
 		await this.fs.append(this.path, `${JSON.stringify(event)}\n`);

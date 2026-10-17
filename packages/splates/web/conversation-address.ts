@@ -52,6 +52,22 @@ export function terminalOf(open: string | null): string | null {
 		: id;
 }
 
+/**
+ * In place of an agent after `NEW`, as `new/auto`: the screen that starts a
+ * conversation on whatever Auto picks for its first prompt.
+ */
+export const AUTO = "auto";
+
+/** Whether `open` starts a conversation on what Auto picks. */
+export function autoIn(open: string | null): boolean {
+	return (
+		open?.startsWith(`${NEW}/`) === true &&
+		pathOf(open)
+			.slice(NEW.length + 1)
+			.split("/")[0] === AUTO
+	);
+}
+
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);

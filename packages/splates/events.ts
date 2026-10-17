@@ -209,6 +209,19 @@ export interface Facts {
 	};
 	"tunnel setup": None;
 	"tunnel remove": None;
+	/** `splates server` starting a conversation on what Auto picked for its first prompt. */
+	auto: {
+		/** The roster agent it picked, by its id. */
+		agent: string;
+		/** Its model, by the id the roster gives it, or null for the agent's own. */
+		model: string | null;
+		/** The thinking level it set, or null for the agent's default. */
+		effort: string | null;
+		/** What it picked, then why, as `AutoPick.reasons`. */
+		reasons: string[];
+		/** What the judge found in the prompt, as `AutoPick.signs`; null when no judge answered. */
+		signs: string[] | null;
+	};
 }
 
 type None = Record<never, never>;
@@ -268,6 +281,7 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
+	auto: ["agent", "model", "effort", "reasons", "signs"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 
 /** Each action's facts `FACTS` leaves out, which must be none. */

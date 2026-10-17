@@ -11,8 +11,9 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
+import { AUTO_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import { agentFor, NEW, startsOne } from "./conversation-address";
+import { AUTO, agentFor, NEW, startsOne } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -25,7 +26,8 @@ import type { Terminals } from "./terminals";
 
 /**
  * New, atop the sidebar, boxed so it stands out from the tabs under it: a menu
- * of the agents to start a conversation with, and a terminal. ⌥⌘N (Ctrl+Alt+N
+ * of the agents to start a conversation with, Auto first, which picks one
+ * for the first prompt, and a terminal. ⌥⌘N (Ctrl+Alt+N
  * off a Mac), as the settings bind it, starts one as the last was started,
  * and shows beside New while ⌥⌘ is held; ⌥` opens another terminal.
  */
@@ -98,6 +100,15 @@ export function NewMenu({
 					return (section === null ? null : composerIn(section)) ?? true;
 				}}
 			>
+				<DropdownMenuItem
+					onClick={() => {
+						picked.current = true;
+						onOpen(`${NEW}/${AUTO}`);
+					}}
+				>
+					<AutoIcon />
+					{AUTO_NAME}
+				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem
 						key={each.id}

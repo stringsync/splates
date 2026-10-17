@@ -87,6 +87,7 @@
 @source "./queued-time.tsx";
 @source "./conversation-list.tsx";
 @source "./new-menu.tsx";
+@source "./auto-brand.tsx";
 @source "./conversation-item.tsx";
 @source "./reparent.tsx";
 @source "./list-rows.tsx";

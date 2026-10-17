@@ -24,6 +24,11 @@ export interface AutoPick extends AgentPick {
 	effort?: string;
 	/** Why, in short lines the page can show. */
 	reasons: string[];
+	/**
+	 * What the judge found in the prompt, as `QUESTIONS` reads each yes, such
+	 * as `a quick question`; none when no judge answered.
+	 */
+	signs?: string[];
 }
 
 /** What `pick` reads. */
@@ -209,7 +214,11 @@ export async function pick(input: PickInput): Promise<AutoPick> {
 			throw new Error("the roster lists no agents to pick from");
 		}
 		reasons.push(`no ranked model to pick, so ${first.name} on its default`);
-		return { agent: first.id, reasons };
+		return {
+			agent: first.id,
+			reasons,
+			...(judged === undefined ? {} : { signs: judged.signs }),
+		};
 	}
 	if ((pressure.get(best.agent.id)?.used ?? 0) >= TIGHT) {
 		reasons.push(
@@ -234,6 +243,7 @@ export async function pick(input: PickInput): Promise<AutoPick> {
 		model: best.model,
 		...(effort === undefined ? {} : { effort }),
 		reasons,
+		...(judged === undefined ? {} : { signs: judged.signs }),
 	};
 }
 
@@ -244,7 +254,7 @@ export async function pick(input: PickInput): Promise<AutoPick> {
 async function judgeTier(
 	input: PickInput,
 	reasons: string[],
-): Promise<{ tier: number; sure: number } | undefined> {
+): Promise<{ tier: number; sure: number; signs: string[] } | undefined> {
 	if (input.judge === null) {
 		reasons.push(
 			`no judge: keep ${JUDGE_CREDS.jev.join(", ")} for Jev, or ${JUDGE_CREDS.clef.join(" and ")} for Clef`,
@@ -284,6 +294,7 @@ async function judgeTier(
 		return {
 			tier: tierFor(verdict.answers),
 			sure: confidence(verdict.answers),
+			signs: said,
 		};
 	} catch (error) {
 		if (input.signal?.aborted) {

@@ -6,6 +6,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
 import type { SecretStores } from "./creds";
+import { AutoRoutes } from "./dev-auto-routes";
 import { BudgetRoutes } from "./dev-budgets";
 import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
@@ -123,6 +124,7 @@ export async function serveProject(
 		...new TodoRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
+		...new AutoRoutes(project, conversations),
 		...talks,
 		root: service.git.root,
 		format,
@@ -281,6 +283,7 @@ export interface Served extends AsyncResource {
 	listConversations: Handler;
 	refreshLimits: Handler;
 	startConversation: Handler;
+	startAutoConversation: Handler;
 	listSessions: Handler;
 	bringSession: Handler;
 	/**

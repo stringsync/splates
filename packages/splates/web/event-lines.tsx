@@ -170,6 +170,7 @@ const LINES: {
 					at: event.at,
 				}
 			: null,
+	auto: (event) => (event.reason === null ? autoLine(event) : null),
 	// One that went through is a card, which `EventUI` draws in its place.
 	escalate: (event) =>
 		event.reason === null
@@ -180,6 +181,26 @@ const LINES: {
 					at: event.at,
 				},
 };
+
+/**
+ * What Auto picked for a conversation's first prompt, and what the judge
+ * found in it, or that none answered: `Auto picked Haiku 5.5, low effort: a
+ * quick question`. Every reason shows on hover.
+ */
+function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
+	const [picked = event.agent, ...why] = event.reasons;
+	const found =
+		event.signs === null
+			? "no judge to ask"
+			: event.signs.length === 0
+				? "nothing hard in it"
+				: event.signs.join(", ");
+	return {
+		words: ["Auto picked", `${picked}: ${found}`],
+		title: why.join("\n"),
+		at: event.at,
+	};
+}
 
 /** The line a command on todos draws, none when it was refused. */
 function todoLine(

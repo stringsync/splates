@@ -14,6 +14,7 @@ import {
 	deleteVersion,
 	removeNamed,
 } from "./dev-artifacts";
+import { type Tree, treeOf } from "./dev-conversation-tree";
 import {
 	body,
 	type EventSink,
@@ -555,26 +556,9 @@ export class ConversationRoutes {
 		await this.#conversations?.disposeAsync();
 	}
 
-	/** Where a conversation for `task` runs: its worktree, or the main tree. */
-	/**
-	 * `task`'s name, worktree, the branch it was cut from, and the
-	 * conversation whose agent added it.
-	 */
-	private async treeFor(
-		task: unknown,
-	): Promise<[string | null, string, string | null, string | null]> {
-		const { service } = this.#project;
-		const named = typeof task === "string" && task !== "" ? task : null;
-		const worktree = named === null ? null : await service.find(named);
-		if (worktree !== null && !worktree.exists) {
-			fail("not_found", `no worktree for '${named}'`, { task: named });
-		}
-		return [
-			named,
-			worktree?.path ?? service.git.root,
-			worktree?.base ?? null,
-			worktree?.caller ?? null,
-		];
+	/** Where a conversation for `task` runs, as `treeOf` says. */
+	private treeFor(task: unknown): Promise<Tree> {
+		return treeOf(this.#project.service, task);
 	}
 
 	/**

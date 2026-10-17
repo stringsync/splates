@@ -10,10 +10,12 @@ import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationState, Setting } from "../conversations";
 import { modelOption } from "../models";
+import { AUTO } from "../prompts";
 import type { Details } from "../show";
 import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import { WIDE } from "./app-nav";
+import { AutoBrand } from "./auto-brand";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import {
 	useFileMentions,
@@ -22,7 +24,11 @@ import {
 	useSystems,
 } from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
-import { promptConversation, startConversation } from "./conversation-api";
+import {
+	promptConversation,
+	startAutoConversation,
+	startConversation,
+} from "./conversation-api";
 import {
 	type AgentChoice,
 	agentName,
@@ -66,6 +72,11 @@ export interface Starting {
 	task: string | null;
 	/** The model it starts on, by its id on the roster; null for as picked. */
 	model: string | null;
+	/**
+	 * Whether Auto picks the agent, model and thinking level from the first
+	 * prompt, in place of `agent` and its settings.
+	 */
+	auto: boolean;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
@@ -88,6 +99,7 @@ export function useNewConversation({
 	agent,
 	task,
 	model,
+	auto,
 	conversations,
 	refuseIn,
 	onOpen,
@@ -131,15 +143,22 @@ export function useNewConversation({
 				...Object.fromEntries(offered.map((each) => [each.id, current(each)])),
 				...picks,
 			};
-			const state = await startConversation(
-				agent,
-				task,
-				settings,
-				// Keep explicit requests even when the cached catalog no longer offers them.
-				// A manual replacement wins; the server validates the exact identity.
-				requested,
-				// Asked for by a todo's agent, so no pick of the person's.
-				model !== null,
+			// The agent alone is told Auto picked it, as the prompt's directive.
+			const prompt = auto
+				? `${AUTO} ${noted(text, files)}`
+				: noted(text, files);
+			const state = await (auto
+				? startAutoConversation(task, text)
+				: startConversation(
+						agent,
+						task,
+						settings,
+						// Keep explicit requests even when the cached catalog no longer offers them.
+						// A manual replacement wins; the server validates the exact identity.
+						requested,
+						// Asked for by a todo's agent, so no pick of the person's.
+						model !== null,
+					)
 			).catch((error: unknown) => {
 				void slide(() => setStarting(false));
 				restore.current(text, files);
@@ -151,14 +170,14 @@ export function useNewConversation({
 			// up; the message waits on the server for the session to open.
 			const sending =
 				text !== "" || files.length > 0
-					? feed.send(state.id, noted(text, files), files, text, spoken)
+					? feed.send(state.id, prompt, files, text, spoken)
 					: null;
 			// After the drop, or the thread would cut it short.
 			await dropped;
 			void slide(() => onOpen(state.id, "replace"));
 			const answered = await promptConversation(
 				state.id,
-				noted(text, files),
+				prompt,
 				files,
 				spoken,
 				sending?.id,
@@ -201,20 +220,23 @@ export function useNewConversation({
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
-	const controls =
-		offered.length > 0 ? (
-			<SettingControls
-				settings={offered}
-				current={current}
-				onChange={(setting, value) =>
-					setPicks((picks) => ({ ...picks, [setting.id]: value }))
-				}
-			/>
-		) : (
-			<span className="px-1.5 text-[11px] text-muted-foreground">
-				Settings appear once {agentName(agents, agent)} starts
-			</span>
-		);
+	const controls = auto ? (
+		<span className="px-1.5 text-[11px] text-muted-foreground">
+			Auto picks the agent, model and effort from your first message
+		</span>
+	) : offered.length > 0 ? (
+		<SettingControls
+			settings={offered}
+			current={current}
+			onChange={(setting, value) =>
+				setPicks((picks) => ({ ...picks, [setting.id]: value }))
+			}
+		/>
+	) : (
+		<span className="px-1.5 text-[11px] text-muted-foreground">
+			Settings appear once {agentName(agents, agent)} starts
+		</span>
+	);
 	return {
 		runtime,
 		refusal,
@@ -233,7 +255,7 @@ export function useNewConversation({
  * pick back up, none whose task merged.
  */
 export function Home(starting: Starting): JSX.Element {
-	const { tasks, agents, agent, task, conversations, onOpen } = starting;
+	const { tasks, agents, agent, task, auto, conversations, onOpen } = starting;
 	const { runtime, refusal, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const listed = conversations.filter((each) => !each.archived);
@@ -266,7 +288,11 @@ export function Home(starting: Starting): JSX.Element {
 							welcome={
 								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
 									<span>Start a conversation with</span>
-									<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									{auto ? (
+										<AutoBrand />
+									) : (
+										<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									)}
 									{task !== null && (
 										<span>
 											in <span className="font-mono text-xl">{task}</span>
@@ -276,7 +302,11 @@ export function Home(starting: Starting): JSX.Element {
 							}
 							below={
 								<>
-									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
+									{!auto && (
+										<PlanLimits
+											limits={limitsOf(agents, conversations, agent)}
+										/>
+									)}
 									{recent.length > 0 && (
 										<section
 											aria-label="recent conversations"

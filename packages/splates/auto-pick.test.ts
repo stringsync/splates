@@ -33,6 +33,7 @@ describe("pick", () => {
 		});
 		expect(picked.reasons[0]).toBe("Haiku 5.5, low effort");
 		expect(picked.reasons).toContain("judged: a well-specified edit");
+		expect(picked.signs).toEqual(["a well-specified edit"]);
 	});
 
 	it("picks a stronger model and more thinking for a design decision", async () => {

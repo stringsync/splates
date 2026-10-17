@@ -536,6 +536,9 @@ export async function dev(
 					GET: talk(scoped((project) => project.listConversations)),
 					POST: talk(scoped((project) => project.startConversation)),
 				},
+				"/api/conversations/auto": {
+					POST: talk(scoped((project) => project.startAutoConversation)),
+				},
 				"/api/conversations/sessions": {
 					GET: talk(scoped((project) => project.listSessions)),
 					POST: talk(scoped((project) => project.bringSession)),

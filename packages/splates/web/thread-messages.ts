@@ -404,8 +404,8 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 
 /**
  * Each event by the index of the agent's turn it came in: the turn going at
- * the time, or the one answering a prompt it followed, which the reply's
- * place holds until the agent speaks. Each turn's events stay oldest first.
+ * the time, or the one answering a prompt it followed or came before, which
+ * the reply's place holds until the agent speaks. Each turn's events stay oldest first.
  */
 function turnsOf(
 	said: Message[],
@@ -416,7 +416,14 @@ function turnsOf(
 		const last = said.findLastIndex(
 			(message) => message.at !== null && message.at <= event.at,
 		);
-		const turn = said[last]?.role === "agent" ? last : last + 1;
+		// Before anything was said, as Auto's pick is, it goes with the reply
+		// to the first prompt, which it was made for.
+		const turn =
+			said[last]?.role === "agent"
+				? last
+				: last === -1 && said[0]?.role === "user"
+					? 1
+					: last + 1;
 		turns[turn] = [...(turns[turn] ?? []), event];
 	}
 	return turns;

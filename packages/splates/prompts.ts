@@ -156,6 +156,13 @@ export const CHECK_IN = "[SPLATES UPDATE]";
 export const DEFER = "[SPLATES DEFER]";
 
 /**
+ * What leads the first prompt of a conversation the New menu's Auto started,
+ * telling the agent it was picked for that prompt as a probe, which may hand
+ * the work on once it has read the code: the splates skill says what it means.
+ */
+export const AUTO = "[SPLATES AUTO]";
+
+/**
  * What the agent alone is told of a message the person dictated: the page
  * marks it with a mic, and never shows these words.
  */
