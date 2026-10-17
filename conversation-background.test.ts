@@ -3,7 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { until } from "./conversation-testing";
+import { eventually, until } from "./conversation-testing";
 import { Conversations } from "./conversations";
 import {
 	AGENT,
@@ -22,8 +22,14 @@ describe("Conversation background", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		// The trees the agents run in, which a resume looks for, and where
+		// background commands write.
+		for (const tree of [
+			"/repo",
+			"/repo-arbor/login",
+			"/repo-arbor/signup",
+			"/tmp/tasks",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
@@ -85,7 +91,9 @@ describe("Conversation background", () => {
 		await started();
 
 		expect(agent.capabilities?._meta).toEqual({
-			jetbrains: { air: { version: 1, capabilities: ["asyncTasks"] } },
+			jetbrains: {
+				air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
+			},
 		});
 	});
 
@@ -110,15 +118,19 @@ describe("Conversation background", () => {
 
 	it("says which subagent started one, by its tool call", async () => {
 		agent.turn = async (client, sessionId) => {
-			for (const update of [
-				{
+			await client.sessionUpdate({
+				sessionId,
+				update: {
 					sessionUpdate: "tool_call",
 					toolCallId: "a1",
 					title: "Check the build",
 					kind: "think",
 					status: "in_progress",
 				},
-				{
+			});
+			await client.sessionUpdate({
+				sessionId,
+				update: {
 					sessionUpdate: "tool_call",
 					toolCallId: "t-b1",
 					title: "bun build --watch",
@@ -127,10 +139,11 @@ describe("Conversation background", () => {
 					rawInput: { command: "bun build --watch", run_in_background: true },
 					_meta: { claudeCode: { parentToolUseId: "a1" } },
 				},
-				backgroundStarted("b1", "Watch the build", "t-b1"),
-			] as acp.SessionUpdate[]) {
-				await client.sessionUpdate({ sessionId, update });
-			}
+			});
+			await client.sessionUpdate({
+				sessionId,
+				update: backgroundStarted("b1", "Watch the build", "t-b1"),
+			});
 			return "end_turn";
 		};
 		const conversation = await started();
@@ -162,7 +175,6 @@ describe("Conversation background", () => {
 
 	it("follows what one prints, ending once it has and all of it is read", async () => {
 		const output = "/tmp/tasks/b1.output";
-		await fs.mkdir("/tmp/tasks");
 		await fs.write(output, "building\n");
 		leaves("b1", "bun build", backgroundWrites("b1", output));
 		const conversation = await started();
@@ -180,13 +192,9 @@ describe("Conversation background", () => {
 		timer.fireTimeouts();
 		expect(await next()).toBe("built\n");
 		await agent.say(backgroundEnded("b1", "completed"));
-		for (
-			let i = 0;
-			i < 100 && conversation.state.background[0]?.state === "running";
-			i++
-		) {
-			await Bun.sleep(1);
-		}
+		await eventually(
+			() => conversation.state.background[0]?.state !== "running",
+		);
 		await fs.append(output, "done\n");
 		timer.fireTimeouts();
 		expect(await next()).toBe("done\n");

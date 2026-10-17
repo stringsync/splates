@@ -496,7 +496,11 @@ export class ConversationTurns {
 						host.log.write({ kind: "usage", usage: response.usage });
 						tally(host.state, response.usage);
 					}
-					this.ended(null);
+					// The agent ran on into a turn of its own for a steer:
+					// that turn's end is the one to wait for.
+					if (!this.connection.detached) {
+						this.ended(null);
+					}
 				},
 				(error: unknown) => this.ended(agentError(messageOf(error))),
 			);

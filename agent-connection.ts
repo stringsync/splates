@@ -9,6 +9,10 @@ import {
 	asyncTasks,
 	finalAnswer,
 	foldBackground,
+	listedTurn,
+	listsSessions,
+	SESSION_LIST_CHANGES,
+	SESSION_LIST_SUBSCRIBE,
 	SESSION_META,
 	STEER,
 	steers,
@@ -76,6 +80,16 @@ export class AgentConnection {
 	private unprompted = false;
 	/** Whether the agent has said a turn ended, as Claude does, so one it starts can end. */
 	private tells = false;
+	/** Whether the agent says on its session list when a turn ends, as Codex does. */
+	private follows = false;
+	/**
+	 * The turn the agent started for a steer, as Codex does when its turn
+	 * ended on the way: when arbor heard of it, in ms, and whether the
+	 * session list has said since that it runs.
+	 */
+	private following: { since: number; ran: boolean } | null = null;
+	/** Settles once the agent has answered the last steer, which may have started a turn of its own. */
+	private steered: Promise<unknown> = Promise.resolve();
 	/** The commands running, by tool call, each watched since it started. */
 	private readonly watching = new Map<string, Watched>();
 	/** Whether the next open loads the session, replaying it, rather than resuming it. */
@@ -201,9 +215,12 @@ export class AgentConnection {
 					session: { configOptions: { boolean: {} } },
 					// Claude says when a command it left in the background
 					// starts and ends only to a client that asks, and stops one
-					// on `ASYNC_TASK_STOP`.
+					// on `ASYNC_TASK_STOP`; Codex lists its sessions' turns only
+					// to one that declares `sessionIndex`.
 					_meta: {
-						jetbrains: { air: { version: 1, capabilities: ["asyncTasks"] } },
+						jetbrains: {
+							air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
+						},
 					},
 				},
 			});
@@ -215,6 +232,8 @@ export class AgentConnection {
 			started();
 			this.steering = steers(initialized);
 			this.finishing = false;
+			this.follows = false;
+			this.following = null;
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
 			// Offered only to an agent that takes them over HTTP, which they are.
@@ -260,6 +279,17 @@ export class AgentConnection {
 					_meta: SESSION_META,
 				});
 				host.state.settings = settingsIn(session.configOptions);
+			}
+			// Subscribed from the start, since a subscription says only what
+			// changes once it is ready: one made as a turn starts could miss
+			// its end.
+			if (listsSessions(initialized)) {
+				this.follows = await connection
+					.extMethod(SESSION_LIST_SUBSCRIBE, { cwd })
+					.then(
+						() => true,
+						() => false,
+					);
 			}
 			const asked =
 				this.model === null
@@ -333,6 +363,7 @@ export class AgentConnection {
 					handle: launched.handle,
 					steers: this.steering,
 					sees: this.seeing,
+					follows: this.follows,
 				});
 			}
 			host.set({ status: "idle" });
@@ -363,7 +394,12 @@ export class AgentConnection {
 		this.steering = live.steers;
 		this.seeing = live.sees;
 		this.tells = live.tells;
+		this.follows = live.follows;
 		this.unprompted = host.state.status === "running" && live.prompt === null;
+		// When the turn started is lost with the coordinator: the first row
+		// saying it no longer runs ends it.
+		this.following =
+			this.unprompted && this.follows ? { since: 0, ran: true } : null;
 		const stream = this.stream;
 		if (stream !== null) {
 			this.listening?.defer(
@@ -550,7 +586,19 @@ export class AgentConnection {
 			this.host.log.write({ kind: "observed-turn", turn });
 			report.turns.push(turn);
 		}
-		return this.connection?.prompt({ sessionId: this.session ?? "", prompt });
+		const response = await this.connection?.prompt({
+			sessionId: this.session ?? "",
+			prompt,
+		});
+		// A steer sent as the turn ended says whether the agent ran on into a
+		// turn of its own, which this answer does not end (see `detached`).
+		await this.steered;
+		return response;
+	}
+
+	/** Whether the agent runs a turn it started for a steer, which no prompt's answer ends. */
+	get detached(): boolean {
+		return this.following !== null;
 	}
 
 	/** A stale or substituted choice must never reach a prompt or steering call. */
@@ -574,7 +622,15 @@ export class AgentConnection {
 	 * came of it: `injected`, `startedNewTurn`, or `promptRequired` when the
 	 * turn ended on the way.
 	 */
-	async steer(prompt: acp.ContentBlock[]): Promise<string | undefined> {
+	steer(prompt: acp.ContentBlock[]): Promise<string | undefined> {
+		const steering = this.steerInto(prompt);
+		this.steered = steering.catch(() => {});
+		return steering;
+	}
+
+	private async steerInto(
+		prompt: acp.ContentBlock[],
+	): Promise<string | undefined> {
 		this.validateModel();
 		if (this.connection === null) {
 			return undefined;
@@ -588,13 +644,58 @@ export class AgentConnection {
 			},
 		);
 		// An agent that starts a turn of its own rather than answer
-		// `promptRequired`, as Codex does, is steered no more unless it says
-		// when such a turn ends, as Claude does: arbor would show it idle
-		// while it works, and put the next prompt on top of that turn.
-		if (outcome === "startedNewTurn" && !this.tells) {
-			this.steering = false;
+		// `promptRequired`, as Codex does, is followed until its session list
+		// says the turn ended; one that says that neither there nor as Claude
+		// does is steered no more: arbor would show it idle while it works,
+		// and put the next prompt on top of that turn.
+		if (outcome === "startedNewTurn") {
+			if (this.follows) {
+				this.follow();
+			} else if (!this.tells) {
+				this.steering = false;
+			}
 		}
 		return outcome;
+	}
+
+	/** Shows the turn the agent started for a steer as running, until it ends. */
+	private follow(): void {
+		const { host } = this;
+		this.unprompted = true;
+		this.finishing = false;
+		this.following = { since: Date.parse(host.now()), ran: false };
+		if (host.state.status === "idle") {
+			host.set({ status: "running", error: null });
+		}
+	}
+
+	/**
+	 * Ends the turn being followed once the session list says it no longer
+	 * runs. A row read before it started can come after `startedNewTurn`,
+	 * saying the turn before it ended: it counts only once a row has said the
+	 * turn runs, or when it ended past the second arbor heard it start in,
+	 * since the agent says when in whole seconds.
+	 */
+	private listed(params: Record<string, unknown>): void {
+		const { following } = this;
+		const turn =
+			this.session === null ? null : listedTurn(params, this.session);
+		if (following === null || turn === null) {
+			return;
+		}
+		if (turn.running) {
+			following.ran = true;
+			return;
+		}
+		const second = Math.floor(following.since / 1000) * 1000;
+		if (
+			following.ran ||
+			(turn.endedAt !== null && turn.endedAt >= second + 1000)
+		) {
+			this.following = null;
+			this.unprompted = false;
+			this.host.ended(null);
+		}
 	}
 
 	/** Stops the agent's turn, if it is connected. */
@@ -773,6 +874,10 @@ export class AgentConnection {
 			// Kept, since on a worker its commands outlive a restart; a log
 			// read back with its process gone has none running.
 			extNotification: async (method, params) => {
+				if (method === SESSION_LIST_CHANGES) {
+					this.listed(params);
+					return;
+				}
 				if (
 					method === ASYNC_TASK_UPDATE &&
 					!this.loading &&

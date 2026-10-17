@@ -95,6 +95,65 @@ export function steers(initialized: acp.InitializeResponse): boolean {
 	);
 }
 
+/**
+ * The AIR session list: subscribed for a working directory, the agent says
+ * as each of its sessions there starts or ends a turn. Codex says so of a
+ * turn it starts on its own nowhere else.
+ */
+export const SESSION_LIST_SUBSCRIBE = "_session/list/subscribe";
+export const SESSION_LIST_CHANGES = "_session/list/changes";
+
+/** Whether an agent says, as it starts, that it takes `SESSION_LIST_SUBSCRIBE`. */
+export function listsSessions(initialized: acp.InitializeResponse): boolean {
+	const air = (
+		initialized._meta?.jetbrains as
+			| { air?: { capabilities?: unknown } }
+			| undefined
+	)?.air;
+	return (
+		Array.isArray(air?.capabilities) &&
+		air.capabilities.includes("sessionListSubscribe")
+	);
+}
+
+/** What a `SESSION_LIST_CHANGES` row says of a session's turn. */
+export interface ListedTurn {
+	running: boolean;
+	/** When its last turn ended, in ms; null before one has. */
+	endedAt: number | null;
+}
+
+/**
+ * What `params` of `SESSION_LIST_CHANGES` say of `session`'s turn; null when
+ * they hold no row for it, or one that says nothing of its turns, as for a
+ * session no process has open.
+ */
+export function listedTurn(
+	params: Record<string, unknown>,
+	session: string,
+): ListedTurn | null {
+	const sessions = Array.isArray(params.sessions) ? params.sessions : [];
+	const row = sessions.findLast(
+		(each): each is acp.SessionInfo => each?.sessionId === session,
+	);
+	const air = (
+		row?._meta?.jetbrains as
+			| { air?: { state?: unknown; lastTurnEndedAt?: unknown } }
+			| undefined
+	)?.air;
+	if (air?.state === undefined) {
+		return null;
+	}
+	const endedAt =
+		typeof air.lastTurnEndedAt === "string"
+			? Date.parse(air.lastTurnEndedAt)
+			: Number.NaN;
+	return {
+		running: air.state !== "idle" && air.state !== "error",
+		endedAt: Number.isNaN(endedAt) ? null : endedAt,
+	};
+}
+
 /** Whether `update` is the agent's final answer, after which its turn ends. */
 export function finalAnswer(update: acp.SessionUpdate): boolean {
 	if (update.sessionUpdate !== "agent_message_chunk") {

@@ -259,6 +259,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			steers: launched.steers,
 			sees: launched.sees,
 			tells,
+			follows: launched.follows ?? false,
 		};
 		state.status = replayed.running ? "running" : "idle";
 		this.seq = seq;
@@ -377,6 +378,8 @@ export interface Live {
 	sees: boolean;
 	/** Whether the agent has said a turn ended, so one it starts can end. */
 	tells: boolean;
+	/** Whether the agent says on its session list when a turn ends. */
+	follows: boolean;
 }
 
 /**
@@ -489,6 +492,8 @@ type Said =
 			steers: boolean;
 			/** Whether the agent takes images in a prompt. */
 			sees: boolean;
+			/** Whether the agent says on its session list when a turn ends; missing from older logs. */
+			follows?: boolean;
 	  }
 	/** A request this side sent the agent, by the id it went out with. */
 	| { kind: "request"; id: number; method: string }

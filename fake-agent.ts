@@ -39,6 +39,12 @@ export class FakeAgent {
 		null;
 	/** What was steered into a turn, in order. */
 	steered: string[] = [];
+	/** What it does before it answers a steer, as ending the turn it would steer into. */
+	beforeSteer: () => Promise<void> = async () => {};
+	/** Whether it offers its session list to subscribe to, as Codex does. */
+	lists = false;
+	/** The working directories its session list was subscribed for, in order. */
+	subscribed: string[] = [];
 	/** What arbor said it can take, as it started the last process. */
 	capabilities: acp.ClientCapabilities | null = null;
 	/** The background commands stopped, by id, in order. */
@@ -125,6 +131,33 @@ export class FakeAgent {
 		await this.client?.sessionUpdate({ sessionId: "s1", update });
 	}
 
+	/**
+	 * Says on its session list that session `s1` is in `state`, its last turn
+	 * ended at `endedAt`, as Codex does as a turn starts and ends.
+	 */
+	async list(
+		state: "running" | "idle" | "error",
+		endedAt?: string,
+	): Promise<void> {
+		await this.client?.extNotification("_session/list/changes", {
+			subscriptionId: "list-1",
+			sessions: [
+				{
+					sessionId: "s1",
+					cwd: this.subscribed.at(-1) ?? "/",
+					_meta: {
+						jetbrains: {
+							air: {
+								state,
+								...(endedAt === undefined ? {} : { lastTurnEndedAt: endedAt }),
+							},
+						},
+					},
+				},
+			],
+		});
+	}
+
 	private client: acp.AgentSideConnection | null = null;
 
 	private agent(client: acp.AgentSideConnection): acp.Agent {
@@ -149,9 +182,18 @@ export class FakeAgent {
 							...(this.held === null ? {} : { list: {} }),
 						},
 					},
-					...(this.steering === null
-						? {}
-						: { _meta: { steering: { supported: true } } }),
+					_meta: {
+						...(this.steering === null
+							? {}
+							: { steering: { supported: true } }),
+						...(this.lists
+							? {
+									jetbrains: {
+										air: { version: 1, capabilities: ["sessionListSubscribe"] },
+									},
+								}
+							: {}),
+					},
 				};
 			},
 			extMethod: async (method, params) => {
@@ -165,10 +207,15 @@ export class FakeAgent {
 					});
 					return { stopped: true };
 				}
+				if (method === "_session/list/subscribe" && this.lists) {
+					this.subscribed.push(String(params.cwd));
+					return { subscriptionId: "list-1" };
+				}
 				if (method !== "_session/steering" || this.steering === null) {
 					throw acp.RequestError.methodNotFound(method);
 				}
 				const prompt = params.prompt as acp.ContentBlock[];
+				await this.beforeSteer();
 				if (
 					this.steering === "injected" ||
 					this.steering === "startedNewTurn"
