@@ -36,7 +36,7 @@ describe("App's composer queue", () => {
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
 
-	it("shows startup-held work as waiting, then changes to working when its first turn starts", async () => {
+	it("shows a subtle Queued label below startup-held messages until the first turn starts", async () => {
 		const first = message("user", "Fix login");
 		const state = conversation({
 			id: "c1",
@@ -46,12 +46,15 @@ describe("App's composer queue", () => {
 		});
 		const view = await testing.openConversations([state], "c1");
 		const queued = view.getByRole("region", { name: "queued messages" });
+		const label = within(queued).getByText("Queued");
+		expect(label.parentElement?.lastElementChild).toBe(label);
 		expect(
-			within(queued).getByText("Queued until the agent is ready"),
+			within(label.parentElement as HTMLElement).getByText("Fix login"),
 		).toBeTruthy();
+		expect(within(queued).queryByRole("heading")).toBeNull();
 		expect(
-			view.getByText(/Waiting for agent to start\. Your messages/),
-		).toBeTruthy();
+			view.queryByText(/Waiting for agent to start\. Your messages/),
+		).toBeNull();
 		expect(
 			view.getByRole("status", { name: "waiting for agent to start" }),
 		).toBeTruthy();

@@ -395,16 +395,7 @@ function Conversation({
 																	above={
 																		<>
 																			<NeedsYouBar />
-																			{conversation.status === "starting" && (
-																				<p
-																					role="status"
-																					className="px-2 py-2 text-muted-foreground text-sm"
-																				>
-																					Waiting for agent to start. Your
-																					messages will be sent automatically
-																					when it is ready.
-																				</p>
-																			)}
+
 																			<Refusal
 																				refusal={refusal}
 																				className="px-2"
