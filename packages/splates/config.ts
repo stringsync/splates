@@ -79,7 +79,7 @@ export interface Config {
 	/**
 	 * The command the `splates server` Budget page runs `scry budgets` with, from
 	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
-	 * name a wrapper of the repo's own otherwise, like `"./bin/splates dev"`.
+	 * name a wrapper of the repo's own otherwise, like `"./bin/wiz"`.
 	 */
 	wiz: string;
 	/**

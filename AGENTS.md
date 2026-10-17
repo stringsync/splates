@@ -8,6 +8,10 @@ After making code changes:
   it needs no `splates heavy`. `splates dev test --evals` tests the eval
   harness, for changes under `evals/`.
 
+`splates dev` holds only this repository's own commands. Run webappwiz's,
+which its skills call `wiz` (`wiz scry`, `wiz skills`), as
+`bunx @webappwiz/cli <command>`.
+
 During a splates task, the user may be on the splates server from another device, so give every link as both its remote and its local URL.
 
 If you change the CLI's API, check that the agent skill at
