@@ -810,6 +810,25 @@ describe("App on a phone", () => {
 		expect(drawer.textContent).not.toContain("/work/demo-repo");
 	});
 
+	it("opens phone widgets with a visible close control and returns focus to the header", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Look around" })],
+			"c1",
+		);
+		const toggle = view.getByRole("button", { name: "Widgets" });
+		toggle.focus();
+		await act(async () => fireEvent.click(toggle));
+		const widgets = view.getByRole("region", { name: "widgets" });
+		const close = within(widgets).getByRole("button", {
+			name: /^Close$/,
+		});
+		expect(document.activeElement).toBe(close);
+		await act(async () => fireEvent.click(close));
+		expect(widgets.inert).toBe(true);
+		expect(document.activeElement).toBe(toggle);
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+	});
+
 	it("heads a conversation with its name alone, its task's branch atop its widgets", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],

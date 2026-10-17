@@ -456,6 +456,7 @@ function Conversation({
 									</Composing.Provider>
 								</AssistantRuntimeProvider>
 								<Widgets
+									phone={onBack !== null}
 									roomy={widgets.roomy}
 									open={widgets.open}
 									onClose={widgets.close}

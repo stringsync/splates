@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -10,6 +11,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -108,12 +110,14 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
  * `roomy`, its messages centered in the room left of them; elsewhere
  * floating, frosted, over the thread's top right with the thread veiled
  * behind them, like the Control Center,
- * gone on Escape, a click outside, or an action run.
+ * gone on Escape, a click outside, or an action run. On phones it fills
+ * the screen with a fixed close control and large, scrollable touch targets.
  */
 export function Widgets({
 	actions,
 	children,
 	roomy,
+	phone = false,
 	open,
 	onClose,
 }: {
@@ -121,11 +125,13 @@ export function Widgets({
 	/** Cards stacked under the actions, such as the systems a task touches. */
 	children?: ReactNode;
 	roomy: boolean;
+	phone?: boolean;
 	open: boolean;
 	onClose: () => void;
 }): JSX.Element {
 	const panel = useRef<HTMLElement>(null);
 	const floating = !roomy;
+	const fullScreen = phone && floating;
 	useEffect(() => {
 		if (!floating || !open) {
 			return;
@@ -153,6 +159,24 @@ export function Widgets({
 			window.removeEventListener("pointerdown", press);
 		};
 	}, [floating, open, onClose]);
+	useEffect(() => {
+		if (!fullScreen || !open) {
+			return;
+		}
+		const previous = document.activeElement;
+		panel.current
+			?.querySelector<HTMLButtonElement>("[data-widgets-close]")
+			?.focus();
+		return () => {
+			// Do not steal focus from a pane or menu opened by a widget.
+			if (
+				panel.current?.contains(document.activeElement) &&
+				previous instanceof HTMLElement
+			) {
+				previous.focus();
+			}
+		};
+	}, [fullScreen, open]);
 	const run = (action: Action): Action =>
 		action.run === null || !floating
 			? action
@@ -167,7 +191,7 @@ export function Widgets({
 		<>
 			{/* Floating, a veil over the thread, so its text stays out of the
 			    cards' way, as the Control Center blurs the screen behind it. */}
-			{floating && (
+			{floating && !fullScreen && (
 				<div
 					aria-hidden
 					data-widgets-veil
@@ -184,42 +208,81 @@ export function Widgets({
 				inert={!open}
 				className={cn(
 					"[&_[data-card]]:my-0 [&_[data-card]]:rounded-2xl [&_[data-widget]]:rounded-2xl",
-					roomy
+					fullScreen
 						? [
-								"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
+								"fixed inset-0 z-20 flex flex-col bg-background pt-[env(safe-area-inset-top)]",
 								!open && "hidden",
 							]
-						: [
-								// Padded for the cards' shadows, which a scroller would cut
-								// off, and clicked through there.
-								"-top-2 -right-2 pointer-events-none absolute z-20 flex max-h-[calc(100%+0.5rem)] w-76 max-w-full flex-col gap-2.5 overflow-y-auto px-2 pt-2 pb-10 *:pointer-events-auto",
-								"[&_[data-card]]:bg-background/90 [&_[data-card]]:shadow-xl [&_[data-card]]:backdrop-blur-xl [&_[data-widget]]:bg-background/90 [&_[data-widget]]:shadow-xl [&_[data-widget]]:backdrop-blur-xl",
-								"origin-top-right transition-[opacity,scale,visibility] duration-200 ease-out motion-reduce:transition-none",
-								open ? "scale-100 opacity-100" : "invisible scale-95 opacity-0",
-							],
+						: roomy
+							? [
+									"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
+									!open && "hidden",
+								]
+							: [
+									// Padded for the cards' shadows, which a scroller would cut
+									// off, and clicked through there.
+									"-top-2 -right-2 pointer-events-none absolute z-20 flex max-h-[calc(100%+0.5rem)] w-76 max-w-full flex-col gap-2.5 overflow-y-auto px-2 pt-2 pb-10 *:pointer-events-auto",
+									"[&_[data-card]]:bg-background/90 [&_[data-card]]:shadow-xl [&_[data-card]]:backdrop-blur-xl [&_[data-widget]]:bg-background/90 [&_[data-widget]]:shadow-xl [&_[data-widget]]:backdrop-blur-xl",
+									"origin-top-right transition-[opacity,scale,visibility] duration-200 ease-out motion-reduce:transition-none",
+									open
+										? "scale-100 opacity-100"
+										: "invisible scale-95 opacity-0",
+								],
 				)}
 			>
-				<nav
-					aria-label="actions"
-					data-widget
-					className="flex flex-col overflow-hidden rounded-lg border bg-background"
-				>
-					{actions.length > 0 && (
-						<div className="py-1">
-							{actions.map((action) => (
-								<ActionRow key={action.label} action={run(action)} />
-							))}
-						</div>
+				{fullScreen && (
+					<header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
+						<h2 className="font-medium">Widgets</h2>
+						<Button
+							variant="ghost"
+							className="min-h-12 min-w-12"
+							onClick={onClose}
+							data-widgets-close
+						>
+							<XIcon data-icon="inline-start" />
+							Close
+						</Button>
+					</header>
+				)}
+				<div
+					className={cn(
+						"flex min-h-0 flex-col gap-3",
+						fullScreen &&
+							"flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:min-h-12 [&_button]:min-w-12 [&_button]:touch-manipulation [&_button]:active:bg-accent [&_[data-card]]:shrink-0 [&_[data-widget]]:shrink-0",
 					)}
-				</nav>
-				{children}
+				>
+					<nav
+						aria-label="actions"
+						data-widget
+						className="flex flex-col overflow-hidden rounded-lg border bg-background"
+					>
+						{actions.length > 0 && (
+							<div className="py-1">
+								{actions.map((action) => (
+									<ActionRow
+										key={action.label}
+										action={run(action)}
+										touch={fullScreen}
+									/>
+								))}
+							</div>
+						)}
+					</nav>
+					{children}
+				</div>
 			</section>
 		</>
 	);
 }
 
 /** One action, or a row that only says something when it has nothing to run. */
-function ActionRow({ action }: { action: Action }): JSX.Element {
+function ActionRow({
+	action,
+	touch,
+}: {
+	action: Action;
+	touch: boolean;
+}): JSX.Element {
 	const row =
 		"flex h-8 w-full items-center gap-2 px-3 text-left text-sm [&_svg]:size-4";
 	const detail = action.detail && (
@@ -241,7 +304,11 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
 					align="end"
-					className={action.menuClassName ?? "w-52"}
+					className={cn(
+						action.menuClassName ?? "w-52",
+						touch &&
+							"w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] [&_[role=menuitem]]:min-h-12 [&_[role=menuitem]]:touch-manipulation",
+					)}
 				>
 					{action.menu}
 				</DropdownMenuContent>
