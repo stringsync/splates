@@ -1,4 +1,5 @@
 import type { Ps } from "webappwiz/system";
+import { z } from "zod";
 import { type HostGate, refuse } from "./dev-http";
 import { NativeSetupConnection } from "./dev-setup-native";
 import type { Connection } from "./dev-sockets";
@@ -7,6 +8,8 @@ import {
 	OPENCODE_LOGIN,
 	type OpenCodeSetup,
 } from "./setup-opencode";
+import { OpenCodeModelError } from "./setup-opencode-model-error";
+import { openCodeSelection } from "./setup-opencode-models";
 
 /** Local/Access-protected setup operations, with no conversation or worker log. */
 export class OpenCodeSetupRoutes {
@@ -27,6 +30,71 @@ export class OpenCodeSetupRoutes {
 		this.setup.cancel();
 		return Response.json(this.setup.read());
 	};
+
+	readonly models = async (): Promise<Response> =>
+		Response.json(this.setup.models.read());
+	readonly refreshModels = async (): Promise<Response> =>
+		this.modelOperation((signal) => this.setup.models.refresh(signal));
+	readonly previewModels = async (request: Request): Promise<Response> => {
+		const input = openCodeSelection.safeParse(
+			await request.json().catch(() => null),
+		);
+		if (!input.success) {
+			return refuse(400, "usage", "Choose exact Go model IDs.");
+		}
+		return this.modelOperation((signal) =>
+			this.setup.models.preview(input.data, signal),
+		);
+	};
+	readonly applyModels = async (request: Request): Promise<Response> => {
+		const input = z
+			.object({ token: z.string().uuid(), balanceOff: z.literal(true) })
+			.safeParse(await request.json().catch(() => null));
+		if (!input.success) {
+			return refuse(
+				400,
+				"usage",
+				"Review the preview and confirm Use balance is off in Console.",
+			);
+		}
+		return this.modelOperation((signal) =>
+			this.setup.models.apply(input.data.token, input.data.balanceOff, signal),
+		);
+	};
+	private async modelOperation(
+		operation: Parameters<OpenCodeSetup["configure"]>[0],
+	): Promise<Response> {
+		if (this.terminal !== null || this.setup.read().checking) {
+			return refuse(
+				409,
+				"busy",
+				"Finish or cancel the current setup action first.",
+			);
+		}
+		const status = this.setup.read();
+		if (
+			status.auth !== "stored" ||
+			status.protocol !== "compatible" ||
+			status.problem
+		) {
+			return refuse(
+				400,
+				"usage",
+				"Check installation and native Go authentication first.",
+			);
+		}
+		try {
+			return Response.json(await this.setup.configure(operation));
+		} catch (error) {
+			return refuse(
+				400,
+				"setup",
+				error instanceof OpenCodeModelError
+					? error.message
+					: "Could not finish verifying or saving the experiment configuration. Recheck the saved configuration, then refresh and review again; check file permissions if saving failed.",
+			);
+		}
+	}
 
 	readonly open = (request: Request, server: Bun.Server<Connection>) =>
 		this.gate.local(

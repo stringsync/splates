@@ -165,9 +165,24 @@ function setupAreas(): readonly SetupArea[] {
 			opencode.read().protocol === "compatible" &&
 			opencode.read().problem === null,
 	};
+	const openCodeModelsStep: SetupStep = {
+		id: "opencode-models",
+		title: "Choose OpenCode Go models",
+		why: "Select exact Go models and review an experiment-only configuration.",
+		user: "Refresh available models, choose main and auxiliary models, then confirm Use balance is off in Console before applying.",
+		agent:
+			"Use the native model controls; no prompts or credential exports. Saved configuration is not proof of inference or billing.",
+		optional: true,
+		after: [connectStep],
+		check: async ({ opencode }) => opencode?.models.read().saved != null,
+	};
 	return [
 		{ id: "agents", title: "Agents", steps: [rosterStep, modelsStep] },
-		{ id: "opencode", title: "OpenCode", steps: [installStep, connectStep] },
+		{
+			id: "opencode",
+			title: "OpenCode",
+			steps: [installStep, connectStep, openCodeModelsStep],
+		},
 		{
 			id: "remote-access",
 			title: "Remote access",

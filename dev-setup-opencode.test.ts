@@ -68,6 +68,42 @@ describe("OpenCode native setup routes", () => {
 		return ps.getTerminals()[0];
 	};
 
+	it("requires native checks and validates model request bodies before doing any work", async () => {
+		expect((await routes.refreshModels()).status).toBe(400);
+		expect(
+			(
+				await routes.previewModels(
+					new Request("http://localhost/api/setup/opencode/models/preview", {
+						method: "POST",
+						body: JSON.stringify({
+							model: "opencode/other",
+							auxiliary: "opencode-go/small",
+						}),
+					}),
+				)
+			).status,
+		).toBe(400);
+		expect(
+			(
+				await routes.applyModels(
+					new Request("http://localhost/api/setup/opencode/models/apply", {
+						method: "POST",
+						body: JSON.stringify({
+							token: crypto.randomUUID(),
+							balanceOff: false,
+						}),
+					}),
+				)
+			).status,
+		).toBe(400);
+		expect(ps.getCalls()).toEqual([]);
+	});
+
+	it("excludes model operations while native login holds the service", async () => {
+		expect(await connect("login")).toBe(true);
+		expect((await routes.refreshModels()).status).toBe(409);
+	});
+
 	it("hands login to the exact native masked-key command, with input only on its terminal", async () => {
 		expect(await connect("login")).toBe(true);
 		const child = await terminal();

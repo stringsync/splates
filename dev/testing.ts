@@ -14,6 +14,7 @@ import type { Held } from "../held";
 import type { Landed } from "../landed";
 import type { SetupProgress } from "../setup";
 import type { OpenCodeStatus } from "../setup-opencode";
+import type { OpenCodeModelState } from "../setup-opencode-models";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
@@ -180,6 +181,11 @@ export class Testing implements Resource {
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
 	/** Native setup observations, without touching a real executable or account. */
+	opencodeModels: OpenCodeModelState = {
+		catalog: { models: [], checkedAt: null, problem: null },
+		preview: null,
+		saved: null,
+	};
 	opencode: OpenCodeStatus = {
 		version: null,
 		auth: "unchecked",
@@ -252,6 +258,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/push") {
 				return Response.json({ publicKey: this.pushKey });
+			}
+			if (route === "/api/setup/opencode/models") {
+				return Response.json(this.opencodeModels);
 			}
 			if (route === "/api/setup/opencode") {
 				return Response.json(this.opencode);

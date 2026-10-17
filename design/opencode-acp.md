@@ -404,3 +404,87 @@ and existing no-fallback validation. #374 must distinguish stored authentication
 and successful initialization from complete configured-model readiness. Neither
 step may infer Console Use balance settings from ACP. Keep overflow off through
 an explicit Console handoff/confirmation, unless a supported interface is verified.
+
+## #373 model setup contract (lane 53 step 2)
+
+The same wizard now adds optional `opencode-models` after `opencode-connect`.
+`OpenCodeSetup.models` owns `OpenCodeModels` (`setup-opencode-models.ts`).
+`OpenCodeSetup.configure(operation)` shares the native service's checking flag
+and cancellation controller, excluding simultaneous checks, native actions and
+model operations. `OpenCodeModelControls` renders inside `setup-page.tsx`.
+
+New local/Access-protected routes in `dev-setup-opencode.ts` and `dev.ts`:
+
+- GET `/api/setup/opencode/models`: observations only, `OpenCodeModelState` with
+  `catalog: {models, checkedAt, problem}`, `preview`, and `saved`.
+- POST `/api/setup/opencode/models/refresh`: explicit metadata discovery.
+- POST `/api/setup/opencode/models/preview`: `{model, auxiliary}` using exact,
+  case-sensitive `opencode-go/...` IDs from the observed catalog. Returns a
+  preview with an opaque token, roster path, generated config, and agent names.
+- POST `/api/setup/opencode/models/apply`: `{token, balanceOff: true}`. Consumes
+  the preview, discovers models again, verifies the effective configuration,
+  checks the unchanged roster under its file lock, then atomically renames it.
+- Existing POST `/api/setup/opencode/cancel` aborts metadata work and discards
+  its preview. Cancellation before rename writes nothing; a committed save is
+  retained. Failed apply requires another preview.
+
+Discovery uses V2 `opencode models --standalone` (no V1 provider positional
+argument); its handler lists provider-qualified IDs without an inference call.
+Help must advertise `--standalone`. Preview also gates `api --help` on
+`--standalone` and `--param`, then uses `api agent.list --standalone --param
+ directory=<setup cwd>` and `api config.get` with the same parameters. These
+are metadata operations, never session creation or prompts. Configuration API
+output is compared in memory only, never returned, journaled or persisted;
+only the generated non-secret recipe and agent IDs reach the page. Native
+credential files and auth export are never read. Failed commands expose only
+fixed recovery messages, never stdout/stderr.
+
+### Scoped recipe and preservation
+
+A single `agents.json` rename saves both model choices and launch configuration.
+The optional `opencode` entry uses:
+
+```text
+env OPENCODE_CONFIG_PROJECT_DISABLE=1 OPENCODE_CONFIG_CONTENT=<generated JSON> opencode acp
+```
+
+Each string is an argv element, not shell code. The inline V2 configuration sets
+`model`, `default_agent: "build"`, `warming: false`, a deny-all/allow-Go
+`provider.use` policy, and explicit `agents.<name>.model` entries. Build and Plan
+use the main model; title and every other observed auxiliary/custom agent use
+the auxiliary model. V2 migrates old `small_model` to the title agent only, so
+writing the old recipe would not cover the other agents. Project OpenCode config
+is disabled for this experiment launch only; global and project files remain
+unchanged. Global custom agents are inspected and explicitly pinned. Conflicting
+provider policies, custom Go provider definitions, managed model overrides, or
+unconfirmed effective agent models refuse the save. New configuration introduced
+after setup still needs final readiness checks in #374; setup is an observation,
+not a perpetual configuration lock.
+
+Existing agent order, custom JSON fields, model descriptions and Claude/Codex
+defaults survive. Selected models are appended only when their exact IDs are
+absent. An existing plain `opencode acp` or this wizard's launch recipe can be
+updated; custom launch commands, malformed/newer rosters, duplicate agents and
+symbolic-link rosters are left untouched. A roster changed since preview must
+be reviewed again. Temporary-file failure leaves the old roster intact.
+
+The Console confirmation is an explicit user assertion that Use balance is off,
+not an ACP or billing verification. The wizard neither purchases access nor
+changes server-side billing. `saved` is an in-memory observation of applying the
+recipe, not inference readiness; refresh, native recheck, native actions and
+server restart invalidate it. #374 must inspect the stored recipe on revisit,
+verify it for the actual conversation directory, refresh the roster offered by
+the running server, and distinguish configured readiness from successful live
+inference. Do not start a paid conversation as an automatic setup check.
+
+Upstream V2 sources inspected on 2026-10-17:
+[model listing](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/models.ts),
+[API command](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/api.ts),
+[environment configuration](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/server-process.ts),
+[configuration precedence](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config.ts),
+[V1 normalization](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config/normalize.ts),
+[agent metadata](https://github.com/anomalyco/opencode/blob/dev/packages/schema/src/agent.ts).
+Tests are synthetic fixtures, not proof of a released executable's compatibility,
+subscription entitlement or billing. No installation, login or paid prompt was
+performed. #374 retains readiness/completion and full journey demo; #378 retains
+the separate landing/journey chooser and nudge removal.

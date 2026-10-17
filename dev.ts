@@ -379,6 +379,18 @@ export async function dev(
 				"/api/setup/opencode/check": {
 					POST: gate.local(guarded(opencode.check)),
 				},
+				"/api/setup/opencode/models": {
+					GET: gate.local(guarded(opencode.models)),
+				},
+				"/api/setup/opencode/models/refresh": {
+					POST: gate.local(guarded(opencode.refreshModels)),
+				},
+				"/api/setup/opencode/models/preview": {
+					POST: gate.local(guarded(opencode.previewModels)),
+				},
+				"/api/setup/opencode/models/apply": {
+					POST: gate.local(guarded(opencode.applyModels)),
+				},
 				"/api/setup/opencode/cancel": {
 					POST: gate.local(guarded(opencode.cancel)),
 				},

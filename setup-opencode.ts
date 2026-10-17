@@ -3,6 +3,10 @@ import * as acp from "@agentclientprotocol/sdk";
 import type { Fs, Ps } from "webappwiz/system";
 import { framed } from "./agent-process";
 import { AgentStream } from "./agent-stream";
+import {
+	type OpenCodeModelState,
+	OpenCodeModels,
+} from "./setup-opencode-models";
 
 /** Observations only: a stored credential is not proof of entitlement or inference. */
 export interface OpenCodeStatus {
@@ -44,7 +48,36 @@ export class OpenCodeSetup {
 	private pending: Promise<OpenCodeStatus> | null = null;
 	private controller: AbortController | null = null;
 
-	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {}
+	readonly models: OpenCodeModels;
+	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {
+		this.models = new OpenCodeModels(deps, {
+			run: (args, signal, env) => this.command(args, signal, env),
+		});
+	}
+
+	async configure(
+		operation: (signal: AbortSignal) => Promise<OpenCodeModelState>,
+	): Promise<OpenCodeModelState> {
+		if (this.status.checking) {
+			throw new Error("busy");
+		}
+		if (
+			this.status.auth !== "stored" ||
+			this.status.protocol !== "compatible" ||
+			this.status.problem
+		) {
+			throw new Error("Check installation and native Go authentication first.");
+		}
+		const controller = new AbortController();
+		this.controller = controller;
+		this.status.checking = true;
+		try {
+			return await operation(controller.signal);
+		} finally {
+			this.status.checking = false;
+			this.controller = null;
+		}
+	}
 
 	get cwd(): string {
 		return `${this.deps.home}/setup-opencode`;
@@ -57,9 +90,13 @@ export class OpenCodeSetup {
 	}
 
 	check(): Promise<OpenCodeStatus> {
+		if (this.status.checking && this.pending === null) {
+			return Promise.resolve(this.read());
+		}
 		if (this.pending !== null) {
 			return this.pending;
 		}
+		this.models.invalidate();
 		const controller = new AbortController();
 		this.controller = controller;
 		this.status = {
@@ -79,6 +116,7 @@ export class OpenCodeSetup {
 
 	/** Native actions can change credentials; require new observations afterwards. */
 	invalidate(): void {
+		this.models.invalidate();
 		this.status.auth = "unchecked";
 		this.status.protocol = "unchecked";
 		this.status.checkedAt = null;
@@ -87,12 +125,18 @@ export class OpenCodeSetup {
 
 	cancel(): void {
 		this.controller?.abort();
+		this.models.cancel();
 	}
 
-	private async command(args: string[], signal: AbortSignal): Promise<string> {
+	private async command(
+		args: string[],
+		signal: AbortSignal,
+		env?: Record<string, string>,
+	): Promise<string> {
 		signal.throwIfAborted();
 		const result = await this.deps.ps.spawnCapture(["opencode", ...args], {
 			cwd: this.cwd,
+			env,
 			signal,
 			timeoutMs: 15_000,
 			stdin: "",
