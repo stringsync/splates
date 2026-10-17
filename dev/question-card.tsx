@@ -47,7 +47,12 @@ export function QuestionCard({
 	/** Where what is attached to its answer goes; null where a reply carries none. */
 	files?: Files | null;
 }): JSX.Element {
-	const { number, text, size, body, choices, pick } = asked;
+	const { number, text, size, body, pick } = asked;
+	// The agent's recommendation first, each keeping its letter.
+	const choices = [
+		...asked.choices.filter((choice) => choice.chosen),
+		...asked.choices.filter((choice) => !choice.chosen),
+	];
 	const said: Answer = answer ?? UNANSWERED;
 	// The choice the arrows move from, and Tab lands on: the first picked.
 	const [at, setAt] = useState(() =>

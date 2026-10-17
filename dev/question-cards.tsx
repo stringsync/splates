@@ -44,9 +44,10 @@ import { Refusal, useRefusal } from "./refusal";
  * choice, the arrows move between them, Enter goes on to the next question
  * and from "Anything else" sends, as ⌘Enter does from anywhere in it. What is
  * written stays in the panel, never the composer, until it is sent, or for
- * an agent outside the page, copied to paste into its session. Under a
- * proposal, each question with a `(chosen)` choice comes answered with it,
- * and once every one is answered, Approve approves the proposal, saying
+ * an agent outside the page, copied to paste into its session. Each
+ * question with a `(chosen)` choice comes answered with it, the agent's
+ * recommendation, so a reply says it unless the person picks another. Under a
+ * proposal, once every one is answered, Approve approves the proposal, saying
  * any answer to a call the agent chose nothing for. Picking another choice,
  * challenging a call, or writing anything else makes it a reply instead,
  * saying only what differs, for the agent to propose again. The calls the
@@ -97,11 +98,13 @@ export function QuestionCards({
 	const live = sent === null && !askedAgain && (copy || reply !== null);
 	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
-	// What a proposal's agent chose for `asked`, which it comes answered with.
+	// What the agent chose for `asked`, which it comes answered with.
 	const chosen = (asked: Question): Answer | null =>
-		proposal !== null && asked.choices.some((choice) => choice.chosen)
-			? takenOf(asked)
-			: null;
+		asked.choices.some((choice) => choice.chosen) ? takenOf(asked) : null;
+	// What a sent reply leaves unsaid of `asked` still answers it: under a
+	// proposal, with what the agent chose; otherwise, nothing.
+	const unsaid = (asked: Question): Answer | null =>
+		proposal === null ? null : chosen(asked);
 	// What a reply says of `answer`: under a proposal, nothing of one that
 	// leaves what the agent chose.
 	const said = (asked: Question, answer: Answer | null): Answer | null =>
@@ -158,7 +161,7 @@ export function QuestionCards({
 	const answers = questions.map((asked) =>
 		sent === null
 			? writtenFor(asked)
-			: (answerIn(sent, asked) ?? chosen(asked)),
+			: (answerIn(sent, asked) ?? unsaid(asked)),
 	);
 	// The challenge to each call assumed, written or sent; null for none.
 	const challenged = assumed.map((call) =>
@@ -179,7 +182,7 @@ export function QuestionCards({
 		answered === questions.length &&
 		!questions.some(
 			(asked) =>
-				chosen(asked) !== null && said(asked, writtenFor(asked)) !== null,
+				unsaid(asked) !== null && said(asked, writtenFor(asked)) !== null,
 		) &&
 		assumed.every((call) => writtenFor(call) === null) &&
 		written.more.trim() === "" &&

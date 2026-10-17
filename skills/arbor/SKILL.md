@@ -491,7 +491,8 @@ choices, each saying what happens, never a bare "Yes" or "No", so the answer
 cannot be read two ways. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Describe every choice, the one you went with too, and mark that one
-`(chosen)`: never a bare "That". When the answer is an order (what lands first, which todo
+`(chosen)`: never a bare "That". List it first, as `(a)`: the `arbor dev`
+page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which todo
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
 
@@ -512,9 +513,9 @@ crowd the choices.
   ![header at 390px](/abs/path/shot.png)
 - [ ] 3. (large) How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
-  - (a) Sign everyone out once
-  - (b) Migrate each session on its next request (chosen)
+  - (a) Migrate each session on its next request (chosen)
     Why: no one is signed out, and the old cookie still reads for a release.
+  - (b) Sign everyone out once
 - [ ] 4. (medium) In what order should the settings pages land?
   - a. Profile
   - b. Billing

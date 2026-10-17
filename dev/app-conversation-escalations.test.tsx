@@ -111,6 +111,40 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(card.textContent).not.toContain("large");
 	});
 
+	it("puts the agent's recommended choice first, picked already", async () => {
+		const { view } = await opened(
+			[asked("fix the header", 0), said("Stopping here.", 1)],
+			[
+				{
+					...escalated(3),
+					questions: questions(
+						[
+							"## Blocked",
+							"",
+							"- [ ] 6. How should a stale todo be shown?",
+							"  - (a) A muted card",
+							"  - (b) A badge (chosen)",
+						].join("\n"),
+					),
+				},
+			],
+		);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "escalated header" }),
+		);
+		const choices = within(card).getAllByRole("button", { pressed: true });
+		expect(choices.map((each) => each.textContent)).toEqual([
+			"bA badgeRecommended",
+		]);
+		const listed = [
+			...within(card)
+				.getByRole("group", { name: "How should a stale todo be shown?" })
+				.querySelectorAll("button[aria-pressed]"),
+		].map((each) => each.textContent?.charAt(0));
+		expect(listed).toEqual(["b", "a"]);
+	});
+
 	it("says why it needs the person when no question is open", async () => {
 		const { view } = await opened(
 			[asked("fix the header", 0), said("Stopping here.", 1)],
