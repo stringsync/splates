@@ -27,7 +27,7 @@ describe("update", () => {
 		ps.simulate(async () => 3);
 
 		expect(await run("999.0.0")).toBe(3);
-		expect(ps.getCalls()).toEqual(["bunx splates@999.0.0 update"]);
+		expect(ps.getCalls()).toEqual(["bunx @stringsync/splates@999.0.0 update"]);
 	});
 
 	it("installs its own skill when it is the newest", async () => {

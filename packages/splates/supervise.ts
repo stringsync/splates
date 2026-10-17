@@ -20,7 +20,7 @@ export const SERVING = "SPLATES_DEV_SERVING";
 export const UNBUILT = "SPLATES_DEV_UNBUILT";
 
 /** What starts `splates server` on the newest splates, with `args` after `server`. */
-const NEWEST = ["bunx", "splates@latest"];
+const NEWEST = ["bunx", "@stringsync/splates@latest"];
 
 /** What `supervise` starts the server with, beyond the process it runs in. */
 export interface SuperviseOptions {

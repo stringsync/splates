@@ -7,7 +7,7 @@ version: 0.0.45
 # Using splates
 
 `splates` runs many agents on one repo, each in its own git worktree, landing on
-trunk without pull requests. Run it with `bunx splates <command>` (or
+trunk without pull requests. Run it with `bunx @stringsync/splates <command>` (or
 `splates` if on PATH). `splates --help` explains the commands; this file covers
 only what the CLI cannot tell you.
 
@@ -419,7 +419,7 @@ picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
 Access: that host then reaches only the todos.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
-implementing `TunnelProvider` from `splates/tunnel-provider`:
+implementing `TunnelProvider` from `@stringsync/splates/tunnel-provider`:
 `ready()` throws, saying what to do, unless the tunnel can run, and
 `run({ host, url, log })` carries `host` to `url` and returns a resource
 whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.

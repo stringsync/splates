@@ -23,7 +23,9 @@ describe("dev", () => {
 			const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
 
 			expect(response.status).toBe(409);
-			expect(await response.text()).toContain("bunx splates@latest");
+			expect(await response.text()).toContain(
+				"bunx @stringsync/splates@latest",
+			);
 		});
 	});
 

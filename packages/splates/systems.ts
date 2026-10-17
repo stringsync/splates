@@ -37,7 +37,7 @@ export interface SystemsOptions {
  * What `splates.systems.ts` exports as its default, keyed by name:
  *
  * ```ts
- * import type { SystemsFile } from "splates/systems";
+ * import type { SystemsFile } from "@stringsync/splates/systems";
  *
  * export default {
  * 	playback: { description: "Playing a song", globs: ["src/audio/**"] },

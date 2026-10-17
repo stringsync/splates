@@ -2,10 +2,10 @@
 
 Run many coding agents on one repository at once: see
 [`packages/splates`](packages/splates/README.md), published to npm as
-`splates`.
+`@stringsync/splates`.
 
 - `packages/splates`: the CLI and the page `splates server` serves, which is
-  what `bunx splates` runs.
+  what `bunx @stringsync/splates` runs.
 - `packages/dev`: `splates dev`, the commands for working on this repository
   (`fix`, `test`, `eval`, `ship`), which `bin/splates` runs from a checkout
   and which never ship.

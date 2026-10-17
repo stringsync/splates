@@ -31,8 +31,8 @@ describe("supervise", () => {
 		expect(await supervise(ps)).toBe(0);
 		expect(ps.getCalls()).toEqual([
 			"bun /fake/entry.ts server --port 4400",
-			"bunx splates@latest server --port 4400",
-			"bunx splates@latest server --port 4400",
+			"bunx @stringsync/splates@latest server --port 4400",
+			"bunx @stringsync/splates@latest server --port 4400",
 		]);
 	});
 
@@ -48,7 +48,7 @@ describe("supervise", () => {
 			"bun /fake/entry.ts server",
 			"bun install",
 			"bun /fake/entry.ts server",
-			"bunx splates@latest server",
+			"bunx @stringsync/splates@latest server",
 		]);
 		expect(ps.getCallDirs()[0]).toBe("/fake/splates");
 	});

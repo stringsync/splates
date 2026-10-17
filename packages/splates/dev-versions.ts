@@ -91,7 +91,7 @@ export class Versions {
 		}
 		this.newer = { running, newest: found };
 		this.log.info(
-			`splates ${found} is out (this is ${running}): restart with \`bunx splates@latest dev\``,
+			`splates ${found} is out (this is ${running}): restart with \`bunx @stringsync/splates@latest dev\``,
 		);
 		await this.refresh();
 	}

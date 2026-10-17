@@ -17,7 +17,7 @@ todo starts, never decided by the agent alone.
   GitHub and Homebrew. `spin` is taken (Fermyon), and `plates`, `sp` and
   `spl` are too common; a user who wants two letters aliases it.
 - Owner: the stringsync LLC. The repo is `stringsync/splates`, public; the
-  package is `splates`, unscoped so `bunx splates` runs it with nothing
+  package is `@stringsync/splates`, so `bunx @stringsync/splates` runs it with nothing
   installed, and its bin is `splates` too. The LLC owns the
   product, sells the service, and holds the right to relicense.
 - Only `packages/arbor`, `skills/arbor` and `evals/arbor-skill` move;

@@ -1,4 +1,4 @@
-import type { Beat, Transcript } from "splates/skill-checks";
+import type { Beat, Transcript } from "@stringsync/splates/skill-checks";
 
 /**
  * One eval run read back from what `claude -p --output-format stream-json`

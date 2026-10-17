@@ -48,7 +48,7 @@ export async function update({
 		} else if (isNewer(latest, RUNNING)) {
 			log.info(`${color.green("updating")} splates ${RUNNING} to ${latest}`);
 			const { exitCode } = await ps.spawn(
-				["bunx", `splates@${latest}`, "update"],
+				["bunx", `@stringsync/splates@${latest}`, "update"],
 				{ env: { [UPDATING]: "1" } },
 			);
 			return exitCode;

@@ -65,13 +65,13 @@ describe("App's feed", () => {
 
 		testing.refuse(
 			"outdated",
-			"written by a newer splates\nRun `bunx splates@latest` instead.",
+			"written by a newer splates\nRun `bunx @stringsync/splates@latest` instead.",
 		);
 		await act(async () => testing.stream?.onmessage?.());
 
 		const badge = await waitFor(() => view.getByText("Outdated"));
 		expect(badge.textContent).toBe("Outdated");
-		expect(badge.title).toContain("bunx splates@latest");
+		expect(badge.title).toContain("bunx @stringsync/splates@latest");
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 

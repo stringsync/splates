@@ -1,7 +1,7 @@
 // scry-ignore-file compact-files: readiness, HTTP/SSE accounting and cancellation share one owned native-session lifecycle; the provider-specific module is the integration boundary.
 import { cp, mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { AgentProcess, Launch } from "splates/probe-runtime";
+import type { AgentProcess, Launch } from "@stringsync/splates/probe-runtime";
 import type {
 	NativeDriver,
 	NativeRequest,

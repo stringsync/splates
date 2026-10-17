@@ -3,36 +3,6 @@ import { FileLock } from "webappwiz/system";
 import { FORMAT, Format, type Migration } from "./format";
 import { Testing } from "./testing";
 
-/** A `Format` over the test's records, moved on by `migrations`. */
-function format(deps: Testing, migrations: readonly Migration[]): Format {
-	return new Format(deps.splatesDir, {
-		fs: deps.fs,
-		lock: new FileLock(`${deps.splatesDir}/format.lock`, {
-			fs: deps.fs,
-			ps: deps.ps,
-			log: deps.log,
-			pollMs: 5,
-		}),
-		log: deps.log,
-		migrations,
-	});
-}
-
-/** A step that notes each run in `ran`, failing on its first run when `flaky`. */
-function step(name: string, ran: string[], flaky = false): Migration {
-	let runs = 0;
-	return {
-		does: name,
-		async run() {
-			runs += 1;
-			ran.push(name);
-			if (flaky && runs === 1) {
-				throw new Error(`${name} cut short`);
-			}
-		},
-	};
-}
-
 describe("Format", () => {
 	it("refuses a repository splates init never ran in, and stamps it as this splates's on create", async () => {
 		await using deps = await Testing.open({ init: false });
@@ -147,7 +117,7 @@ describe("Format", () => {
 		await expect(deps.format.check()).toBail("outdated", {
 			message: [
 				`format ${FORMAT + 1}, written by a newer splates`,
-				"bunx splates@latest",
+				"bunx @stringsync/splates@latest",
 			],
 		});
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe(
@@ -164,3 +134,33 @@ describe("Format", () => {
 		});
 	});
 });
+
+/** A `Format` over the test's records, moved on by `migrations`. */
+function format(deps: Testing, migrations: readonly Migration[]): Format {
+	return new Format(deps.splatesDir, {
+		fs: deps.fs,
+		lock: new FileLock(`${deps.splatesDir}/format.lock`, {
+			fs: deps.fs,
+			ps: deps.ps,
+			log: deps.log,
+			pollMs: 5,
+		}),
+		log: deps.log,
+		migrations,
+	});
+}
+
+/** A step that notes each run in `ran`, failing on its first run when `flaky`. */
+function step(name: string, ran: string[], flaky = false): Migration {
+	let runs = 0;
+	return {
+		does: name,
+		async run() {
+			runs += 1;
+			ran.push(name);
+			if (flaky && runs === 1) {
+				throw new Error(`${name} cut short`);
+			}
+		},
+	};
+}

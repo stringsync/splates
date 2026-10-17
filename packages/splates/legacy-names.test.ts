@@ -127,7 +127,7 @@ describe("legacy names", () => {
 			old: await fs.exists(join(root, "arbor.config.ts")),
 		}).toEqual({
 			config:
-				'import type { ConfigFile } from "splates/config";\nexport default {} satisfies ConfigFile;\n',
+				'import type { ConfigFile } from "@stringsync/splates/config";\nexport default {} satisfies ConfigFile;\n',
 			systems: true,
 			old: false,
 		});

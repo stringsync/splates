@@ -1,4 +1,4 @@
-import type { SystemsFile } from "splates/systems";
+import type { SystemsFile } from "@stringsync/splates/systems";
 
 export default {
 	models: {

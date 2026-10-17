@@ -1,4 +1,4 @@
-import { type Beat, splatesCalls } from "splates/skill-checks";
+import { type Beat, splatesCalls } from "@stringsync/splates/skill-checks";
 
 // What the checks read off a run: its turns and words, the splates commands it
 // ran, and the questions its SPLATES.md asks.

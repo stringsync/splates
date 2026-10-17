@@ -155,7 +155,7 @@ export class Format {
 				"outdated",
 				[
 					`this repository's splates records are in format ${format}, written by a newer splates; this one understands up to ${this.current}, so it leaves them alone.`,
-					"Run `bunx splates@latest` instead.",
+					"Run `bunx @stringsync/splates@latest` instead.",
 				].join("\n"),
 				{ format, understood: this.current },
 			);

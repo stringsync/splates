@@ -56,7 +56,7 @@ export class Roster {
 				"outdated",
 				[
 					`${this.path} is in format ${format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
-					"Run `bunx splates@latest` instead.",
+					"Run `bunx @stringsync/splates@latest` instead.",
 				].join("\n"),
 				{ path: this.path, format, understood: FORMAT },
 			);

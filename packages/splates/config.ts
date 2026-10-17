@@ -85,7 +85,7 @@ export interface Config {
  * so a reader can import the file without splates installed:
  *
  * ```ts
- * import type { ConfigFile } from "splates/config";
+ * import type { ConfigFile } from "@stringsync/splates/config";
  *
  * export default { preMerge: "bun test" } satisfies ConfigFile;
  * ```

@@ -7,7 +7,8 @@ import manifest from "./package.json" with { type: "json" };
 export const RUNNING: string = manifest.version;
 
 /** Where npm says which version of splates is the latest. */
-export const REGISTRY = "https://registry.npmjs.org/splates/latest";
+export const REGISTRY =
+	"https://registry.npmjs.org/@stringsync%2fsplates/latest";
 
 /** How long a check waits on the registry before giving up for this round. */
 const PATIENCE = Duration.secs(10);

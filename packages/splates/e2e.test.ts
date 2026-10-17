@@ -406,7 +406,7 @@ describe.concurrent("splates", () => {
 		);
 		expect(refused.exitCode).toBe(19);
 		expect(refused.stdout).toContain("outdated");
-		expect(refused.stderr).toContain("bunx splates@latest");
+		expect(refused.stderr).toContain("bunx @stringsync/splates@latest");
 		expect(
 			await env.fs.exists(join(env.splatesDir, "tasks", "alpha.json")),
 		).toBe(false);

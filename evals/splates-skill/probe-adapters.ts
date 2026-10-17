@@ -2,8 +2,12 @@ import { spawn } from "node:child_process";
 import { cp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
-import type { Agent, AgentProcess, Launch } from "splates/probe-runtime";
-import { AgentStream, framed } from "splates/probe-runtime";
+import type {
+	Agent,
+	AgentProcess,
+	Launch,
+} from "@stringsync/splates/probe-runtime";
+import { AgentStream, framed } from "@stringsync/splates/probe-runtime";
 import { command } from "./probe-sandbox";
 import { awaitProcessGroupExit } from "./process-group";
 import type { Adapter, RunContext } from "./runner";

@@ -1,5 +1,5 @@
 {
-	"name": "splates",
+	"name": "@stringsync/splates",
 	"version": "0.0.45",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",

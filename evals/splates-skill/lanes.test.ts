@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Beat } from "splates/skill-checks";
+import type { Beat } from "@stringsync/splates/skill-checks";
 import type { EvalRun } from "./checks";
 import type { EndRepo } from "./fixture";
 import { IDLE, LANE, PIVOT_LANE } from "./lanes";

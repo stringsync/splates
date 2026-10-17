@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # In a checkout, `splates dev <command>` runs the commands for working on
 # splates itself (packages/dev), which never ship; anything else is the CLI
-# users get from `bunx splates`. Bare namespaces print their help.
+# users get from `bunx @stringsync/splates`. Bare namespaces print their help.
 here="$(dirname "${BASH_SOURCE[0]}")"
 if [[ "${1:-}" == "dev" ]]; then
 	shift

@@ -37,7 +37,7 @@
 						"patterns": [
 							{
 								"group": ["**/packages/**"],
-								"message": "Import the package's public API (e.g. 'splates/config') instead of reaching into packages/."
+								"message": "Import the package's public API (e.g. '@stringsync/splates/config') instead of reaching into packages/."
 							}
 						]
 					}

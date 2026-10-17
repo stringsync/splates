@@ -6,7 +6,7 @@ Run many coding agents on one repository at once. Each works in its own git
 worktree and lands its change on `main` itself, without pull requests.
 
 ```bash
-bunx splates init
+bunx @stringsync/splates init
 ```
 
 Run it in your repository and commit what it writes: the splates skill, which it
@@ -18,7 +18,7 @@ installs the same skill. From then on, your agents start each change with
 `splates add` and land it with `splates merge`.
 
 Spinning Plates was arbor (`@webappwiz/arbor`). In a project that used it, run
-`bunx splates update`: it installs the splates skill in place of arbor's and
+`bunx @stringsync/splates update`: it installs the splates skill in place of arbor's and
 renames `arbor.config.ts` and `arbor.systems.ts`. The next `splates server` moves
 `~/.arbor` and each repository's `.git/arbor` to their new names, leaving links
 behind. For one release, `arbor` still runs splates, and the `ARBOR_*`
@@ -59,7 +59,7 @@ where it left off.
 http://localhost:4269.
 
 ```bash
-bunx splates server
+bunx @stringsync/splates server
 ```
 
 Run it from anywhere: it serves every splates project on this machine. Its
@@ -98,10 +98,10 @@ To open the page from another machine, put it behind a Cloudflare tunnel and
 Cloudflare Access, which decides who may enter. Set it up once per machine:
 
 ```bash
-bunx splates tunnel setup splates.example.com --email me@example.com
-bunx splates creds wait SPLATES_CLOUDFLARE_API_TOKEN
-bunx splates tunnel setup splates.example.com --email me@example.com
-bunx splates server
+bunx @stringsync/splates tunnel setup splates.example.com --email me@example.com
+bunx @stringsync/splates creds wait SPLATES_CLOUDFLARE_API_TOKEN
+bunx @stringsync/splates tunnel setup splates.example.com --email me@example.com
+bunx @stringsync/splates server
 ```
 
 `tunnel setup` makes, through Cloudflare's API, a tunnel, the DNS record
@@ -122,7 +122,7 @@ To run several at once, as when trying changes to splates from a few worktrees,
 give each its own slot:
 
 ```bash
-bunx splates server --slot
+bunx @stringsync/splates server --slot
 ```
 
 `--slot` claims a short animal word for the checkout it runs in, as `fox`, and
@@ -142,7 +142,7 @@ init`). The page shows the slot's emoji beside the project's name.
 Or give the tunnel and the Access application by hand, over what is saved:
 
 ```bash
-bunx splates server --tunnel splates.example.com \
+bunx @stringsync/splates server --tunnel splates.example.com \
   --access-team my-team --access-aud <the application's AUD tag>
 ```
 
@@ -156,8 +156,8 @@ To use another tunnel, give `splates.config.ts` a `tunnel`, any object that
 implements `TunnelProvider`:
 
 ```ts
-import type { ConfigFile } from "splates/config";
-import type { TunnelProvider } from "splates/tunnel-provider";
+import type { ConfigFile } from "@stringsync/splates/config";
+import type { TunnelProvider } from "@stringsync/splates/tunnel-provider";
 
 const myTunnel: TunnelProvider = {
 	// throw, saying what to do, unless the tunnel can run
@@ -186,7 +186,7 @@ it. Save a wildcard base host for this machine to open each one anywhere,
 behind the same Access application:
 
 ```bash
-bunx splates server --ports-host ports.example.com
+bunx @stringsync/splates server --ports-host ports.example.com
 ```
 
 `https://<task>-<port>.ports.example.com` then reaches that task's server,

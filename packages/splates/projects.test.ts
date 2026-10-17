@@ -170,7 +170,10 @@ describe("Projects", () => {
 		);
 
 		await expect(deps.projects.register(deps.root)).toBail("outdated", {
-			message: ["written by a newer splates", "bunx splates@latest"],
+			message: [
+				"written by a newer splates",
+				"bunx @stringsync/splates@latest",
+			],
 		});
 	});
 });

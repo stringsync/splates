@@ -54,7 +54,7 @@ describe("supervise with a worker", () => {
 		expect(await ended).toBe(0);
 		expect(workers.map(({ argv, aborted }) => [argv, aborted])).toEqual([
 			["bun /fake/entry.ts worker run", false],
-			["bunx splates@latest worker run", true],
+			["bunx @stringsync/splates@latest worker run", true],
 		]);
 	});
 

@@ -147,7 +147,7 @@ export interface LegacyRepoOptions {
 /**
  * Renames `arbor.config.ts` and `arbor.systems.ts` to splates's names, through
  * git when it tracks them so the rename is staged as one, and points their
- * imports of `@webappwiz/arbor` at `splates`. Leaves a file alone when one
+ * imports of `@webappwiz/arbor` at `@stringsync/splates`. Leaves a file alone when one
  * under the new name is already there.
  */
 export async function renameLegacyFiles({
@@ -174,14 +174,17 @@ export async function renameLegacyFiles({
 		const path = `${root}/${next}`;
 		await fs.write(
 			path,
-			(await fs.read(path)).replaceAll("@webappwiz/arbor", "splates"),
+			(await fs.read(path)).replaceAll(
+				"@webappwiz/arbor",
+				"@stringsync/splates",
+			),
 		);
 		log.info(`renamed ${old} to ${next}`);
 	}
 	const manifest = await fs.read(`${root}/package.json`).catch(() => "");
 	if (manifest.includes('"@webappwiz/arbor"')) {
 		log.info(
-			"package.json names @webappwiz/arbor: install splates in its place",
+			"package.json names @webappwiz/arbor: install @stringsync/splates in its place",
 		);
 	}
 }

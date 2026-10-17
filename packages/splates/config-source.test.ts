@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { typedConfig, withoutSystems } from "./config-source";
+import { typedConfig } from "./config-source";
 
 describe("typedConfig", () => {
 	it("swaps defineConfig for a type-only import and satisfies", () => {
 		expect(
-			typedConfig(`import { defineConfig } from "splates/config";
+			typedConfig(`import { defineConfig } from "@stringsync/splates/config";
 
 // Run before each merge.
 export default defineConfig({
@@ -12,7 +12,7 @@ export default defineConfig({
 	trunk: "main",
 });
 `),
-		).toBe(`import type { ConfigFile } from "splates/config";
+		).toBe(`import type { ConfigFile } from "@stringsync/splates/config";
 
 // Run before each merge.
 export default {
@@ -22,52 +22,27 @@ export default {
 `);
 	});
 
+	it("still migrates a config using the unscoped package", () => {
+		expect(
+			typedConfig(
+				'import { defineConfig } from "splates/config";\nexport default defineConfig({});',
+			),
+		).toBe(
+			'import type { ConfigFile } from "@stringsync/splates/config";\nexport default {} satisfies ConfigFile;',
+		);
+	});
+
 	it("rewrites nothing but a lone defineConfig imported alone", () => {
 		expect(typedConfig(`export default { trunk: "main" };`)).toBeNull();
 		expect(
 			typedConfig(
-				`import { defineConfig, type Config } from "splates/config";\nexport default defineConfig({});`,
+				`import { defineConfig, type Config } from "@stringsync/splates/config";\nexport default defineConfig({});`,
 			),
 		).toBeNull();
 		expect(
 			typedConfig(
-				`import { defineConfig } from "splates/config";\nconst a = defineConfig({});\nexport default defineConfig(a);`,
+				`import { defineConfig } from "@stringsync/splates/config";\nconst a = defineConfig({});\nexport default defineConfig(a);`,
 			),
 		).toBeNull();
-	});
-});
-
-describe("withoutSystems", () => {
-	it("takes out the outermost systems, wherever it sits", () => {
-		expect(
-			withoutSystems(
-				`export default defineConfig({ systems: { a: { globs: ["}"] } }, trunk: "main" });`,
-			),
-		).toBe(`export default defineConfig({ trunk: "main" });`);
-		expect(
-			withoutSystems(`export default { trunk: "main", "systems": {} };`),
-		).toBe(`export default { trunk: "main", };`);
-	});
-
-	it("passes over systems in strings, comments, templates and nested objects", () => {
-		const source = `// systems: old
-export default {
-	preMerge: \`echo \${"systems: {"}\`,
-	hooks: { systems: 1 },
-	systems: { a: { globs: ["a/**"] } },
-};
-`;
-
-		expect(withoutSystems(source)).toBe(`// systems: old
-export default {
-	preMerge: \`echo \${"systems: {"}\`,
-	hooks: { systems: 1 },
-};
-`);
-	});
-
-	it("finds nothing to take out of a config without exactly one", () => {
-		expect(withoutSystems(`export default { trunk: "main" };`)).toBeNull();
-		expect(withoutSystems(`export default { mySystems: {} };`)).toBeNull();
 	});
 });

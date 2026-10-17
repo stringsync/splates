@@ -5,7 +5,7 @@ describe("skill checks", () => {
 	it("splatesCalls: finds splates where a shell would run it, not in a quoted message", () => {
 		expect(
 			splatesCalls(
-				`cd /repo && FOO=1 bunx splates add retry --todo 3; git commit -m "say what splates merge did"`,
+				`cd /repo && FOO=1 bunx @stringsync/splates add retry --todo 3; git commit -m "say what splates merge did"`,
 			),
 		).toEqual([{ verb: "add", args: ["retry", "--todo", "3"] }]);
 	});
@@ -259,7 +259,7 @@ function edit(...paths: string[]): Beat {
 /** A task added, as `splates add` prints it, color and all. */
 function add(task = "upload-413", flags = ""): Beat {
 	return run(
-		`bunx splates add ${task}${flags} 2>&1 | tail -5`,
+		`bunx @stringsync/splates add ${task}${flags} 2>&1 | tail -5`,
 		`\u001b[32madded\u001b[39m ${task}\n  worktree: /repo-splates/${task}`,
 	);
 }

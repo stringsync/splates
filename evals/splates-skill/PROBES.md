@@ -28,7 +28,7 @@ check with a separate agent probe requiring the response behavior.
 The runner supplies ordered `Event` records with unique ids, captured by a
 trusted execution/tool boundary. `name` is a canonical executable/tool,
 file path or directive name, and `args` is argv excluding the executable.
-Normalize `bunx splates` and an absolute splates executable to `splates`
+Normalize `bunx @stringsync/splates` and an absolute splates executable to `splates`
 at that boundary, preserving all arguments. Do not tokenize arbitrary shell
 strings with regexes: quoted text, heredocs, conditionally skipped commands,
 comments and a tool's proposed command are not executed commands. Capture

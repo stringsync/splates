@@ -122,7 +122,7 @@ export function systemsSource(systems: SystemsFile): string {
 		/^(\s*)"([A-Za-z_$][\w$]*)":/gm,
 		"$1$2:",
 	);
-	return `import type { SystemsFile } from "splates/systems";
+	return `import type { SystemsFile } from "@stringsync/splates/systems";
 
 export default ${literal} satisfies SystemsFile;
 `;

@@ -1,4 +1,8 @@
-import { CHECKS, splatesCalls, type Verdict } from "splates/skill-checks";
+import {
+	CHECKS,
+	splatesCalls,
+	type Verdict,
+} from "@stringsync/splates/skill-checks";
 import type { EndRepo } from "./fixture";
 import { lastSaid, openQuestions, turnsOf } from "./reading";
 import type { RunLog } from "./transcript";

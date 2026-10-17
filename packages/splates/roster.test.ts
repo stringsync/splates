@@ -139,7 +139,10 @@ describe("Roster", () => {
 		);
 
 		await expect(deps.roster.agents()).toBail("outdated", {
-			message: ["written by a newer splates", "bunx splates@latest"],
+			message: [
+				"written by a newer splates",
+				"bunx @stringsync/splates@latest",
+			],
 		});
 	});
 
