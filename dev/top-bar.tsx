@@ -81,7 +81,7 @@ export function TopBar({
 	const menu = frame?.menu ?? null;
 	const kept = actions.filter((action) => action.kebab === true);
 	const shown = actions.filter((action) => action.kebab !== true);
-	const { room, titled, stated, restart, measure, fit } = useFit(
+	const { room, titled, detailed, stated, restart, measure, fit } = useFit(
 		shown.length,
 		menu !== null || kept.length > 0,
 	);
@@ -109,8 +109,13 @@ export function TopBar({
 							heading
 						)}
 					</div>
+					{/* Whole up to a long branch, so its icons never spill over
+					    the actions: the title gives way instead. */}
 					{Boolean(detail) && (
-						<div className="flex min-w-0 shrink-[2] items-center text-muted-foreground">
+						<div
+							ref={detailed}
+							className="flex min-w-0 max-w-60 shrink-0 items-center text-muted-foreground"
+						>
 							{detail}
 						</div>
 					)}
@@ -234,10 +239,10 @@ const GAP = 4;
 
 /**
  * How many of `count` actions fit beside the title and the status, measured
- * from an unseen copy of them each time the bar, its title, its status,
- * Restart to update or its actions change size: all when they do, or as many
- * as leave room for the kebab, the status, Restart to update, and
- * `TITLE_ROOM` of the title, or the whole title when shorter.
+ * from an unseen copy of them each time the bar, its title, its detail, its
+ * status, Restart to update or its actions change size: all when they do, or
+ * as many as leave room for the kebab, the detail, the status, Restart to
+ * update, and `TITLE_ROOM` of the title, or the whole title when shorter.
  */
 function useFit(
 	count: number,
@@ -245,6 +250,7 @@ function useFit(
 ): {
 	room: React.RefObject<HTMLDivElement | null>;
 	titled: React.RefObject<HTMLDivElement | null>;
+	detailed: React.RefObject<HTMLDivElement | null>;
 	stated: React.RefObject<HTMLDivElement | null>;
 	restart: React.RefObject<HTMLDivElement | null>;
 	measure: React.RefObject<HTMLDivElement | null>;
@@ -252,6 +258,7 @@ function useFit(
 } {
 	const room = useRef<HTMLDivElement>(null);
 	const titled = useRef<HTMLDivElement>(null);
+	const detailed = useRef<HTMLDivElement>(null);
 	const stated = useRef<HTMLDivElement>(null);
 	const restart = useRef<HTMLDivElement>(null);
 	const measure = useRef<HTMLDivElement>(null);
@@ -275,13 +282,15 @@ function useFit(
 		// What the title would take untruncated: its heading's whole width.
 		const heading = titled.current?.firstElementChild;
 		const title = Math.min(heading?.scrollWidth ?? 0, TITLE_ROOM);
-		// The status keeps its whole width; the detail gives way first.
+		// The detail and the status keep their whole widths.
+		const detail = detailed.current?.offsetWidth ?? 0;
 		const status = stated.current?.offsetWidth ?? 0;
 		// Restart to update never folds, so keeps its whole width too.
 		const restarting = restart.current?.offsetWidth ?? 0;
 		const space =
 			into.clientWidth -
 			title -
+			(detail > 0 ? detail + 8 : 0) -
 			(status > 0 ? status + 8 : 0) -
 			(restarting > 0 ? restarting + GAP : 0);
 		const across = (first: number) =>
@@ -301,6 +310,7 @@ function useFit(
 		for (const each of [
 			room.current,
 			titled.current,
+			detailed.current,
 			stated.current,
 			restart.current,
 			measure.current,
@@ -314,6 +324,7 @@ function useFit(
 	return {
 		room,
 		titled,
+		detailed,
 		stated,
 		restart,
 		measure,
