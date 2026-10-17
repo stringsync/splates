@@ -99,7 +99,7 @@ describe("App's artifacts", () => {
 			within(listed)
 				.getAllByRole("listitem")
 				.map((row) => row.textContent),
-		).toEqual(["report.htmlv2 · 4 KB", "shot.png3.0 MB"]);
+		).toEqual(["report.htmlv2 · 4 KBDelete", "shot.png3.0 MBDelete"]);
 		await act(async () =>
 			fireEvent.click(
 				within(listed).getByRole("button", { name: "report.html v2" }),
@@ -133,7 +133,7 @@ describe("App's artifacts", () => {
 			within(hidden)
 				.getAllByRole("listitem")
 				.map((row) => row.textContent?.replace(/gone \d+\w ago/, "gone ")),
-		).toEqual(["report.htmlgone v1 · 300 B", "old.pngv1 · 2 KB"]);
+		).toEqual(["report.htmlgone v1 · 300 B", "old.pngv1 · 2 KBDelete"]);
 		// The gone one has nothing to open; the removed one still opens.
 		const [gone] = within(hidden).getAllByRole("listitem");
 		expect(within(gone as HTMLElement).queryByRole("button")).toBeNull();
@@ -152,6 +152,33 @@ describe("App's artifacts", () => {
 		expect(
 			within(card).queryByRole("list", { name: "removed artifacts" }),
 		).toBeNull();
+	});
+
+	it("deletes a version's bytes after a confirm on its row, and not a gone one", async () => {
+		const { view } = await opened([
+			artifact("report.html", [
+				{ ...version(1, 300), gone: { at: second(5), why: "evicted" } },
+				version(2, 500),
+			]),
+		]);
+		const card = view.getByRole("region", { name: "artifacts" });
+		expect(
+			within(card).queryByRole("button", { name: /Delete .*v1/ }),
+		).toBeNull();
+
+		const button = within(card).getByRole("button", {
+			name: "Delete report.html v2",
+		});
+		await act(async () => fireEvent.click(button));
+		expect(
+			testing.posted("/api/conversations/c1/artifacts/report.html/2"),
+		).toEqual([]);
+		expect(button.textContent).toBe("Delete?");
+		await act(async () => fireEvent.click(button));
+		await waitFor(() => expect(button.textContent).toBe("Deleted"));
+		expect(
+			testing.posted("/api/conversations/c1/artifacts/report.html/2"),
+		).toEqual([{ method: "DELETE", body: {} }]);
 	});
 
 	it("shows no card while it keeps no artifacts", async () => {

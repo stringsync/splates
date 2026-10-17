@@ -353,6 +353,49 @@ describe("dev conversations", () => {
 		}
 	}, 15_000);
 
+	it("deletes one version's bytes on a DELETE of that version, keeping the artifact listed", async () => {
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+				task: null,
+			});
+			const { id } = (await started.json()) as { id: string };
+			const conversation = await conversations.find(id);
+			const add = (text: string) =>
+				conversation.artifacts.add({
+					name: "page.html",
+					mimeType: "text/html",
+					bytes: new TextEncoder().encode(text),
+				});
+			await add("one");
+			await add("two");
+			const at = (version: string) =>
+				`http://localhost:${port}/api/conversations/${id}/artifacts/page.html/${version}`;
+			const del = (version: string) =>
+				fetch(at(version), {
+					method: "DELETE",
+					headers: { origin: `http://localhost:${port}` },
+				});
+
+			expect((await del("1")).status).toBe(200);
+			expect((await fetch(at("1"))).status).toBe(404);
+			expect((await fetch(at("2"))).status).toBe(200);
+			expect(conversation.state.artifacts[0]?.removedAt).toBeNull();
+			expect(conversation.state.artifacts[0]?.versions[0]?.gone).toMatchObject({
+				why: "deleted",
+			});
+			expect((await del("9")).status).toBe(404);
+			expect((await del("x")).ok).toBe(false);
+		} finally {
+			await server.disposeAsync();
+		}
+	}, 15_000);
+
 	it("refuses a conversation in a task with no worktree", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),

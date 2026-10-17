@@ -232,3 +232,15 @@ export function conversationArtifact(
 		`/api/conversations/${id}/artifacts/${encodeURIComponent(name)}/${version}`,
 	);
 }
+
+/** Deletes the bytes of `version` of the artifact `name` of conversation `id`. */
+export async function deleteArtifactVersion(
+	id: string,
+	name: string,
+	version: number,
+): Promise<void> {
+	await send(
+		`/api/conversations/${id}/artifacts/${encodeURIComponent(name)}/${version}`,
+		{ method: "DELETE" },
+	);
+}

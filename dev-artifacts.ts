@@ -1,5 +1,6 @@
 import type { Conversation } from "./conversation";
 import { fileResponse, refuse } from "./dev-http";
+import { fail } from "./exit";
 
 /**
  * The version of an artifact that `request` names, `/api/conversations/<id>/
@@ -61,4 +62,57 @@ function artifactPolicy(mimeType: string): string {
 	return page
 		? "sandbox allow-scripts; default-src data: 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"
 		: "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'";
+}
+
+/**
+ * Deletes the bytes of the version that `request` names, `/api/conversations/
+ * <id>/artifacts/<name>/<version>`, from `conversation`, keeping its record
+ * so the page shows a placeholder.
+ */
+export async function deleteVersion(
+	request: Request,
+	conversation: Conversation,
+): Promise<Response> {
+	const parts = new URL(request.url).pathname.split("/");
+	const name = decodeURIComponent(parts[5] ?? "");
+	const version = Number(parts[6]);
+	if (!Number.isInteger(version)) {
+		fail("usage", `'${parts[6]}' is no artifact version`);
+	}
+	await conversation.artifacts.delete(name, version, "deleted");
+	return Response.json({ deleted: name, version });
+}
+
+/**
+ * The agent's own `arbor artifact add`: a form with the artifact's `name`, its
+ * `mimeType`, and its bytes as `file`. The conversation's own store keeps it,
+ * so the page hears of it as it would of any change.
+ */
+export async function addVersion(
+	request: Request,
+	conversation: Conversation,
+): Promise<Response> {
+	const form = await request.formData();
+	const file = form.get("file");
+	if (!(file instanceof File)) {
+		fail("usage", "an artifact needs its file");
+	}
+	const version = await conversation.artifacts.add({
+		name: String(form.get("name") ?? ""),
+		mimeType: String(form.get("mimeType") ?? "application/octet-stream"),
+		bytes: new Uint8Array(await file.arrayBuffer()),
+	});
+	return Response.json(version);
+}
+
+/** The agent's own `arbor artifact remove`, `/api/conversations/<id>/artifacts/<name>`. */
+export async function removeNamed(
+	request: Request,
+	conversation: Conversation,
+): Promise<Response> {
+	const name = decodeURIComponent(
+		new URL(request.url).pathname.split("/")[5] ?? "",
+	);
+	await conversation.artifacts.remove(name);
+	return Response.json({ removed: name });
 }

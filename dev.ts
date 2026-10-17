@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { SYSTEM_STORES } from "./creds";
@@ -65,9 +66,9 @@ export async function dev(
 		transcriber = transcriberFor,
 		newest = async () => null,
 		running = RUNNING,
-		checkEvery = CHECK,
+		checkEvery = Duration.mins(60), // how often to ask npm for a newer arbor
 		source = async () => null,
-		sourceEvery = SOURCE_CHECK,
+		sourceEvery = Duration.secs(15), // how often to read a checkout's last commit
 		unbuilt = false,
 		slot = null,
 		servers = async () => [],
@@ -441,6 +442,7 @@ export async function dev(
 				},
 				"/api/conversations/:id/artifacts/:name/:version": {
 					GET: talk(owned((project) => project.conversationArtifact)),
+					DELETE: talk(owned((project) => project.deleteArtifactVersion)),
 				},
 				"/api/conversations/:id/tell": {
 					POST: talk(owned((project) => project.tellConversation)),
@@ -562,12 +564,6 @@ export async function dev(
 		disposeAsync: disposer.disposeAsync,
 	};
 }
-
-/** How often `arbor dev` asks npm whether a newer arbor is out. */
-const CHECK = Duration.mins(60);
-
-/** How often `arbor dev` run from a checkout reads its source's last commit. */
-const SOURCE_CHECK = Duration.secs(15);
 
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer extends AsyncResource {

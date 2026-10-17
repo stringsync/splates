@@ -4,6 +4,7 @@ import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import type { Artifact, ArtifactVersion } from "../artifacts";
 import { openArtifact } from "./artifact-open";
+import { deleteArtifactVersion } from "./conversation-api";
 import { FileIcon } from "./file-chip";
 
 /**
@@ -166,8 +167,71 @@ function ArtifactRow({
 					{inside}
 				</p>
 			)}
+			<DeleteControl
+				conversation={conversation}
+				name={name}
+				version={version}
+				label={label}
+			/>
 			{control}
 		</li>
+	);
+}
+
+/**
+ * Deletes a version's bytes, asking in place: the button turns into "Delete?",
+ * then "Deleted" once it is done. Nothing on a version already gone, unless it
+ * was this click that took it.
+ */
+function DeleteControl({
+	conversation,
+	name,
+	version,
+	label,
+}: {
+	conversation: string;
+	name: string;
+	version: ArtifactVersion;
+	label: string;
+}): JSX.Element | null {
+	const [step, setStep] = useState<"idle" | "asking" | "deleting" | "deleted">(
+		"idle",
+	);
+	if (version.gone !== null && step !== "deleted") {
+		return null;
+	}
+	const text = {
+		idle: "Delete",
+		asking: "Delete?",
+		deleting: "Deleting",
+		deleted: "Deleted",
+	}[step];
+	return (
+		<button
+			type="button"
+			aria-label={step === "idle" ? `Delete ${label}` : `${text} ${label}`}
+			disabled={step === "deleting" || step === "deleted"}
+			onClick={async () => {
+				if (step === "idle") {
+					setStep("asking");
+					return;
+				}
+				setStep("deleting");
+				try {
+					await deleteArtifactVersion(conversation, name, version.version);
+					setStep("deleted");
+				} catch {
+					setStep("idle");
+				}
+			}}
+			onBlur={() => setStep((was) => (was === "asking" ? "idle" : was))}
+			className={cn(
+				"mr-2 shrink-0 rounded px-1.5 py-0.5 pointer-coarse:py-2 text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none disabled:pointer-events-none",
+				step === "asking" && "text-foreground",
+			)}
+		>
+			{text}
+		</button>
 	);
 }
 

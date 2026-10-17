@@ -7,7 +7,12 @@ import {
 	FROM_HEADER,
 	type Upload,
 } from "./conversations";
-import { artifactResponse } from "./dev-artifacts";
+import {
+	addVersion,
+	artifactResponse,
+	deleteVersion,
+	removeNamed,
+} from "./dev-artifacts";
 import {
 	body,
 	type EventSink,
@@ -473,31 +478,18 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
-	// The agent's own `arbor artifact add`: a form with the artifact's `name`,
-	// its `mimeType`, and its bytes as `file`. The conversation's own store keeps
-	// it, so the page hears of it as it would of any change.
-	readonly addArtifact = async (request: Request): Promise<Response> => {
-		const conversation = await this.conversationAt(request);
-		const form = await request.formData();
-		const file = form.get("file");
-		if (!(file instanceof File)) {
-			fail("usage", "an artifact needs its file");
-		}
-		const version = await conversation.artifacts.add({
-			name: String(form.get("name") ?? ""),
-			mimeType: String(form.get("mimeType") ?? "application/octet-stream"),
-			bytes: new Uint8Array(await file.arrayBuffer()),
-		});
-		return Response.json(version);
-	};
+	// The agent's own `arbor artifact add` and `remove`, and the person's delete
+	// of one version's bytes, which `remove` leaves kept.
+	readonly addArtifact = async (request: Request): Promise<Response> =>
+		addVersion(request, await this.conversationAt(request));
 
-	// The agent's own `arbor artifact remove`.
-	readonly removeArtifact = async (request: Request): Promise<Response> => {
-		const conversation = await this.conversationAt(request);
-		const name = new URL(request.url).pathname.split("/")[5] ?? "";
-		await conversation.artifacts.remove(decodeURIComponent(name));
-		return Response.json({ removed: decodeURIComponent(name) });
-	};
+	readonly removeArtifact = async (request: Request): Promise<Response> =>
+		removeNamed(request, await this.conversationAt(request));
+
+	readonly deleteArtifactVersion = async (
+		request: Request,
+	): Promise<Response> =>
+		deleteVersion(request, await this.conversationAt(request));
 
 	/**
 	 * The person's way out of a handed-out agent: stops its turn and its
