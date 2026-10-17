@@ -37,7 +37,12 @@ import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
 import { TaskView } from "./task-view";
 import { Task } from "./tasks";
-import { ConversationTerminal, MainTerminal, ShowTerminal } from "./terminal";
+import {
+	ConversationTerminal,
+	MainTerminal,
+	RunInTerminal,
+	ShowTerminal,
+} from "./terminal";
 import { isMain, type Terminals } from "./terminals";
 import { Thread } from "./thread";
 import { TodoDialog } from "./todos";
@@ -252,34 +257,45 @@ export function Conversations({
 						onBack={phone ? () => onOpen(null) : null}
 					/>
 				) : (
-					<Thread
-						key={shown.id}
-						drafts={drafts}
-						conversation={shown}
-						feed={feed}
-						agent={agentName(agents, shown.agent)}
-						task={shownTask}
-						tasks={tasks}
-						free={free}
-						trunk={trunk}
-						refusal={refusals.get(shown.id) ?? null}
-						refuseIn={refuse}
-						// On a phone, back to the list, so it is plain what became of it:
-						// opening the next one in its place reads as a jump.
-						onLeft={() =>
-							phone
-								? onOpen(null, "replace")
-								: goOn(
-										rowsOf(tasks, conversations),
-										drafts,
-										conversations,
-										open,
-										(id) => onOpen(id, "replace"),
-									)
+					<RunInTerminal
+						value={
+							shown.archived || showTerminal === null
+								? null
+								: (code) => {
+										terminals.sessionFor(shown.id, shown.task).run(code);
+										showTerminal(shown.id);
+									}
 						}
-						onOpen={onOpen}
-						onBack={phone ? () => onOpen(null) : null}
-					/>
+					>
+						<Thread
+							key={shown.id}
+							drafts={drafts}
+							conversation={shown}
+							feed={feed}
+							agent={agentName(agents, shown.agent)}
+							task={shownTask}
+							tasks={tasks}
+							free={free}
+							trunk={trunk}
+							refusal={refusals.get(shown.id) ?? null}
+							refuseIn={refuse}
+							// On a phone, back to the list, so it is plain what became of it:
+							// opening the next one in its place reads as a jump.
+							onLeft={() =>
+								phone
+									? onOpen(null, "replace")
+									: goOn(
+											rowsOf(tasks, conversations),
+											drafts,
+											conversations,
+											open,
+											(id) => onOpen(id, "replace"),
+										)
+							}
+							onOpen={onOpen}
+							onBack={phone ? () => onOpen(null) : null}
+						/>
+					</RunInTerminal>
 				)}
 			</div>
 			<TodoDialog todo={todo} onClose={() => setOpenedTodo(null)} />

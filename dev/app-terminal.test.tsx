@@ -6,6 +6,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	Testing,
 	waitFor,
 	within,
@@ -64,6 +65,67 @@ describe("App's terminal", () => {
 
 	/** What the page sends as the socket opens: the size it settled on. */
 	const sized = expect.objectContaining({ type: "resize" });
+
+	it("runs a sh block in the conversation's terminal once its first connection opens", async () => {
+		const view = await reading([
+			conversation({
+				id: "c1",
+				task: "alpha",
+				messages: [message("agent", "```sh\necho first\necho second\n```")],
+			}),
+		]);
+		const run = await waitFor(() =>
+			view.getByRole("button", { name: "Run in terminal" }),
+		);
+		expect(testing.shells).toEqual([]);
+
+		await act(async () => fireEvent.click(run));
+
+		view.getByRole("complementary", { name: "terminal" });
+		const [shell] = testing.shells;
+		expect(shell?.task).toBe("alpha");
+		expect(shell?.sent).toEqual([]);
+		await act(async () => shell?.accept());
+		expect(shell?.sent).toEqual([sized, "echo first\recho second", "\r"]);
+
+		await act(async () => fireEvent.click(run));
+		expect(testing.shells).toHaveLength(1);
+		expect(shell?.sent).toEqual([
+			sized,
+			"echo first\recho second",
+			"\r",
+			"echo first\recho second",
+			"\r",
+		]);
+		// A reconnect must never replay an already-submitted command.
+		await act(async () => shell?.close());
+		await act(async () => testing.timer.fireTimeouts());
+		await act(async () => testing.shells[1]?.accept());
+		expect(testing.shells[1]?.sent).toEqual([sized]);
+	});
+
+	it("offers execution only for nonempty sh blocks in live conversations", async () => {
+		const messages = [
+			message(
+				"agent",
+				"```js\necho nope\n```\n\n`echo inline`\n\n```sh\n\n```\n\n```sh\necho yes\n```",
+			),
+		];
+		const view = await reading([conversation({ id: "c1", messages })]);
+		await waitFor(() =>
+			expect(
+				view.getAllByRole("button", { name: "Run in terminal" }),
+			).toHaveLength(1),
+		);
+
+		await testing.say(conversation({ id: "c1", messages, archived: true }));
+		await waitFor(() =>
+			expect(
+				view.queryByRole("button", { name: "Run in terminal" }),
+			).toBeNull(),
+		);
+		expect(testing.shells).toEqual([]);
+	});
 
 	it("shows no terminal until asked for", async () => {
 		const view = await reading();

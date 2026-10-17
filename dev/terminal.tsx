@@ -51,6 +51,11 @@ export const OpenTerminalPage = createContext<
 	((conversation: string) => void) | null
 >(null);
 
+/** Runs a code block in the open conversation's terminal, where available. */
+export const RunInTerminal = createContext<((code: string) => void) | null>(
+	null,
+);
+
 /** Whether a conversation's shell is up; none where the page has no shells. */
 export const ShellRunning = createContext<(conversation: string) => boolean>(
 	() => false,

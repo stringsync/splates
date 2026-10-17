@@ -11,7 +11,7 @@ import {
 	unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, SquareTerminalIcon } from "lucide-react";
 import {
 	type FC,
 	type JSX,
@@ -25,6 +25,7 @@ import {
 import remarkGfm from "remark-gfm";
 import { attachmentIn } from "#dev/attachment-chips.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import { Button } from "#dev/components/ui/button.tsx";
 import { DirectiveChip, directiveIn } from "#dev/directives.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
@@ -45,6 +46,7 @@ import {
 } from "#dev/mentioned.tsx";
 import { TaskChip } from "#dev/reference-chip.tsx";
 import { SentAttachmentChip } from "#dev/sent-attachments.tsx";
+import { RunInTerminal } from "#dev/terminal.tsx";
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
@@ -161,6 +163,7 @@ const TYPED_PLUGINS = [remarkGfm, keepBreaks];
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
 	const { isCopied, copyToClipboard } = useCopyToClipboard();
+	const run = useContext(RunInTerminal);
 	const onCopy = () => {
 		if (!code || isCopied) {
 			return;
@@ -173,18 +176,26 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
 			<span className="aui-code-header-language text-muted-foreground font-medium lowercase">
 				{language}
 			</span>
-			<TooltipIconButton
-				tooltip="Copy"
-				className="pointer-coarse:-my-2 pointer-coarse:size-10"
-				onClick={onCopy}
-			>
-				{!isCopied && (
-					<CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
+			<div className="flex items-center gap-1">
+				{language === "sh" && code.trim() && run !== null && (
+					<Button variant="ghost" size="xs" onClick={() => run(code)}>
+						<SquareTerminalIcon data-icon="inline-start" />
+						Run in terminal
+					</Button>
 				)}
-				{isCopied && (
-					<CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
-				)}
-			</TooltipIconButton>
+				<TooltipIconButton
+					tooltip="Copy"
+					className="pointer-coarse:-my-2 pointer-coarse:size-10"
+					onClick={onCopy}
+				>
+					{!isCopied && (
+						<CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
+					)}
+					{isCopied && (
+						<CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
+					)}
+				</TooltipIconButton>
+			</div>
 		</div>
 	);
 };

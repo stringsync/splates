@@ -43,6 +43,8 @@ export class TerminalSession
 	/** The try to come, once the socket went short of an exit. */
 	private retrying: Resource | null = null;
 	private disposed = false;
+	/** Explicit runs waiting for the socket to open, removed before sending. */
+	private pending: string[] = [];
 
 	/**
 	 * A shell in `task`'s worktree, or the main tree for null, kept by the
@@ -116,6 +118,20 @@ export class TerminalSession
 		this.terminal.focus();
 	}
 
+	/** Pastes a code block and presses Enter, once connected if still opening. */
+	run(code: string): void {
+		if (this.disposed || this.status === "exited" || !code.trim()) {
+			return;
+		}
+		if (this.socket?.readyState !== WebSocket.OPEN) {
+			this.pending.push(code);
+			return;
+		}
+		this.terminal.paste(code.replace(/\r?\n$/, ""));
+		this.terminal.input("\r", true);
+		this.focus();
+	}
+
 	/**
 	 * The job the shell runs in front, as `sleep 5`, or null at its prompt or
 	 * with no shell to ask: what closing it would stop.
@@ -133,6 +149,7 @@ export class TerminalSession
 	/** Hangs up for good: the server ends the shell now rather than waiting for this tab. */
 	dispose(): void {
 		this.disposed = true;
+		this.pending = [];
 		this.retrying?.dispose();
 		this.retrying = null;
 		this.answered(null);
@@ -191,6 +208,9 @@ export class TerminalSession
 					rows: this.terminal.rows,
 				}),
 			);
+			for (const code of this.pending.splice(0)) {
+				this.run(code);
+			}
 		};
 		socket.onmessage = ({ data }: MessageEvent) => {
 			if (typeof data !== "string") {
