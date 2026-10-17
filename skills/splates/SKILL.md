@@ -202,8 +202,8 @@ splates todo add "Upload retries forever on a 413" 'The client retries on any 4x
 
 Every todo you add names the model to run it with, `--agent <id> --model
 <m>`, since you know what it takes better than whoever starts it later. Read
-`splates agents` once per task for what each model is good at and what it
-costs, and pick the cheapest one the todo is worth: a cheap one for a
+`splates agents` once per task for what each model is good at, how fast it is
+and what it costs, and pick the cheapest one the todo is worth: a cheap one for a
 mechanical change, a strong one for a design call or a long, tangled change.
 Keep the agent you run as unless another fits clearly better. When grooming
 changes what a todo takes, `splates todo update <id> --agent <id> --model <m>`

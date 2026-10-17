@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { agents } from "./agents";
-import { DEFAULT_AGENTS, pickAgent, Roster } from "./roster";
+import { DEFAULT_AGENTS, pickAgent, Roster, traitsOf } from "./roster";
 import { Testing } from "./testing";
 
 async function setup() {
@@ -13,6 +13,31 @@ async function setup() {
 }
 
 describe("Roster", () => {
+	it("ranks a model from an older roster by the defaults' traits", async () => {
+		await using deps = await setup();
+		const old = [
+			{
+				id: "claude",
+				name: "Claude",
+				argv: ["x"],
+				models: [{ id: "haiku", name: "H", strengths: "", cost: "low" }],
+			},
+		];
+		await deps.roster.seed();
+		await deps.fs.write(
+			deps.roster.path,
+			JSON.stringify({ format: 1, agents: old }),
+		);
+		const agents = await deps.roster.agents();
+
+		expect(traitsOf(agents, { agent: "claude", model: "haiku" })).toEqual({
+			tier: 1,
+			speed: "fast",
+			costRank: 1,
+		});
+		expect(traitsOf(agents, { agent: "claude" })).toBeUndefined();
+	});
+
 	it("writes the defaults once, leaving an edited roster alone", async () => {
 		await using deps = await setup();
 
@@ -156,7 +181,7 @@ describe("Roster", () => {
 		expect(out).toContain(
 			"Claude (claude)  bunx @agentclientprotocol/claude-agent-acp",
 		);
-		expect(out).toMatch(/opus\s+Opus 5\.5\s+high\s+complex work/);
+		expect(out).toMatch(/opus\s+Opus 5\.5\s+medium\s+high\s+complex work/);
 		expect(out).toContain("Codex (codex)");
 	});
 

@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Roster } from "./roster";
+import { type Roster, traitsOf } from "./roster";
 import { table } from "./table";
 
 export interface AgentsOptions {
@@ -19,7 +19,19 @@ export async function agents(
 	const seeded = await roster.seed();
 	const found = await roster.agents();
 	if (json) {
-		log.info(JSON.stringify(found, null, "\t"));
+		log.info(
+			JSON.stringify(
+				found.map((agent) => ({
+					...agent,
+					models: agent.models.map((model) => ({
+						...model,
+						...traitsOf(found, { agent: agent.id, model: model.id }),
+					})),
+				})),
+				null,
+				"\t",
+			),
+		);
 		return;
 	}
 	if (seeded) {
@@ -37,10 +49,12 @@ export async function agents(
 					agent.models.length === 0
 						? color.dim("  no models listed")
 						: table(
-								["MODEL", "NAME", "COST", "GOOD AT"],
+								["MODEL", "NAME", "SPEED", "COST", "GOOD AT"],
 								agent.models.map((model) => [
 									model.id,
 									model.name,
+									traitsOf(found, { agent: agent.id, model: model.id })
+										?.speed ?? "",
 									model.cost,
 									model.strengths,
 								]),

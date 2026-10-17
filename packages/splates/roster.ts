@@ -97,7 +97,16 @@ export interface RosterModel {
 	strengths: string;
 	/** What it costs, relative to the others or as a price. */
 	cost: string;
+	/** How capable it is, 1 (weakest) to 4 (strongest). */
+	tier?: number;
+	/** How quickly it answers. */
+	speed?: Speed;
+	/** What it costs against the others, 1 (cheapest) to 4 (dearest). */
+	costRank?: number;
 }
+
+/** How quickly a model answers. */
+export type Speed = "fast" | "medium" | "slow";
 
 /** An agent on the roster: how to start it, and the models it runs. */
 export interface RosterAgent extends Agent {
@@ -117,6 +126,9 @@ const schema = z.object({
 					name: z.string().min(1),
 					strengths: z.string(),
 					cost: z.string(),
+					tier: z.number().int().min(1).max(4).optional(),
+					speed: z.enum(["fast", "medium", "slow"]).optional(),
+					costRank: z.number().int().min(1).max(4).optional(),
 				}),
 			),
 		}),
@@ -139,24 +151,36 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 				name: "Fable 5.1",
 				strengths: "the toughest and longest-running work",
 				cost: "highest",
+				tier: 4,
+				speed: "slow",
+				costRank: 4,
 			},
 			{
 				id: "opus",
 				name: "Opus 5.5",
 				strengths: "complex work and everyday tasks; Claude's default",
 				cost: "high",
+				tier: 3,
+				speed: "medium",
+				costRank: 3,
 			},
 			{
 				id: "sonnet",
 				name: "Sonnet 5.5",
 				strengths: "simpler, well-specified tasks",
 				cost: "medium",
+				tier: 2,
+				speed: "medium",
+				costRank: 2,
 			},
 			{
 				id: "haiku",
 				name: "Haiku 5.5",
 				strengths: "quick answers and mechanical edits",
 				cost: "low",
+				tier: 1,
+				speed: "fast",
+				costRank: 1,
 			},
 		],
 	},
@@ -170,12 +194,18 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 				name: "6 Astra",
 				strengths: "Codex's default, for complex work",
 				cost: "high",
+				tier: 3,
+				speed: "medium",
+				costRank: 3,
 			},
 			{
 				id: "gpt-6-luna",
 				name: "6 Luna",
 				strengths: "easier tasks, fast",
 				cost: "low",
+				tier: 1,
+				speed: "fast",
+				costRank: 1,
 			},
 		],
 	},
@@ -191,6 +221,37 @@ export interface AgentPick {
 /** The models `agent` runs, as the roster lists them; none for an agent off it. */
 export function modelsOf(agent: Agent): RosterModel[] {
 	return "models" in agent ? (agent as RosterAgent).models : [];
+}
+
+/** What the router compares models by; every field is always known. */
+export interface ModelTraits {
+	tier: number;
+	speed: Speed;
+	costRank: number;
+}
+
+/**
+ * Speed, tier and cost rank of `pick`'s model: the roster's own, else the
+ * default roster's for that agent and model, so an `agents.json` written before
+ * these fields still ranks. Undefined for a pick on no model, or one neither
+ * knows or whose fields are still missing.
+ */
+export function traitsOf(
+	agents: RosterAgent[],
+	pick: AgentPick,
+): ModelTraits | undefined {
+	const find = (list: RosterAgent[]) =>
+		list
+			.find((each) => each.id === pick.agent)
+			?.models.find((each) => each.id === pick.model);
+	const own = find(agents);
+	const base = find(DEFAULT_AGENTS);
+	const tier = own?.tier ?? base?.tier;
+	const speed = own?.speed ?? base?.speed;
+	const costRank = own?.costRank ?? base?.costRank;
+	return tier === undefined || speed === undefined || costRank === undefined
+		? undefined
+		: { tier, speed, costRank };
 }
 
 /** `pick` in a word: `claude`, or `claude (opus)` on a model. */
