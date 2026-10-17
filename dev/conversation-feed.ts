@@ -289,7 +289,7 @@ export class ConversationFeed
 				return each;
 			}
 			// Its own copies by id, so what others said meanwhile, as an
-			// `arbor tell` or another device, never stands in for one.
+			// `splates tell` or another device, never stands in for one.
 			const kept = new Set(each.messages.map((message) => message.id));
 			const left = sending.filter((message) => !kept.has(message.id));
 			for (const message of sending.filter((each) => kept.has(each.id))) {
@@ -322,7 +322,7 @@ export class ConversationFeed
 				removed: (event) => this.drop(event.data),
 				settings: () => void this.list(),
 			},
-			// Back after the stream dropped, as when `arbor dev` restarts or the
+			// Back after the stream dropped, as when `splates dev` restarts or the
 			// machine wakes: what the page holds may have moved meanwhile, so it
 			// is read again whole.
 			open: (again) => void this.reopened(again),

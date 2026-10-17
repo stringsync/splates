@@ -32,7 +32,7 @@ export interface Work {
 
 /**
  * A stretch of an agent's turn: words it said, the words along the way that
- * say it added a task or requested a cred, something arbor did at its word,
+ * say it added a task or requested a cred, something splates did at its word,
  * or the work around them.
  */
 export type Stretch =
@@ -59,7 +59,7 @@ export function stretchesOf(
 	going: boolean,
 	/** The clock, as epoch ms, which words said while it goes are held by. */
 	now = Number.POSITIVE_INFINITY,
-	/** What arbor did at its word during it, oldest first. */
+	/** What splates did at its word during it, oldest first. */
 	events: readonly Event[] = [],
 	waiting: string | null = null,
 ): Stretch[] {

@@ -137,7 +137,7 @@ describe("fold", () => {
 		fold(into, {
 			sessionUpdate: "available_commands_update",
 			availableCommands: [
-				{ name: "arbor", description: "Land work on trunk" },
+				{ name: "splates", description: "Land work on trunk" },
 				{
 					name: "code-review",
 					description: "Review the diff",
@@ -147,7 +147,7 @@ describe("fold", () => {
 		});
 
 		expect(into.commands).toEqual([
-			{ name: "arbor", description: "Land work on trunk", hint: null },
+			{ name: "splates", description: "Land work on trunk", hint: null },
 			{
 				name: "code-review",
 				description: "Review the diff",

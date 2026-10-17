@@ -8,7 +8,7 @@ import { SLOT_POOL } from "./slots";
 import { API_TOKEN, TOKEN_PERMISSIONS, TOKENS_PAGE } from "./tunnel-setup";
 
 /**
- * Everything that makes up setting arbor up on a machine, in the order it is
+ * Everything that makes up setting splates up on a machine, in the order it is
  * best done. Each area is a short list of steps the page and an agent walk
  * the user through one at a time.
  */
@@ -19,10 +19,10 @@ function setupAreas(): readonly SetupArea[] {
 	const rosterStep: SetupStep = {
 		id: "agent-roster",
 		title: "Write the agent roster",
-		why: "`arbor dev` starts conversations, and hands out todos, only to the agents on its roster.",
+		why: "`splates dev` starts conversations, and hands out todos, only to the agents on its roster.",
 		user: "Say which agents you have installed and signed in.",
 		agent:
-			"Run `arbor agents` to write the roster to `~/.arbor/agents.json`, then remove the agents the user does not have.",
+			"Run `splates agents` to write the roster to `~/.splates/agents.json`, then remove the agents the user does not have.",
 		optional: false,
 		after: [],
 		check: async (machine) => (await rosterAgents(machine)).length > 0,
@@ -34,7 +34,7 @@ function setupAreas(): readonly SetupArea[] {
 		why: "An orchestrator picks the cheapest model a todo is worth only from the models the roster lists for each agent.",
 		user: "Check that each agent lists the models you can use, and what each is good at.",
 		agent:
-			"Read `arbor agents` back to the user and edit `~/.arbor/agents.json` to list the models they can run.",
+			"Read `splates agents` back to the user and edit `~/.splates/agents.json` to list the models they can run.",
 		optional: true,
 		after: [rosterStep],
 		check: async (machine) => {
@@ -47,10 +47,10 @@ function setupAreas(): readonly SetupArea[] {
 
 	const tokenStep: SetupStep = {
 		id: "cloudflare-token",
-		title: "Give arbor a Cloudflare API token",
-		why: "To reach `arbor dev` from your phone or another computer, arbor makes a Cloudflare tunnel with Cloudflare Access in front, through Cloudflare's API.",
-		user: `Create a [Cloudflare API token](${TOKENS_PAGE}) with ${TOKEN_PERMISSIONS.join(", ")}, for your account and your zone, and paste it here. Skip to keep \`arbor dev\` on this machine only, or to run your own \`TunnelProvider\` from \`arbor.config.ts\`.`,
-		agent: `Request it with \`arbor creds request ${API_TOKEN} --device\`, with how to make it, or let \`arbor tunnel setup\` request it.`,
+		title: "Give splates a Cloudflare API token",
+		why: "To reach `splates dev` from your phone or another computer, splates makes a Cloudflare tunnel with Cloudflare Access in front, through Cloudflare's API.",
+		user: `Create a [Cloudflare API token](${TOKENS_PAGE}) with ${TOKEN_PERMISSIONS.join(", ")}, for your account and your zone, and paste it here. Skip to keep \`splates dev\` on this machine only, or to run your own \`TunnelProvider\` from \`splates.config.ts\`.`,
+		agent: `Request it with \`splates creds request ${API_TOKEN} --device\`, with how to make it, or let \`splates tunnel setup\` request it.`,
 		optional: true,
 		after: [],
 		cred: API_TOKEN,
@@ -60,10 +60,10 @@ function setupAreas(): readonly SetupArea[] {
 	const tunnelStep: SetupStep = {
 		id: "tunnel",
 		title: "Make the tunnel",
-		why: "The tunnel carries a host name of yours to `arbor dev`, and Access lets in only the emails you name.",
+		why: "The tunnel carries a host name of yours to `splates dev`, and Access lets in only the emails you name.",
 		user: "Pick the host name, in a zone of your account, and the emails Access lets in.",
 		agent:
-			"Run `arbor tunnel setup <host> --email <emails>`, adding `--team <name>` when the account has no Zero Trust organization yet.",
+			"Run `splates tunnel setup <host> --email <emails>`, adding `--team <name>` when the account has no Zero Trust organization yet.",
 		optional: true,
 		after: [tokenStep],
 		check: async (machine) => (await savedTunnel(machine)) !== null,
@@ -73,9 +73,9 @@ function setupAreas(): readonly SetupArea[] {
 		id: "access",
 		title: "Check that Access lets only you in",
 		why: "Access is the one thing between the internet and agents that run commands on this machine.",
-		user: "Open the host on your phone and sign in with an email you named; restart `arbor dev` first if it ran before the tunnel was made.",
+		user: "Open the host on your phone and sign in with an email you named; restart `splates dev` first if it ran before the tunnel was made.",
 		agent:
-			"Run `arbor tunnel status`, then have the user open the host and sign in, and check this step again.",
+			"Run `splates tunnel status`, then have the user open the host and sign in, and check this step again.",
 		optional: true,
 		after: [tunnelStep],
 		check: async (machine) => {
@@ -87,10 +87,10 @@ function setupAreas(): readonly SetupArea[] {
 	const slotsStep: SetupStep = {
 		id: "slot-tunnels",
 		title: "Serve a task's checkout at a host of its own",
-		why: "`arbor dev --slot` serves a task's worktree at `<word>.<zone>`, behind the same Access, so you can try a change on your phone before it lands.",
+		why: "`splates dev --slot` serves a task's worktree at `<word>.<zone>`, behind the same Access, so you can try a change on your phone before it lands.",
 		user: "Nothing but to say yes: an agent runs it when it has a change to show you.",
 		agent:
-			"Run `arbor dev --slot` from a task's worktree, which makes the slot's tunnel the first time.",
+			"Run `splates dev --slot` from a task's worktree, which makes the slot's tunnel the first time.",
 		optional: true,
 		after: [accessStep],
 		check: async ({ fs, home }) => {
@@ -134,7 +134,7 @@ function setupAreas(): readonly SetupArea[] {
 		title: "Dictate prompts",
 		why: "The composer's mic transcribes what you say with OpenAI, on a key of your own.",
 		user: "Create an OpenAI API key and paste it on the Creds page.",
-		agent: `Request it with \`arbor creds request ${OPENAI_KEY} --device\`, with how to get it.`,
+		agent: `Request it with \`splates creds request ${OPENAI_KEY} --device\`, with how to get it.`,
 		optional: true,
 		after: [],
 		cred: OPENAI_KEY,
@@ -220,10 +220,10 @@ function agentJourney(id: "claude" | "codex"): SetupArea {
 			: "https://developers.openai.com/codex/cli/";
 	const register: SetupStep = {
 		id: `${id}-roster`,
-		title: `Register ${name} in arbor`,
-		why: `Prepare ${name} on this machine, then make it available to arbor. The check below only reads its saved roster entry; it does not verify installation or login.`,
-		user: `Install the ${name} CLI using its [official setup instructions](${instructions}), then run \`${id}\` in a terminal on this machine and complete its sign-in. Do not paste credentials into chat. Run \`arbor agents\` and review only the \`${id}\` entry in \`~/.arbor/agents.json\`, preserving other agents and defaults.`,
-		agent: `Help set up only ${name}: inspect its installation, use official installation instructions if needed, and have the user sign in through its native CLI. Never collect credentials in chat or send a test prompt. Review only the ${id} entry in ~/.arbor/agents.json; preserve other agents, custom launch arguments, models and defaults. This step's check observes only a saved roster entry, not authentication.`,
+		title: `Register ${name} in splates`,
+		why: `Prepare ${name} on this machine, then make it available to splates. The check below only reads its saved roster entry; it does not verify installation or login.`,
+		user: `Install the ${name} CLI using its [official setup instructions](${instructions}), then run \`${id}\` in a terminal on this machine and complete its sign-in. Do not paste credentials into chat. Run \`splates agents\` and review only the \`${id}\` entry in \`~/.splates/agents.json\`, preserving other agents and defaults.`,
+		agent: `Help set up only ${name}: inspect its installation, use official installation instructions if needed, and have the user sign in through its native CLI. Never collect credentials in chat or send a test prompt. Review only the ${id} entry in ~/.splates/agents.json; preserve other agents, custom launch arguments, models and defaults. This step's check observes only a saved roster entry, not authentication.`,
 		optional: true,
 		after: [],
 		check: async (machine) =>
@@ -232,8 +232,8 @@ function agentJourney(id: "claude" | "codex"): SetupArea {
 	const models: SetupStep = {
 		id: `${id}-models`,
 		title: `Review ${name} models`,
-		why: `arbor uses the models listed for ${name} when assigning work. Saved models do not prove account access or billing.`,
-		user: `Run \`arbor agents\` and review the models for \`${id}\` in \`~/.arbor/agents.json\`. Keep the models you can use and describe their strengths and cost. To repair setup, revisit the first step; leave other agents and defaults unchanged.`,
+		why: `splates uses the models listed for ${name} when assigning work. Saved models do not prove account access or billing.`,
+		user: `Run \`splates agents\` and review the models for \`${id}\` in \`~/.splates/agents.json\`. Keep the models you can use and describe their strengths and cost. To repair setup, revisit the first step; leave other agents and defaults unchanged.`,
 		agent: `Review only ${id}'s models with the user. Preserve other entries, existing custom launch arguments and defaults. Do not run paid prompts or evals.`,
 		optional: true,
 		after: [register],
@@ -266,7 +266,7 @@ async function rosterAgents({ fs, home }: SetupMachine) {
 	return (await fs.exists(path)) ? new Roster(path, { fs }).agents() : [];
 }
 
-/** The tunnel `arbor tunnel setup` saved, when its token is kept too. */
+/** The tunnel `splates tunnel setup` saved, when its token is kept too. */
 async function savedTunnel({
 	fs,
 	home,

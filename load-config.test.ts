@@ -14,7 +14,7 @@ describe("loadConfig", () => {
 	let git: Git;
 
 	beforeEach(async () => {
-		root = await mkdtemp(join(tmpdir(), "arbor-config-"));
+		root = await mkdtemp(join(tmpdir(), "splates-config-"));
 		const ps = new FakePs();
 		// Stands in for a repo with no `origin/HEAD` to read.
 		ps.simulate(() => Promise.resolve(1));
@@ -28,7 +28,7 @@ describe("loadConfig", () => {
 	it("defaults the worktree root to a sibling of the repo, named after it, that Spotlight skips", async () => {
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.worktreeRoot).toBe(`${root}-arbor.noindex`);
+		expect(config.worktreeRoot).toBe(`${root}-splates.noindex`);
 	});
 
 	it("leaves every hook unset, so a repo runs only what it asks for", async () => {
@@ -39,9 +39,9 @@ describe("loadConfig", () => {
 		expect(config.preMerge).toBeNull();
 	});
 
-	it("overrides only the defaults arbor.config.ts names", async () => {
+	it("overrides only the defaults splates.config.ts names", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
+			join(root, "splates.config.ts"),
 			`export default { trunk: "trunk", mergeRetryCount: 7 };\n`,
 		);
 
@@ -52,9 +52,9 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
-	it("reads a config that still names systems, without them, so `arbor update` can move them", async () => {
+	it("reads a config that still names systems, without them, so `splates update` can move them", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
+			join(root, "splates.config.ts"),
 			`export default { preMerge: "true", systems: { docs: { globs: ["*.md"] } } };\n`,
 		);
 
@@ -72,7 +72,7 @@ describe("loadConfig", () => {
 
 	it("reports the config path and the remedy when the file will not import", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
+			join(root, "splates.config.ts"),
 			`import "./nowhere-at-all";\nexport default {};\n`,
 		);
 
@@ -81,7 +81,7 @@ describe("loadConfig", () => {
 		);
 
 		expect(failure).toBeInstanceOf(Error);
-		expect((failure as Error).message).toContain("arbor.config.ts");
+		expect((failure as Error).message).toContain("splates.config.ts");
 		expect((failure as Error).message).toContain("bun install");
 	});
 
@@ -97,11 +97,11 @@ describe("loadConfig", () => {
 		expect(config.trunk).toBe("master");
 	});
 
-	it("prefers the trunk arbor.config.ts names over what it detects", async () => {
+	it("prefers the trunk splates.config.ts names over what it detects", async () => {
 		await using fixture = await Testing.open();
 		await originHead(fixture, "master");
 		await fixture.fs.write(
-			join(fixture.root, "arbor.config.ts"),
+			join(fixture.root, "splates.config.ts"),
 			`export default { trunk: "release" };\n`,
 		);
 

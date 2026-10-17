@@ -42,7 +42,7 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 
 /**
  * The questions of the message it is in, kept as a draft under that message,
- * and the calls it assumed, as its task's `ARBOR.md` writes them.
+ * and the calls it assumed, as its task's `SPLATES.md` writes them.
  */
 export function MessageQuestions({
 	questions,
@@ -55,7 +55,7 @@ export function MessageQuestions({
 	const plan = useContext(Board).plans.get(task ?? "") ?? "";
 	const message = useAuiState((state) => state.message.id);
 	// The drafts of the questions asked before these since the person last
-	// replied, newest first, which these take over, as when arbor told the
+	// replied, newest first, which these take over, as when splates told the
 	// agent of a task's end meanwhile and it asked them again.
 	const before = useAuiState((state) => {
 		const names: string[] = [];

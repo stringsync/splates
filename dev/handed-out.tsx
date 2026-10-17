@@ -151,7 +151,7 @@ export const SUBAGENT_MODEL = "default model";
 
 /**
  * The tool call in `caller` that started the subagent which added `task`:
- * the parent of the `arbor add` it ran there. Null when `caller` holds no
+ * the parent of the `splates add` it ran there. Null when `caller` holds no
  * such call, as for a log too old to say which one it ran under.
  */
 export function subagentCall(
@@ -172,10 +172,10 @@ export function subagentCall(
 		: (tools.find((each) => each.id === added.parent) ?? null);
 }
 
-/** Whether `command` runs `arbor add <task>`. */
+/** Whether `command` runs `splates add <task>`. */
 function addsTask(command: string, task: string): boolean {
 	for (const [, added] of command.matchAll(
-		/\barbor\s+add\s+["']?([^\s"']+)/g,
+		/\bsplates\s+add\s+["']?([^\s"']+)/g,
 	)) {
 		if (added === task) {
 			return true;

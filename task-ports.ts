@@ -4,7 +4,7 @@ import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 /** What ties a process to a task: its worktree, and the agents at work in it. */
 export interface PortOwners {
 	worktrees: { task: string; path: string }[];
-	/** The pid of each agent `arbor dev` runs in a task. */
+	/** The pid of each agent `splates dev` runs in a task. */
 	agents: { task: string; pid: number }[];
 }
 

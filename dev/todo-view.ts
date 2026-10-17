@@ -15,7 +15,7 @@ export interface TodosShown {
 }
 
 /** Where the lanes hidden from the board are kept between visits. */
-const HIDDEN = "arbor.hiddenLanes";
+const HIDDEN = "splates.hiddenLanes";
 
 /**
  * The todo list's choices: which todo or task is open, which todos the board

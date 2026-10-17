@@ -54,7 +54,7 @@ const slot = await devSlot({
 		);
 	}) as unknown as typeof fetch,
 });
-const home = slot.env.ARBOR_HOME as string;
+const home = slot.env.SPLATES_HOME as string;
 const saved = await savedTunnelConfig(
 	new SavedTunnel(`${home}/tunnel.json`, { fs, store: SYSTEM_STORES.device }),
 	ps,
@@ -76,13 +76,13 @@ async function scenario(name: string) {
 	native = new OpenCodeSetup({
 		fs: fakeFs,
 		ps: fakePs,
-		home: "/fixture/arbor",
+		home: "/fixture/splates",
 	});
 	routes = new OpenCodeSetupRoutes(native, fakePs, gate);
 	setup = new Setup(
 		{
 			fs: fakeFs,
-			home: "/fixture/arbor",
+			home: "/fixture/splates",
 			device: new FakeSecretStore(),
 			opencode: native,
 		},

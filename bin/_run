@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs an entry from the checkout you are standing in, so a git worktree gets
-# its own code without anyone having to remember `./bin/`. Set WEBAPPWIZ_ROOT
+# its own code without anyone having to remember `./bin/`. Set SPLATES_ROOT
 # to pin one checkout instead: that is the escape hatch for a command that must
-# not run the tree it is about to rewrite, `arbor merge` above all.
+# not run the tree it is about to rewrite, `splates merge` above all.
 #
 # usage: _run <entry relative to a checkout root> [args...]
 set -euo pipefail
@@ -10,12 +10,12 @@ set -euo pipefail
 entry="$1"
 shift
 
-if [[ -n "${WEBAPPWIZ_ROOT:-}" ]]; then
+if [[ -n "${SPLATES_ROOT:-}" ]]; then
 	# An explicit pin that silently fell back would run the very code the
 	# caller pinned away from.
-	root="$WEBAPPWIZ_ROOT"
+	root="$SPLATES_ROOT"
 	if [[ ! -f "$root/$entry" ]]; then
-		echo "WEBAPPWIZ_ROOT=$root has no $entry" >&2
+		echo "SPLATES_ROOT=$root has no $entry" >&2
 		exit 1
 	fi
 else

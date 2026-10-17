@@ -457,8 +457,8 @@ describe("App's sending messages", () => {
 		await send("on a phone").finally(() => resize(1024, 768));
 
 		expect(testing.posts).toEqual([
-			expect.objectContaining({ headers: { "arbor-from": "desktop" } }),
-			expect.objectContaining({ headers: { "arbor-from": "phone" } }),
+			expect.objectContaining({ headers: { "splates-from": "desktop" } }),
+			expect.objectContaining({ headers: { "splates-from": "phone" } }),
 		]);
 	});
 
@@ -612,7 +612,7 @@ describe("App's sending messages", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{
 				method: "POST",
-				body: { text: "[ARBOR RECONNECT]" },
+				body: { text: "[SPLATES RECONNECT]" },
 			},
 		]);
 		// Shown as said at once, so the button goes before the server echoes it.

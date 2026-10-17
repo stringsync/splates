@@ -25,7 +25,7 @@ describe("dev", () => {
 			return reader;
 		};
 
-		it("hears of an ARBOR.md, a commit and a todo as they change, without polling", async () => {
+		it("hears of an SPLATES.md, a commit and a todo as they change, without polling", async () => {
 			await add(deps, "alpha");
 			const tree = (await deps.service.find("alpha")).path;
 
@@ -33,7 +33,7 @@ describe("dev", () => {
 				const reader = await listen(port);
 
 				await deps.fs.write(
-					`${tree}/ARBOR.md`,
+					`${tree}/SPLATES.md`,
 					"# alpha\n\n## Goal\n\nmoved\n",
 				);
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
@@ -53,7 +53,7 @@ describe("dev", () => {
 				const reader = await listen(port);
 
 				await deps.fs.write(
-					`${tree}/arbor.systems.ts`,
+					`${tree}/splates.systems.ts`,
 					`export default ${JSON.stringify({ docs: { globs: ["docs/**"] } })};\n`,
 				);
 				await deps.fs.mkdir(`${tree}/docs/deep`, { recursive: true });
@@ -70,12 +70,12 @@ describe("dev", () => {
 		}, 15_000);
 
 		it("stays quiet while only a conversation's log grows", async () => {
-			await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+			await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
 			await serving(deps, async (_, port) => {
 				const reader = await listen(port);
 
 				await deps.fs.write(
-					`${deps.arborDir}/conversations/c1.jsonl`,
+					`${deps.splatesDir}/conversations/c1.jsonl`,
 					'{"kind":"prompt","text":"hi"}\n',
 				);
 				expect(await within(reader, "data: changed", 500)).toBe(false);
@@ -107,7 +107,7 @@ describe("dev", () => {
 	});
 
 	describe("release", () => {
-		it("says on every page when a newer arbor is out, and nothing when the check fails", async () => {
+		it("says on every page when a newer splates is out, and nothing when the check fails", async () => {
 			let latest: string | null = null;
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),

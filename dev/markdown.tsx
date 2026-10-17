@@ -304,7 +304,7 @@ function Unlinked({ children }: ComponentProps<"a">): JSX.Element {
 	return <span>{children}</span>;
 }
 
-/** An image shows what it names, when that is a file arbor holds. */
+/** An image shows what it names, when that is a file splates holds. */
 function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
 	return <Media src={src} alt={alt} />;
 }

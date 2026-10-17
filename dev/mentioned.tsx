@@ -12,7 +12,7 @@ import { SystemChip } from "./systems";
 
 /**
  * What the tree a conversation runs in names, for drawing the `#system`,
- * `#project`, `#uuid` and `@path` mentions in its messages: its systems, the arbor
+ * `#project`, `#uuid` and `@path` mentions in its messages: its systems, the splates
  * projects on this machine, its paths, as `@` lists them, and where it sits,
  * so a file opens in the editor.
  */

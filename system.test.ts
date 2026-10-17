@@ -25,7 +25,7 @@ describe("systems", () => {
 	afterEach(() => deps.disposeAsync());
 
 	it("prints every system the config names", async () => {
-		await deps.commit(deps.root, "arbor.systems.ts", SYSTEMS, "name systems");
+		await deps.commit(deps.root, "splates.systems.ts", SYSTEMS, "name systems");
 
 		await systems(deps);
 
@@ -38,7 +38,7 @@ describe("systems", () => {
 	});
 
 	it("prints one by an alias", async () => {
-		await deps.commit(deps.root, "arbor.systems.ts", SYSTEMS, "name systems");
+		await deps.commit(deps.root, "splates.systems.ts", SYSTEMS, "name systems");
 
 		await systems(deps, { name: "player", json: true });
 
@@ -75,7 +75,7 @@ describe("systems", () => {
 		await deps.commit(worktree, "src/audio/play.ts", "x\n", "play");
 		await deps.fs.write(`${worktree}/src/audio/play.test.ts`, "x\n");
 		// Named in the task, uncommitted, and not on trunk.
-		await deps.fs.write(`${worktree}/arbor.systems.ts`, SYSTEMS);
+		await deps.fs.write(`${worktree}/splates.systems.ts`, SYSTEMS);
 		deps.log.clear();
 
 		await systems(deps, { task: "alpha", json: true });
@@ -88,7 +88,7 @@ describe("systems", () => {
 	it("reads the worktree it runs in when given no task", async () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
-		await deps.fs.write(`${worktree}/arbor.systems.ts`, SYSTEMS);
+		await deps.fs.write(`${worktree}/splates.systems.ts`, SYSTEMS);
 		deps.log.clear();
 
 		await systems(deps, { name: "mixer", here: "alpha" });
@@ -97,7 +97,7 @@ describe("systems", () => {
 	});
 
 	it("says so when a task touches no system", async () => {
-		await deps.commit(deps.root, "arbor.systems.ts", SYSTEMS, "name systems");
+		await deps.commit(deps.root, "splates.systems.ts", SYSTEMS, "name systems");
 		await add(deps, "alpha");
 		deps.log.clear();
 

@@ -1,6 +1,6 @@
 /**
  * `source` typed by a type-only import of `ConfigFile` and `satisfies` rather
- * than by calling `defineConfig`, so a reader can import it without arbor
+ * than by calling `defineConfig`, so a reader can import it without splates
  * installed; or null unless it imports `defineConfig` alone and calls it
  * once.
  */
@@ -27,7 +27,7 @@ export function typedConfig(source: string): string | null {
 	}
 	return (
 		source.slice(0, from) +
-		'import type { ConfigFile } from "@webappwiz/arbor/config";' +
+		'import type { ConfigFile } from "splates/config";' +
 		source.slice(from + imported[0].length, call.index) +
 		source.slice(open + 1, close.index).trim() +
 		" satisfies ConfigFile" +
@@ -35,9 +35,9 @@ export function typedConfig(source: string): string | null {
 	);
 }
 
-/** An import of `defineConfig` alone from arbor's config. */
+/** An import of `defineConfig` alone from splates's config. */
 const DEFINE_CONFIG_IMPORT =
-	/import\s*\{\s*defineConfig\s*\}\s*from\s*["']@webappwiz\/arbor\/config["'];?/;
+	/import\s*\{\s*defineConfig\s*\}\s*from\s*["']splates\/config["'];?/;
 
 /**
  * `source` with the `systems` property of its outermost object taken out,

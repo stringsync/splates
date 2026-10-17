@@ -178,7 +178,7 @@ export function OpenCodeControls({ step }: { step: string }): JSX.Element {
 					Install downloads the official @opencode/cli package into this
 					machine's npm global location. It requires npm and write access; it
 					never uses sudo. If OpenCode is already installed but missing from
-					PATH, restart arbor before retrying.
+					PATH, restart splates before retrying.
 				</p>
 			)}
 			<a

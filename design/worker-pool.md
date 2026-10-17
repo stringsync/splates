@@ -1,7 +1,7 @@
-# arbor dev on a pool of workers
+# splates dev on a pool of workers
 
-`arbor dev` splits into a **coordinator** and **workers**, so more
-conversations run at once than one machine holds, and arbor can run always-on
+`splates dev` splits into a **coordinator** and **workers**, so more
+conversations run at once than one machine holds, and splates can run always-on
 without a laptop. The question/answer UX does not change: distribution is
 plumbing.
 
@@ -15,7 +15,7 @@ decided by the agent alone.
 ## Roles
 
 - **Coordinator**: the page, the scheduler, the merge lease, proxying, and all
-  persistent arbor state (outcomes, roster, projects, `.git/arbor`). Today
+  persistent splates state (outcomes, roster, projects, `.git/splates`). Today
   that is the Mac; later a small always-on cloud box behind Access.
 - **Worker**: runs whole tasks: the checkout, the agent process, its browser,
   dev servers and test runs, all on one machine. A task never spans machines.
@@ -35,15 +35,15 @@ and scheduler talk only to that contract:
 
 ## Protocol (settled)
 
-- A worker daemon (`arbor worker run`) dials **out** to the coordinator's
+- A worker daemon (`splates worker run`) dials **out** to the coordinator's
   `/api/workers` WebSocket and multiplexes every channel over it. Workers
   never listen on a public port.
 - The local worker speaks the same protocol to a coordinator on the same
-  machine, as **its own process**, over a Unix socket in `ARBOR_HOME`
+  machine, as **its own process**, over a Unix socket in `SPLATES_HOME`
   guarded by file permissions. One code path; local and remote cannot
   drift. The supervisor starts it beside the server, as
-  `arbor worker run --id local --quiet`, starts it again a second after it
-  ends, and stops it on quitting `arbor dev`; a server restart or update
+  `splates worker run --id local --quiet`, starts it again a second after it
+  ends, and stops it on quitting `splates dev`; a server restart or update
   leaves it running.
 - **Framing:** JSON control frames, and binary data frames with a small
   header (channel id, seq). Seq is per channel. The worker keeps unacked
@@ -71,21 +71,21 @@ conversation logic versions with the coordinator alone.
 
 ## Repo state from a remote worker (settled)
 
-The agent's own `arbor` commands (add, todo, escalate, merge, attach, creds)
-write `.git/arbor` directly today. Repo state goes behind an interface:
+The agent's own `splates` commands (add, todo, escalate, merge, attach, creds)
+write `.git/splates` directly today. Repo state goes behind an interface:
 files when local, an HTTP API to the coordinator when remote. The worker
-opens a **loopback relay port** forwarded over its socket; `ARBOR_DEV`
+opens a **loopback relay port** forwarded over its socket; `SPLATES_DEV`
 points at it, so callbacks and repo-state calls both reach the coordinator.
 "Local" means on the coordinator's own machine: once the coordinator is in
-the cloud, `arbor` run by hand on the Mac reaches repo state through the
+the cloud, `splates` run by hand on the Mac reaches repo state through the
 Mac's own worker daemon, so a machine holds one credential, its worker's.
 
 ## Task ports (settled)
 
 Assume nothing of Cloudflare but Access. Any port a task's processes listen
 on is found and forwarded automatically, as VS Code and Codespaces do, and
-never without Access. arbor routes by `Host` header under a wildcard base
-host saved per machine (`arbor dev --ports-host`), `<task>-<port>.<base>`;
+never without Access. splates routes by `Host` header under a wildcard base
+host saved per machine (`splates dev --ports-host`), `<task>-<port>.<base>`;
 how that base reaches
 the coordinator (DNS, TLS, tunnel) is the operator's ingress or a
 `TunnelProvider`'s job, and Access verification is the existing JWT check.
@@ -100,17 +100,17 @@ poking at the app, demos and screenshots.
   mirror per project, task clones made from it with `--reference`. The
   local worker keeps worktrees.
 - The central remote is the project's existing GitHub origin. A task's
-  branch is pushed there as `arbor/<task>` after every commit and at every
+  branch is pushed there as `splates/<task>` after every commit and at every
   checkpoint, and deleted on merge or remove. A checkpoint commits the
   working tree first, as a WIP commit the agent squashes before merging, so
   a worker that dies or is removed by force loses nothing past its last
-  checkpoint; `ARBOR.md` syncs to the
+  checkpoint; `SPLATES.md` syncs to the
   coordinator as repo state at the same moments and never lands on main. The
   plan (intent) and the commits (done work) are durable together; a fresh
   worker clones the branch and resumes.
 - The merge lock becomes a lease held by the coordinator. The worker takes
   it, fetches trunk, rebases, runs the hooks locally, and pushes the tested
-  `arbor/<task>`; the coordinator checks it is a fast-forward of what was
+  `splates/<task>`; the coordinator checks it is a fast-forward of what was
   tested and pushes main itself.
 
 ## Git credentials
@@ -132,17 +132,17 @@ secrets manager comes before it is built (#284).
 
 ## Managing the pool
 
-- `arbor worker add --local N` makes this machine a worker with N slots;
-  `arbor worker add` mints a join token, single use and good for 15
-  minutes, for `arbor worker run --join <token>` on any machine. Each joined
+- `splates worker add --local N` makes this machine a worker with N slots;
+  `splates worker add` mints a join token, single use and good for 15
+  minutes, for `splates worker run --join <token>` on any machine. Each joined
   worker gets a revocable identity of its own, checked on every upgrade of
   `/api/workers`, and a Cloudflare Access service token of its own, minted
-  at join with the API token `arbor tunnel setup` keeps and sent as the
+  at join with the API token `splates tunnel setup` keeps and sent as the
   `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers, so workers
   pass Access like everything else; both are revoked on remove. The
   registry persists across coordinator restarts.
-- `arbor worker drain <id>` takes no new tasks and lets in-flight ones
-  finish, or checkpoint, push and requeue. `arbor worker remove <id>`
+- `splates worker drain <id>` takes no new tasks and lets in-flight ones
+  finish, or checkpoint, push and requeue. `splates worker remove <id>`
   drains first; `--force` requeues each task from its last pushed
   checkpoint. Either way the worker's credentials are revoked. Removing the
   local worker leaves the machine as coordinator only.
@@ -168,7 +168,7 @@ secrets manager comes before it is built (#284).
   provisioning, so a home machine never holds the queue up. First come,
   first served, and the user can reorder the queue.
 - A task prefers the worker holding its checkout. Workers advertise their
-  platform (Linux or macOS); a project may require one in `arbor.config.ts`.
+  platform (Linux or macOS); a project may require one in `splates.config.ts`.
 - A task waiting on the user holds its slot while its agent is live; when
   the agent idles out (30 min) the slot frees, its dev servers stop with
   it, and the answer queues it again, which brings its ports back. When its worker is removed, it checkpoints, pushes and frees the
@@ -177,7 +177,7 @@ secrets manager comes before it is built (#284).
   contention into queueing.
 - Every limit the user sets is in dollars: a $/hour rate cap, and $/day and
   $/month limits each with a warning threshold and a hard stop. Specs are
-  secondary detail. A queue offers a priced one-click raise; `arbor budget`
+  secondary detail. A queue offers a priced one-click raise; `splates budget`
   does the same.
 - Workers are a budget of their own, beside scry's `som` and `llm`; agent
   API spend stays out for now. Reaching 80%, 90% and 100% of any limit is
@@ -192,11 +192,11 @@ secrets manager comes before it is built (#284).
 ## Provisioning
 
 Provisioned workers go through a `WorkerProvider` (create, destroy, list,
-price per hour per type) in `arbor.config.ts`, the way `TunnelProvider` is,
+price per hour per type) in `splates.config.ts`, the way `TunnelProvider` is,
 with a fake for tests. Everything provisioned must be Pulumi-supported: the
 first real provider drives a Pulumi stack through the Automation API, and
 the cloud coordinator's box is a Pulumi program too. Workers boot from a
-snapshot arbor builds and refreshes, and scale to zero.
+snapshot splates builds and refreshes, and scale to zero.
 
 The provider built is self-hosted: the Pulumi provider in the user's own
 cloud account, with their API token as a cred. The interface still assumes
@@ -217,7 +217,7 @@ nav, shows each worker's build.
 
 How a restart keeps its agents (built 2026-10-17, todo #279). Each
 coordinator answers its workers by one session id, kept with the roots and
-shells it let go of in `~/.arbor/coordinator.json`, so the next run is the
+shells it let go of in `~/.splates/coordinator.json`, so the next run is the
 same coordinator to them and they keep every channel. A conversation's log
 stamps each entry with the seq of the agent's frame being handled, and the
 coordinator acks a frame only once the log holds it, so the worker replays
@@ -250,7 +250,7 @@ macOS RSS double-counts shared pages.
 - `bin/wiz dev test` (preMerge, also run mid-task): 31–33 s wall, 220 CPU-s,
   ~7 cores, 7.2–7.4 GB.
 - `bun install`: 0.8 s warm cache, 14.6 s cold.
-- arbor dev: ~0.6 GB with 7 sessions.
+- splates dev: ~0.6 GB with 7 sessions.
 
 A shared browser and a cap of 2 concurrent test runs bring 24 sessions to
 about 43 GB on that Mac. A worker holds 8 slots with a heavy-job cap of 2,
@@ -274,7 +274,7 @@ predate the Pulumi requirement; the provider is chosen again in #289.
 Phases merge independently; the single-Mac setup works after each.
 
 1. Protocol: local worker as its own process, remote launch, terminals and
-   proxying through it, `arbor worker list`, a restartable coordinator.
+   proxying through it, `splates worker list`, a restartable coordinator.
 2. Durability and merge: repo state over the relay, the central remote,
    checkpoint pushes, the merge lease, clone-based checkouts.
 3. Registered workers: join tokens, add, drain and remove, the pool UI, the visible

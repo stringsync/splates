@@ -63,7 +63,7 @@ describe("App's review panel and demo cards", () => {
 
 		expect(textIn(box(view))).toBe("");
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR MERGE]" } },
+			{ method: "POST", body: { text: "[SPLATES MERGE]" } },
 		]);
 	});
 
@@ -84,7 +84,7 @@ describe("App's review panel and demo cards", () => {
 		// Merging would leave the changes unsaid, so Send stands in for it.
 		expect(button(panel)).toBe("Send");
 		expect(textIn(box(view))).toBe("");
-		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
+		expect(localStorage.getItem("splates.draft.c1:review:0")).toBe(
 			"merge the header first",
 		);
 		await act(async () =>
@@ -120,7 +120,7 @@ describe("App's review panel and demo cards", () => {
 
 	it("keeps a challenge written as a draft, open again on return", async () => {
 		localStorage.setItem(
-			"arbor.draft.c1:review:0",
+			"splates.draft.c1:review:0",
 			"> **What should the menu be called?**\n\n- (b) More",
 		);
 		const view = await testing.openConversations([reviewing], "c1", assumed);
@@ -140,16 +140,18 @@ describe("App's review panel and demo cards", () => {
 		);
 	});
 
-	it("shows an approved review as a line of arbor's, in place of the Merge it sent", async () => {
+	it("shows an approved review as a line of splates's, in place of the Merge it sent", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				...reviewing,
-				messages: [...reviewing.messages, message("user", "[ARBOR MERGE]")],
+				messages: [...reviewing.messages, message("user", "[SPLATES MERGE]")],
 			}),
 		]);
-		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
 		expect(line.textContent).toBe("Review approvedheaderShow");
-		expect(view.queryByTitle("[ARBOR MERGE]")).toBeNull();
+		expect(view.queryByTitle("[SPLATES MERGE]")).toBeNull();
 		expect(view.queryByRole("region", { name: "review header" })).toBeNull();
 	});
 
@@ -164,7 +166,9 @@ describe("App's review panel and demo cards", () => {
 				],
 			}),
 		]);
-		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
 		);

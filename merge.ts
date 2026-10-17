@@ -4,7 +4,7 @@ import type { Config } from "./config";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
+import { Plans, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
@@ -62,7 +62,7 @@ export async function merge(
 	if (!task) {
 		fail(
 			"not_found",
-			`not in a task worktree (${branch === null ? "no branch" : `branch '${branch}'`}): run merge from a worktree made by \`arbor add\``,
+			`not in a task worktree (${branch === null ? "no branch" : `branch '${branch}'`}): run merge from a worktree made by \`splates add\``,
 			{ branch },
 		);
 	}
@@ -70,7 +70,7 @@ export async function merge(
 	if (!worktree.state) {
 		fail(
 			"not_found",
-			`no state file for '${task}': run \`arbor claim ${task}\` first`,
+			`no state file for '${task}': run \`splates claim ${task}\` first`,
 			{ task },
 		);
 	}
@@ -99,7 +99,7 @@ export async function merge(
 		}
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor remove ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`splates escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`splates retry ${task}\`; or \`splates remove ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
@@ -112,13 +112,11 @@ export async function merge(
 	}
 	// An unchecked question is one the user has yet to answer, or an answer
 	// the agent has yet to act on; an unchecked step is work not yet done.
-	const left = unfinished(
-		await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => ""),
-	);
+	const left = unfinished((await new Plans(fs).read(worktree.path)) ?? "");
 	if (!ready(left)) {
 		fail(
 			"blocked",
-			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and move it to ## Done, or \`arbor todo add\` it and drop it; then merge again`,
+			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and move it to ## Done, or \`splates todo add\` it and drop it; then merge again`,
 			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
@@ -161,17 +159,17 @@ export async function merge(
 						...paths.map((file) => `  ${file}`),
 						"",
 						"The rebase is still in progress. Resolve the conflicts, `git add` them,",
-						"`git rebase --continue`, then run `arbor merge` again.",
-						"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
-						`or \`arbor remove ${task}\` and redo the task against current ${base}.`,
+						"`git rebase --continue`, then run `splates merge` again.",
+						"If both sides restructured the same logic, prefer `splates escalate <reason>`",
+						`or \`splates remove ${task}\` and redo the task against current ${base}.`,
 					].join("\n")
 				: [
 						`rebase onto ${base} failed with no file in conflict (exit ${rebase.code}). Git said:`,
 						indent(output),
 						"",
 						inProgress
-							? "The rebase is still in progress: finish it (`git rebase --continue`, or `--skip` for a commit that became empty), then run `arbor merge` again."
-							: "Git stopped the rebase itself, so there is nothing to resolve: fix what it names, then run `arbor merge` again.",
+							? "The rebase is still in progress: finish it (`git rebase --continue`, or `--skip` for a commit that became empty), then run `splates merge` again."
+							: "Git stopped the rebase itself, so there is nothing to resolve: fix what it names, then run `splates merge` again.",
 					].join("\n"),
 			{ task, paths },
 		);
@@ -196,8 +194,8 @@ export async function merge(
 				// Awaited, or the slot goes back before the hook ends.
 				return await shell.run(gate, worktree.path, {
 					env: {
-						ARBOR_TASK: task,
-						ARBOR_WORKTREE: worktree.path,
+						SPLATES_TASK: task,
+						SPLATES_WORKTREE: worktree.path,
 						...slot.env,
 					},
 				});
@@ -304,7 +302,7 @@ export async function merge(
 	facts.commit = head;
 	facts.files = changed;
 	// The work is on the base, so the tree has nothing left to hold. Discarding it
-	// here is what keeps `arbor list` a list of live work rather than a graveyard
+	// here is what keeps `splates list` a list of live work rather than a graveyard
 	// of landed tasks.
 	//
 	// Step out of it first: merge usually runs from inside the tree it is about
@@ -320,7 +318,7 @@ export async function merge(
 	if (discarded.code !== 0) {
 		fail(
 			"usage",
-			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor remove ${task}\` to clean up.`,
+			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`splates remove ${task}\` to clean up.`,
 			{ task },
 		);
 	}
@@ -372,7 +370,7 @@ async function refuseIndexLock(
 		[
 			"Git could not acquire index.lock; this is lock contention, not a content conflict. No merge attempt was spent.",
 			indent(tail(output)),
-			"Wait for the Git operation using this worktree to finish, then run `arbor merge` again. Arbor has left the lock untouched.",
+			"Wait for the Git operation using this worktree to finish, then run `splates merge` again. Splates has left the lock untouched.",
 			"If Git left a rebase in progress, finish it after the lock is released (`git rebase --continue`) before merging again.",
 			"If it persists, investigate its owner before any manual recovery; never delete a lock held by a live operation.",
 		].join("\n"),

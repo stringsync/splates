@@ -51,14 +51,14 @@ describe("OpenCode model setup", () => {
 			fixture.models.verifyStored(recipe, "/project", fixture.signal.signal),
 		).rejects.toThrow("unavailable");
 		fixture.catalog = `${selected.model}\n${selected.auxiliary}\n`;
-		await fixture.fs.write("/arbor/agents.json", `${recipe.raw} `);
+		await fixture.fs.write("/splates/agents.json", `${recipe.raw} `);
 		await expect(
 			fixture.models.verifyStored(recipe, "/project", fixture.signal.signal),
 		).rejects.toThrow("roster changed");
 	});
 	it("disables only the wizard entry and preserves the roster on a failed rename", async () => {
 		await fixture.apply();
-		const before = await fixture.fs.read("/arbor/agents.json");
+		const before = await fixture.fs.read("/splates/agents.json");
 		const rename = fixture.fs.rename.bind(fixture.fs);
 		fixture.fs.rename = async () => {
 			throw new Error("disk full");
@@ -66,11 +66,11 @@ describe("OpenCode model setup", () => {
 		await expect(
 			fixture.models.recipes.disable(fixture.signal.signal),
 		).rejects.toThrow();
-		expect(await fixture.fs.read("/arbor/agents.json")).toBe(before);
+		expect(await fixture.fs.read("/splates/agents.json")).toBe(before);
 		fixture.fs.rename = rename;
 		await fixture.models.recipes.disable(fixture.signal.signal);
 		expect(
-			JSON.parse(await fixture.fs.read("/arbor/agents.json")).agents,
+			JSON.parse(await fixture.fs.read("/splates/agents.json")).agents,
 		).toEqual(DEFAULT_AGENTS);
 		expect(await fixture.models.recipes.stored()).toBeNull();
 	});
@@ -94,7 +94,7 @@ describe("OpenCode model setup", () => {
 	});
 	it("previews without writing and atomically adds an optional entry, preserving defaults", async () => {
 		const preview = await fixture.preview();
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
 		expect(preview.config).toMatchObject({
 			model: selected.model,
 			warming: false,
@@ -105,7 +105,7 @@ describe("OpenCode model setup", () => {
 		});
 		expect(JSON.stringify(preview)).not.toContain("never display");
 		await fixture.models.apply(preview.token, true, fixture.signal.signal);
-		const roster = JSON.parse(await fixture.fs.read("/arbor/agents.json"));
+		const roster = JSON.parse(await fixture.fs.read("/splates/agents.json"));
 		expect(roster.agents.slice(0, 2)).toEqual(DEFAULT_AGENTS);
 		expect(roster.agents[2].argv).toEqual([
 			"env",
@@ -114,7 +114,7 @@ describe("OpenCode model setup", () => {
 			"opencode",
 			"acp",
 		]);
-		expect((await fixture.fs.readdir("/arbor")).sort()).toEqual([
+		expect((await fixture.fs.readdir("/splates")).sort()).toEqual([
 			"agents.json",
 		]);
 	});
@@ -147,11 +147,11 @@ describe("OpenCode model setup", () => {
 				},
 			],
 		};
-		await fixture.fs.write("/arbor/agents.json", JSON.stringify(original));
+		await fixture.fs.write("/splates/agents.json", JSON.stringify(original));
 		await fixture.apply();
-		const first = await fixture.fs.read("/arbor/agents.json");
+		const first = await fixture.fs.read("/splates/agents.json");
 		await fixture.apply();
-		expect(await fixture.fs.read("/arbor/agents.json")).toBe(first);
+		expect(await fixture.fs.read("/splates/agents.json")).toBe(first);
 		const roster = JSON.parse(first);
 		expect(roster.extra).toBe("keep");
 		expect(roster.agents[0]).toEqual(original.agents[0]);
@@ -165,16 +165,18 @@ describe("OpenCode model setup", () => {
 		await expect(
 			fixture.models.apply(preview.token, true, fixture.signal.signal),
 		).rejects.toThrow("no longer available");
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
 		expect(fixture.models.read().preview).toBeNull();
 	});
 	it("rejects a concurrent roster edit without overwriting it", async () => {
 		const preview = await fixture.preview();
-		await fixture.fs.write("/arbor/agents.json", "concurrent edit");
+		await fixture.fs.write("/splates/agents.json", "concurrent edit");
 		await expect(
 			fixture.models.apply(preview.token, true, fixture.signal.signal),
 		).rejects.toThrow("roster changed");
-		expect(await fixture.fs.read("/arbor/agents.json")).toBe("concurrent edit");
+		expect(await fixture.fs.read("/splates/agents.json")).toBe(
+			"concurrent edit",
+		);
 	});
 	it("refuses model overrides and custom Go provider configuration", async () => {
 		fixture.conflict = true;
@@ -182,7 +184,7 @@ describe("OpenCode model setup", () => {
 		fixture.conflict = false;
 		fixture.providerConflict = true;
 		await expect(fixture.preview()).rejects.toThrow("conflicts");
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
 	});
 	it("refuses malformed catalogs and canceled previews", async () => {
 		fixture.catalog = "unexpected diagnostic";
@@ -207,9 +209,9 @@ describe("OpenCode model setup", () => {
 				},
 			],
 		});
-		await fixture.fs.write("/arbor/agents.json", original);
+		await fixture.fs.write("/splates/agents.json", original);
 		await expect(fixture.preview()).rejects.toThrow("custom launch");
-		expect(await fixture.fs.read("/arbor/agents.json")).toBe(original);
+		expect(await fixture.fs.read("/splates/agents.json")).toBe(original);
 	});
 	it("requires exact case and explicit billing confirmation", async () => {
 		await fixture.models.refresh(fixture.signal.signal);
@@ -223,7 +225,7 @@ describe("OpenCode model setup", () => {
 		await expect(
 			fixture.models.apply(preview.token, false, fixture.signal.signal),
 		).rejects.toThrow("Use balance");
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
 	});
 	it("cancels before commit and leaves the roster intact after write failure", async () => {
 		const preview = await fixture.preview();
@@ -231,7 +233,7 @@ describe("OpenCode model setup", () => {
 		await expect(
 			fixture.models.apply(preview.token, true, fixture.signal.signal),
 		).rejects.toThrow();
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
 		fixture.signal = new AbortController();
 		const retry = await fixture.preview();
 		fixture.fs.rename = async () => {
@@ -240,8 +242,8 @@ describe("OpenCode model setup", () => {
 		await expect(
 			fixture.models.apply(retry.token, true, fixture.signal.signal),
 		).rejects.toThrow("disk full");
-		expect(await fixture.fs.exists("/arbor/agents.json")).toBe(false);
-		expect(await fixture.fs.readdir("/arbor")).toEqual([]);
+		expect(await fixture.fs.exists("/splates/agents.json")).toBe(false);
+		expect(await fixture.fs.readdir("/splates")).toEqual([]);
 	});
 });
 
@@ -257,7 +259,7 @@ class ModelFixture {
 	calls: string[][] = [];
 	directories: Array<string | undefined> = [];
 	models = new OpenCodeModels(
-		{ fs: this.fs, ps: this.ps, home: "/arbor" },
+		{ fs: this.fs, ps: this.ps, home: "/splates" },
 		{
 			run: async (args, signal, env, cwd) => {
 				this.directories.push(cwd);

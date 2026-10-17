@@ -7,8 +7,8 @@ export interface GitResult {
 }
 
 /**
- * Every git call arbor makes, scoped to one repository. Agents are not allowed
- * to run these themselves, since going through arbor is what makes concurrent
+ * Every git call splates makes, scoped to one repository. Agents are not allowed
+ * to run these themselves, since going through splates is what makes concurrent
  * work safe, so this is the only place git is spoken.
  */
 /** What a `Git` works through; the real ones by default. */

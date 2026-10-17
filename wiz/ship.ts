@@ -8,7 +8,7 @@ import { fix } from "./fix";
  * release's tag with `bunx skills add`, so stamping it is what has a
  * project's copy say which release it came from.
  */
-const SKILL = "skills/arbor/SKILL.md";
+const SKILL = "skills/splates/SKILL.md";
 
 export interface ShipOptions {
 	log?: Logger;

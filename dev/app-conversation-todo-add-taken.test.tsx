@@ -48,7 +48,7 @@ describe("App's todo add events for a todo a task has taken", () => {
 				},
 			);
 			const line = await waitFor(() =>
-				view.getByRole("note", { name: "arbor" }),
+				view.getByRole("note", { name: "splates" }),
 			);
 
 			expect(within(line).queryByRole("button", { name: "Remove" })).toBeNull();

@@ -322,7 +322,7 @@ function nameOf(image: Shown): string {
 	}
 	const [link = "", query = ""] = image.url.split("?");
 	const path = new URLSearchParams(query).get("path") ?? link;
-	// Less the id arbor keeps an attached file under.
+	// Less the id splates keeps an attached file under.
 	const last = (path.split("/").pop() ?? "").replace(/^[0-9a-f-]{36}-/, "");
 	return /\.\w+$/.test(last) ? last : "image.png";
 }

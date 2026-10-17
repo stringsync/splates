@@ -42,7 +42,7 @@ import { TopBar } from "./top-bar";
 
 /**
  * Every task in a line: its name and the marks of the conversations on it.
- * Where the task stands in arbor (its status, its plan) waits behind a tap.
+ * Where the task stands in splates (its status, its plan) waits behind a tap.
  */
 export function Tasks({
 	tasks,
@@ -179,7 +179,7 @@ function TaskRows({
 
 /**
  * One task, all of it, in a dialog over the task list or a todo that names
- * it: its plan as its ARBOR.md has it, then what arbor knows of it as one
+ * it: its plan as its SPLATES.md has it, then what splates knows of it as one
  * more section, and everything to do with it in the footer.
  */
 export function Task({ task }: { task: Details }): JSX.Element {
@@ -206,7 +206,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				)}
 				{task.plan === null ? (
 					<p className="text-muted-foreground">
-						No ARBOR.md: whoever picks this up starts from the diff.
+						No SPLATES.md: whoever picks this up starts from the diff.
 					</p>
 				) : (
 					<Markdown
@@ -254,7 +254,7 @@ function inlineNumbers(plan: string): string {
 }
 
 /**
- * What arbor knows of a task that its ARBOR.md does not say, as one more of
+ * What splates knows of a task that its SPLATES.md does not say, as one more of
  * its sections: where it stands, its branch and how much it holds, and its
  * tree. The merges tried show only once there are some.
  */

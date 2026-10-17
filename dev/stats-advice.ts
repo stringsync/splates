@@ -235,7 +235,7 @@ function picks(period: Tally, before: Before): Advice {
 					: picksAmended / picksAsked >= DISAGREE
 						? "Agents pick right but miss details: what you add to their picks belongs in CLAUDE.md or memory."
 						: share <= AGREE
-							? "You almost always agree: let agents make these calls without asking, in the arbor skill's Asking as you go."
+							? "You almost always agree: let agents make these calls without asking, in the splates skill's Asking as you go."
 							: null,
 		short: needs(
 			ENOUGH - picksAsked,
@@ -258,9 +258,9 @@ function assumptions(period: Tally, before: Before): Advice {
 			share === null || assumptionsMade < ENOUGH
 				? null
 				: share >= DISAGREE
-					? "Agents often assume wrong: have them ask more in the arbor skill's Asking as you go, or give them what they miss."
+					? "Agents often assume wrong: have them ask more in the splates skill's Asking as you go, or give them what they miss."
 					: share <= AGREE
-						? "You almost never challenge them: let agents assume more and ask less, in the arbor skill's Asking as you go."
+						? "You almost never challenge them: let agents assume more and ask less, in the splates skill's Asking as you go."
 						: null,
 		short: needs(
 			ENOUGH - assumptionsMade,
@@ -377,7 +377,7 @@ function removals(period: Tally, before: Before): Advice {
 				: reason === "redo"
 					? "Tasks go stale against trunk: keep them smaller, and merge sooner."
 					: reason === "superseded"
-						? "Tasks duplicate each other: check `arbor list --files` before starting."
+						? "Tasks duplicate each other: check `splates list --files` before starting."
 						: count > 0
 							? "Tasks start on work nobody needs: settle what done means before starting."
 							: null,

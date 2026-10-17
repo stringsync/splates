@@ -6,7 +6,7 @@ import { OpenCodeFixturePs } from "./setup-opencode-fixture";
 class ReadyFixture {
 	fs = new FakeFs();
 	ps = new OpenCodeFixturePs();
-	setup = new OpenCodeSetup({ fs: this.fs, ps: this.ps, home: "/arbor" });
+	setup = new OpenCodeSetup({ fs: this.fs, ps: this.ps, home: "/splates" });
 	async save() {
 		await this.setup.check();
 		const signal = new AbortController().signal;
@@ -29,7 +29,7 @@ describe("OpenCode final configuration readiness", () => {
 		const restarted = new OpenCodeSetup({
 			fs: fixture.fs,
 			ps: fixture.ps,
-			home: "/arbor",
+			home: "/splates",
 		});
 		const count = fixture.ps.metadata.length;
 		expect(await restarted.readiness("/actual-project")).toMatchObject({

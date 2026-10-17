@@ -12,7 +12,7 @@ describe("Pty", () => {
 	let exited: number | null;
 
 	beforeEach(async () => {
-		cwd = await realpath(await mkdtemp(`${tmpdir()}/arbor-pty-`));
+		cwd = await realpath(await mkdtemp(`${tmpdir()}/splates-pty-`));
 		pty = new Pty({
 			argv: ["/bin/sh"],
 			cwd,
@@ -81,7 +81,7 @@ describe("Pty", () => {
 		expect(exited).toBe(3);
 	});
 
-	it("leaves out that arbor dev serves, so one run in it supervises itself", async () => {
+	it("leaves out that splates dev serves, so one run in it supervises itself", async () => {
 		const shell = new Pty({
 			argv: ["/bin/sh"],
 			cwd,

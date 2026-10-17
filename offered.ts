@@ -13,13 +13,13 @@ const FORMAT = 1;
 export class Offered {
 	/** Read once, then kept: this process is the one writing it. */
 	private known: Promise<Record<string, Setting[]>> | null = null;
-	/** Set when a newer arbor wrote the file, which this one leaves alone. */
+	/** Set when a newer splates wrote the file, which this one leaves alone. */
 	private newer = false;
 	/** Writes one after another, so none is lost to another. */
 	private writing: Promise<void> = Promise.resolve();
 
 	constructor(
-		/** `~/.arbor/offered.json`, or a test's own. */
+		/** `~/.splates/offered.json`, or a test's own. */
 		readonly path: string,
 		private readonly deps: { fs: Fs },
 	) {}

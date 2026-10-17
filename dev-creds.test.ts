@@ -24,13 +24,13 @@ async function holding(dir: string, needle: string): Promise<string[]> {
 }
 
 /**
- * That `value` is in no file of the repo (its `.git/arbor` journal and
- * record of requests included), none of arbor's home (where conversations
- * and outcomes are kept), and nothing arbor logged.
+ * That `value` is in no file of the repo (its `.git/splates` journal and
+ * record of requests included), none of splates's home (where conversations
+ * and outcomes are kept), and nothing splates logged.
  */
 async function expectNowhere(deps: Testing, value: string): Promise<void> {
 	expect(await holding(deps.root, value)).toEqual([]);
-	expect(await holding(dirname(deps.arborHome), value)).toEqual([]);
+	expect(await holding(dirname(deps.splatesHome), value)).toEqual([]);
 	expect(JSON.stringify(deps.log.entries)).not.toContain(value);
 }
 
@@ -106,7 +106,7 @@ describe("dev creds", () => {
 	it("refuses a tunnel's host without Access, as it does conversations", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			hosts: ["repo.arbor.example"],
+			hosts: ["repo.splates.example"],
 		});
 		try {
 			const saved = await fetch(
@@ -114,8 +114,8 @@ describe("dev creds", () => {
 				{
 					method: "PUT",
 					headers: {
-						host: "repo.arbor.example",
-						origin: "http://repo.arbor.example",
+						host: "repo.splates.example",
+						origin: "http://repo.splates.example",
 						"content-type": "application/json",
 					},
 					body: JSON.stringify({ value: "secret" }),

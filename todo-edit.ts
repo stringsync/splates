@@ -56,7 +56,7 @@ export async function todoAdd(
 			`${color.green("added")} todo ${todo.id} at position ${todo.position}${todo.lane === null ? "" : ` in lane ${todo.lane}`}`,
 			...todo.files.map((path) => `  ${path}`),
 			todo.blockedBy.length === 0
-				? `  start it: arbor add <task> --todo ${todo.id}`
+				? `  start it: splates add <task> --todo ${todo.id}`
 				: `  blocked by: ${todo.blockedBy.map((id) => `todo ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);

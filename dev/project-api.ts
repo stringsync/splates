@@ -1,6 +1,6 @@
 /**
  * The page's calls across projects: listing, adding, focusing and forgetting
- * them, and the checkpoint and restart that span every project `arbor dev`
+ * them, and the checkpoint and restart that span every project `splates dev`
  * serves.
  */
 
@@ -11,7 +11,7 @@ import type { Held } from "../held";
 import type { Behind } from "../release";
 import { ApiError, send, sendJson } from "./api";
 
-/** Every arbor project on this machine, and the `arbor dev` serving them. */
+/** Every splates project on this machine, and the `splates dev` serving them. */
 export async function listProjects(): Promise<Projects> {
 	const response = await fetch("/api/projects");
 	if (!response.ok) {
@@ -49,14 +49,14 @@ export async function forgetProject(
 }
 
 /**
- * Makes the repository `path` sits in an arbor project, as `arbor init` there
+ * Makes the repository `path` sits in a splates project, as `splates init` there
  * would, and focuses it; commits nothing, but says what init wrote.
  */
 export async function addProject(path: string): Promise<Added> {
 	return (await sendJson("/api/projects", "POST", { path })) as Added;
 }
 
-/** Commits `paths`, which `arbor init` wrote, in the project `slug` names. */
+/** Commits `paths`, which `splates init` wrote, in the project `slug` names. */
 export async function commitProject(
 	slug: string,
 	paths: string[],
@@ -73,7 +73,7 @@ export async function focusProject(slug: string): Promise<void> {
 
 /**
  * Asks every live conversation in each of `projects`, by slug, or only those
- * `conversations` names by id, to bring its `ARBOR.md` up to date and stop,
+ * `conversations` names by id, to bring its `SPLATES.md` up to date and stop,
  * each saying how it gets on in its `checkpoint`, and then does what `after`
  * says: a restart waits on them all.
  */
@@ -90,7 +90,7 @@ export async function checkpointProjects(
 }
 
 /**
- * Restarts `arbor dev` now, or with `shutdown` shuts it down, without a
+ * Restarts `splates dev` now, or with `shutdown` shuts it down, without a
  * checkpoint: an agent at work stops mid-turn.
  */
 export async function powerNow(shutdown: boolean): Promise<void> {
@@ -98,7 +98,7 @@ export async function powerNow(shutdown: boolean): Promise<void> {
 }
 
 /**
- * Restarts `arbor dev` now, as when every agent is idle: refused while one
+ * Restarts `splates dev` now, as when every agent is idle: refused while one
  * is at work that a restart would stop.
  */
 export async function restartIdle(): Promise<void> {
@@ -110,11 +110,11 @@ function _inProject(path: string, slug: string): string {
 	return `${path}?${new URLSearchParams({ project: slug })}`;
 }
 
-/** The projects on this machine, and the `arbor dev` serving them. */
+/** The projects on this machine, and the `splates dev` serving them. */
 export interface Projects {
-	/** Every arbor project, in the order each joined. */
+	/** Every splates project, in the order each joined. */
 	projects: ProjectChoice[];
-	/** Every `arbor dev` on this machine with a host, running or not. */
+	/** Every `splates dev` on this machine with a host, running or not. */
 	servers: ServerChoice[];
 	/**
 	 * The restart to follow the checkpoint under way, and whether the next
@@ -126,15 +126,15 @@ export interface Projects {
 	 * `resuming`, told to carry on, until each has.
 	 */
 	restarted: "resuming" | null;
-	/** This run of `arbor dev`: another once it has restarted. */
+	/** This run of `splates dev`: another once it has restarted. */
 	run: string;
-	/** The version of arbor it runs. */
+	/** The version of splates it runs. */
 	running: string;
-	/** A newer arbor, which a restart lands on; null when none is out. */
+	/** A newer splates, which a restart lands on; null when none is out. */
 	newest: string | null;
-	/** Commits to arbor's own source since this run started from it. */
+	/** Commits to splates's own source since this run started from it. */
 	behind: Behind | null;
-	/** Whether `arbor dev` can restart itself, as under its supervisor. */
+	/** Whether `splates dev` can restart itself, as under its supervisor. */
 	restartable: boolean;
 	/**
 	 * What a restart would kill, which holds an auto restart off: jobs in

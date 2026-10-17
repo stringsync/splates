@@ -56,17 +56,17 @@ describe("dev terminal kept by its key", () => {
 	/** A link to the run up now; between runs, the worker tries again. */
 	const dial = async () => {
 		if (workers === null) {
-			throw new Error("arbor dev is down");
+			throw new Error("splates dev is down");
 		}
 		const pair = new WorkerSocketPair();
 		void workers.registry.accept(pair.coordinator, "local");
 		return pair.worker;
 	};
 
-	/** Starts `arbor dev` as the next run of the one coordinator. */
+	/** Starts `splates dev` as the next run of the one coordinator. */
 	const run = async () => {
 		const coordinator = await CoordinatorState.open(
-			`${deps.arborHome}/coordinator.json`,
+			`${deps.splatesHome}/coordinator.json`,
 			deps.fs,
 		);
 		workers = new DevWorkers(deps.log, { session: coordinator.session });
@@ -101,7 +101,7 @@ describe("dev terminal kept by its key", () => {
 		expect(next.said.screen).not.toContain(`pid:${pid}`);
 	});
 
-	it("hands the shell to the next run of arbor dev, which takes it back for its page", async () => {
+	it("hands the shell to the next run of splates dev, which takes it back for its page", async () => {
 		await json(server.port, "/api/power", "POST", { shutdown: false });
 		await eventually(() => exits.length !== 0, 5);
 		workers = null;

@@ -180,7 +180,7 @@ describe("HostGate with Access", () => {
 	it("lets a verified token through to conversations from an allowed host", async () => {
 		const { verifier } = await access();
 		const gate = new HostGate(
-			["arbor.example.com"],
+			["splates.example.com"],
 			new MemoryLogger(),
 			verifier,
 		);
@@ -188,14 +188,14 @@ describe("HostGate with Access", () => {
 			gate.local(gate.guarded(answered))(asking);
 
 		const verified = await through(
-			request("arbor.example.com", {
+			request("splates.example.com", {
 				"cf-access-jwt-assertion": await token(),
 			}),
 		);
 		expect(verified.status).toBe(200);
 
 		const forged = await through(
-			request("arbor.example.com", {
+			request("splates.example.com", {
 				"cf-access-jwt-assertion": await token({}, { signer: other }),
 			}),
 		);
@@ -210,14 +210,14 @@ describe("HostGate with Access", () => {
 	it("says who a verified request comes from, and no one for this machine", async () => {
 		const { verifier } = await access();
 		const gate = new HostGate(
-			["arbor.example.com"],
+			["splates.example.com"],
 			new MemoryLogger(),
 			verifier,
 		);
 
 		expect(
 			await gate.identity(
-				request("arbor.example.com", {
+				request("splates.example.com", {
 					"cf-access-jwt-assertion": await token(),
 				}),
 			),
@@ -237,12 +237,14 @@ describe("HostGate with Access", () => {
 	it("asks for a token on every route from an allowed host", async () => {
 		const { verifier } = await access();
 		const gate = new HostGate(
-			["arbor.example.com"],
+			["splates.example.com"],
 			new MemoryLogger(),
 			verifier,
 		);
 
-		const refused = await gate.guarded(answered)(request("arbor.example.com"));
+		const refused = await gate.guarded(answered)(
+			request("splates.example.com"),
+		);
 
 		expect(refused.status).toBe(403);
 		expect(await refused.json()).toMatchObject({
@@ -251,16 +253,16 @@ describe("HostGate with Access", () => {
 	});
 
 	it("says Access is off when conversations are asked for without it", async () => {
-		const gate = new HostGate(["arbor.example.com"], new MemoryLogger());
+		const gate = new HostGate(["splates.example.com"], new MemoryLogger());
 
-		const refused = await gate.local(answered)(request("arbor.example.com"));
+		const refused = await gate.local(answered)(request("splates.example.com"));
 
 		expect(refused.status).toBe(403);
 		expect(((await refused.json()) as { message: string }).message).toContain(
 			"--access-team and --access-aud",
 		);
 		expect(
-			(await gate.guarded(answered)(request("arbor.example.com"))).status,
+			(await gate.guarded(answered)(request("splates.example.com"))).status,
 		).toBe(200);
 	});
 });

@@ -3,8 +3,8 @@ import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
 import { portsLs } from "./ports-list";
 
-describe("arbor ports", () => {
-	it("asks the arbor dev it runs under, and gives a task's remote and local links", async () => {
+describe("splates ports", () => {
+	it("asks the splates dev it runs under, and gives a task's remote and local links", async () => {
 		const { said, asked } = await ports("alpha");
 
 		expect(asked).toEqual(["http://localhost:4310/api/ports"]);
@@ -51,7 +51,7 @@ async function ports(task: string, answer: object = listed) {
 	const log = new MemoryLogger();
 	const asked: string[] = [];
 	const ps = new FakePs();
-	ps.setEnv({ ARBOR_DEV: "http://localhost:4310" });
+	ps.setEnv({ SPLATES_DEV: "http://localhost:4310" });
 	await portsLs({
 		task,
 		dev: "",

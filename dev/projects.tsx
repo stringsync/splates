@@ -56,7 +56,7 @@ const LISTED = Duration.secs(15);
  * machine, each marked with how many agents wait on you there: its
  * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
  * while another project has agents waiting on you. Below them, when this
- * machine runs slots, every `arbor dev` it has a host for, picked to open
+ * machine runs slots, every `splates dev` it has a host for, picked to open
  * that one's page instead. Last, a way to add a project by its path. Each
  * project opens in the editor Settings names, too.
  */

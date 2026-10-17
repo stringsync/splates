@@ -19,7 +19,7 @@ describe("A conversation on a worker", () => {
 
 	beforeEach(async () => {
 		const fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		const timer = new FakeTimer();
 		const clock = new FakeClock();
 		agent = new FakeAgent();
@@ -43,7 +43,7 @@ describe("A conversation on a worker", () => {
 		await connecting;
 		const remote = new RemoteWorker("local", {}, coordinator);
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -65,19 +65,19 @@ describe("A conversation on a worker", () => {
 	it("starts its agent on the worker, in its tree", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 
 		expect(agent.launched).toMatchObject([
-			{ argv: AGENT.argv, cwd: "/repo-arbor/login" },
+			{ argv: AGENT.argv, cwd: "/repo-splates/login" },
 		]);
 	});
 
 	it("carries a prompt to the agent and its answer back", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await conversation.prompt("hello");
 		await until(conversation, "idle");
@@ -91,7 +91,7 @@ describe("A conversation on a worker", () => {
 	it("kills the agent on the worker when stopped", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 

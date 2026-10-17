@@ -141,7 +141,7 @@ describe("App's composer queue", () => {
 					messages: [
 						message("user", "go"),
 						{
-							...message("user", "[ARBOR TASK alpha]\n\nthen stop"),
+							...message("user", "[SPLATES TASK alpha]\n\nthen stop"),
 							queued: true,
 						},
 					],
@@ -151,7 +151,7 @@ describe("App's composer queue", () => {
 		);
 
 		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+		expect(within(queued).getByTitle("[SPLATES TASK alpha]").textContent).toBe(
 			"Taskalpha",
 		);
 		expect(within(queued).getByText("then stop")).toBeTruthy();
@@ -167,7 +167,7 @@ describe("App's composer queue", () => {
 					status: "running",
 					messages: [
 						message("user", "go"),
-						{ ...message("user", "then [ARBOR LANE 2] next"), queued: true },
+						{ ...message("user", "then [SPLATES LANE 2] next"), queued: true },
 					],
 				}),
 			],
@@ -175,7 +175,7 @@ describe("App's composer queue", () => {
 		);
 
 		const queued = view.getByRole("region", { name: "queued messages" });
-		const chip = within(queued).getByTitle("[ARBOR LANE 2]");
+		const chip = within(queued).getByTitle("[SPLATES LANE 2]");
 		expect(chip.textContent).toBe("Lane 2");
 		expect(chip.parentElement?.textContent).toBe("then Lane 2 next");
 	});
@@ -188,7 +188,7 @@ describe("App's composer queue", () => {
 					status: "running",
 					messages: [
 						message("user", "go"),
-						{ ...message("user", "[ARBOR UPDATE]"), queued: true },
+						{ ...message("user", "[SPLATES UPDATE]"), queued: true },
 					],
 				}),
 			],
@@ -196,7 +196,7 @@ describe("App's composer queue", () => {
 		);
 
 		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).getByTitle("[ARBOR UPDATE]").textContent).toBe(
+		expect(within(queued).getByTitle("[SPLATES UPDATE]").textContent).toBe(
 			"Check in",
 		);
 	});

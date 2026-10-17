@@ -57,7 +57,7 @@ export function laneChanges(
 }
 
 /**
- * The lane todos as last seen, kept on disk, so what changed while `arbor
+ * The lane todos as last seen, kept on disk, so what changed while `splates
  * dev` was down is told once it is back.
  */
 export class SeenLaneTodos {

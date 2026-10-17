@@ -5,7 +5,7 @@ import type { Scope } from "../creds";
 /**
  * What the page calls a scope: the project by its name, or every project.
  * Never "this device", since the page may be open on a phone while the cred
- * is kept on the machine `arbor dev` runs on.
+ * is kept on the machine `splates dev` runs on.
  */
 export function scopeLabel(scope: Scope, project: string): string {
 	return scope === "project" ? project : "all projects";
@@ -26,7 +26,7 @@ export function ScopeChip({
 			title={
 				scope === "project"
 					? "Kept for this project"
-					: "Kept for every project on the machine arbor dev runs on"
+					: "Kept for every project on the machine splates dev runs on"
 			}
 		>
 			<Icon className="size-3" />

@@ -72,13 +72,18 @@ describe("App's projects", () => {
 		expect(new URL(String(testing.visited[0])).search).toBe("?project=shop");
 	});
 
-	it("lists this machine's arbor dev and its slots, and opens the one picked", async () => {
+	it("lists this machine's splates dev and its slots, and opens the one picked", async () => {
 		testing.servers = [
-			{ slot: null, url: "https://arbor.example.com", tree: null, here: true },
+			{
+				slot: null,
+				url: "https://splates.example.com",
+				tree: null,
+				here: true,
+			},
 			{
 				slot: { word: "fox", emoji: "🦊" },
 				url: "https://fox.example.com",
-				tree: "/code/webappwiz-arbor/upload",
+				tree: "/code/webappwiz-splates/upload",
 				here: false,
 			},
 		];
@@ -109,7 +114,12 @@ describe("App's projects", () => {
 
 	it("lists no slots on a machine that runs none", async () => {
 		testing.servers = [
-			{ slot: null, url: "https://arbor.example.com", tree: null, here: true },
+			{
+				slot: null,
+				url: "https://splates.example.com",
+				tree: null,
+				here: true,
+			},
 		];
 		const view = await testing.open();
 
@@ -159,7 +169,7 @@ describe("App's projects", () => {
 
 	it("opens each project still there in the editor the settings pick", async () => {
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "editor.opener": "cursor" }),
 		);
 		const view = await testing.open();
@@ -258,11 +268,11 @@ describe("App's projects", () => {
 		expect(new URL(String(testing.visited[0])).search).toBe("?project=shop");
 	});
 
-	it("adds a project by its path, and asks before committing what arbor init wrote", async () => {
+	it("adds a project by its path, and asks before committing what splates init wrote", async () => {
 		testing.reply = {
 			project: { slug: "fresh", root: "/code/fresh", added: "", gone: false },
-			uncommitted: [".agents/skills/arbor/SKILL.md", "skills-lock.json"],
-			shown: [".agents/skills/arbor", "skills-lock.json"],
+			uncommitted: [".agents/skills/splates/SKILL.md", "skills-lock.json"],
+			shown: [".agents/skills/splates", "skills-lock.json"],
 			branch: "main",
 		};
 		const view = await testing.open();
@@ -288,11 +298,11 @@ describe("App's projects", () => {
 		);
 		const asking = await waitFor(() =>
 			view.getByRole("group", {
-				name: "Commit what arbor init wrote in fresh",
+				name: "Commit what splates init wrote in fresh",
 			}),
 		);
 		expect(asking.textContent).toContain(
-			"arbor init wrote .agents/skills/arbor, skills-lock.json in fresh. Commit them on main?",
+			"splates init wrote .agents/skills/splates, skills-lock.json in fresh. Commit them on main?",
 		);
 		expect(testing.visited).toEqual([]);
 
@@ -303,7 +313,7 @@ describe("App's projects", () => {
 			expect.objectContaining({
 				path: expect.stringMatching(/^\/api\/projects\/fresh\/commit/),
 				body: JSON.stringify({
-					paths: [".agents/skills/arbor/SKILL.md", "skills-lock.json"],
+					paths: [".agents/skills/splates/SKILL.md", "skills-lock.json"],
 				}),
 			}),
 		);
@@ -334,7 +344,7 @@ describe("App's projects", () => {
 		);
 		const asking = await waitFor(() =>
 			view.getByRole("group", {
-				name: "Commit what arbor init wrote in fresh",
+				name: "Commit what splates init wrote in fresh",
 			}),
 		);
 		expect(asking.textContent).toContain("Commit it?");
@@ -352,12 +362,12 @@ describe("App's projects", () => {
 
 	it("asks for a project when there is none to show", async () => {
 		testing.projects = [];
-		testing.refuse("not_found", "no arbor project yet: add one by its path");
+		testing.refuse("not_found", "no splates project yet: add one by its path");
 		const view = testing.render();
 
 		await waitFor(() =>
 			expect(
-				view.getByText("No arbor project yet: add one by its path"),
+				view.getByText("No splates project yet: add one by its path"),
 			).toBeTruthy(),
 		);
 		expect(view.getByRole("form", { name: "Add a project" })).toBeTruthy();

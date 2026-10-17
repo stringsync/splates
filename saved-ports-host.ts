@@ -12,12 +12,12 @@ const Saved = z.object({ format: z.number(), base: z.string() });
 
 /**
  * The wildcard base host this machine serves task ports under, as
- * `<task>-<port>.<base>`: saved by `arbor dev --ports-host`, per machine as
- * the tunnel is, in `~/.arbor/ports.json`, so a bare `arbor dev` serves it.
+ * `<task>-<port>.<base>`: saved by `splates dev --ports-host`, per machine as
+ * the tunnel is, in `~/.splates/ports.json`, so a bare `splates dev` serves it.
  */
 export class SavedPortsHost {
 	constructor(
-		/** `~/.arbor/ports.json`, or a test's own. */
+		/** `~/.splates/ports.json`, or a test's own. */
 		readonly path: string,
 		private readonly fs: Fs,
 	) {}
@@ -31,7 +31,7 @@ export class SavedPortsHost {
 		const parsed = Saved.safeParse(JSON.parse(raw));
 		if (!parsed.success) {
 			throw new Error(
-				`${this.path} is not a ports host arbor saved: remove it, or run \`arbor dev --ports-host\` again`,
+				`${this.path} is not a ports host splates saved: remove it, or run \`splates dev --ports-host\` again`,
 			);
 		}
 		return parsed.data.format > FORMAT ? null : parsed.data.base;
@@ -70,7 +70,7 @@ export function portsHostFlag(flag: string): string | null | undefined {
 	if (!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(base)) {
 		fail(
 			"usage",
-			`invalid ports host '${flag}': give a host name such as ports.example.com, its wildcard *.ports.example.com routed to arbor dev`,
+			`invalid ports host '${flag}': give a host name such as ports.example.com, its wildcard *.ports.example.com routed to splates dev`,
 			{ host: flag },
 		);
 	}

@@ -47,7 +47,7 @@ export async function wait(
 		if (worktree.status === "absent") {
 			fail(
 				"not_found",
-				`no task '${task}': run \`arbor list\` to see what there is`,
+				`no task '${task}': run \`splates list\` to see what there is`,
 				{ task },
 			);
 		}
@@ -76,7 +76,7 @@ function report(worktree: Worktree): string {
 	if (worktree.status === "removed") {
 		lines.push(
 			"",
-			`Nothing left of it here: \`arbor log\` says whether it landed.`,
+			`Nothing left of it here: \`splates log\` says whether it landed.`,
 		);
 	}
 	return lines.join("\n");

@@ -31,7 +31,7 @@ describe("dev's push routes", () => {
 			expect(key.publicKey).toMatch(/^B[\w-]{86}$/);
 			expect(kept.status).toBe(200);
 			expect(
-				JSON.parse(await deps.fs.read(`${deps.arborHome}/push.json`)).devices,
+				JSON.parse(await deps.fs.read(`${deps.splatesHome}/push.json`)).devices,
 			).toEqual([
 				{ subscription: subscription("https://push.example/a"), wants: WANTS },
 			]);

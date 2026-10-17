@@ -3,7 +3,7 @@ import type { TodoState } from "./todo";
 /**
  * What blocks which todos, and the lanes they run in, worked out from the
  * todos alone. Nothing here reads or writes the disk, so the CLI and the
- * `arbor dev` page draw the same lanes from the same list.
+ * `splates dev` page draw the same lanes from the same list.
  */
 
 /** A todo that has to merge first, and where it stands now. */

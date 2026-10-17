@@ -145,7 +145,7 @@ see the header
 		).toBeTruthy();
 	});
 
-	it("leaves a task's open questions to the arbor dev conversation on it, which asks them itself", async () => {
+	it("leaves a task's open questions to the splates dev conversation on it, which asks them itself", async () => {
 		testing.talk = {
 			agents: [],
 			conversations: [conversation({ id: "c1", task: "beta" })],

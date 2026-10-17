@@ -19,7 +19,7 @@ const DOWNLOADS =
  */
 export const GUARD = [
 	// A pipe's write end closes however its owner dies, kill -9 included, so
-	// a crashed arbor dev leaves no connector serving its tunnel to a dead port.
+	// a crashed splates dev leaves no connector serving its tunnel to a dead port.
 	"exec 3<&0",
 	'"$@" 3<&- & c=$!',
 	"trap 'kill $c 2>/dev/null' HUP INT TERM",
@@ -35,7 +35,7 @@ export const GUARD = [
 /**
  * A TunnelProvider over the `cloudflared` binary, running the named tunnel
  * the account already has, or the one its own config names, or, given a
- * token, the tunnel `arbor tunnel setup` made, with no login or credentials
+ * token, the tunnel `splates tunnel setup` made, with no login or credentials
  * file. One that dies while running is logged, never fatal: the page still
  * answers on this machine.
  */
@@ -95,7 +95,7 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 				line = lines.pop() ?? "";
 				if (!reached && lines.some((each) => each.includes(REGISTERED))) {
 					reached = true;
-					log.info(`arbor dev reachable at https://${host}`);
+					log.info(`splates dev reachable at https://${host}`);
 				}
 			}
 		})().catch(() => {});
@@ -129,9 +129,9 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 	}
 }
 
-/** What to do about a tunnel `arbor tunnel setup` made that will not run. */
+/** What to do about a tunnel `splates tunnel setup` made that will not run. */
 const TOKEN_HINT =
-	" Run `arbor tunnel setup` again to check the tunnel and fetch its token anew.";
+	" Run `splates tunnel setup` again to check the tunnel and fetch its token anew.";
 
 /** What to do about the way `cloudflared` said it failed. */
 function hint(stderr: string): string {

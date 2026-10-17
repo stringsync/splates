@@ -98,7 +98,7 @@ describe("App's controls that put agents to work", () => {
 		Array.from(
 			view
 				.getByRole("textbox", { name: "Message input" })
-				.querySelectorAll<HTMLElement>('[title^="[ARBOR "]'),
+				.querySelectorAll<HTMLElement>('[title^="[SPLATES "]'),
 			(chip) => chip.title,
 		);
 
@@ -152,7 +152,7 @@ describe("App's controls that put agents to work", () => {
 	});
 
 	it("puts a conversation already going on a lane, its reference held as a chip ahead of its draft", async () => {
-		localStorage.setItem("arbor.draft.c2", "then stop");
+		localStorage.setItem("splates.draft.c2", "then stop");
 		const view = await board(
 			[conversation({ id: "c2", title: "Tidy the docs" })],
 			{
@@ -179,8 +179,8 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		expect(location.hash).toBe("#conversations/c2");
-		expect(chips(view)).toEqual(["[ARBOR LANE 1]"]);
-		expect(composer(view)).toBe("[ARBOR LANE 1]\n\nthen stop");
+		expect(chips(view)).toEqual(["[SPLATES LANE 1]"]);
+		expect(composer(view)).toBe("[SPLATES LANE 1]\n\nthen stop");
 	});
 
 	it("lists a task's conversations in its dialog, in place of starting another", async () => {
@@ -219,7 +219,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[ARBOR TASK alpha]" },
+				{ text: "[SPLATES TASK alpha]" },
 			]),
 		);
 	});
@@ -263,7 +263,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c7/prompt")).toEqual([
-				{ text: "[ARBOR LANE 1]\n[ARBOR LANE 2]" },
+				{ text: "[SPLATES LANE 1]\n[SPLATES LANE 2]" },
 			]),
 		);
 		expect(location.hash).not.toContain("conversations");
@@ -295,7 +295,7 @@ describe("App's controls that put agents to work", () => {
 
 		await waitFor(() =>
 			expect(posted("/api/conversations/c7/prompt")).toEqual([
-				{ text: "[ARBOR LANE untriaged]\n[ARBOR LANE 1]" },
+				{ text: "[SPLATES LANE untriaged]\n[SPLATES LANE 1]" },
 			]),
 		);
 	});
@@ -340,7 +340,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[ARBOR TODO #3]" },
+				{ text: "[SPLATES TODO #3]" },
 			]),
 		);
 
@@ -394,7 +394,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[ARBOR TODO #3]" },
+				{ text: "[SPLATES TODO #3]" },
 			]),
 		);
 	});

@@ -1,59 +1,68 @@
-# @webappwiz/arbor
+# Spinning Plates
+
+[spinningplates.tech](https://spinningplates.tech) · command: `splates`
 
 Run many coding agents on one repository at once. Each works in its own git
 worktree and lands its change on `main` itself, without pull requests.
 
 ```bash
-bunx @webappwiz/arbor init
+bunx splates init
 ```
 
-Run it in your repository and commit what it writes: the arbor skill, which it
+Run it in your repository and commit what it writes: the splates skill, which it
 installs with [`skills`](https://skills.sh) from this release's tag into
 `.agents/skills` for Codex and most agents, linked from `.claude/skills` for
-Claude Code, and `skills-lock.json`. `arbor update` moves it to a newer release.
-Without arbor, `bunx skills add jaredjj3/webappwiz#v<release> --skill arbor`
+Claude Code, and `skills-lock.json`. `splates update` moves it to a newer release.
+Without splates, `bunx skills add stringsync/splates#v<release> --skill splates`
 installs the same skill. From then on, your agents start each change with
-`arbor add` and land it with `arbor merge`.
+`splates add` and land it with `splates merge`.
+
+Spinning Plates was arbor (`@webappwiz/arbor`). In a project that used it, run
+`bunx splates update`: it installs the splates skill in place of arbor's and
+renames `arbor.config.ts` and `arbor.systems.ts`. The next `splates dev` moves
+`~/.arbor` and each repository's `.git/arbor` to their new names, leaving links
+behind. For one release, `arbor` still runs splates, and the `ARBOR_*`
+variables, `ARBOR.md` and the `[ARBOR …]` directives are still read.
 
 Contributions are welcome: see [Contributing](CONTRIBUTING.md).
 
 ## How it works
 
-At its core, arbor is a consistent way to coordinate worktrees. Each change is
+At its core, splates is a consistent way to coordinate worktrees. Each change is
 a task with its own branch and worktree, and every agent moves tasks through
 the same few commands, so agents never edit the same checkout and always know
-what the others are doing. There is no daemon and no orchestrator: arbor is a
-CLI over git, and any agent in any terminal can use it. `arbor --help` lists
+what the others are doing. There is no daemon and no orchestrator: splates is a
+CLI over git, and any agent in any terminal can use it. `splates --help` lists
 every command.
 
-**Merging.** `arbor merge` rebases the task onto `main`, runs your checks
-(`preMerge` in `arbor.config.ts`) on the result, fast-forwards `main`, and
+**Merging.** `splates merge` rebases the task onto `main`, runs your checks
+(`preMerge` in `splates.config.ts`) on the result, fast-forwards `main`, and
 removes the worktree. A conflict or a failing check goes back to the agent that
 made the change, which fixes it and merges again.
 
 **Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one
-of the machine's heavy-job slots, two by default (`ARBOR_HEAVY_JOBS` sets
+of the machine's heavy-job slots, two by default (`SPLATES_HEAVY_JOBS` sets
 how many), so several agents testing at once queue rather than run the
-machine out of memory. `arbor heavy -- <command>` runs anything else as
+machine out of memory. `splates heavy -- <command>` runs anything else as
 heavy, such as a test suite an agent runs mid-task, in a slot too.
 
 **Escalating.** When an agent needs you (a decision, access, a review, or
-merges that keep failing), it runs `arbor escalate`: it stops, leaves its
+merges that keep failing), it runs `splates escalate`: it stops, leaves its
 worktree as it is, and writes down its questions. You answer, and it picks up
 where it left off.
 
 ## The harness
 
-`arbor dev` is an optional page for running agents and answering them, on
+`splates dev` is an optional page for running agents and answering them, on
 http://localhost:4269.
 
 ```bash
-bunx @webappwiz/arbor dev
+bunx splates dev
 ```
 
-Run it from anywhere: it serves every arbor project on this machine. Its
+Run it from anywhere: it serves every splates project on this machine. Its
 project picker switches between them, and adds a repository by its path,
-running `arbor init` there and asking before it commits what that wrote.
+running `splates init` there and asking before it commits what that wrote.
 
 ### Parallel agents
 
@@ -87,31 +96,31 @@ To open the page from another machine, put it behind a Cloudflare tunnel and
 Cloudflare Access, which decides who may enter. Set it up once per machine:
 
 ```bash
-bunx @webappwiz/arbor tunnel setup arbor.example.com --email me@example.com
-bunx @webappwiz/arbor creds wait ARBOR_CLOUDFLARE_API_TOKEN
-bunx @webappwiz/arbor tunnel setup arbor.example.com --email me@example.com
-bunx @webappwiz/arbor dev
+bunx splates tunnel setup splates.example.com --email me@example.com
+bunx splates creds wait SPLATES_CLOUDFLARE_API_TOKEN
+bunx splates tunnel setup splates.example.com --email me@example.com
+bunx splates dev
 ```
 
 `tunnel setup` makes, through Cloudflare's API, a tunnel, the DNS record
 routing the host to it, and an Access application letting in only those
 emails, and saves them: the host, team and AUD tag in
-`~/.arbor/tunnel.json`, the tunnel's token in the system's secret store (the
-Keychain on macOS). From then on a bare `arbor dev` runs the tunnel with
+`~/.splates/tunnel.json`, the tunnel's token in the system's secret store (the
+Keychain on macOS). From then on a bare `splates dev` runs the tunnel with
 `cloudflared`, no `cloudflared login` needed. Run again, it changes only what
 differs, such as the emails. The first run has no API token yet, so it
-requests one on the Creds page of `arbor dev`, with how to make it; paste it
+requests one on the Creds page of `splates dev`, with how to make it; paste it
 there, and run it again. An account with no Zero Trust organization gets one
-with `--team <name>`, for `<name>.cloudflareaccess.com`. `arbor tunnel status`
-shows what is saved, and `arbor tunnel remove` deletes it all again: the tunnels
+with `--team <name>`, for `<name>.cloudflareaccess.com`. `splates tunnel status`
+shows what is saved, and `splates tunnel remove` deletes it all again: the tunnels
 of the machine and of every slot, their DNS records, the Access applications
 and their policy, and the saved files and tunnel tokens. The API token stays.
 
-To run several at once, as when trying changes to arbor from a few worktrees,
+To run several at once, as when trying changes to splates from a few worktrees,
 give each its own slot:
 
 ```bash
-bunx @webappwiz/arbor dev --slot
+bunx splates dev --slot
 ```
 
 `--slot` claims a short animal word for the checkout it runs in, as `fox`, and
@@ -119,19 +128,19 @@ serves it at `https://fox.<zone>`, on the zone `tunnel setup` used, behind the
 same Access policy, so a phone opens each by name. A task's worktree keeps its
 word until the task merges or is removed, which stops its server and gives the
 word back; run again, `--slot` stops the tree's last server first. It refuses
-an arbor repository's main tree, which every agent shares. `arbor slots list`
-shows who holds each word, and `arbor slots prune` frees those no tree owns any
+a splates repository's main tree, which every agent shares. `splates slots list`
+shows who holds each word, and `splates slots prune` frees those no tree owns any
 more, stopping their servers. A word's tunnel and DNS record are made on its first
 claim and kept, and one wildcard Access application covers every slot. A slot
-keeps its own projects, roster and tunnel in `~/.arbor/slots/<word>`, apart
+keeps its own projects, roster and tunnel in `~/.splates/slots/<word>`, apart
 from yours, and starts in a throwaway project there, unless that home
-registers the project it is run in (`ARBOR_HOME=~/.arbor/slots/fox arbor
+registers the project it is run in (`SPLATES_HOME=~/.splates/slots/fox splates
 init`). The page shows the slot's emoji beside the project's name.
 
 Or give the tunnel and the Access application by hand, over what is saved:
 
 ```bash
-bunx @webappwiz/arbor dev --tunnel arbor.example.com \
+bunx splates dev --tunnel splates.example.com \
   --access-team my-team --access-aud <the application's AUD tag>
 ```
 
@@ -141,12 +150,12 @@ config does), and is refused without both Access flags. Requests to that host
 must carry a verified Access token; with one, conversations and terminals
 work too.
 
-To use another tunnel, give `arbor.config.ts` a `tunnel`, any object that
+To use another tunnel, give `splates.config.ts` a `tunnel`, any object that
 implements `TunnelProvider`:
 
 ```ts
-import type { ConfigFile } from "@webappwiz/arbor/config";
-import type { TunnelProvider } from "@webappwiz/arbor/tunnel-provider";
+import type { ConfigFile } from "splates/config";
+import type { TunnelProvider } from "splates/tunnel-provider";
 
 const myTunnel: TunnelProvider = {
 	// throw, saying what to do, unless the tunnel can run
@@ -162,7 +171,7 @@ export default { tunnel: myTunnel } satisfies ConfigFile;
 ```
 
 `--tunnel <host>` then runs yours instead of cloudflared. Access is still
-required, since arbor verifies Cloudflare Access tokens whatever carries the
+required, since splates verifies Cloudflare Access tokens whatever carries the
 traffic, and `--tunnel-name` is refused beside a provider of your own. One
 that is not ready, or fails to start, is logged and skipped: the page keeps
 serving on this machine.
@@ -175,19 +184,19 @@ it. Save a wildcard base host for this machine to open each one anywhere,
 behind the same Access application:
 
 ```bash
-bunx @webappwiz/arbor dev --ports-host ports.example.com
+bunx splates dev --ports-host ports.example.com
 ```
 
 `https://<task>-<port>.ports.example.com` then reaches that task's server,
 seen there as `localhost:<port>`, and only with a verified Access token;
-routing `*.ports.example.com` to `arbor dev`, its DNS and TLS, are yours.
-`--ports-host none` forgets the base. `arbor ports [task]` lists each port
+routing `*.ports.example.com` to `splates dev`, its DNS and TLS, are yours.
+`--ports-host none` forgets the base. `splates ports [task]` lists each port
 with its remote and local links, as the task's dialog on the page does.
 
 ### Stats
 
-As each task merges or is removed, arbor writes down how it went in
-`~/.arbor/outcomes.jsonl`: how many times it came to you with questions or for
+As each task merges or is removed, splates writes down how it went in
+`~/.splates/outcomes.jsonl`: how many times it came to you with questions or for
 a review, how many merges failed and why, how many of the agent's picks you
 overturned or took with words added, how long it waited on you, the systems it touched, why it was
 removed, and the agent and model behind it. The Stats page sums it over the
@@ -205,7 +214,7 @@ Open **Settings → Setup** and visit the optional OpenCode steps. Check this
 machine, install if needed, and connect an existing Go/Go Plus account through
 the native masked key prompt. The supported CLI exposes the V2 standalone login,
 auth listing and metadata APIs; unsupported installations show update guidance.
-No key belongs in chat, and arbor never reads or exports native credential files.
+No key belongs in chat, and splates never reads or exports native credential files.
 
 Refresh the Go catalog, choose exact main and auxiliary models, review the
 configuration, and confirm **Use balance** is off in Console before applying.
@@ -223,7 +232,7 @@ custom or managed configuration that conflicts with the recipe requires repair.
 main model and opens an empty conversation in the displayed directory. Its first
 message is your decision. Configuration readiness does not establish successful
 inference, entitlement, quota or billing. Console confirmation is your assertion;
-arbor cannot verify or change that setting. Revisit/repair returns to the existing
+splates cannot verify or change that setting. Revisit/repair returns to the existing
 steps. Disable removes only the wizard-owned roster entry for new conversations;
 existing conversations and native authentication remain.
 
@@ -235,7 +244,7 @@ A plain `opencode acp` entry or custom command does not establish wizard readine
 Custom commands are never replaced or removed automatically. Avoid the older V1
 `small_model`/provider recipe: it does not pin every V2 auxiliary/custom agent.
 
-Arbor requires the full, case-sensitive model ID returned in ACP settings for
+Splates requires the full, case-sensitive model ID returned in ACP settings for
 OpenCode. Missing choices or a different confirmed provider/model stop the turn;
 it never substitutes another provider. Refresh your editable catalog from
 OpenCode's offered models when it changes. In Choosing agents and models,
@@ -247,7 +256,7 @@ you explicitly choose a replacement; it is never silently changed to the current
 agent default. OpenCode choices do not change Claude/Codex saved settings.
 Usage provenance and comparisons are tracked in #354.
 
-OpenCode owns its native login and tools. Arbor neither imports its credentials
+OpenCode owns its native login and tools. Splates neither imports its credentials
 nor exports OS-store secrets to it. Recovery uses advertised resume support, or
 advertised load with history replay suppressed. An imported CLI session still
 replays once. OpenCode recovery uses its original absolute directory; if that
@@ -283,7 +292,7 @@ are reported as unchecked. `bin/wiz dev test` runs the local fixture suites.
 
 ### OpenCode setup wizard (optional)
 
-Open Settings → Set up arbor → OpenCode to check installation, explicitly install
+Open Settings → Set up splates → OpenCode to check installation, explicitly install
 the official CLI with npm, and connect an existing Go/Go Plus account through
 OpenCode's masked native key prompt. Return and choose Check again to inspect
 native credential metadata and negotiate ACP without sending a model prompt.

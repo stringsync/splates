@@ -26,8 +26,8 @@ describe("Conversation background", () => {
 		// background commands write.
 		for (const tree of [
 			"/repo",
-			"/repo-arbor/login",
-			"/repo-arbor/signup",
+			"/repo-splates/login",
+			"/repo-splates/signup",
 			"/tmp/tasks",
 		]) {
 			await fs.mkdir(tree);
@@ -36,7 +36,7 @@ describe("Conversation background", () => {
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -53,7 +53,7 @@ describe("Conversation background", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -237,7 +237,7 @@ describe("Conversation background", () => {
 
 		expect(conversation.state.background).toEqual([]);
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		);

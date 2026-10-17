@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
+# arbor's old name, kept for one release.
+echo "splates: arbor is an old name, kept for one more release: use splates" >&2
 exec "$(dirname "${BASH_SOURCE[0]}")/_run" index.ts "$@"

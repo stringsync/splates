@@ -15,7 +15,7 @@ describe("dev assign", () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
 		_conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{
 				launch: agent.launch,
@@ -27,7 +27,7 @@ describe("dev assign", () => {
 
 	it("assigns a todo an agent off the roster, and starts a conversation on a model", async () => {
 		const rostered = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[ROSTERED],
 			{ launch: agent.launch },
 		);

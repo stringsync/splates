@@ -14,20 +14,20 @@ export interface LanesFromTagsOptions {
 
 /**
  * Moves the todos of the repository at `dir` that still have tags, from
- * before arbor kept lanes instead, into a lane a tag, and says where each
- * went; arbor refuses to read them until then. Says nothing when `dir` is
+ * before splates kept lanes instead, into a lane a tag, and says where each
+ * went; splates refuses to read them until then. Says nothing when `dir` is
  * no repository, keeps no todos, or none has tags.
  */
 export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const fs = opts.fs ?? new NodeFs();
 	const git = await commonDir(opts.dir, fs);
-	if (git === null || !(await fs.exists(`${git}/arbor/todos`))) {
+	if (git === null || !(await fs.exists(`${git}/splates/todos`))) {
 		return;
 	}
 	const todos = new Todos(
-		`${git}/arbor/todos`,
-		new FileLock(`${git}/arbor/todos.lock`, {
+		`${git}/splates/todos`,
+		new FileLock(`${git}/splates/todos.lock`, {
 			fs,
 			ps: opts.ps ?? new NodePs(),
 			log,

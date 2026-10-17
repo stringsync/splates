@@ -37,7 +37,7 @@ describe("App's auto update", () => {
 		testing.dispose();
 	});
 
-	/** Opens the page with `arbor dev` behind a commit on its source. */
+	/** Opens the page with `splates dev` behind a commit on its source. */
 	const open = () =>
 		testing.open({
 			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
@@ -59,9 +59,9 @@ describe("App's auto update", () => {
 		await pass(65);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /^Updating arbor dev in 0:\d\d$/ }),
+			view.getByRole("dialog", { name: /^Updating splates dev in 0:\d\d$/ }),
 		);
-		expect(dialog.textContent).toContain("arbor dev will update to bbbbbbbb");
+		expect(dialog.textContent).toContain("splates dev will update to bbbbbbbb");
 		const left = () =>
 			Number(/in 0:(\d\d)/.exec(dialog.textContent ?? "")?.[1]);
 		const before = left();
@@ -82,7 +82,7 @@ describe("App's auto update", () => {
 		const view = await open();
 		await pass(65);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /^Updating arbor dev in/ }),
+			view.getByRole("dialog", { name: /^Updating splates dev in/ }),
 		);
 
 		await act(async () =>

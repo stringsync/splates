@@ -51,7 +51,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		);
 		expect(card.textContent).toContain("Escalated");
 		expect(card.textContent).toContain("two calls on the header");
-		// Numbered from 1, as a report numbers them, whatever ARBOR.md says.
+		// Numbered from 1, as a report numbers them, whatever SPLATES.md says.
 		expect(
 			within(card)
 				.getAllByRole("listitem", { name: /^question/ })
@@ -59,7 +59,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		).toEqual(["question 1", "question 2"]);
 		expect(card.textContent).toContain("Which pages need it?");
 		expect(card.textContent).not.toContain("Keep it?");
-		expect(within(thread).queryAllByRole("note", { name: "arbor" })).toEqual(
+		expect(within(thread).queryAllByRole("note", { name: "splates" })).toEqual(
 			[],
 		);
 		expect(thread.textContent).toContain("Stopping here.");
@@ -171,7 +171,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 			{
 				method: "POST",
 				body: {
-					text: "[ARBOR APPROVE]\n\n> **Which pages need it?**\n\n- (a) Todos",
+					text: "[SPLATES APPROVE]\n\n> **Which pages need it?**\n\n- (a) Todos",
 				},
 			},
 		]);
@@ -268,7 +268,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 			fireEvent.click(within(panel).getByRole("button", { name: "Merge" })),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR MERGE]" } },
+			{ method: "POST", body: { text: "[SPLATES MERGE]" } },
 		]);
 	});
 
@@ -297,7 +297,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 			[
 				asked("fix the header", 0),
 				said("Ready.", 1),
-				asked("[ARBOR MERGE]", 10),
+				asked("[SPLATES MERGE]", 10),
 			],
 			[{ ...escalated(3), review: true, questions: [] }],
 		);
@@ -305,7 +305,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		await waitFor(() => within(thread).getByRole("button", { name: "Show" }));
 		expect(
 			within(thread)
-				.getAllByRole("note", { name: "arbor" })
+				.getAllByRole("note", { name: "splates" })
 				.map((line) => line.textContent),
 		).toEqual(["Review approvedheaderShow"]);
 	});
@@ -326,7 +326,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		);
 
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		expect(line.textContent).toBe("Escalate failedheader");
 		expect(
@@ -336,14 +336,14 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 
 	it("stands an older questions card down, taking over what was written in it", async () => {
 		localStorage.setItem(
-			"arbor.draft.c1:questions:1:Which pages need it?",
+			"splates.draft.c1:questions:1:Which pages need it?",
 			"> **Which pages need it?**\n\n- (b) Tasks",
 		);
 		const { view } = await opened(
 			[
 				asked("fix the header", 0),
 				said("1. Which pages need it?\n   - [a] Todos\n   - [b] Tasks", 1),
-				asked("[ARBOR REPORT other]", 10),
+				asked("[SPLATES REPORT other]", 10),
 				said("Escalating.", 11),
 			],
 			[escalated(12)],

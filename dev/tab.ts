@@ -1,5 +1,5 @@
 /** Where this tab's id is kept: `sessionStorage` is the tab's own, and outlives a reload. */
-const TAB = "arbor.tab";
+const TAB = "splates.tab";
 
 /**
  * This browser tab's id, made the first time it is asked for and kept

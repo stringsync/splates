@@ -17,7 +17,7 @@ const dev = wiz.group("dev").description("work on this repository");
 dev
 	.command("eval")
 	.description(
-		"compare versions of the arbor skill by running agents on it; uses tokens billed to an API key or counted against a Claude plan, so run it only when asked",
+		"compare versions of the splates skill by running agents on it; uses tokens billed to an API key or counted against a Claude plan, so run it only when asked",
 	)
 	.rest("args", z.string(), {
 		description:

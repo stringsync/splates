@@ -85,7 +85,7 @@ export function useNamed(
 }
 
 /**
- * The arbor projects on this machine, for `#`, those gone left out; null
+ * The splates projects on this machine, for `#`, those gone left out; null
  * until they come, and none when they cannot. Asked once: a project added
  * meanwhile shows on the next visit.
  */

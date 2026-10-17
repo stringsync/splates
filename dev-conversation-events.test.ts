@@ -14,7 +14,7 @@ describe("conversation events", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{ launch: new FakeAgent().launch },
 		);
@@ -42,7 +42,7 @@ describe("conversation events", () => {
 			journal: deps.journal,
 			conversations,
 			fs,
-			arborDir: deps.arborDir,
+			splatesDir: deps.splatesDir,
 			log: deps.log,
 		});
 		for (let i = 0; i < 500 && heard === 0; i++) {
@@ -61,9 +61,9 @@ describe("conversation events", () => {
 	/** Logs a claim of `task` as the agent of `by` would, or an external one for null. */
 	const claimed = async (task: string, by: string | null) => {
 		if (by === null) {
-			delete deps.proc.env.ARBOR_CONVERSATION;
+			delete deps.proc.env.SPLATES_CONVERSATION;
 		} else {
-			deps.proc.env.ARBOR_CONVERSATION = by;
+			deps.proc.env.SPLATES_CONVERSATION = by;
 		}
 		await deps.journal.record(
 			"claim",
@@ -71,7 +71,7 @@ describe("conversation events", () => {
 			async () => ({ escalated: false, tookOver: false, goal: "" }),
 			(out) => out,
 		);
-		delete deps.proc.env.ARBOR_CONVERSATION;
+		delete deps.proc.env.SPLATES_CONVERSATION;
 	};
 
 	it("hands a conversation the events its agent logged before the server opened", () => {

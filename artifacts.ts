@@ -35,7 +35,7 @@ export class Artifacts {
 			/**
 			 * The project's room, which evicts what other versions it must
 			 * for an add past the project's capacity; without it, as for a
-			 * CLI that reaches no `arbor dev`, such an add is refused.
+			 * CLI that reaches no `splates dev`, such an add is refused.
 			 */
 			room?: ArtifactRoom;
 		},
@@ -296,7 +296,7 @@ export interface ArtifactLimits {
 	project: number;
 }
 
-/** What `arbor.config.ts` leaves the limits at unless it says otherwise. */
+/** What `splates.config.ts` leaves the limits at unless it says otherwise. */
 export const ARTIFACT_LIMITS: ArtifactLimits = {
 	file: 50 * 1024 * 1024,
 	conversation: 250 * 1024 * 1024,

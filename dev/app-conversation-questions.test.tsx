@@ -224,7 +224,7 @@ describe("App's question cards", () => {
 		);
 		expect(textIn(box(view))).toBe("");
 		expect(
-			localStorage.getItem("arbor.draft.c1:questions:1:Which pages need it?"),
+			localStorage.getItem("splates.draft.c1:questions:1:Which pages need it?"),
 		).toBe(QUOTED);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 

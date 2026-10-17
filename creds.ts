@@ -8,6 +8,7 @@ import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import { fail } from "./exit";
+import { renamed } from "./legacy-names";
 
 /** Where a cred is kept: for this project alone, or every project on this device. */
 export const SCOPES = ["project", "device"] as const;
@@ -67,7 +68,7 @@ export interface KeptCred {
 }
 
 /**
- * A project's creds: the requests agents make for them, which `arbor dev`
+ * A project's creds: the requests agents make for them, which `splates dev`
  * shows on its Creds page for a person to fill, and the two stores they are
  * kept in, the project's and the device's, as `wiz creds` keeps them. A value
  * goes into a store and never comes out through here but to code reading it
@@ -77,7 +78,7 @@ export class Creds {
 	readonly #fs: Fs;
 
 	constructor(
-		/** The record of requests, `.git/arbor/creds.json`. */
+		/** The record of requests, `.git/splates/creds.json`. */
 		readonly file: string,
 		/** Held while the record is read and written back. */
 		private readonly lock: Lock,
@@ -89,14 +90,14 @@ export class Creds {
 
 	/** The project's creds, kept in `stores`. */
 	static async open(
-		arborDir: string,
+		splatesDir: string,
 		root: string,
 		lock: Lock,
 		stores: SecretStores,
 		opts: { fs?: Fs } = {},
 	): Promise<Creds> {
 		return new Creds(
-			`${arborDir}/creds.json`,
+			`${splatesDir}/creds.json`,
 			lock,
 			{ project: await stores.project(root), device: stores.device },
 			opts,
@@ -105,7 +106,7 @@ export class Creds {
 
 	/**
 	 * Where code reads a cred's value: the project's store, then the device's.
-	 * Never the environment, so a stray export is not what arbor reads.
+	 * Never the environment, so a stray export is not what splates reads.
 	 */
 	get credentials(): Credentials {
 		return new Credentials([this.stores.project, this.stores.device]);
@@ -202,7 +203,7 @@ export class Creds {
 			if (found === undefined) {
 				fail(
 					"not_found",
-					`nothing requested ${name}: \`arbor creds request ${name} --purpose '<what for>' --instructions '<how to get it>'\` first`,
+					`nothing requested ${name}: \`splates creds request ${name} --purpose '<what for>' --instructions '<how to get it>'\` first`,
 					{ name },
 				);
 			}
@@ -275,6 +276,29 @@ export class Creds {
 			delete file.savedBy[`${scope}:${name}`];
 		});
 		return deleted;
+	}
+
+	/**
+	 * Copies each cred kept under arbor's `ARBOR_*` name to its `SPLATES_*`
+	 * one in the same store, unless that is kept already. The old one stays,
+	 * for an arbor still running, and any record naming it, to read.
+	 */
+	async copyLegacy(): Promise<void> {
+		for (const scope of SCOPES) {
+			await reach(this.stores[scope], async (store) => {
+				const names = await store.names();
+				for (const old of names) {
+					const name = renamed(old);
+					const value =
+						name === null || names.includes(name)
+							? undefined
+							: await store.get(old);
+					if (name !== null && value !== undefined) {
+						await store.set(name, value);
+					}
+				}
+			});
+		}
 	}
 
 	/** Every cred either store keeps, the project's first, by name. */

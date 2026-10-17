@@ -41,7 +41,7 @@ export async function working(
 ): Promise<Conversation> {
 	const conversation = await conversations.start("fake", {
 		task: "login",
-		cwd: "/repo-arbor/login",
+		cwd: "/repo-splates/login",
 	});
 	await until(conversation, "idle");
 	await conversation.prompt("one");

@@ -98,7 +98,7 @@ export class Watched {
 		);
 	}
 
-	/** A rebase detaches HEAD until it is done, as `arbor merge` leaves one. */
+	/** A rebase detaches HEAD until it is done, as `splates merge` leaves one. */
 	private async rebasing(): Promise<boolean> {
 		const ops = await this.git.interruptedOps(this.cwd);
 		return ops.includes("rebase in progress");

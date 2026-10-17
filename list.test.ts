@@ -43,7 +43,7 @@ describe("list", () => {
 		await deps.commit(worktree, "committed.txt", "a\n", "add committed");
 		await deps.fs.write(`${worktree}/untracked.txt`, "b\n");
 		await deps.fs.write(
-			`${worktree}/ARBOR.md`,
+			`${worktree}/SPLATES.md`,
 			"# alpha\n\n## Goal\n\nsupport dark mode\nand charts\n",
 		);
 
@@ -55,7 +55,7 @@ describe("list", () => {
 		expect(out).toContain("changed  untracked.txt");
 		expect(out).toContain("goal     support dark mode");
 		expect(out).not.toContain("and charts");
-		expect(out).not.toContain("ARBOR.md"); // excluded, so never a change
+		expect(out).not.toContain("SPLATES.md"); // excluded, so never a change
 
 		deps.log.clear();
 		await list(deps, { json: true, files: true });

@@ -1,7 +1,7 @@
 {
 	"id": "/",
-	"name": "arbor",
-	"short_name": "arbor",
+	"name": "Spinning Plates",
+	"short_name": "Plates",
 	"description": "Your agents at work, each in a worktree of its own",
 	"start_url": "/",
 	"scope": "/",

@@ -19,11 +19,11 @@ describe("claim", () => {
 		});
 
 		expect(await claim(deps, "alpha")).toMatchObject({ tookOver: false });
-		deps.proc.env.ARBOR_CONVERSATION = "c2";
+		deps.proc.env.SPLATES_CONVERSATION = "c2";
 		expect(await claim(deps, "alpha")).toMatchObject({ tookOver: true });
 	});
 
-	it("says what the task's ARBOR.md gives as its Goal", async () => {
+	it("says what the task's SPLATES.md gives as its Goal", async () => {
 		await add(deps, "alpha", { goal: "Stop retrying on a 413." });
 
 		expect(await claim(deps, "alpha")).toMatchObject({
@@ -94,7 +94,7 @@ describe("claim", () => {
 		await deps.fs.rm(worktree, { recursive: true, force: true });
 
 		await expect(claim(deps, "alpha")).toBail("orphaned", {
-			message: "arbor remove alpha",
+			message: "splates remove alpha",
 		});
 	});
 

@@ -38,7 +38,7 @@ export function realName(
 }
 
 /**
- * The names of the lanes a conversation opened with `[ARBOR LANE <n>]` for,
+ * The names of the lanes a conversation opened with `[SPLATES LANE <n>]` for,
  * as an orchestrator's does, or null for any other: "Untriaged" for the
  * untriaged todos, and a lane `lanes` lacks by its number.
  */
@@ -68,14 +68,14 @@ export function namedForTask(conversation: ConversationState): boolean {
 	);
 }
 
-/** What each `[ARBOR LANE ...]` the person's first words start with names. */
+/** What each `[SPLATES LANE ...]` the person's first words start with names. */
 export function lanesOf(conversation: ConversationState): string[] {
 	const first = conversation.messages
 		.find((message) => message.role === "user")
 		?.parts.find((part) => part.type === "text");
 	return first?.type === "text"
 		? leadingDirectives(first.text).directives.flatMap((directive) => {
-				const lane = /^\[ARBOR LANE (\S+)\]$/.exec(directive)?.[1];
+				const lane = /^\[(?:SPLATES|ARBOR) LANE (\S+)\]$/.exec(directive)?.[1];
 				return lane === undefined ? [] : [lane];
 			})
 		: [];

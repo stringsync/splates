@@ -491,7 +491,7 @@ function Conversation({
 
 /**
  * The report that is the conversation's last word when it says the task is
- * over, or the lanes are, and nothing arbor shows in the thread came after
+ * over, or the lanes are, and nothing splates shows in the thread came after
  * it, such as another task taken up: null otherwise.
  */
 function ended(conversation: ConversationState): Report | null {

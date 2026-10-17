@@ -19,7 +19,7 @@ export { decimal, percent };
 
 export type StatsReportEvents = { changed: undefined };
 
-/** Where the summary comes from: `arbor dev`, or a test's own. */
+/** Where the summary comes from: `splates dev`, or a test's own. */
 export interface StatsSource {
 	stats(period: PeriodId): Promise<Stats>;
 }

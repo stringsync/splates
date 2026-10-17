@@ -39,7 +39,7 @@ export interface PlanStep {
 }
 
 /**
- * What a lane's orchestrator is carrying out, live from arbor: each lane it
+ * What a lane's orchestrator is carrying out, live from splates: each lane it
  * works with its open todos, and the agents it started whose tasks are gone,
  * merged or removed, newest last. It changes plans by moving and linking
  * todos, which this follows, so it never waits on the orchestrator to say so.
@@ -51,7 +51,7 @@ export interface Plan {
 
 /**
  * The plan of `orchestrator`, from every conversation, the todos and the
- * lanes: the lanes it was sent with `[ARBOR LANE N]`, those its Started cards
+ * lanes: the lanes it was sent with `[SPLATES LANE N]`, those its Started cards
  * name, and those holding a todo an agent it started took. Null for a
  * conversation that started no lanes and no agents.
  */
@@ -121,14 +121,14 @@ const SHOWN = 3;
 
 /**
  * In a lane orchestrator's latest Working card, its plan as it stands, live
- * from arbor: Todo, its lanes' open todos no task has taken, in the order
+ * from splates: Todo, its lanes' open todos no task has taken, in the order
  * they land, each with what holds it back; Doing, those taken, each with the
  * agent on it and how that one stands; and Done, the agents it started whose
  * tasks are gone, newest last. A todo opens its card, an agent its
  * conversation. Todo shows its first rows and Done its last, the rest a click
  * away; Doing, as long as the agents at once, shows them all. Once its lanes
  * are done and nothing works, only how many landed and when the last did,
- * and, until the orchestrator has said its Finished report, that arbor dev
+ * and, until the orchestrator has said its Finished report, that splates dev
  * tells it to. Nothing outside a thread, or for a conversation that
  * orchestrates nothing.
  */
@@ -305,7 +305,7 @@ function Progress({
 }
 
 /**
- * That arbor dev tells the orchestrator its lanes are done, and a link to
+ * That splates dev tells the orchestrator its lanes are done, and a link to
  * tell it now, gone while it works; "Nudged" in its place once clicked.
  */
 function Nudge({ working }: { working: boolean }): JSX.Element {
@@ -315,8 +315,8 @@ function Nudge({ working }: { working: boolean }): JSX.Element {
 	return (
 		<div className="text-muted-foreground text-xs">
 			<p>
-				Every lane is done. arbor dev tells the orchestrator so, for it to wrap
-				up with its Finished report.{" "}
+				Every lane is done. splates dev tells the orchestrator so, for it to
+				wrap up with its Finished report.{" "}
 				{nudged
 					? "Nudged."
 					: send !== null &&

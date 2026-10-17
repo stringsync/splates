@@ -1,11 +1,11 @@
 import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
-import { NodePs } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { AgentStream } from "./agent-stream";
+import { systemPs } from "./legacy-ps";
 import { SERVING } from "./supervise";
 
-/** An agent arbor can hold a conversation with over ACP, and how to start it. */
+/** An agent splates can hold a conversation with over ACP, and how to start it. */
 export interface Agent {
 	id: string;
 	name: string;
@@ -87,9 +87,9 @@ export function launcherOf(launch: Launch): Launcher {
 }
 
 export const launch: Launch = (argv, cwd, env) => {
-	// So an `arbor dev` the agent runs supervises itself rather than serving
+	// So a `splates dev` the agent runs supervises itself rather than serving
 	// as this one's child.
-	const child = new NodePs().start(argv, { cwd, env, unset: [SERVING] });
+	const child = systemPs().start(argv, { cwd, env, unset: [SERVING] });
 	let tail = "";
 	// One that never started, as in a directory since removed, aborts its
 	// pipes and rejects its exit: it ends as one that exited saying why.
@@ -117,7 +117,7 @@ export const launch: Launch = (argv, cwd, env) => {
 /** How much of an agent's stderr is kept to explain how it died. */
 const STDERR_CHARS = 2_000;
 
-/** A session an agent holds that arbor could bring in. */
+/** A session an agent holds that splates could bring in. */
 export interface Session {
 	agent: string;
 	session: string;

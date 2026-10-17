@@ -41,7 +41,7 @@ describe("wait", () => {
 		await wait(deps, "alpha", PATIENT);
 
 		expect(deps.out()).toContain("removed");
-		expect(deps.out()).toContain("arbor log");
+		expect(deps.out()).toContain("splates log");
 	});
 
 	it("gives up on a task that keeps working", async () => {

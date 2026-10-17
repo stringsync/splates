@@ -3,23 +3,23 @@ import type { Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import manifest from "./package.json" with { type: "json" };
 
-/** The version of arbor running now, as `ship` stamped it. */
+/** The version of splates running now, as `ship` stamped it. */
 export const RUNNING: string = manifest.version;
 
-/** Where npm says which version of arbor is the latest. */
-export const REGISTRY = "https://registry.npmjs.org/@webappwiz/arbor/latest";
+/** Where npm says which version of splates is the latest. */
+export const REGISTRY = "https://registry.npmjs.org/splates/latest";
 
 /** How long a check waits on the registry before giving up for this round. */
 const PATIENCE = Duration.secs(10);
 
-/** A newer arbor than the one serving, published since it started. */
+/** A newer splates than the one serving, published since it started. */
 export interface Release {
 	running: string;
 	newest: string;
 }
 
 /**
- * Commits to arbor's own source since `arbor dev` started from a checkout of
+ * Commits to splates's own source since `splates dev` started from a checkout of
  * it, which a restart picks up.
  */
 export interface Behind {
@@ -30,7 +30,7 @@ export interface Behind {
 }
 
 /**
- * The directories arbor runs from in a checkout: its own, and the webappwiz
+ * The directories splates runs from in a checkout: its own, and the webappwiz
  * library it imports, whose commits change what the server runs just as much.
  */
 export const SOURCE = [
@@ -39,7 +39,7 @@ export const SOURCE = [
 ];
 
 /**
- * The last commit to `source`, or null when arbor does not run from a
+ * The last commit to `source`, or null when splates does not run from a
  * checkout, as from npm, or git cannot say. Never throws, like `newest`.
  */
 export async function sourceCommit(
@@ -67,7 +67,7 @@ export async function sourceCommit(
 }
 
 /**
- * The latest version of arbor on npm, or null when the registry cannot say:
+ * The latest version of splates on npm, or null when the registry cannot say:
  * offline, slow, or answering with something else. A check that fails has
  * nothing to tell the person at the page, so it never throws.
  */

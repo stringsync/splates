@@ -12,7 +12,7 @@ describe("path", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("prints the main tree bare, so `cd $(arbor path)` works", async () => {
+	it("prints the main tree bare, so `cd $(splates path)` works", async () => {
 		await path(deps);
 
 		// Bare: no label, no decoration, nothing a shell would have to strip.

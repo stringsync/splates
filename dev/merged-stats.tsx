@@ -171,7 +171,7 @@ function Facts({
 	);
 }
 
-/** One line of what went worse; `arbor merge` made a todo of it. */
+/** One line of what went worse; `splates merge` made a todo of it. */
 function FindingLine({
 	Icon,
 	tone,

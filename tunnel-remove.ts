@@ -13,9 +13,9 @@ import {
 import { SLOTS_APP } from "./slot-tunnel";
 import { API_TOKEN, App, CloudflareTunnels } from "./tunnel-setup";
 
-/** What `arbor tunnel remove` is asked to remove, and what it runs with. */
+/** What `splates tunnel remove` is asked to remove, and what it runs with. */
 export interface RemoveOptions {
-	/** The tunnel `arbor tunnel setup` saved for this machine. */
+	/** The tunnel `splates tunnel setup` saved for this machine. */
 	saved: SavedTunnel;
 	/** Each slot home's tunnel, in the pool's order, whether or not it has one. */
 	slots: SavedTunnel[];
@@ -35,13 +35,13 @@ const Named = z.object({ id: z.string(), name: z.string() });
 const DnsRecord = z.object({ id: z.string(), content: z.string() });
 
 /**
- * Deletes what `arbor tunnel setup` and `arbor dev --slot` made, by what they
+ * Deletes what `splates tunnel setup` and `splates dev --slot` made, by what they
  * saved: each tunnel and the DNS record routing to it, the Access application
  * in front of the machine's host and the one in front of every slot, and the
  * policy they share. Then forgets each saved file and the tunnel token kept
  * for it. What is already gone is passed over, and a file is forgotten only
  * once its tunnel is, so running it again after a failure finishes the job.
- * The Cloudflare API token is kept, for `arbor tunnel setup` to use again.
+ * The Cloudflare API token is kept, for `splates tunnel setup` to use again.
  */
 export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 	const { saved, creds, log } = opts;
@@ -117,7 +117,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 				"Run it again to finish what is left.",
 				...(refused
 					? [
-							`When the token lacks a permission, \`arbor creds request ${API_TOKEN} --device --replace\` asks for a new one.`,
+							`When the token lacks a permission, \`splates creds request ${API_TOKEN} --device --replace\` asks for a new one.`,
 						]
 					: []),
 			].join("\n"),
@@ -125,7 +125,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 		);
 	}
 	log.info(
-		`${color.green("removed")} the tunnel; the Cloudflare API token stays in the store as ${API_TOKEN}, for \`arbor tunnel setup\` to use again`,
+		`${color.green("removed")} the tunnel; the Cloudflare API token stays in the store as ${API_TOKEN}, for \`splates tunnel setup\` to use again`,
 	);
 }
 

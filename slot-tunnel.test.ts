@@ -15,7 +15,9 @@ describe("slotTunnelSetup", () => {
 
 		const fox = await setup("fox");
 
-		const tunnel = cloudflare.tunnels.find(({ name }) => name === "arbor-fox");
+		const tunnel = cloudflare.tunnels.find(
+			({ name }) => name === "splates-fox",
+		);
 		expect(cloudflare.records).toContainEqual(
 			expect.objectContaining({
 				name: "fox.example.com",
@@ -26,7 +28,7 @@ describe("slotTunnelSetup", () => {
 			({ domain }) => domain === "*.example.com",
 		);
 		expect(wildcard).toMatchObject({
-			name: "arbor-slots",
+			name: "splates-slots",
 			policies: [{ id: cloudflare.policies[0]?.id, precedence: 1 }],
 		});
 		expect(fox).toEqual({
@@ -34,9 +36,9 @@ describe("slotTunnelSetup", () => {
 			team: machine.team,
 			aud: wildcard?.aud ?? "",
 			tunnel: tunnel?.id ?? "",
-			token: "ARBOR_SLOT_FOX_TUNNEL_TOKEN",
+			token: "SPLATES_SLOT_FOX_TUNNEL_TOKEN",
 		});
-		const saved = new SavedTunnel("/home/.arbor/slots/fox/tunnel.json", {
+		const saved = new SavedTunnel("/home/.splates/slots/fox/tunnel.json", {
 			fs,
 			store,
 		});
@@ -65,31 +67,31 @@ describe("slotTunnelSetup", () => {
 
 	it("names each slot's token by its word", () => {
 		expect(slotToken({ word: "bear", emoji: "🐻" })).toBe(
-			"ARBOR_SLOT_BEAR_TUNNEL_TOKEN",
+			"SPLATES_SLOT_BEAR_TUNNEL_TOKEN",
 		);
 	});
 });
 
-/** An account `arbor tunnel setup` has set up `example.com` in. */
+/** An account `splates tunnel setup` has set up `example.com` in. */
 async function account() {
 	const cloudflare = new FakeCloudflare().zone("example.com");
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
 	const creds = new Creds(
-		"/repo/.git/arbor/creds.json",
+		"/repo/.git/splates/creds.json",
 		new MemoryLock(),
 		{ project: new FakeSecretStore(), device: store },
 		{ fs },
 	);
 	const log = new MemoryLogger();
-	const machineTunnel = new SavedTunnel("/home/.arbor/tunnel.json", {
+	const machineTunnel = new SavedTunnel("/home/.splates/tunnel.json", {
 		fs,
 		store,
 	});
 	await tunnelSetup({
 		host: "example.com",
 		email: "me@example.com",
-		name: "arbor",
+		name: "splates",
 		team: "",
 		creds,
 		task: null,
@@ -103,7 +105,7 @@ async function account() {
 			slot: { word, emoji: "" },
 			machine,
 			creds,
-			saved: new SavedTunnel(`/home/.arbor/slots/${word}/tunnel.json`, {
+			saved: new SavedTunnel(`/home/.splates/slots/${word}/tunnel.json`, {
 				fs,
 				store,
 			}),

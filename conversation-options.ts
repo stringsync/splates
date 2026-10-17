@@ -40,7 +40,7 @@ export interface ConversationsOptions {
 	/** Where each agent's plan limits are kept across projects; nowhere by default. */
 	limits?: Limits | null;
 	/**
-	 * Where how each conversation followed the arbor skill is kept across
+	 * Where how each conversation followed the splates skill is kept across
 	 * projects, judged as each turn ends; nowhere by default.
 	 */
 	adherence?: Adherence | null;
@@ -56,12 +56,12 @@ export interface ConversationsOptions {
 	readLimits?: ((agent: Agent) => Promise<Limit[]>) | null;
 	/**
 	 * The main tree, where a conversation carries on once its task's worktree
-	 * is gone, as when the task landed while `arbor dev` was not there to hear
+	 * is gone, as when the task landed while `splates dev` was not there to hear
 	 * of it; without it, such a conversation cannot resume.
 	 */
 	root?: string | null;
 	/**
-	 * The arbor projects on this machine, for a prompt's `#slug` to name one
+	 * The splates projects on this machine, for a prompt's `#slug` to name one
 	 * by; none by default.
 	 */
 	projects?: ProjectRoster | null;

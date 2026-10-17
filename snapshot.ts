@@ -37,16 +37,16 @@ export interface Snapshot {
 	creds: CredRequest[];
 	/** The branch tasks land on, which the main tree has checked out. */
 	trunk: string;
-	/** A newer arbor than the one serving, once `arbor dev` has seen one on npm. */
+	/** A newer splates than the one serving, once `splates dev` has seen one on npm. */
 	release: Release | null;
-	/** Commits to arbor's own source since `arbor dev` started from it. */
+	/** Commits to splates's own source since `splates dev` started from it. */
 	behind: Behind | null;
 	/**
-	 * Whether building the page failed as `arbor dev` started, so the page
+	 * Whether building the page failed as `splates dev` started, so the page
 	 * serving is the one built before, and may be out of date.
 	 */
 	unbuilt: boolean;
-	/** The slot `arbor dev --slot` serves under, shown beside the project's name. */
+	/** The slot `splates dev --slot` serves under, shown beside the project's name. */
 	slot: Slot | null;
 }
 

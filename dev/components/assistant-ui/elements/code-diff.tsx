@@ -44,7 +44,7 @@ export function CodeDiff({
 			{...props}
 		>
 			<div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
-				{/* arbor: a long path keeps its end, the file's name, on one line. */}
+				{/* splates: a long path keeps its end, the file's name, on one line. */}
 				<span
 					title={filename}
 					className="min-w-0 truncate text-left text-foreground/90 [direction:rtl]"
@@ -62,7 +62,7 @@ export function CodeDiff({
 				<div className={codeSurface}>
 					{lines.map((line, i) => (
 						<div
-							// arbor: lines never reorder, and the same text can repeat.
+							// splates: lines never reorder, and the same text can repeat.
 							// biome-ignore lint/suspicious/noArrayIndexKey: as above
 							key={i}
 							className={cn(

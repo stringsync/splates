@@ -22,11 +22,11 @@ describe("Conversation steering, as Codex answers it", () => {
 
 	beforeEach(async () => {
 		const fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		agent = new FakeAgent();
 		agent.steering = "injected";
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -82,8 +82,8 @@ describe("Conversation steering, as Codex answers it", () => {
 		await finish(conversation, held);
 	});
 
-	it("steers no more once the agent starts a turn arbor cannot see end", async () => {
-		// As Codex does when its turn ended on the way, whatever arbor asked.
+	it("steers no more once the agent starts a turn splates cannot see end", async () => {
+		// As Codex does when its turn ended on the way, whatever splates asked.
 		agent.steering = "startedNewTurn";
 
 		await conversation.prompt("two");

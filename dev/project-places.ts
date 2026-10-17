@@ -9,7 +9,7 @@ export function shownProject(): string | null {
 }
 
 /** Where this tab last was in each project, by slug, "" for the focused one. */
-const PLACES = "arbor.places";
+const PLACES = "splates.places";
 
 /** A project as this tab last showed it: its name, and the address's hash. */
 interface Place {

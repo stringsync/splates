@@ -20,7 +20,7 @@ export interface BoardContext {
 	openTodos: (ids: readonly number[]) => void;
 	/** Every live task, by name: those a chip naming one opens. */
 	tasks: readonly string[];
-	/** Each live task's `ARBOR.md`, by its name, for what it assumed. */
+	/** Each live task's `SPLATES.md`, by its name, for what it assumed. */
 	plans: ReadonlyMap<string, string>;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
@@ -55,7 +55,7 @@ export const NO_BOARD: BoardContext = {
 
 export const Board = createContext<BoardContext>(NO_BOARD);
 
-/** Each of `tasks` that has an `ARBOR.md`, by its name. */
+/** Each of `tasks` that has an `SPLATES.md`, by its name. */
 export function plansOf(
 	tasks: readonly Pick<Details, "task" | "plan">[],
 ): ReadonlyMap<string, string> {

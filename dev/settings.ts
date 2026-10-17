@@ -144,7 +144,7 @@ export const SETTINGS = {
 		category: "Updates",
 		title: "Auto update",
 		description:
-			"Automatically update to a newer arbor release or the latest commits on its local source. Once you and the agents an update would interrupt have been idle for a minute, a minute’s countdown lets you cancel. Updating restarts arbor dev and reloads this page.",
+			"Automatically update to a newer splates release or the latest commits on its local source. Once you and the agents an update would interrupt have been idle for a minute, a minute’s countdown lets you cancel. Updating restarts splates dev and reloads this page.",
 		default: false,
 	},
 	"shortcuts.search": shortcut(
@@ -303,7 +303,7 @@ export type Value<K extends Key> = K extends Key
 	: never;
 
 /** Where the settings are kept between visits, together. */
-const STORED = "arbor.settings";
+const STORED = "splates.settings";
 
 /**
  * The page's settings, kept in `storage` for the next visit: each one

@@ -28,7 +28,7 @@ describe("PortForward", () => {
 
 	beforeEach(async () => {
 		forwards = [];
-		dir = await mkdtemp(join(tmpdir(), "arbor-port-"));
+		dir = await mkdtemp(join(tmpdir(), "splates-port-"));
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());

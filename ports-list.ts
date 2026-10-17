@@ -17,11 +17,11 @@ const Listed = z.object({
 	),
 });
 
-/** What `arbor ports` is run with. */
+/** What `splates ports` is run with. */
 export interface PortsOptions {
 	/** Only this task's; empty for every task's. */
 	task: string;
-	/** The `arbor dev` to ask; empty for the one this agent runs under, or this machine's. */
+	/** The `splates dev` to ask; empty for the one this agent runs under, or this machine's. */
 	dev: string;
 	json: boolean;
 	log: Logger;
@@ -30,14 +30,14 @@ export interface PortsOptions {
 }
 
 /**
- * `arbor ports`: asks the running `arbor dev` which ports tasks serve, each
+ * `splates ports`: asks the running `splates dev` which ports tasks serve, each
  * with its link through the saved ports host and its link on this machine,
  * so an agent can hand the user both.
  */
 export async function portsLs(opts: PortsOptions): Promise<void> {
 	const { log, ps, send = fetch } = opts;
 	const url =
-		opts.dev || ps.env("ARBOR_DEV") || `http://localhost:${DEFAULT_PORT}`;
+		opts.dev || ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
@@ -47,13 +47,13 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 	} catch (error) {
 		fail(
 			"not_found",
-			`arbor dev at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}; give its URL with --dev`,
+			`splates dev at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}; give its URL with --dev`,
 		);
 	}
 	if (!response.ok) {
 		fail(
 			"not_found",
-			`arbor dev at ${url} did not list the task ports: ${response.status} ${await response.text()}`,
+			`splates dev at ${url} did not list the task ports: ${response.status} ${await response.text()}`,
 		);
 	}
 	const listed = Listed.parse(await response.json());
@@ -85,7 +85,7 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 	];
 	if (listed.base === null) {
 		lines.push(
-			"no ports host saved, so these open on this machine alone: `arbor dev --ports-host <base>` serves them at https://<task>-<port>.<base>",
+			"no ports host saved, so these open on this machine alone: `splates dev --ports-host <base>` serves them at https://<task>-<port>.<base>",
 		);
 	}
 	log.info(lines.join("\n"));

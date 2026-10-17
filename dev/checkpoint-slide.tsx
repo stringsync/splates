@@ -15,9 +15,9 @@ export interface Standing {
 /**
  * Where the dialog is: picking projects, counting down to an auto update,
  * waiting on agents, done with them
- * before `arbor dev` goes, waiting on it to restart, back from a restart with no
+ * before `splates dev` goes, waiting on it to restart, back from a restart with no
  * agent to resume, its agents being told to carry on after the restart, or
- * ended with them carrying on; or waiting on `arbor dev` to shut down, and
+ * ended with them carrying on; or waiting on `splates dev` to shut down, and
  * gone once it has.
  */
 export type Slide =
@@ -50,30 +50,30 @@ export function titleOf(
 	updating = false,
 ): string {
 	if (updating) {
-		return "Updating arbor dev";
+		return "Updating splates dev";
 	}
 	switch (slide) {
 		case "pick":
 			return "Power";
 		case "counting":
-			return "Updating arbor dev";
+			return "Updating splates dev";
 		case "going":
 			return run === "restart"
-				? "Restarting arbor dev"
+				? "Restarting splates dev"
 				: run === "shutdown"
-					? "Shutting down arbor dev"
+					? "Shutting down splates dev"
 					: "Checkpointing agents";
 		case "restarting":
 		case "resuming":
-			return "Restarting arbor dev";
+			return "Restarting splates dev";
 		case "restarted":
-			return "arbor dev restarted";
+			return "splates dev restarted";
 		case "ended":
-			return restarted ? "arbor dev restarted" : "Agents resumed";
+			return restarted ? "splates dev restarted" : "Agents resumed";
 		case "shuttingDown":
-			return "Shutting down arbor dev";
+			return "Shutting down splates dev";
 		case "shutDown":
-			return "arbor dev shut down";
+			return "splates dev shut down";
 		case "done":
 			return "Agents checkpointed";
 	}

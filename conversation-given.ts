@@ -3,8 +3,8 @@ import type { WorktreeService } from "./worktree-service";
 
 /**
  * The conversation a command is about: `given` from `--conversation`, for an
- * agent outside `arbor dev`, else the one `arbor dev` started this agent in
- * ($ARBOR_CONVERSATION). Refuses `usage` when neither names one of this
+ * agent outside `splates dev`, else the one `splates dev` started this agent in
+ * ($SPLATES_CONVERSATION). Refuses `usage` when neither names one of this
  * repository's.
  */
 export async function conversationOf(
@@ -15,7 +15,7 @@ export async function conversationOf(
 	if (id === undefined) {
 		fail(
 			"usage",
-			"not in an `arbor dev` conversation: pass --conversation <id> from elsewhere",
+			"not in a `splates dev` conversation: pass --conversation <id> from elsewhere",
 		);
 	}
 	if (!(await service.holds(id))) {

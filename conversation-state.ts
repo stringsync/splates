@@ -33,18 +33,18 @@ export interface ConversationState {
 	/** Why it failed, for `failed`. */
 	error: string | null;
 	/**
-	 * When arbor stopped its agent for sitting idle `IDLE_STOP`; null otherwise,
+	 * When splates stopped its agent for sitting idle `IDLE_STOP`; null otherwise,
 	 * and again once it starts.
 	 */
 	stoppedIdle: string | null;
 	/**
-	 * When arbor next asks it, idle with an agent it handed a task to at
+	 * When splates next asks it, idle with an agent it handed a task to at
 	 * work, to check on its agents; null while none is due.
 	 */
 	heartbeat: string | null;
 	messages: Message[];
 	/**
-	 * What arbor did at its agent's word, oldest first, read from the journal
+	 * What splates did at its agent's word, oldest first, read from the journal
 	 * rather than its log, so the page can show each among its messages.
 	 */
 	events: Event[];
@@ -73,27 +73,27 @@ export interface ConversationState {
 	 */
 	parent: { id: string | null } | null;
 	/**
-	 * The conversation that handed it its task with `arbor add --agent`, which
+	 * The conversation that handed it its task with `splates add --agent`, which
 	 * it answers to in place of the person: the page writes nothing to it but
 	 * an answer to what its agent asks permission for, and its terminating.
 	 * Set when it starts, and kept once the task is gone.
 	 */
 	handedBy: string | null;
 	/**
-	 * The lane orchestrator that handed it its task with `arbor add --agent`:
+	 * The lane orchestrator that handed it its task with `splates add --agent`:
 	 * it answers to the person, as any conversation does, and that one only
 	 * hears when it stops, and may wake, stop or remove it. Set when it
 	 * starts, and kept once the task is gone.
 	 */
 	startedBy: string | null;
 	/**
-	 * The `version:` of the project's arbor skill as it started, which the
+	 * The `version:` of the project's splates skill as it started, which the
 	 * Stats page tells adherence apart by; null when it had none, or for a log
 	 * written before it was kept.
 	 */
 	skill: string | null;
 	/**
-	 * Started on the agent and model a todo or `arbor add --agent` assigned,
+	 * Started on the agent and model a todo or `splates add --agent` assigned,
 	 * rather than ones the person picked, so a new conversation does not start
 	 * where this one left its settings.
 	 */
@@ -139,12 +139,12 @@ export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
  */
 export type Taking = "start" | "steer" | "queue";
 
-/** How long an agent sits idle before arbor stops its process. */
+/** How long an agent sits idle before splates stops its process. */
 export const IDLE_STOP = Duration.mins(30);
 
 /**
  * How long the conversation that handed tasks out sits idle, with an agent it
- * handed one to at work, before arbor asks it to check on them.
+ * handed one to at work, before splates asks it to check on them.
  */
 export const HEARTBEAT_IDLE = Duration.mins(10);
 
@@ -155,7 +155,7 @@ export const HEARTBEAT_IDLE = Duration.mins(10);
 export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 
 /**
- * What follows a checkpoint once every agent is done: `arbor dev` restarts
+ * What follows a checkpoint once every agent is done: `splates dev` restarts
  * and tells each to carry on, or shuts down, and its next start does.
  */
 export type After = "resume" | "shutdown";
@@ -182,7 +182,7 @@ export interface Message {
 	interrupted?: string;
 	/** Said while the agent worked, and taken into the turn it was running. */
 	steered?: true;
-	/** The conversation that said it with `arbor tell`, for one the person did not say. */
+	/** The conversation that said it with `splates tell`, for one the person did not say. */
 	told?: string;
 	/** Said into the mic rather than typed. */
 	dictated?: true;
@@ -240,7 +240,7 @@ export type Device = "phone" | "desktop";
 export const DEVICES: readonly Device[] = ["phone", "desktop"];
 
 /** The header a prompt from the page names its `Device` in. */
-export const FROM_HEADER = "arbor-from";
+export const FROM_HEADER = "splates-from";
 
 export interface Upload {
 	/** What the person called it. */

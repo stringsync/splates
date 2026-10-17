@@ -21,12 +21,12 @@ describe("Conversation following a turn Codex starts for a steer", () => {
 
 	beforeEach(async () => {
 		const fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		agent = new FakeAgent();
 		agent.steering = "injected";
 		agent.lists = true;
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -39,7 +39,7 @@ describe("Conversation following a turn Codex starts for a steer", () => {
 		held = {};
 		agent.turn = () => new Promise((resolve) => (held.finish = resolve));
 		conversation = await working(conversations, held);
-		// As Codex does when the turn ends just as arbor steers into it.
+		// As Codex does when the turn ends just as splates steers into it.
 		agent.steering = "startedNewTurn";
 		agent.beforeSteer = async () => {
 			held.finish?.("end_turn");
@@ -56,7 +56,7 @@ describe("Conversation following a turn Codex starts for a steer", () => {
 				air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
 			},
 		});
-		expect(agent.subscribed).toEqual(["/repo-arbor/login"]);
+		expect(agent.subscribed).toEqual(["/repo-splates/login"]);
 	});
 
 	it("shows the turn running until the list says it ended", async () => {
@@ -73,7 +73,7 @@ describe("Conversation following a turn Codex starts for a steer", () => {
 
 	it("takes a row from before the turn for no end of it", async () => {
 		await conversation.prompt("two");
-		// Read as the turn before ended, in the second arbor heard of this one.
+		// Read as the turn before ended, in the second splates heard of this one.
 		await agent.list("idle", "2026-10-11T10:00:00Z");
 		await handled();
 

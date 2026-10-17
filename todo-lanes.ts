@@ -127,8 +127,8 @@ export class TodoLanes {
 	}
 
 	/**
-	 * Moves todos saved while arbor kept tags into lanes, one lane a tag,
-	 * and drops their tags, which arbor refuses to read until then. A todo
+	 * Moves todos saved while splates kept tags into lanes, one lane a tag,
+	 * and drops their tags, which splates refuses to read until then. A todo
 	 * in no lane goes to the lane of its tag the most todos share, at the
 	 * bottom, in list order, below anything in that lane blocking it; a lane
 	 * already called that takes them. Gives back each lane it filled, with
@@ -340,7 +340,7 @@ function lacking(records: LaneRecord[], id: number): void {
 	if (!records.some((record) => record.id === id)) {
 		fail(
 			"not_found",
-			`no lane ${id}: run \`arbor lane list\`, or pass \`new\` to start one`,
+			`no lane ${id}: run \`splates lane list\`, or pass \`new\` to start one`,
 			{ lane: id },
 		);
 	}

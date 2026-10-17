@@ -71,7 +71,7 @@ const CATEGORIES = [
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
 /**
- * The board's todos and lanes, `tasks`, `systems`, the other arbor
+ * The board's todos and lanes, `tasks`, `systems`, the other splates
  * `projects` on this machine, the directives, and `actions` for `#` in the
  * composer, the conversation's actions run in place.
  */
@@ -214,14 +214,14 @@ export const BARE_DIRECTIVES = [
 	{
 		directive: CHECKPOINT,
 		label: "Checkpoint",
-		about: "update ARBOR.md and stop",
+		about: "update SPLATES.md and stop",
 		icon: BookmarkIcon,
 		tone: "neutral",
 	},
 	{
 		directive: RESUME,
 		label: "Resume",
-		about: "carry on from ARBOR.md",
+		about: "carry on from SPLATES.md",
 		icon: PlayIcon,
 		tone: "neutral",
 	},

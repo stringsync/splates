@@ -3,7 +3,7 @@ import { framed } from "./agent-process";
 import type { Agent, AgentProcess } from "./conversations";
 import type { RosterAgent } from "./roster";
 
-/** What the agent does with each prompt, given the connection back to arbor. */
+/** What the agent does with each prompt, given the connection back to splates. */
 export type Turn = (
 	client: acp.AgentSideConnection,
 	session: string,
@@ -33,7 +33,7 @@ export class FakeAgent {
 	/**
 	 * What `_session/steering` answers, or null for an agent that does not
 	 * offer it, the default: `startedNewTurn` as Codex does when it finds no
-	 * turn, whatever arbor asked, and `failed` as it does on an error.
+	 * turn, whatever splates asked, and `failed` as it does on an error.
 	 */
 	steering: "injected" | "promptRequired" | "startedNewTurn" | "failed" | null =
 		null;
@@ -45,7 +45,7 @@ export class FakeAgent {
 	lists = false;
 	/** The working directories its session list was subscribed for, in order. */
 	subscribed: string[] = [];
-	/** What arbor said it can take, as it started the last process. */
+	/** What splates said it can take, as it started the last process. */
 	capabilities: acp.ClientCapabilities | null = null;
 	/** The background commands stopped, by id, in order. */
 	stoppedBackground: string[] = [];

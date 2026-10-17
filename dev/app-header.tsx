@@ -21,7 +21,7 @@ export function AppHeader({
 }: {
 	name: string;
 	snapshot: Snapshot | null;
-	/** Why a newer arbor has the server refusing, or null. */
+	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
 	offline: boolean;
 	machine: MachineStatus | null;
@@ -72,8 +72,8 @@ export function AppStatus({
 }
 
 /**
- * Which `arbor dev --slot` this is, when several are open, or arbor's tree
- * for the one plain `arbor dev`.
+ * Which `splates dev --slot` this is, when several are open, or splates's tree
+ * for the one plain `splates dev`.
  */
 export function SlotMark({
 	snapshot,
@@ -84,11 +84,11 @@ export function SlotMark({
 	return (
 		<span
 			role="img"
-			aria-label={slot === null ? "arbor" : `slot ${slot.word}`}
+			aria-label={slot === null ? "Spinning Plates" : `slot ${slot.word}`}
 			title={
 				slot === null
-					? "Served by arbor dev"
-					: `Served by the ${slot.word} slot of arbor dev`
+					? "Served by splates dev"
+					: `Served by the ${slot.word} slot of splates dev`
 			}
 			className="shrink-0 text-base leading-none"
 		>
@@ -115,7 +115,7 @@ function ServerBadges({
 }): JSX.Element {
 	return (
 		<>
-			{/* Up but refusing: a newer arbor moved the records on. */}
+			{/* Up but refusing: a newer splates moved the records on. */}
 			{outdated !== null && !offline && (
 				<span role="status" title={outdated} className={WARNING}>
 					<span className="size-1.5 rounded-full bg-amber-500" />
@@ -127,7 +127,7 @@ function ServerBadges({
 			{snapshot?.unbuilt === true && outdated === null && !offline && (
 				<span
 					role="status"
-					title="Building this page failed as arbor dev started, so it may be out of date: the terminal running arbor dev says why"
+					title="Building this page failed as splates dev started, so it may be out of date: the terminal running splates dev says why"
 					className={WARNING}
 				>
 					<span className="size-1.5 rounded-full bg-amber-500" />
@@ -137,7 +137,7 @@ function ServerBadges({
 			{offline && (
 				<span
 					role="status"
-					title="arbor dev stopped answering: is it still running?"
+					title="splates dev stopped answering: is it still running?"
 					className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
 				>
 					<span className="size-1.5 rounded-full bg-destructive" />

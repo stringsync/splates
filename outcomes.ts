@@ -7,19 +7,19 @@ import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
 
 /**
  * Every task that has ended on this machine, across projects, in
- * `~/.arbor/outcomes.jsonl`, oldest first. Unlike the journal it is never
+ * `~/.splates/outcomes.jsonl`, oldest first. Unlike the journal it is never
  * trimmed: a trend needs months of it, and a line per task stays small.
  */
 export class Outcomes {
 	constructor(
-		/** `~/.arbor/outcomes.jsonl`, or a test's own. */
+		/** `~/.splates/outcomes.jsonl`, or a test's own. */
 		readonly path: string,
 		private readonly fs: Fs,
 	) {}
 
 	/**
-	 * Beside `path`, the usage of the turns tasks ended in, which `arbor
-	 * merge` writes its line too early to see. Apart from `path`, so arbor
+	 * Beside `path`, the usage of the turns tasks ended in, which `splates
+	 * merge` writes its line too early to see. Apart from `path`, so splates
 	 * versions that read only that never mistake one for a task.
 	 */
 	get turnsPath(): string {
@@ -96,7 +96,7 @@ export class Outcomes {
 
 /**
  * What the rest of the turn a task ended in used, a line of
- * `~/.arbor/outcome-usage.jsonl`, naming its outcome by when it ended.
+ * `~/.splates/outcome-usage.jsonl`, naming its outcome by when it ended.
  */
 interface TurnUsage {
 	project: string;
@@ -218,7 +218,7 @@ export interface Outcome {
 	systems?: string[];
 	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */
 	waitedMs?: number;
-	/** Why it was removed, when `arbor remove --reason` said; null when merged or unsaid. */
+	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */
 	removedFor?: RemoveReason | null;
 	/** For a merge, each commit's message it landed, oldest first. Absent from older lines. */
 	commits?: string[];
@@ -229,7 +229,7 @@ export interface Outcome {
 	promptsFrom?: Partial<Record<Device, number>>;
 	/**
 	 * What its own turns used, not the rest of its conversation's, the turn it
-	 * ended in added from `turnsPath` once `arbor dev` saw it end. Absent from
+	 * ended in added from `turnsPath` once `splates dev` saw it end. Absent from
 	 * older lines, for a task with no conversation log to read, and, as read,
 	 * for one with no tokens out, which never kept the turns that did its work.
 	 */
@@ -240,9 +240,9 @@ export interface Outcome {
 	size?: DiffSize;
 	/** What went worse than it could have. Absent from older lines, never read as none. */
 	findings?: Finding[];
-	/** The `arbor dev` conversation that ended it; null for an external agent. */
+	/** The `splates dev` conversation that ended it; null for an external agent. */
 	conversation: string | null;
-	/** The agent `arbor add --agent` handed it to, if any. */
+	/** The agent `splates add --agent` handed it to, if any. */
 	agent: string | null;
 	/** The model it was handed over with, if any. */
 	model: string | null;

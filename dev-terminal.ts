@@ -14,7 +14,7 @@ export interface TerminalProjects {
 /**
  * The shells a page opens over `/api/terminal`, each in the main tree or a
  * task's worktree. Open one with `?terminal=<key>` to come back to it by
- * that key after a reload or a restart of `arbor dev`; `handOver` and
+ * that key after a reload or a restart of `splates dev`; `handOver` and
  * `takeBack` carry keyed shells across the restart, and `disposeAsync`
  * hangs up on them all.
  */

@@ -206,7 +206,7 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
-	// The agent's own `arbor` sends this as it takes or lands a task. `from`
+	// The agent's own `splates` sends this as it takes or lands a task. `from`
 	// names the task it is leaving, so removing some other task moves nothing.
 	// A subagent runs with its caller's env, so its claim of a part of the
 	// conversation's task arrives here too, and leaves the conversation be.
@@ -443,7 +443,7 @@ export class ConversationRoutes {
 
 	/**
 	 * Says `text` in a conversation as the person would, for the conversation
-	 * that handed it its task, as `arbor tell` does: the one way in to one
+	 * that handed it its task, as `splates tell` does: the one way in to one
 	 * that answers to it, and how a lane's orchestrator wakes or stops one it
 	 * started. With `stop`, the running turn stops first.
 	 */
@@ -465,7 +465,7 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
-	// The agent's own `arbor artifact add` and `remove`, and the person's delete
+	// The agent's own `splates artifact add` and `remove`, and the person's delete
 	// of one version's bytes, which `remove` leaves kept.
 	readonly addArtifact = async (request: Request): Promise<Response> =>
 		addVersion(request, await this.conversationAt(request));

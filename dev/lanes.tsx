@@ -205,10 +205,10 @@ export function Lane({
 }
 
 /**
- * While no agent is on lane `id`, puts one on it with `[ARBOR LANE <n>]`,
+ * While no agent is on lane `id`, puts one on it with `[SPLATES LANE <n>]`,
  * which starts at the top and works down: in a conversation, or, while the
  * page holds none, copied to paste into an agent's chat. For null, the
- * Untriaged column, `[ARBOR LANE untriaged]`, which places its todos in
+ * Untriaged column, `[SPLATES LANE untriaged]`, which places its todos in
  * lanes and then works those down.
  */
 function StartLane({ id }: { id: number | null }): JSX.Element {

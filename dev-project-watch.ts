@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
+import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
 import { fingerprint, type Snapshot, snapshot } from "./snapshot";
 
@@ -59,8 +60,8 @@ export class ProjectWatch implements StreamWatcher {
 		});
 	}
 
-	// What a page shows is spread across arbor's records, the branches'
-	// refs and each worktree's ARBOR.md, so all three are watched, and a
+	// What a page shows is spread across splates's records, the branches'
+	// refs and each worktree's SPLATES.md, so all three are watched, and a
 	// change anywhere in them reads the repo again to see what moved.
 	async tick(): Promise<void> {
 		// Read only for a page that would hear of it. One that connects later
@@ -113,13 +114,13 @@ export class ProjectWatch implements StreamWatcher {
 
 	// Watched only while a page listens, the way the poll before it read.
 	private arm(): void {
-		const { fs, arborDir, service, log } = this.project;
-		const gitDir = dirname(arborDir);
-		const conversationsDir = `${arborDir}/conversations`;
+		const { fs, splatesDir, service, log } = this.project;
+		const gitDir = dirname(splatesDir);
+		const conversationsDir = `${splatesDir}/conversations`;
 		try {
 			this.watches = [
 				fs.watch(
-					arborDir,
+					splatesDir,
 					(path) => {
 						// An agent's turn streams into its log: nothing a page shows.
 						if (
@@ -142,7 +143,7 @@ export class ProjectWatch implements StreamWatcher {
 			];
 		} catch (error) {
 			log.error(
-				`arbor dev cannot watch ${service.git.root}, so it polls it: ${String(error)}`,
+				`splates dev cannot watch ${service.git.root}, so it polls it: ${String(error)}`,
 			);
 			this.disarm();
 			this.poll = setInterval(this.changed, POLL_MS);
@@ -165,7 +166,7 @@ export class ProjectWatch implements StreamWatcher {
 	}
 
 	/**
-	 * Watches each worktree in `paths`, and no other: its ARBOR.md, and its
+	 * Watches each worktree in `paths`, and no other: its SPLATES.md, and its
 	 * files as they are edited, which move its counts and its systems.
 	 */
 	private follow(paths: string[]): void {
@@ -188,7 +189,7 @@ export class ProjectWatch implements StreamWatcher {
 					this.project.fs.watch(
 						path,
 						(file) => {
-							if (basename(file) === PLAN_FILE) {
+							if ([PLAN_FILE, LEGACY_PLAN_FILE].includes(basename(file))) {
 								this.changed();
 							} else if (!file.includes("/node_modules/")) {
 								this.edited();

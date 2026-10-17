@@ -53,7 +53,7 @@ describe.concurrent("outcomes", () => {
 		await using deps = await Testing.open();
 		await deps.commit(
 			deps.root,
-			"arbor.systems.ts",
+			"splates.systems.ts",
 			`export default ${JSON.stringify({ mixer: { globs: ["mixer-*.ts"] }, docs: { globs: ["*.md"] } })};\n`,
 			"name systems",
 		);
@@ -141,9 +141,9 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
-	it("names the conversation from arbor dev that ended it, and what it ran", async () => {
+	it("names the conversation from splates dev that ended it, and what it ran", async () => {
 		await using deps = await Testing.open();
-		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		const model = (current: string) => ({
 			kind: "settings",
 			settings: [
@@ -158,9 +158,9 @@ describe.concurrent("outcomes", () => {
 				},
 			],
 		});
-		await deps.fs.mkdir(join(deps.arborDir, "conversations"));
+		await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
 		await deps.fs.write(
-			join(deps.arborDir, "conversations", "c1.jsonl"),
+			join(deps.splatesDir, "conversations", "c1.jsonl"),
 			[
 				{ kind: "start", id: "c1", agent: "claude", task: null },
 				model("sonnet"),
@@ -184,12 +184,12 @@ describe.concurrent("outcomes", () => {
 
 	it("counts the prompts said from each layout of the page while the task ran", async () => {
 		await using deps = await Testing.open();
-		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		await add(deps, "alpha");
 		const during = new Date().toISOString();
-		await deps.fs.mkdir(join(deps.arborDir, "conversations"));
+		await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
 		await deps.fs.write(
-			join(deps.arborDir, "conversations", "c1.jsonl"),
+			join(deps.splatesDir, "conversations", "c1.jsonl"),
 			[
 				{ kind: "start", id: "c1", agent: "claude", task: null },
 				// Before the task, so another task's.
@@ -209,7 +209,7 @@ describe.concurrent("outcomes", () => {
 				},
 				{ kind: "prompt", text: "merge", at: during, from: "desktop" },
 				// An agent's word, from no layout.
-				{ kind: "prompt", text: "[ARBOR RESUME]", at: during },
+				{ kind: "prompt", text: "[SPLATES RESUME]", at: during },
 			]
 				.map((line) => `${JSON.stringify(line)}\n`)
 				.join(""),
@@ -255,7 +255,7 @@ describe.concurrent("outcomes", () => {
 	// scry-ignore simple-test-setup: each test opens its own repo with `await using`, as every test here does, since they run concurrently
 	it("reads the task's own usage, working time and findings off its conversation", async () => {
 		await using deps = await Testing.open();
-		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		const worktree = await committed(deps, "one\n");
 		const at = await stepsFromStart(deps);
 		await logged(deps, [
@@ -315,7 +315,7 @@ describe.concurrent("outcomes", () => {
 
 	it("credits a task merged in its first turn with that turn's usage once the turn ends, beside the outcomes", async () => {
 		await using deps = await Testing.open();
-		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		const worktree = await committed(deps, "one\n");
 		const at = await stepsFromStart(deps);
 		const start = [
@@ -338,7 +338,7 @@ describe.concurrent("outcomes", () => {
 			{ kind: "usage", usage: { inputTokens: 40, outputTokens: 7 } },
 		]);
 
-		const log = join(deps.arborDir, "conversations", "c1.jsonl");
+		const log = join(deps.splatesDir, "conversations", "c1.jsonl");
 		await deps.outcomes.creditTurn("c1", log, at(0), ended);
 		await deps.outcomes.creditTurn("c2", log, at(0), ended);
 
@@ -381,9 +381,9 @@ async function stepsFromStart(
 
 /** Writes conversation `c1`'s log: its start, then `lines`. */
 async function logged(deps: Testing, lines: object[]): Promise<void> {
-	await deps.fs.mkdir(join(deps.arborDir, "conversations"));
+	await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
 	await deps.fs.write(
-		join(deps.arborDir, "conversations", "c1.jsonl"),
+		join(deps.splatesDir, "conversations", "c1.jsonl"),
 		[{ kind: "start", id: "c1", agent: "claude", task: null }, ...lines]
 			.map((line) => `${JSON.stringify(line)}\n`)
 			.join(""),
@@ -396,7 +396,7 @@ async function judged(
 	scores: Record<string, { passed: number; failed: number }>,
 ): Promise<void> {
 	await deps.fs.write(
-		join(deps.arborHome, "adherence.jsonl"),
+		join(deps.splatesHome, "adherence.jsonl"),
 		`${JSON.stringify({ conversation: "c1", project: deps.root, agent: "claude", skill: null, at: BEFORE, scores })}\n`,
 	);
 }

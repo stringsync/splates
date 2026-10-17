@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fail } from "./exit";
 
 /**
- * The Cloudflare Access application in front of `arbor dev`: the team it
+ * The Cloudflare Access application in front of `splates dev`: the team it
  * belongs to, as the issuer its tokens name, and its AUD tag. The one place
  * both live, so whatever exposes the page beyond this machine can ask whether
  * Access stands in front of it.

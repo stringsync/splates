@@ -22,11 +22,11 @@ describe("show", () => {
 		return JSON.parse(deps.out()).takenBy;
 	};
 
-	it("reports a task and prints the ARBOR.md left in its worktree", async () => {
+	it("reports a task and prints the SPLATES.md left in its worktree", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/ARBOR.md`,
+			`${alpha}/SPLATES.md`,
 			"# alpha\n\n## Next\n- [ ] the rest\n",
 		);
 		deps.log.clear();
@@ -38,11 +38,11 @@ describe("show", () => {
 		expect(deps.out()).toContain("- [ ] the rest");
 	});
 
-	it("says how an ARBOR.md departs from the shape the skill prescribes", async () => {
+	it("says how an SPLATES.md departs from the shape the skill prescribes", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/ARBOR.md`,
+			`${alpha}/SPLATES.md`,
 			"# something else\n\n## Goal\nland it\n",
 		);
 		deps.log.clear();
@@ -53,21 +53,21 @@ describe("show", () => {
 		expect(deps.out()).toContain("no ## Next section");
 	});
 
-	it("says the ARBOR.md is missing rather than staying silent", async () => {
+	it("says the SPLATES.md is missing rather than staying silent", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
-		await deps.fs.rm(`${alpha}/ARBOR.md`);
+		await deps.fs.rm(`${alpha}/SPLATES.md`);
 		deps.log.clear();
 
 		await show(deps, "alpha");
 
-		expect(deps.out()).toContain("no ARBOR.md");
+		expect(deps.out()).toContain("no SPLATES.md");
 	});
 
-	it("carries the task's fields and its ARBOR.md as JSON", async () => {
+	it("carries the task's fields and its SPLATES.md as JSON", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
-		await deps.fs.write(`${alpha}/ARBOR.md`, "# alpha\n");
+		await deps.fs.write(`${alpha}/SPLATES.md`, "# alpha\n");
 		deps.log.clear();
 
 		await show(deps, "alpha", { json: true });
@@ -82,11 +82,11 @@ describe("show", () => {
 	});
 
 	it("carries the page conversation that last took it, none once an agent outside the page claims it", async () => {
-		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
-		await deps.fs.write(`${deps.arborDir}/conversations/c1.jsonl`, "");
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
+		await deps.fs.write(`${deps.splatesDir}/conversations/c1.jsonl`, "");
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
-		delete deps.proc.env.ARBOR_CONVERSATION;
+		delete deps.proc.env.SPLATES_CONVERSATION;
 
 		expect(await takenBy("alpha")).toBe("c1");
 		await claim(deps, "alpha");
@@ -94,9 +94,9 @@ describe("show", () => {
 	});
 
 	it("takes an agent from another project's page for one outside the page", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "elsewhere";
+		deps.proc.env.SPLATES_CONVERSATION = "elsewhere";
 		await add(deps, "alpha");
-		delete deps.proc.env.ARBOR_CONVERSATION;
+		delete deps.proc.env.SPLATES_CONVERSATION;
 
 		expect(await takenBy("alpha")).toBeNull();
 	});
@@ -119,8 +119,8 @@ describe("show", () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/arbor.systems.ts`,
-			`export default ${JSON.stringify({ docs: { globs: ["*.md"] }, code: { globs: ["*.ts"], ignore: ["arbor.systems.ts"] } })};\n`,
+			`${alpha}/splates.systems.ts`,
+			`export default ${JSON.stringify({ docs: { globs: ["*.md"] }, code: { globs: ["*.ts"], ignore: ["splates.systems.ts"] } })};\n`,
 		);
 		await deps.fs.write(`${alpha}/notes.md`, "a\n");
 		deps.log.clear();
@@ -134,7 +134,7 @@ describe("show", () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/arbor.systems.ts`,
+			`${alpha}/splates.systems.ts`,
 			`import "./nowhere";\nexport default {};\n`,
 		);
 		deps.log.clear();
@@ -211,6 +211,6 @@ describe("show", () => {
 		await show(deps, "alpha");
 
 		expect(deps.out()).toContain("orphaned");
-		expect(deps.out()).not.toContain("no ARBOR.md");
+		expect(deps.out()).not.toContain("no SPLATES.md");
 	});
 });

@@ -64,7 +64,10 @@ describe("App's Hand off action", () => {
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "[ARBOR HANDOFF TO codex gpt-5.5]" } },
+				{
+					method: "POST",
+					body: { text: "[SPLATES HANDOFF TO codex gpt-5.5]" },
+				},
 			]),
 		);
 	});
@@ -107,7 +110,7 @@ describe("App's Hand off action", () => {
 				conversation({
 					id: "c1",
 					task: "alpha",
-					messages: [message("user", "[ARBOR HANDOFF TO codex gpt-5.5]")],
+					messages: [message("user", "[SPLATES HANDOFF TO codex gpt-5.5]")],
 				}),
 			],
 			"c1",
@@ -115,7 +118,9 @@ describe("App's Hand off action", () => {
 			AGENTS,
 		);
 
-		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
 		expect(line.textContent).toContain("Hand off toCodex · GPT-5.5");
 	});
 

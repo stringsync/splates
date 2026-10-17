@@ -35,7 +35,7 @@ import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
-import { arborHome, Roster } from "./roster";
+import { Roster, splatesHome } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import { OpenCodeSetup } from "./setup-opencode";
@@ -68,7 +68,7 @@ export async function dev(
 		transcriber = transcriberFor,
 		newest = async () => null,
 		running = RUNNING,
-		checkEvery = Duration.mins(60), // how often to ask npm for a newer arbor
+		checkEvery = Duration.mins(60), // how often to ask npm for a newer splates
 		source = async () => null,
 		sourceEvery = Duration.secs(15), // how often to read a checkout's last commit
 		unbuilt = false,
@@ -115,7 +115,7 @@ export async function dev(
 	);
 	const { guarded, local } = gate;
 	const talk = local;
-	/** Where the agents' own `arbor` reaches this server, once it listens. */
+	/** Where the agents' own `splates` reaches this server, once it listens. */
 	let url: string | null = null;
 	const pages = new Pages(assets);
 
@@ -134,8 +134,8 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		conversationsFor: ({ arborDir, git, service }) =>
-			converse?.({ arborDir, git, config: service.config }) ?? null,
+		conversationsFor: ({ splatesDir, git, service }) =>
+			converse?.({ splatesDir, git, config: service.config }) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 	};
@@ -165,7 +165,7 @@ export async function dev(
 		if (slug === "") {
 			const focused = await projects.focused();
 			if (focused === null) {
-				fail("not_found", "no arbor project yet: add one by its path", {
+				fail("not_found", "no splates project yet: add one by its path", {
 					project: slug,
 				});
 			}
@@ -173,7 +173,7 @@ export async function dev(
 		}
 		const found = (await projects.list()).find((each) => each.slug === slug);
 		if (found === undefined) {
-			fail("not_found", `no arbor project '${slug}'`, { project: slug });
+			fail("not_found", `no splates project '${slug}'`, { project: slug });
 		}
 		if (found.gone) {
 			fail("not_found", `${found.root} is gone: moved or deleted`, {
@@ -183,7 +183,7 @@ export async function dev(
 		return servedAt(found.root);
 	};
 
-	// Again on every request, since a newer arbor may have migrated the
+	// Again on every request, since a newer splates may have migrated the
 	// records since this server started.
 	const scoped =
 		(pick: (project: Served) => Handler) =>
@@ -195,7 +195,7 @@ export async function dev(
 			})(request);
 
 	// A conversation is the project's it started in, whichever the page is on:
-	// the agent's own `arbor` names no project when it says it moved.
+	// the agent's own `splates` names no project when it says it moved.
 	const owned =
 		(pick: (project: Served) => Handler) =>
 		(request: Request): Promise<Response> =>
@@ -293,12 +293,12 @@ export async function dev(
 	const machine = new Machine(sensors ?? osSensors(fs));
 	const jobs = heavy ?? heavyJobsOfMachine({ fs, ps, log });
 	const opencode = new OpenCodeSetupRoutes(
-		new OpenCodeSetup({ fs, ps, home: arborHome(ps) }),
+		new OpenCodeSetup({ fs, ps, home: splatesHome(ps) }),
 		ps,
 		gate,
 		{
 			refresh: async () => {
-				const agents = await new Roster(`${arborHome(ps)}/agents.json`, {
+				const agents = await new Roster(`${splatesHome(ps)}/agents.json`, {
 					fs,
 				}).agents();
 				for (const opened of served.values()) {
@@ -313,7 +313,7 @@ export async function dev(
 		new Setup(
 			{
 				fs,
-				home: arborHome(ps),
+				home: splatesHome(ps),
 				device: (deps.secrets ?? SYSTEM_STORES).device,
 				opencode: opencode.setup,
 				fetch: deps.fetch,
@@ -662,7 +662,7 @@ export async function dev(
 	// And those a restart stopped agents in, which carry on once served.
 	await restarts.reopenStopped();
 
-	log.info(`arbor dev on http://localhost:${port}`);
+	log.info(`splates dev on http://localhost:${port}`);
 	if (tunnel !== null) {
 		const carrying = await startTunnel(tunnel, url, log);
 		if (carrying !== null) {

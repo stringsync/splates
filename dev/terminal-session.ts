@@ -20,7 +20,7 @@ export type TerminalStatus = "connecting" | "open" | "exited" | "closed";
  * into an element of its own, which goes wherever the page mounts it and
  * keeps its screen while it is not mounted anywhere. The server keeps the
  * shell by this tab and `key`, so a socket that goes short of the shell's
- * exit, as it does while `arbor dev` restarts, is tried again, and the
+ * exit, as it does while `splates dev` restarts, is tried again, and the
  * shell comes back with its screen redrawn; after a reload, the same.
  */
 export class TerminalSession

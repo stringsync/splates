@@ -1,8 +1,15 @@
 #!/usr/bin/env bun
-import { NodeFs, NodePs } from "webappwiz/system";
-import { arbor, projectArgs } from "./arbor";
+import { basename } from "node:path";
+import { NodeFs } from "webappwiz/system";
 import { assets } from "./dev/assets";
+import { LEGACY, legacyWarnings } from "./legacy-names";
+import { systemPs } from "./legacy-ps";
+import { projectArgs, splates } from "./splates";
 
-const ps = new NodePs();
+// The bin's old name, kept for one release.
+if (basename(process.argv[1] ?? "") === LEGACY) {
+	legacyWarnings.once(LEGACY, "splates");
+}
+const ps = systemPs();
 const { project, argv } = projectArgs(ps.args);
-await arbor.run({ fs: new NodeFs(), ps, assets, project }, argv);
+await splates.run({ fs: new NodeFs(), ps, assets, project }, argv);

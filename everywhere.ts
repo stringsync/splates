@@ -3,7 +3,7 @@ import type { Served } from "./dev-project";
 import type { Projects } from "./projects";
 
 /**
- * The conversations of every project `arbor dev` serves, so a conversation
+ * The conversations of every project `splates dev` serves, so a conversation
  * that handed out a task in another project than its own hears of, and
  * answers for, the agent it handed it to, as it would one in its own.
  */
@@ -68,7 +68,7 @@ export class Everywhere {
 	/**
 	 * How a directive names `task`, of the project at `root`, to a
 	 * conversation of the project at `to`: bare in its own, else
-	 * `<slug>/<task>`, which `arbor --project <slug>` reaches.
+	 * `<slug>/<task>`, which `splates --project <slug>` reaches.
 	 */
 	async taskNamed(task: string, root: string, to: string): Promise<string> {
 		return root === to ? task : `${await this.placing.slug(root)}/${task}`;

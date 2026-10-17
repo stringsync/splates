@@ -4,20 +4,21 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import { ARTIFACT_LIMITS } from "./artifacts";
 import type { Config } from "./config";
 import { Git } from "./git";
+import { legacyFile, legacyWarnings } from "./legacy-names";
 
 /** The file a repo's settings are in, at its root. */
-export const CONFIG_FILE = "arbor.config.ts";
+export const CONFIG_FILE = "splates.config.ts";
 
 export interface LoadConfigOptions {
-	/** What `arbor.config.ts` is looked for through; the real one by default. */
+	/** What `splates.config.ts` is looked for through; the real one by default. */
 	fs?: Fs;
 	/** What the trunk is detected through; the repo's own git by default. */
 	git?: Git;
 }
 
 /**
- * The settings arbor runs a repo with: what `arbor.config.ts` names, then the
- * branch `origin/HEAD` points at for the trunk, then arbor's own defaults.
+ * The settings splates runs a repo with: what `splates.config.ts` names, then the
+ * branch `origin/HEAD` points at for the trunk, then splates's own defaults.
  * Throws when the config file is there but cannot be imported.
  */
 export async function loadConfig(
@@ -41,7 +42,7 @@ function defaults(root: string, trunk: string): Config {
 		// every `bun install` and removal in the worktrees kept two cores busy
 		// and made timing tests fail the merge gate. A file marking the folder,
 		// `.metadata_never_index`, is ignored by macOS 26.
-		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor.noindex`),
+		worktreeRoot: resolve(root, "..", `${basename(root)}-splates.noindex`),
 		postCheckout: null,
 		postRewrite: null,
 		preMerge: null,
@@ -65,9 +66,9 @@ export class ConfigFiles {
 	constructor(private readonly fs: Fs = new NodeFs()) {}
 
 	/**
-	 * What `root`'s `arbor.config.ts` names, or nothing when there is no such
-	 * file. Systems live in `arbor.systems.ts` now: a config that still names
-	 * them is read without them, so `arbor update` can run to move them.
+	 * What `root`'s `splates.config.ts` names, or nothing when there is no such
+	 * file. Systems live in `splates.systems.ts` now: a config that still names
+	 * them is read without them, so `splates update` can run to move them.
 	 */
 	async read(root: string): Promise<Partial<Config>> {
 		const { systems: _, ...config } = await this.importConfig(root);
@@ -75,7 +76,7 @@ export class ConfigFiles {
 	}
 
 	/**
-	 * Everything `root`'s `arbor.config.ts` exports as its default, unchecked, or
+	 * Everything `root`'s `splates.config.ts` exports as its default, unchecked, or
 	 * nothing when there is no such file.
 	 */
 	importConfig(root: string): Promise<Record<string, unknown>> {
@@ -83,16 +84,33 @@ export class ConfigFiles {
 	}
 
 	/**
+	 * Where `file` is at `root`, under arbor's old name for it until `splates
+	 * update` renames it, or null when it is under neither.
+	 */
+	private async found(root: string, file: string): Promise<string | null> {
+		const path = `${root}/${file}`;
+		if (await this.fs.exists(path)) {
+			return path;
+		}
+		const old = legacyFile(file);
+		if (old === null || !(await this.fs.exists(`${root}/${old}`))) {
+			return null;
+		}
+		legacyWarnings.once(old, `${file}: run \`splates update\``);
+		return `${root}/${old}`;
+	}
+
+	/**
 	 * What the TypeScript file `file` at `root` exports as its default, unchecked,
 	 * or nothing when there is no such file. Read afresh whenever the file has
-	 * changed, so a long-running `arbor dev` sees an edit without a restart.
+	 * changed, so a long-running `splates dev` sees an edit without a restart.
 	 */
 	async importDefault(
 		root: string,
 		file: string,
 	): Promise<Record<string, unknown>> {
-		const path = `${root}/${file}`;
-		if (!(await this.fs.exists(path))) {
+		const path = await this.found(root, file);
+		if (path === null) {
 			return {};
 		}
 		// `import()` keeps a module for as long as the process runs, keyed by what
@@ -103,7 +121,7 @@ export class ConfigFiles {
 		// resolver misses a file made after it first listed the directory. Not on
 		// disk, as a fake `fs` has it, the path stays as it is.
 		const real = await realpath(path).catch(() => path);
-		// Falling back to the defaults would be worse than failing: a config arbor
+		// Falling back to the defaults would be worse than failing: a config splates
 		// silently ignored is a `preMerge` gate that silently stopped running.
 		const mod = (await import(`${real}?v=${version}`).catch(
 			(cause: unknown) => {

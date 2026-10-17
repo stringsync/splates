@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "webappwiz/time";
-import { arbor } from "./arbor";
+import { splates } from "./splates";
 import { Testing } from "./testing";
 
 const WHY = "To read the build logs through the dashboard's API.";
@@ -186,12 +186,16 @@ describe("creds", () => {
 		await deps.projectStore.set("DATABASE_URL", "x");
 		await deps.creds.save("TUNNEL_TOKEN", "y", {
 			scope: "device",
-			by: "arbor tunnel setup",
+			by: "splates tunnel setup",
 		});
 
 		expect(await deps.creds.kept()).toEqual([
 			{ name: "DATABASE_URL", scope: "project", savedBy: null },
-			{ name: "TUNNEL_TOKEN", scope: "device", savedBy: "arbor tunnel setup" },
+			{
+				name: "TUNNEL_TOKEN",
+				scope: "device",
+				savedBy: "splates tunnel setup",
+			},
 		]);
 	});
 
@@ -211,9 +215,9 @@ describe("creds", () => {
 	});
 });
 
-describe("arbor creds", () => {
+describe("splates creds", () => {
 	let env: Testing;
-	let deps: Parameters<typeof arbor.run>[0];
+	let deps: Parameters<typeof splates.run>[0];
 
 	beforeEach(async () => {
 		env = await Testing.open();
@@ -230,7 +234,7 @@ describe("arbor creds", () => {
 	afterEach(() => env.disposeAsync());
 
 	it("requests a cred, then waits until a person saves it", async () => {
-		await arbor.run(deps, [
+		await splates.run(deps, [
 			"creds",
 			"request",
 			"API_TOKEN",
@@ -242,7 +246,7 @@ describe("arbor creds", () => {
 		]);
 		expect(env.out()).toContain(`requested API_TOKEN  ${WHY}`);
 
-		const waiting = arbor.run(deps, ["creds", "wait", "API_TOKEN"]);
+		const waiting = splates.run(deps, ["creds", "wait", "API_TOKEN"]);
 		await sleep(Duration.ms(20));
 		await env.creds.save("API_TOKEN", "secret");
 		await waiting;
@@ -252,7 +256,7 @@ describe("arbor creds", () => {
 	});
 
 	it("exits dismissed when the person turns the request down", async () => {
-		await arbor.run(deps, [
+		await splates.run(deps, [
 			"creds",
 			"request",
 			"API_TOKEN",
@@ -263,14 +267,14 @@ describe("arbor creds", () => {
 		]);
 		await env.creds.dismiss("API_TOKEN");
 
-		await arbor.run(deps, ["creds", "wait", "API_TOKEN"]);
+		await splates.run(deps, ["creds", "wait", "API_TOKEN"]);
 
 		expect(env.proc.exits).toEqual([22]);
 	});
 
 	it("lists requests and kept creds by name, never a value", async () => {
 		await env.projectStore.set("DATABASE_URL", "postgres://secret");
-		await arbor.run(deps, [
+		await splates.run(deps, [
 			"creds",
 			"request",
 			"API_TOKEN",
@@ -280,7 +284,7 @@ describe("arbor creds", () => {
 			HOW,
 		]);
 
-		await arbor.run(deps, ["creds", "list", "--json"]);
+		await splates.run(deps, ["creds", "list", "--json"]);
 
 		const listed = String(env.log.entries.at(-1)?.message);
 		expect(JSON.parse(listed)).toMatchObject({
@@ -288,5 +292,35 @@ describe("arbor creds", () => {
 			kept: [{ name: "DATABASE_URL", scope: "project" }],
 		});
 		expect(listed).not.toContain("postgres://secret");
+	});
+});
+
+describe("copyLegacy", () => {
+	let deps: Testing;
+
+	beforeEach(async () => {
+		deps = await Testing.open();
+	});
+
+	afterEach(() => deps.disposeAsync());
+
+	it("keeps each of arbor's creds under splates's name too, in the same store", async () => {
+		await deps.deviceStore.set("ARBOR_CLOUDFLARE_API_TOKEN", "secret");
+
+		await deps.creds.copyLegacy();
+
+		expect(await deps.deviceStore.names()).toEqual([
+			"ARBOR_CLOUDFLARE_API_TOKEN",
+			"SPLATES_CLOUDFLARE_API_TOKEN",
+		]);
+	});
+
+	it("leaves a cred splates already keeps", async () => {
+		await deps.deviceStore.set("ARBOR_TUNNEL_TOKEN", "old");
+		await deps.deviceStore.set("SPLATES_TUNNEL_TOKEN", "new");
+
+		await deps.creds.copyLegacy();
+
+		expect(await deps.deviceStore.get("SPLATES_TUNNEL_TOKEN")).toBe("new");
 	});
 });

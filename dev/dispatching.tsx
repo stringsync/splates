@@ -152,7 +152,7 @@ function spins(need: { kind: string }): boolean {
  * Puts one orchestrator on several lanes at once, from the board's bar: the
  * lanes ticked among those with a todo next and no agent, and Untriaged while
  * it holds an open todo, in a new conversation with the agent picked, sent
- * `[ARBOR LANE <n>]` for each straight away, since the prompt says only that.
+ * `[SPLATES LANE <n>]` for each straight away, since the prompt says only that.
  * Each lane that does not start says so on its header. An action of the
  * board's bar, or null while no lane is idle.
  */

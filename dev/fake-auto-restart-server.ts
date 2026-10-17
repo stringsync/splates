@@ -1,7 +1,7 @@
 import type { AutoRestartServer } from "./auto-restart";
 import type { ProjectConversation, Projects } from "./project-api";
 
-/** An `arbor dev` whose projects a test sets, which restarts when asked. */
+/** A `splates dev` whose projects a test sets, which restarts when asked. */
 export class FakeServer implements AutoRestartServer {
 	listed: Projects = {
 		projects: [here()],

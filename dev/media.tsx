@@ -8,7 +8,7 @@ const VIDEO = /\.(mp4|webm|mov)$/i;
 
 /**
  * A markdown image as the screenshot or recording it names, when that is a
- * file arbor holds: an absolute path the server hands back. Anything else,
+ * file splates holds: an absolute path the server hands back. Anything else,
  * a file elsewhere on the machine or a link off it, reads as its alt text.
  * A click on a screenshot, or on a recording's expand button, opens it in
  * the lightbox among the others of its document.

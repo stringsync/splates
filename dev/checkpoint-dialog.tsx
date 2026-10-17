@@ -44,7 +44,7 @@ export interface Countdown {
 }
 
 /**
- * Power: restarts `arbor dev` at once, its agents on a worker carrying on
+ * Power: restarts `splates dev` at once, its agents on a worker carrying on
  * through it, or shuts it down, checkpointing every agent at work first
  * unless unticked, or counts down to an auto update, which can be cancelled
  * or done now; then one screen for the whole run, its title held throughout,
@@ -81,7 +81,7 @@ export function CheckpointDialog({
 	checkpoint: boolean;
 	onCheckpoint: (checkpoint: boolean) => void;
 	onClose: () => void;
-	/** Says `arbor dev` is restarting, or with `shutdown` shutting down, once asked to. */
+	/** Says `splates dev` is restarting, or with `shutdown` shutting down, once asked to. */
 	onRestart: (shutdown?: boolean) => void;
 	projects: ProjectChoice[];
 	slide: Slide;
@@ -90,19 +90,19 @@ export function CheckpointDialog({
 	run: Run;
 	/** What the run is called, the menu item saying the same. */
 	title: string;
-	/** The arbor a restart came back on; null when none did. */
+	/** The splates a restart came back on; null when none did. */
 	restarted: string | null;
-	/** The arbor the restart left; null when unknown. */
+	/** The splates the restart left; null when unknown. */
 	from: string | null;
-	/** A newer arbor, which a restart lands on. */
+	/** A newer splates, which a restart lands on. */
 	onto: string | null;
 	/** The projects as the server lists them now, after a restart too. */
 	current: ProjectChoice[];
-	/** Whether `arbor dev` can restart itself. */
+	/** Whether `splates dev` can restart itself. */
 	restartable: boolean;
 	/** The commands a restart would kill. */
 	held: Held[];
-	/** Whether this run is an automatic update, which restarts to pick up newer arbor. */
+	/** Whether this run is an automatic update, which restarts to pick up newer splates. */
 	updating?: boolean;
 	/** The auto update counting down, on the `counting` slide. */
 	countdown: Countdown | null;
@@ -135,23 +135,23 @@ export function CheckpointDialog({
 	);
 	const said =
 		slide === "counting" && countdown !== null
-			? `arbor dev will update to ${countdown.onto}. You and the agents this update would interrupt have been idle for a minute. Updating restarts arbor dev, then reloads this page.`
+			? `splates dev will update to ${countdown.onto}. You and the agents this update would interrupt have been idle for a minute. Updating restarts splates dev, then reloads this page.`
 			: slide === "going"
 				? `${all.asked.length - all.going - all.missed.length} of ${plural(all.asked.length)} checkpointed.`
 				: slide === "restarting"
-					? `arbor dev is ${updating ? "updating" : "restarting"}${onto === null ? "" : `${updating ? " to " : " on "}${onto}`}. This page reloads once it is back.`
+					? `splates dev is ${updating ? "updating" : "restarting"}${onto === null ? "" : `${updating ? " to " : " on "}${onto}`}. This page reloads once it is back.`
 					: slide === "resuming"
 						? `${carried} of ${plural(resumable.length)} back at work.`
 						: slide === "ended"
 							? `${plural(carried)} back at work.`
 							: slide === "restarted"
-								? "arbor dev is back."
+								? "splates dev is back."
 								: slide === "shuttingDown"
-									? "arbor dev is shutting down."
+									? "splates dev is shutting down."
 									: slide === "shutDown"
 										? all.asked.length > 0
-											? "Start arbor dev again to resume the agents."
-											: "Start arbor dev again from a terminal."
+											? "Start splates dev again to resume the agents."
+											: "Start splates dev again from a terminal."
 										: `${plural(resumable.length)} checkpointed.`;
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -237,7 +237,7 @@ export function CheckpointDialog({
 }
 
 /**
- * The arbor a restart came back on, plainly, and the one it left when that
+ * The splates a restart came back on, plainly, and the one it left when that
  * differs.
  */
 function Version({
@@ -250,10 +250,10 @@ function Version({
 	return (
 		<div className="rounded-md border bg-muted/40 px-3 py-2">
 			<p className="text-muted-foreground text-xs">Now running</p>
-			<p className="font-medium">arbor {running}</p>
+			<p className="font-medium">splates {running}</p>
 			{from !== null && from !== running && (
 				<p className="text-muted-foreground text-xs">
-					Updated from arbor {from}
+					Updated from splates {from}
 				</p>
 			)}
 		</div>

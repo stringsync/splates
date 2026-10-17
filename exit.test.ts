@@ -5,7 +5,7 @@ import { FakeProcess } from "webappwiz/system/testing";
 import { EXIT, exits, fail } from "./exit";
 
 it("keeps the exit codes stable", () => {
-	// pinned: these codes are arbor's API and an agent branches on them, so a
+	// pinned: these codes are splates's API and an agent branches on them, so a
 	// renumbering has to be deliberate
 	expect(EXIT).toEqual({
 		usage: 1,

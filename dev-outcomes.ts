@@ -4,7 +4,7 @@ import type { Handler } from "./dev-project";
 import { fail } from "./exit";
 import { landed } from "./landed";
 import { Outcomes } from "./outcomes";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /**
@@ -14,13 +14,13 @@ import { isPeriodId, PERIODS, summarize } from "./stats";
  */
 export class DevOutcomes {
 	private readonly outcomes: Outcomes;
-	/** What `arbor dev` judged of each conversation as its turns ended. */
+	/** What `splates dev` judged of each conversation as its turns ended. */
 	readonly adherence: Adherence;
 
 	constructor({ fs, ps }: { fs: Fs; ps: Ps }) {
-		this.outcomes = new Outcomes(`${arborHome(ps)}/outcomes.jsonl`, fs);
+		this.outcomes = new Outcomes(`${splatesHome(ps)}/outcomes.jsonl`, fs);
 		this.adherence = new Adherence(
-			`${arborHome(ps)}/adherence.jsonl`,
+			`${splatesHome(ps)}/adherence.jsonl`,
 			fs,
 			this.outcomes,
 		);

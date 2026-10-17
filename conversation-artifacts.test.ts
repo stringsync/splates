@@ -10,7 +10,7 @@ import { Conversations } from "./conversations";
 import type { Exit } from "./exit";
 import { AGENT, FakeAgent } from "./fake-agent";
 
-const DIR = "/repo/.git/arbor/conversations";
+const DIR = "/repo/.git/splates/conversations";
 
 describe("Conversation artifacts", () => {
 	let fs: FakeFs;
@@ -32,7 +32,7 @@ describe("Conversation artifacts", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-16T10:00:00Z"));
 		agent = new FakeAgent();
@@ -44,7 +44,7 @@ describe("Conversation artifacts", () => {
 	const started = async (within = conversations) => {
 		const conversation = await within.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -339,7 +339,7 @@ describe("Conversation artifacts", () => {
 		await conversation.artifacts.add(file("report.html", "one"));
 		await conversation.artifacts.add(file("report.html", "two"));
 		await conversation.stop();
-		// Archived as an older arbor did, its artifacts left as they were.
+		// Archived as an older splates did, its artifacts left as they were.
 		await fs.append(
 			`${DIR}/${conversation.id}.jsonl`,
 			`${JSON.stringify({ kind: "archive", archived: true, at: "2026-10-16T09:00:00.000Z" })}\n`,

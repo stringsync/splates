@@ -28,8 +28,8 @@ describe("follow", () => {
 
 	it("tells the server in the env which task the conversation is in now", async () => {
 		ps.setEnv({
-			ARBOR_CONVERSATION: "c1",
-			ARBOR_DEV: "http://localhost:4270",
+			SPLATES_CONVERSATION: "c1",
+			SPLATES_DEV: "http://localhost:4270",
 		});
 
 		await follow({ ps, log, send }, "alpha");
@@ -63,7 +63,10 @@ describe("follow", () => {
 	});
 
 	it("notes a server that refuses or is gone, and goes on", async () => {
-		ps.setEnv({ ARBOR_CONVERSATION: "c1", ARBOR_DEV: "http://localhost:1" });
+		ps.setEnv({
+			SPLATES_CONVERSATION: "c1",
+			SPLATES_DEV: "http://localhost:1",
+		});
 		status = 404;
 
 		await follow({ ps, log, send }, "alpha");
@@ -77,23 +80,23 @@ describe("follow", () => {
 		);
 
 		expect(log.entries.map((entry) => String(entry.message))).toEqual([
-			"arbor dev did not move the conversation: 404",
-			"arbor dev at http://localhost:1 could not be told of the move: refused",
+			"splates dev did not move the conversation: 404",
+			"splates dev at http://localhost:1 could not be told of the move: refused",
 		]);
 	});
 
-	it("is left out of a test's commands run from an agent in arbor dev", async () => {
+	it("is left out of a test's commands run from an agent in splates dev", async () => {
 		const outer = {
-			ARBOR_CONVERSATION: process.env.ARBOR_CONVERSATION,
-			ARBOR_DEV: process.env.ARBOR_DEV,
+			SPLATES_CONVERSATION: process.env.SPLATES_CONVERSATION,
+			SPLATES_DEV: process.env.SPLATES_DEV,
 		};
-		process.env.ARBOR_CONVERSATION = "c1";
-		process.env.ARBOR_DEV = "http://localhost:4270";
+		process.env.SPLATES_CONVERSATION = "c1";
+		process.env.SPLATES_DEV = "http://localhost:4270";
 		try {
 			await using testing = await Testing.open({ init: false });
 
-			expect(testing.ps.env("ARBOR_CONVERSATION")).toBeUndefined();
-			expect(testing.ps.env("ARBOR_DEV")).toBeUndefined();
+			expect(testing.ps.env("SPLATES_CONVERSATION")).toBeUndefined();
+			expect(testing.ps.env("SPLATES_DEV")).toBeUndefined();
 		} finally {
 			for (const [name, value] of Object.entries(outer)) {
 				if (value === undefined) {

@@ -23,7 +23,7 @@ export interface DevWorkersOptions {
 }
 
 /**
- * Where `arbor dev` takes its workers in, as their coordinator: the local
+ * Where `splates dev` takes its workers in, as their coordinator: the local
  * worker through a Unix socket only this user may open, and others through
  * `/api/workers`. Nothing places work on them yet; the registry keeps them
  * for what comes next.
@@ -72,7 +72,7 @@ export class DevWorkers implements AsyncResource {
 
 	/**
 	 * Listens at `path`, logging rather than failing when it cannot, as when
-	 * another `arbor dev` with the same home already does: the page works
+	 * another `splates dev` with the same home already does: the page works
 	 * without workers.
 	 */
 	async listen(path: string, fs: Fs): Promise<void> {
@@ -99,7 +99,7 @@ export class DevWorkers implements AsyncResource {
 			return refuse(
 				503,
 				"unavailable",
-				"arbor dev is still taking back what its last run left: dial again",
+				"splates dev is still taking back what its last run left: dial again",
 			);
 		}
 		const host = request.headers.get("host") ?? "";
@@ -120,7 +120,7 @@ export class DevWorkers implements AsyncResource {
 			: refuse(400, "usage", "a worker connects with a WebSocket");
 	};
 
-	/** `GET /api/workers`: each worker and each refusal, as `arbor worker list` shows them. */
+	/** `GET /api/workers`: each worker and each refusal, as `splates worker list` shows them. */
 	readonly list = async (): Promise<Response> =>
 		Response.json(workerList(this.registry));
 

@@ -10,7 +10,7 @@ import { projectUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
- * Adds a project by its path on this machine, running `arbor init` there,
+ * Adds a project by its path on this machine, running `splates init` there,
  * then asks before committing what init wrote, in place, and opens it.
  */
 export function AddProject({
@@ -33,11 +33,11 @@ export function AddProject({
 		const { project, uncommitted, shown, branch } = added;
 		return (
 			<fieldset
-				aria-label={`Commit what arbor init wrote in ${project.slug}`}
+				aria-label={`Commit what splates init wrote in ${project.slug}`}
 				className={cn("flex flex-col gap-2 px-2 text-sm", className)}
 			>
 				<p>
-					arbor init wrote{" "}
+					splates init wrote{" "}
 					{shown.map((file, at) => (
 						<span key={file}>
 							{at > 0 && ", "}
@@ -119,7 +119,7 @@ export function AddProject({
 				</Button>
 			</div>
 			<p className="text-muted-foreground text-xs">
-				A repository on this machine; arbor init runs there.
+				A repository on this machine; splates init runs there.
 			</p>
 			<Refusal refusal={refusal} />
 		</form>

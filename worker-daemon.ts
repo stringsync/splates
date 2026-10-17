@@ -45,7 +45,7 @@ export interface WorkerDaemonOptions {
 }
 
 /**
- * `arbor worker run`: a worker that dials out to its coordinator and keeps
+ * `splates worker run`: a worker that dials out to its coordinator and keeps
  * dialing, waiting longer after each failure, and runs what it is asked to
  * on this machine: processes, PTYs, calls, and connections to the ports its
  * tasks serve. What it runs outlives a

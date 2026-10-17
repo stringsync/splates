@@ -27,7 +27,7 @@ describe("App's conversation of a task another handed out", () => {
 	const orchestrator = conversation({
 		id: "orch",
 		name: "Stats lane",
-		messages: [message("user", "[ARBOR LANE 1]")],
+		messages: [message("user", "[SPLATES LANE 1]")],
 	});
 	const agent = conversation({
 		id: "agent",
@@ -35,7 +35,7 @@ describe("App's conversation of a task another handed out", () => {
 		status: "running",
 		handedBy: "orch",
 		lastCaller: "orch",
-		messages: [message("user", "[ARBOR TASK alpha]")],
+		messages: [message("user", "[SPLATES TASK alpha]")],
 	});
 	const ask = {
 		type: "permission" as const,
@@ -52,7 +52,7 @@ describe("App's conversation of a task another handed out", () => {
 		...agent,
 		status: "idle" as const,
 		messages: [
-			message("user", "[ARBOR TASK alpha]"),
+			message("user", "[SPLATES TASK alpha]"),
 			message(
 				"agent",
 				"## ⚠️ Escalated alpha: on the wording\n\n1. Which wording?\n   - (a) Hey\n   - (b) Oi",
@@ -64,7 +64,7 @@ describe("App's conversation of a task another handed out", () => {
 		status: "idle" as const,
 		unread: true,
 		messages: [
-			message("user", "[ARBOR TASK alpha]"),
+			message("user", "[SPLATES TASK alpha]"),
 			message("agent", "## ✅ Merged alpha onto main"),
 		],
 	};
@@ -174,7 +174,7 @@ describe("App's conversation of a task another handed out", () => {
 					...orchestrator,
 					messages: [
 						...orchestrator.messages,
-						message("user", "[ARBOR IDLE alpha]"),
+						message("user", "[SPLATES IDLE alpha]"),
 					],
 				},
 				agent,
@@ -194,7 +194,7 @@ describe("App's conversation of a task another handed out", () => {
 					...orchestrator,
 					messages: [
 						...orchestrator.messages,
-						message("user", "[ARBOR REPORT alpha]"),
+						message("user", "[SPLATES REPORT alpha]"),
 						message("agent", "## ⏳ Working lanes Stats: on beta"),
 					],
 				},
@@ -206,7 +206,7 @@ describe("App's conversation of a task another handed out", () => {
 
 		await waitFor(() => view.getByRole("region", { name: "working Stats" }));
 		expect(view.queryByText(/handed out here/)).toBeNull();
-		expect(view.queryByText("[ARBOR REPORT alpha]")).toBeNull();
+		expect(view.queryByText("[SPLATES REPORT alpha]")).toBeNull();
 	});
 
 	it("shows its escalation's questions read-only, answered through the orchestrator", async () => {
@@ -234,7 +234,7 @@ describe("App's conversation of a task another handed out", () => {
 					...agent,
 					status: "stopped" as const,
 					messages: [
-						message("user", "[ARBOR TASK alpha]"),
+						message("user", "[SPLATES TASK alpha]"),
 						message("agent", "## ⚠️ Escalated alpha: on the wording"),
 					],
 				},
@@ -274,7 +274,7 @@ describe("App's conversation of a task another handed out", () => {
 					...orchestrator,
 					unread: true,
 					messages: [
-						message("user", "[ARBOR LANE 1]"),
+						message("user", "[SPLATES LANE 1]"),
 						message("agent", "## ⏳ Working lanes Stats: alpha on Opus"),
 					],
 				},

@@ -23,7 +23,7 @@ import {
 	todoReference,
 } from "./prompts";
 
-describe("the arbor skill's Directives table", () => {
+describe("the splates skill's Directives table", () => {
 	it("has one row for each directive, as the skill writes its placeholders", async () => {
 		expect((await rows()).toSorted()).toEqual(
 			[
@@ -56,13 +56,13 @@ describe("the arbor skill's Directives table", () => {
 /** The directive each row of the skill's Directives table is for. */
 async function rows(): Promise<string[]> {
 	const skill = await Bun.file(
-		join(import.meta.dir, "skills/arbor/SKILL.md"),
+		join(import.meta.dir, "skills/splates/SKILL.md"),
 	).text();
 	const section = skill.slice(
 		skill.indexOf("## Directives\n"),
 		skill.indexOf("## Workflow\n"),
 	);
-	return [...section.matchAll(/^\| `(\[ARBOR [^\]]+\])` \|/gm)].map(
+	return [...section.matchAll(/^\| `(\[SPLATES [^\]]+\])` \|/gm)].map(
 		(row) => row[1] as string,
 	);
 }

@@ -6,7 +6,7 @@ import { HEADING } from "./markdown";
 /**
  * The ports task `task`'s processes listen on, read as the dialog opens: each
  * with its link through the ports host, which opens anywhere behind Access,
- * and its link on the machine `arbor dev` runs on. Nothing while it serves none.
+ * and its link on the machine `splates dev` runs on. Nothing while it serves none.
  */
 export function TaskPorts({ task }: { task: string }): JSX.Element | null {
 	const [ports, setPorts] = useState<PortLink[]>([]);

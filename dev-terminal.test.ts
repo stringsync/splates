@@ -173,8 +173,8 @@ describe("dev terminal", () => {
 		await opened(
 			async (port) => {
 				const response = await knock(port, {
-					host: "repo.arbor.example",
-					origin: "http://repo.arbor.example",
+					host: "repo.splates.example",
+					origin: "http://repo.splates.example",
 				});
 
 				expect(response.status).toBe(403);
@@ -183,7 +183,7 @@ describe("dev terminal", () => {
 						"conversations and terminals run commands on this machine: open the page on it, or put Cloudflare Access in front with --access-team and --access-aud",
 				});
 			},
-			{ hosts: ["repo.arbor.example"] },
+			{ hosts: ["repo.splates.example"] },
 		);
 	});
 });

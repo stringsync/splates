@@ -16,7 +16,7 @@ export function RestartButton({
 	if (!update && !restartBusy && !done) {
 		return version === null ? null : (
 			<span
-				title={`Current version: arbor ${version}`}
+				title={`Current version: splates ${version}`}
 				className="shrink-0 whitespace-nowrap font-mono text-muted-foreground text-xs"
 			>
 				v{version}

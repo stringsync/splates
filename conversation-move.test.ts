@@ -16,14 +16,18 @@ describe("Conversation move", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -40,7 +44,7 @@ describe("Conversation move", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -50,7 +54,7 @@ describe("Conversation move", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 
-		conversation.move("signup", "/repo-arbor/signup", "task/auth", "c0");
+		conversation.move("signup", "/repo-splates/signup", "task/auth", "c0");
 
 		expect(conversation.state.task).toBe("signup");
 		expect(conversation.state.lastTask).toBe("signup");
@@ -59,14 +63,14 @@ describe("Conversation move", () => {
 		await conversation.stop();
 		await conversation.prompt("go on");
 		await until(conversation, "idle");
-		expect(agent.launched.at(-1)?.cwd).toBe("/repo-arbor/signup");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo-splates/signup");
 
 		conversation.move(null, "/repo");
 		expect(conversation.state.lastTask).toBe("signup");
 		expect(conversation.state.lastBase).toBe("task/auth");
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -85,9 +89,9 @@ describe("Conversation move", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 		await conversation.stop();
-		await fs.rm("/repo-arbor/login", { recursive: true });
+		await fs.rm("/repo-splates/login", { recursive: true });
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch, root: "/repo" },
 		);
@@ -106,10 +110,10 @@ describe("Conversation move", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 		await conversation.stop();
-		await fs.rm("/repo-arbor/login", { recursive: true });
+		await fs.rm("/repo-splates/login", { recursive: true });
 
 		await expect(conversation.prompt("go on")).rejects.toThrow(
-			"/repo-arbor/login is gone",
+			"/repo-splates/login is gone",
 		);
 		expect(agent.launched).toHaveLength(1);
 	});

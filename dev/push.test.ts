@@ -13,7 +13,7 @@ describe("syncPush", () => {
 		testing = new Testing();
 		Object.assign(globalThis, { Notification: { permission: "granted" } });
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({
 				"notifications.on": true,
 				"notifications.quiet": false,

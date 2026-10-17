@@ -220,7 +220,7 @@ describe("App's terminals in the main tree", () => {
 
 		expect(row(view, "Dev server").getAttribute("aria-current")).toBe("page");
 		expect(view.getByRole("heading", { name: "Dev server" })).toBeTruthy();
-		expect(localStorage.getItem("arbor.terminal.names")).toBe(
+		expect(localStorage.getItem("splates.terminal.names")).toBe(
 			JSON.stringify({ "terminal/1": "Dev server" }),
 		);
 

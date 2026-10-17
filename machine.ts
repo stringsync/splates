@@ -2,7 +2,7 @@ import os from "node:os";
 import type { Fs } from "webappwiz/system";
 import { darwinTemperature } from "./darwin-temperature";
 
-/** How hard the machine `arbor dev` runs on is working right now. */
+/** How hard the machine `splates dev` runs on is working right now. */
 export interface MachineReading {
 	/** What the page calls the machine: "Mac" on macOS, else "machine". */
 	kind: "Mac" | "machine";

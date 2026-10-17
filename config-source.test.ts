@@ -4,7 +4,7 @@ import { typedConfig, withoutSystems } from "./config-source";
 describe("typedConfig", () => {
 	it("swaps defineConfig for a type-only import and satisfies", () => {
 		expect(
-			typedConfig(`import { defineConfig } from "@webappwiz/arbor/config";
+			typedConfig(`import { defineConfig } from "splates/config";
 
 // Run before each merge.
 export default defineConfig({
@@ -12,7 +12,7 @@ export default defineConfig({
 	trunk: "main",
 });
 `),
-		).toBe(`import type { ConfigFile } from "@webappwiz/arbor/config";
+		).toBe(`import type { ConfigFile } from "splates/config";
 
 // Run before each merge.
 export default {
@@ -26,12 +26,12 @@ export default {
 		expect(typedConfig(`export default { trunk: "main" };`)).toBeNull();
 		expect(
 			typedConfig(
-				`import { defineConfig, type Config } from "@webappwiz/arbor/config";\nexport default defineConfig({});`,
+				`import { defineConfig, type Config } from "splates/config";\nexport default defineConfig({});`,
 			),
 		).toBeNull();
 		expect(
 			typedConfig(
-				`import { defineConfig } from "@webappwiz/arbor/config";\nconst a = defineConfig({});\nexport default defineConfig(a);`,
+				`import { defineConfig } from "splates/config";\nconst a = defineConfig({});\nexport default defineConfig(a);`,
 			),
 		).toBeNull();
 	});

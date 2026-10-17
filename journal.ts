@@ -127,7 +127,7 @@ export class Journal {
 			action,
 			task,
 			reason,
-			conversation: this.ps.env("ARBOR_CONVERSATION") ?? null,
+			conversation: this.ps.env("SPLATES_CONVERSATION") ?? null,
 			...facts,
 		};
 		await this.fs.append(this.path, `${JSON.stringify(event)}\n`);

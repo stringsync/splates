@@ -87,23 +87,23 @@ describe("tunnelRemove", () => {
 	});
 });
 
-/** An account `arbor tunnel setup` has set up `example.com` in, with `words` as slots. */
+/** An account `splates tunnel setup` has set up `example.com` in, with `words` as slots. */
 async function account(words: string[] = []) {
 	const cloudflare = new FakeCloudflare().zone("example.com");
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
 	const creds = new Creds(
-		"/repo/.git/arbor/creds.json",
+		"/repo/.git/splates/creds.json",
 		new MemoryLock(),
 		{ project: new FakeSecretStore(), device: store },
 		{ fs },
 	);
 	const log = new MemoryLogger();
-	const saved = new SavedTunnel("/home/.arbor/tunnel.json", { fs, store });
+	const saved = new SavedTunnel("/home/.splates/tunnel.json", { fs, store });
 	await tunnelSetup({
-		host: "arbor.example.com",
+		host: "splates.example.com",
 		email: "me@example.com",
-		name: "arbor",
+		name: "splates",
 		team: "",
 		creds,
 		task: null,
@@ -113,7 +113,7 @@ async function account(words: string[] = []) {
 	});
 	const machine = (await saved.read()) ?? expect.unreachable();
 	const slot = (word: string) =>
-		new SavedTunnel(`/home/.arbor/slots/${word}/tunnel.json`, { fs, store });
+		new SavedTunnel(`/home/.splates/slots/${word}/tunnel.json`, { fs, store });
 	for (const word of words) {
 		await slotTunnelSetup({
 			slot: { word, emoji: "" },

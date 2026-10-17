@@ -115,10 +115,10 @@ describe("App's conversation header", () => {
 			{
 				method: "POST",
 				body: {
-					text: "[ARBOR TASK beta]",
+					text: "[SPLATES TASK beta]",
 				},
 			},
-			{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
+			{ method: "POST", body: { text: "[SPLATES TODO #12]" } },
 		]);
 	});
 
@@ -286,7 +286,7 @@ describe("App's conversation header", () => {
 			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR DEFER]" } },
+			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
 		]);
 	});
 
@@ -298,7 +298,7 @@ describe("App's conversation header", () => {
 				messages: [
 					message("user", "Fix the login form"),
 					message("agent", "On it."),
-					message("user", "[ARBOR CHECKPOINT]"),
+					message("user", "[SPLATES CHECKPOINT]"),
 					message("agent", "Checkpointed."),
 				],
 			}),
@@ -311,7 +311,7 @@ describe("App's conversation header", () => {
 			),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR RESUME]" } },
+			{ method: "POST", body: { text: "[SPLATES RESUME]" } },
 		]);
 
 		await testing.say(
@@ -319,7 +319,7 @@ describe("App's conversation header", () => {
 				id: "c1",
 				title: "Fix login",
 				messages: [
-					message("user", "[ARBOR CHECKPOINT]"),
+					message("user", "[SPLATES CHECKPOINT]"),
 					message("user", "Carry on"),
 				],
 			}),

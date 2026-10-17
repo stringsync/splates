@@ -14,7 +14,7 @@ import { Git } from "./git";
 import { WorktreeService } from "./worktree-service";
 
 describe("WorktreeService", () => {
-	const ARBOR_DIR = "/repo/.git/arbor";
+	const SPLATES_DIR = "/repo/.git/splates";
 	let ps: FakePs;
 	let config: Config;
 
@@ -22,7 +22,7 @@ describe("WorktreeService", () => {
 		ps = new FakePs();
 		config = {
 			trunk: "main",
-			worktreeRoot: "/repo-arbor",
+			worktreeRoot: "/repo-splates",
 			postCheckout: null,
 			postRewrite: null,
 			preMerge: "true",
@@ -45,7 +45,7 @@ describe("WorktreeService", () => {
 
 	it("lands a record by rename, never by writing in place", async () => {
 		const fs = new RecordingFs(new FakeFs());
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
 			fs: fs,
 			ps: ps,
 		});
@@ -64,7 +64,7 @@ describe("WorktreeService", () => {
 
 	it("leaves the previous record readable when a write dies partway", async () => {
 		const fs = new CrashingFs();
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
 			fs: fs,
 			ps: ps,
 		});
@@ -84,7 +84,7 @@ describe("WorktreeService", () => {
 	it("reports unknown, not absent, when a record will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
 			fs: fs,
 			ps: ps,
 		});
@@ -97,11 +97,11 @@ describe("WorktreeService", () => {
 	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
 		config.removedCapacity = 2;
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
 			fs: fs,
 			ps: ps,
 		});
-		const removed = `${ARBOR_DIR}/removed`;
+		const removed = `${SPLATES_DIR}/removed`;
 		await worktrees.init();
 
 		// Seeded with distinct timestamps, since four discards in the same

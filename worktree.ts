@@ -44,13 +44,13 @@ export class Worktree {
 		return this.snapshot.state?.lease ?? null;
 	}
 
-	/** The `arbor dev` conversation whose agent last took the task, or null. */
+	/** The `splates dev` conversation whose agent last took the task, or null. */
 	get takenBy(): string | null {
 		return this.lease?.conversation ?? null;
 	}
 
 	get leaseHeld(): boolean {
-		// On this host the pid alone decides. Every arbor command is its own
+		// On this host the pid alone decides. Every splates command is its own
 		// short-lived process, so a lease goes stale the moment its command
 		// exits, and nothing refreshes the heartbeat while one runs: judged by
 		// age, a merge whose test gate outlasts the staleness window could be
@@ -244,7 +244,7 @@ export class Worktree {
 
 export interface DiscardOptions {
 	/**
-	 * The `arbor dev` conversation working on it, when ended from the page
+	 * The `splates dev` conversation working on it, when ended from the page
 	 * rather than by the agent, whose env names it.
 	 */
 	conversation?: string;
@@ -259,7 +259,7 @@ export interface DiscardOptions {
 	 * `changed` is.
 	 */
 	commits?: string[];
-	/** Why it was removed, as `arbor remove --reason` gives it. */
+	/** Why it was removed, as `splates remove --reason` gives it. */
 	reason?: RemoveReason;
 	/** What a merge lands, read before landing as `changed` is. */
 	size?: DiffSize;
@@ -292,7 +292,7 @@ export interface LeaseState {
 	hostname: string;
 	heartbeatAt: string;
 	/**
-	 * The `arbor dev` conversation whose agent took it, or its caller's for a
+	 * The `splates dev` conversation whose agent took it, or its caller's for a
 	 * subagent; absent for an agent outside the page, and in older records.
 	 */
 	conversation?: string;
@@ -362,18 +362,18 @@ export interface TaskState {
 	 * old records.
 	 */
 	gateFailures?: GateFailure[];
-	/** How many times `arbor retry` granted it more attempts. Absent in old records. */
+	/** How many times `splates retry` granted it more attempts. Absent in old records. */
 	retries?: number;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
 	/**
-	 * The agent `arbor add --agent` or `arbor handoff` handed the task to, for
-	 * `arbor dev` to start.
+	 * The agent `splates add --agent` or `splates handoff` handed the task to, for
+	 * `splates dev` to start.
 	 */
 	dispatch?: Dispatched;
 	/**
-	 * The `arbor dev` conversation whose agent added the task, which the page
+	 * The `splates dev` conversation whose agent added the task, which the page
 	 * nests it under. Absent for one added outside a conversation, or before
 	 * tasks remembered it.
 	 */
@@ -381,7 +381,7 @@ export interface TaskState {
 }
 
 /**
- * Who `arbor add --agent` or `arbor handoff` handed a task to. `arbor dev` starts the agent in
+ * Who `splates add --agent` or `splates handoff` handed a task to. `splates dev` starts the agent in
  * the task's tree and writes down the conversation it started, so it starts
  * once.
  */
@@ -391,23 +391,23 @@ export interface Dispatched {
 	model?: string;
 	/** What the agent is told beyond claiming the task. */
 	prompt?: string;
-	/** The conversation `arbor dev` started, once it has. */
+	/** The conversation `splates dev` started, once it has. */
 	conversation?: string;
 	/**
-	 * Set while the postCheckout hook readies the tree; `arbor dev` starts the
+	 * Set while the postCheckout hook readies the tree; `splates dev` starts the
 	 * agent once it clears.
 	 */
 	// Recorded from the start, so the task reads as handed over rather than
 	// an external agent's.
 	pending?: true;
 	/**
-	 * Set when the agent at work on the task handed it on with `arbor
-	 * handoff`, so the one started is told `[ARBOR HANDOFF <task>]`.
+	 * Set when the agent at work on the task handed it on with `splates
+	 * handoff`, so the one started is told `[SPLATES HANDOFF <task>]`.
 	 */
 	handoff?: true;
 	/**
 	 * Whether the agent started answers to the task's caller rather than the
-	 * person, as for `arbor handoff --relay`. Absent in records written
+	 * person, as for `splates handoff --relay`. Absent in records written
 	 * before it was kept, when a handoff with a caller always relayed.
 	 */
 	relay?: boolean;

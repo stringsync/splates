@@ -2,7 +2,7 @@ import { NodePs, type Ps } from "webappwiz/system";
 import { ROOT } from "./root";
 
 export interface EvalOptions {
-	/** What arbor's evals entry is given: fast selection, report, or explicit e2e, then its arguments. */
+	/** What splates's evals entry is given: fast selection, report, or explicit e2e, then its arguments. */
 	args: string[];
 	ps?: Ps;
 }
@@ -12,7 +12,7 @@ export async function evalSkill(opts: EvalOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
 	const args = opts.args.length ? opts.args : ["fast"];
 	const { exitCode } = await ps.spawn(
-		["bun", "evals/arbor-skill/index.ts", ...args],
+		["bun", "evals/splates-skill/index.ts", ...args],
 		{ cwd: ROOT },
 	);
 	if (exitCode !== 0) {

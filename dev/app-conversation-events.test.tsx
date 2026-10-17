@@ -11,7 +11,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's arbor events", () => {
+describe("App's splates events", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -33,7 +33,7 @@ describe("App's arbor events", () => {
 		const state = turn([
 			tool({
 				id: "x1",
-				command: "arbor claim alpha",
+				command: "splates claim alpha",
 				at: second(2),
 				until: second(3),
 			}),
@@ -52,7 +52,7 @@ describe("App's arbor events", () => {
 		]);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(2);
 			return found;
 		});
@@ -64,7 +64,7 @@ describe("App's arbor events", () => {
 			within(thread).getAllByRole("list", { name: "timeline" }),
 		).toHaveLength(2);
 		expect(thread.textContent).toMatch(
-			/arbor claim alpha.*Claimedalpha.*a\.ts.*Claim failedbeta.*It stops now\./,
+			/splates claim alpha.*Claimedalpha.*a\.ts.*Claim failedbeta.*It stops now\./,
 		);
 	});
 
@@ -85,7 +85,7 @@ describe("App's arbor events", () => {
 		]);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(2);
 			return found;
 		});
@@ -109,7 +109,7 @@ describe("App's arbor events", () => {
 		]);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(3);
 			return found;
 		});
@@ -127,7 +127,7 @@ describe("App's arbor events", () => {
 		]);
 
 		const line = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(1);
 			return found[0] as HTMLElement;
 		});
@@ -140,15 +140,15 @@ describe("App's arbor events", () => {
 
 	it("draws an attach as the file it stored or dropped, or a count of several, and the task it was on", async () => {
 		const thread = await opened(turn(["Done."]), [
-			attached(1, ["/git/arbor/a/shot.png"], []),
-			attached(2, ["/git/arbor/a/one.png", "/git/arbor/a/two.png"], []),
+			attached(1, ["/git/splates/a/shot.png"], []),
+			attached(2, ["/git/splates/a/one.png", "/git/splates/a/two.png"], []),
 			attached(3, [], ["old.png"]),
 			attached(4, [], []),
-			attached(5, ["/git/arbor/a/new.png"], ["one.png", "two.png"]),
+			attached(5, ["/git/splates/a/new.png"], ["one.png", "two.png"]),
 		]);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(4);
 			return found;
 		});
@@ -173,7 +173,7 @@ describe("App's arbor events", () => {
 		]);
 
 		await waitFor(() => expect(thread.textContent).toContain("Done."));
-		expect(within(thread).queryAllByRole("note", { name: "arbor" })).toEqual(
+		expect(within(thread).queryAllByRole("note", { name: "splates" })).toEqual(
 			[],
 		);
 	});
@@ -183,7 +183,7 @@ describe("App's arbor events", () => {
 			turn([
 				tool({
 					id: "x1",
-					command: "arbor retry alpha",
+					command: "splates retry alpha",
 					at: second(2),
 					until: second(3),
 				}),
@@ -211,7 +211,7 @@ describe("App's arbor events", () => {
 		);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(2);
 			return found;
 		});
@@ -227,7 +227,7 @@ describe("App's arbor events", () => {
 			turn([
 				tool({
 					id: "x1",
-					command: "arbor todo update 1",
+					command: "splates todo update 1",
 					at: second(2),
 					until: second(3),
 				}),
@@ -237,7 +237,7 @@ describe("App's arbor events", () => {
 		);
 
 		const line = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(1);
 			return found[0] as HTMLElement;
 		});
@@ -250,7 +250,7 @@ describe("App's arbor events", () => {
 		const thread = await opened(turn(["Done."]), [update(7, 2, "Seven")]);
 
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		expect(line.textContent).toBe("Updated#7 Seven");
 		expect(line.querySelector("[title]")?.getAttribute("title")).toContain(
@@ -286,7 +286,7 @@ describe("App's arbor events", () => {
 		]);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(3);
 			return found;
 		});
@@ -301,7 +301,7 @@ describe("App's arbor events", () => {
 		const thread = await opened(turn(["Gone."]), [removed()]);
 
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		expect(line.textContent).toBe("Removedalpha");
 		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(

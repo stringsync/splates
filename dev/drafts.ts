@@ -4,7 +4,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 export type DraftsEvents = { written: string };
 
 /** Where every draft is kept, each under its own key after this. */
-const PREFIX = "arbor.draft.";
+const PREFIX = "splates.draft.";
 
 /**
  * What the person typed and has not sent, kept in `storage` so switching to

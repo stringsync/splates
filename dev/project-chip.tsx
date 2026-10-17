@@ -9,7 +9,7 @@ import type { ProjectRef } from "../conversation-host";
 import { projectUrl } from "./project-places";
 
 /**
- * Another arbor project a message mentions as `#slug`: its name, opening to
+ * Another splates project a message mentions as `#slug`: its name, opening to
  * the directory the agent is told it sits in, and a way to go to it.
  */
 export function ProjectChip({ project }: { project: ProjectRef }): JSX.Element {

@@ -13,7 +13,13 @@ import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { textOf } from "../conversation-messages";
 import type { ConversationState } from "../conversations";
-import { CHECKPOINT, DEFER, handoffToReference, RESUME } from "../prompts";
+import {
+	CHECKPOINT,
+	DEFER,
+	directive,
+	handoffToReference,
+	RESUME,
+} from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import type { Action } from "./actions";
@@ -243,5 +249,5 @@ function paused({ messages }: ConversationState): boolean {
 	const last = messages.findLast(
 		(message) => message.role === "user" && message.queued !== true,
 	);
-	return last !== undefined && textOf(last).trim() === CHECKPOINT;
+	return last !== undefined && directive(textOf(last)) === CHECKPOINT;
 }

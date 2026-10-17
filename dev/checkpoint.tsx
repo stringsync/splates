@@ -89,7 +89,7 @@ export function CheckpointProvider({
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
-	// Back from a restart's reload, the arbor it left ("" when unknown).
+	// Back from a restart's reload, the splates it left ("" when unknown).
 	const [returned] = useState(() => sessionStorage.getItem(RESTARTED));
 	// Reloads confirm inline; Power opens only when explicitly requested.
 	const [open, setOpen] = useState(false);
@@ -115,10 +115,10 @@ export function CheckpointProvider({
 	useEffect(() => autoRestart.hold(open), [autoRestart, open]);
 	// Back from a restart's reload, until the first listing says how it ended.
 	const returning = useRef(returned !== null);
-	// The arbor the restart left, for its last slide; null when unknown.
+	// The splates the restart left, for its last slide; null when unknown.
 	const [from, setFrom] = useState(returned || null);
 	useEffect(() => sessionStorage.removeItem(RESTARTED), []);
-	// The arbor this run runs, as the restart it may yet leave on finds it.
+	// The splates this run runs, as the restart it may yet leave on finds it.
 	const running = useRef<string | null>(null);
 	// Whether a shutdown checkpoints first, as last picked.
 	const [checkpoint, setCheckpoint] = useState(true);
@@ -134,7 +134,7 @@ export function CheckpointProvider({
 			setRestarting({ run: auto.run, resume: false, shutdown: false });
 		}
 	}, [auto]);
-	// The arbor a restart with no agent to resume came back on, while it says
+	// The splates a restart with no agent to resume came back on, while it says
 	// so.
 	const [back, setBack] = useState<string | null>(null);
 	// When the Restart slide first showed, or the restart was seen to be over
@@ -531,10 +531,10 @@ function offered(projects: ProjectChoice[]): ProjectChoice[] {
 	return projects.filter((each) => !each.gone && each.conversations.length > 0);
 }
 
-/** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */
+/** A checkpoint whose agents carried on, after `splates dev` restarted or not. */
 interface Ended {
 	projects: ProjectChoice[];
-	/** The arbor it restarted on; null when it did not restart. */
+	/** The splates it restarted on; null when it did not restart. */
 	restarted: string | null;
 }
 
@@ -575,10 +575,10 @@ const RESTART_SHOWN = Duration.secs(3);
 const EVERY = Duration.secs(1);
 
 /**
- * Where a restart's reload leaves word that it restarted, and the arbor it
+ * Where a restart's reload leaves word that it restarted, and the splates it
  * left, for the tab alone.
  */
-const RESTARTED = "arbor.power.restarted";
+const RESTARTED = "splates.power.restarted";
 
 /**
  * The header's word on the run `slide` is under way in, so it shows whether or

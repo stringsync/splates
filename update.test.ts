@@ -21,13 +21,13 @@ describe("update", () => {
 
 	const run = (latest: string | null) =>
 		update({ root: "/repo", fs, ps, log, newest: async () => latest });
-	const INSTALL = `bunx skills@1 add stringsync/splates#v${RUNNING} --yes --skill arbor`;
+	const INSTALL = `bunx skills@1 add stringsync/splates#v${RUNNING} --yes --skill splates`;
 
-	it("runs update on the newer arbor npm has, and installs nothing itself", async () => {
+	it("runs update on the newer splates npm has, and installs nothing itself", async () => {
 		ps.simulate(async () => 3);
 
 		expect(await run("999.0.0")).toBe(3);
-		expect(ps.getCalls()).toEqual(["bunx @webappwiz/arbor@999.0.0 update"]);
+		expect(ps.getCalls()).toEqual(["bunx splates@999.0.0 update"]);
 	});
 
 	it("installs its own skill when it is the newest", async () => {
@@ -40,20 +40,20 @@ describe("update", () => {
 		expect(ps.getCalls()).toEqual([INSTALL]);
 	});
 
-	it("installs its own skill when it is the newer arbor an update ran", async () => {
+	it("installs its own skill when it is the newer splates an update ran", async () => {
 		ps.setEnv({ [UPDATING]: "1" });
 
 		expect(await run("999.0.0")).toBe(0);
 		expect(ps.getCalls()).toEqual([INSTALL]);
 	});
 
-	it("moves systems an older config names into arbor.systems.ts", async () => {
+	it("moves systems an older config names into splates.systems.ts", async () => {
 		// The config is imported from disk.
-		const root = await mkdtemp(join(tmpdir(), "arbor-update-"));
+		const root = await mkdtemp(join(tmpdir(), "splates-update-"));
 		const disk = new NodeFs();
 		try {
 			await disk.write(
-				join(root, "arbor.config.ts"),
+				join(root, "splates.config.ts"),
 				`export default {\n\tsystems: { docs: { globs: ["*.md"] } },\n};\n`,
 			);
 
@@ -61,10 +61,10 @@ describe("update", () => {
 				await update({ root, fs: disk, ps, log, newest: async () => RUNNING }),
 			).toBe(0);
 
-			expect(await disk.read(join(root, "arbor.config.ts"))).toBe(
+			expect(await disk.read(join(root, "splates.config.ts"))).toBe(
 				"export default {\n};\n",
 			);
-			expect(await disk.exists(join(root, "arbor.systems.ts"))).toBe(true);
+			expect(await disk.exists(join(root, "splates.systems.ts"))).toBe(true);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -75,14 +75,14 @@ describe("update", () => {
 			await update({ root: "/repo", fs, ps, log, release: "999.0.0" }),
 		).toBe(0);
 		expect(ps.getCalls()).toEqual([
-			"bunx skills@1 add stringsync/splates#v999.0.0 --yes --skill arbor",
+			"bunx skills@1 add stringsync/splates#v999.0.0 --yes --skill splates",
 		]);
 	});
 
 	it("moves todos saved with tags into a lane a tag", async () => {
-		await fs.mkdir("/repo/.git/arbor/todos", { recursive: true });
+		await fs.mkdir("/repo/.git/splates/todos", { recursive: true });
 		await fs.write(
-			"/repo/.git/arbor/todos/1.json",
+			"/repo/.git/splates/todos/1.json",
 			JSON.stringify({
 				id: 1,
 				subject: "retry uploads",

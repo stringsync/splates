@@ -122,7 +122,7 @@ describe("Pushes", () => {
 
 		expect(pusher.pushed).toEqual([]);
 		expect(
-			JSON.parse(await deps.fs.read(`${deps.arborHome}/push.json`)).devices,
+			JSON.parse(await deps.fs.read(`${deps.splatesHome}/push.json`)).devices,
 		).toEqual([]);
 	});
 

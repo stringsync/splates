@@ -14,12 +14,12 @@ describe("A conversation told something", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		held = {};
 		const agent = new FakeAgent();
 		agent.turn = () => new Promise((resolve) => (held.finish = resolve));
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -31,7 +31,7 @@ describe("A conversation told something", () => {
 		);
 		conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 	});
@@ -46,7 +46,9 @@ describe("A conversation told something", () => {
 
 		expect(conversation.state.messages[0]).toMatchObject({ told: "orch" });
 		expect(
-			await fs.read(`/repo/.git/arbor/conversations/${conversation.id}.jsonl`),
+			await fs.read(
+				`/repo/.git/splates/conversations/${conversation.id}.jsonl`,
+			),
 		).toContain('"told":"orch"');
 	});
 });

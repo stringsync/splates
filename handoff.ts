@@ -5,8 +5,8 @@ import type { Dispatched } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Hands a task under way to another agent, which `arbor dev` starts in its
- * tree, told `[ARBOR HANDOFF <task>]`, to carry on from where its `ARBOR.md`
+ * Hands a task under way to another agent, which `splates dev` starts in its
+ * tree, told `[SPLATES HANDOFF <task>]`, to carry on from where its `SPLATES.md`
  * says it stands. The new agent answers to the person, as the old one did:
  * the task's caller goes, so nobody else tells it anything or hears from it,
  * but for a lane's orchestrator that started the old one, which goes on
@@ -24,7 +24,7 @@ export async function handoff(
 	agents: RosterAgent[],
 	{ relay = false }: { relay?: boolean } = {},
 ): Promise<AgentPick> {
-	const handedBy = service.ps.env("ARBOR_CALLER");
+	const handedBy = service.ps.env("SPLATES_CALLER");
 	if (handedBy !== undefined) {
 		fail(
 			"usage",
@@ -36,14 +36,14 @@ export async function handoff(
 	if (found.state === null || !found.exists) {
 		fail(
 			"not_found",
-			`no task '${task}' with a worktree: run \`arbor list\` to see what there is`,
+			`no task '${task}' with a worktree: run \`splates list\` to see what there is`,
 			{ task },
 		);
 	}
 	// The conversation at work on it: the agent it was handed to, or else the
 	// one that added it and followed it in.
 	const working = found.state.dispatch?.conversation ?? found.caller;
-	const here = service.ps.env("ARBOR_CONVERSATION");
+	const here = service.ps.env("SPLATES_CONVERSATION");
 	if (here !== undefined && working !== null && working !== here) {
 		fail(
 			"usage",
@@ -51,11 +51,11 @@ export async function handoff(
 			{ task, conversation: working },
 		);
 	}
-	// Nothing reports back to a conversation `arbor dev` does not run.
+	// Nothing reports back to a conversation `splates dev` does not run.
 	if (relay && here === undefined) {
 		fail(
 			"usage",
-			"--relay needs `arbor dev`, which starts the agent and carries its reports back: work the task yourself, or hand it to a subagent of your own harness",
+			"--relay needs `splates dev`, which starts the agent and carries its reports back: work the task yourself, or hand it to a subagent of your own harness",
 			{ task },
 		);
 	}
@@ -63,13 +63,13 @@ export async function handoff(
 	await found.save({
 		// A lane's orchestrator that started this one goes on hearing of the
 		// task, from the agent it goes to.
-		caller: relay ? here : service.ps.env("ARBOR_STARTED_BY"),
+		caller: relay ? here : service.ps.env("SPLATES_STARTED_BY"),
 		dispatch: { ...picked, handoff: true, relay },
 	});
 	log.info(
 		[
 			`${color.green("handed off")} ${task}`,
-			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`arbor dev\` starts in the worktree`,
+			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`splates dev\` starts in the worktree`,
 			relay
 				? `  next:     say "## ⏳ Working ${task}: on <agent>" and end your turn: it reports back to you`
 				: "  next:     end your turn: the task is the new agent's now, and the page shows the handoff",

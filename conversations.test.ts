@@ -11,8 +11,8 @@ import { Offered } from "./offered";
 import type { Outcome } from "./outcomes";
 import { Outcomes } from "./outcomes";
 
-/** What each session is opened with, so Claude asks the arbor way. */
-const ASK_IN_ARBOR = {
+/** What each session is opened with, so Claude asks the splates way. */
+const ASK_IN_SPLATES = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
 };
 
@@ -30,14 +30,18 @@ describe("Conversations", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
-		offered = new Offered("/home/.arbor/offered.json", { fs });
-		limits = new Limits("/home/.arbor/limits.json", { fs });
+		offered = new Offered("/home/.splates/offered.json", { fs });
+		limits = new Limits("/home/.splates/limits.json", { fs });
 		project = (dir: string) =>
 			new Conversations(dir, [AGENT], {
 				fs,
@@ -48,9 +52,9 @@ describe("Conversations", () => {
 				offered,
 				limits,
 			});
-		shop = project("/shop/.git/arbor/conversations");
+		shop = project("/shop/.git/splates/conversations");
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -67,7 +71,7 @@ describe("Conversations", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -79,8 +83,8 @@ describe("Conversations", () => {
 		expect(agent.launched).toEqual([
 			{
 				argv: ["fake-acp"],
-				cwd: "/repo-arbor/login",
-				env: { ARBOR_CONVERSATION: "0" },
+				cwd: "/repo-splates/login",
+				env: { SPLATES_CONVERSATION: "0" },
 			},
 		]);
 		expect(conversation.state).toMatchObject({
@@ -115,7 +119,7 @@ describe("Conversations", () => {
 	it("turns Claude's AskUserQuestion off, so it asks under ## Blocked instead", async () => {
 		await started();
 
-		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
+		expect(agent.opened).toEqual([ASK_IN_SPLATES]);
 	});
 
 	// scry-ignore simple-test-setup: opening, choosing, and restarting are the persistence behavior exercised here; shared services are in beforeEach.
@@ -126,7 +130,7 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 
 		// Another project, and another process, as after a restart.
-		const blog = project("/blog/.git/arbor/conversations");
+		const blog = project("/blog/.git/splates/conversations");
 		const later = new Offered(offered.path, { fs });
 		expect(await blog.settings()).toEqual(await later.all());
 		const settings = (await later.all()).fake ?? [];
@@ -138,7 +142,7 @@ describe("Conversations", () => {
 
 		// A log read back, older than what was offered since, changes nothing.
 		await offered.remember("fake", []);
-		await project("/shop/.git/arbor/conversations").list();
+		await project("/shop/.git/splates/conversations").list();
 		expect((await offered.all()).fake).toEqual([]);
 	});
 
@@ -180,13 +184,17 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 
 		// Read back from its log, as after a restart.
-		const later = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-		});
+		const later = new Conversations(
+			"/shop/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+			},
+		);
 		expect((await later.find(assigned.id)).state.assigned).toBe(true);
 		await later.disposeAsync();
 	});
@@ -261,38 +269,46 @@ describe("Conversations", () => {
 		expect((await later.all()).fake).toEqual((await offered.all()).fake);
 	});
 
-	it("keeps the project's arbor skill version from the start, past a restart", async () => {
+	it("keeps the project's splates skill version from the start, past a restart", async () => {
 		await fs.write(
-			"/repo/.agents/skills/arbor/SKILL.md",
-			"---\nname: arbor\nversion: 0.0.43\n---\n\n# Using arbor\n",
+			"/repo/.agents/skills/splates/SKILL.md",
+			"---\nname: splates\nversion: 0.0.43\n---\n\n# Using splates\n",
 		);
-		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-			root: "/repo",
-		});
+		const shop = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				root: "/repo",
+			},
+		);
 		const conversation = await shop.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		await shop.disposeAsync();
 		// A later release does not change what it started on.
 		await fs.write(
-			"/repo/.agents/skills/arbor/SKILL.md",
+			"/repo/.agents/skills/splates/SKILL.md",
 			"---\nversion: 0.0.44\n---\n",
 		);
 
-		const later = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-		});
+		const later = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+			},
+		);
 		expect(conversation.state.skill).toBe("0.0.43");
 		expect((await later.find(conversation.id)).state.skill).toBe("0.0.43");
 		await later.disposeAsync();
@@ -304,37 +320,45 @@ describe("Conversations", () => {
 		agent.launched.length = 0;
 
 		// As after a restart: the project opens, reading every conversation
-		// back, before `arbor dev` knows its url.
-		const later = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-		});
+		// back, before `splates dev` knows its url.
+		const later = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+			},
+		);
 		const read = await later.find(conversation.id);
 		later.url = "http://localhost:4269";
 		await read.resume();
 
 		expect(agent.launched.map((each) => each.env)).toEqual([
 			{
-				ARBOR_CONVERSATION: conversation.id,
-				ARBOR_DEV: "http://localhost:4269",
+				SPLATES_CONVERSATION: conversation.id,
+				SPLATES_DEV: "http://localhost:4269",
 			},
 		]);
 		await later.disposeAsync();
 	});
 
 	it("judges how a conversation follows the skill as each turn ends", async () => {
-		const adherence = new Adherence("/home/.arbor/adherence.jsonl", fs, null);
-		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-			adherence,
-		});
+		const adherence = new Adherence("/home/.splates/adherence.jsonl", fs, null);
+		const shop = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				adherence,
+			},
+		);
 		const conversation = await shop.start("fake", { task: null, cwd: "/repo" });
 		await until(conversation, "idle");
 		await conversation.prompt("hello");
@@ -349,20 +373,24 @@ describe("Conversations", () => {
 	});
 
 	it("credits a task merged mid-turn with that turn's usage once it ends", async () => {
-		const outcomes = new Outcomes("/home/.arbor/outcomes.jsonl", fs);
-		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-			outcomes,
-		});
+		const outcomes = new Outcomes("/home/.splates/outcomes.jsonl", fs);
+		const shop = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				outcomes,
+			},
+		);
 		const conversation = await shop.start("fake", { task: null, cwd: "/repo" });
 		await until(conversation, "idle");
 		agent.usage = { inputTokens: 40, outputTokens: 7, totalTokens: 47 };
 		agent.turn = async () => {
-			// As `arbor merge` writes it, before the turn says its usage.
+			// As `splates merge` writes it, before the turn says its usage.
 			await outcomes.record({
 				...MERGED,
 				conversation: conversation.id,
@@ -418,10 +446,14 @@ describe("Conversations", () => {
 
 		// Another project, and another process, as after a restart.
 		const later = new Limits(limits.path, { fs });
-		const blog = new Conversations("/blog/.git/arbor/conversations", [AGENT], {
-			fs,
-			limits: later,
-		});
+		const blog = new Conversations(
+			"/blog/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				limits: later,
+			},
+		);
 		expect(await blog.limits()).toEqual({
 			fake: [
 				{
@@ -460,7 +492,7 @@ describe("Conversations", () => {
 			at: "2026-10-11T10:00:00.000Z",
 		};
 		const asking = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -489,7 +521,7 @@ describe("Conversations", () => {
 		expect(conversation.state.usage.limits).toEqual([window]);
 		await asking.disposeAsync();
 		const [read] = await new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		).list();
@@ -506,7 +538,7 @@ describe("Conversations", () => {
 		const conversation = await started();
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		);

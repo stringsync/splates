@@ -121,7 +121,7 @@ describe("App's work row commands", () => {
 
 	it("opens a file chip in the editor the settings pick", async () => {
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "editor.opener": "vscode" }),
 		);
 		const thread = await opened(reading());
@@ -344,8 +344,10 @@ describe("App's work row commands", () => {
 				tool({
 					id: "e3",
 					kind: "edit",
-					paths: ["/repo-arbor/gone/lib/b.ts"],
-					edits: [{ path: "/repo-arbor/gone/lib/b.ts", old: null, new: "new" }],
+					paths: ["/repo-splates/gone/lib/b.ts"],
+					edits: [
+						{ path: "/repo-splates/gone/lib/b.ts", old: null, new: "new" },
+					],
 				}),
 				tool({
 					id: "e4",
@@ -370,7 +372,7 @@ describe("App's work row commands", () => {
 		).toEqual([
 			["/repo/src/a.ts", "a.ts"],
 			["/repo/src/a.ts", "a.ts"],
-			["/repo-arbor/gone/lib/b.ts", "b.ts"],
+			["/repo-splates/gone/lib/b.ts", "b.ts"],
 			["/tmp/c.ts", "c.ts"],
 		]);
 		const first = within(timeline).getAllByRole("listitem")[0] as HTMLElement;

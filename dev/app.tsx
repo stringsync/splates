@@ -109,7 +109,7 @@ export function App({
 	offlineAfter?: Duration;
 	/** Reloads the page, once a restart asked to is back. */
 	reload?: () => void;
-	/** Restarts `arbor dev` once out of date; one on the system clock by default. */
+	/** Restarts `splates dev` once out of date; one on the system clock by default. */
 	autoRestart?: AutoRestart;
 	/** What the conversations' threads wait and read the date by; the system's by default. */
 	timer?: Timer;
@@ -148,7 +148,7 @@ export function App({
 			icon.href = online;
 		};
 	}, [offline]);
-	// Its own feed, since `arbor dev` holds conversations only when asked to.
+	// Its own feed, since `splates dev` holds conversations only when asked to.
 	const [talk] = useState(() => new ConversationFeed(timer, wall));
 	useDisposerEffect(
 		(disposer) => {
@@ -223,9 +223,10 @@ export function App({
 	};
 	// Before the first snapshot, the name this tab last saw the project by,
 	// else the one the address names, so a switch heads the page with where it
-	// is going rather than "arbor".
+	// is going rather than "splates".
 	const project = shownProject() ?? "";
-	const name = snapshot?.repo ?? placeOf(project).name ?? (project || "arbor");
+	const name =
+		snapshot?.repo ?? placeOf(project).name ?? (project || "Spinning Plates");
 	const repo = snapshot?.repo;
 	useEffect(() => {
 		if (repo !== undefined) {

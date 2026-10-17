@@ -4,7 +4,7 @@ import { startTunnel } from "./dev-tunnel";
 import { FakeTunnelProvider } from "./fake-tunnel-provider";
 
 describe("startTunnel", () => {
-	const host = "arbor.example.com";
+	const host = "splates.example.com";
 
 	it("runs the provider at the url and stops it when disposed", async () => {
 		const provider = new FakeTunnelProvider();

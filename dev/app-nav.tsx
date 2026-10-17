@@ -37,7 +37,7 @@ export function AppNav({
 	drafts,
 	sidebar,
 }: {
-	/** Whether `arbor dev` holds conversations. */
+	/** Whether `splates dev` holds conversations. */
 	available: boolean;
 	snapshot: Snapshot | null;
 	page: Page;

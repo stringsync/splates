@@ -56,7 +56,7 @@ describe("App's merge events", () => {
 				...turn([
 					tool({
 						id: "x1",
-						command: "arbor merge",
+						command: "splates merge",
 						at: second(2),
 						until: second(3),
 					}),
@@ -77,7 +77,7 @@ describe("App's merge events", () => {
 		);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(2);
 			return found;
 		});

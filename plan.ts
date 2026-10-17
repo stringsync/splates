@@ -1,16 +1,52 @@
 import { Markdown } from "webappwiz/md";
+import type { Fs } from "webappwiz/system";
+import { LEGACY_PLAN_FILE } from "./legacy-names";
 
 /** The plan each task keeps at its worktree root, excluded from git. */
-export const PLAN_FILE = "ARBOR.md";
+export const PLAN_FILE = "SPLATES.md";
+
+/** Where tasks keep their plans: each worktree's `SPLATES.md`, read through `fs`. */
+export class Plans {
+	constructor(private readonly fs: Fs) {}
+
+	/**
+	 * The plan in worktree `tree`, or null for none: an agent still on arbor's
+	 * skill keeps it as `ARBOR.md`, read when there is no `SPLATES.md`.
+	 */
+	read(tree: string): Promise<string | null> {
+		return this.fs
+			.read(`${tree}/${PLAN_FILE}`)
+			.catch(() => this.fs.read(`${tree}/${LEGACY_PLAN_FILE}`))
+			.catch(() => null);
+	}
+
+	/**
+	 * Keeps plans out of git in every worktree of the repository whose shared
+	 * `.git` is `gitDir`, leaving the repo's own .gitignore alone.
+	 */
+	async exclude(gitDir: string): Promise<void> {
+		// A plan is scratch for one task and must never land on trunk; the
+		// .gitignore is the repo's, which splates would have to commit to.
+		const info = `${gitDir}/info`;
+		const excluded = await this.fs.read(`${info}/exclude`).catch(() => "");
+		if (!excluded.split("\n").includes(PLAN_FILE)) {
+			await this.fs.mkdir(info);
+			await this.fs.write(
+				`${info}/exclude`,
+				`${excluded.trimEnd()}\n${PLAN_FILE}\n`.trimStart(),
+			);
+		}
+	}
+}
 
 /**
- * The one step under `## Next` a fresh task's `ARBOR.md` starts with, asking
+ * The one step under `## Next` a fresh task's `SPLATES.md` starts with, asking
  * its agent to plan, which no one should read as the work under way.
  */
 export const STUB_STEP =
 	"fill in Goal and list the steps here as `- [ ]` items";
 
-/** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
+/** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Done", "Next", "Notes", "Assumptions", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
@@ -18,9 +54,9 @@ const UNCHECKED = /^[ \t]*- \[ \]/m;
 const QUESTION = /^[ \t]*- \[[ xX]\] [Qq]?\d+\./m;
 
 /**
- * What an `ARBOR.md` says its task is for: the first line under `## Goal`, or
+ * What an `SPLATES.md` says its task is for: the first line under `## Goal`, or
  * null when it says nothing yet. One line, since it sits beside other tasks'
- * in `arbor list --files`.
+ * in `splates list --files`.
  */
 export function goalLine(text: string): string | null {
 	const md = Markdown.parse(text);
@@ -35,7 +71,7 @@ export function goalLine(text: string): string | null {
 }
 
 /**
- * What an `ARBOR.md` says done means: all of `## Goal`, as markdown, or ""
+ * What an `SPLATES.md` says done means: all of `## Goal`, as markdown, or ""
  * when it says nothing yet.
  */
 export function goalOf(text: string): string {
@@ -398,7 +434,7 @@ const STEP = /^[ \t]*- \[ \][ \t]*(.*)$/;
 
 /**
  * The questions and steps a plan leaves unchecked. Nothing in either means the
- * task is ready to merge: `arbor merge` lands it, and `arbor escalate --review`
+ * task is ready to merge: `splates merge` lands it, and `splates escalate --review`
  * asks a person to look first. A task with no plan has nothing left.
  */
 export function unfinished(text: string): Unfinished {
@@ -539,7 +575,7 @@ export interface PlanOptions {
 }
 
 /**
- * Every way a task's `ARBOR.md` departs from the shape the agent skill
+ * Every way a task's `SPLATES.md` departs from the shape the agent skill
  * prescribes, phrased for the agent that wrote it. Advisory only: a resumable
  * plan is the point, and a malformed one still beats none, so nothing here
  * blocks a merge.

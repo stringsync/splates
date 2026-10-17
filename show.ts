@@ -2,14 +2,14 @@ import { color, type Logger } from "webappwiz/log";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
-import { checkPlan, PLAN_FILE, ready, unfinished } from "./plan";
+import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "./plan";
 import { type NamedSystem, Systems } from "./systems";
 import { handOff } from "./tell";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * One task in full: what `list` shows for it, plus the `ARBOR.md` its agent
+ * One task in full: what `list` shows for it, plus the `SPLATES.md` its agent
  * left at the worktree root. Reading a tree this way takes no lease, so it
  * cannot knock the agent driving it off its own work.
  */
@@ -22,7 +22,7 @@ export async function show(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor list\` to see what there is`,
+			`no task '${task}': run \`splates list\` to see what there is`,
 			{ task },
 		);
 	}
@@ -40,10 +40,10 @@ export interface Details {
 	status: string;
 	branch: string;
 	base: string;
-	/** The `arbor dev` conversation whose agent added it, or null. */
+	/** The `splates dev` conversation whose agent added it, or null. */
 	caller: string | null;
 	/**
-	 * The `arbor dev` conversation whose agent last took it, or its caller's
+	 * The `splates dev` conversation whose agent last took it, or its caller's
 	 * for a subagent; null for an agent outside the page.
 	 */
 	takenBy: string | null;
@@ -56,13 +56,13 @@ export interface Details {
 	/** When it was added, which `age` counts from. */
 	createdAt: string | null;
 	/**
-	 * The last sign of an agent at work on it: an arbor command writing its
-	 * record, a commit on its branch, or an edit to its ARBOR.md or to a file
+	 * The last sign of an agent at work on it: a splates command writing its
+	 * record, a commit on its branch, or an edit to its SPLATES.md or to a file
 	 * not yet committed. Null when nothing says.
 	 */
 	activeAt: string | null;
 	escalation: string | null;
-	/** The merges it has tried; at `mergeAttemptLimit`, only `arbor retry` lets it try again. */
+	/** The merges it has tried; at `mergeAttemptLimit`, only `splates retry` lets it try again. */
 	mergeAttempts: number;
 	mergeAttemptLimit: number;
 	/** While escalated, when it was; null otherwise. */
@@ -74,26 +74,26 @@ export interface Details {
 	review: string | null;
 	/**
 	 * Whether the plan leaves nothing unchecked under `## Blocked` or
-	 * `## Next`, which `arbor merge` and `arbor escalate --review` require.
+	 * `## Next`, which `splates merge` and `splates escalate --review` require.
 	 */
 	ready: boolean;
 	plan: string | null;
-	/** How the `ARBOR.md` departs from the shape the skill prescribes. */
+	/** How the `SPLATES.md` departs from the shape the skill prescribes. */
 	planProblems: string[];
 	/**
-	 * Whether `arbor add --agent` handed it to an agent that `arbor dev` has
+	 * Whether `splates add --agent` handed it to an agent that `splates dev` has
 	 * yet to start a conversation with.
 	 */
 	dispatched: boolean;
 	/**
-	 * The conversation `arbor dev` started for the agent another conversation
+	 * The conversation `splates dev` started for the agent another conversation
 	 * handed it to, which answers to that one, its caller, rather than to the
 	 * user; null for any other task.
 	 */
 	handedTo: string | null;
 	/**
 	 * The systems its changed files fall in, committed or not, in the order
-	 * its worktree's `arbor.systems.ts` names them.
+	 * its worktree's `splates.systems.ts` names them.
 	 */
 	systems: NamedSystem[];
 }
@@ -127,7 +127,7 @@ export class TaskDetails {
 		// there would only fill the fields with nulls.
 		const stat = worktree.hasBranch ? await worktree.size() : null;
 		const plan = worktree.exists
-			? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
+			? await new Plans(this.fs).read(worktree.path)
 			: null;
 		const ahead = worktree.hasBranch ? await worktree.commitsAhead() : null;
 		const last = state?.escalations?.at(-1);
@@ -173,7 +173,7 @@ export class TaskDetails {
 
 	/**
 	 * The latest of its record's last write, its own latest commit, and the
-	 * edits to its ARBOR.md and uncommitted files, as `Details.activeAt`.
+	 * edits to its SPLATES.md and uncommitted files, as `Details.activeAt`.
 	 */
 	private async activeAt(
 		worktree: Worktree,

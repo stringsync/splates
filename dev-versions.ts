@@ -8,27 +8,27 @@ import { type Behind, isNewer, type Release } from "./release";
 export interface VersionsOptions {
 	/** The version serving. */
 	running: string;
-	/** The latest arbor on npm, or null when it cannot say. */
+	/** The latest splates on npm, or null when it cannot say. */
 	newest: () => Promise<string | null>;
 	checkEvery: Duration;
-	/** The last commit to arbor's own source, or null outside a checkout. */
+	/** The last commit to splates's own source, or null outside a checkout. */
 	source: () => Promise<string | null>;
 	sourceEvery: Duration;
 }
 
 /**
- * Whether this run of `arbor dev` is stale: a newer arbor on npm, or, run
- * from a checkout, commits to arbor's own source since it started. Each
+ * Whether this run of `splates dev` is stale: a newer splates on npm, or, run
+ * from a checkout, commits to splates's own source since it started. Each
  * project's pages are told as a check finds one.
  */
 export class Versions {
-	/** A newer arbor on npm, once a check has found one; every page says so. */
+	/** A newer splates on npm, once a check has found one; every page says so. */
 	private newer: Release | null = null;
 	/** Commits to that source since, once a check has seen one. */
 	private ahead: Behind | null = null;
 
 	/**
-	 * Versions for this run, reading arbor's source now, so a later commit
+	 * Versions for this run, reading splates's source now, so a later commit
 	 * to it is what makes this run stale.
 	 */
 	static async start(
@@ -43,7 +43,7 @@ export class Versions {
 		private readonly served: Map<string, Promise<Served>>,
 		private readonly log: Logger,
 		/**
-		 * The last commit to arbor's own source as this run started, or null
+		 * The last commit to splates's own source as this run started, or null
 		 * when it does not run from a checkout of it.
 		 */
 		private readonly started: string | null,
@@ -63,7 +63,7 @@ export class Versions {
 	}
 
 	/**
-	 * Checks for a newer arbor, or, run from a checkout, for commits to its
+	 * Checks for a newer splates, or, run from a checkout, for commits to its
 	 * source, until disposed.
 	 */
 	check(): Resource {
@@ -91,12 +91,12 @@ export class Versions {
 		}
 		this.newer = { running, newest: found };
 		this.log.info(
-			`arbor ${found} is out (this is ${running}): restart with \`bunx @webappwiz/arbor@latest dev\``,
+			`splates ${found} is out (this is ${running}): restart with \`bunx splates@latest dev\``,
 		);
 		await this.refresh();
 	}
 
-	// From a checkout, a restart runs its source again rather than npm's arbor,
+	// From a checkout, a restart runs its source again rather than npm's splates,
 	// so commits to it are what make this run stale.
 	private async checkSource(): Promise<void> {
 		const found = await this.opts.source();
@@ -111,7 +111,7 @@ export class Versions {
 		}
 		this.ahead = { running: started, newest: found };
 		this.log.info(
-			`arbor's source is at ${found.slice(0, 8)} (this runs ${started.slice(0, 8)}): restart to pick it up`,
+			`splates's source is at ${found.slice(0, 8)} (this runs ${started.slice(0, 8)}): restart to pick it up`,
 		);
 		await this.refresh();
 	}

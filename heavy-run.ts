@@ -6,7 +6,7 @@ import { heavyJobsOfMachine } from "./heavy";
 /**
  * Runs `argv` in one of the machine's heavy-job slots, waiting for one to
  * come free first, and says how it exited. What an agent runs itself (a full
- * test run, an install) passes through arbor no other way.
+ * test run, an install) passes through splates no other way.
  */
 export async function runHeavy(
 	ctx: { fs: Fs; ps: Ps; log: Logger },
@@ -14,7 +14,7 @@ export async function runHeavy(
 	heavy: HeavyCap = heavyJobsOfMachine(ctx),
 ): Promise<number> {
 	if (argv.length === 0) {
-		fail("usage", "name the command to run: `arbor heavy -- <command>`", {});
+		fail("usage", "name the command to run: `splates heavy -- <command>`", {});
 	}
 	await using slot = await heavy.take({
 		what: argv.join(" "),
@@ -29,7 +29,7 @@ export async function runHeavy(
 
 /** The task whose tree this runs in, for the page to name it by. */
 async function taskOf(ps: Ps): Promise<string | null> {
-	const named = ps.env("ARBOR_TASK");
+	const named = ps.env("SPLATES_TASK");
 	if (named !== undefined) {
 		return named;
 	}

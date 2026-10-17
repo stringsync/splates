@@ -31,7 +31,7 @@ describe("OpenCode native setup routes", () => {
 	beforeEach(() => {
 		ps = new FakePs();
 		log = new MemoryLogger();
-		setup = new CheckedSetup({ ps, fs: new FakeFs(), home: "/arbor" });
+		setup = new CheckedSetup({ ps, fs: new FakeFs(), home: "/splates" });
 		routes = new OpenCodeSetupRoutes(setup, ps, new HostGate([], log));
 		server = Bun.serve<Connection>({
 			port: 0,
@@ -115,7 +115,7 @@ describe("OpenCode native setup routes", () => {
 			"opencode auth login opencode-go --method key --standalone",
 		]);
 		expect(ps.getCallEnvs()).toEqual([{ TERM: "xterm-256color" }]);
-		expect(ps.getCallDirs()).toEqual(["/arbor/setup-opencode"]);
+		expect(ps.getCallDirs()).toEqual(["/splates/setup-opencode"]);
 		socket?.send(JSON.stringify({ type: "close" }));
 		await eventually(() => child?.closed === true);
 		expect(child?.closed).toBe(true);

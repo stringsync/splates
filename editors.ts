@@ -31,7 +31,7 @@ export const EDITORS = [
 	codeFamily("cursor", "Cursor", "cursor"),
 ] as const satisfies readonly Editor[];
 
-/** The editor `id` names, or null for one this arbor does not know. */
+/** The editor `id` names, or null for one this splates does not know. */
 export function editorOf(id: string): Editor | null {
 	return EDITORS.find((editor) => editor.id === id) ?? null;
 }

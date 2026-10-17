@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "webappwiz/time";
-import { arbor } from "./arbor";
 import type { Event } from "./events";
+import { splates } from "./splates";
 import { Testing } from "./testing";
 
-describe("arbor's waits in the journal", () => {
+describe("splates's waits in the journal", () => {
 	let env: Testing;
-	let deps: Parameters<typeof arbor.run>[0];
+	let deps: Parameters<typeof splates.run>[0];
 
 	beforeEach(async () => {
 		env = await Testing.open();
@@ -23,7 +23,7 @@ describe("arbor's waits in the journal", () => {
 	afterEach(() => env.disposeAsync());
 
 	it("logs a cred wait as it begins, then as it ends, naming the first", async () => {
-		await arbor.run(deps, [
+		await splates.run(deps, [
 			"creds",
 			"request",
 			"API_TOKEN",
@@ -33,7 +33,7 @@ describe("arbor's waits in the journal", () => {
 			"Paste it.",
 		]);
 
-		const waiting = arbor.run(deps, ["creds", "wait", "API_TOKEN"]);
+		const waiting = splates.run(deps, ["creds", "wait", "API_TOKEN"]);
 		await sleep(Duration.ms(20));
 		await env.creds.save("API_TOKEN", "secret");
 		await waiting;
@@ -60,10 +60,10 @@ describe("arbor's waits in the journal", () => {
 	});
 
 	it("logs a todo wait with the todo's subject, and how it gave up", async () => {
-		await arbor.run(deps, ["todo", "add", "Seven", "detail"]);
+		await splates.run(deps, ["todo", "add", "Seven", "detail"]);
 		const [todo] = await env.todos.all();
 
-		await arbor.run(deps, [
+		await splates.run(deps, [
 			"todo",
 			"wait",
 			String(todo?.id),

@@ -278,7 +278,7 @@ describe("App's review panel, with what the task assumed", () => {
 				.getByRole("button", { name: /More/ })
 				.getAttribute("aria-pressed"),
 		).toBe("true");
-		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
+		expect(localStorage.getItem("splates.draft.c1:review:0")).toBe(
 			"> **What should the menu be called?**\n\n- (a) More",
 		);
 	});
@@ -308,7 +308,7 @@ describe("App's review panel, with what the task assumed", () => {
 			within(list).getByRole("listitem", { name: "assumption 2" }),
 		).toBeTruthy();
 		expect(button(panel)).toBe("Merge");
-		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBeNull();
+		expect(localStorage.getItem("splates.draft.c1:review:0")).toBeNull();
 	});
 });
 

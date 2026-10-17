@@ -3,26 +3,26 @@ import type { Fs, Lock } from "webappwiz/system";
 import { fail } from "./exit";
 
 /**
- * One step forward in the format of the records under `.git/arbor`: from the
+ * One step forward in the format of the records under `.git/splates`: from the
  * version before it to its own. A step can be interrupted and run again, and
  * finds no records to change in a repository that has none yet.
  */
 export interface Migration {
 	/** What the step changes, said as it runs: "moves lanes into their own files". */
 	does: string;
-	run(arborDir: string, fs: Fs): Promise<void>;
+	run(splatesDir: string, fs: Fs): Promise<void>;
 }
 
 /**
  * Every step from version 1, in order: the one at index 0 takes records from
- * version 1 to 2. Forward only; arbor never writes an older format.
+ * version 1 to 2. Forward only; splates never writes an older format.
  */
 export const MIGRATIONS: readonly Migration[] = [];
 
 /**
- * The version of the records under `.git/arbor` this arbor reads and writes:
+ * The version of the records under `.git/splates` this splates reads and writes:
  * tasks, todos, lanes, the journal and conversations, as one. A change an
- * older arbor would misread adds a step to `MIGRATIONS`, which moves it on.
+ * older splates would misread adds a step to `MIGRATIONS`, which moves it on.
  */
 export const FORMAT = MIGRATIONS.length + 1;
 
@@ -36,7 +36,7 @@ export interface FormatOptions {
 	migrations?: readonly Migration[];
 }
 
-/** The format of one repository's records, kept in `<arborDir>/format`. */
+/** The format of one repository's records, kept in `<splatesDir>/format`. */
 export class Format {
 	private readonly fs: Fs;
 	private readonly lock: Lock;
@@ -45,40 +45,40 @@ export class Format {
 	private readonly path: string;
 
 	constructor(
-		readonly arborDir: string,
+		readonly splatesDir: string,
 		{ fs, lock, log, migrations = MIGRATIONS }: FormatOptions,
 	) {
 		this.fs = fs;
 		this.lock = lock;
 		this.log = log;
 		this.migrations = migrations;
-		this.path = `${arborDir}/format`;
+		this.path = `${splatesDir}/format`;
 	}
 
-	/** The version this arbor reads and writes. */
+	/** The version this splates reads and writes. */
 	get current(): number {
 		return this.migrations.length + 1;
 	}
 
 	/**
-	 * Makes the repository an arbor project, as only `arbor init` does: stamps
+	 * Makes the repository a splates project, as only `splates init` does: stamps
 	 * records from before formats were stamped as version 1, and a repository
-	 * with none yet as this arbor's. Leaves stamped records alone.
+	 * with none yet as this splates's. Leaves stamped records alone.
 	 */
 	async create(): Promise<void> {
 		if ((await this.stored()) !== null) {
 			return;
 		}
-		const records = await this.fs.exists(this.arborDir);
-		await this.fs.mkdir(this.arborDir);
+		const records = await this.fs.exists(this.splatesDir);
+		await this.fs.mkdir(this.splatesDir);
 		await this.write(records ? 1 : this.current);
 	}
 
 	/**
-	 * Refuses records in any format but this arbor's, which it would misread or
-	 * overwrite: a newer one until arbor is updated, an older one until
-	 * `arbor dev` has migrated it. Refuses a repository with none stamped
-	 * until `arbor init` has made it an arbor project.
+	 * Refuses records in any format but this splates's, which it would misread or
+	 * overwrite: a newer one until splates is updated, an older one until
+	 * `splates dev` has migrated it. Refuses a repository with none stamped
+	 * until `splates init` has made it a splates project.
 	 */
 	async check(): Promise<void> {
 		const stored = await this.stored();
@@ -89,23 +89,23 @@ export class Format {
 			fail(
 				"uninitialized",
 				[
-					"this repository is not an arbor project yet.",
-					"Run `arbor init` in it once: it sets up arbor's records and registers it, then every command works.",
+					"this repository is not a splates project yet.",
+					"Run `splates init` in it once: it sets up splates's records and registers it, then every command works.",
 				].join("\n"),
 			);
 		}
 		fail(
 			"outdated",
 			[
-				`this repository's arbor records are in format ${stored}, older than this arbor's ${this.current}, so it leaves them alone.`,
-				"Start `arbor dev` in this repository once: it migrates them, then every command works as before.",
+				`this repository's splates records are in format ${stored}, older than this splates's ${this.current}, so it leaves them alone.`,
+				"Start `splates dev` in this repository once: it migrates them, then every command works as before.",
 			].join("\n"),
 			{ format: stored, understood: this.current },
 		);
 	}
 
 	/**
-	 * Moves older records forward to this arbor's format, a step at a time,
+	 * Moves older records forward to this splates's format, a step at a time,
 	 * then checks them as `check` does.
 	 */
 	async migrate(): Promise<void> {
@@ -123,9 +123,9 @@ export class Format {
 			) {
 				const step = this.migrations[format - 1] as Migration;
 				this.log.info(
-					`migrating arbor's records to format ${format + 1}: ${step.does}`,
+					`migrating splates's records to format ${format + 1}: ${step.does}`,
 				);
-				await step.run(this.arborDir, this.fs);
+				await step.run(this.splatesDir, this.fs);
 				// After each step, so one cut short starts again from there.
 				await this.write(format + 1);
 			}
@@ -137,7 +137,7 @@ export class Format {
 
 	/**
 	 * The stored version, or null for records from before formats were
-	 * stamped, which are version 1. Refuses one this arbor cannot read.
+	 * stamped, which are version 1. Refuses one this splates cannot read.
 	 */
 	private async stored(): Promise<number | null> {
 		const raw = await this.fs.read(this.path).catch(() => null);
@@ -154,8 +154,8 @@ export class Format {
 			fail(
 				"outdated",
 				[
-					`this repository's arbor records are in format ${format}, written by a newer arbor; this one understands up to ${this.current}, so it leaves them alone.`,
-					"Run `bunx @webappwiz/arbor@latest` instead.",
+					`this repository's splates records are in format ${format}, written by a newer splates; this one understands up to ${this.current}, so it leaves them alone.`,
+					"Run `bunx splates@latest` instead.",
 				].join("\n"),
 				{ format, understood: this.current },
 			);

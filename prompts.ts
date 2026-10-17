@@ -2,12 +2,12 @@ import type { AgentPick } from "./roster";
 
 /** What a chat with an agent takes to mean todo `id`. */
 export function todoReference(id: number): string {
-	return `[ARBOR TODO #${id}]`;
+	return `[SPLATES TODO #${id}]`;
 }
 
 /**
  * What the untriaged lane, the todos in no lane, goes by where a lane's
- * number would: `[ARBOR LANE untriaged]`, `arbor lane show untriaged`.
+ * number would: `[SPLATES LANE untriaged]`, `splates lane show untriaged`.
  */
 export const UNTRIAGED = "untriaged";
 
@@ -16,25 +16,25 @@ export const UNTRIAGED = "untriaged";
  * null, "place the untriaged todos in lanes, then work those down".
  */
 export function laneReference(id: number | null): string {
-	return `[ARBOR LANE ${id ?? UNTRIAGED}]`;
+	return `[SPLATES LANE ${id ?? UNTRIAGED}]`;
 }
 
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
-	return `[ARBOR TASK ${task}]`;
+	return `[SPLATES TASK ${task}]`;
 }
 
 /** What a chat with an agent takes to mean "walk the user through setup step `step`". */
 export function setupReference(step: string): string {
-	return `[ARBOR SETUP ${step}]`;
+	return `[SPLATES SETUP ${step}]`;
 }
 
 /**
  * What a chat with an agent takes to mean "the agent at work on `task` handed
- * it to you: claim it and carry on from where its `ARBOR.md` says it stands".
+ * it to you: claim it and carry on from where its `SPLATES.md` says it stands".
  */
 export function handoffReference(task: string): string {
-	return `[ARBOR HANDOFF ${task}]`;
+	return `[SPLATES HANDOFF ${task}]`;
 }
 
 /**
@@ -42,15 +42,15 @@ export function handoffReference(task: string): string {
  * agent, on its model when it names one, as the page's Hand off action sends.
  */
 export function handoffToReference(pick: AgentPick): string {
-	return `[ARBOR HANDOFF TO ${pick.agent}${pick.model === undefined ? "" : ` ${pick.model}`}]`;
+	return `[SPLATES HANDOFF TO ${pick.agent}${pick.model === undefined ? "" : ` ${pick.model}`}]`;
 }
 
 /**
  * What tells the conversation that handed `task` out that it stopped:
- * escalated, merged or removed, which `arbor show` says.
+ * escalated, merged or removed, which `splates show` says.
  */
 export function reportReference(task: string): string {
-	return `[ARBOR REPORT ${task}]`;
+	return `[SPLATES REPORT ${task}]`;
 }
 
 /**
@@ -58,7 +58,7 @@ export function reportReference(task: string): string {
  * terminated its agent, leaving the task as it stood.
  */
 export function stoppedReference(task: string): string {
-	return `[ARBOR STOPPED ${task}]`;
+	return `[SPLATES STOPPED ${task}]`;
 }
 
 /**
@@ -67,7 +67,7 @@ export function stoppedReference(task: string): string {
  * waits on nothing that will come.
  */
 export function idleReference(task: string): string {
-	return `[ARBOR IDLE ${task}]`;
+	return `[SPLATES IDLE ${task}]`;
 }
 
 /**
@@ -75,14 +75,14 @@ export function idleReference(task: string): string {
  * an agent it handed one to is at work, to check on each and say where its
  * lanes stand.
  */
-export const HEARTBEAT = "[ARBOR HEARTBEAT]";
+export const HEARTBEAT = "[SPLATES HEARTBEAT]";
 
 /**
  * What tells a lane's orchestrator that todo `id`, in a lane it works, left
  * the list: merged, or removed.
  */
 export function todoDoneReference(id: number): string {
-	return `[ARBOR TODO DONE #${id}]`;
+	return `[SPLATES TODO DONE #${id}]`;
 }
 
 /**
@@ -90,70 +90,70 @@ export function todoDoneReference(id: number): string {
  * open again: the task that took it released it or was removed.
  */
 export function todoOpenReference(id: number): string {
-	return `[ARBOR TODO OPEN #${id}]`;
+	return `[SPLATES TODO OPEN #${id}]`;
 }
 
 /**
  * What tells a lane's orchestrator that every lane it works is done, however
  * the last todo landed, so it ends on its Finished report.
  */
-export const LANES_DONE = "[ARBOR LANES DONE]";
+export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
- * Whether `text` is an update arbor itself tells the conversation that handed
+ * Whether `text` is an update splates itself tells the conversation that handed
  * tasks out: a report, idle, stopped, a todo done or open, heartbeat or
  * lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[ARBOR (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
+	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
 		text.trim(),
 	);
 }
 
 /**
- * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
- * restart: the arbor skill says what it means.
+ * What asks an agent to bring its `SPLATES.md` up to date and stop, as before a
+ * restart: the splates skill says what it means.
  */
-export const CHECKPOINT = "[ARBOR CHECKPOINT]";
+export const CHECKPOINT = "[SPLATES CHECKPOINT]";
 
 /**
- * What asks an agent to carry on from where its `ARBOR.md` says it stopped,
- * after a checkpoint: the arbor skill says what it means.
+ * What asks an agent to carry on from where its `SPLATES.md` says it stopped,
+ * after a checkpoint: the splates skill says what it means.
  */
-export const RESUME = "[ARBOR RESUME]";
+export const RESUME = "[SPLATES RESUME]";
 
 /**
  * What asks an agent to carry on with a turn a lost connection cut short, as
- * the page's Reconnect button sends: the arbor skill says what it means.
+ * the page's Reconnect button sends: the splates skill says what it means.
  */
-export const RECONNECT = "[ARBOR RECONNECT]";
+export const RECONNECT = "[SPLATES RECONNECT]";
 
 /**
  * What approves a task's review and asks the agent to merge it, as the Ready
- * to merge card's Merge button sends: the arbor skill says what it means.
+ * to merge card's Merge button sends: the splates skill says what it means.
  */
-export const MERGE = "[ARBOR MERGE]";
+export const MERGE = "[SPLATES MERGE]";
 
 /**
  * What approves an agent's proposal as it stands and asks it to go ahead,
  * the answers to any calls it chose nothing for after it, as the Proposed
- * card's Approve button sends: the arbor skill says what it means.
+ * card's Approve button sends: the splates skill says what it means.
  */
-export const APPROVE = "[ARBOR APPROVE]";
+export const APPROVE = "[SPLATES APPROVE]";
 
 /**
  * What asks an agent long at work to say where its work stands and carry on,
- * as the page's Check in button sends: the arbor skill says what it means.
+ * as the page's Check in button sends: the splates skill says what it means.
  */
-export const CHECK_IN = "[ARBOR UPDATE]";
+export const CHECK_IN = "[SPLATES UPDATE]";
 
 /**
  * What asks an agent to make the request after it a todo rather than do it,
  * or, alone, to make the person's message before it one, with what it did on
- * it since, and stop, as the composer's Defer offers: the arbor skill says
+ * it since, and stop, as the composer's Defer offers: the splates skill says
  * what it means.
  */
-export const DEFER = "[ARBOR DEFER]";
+export const DEFER = "[SPLATES DEFER]";
 
 /**
  * What the agent alone is told of a message the person dictated: the page
@@ -162,11 +162,11 @@ export const DEFER = "[ARBOR DEFER]";
 export const DICTATED =
 	"(Dictated by voice: words that sound alike may be swapped, and names in this project misspelled. Read a near miss as the closest name in the project, and ask before acting on a reading that changes what you do.)";
 
-/** Each `[ARBOR ...]` directive in a text, wherever it stands. */
-export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)*\]/g;
+/** Each `[SPLATES ...]` directive in a text, wherever it stands. */
+export const DIRECTIVES = /\[(?:SPLATES|ARBOR) [A-Z]+(?: [^\]\s]+)*\]/g;
 
-/** One `[ARBOR ...]` directive at the start of a text, and the space after it. */
-const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)*\])(?:\s+|$)/;
+/** One `[SPLATES ...]` directive at the start of a text, and the space after it. */
+const LEADING = /^\s*(\[(?:SPLATES|ARBOR) [A-Z]+(?: [^\]\s]+)*\])(?:\s+|$)/;
 
 /**
  * The directives `text` starts with, in order, and what follows them; none
@@ -183,8 +183,22 @@ export function leadingDirectives(text: string): {
 		found !== null;
 		found = LEADING.exec(rest)
 	) {
-		directives.push(found[1] as string);
+		directives.push(directive(found[1] as string));
 		rest = rest.slice(found[0].length);
 	}
 	return { directives, rest };
+}
+
+/** arbor's directive prefix, read as splates's for one release. */
+const LEGACY_DIRECTIVE = "[ARBOR ";
+
+/**
+ * `text` trimmed, read as splates's directive when it is one of arbor's, as a
+ * conversation from before the rename holds.
+ */
+export function directive(text: string): string {
+	const trimmed = text.trim();
+	return trimmed.startsWith(LEGACY_DIRECTIVE)
+		? `[SPLATES ${trimmed.slice(LEGACY_DIRECTIVE.length)}`
+		: trimmed;
 }

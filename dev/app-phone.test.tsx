@@ -116,7 +116,7 @@ describe("App on a phone", () => {
 			[
 				conversation({
 					id: "c1",
-					messages: [message("user", "[ARBOR LANE 4]")],
+					messages: [message("user", "[SPLATES LANE 4]")],
 				}),
 			],
 			null,
@@ -205,7 +205,7 @@ describe("App on a phone", () => {
 							}),
 							tool({
 								id: "add1",
-								command: "arbor add sub --goal 'Map them'",
+								command: "splates add sub --goal 'Map them'",
 								parent: "agent1",
 							}),
 						),
@@ -814,7 +814,7 @@ describe("App on a phone", () => {
 			within(inbox).queryByRole("button", { name: "Switch project" }),
 		).toBeNull();
 		expect(
-			within(inbox).queryByRole("img", { name: /arbor|slot / }),
+			within(inbox).queryByRole("img", { name: /Spinning Plates|slot / }),
 		).toBeNull();
 
 		await act(async () =>
@@ -826,7 +826,9 @@ describe("App on a phone", () => {
 		expect(
 			within(drawer).getByRole("button", { name: "Switch project" }),
 		).toBeTruthy();
-		expect(within(drawer).getByRole("img", { name: "arbor" })).toBeTruthy();
+		expect(
+			within(drawer).getByRole("img", { name: "Spinning Plates" }),
+		).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);
@@ -842,7 +844,9 @@ describe("App on a phone", () => {
 				within(bar).queryByRole("button", { name: "Switch project" }),
 			).toBeNull(),
 		);
-		expect(within(bar).queryByRole("img", { name: /arbor|slot / })).toBeNull();
+		expect(
+			within(bar).queryByRole("img", { name: /Spinning Plates|slot / }),
+		).toBeNull();
 		expect(within(bar).getByRole("heading", { name: "Stats" })).toBeTruthy();
 	});
 

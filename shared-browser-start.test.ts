@@ -37,7 +37,7 @@ describe("SharedBrowser starting", () => {
 					},
 				},
 			},
-			"/home/.arbor",
+			"/home/.splates",
 		);
 	});
 

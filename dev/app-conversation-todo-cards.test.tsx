@@ -82,7 +82,7 @@ describe("App's todo cards", () => {
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
+			{ method: "POST", body: { text: "[SPLATES TODO #12]" } },
 		]);
 		expect(textIn(box)).toBe("half a thought");
 	});
@@ -155,10 +155,13 @@ describe("App's todo cards", () => {
 			expect(location.hash).toBe("#conversations/new/claude?model=haiku"),
 		);
 		const box = view.getByRole("textbox", { name: "Message input" });
-		await waitFor(() => expect(textIn(box)).toBe("[ARBOR TODO #12]"));
+		await waitFor(() => expect(textIn(box)).toBe("[SPLATES TODO #12]"));
 		expect(testing.posted("/api/conversations")).toEqual([]);
 		expect(testing.posted("/api/conversations/c9/prompt")).toEqual([]);
-		await typeIn(box, "[ARBOR TODO #12]\nPlease check the retry limit first.");
+		await typeIn(
+			box,
+			"[SPLATES TODO #12]\nPlease check the retry limit first.",
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Send message" })),
 		);
@@ -178,7 +181,7 @@ describe("App's todo cards", () => {
 			expect(
 				testing.posted("/api/conversations/c9/prompt").map((each) => each.body),
 			).toEqual([
-				{ text: "[ARBOR TODO #12]\nPlease check the retry limit first." },
+				{ text: "[SPLATES TODO #12]\nPlease check the retry limit first." },
 			]),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
@@ -197,7 +200,7 @@ describe("App's todo cards", () => {
 			view.getByRole("textbox", { name: "Message input" }),
 			"Original chat draft",
 		);
-		localStorage.setItem("arbor.draft.new:", "Existing new chat draft");
+		localStorage.setItem("splates.draft.new:", "Existing new chat draft");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 
 		await act(async () =>
@@ -211,10 +214,12 @@ describe("App's todo cards", () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/new/codex"));
 		await waitFor(() =>
 			expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
-				"[ARBOR TODO #12]\n\nExisting new chat draft",
+				"[SPLATES TODO #12]\n\nExisting new chat draft",
 			),
 		);
-		expect(localStorage.getItem("arbor.draft.c1")).toBe("Original chat draft");
+		expect(localStorage.getItem("splates.draft.c1")).toBe(
+			"Original chat draft",
+		);
 		expect(testing.posted("/api/conversations")).toEqual([]);
 		expect(testing.posted("/api/conversations/c9/prompt")).toEqual([]);
 	});
@@ -226,7 +231,7 @@ describe("App's todo cards", () => {
 					...proposing,
 					messages: [
 						...proposing.messages,
-						message("user", "[ARBOR TODO #12]"),
+						message("user", "[SPLATES TODO #12]"),
 					],
 				}),
 			],
@@ -369,7 +374,7 @@ describe("App's todo cards", () => {
 				conversation({
 					title: "Mentions",
 					messages: [
-						message("user", "[ARBOR TODO #14] and #15"),
+						message("user", "[SPLATES TODO #14] and #15"),
 						message("agent", "Took #12, but not `#14`. #15 merged."),
 					],
 				}),
@@ -389,7 +394,9 @@ describe("App's todo cards", () => {
 		).toHaveLength(2);
 
 		// The directive it starts with is a chip, which opens it too.
-		await act(async () => fireEvent.click(view.getByTitle("[ARBOR TODO #14]")));
+		await act(async () =>
+			fireEvent.click(view.getByTitle("[SPLATES TODO #14]")),
+		);
 		await waitFor(() =>
 			expect(view.getByRole("dialog", { name: /Todo 14/ })).toBeTruthy(),
 		);

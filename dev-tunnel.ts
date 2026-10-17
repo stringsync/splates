@@ -7,7 +7,7 @@ import { fail } from "./exit";
 import type { SavedTunnel } from "./saved-tunnel";
 import type { TunnelProvider } from "./tunnel-provider";
 
-/** The tunnel `arbor dev` runs to reach the page from elsewhere. */
+/** The tunnel `splates dev` runs to reach the page from elsewhere. */
 export interface TunnelConfig {
 	/** The public hostname the tunnel carries to the page. */
 	host: string;
@@ -16,7 +16,7 @@ export interface TunnelConfig {
 
 /**
  * The tunnel `--tunnel` and `--tunnel-name` ask for, or null when no host is
- * given, run by `custom`, the provider `arbor.config.ts` names, or else by
+ * given, run by `custom`, the provider `splates.config.ts` names, or else by
  * `cloudflared`. Refused without `access`, so a tunnel never exposes the page
  * to anyone Cloudflare Access has not let in.
  */
@@ -48,7 +48,7 @@ export function tunnelConfig(
 	if (custom !== null && name !== "") {
 		fail(
 			"usage",
-			"--tunnel-name names a cloudflared tunnel, but arbor.config.ts gives its own tunnel provider",
+			"--tunnel-name names a cloudflared tunnel, but splates.config.ts gives its own tunnel provider",
 			{ name },
 		);
 	}
@@ -64,7 +64,7 @@ export function hostName(host: string): string {
 	if (!/^([a-z0-9-]+\.)+[a-z0-9-]+$/.test(host)) {
 		fail(
 			"usage",
-			`invalid tunnel host '${host}': use a host name, as in arbor.example.com`,
+			`invalid tunnel host '${host}': use a host name, as in splates.example.com`,
 			{ host },
 		);
 	}
@@ -72,8 +72,8 @@ export function hostName(host: string): string {
 }
 
 /**
- * The tunnel `arbor tunnel setup` saved, and the Access application in front
- * of it, which a bare `arbor dev` runs; null when none was saved. One whose
+ * The tunnel `splates tunnel setup` saved, and the Access application in front
+ * of it, which a bare `splates dev` runs; null when none was saved. One whose
  * token the secret store cannot give is logged and left off, never fatal: the
  * page still answers on this machine.
  */
@@ -90,7 +90,7 @@ export async function savedTunnelConfig(
 		const token = await saved.token();
 		if (token === undefined) {
 			throw new Error(
-				"its token is gone from the system's secret store: run `arbor tunnel setup` again",
+				"its token is gone from the system's secret store: run `splates tunnel setup` again",
 			);
 		}
 		const access = accessConfig(record.team, record.aud);

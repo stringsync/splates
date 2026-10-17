@@ -7,7 +7,7 @@ import { Exit, type Reason } from "./exit";
 import { PULSE, PULSE_EVENT } from "./pulse";
 
 /**
- * Which requests `arbor dev` answers at all: those to a host it may be
+ * Which requests `splates dev` answers at all: those to a host it may be
  * reached by, and writes only from its own page. Given `access`, a host
  * `hosts` lets in answers only to a request Cloudflare Access verified, and
  * such a request may use conversations and terminals too; without it,

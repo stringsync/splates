@@ -20,7 +20,7 @@ export interface AttachOptions {
 }
 
 /**
- * Stores files for a task's questions to show, in a folder arbor owns, so
+ * Stores files for a task's questions to show, in a folder splates owns, so
  * the screenshots and recordings an agent takes never land in a commit.
  * An agent in a conversation has them kept with it, so a merged task's
  * report card still shows them; any other agent's go when the task merges or

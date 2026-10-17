@@ -5,7 +5,7 @@ import type { Todos } from "./todos";
 
 /**
  * A real batch of related todos, from sound2score, and the three lanes they
- * were run in: what the tests and a demo `arbor dev` load to see lanes at a
+ * were run in: what the tests and a demo `splates dev` load to see lanes at a
  * size that matters. An arrow is "merges before":
  *
  * ```

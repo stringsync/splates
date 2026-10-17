@@ -40,7 +40,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	// each test gets 30s rather than 5s.
 	const workers =
 		opts.workers ?? Math.max(1, Math.floor(availableParallelism() / 2));
-	// one of the machine's few heavy-job slots, as arbor's `preMerge` takes,
+	// one of the machine's few heavy-job slots, as splates's `preMerge` takes,
 	// so agents testing at once queue rather than run out of memory; run from
 	// a `preMerge` hook, it runs in the slot the merge already holds
 	const heavy = opts.heavy ?? heavyJobsOfMachine({ fs: new NodeFs(), ps, log });

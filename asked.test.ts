@@ -175,9 +175,9 @@ describe("stretches", () => {
 				base: "<base>",
 				to: null,
 				reason: null,
-				body: "One sentence on what changed.\n\n- Restart `arbor dev` to see it.",
+				body: "One sentence on what changed.\n\n- Restart `splates dev` to see it.",
 				source:
-					"## ✅ Merged <task> onto <base>\n\nOne sentence on what changed.\n\n- Restart `arbor dev` to see it.",
+					"## ✅ Merged <task> onto <base>\n\nOne sentence on what changed.\n\n- Restart `splates dev` to see it.",
 			},
 		});
 		expect(stretches(removed)[0]).toEqual({
@@ -360,7 +360,7 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("leaves a title saying a task was added as words, since arbor draws that itself", () => {
+	it("leaves a title saying a task was added as words, since splates draws that itself", () => {
 		const text = "## 🌱 Added upload-413\n\nStop retrying a 413.";
 
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
@@ -458,7 +458,7 @@ describe("stretches", () => {
 				"",
 				"An upload the server refuses as too big now stops.",
 				"",
-				"- Restart `arbor dev` to see it.",
+				"- Restart `splates dev` to see it.",
 				"- Assumed 3: Three tries, a second apart",
 				"",
 				"- Assumed 4: Kept the old endpoint for a release",
@@ -474,7 +474,7 @@ describe("stretches", () => {
 				type: "report",
 				report: expect.objectContaining({
 					ending: "escalated",
-					body: "An upload the server refuses as too big now stops.\n\n- Restart `arbor dev` to see it.",
+					body: "An upload the server refuses as too big now stops.\n\n- Restart `splates dev` to see it.",
 				}),
 			}),
 			{
@@ -670,11 +670,11 @@ describe("stretches", () => {
 });
 
 /**
- * The report examples the arbor skill shows agents, as agents copy them,
+ * The report examples the splates skill shows agents, as agents copy them,
  * from its SKILL.md and every reference file alike.
  */
 async function skillExamples(): Promise<string[]> {
-	const dir = join(import.meta.dir, "skills/arbor");
+	const dir = join(import.meta.dir, "skills/splates");
 	const files = await Array.fromAsync(new Bun.Glob("**/*.md").scan(dir));
 	const texts = await Promise.all(
 		files.toSorted().map((file) => Bun.file(join(dir, file)).text()),

@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { age } from "./age";
-import { goalLine, PLAN_FILE } from "./plan";
+import { goalLine, Plans } from "./plan";
 import { table } from "./table";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -17,7 +17,7 @@ interface Row {
 	worktree: string | null;
 	/** Paths the task has touched, committed or not; only with `files`. */
 	changed?: string[] | null;
-	/** The first line of its `ARBOR.md`'s Goal, if any; only with `files`. */
+	/** The first line of its `SPLATES.md`'s Goal, if any; only with `files`. */
 	goal?: string | null;
 }
 
@@ -47,7 +47,7 @@ export async function list(
 		return;
 	}
 	if (rows.length === 0) {
-		log.info("no tasks: run `arbor add <task>` to start one");
+		log.info("no tasks: run `splates add <task>` to start one");
 		return;
 	}
 	log.info(listing(rows));
@@ -74,9 +74,7 @@ async function paths(
 	worktree: Worktree,
 	fs: Fs,
 ): Promise<Pick<Row, "changed" | "goal">> {
-	const plan = worktree.exists
-		? await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
-		: null;
+	const plan = worktree.exists ? await new Plans(fs).read(worktree.path) : null;
 	return {
 		changed: worktree.hasBranch ? await worktree.changedFiles() : null,
 		goal: plan === null ? null : goalLine(plan),
@@ -112,7 +110,7 @@ function listing(rows: Row[]): string {
 		out.push(
 			"",
 			color.yellow(
-				`${orphaned.length} orphaned record(s): run \`arbor remove ${orphaned[0]?.task}\``,
+				`${orphaned.length} orphaned record(s): run \`splates remove ${orphaned[0]?.task}\``,
 			),
 		);
 	}

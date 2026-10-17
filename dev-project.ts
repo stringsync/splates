@@ -39,10 +39,10 @@ export async function serveProject(
 	project: Project,
 	context: DevContext,
 ): Promise<Served> {
-	const { service, format, arborDir, fs, log, journal } = project;
+	const { service, format, splatesDir, fs, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
-	// A task `arbor add --agent` handed to an agent starts it, whether or
+	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
@@ -56,14 +56,14 @@ export async function serveProject(
 			everywhere: context.everywhere,
 			lanes: () => project.todos.lanes(),
 			todos: () => project.todos.stored(),
-			seen: new SeenLaneTodos(fs, `${arborDir}/lane-todos.json`),
+			seen: new SeenLaneTodos(fs, `${splatesDir}/lane-todos.json`),
 			log,
 		});
 		events = await ConversationEvents.follow({
 			journal,
 			conversations,
 			fs,
-			arborDir,
+			splatesDir,
 			log,
 		});
 		conversations.url = context.url;
@@ -75,7 +75,7 @@ export async function serveProject(
 		};
 		const settled = new Debouncer(new SystemTimer(), SETTLE);
 		try {
-			const watching = fs.watch(`${arborDir}/tasks`, () =>
+			const watching = fs.watch(`${splatesDir}/tasks`, () =>
 				settled.call(handOff),
 			);
 			handOffs = {
@@ -86,7 +86,7 @@ export async function serveProject(
 			};
 		} catch (error) {
 			log.error(
-				`arbor dev cannot watch ${service.git.root}'s tasks, so it starts a task handed to an agent only as it starts: ${String(error)}`,
+				`splates dev cannot watch ${service.git.root}'s tasks, so it starts a task handed to an agent only as it starts: ${String(error)}`,
 			);
 		}
 		handOff();
@@ -95,8 +95,8 @@ export async function serveProject(
 		const todosSettled = new Debouncer(new SystemTimer(), SETTLE);
 		const watched = handedOut;
 		try {
-			await fs.mkdir(`${arborDir}/todos`);
-			const watching = fs.watch(`${arborDir}/todos`, () =>
+			await fs.mkdir(`${splatesDir}/todos`);
+			const watching = fs.watch(`${splatesDir}/todos`, () =>
 				todosSettled.call(() => void watched.sweep()),
 			);
 			todosWatch = {
@@ -107,7 +107,7 @@ export async function serveProject(
 			};
 		} catch (error) {
 			log.error(
-				`arbor dev cannot watch ${service.git.root}'s todos, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
+				`splates dev cannot watch ${service.git.root}'s todos, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
 			);
 		}
 	}
@@ -171,7 +171,7 @@ export type Project = Pick<
 	| "journal"
 	| "todos"
 	| "format"
-	| "arborDir"
+	| "splatesDir"
 	| "git"
 	| "creds"
 	| "slots"
@@ -189,7 +189,7 @@ export type DevMachine = Deps & {
 	fetch?: typeof fetch;
 	/** The built page. */
 	assets: Assets;
-	/** Every arbor project on this machine. */
+	/** Every splates project on this machine. */
 	projects: Projects;
 	/**
 	 * Projects opened already, served as they are rather than opened again:
@@ -200,15 +200,15 @@ export type DevMachine = Deps & {
 
 /** What the server as a whole tells each project it serves. */
 export interface DevContext {
-	/** Where the agents' own `arbor` reaches this server, once it listens. */
+	/** Where the agents' own `splates` reaches this server, once it listens. */
 	readonly url: string | null;
-	/** A newer arbor on npm, once a check has found one; every page says so. */
+	/** A newer splates on npm, once a check has found one; every page says so. */
 	readonly release: Release | null;
-	/** Commits to arbor's own source since this run started, once seen. */
+	/** Commits to splates's own source since this run started, once seen. */
 	readonly behind: Behind | null;
 	/** Whether building the page failed, so it serves the one built before. */
 	readonly unbuilt: boolean;
-	/** The slot `arbor dev --slot` serves under, or null. */
+	/** The slot `splates dev --slot` serves under, or null. */
 	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
@@ -274,7 +274,7 @@ export interface Served extends AsyncResource {
 	listSessions: Handler;
 	bringSession: Handler;
 	/**
-	 * Asks every live conversation here to bring its ARBOR.md up to date,
+	 * Asks every live conversation here to bring its SPLATES.md up to date,
 	 * answering with what settles as each answers.
 	 */
 	checkpoint: (only?: string[]) => Promise<Promise<void>[]>;

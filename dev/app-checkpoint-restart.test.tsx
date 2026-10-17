@@ -50,10 +50,10 @@ describe("App's checkpoint restart", () => {
 			null,
 		);
 		await act(async () =>
-			fireEvent.click(await menuItem(view, "Restarting arbor dev")),
+			fireEvent.click(await menuItem(view, "Restarting splates dev")),
 		);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Restarting splates dev" }),
 		);
 		expect(steps(dialog)).toEqual(["Checkpoint", "Restart", "Resume"]);
 		expect(current(dialog)).toBe("Checkpoint");
@@ -74,7 +74,7 @@ describe("App's checkpoint restart", () => {
 			timeout: 3000,
 		});
 		expect(dialog.textContent).toContain("0 of 1 agent back at work.");
-		within(dialog).getByText("arbor 0.0.1");
+		within(dialog).getByText("splates 0.0.1");
 
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
@@ -83,7 +83,7 @@ describe("App's checkpoint restart", () => {
 			timeout: 3000,
 		});
 		// The same screen throughout, rather than one sliding in per step.
-		expect(view.getByRole("dialog", { name: "arbor dev restarted" })).toBe(
+		expect(view.getByRole("dialog", { name: "splates dev restarted" })).toBe(
 			dialog,
 		);
 		expect(current(dialog)).toBeNull();
@@ -155,7 +155,7 @@ describe("App's checkpoint restart", () => {
 	});
 
 	it("replaces the inline confirmation with the current version after ten seconds", async () => {
-		sessionStorage.setItem("arbor.power.restarted", "0.0.43");
+		sessionStorage.setItem("splates.power.restarted", "0.0.43");
 		const view = await testing.open();
 		await waitFor(() => view.getByText("Updated"));
 		expect(testing.timer.timeouts).toContainEqual(
@@ -163,7 +163,7 @@ describe("App's checkpoint restart", () => {
 		);
 		await act(async () => testing.timer.fireTimeouts());
 		expect(view.queryByText("Updated")).toBeNull();
-		expect(view.getByTitle("Current version: arbor 0.0.1").textContent).toBe(
+		expect(view.getByTitle("Current version: splates 0.0.1").textContent).toBe(
 			"v0.0.1",
 		);
 		expect(view.queryByRole("dialog")).toBeNull();
@@ -183,11 +183,11 @@ describe("App's checkpoint restart", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(await menuItem(view, "Restarting arbor dev")),
+			fireEvent.click(await menuItem(view, "Restarting splates dev")),
 		);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Restarting splates dev" }),
 		);
 		expect(
 			within(dialog)

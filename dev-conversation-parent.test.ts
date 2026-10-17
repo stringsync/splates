@@ -13,7 +13,7 @@ describe("dev conversations' parent", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{ launch: new FakeAgent().launch },
 		);

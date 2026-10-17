@@ -24,14 +24,18 @@ describe("Conversation queue", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -48,7 +52,7 @@ describe("Conversation queue", () => {
 	const _started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -76,7 +80,7 @@ describe("Conversation queue", () => {
 			agent.sees = sees;
 			const conversation = await conversations.start("fake", {
 				task: "login",
-				cwd: "/repo-arbor/login",
+				cwd: "/repo-splates/login",
 			});
 			try {
 				const prompting = conversation.prompt(
@@ -94,7 +98,7 @@ describe("Conversation queue", () => {
 				await eventually(async () =>
 					(
 						await fs.read(
-							`/repo/.git/arbor/conversations/${conversation.id}.jsonl`,
+							`/repo/.git/splates/conversations/${conversation.id}.jsonl`,
 						)
 					).includes("keep my first thought"),
 				);
@@ -102,7 +106,7 @@ describe("Conversation queue", () => {
 				expect(agent.prompts).toEqual([]);
 				// No timer tick or graceful shutdown: only what reached disk counts.
 				const restarted = new Conversations(
-					"/repo/.git/arbor/conversations",
+					"/repo/.git/splates/conversations",
 					[AGENT],
 					{
 						fs,
@@ -143,7 +147,7 @@ describe("Conversation queue", () => {
 		await conversation.prompt("keep this too");
 		await eventually(() => agent.prompts.length === 1);
 		const restarted = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -265,7 +269,7 @@ describe("Conversation queue", () => {
 		);
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		);
@@ -307,7 +311,7 @@ describe("Conversation queue", () => {
 		await conversation.stop();
 
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		);

@@ -25,14 +25,18 @@ describe("Conversation turns", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -49,7 +53,7 @@ describe("Conversation turns", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -95,7 +99,7 @@ describe("Conversation turns", () => {
 
 	/** The same logs as another server reads them back. */
 	const readBack = () =>
-		new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+		new Conversations("/repo/.git/splates/conversations", [AGENT], {
 			fs,
 			timer,
 			clock,
@@ -224,7 +228,7 @@ describe("Conversation turns", () => {
 		agent.steering = "injected";
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 
 		await Promise.all([conversation.prompt("one"), conversation.prompt("two")]);
@@ -250,7 +254,7 @@ describe("Conversation turns", () => {
 	});
 
 	it("waits for the turn's end when the agent finds no turn to steer", async () => {
-		// As when the agent ended its turn, and arbor has yet to hear.
+		// As when the agent ended its turn, and splates has yet to hear.
 		agent.steering = "promptRequired";
 		const conversation = await working(conversations, held);
 
@@ -306,7 +310,9 @@ describe("Conversation turns", () => {
 		await conversation.stop();
 
 		expect(
-			await fs.read(`/repo/.git/arbor/conversations/${conversation.id}.jsonl`),
+			await fs.read(
+				`/repo/.git/splates/conversations/${conversation.id}.jsonl`,
+			),
 		).toMatch(
 			/"text":"one","at":"[^"]+","from":"desktop"}[\s\S]*"text":"two","at":"[^"]+","queued":true,"from":"phone"/,
 		);

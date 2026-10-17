@@ -219,7 +219,7 @@ export function like(
 	now = Number.POSITIVE_INFINITY,
 	/** The task it runs in, or last ran in, whose todos it can have added. */
 	task: string | null = null,
-	/** What arbor did at the agent's word in this turn, oldest first. */
+	/** What splates did at the agent's word in this turn, oldest first. */
 	events: readonly Event[] = [],
 	waiting: string | null = null,
 ): ThreadMessageLike {
@@ -322,7 +322,7 @@ export function like(
 }
 
 /**
- * `parts` with what the agent wrote of the last escalation arbor recorded in
+ * `parts` with what the agent wrote of the last escalation splates recorded in
  * them, its report, the questions it ends with and their demo, its review,
  * or the proposal it escalated to wait on, taken into the escalation's card
  * rather than drawn as a second one.

@@ -86,7 +86,7 @@ Cap upload retries
 		);
 		expect(location.hash).toBe("#conversations/task/gamma");
 		const alone = view.getByRole("region", { name: "gamma" });
-		// Not its ARBOR.md, which the task line opens: what the page knows of the agent.
+		// Not its SPLATES.md, which the task line opens: what the page knows of the agent.
 		expect(alone.textContent).not.toContain("Cap upload retries");
 		expect(alone.textContent).toContain("Escalated: needs a call");
 		expect(alone.textContent).toContain("Its agent runs outside the page");

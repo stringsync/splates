@@ -15,7 +15,7 @@ describe("attach", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	/** A file the agent took somewhere outside arbor, as a screenshot would be. */
+	/** A file the agent took somewhere outside splates, as a screenshot would be. */
 	const taken = async (name: string, bytes = 1): Promise<string> => {
 		const path = join(deps.root, "..", name);
 		await deps.fs.writeBytes(path, new Uint8Array(bytes));
@@ -113,9 +113,9 @@ describe("attach", () => {
 		const ID = "c1";
 
 		beforeEach(async () => {
-			await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+			await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
 			await deps.fs.writeBytes(
-				`${deps.arborDir}/conversations/${ID}.jsonl`,
+				`${deps.splatesDir}/conversations/${ID}.jsonl`,
 				new Uint8Array(),
 			);
 		});
@@ -131,10 +131,10 @@ describe("attach", () => {
 			expect(stored).toContain(`/conversations/${ID}/attached/alpha/`);
 			expect(deps.service.owns(stored)).toBe(true);
 			expect(
-				deps.service.owns(`${deps.arborDir}/conversations/${ID}.jsonl`),
+				deps.service.owns(`${deps.splatesDir}/conversations/${ID}.jsonl`),
 			).toBe(false);
 			expect(
-				deps.service.owns(`${deps.arborDir}/conversations/${ID}/artifacts/x`),
+				deps.service.owns(`${deps.splatesDir}/conversations/${ID}/artifacts/x`),
 			).toBe(false);
 			await attach(deps, [], tree);
 			expect(deps.out()).toContain("holds 1 file");

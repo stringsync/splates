@@ -22,11 +22,11 @@ describe("tunnelSetup", () => {
 			"POST /accounts/acct/access/apps",
 		]);
 		const [tunnel] = cloudflare.tunnels;
-		expect(tunnel).toMatchObject({ name: "arbor", config_src: "local" });
+		expect(tunnel).toMatchObject({ name: "splates", config_src: "local" });
 		expect(cloudflare.records).toMatchObject([
 			{
 				type: "CNAME",
-				name: "arbor.example.com",
+				name: "splates.example.com",
 				content: `${tunnel?.id}.cfargotunnel.com`,
 				proxied: true,
 			},
@@ -37,11 +37,11 @@ describe("tunnelSetup", () => {
 		const [app] = cloudflare.apps;
 		expect(app).toMatchObject({
 			type: "self_hosted",
-			domain: "arbor.example.com",
+			domain: "splates.example.com",
 			policies: [{ id: cloudflare.policies[0]?.id, precedence: 1 }],
 		});
 		expect(await saved.read()).toEqual({
-			host: "arbor.example.com",
+			host: "splates.example.com",
 			team: "team",
 			aud: app?.aud ?? "",
 			tunnel: tunnel?.id ?? "",
@@ -50,7 +50,7 @@ describe("tunnelSetup", () => {
 		expect(await creds.kept()).toContainEqual({
 			name: TUNNEL_TOKEN,
 			scope: "device",
-			savedBy: "arbor tunnel setup",
+			savedBy: "splates tunnel setup",
 		});
 		expect([...cloudflare.tokens]).toEqual(["Bearer api-token"]);
 	});
@@ -76,7 +76,7 @@ describe("tunnelSetup", () => {
 		cloudflare.records.push({
 			id: "old",
 			type: "CNAME",
-			name: "arbor.example.com",
+			name: "splates.example.com",
 			content: "gone.cfargotunnel.com",
 			proxied: true,
 		});
@@ -101,7 +101,7 @@ describe("tunnelSetup", () => {
 		const { cloudflare, store, creds, setup } = machine();
 		store.values.delete(API_TOKEN);
 
-		await expect(setup()).rejects.toThrow("arbor creds wait");
+		await expect(setup()).rejects.toThrow("splates creds wait");
 
 		const [request] = await creds.requests();
 		expect(request).toMatchObject({
@@ -109,9 +109,9 @@ describe("tunnelSetup", () => {
 			scope: "device",
 			status: "open",
 		});
-		expect(request?.purpose).toContain("arbor.example.com");
+		expect(request?.purpose).toContain("splates.example.com");
 		expect(request?.instructions).toContain("Cloudflare Tunnel · Edit");
-		expect(request?.instructions).toContain("arbor.example.com");
+		expect(request?.instructions).toContain("splates.example.com");
 		expect(cloudflare.changes).toEqual([]);
 	});
 
@@ -120,7 +120,7 @@ describe("tunnelSetup", () => {
 		cloudflare.team = null;
 
 		await expect(setup()).rejects.toThrow("--team <name>");
-		await setup("me@example.com", "arbor.example.com", "my-team");
+		await setup("me@example.com", "splates.example.com", "my-team");
 
 		expect(cloudflare.changes[0]).toBe(
 			"POST /accounts/acct/access/organizations",
@@ -131,8 +131,8 @@ describe("tunnelSetup", () => {
 	it("says what is missing in the account, changing nothing", async () => {
 		const { cloudflare, setup } = machine();
 
-		await expect(setup("me@example.com", "arbor.other.com")).rejects.toThrow(
-			"no zone the token can read serves arbor.other.com",
+		await expect(setup("me@example.com", "splates.other.com")).rejects.toThrow(
+			"no zone the token can read serves splates.other.com",
 		);
 		await expect(setup("")).rejects.toThrow(Exit);
 		expect(cloudflare.changes).toEqual([]);
@@ -145,21 +145,21 @@ function machine() {
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
 	const creds = new Creds(
-		"/repo/.git/arbor/creds.json",
+		"/repo/.git/splates/creds.json",
 		new MemoryLock(),
 		{ project: new FakeSecretStore(), device: store },
 		{ fs },
 	);
-	const saved = new SavedTunnel("/home/.arbor/tunnel.json", { fs, store });
+	const saved = new SavedTunnel("/home/.splates/tunnel.json", { fs, store });
 	const setup = (
 		email = "me@example.com",
-		host = "arbor.example.com",
+		host = "splates.example.com",
 		team = "",
 	) =>
 		tunnelSetup({
 			host,
 			email,
-			name: "arbor",
+			name: "splates",
 			team,
 			creds,
 			task: null,

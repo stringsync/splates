@@ -16,7 +16,7 @@ export async function todoTake(
 	if (task === null) {
 		fail(
 			"usage",
-			"take todos from the worktree of the task they belong to, or start one with `arbor add <task> --todo <id>`",
+			"take todos from the worktree of the task they belong to, or start one with `splates add <task> --todo <id>`",
 			{ todos: ids },
 		);
 	}
@@ -38,7 +38,7 @@ export async function todoTake(
 				(todo) => `${color.green("took")} todo ${todo.id}: ${todo.subject}`,
 			),
 			...blocked.flat(),
-			`  add ${taken.length === 1 ? "it" : "them"} to the Goal in ARBOR.md; merging removes ${taken.length === 1 ? "it" : "them"}`,
+			`  add ${taken.length === 1 ? "it" : "them"} to the Goal in SPLATES.md; merging removes ${taken.length === 1 ? "it" : "them"}`,
 		].join("\n"),
 	);
 	return taken;
@@ -46,7 +46,7 @@ export async function todoTake(
 
 /**
  * Puts todos back on the list, as when a task is landing without finishing
- * them: say what is left with `arbor todo update` first. From a worktree it
+ * them: say what is left with `splates todo update` first. From a worktree it
  * gives back only its own task's todos.
  */
 export async function todoRelease(
@@ -95,14 +95,14 @@ export function blockedWarning(todo: Todo, blockers: Todo[]): string[] {
 			.join(", ");
 	return [
 		`  ${color.yellow("blocked")}: todo ${todo.id} is blocked by ${blockers.map((other) => `todo ${other.id} (${where(other)})`).join(" and ")}, which ${blockers.length === 1 ? "has" : "have"} yet to merge`,
-		`  work only on what does not need ${blockers.length === 1 ? "it" : "them"}, or \`arbor todo wait ${first.id}\` until it lands`,
+		`  work only on what does not need ${blockers.length === 1 ? "it" : "them"}, or \`splates todo wait ${first.id}\` until it lands`,
 	];
 }
 
 /** Every todo in `ids`, once each, refusing the lot if one is missing. */
 async function findAll(todos: Todos, ids: number[]): Promise<Todo[]> {
 	if (ids.length === 0) {
-		fail("usage", "name at least one todo id: run `arbor todo list`", {});
+		fail("usage", "name at least one todo id: run `splates todo list`", {});
 	}
 	return Promise.all([...new Set(ids)].map((id) => todos.find(id)));
 }

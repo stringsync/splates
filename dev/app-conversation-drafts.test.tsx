@@ -76,25 +76,25 @@ describe("App's composer drafts", () => {
 
 	it("makes a directive typed anywhere a chip, and sends it where it stands", async () => {
 		const view = await testing.openConversations(held, "c1");
-		await type(view, "keep [ARBOR TODO #12] small");
+		await type(view, "keep [SPLATES TODO #12] small");
 
 		await waitFor(() =>
-			expect(within(box(view)).getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+			expect(within(box(view)).getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
 		);
-		expect(textIn(box(view))).toBe("keep [ARBOR TODO #12] small");
-		expect(localStorage.getItem("arbor.draft.c1")).toBe(
-			"keep [ARBOR TODO #12] small",
+		expect(textIn(box(view))).toBe("keep [SPLATES TODO #12] small");
+		expect(localStorage.getItem("splates.draft.c1")).toBe(
+			"keep [SPLATES TODO #12] small",
 		);
 
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "keep [ARBOR TODO #12] small" } },
+			{ method: "POST", body: { text: "keep [SPLATES TODO #12] small" } },
 		]);
 		// Out of the composer; the thread shows it in the message sent.
 		await waitFor(() =>
-			expect(within(box(view)).queryByTitle("[ARBOR TODO #12]")).toBeNull(),
+			expect(within(box(view)).queryByTitle("[SPLATES TODO #12]")).toBeNull(),
 		);
-		expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
+		expect(localStorage.getItem("splates.draft.c1") ?? "").toBe("");
 	});
 
 	it("shows the directives a sent message starts with as chips, ahead of its words", async () => {
@@ -102,12 +102,14 @@ describe("App's composer drafts", () => {
 			conversation({
 				id: "c1",
 				title: "Fix login",
-				messages: [message("user", "[ARBOR TASK alpha]\n\nand keep it small")],
+				messages: [
+					message("user", "[SPLATES TASK alpha]\n\nand keep it small"),
+				],
 			}),
 		]);
 
 		await waitFor(() =>
-			expect(view.getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+			expect(view.getByTitle("[SPLATES TASK alpha]").textContent).toBe(
 				"Taskalpha",
 			),
 		);
@@ -120,47 +122,50 @@ describe("App's composer drafts", () => {
 				id: "c1",
 				title: "Fix login",
 				messages: [
-					message("user", "then [ARBOR LANE 2] here, not `[ARBOR TASK alpha]`"),
+					message(
+						"user",
+						"then [SPLATES LANE 2] here, not `[SPLATES TASK alpha]`",
+					),
 				],
 			}),
 		]);
 
-		const chip = await waitFor(() => view.getByTitle("[ARBOR LANE 2]"));
+		const chip = await waitFor(() => view.getByTitle("[SPLATES LANE 2]"));
 		expect(chip.textContent).toBe("Lane 2");
 		expect(chip.parentElement?.textContent).toBe(
-			"then Lane 2 here, not [ARBOR TASK alpha]",
+			"then Lane 2 here, not [SPLATES TASK alpha]",
 		);
-		expect(view.queryByTitle("[ARBOR TASK alpha]")).toBeNull();
+		expect(view.queryByTitle("[SPLATES TASK alpha]")).toBeNull();
 	});
 
 	it("sends a directive kept in a draft with nothing typed", async () => {
-		localStorage.setItem("arbor.draft.c1", "[ARBOR TASK alpha]");
+		localStorage.setItem("splates.draft.c1", "[SPLATES TASK alpha]");
 		const view = await testing.openConversations(held, "c1");
 		await waitFor(() =>
-			expect(view.getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+			expect(view.getByTitle("[SPLATES TASK alpha]").textContent).toBe(
 				"Taskalpha",
 			),
 		);
-		expect(textIn(box(view))).toBe("[ARBOR TASK alpha]");
+		expect(textIn(box(view))).toBe("[SPLATES TASK alpha]");
 
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR TASK alpha]" } },
+			{ method: "POST", body: { text: "[SPLATES TASK alpha]" } },
 		]);
 	});
 
 	it("drops a directive from the draft when Backspace takes its chip", async () => {
 		const view = await testing.openConversations(held, "c1");
-		await type(view, "then stop [ARBOR LANE 2]");
+		await type(view, "then stop [SPLATES LANE 2]");
 		await waitFor(() =>
-			expect(within(box(view)).getByTitle("[ARBOR LANE 2]")).toBeTruthy(),
+			expect(within(box(view)).getByTitle("[SPLATES LANE 2]")).toBeTruthy(),
 		);
 
 		await act(async () => fireEvent.keyDown(box(view), { key: "Backspace" }));
 
-		expect(view.queryByTitle("[ARBOR LANE 2]")).toBeNull();
+		expect(view.queryByTitle("[SPLATES LANE 2]")).toBeNull();
 		expect(textIn(box(view))).toBe("then stop ");
-		expect(localStorage.getItem("arbor.draft.c1")).toBe("then stop ");
+		expect(localStorage.getItem("splates.draft.c1")).toBe("then stop ");
 	});
 
 	it("puts a message the server refused back in the composer on Edit, after what is typed there", async () => {

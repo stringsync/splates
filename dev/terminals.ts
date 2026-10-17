@@ -269,8 +269,8 @@ export function numberOf(key: string): number {
 	return Number(key.slice(MAIN.length + 1)) || 0;
 }
 
-/** Where the pane's state is kept, beside the drafts' `arbor.draft.` keys. */
-const KEY = "arbor.terminal";
+/** Where the pane's state is kept, beside the drafts' `splates.draft.` keys. */
+const KEY = "splates.terminal";
 
 /** Where the names terminals were given are kept. */
-const NAMES = "arbor.terminal.names";
+const NAMES = "splates.terminal.names";

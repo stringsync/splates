@@ -51,7 +51,7 @@ describe("App's creds", () => {
 			view.getByRole("listitem", { name: "requested CLOUDFLARE_TOKEN" }),
 		);
 		expect(request.textContent).toContain(
-			"To route arbor.example.com to arbor dev.",
+			"To route splates.example.com to splates dev.",
 		);
 		expect(request.textContent).toContain("Open API Tokens and create one.");
 		expect(request.textContent).toContain("all projects");
@@ -103,7 +103,7 @@ describe("App's creds", () => {
 				{
 					name: "TUNNEL_TOKEN",
 					scope: "device",
-					savedBy: "arbor tunnel setup",
+					savedBy: "splates tunnel setup",
 				},
 			],
 		};
@@ -112,7 +112,7 @@ describe("App's creds", () => {
 		const row = await waitFor(() =>
 			view.getByRole("listitem", { name: "TUNNEL_TOKEN" }),
 		);
-		expect(row.textContent).toContain("saved by arbor tunnel setup");
+		expect(row.textContent).toContain("saved by splates tunnel setup");
 		expect(view.getByText(/in the macOS Keychain\./)).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(row).getByRole("button", { name: "Remove" })),

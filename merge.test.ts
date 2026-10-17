@@ -296,8 +296,8 @@ describe.concurrent("merge", () => {
 
 	it("runs the gate in a heavy-job slot of the machine's, and gives it back", async () => {
 		await using deps = await Testing.open();
-		const seen = join(deps.arborHome, "seen.json");
-		deps.config.preMerge = `cp ${join(deps.arborHome, "heavy.json")} ${seen}`;
+		const seen = join(deps.splatesHome, "seen.json");
+		deps.config.preMerge = `cp ${join(deps.splatesHome, "heavy.json")} ${seen}`;
 
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
@@ -407,7 +407,7 @@ describe.concurrent("merge", () => {
 
 		await deps.finish(worktree.path);
 		await expect(merge(deps, worktree.path)).toBail("budget_exhausted", {
-			message: "arbor escalate",
+			message: "splates escalate",
 		});
 	});
 
@@ -445,7 +445,7 @@ describe.concurrent("merge", () => {
 		await using deps = await Testing.open();
 
 		const trace = join(deps.root, "trace.log");
-		deps.config.preMerge = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
+		deps.config.preMerge = `printf 'start-%s\\n' "$SPLATES_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$SPLATES_TASK" >> ${trace}`;
 
 		await add(deps, "alpha");
 		await add(deps, "beta");

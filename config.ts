@@ -19,7 +19,7 @@ export interface Config {
 	/**
 	 * Command run by `merge` after the rebase, via `sh -c`. The last gate before
 	 * the branch lands: a nonzero exit rolls the branch back and leaves the base
-	 * untouched. Tests are the obvious thing to put here, but arbor has no
+	 * untouched. Tests are the obvious thing to put here, but splates has no
 	 * opinion; a repo with nothing to run leaves it null and merges on a green
 	 * rebase alone.
 	 */
@@ -28,7 +28,7 @@ export interface Config {
 	leaseStalenessMs: number;
 	/**
 	 * How many agents one agent may have started at once: the tasks it
-	 * handed out with `arbor add --agent` and that are still out. A lane
+	 * handed out with `splates add --agent` and that are still out. A lane
 	 * orchestrator hands out every todo that can go, each to an agent of
 	 * its own. Past it, `add --agent` refuses, unless the person asked for
 	 * more and it passes `--over-capacity`.
@@ -54,7 +54,7 @@ export interface Config {
 	 */
 	todoStalenessMs: number;
 	/**
-	 * How many bytes of files `arbor attach` lets one task hold, all of them
+	 * How many bytes of files `splates attach` lets one task hold, all of them
 	 * together: a screen recording is the one thing here that grows fast.
 	 */
 	attachmentCapacity: number;
@@ -68,24 +68,24 @@ export interface Config {
 	/** How many bytes of artifacts every conversation in the project may keep together. */
 	artifactProjectCapacity: number;
 	/**
-	 * The command the `arbor dev` Budget page runs `scry budgets` with, from
+	 * The command the `splates dev` Budget page runs `scry budgets` with, from
 	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
 	 * name a wrapper of the repo's own otherwise, like `"./bin/wiz"`.
 	 */
 	wiz: string;
 	/**
-	 * What carries `arbor dev --tunnel` to its public host, a TunnelProvider
+	 * What carries `splates dev --tunnel` to its public host, a TunnelProvider
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */
 	tunnel: TunnelProvider | null;
 }
 
 /**
- * What `arbor.config.ts` exports as its default, typed by a type-only import
- * so a reader can import the file without arbor installed:
+ * What `splates.config.ts` exports as its default, typed by a type-only import
+ * so a reader can import the file without splates installed:
  *
  * ```ts
- * import type { ConfigFile } from "@webappwiz/arbor/config";
+ * import type { ConfigFile } from "splates/config";
  *
  * export default { preMerge: "bun test" } satisfies ConfigFile;
  * ```
@@ -94,7 +94,7 @@ export type ConfigFile = Partial<Config>;
 
 /**
  * Types a config written before `ConfigFile`, which wraps its default in
- * `defineConfig(...)`, so it still loads until `arbor update` rewrites it.
+ * `defineConfig(...)`, so it still loads until `splates update` rewrites it.
  *
  * @deprecated `satisfies ConfigFile` instead.
  */

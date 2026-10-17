@@ -31,7 +31,7 @@ describe("dev conversations a lane's orchestrator started", () => {
 			return "end_turn";
 		};
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{ launch: agent.launch },
 		);
@@ -63,12 +63,12 @@ describe("dev conversations a lane's orchestrator started", () => {
 		json(server.port, `/api/conversations/${id}/${path}`, method, body);
 
 	it("starts the agent it hands a todo to answering to the person, it the starter", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = orchestrator.id;
+		deps.proc.env.SPLATES_CONVERSATION = orchestrator.id;
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },
 			agents: [ROSTERED],
 		});
-		await until(() => said.includes("[ARBOR TASK alpha]"));
+		await until(() => said.includes("[SPLATES TASK alpha]"));
 		const [alpha] = (await conversations.list()).filter(
 			(each) => each.state.task === "alpha",
 		);
@@ -79,9 +79,9 @@ describe("dev conversations a lane's orchestrator started", () => {
 			messages: [{ told: orchestrator.id }],
 		});
 		expect(agent.launched.at(-1)?.env).toMatchObject({
-			ARBOR_STARTED_BY: orchestrator.id,
+			SPLATES_STARTED_BY: orchestrator.id,
 		});
-		expect(agent.launched.at(-1)?.env).not.toHaveProperty("ARBOR_CALLER");
+		expect(agent.launched.at(-1)?.env).not.toHaveProperty("SPLATES_CALLER");
 	});
 
 	it("takes the page's writes, as the person's to talk to", async () => {

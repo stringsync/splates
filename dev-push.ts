@@ -18,7 +18,7 @@ import { fail } from "./exit";
 import type { Needing } from "./needs";
 import { keyOf, Notices } from "./notices";
 import type { Projects } from "./projects";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);
@@ -79,7 +79,7 @@ export class Pushes {
 	private looking: Promise<void> | null = null;
 
 	static async start(deps: PushesDeps): Promise<Pushes> {
-		const file = `${arborHome(deps.ps)}/push.json`;
+		const file = `${splatesHome(deps.ps)}/push.json`;
 		let kept: z.infer<typeof KEPT>;
 		try {
 			kept = KEPT.parse(JSON.parse(await deps.fs.read(file)));
@@ -87,7 +87,7 @@ export class Pushes {
 			// None yet, or unreadable: every subscription needs the keys it was
 			// made with, so new ones start over with none.
 			kept = { keys: await generateVapidKeys(), devices: [] };
-			await deps.fs.mkdir(arborHome(deps.ps), { recursive: true });
+			await deps.fs.mkdir(splatesHome(deps.ps), { recursive: true });
 			await deps.fs.write(file, JSON.stringify(kept, null, "\t"));
 		}
 		return new Pushes(deps, file, kept.keys, kept.devices);
@@ -146,7 +146,7 @@ export class Pushes {
 				// The next look tries again; one that throws must not take the
 				// server down with it.
 				this.deps.log.error(
-					`arbor dev could not look for notices: ${String(error)}`,
+					`splates dev could not look for notices: ${String(error)}`,
 				);
 			})
 			.finally(() => {
@@ -213,7 +213,7 @@ export class Pushes {
 				return;
 			}
 			this.deps.log.error(
-				`arbor dev could not push a notice: ${String(error)}`,
+				`splates dev could not push a notice: ${String(error)}`,
 			);
 		}
 	}

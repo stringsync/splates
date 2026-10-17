@@ -42,7 +42,7 @@ describe("App's merged card actions", () => {
 
 	it("shows the systems the task touched as chips", async () => {
 		testing.landed.header = {
-			outcome: { ...header(), systems: ["arbor-dev", "skill"] },
+			outcome: { ...header(), systems: ["splates-dev", "skill"] },
 			baseline: null,
 		};
 		const view = await testing.openConversations([
@@ -58,7 +58,7 @@ describe("App's merged card actions", () => {
 			within(systems)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["arbor-dev", "skill"]);
+		).toEqual(["splates-dev", "skill"]);
 	});
 
 	it("says how many calls the person and the agent made", async () => {

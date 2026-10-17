@@ -35,7 +35,7 @@ describe("dev restart with agents on the worker", () => {
 		agent = new FakeAgent();
 		opened = new Map();
 		exits = [];
-		socket = join(deps.arborHome, "worker.sock");
+		socket = join(deps.splatesHome, "worker.sock");
 		daemon = new WorkerDaemon(
 			{ where: socket, dial: () => UnixWorkerSocket.connect(socket) },
 			{
@@ -66,11 +66,11 @@ describe("dev restart with agents on the worker", () => {
 		await deps.disposeAsync();
 	});
 
-	/** Starts `arbor dev` as the next run of the one coordinator, over the logs as they are. */
+	/** Starts `splates dev` as the next run of the one coordinator, over the logs as they are. */
 	async function run(): Promise<DevServer> {
 		opened.clear();
 		const coordinator = await CoordinatorState.open(
-			join(deps.arborHome, "coordinator.json"),
+			join(deps.splatesHome, "coordinator.json"),
 			deps.fs,
 		);
 		workers = new DevWorkers(deps.log, { session: coordinator.session });
@@ -84,22 +84,22 @@ describe("dev restart with agents on the worker", () => {
 		});
 	}
 
-	/** The conversations of the project kept in `arborDir`, run on the worker. */
-	function converse({ arborDir }: { arborDir: string }): Conversations {
+	/** The conversations of the project kept in `splatesDir`, run on the worker. */
+	function converse({ splatesDir }: { splatesDir: string }): Conversations {
 		const found =
-			opened.get(arborDir) ??
-			new Conversations(`${arborDir}/conversations`, [AGENT], {
+			opened.get(splatesDir) ??
+			new Conversations(`${splatesDir}/conversations`, [AGENT], {
 				launcher: workers.local,
 				machine: workers.local,
 			});
-		opened.set(arborDir, found);
+		opened.set(splatesDir, found);
 		return found;
 	}
 
 	/** What `coordinator.json` says the next run takes back. */
 	async function kept(): Promise<{ roots: string[] }> {
 		return JSON.parse(
-			await deps.fs.read(join(deps.arborHome, "coordinator.json")),
+			await deps.fs.read(join(deps.splatesHome, "coordinator.json")),
 		) as { roots: string[] };
 	}
 

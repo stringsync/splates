@@ -35,7 +35,7 @@ export function Drawer({
 	page: Page;
 	/** The conversation open, by its address, or null. */
 	conversation: string | null;
-	/** Whether `arbor dev` holds conversations. */
+	/** Whether `splates dev` holds conversations. */
 	available: boolean;
 	/** The agents waiting on you. */
 	waiting: number;

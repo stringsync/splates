@@ -11,7 +11,7 @@ const access = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };
 
 describe("savedTunnelConfig", () => {
 	const record = {
-		host: "arbor.example.com",
+		host: "splates.example.com",
 		team: "team",
 		aud: "app-aud",
 		tunnel: "tunnel-id",
@@ -22,7 +22,7 @@ describe("savedTunnelConfig", () => {
 
 	beforeEach(() => {
 		store = new FakeSecretStore();
-		saved = new SavedTunnel("/home/.arbor/tunnel.json", {
+		saved = new SavedTunnel("/home/.splates/tunnel.json", {
 			fs: new FakeFs(),
 			store,
 		});
@@ -36,7 +36,7 @@ describe("savedTunnelConfig", () => {
 		const config = await savedTunnelConfig(saved, ps, new MemoryLogger());
 
 		expect(config?.access).toEqual(access);
-		expect(config?.tunnel.host).toBe("arbor.example.com");
+		expect(config?.tunnel.host).toBe("splates.example.com");
 		expect(config?.tunnel.provider).toBeInstanceOf(CloudflaredTunnelProvider);
 	});
 
@@ -46,7 +46,7 @@ describe("savedTunnelConfig", () => {
 
 		expect(await savedTunnelConfig(saved, ps, log)).toBeNull();
 		expect(JSON.stringify(log.entries)).toContain(
-			"run `arbor tunnel setup` again",
+			"run `splates tunnel setup` again",
 		);
 	});
 });

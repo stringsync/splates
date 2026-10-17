@@ -14,7 +14,7 @@ import { PowerTitle, plural } from "./checkpoint-slide";
 import type { ProjectChoice } from "./project-api";
 
 /**
- * Power's first slide: restart or shut down `arbor dev`. A restart is at
+ * Power's first slide: restart or shut down `splates dev`. A restart is at
  * once, and keeps every agent at work on a worker. Shutdown opens a
  * confirmation with the choice to checkpoint first.
  */
@@ -35,7 +35,7 @@ export function PickSlide({
 	checkpoint: boolean;
 	onCheckpoint: (checkpoint: boolean) => void;
 	busy: boolean;
-	/** A newer arbor, which a restart lands on. */
+	/** A newer splates, which a restart lands on. */
 	onto: string | null;
 	restartable: boolean;
 	/** The commands a restart or shutdown would kill. */
@@ -70,7 +70,7 @@ export function PickSlide({
 						dies.length === 0 &&
 						restartable &&
 						" A restart keeps them at work."}
-					{!restartable && " arbor dev cannot restart itself here."}
+					{!restartable && " splates dev cannot restart itself here."}
 				</DialogDescription>
 			</DialogHeader>
 			{restartable && stops.length > 0 && <Stops lines={stops} />}
@@ -88,10 +88,10 @@ export function PickSlide({
 							</DialogTrigger>
 							<DialogContent showCloseButton={false}>
 								<DialogHeader>
-									<PowerTitle title="Shut down arbor dev?" />
+									<PowerTitle title="Shut down splates dev?" />
 									<DialogDescription>
-										This stops arbor dev and all running agents. You will need
-										to start arbor dev again from a terminal.
+										This stops splates dev and all running agents. You will need
+										to start splates dev again from a terminal.
 									</DialogDescription>
 								</DialogHeader>
 								{working.length > 0 && (

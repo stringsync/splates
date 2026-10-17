@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { versionOf } from "webappwiz/skills";
 import { RUNNING } from "./release";
 
-describe("the arbor skill", () => {
-	it("ships at the version of the arbor it came with", async () => {
+describe("the splates skill", () => {
+	it("ships at the version of the splates it came with", async () => {
 		const skill = await Bun.file(
-			join(import.meta.dir, "skills/arbor/SKILL.md"),
+			join(import.meta.dir, "skills/splates/SKILL.md"),
 		).text();
 
 		expect(versionOf(skill)).toEqual(RUNNING);

@@ -64,7 +64,7 @@ export const ReportUI = makeAssistantDataUI<{
 /**
  * Renders a `data-start` part: the lanes the agent started to orchestrate and
  * what they add up to, as it said when it began, whether that ends its turn
- * or comes along the way. A task it added is arbor's own line instead.
+ * or comes along the way. A task it added is splates's own line instead.
  */
 export const StartUI = makeAssistantDataUI<{ start: LanesStart }>({
 	name: "start",

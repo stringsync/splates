@@ -136,7 +136,7 @@ export function Conversations({
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);
 	// What a main-tree conversation can take up: a live task no listed
-	// conversation runs in, nor one about to. `arbor claim` refuses one an
+	// conversation runs in, nor one about to. `splates claim` refuses one an
 	// external agent still holds, so its agent says so.
 	const free = tasks.filter(
 		(each) =>
@@ -334,7 +334,7 @@ function useRead(conversation: ConversationState | null): void {
 
 /**
  * The archived conversations, newest first, each with how long ago it was
- * archived, to read or bring back: every one kept, since arbor deletes the
+ * archived, to read or bring back: every one kept, since splates deletes the
  * older ones.
  */
 function Archived({

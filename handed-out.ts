@@ -22,6 +22,7 @@ import {
 } from "./lane-todos";
 import type { LaneRecord } from "./lanes";
 import {
+	directive,
 	HEARTBEAT,
 	idleReference,
 	LANES_DONE,
@@ -45,11 +46,11 @@ const SETTLE = Duration.secs(1);
 
 /**
  * Keeps the conversation that handed tasks out, a lane's orchestrator with
- * `arbor add --agent` or a relaying agent with `arbor handoff --relay`, up
+ * `splates add --agent` or a relaying agent with `splates handoff --relay`, up
  * to date on the agents it handed them to, so it never waits on one that
  * has gone quiet, a restart included. An agent that is not at work, with its
  * task still under way and not escalated, gets nothing more done unless that
- * one acts, so that one is told `[ARBOR IDLE <task>]`, unless it has heard of
+ * one acts, so that one is told `[SPLATES IDLE <task>]`, unless it has heard of
  * the task since the agent last said anything, or, for one that answers to
  * the person, the person took it in hand. An agent that answers to the one
  * that handed it out is archived with that one once its task is gone, off the
@@ -57,20 +58,20 @@ const SETTLE = Duration.secs(1);
  * settle, as the project opens, and every `SWEEP`.
  *
  * A conversation idle `HEARTBEAT_IDLE` since its last turn, with an agent
- * that answers to it still at work, is told `[ARBOR HEARTBEAT]`, so it checks
+ * that answers to it still at work, is told `[SPLATES HEARTBEAT]`, so it checks
  * on them rather than wait out a long task with no word to the person. Any
  * turn it takes before then puts the next one off again. A lane's
  * orchestrator gets none: its agents talk to the person themselves.
  *
- * A lane's orchestrator is told `[ARBOR TODO DONE #N]` as a todo in a lane
- * it works leaves the list, and `[ARBOR TODO OPEN #N]` as one comes back
+ * A lane's orchestrator is told `[SPLATES TODO DONE #N]` as a todo in a lane
+ * it works leaves the list, and `[SPLATES TODO OPEN #N]` as one comes back
  * open, however that came about, so the todos drive the lane rather than its
- * agents reporting back. What changed while `arbor dev` was down is told
+ * agents reporting back. What changed while `splates dev` was down is told
  * once it is back.
  *
  * A lane's orchestrator whose lanes are all done, however their last todos
  * landed, that sits idle on a Working or Waiting report, as though they were
- * not, is told `[ARBOR LANES DONE]`, once since it last started lanes, so it
+ * not, is told `[SPLATES LANES DONE]`, once since it last started lanes, so it
  * ends on its Finished report.
  */
 export class HandedOut implements Resource {
@@ -200,7 +201,7 @@ export class HandedOut implements Resource {
 			.then(work)
 			.catch((error: unknown) =>
 				this.log.error(
-					`arbor dev could not check on the agents it handed tasks to: ${error instanceof Error ? error.message : String(error)}`,
+					`splates dev could not check on the agents it handed tasks to: ${error instanceof Error ? error.message : String(error)}`,
 				),
 			);
 		return this.#checking;
@@ -325,7 +326,8 @@ export class HandedOut implements Resource {
 				(message) =>
 					message.role === "user" &&
 					message.parts.some(
-						(part) => part.type === "text" && part.text.trim() === LANES_DONE,
+						(part) =>
+							part.type === "text" && directive(part.text) === LANES_DONE,
 					),
 			)
 		) {
@@ -483,7 +485,7 @@ function heard(
 
 /**
  * Whether the person took a conversation in hand since it was handed its
- * task: the last word said to it was theirs, not `arbor tell`'s, or they
+ * task: the last word said to it was theirs, not `splates tell`'s, or they
  * stopped its last turn. Its orchestrator then leaves it to them.
  */
 function inHand(state: Conversation["state"]): boolean {

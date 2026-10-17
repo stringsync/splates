@@ -2,14 +2,14 @@ import type { System } from "./systems";
 
 /**
  * Every word a prompt to an agent in `project` may use that a speech model
- * would spell its own way: arbor, the project's name, and each system's name
+ * would spell its own way: splates, the project's name, and each system's name
  * and aliases.
  */
 export function words(
 	project: string,
 	systems: Record<string, System>,
 ): string[] {
-	const words = new Set(["arbor", project]);
+	const words = new Set(["splates", project]);
 	for (const [name, system] of Object.entries(systems)) {
 		words.add(name);
 		for (const alias of system.aliases ?? []) {

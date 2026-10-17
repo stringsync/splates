@@ -32,7 +32,7 @@ describe("dev conversations handed a task", () => {
 			return "end_turn";
 		};
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{ launch: agent.launch },
 		);
@@ -99,7 +99,7 @@ describe("dev conversations handed a task", () => {
 		await until(() => said.length === 1);
 
 		expect(await terminated.json()).toMatchObject({ status: "stopped" });
-		expect(said).toEqual([`[ARBOR STOPPED ${handed.id}]`]);
+		expect(said).toEqual([`[SPLATES STOPPED ${handed.id}]`]);
 	});
 
 	it("goes with the one it answers to when that is archived, and comes back with it", async () => {
@@ -135,7 +135,7 @@ describe("dev conversations handed a task", () => {
 		await working.prompt("Carry on.");
 		await until(() => said.length === 2);
 
-		expect(said).toEqual(["Carry on.", "[ARBOR IDLE alpha]"]);
+		expect(said).toEqual(["Carry on.", "[SPLATES IDLE alpha]"]);
 	});
 
 	it("tells it nothing once the task is escalated, which reports itself", async () => {

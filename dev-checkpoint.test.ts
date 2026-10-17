@@ -30,7 +30,7 @@ describe("dev checkpoint", () => {
 			return turn();
 		};
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{
 				launch: agent.launch,

@@ -21,7 +21,7 @@ import { TopBar } from "./top-bar";
 const UNCOVERED_SHOWN = 8;
 
 /**
- * Every system `arbor.systems.ts` names, a line each with how it moved
+ * Every system `splates.systems.ts` names, a line each with how it moved
  * lately, or the one `open` names: what it is made of, what refers to it,
  * and the commits that changed it on trunk.
  */
@@ -75,8 +75,8 @@ export function SystemsPage({
 			<TopBar title="Systems" />
 			{systems.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					No systems: name parts of the code in <code>arbor.systems.ts</code>,
-					as the arbor skill's Systems section says.
+					No systems: name parts of the code in <code>splates.systems.ts</code>,
+					as the splates skill's Systems section says.
 				</p>
 			) : (
 				<ul aria-label="system list" className="flex flex-col">
@@ -101,7 +101,7 @@ export function SystemsPage({
 
 /**
  * The files no system covers, as globs, those changed most lately first:
- * what is worth naming next. Each glob copies, for `arbor.systems.ts` or a
+ * what is worth naming next. Each glob copies, for `splates.systems.ts` or a
  * conversation.
  */
 function UncoveredList({ report }: { report: SystemsReport }): JSX.Element {

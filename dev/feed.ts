@@ -30,7 +30,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 	 */
 	offline = false;
 	/**
-	 * What the server says when a newer arbor has moved the repo's records on,
+	 * What the server says when a newer splates has moved the repo's records on,
 	 * past what it understands: it refuses until it is updated.
 	 */
 	outdated: string | null = null;

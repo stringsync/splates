@@ -50,7 +50,7 @@ describe("App's composer references", () => {
 		};
 	};
 
-	it("lists arbor's items by category for a #, and writes the one picked as a chip", async () => {
+	it("lists splates's items by category for a #, and writes the one picked as a chip", async () => {
 		const { view, box } = await opened();
 
 		await typeIn(box, "#");
@@ -77,9 +77,9 @@ describe("App's composer references", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
-			expect(within(box).getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+			expect(within(box).getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
 		);
-		expect(textIn(box)).toBe("[ARBOR TODO #12] ");
+		expect(textIn(box)).toBe("[SPLATES TODO #12] ");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 
@@ -199,9 +199,9 @@ describe("App's composer references", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
-			expect(within(box).getByTitle("[ARBOR LANE 3]")).toBeTruthy(),
+			expect(within(box).getByTitle("[SPLATES LANE 3]")).toBeTruthy(),
 		);
-		expect(textIn(box)).toBe("see [ARBOR LANE 3] ");
+		expect(textIn(box)).toBe("see [SPLATES LANE 3] ");
 	});
 
 	it("writes a system picked after a #, by its name when an alias found it", async () => {
@@ -365,6 +365,6 @@ describe("App's composer references", () => {
 		]);
 		// Archived, it goes on to a new conversation, leaving no draft behind.
 		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
-		expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
+		expect(localStorage.getItem("splates.draft.c1") ?? "").toBe("");
 	});
 });

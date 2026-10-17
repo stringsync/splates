@@ -57,7 +57,7 @@ const IDLE: DictationState = {
 };
 
 /**
- * The composer's dictation: records a take from the mic, streams it to arbor
+ * The composer's dictation: records a take from the mic, streams it to splates
  * dev, and hands the final transcript to the composer only after stopping.
  */
 export class Dictation

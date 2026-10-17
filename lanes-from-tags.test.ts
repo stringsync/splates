@@ -24,9 +24,9 @@ describe("lanesFromTags", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		log = new MemoryLogger();
-		await fs.mkdir("/repo/.git/arbor/todos");
-		await fs.write("/repo/.git/arbor/todos/1.json", tagged(1, ["uploads"]));
-		await fs.write("/repo/.git/arbor/todos/2.json", tagged(2, []));
+		await fs.mkdir("/repo/.git/splates/todos");
+		await fs.write("/repo/.git/splates/todos/1.json", tagged(1, ["uploads"]));
+		await fs.write("/repo/.git/splates/todos/2.json", tagged(2, []));
 	});
 
 	it("finds the todos from a worktree, through its .git file", async () => {
@@ -39,7 +39,7 @@ describe("lanesFromTags", () => {
 
 		expect(said()).toEqual(["moved #1 into lane 1 Uploads, from their tag"]);
 		expect(
-			JSON.parse(await fs.read("/repo/.git/arbor/todos/2.json")).lane,
+			JSON.parse(await fs.read("/repo/.git/splates/todos/2.json")).lane,
 		).toBeUndefined();
 	});
 

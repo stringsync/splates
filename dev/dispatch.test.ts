@@ -101,15 +101,15 @@ describe("Dispatch", () => {
 			drafts.read(newDraft("shop", "alpha")),
 			drafts.read("c1"),
 		]).toEqual([
-			"[ARBOR TODO #12]",
+			"[SPLATES TODO #12]",
 			promptFor({ kind: "task", task: "alpha" }),
-			"[ARBOR LANE 2]\n\nand keep it small",
+			"[SPLATES LANE 2]\n\nand keep it small",
 		]);
 	});
 
 	it("asks for a task by claiming it", () => {
 		expect(promptFor({ kind: "task", task: "alpha" })).toBe(
-			"[ARBOR TASK alpha]",
+			"[SPLATES TASK alpha]",
 		);
 	});
 });

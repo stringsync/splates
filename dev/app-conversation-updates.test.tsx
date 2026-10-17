@@ -11,7 +11,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's question cards when arbor tells the agent of a task's end", () => {
+describe("App's question cards when splates tells the agent of a task's end", () => {
 	let testing: Testing;
 	let view: ConversationsView;
 
@@ -31,7 +31,7 @@ describe("App's question cards when arbor tells the agent of a task's end", () =
 	const told = (...more: ReturnType<typeof message>[]) =>
 		conversation({
 			title: "Header",
-			messages: [...asked, message("user", "[ARBOR REPORT footer]"), ...more],
+			messages: [...asked, message("user", "[SPLATES REPORT footer]"), ...more],
 		});
 
 	// The latest card's second question, as a message can ask it again.

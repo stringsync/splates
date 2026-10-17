@@ -7,7 +7,7 @@ import { Setup, type SetupMachine } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import { API_TOKEN } from "./tunnel-setup";
 
-const HOME = "/home/.arbor";
+const HOME = "/home/.splates";
 
 describe("SETUP_AREAS", () => {
 	let machine: SetupMachine;
@@ -55,7 +55,7 @@ describe("SETUP_AREAS", () => {
 		expect(progress.required).toBe(true);
 	});
 
-	it("checks each step against what arbor keeps on the machine", async () => {
+	it("checks each step against what splates keeps on the machine", async () => {
 		await machine.fs.mkdir(HOME, { recursive: true });
 		await machine.fs.write(
 			`${HOME}/agents.json`,
@@ -80,7 +80,7 @@ describe("SETUP_AREAS", () => {
 		await new SavedTunnel(`${HOME}/tunnel.json`, {
 			fs: machine.fs,
 			store: machine.device,
-		}).save({ host: "arbor.example.com", team: "t", aud: "a", tunnel: "i" });
+		}).save({ host: "splates.example.com", team: "t", aud: "a", tunnel: "i" });
 		await machine.device.set(TUNNEL_TOKEN, "token");
 		await machine.device.set(API_TOKEN, "api");
 		await machine.fs.mkdir(`${HOME}/slots/bee`, { recursive: true });

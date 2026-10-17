@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CONFIG_FILE, ConfigFiles } from "./load-config";
 
 /** The file a repo names its systems in, at its root. */
-export const SYSTEMS_FILE = "arbor.systems.ts";
+export const SYSTEMS_FILE = "splates.systems.ts";
 
 /** One named part of the code: the files it is made of. */
 export interface System {
@@ -20,37 +20,37 @@ export interface System {
 	ignore?: string[];
 }
 
-/** A system with the name `arbor.systems.ts` keys it by. */
+/** A system with the name `splates.systems.ts` keys it by. */
 export interface NamedSystem extends System {
 	name: string;
 }
 
 /** Configures where {@link Systems.at} reads and how it matches. */
 export interface SystemsOptions {
-	/** What `arbor.systems.ts` is read through; the real one by default. */
+	/** What `splates.systems.ts` is read through; the real one by default. */
 	fs?: Fs;
 	/** What paths are matched against globs with; `node:path`'s by default. */
 	glob?: Glob;
 }
 
 /**
- * What `arbor.systems.ts` exports as its default, keyed by name:
+ * What `splates.systems.ts` exports as its default, keyed by name:
  *
  * ```ts
- * import type { SystemsFile } from "@webappwiz/arbor/systems";
+ * import type { SystemsFile } from "splates/systems";
  *
  * export default {
  * 	playback: { description: "Playing a song", globs: ["src/audio/**"] },
  * } satisfies SystemsFile;
  * ```
  *
- * The import is only a type, so a reader can import the file without arbor
+ * The import is only a type, so a reader can import the file without splates
  * installed.
  */
 export type SystemsFile = Record<string, System>;
 
 /**
- * The systems one tree's `arbor.systems.ts` names, and which of them a set of
+ * The systems one tree's `splates.systems.ts` names, and which of them a set of
  * paths falls in.
  */
 export class Systems {
@@ -77,7 +77,7 @@ export class Systems {
 		);
 	}
 
-	/** Every system, in the order `arbor.systems.ts` names them. */
+	/** Every system, in the order `splates.systems.ts` names them. */
 	all(): NamedSystem[] {
 		return this.named;
 	}
@@ -192,10 +192,10 @@ export function mentionLine(system: NamedSystem): string {
  * user can name it as a system, or give one that covers it the alias.
  */
 export function unknownLine(name: string): string {
-	return `#${name} names no system: find the code it means, and offer to name it as the arbor skill's Systems section says.`;
+	return `#${name} names no system: find the code it means, and offer to name it as the splates skill's Systems section says.`;
 }
 
-/** The longest {@link System.description} arbor takes. */
+/** The longest {@link System.description} splates takes. */
 export const DESCRIPTION_MAX = 80;
 
 const SYSTEMS = z.record(
@@ -214,10 +214,10 @@ const SYSTEMS = z.record(
 );
 
 /**
- * The systems `root`'s `arbor.systems.ts` names, checked, or none when there
- * is no such file. Read afresh each time, so a long-running `arbor dev` sees a
- * system named mid-task without a restart. Throws while `arbor.config.ts`
- * still names systems, which `arbor update` moves.
+ * The systems `root`'s `splates.systems.ts` names, checked, or none when there
+ * is no such file. Read afresh each time, so a long-running `splates dev` sees a
+ * system named mid-task without a restart. Throws while `splates.config.ts`
+ * still names systems, which `splates update` moves.
  */
 export async function readSystems(
 	root: string,
@@ -226,7 +226,7 @@ export async function readSystems(
 	const files = new ConfigFiles(fs);
 	if ((await files.importConfig(root)).systems !== undefined) {
 		throw new Error(
-			`${root}/${CONFIG_FILE} names systems, which arbor now reads from ${SYSTEMS_FILE}: run \`arbor update\` to move them`,
+			`${root}/${CONFIG_FILE} names systems, which splates now reads from ${SYSTEMS_FILE}: run \`splates update\` to move them`,
 		);
 	}
 	return checkSystems(
@@ -239,7 +239,7 @@ export async function readSystems(
  * `systems` in the shape {@link System} names, or throws
  * naming `path` for one that is not, one with more than two aliases or a
  * description longer than one short line, or two
- * that answer to the same name, which would leave `arbor systems <name>`
+ * that answer to the same name, which would leave `splates systems <name>`
  * guessing.
  */
 export function checkSystems(

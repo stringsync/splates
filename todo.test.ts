@@ -54,18 +54,18 @@ describe.concurrent("todo", () => {
 		await todoAdd(deps, "write docs", "alpha", { text: "the CLI first" });
 
 		const updated = await todoUpdate(deps, 1, {
-			subject: "  write the arbor docs ",
+			subject: "  write the splates docs ",
 		});
 
 		expect(updated.state).toMatchObject({
 			id: 1,
-			subject: "write the arbor docs",
+			subject: "write the splates docs",
 			text: "the CLI first",
 			from: "alpha",
 		});
 		const detailed = await todoUpdate(deps, 1, { text: " and the page " });
 		expect(detailed.state).toMatchObject({
-			subject: "write the arbor docs",
+			subject: "write the splates docs",
 			text: "and the page",
 		});
 		await expect(todoUpdate(deps, 1, { subject: " " })).toBail("usage");
@@ -247,8 +247,8 @@ describe.concurrent("todo", () => {
 		await tag(6, ["licensing"]);
 		await expect(deps.todos.all()).toBail("outdated", {
 			message: [
-				"was saved with tags, and arbor now groups todos in lanes instead",
-				"Run `arbor update` in this repository",
+				"was saved with tags, and splates now groups todos in lanes instead",
+				"Run `splates update` in this repository",
 			],
 		});
 
@@ -448,7 +448,7 @@ describe.concurrent("todo", () => {
 		await expect(deps.todos.find(1)).toBail("not_found");
 		const out = color.strip(deps.out());
 		expect(out).toContain("next todo 3: follow-up from dark");
-		expect(out).toContain("arbor add <task> --todo 3");
+		expect(out).toContain("splates add <task> --todo 3");
 	});
 
 	it("recommends the highest open todo, and sets stale ones aside", async () => {

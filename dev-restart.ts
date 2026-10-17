@@ -15,7 +15,7 @@ import { tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
 import type { WorkerMachine } from "./worker-machine";
 
-/** The projects `arbor dev` serves, as its restarts reach them. */
+/** The projects `splates dev` serves, as its restarts reach them. */
 export interface ServedProjects {
 	/** Each project opened so far, by root. */
 	readonly served: Map<string, Promise<Served>>;
@@ -25,12 +25,12 @@ export interface ServedProjects {
 	projectNamed(slug: string): Promise<Served>;
 }
 
-/** What `Restarts` works with: the machine, and what `arbor dev` holds. */
+/** What `Restarts` works with: the machine, and what `splates dev` holds. */
 export interface RestartsHome {
 	fs: Fs;
 	ps: Ps;
 	log: Logger;
-	/** The registry of arbor projects. */
+	/** The registry of splates projects. */
 	projects: Projects;
 	served: ServedProjects;
 	terminals: Terminals;
@@ -46,12 +46,12 @@ export interface RestartsHome {
 export interface RestartsOptions {
 	exit: ((code: number) => void) | null;
 	open: (root: string) => Promise<Project>;
-	/** Every `arbor dev` on this machine the page can switch to. */
+	/** Every `splates dev` on this machine the page can switch to. */
 	servers: () => Promise<ServerChoice[]>;
 }
 
 /**
- * How `arbor dev` restarts: the checkpoint a restart waits on, the restart
+ * How `splates dev` restarts: the checkpoint a restart waits on, the restart
  * itself, and how this run began. Its handlers are properties, so `dev` hands them to its routes
  * as they are.
  */
@@ -72,7 +72,7 @@ export class Restarts {
 	 * checkpoint left in the logs may yet be one to resume.
 	 */
 	private began = false;
-	/** This run of `arbor dev`, so a page can tell it has restarted. */
+	/** This run of `splates dev`, so a page can tell it has restarted. */
 	private readonly run = crypto.randomUUID();
 	/**
 	 * Written by a checkpoint's restart, beside the registry, with the other
@@ -181,8 +181,8 @@ export class Restarts {
 			fail(
 				"usage",
 				after === "shutdown"
-					? "arbor dev cannot shut itself down here: stop it"
-					: "arbor dev cannot restart itself here: restart it",
+					? "splates dev cannot shut itself down here: stop it"
+					: "splates dev cannot restart itself here: restart it",
 				{},
 			);
 		}
@@ -214,7 +214,7 @@ export class Restarts {
 	};
 
 	/**
-	 * Restarts `arbor dev` now, or with `shutdown` exits for good, without a
+	 * Restarts `splates dev` now, or with `shutdown` exits for good, without a
 	 * checkpoint: an agent at work stops mid-turn, and a command it would
 	 * kill dies with it. The next run starts as if started afresh.
 	 */
@@ -227,8 +227,8 @@ export class Restarts {
 			fail(
 				"usage",
 				shutdown
-					? "arbor dev cannot shut itself down here: stop it"
-					: "arbor dev cannot restart itself here: restart it",
+					? "splates dev cannot shut itself down here: stop it"
+					: "splates dev cannot restart itself here: restart it",
 				{},
 			);
 		}
@@ -238,14 +238,14 @@ export class Restarts {
 	};
 
 	/**
-	 * Restarts `arbor dev` now, refused while an agent is at work that a
+	 * Restarts `splates dev` now, refused while an agent is at work that a
 	 * restart would stop (one on a worker carries on through it), or a
 	 * command it would kill runs: a job in front in a shell, or one an idle
 	 * agent left running.
 	 */
 	readonly restartIdle = async (): Promise<Response> => {
 		if (this.opts.exit === null) {
-			fail("usage", "arbor dev cannot restart itself here: restart it", {});
+			fail("usage", "splates dev cannot restart itself here: restart it", {});
 		}
 		const working: { id: string; name: string }[] = [];
 		for (const project of await this.opened()) {
@@ -287,7 +287,7 @@ export class Restarts {
 		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
 		const found = (await projects.list()).find((each) => each.slug === slug);
 		if (found === undefined) {
-			fail("not_found", `no arbor project '${slug}'`, { project: slug });
+			fail("not_found", `no splates project '${slug}'`, { project: slug });
 		}
 		// Its agents would carry on with nothing on the page left to show them.
 		const live = await this.live(found.root);
@@ -413,7 +413,7 @@ export class Restarts {
 	}
 
 	/**
-	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
+	 * Restarts `splates dev` once each checkpoint `asked` has been answered,
 	 * unless dismissed meanwhile, or with `shutdown`, exits for good, the
 	 * next start reopening and resuming as a restart would. Without
 	 * `reopens`, the next run starts as if started afresh, as for a restart
@@ -447,10 +447,10 @@ export class Restarts {
 			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
 			log.info(
 				shutdown
-					? "arbor dev shutting down"
+					? "splates dev shutting down"
 					: release === null
-						? "arbor dev restarting"
-						: `arbor dev restarting on arbor ${release.newest}`,
+						? "splates dev restarting"
+						: `splates dev restarting on splates ${release.newest}`,
 			);
 			// A shutdown ends the worker too: its agents stop, as ever.
 			if (!shutdown) {

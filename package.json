@@ -1,5 +1,5 @@
 {
-	"name": "@webappwiz/arbor",
+	"name": "splates",
 	"version": "0.0.44",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
@@ -11,6 +11,7 @@
 	"type": "module",
 	"module": "index.ts",
 	"bin": {
+		"splates": "./index.ts",
 		"arbor": "./index.ts"
 	},
 	"exports": {

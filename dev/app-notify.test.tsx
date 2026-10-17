@@ -237,7 +237,7 @@ describe("App's settings and notifications", () => {
 			"checked",
 			true,
 		);
-		expect(JSON.parse(localStorage.getItem("arbor.settings") ?? "")).toEqual({
+		expect(JSON.parse(localStorage.getItem("splates.settings") ?? "")).toEqual({
 			"appearance.theme": "dark",
 			"appearance.accent": "rose",
 		});
@@ -245,7 +245,7 @@ describe("App's settings and notifications", () => {
 
 	it("shows a switch under one that is off as off, keeping its own value for when it is on", async () => {
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "notifications.sound": true }),
 		);
 		const { dialog } = await settings();

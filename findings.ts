@@ -79,7 +79,7 @@ export const FINDING_THRESHOLDS = {
 export type Finding =
 	/** The gate turned it away, even once. */
 	| ({ kind: "gate" } & GateFailure)
-	/** `arbor retry` granted it more merge attempts. */
+	/** `splates retry` granted it more merge attempts. */
 	| { kind: "retried"; times: number }
 	/** The person stopped the agent's turn. */
 	| { kind: "stopped"; at: string }

@@ -13,7 +13,7 @@ import { WorkerProcessHost } from "./worker-process-host";
 import { WorkerSession } from "./worker-session";
 import { WorkerSocketPair } from "./worker-socket-pair";
 
-const DIR = "/repo/.git/arbor/conversations";
+const DIR = "/repo/.git/splates/conversations";
 
 describe("A conversation on a worker across a coordinator restart", () => {
 	let fs: FakeFs;
@@ -29,7 +29,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		timer = new FakeTimer();
 		clock = new FakeClock();
 		agent = new FakeAgent();
@@ -59,7 +59,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		coordinator.dispose();
 	});
 
-	/** A coordinator session as `arbor dev` makes one: named, acking by hand. */
+	/** A coordinator session as `splates dev` makes one: named, acking by hand. */
 	const session = () =>
 		new WorkerSession("coordinator", {
 			id: "coordinator-1",
@@ -137,7 +137,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 	it("finds the turn running on the process it takes back, and ends it once, logged once", async () => {
 		const before = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(before, "idle");
 		await before.prompt("one");
@@ -173,7 +173,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		];
 		const before = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 			model,
 		});
 		await until(before, "idle");
@@ -196,7 +196,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		agent.usage = { inputTokens: 42, outputTokens: 7, totalTokens: 49 };
 		const before = await conversations.start("opencode", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(before, "idle");
 		await before.prompt("one");
@@ -217,7 +217,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 	it("reads the same conversation back idle from its log, and carries on with the next prompt", async () => {
 		const before = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(before, "idle");
 		await before.saved();
@@ -235,7 +235,7 @@ describe("A conversation on a worker across a coordinator restart", () => {
 	it("stops a conversation whose process the worker no longer holds, as one idled out", async () => {
 		const before = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(before, "idle");
 		await before.saved();

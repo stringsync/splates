@@ -1,5 +1,5 @@
 /**
- * The page's writes: the same core functions as `arbor todo add`, `update`
+ * The page's writes: the same core functions as `splates todo add`, `update`
  * and `remove`, and the lanes' own.
  * A refusal comes back as the CLI's own reason and message, thrown so the
  * caller can show it.
@@ -29,7 +29,7 @@ export class ApiError extends Error {
 
 /**
  * `path` for the project this page shows: the one `?project=` names, or none
- * for the one `arbor dev` started in, unless `path` names one itself. Every
+ * for the one `splates dev` started in, unless `path` names one itself. Every
  * request the page makes goes through here.
  */
 export function scoped(path: string): string {
@@ -266,14 +266,14 @@ export async function taskOutcome(task: string): Promise<Landed | null> {
 
 /**
  * Gives `task`, escalated once it spent its merge attempts, another round of
- * them, as `arbor retry` does.
+ * them, as `splates retry` does.
  */
 export async function retryTask(task: string): Promise<void> {
 	await send(`/api/tasks/${encodeURIComponent(task)}/retry`, {});
 }
 
 /**
- * `arbor remove` for `task`, past any lease, stopping each conversation in
+ * `splates remove` for `task`, past any lease, stopping each conversation in
  * its tree and moving it to the main tree.
  */
 export async function removeTask(task: string): Promise<void> {
@@ -307,7 +307,7 @@ export async function identity(): Promise<string | null> {
 
 /**
  * Each port a task serves now, with its link through the ports host, if one
- * is saved, and on the machine `arbor dev` runs on.
+ * is saved, and on the machine `splates dev` runs on.
  */
 export async function taskPorts(): Promise<PortLink[]> {
 	const response = await fetch("/api/ports");
@@ -320,7 +320,7 @@ export async function taskPorts(): Promise<PortLink[]> {
 /** What the page shows of the machine: its reading, and its heavy jobs. */
 export type MachineStatus = MachineReading & { heavy: HeavyJobsReading };
 
-/** How hard the machine `arbor dev` runs on is working right now. */
+/** How hard the machine `splates dev` runs on is working right now. */
 export async function machine(): Promise<MachineStatus> {
 	const response = await fetch("/api/machine");
 	if (!response.ok) {
@@ -428,7 +428,7 @@ export async function dismissCred(name: string): Promise<void> {
 
 /**
  * Where a project's scry budgets stand, as `wiz scry budgets --format json`
- * prints it; arbor only passes it on, so this mirrors the CLI's type.
+ * prints it; splates only passes it on, so this mirrors the CLI's type.
  */
 export interface Budgets {
 	/** Whether any config or change declares budgets. */

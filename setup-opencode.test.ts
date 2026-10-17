@@ -11,7 +11,7 @@ describe("OpenCode setup checks", () => {
 	beforeEach(() => {
 		ps = new OpenCodePs();
 		fs = new FakeFs();
-		setup = new OpenCodeSetup({ ps, fs, home: "/arbor" });
+		setup = new OpenCodeSetup({ ps, fs, home: "/splates" });
 	});
 
 	it("does nothing until explicitly checked, then negotiates only initialize", async () => {
@@ -27,8 +27,8 @@ describe("OpenCode setup checks", () => {
 		});
 		expect(ps.requests).toEqual(["initialize"]);
 		expect(ps.getChildren()[0]?.signals).toEqual(["SIGTERM"]);
-		expect(ps.getCallDirs()).toEqual(Array(5).fill("/arbor/setup-opencode"));
-		expect(await fs.exists("/arbor/agents.json")).toBe(false);
+		expect(ps.getCallDirs()).toEqual(Array(5).fill("/splates/setup-opencode"));
+		expect(await fs.exists("/splates/agents.json")).toBe(false);
 	});
 
 	it("invalidates authentication observations when a native action begins", async () => {

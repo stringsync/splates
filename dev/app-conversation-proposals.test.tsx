@@ -75,7 +75,7 @@ describe("App's questions card under a proposal", () => {
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR APPROVE]" } },
+			{ method: "POST", body: { text: "[SPLATES APPROVE]" } },
 		]);
 	});
 
@@ -155,7 +155,7 @@ describe("App's questions card under a proposal", () => {
 				method: "POST",
 				body: {
 					text: [
-						"[ARBOR APPROVE]",
+						"[SPLATES APPROVE]",
 						"",
 						"> **What should the menu say?**",
 						"",

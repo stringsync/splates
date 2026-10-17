@@ -18,9 +18,8 @@ import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
 import type { Review } from "../asked";
 import { assumptions } from "../plan";
-import { MERGE } from "../prompts";
+import { directive, MERGE } from "../prompts";
 import { answerIn } from "../reply";
-import { ArborEvent } from "./arbor-event";
 import {
 	AssumptionList,
 	AssumptionsChanged,
@@ -35,6 +34,7 @@ import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { Sheeted } from "./phone-sheets";
 import { Refusal, useRefusal } from "./refusal";
+import { SplatesEvent } from "./splates-event";
 
 /** The name of a review's changes box among its boxes. */
 const CHANGES = "changes";
@@ -47,7 +47,7 @@ const TYPED_MERGE = "merge";
  * Enter sends them, and Merge is a Tab away while the box is empty. It shows
  * one button, Merge or Send, as the box is empty or not. What is written stays in the
  * panel, never the composer, until it is sent. It lists what the task
- * assumed, read from its `ARBOR.md` so the list is current, and a challenge
+ * assumed, read from its `SPLATES.md` so the list is current, and a challenge
  * to one goes out with the changes, quoting its line as an answer would.
  */
 export function ReviewPanel({
@@ -90,8 +90,9 @@ export function ReviewPanel({
 	const box = useRef<HTMLDivElement>(null);
 	useArrival(send !== null, () => box.current);
 	const approved =
-		sent?.trim() === MERGE || sent?.trim().toLowerCase() === TYPED_MERGE;
-	// Approved, it is history: a line of arbor's, the Merged report below
+		(typeof sent === "string" && directive(sent) === MERGE) ||
+		sent?.trim().toLowerCase() === TYPED_MERGE;
+	// Approved, it is history: a line of splates's, the Merged report below
 	// it the one card that says how the task ended. Show opens it again.
 	const [shown, setShown] = useState(false);
 	const card = (
@@ -215,7 +216,7 @@ export function ReviewPanel({
 	}
 	return (
 		<div className="my-6">
-			<ArborEvent
+			<SplatesEvent
 				event={{
 					words: ["Review approved", { kind: "task", task: review.task }],
 					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },

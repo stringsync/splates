@@ -1,13 +1,13 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "./creds";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
 
 /**
- * An `arbor dev` on this machine the page can switch to: the machine's own,
- * reached at the host `arbor tunnel setup` made, or a slot's.
+ * A `splates dev` on this machine the page can switch to: the machine's own,
+ * reached at the host `splates tunnel setup` made, or a slot's.
  */
 export interface ServerChoice {
 	/** The slot it serves under; null for the machine's own. */
@@ -21,10 +21,10 @@ export interface ServerChoice {
 }
 
 /**
- * Every `arbor dev` this machine has a host for: its own, then each slot a
+ * Every `splates dev` this machine has a host for: its own, then each slot a
  * checkout that still exists holds, in the pool's order, whether or not it
  * runs. Read from the machine's home, which a slot's server is told of, since
- * its own `ARBOR_HOME` is the slot's.
+ * its own `SPLATES_HOME` is the slot's.
  */
 export async function devServers({
 	fs,
@@ -37,7 +37,7 @@ export async function devServers({
 	log: Logger;
 	secrets?: SecretStores;
 }): Promise<ServerChoice[]> {
-	const home = ps.env(MACHINE_HOME) ?? arborHome(ps);
+	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 	const here = ps.env(SLOT) ?? null;
 	const hostOf = (path: string) =>
 		new SavedTunnel(path, { fs, store: secrets.device })

@@ -1,34 +1,34 @@
 import { describe, expect, it } from "bun:test";
-import { arborCalls, type Beat, judge } from "./skill-checks";
+import { type Beat, judge, splatesCalls } from "./skill-checks";
 
 describe("skill checks", () => {
-	it("arborCalls: finds arbor where a shell would run it, not in a quoted message", () => {
+	it("splatesCalls: finds splates where a shell would run it, not in a quoted message", () => {
 		expect(
-			arborCalls(
-				`cd /repo && FOO=1 bunx @webappwiz/arbor add retry --todo 3; git commit -m "say what arbor merge did"`,
+			splatesCalls(
+				`cd /repo && FOO=1 bunx splates add retry --todo 3; git commit -m "say what splates merge did"`,
 			),
 		).toEqual([{ verb: "add", args: ["retry", "--todo", "3"] }]);
 	});
 
-	it("plan-first: passes ARBOR.md written before the first other edit", () => {
+	it("plan-first: passes SPLATES.md written before the first other edit", () => {
 		expect(
 			verdicts("plan-first", [
 				user(),
 				add(),
-				run("cat > ARBOR.md <<'EOF'\n# upload-413\nEOF"),
-				edit("/repo-arbor/upload-413/src/upload.ts"),
+				run("cat > SPLATES.md <<'EOF'\n# upload-413\nEOF"),
+				edit("/repo-splates/upload-413/src/upload.ts"),
 			]),
 		).toEqual([true]);
 	});
 
-	it("plan-first: fails an edit before ARBOR.md, and reading it is not writing it", () => {
+	it("plan-first: fails an edit before SPLATES.md, and reading it is not writing it", () => {
 		expect(
 			verdicts("plan-first", [
 				user(),
 				add(),
-				run("cat ARBOR.md 2>/dev/null"),
-				edit("/repo-arbor/upload-413/src/upload.ts"),
-				edit("/repo-arbor/upload-413/ARBOR.md"),
+				run("cat SPLATES.md 2>/dev/null"),
+				edit("/repo-splates/upload-413/src/upload.ts"),
+				edit("/repo-splates/upload-413/SPLATES.md"),
 			]),
 		).toEqual([false]);
 	});
@@ -46,13 +46,13 @@ describe("skill checks", () => {
 				merge(),
 				say("## ✅ Merged upload-413 onto main\n\nUploads stop retrying."),
 				user(),
-				run("arbor remove old --reason moot", "removed old"),
+				run("splates remove old --reason moot", "removed old"),
 				say("## 🛑 Removed old: moot after the rewrite"),
 				user(),
-				run("arbor escalate --review 'look'", "escalated next"),
+				run("splates escalate --review 'look'", "escalated next"),
 				say("## 🔍 Ready to merge next onto main"),
 				user(),
-				run("arbor escalate 'two calls'", "escalated last"),
+				run("splates escalate 'two calls'", "escalated last"),
 				say("## ⚠️ Escalated last: needs two calls"),
 			]),
 		).toEqual([true, true, true, true]);
@@ -65,7 +65,7 @@ describe("skill checks", () => {
 				merge(),
 				say("Done! It landed."),
 				user(),
-				run("arbor remove old", "removed old"),
+				run("splates remove old", "removed old"),
 				say("## 🛑 Removed old: it was moot."),
 			]),
 		).toEqual([false, false]);
@@ -87,7 +87,7 @@ describe("skill checks", () => {
 		expect(
 			verdicts("report-title", [
 				user(),
-				run("arbor merge | tail", '{"reason":"tests_failed"}'),
+				run("splates merge | tail", '{"reason":"tests_failed"}'),
 				say("A test failed."),
 			]),
 		).toEqual([]);
@@ -128,7 +128,7 @@ describe("skill checks", () => {
 				merge(),
 				say(`## ✅ Merged upload-413 onto main\n\nDone.\n\n${proposal}`),
 				user(),
-				run("arbor remove old", "removed old"),
+				run("splates remove old", "removed old"),
 				say("## 🛑 Removed old: moot"),
 			]),
 		).toEqual([true, false]);
@@ -153,13 +153,13 @@ describe("skill checks", () => {
 	it("setup-read-first: passes a step read before acting, and fails one acted on first", () => {
 		expect(
 			verdicts("setup-read-first", [
-				user("[ARBOR SETUP tunnel]"),
-				run("cat skills/arbor/references/setup.md"),
-				run("arbor setup tunnel --json"),
-				run("arbor tunnel setup dev.example.com --email me@example.com"),
-				user("[ARBOR SETUP agents]"),
-				run("arbor agents"),
-				run("arbor setup agents"),
+				user("[SPLATES SETUP tunnel]"),
+				run("cat skills/splates/references/setup.md"),
+				run("splates setup tunnel --json"),
+				run("splates tunnel setup dev.example.com --email me@example.com"),
+				user("[SPLATES SETUP agents]"),
+				run("splates agents"),
+				run("splates setup agents"),
 			]),
 		).toEqual([true, false]);
 	});
@@ -171,14 +171,14 @@ describe("skill checks", () => {
 	it("setup-checked: passes each turn checked after its last change, and fails one left unchecked", () => {
 		expect(
 			verdicts("setup-checked", [
-				user("[ARBOR SETUP agents]"),
-				run("arbor setup agents --json"),
-				run("arbor agents"),
-				edit("/Users/me/.arbor/agents.json"),
-				run("arbor setup agents"),
+				user("[SPLATES SETUP agents]"),
+				run("splates setup agents --json"),
+				run("splates agents"),
+				edit("/Users/me/.splates/agents.json"),
+				run("splates setup agents"),
 				say("The roster now has Claude and Codex."),
 				user("make codex the default"),
-				edit("/Users/me/.arbor/agents.json"),
+				edit("/Users/me/.splates/agents.json"),
 				say("Done."),
 			]),
 		).toEqual([true, false]);
@@ -187,13 +187,13 @@ describe("skill checks", () => {
 	it("setup-checked: counts waiting on a cred as no change, and a turn that changed nothing does not apply", () => {
 		expect(
 			verdicts("setup-checked", [
-				user("[ARBOR SETUP dictation]"),
-				run("arbor setup dictation --json"),
+				user("[SPLATES SETUP dictation]"),
+				run("splates setup dictation --json"),
 				say("Dictation transcribes on your own OpenAI key."),
 				user("go ahead"),
-				run("arbor creds request OPENAI_API_KEY --device --purpose x"),
-				run("arbor setup dictation"),
-				run("arbor creds wait OPENAI_API_KEY"),
+				run("splates creds request OPENAI_API_KEY --device --purpose x"),
+				run("splates setup dictation"),
+				run("splates creds wait OPENAI_API_KEY"),
 			]),
 		).toEqual([true]);
 	});
@@ -201,21 +201,21 @@ describe("skill checks", () => {
 	it("setup-one-step: fails reading another step in the ask's turn, but not once the user asks", () => {
 		expect(
 			verdicts("setup-one-step", [
-				user("[ARBOR SETUP agents]"),
-				run("arbor setup agents --json"),
-				run("arbor setup --json"),
+				user("[SPLATES SETUP agents]"),
+				run("splates setup agents --json"),
+				run("splates setup --json"),
 				say("Next is the tunnel."),
-				user("[ARBOR SETUP tunnel]"),
-				run("arbor setup tunnel --json"),
-				run("arbor setup notifications --json"),
+				user("[SPLATES SETUP tunnel]"),
+				run("splates setup tunnel --json"),
+				run("splates setup notifications --json"),
 			]),
 		).toEqual([true, false]);
 		expect(
 			verdicts("setup-one-step", [
-				user("[ARBOR SETUP agents]"),
-				run("arbor setup agents"),
+				user("[SPLATES SETUP agents]"),
+				run("splates setup agents"),
 				user("now the tunnel"),
-				run("arbor setup tunnel"),
+				run("splates setup tunnel"),
 			]),
 		).toEqual([true]);
 	});
@@ -256,21 +256,21 @@ function edit(...paths: string[]): Beat {
 	return { kind: "edit", paths };
 }
 
-/** A task added, as `arbor add` prints it, color and all. */
+/** A task added, as `splates add` prints it, color and all. */
 function add(task = "upload-413", flags = ""): Beat {
 	return run(
-		`bunx @webappwiz/arbor add ${task}${flags} 2>&1 | tail -5`,
-		`\u001b[32madded\u001b[39m ${task}\n  worktree: /repo-arbor/${task}`,
+		`bunx splates add ${task}${flags} 2>&1 | tail -5`,
+		`\u001b[32madded\u001b[39m ${task}\n  worktree: /repo-splates/${task}`,
 	);
 }
 
-/** A task merged, as `arbor merge` prints it, with a todo to propose or not. */
+/** A task merged, as `splates merge` prints it, with a todo to propose or not. */
 function merge(task = "upload-413", proposed = true): Beat {
 	return run(
-		"WEBAPPWIZ_ROOT=/repo arbor merge",
+		"SPLATES_ROOT=/repo splates merge",
 		`merged ${task} onto main (abc123)\n  worktree removed, cd /repo${
 			proposed
-				? "\n\nnext todo 12: Retry\n  start it: arbor add <task> --todo 12"
+				? "\n\nnext todo 12: Retry\n  start it: splates add <task> --todo 12"
 				: ""
 		}`,
 	);

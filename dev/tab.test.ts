@@ -26,11 +26,11 @@ describe("tabId", () => {
 
 		expect(first).toMatch(/^[a-f0-9]{32}$/);
 		expect(tabId()).toBe(first);
-		expect(sessionStorage.getItem("arbor.tab")).toBe(first);
+		expect(sessionStorage.getItem("splates.tab")).toBe(first);
 	});
 
 	it("uses the key already saved before a reload", () => {
-		sessionStorage.setItem("arbor.tab", "existing-tab");
+		sessionStorage.setItem("splates.tab", "existing-tab");
 
 		expect(tabId()).toBe("existing-tab");
 	});

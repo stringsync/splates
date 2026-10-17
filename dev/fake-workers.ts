@@ -80,7 +80,7 @@ export class FakeWorkers {
 	/** Passes on a click on the notification for row `key`. */
 	clicked(key: string): void {
 		for (const listener of this.listeners) {
-			listener({ data: { type: "arbor:open", key } });
+			listener({ data: { type: "splates:open", key } });
 		}
 	}
 }

@@ -7,8 +7,8 @@ import { until } from "./conversation-testing";
 import { type Conversation, Conversations, launch } from "./conversations";
 import { AGENT, FakeAgent, heard, say } from "./fake-agent";
 
-/** What each session is opened with, so Claude asks the arbor way. */
-const ASK_IN_ARBOR = {
+/** What each session is opened with, so Claude asks the splates way. */
+const ASK_IN_SPLATES = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
 };
 
@@ -22,14 +22,18 @@ describe("Conversation sessions", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -46,7 +50,7 @@ describe("Conversation sessions", () => {
 	const _started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -56,7 +60,7 @@ describe("Conversation sessions", () => {
 		agent.held = [
 			{
 				sessionId: "cli-1",
-				cwd: "/repo-arbor/login",
+				cwd: "/repo-splates/login",
 				title: "Fix login",
 				updatedAt: "2026-10-11T09:00:00Z",
 				replay: [
@@ -69,20 +73,20 @@ describe("Conversation sessions", () => {
 			},
 			{
 				sessionId: "cli-2",
-				cwd: "/repo-arbor/login",
+				cwd: "/repo-splates/login",
 				updatedAt: "2026-10-11T09:30:00Z",
 				replay: [],
 			},
 			{
 				sessionId: "cli-3",
-				cwd: "/repo-arbor/other",
+				cwd: "/repo-splates/other",
 				replay: [],
 			},
 		];
 	});
 
 	it("lists each agent's sessions in the tree, newest first, from a process that stops", async () => {
-		const sessions = await conversations.sessions("/repo-arbor/login");
+		const sessions = await conversations.sessions("/repo-splates/login");
 
 		expect(sessions).toEqual([
 			{
@@ -99,7 +103,7 @@ describe("Conversation sessions", () => {
 			},
 		]);
 		expect(agent.launched).toEqual([
-			{ argv: ["fake-acp"], cwd: "/repo-arbor/login", env: {} },
+			{ argv: ["fake-acp"], cwd: "/repo-splates/login", env: {} },
 		]);
 		expect(agent.killed).toBe(1);
 	});
@@ -107,19 +111,19 @@ describe("Conversation sessions", () => {
 	it("lists none from an agent that cannot list and load them", async () => {
 		agent.held = null;
 
-		expect(await conversations.sessions("/repo-arbor/login")).toEqual([]);
+		expect(await conversations.sessions("/repo-splates/login")).toEqual([]);
 	});
 
 	it("loads one into a log of its own, replayed, and resumes it after", async () => {
 		const conversation = await conversations.bring("fake", "cli-1", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 			title: "Fix login",
 		});
 		await until(conversation, "idle");
 
 		expect(agent.loaded).toEqual(["cli-1"]);
-		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
+		expect(agent.opened).toEqual([ASK_IN_SPLATES]);
 		expect(conversation.state).toMatchObject({
 			task: "login",
 			title: "Fix login",
@@ -131,14 +135,14 @@ describe("Conversation sessions", () => {
 			],
 		});
 		expect(
-			(await conversations.sessions("/repo-arbor/login")).map(
+			(await conversations.sessions("/repo-splates/login")).map(
 				(each) => each.session,
 			),
 		).toEqual(["cli-2"]);
 
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -157,23 +161,23 @@ describe("Conversation sessions", () => {
 	it("refuses a session a conversation already holds", async () => {
 		const conversation = await conversations.bring("fake", "cli-1", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 
 		await expect(
 			conversations.bring("fake", "cli-1", {
 				task: "login",
-				cwd: "/repo-arbor/login",
+				cwd: "/repo-splates/login",
 			}),
 		).rejects.toMatchObject({ reason: "usage" });
 	});
 
 	it("reports a missing executable without opening a protocol session", async () => {
-		const agent = launch(["/nonexistent/arbor-opencode-fixture"], "/tmp", {});
+		const agent = launch(["/nonexistent/splates-opencode-fixture"], "/tmp", {});
 		expect(await agent.exited).toBe(127);
 		expect(agent.stderr()).toContain(
-			"cannot start /nonexistent/arbor-opencode-fixture",
+			"cannot start /nonexistent/splates-opencode-fixture",
 		);
 		await expect(printed(agent)).rejects.toThrow();
 	});

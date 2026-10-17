@@ -26,7 +26,7 @@ import { WorktreeService } from "./worktree-service";
 
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an
- * arbor command runs against, wired to it. A command takes the whole thing as
+ * splates command runs against, wired to it. A command takes the whole thing as
  * its deps: `await add(deps, "alpha")`.
  *
  * It coordinates the dependencies and nothing else. What a test is about, the
@@ -34,7 +34,7 @@ import { WorktreeService } from "./worktree-service";
  */
 export class Testing implements AsyncDisposable {
 	readonly root: string;
-	readonly arborDir: string;
+	readonly splatesDir: string;
 	readonly fs = new NodeFs();
 	/** Spawns for real; its exits and signals are the fake process's to keep. */
 	readonly proc = new FakeProcess();
@@ -46,7 +46,7 @@ export class Testing implements AsyncDisposable {
 	// fetching it, and asserting on what comes back is the point.
 	readonly assets = assets;
 	/**
-	 * What `arbor dev` serves as it is when handed these deps: this repo, with
+	 * What `splates dev` serves as it is when handed these deps: this repo, with
 	 * its fakes, rather than one it opens again.
 	 */
 	get opened(): Testing[] {
@@ -57,21 +57,21 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
-	/** Kept in `arborHome`, so no test waits on the machine's own jobs. */
+	/** Kept in `splatesHome`, so no test waits on the machine's own jobs. */
 	readonly heavy: HeavyJobs;
 	readonly journal: Journal;
 	readonly lockPath: string;
 	readonly lock: FileLock;
 	readonly todos: Todos;
 	readonly format: Format;
-	/** Where arbor keeps what is the user's, under the test's own directory. */
-	readonly arborHome: string;
-	/** Kept in `arborHome`, never the user's home. */
+	/** Where splates keeps what is the user's, under the test's own directory. */
+	readonly splatesHome: string;
+	/** Kept in `splatesHome`, never the user's home. */
 	readonly projects: Projects;
-	/** How each task ended, kept in `arborHome`. */
+	/** How each task ended, kept in `splatesHome`. */
 	readonly outcomes: Outcomes;
 	readonly adherence: Adherence;
-	/** The dev slots tasks give back as they end, kept in `arborHome`. */
+	/** The dev slots tasks give back as they end, kept in `splatesHome`. */
 	readonly slots: Slots;
 	/** Maps for the system's stores, so no test reads or writes the user's. */
 	readonly projectStore = new FakeSecretStore({}, "the project's store");
@@ -84,11 +84,11 @@ export class Testing implements AsyncDisposable {
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
-		this.arborDir = join(this.root, ".git", "arbor");
+		this.splatesDir = join(this.root, ".git", "splates");
 		this.ps = new NodePs({ proc: this.proc });
 		this.config = {
 			trunk: "main",
-			worktreeRoot: `${this.root}-arbor`,
+			worktreeRoot: `${this.root}-splates`,
 			postCheckout: null,
 			postRewrite: null,
 			// Keeps merge's gate green unless a test asks otherwise.
@@ -107,24 +107,24 @@ export class Testing implements AsyncDisposable {
 			tunnel: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
-		this.arborHome = join(base, "home", ".arbor");
+		this.splatesHome = join(base, "home", ".splates");
 		this.outcomes = new Outcomes(
-			join(this.arborHome, "outcomes.jsonl"),
+			join(this.splatesHome, "outcomes.jsonl"),
 			this.fs,
 		);
 		this.adherence = new Adherence(
-			join(this.arborHome, "adherence.jsonl"),
+			join(this.splatesHome, "adherence.jsonl"),
 			this.fs,
 			null,
 		);
-		this.service = new WorktreeService(this.git, this.config, this.arborDir, {
+		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
 			fs: this.fs,
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
 		});
 		this.shell = new Shell({ ps: this.ps });
-		this.heavy = HeavyJobs.under(this.arborHome, {
+		this.heavy = HeavyJobs.under(this.splatesHome, {
 			fs: this.fs,
 			ps: this.ps,
 			log: this.log,
@@ -132,11 +132,11 @@ export class Testing implements AsyncDisposable {
 			held: HEAVY_HELD,
 		});
 		this.journal = new Journal(
-			join(this.arborDir, "log.jsonl"),
+			join(this.splatesDir, "log.jsonl"),
 			this.config.logCapacity,
 			{ fs: this.fs, ps: this.ps },
 		);
-		this.lockPath = join(this.arborDir, "merge.lock");
+		this.lockPath = join(this.splatesDir, "merge.lock");
 		this.lock = new FileLock(this.lockPath, {
 			fs: this.fs,
 			ps: this.ps,
@@ -144,8 +144,8 @@ export class Testing implements AsyncDisposable {
 			stalenessMs: this.config.leaseStalenessMs,
 		});
 		this.todos = new Todos(
-			join(this.arborDir, "todos"),
-			new FileLock(join(this.arborDir, "todos.lock"), {
+			join(this.splatesDir, "todos"),
+			new FileLock(join(this.splatesDir, "todos.lock"), {
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,
@@ -154,35 +154,35 @@ export class Testing implements AsyncDisposable {
 		);
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
-		// agent in `arbor dev`, it leaves out that agent's conversation too, so
+		// agent in `splates dev`, it leaves out that agent's conversation too, so
 		// a command's `follow` never reaches the live server, nor its caller
 		// refuses the test an `--agent`.
 		// Run from a slot's server, it leaves out the machine's home too, so no
 		// task ending here gives back a slot of the user's.
 		// Nor does it wait on, or pass through, a heavy-job slot of the machine's.
 		const {
-			ARBOR_CONVERSATION,
-			ARBOR_CALLER,
-			ARBOR_STARTED_BY,
-			ARBOR_DEV,
+			SPLATES_CONVERSATION,
+			SPLATES_CALLER,
+			SPLATES_STARTED_BY,
+			SPLATES_DEV,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
-			ARBOR_HEAVY,
+			SPLATES_HEAVY,
 			...inherited
 		} = process.env;
-		this.proc.env = { ...inherited, ARBOR_HOME: this.arborHome };
+		this.proc.env = { ...inherited, SPLATES_HOME: this.splatesHome };
 		this.slots = Slots.ofMachine(this);
-		this.projects = new Projects(join(this.arborHome, "projects.json"), {
+		this.projects = new Projects(join(this.splatesHome, "projects.json"), {
 			fs: this.fs,
-			lock: new FileLock(join(this.arborHome, "projects.lock"), {
+			lock: new FileLock(join(this.splatesHome, "projects.lock"), {
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,
 			}),
 		});
 		this.creds = new Creds(
-			join(this.arborDir, "creds.json"),
-			new FileLock(join(this.arborDir, "creds.lock"), {
+			join(this.splatesDir, "creds.json"),
+			new FileLock(join(this.splatesDir, "creds.lock"), {
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,
@@ -190,9 +190,9 @@ export class Testing implements AsyncDisposable {
 			{ project: this.projectStore, device: this.deviceStore },
 			{ fs: this.fs },
 		);
-		this.format = new Format(this.arborDir, {
+		this.format = new Format(this.splatesDir, {
 			fs: this.fs,
-			lock: new FileLock(join(this.arborDir, "format.lock"), {
+			lock: new FileLock(join(this.splatesDir, "format.lock"), {
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,
@@ -202,15 +202,15 @@ export class Testing implements AsyncDisposable {
 	}
 
 	/**
-	 * A repo of its own, seeded and ready for a command: made an arbor project
-	 * as `arbor init` does, unless `init` is false.
+	 * A repo of its own, seeded and ready for a command: made a splates project
+	 * as `splates init` does, unless `init` is false.
 	 */
 	static async open({
 		init = true,
 	}: {
 		init?: boolean;
 	} = {}): Promise<Testing> {
-		const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-")));
+		const base = await realpath(await mkdtemp(join(tmpdir(), "splates-")));
 		const testing = new Testing(base);
 		await cp(await seeded(), testing.root, { recursive: true });
 		if (init) {
@@ -291,8 +291,8 @@ export class Testing implements AsyncDisposable {
 		const { root } = testing;
 		await testing.fs.mkdir(root);
 		await testing.gitCli(root, "init", "-b", "main");
-		await testing.gitCli(root, "config", "user.email", "arbor@example.com");
-		await testing.gitCli(root, "config", "user.name", "arbor");
+		await testing.gitCli(root, "config", "user.email", "splates@example.com");
+		await testing.gitCli(root, "config", "user.name", "splates");
 		await testing.gitCli(root, "config", "commit.gpgsign", "false");
 		await testing.commit(root, "README.md", "seed\n", "seed");
 	}
@@ -309,7 +309,7 @@ let template: Promise<string> | null = null;
  */
 async function seeded(): Promise<string> {
 	template ??= (async () => {
-		const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-seed-")));
+		const base = await realpath(await mkdtemp(join(tmpdir(), "splates-seed-")));
 		await Testing.seed(base);
 		return base;
 	})();

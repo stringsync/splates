@@ -30,7 +30,7 @@ describe("App's notifications through a service worker", () => {
 		Object.assign(globalThis, { Notification: FakeNotification });
 		// On, and in front too, so the page notifies while the test has it.
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({
 				"notifications.on": true,
 				"notifications.inFront": true,

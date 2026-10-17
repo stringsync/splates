@@ -26,7 +26,7 @@ describe("App's composer", () => {
 
 	const skilled = conversation({
 		commands: [
-			{ name: "arbor", description: "Land work on trunk", hint: null },
+			{ name: "splates", description: "Land work on trunk", hint: null },
 			{ name: "code-review", description: "Review the diff", hint: null },
 			{ name: "init", description: "Write a CLAUDE.md", hint: null },
 		],
@@ -49,7 +49,7 @@ describe("App's composer", () => {
 				.getAllByRole("option")
 				.map((option) => option.textContent),
 		).toEqual([
-			"/arborLand work on trunk",
+			"/splatesLand work on trunk",
 			"/code-reviewReview the diff",
 			"/initWrite a CLAUDE.md",
 		]);
@@ -105,7 +105,7 @@ describe("App's composer", () => {
 			"a.ts",
 		];
 		localStorage.setItem(
-			"arbor.draft.c1",
+			"splates.draft.c1",
 			"@app/index.ts @server/index.ts @a.ts",
 		);
 		const view = await testing.openConversations(held, "c1");
@@ -129,7 +129,7 @@ describe("App's composer", () => {
 			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
 		];
 		const draft = "fix #player in @src/index.ts, not #12 or @gone.ts";
-		localStorage.setItem("arbor.draft.c1", draft);
+		localStorage.setItem("splates.draft.c1", draft);
 		const view = await testing.openConversations(held, "c1");
 
 		await waitFor(() =>

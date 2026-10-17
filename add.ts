@@ -3,7 +3,7 @@ import { MarkdownWriter } from "webappwiz/md";
 import type { Fs, HeavyCap } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import { PLAN_FILE, STUB_STEP } from "./plan";
+import { PLAN_FILE, Plans, STUB_STEP } from "./plan";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
 import type { Todo } from "./todo";
@@ -33,14 +33,14 @@ export interface AddOptions {
 	 */
 	onTree?: () => Promise<void>;
 	/**
-	 * The agent to hand the task to, which `arbor dev` starts in its tree once
+	 * The agent to hand the task to, which `splates dev` starts in its tree once
 	 * the tree is ready; its id must be one of `agents`.
 	 */
 	dispatch?: Dispatched;
 	/** The roster's agents, which `dispatch` must name one of, and its model. */
 	agents?: RosterAgent[];
 	/**
-	 * Added from another project, as `arbor --project` does: the task goes
+	 * Added from another project, as `splates --project` does: the task goes
 	 * to an agent of its own, so `dispatch` is a must.
 	 */
 	away?: boolean;
@@ -99,7 +99,7 @@ export async function add(
 	// they never multiply: it does the work itself, or with its harness's
 	// subagents, which start none either.
 	const handedBy =
-		service.ps.env("ARBOR_CALLER") ?? service.ps.env("ARBOR_STARTED_BY");
+		service.ps.env("SPLATES_CALLER") ?? service.ps.env("SPLATES_STARTED_BY");
 	if (dispatch !== undefined && handedBy !== undefined) {
 		fail(
 			"usage",
@@ -109,14 +109,14 @@ export async function add(
 	}
 	if (dispatch !== undefined && !overCapacity) {
 		// The ones this agent handed out: theirs are their own to count.
-		const caller = service.ps.env("ARBOR_CONVERSATION") ?? null;
+		const caller = service.ps.env("SPLATES_CONVERSATION") ?? null;
 		const out = (await service.list()).filter(
 			(each) => each.state?.dispatch !== undefined && each.caller === caller,
 		).length;
 		if (out >= config.agentsPerAgent) {
 			fail(
 				"agents_full",
-				`you have ${out} tasks out to agents already, as many as agentsPerAgent in arbor.config.ts lets one agent have at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
+				`you have ${out} tasks out to agents already, as many as agentsPerAgent in splates.config.ts lets one agent have at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
 				{ task, out, capacity: config.agentsPerAgent },
 			);
 		}
@@ -137,7 +137,7 @@ export async function add(
 	if (await fs.exists(`${service.git.root}/.gitmodules`)) {
 		fail(
 			"usage",
-			"this repo has git submodules (.gitmodules), which arbor does not support: worktrees do not share them",
+			"this repo has git submodules (.gitmodules), which splates does not support: worktrees do not share them",
 			{ task },
 		);
 	}
@@ -146,7 +146,7 @@ export async function add(
 	if (found.status === "stray") {
 		fail(
 			"exists",
-			`branch ${found.branch} exists without a worktree: run \`arbor remove ${task}\` first`,
+			`branch ${found.branch} exists without a worktree: run \`splates remove ${task}\` first`,
 			{ task, branch: found.branch },
 		);
 	}
@@ -175,22 +175,22 @@ export async function add(
 			refuseTaken(raced);
 		}
 		// git's own "invalid reference" sends people to the branch, when what is
-		// wrong is which branch arbor thinks the trunk is.
+		// wrong is which branch splates thinks the trunk is.
 		const missingTrunk =
 			base === config.trunk && !(await service.git.branchExists(base));
 		fail(
 			"usage",
 			missingTrunk
-				? `trunk '${base}' is not a branch in this repo: set \`trunk\` in arbor.config.ts`
+				? `trunk '${base}' is not a branch in this repo: set \`trunk\` in splates.config.ts`
 				: `git worktree add failed: ${added.stderr}`,
 			{ task },
 		);
 	}
 
 	await onTree?.();
-	// An agent `arbor dev` started has its conversation in its env: the page
+	// An agent `splates dev` started has its conversation in its env: the page
 	// nests the task under it, as for a subagent's task landing on trunk.
-	const caller = service.ps.env("ARBOR_CONVERSATION");
+	const caller = service.ps.env("SPLATES_CONVERSATION");
 	const worktree = await (await service.find(task)).take({
 		base,
 		...(caller === undefined ? {} : { caller }),
@@ -199,18 +199,7 @@ export async function add(
 			: { dispatch: { ...handOff, pending: true } }),
 	});
 
-	// The plan is scratch for one task and must never land on trunk. Excluding
-	// it through the shared `.git` covers every worktree at once and leaves the
-	// repo's own .gitignore, which arbor would have to commit to, alone.
-	const info = `${await service.git.commonDir()}/info`;
-	const excluded = await fs.read(`${info}/exclude`).catch(() => "");
-	if (!excluded.split("\n").includes(PLAN_FILE)) {
-		await fs.mkdir(info);
-		await fs.write(
-			`${info}/exclude`,
-			`${excluded.trimEnd()}\n${PLAN_FILE}\n`.trimStart(),
-		);
-	}
+	await new Plans(fs).exclude(await service.git.commonDir());
 
 	await fs.write(
 		`${worktree.path}/${PLAN_FILE}`,
@@ -235,9 +224,9 @@ export async function add(
 			// Awaited, or the slot goes back before the hook ends.
 			return await shell.stream(hook, worktree.path, {
 				env: {
-					ARBOR_TASK: task,
-					ARBOR_WORKTREE: worktree.path,
-					ARBOR_TRUNK: config.trunk,
+					SPLATES_TASK: task,
+					SPLATES_WORKTREE: worktree.path,
+					SPLATES_TRUNK: config.trunk,
 					...slot.env,
 				},
 			});
@@ -272,7 +261,7 @@ export async function add(
 			...(handOff === undefined
 				? []
 				: [
-						`  agent:    ${handOff.agent}${handOff.model === undefined ? "" : ` (${handOff.model})`}, which \`arbor dev\` starts in the worktree`,
+						`  agent:    ${handOff.agent}${handOff.model === undefined ? "" : ` (${handOff.model})`}, which \`splates dev\` starts in the worktree`,
 					]),
 			...blocked,
 		].join("\n"),
@@ -282,7 +271,7 @@ export async function add(
 function refuseTaken(found: Worktree): never {
 	fail(
 		"exists",
-		`task '${found.task}' already exists: run \`arbor claim ${found.task}\``,
+		`task '${found.task}' already exists: run \`splates claim ${found.task}\``,
 		{ task: found.task, worktree: found.path },
 	);
 }
@@ -310,7 +299,7 @@ function goal(todos: Todo[]): string {
 
 /** The plan a fresh task starts with. `## Goal` is the Goal it was given and
  * the todos it takes up, if any; it is otherwise left empty on purpose:
- * `arbor show` nags until the agent fills it in. */
+ * `splates show` nags until the agent fills it in. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
 	if (goal !== null) {

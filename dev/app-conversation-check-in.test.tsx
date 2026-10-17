@@ -38,7 +38,7 @@ describe("App's check-in on a long turn", () => {
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR UPDATE]" } },
+			{ method: "POST", body: { text: "[SPLATES UPDATE]" } },
 		]);
 	});
 
@@ -168,7 +168,7 @@ function repliedAfter(minutes: number, replied: number) {
 				...message(
 					"agent",
 					tool({
-						command: "arbor list",
+						command: "splates list",
 						status: "completed",
 						at: ago(minutes),
 					}),

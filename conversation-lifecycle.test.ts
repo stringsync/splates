@@ -12,8 +12,8 @@ import { AGENT, FakeAgent, say } from "./fake-agent";
 import { Testing } from "./testing";
 import { Watch } from "./watch";
 
-/** What each session is opened with, so Claude asks the arbor way. */
-const ASK_IN_ARBOR = {
+/** What each session is opened with, so Claude asks the splates way. */
+const ASK_IN_SPLATES = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
 };
 
@@ -27,14 +27,18 @@ describe("Conversation lifecycle", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -51,7 +55,7 @@ describe("Conversation lifecycle", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -60,17 +64,17 @@ describe("Conversation lifecycle", () => {
 	it("tells an agent working a task another conversation added which one did", async () => {
 		const own = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(own, "idle");
 		const handed = await conversations.start("fake", {
 			task: "signup",
-			cwd: "/repo-arbor/signup",
+			cwd: "/repo-splates/signup",
 			caller: own.id,
 		});
 		await until(handed, "idle");
 
-		expect(agent.launched.map(({ env }) => env.ARBOR_CALLER)).toEqual([
+		expect(agent.launched.map(({ env }) => env.SPLATES_CALLER)).toEqual([
 			undefined,
 			own.id,
 		]);
@@ -83,7 +87,7 @@ describe("Conversation lifecycle", () => {
 		};
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		expect(conversation.state.status).toBe("starting");
 
@@ -110,7 +114,7 @@ describe("Conversation lifecycle", () => {
 		expect(agent.killed).toBe(1);
 		expect(conversation.state.status).toBe("stopped");
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -135,7 +139,7 @@ describe("Conversation lifecycle", () => {
 		await until(read as Conversation, "idle");
 
 		expect(agent.resumed).toEqual(["s1"]);
-		expect(agent.opened).toEqual([ASK_IN_ARBOR, ASK_IN_ARBOR]);
+		expect(agent.opened).toEqual([ASK_IN_SPLATES, ASK_IN_SPLATES]);
 		expect(agent.launched.at(-1)?.cwd).toBe(agent.launched[0]?.cwd ?? "");
 		expect(read?.state.messages.at(-1)).toMatchObject({
 			role: "agent",
@@ -190,7 +194,7 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.state.usage).toEqual(usage);
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, launch: agent.launch },
 		);
@@ -206,7 +210,7 @@ describe("Conversation lifecycle", () => {
 
 		expect(conversation.state.name).toBe("Login redirect");
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -226,7 +230,7 @@ describe("Conversation lifecycle", () => {
 		await conversation.markUnread(false);
 		expect(conversation.state.unread).toBe(false);
 		const reread = () =>
-			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			new Conversations("/repo/.git/splates/conversations", [AGENT], {
 				fs,
 				timer,
 				clock,
@@ -241,7 +245,7 @@ describe("Conversation lifecycle", () => {
 		const conversation = await started();
 		expect(conversation.state.pinned).toBe(false);
 		const reread = () =>
-			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			new Conversations("/repo/.git/splates/conversations", [AGENT], {
 				fs,
 				timer,
 				clock,
@@ -260,7 +264,7 @@ describe("Conversation lifecycle", () => {
 		const conversation = await started();
 		expect(conversation.state.parent).toBeNull();
 		const reread = () =>
-			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			new Conversations("/repo/.git/splates/conversations", [AGENT], {
 				fs,
 				timer,
 				clock,
@@ -278,14 +282,14 @@ describe("Conversation lifecycle", () => {
 	it("cuts one moved loose from whoever started it or added its task, and reads it back", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "signup",
-			cwd: "/repo-arbor/signup",
+			cwd: "/repo-splates/signup",
 			caller: "c0",
 			startedBy: "c0",
 		});
 		await until(conversation, "idle");
 		const reread = async () =>
 			(
-				await new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+				await new Conversations("/repo/.git/splates/conversations", [AGENT], {
 					fs,
 					timer,
 					clock,
@@ -294,7 +298,7 @@ describe("Conversation lifecycle", () => {
 			)[0]?.state;
 
 		await conversation.reparent(null);
-		conversation.move("signup", "/repo-arbor/signup", "main", "c0");
+		conversation.move("signup", "/repo-splates/signup", "main", "c0");
 
 		expect([conversation.state, await reread()]).toEqual([
 			expect.objectContaining({ startedBy: null, lastCaller: null }),
@@ -315,7 +319,7 @@ describe("Conversation lifecycle", () => {
 
 		expect(conversation.state.seen).toBe(seen);
 		const reread = await new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		).list();
@@ -346,7 +350,7 @@ describe("Conversation lifecycle", () => {
 		await conversation.archive();
 
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -362,11 +366,11 @@ describe("Conversation lifecycle", () => {
 		agent.hold = up;
 		const one = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		const two = await conversations.start("fake", {
 			task: "signup",
-			cwd: "/repo-arbor/signup",
+			cwd: "/repo-splates/signup",
 		});
 		await eventually(() => agent.launched.length !== 0);
 		await Bun.sleep(5);
@@ -382,11 +386,11 @@ describe("Conversation lifecycle", () => {
 		agent.dying = 1;
 		const one = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		const two = await conversations.start("fake", {
 			task: "signup",
-			cwd: "/repo-arbor/signup",
+			cwd: "/repo-splates/signup",
 		});
 
 		await until(one, "failed");
@@ -398,7 +402,7 @@ describe("Conversation lifecycle", () => {
 		agent.dying = 1;
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "failed");
 		expect(conversation.state.error).toBe("fake agent fell over");
@@ -408,7 +412,7 @@ describe("Conversation lifecycle", () => {
 		agent.dying = 1;
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "failed");
 		expect(conversation.sessionId).toBeNull();
@@ -418,7 +422,7 @@ describe("Conversation lifecycle", () => {
 
 		expect(conversation.sessionId).toBe("s1");
 		expect(agent.resumed).toEqual([]);
-		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
+		expect(agent.opened).toEqual([ASK_IN_SPLATES]);
 	});
 
 	/** Fires each pending wait as long as an agent may sit idle. */
@@ -505,7 +509,7 @@ describe("Conversation lifecycle", () => {
 		await conversation.stop();
 
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -529,7 +533,7 @@ describe("Conversation lifecycle", () => {
 		const conversation = await started();
 		await conversation.prompt("go");
 		await until(conversation, "idle");
-		const log = "/repo/.git/arbor/conversations/0.jsonl";
+		const log = "/repo/.git/splates/conversations/0.jsonl";
 		await Bun.sleep(1);
 
 		// The prompt is durable before sending; the first streamed update
@@ -571,7 +575,7 @@ describe("Conversation lifecycle", () => {
 			}
 		})(env.git);
 		const watching = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch, watch },
 		);
@@ -621,7 +625,7 @@ describe("Conversation lifecycle", () => {
 		});
 		await conversation.stop();
 		const [read] = await new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		).list();

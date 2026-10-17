@@ -1,16 +1,16 @@
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { fail } from "./exit";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 
 /** The registry's own format, apart from each repository's records. */
 const FORMAT = 1;
 
-/** A repository arbor has run in, as the registry keeps it. */
+/** A repository splates has run in, as the registry keeps it. */
 export interface ProjectRecord {
 	/** The main tree's root, never a task's worktree. */
 	root: string;
-	/** When arbor first ran there, as an ISO timestamp. */
+	/** When splates first ran there, as an ISO timestamp. */
 	added: string;
 	/**
 	 * What each other project may do here, by its root, those left out
@@ -34,7 +34,7 @@ export interface Project extends ProjectRecord {
 interface RegistryFile {
 	projects: ProjectRecord[];
 	/**
-	 * The roots `arbor dev`'s page picked, the last first, the first of them
+	 * The roots `splates dev`'s page picked, the last first, the first of them
 	 * what an address naming none shows, the next what it shows once that
 	 * one is forgotten.
 	 */
@@ -51,9 +51,9 @@ export interface ProjectsOptions {
 }
 
 /**
- * Every arbor project on this machine, kept in one file under the user's
- * home: an explicit roster that `arbor init` writes each into, so one
- * `arbor dev` can find them all without scanning the disk.
+ * Every splates project on this machine, kept in one file under the user's
+ * home: an explicit roster that `splates init` writes each into, so one
+ * `splates dev` can find them all without scanning the disk.
  */
 export class Projects {
 	private readonly fs: Fs;
@@ -61,14 +61,14 @@ export class Projects {
 	private readonly now: () => Date;
 
 	/**
-	 * This machine's registry, in `ARBOR_HOME`, `~/.arbor` for none, with a
+	 * This machine's registry, in `SPLATES_HOME`, `~/.splates` for none, with a
 	 * lock that counts as stale after `stalenessMs`.
 	 */
 	static ofMachine(
 		{ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger },
 		stalenessMs?: number,
 	): Projects {
-		const home = arborHome(ps);
+		const home = splatesHome(ps);
 		return new Projects(`${home}/projects.json`, {
 			fs,
 			lock: new FileLock(`${home}/projects.lock`, {
@@ -81,7 +81,7 @@ export class Projects {
 	}
 
 	constructor(
-		/** `~/.arbor/projects.json`, or a test's own. */
+		/** `~/.splates/projects.json`, or a test's own. */
 		readonly path: string,
 		{ fs, lock, now = () => new Date() }: ProjectsOptions,
 	) {
@@ -146,7 +146,7 @@ export class Projects {
 	}
 
 	/**
-	 * Every registered project, in the order arbor first ran in each, those
+	 * Every registered project, in the order splates first ran in each, those
 	 * whose repository is gone flagged rather than dropped: one on a drive
 	 * that is not mounted comes back.
 	 */
@@ -217,12 +217,12 @@ export class Projects {
 		if (found === undefined) {
 			fail(
 				"not_found",
-				`no arbor project here is called ${slug}: it is one of ${
+				`no splates project here is called ${slug}: it is one of ${
 					all
 						.filter((each) => !each.gone)
 						.map((each) => each.slug)
 						.join(", ") || "none"
-				}. A repository that is not one yet joins once \`arbor init\` runs there: ask the user before you run it.`,
+				}. A repository that is not one yet joins once \`splates init\` runs there: ask the user before you run it.`,
 				{ project: slug },
 			);
 		}
@@ -231,7 +231,7 @@ export class Projects {
 
 	/**
 	 * Drops the repository at `root`, saying whether it was there: one gone
-	 * for good, or one `arbor dev` should no longer offer.
+	 * for good, or one `splates dev` should no longer offer.
 	 */
 	async forget(root: string): Promise<boolean> {
 		return this.change((file) => {
@@ -293,15 +293,15 @@ export class Projects {
 			fail(
 				"outdated",
 				[
-					`${this.path} is in format ${parsed.format}, written by a newer arbor; this one understands up to ${FORMAT}, so it leaves it alone.`,
-					"Run `bunx @webappwiz/arbor@latest` instead.",
+					`${this.path} is in format ${parsed.format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
+					"Run `bunx splates@latest` instead.",
 				].join("\n"),
 				{ path: this.path, format: parsed.format, understood: FORMAT },
 			);
 		}
 		return {
 			projects: parsed.projects ?? [],
-			// A single root, as the arbor that began focusing wrote it.
+			// A single root, as the splates that began focusing wrote it.
 			focused:
 				typeof parsed.focused === "string"
 					? [parsed.focused]
@@ -320,10 +320,10 @@ export class Projects {
 }
 
 /**
- * What an agent working in one project may do in another through arbor,
+ * What an agent working in one project may do in another through splates,
  * each including those before it: read its tasks, todos, lanes and systems;
  * add todos to its untriaged lane; or hand its tasks to agents and
- * orchestrate them. Grants stop arbor commands, not file edits.
+ * orchestrate them. Grants stop splates commands, not file edits.
  */
 export const REACHES = ["read", "todos", "tasks"] as const;
 export type Reach = (typeof REACHES)[number];
@@ -341,7 +341,7 @@ export function reaches(granted: Reach, needed: Reach): boolean {
  * and how to change it:
  *
  * ```
- * #shop is the arbor project at /Users/me/shop: read its code there, and land any change to it from a task added there.
+ * #shop is the splates project at /Users/me/shop: read its code there, and land any change to it from a task added there.
  * ```
  */
 export function projectLine({
@@ -358,8 +358,8 @@ export function projectLine({
 	reach: Reach | null;
 }): string {
 	return reach === null
-		? `#${slug} is the arbor project at ${root}: read its code there, and land any change to it from a task added there.`
-		: `#${slug} is the arbor project at ${root}: read its code there, run arbor on it as \`arbor --project ${slug} <command>\`, and ${REACH_LINES[reach]}.`;
+		? `#${slug} is the splates project at ${root}: read its code there, and land any change to it from a task added there.`
+		: `#${slug} is the splates project at ${root}: read its code there, run splates on it as \`splates --project ${slug} <command>\`, and ${REACH_LINES[reach]}.`;
 }
 
 /** What `projectLine` says each reach lets an agent do there. */

@@ -38,20 +38,20 @@ describe("add", () => {
 	});
 
 	it("remembers the conversation whose agent added it, for the page to nest it under", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
-		delete deps.proc.env.ARBOR_CONVERSATION;
+		delete deps.proc.env.SPLATES_CONVERSATION;
 		await add(deps, "beta");
 
 		expect((await deps.service.find("alpha")).caller).toBe("c1");
 		expect((await deps.service.find("beta")).caller).toBeNull();
 	});
 
-	it("leaves a stub ARBOR.md for the agent to fill in", async () => {
+	it("leaves a stub SPLATES.md for the agent to fill in", async () => {
 		await add(deps, "alpha");
 
 		const state = (await deps.service.find("alpha")).state;
-		const plan = await deps.fs.read(join(state?.worktree ?? "", "ARBOR.md"));
+		const plan = await deps.fs.read(join(state?.worktree ?? "", "SPLATES.md"));
 		expect(plan).toStartWith("# alpha\n");
 		expect(plan).toContain("## Goal");
 		expect(plan).toContain("- [ ]");
@@ -64,7 +64,7 @@ describe("add", () => {
 		await add(deps, "alpha", { goal: "Stop the retries.", todos: [todo.id] });
 
 		const { path } = await deps.service.find("alpha");
-		expect(await deps.fs.read(join(path, "ARBOR.md"))).toContain(
+		expect(await deps.fs.read(join(path, "SPLATES.md"))).toContain(
 			"## Goal\n\nStop the retries.\n\nRetry on 413\n\nin upload.ts",
 		);
 	});
@@ -76,9 +76,9 @@ describe("add", () => {
 		const exclude = await deps.fs.read(
 			join(deps.root, ".git", "info", "exclude"),
 		);
-		expect(exclude.split("\n").filter((line) => line === "ARBOR.md")).toEqual([
-			"ARBOR.md",
-		]);
+		expect(exclude.split("\n").filter((line) => line === "SPLATES.md")).toEqual(
+			["SPLATES.md"],
+		);
 		const state = (await deps.service.find("alpha")).state;
 		expect(
 			await deps.gitCli(state?.worktree ?? "", "status", "--porcelain"),
@@ -89,7 +89,7 @@ describe("add", () => {
 		await add(deps, "alpha");
 
 		await expect(add(deps, "alpha")).toBail("exists", {
-			message: "arbor claim alpha",
+			message: "splates claim alpha",
 		});
 	});
 
@@ -106,7 +106,7 @@ describe("add", () => {
 				.filter((result) => result.status === "rejected")
 				.map((result) =>
 					expect(Promise.reject(result.reason)).toBail("exists", {
-						message: "arbor claim alpha",
+						message: "splates claim alpha",
 					}),
 				),
 		);
@@ -139,7 +139,7 @@ describe("add", () => {
 
 	it("tells the postCheckout hook which branch the trunk is", async () => {
 		deps.config.trunk = "master";
-		deps.config.postCheckout = "printenv ARBOR_TRUNK > trunk.txt";
+		deps.config.postCheckout = "printenv SPLATES_TRUNK > trunk.txt";
 
 		await add(deps, "alpha", { base: "main" });
 
@@ -165,7 +165,7 @@ describe("add", () => {
 	});
 
 	it("hands the task to an agent pending while its hook readies the tree", async () => {
-		deps.config.postCheckout = `cat ${join(deps.root, ".git", "arbor", "tasks", "alpha.json")} > record.json`;
+		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "alpha.json")} > record.json`;
 
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },
@@ -190,7 +190,7 @@ describe("add", () => {
 		expect(deps.out()).toContain("agent:    fake (small)");
 	});
 
-	it("leaves saying it was added to arbor's own line, telling the agent nothing to say", async () => {
+	it("leaves saying it was added to splates's own line, telling the agent nothing to say", async () => {
 		await add(deps, "alpha");
 
 		expect(deps.out()).not.toContain("next:");
@@ -224,8 +224,8 @@ describe("add", () => {
 	});
 
 	it("refuses to hand the task to an agent from one another agent started, before making anything", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "c2";
-		deps.proc.env.ARBOR_CALLER = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c2";
+		deps.proc.env.SPLATES_CALLER = "c1";
 
 		await expect(
 			add(deps, "alpha", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
@@ -237,7 +237,7 @@ describe("add", () => {
 
 	it("refuses to hand out a task past agentsPerAgent, unless asked to go over it", async () => {
 		deps.config.agentsPerAgent = 1;
-		deps.proc.env.ARBOR_CONVERSATION = "orch";
+		deps.proc.env.SPLATES_CONVERSATION = "orch";
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },
 			agents: [ROSTERED],
@@ -262,12 +262,12 @@ describe("add", () => {
 
 	it("counts only the agents the one adding it started toward agentsPerAgent", async () => {
 		deps.config.agentsPerAgent = 1;
-		deps.proc.env.ARBOR_CONVERSATION = "other";
+		deps.proc.env.SPLATES_CONVERSATION = "other";
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },
 			agents: [ROSTERED],
 		});
-		deps.proc.env.ARBOR_CONVERSATION = "orch";
+		deps.proc.env.SPLATES_CONVERSATION = "orch";
 
 		await add(deps, "beta", {
 			dispatch: { agent: "fake" },
@@ -283,7 +283,7 @@ describe("add", () => {
 		deps.config.trunk = "master";
 
 		await expect(add(deps, "alpha")).toBail("usage", {
-			message: ["trunk 'master'", "arbor.config.ts"],
+			message: ["trunk 'master'", "splates.config.ts"],
 		});
 	});
 

@@ -290,7 +290,7 @@ const matching =
 	};
 /**
  * A `#` at the start or after a space, as typed, but not the one in a todo's
- * `[ARBOR TODO #N]` just before the caret, which a chip reads as.
+ * `[SPLATES TODO #N]` just before the caret, which a chip reads as.
  */
 const NOT_IN_DIRECTIVE: TriggerMatcher = (text, _char, cursor) => {
 	const typed = /(^|\s)#([^\s#\]]*)$/.exec(text.slice(0, cursor));

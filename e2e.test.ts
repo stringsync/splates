@@ -10,16 +10,16 @@ import { Testing } from "./testing";
 // runs in parallel on a busy machine.
 setDefaultTimeout(30_000);
 
-describe.concurrent("arbor", () => {
+describe.concurrent("splates", () => {
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		expect(
-			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
 		).toBe(0);
 		expect(
-			(await arbor(env.root, "add", "beta", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "beta", "--goal", "land it")).exitCode,
 		).toBe(0);
 
 		const listed = await rows();
@@ -28,20 +28,20 @@ describe.concurrent("arbor", () => {
 		expect([alpha, beta]).not.toContain("");
 
 		// Each agent resumes a tree it did not create: a fresh thread starts here.
-		const claimed = await arbor(alpha, "claim", "alpha");
+		const claimed = await splates(alpha, "claim", "alpha");
 		expect(claimed.exitCode).toBe(0);
 		expect(claimed.stdout).toContain("uncommitted: none");
 		await env.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await env.finish(alpha);
-		const merged = await arbor(alpha, "merge");
+		const merged = await splates(alpha, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged alpha onto main");
 
 		// beta rebases onto a trunk that alpha moved out from under it.
-		expect((await arbor(beta, "claim", "beta")).exitCode).toBe(0);
+		expect((await splates(beta, "claim", "beta")).exitCode).toBe(0);
 		await env.commit(beta, "beta.txt", "beta\n", "add beta");
 		await env.finish(beta);
-		expect((await arbor(beta, "merge")).exitCode).toBe(0);
+		expect((await splates(beta, "merge")).exitCode).toBe(0);
 
 		const log = await env.gitCli(env.root, "log", "--oneline", "main");
 		expect(log).toContain("add alpha");
@@ -55,27 +55,27 @@ describe.concurrent("arbor", () => {
 
 	it("keeps the journal of a task after it has merged and gone", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		expect(
-			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
 		).toBe(0);
 		const alpha = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
 		);
-		expect((await arbor(alpha, "claim", "alpha")).exitCode).toBe(0);
+		expect((await splates(alpha, "claim", "alpha")).exitCode).toBe(0);
 		await env.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await env.finish(alpha);
-		expect((await arbor(alpha, "merge")).exitCode).toBe(0);
+		expect((await splates(alpha, "merge")).exitCode).toBe(0);
 
-		const removed = await arbor(env.root, "remove", "alpha");
+		const removed = await splates(env.root, "remove", "alpha");
 		expect(removed.exitCode).toBe(13);
 		expect(removed.stdout).toContain("already_removed");
 
 		// The journal outlives the task: its merge and the refused remove.
 		const journal = JSON.parse(
-			(await arbor(env.root, "log", "--json")).stdout,
+			(await splates(env.root, "log", "--json")).stdout,
 		) as { action: string; task: string | null; reason: string | null }[];
 		expect(journal).toMatchObject([
 			{ action: "add", task: "alpha", reason: null },
@@ -87,10 +87,10 @@ describe.concurrent("arbor", () => {
 
 	it("lands a stacked task in its parent's worktree, and the parent on trunk", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		expect(
-			(await arbor(env.root, "add", "parent", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "parent", "--goal", "land it")).exitCode,
 		).toBe(0);
 		const parent = ensure.defined(
 			(await rows())[0]?.worktree,
@@ -102,7 +102,7 @@ describe.concurrent("arbor", () => {
 		// branch, so the part lands on it rather than on trunk.
 		expect(
 			(
-				await arbor(
+				await splates(
 					parent,
 					"add",
 					"part",
@@ -120,7 +120,7 @@ describe.concurrent("arbor", () => {
 		await env.commit(part, "part.txt", "part\n", "add part");
 
 		await env.finish(part);
-		const landed = await arbor(part, "merge");
+		const landed = await splates(part, "merge");
 		expect(landed.exitCode).toBe(0);
 		expect(landed.stdout).toContain("merged part onto task/parent");
 		expect(landed.stdout).toContain(parent);
@@ -133,7 +133,7 @@ describe.concurrent("arbor", () => {
 
 		// The parent then lands both commits on trunk with its own merge.
 		await env.finish(parent);
-		expect((await arbor(parent, "merge")).exitCode).toBe(0);
+		expect((await splates(parent, "merge")).exitCode).toBe(0);
 		const log = await env.gitCli(env.root, "log", "--oneline", "main");
 		expect(log).toContain("add parent");
 		expect(log).toContain("add part");
@@ -142,44 +142,44 @@ describe.concurrent("arbor", () => {
 
 	it("lands the work when a second agent picks up an escalated tree", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		// Tests pass only once the committed marker says so, which is how the
 		// first agent's merge fails for a reason the second agent can fix.
 		await env.fs.write(
-			join(env.root, "arbor.config.ts"),
+			join(env.root, "splates.config.ts"),
 			`export default { preMerge: "grep -q ok status.txt" };\n`,
 		);
 		expect(
-			(await arbor(env.root, "add", "gamma", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "gamma", "--goal", "land it")).exitCode,
 		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
 		);
 
-		expect((await arbor(tree, "claim", "gamma")).exitCode).toBe(0);
+		expect((await splates(tree, "claim", "gamma")).exitCode).toBe(0);
 		await env.commit(tree, "status.txt", "wrong\n", "add status");
 		await env.finish(tree);
-		const failed = await arbor(tree, "merge");
+		const failed = await splates(tree, "merge");
 		expect(failed.exitCode).not.toBe(0);
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),
 		).not.toContain("add status");
 		expect(
-			(await arbor(tree, "escalate", "cannot tell what ok means")).exitCode,
+			(await splates(tree, "escalate", "cannot tell what ok means")).exitCode,
 		).toBe(0);
 
 		// Second agent, fresh thread: the escalated tree is still claimable, is
 		// someone's work again, and the earlier failure did not eat the whole
 		// merge budget.
-		const resumed = await arbor(tree, "claim", "gamma");
+		const resumed = await splates(tree, "claim", "gamma");
 		expect(resumed.exitCode).toBe(0);
 		expect(resumed.stdout).toContain("status:   working (was escalated)");
 		expect(resumed.stdout).toContain("attempts: 1");
 		await env.commit(tree, "status.txt", "ok\n", "fix status");
 		await env.finish(tree);
-		const merged = await arbor(tree, "merge");
+		const merged = await splates(tree, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged gamma onto main");
 		expect(await env.gitCli(env.root, "log", "--oneline", "main")).toContain(
@@ -189,10 +189,10 @@ describe.concurrent("arbor", () => {
 
 	it("reports the uncommitted work and lands it when an agent dies mid-task", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		expect(
-			(await arbor(env.root, "add", "delta", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "delta", "--goal", "land it")).exitCode,
 		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
@@ -201,20 +201,20 @@ describe.concurrent("arbor", () => {
 
 		// The first agent claims, writes, and never comes back: the record keeps
 		// a lease whose pid died with the process.
-		expect((await arbor(tree, "claim", "delta")).exitCode).toBe(0);
+		expect((await splates(tree, "claim", "delta")).exitCode).toBe(0);
 		await env.fs.write(join(tree, "delta.txt"), "half done\n");
 		expect((await rows())[0]?.lease).toBe("stale");
 
 		// Second agent: the dead lease does not block the claim, and the
 		// half-finished file is reported rather than silently inherited.
-		const resumed = await arbor(tree, "claim", "delta");
+		const resumed = await splates(tree, "claim", "delta");
 		expect(resumed.exitCode).toBe(0);
 		expect(resumed.stdout).toContain("uncommitted (1)");
 		expect(resumed.stdout).toContain("delta.txt");
 
 		await env.commit(tree, "delta.txt", "finished\n", "finish delta");
 		await env.finish(tree);
-		expect((await arbor(tree, "merge")).exitCode).toBe(0);
+		expect((await splates(tree, "merge")).exitCode).toBe(0);
 		expect(await env.gitCli(env.root, "log", "--oneline", "main")).toContain(
 			"finish delta",
 		);
@@ -222,29 +222,29 @@ describe.concurrent("arbor", () => {
 
 	it("lands the tree on a retry when an agent is killed mid-merge", async () => {
 		await using cli = await setup();
-		const { env, arbor, rows } = cli;
+		const { env, splates, rows } = cli;
 
 		// SIGKILL from inside the test gate: the first merge dies after rebasing
 		// and before trunk moves, holding both the lease and the merge lock. The
 		// marker file makes it happen exactly once, so the retry can pass.
 		const die = join(env.root, "die");
 		await env.fs.write(
-			join(env.root, "arbor.config.ts"),
+			join(env.root, "splates.config.ts"),
 			`export default { preMerge: "if [ -f ${die} ]; then rm ${die}; kill -9 $PPID; fi" };\n`,
 		);
 		await env.fs.write(die, "");
 		expect(
-			(await arbor(env.root, "add", "epsilon", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "epsilon", "--goal", "land it")).exitCode,
 		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
 		);
 
-		expect((await arbor(tree, "claim", "epsilon")).exitCode).toBe(0);
+		expect((await splates(tree, "claim", "epsilon")).exitCode).toBe(0);
 		await env.commit(tree, "epsilon.txt", "epsilon\n", "add epsilon");
 		await env.finish(tree);
-		expect((await arbor(tree, "merge")).exitCode).not.toBe(0);
+		expect((await splates(tree, "merge")).exitCode).not.toBe(0);
 		expect(await env.fs.exists(die)).toBe(false);
 
 		const stalled = (await rows())[0];
@@ -253,14 +253,14 @@ describe.concurrent("arbor", () => {
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),
 		).not.toContain("add epsilon");
-		expect(await env.fs.exists(join(env.arborDir, "merge.lock"))).toBe(true);
+		expect(await env.fs.exists(join(env.splatesDir, "merge.lock"))).toBe(true);
 
 		// Second agent: the abandoned lock is stolen rather than waited out.
-		const resumed = await arbor(tree, "claim", "epsilon");
+		const resumed = await splates(tree, "claim", "epsilon");
 		expect(resumed.exitCode).toBe(0);
 		expect(resumed.stdout).toContain("status:   merging");
 		await env.finish(tree);
-		const merged = await arbor(tree, "merge");
+		const merged = await splates(tree, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged epsilon onto main");
 		expect(await env.gitCli(env.root, "log", "--oneline", "main")).toContain(
@@ -269,45 +269,45 @@ describe.concurrent("arbor", () => {
 		expect(await rows()).toEqual([]);
 	});
 
-	it("refuses every command but `arbor init` in a repository it never ran in", async () => {
+	it("refuses every command but `splates init` in a repository it never ran in", async () => {
 		await using cli = await setup({ init: false });
-		const { env, arbor } = cli;
+		const { env, splates } = cli;
 
 		const uninitialized = {
 			exitCode: 20,
-			stderr: expect.stringContaining("Run `arbor init` in it once"),
+			stderr: expect.stringContaining("Run `splates init` in it once"),
 		};
 		expect([
-			await arbor(env.root, "todo", "list"),
-			await arbor(env.root, "add", "alpha", "--goal", "land it"),
-			await arbor(env.root, "list"),
+			await splates(env.root, "todo", "list"),
+			await splates(env.root, "add", "alpha", "--goal", "land it"),
+			await splates(env.root, "list"),
 		]).toMatchObject([uninitialized, uninitialized, uninitialized]);
-		expect(await env.fs.exists(env.arborDir)).toBe(false);
+		expect(await env.fs.exists(env.splatesDir)).toBe(false);
 		expect(await env.projects.list()).toEqual([]);
 
 		const [registered, again] = [
-			await arbor(env.root, "init"),
-			await arbor(env.root, "init"),
+			await splates(env.root, "init"),
+			await splates(env.root, "init"),
 		];
 		expect(registered.exitCode).toBe(0);
 		expect(registered.stdout).toContain(`registered ${env.root}`);
-		expect(await env.fs.read(join(env.arborDir, "format"))).toBe("1\n");
+		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("1\n");
 		expect(again.stdout).toContain(`${env.root} is already registered`);
 		expect(
-			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
 		).toBe(0);
 	});
 
-	it("registers an arbor project already under way, by its main tree", async () => {
+	it("registers a splates project already under way, by its main tree", async () => {
 		await using cli = await setup();
-		const { env, arbor } = cli;
+		const { env, splates } = cli;
 		await env.projects.forget(env.root);
 		expect(
-			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
 		).toBe(0);
 
 		const [alpha] = (await cli.rows()).map((row) => row.worktree);
-		expect((await arbor(alpha as string, "init")).exitCode).toBe(0);
+		expect((await splates(alpha as string, "init")).exitCode).toBe(0);
 
 		expect((await env.projects.list()).map((each) => each.root)).toEqual([
 			env.root,
@@ -316,38 +316,44 @@ describe.concurrent("arbor", () => {
 
 	it("forgets this repository, keeping its records", async () => {
 		await using cli = await setup();
-		const { env, arbor } = cli;
+		const { env, splates } = cli;
 		expect(
-			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
 		).toBe(0);
 
-		const forgot = await arbor(env.root, "forget");
-		const again = await arbor(env.root, "forget");
+		const forgot = await splates(env.root, "forget");
+		const again = await splates(env.root, "forget");
 
 		expect(forgot.exitCode).toBe(0);
 		expect(forgot.stdout).toContain(`forgot ${env.root}`);
 		expect(again.stdout).toContain(`${env.root} is not registered`);
 		expect(await env.projects.list()).toEqual([]);
-		expect((await arbor(env.root, "init")).exitCode).toBe(0);
+		expect((await splates(env.root, "init")).exitCode).toBe(0);
 		expect((await cli.rows()).map((row) => row.task)).toEqual(["alpha"]);
 	});
 
-	it("leaves records a newer arbor wrote alone", async () => {
+	it("leaves records a newer splates wrote alone", async () => {
 		await using cli = await setup();
-		const { env, arbor } = cli;
-		const format = join(env.arborDir, "format");
+		const { env, splates } = cli;
+		const format = join(env.splatesDir, "format");
 
-		expect((await arbor(env.root, "list")).exitCode).toBe(0);
+		expect((await splates(env.root, "list")).exitCode).toBe(0);
 		expect(await env.fs.read(format)).toBe("1\n");
 
 		await env.fs.write(format, "2\n");
-		const refused = await arbor(env.root, "add", "alpha", "--goal", "land it");
+		const refused = await splates(
+			env.root,
+			"add",
+			"alpha",
+			"--goal",
+			"land it",
+		);
 		expect(refused.exitCode).toBe(19);
 		expect(refused.stdout).toContain("outdated");
-		expect(refused.stderr).toContain("bunx @webappwiz/arbor@latest");
-		expect(await env.fs.exists(join(env.arborDir, "tasks", "alpha.json"))).toBe(
-			false,
-		);
+		expect(refused.stderr).toContain("bunx splates@latest");
+		expect(
+			await env.fs.exists(join(env.splatesDir, "tasks", "alpha.json")),
+		).toBe(false);
 	});
 });
 
@@ -359,19 +365,19 @@ const setup = async ({ init = true }: { init?: boolean } = {}) => {
 	// A gate that passes, so the happy paths exercise merge rather than the
 	// fixture repo's (nonexistent) tests.
 	await env.fs.write(
-		join(env.root, "arbor.config.ts"),
+		join(env.root, "splates.config.ts"),
 		`export default { preMerge: "true" };\n`,
 	);
 
-	// `arbor init` installs its skill with `bunx skills add`, which reaches
+	// `splates init` installs its skill with `bunx skills add`, which reaches
 	// GitHub: a `bunx` that does nothing keeps the tests off the network.
-	const bin = join(env.arborHome, "..", "bin");
+	const bin = join(env.splatesHome, "..", "bin");
 	await env.fs.mkdir(bin);
 	await env.fs.write(join(bin, "bunx"), "#!/bin/sh\nexit 0\n");
 	await chmod(join(bin, "bunx"), 0o755);
 
 	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
-	const arbor = async (cwd: string, ...args: string[]) => {
+	const splates = async (cwd: string, ...args: string[]) => {
 		const { exitCode, stdout, stderr } = await env.ps.spawnCapture(
 			["bun", CLI, ...args],
 			{ cwd, env: { PATH: `${bin}:${process.env.PATH}` } },
@@ -380,12 +386,17 @@ const setup = async ({ init = true }: { init?: boolean } = {}) => {
 	};
 
 	const rows = async () =>
-		JSON.parse((await arbor(env.root, "list", "--json")).stdout) as {
+		JSON.parse((await splates(env.root, "list", "--json")).stdout) as {
 			task: string;
 			status: string;
 			lease: "held" | "stale" | "none";
 			worktree: string;
 		}[];
 
-	return { env, arbor, rows, [Symbol.asyncDispose]: () => env.disposeAsync() };
+	return {
+		env,
+		splates,
+		rows,
+		[Symbol.asyncDispose]: () => env.disposeAsync(),
+	};
 };

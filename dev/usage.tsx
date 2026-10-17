@@ -233,7 +233,7 @@ export function OpenCodeReport({ usage }: { usage: Usage }): JSX.Element {
 			</Section>
 			<Section
 				title="Measured latency"
-				hint="Arbor dispatch to first text / turn end; includes tools and waits"
+				hint="Splates dispatch to first text / turn end; includes tools and waits"
 			>
 				First text: {latency(turn?.firstText)}
 				<br />

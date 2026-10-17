@@ -46,7 +46,7 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		child = ps.getChildren()[0];
 	});
 
-	/** A coordinator session as `arbor dev` makes one: named, acking by hand. */
+	/** A coordinator session as `splates dev` makes one: named, acking by hand. */
 	const session = () =>
 		new WorkerSession("coordinator", {
 			id: "coordinator-1",

@@ -2,19 +2,20 @@ import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
-import { arborHome } from "./roster";
+import { LEGACY_DIR } from "./legacy-names";
+import { splatesHome } from "./roster";
 
 /** The file in a slot's home that its server writes its pid to. */
 export const SERVER_PID = "server.pid";
 
 /** Set in a slot's server's environment to the word it serves under. */
-export const SLOT = "ARBOR_SLOT";
+export const SLOT = "SPLATES_SLOT";
 
 /**
- * Set in a slot's server's environment to the machine's `ARBOR_HOME`, whose
+ * Set in a slot's server's environment to the machine's `SPLATES_HOME`, whose
  * tunnel and slots the page lists to switch between.
  */
-export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
+export const MACHINE_HOME = "SPLATES_MACHINE_HOME";
 
 /** How long `stop` gives a server to end on a SIGTERM before a SIGKILL. */
 const STOP_WAIT = Duration.secs(5);
@@ -23,11 +24,11 @@ const STOP_WAIT = Duration.secs(5);
 const FORMAT = 1;
 
 /**
- * Which tree holds which slot, kept in `~/.arbor/slots.json` for every
+ * Which tree holds which slot, kept in `~/.splates/slots.json` for every
  * checkout on this machine. A tree holds the same word every time, so its host
  * name is worth writing down, for as long as it owns it: a task's worktree
  * owns its word until the task merges or is removed, which stops its server
- * and gives the word back. The main tree of an arbor repository owns none,
+ * and gives the word back. The main tree of a splates repository owns none,
  * since every agent of it stands there, so one agent's slot would be every
  * other's to stop. A server left running from a tree that owns its word no
  * more still holds its port and its host, so its word goes to no other tree
@@ -35,7 +36,7 @@ const FORMAT = 1;
  */
 export class Slots {
 	constructor(
-		/** `~/.arbor/slots.json`, or a test's own. */
+		/** `~/.splates/slots.json`, or a test's own. */
 		readonly path: string,
 		private readonly deps: {
 			fs: Fs;
@@ -49,7 +50,7 @@ export class Slots {
 
 	/** The machine's slots, read from inside a slot's server too. */
 	static ofMachine({ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger }): Slots {
-		const home = ps.env(MACHINE_HOME) ?? arborHome(ps);
+		const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 		return new Slots(`${home}/slots.json`, {
 			fs,
 			ps,
@@ -58,13 +59,17 @@ export class Slots {
 	}
 
 	/**
-	 * Whether `tree` can own a word: it exists, and is no arbor repository's
-	 * main tree, whose `.git` is a directory holding arbor's records rather
+	 * Whether `tree` can own a word: it exists, and is no splates repository's
+	 * main tree, whose `.git` is a directory holding splates's records rather
 	 * than a linked worktree's file.
 	 */
 	async owns(tree: string): Promise<boolean> {
 		const { fs } = this.deps;
-		return (await fs.exists(tree)) && !(await fs.exists(`${tree}/.git/arbor`));
+		return (
+			(await fs.exists(tree)) &&
+			!(await fs.exists(`${tree}/.git/splates`)) &&
+			!(await fs.exists(`${tree}/.git/${LEGACY_DIR}`))
+		);
 	}
 
 	/**
@@ -103,7 +108,7 @@ export class Slots {
 				[
 					"every dev slot is held:",
 					...holders,
-					"each is another task's: `arbor slots prune` frees those no task owns any more, and stops their servers; never stop another task's server or edit its claim",
+					"each is another task's: `splates slots prune` frees those no task owns any more, and stops their servers; never stop another task's server or edit its claim",
 				].join("\n"),
 			);
 		} finally {
@@ -111,7 +116,7 @@ export class Slots {
 		}
 	}
 
-	/** The slot's home, its `ARBOR_HOME`: `~/.arbor/slots/<word>`. */
+	/** The slot's home, its `SPLATES_HOME`: `~/.splates/slots/<word>`. */
 	home(slot: Slot): string {
 		return `${this.path.slice(0, this.path.lastIndexOf("/"))}/slots/${slot.word}`;
 	}
@@ -260,7 +265,7 @@ export class Slots {
 		const parsed = Claims.safeParse(JSON.parse(raw));
 		if (!parsed.success || parsed.data.format > FORMAT) {
 			throw new Error(
-				`${this.path} is not slots this arbor reads: remove it to start over`,
+				`${this.path} is not slots this splates reads: remove it to start over`,
 			);
 		}
 		return parsed.data.claims;
@@ -277,7 +282,7 @@ export class Slots {
 }
 
 /**
- * The words `arbor dev --slot` hands out, tried in this order, as
+ * The words `splates dev --slot` hands out, tried in this order, as
  * sound2score's dev slots are: short animals, spellable into a phone, each
  * with an emoji that is that animal and nothing else.
  * Each one's tunnel is made on its first ever claim and kept, so this is also
@@ -337,7 +342,7 @@ export interface Held {
 	pid: number | null;
 	/**
 	 * Whether no tree can be said to own it any more: its tree is gone, or is
-	 * the main tree of an arbor repository, which every agent of it shares.
+	 * the main tree of a splates repository, which every agent of it shares.
 	 * Only an orphan's server is any agent's to stop, by `prune`.
 	 */
 	orphaned: boolean;

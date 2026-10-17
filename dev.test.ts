@@ -15,15 +15,15 @@ describe("dev", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("refuses every request once a newer arbor has moved the records on", async () => {
+	it("refuses every request once a newer splates has moved the records on", async () => {
 		await serving(deps, async (snapshot, port) => {
 			expect((await snapshot()).tasks).toEqual([]);
-			await deps.fs.write(`${deps.arborDir}/format`, "2\n");
+			await deps.fs.write(`${deps.splatesDir}/format`, "2\n");
 
 			const response = await fetch(`http://localhost:${port}/api/snapshot`);
 
 			expect(response.status).toBe(409);
-			expect(await response.text()).toContain("bunx @webappwiz/arbor@latest");
+			expect(await response.text()).toContain("bunx splates@latest");
 		});
 	});
 
@@ -67,7 +67,7 @@ describe("dev", () => {
 		}
 	});
 
-	it("serves each task's fields and its ARBOR.md as data", async () => {
+	it("serves each task's fields and its SPLATES.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"), {
 			base: "main",
 			todos: [],
@@ -78,7 +78,7 @@ describe("dev", () => {
 		});
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/ARBOR.md`,
+			`${alpha}/SPLATES.md`,
 			"# alpha\n\n## Goal\nland it\n\n## Next\n- [ ] the rest\n",
 		);
 
@@ -120,11 +120,11 @@ describe("dev", () => {
 		});
 	});
 
-	it("serves the ARBOR.md verbatim, leaving the page to render it", async () => {
+	it("serves the SPLATES.md verbatim, leaving the page to render it", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/ARBOR.md`,
+			`${alpha}/SPLATES.md`,
 			"# alpha\n\n## Next\n- [ ] drop <script>alert(1)</script>\n",
 		);
 
@@ -143,7 +143,7 @@ describe("dev", () => {
 		await serving(deps, async (_snapshot, port) => {
 			const html = await (await fetch(`http://localhost:${port}/`)).text();
 
-			expect(html).toContain("<title>arbor</title>");
+			expect(html).toContain("<title>Spinning Plates</title>");
 			expect(html).toContain(`<div id="root">`);
 			expect(html).toMatch(/href="\/styles\.css\?v=\w+"/);
 			expect(html).toMatch(/src="\/main\.js\?v=\w+"/);
@@ -218,7 +218,7 @@ describe("dev", () => {
 			expect(js).toContain("react.transitional.element");
 			// The page's own markup reached the bundle, so this is the app and not
 			// an empty entry module that failed to pull anything in.
-			expect(js).toContain("arbor");
+			expect(js).toContain("splates");
 		});
 	});
 
@@ -294,7 +294,7 @@ describe("dev", () => {
 	it("refuses a host it was not told about, and serves one it was", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			hosts: ["repo.arbor.example"],
+			hosts: ["repo.splates.example"],
 		});
 		try {
 			const as = (host: string) =>
@@ -303,7 +303,7 @@ describe("dev", () => {
 				});
 
 			expect((await as("rebound.example")).status).toBe(403);
-			expect((await as("repo.arbor.example")).status).toBe(200);
+			expect((await as("repo.splates.example")).status).toBe(200);
 			expect((await as(`localhost:${server.port}`)).status).toBe(200);
 			const signedIn = await fetch(
 				`http://127.0.0.1:${server.port}/api/identity`,
@@ -321,7 +321,7 @@ class CountingService extends WorktreeService {
 	private waiting: (() => void)[] = [];
 
 	constructor(from: Testing) {
-		super(from.git, from.config, from.arborDir, {
+		super(from.git, from.config, from.splatesDir, {
 			fs: from.fs,
 			ps: from.ps,
 		});

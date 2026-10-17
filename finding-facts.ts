@@ -78,7 +78,7 @@ export function foundFacts({ outcome, baseline }: Landed): FoundFacts {
 export const UNTODOED: Finding["kind"][] = ["overturned", "challenged"];
 
 /**
- * The todos `arbor merge` adds for what went worse in `landed`, the gate's
+ * The todos `splates merge` adds for what went worse in `landed`, the gate's
  * first: one a fact, as the merged card lists them, but for `UNTODOED`.
  */
 export function factTodos(landed: Landed): FactTodo[] {

@@ -11,14 +11,14 @@ import { WorkerRegistry } from "./worker-registry";
 
 const CLI = join(import.meta.dirname, "index.ts");
 
-describe("arbor worker run", () => {
+describe("splates worker run", () => {
 	let dir: string;
 	let path: string;
 	let registry: WorkerRegistry;
 	let listener: UnixWorkerListener;
 
 	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "arbor-worker-run-"));
+		dir = await mkdtemp(join(tmpdir(), "splates-worker-run-"));
 		path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
@@ -50,7 +50,7 @@ describe("arbor worker run", () => {
 				"2",
 			],
 			{
-				env: { ...process.env, ARBOR_HOME: dir },
+				env: { ...process.env, SPLATES_HOME: dir },
 				stdout: "pipe",
 				stderr: "pipe",
 			},

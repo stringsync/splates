@@ -36,7 +36,7 @@ describe("App's waits", () => {
 				[
 					tool({
 						id: "x1",
-						command: "arbor wait alpha",
+						command: "splates wait alpha",
 						status: going ? "in_progress" : "completed",
 						at: second(2),
 					}),
@@ -46,7 +46,7 @@ describe("App's waits", () => {
 			events,
 		);
 		return await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 	};
 
@@ -88,7 +88,7 @@ describe("App's waits", () => {
 		]);
 
 		await waitFor(() => expect(thread.textContent).toContain("Merged."));
-		expect(within(thread).queryAllByRole("note", { name: "arbor" })).toEqual(
+		expect(within(thread).queryAllByRole("note", { name: "splates" })).toEqual(
 			[],
 		);
 	});

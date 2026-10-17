@@ -13,15 +13,15 @@ import {
 const PRIVACY: { title: string; body: string }[] = [
 	{
 		title: "The agent never sees it",
-		body: "Save sends it from this page to arbor dev, which hands it to the store. The agent only learns that it was saved.",
+		body: "Save sends it from this page to splates dev, which hands it to the store. The agent only learns that it was saved.",
 	},
 	{
 		title: "It is in no conversation or log",
-		body: "What you paste never becomes a message, so no conversation's history holds it. arbor's logs and its record of requests name the cred, never its value, and no page or command shows it again.",
+		body: "What you paste never becomes a message, so no conversation's history holds it. splates's logs and its record of requests name the cred, never its value, and no page or command shows it again.",
 	},
 	{
 		title: "It is never saved in plain text",
-		body: "It goes into the system's store: the macOS Keychain, Windows Credential Manager, or a Linux secret service, each encrypted. With none to reach, arbor refuses to save rather than write a file.",
+		body: "It goes into the system's store: the macOS Keychain, Windows Credential Manager, or a Linux secret service, each encrypted. With none to reach, splates refuses to save rather than write a file.",
 	},
 	{
 		title: "Only code reads it",

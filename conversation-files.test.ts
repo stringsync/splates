@@ -21,14 +21,18 @@ describe("Conversation files", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		// The trees the agents run in, which a resume looks for.
-		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+		for (const tree of [
+			"/repo",
+			"/repo-splates/login",
+			"/repo-splates/signup",
+		]) {
 			await fs.mkdir(tree);
 		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs,
@@ -55,7 +59,7 @@ describe("Conversation files", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;
@@ -77,11 +81,11 @@ describe("Conversation files", () => {
 
 	beforeEach(async () => {
 		// Imported from disk, and read through `fs` to tell when it changed.
-		tree = await mkdtemp(join(tmpdir(), "arbor-mentions-"));
+		tree = await mkdtemp(join(tmpdir(), "splates-mentions-"));
 		const systems = `export default ${JSON.stringify({ playback: { aliases: ["player"], globs: ["src/audio/**"] } })};\n`;
-		await writeFile(join(tree, "arbor.systems.ts"), systems);
+		await writeFile(join(tree, "splates.systems.ts"), systems);
 		await fs.mkdir(tree);
-		await fs.write(join(tree, "arbor.systems.ts"), systems);
+		await fs.write(join(tree, "splates.systems.ts"), systems);
 	});
 
 	afterEach(() => rm(tree, { recursive: true, force: true }));
@@ -112,7 +116,7 @@ describe("Conversation files", () => {
 		expect(await conversation.attachment("other.png")).toBeNull();
 		await conversation.stop();
 		const reread = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		);
@@ -155,7 +159,7 @@ describe("Conversation files", () => {
 			[
 				{
 					type: "resource_link",
-					uri: `file:///repo/.git/arbor/conversations/${conversation.id}/${name}`,
+					uri: `file:///repo/.git/splates/conversations/${conversation.id}/${name}`,
 					name: "Bug Repro.MP4",
 					mimeType: "video/mp4",
 				},
@@ -166,7 +170,7 @@ describe("Conversation files", () => {
 		expect(new TextDecoder().decode(kept?.bytes)).toBe("mp4 bytes");
 		await conversation.stop();
 		const [read] = await new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		).list();
@@ -203,7 +207,7 @@ describe("Conversation files", () => {
 		expect(agent.prompts.at(-1)).toEqual([
 			{
 				type: "text",
-				text: `see #${id}\n\n#${id} references conversation ${id}. Its log is /repo/.git/arbor/conversations/${id}.jsonl.`,
+				text: `see #${id}\n\n#${id} references conversation ${id}. Its log is /repo/.git/splates/conversations/${id}.jsonl.`,
 			},
 		]);
 	});

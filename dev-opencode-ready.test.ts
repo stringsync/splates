@@ -12,7 +12,7 @@ describe("OpenCode setup on the running server", () => {
 	it("refreshes the live roster, opens the explicit main model in the checked project, and disables safely", async () => {
 		await using deps = await Testing.open();
 		const ps = new OpenCodeFixturePs();
-		ps.setEnv({ ARBOR_HOME: deps.arborHome });
+		ps.setEnv({ SPLATES_HOME: deps.splatesHome });
 		const agent = new FakeAgent();
 		agent.options = [
 			{
@@ -28,7 +28,7 @@ describe("OpenCode setup on the running server", () => {
 			},
 		];
 		const conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			structuredClone(DEFAULT_AGENTS),
 			{ fs: deps.fs, launch: agent.launch },
 		);

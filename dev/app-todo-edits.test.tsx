@@ -132,8 +132,8 @@ describe("App's todo edits", () => {
 					id: 4,
 					subject: "fix the chart",
 					files: [
-						"/repo/.git/arbor/todos/4/0-a.png",
-						"/repo/.git/arbor/todos/4/1-b.log",
+						"/repo/.git/splates/todos/4/0-a.png",
+						"/repo/.git/splates/todos/4/1-b.log",
 					],
 				}),
 			],
@@ -176,7 +176,7 @@ describe("App's todo edits", () => {
 		await waitFor(() => expect(testing.posts).toHaveLength(1));
 		expect(
 			(testing.posts[0]?.body as FormData | undefined)?.getAll("keep"),
-		).toEqual(["/repo/.git/arbor/todos/4/0-a.png"]);
+		).toEqual(["/repo/.git/splates/todos/4/0-a.png"]);
 	});
 
 	it("removes one, asking twice", async () => {

@@ -6,9 +6,9 @@ import { z } from "zod";
 const FORMAT = 1;
 
 /** The name the tunnel's token is kept under in the system's secret store. */
-export const TUNNEL_TOKEN = "ARBOR_TUNNEL_TOKEN";
+export const TUNNEL_TOKEN = "SPLATES_TUNNEL_TOKEN";
 
-/** What `arbor tunnel setup` made, which a bare `arbor dev` runs. */
+/** What `splates tunnel setup` made, which a bare `splates dev` runs. */
 export interface TunnelRecord {
 	/** The public host name the tunnel carries to the page. */
 	host: string;
@@ -36,17 +36,17 @@ const Saved = z.object({
 
 /**
  * The tunnel this machine set up, kept per machine rather than per project,
- * since one `arbor dev` serves every project: what it is in
- * `~/.arbor/tunnel.json`, and the token that runs it, a secret of this
+ * since one `splates dev` serves every project: what it is in
+ * `~/.splates/tunnel.json`, and the token that runs it, a secret of this
  * machine, in the device's secret store, as the cred `TUNNEL_TOKEN`.
  */
 export class SavedTunnel {
 	constructor(
-		/** `~/.arbor/tunnel.json`, or a test's own. */
+		/** `~/.splates/tunnel.json`, or a test's own. */
 		readonly path: string,
 		private readonly deps: {
 			fs: Fs;
-			/** The device's store, which `arbor tunnel setup` saves the token in. */
+			/** The device's store, which `splates tunnel setup` saves the token in. */
 			store: SecretStore;
 		},
 	) {}
@@ -60,7 +60,7 @@ export class SavedTunnel {
 		const parsed = Saved.safeParse(JSON.parse(raw));
 		if (!parsed.success) {
 			throw new Error(
-				`${this.path} is not a tunnel arbor saved: remove it, or run \`arbor tunnel setup\` again`,
+				`${this.path} is not a tunnel splates saved: remove it, or run \`splates tunnel setup\` again`,
 			);
 		}
 		if (parsed.data.format > FORMAT) {

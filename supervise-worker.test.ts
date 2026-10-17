@@ -41,7 +41,7 @@ describe("supervise with a worker", () => {
 			});
 	});
 
-	it("runs a worker beside the server, again a pause after it ends, on the newest arbor once updated, until the server ends", async () => {
+	it("runs a worker beside the server, again a pause after it ends, on the newest splates once updated, until the server ends", async () => {
 		const ended = supervise(ps, { worker: ["worker", "run"], timer });
 		await Bun.sleep(0);
 		servers[0]?.(UPDATE);
@@ -54,7 +54,7 @@ describe("supervise with a worker", () => {
 		expect(await ended).toBe(0);
 		expect(workers.map(({ argv, aborted }) => [argv, aborted])).toEqual([
 			["bun /fake/entry.ts worker run", false],
-			["bunx @webappwiz/arbor@latest worker run", true],
+			["bunx splates@latest worker run", true],
 		]);
 	});
 

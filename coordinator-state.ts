@@ -17,8 +17,8 @@ const Kept = z.object({
 });
 
 /**
- * What one `arbor dev` keeps across its own restarts, in
- * `~/.arbor/coordinator.json`: the session id its workers know it by, so a
+ * What one `splates dev` keeps across its own restarts, in
+ * `~/.splates/coordinator.json`: the session id its workers know it by, so a
  * worker finds the next run unchanged and keeps every agent it runs for it,
  * and the roots of the projects whose agents it let go of at its last
  * restart, for the next run to serve before the worker joins and take them

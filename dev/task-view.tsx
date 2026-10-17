@@ -164,7 +164,8 @@ export function TaskView({
 								<AlertTitle>Abandoned</AlertTitle>
 								<AlertDescription>
 									{need.subject}, so no agent is left on it. Take it up in a new
-									conversation, which picks up from its ARBOR.md, or remove it.
+									conversation, which picks up from its SPLATES.md, or remove
+									it.
 								</AlertDescription>
 								<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
 							</Alert>
@@ -174,7 +175,7 @@ export function TaskView({
 								<AlertTitle>Its agent runs outside the page</AlertTitle>
 								<AlertDescription>
 									{quiet !== null &&
-										`No sign of it for ${age(quiet)}: no edit, commit or arbor command. `}
+										`No sign of it for ${age(quiet)}: no edit, commit or splates command. `}
 									The page cannot message it: answer here, then paste the reply
 									into its own session, or bring that session in below.
 								</AlertDescription>
@@ -408,7 +409,7 @@ export function TaskLine({
 }
 
 /**
- * What the page knows of the agent that its ARBOR.md does not say: why it
+ * What the page knows of the agent that its SPLATES.md does not say: why it
  * stopped, and how much it has changed so far.
  */
 function Agent({ task }: { task: Details }): JSX.Element {

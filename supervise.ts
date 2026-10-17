@@ -4,28 +4,28 @@ import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 /** What a server exits with to be started again as it was. */
 export const RESTART = 75;
 
-/** What a server exits with to be started again on the newest arbor. */
+/** What a server exits with to be started again on the newest splates. */
 export const UPDATE = 76;
 
 /**
- * Set in the server's environment, so the `arbor dev` it runs serves rather
+ * Set in the server's environment, so the `splates dev` it runs serves rather
  * than supervising another.
  */
-export const SERVING = "ARBOR_DEV_SERVING";
+export const SERVING = "SPLATES_DEV_SERVING";
 
 /**
  * Set in the server's environment to tell it its page failed to build, so
  * the page says it may be out of date.
  */
-export const UNBUILT = "ARBOR_DEV_UNBUILT";
+export const UNBUILT = "SPLATES_DEV_UNBUILT";
 
-/** What starts `arbor dev` on the newest arbor, with `args` after `dev`. */
-const NEWEST = ["bunx", "@webappwiz/arbor@latest"];
+/** What starts `splates dev` on the newest splates, with `args` after `dev`. */
+const NEWEST = ["bunx", "splates@latest"];
 
 /** What `supervise` starts the server with, beyond the process it runs in. */
 export interface SuperviseOptions {
 	/**
-	 * Builds the page, run before each start of the same arbor, as from a
+	 * Builds the page, run before each start of the same splates, as from a
 	 * checkout, whose page `bun install` built last and the commits since may
 	 * have changed, packages they added included; null for one installed from
 	 * npm, whose page shipped built.
@@ -37,7 +37,7 @@ export interface SuperviseOptions {
 	cwd?: string;
 	/**
 	 * The arguments of a worker to run beside the server, as `["worker",
-	 * "run"]`: started again whenever it ends, on the newest arbor once the
+	 * "run"]`: started again whenever it ends, on the newest splates once the
 	 * server updates, and stopped with this. Null for none.
 	 */
 	worker?: string[] | null;
@@ -48,9 +48,9 @@ export interface SuperviseOptions {
 const WORKER_PAUSE = Duration.secs(1);
 
 /**
- * Runs `arbor dev` as a child of this process, sharing its terminal, and
+ * Runs `splates dev` as a child of this process, sharing its terminal, and
  * starts another each time the child exits to restart: as this one was
- * started, or on the newest arbor when it asks to update. Ctrl-C reaches the
+ * started, or on the newest splates when it asks to update. Ctrl-C reaches the
  * child too, and its exit ends this. A SIGTERM or SIGHUP to this one stops the
  * child with a SIGTERM and ends this, since the child would otherwise outlive
  * it, listening on its port. A `worker` runs beside it as a second child.
@@ -66,9 +66,9 @@ export async function supervise(
 		timer = new SystemTimer(),
 	}: SuperviseOptions = {},
 ): Promise<number> {
-	let arbor = ps.self;
-	let argv = [...arbor, ...ps.args];
-	// Built until it updates: npm's arbor ships its page.
+	let splates = ps.self;
+	let argv = [...splates, ...ps.args];
+	// Built until it updates: npm's splates ships its page.
 	let building = build;
 	// Ctrl-C is the child's to end on, and its exit then ends this.
 	const quiet = ps.on("SIGINT", () => {});
@@ -84,7 +84,7 @@ export async function supervise(
 	// Its own, since the server restarting leaves it running.
 	const working = new AbortController();
 	if (worker !== null) {
-		void keep(ps, () => [...arbor, ...worker], {
+		void keep(ps, () => [...splates, ...worker], {
 			env,
 			cwd,
 			signal: working.signal,
@@ -120,8 +120,8 @@ export async function supervise(
 				throw error;
 			}
 			if (exitCode === UPDATE) {
-				arbor = NEWEST;
-				argv = [...arbor, ...ps.args];
+				splates = NEWEST;
+				argv = [...splates, ...ps.args];
 				building = null;
 			} else if (exitCode !== RESTART) {
 				return exitCode;

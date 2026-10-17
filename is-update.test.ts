@@ -11,7 +11,7 @@ import {
 } from "./prompts";
 
 describe("isUpdate", () => {
-	it("knows arbor's own updates", () => {
+	it("knows splates's own updates", () => {
 		expect(
 			[
 				reportReference("header"),

@@ -275,7 +275,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	async stopped(replayed: Replayed): Promise<void> {
 		const { state } = replayed;
 		const live = replayed.live !== null;
-		// Its process died mid-turn, as when `arbor dev` was killed: kept, so
+		// Its process died mid-turn, as when `splates dev` was killed: kept, so
 		// the mark outlives the turns that follow.
 		if (replayed.running) {
 			const turn = agentTurn(state, null);
@@ -408,7 +408,7 @@ type Said =
 			handedBy?: string;
 			/** The lane orchestrator that handed it its task; missing for one nobody did. */
 			startedBy?: string;
-			/** The project's arbor skill version; missing when it had none, or before it was kept. */
+			/** The project's splates skill version; missing when it had none, or before it was kept. */
 			skill?: string;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
@@ -444,7 +444,7 @@ type Said =
 			at?: string;
 			queued?: true;
 			steered?: true;
-			/** The conversation that said it with `arbor tell`. */
+			/** The conversation that said it with `splates tell`. */
 			told?: string;
 			/** Said into the mic; missing from logs written before the page said. */
 			dictated?: true;

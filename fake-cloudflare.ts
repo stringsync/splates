@@ -37,7 +37,7 @@ interface App {
 }
 
 /**
- * Cloudflare's v4 API as far as `arbor tunnel setup` calls it, kept in
+ * Cloudflare's v4 API as far as `splates tunnel setup` calls it, kept in
  * memory: a test seeds an account, hands `fetch` to the setup, then reads
  * back what is there and each call that changed it.
  */

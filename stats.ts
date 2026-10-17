@@ -47,7 +47,7 @@ export interface Stats {
 	/** When the first outcome was written, the start of what there is to show. */
 	since: string | null;
 	/**
-	 * How conversations followed the arbor skill, by the version each started
+	 * How conversations followed the splates skill, by the version each started
 	 * on, newest first: over all time, since a version is its own span.
 	 */
 	skill: SkillVersion[];
@@ -457,7 +457,7 @@ export interface CheckRate {
 	passed: number;
 }
 
-/** How the conversations on one arbor skill version followed it. */
+/** How the conversations on one splates skill version followed it. */
 export interface SkillVersion {
 	/** Null for conversations whose version is unknown. */
 	skill: string | null;

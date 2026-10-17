@@ -7,7 +7,7 @@ import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
-import { assumptionCounts, decisions, PLAN_FILE, picks } from "./plan";
+import { assumptionCounts, decisions, Plans, picks } from "./plan";
 import { Systems } from "./systems";
 import { taskLog } from "./task-log";
 import {
@@ -26,7 +26,7 @@ export interface AddOptions {
 
 /**
  * Where tasks live and everything persistent about them: the worktree
- * directories, the records under `.git/arbor/tasks`, and the names of tasks
+ * directories, the records under `.git/splates/tasks`, and the names of tasks
  * already removed. One name, one lookup, whatever state it turns out to be in.
  */
 /** What a `WorktreeService` works through; the real ones by default. */
@@ -48,29 +48,29 @@ export class WorktreeService {
 	private readonly adherence: Adherence | null;
 	readonly ps: Ps;
 
-	// scry-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
+	// scry-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
 	constructor(
 		readonly git: Git,
 		readonly config: Config,
-		arborDir: string,
+		splatesDir: string,
 		opts: WorktreeServiceOptions = {},
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
-		this.tasksDir = `${arborDir}/tasks`;
-		this.removedDir = `${arborDir}/removed`;
-		this.conversationsDir = `${arborDir}/conversations`;
+		this.tasksDir = `${splatesDir}/tasks`;
+		this.removedDir = `${splatesDir}/removed`;
+		this.conversationsDir = `${splatesDir}/conversations`;
 	}
 
 	/**
-	 * The `arbor dev` conversation whose agent runs this command, when it is
+	 * The `splates dev` conversation whose agent runs this command, when it is
 	 * one of this repo's: an agent from another project's page working here
 	 * is, to this repo, an agent outside the page.
 	 */
 	async conversation(): Promise<string | undefined> {
-		const id = this.ps.env("ARBOR_CONVERSATION");
+		const id = this.ps.env("SPLATES_CONVERSATION");
 		return id !== undefined && (await this.holds(id)) ? id : undefined;
 	}
 
@@ -79,7 +79,7 @@ export class WorktreeService {
 		return `${this.conversationsDir}/${id}.jsonl`;
 	}
 
-	/** Whether the `arbor dev` conversation `id` is one of this repo's. */
+	/** Whether the `splates dev` conversation `id` is one of this repo's. */
 	holds(id: string): Promise<boolean> {
 		return this.fs.exists(`${this.conversationsDir}/${id}.jsonl`);
 	}
@@ -287,7 +287,7 @@ export class WorktreeService {
 		const systems = await Systems.at(root, { fs: this.fs }).catch(() => null);
 		return {
 			plan: worktree.exists
-				? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "")
+				? ((await new Plans(this.fs).read(worktree.path)) ?? "")
 				: "",
 			systems: systems?.touchedBy(paths).map((each) => each.name) ?? [],
 			size: size ?? (worktree.hasBranch ? await worktree.size() : null) ?? null,
@@ -308,12 +308,12 @@ export class WorktreeService {
 		const asked = picks(ending.plan);
 		const assuming = assumptionCounts(ending.plan);
 		const reviews = escalations.filter((each) => each.review).length;
-		// A dispatched task names its conversation once `arbor dev` started
+		// A dispatched task names its conversation once `splates dev` started
 		// it; any other agent from the page has it in its env.
 		const conversation =
 			opts.conversation ??
 			state.dispatch?.conversation ??
-			this.ps.env("ARBOR_CONVERSATION") ??
+			this.ps.env("SPLATES_CONVERSATION") ??
 			null;
 		// What the conversation ran is what did the work; the handover only
 		// says what was asked for, and is all an unstarted one has.

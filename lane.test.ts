@@ -94,7 +94,7 @@ describe.concurrent("todo links and lanes", () => {
 		expect(deps.out()).toContain(
 			"todo 191 is blocked by todo 187 (lane 1, open), which has yet to merge",
 		);
-		expect(deps.out()).toContain("arbor todo wait 187");
+		expect(deps.out()).toContain("splates todo wait 187");
 		await add(deps, "both", { todos: [177, 196] });
 		expect(deps.out()).toContain(
 			"todo 177 is blocked by todo 191 (lane 1, taken by early)",
@@ -229,7 +229,7 @@ describe.concurrent("todo links and lanes", () => {
 			"3. #186 Show the license tier on the account page  (blocked by #177 in Licensing)",
 		);
 		expect(out).toContain("next: todo 186, once #177 in Licensing lands");
-		expect(out).toContain("arbor todo wait 177");
+		expect(out).toContain("splates todo wait 177");
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 
@@ -256,7 +256,7 @@ describe.concurrent("todo links and lanes", () => {
 		expect(out).toContain(
 			"next: place each in a lane, linking what blocks each:",
 		);
-		expect(out).toContain("arbor todo update <id> --lane new");
+		expect(out).toContain("splates todo update <id> --lane new");
 
 		await todoUpdate(deps, 198, { lane: 3 });
 		await todoUpdate(deps, 201, { lane: 3 });
@@ -286,7 +286,7 @@ describe.concurrent("todo links and lanes", () => {
 			"next in lane 2 Audio, uploads and pricing todo 186: Show the license tier on the account page",
 		);
 		expect(out).toContain(
-			"blocked by #177 in Licensing, not taken yet: arbor todo wait 177",
+			"blocked by #177 in Licensing, not taken yet: splates todo wait 177",
 		);
 	}, 20_000);
 
@@ -414,7 +414,7 @@ describe.concurrent("todo links and lanes", () => {
 		deps.log.clear();
 		await laneShow(deps, 1);
 		expect(color.strip(deps.out())).toContain(
-			"next: arbor add <task> --todo 1 --agent claude --model sonnet",
+			"next: splates add <task> --todo 1 --agent claude --model sonnet",
 		);
 	});
 

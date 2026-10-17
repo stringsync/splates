@@ -5,7 +5,7 @@ import type { Compaction, ConversationState } from "./conversation-state";
  * What Claude's adapter says of a compaction to a client without ACP's
  * compaction updates: a tool call titled "Compact conversation", its facts in
  * `_meta.jetbrains.air.contextCompaction` for a client that asked for AIR, as
- * arbor does, patched in as it learns them, the token counts after it ends.
+ * splates does, patched in as it learns them, the token counts after it ends.
  */
 interface Facts {
 	trigger?: unknown;

@@ -14,8 +14,8 @@ describe("Adherence", () => {
 
 	beforeEach(() => {
 		fs = new FakeFs();
-		outcomes = new Outcomes("/home/.arbor/outcomes.jsonl", fs);
-		adherence = new Adherence("/home/.arbor/adherence.jsonl", fs, outcomes);
+		outcomes = new Outcomes("/home/.splates/outcomes.jsonl", fs);
+		adherence = new Adherence("/home/.splates/adherence.jsonl", fs, outcomes);
 	});
 
 	const landed = (overrides: Partial<Outcome>): Outcome => ({
@@ -56,14 +56,14 @@ describe("Adherence", () => {
 				{ kind: "user", text: "fix the upload" },
 				{
 					kind: "run",
-					command: "arbor add upload-413",
+					command: "splates add upload-413",
 					output: "added upload-413",
 					ok: true,
 				},
 				{ kind: "say", text: "## 🌱 Added upload-413" },
 				{
 					kind: "run",
-					command: "arbor merge",
+					command: "splates merge",
 					output: "merged upload-413 onto main",
 					ok: true,
 				},
@@ -105,7 +105,7 @@ describe("Adherence", () => {
 		);
 		await adherence.judge(state, "/repo", AT);
 
-		const lines = (await fs.read("/home/.arbor/adherence.jsonl"))
+		const lines = (await fs.read("/home/.splates/adherence.jsonl"))
 			.trim()
 			.split("\n");
 		expect(lines).toHaveLength(2);
@@ -127,14 +127,14 @@ function merged(id = "c1", skill: string | null = "0.0.43"): ConversationState {
 				"agent",
 				tool({
 					id: "t1",
-					command: "arbor add upload-413",
+					command: "splates add upload-413",
 					output: "added upload-413",
 				}),
 				"## 🌱 Added ",
 				"upload-413",
 				tool({
 					id: "t2",
-					command: "arbor merge",
+					command: "splates merge",
 					output: "merged upload-413 onto main",
 				}),
 				"## ✅ Merged upload-413 onto main",

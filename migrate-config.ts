@@ -5,7 +5,7 @@ import { CONFIG_FILE, ConfigFiles } from "./load-config";
 import { checkSystems, SYSTEMS_FILE, type SystemsFile } from "./systems";
 
 /**
- * Moves the systems an older `arbor.config.ts` names into `arbor.systems.ts`,
+ * Moves the systems an older `splates.config.ts` names into `splates.systems.ts`,
  * taking the `systems` key out of the config. Does nothing when the config
  * names none. Rewrites the config only once re-importing it shows the rest of
  * it unchanged, and puts it back otherwise. Answers with the exit code to end
@@ -68,8 +68,8 @@ export async function moveSystems({
 }
 
 /**
- * Types an older `arbor.config.ts` by a type-only import and `satisfies`
- * rather than `defineConfig`, so a reader can import it without arbor
+ * Types an older `splates.config.ts` by a type-only import and `satisfies`
+ * rather than `defineConfig`, so a reader can import it without splates
  * installed. Leaves a config it cannot rewrite as it is, since
  * `defineConfig` still works. Rewrites it only once re-importing it shows it
  * unchanged, and puts it back otherwise.
@@ -116,13 +116,13 @@ export async function typeConfig({
 	);
 }
 
-/** An `arbor.systems.ts` that names `systems`, keys unquoted where they can be. */
+/** A `splates.systems.ts` that names `systems`, keys unquoted where they can be. */
 export function systemsSource(systems: SystemsFile): string {
 	const literal = JSON.stringify(systems, null, "\t").replace(
 		/^(\s*)"([A-Za-z_$][\w$]*)":/gm,
 		"$1$2:",
 	);
-	return `import type { SystemsFile } from "@webappwiz/arbor/systems";
+	return `import type { SystemsFile } from "splates/systems";
 
 export default ${literal} satisfies SystemsFile;
 `;

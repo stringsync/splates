@@ -69,7 +69,7 @@ const ASKING = ["questions", "review"];
 
 /**
  * Puts the card in `children` in its message: from the person's reply to it
- * on, the card keeps that reply, which nothing changes any more. Arbor's own
+ * on, the card keeps that reply, which nothing changes any more. Splates's own
  * updates in between, such as a task's report, are no reply. Before one, a
  * later message that asks the person something itself takes over from it.
  */
@@ -106,7 +106,7 @@ function isReview(event: Event): boolean {
 
 /**
  * Whether the person's message at `index` is the reply to a review: the first
- * of theirs, past arbor's updates, after a message asking with one.
+ * of theirs, past splates's updates, after a message asking with one.
  */
 export function repliesToReview(
 	messages: readonly ThreadMessage[],
@@ -139,7 +139,7 @@ export function textOf(message: ThreadMessage): string {
 
 /**
  * Whether `message` asks the person something, as questions or a review, or
- * as an escalation arbor recorded.
+ * as an escalation splates recorded.
  */
 export function asks(message: ThreadMessage): boolean {
 	return message.content.some(

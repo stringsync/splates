@@ -296,7 +296,7 @@ function host(request: Request): string {
  * The page's headers, as the task's server should see them: to
  * `localhost:<port>`, as a dev server that checks its host expects, with
  * where it came from in the forwarded headers, and without the Access
- * token, which is arbor's and no business of the task's.
+ * token, which is splates's and no business of the task's.
  */
 function passed(from: Headers, port: number, came: string): Headers {
 	const headers = new Headers(from);

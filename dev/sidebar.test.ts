@@ -22,9 +22,9 @@ describe("Sidebar", () => {
 		sidebar.set(5000);
 		expect(sidebar.width).toBe(MAX_WIDTH);
 
-		localStorage.setItem("arbor.sidebarWidth", "9999");
+		localStorage.setItem("splates.sidebarWidth", "9999");
 		expect(new Sidebar(localStorage).width).toBe(MAX_WIDTH);
-		localStorage.setItem("arbor.sidebarWidth", "wide");
+		localStorage.setItem("splates.sidebarWidth", "wide");
 		expect(new Sidebar(localStorage).width).toBe(DEFAULT_WIDTH);
 	});
 
@@ -34,7 +34,7 @@ describe("Sidebar", () => {
 		sidebar.keep();
 		sidebar.reset();
 		expect(sidebar.width).toBe(DEFAULT_WIDTH);
-		expect(localStorage.getItem("arbor.sidebarWidth")).toBeNull();
+		expect(localStorage.getItem("splates.sidebarWidth")).toBeNull();
 	});
 
 	it("hides and shows again, keeping a hidden one hidden", () => {

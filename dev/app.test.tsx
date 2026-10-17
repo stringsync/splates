@@ -41,7 +41,7 @@ describe("App", () => {
 		fireEvent.keyDown(edge, { key: "ArrowRight" });
 		fireEvent.keyDown(edge, { key: "ArrowRight" });
 		expect(edge.getAttribute("aria-valuenow")).toBe("256");
-		expect(localStorage.getItem("arbor.sidebarWidth")).toBe("256");
+		expect(localStorage.getItem("splates.sidebarWidth")).toBe("256");
 
 		fireEvent.doubleClick(edge);
 		expect(edge.getAttribute("aria-valuenow")).toBe("224");

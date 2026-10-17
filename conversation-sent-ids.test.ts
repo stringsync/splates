@@ -7,7 +7,7 @@ import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
 
 describe("A conversation's messages the page named", () => {
-	const DIR = "/repo/.git/arbor/conversations";
+	const DIR = "/repo/.git/splates/conversations";
 	let fs: FakeFs;
 	let held: Held;
 	let agent: FakeAgent;
@@ -23,7 +23,7 @@ describe("A conversation's messages the page named", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		held = {};
 		agent = new FakeAgent();
 		agent.turn = () => new Promise((resolve) => (held.finish = resolve));
@@ -42,7 +42,7 @@ describe("A conversation's messages the page named", () => {
 		});
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		const prompting = conversation.prompt("first note", [], "phone", {
 			id: "p1",

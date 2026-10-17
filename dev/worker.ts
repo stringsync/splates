@@ -31,7 +31,7 @@ export interface Pushed {
 
 /** The message a window gets when one of its notifications is clicked. */
 export interface Opened {
-	type: "arbor:open";
+	type: "splates:open";
 	key: string;
 }
 
@@ -106,7 +106,7 @@ scope.addEventListener("notificationclick", (event) => {
 				await scope.clients.openWindow(opening.url);
 				return;
 			}
-			open.postMessage({ type: "arbor:open", key: opening.key });
+			open.postMessage({ type: "splates:open", key: opening.key });
 			await open.focus();
 		})(),
 	);

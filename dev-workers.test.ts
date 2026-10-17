@@ -57,7 +57,7 @@ describe("DevWorkers", () => {
 
 	it("refuses a worker connecting through any host but this machine's", async () => {
 		const answer = await fetch(`http://127.0.0.1:${server.port}/api/workers`, {
-			headers: { host: "arbor.example.com", upgrade: "websocket" },
+			headers: { host: "splates.example.com", upgrade: "websocket" },
 		});
 
 		expect(answer.status).toBe(403);

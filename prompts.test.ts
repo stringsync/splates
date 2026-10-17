@@ -1,16 +1,23 @@
 import { describe, expect, it } from "bun:test";
-import { handoffToReference, leadingDirectives } from "./prompts";
+import {
+	directive,
+	handoffToReference,
+	leadingDirectives,
+	MERGE,
+} from "./prompts";
 
 describe("leadingDirectives", () => {
 	it("splits the directives a text starts with from the rest", () => {
 		expect(
-			leadingDirectives("[ARBOR TODO #12]\n\n[ARBOR LANE 2] and keep it small"),
+			leadingDirectives(
+				"[SPLATES TODO #12]\n\n[SPLATES LANE 2] and keep it small",
+			),
 		).toEqual({
-			directives: ["[ARBOR TODO #12]", "[ARBOR LANE 2]"],
+			directives: ["[SPLATES TODO #12]", "[SPLATES LANE 2]"],
 			rest: "and keep it small",
 		});
-		expect(leadingDirectives("[ARBOR CHECKPOINT]")).toEqual({
-			directives: ["[ARBOR CHECKPOINT]"],
+		expect(leadingDirectives("[SPLATES CHECKPOINT]")).toEqual({
+			directives: ["[SPLATES CHECKPOINT]"],
 			rest: "",
 		});
 	});
@@ -18,26 +25,39 @@ describe("leadingDirectives", () => {
 	it("reads a handoff the page asks for, naming its agent and any model", () => {
 		const asked = handoffToReference({ agent: "codex", model: "gpt-5.5" });
 
-		expect(asked).toBe("[ARBOR HANDOFF TO codex gpt-5.5]");
+		expect(asked).toBe("[SPLATES HANDOFF TO codex gpt-5.5]");
 		expect(leadingDirectives(`${asked} for the styles`)).toEqual({
 			directives: [asked],
 			rest: "for the styles",
 		});
 		expect(handoffToReference({ agent: "claude" })).toBe(
-			"[ARBOR HANDOFF TO claude]",
+			"[SPLATES HANDOFF TO claude]",
 		);
 	});
 
 	it("finds none in a text that starts with anything else, or one half typed", () => {
 		const texts = [
-			"see [ARBOR TODO #12]",
-			"[ARBOR TODO #12",
-			"[ARBOR TODO #12]and",
-			"[arbor todo #12]",
+			"see [SPLATES TODO #12]",
+			"[SPLATES TODO #12",
+			"[SPLATES TODO #12]and",
+			"[splates todo #12]",
 		];
 
 		expect(texts.map(leadingDirectives)).toEqual(
 			texts.map((text) => ({ directives: [], rest: text })),
 		);
+	});
+});
+
+describe("directive", () => {
+	it("reads arbor's directive as splates's", () => {
+		expect(directive(" [ARBOR MERGE] ")).toBe(MERGE);
+	});
+
+	it("reads an arbor directive leading a text as splates's", () => {
+		expect(leadingDirectives("[ARBOR TASK alpha] go on")).toEqual({
+			directives: ["[SPLATES TASK alpha]"],
+			rest: "go on",
+		});
 	});
 });

@@ -8,7 +8,7 @@ import type { WorktreeService } from "./worktree-service";
 export interface RemoveOptions {
 	/** Discard the tree even when another agent holds its lease. */
 	force?: boolean;
-	/** The `arbor dev` conversation working on it, when removed from the page. */
+	/** The `splates dev` conversation working on it, when removed from the page. */
 	conversation?: string;
 	/** Why, kept in its outcome for the Stats page. */
 	reason?: RemoveReason;
@@ -54,7 +54,7 @@ export async function remove(
 		}
 		log.error(
 			color.yellow(
-				`arbor: --force discarding a tree held by pid ${worktree.lease?.pid}`,
+				`splates: --force discarding a tree held by pid ${worktree.lease?.pid}`,
 			),
 		);
 	}

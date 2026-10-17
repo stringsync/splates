@@ -3,15 +3,16 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Agent } from "./conversations";
 import { fail } from "./exit";
+import { LEGACY_DIR, unmigrated } from "./legacy-names";
 
 /**
- * The agents arbor can start, and the models each runs, kept in one file
+ * The agents splates can start, and the models each runs, kept in one file
  * under the user's home rather than per project: an orchestrator in any
  * project, of any model family, can read it to delegate to any other.
  */
 export class Roster {
 	constructor(
-		/** `~/.arbor/agents.json`, or a test's own. */
+		/** `~/.splates/agents.json`, or a test's own. */
 		readonly path: string,
 		private readonly deps: { fs: Fs },
 	) {}
@@ -54,8 +55,8 @@ export class Roster {
 			fail(
 				"outdated",
 				[
-					`${this.path} is in format ${format}, written by a newer arbor; this one understands up to ${FORMAT}, so it leaves it alone.`,
-					"Run `bunx @webappwiz/arbor@latest` instead.",
+					`${this.path} is in format ${format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
+					"Run `bunx splates@latest` instead.",
 				].join("\n"),
 				{ path: this.path, format, understood: FORMAT },
 			);
@@ -215,7 +216,7 @@ export function pickAgent(
 	if (found === undefined) {
 		fail(
 			"usage",
-			`no agent '${agent}' on the roster: use one of ${agents.map((each) => each.id).join(", ")} (\`arbor agents\` lists them; ~/.arbor/agents.json keeps them)`,
+			`no agent '${agent}' on the roster: use one of ${agents.map((each) => each.id).join(", ")} (\`splates agents\` lists them; ~/.splates/agents.json keeps them)`,
 			{ ...data, agent },
 		);
 	}
@@ -242,7 +243,11 @@ export function pickAgent(
 	return { agent, model: picked.id };
 }
 
-/** Where the user's arbor files live: `~/.arbor`, or `ARBOR_HOME`, as the tests set. */
-export function arborHome(ps: Ps): string {
-	return ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
+/** Where the user's splates files live: `~/.splates`, or `SPLATES_HOME`, as the tests set. */
+export function splatesHome(ps: Ps): string {
+	const home = ps.env("HOME") ?? homedir();
+	return (
+		ps.env("SPLATES_HOME") ??
+		unmigrated(`${home}/.splates`, `${home}/.${LEGACY_DIR}`)
+	);
 }

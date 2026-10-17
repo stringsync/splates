@@ -3,15 +3,15 @@ import { Scanner } from "@tailwindcss/oxide";
 import { compile } from "tailwindcss";
 
 /**
- * Builds the `arbor dev` page: the React app as one script, and the stylesheet
+ * Builds the `splates dev` page: the React app as one script, and the stylesheet
  * with Tailwind compiled. `dev/assets.ts` imports both as text, so they end up
  * inside the bundle a release publishes and the server hands them straight to
  * the browser.
  *
- * This runs here rather than on the first page load of every `arbor dev`, which
+ * This runs here rather than on the first page load of every `splates dev`, which
  * is what keeps React and Tailwind out of the published dependencies: a person
  * installing the CLI has no use for a toolchain that already ran. It is also
- * the only place the compile can read our own configuration, since `arbor dev`
+ * the only place the compile can read our own configuration, since `splates dev`
  * runs inside whatever repository the user is in.
  *
  * `bun run build` in this package, and `bun install` at the workspace root,

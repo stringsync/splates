@@ -81,7 +81,7 @@ describe("App's checkpoint dialog", () => {
 			),
 		);
 		const confirmation = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shut down arbor dev?" }),
+			view.getByRole("dialog", { name: "Shut down splates dev?" }),
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
@@ -100,7 +100,7 @@ describe("App's checkpoint dialog", () => {
 		await act(async () => release());
 
 		expect(
-			view.getByRole("dialog", { name: "Shutting down arbor dev" }),
+			view.getByRole("dialog", { name: "Shutting down splates dev" }),
 		).toBeTruthy();
 		expect(going.isConnected).toBe(true);
 	});
@@ -129,15 +129,15 @@ describe("App's checkpoint dialog", () => {
 			{ method: "POST", body: { shutdown: false } },
 		]);
 		await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Restarting splates dev" }),
 		);
 
 		// Back as another run, it says so rather than offering to checkpoint.
 		testing.run = "run-2";
 		const restarted = await waitFor(() => {
-			const shown = view.getByRole("dialog", { name: "arbor dev restarted" });
-			expect(shown.textContent).toContain("arbor dev is back.");
-			within(shown).getByText("arbor 0.0.1");
+			const shown = view.getByRole("dialog", { name: "splates dev restarted" });
+			expect(shown.textContent).toContain("splates dev is back.");
+			within(shown).getByText("splates 0.0.1");
 			return shown;
 		});
 		expect(within(restarted).queryByText("No agent is running.")).toBeNull();
@@ -177,9 +177,10 @@ describe("App's checkpoint dialog", () => {
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
 		await waitFor(() =>
 			expect(
-				view.getByRole("dialog", { name: "Restarting arbor dev" }).textContent,
+				view.getByRole("dialog", { name: "Restarting splates dev" })
+					.textContent,
 			).toContain(
-				"arbor dev is restarting. This page reloads once it is back.",
+				"splates dev is restarting. This page reloads once it is back.",
 			),
 		);
 		expect(testing.reloads).toBe(0);
@@ -211,7 +212,7 @@ describe("App's checkpoint dialog", () => {
 			),
 		);
 		const confirmation = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shut down arbor dev?" }),
+			view.getByRole("dialog", { name: "Shut down splates dev?" }),
 		);
 		expect(
 			(within(confirmation).getByRole("checkbox") as HTMLInputElement).checked,
@@ -238,11 +239,11 @@ describe("App's checkpoint dialog", () => {
 		]);
 		testing.goAway();
 		const gone = await waitFor(
-			() => view.getByRole("dialog", { name: "arbor dev shut down" }),
+			() => view.getByRole("dialog", { name: "splates dev shut down" }),
 			{ timeout: 3000 },
 		);
 		expect(gone.textContent).toContain(
-			"Start arbor dev again from a terminal.",
+			"Start splates dev again from a terminal.",
 		);
 	});
 
@@ -259,7 +260,7 @@ describe("App's checkpoint dialog", () => {
 			),
 		);
 		const confirmation = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shut down arbor dev?" }),
+			view.getByRole("dialog", { name: "Shut down splates dev?" }),
 		);
 		expect(within(confirmation).queryByRole("checkbox")).toBeNull();
 		expect(testing.posted("/api/power")).toEqual([]);
@@ -271,7 +272,7 @@ describe("App's checkpoint dialog", () => {
 		);
 		await waitFor(() =>
 			expect(
-				view.queryByRole("dialog", { name: "Shut down arbor dev?" }),
+				view.queryByRole("dialog", { name: "Shut down splates dev?" }),
 			).toBeNull(),
 		);
 		expect(view.getByRole("dialog", { name: "Power" })).toBeTruthy();
@@ -279,7 +280,7 @@ describe("App's checkpoint dialog", () => {
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
 	});
 
-	it("offers no restart with no agent running where arbor dev cannot make one", async () => {
+	it("offers no restart with no agent running where splates dev cannot make one", async () => {
 		testing.projects = [project("webappwiz", [], true)];
 		testing.restartable = false;
 		const view = await testing.openConversations([], null);

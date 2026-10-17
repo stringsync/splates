@@ -175,7 +175,7 @@ export class Conversation
 	}
 
 	/**
-	 * Brings in `session`, one `agent` holds outside arbor, such as from its
+	 * Brings in `session`, one `agent` holds outside splates, such as from its
 	 * CLI: loads it in `cwd`, writing what the agent replays of it to a new
 	 * log, from which it resumes like any other.
 	 */
@@ -329,7 +329,7 @@ export class Conversation
 		return this.turns.cancel();
 	}
 
-	/** Asks the agent to bring its `ARBOR.md` up to date and stop (see `ConversationTurns`). */
+	/** Asks the agent to bring its `SPLATES.md` up to date and stop (see `ConversationTurns`). */
 	checkpoint(merging: boolean): Promise<void> {
 		return this.turns.checkpoint(merging);
 	}
@@ -414,7 +414,7 @@ export class Conversation
 				{ conversation: this.id },
 			);
 		}
-		// Its task landed or went without the agent's `arbor` reaching this
+		// Its task landed or went without the agent's `splates` reaching this
 		// server to move it, so it carries on in the main tree.
 		if (
 			this.agent.id !== "opencode" &&
@@ -669,13 +669,13 @@ interface Opening {
 	caller?: string | null;
 	cwd: string;
 	log: string;
-	/** Started on what a todo or `arbor add --agent` assigned. */
+	/** Started on what a todo or `splates add --agent` assigned. */
 	assigned?: boolean;
 	/** The conversation that handed it its task, which it answers to. */
 	handedBy?: string | null;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */
 	startedBy?: string | null;
-	/** The project's arbor skill version as it starts; null when it has none. */
+	/** The project's splates skill version as it starts; null when it has none. */
 	skill?: string | null;
 }
 

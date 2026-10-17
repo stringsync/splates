@@ -5,13 +5,7 @@ export type { ConversationsOptions } from "./conversation-options";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import {
-	type Fs,
-	type Lock,
-	MemoryLock,
-	NodeFs,
-	NodePs,
-} from "webappwiz/system";
+import { type Fs, type Lock, MemoryLock, NodeFs } from "webappwiz/system";
 import {
 	SystemTimer,
 	SystemWallClock,
@@ -37,6 +31,7 @@ import type {
 } from "./conversation-host";
 import type { Limit, Setting } from "./conversation-state";
 import { fail } from "./exit";
+import { systemPs } from "./legacy-ps";
 import type { Limits } from "./limits";
 import type { Offered } from "./offered";
 import type { Outcomes } from "./outcomes";
@@ -54,7 +49,7 @@ export const ARCHIVED_KEPT = 200;
 /**
  * Every conversation in the repo: the live ones this process started, and
  * the stopped ones read back from their logs, one JSON-lines file each under
- * `.git/arbor/conversations`.
+ * `.git/splates/conversations`.
  */
 export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<ConversationsEvents>();
@@ -86,7 +81,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private pruning: Promise<void> = Promise.resolve();
 	/** When each agent's limits were last asked for, by its id, in epoch ms. */
 	private readonly asked = new Map<string, number>();
-	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
+	/** Where `splates dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
 
 	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
@@ -103,8 +98,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
-		this.machine =
-			opts.machine ?? new LocalWorkerMachine(new NodePs(), this.fs);
+		this.machine = opts.machine ?? new LocalWorkerMachine(systemPs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemWallClock();
@@ -237,7 +231,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			settings?: Record<string, string>;
 			/** The model to start on, by its value or name in the model setting. */
 			model?: string;
-			/** Whether a todo or `arbor add --agent` assigned the agent and model. */
+			/** Whether a todo or `splates add --agent` assigned the agent and model. */
 			assigned?: boolean;
 			/** The conversation that handed it its task, which it answers to. */
 			handedBy?: string | null;
@@ -279,7 +273,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	/**
-	 * The sessions each agent holds in `cwd` that arbor does not, such as ones
+	 * The sessions each agent holds in `cwd` that splates does not, such as ones
 	 * started in its CLI, to bring in: newest first, from every agent that
 	 * lists and loads sessions.
 	 */
@@ -306,7 +300,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	/**
-	 * Brings in `session`, one `agent` holds outside arbor, as a conversation
+	 * Brings in `session`, one `agent` holds outside splates, as a conversation
 	 * in `cwd`, for `task` if it is one's.
 	 */
 	async bring(

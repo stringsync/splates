@@ -4,9 +4,9 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 export type SidebarEvents = { changed: undefined };
 
 /** Where the sidebar's width is kept between visits. */
-const WIDTH = "arbor.sidebarWidth";
+const WIDTH = "splates.sidebarWidth";
 /** Where a hidden sidebar is kept hidden between visits. */
-const HIDDEN = "arbor.sidebarHidden";
+const HIDDEN = "splates.sidebarHidden";
 
 /** In pixels: the width it starts at, `w-56`, and how far it can go. */
 export const DEFAULT_WIDTH = 224;

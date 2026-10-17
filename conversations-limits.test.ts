@@ -21,13 +21,13 @@ describe("Conversations.refreshLimits", () => {
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		asked = [];
 		conversations = new Conversations(
-			"/repo/.git/arbor/conversations",
+			"/repo/.git/splates/conversations",
 			[AGENT],
 			{
 				fs: new FakeFs(),
 				timer: new FakeTimer(),
 				clock,
-				limits: new Limits("/home/.arbor/limits.json", { fs: new FakeFs() }),
+				limits: new Limits("/home/.splates/limits.json", { fs: new FakeFs() }),
 				launch: new FakeAgent().launch,
 				readLimits: async (each) => {
 					asked.push(each.id);

@@ -157,7 +157,7 @@ describe("App's offer to archive a conversation whose task is over", () => {
 		}
 	});
 
-	it("offers no archiving once arbor shows something after the report, such as a task added", async () => {
+	it("offers no archiving once splates shows something after the report, such as a task added", async () => {
 		const added: Event = {
 			id: "a1",
 			at: second(30),

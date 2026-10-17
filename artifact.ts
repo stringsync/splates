@@ -26,7 +26,7 @@ export interface ArtifactDeps {
 
 /**
  * Keeps `file` as the next version of the artifact of that name in the
- * conversation `id`, through the `arbor dev` serving this repository when
+ * conversation `id`, through the `splates dev` serving this repository when
  * the agent has one in its env, so the page hears of it, else straight into
  * the conversation's log.
  */
@@ -36,7 +36,7 @@ export async function addArtifact(
 	file: { name: string; bytes: Uint8Array },
 ): Promise<ArtifactVersion> {
 	const mimeType = mimeTypeOf(file.name);
-	const url = deps.ps.env("ARBOR_DEV");
+	const url = deps.ps.env("SPLATES_DEV");
 	const served =
 		url === undefined
 			? null
@@ -59,7 +59,7 @@ export async function removeArtifact(
 	name: string,
 ): Promise<number> {
 	const held = (await read(deps, id)).find((each) => each.name === name);
-	const url = deps.ps.env("ARBOR_DEV");
+	const url = deps.ps.env("SPLATES_DEV");
 	if (url === undefined || !(await serverRemove(deps, url, id, name))) {
 		await (await open(deps, id)).remove(name);
 	}
@@ -120,7 +120,7 @@ function logOf({ service, fs }: ArtifactDeps, id: string): ConversationLog {
 	);
 }
 
-/** The store over conversation `id`'s log, for a process that is not `arbor dev`. */
+/** The store over conversation `id`'s log, for a process that is not `splates dev`. */
 async function open(deps: ArtifactDeps, id: string): Promise<Artifacts> {
 	const log = logOf(deps, id);
 	const held = (await log.replay())?.state.artifacts ?? [];
@@ -190,7 +190,7 @@ async function answer(response: Response): Promise<unknown> {
 	const reason = refused.reason as Reason;
 	fail(
 		reason in EXIT ? reason : "not_found",
-		refused.message ?? `arbor dev refused it: ${response.status}`,
+		refused.message ?? `splates dev refused it: ${response.status}`,
 	);
 }
 

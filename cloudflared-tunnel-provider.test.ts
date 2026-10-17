@@ -18,7 +18,7 @@ describe("CloudflaredTunnelProvider", () => {
 
 	it("runs cloudflared at the url, says once where it is up, and stops on dispose", async () => {
 		const run = new CloudflaredTunnelProvider(ps, "mine").run({
-			host: "arbor.example.com",
+			host: "splates.example.com",
 			url: "http://localhost:4269",
 			log,
 		});
@@ -38,14 +38,14 @@ describe("CloudflaredTunnelProvider", () => {
 		expect(child?.signals).toEqual(["SIGTERM"]);
 		expect(log.entries).toEqual([
 			expect.objectContaining({
-				message: "arbor dev reachable at https://arbor.example.com",
+				message: "splates dev reachable at https://splates.example.com",
 			}),
 		]);
 	});
 
 	it("hands a token over in the environment, never the argv", async () => {
 		const run = new CloudflaredTunnelProvider(ps, null, "secret").run({
-			host: "arbor.example.com",
+			host: "splates.example.com",
 			url: "http://localhost:4270",
 			log,
 		});
@@ -58,7 +58,7 @@ describe("CloudflaredTunnelProvider", () => {
 	});
 
 	it.skipIf(process.platform === "win32")(
-		"kills cloudflared once arbor dev's end of its stdin closes, as when arbor dev dies",
+		"kills cloudflared once splates dev's end of its stdin closes, as when splates dev dies",
 		async () => {
 			const { child, pid } = await guarded(["sleep", "30"]);
 

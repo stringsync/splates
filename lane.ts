@@ -33,7 +33,7 @@ export async function laneList(
 	}
 	if (found.length === 0) {
 		log.info(
-			"no lanes: `arbor lane add <name>` starts one, or `arbor todo add --lane new` one with its first todo",
+			"no lanes: `splates lane add <name>` starts one, or `splates todo add --lane new` one with its first todo",
 		);
 		return;
 	}
@@ -60,7 +60,7 @@ export interface LaneShowOptions {
 }
 
 /**
- * One lane in full, step by step: what an agent handed `[ARBOR LANE N]`
+ * One lane in full, step by step: what an agent handed `[SPLATES LANE N]`
  * reads to know which todo is next, and whether it is blocked first. For
  * null, the untriaged todos, and how to place them in lanes.
  */
@@ -79,7 +79,7 @@ export async function laneShow(
 	if (record === undefined) {
 		fail(
 			"not_found",
-			`no lane ${id}: it is done, or never was. \`arbor lane list\` shows those there are`,
+			`no lane ${id}: it is done, or never was. \`splates lane list\` shows those there are`,
 			{ lane: id },
 		);
 	}
@@ -102,7 +102,7 @@ export async function laneShow(
 
 /**
  * The untriaged todos, in list order, and what an agent handed
- * `[ARBOR LANE untriaged]` does with them: place each open one in a lane,
+ * `[SPLATES LANE untriaged]` does with them: place each open one in a lane,
  * then work down the lanes it placed them in.
  */
 function untriagedShow(
@@ -146,16 +146,16 @@ function untriagedShow(
 		);
 	}
 	const work =
-		"work down each lane you placed one in that no agent is on: arbor lane show <n>";
+		"work down each lane you placed one in that no agent is on: splates lane show <n>";
 	lines.push(
 		"",
 		...(open.length === 0
 			? [`Nothing to place: ${work}`]
 			: [
 					`next: place ${open.length === 1 ? "it" : "each"} in a lane, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
-					"  arbor todo update <id> --lane <n>         a lane it builds on (`arbor lane list`)",
-					"  arbor todo update <id> --lane new         a lane of its own, for a chain of them",
-					"  arbor todo update <id> --blocked-by <id>  a todo it needs merged first",
+					"  splates todo update <id> --lane <n>         a lane it builds on (`splates lane list`)",
+					"  splates todo update <id> --lane new         a lane of its own, for a chain of them",
+					"  splates todo update <id> --blocked-by <id>  a todo it needs merged first",
 					`then ${work}`,
 				]),
 	);
@@ -168,17 +168,17 @@ function nextLines(found: LaneState, records: LaneRecord[]): string[] {
 	if (next === null) {
 		return [
 			found.todos.length === 0
-				? "Nothing in it yet: `arbor todo update <id> --lane <lane>` puts a todo in it."
+				? "Nothing in it yet: `splates todo update <id> --lane <lane>` puts a todo in it."
 				: "Every todo in it is taken: nothing to start until one is released.",
 		];
 	}
-	const handOut = `arbor add <task> --todo ${next.id}${handTo(next)}`;
+	const handOut = `splates add <task> --todo ${next.id}${handTo(next)}`;
 	if (blockers.length === 0) {
 		return [`next: ${handOut}`];
 	}
 	return [
 		`next: todo ${next.id}, once ${blockers.map((blocker) => blockerLabel(blocker, records)).join(" and ")} ${blockers.length === 1 ? "lands" : "land"}`,
-		...blockers.map((blocker) => `  arbor todo wait ${blocker.id}`),
+		...blockers.map((blocker) => `  splates todo wait ${blocker.id}`),
 		`  then: ${handOut}`,
 	];
 }
@@ -232,7 +232,7 @@ export async function laneAdd(
 	log.info(
 		[
 			`${color.green("added")} lane ${record.id}: ${record.name}`,
-			`  fill it: arbor todo update <id> --lane ${record.id}`,
+			`  fill it: splates todo update <id> --lane ${record.id}`,
 		].join("\n"),
 	);
 	return record;

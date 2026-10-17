@@ -1,14 +1,14 @@
 import { color, type Logger } from "webappwiz/log";
 import { z } from "zod";
-import { commaList } from "./arbor-flags";
 import { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
 import type { Creds } from "./creds";
 import { hostName } from "./dev-tunnel";
 import { Exit, fail } from "./exit";
 import { type SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
+import { commaList } from "./splates-flags";
 
-/** What `arbor tunnel setup` is asked to make, and what it runs with. */
+/** What `splates tunnel setup` is asked to make, and what it runs with. */
 export interface SetupOptions {
 	/** The public host name, in a zone of the account. */
 	host: string;
@@ -25,20 +25,20 @@ export interface SetupOptions {
 	creds: Creds;
 	/** The task asking, for the request to name; null outside any. */
 	task: string | null;
-	/** Where what it made is saved for `arbor dev`. */
+	/** Where what it made is saved for `splates dev`. */
 	saved: SavedTunnel;
 	log: Logger;
 	fetch?: typeof fetch;
 }
 
 /**
- * Makes everything that carries `host` to `arbor dev` behind Cloudflare
+ * Makes everything that carries `host` to `splates dev` behind Cloudflare
  * Access, through the API alone, with the API token the person pasted as
  * `API_TOKEN`: the Zero Trust organization when the account has none, a
  * tunnel and its token, the DNS record routing `host` to it, and an Access
  * application letting in only `email`. What already exists by name is
  * reused, and changed only where it differs, so running it again is safe,
- * like `arbor init`. Saves what it made, so a bare `arbor dev` runs it.
+ * like `splates init`. Saves what it made, so a bare `splates dev` runs it.
  *
  * Without the API token, it requests one with instructions for making it,
  * and refuses with `requested`, to run again once it is saved.
@@ -80,11 +80,11 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		const aud = await cloudflare.ensureApp(account, name, host, policy);
 		await creds.save(TUNNEL_TOKEN, token, {
 			scope: "device",
-			by: "arbor tunnel setup",
+			by: "splates tunnel setup",
 		});
 		await saved.save({ host, team, aud, tunnel: tunnel.id });
 	} catch (error) {
-		// A refusal of arbor's own, such as a store it cannot reach, says enough.
+		// A refusal of splates's own, such as a store it cannot reach, says enough.
 		if (error instanceof Exit) {
 			throw error;
 		}
@@ -97,7 +97,7 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 				`setting up ${host} stopped: ${error instanceof Error ? error.message : String(error)}`,
 				...(refused
 					? [
-							`When the token lacks a permission, \`arbor creds request ${API_TOKEN} --device --replace\` asks for a new one.`,
+							`When the token lacks a permission, \`splates creds request ${API_TOKEN} --device --replace\` asks for a new one.`,
 						]
 					: []),
 			].join("\n"),
@@ -105,7 +105,7 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		);
 	}
 	log.info(
-		`${color.green("saved")} ${host} in ${saved.path}, its token in the device's store: \`arbor dev\` now serves https://${host} to ${emails.join(", ")}`,
+		`${color.green("saved")} ${host} in ${saved.path}, its token in the device's store: \`splates dev\` now serves https://${host} to ${emails.join(", ")}`,
 	);
 }
 
@@ -114,7 +114,7 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
  * account is the person's. Not `CLOUDFLARE_API_TOKEN`, which scry's Workers
  * AI token goes by in the same store.
  */
-export const API_TOKEN = "ARBOR_CLOUDFLARE_API_TOKEN";
+export const API_TOKEN = "SPLATES_CLOUDFLARE_API_TOKEN";
 
 /** What the API token has to be allowed, as the dashboard names each. */
 export const TOKEN_PERMISSIONS = [
@@ -132,7 +132,7 @@ export const TOKENS_PAGE = "https://dash.cloudflare.com/profile/api-tokens";
 function tokenInstructions(host: string): string {
 	return [
 		`1. Open [API Tokens](${TOKENS_PAGE}), then **Create Token** → **Create Custom Token**.`,
-		"2. Name it `arbor tunnel`, and add these permissions:",
+		"2. Name it `splates tunnel`, and add these permissions:",
 		...TOKEN_PERMISSIONS.map((permission) => `   - ${permission}`),
 		`3. Under **Account Resources** pick your account, and under **Zone Resources** the zone of \`${host}\`.`,
 		"4. **Continue to summary** → **Create Token**, and paste it here.",
@@ -290,7 +290,7 @@ function sameEmails(
 }
 
 /**
- * The Cloudflare account `arbor tunnel` works in, through the API with the
+ * The Cloudflare account `splates tunnel` works in, through the API with the
  * token kept as `API_TOKEN`, reporting what it makes to `log`.
  */
 export class CloudflareTunnels {
@@ -315,15 +315,15 @@ export class CloudflareTunnels {
 		if (apiToken === undefined) {
 			await creds.request(API_TOKEN, {
 				scope: "device",
-				purpose: `For \`arbor tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\` through the Cloudflare API.`,
+				purpose: `For \`splates tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\` through the Cloudflare API.`,
 				instructions: tokenInstructions(host),
 				task,
 			});
 			fail(
 				"requested",
 				[
-					`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
-					`Run \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
+					`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`splates dev\`.`,
+					`Run \`splates creds wait ${API_TOKEN}\`, then run this again.`,
 				].join("\n"),
 				{ host, name: API_TOKEN },
 			);
@@ -351,7 +351,7 @@ export class CloudflareTunnels {
 
 	/**
 	 * The tunnel called `name`, made when there is none. Configured locally, so
-	 * `cloudflared` carries the host to whichever port `arbor dev` bound, which
+	 * `cloudflared` carries the host to whichever port `splates dev` bound, which
 	 * its `--url` says, rather than to one the dashboard pins.
 	 */
 	async ensureTunnel(

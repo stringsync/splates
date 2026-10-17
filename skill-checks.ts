@@ -1,7 +1,7 @@
 /**
- * The rules of the arbor skill a program can decide, checked over one
+ * The rules of the splates skill a program can decide, checked over one
  * conversation: what it said and ran, condensed, and what it left behind.
- * `arbor dev` runs them on its conversations, for the Stats page's pass rate
+ * `splates dev` runs them on its conversations, for the Stats page's pass rate
  * per skill version; the hand-run evals run them on theirs. Rules that take
  * judgment, such as whether a call should have been a question, are left to
  * a model grading the evals.
@@ -66,7 +66,7 @@ export interface Check {
 export const CHECKS: readonly Check[] = [
 	{
 		id: "plan-first",
-		rule: "Writes ARBOR.md before the first edit",
+		rule: "Writes SPLATES.md before the first edit",
 		judge: ({ beats }) =>
 			added(beats).flatMap(({ at, task }, index, all) => {
 				const until = all[index + 1]?.at ?? beats.length;
@@ -83,8 +83,8 @@ export const CHECKS: readonly Check[] = [
 					{
 						ok: planned,
 						why: planned
-							? `${task}: ARBOR.md came first`
-							: `${task}: edited before writing ARBOR.md`,
+							? `${task}: SPLATES.md came first`
+							: `${task}: edited before writing SPLATES.md`,
 					},
 				];
 			}),
@@ -170,7 +170,7 @@ export const CHECKS: readonly Check[] = [
 				const first = span.find(
 					(beat) =>
 						beat.kind === "edit" ||
-						(beat.kind === "run" && arborCalls(beat.command).length > 0),
+						(beat.kind === "run" && splatesCalls(beat.command).length > 0),
 				);
 				if (first === undefined) {
 					return [];
@@ -218,7 +218,7 @@ export const CHECKS: readonly Check[] = [
 				);
 				const other = (next === -1 ? span : span.slice(0, next))
 					.flatMap((beat) =>
-						beat.kind === "run" ? arborCalls(beat.command) : [],
+						beat.kind === "run" ? splatesCalls(beat.command) : [],
 					)
 					.flatMap(({ verb, args }) =>
 						verb === "setup"
@@ -237,7 +237,7 @@ export const CHECKS: readonly Check[] = [
 ];
 
 /** What the Setup page sends to start a conversation on one step. */
-const SETUP = /^\s*\[ARBOR SETUP ([^\]\s]+)\]/;
+const SETUP = /^\s*\[(?:SPLATES|ARBOR) SETUP ([^\]\s]+)\]/;
 
 /**
  * Each setup step a conversation was asked to walk the user through, with
@@ -254,11 +254,11 @@ function setups(beats: Beat[]): { step: string; span: Beat[] }[] {
 	}));
 }
 
-/** Whether `beat` reads `step` with `arbor setup`, which skipping does too. */
+/** Whether `beat` reads `step` with `splates setup`, which skipping does too. */
 function checks(beat: Beat, step: string): boolean {
 	return (
 		beat.kind === "run" &&
-		arborCalls(beat.command).some(
+		splatesCalls(beat.command).some(
 			({ verb, args }) => verb === "setup" && args.includes(step),
 		)
 	);
@@ -266,7 +266,7 @@ function checks(beat: Beat, step: string): boolean {
 
 /**
  * Whether `beat` changes something a setup check could see: an edit, or an
- * `arbor` command that is not a read. Other shell commands are left out,
+ * `splates` command that is not a read. Other shell commands are left out,
  * since a program cannot tell `which claude` from `brew install`.
  */
 function acts(beat: Beat): boolean {
@@ -275,7 +275,7 @@ function acts(beat: Beat): boolean {
 	}
 	return (
 		beat.kind === "run" &&
-		arborCalls(beat.command).some(
+		splatesCalls(beat.command).some(
 			({ verb, args }) =>
 				verb !== "setup" &&
 				!(verb === "creds" && ["wait", "list"].includes(args[0] ?? "")),
@@ -294,8 +294,8 @@ const TITLES = {
 /** A proposed todo's heading. */
 const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
 
-/** What `arbor merge` prints when it has a todo to propose. */
-const PROPOSED = /arbor add <task> --todo \d+/;
+/** What `splates merge` prints when it has a todo to propose. */
+const PROPOSED = /splates add <task> --todo \d+/;
 
 /** A numbered list item. */
 const NUMBERED = /^\s*\d+\.\s/;
@@ -303,15 +303,15 @@ const NUMBERED = /^\s*\d+\.\s/;
 /** What gives a commit away as an agent's: a trailer, a signature or a robot. */
 const ATTRIBUTION = [/^co-authored-by:/im, /generated (with|by)/i, /🤖/u];
 
-/** `arbor <verb>` where a shell would run it, with whatever follows. */
-const ARBOR =
-	/(?:^|[;&|(\n])\s*(?:[A-Z_][A-Z0-9_]*=\S*\s+)*(?:(?:bunx|npx)\s+)?(?:\S*\/)?arbor(?:@\S+)?\s+([a-z]+)([^;&|\n]*)/g;
+/** `splates <verb>` where a shell would run it, with whatever follows. */
+const SPLATES =
+	/(?:^|[;&|(\n])\s*(?:[A-Z_][A-Z0-9_]*=\S*\s+)*(?:(?:bunx|npx)\s+)?(?:\S*\/)?splates(?:@\S+)?\s+([a-z]+)([^;&|\n]*)/g;
 
-/** Each `arbor` command `command` runs, by its verb and its words after. */
-export function arborCalls(
+/** Each `splates` command `command` runs, by its verb and its words after. */
+export function splatesCalls(
 	command: string,
 ): { verb: string; args: string[] }[] {
-	return [...command.matchAll(ARBOR)].map((match) => ({
+	return [...command.matchAll(SPLATES)].map((match) => ({
 		verb: match[1] as string,
 		args: words(match[2] as string),
 	}));
@@ -334,10 +334,10 @@ const VERBS = {
 	escalated: "escalate",
 } as const;
 
-/** A terminal color code, which arbor prints around what it did. */
+/** A terminal color code, which splates prints around what it did. */
 const COLOR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 
-/** Something an `arbor` command did to a task, read off what it printed. */
+/** Something a `splates` command did to a task, read off what it printed. */
 interface Event {
 	/** Where in the beats it ran. */
 	at: number;
@@ -354,18 +354,18 @@ interface Event {
 }
 
 /**
- * What the `arbor` commands in `beats` did, in order. Read off what each
+ * What the `splates` commands in `beats` did, in order. Read off what each
  * printed rather than whether its command exited 0, since a pipe such as
- * `arbor merge | tail` hides a failure; a command whose output went
+ * `splates merge | tail` hides a failure; a command whose output went
  * elsewhere did nothing that can be told.
  */
 function events(beats: Beat[]): Event[] {
 	return beats.flatMap((beat, at) => {
-		// One that sets `ARBOR_HOME` works a throwaway repo, as for a demo.
-		if (beat.kind !== "run" || /\bARBOR_HOME=/.test(beat.command)) {
+		// One that sets `SPLATES_HOME` works a throwaway repo, as for a demo.
+		if (beat.kind !== "run" || /\bSPLATES_HOME=/.test(beat.command)) {
 			return [];
 		}
-		const calls = arborCalls(beat.command);
+		const calls = splatesCalls(beat.command);
 		const output = beat.output.replace(COLOR, "");
 		return [...output.matchAll(DONE)].flatMap((match): Event[] => {
 			const verb = VERBS[match[1] as keyof typeof VERBS];
@@ -439,7 +439,7 @@ interface Ending extends Event {
 	report: string;
 }
 
-/** The last task ending in each turn, or each stretch of one before the next `arbor add`. */
+/** The last task ending in each turn, or each stretch of one before the next `splates add`. */
 function endings(beats: Beat[]): Ending[] {
 	const all = events(beats);
 	return turns(beats).flatMap(({ from, beats: turn }) => {
@@ -490,21 +490,21 @@ function questionLines(text: string): string[] {
 }
 
 function isPlan(path: string): boolean {
-	return path === "ARBOR.md" || path.endsWith("/ARBOR.md");
+	return path === "SPLATES.md" || path.endsWith("/SPLATES.md");
 }
 
-/** A redirect into ARBOR.md, an edit in place, or a script that writes a file. */
+/** A redirect into SPLATES.md, an edit in place, or a script that writes a file. */
 const WRITES =
-	/>>?[^;&|\n]*ARBOR\.md|\btee\b[^;&|\n]*ARBOR\.md|\s-i\b|\.write(_text)?\(|open\([^)]*,\s*['"][wa]/;
+	/>>?[^;&|\n]*SPLATES\.md|\btee\b[^;&|\n]*SPLATES\.md|\s-i\b|\.write(_text)?\(|open\([^)]*,\s*['"][wa]/;
 
-/** Whether `beat` writes ARBOR.md, with an edit or a shell redirect. */
+/** Whether `beat` writes SPLATES.md, with an edit or a shell redirect. */
 function writesPlan(beat: Beat): boolean {
 	if (beat.kind === "edit") {
 		return beat.paths.some(isPlan);
 	}
 	return (
 		beat.kind === "run" &&
-		beat.command.includes("ARBOR.md") &&
+		beat.command.includes("SPLATES.md") &&
 		WRITES.test(beat.command)
 	);
 }

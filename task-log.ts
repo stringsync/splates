@@ -6,6 +6,7 @@ import {
 	type Usage,
 } from "./conversation-state";
 import { agentTurn, fold, tally } from "./fold";
+import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
 
 /** What a task's turns used, apart from the rest of its conversation's. */
@@ -147,7 +148,11 @@ function summed(
 					(result.failedCommands[part.command] ?? 0) + 1;
 			}
 			for (const edit of part.edits) {
-				if (!edit.path.endsWith(`/${PLAN_FILE}`)) {
+				if (
+					![PLAN_FILE, LEGACY_PLAN_FILE].some((name) =>
+						edit.path.endsWith(`/${name}`),
+					)
+				) {
 					result.editedLines += lines(edit.old) + lines(edit.new);
 				}
 			}

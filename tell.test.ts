@@ -25,7 +25,7 @@ describe("tell", () => {
 		sent = [];
 		status = 200;
 		await add(deps, "alpha");
-		// As `arbor dev` leaves a task conversation `orch` handed on with
+		// As `splates dev` leaves a task conversation `orch` handed on with
 		// `--relay` once it started the agent in conversation `agent`.
 		await (await deps.service.find("alpha")).save({
 			caller: "orch",
@@ -43,8 +43,8 @@ describe("tell", () => {
 	function runAs(conversation: string): void {
 		deps.proc.env = {
 			...deps.proc.env,
-			ARBOR_CONVERSATION: conversation,
-			ARBOR_DEV: "http://localhost:4270",
+			SPLATES_CONVERSATION: conversation,
+			SPLATES_DEV: "http://localhost:4270",
 		};
 	}
 
@@ -81,16 +81,16 @@ describe("tell", () => {
 		expect(sent).toEqual([]);
 	});
 
-	it("refuses outside arbor dev", async () => {
+	it("refuses outside splates dev", async () => {
 		await expect(tell({ ...deps, send }, "alpha", "merge")).toBail("usage", {
-			message: "only an agent `arbor dev` started",
+			message: "only an agent `splates dev` started",
 		});
 	});
 
 	it("reports a task stopping to the conversation that handed it out", async () => {
 		runAs("agent");
-		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
-		await deps.fs.write(`${deps.arborDir}/conversations/orch.jsonl`, "");
+		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
+		await deps.fs.write(`${deps.splatesDir}/conversations/orch.jsonl`, "");
 
 		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
 
@@ -98,7 +98,7 @@ describe("tell", () => {
 			{
 				url: "http://localhost:4270/api/conversations/orch/prompt",
 				origin: "http://localhost:4270",
-				text: "[ARBOR REPORT alpha]",
+				text: "[SPLATES REPORT alpha]",
 			},
 		]);
 	});
@@ -110,7 +110,7 @@ describe("tell", () => {
 
 		const slug = deps.root.split("/").at(-1);
 		expect(sent.map((each) => each.text)).toEqual([
-			`[ARBOR REPORT ${slug}/alpha]`,
+			`[SPLATES REPORT ${slug}/alpha]`,
 		]);
 	});
 
@@ -125,8 +125,8 @@ describe("tell", () => {
 
 	it("reports nothing for a task a lane's orchestrator here handed out, which hears from its todos", async () => {
 		runAs("agent");
-		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
-		await deps.fs.write(`${deps.arborDir}/conversations/orch.jsonl`, "");
+		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
+		await deps.fs.write(`${deps.splatesDir}/conversations/orch.jsonl`, "");
 		await (await deps.service.find("alpha")).save({
 			dispatch: { agent: "fake", conversation: "agent" },
 		});
@@ -146,7 +146,7 @@ describe("tell", () => {
 
 		const slug = deps.root.split("/").at(-1);
 		expect(sent.map((each) => each.text)).toEqual([
-			`[ARBOR REPORT ${slug}/alpha]`,
+			`[SPLATES REPORT ${slug}/alpha]`,
 		]);
 	});
 
@@ -160,6 +160,6 @@ describe("tell", () => {
 			deps.log.entries
 				.filter((each) => each.level === "error")
 				.map((each) => each.message),
-		).toEqual(["arbor dev did not tell orch that 'alpha' stopped: 500"]);
+		).toEqual(["splates dev did not tell orch that 'alpha' stopped: 500"]);
 	});
 });

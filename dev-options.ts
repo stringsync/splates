@@ -49,7 +49,7 @@ export interface DevOptions {
 	 * like the hostname of a tunnel. Anything else is refused, which is what
 	 * stops another site from reading the repo through a browser pointed at
 	 * localhost. Who may use those names is the Access policy's business, not
-	 * arbor's.
+	 * splates's.
 	 */
 	hosts?: string[];
 	/**
@@ -66,13 +66,13 @@ export interface DevOptions {
 	tunnel?: TunnelConfig | null;
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
-	 * records in `arborDir`, its commands watched through `git`, its limits
+	 * records in `splatesDir`, its commands watched through `git`, its limits
 	 * from `config`; without it no page has any to show, and the routes
 	 * say they are off.
 	 */
 	conversations?:
 		| ((project: {
-				arborDir: string;
+				splatesDir: string;
 				git: Git;
 				config: Config;
 		  }) => Conversations)
@@ -90,7 +90,7 @@ export interface DevOptions {
 	/** Opens a registered project by its root; `openRepository` by default. */
 	open?: (root: string) => Promise<Project>;
 	/**
-	 * The latest arbor on npm, or null when it cannot say, asked as the server
+	 * The latest splates on npm, or null when it cannot say, asked as the server
 	 * starts and hourly after; the page hints at a restart once it is past
 	 * `running`. Without it, nothing is checked.
 	 */
@@ -100,7 +100,7 @@ export interface DevOptions {
 	/** How often `newest` is asked after the first time: hourly by default. */
 	checkEvery?: Duration;
 	/**
-	 * The last commit to arbor's own source, or null when it does not run
+	 * The last commit to splates's own source, or null when it does not run
 	 * from a checkout. Asked as the server starts, then every `sourceEvery`;
 	 * once it moves on, the page hints at a restart. A server started from a
 	 * checkout asks this in place of `newest`, since a restart runs the
@@ -114,17 +114,17 @@ export interface DevOptions {
 	 * is the page built before; the page says so.
 	 */
 	unbuilt?: boolean;
-	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
+	/** The slot `splates dev --slot` serves under, which the page shows; null for none. */
 	slot?: Slot | null;
 	/**
-	 * Every `arbor dev` on this machine, the machine's own and each slot's,
+	 * Every `splates dev` on this machine, the machine's own and each slot's,
 	 * which the page's switcher lists beside the projects; none by default.
 	 */
 	servers?: () => Promise<ServerChoice[]>;
 	/**
 	 * Ends the process with `RESTART` or `UPDATE` once the server has
 	 * stopped, for its supervisor to start another; without it, the page
-	 * cannot restart `arbor dev`.
+	 * cannot restart `splates dev`.
 	 */
 	exit?: ((code: number) => void) | null;
 	/** Where the page's machine stats come from; this machine's OS for none. */

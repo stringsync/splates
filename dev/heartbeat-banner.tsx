@@ -9,7 +9,7 @@ export const HEARTBEAT_SHOWN = Duration.mins(5);
 
 /**
  * Under a conversation's header once a heartbeat due it is `HEARTBEAT_SHOWN`
- * away, across the pane's padding to its edges: how long until arbor asks it
+ * away, across the pane's padding to its edges: how long until splates asks it
  * to check on the agents it handed tasks to, which any turn it takes first
  * puts off, with a bar along its foot that drains as it nears. Nothing before
  * then, so a long wait does not sit over the thread.

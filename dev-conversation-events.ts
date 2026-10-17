@@ -7,7 +7,7 @@ import type { Event } from "./events";
 import type { Journal } from "./journal";
 
 /**
- * Hands each conversation the events its agent's arbor commands logged: all
+ * Hands each conversation the events its agent's splates commands logged: all
  * of them as the server opens the project, then each new one as the journal
  * takes it, so the page shows it in that conversation's thread at once. An
  * event no conversation ran, an external agent's or the page's own, goes
@@ -30,20 +30,20 @@ export class ConversationEvents implements Resource {
 
 	/**
 	 * Hands each conversation in `conversations` its events, then follows
-	 * `arborDir`, where the journal writes, for more.
+	 * `splatesDir`, where the journal writes, for more.
 	 */
 	static async follow({
 		journal,
 		conversations,
 		fs,
-		arborDir,
+		splatesDir,
 		log,
 		timer = new SystemTimer(),
 	}: {
 		journal: Journal;
 		conversations: Conversations;
 		fs: Fs;
-		arborDir: string;
+		splatesDir: string;
 		log: Logger;
 		timer?: Timer;
 	}): Promise<ConversationEvents> {
@@ -55,12 +55,12 @@ export class ConversationEvents implements Resource {
 		);
 		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER));
 		try {
-			following.#watching = fs.watch(arborDir, () => following.changed());
+			following.#watching = fs.watch(splatesDir, () => following.changed());
 			// Anything logged between the read above and the watch starting.
 			await following.changed();
 		} catch (error) {
 			log.error(
-				`arbor dev cannot watch ${arborDir}, so arbor's events show in a conversation only once the server restarts: ${String(error)}`,
+				`splates dev cannot watch ${splatesDir}, so splates's events show in a conversation only once the server restarts: ${String(error)}`,
 			);
 		}
 		return following;

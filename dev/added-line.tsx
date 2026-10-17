@@ -1,8 +1,8 @@
 import { type JSX, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
-import { type Act, ArborEvent, type ArborEventView } from "./arbor-event";
 import { Board } from "./board";
 import { Refusal, useRefusal } from "./refusal";
+import { type Act, SplatesEvent, type SplatesEventView } from "./splates-event";
 
 /**
  * A todo's "Added" line, with Remove while the todo is on the list and no
@@ -14,7 +14,7 @@ export function AddedLine({
 	view,
 	id,
 }: {
-	view: ArborEventView;
+	view: SplatesEventView;
 	id: number;
 }): JSX.Element {
 	const board = useContext(Board);
@@ -44,7 +44,7 @@ export function AddedLine({
 				: null;
 	return (
 		<div>
-			<ArborEvent
+			<SplatesEvent
 				event={{
 					...view,
 					...(removed && { words: ["Removed", ...view.words.slice(1)] }),

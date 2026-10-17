@@ -38,14 +38,14 @@ export async function todoList(
 		return;
 	}
 	if (every.length === 0) {
-		log.info("no todos: `arbor todo add <subject>` defers work for later");
+		log.info("no todos: `splates todo add <subject>` defers work for later");
 		return;
 	}
 	if (listed.length === 0) {
 		log.info(
 			ready
-				? "no ready todos: each is taken or blocked by one still open, see `arbor todo list`"
-				: "no open todos: every one is taken, see `arbor todo list`",
+				? "no ready todos: each is taken or blocked by one still open, see `splates todo list`"
+				: "no open todos: every one is taken, see `splates todo list`",
 		);
 		return;
 	}

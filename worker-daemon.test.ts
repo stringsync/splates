@@ -20,7 +20,7 @@ describe("WorkerDaemon", () => {
 	let worker: RemoteWorker;
 
 	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "arbor-worker-"));
+		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());

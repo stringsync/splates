@@ -2,16 +2,16 @@ import type { Fs } from "webappwiz/system";
 import type { ConversationState } from "./conversation-state";
 import type { Outcomes } from "./outcomes";
 import {
-	arborCalls,
 	type Beat,
 	type EndState,
 	judge,
+	splatesCalls,
 	type Transcript,
 } from "./skill-checks";
 
 /**
- * How closely `arbor dev`'s conversations follow the arbor skill, across
- * projects, in `~/.arbor/adherence.jsonl`: a line each time a turn ends and
+ * How closely `splates dev`'s conversations follow the splates skill, across
+ * projects, in `~/.splates/adherence.jsonl`: a line each time a turn ends and
  * changes how a conversation's checks went, the last one standing for it. It
  * outlives the conversations' logs, which go as archived ones are pruned.
  */
@@ -20,7 +20,7 @@ export class Adherence {
 	private readonly written = new Map<string, string>();
 
 	constructor(
-		/** `~/.arbor/adherence.jsonl`, or a test's own. */
+		/** `~/.splates/adherence.jsonl`, or a test's own. */
 		readonly path: string,
 		private readonly fs: Fs,
 		/** Where the commits a conversation merged are kept; null to judge without them. */
@@ -89,7 +89,7 @@ export class Adherence {
 			(each) =>
 				each.kind === "run" &&
 				each.ok &&
-				arborCalls(each.command).some(({ verb }) => verb === "merge"),
+				splatesCalls(each.command).some(({ verb }) => verb === "merge"),
 		);
 		if (!merged || this.outcomes === null) {
 			return { landed: [] };
@@ -110,13 +110,13 @@ export class Adherence {
 /** How each check went over one conversation: the places it applied, passed and failed. */
 export type Scores = Record<string, { passed: number; failed: number }>;
 
-/** A conversation's checks as last judged, a line of `~/.arbor/adherence.jsonl`. */
+/** A conversation's checks as last judged, a line of `~/.splates/adherence.jsonl`. */
 export interface Judged {
 	conversation: string;
 	/** The main tree of the repository it ran in. */
 	project: string;
 	agent: string;
-	/** The arbor skill version it started on; null when unknown. */
+	/** The splates skill version it started on; null when unknown. */
 	skill: string | null;
 	/** When it was judged, as an ISO timestamp. */
 	at: string;

@@ -13,7 +13,7 @@ import { WebSocketWorkerSocket } from "./websocket-worker-socket";
 import { WorkerDaemon } from "./worker-daemon";
 import { listWorkers } from "./worker-list";
 
-describe("arbor worker list", () => {
+describe("splates worker list", () => {
 	let dir: string;
 	let workers: DevWorkers;
 	let server: Bun.Server<Connection>;
@@ -21,7 +21,7 @@ describe("arbor worker list", () => {
 	let url: string;
 
 	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "arbor-worker-ls-"));
+		dir = await mkdtemp(join(tmpdir(), "splates-worker-ls-"));
 		workers = new DevWorkers(new MemoryLogger());
 		await workers.listen(join(dir, "worker.sock"), new NodeFs());
 		server = Bun.serve<Connection>({
@@ -129,7 +129,7 @@ describe("arbor worker list", () => {
 		expect(await ls(false)).toMatch(/local\s+local\s.*\s0\/\?\s+away/);
 	});
 
-	it("fails when it has no arbor dev to ask", async () => {
+	it("fails when it has no splates dev to ask", async () => {
 		const asking = listWorkers({
 			dev: "",
 			json: false,
@@ -137,6 +137,6 @@ describe("arbor worker list", () => {
 			ps: new FakePs(),
 		});
 
-		await expect(asking).rejects.toThrow("no `arbor dev` to ask");
+		await expect(asking).rejects.toThrow("no `splates dev` to ask");
 	});
 });

@@ -9,7 +9,7 @@ export function short(commit: string): string {
 }
 
 /**
- * What a restart now would bring, or null when `arbor dev` is up to date: its
+ * What a restart now would bring, or null when `splates dev` is up to date: its
  * source commit from a checkout, else the newest npm release. Every place that
  * names where a restart lands says it this way.
  */
@@ -19,7 +19,7 @@ export function ontoOf(
 	return listed.behind !== null
 		? short(listed.behind.newest)
 		: listed.newest !== null
-			? `arbor ${listed.newest}`
+			? `splates ${listed.newest}`
 			: null;
 }
 
@@ -29,10 +29,10 @@ export function update(
 	behind: Behind | null,
 ): string | null {
 	if (behind !== null) {
-		return `arbor's source is at ${short(behind.newest)} (this runs ${short(behind.running)})`;
+		return `splates's source is at ${short(behind.newest)} (this runs ${short(behind.running)})`;
 	}
 	if (release !== null) {
-		return `arbor ${release.newest} is out (this runs ${release.running})`;
+		return `splates ${release.newest} is out (this runs ${release.running})`;
 	}
 	return null;
 }

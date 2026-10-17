@@ -218,7 +218,7 @@ describe("App's tasks", () => {
 		);
 		expect(retried.hasAttribute("disabled")).toBe(true);
 		expect(view.getByRole("dialog").textContent).toContain(
-			"arbor claim alpha picks it up",
+			"splates claim alpha picks it up",
 		);
 	});
 

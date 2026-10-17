@@ -48,14 +48,14 @@ describe("App's shutdown confirmation", () => {
 		dialog = await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
-	it("checkpoints and shuts down, saying so once arbor dev has gone", async () => {
+	it("checkpoints and shuts down, saying so once splates dev has gone", async () => {
 		await act(async () =>
 			fireEvent.click(
 				within(dialog).getByRole("button", { name: "Shut down" }),
 			),
 		);
 		const confirmation = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shut down arbor dev?" }),
+			view.getByRole("dialog", { name: "Shut down splates dev?" }),
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
@@ -76,18 +76,18 @@ describe("App's shutdown confirmation", () => {
 			},
 		]);
 		const going = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shutting down arbor dev" }),
+			view.getByRole("dialog", { name: "Shutting down splates dev" }),
 		);
 		expect(steps(going)).toEqual(["Checkpoint", "Shut down"]);
 
 		testing.goAway();
 
 		const gone = await waitFor(
-			() => view.getByRole("dialog", { name: "arbor dev shut down" }),
+			() => view.getByRole("dialog", { name: "splates dev shut down" }),
 			{ timeout: 3000 },
 		);
 		expect(gone.textContent).toContain(
-			"Start arbor dev again to resume the agents.",
+			"Start splates dev again to resume the agents.",
 		);
 		expect(current(gone)).toBeNull();
 		await act(async () =>
@@ -97,17 +97,17 @@ describe("App's shutdown confirmation", () => {
 					.at(-1) as Element,
 			),
 		);
-		await menuItem(view, "arbor dev shut down");
+		await menuItem(view, "splates dev shut down");
 	});
 
-	it("closes once arbor dev is started again after a shutdown", async () => {
+	it("closes once splates dev is started again after a shutdown", async () => {
 		await act(async () =>
 			fireEvent.click(
 				within(dialog).getByRole("button", { name: "Shut down" }),
 			),
 		);
 		const confirmation = await waitFor(() =>
-			view.getByRole("dialog", { name: "Shut down arbor dev?" }),
+			view.getByRole("dialog", { name: "Shut down splates dev?" }),
 		);
 		expect(testing.posted("/api/power")).toEqual([]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
@@ -122,7 +122,7 @@ describe("App's shutdown confirmation", () => {
 		);
 		testing.goAway();
 		await waitFor(
-			() => view.getByRole("dialog", { name: "arbor dev shut down" }),
+			() => view.getByRole("dialog", { name: "splates dev shut down" }),
 			{ timeout: 3000 },
 		);
 

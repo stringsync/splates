@@ -29,7 +29,7 @@ describe("DevTaskPorts", () => {
 	let front: Bun.Server<Connection>;
 
 	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "arbor-task-ports-"));
+		dir = await mkdtemp(join(tmpdir(), "splates-task-ports-"));
 		worktree = join(dir, "alpha");
 		await mkdir(worktree);
 		const path = join(dir, "worker.sock");

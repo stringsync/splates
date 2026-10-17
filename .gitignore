@@ -36,12 +36,12 @@ RELEASE
 # Finder (MacOS) folder config
 .DS_Store
 
-# agent scratch notes (arbor worktrees)
-ARBOR.md
+# agent scratch notes (splates worktrees)
+SPLATES.md
 
 # snapshots and screenshots an agent's browser leaves behind
 .playwright-mcp
-.arbor-shots
+.splates-shots
 
-# the arbor dev page, compiled by build.ts
+# the splates dev page, compiled by build.ts
 dev/build

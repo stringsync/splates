@@ -26,7 +26,7 @@ export function SetupPage({
 	feed,
 	onOpen,
 }: {
-	/** Where a conversation starts, or null while `arbor dev` holds none. */
+	/** Where a conversation starts, or null while `splates dev` holds none. */
 	feed: ConversationFeed | null;
 	/** Opens the conversation started on a step. */
 	onOpen: (id: string) => void;
@@ -62,8 +62,8 @@ const DESCRIPTIONS: Record<string, string> = {
 	codex:
 		"Install and sign in, then review Codex's roster entry and models. Checks read the roster only.",
 	agents: "Review the shared agent roster and model descriptions.",
-	"remote-access": "Reach arbor from your phone or another computer.",
-	notifications: "Choose where and when arbor notifies you.",
+	"remote-access": "Reach splates from your phone or another computer.",
+	notifications: "Choose where and when splates notifies you.",
 	dictation: "Set up voice input for your prompts.",
 };
 

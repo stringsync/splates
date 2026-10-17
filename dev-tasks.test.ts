@@ -90,7 +90,7 @@ describe("dev tasks", () => {
 
 	it("serves a file a conversation holds for a task, but not its log or artifacts", async () => {
 		await add(deps, "alpha");
-		const dir = `${deps.arborDir}/conversations`;
+		const dir = `${deps.splatesDir}/conversations`;
 		await deps.fs.mkdir(dir);
 		await deps.fs.writeBytes(`${dir}/c1.jsonl`, new Uint8Array([1]));
 		const [shot = ""] = await deps.service
@@ -175,7 +175,7 @@ describe("dev tasks", () => {
 		const root = deps.service.git.root;
 		await deps.commit(
 			root,
-			"arbor.systems.ts",
+			"splates.systems.ts",
 			`export default ${JSON.stringify({
 				docs: { globs: ["docs/**", "guides/**"] },
 				src: { globs: ["src/**"], ignore: ["src/*.test.ts"] },

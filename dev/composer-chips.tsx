@@ -26,7 +26,7 @@ import {
 /**
  * A reference as the agent reads it: `@path` for a file, `#name` for a
  * system, project or conversation UUID, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
- * and an `[ARBOR ...]` directive as itself.
+ * and an `[SPLATES ...]` directive as itself.
  */
 export function serialize(item: TriggerItem): string {
 	if (item.type === "attachment") {
@@ -39,7 +39,7 @@ export function serialize(item: TriggerItem): string {
 	return `${sign}${item.id}`;
 }
 /**
- * An `[ARBOR ...]` directive, a `#` or `@` reference, or an attachment's
+ * An `[SPLATES ...]` directive, a `#` or `@` reference, or an attachment's
  * `[Image 2]` or `[File 1]`, in a line.
  */
 const REFERENCES = new RegExp(
@@ -49,7 +49,7 @@ const REFERENCES = new RegExp(
 /** What a system's name could be, for a `#` read before the systems come. */
 const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
 /**
- * Reads the `[ARBOR ...]` directives, and the `@path` and `#system`
+ * Reads the `[SPLATES ...]` directives, and the `@path` and `#system`
  * references, in a line of the composer's text, set from outside it, as a
  * draft or a prompt is, into chips. A directive or an attachment is always one; a
  * reference

@@ -3,18 +3,18 @@ import type { JSX } from "react";
 import type { Start } from "../asked";
 import { type Action, type Event, isEscalation } from "../events";
 import { AddedLine } from "./added-line";
-import {
-	ArborEvent,
-	type ArborEventView,
-	type Named,
-	type Words,
-} from "./arbor-event";
 import { useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
+import {
+	type Named,
+	SplatesEvent,
+	type SplatesEventView,
+	type Words,
+} from "./splates-event";
 
 /**
- * Renders a `data-event` part: something arbor did at the agent's word, as
+ * Renders a `data-event` part: something splates did at the agent's word, as
  * the line its action draws, or nothing for an action that draws none yet.
  * An escalation that went through is the one event drawn as a card, since
  * the person has to act on it, with what the agent `written` of it in that
@@ -36,20 +36,20 @@ export const EventUI = makeAssistantDataUI<{
 });
 
 /** The line `event` draws, or null for an action with none. */
-export function lineOf(event: Event): ArborEventView | null {
+export function lineOf(event: Event): SplatesEventView | null {
 	const line = LINES[event.action] as
-		| ((each: Event) => ArborEventView | null)
+		| ((each: Event) => SplatesEventView | null)
 		| undefined;
 	return line?.(event) ?? null;
 }
 
 /**
  * How each action shows in its conversation, as a line in the look of
- * `ArborEvent`. Each slice of the Arbor events lane adds its own; an action
+ * `SplatesEvent`. Each slice of the Splates events lane adds its own; an action
  * missing here, or returning null for an event, shows nothing.
  */
 const LINES: {
-	[A in Action]?: (event: EventOf<A>) => ArborEventView | null;
+	[A in Action]?: (event: EventOf<A>) => SplatesEventView | null;
 } = {
 	add: (event) =>
 		event.reason === null
@@ -71,7 +71,7 @@ const LINES: {
 		}
 		const attached = filesWords("Attached", event.stored);
 		const removed = filesWords("Removed", event.removed);
-		// A bare `arbor attach` only lists what the task holds.
+		// A bare `splates attach` only lists what the task holds.
 		if (attached.length === 0 && removed.length === 0) {
 			return null;
 		}
@@ -185,7 +185,7 @@ const LINES: {
 function todoLine(
 	verb: string,
 	event: EventOf<"todo take" | "todo release" | "todo remove">,
-): ArborEventView | null {
+): SplatesEventView | null {
 	return event.todos === undefined
 		? null
 		: { words: [verb, todos(event.todos)], at: event.at };
@@ -201,7 +201,7 @@ function lineOfRun(
 	also: Event[],
 	going: boolean,
 	now: number,
-): ArborEventView | null {
+): SplatesEventView | null {
 	if (isWait(event)) {
 		return waitLine(event, also.find(isWait) ?? null, going, now);
 	}
@@ -237,7 +237,7 @@ function EventLine({
 	}
 	const start = startOf(event);
 	return start === null ? (
-		<ArborEvent event={view} />
+		<SplatesEvent event={view} />
 	) : (
 		<StartLine start={start} view={view} />
 	);
@@ -270,11 +270,11 @@ function StartLine({
 	view,
 }: {
 	start: Start;
-	view: ArborEventView;
+	view: SplatesEventView;
 }): JSX.Element {
 	return (
 		<div ref={useStartCard(start)}>
-			<ArborEvent event={view} />
+			<SplatesEvent event={view} />
 		</div>
 	);
 }
@@ -288,7 +288,7 @@ function goalOf(event: EventOf<"add">): string {
 function laned(
 	verb: string,
 	event: EventOf<"lane add" | "lane update" | "lane remove">,
-): ArborEventView | null {
+): SplatesEventView | null {
 	return event.reason === null
 		? {
 				words: [verb, { kind: "lane", id: event.lane, name: event.name }],
@@ -325,7 +325,7 @@ function waitLine(
 	ended: Wait | null,
 	going: boolean,
 	now: number,
-): ArborEventView | null {
+): SplatesEventView | null {
 	const thing = waitedOn(began);
 	const at = began.at;
 	const end = ended ?? (began.began === null ? null : began);
@@ -383,7 +383,7 @@ function artifact(
 }
 
 /** The line of a task removed, its reason and the todos put back on its chip's hover. */
-function removed(event: EventOf<"remove">): ArborEventView {
+function removed(event: EventOf<"remove">): SplatesEventView {
 	return event.reason === null
 		? {
 				words: ["Removed", { ...task(event), note: removedNote(event) }],

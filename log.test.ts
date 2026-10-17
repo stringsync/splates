@@ -70,7 +70,7 @@ describe("log", () => {
 
 	it("moves a full log aside and still reads back across both", async () => {
 		// Room for two, so the second event rotates the file.
-		const journal = new Journal(join(deps.arborDir, "log.jsonl"), 2, {
+		const journal = new Journal(join(deps.splatesDir, "log.jsonl"), 2, {
 			fs: deps.fs,
 			ps: deps.ps,
 		});
@@ -78,7 +78,7 @@ describe("log", () => {
 		await journal.record("retry", "b", async () => {}, { attempts: 0 });
 		await journal.record("retry", "c", async () => {}, { attempts: 0 });
 
-		expect(await deps.fs.readdir(join(deps.arborDir, "log"))).toHaveLength(1);
+		expect(await deps.fs.readdir(join(deps.splatesDir, "log"))).toHaveLength(1);
 		expect((await journal.tail(10)).map((event) => event.task)).toEqual([
 			"a",
 			"b",
@@ -106,9 +106,9 @@ describe("log", () => {
 
 	it("stamps each event with the conversation that ran it", async () => {
 		await deps.journal.record("retry", "a", async () => {}, { attempts: 0 });
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await deps.journal.record("retry", "b", async () => {}, { attempts: 0 });
-		delete deps.proc.env.ARBOR_CONVERSATION;
+		delete deps.proc.env.SPLATES_CONVERSATION;
 
 		expect(
 			(await deps.journal.tail(2)).map((event) => event.conversation),
@@ -156,7 +156,7 @@ describe("log", () => {
 	it("leaves out an event recorded before its action had the facts it has now", async () => {
 		// An escalation logged before `escalate` recorded its questions.
 		await deps.fs.append(
-			join(deps.arborDir, "log.jsonl"),
+			join(deps.splatesDir, "log.jsonl"),
 			`${JSON.stringify({
 				id: "old",
 				at: "2026-10-15T16:48:21.146Z",

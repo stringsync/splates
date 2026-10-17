@@ -19,8 +19,8 @@ describe("devServers", () => {
 				aud: "aud",
 				tunnel: "id",
 			});
-		await save("/home/.arbor/tunnel.json", "arbor.example.com");
-		const slots = new Slots("/home/.arbor/slots.json", {
+		await save("/home/.splates/tunnel.json", "splates.example.com");
+		const slots = new Slots("/home/.splates/slots.json", {
 			fs,
 			ps: new FakePs(),
 			lock: new MemoryLock(),
@@ -29,8 +29,8 @@ describe("devServers", () => {
 			await fs.mkdir(tree, { recursive: true });
 			await slots.claim(tree);
 		}
-		await save("/home/.arbor/slots/cat/tunnel.json", "cat.example.com");
-		await save("/home/.arbor/slots/dog/tunnel.json", "dog.example.com");
+		await save("/home/.splates/slots/cat/tunnel.json", "cat.example.com");
+		await save("/home/.splates/slots/dog/tunnel.json", "dog.example.com");
 		return { fs, secrets };
 	};
 	const listed = async (env: Record<string, string>) => {
@@ -44,7 +44,7 @@ describe("devServers", () => {
 		expect(await listed({})).toEqual([
 			{
 				slot: null,
-				url: "https://arbor.example.com",
+				url: "https://splates.example.com",
 				tree: null,
 				here: true,
 			},
@@ -65,13 +65,13 @@ describe("devServers", () => {
 
 	it("reads the machine's home from a slot's server, whose own home is the slot's", async () => {
 		const servers = await listed({
-			ARBOR_HOME: "/home/.arbor/slots/dog",
+			SPLATES_HOME: "/home/.splates/slots/dog",
 			[SLOT]: "dog",
-			[MACHINE_HOME]: "/home/.arbor",
+			[MACHINE_HOME]: "/home/.splates",
 		});
 
 		expect(servers.map(({ url, here }) => [url, here])).toEqual([
-			["https://arbor.example.com", false],
+			["https://splates.example.com", false],
 			["https://cat.example.com", false],
 			["https://dog.example.com", true],
 		]);

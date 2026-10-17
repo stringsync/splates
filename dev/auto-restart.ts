@@ -9,16 +9,16 @@ export type AutoRestartEvents = { changed: undefined };
 
 /**
  * Where an auto restart stands, as Power shows it: nothing to show, counting
- * down to one, or gone to restart the `run` of `arbor dev` listed last, which
+ * down to one, or gone to restart the `run` of `splates dev` listed last, which
  * Power then sees through. `onto` names what the restart brings: a commit,
- * or `arbor 1.2.3`.
+ * or `splates 1.2.3`.
  */
 export type AutoRestartState =
 	| { step: "watching" }
 	| { step: "counting"; left: Duration; run: string; onto: string }
 	| { step: "restarting"; run: string; onto: string };
 
-/** What an auto restart asks of `arbor dev`. */
+/** What an auto restart asks of `splates dev`. */
 export interface AutoRestartServer {
 	list(): Promise<Projects>;
 	/** Restarts it now, refused while an agent is at work. */
@@ -44,7 +44,7 @@ const WATCH = Duration.secs(5);
 const TICK = Duration.secs(1);
 
 /**
- * Restarts `arbor dev` on its own once it is out of date, a newer arbor out
+ * Restarts `splates dev` on its own once it is out of date, a newer splates out
  * or commits on the source it runs from, and every agent a restart would
  * stop and the person on the page have been idle for `IDLE` (an agent on a
  * worker carries on through one), after a `COUNTDOWN` the person can

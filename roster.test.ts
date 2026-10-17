@@ -6,7 +6,7 @@ import { Testing } from "./testing";
 
 async function setup() {
 	const deps = await Testing.open({ init: false });
-	const roster = new Roster(join(deps.arborHome, "agents.json"), {
+	const roster = new Roster(join(deps.splatesHome, "agents.json"), {
 		fs: deps.fs,
 	});
 	return Object.assign(deps, { roster });
@@ -105,7 +105,7 @@ describe("Roster", () => {
 
 	it("names what is wrong with a roster it cannot use", async () => {
 		await using deps = await setup();
-		await deps.fs.mkdir(deps.arborHome);
+		await deps.fs.mkdir(deps.splatesHome);
 
 		await deps.fs.write(deps.roster.path, "{");
 		await expect(deps.roster.agents()).toBail("usage", {
@@ -130,16 +130,16 @@ describe("Roster", () => {
 		});
 	});
 
-	it("refuses a roster written by a newer arbor", async () => {
+	it("refuses a roster written by a newer splates", async () => {
 		await using deps = await setup();
-		await deps.fs.mkdir(deps.arborHome);
+		await deps.fs.mkdir(deps.splatesHome);
 		await deps.fs.write(
 			deps.roster.path,
 			JSON.stringify({ format: 2, agents: [] }),
 		);
 
 		await expect(deps.roster.agents()).toBail("outdated", {
-			message: ["written by a newer arbor", "bunx @webappwiz/arbor@latest"],
+			message: ["written by a newer splates", "bunx splates@latest"],
 		});
 	});
 

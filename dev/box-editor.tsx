@@ -81,7 +81,7 @@ export interface BoxEditorProps {
  */
 export function BoxEditor(props: BoxEditorProps): JSX.Element {
 	const [config] = useState(() => ({
-		namespace: "arbor-card-box",
+		namespace: "splates-card-box",
 		nodes: [DirectiveNode],
 		onError: (error: Error) => {
 			throw error;

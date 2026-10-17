@@ -28,7 +28,7 @@ export class ConversationFiles {
 			projects = null,
 			home = null,
 		}: {
-			/** The arbor projects on this machine, for `#slug`; null for none. */
+			/** The splates projects on this machine, for `#slug`; null for none. */
 			projects?: ProjectRoster | null;
 			/** The main tree of the project the conversation is in; null for none. */
 			home?: string | null;

@@ -27,11 +27,11 @@ export interface Written {
 }
 
 /**
- * An escalation as arbor recorded it, whatever the agent wrote: for a review,
+ * An escalation as splates recorded it, whatever the agent wrote: for a review,
  * the Ready to merge card; else the Escalated card asking the task's open
  * questions as they stood, numbered from 1 as a report numbers them, or, with
  * none, saying why it needs the person. What the agent wrote of it in the
- * same turn fills in the sentence, demo and sections arbor cannot know.
+ * same turn fills in the sentence, demo and sections splates cannot know.
  */
 export function EscalationCard({
 	event,

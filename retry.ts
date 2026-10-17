@@ -31,7 +31,7 @@ export async function retry(
 			`  attempts: 0 of ${config.mergeRetryCount}`,
 			`  status:   working`,
 			"",
-			`Run \`arbor claim ${worktree.task}\` to pick it up.`,
+			`Run \`splates claim ${worktree.task}\` to pick it up.`,
 		].join("\n"),
 	);
 	return granted;
@@ -62,7 +62,7 @@ export interface Granted {
 	attempts: number;
 }
 
-/** What `retry` does, without the printing, for `arbor dev`'s page too. */
+/** What `retry` does, without the printing, for `splates dev`'s page too. */
 export async function grantRetry(
 	service: WorktreeService,
 	task: string,

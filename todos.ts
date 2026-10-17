@@ -7,7 +7,7 @@ import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
 import { parseTodoFile } from "./todo-file";
 import { TodoLanes } from "./todo-lanes";
 
-/** Every todo in the repo, one JSON file each under `.git/arbor/todos`. */
+/** Every todo in the repo, one JSON file each under `.git/splates/todos`. */
 export class Todos {
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
@@ -256,7 +256,7 @@ export class Todos {
 		return this.laneFiles.endLanes(ids);
 	}
 
-	/** Moves todos saved while arbor kept tags into lanes, one lane a tag. */
+	/** Moves todos saved while splates kept tags into lanes, one lane a tag. */
 	moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
 		return this.laneFiles.moveTagsToLanes();
 	}
@@ -387,7 +387,7 @@ export class Todos {
 		if (wrong) {
 			fail(
 				"usage",
-				`todo ${wrong.todo.id} comes after todo ${wrong.blockedBy.id} in lane ${wrong.todo.lane}, so it cannot go above it: \`arbor todo update ${wrong.todo.id} --remove-blocked-by ${wrong.blockedBy.id}\` first, or move it to another lane`,
+				`todo ${wrong.todo.id} comes after todo ${wrong.blockedBy.id} in lane ${wrong.todo.lane}, so it cannot go above it: \`splates todo update ${wrong.todo.id} --remove-blocked-by ${wrong.blockedBy.id}\` first, or move it to another lane`,
 				{
 					todo: wrong.todo.id,
 					blockedBy: wrong.blockedBy.id,
@@ -507,8 +507,8 @@ export class Todos {
 			fail(
 				"outdated",
 				[
-					`todo ${found.state.id} was saved with tags, and arbor now groups todos in lanes instead, so it reads no todos until their tags are moved.`,
-					"Run `arbor update` in this repository: it puts each tag's todos in a lane named after the tag, then arbor works as before.",
+					`todo ${found.state.id} was saved with tags, and splates now groups todos in lanes instead, so it reads no todos until their tags are moved.`,
+					"Run `splates update` in this repository: it puts each tag's todos in a lane named after the tag, then splates works as before.",
 				].join("\n"),
 				{ todo: found.state.id },
 			);
@@ -545,5 +545,5 @@ function slot(
 }
 
 function missing(id: number): never {
-	fail("not_found", `no todo ${id}: run \`arbor todo list\``, { todo: id });
+	fail("not_found", `no todo ${id}: run \`splates todo list\``, { todo: id });
 }

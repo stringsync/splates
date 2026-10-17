@@ -50,11 +50,11 @@ describe("Settings", () => {
 
 	it("leaves out what it no longer knows of, or of the wrong kind", () => {
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ gone: true, "notifications.quietAfter": "soon" }),
 		);
 		expect(new Settings(localStorage).get("notifications.quietAfter")).toBe(10);
-		localStorage.setItem("arbor.settings", "not json");
+		localStorage.setItem("splates.settings", "not json");
 		expect(new Settings(localStorage).get("notifications.quietAfter")).toBe(10);
 	});
 
@@ -67,7 +67,7 @@ describe("Settings", () => {
 		expect(new Settings(localStorage).get("appearance.accent")).toBe("violet");
 
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "appearance.accent": "chartreuse" }),
 		);
 		expect(new Settings(localStorage).get("appearance.accent")).toBe(
@@ -90,7 +90,7 @@ describe("Settings", () => {
 		expect(next.get("shortcuts.fullscreen")).toBe("");
 
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "shortcuts.search": "KeyK" }),
 		);
 		expect(new Settings(localStorage).get("shortcuts.search")).toBe("Mod+KeyK");

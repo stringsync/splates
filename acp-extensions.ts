@@ -4,8 +4,8 @@ import { toolIn } from "./tool-calls";
 
 /**
  * What every session is opened with. Claude's AskUserQuestion is off, so its
- * questions go under `## Blocked` and into its reply, as the arbor skill asks,
- * rather than into a form `ARBOR.md` never sees. Other agents ignore it.
+ * questions go under `## Blocked` and into its reply, as the splates skill asks,
+ * rather than into a form `SPLATES.md` never sees. Other agents ignore it.
  */
 export const SESSION_META = {
 	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
@@ -24,7 +24,7 @@ export const ASYNC_TASK_PROGRESS = "async_task_progress";
 export const ASYNC_TASK_STOP = "_session/async_task/stop";
 
 /** The notification the client hears each of those updates as (see `asyncTasks`). */
-export const ASYNC_TASK_UPDATE = "_arbor/async_task";
+export const ASYNC_TASK_UPDATE = "_splates/async_task";
 
 /**
  * The messages from an agent, each update on a background command moved to
@@ -160,7 +160,7 @@ export function finalAnswer(update: acp.SessionUpdate): boolean {
 		return false;
 	}
 	// Codex marks each message's phase for a client that declares AIR, as
-	// arbor does for Claude's background commands.
+	// splates does for Claude's background commands.
 	const air = (
 		update._meta?.jetbrains as { air?: { phase?: unknown } } | undefined
 	)?.air;

@@ -20,7 +20,7 @@ export interface ShowSystemsOptions {
 }
 
 /**
- * The systems `arbor.systems.ts` names: every one, one by name, or those a
+ * The systems `splates.systems.ts` names: every one, one by name, or those a
  * task touches. Read from the task's own worktree, so one it names counts
  * before it lands.
  */
@@ -41,7 +41,7 @@ export async function systems(
 	if (task !== undefined && worktree?.gone) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor list\` to see what there is`,
+			`no task '${task}': run \`splates list\` to see what there is`,
 			{ task },
 		);
 	}
@@ -55,7 +55,7 @@ export async function systems(
 		if (found === null) {
 			fail(
 				"not_found",
-				`no system '${name}': run \`arbor systems\` to see what there is`,
+				`no system '${name}': run \`splates systems\` to see what there is`,
 				{ name },
 			);
 		}
@@ -73,7 +73,7 @@ export async function systems(
 	if (shown.length === 0) {
 		log.info(
 			task === undefined
-				? "no systems named yet: name one in arbor.systems.ts"
+				? "no systems named yet: name one in splates.systems.ts"
 				: `${task} touches no named system`,
 		);
 		return;

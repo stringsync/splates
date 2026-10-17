@@ -28,7 +28,7 @@ describe("App's agents a lane's orchestrator started", () => {
 	const orchestrator = conversation({
 		id: "orch",
 		name: "Stats lane",
-		messages: [message("user", "[ARBOR LANE 1]")],
+		messages: [message("user", "[SPLATES LANE 1]")],
 	});
 	const agent = conversation({
 		id: "agent",
@@ -37,7 +37,7 @@ describe("App's agents a lane's orchestrator started", () => {
 		status: "running",
 		startedBy: "orch",
 		lastCaller: "orch",
-		messages: [{ ...message("user", "[ARBOR TASK alpha]"), told: "orch" }],
+		messages: [{ ...message("user", "[SPLATES TASK alpha]"), told: "orch" }],
 	});
 	const landed = conversation({
 		id: "landed",
@@ -47,7 +47,7 @@ describe("App's agents a lane's orchestrator started", () => {
 		startedBy: "orch",
 		lastCaller: "orch",
 		messages: [
-			{ ...message("user", "[ARBOR TASK beta]"), told: "orch" },
+			{ ...message("user", "[SPLATES TASK beta]"), told: "orch" },
 			message("agent", "## ✅ Merged beta onto main\n\nThe totals lead."),
 		],
 	});
@@ -117,7 +117,7 @@ describe("App's agents a lane's orchestrator started", () => {
 		conversation({
 			...orchestrator,
 			messages: [
-				message("user", "[ARBOR LANE 1]"),
+				message("user", "[SPLATES LANE 1]"),
 				...sentences.map((sentence) =>
 					message(
 						"agent",
@@ -212,7 +212,7 @@ describe("App's agents a lane's orchestrator started", () => {
 			id: `landed${at}`,
 			lastTask: `done${at}`,
 			messages: [
-				{ ...message("user", `[ARBOR TASK done${at}]`), told: "orch" },
+				{ ...message("user", `[SPLATES TASK done${at}]`), told: "orch" },
 				message("agent", `## ✅ Merged done${at} onto main`),
 			],
 		}),
@@ -257,7 +257,7 @@ describe("App's agents a lane's orchestrator started", () => {
 
 		expect(within(plan).queryAllByRole("list")).toHaveLength(0);
 		expect(plan.textContent).toContain("All 5 merged");
-		expect(plan.textContent).toContain("arbor dev tells the orchestrator");
+		expect(plan.textContent).toContain("splates dev tells the orchestrator");
 		expect(within(plan).queryByRole("status", { name: "working" })).toBeNull();
 
 		await act(async () =>
@@ -267,7 +267,7 @@ describe("App's agents a lane's orchestrator started", () => {
 		);
 
 		expect(testing.posted("/api/conversations/orch/prompt")).toEqual([
-			{ method: "POST", body: { text: "[ARBOR LANES DONE]" } },
+			{ method: "POST", body: { text: "[SPLATES LANES DONE]" } },
 		]);
 		await waitFor(() => expect(plan.textContent).toContain("Nudged."));
 	});
@@ -303,7 +303,7 @@ describe("App's agents a lane's orchestrator started", () => {
 		expect(within(finished).getByRole("region", { name: "plan" })).toBe(plan);
 		expect(finished.textContent).toContain("#5 and #6 merged.");
 		expect(plan.textContent).toContain("All 1 merged 4m ago");
-		expect(plan.textContent).not.toContain("arbor dev tells");
+		expect(plan.textContent).not.toContain("splates dev tells");
 		expect(
 			within(plan).queryByRole("button", { name: "Nudge it now" }),
 		).toBeNull();

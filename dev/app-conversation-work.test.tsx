@@ -89,12 +89,12 @@ describe("App's work row", () => {
 		expect(work.textContent).not.toContain("All tests pass.");
 	});
 
-	it("shows the task the agent added along the way as arbor's line between its work, its Goal on the task", async () => {
+	it("shows the task the agent added along the way as splates's line between its work, its Goal on the task", async () => {
 		const thread = await opened({
 			...turn([
 				tool({
 					id: "x1",
-					command: "arbor add upload-limit",
+					command: "splates add upload-limit",
 					at: second(2),
 					until: second(3),
 				}),
@@ -105,7 +105,7 @@ describe("App's work row", () => {
 		});
 
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		expect(line.textContent).toBe("Addedupload-limit");
 		expect(
@@ -115,11 +115,11 @@ describe("App's work row", () => {
 		).toBeTruthy();
 		const works = within(thread).getAllByRole("list", { name: "timeline" });
 		expect(works.map(lines)).toEqual([
-			["Ranarbor add upload-limit1s"],
+			["Ransplates add upload-limit1s"],
 			["Reada.ts"],
 		]);
 		expect(thread.textContent).toMatch(
-			/arbor add upload-limit.*Addedupload-limit.*Reada\.ts.*It stops now\./,
+			/splates add upload-limit.*Addedupload-limit.*Reada\.ts.*It stops now\./,
 		);
 	});
 
@@ -129,17 +129,17 @@ describe("App's work row", () => {
 			...turn([
 				tool({
 					id: "x1",
-					command: "arbor add upload-limit",
+					command: "splates add upload-limit",
 					at: second(2),
 					until: second(3),
 				}),
-				tool({ id: "x2", command: "arbor merge", at: second(5) }),
+				tool({ id: "x2", command: "splates merge", at: second(5) }),
 				"## ✅ Merged upload-limit onto main\n\nUploads stop retrying.",
 			]),
 			events: [added(3)],
 		});
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		const merged = within(thread).getByRole("region", {
 			name: "merged upload-limit",
@@ -210,10 +210,14 @@ describe("App's work row", () => {
 	it("shows the task the agent claimed beside the thread, not one it added for another agent after", async () => {
 		const thread = await opened({
 			...turn([
-				tool({ id: "x1", command: "arbor claim upload-limit", at: second(2) }),
+				tool({
+					id: "x1",
+					command: "splates claim upload-limit",
+					at: second(2),
+				}),
 				tool({
 					id: "x2",
-					command: "arbor add sibling --agent claude",
+					command: "splates add sibling --agent claude",
 					at: second(4),
 				}),
 				"Handed sibling out.",
@@ -247,7 +251,7 @@ describe("App's work row", () => {
 			],
 		});
 		const notes = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(2);
 			return found;
 		});
@@ -296,9 +300,9 @@ describe("App's work row", () => {
 	it("shows the lanes an orchestrator started beside the thread while its card is scrolled up out of sight, until its finished report comes up", async () => {
 		const thread = await opened(
 			turn([
-				tool({ id: "x1", command: "arbor lane show 20" }),
+				tool({ id: "x1", command: "splates lane show 20" }),
 				"## 🌱 Started lanes Stats, Licensing\n\nMake the Stats page say what to act on.",
-				tool({ id: "x2", command: "arbor wait stats-action-oriented" }),
+				tool({ id: "x2", command: "splates wait stats-action-oriented" }),
 				"## 🏁 Finished lanes Stats, Licensing\n\nBoth landed.",
 			]),
 		);
@@ -366,7 +370,7 @@ describe("App's work row", () => {
 		const thread = await opened(
 			turn(
 				[
-					tool({ id: "x1", command: "arbor lane show 20" }),
+					tool({ id: "x1", command: "splates lane show 20" }),
 					"## 🌱 Started lanes Stats\n\nMake the Stats",
 				],
 				{ status: "running" },

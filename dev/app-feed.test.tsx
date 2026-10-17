@@ -60,18 +60,18 @@ describe("App's feed", () => {
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
-	it("says it is outdated, with what to run, when a newer arbor moved the records on", async () => {
+	it("says it is outdated, with what to run, when a newer splates moved the records on", async () => {
 		const view = await testing.open();
 
 		testing.refuse(
 			"outdated",
-			"written by a newer arbor\nRun `bunx @webappwiz/arbor@latest` instead.",
+			"written by a newer splates\nRun `bunx splates@latest` instead.",
 		);
 		await act(async () => testing.stream?.onmessage?.());
 
 		const badge = await waitFor(() => view.getByText("Outdated"));
 		expect(badge.textContent).toBe("Outdated");
-		expect(badge.title).toContain("bunx @webappwiz/arbor@latest");
+		expect(badge.title).toContain("bunx splates@latest");
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
@@ -83,10 +83,10 @@ describe("App's feed", () => {
 		await act(async () => testing.stream?.onmessage?.());
 
 		const badge = await waitFor(() => view.getByText("Build failed"));
-		expect(badge.title).toContain("the terminal running arbor dev says why");
+		expect(badge.title).toContain("the terminal running splates dev says why");
 	});
 
-	it("keeps Power in the sidebar, offering a newer arbor on it, and restarting from it", async () => {
+	it("keeps Power in the sidebar, offering a newer splates on it, and restarting from it", async () => {
 		testing.projects = [
 			{
 				slug: "shop",
@@ -114,7 +114,7 @@ describe("App's feed", () => {
 		});
 		await act(async () => testing.stream?.onmessage?.());
 		const badge = await menuItem(view, "Power: restart to update");
-		expect(badge.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
+		expect(badge.title).toBe("splates 0.0.44 is out (this runs 0.0.43)");
 		await act(async () => badge.click());
 
 		const dialog = await waitFor(() =>
@@ -142,7 +142,7 @@ describe("App's feed", () => {
 		await act(async () => testing.stream?.onmessage?.());
 		const badge = await menuItem(view, "Power: restart to update");
 		expect(badge.title).toBe(
-			"arbor's source is at bbbbbbbb (this runs aaaaaaaa)",
+			"splates's source is at bbbbbbbb (this runs aaaaaaaa)",
 		);
 		await act(async () => badge.click());
 
@@ -189,7 +189,7 @@ describe("App's feed", () => {
 			const restart = await waitFor(() =>
 				view.getByRole("menuitem", { name: "Power: restart to update" }),
 			);
-			expect(restart.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
+			expect(restart.title).toBe("splates 0.0.44 is out (this runs 0.0.43)");
 			expect(restart.querySelector(".bg-warning")).not.toBeNull();
 		} finally {
 			// Unmounted first, so going wide again redraws nothing.
@@ -201,9 +201,9 @@ describe("App's feed", () => {
 	it("updates directly from Update, keeping a spinner beside the kebab", async () => {
 		const view = await testing.open();
 		await waitFor(() =>
-			expect(view.getByTitle("Current version: arbor 0.0.1").textContent).toBe(
-				"v0.0.1",
-			),
+			expect(
+				view.getByTitle("Current version: splates 0.0.1").textContent,
+			).toBe("v0.0.1"),
 		);
 		expect(view.queryByRole("button", { name: "Update" })).toBeNull();
 
@@ -214,7 +214,7 @@ describe("App's feed", () => {
 		const restart = await waitFor(() =>
 			view.getByRole("button", { name: "Update" }),
 		);
-		expect(view.queryByTitle("Current version: arbor 0.0.1")).toBeNull();
+		expect(view.queryByTitle("Current version: splates 0.0.1")).toBeNull();
 		expect(restart.textContent).toBe("Update");
 		expect(
 			restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),

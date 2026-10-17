@@ -61,7 +61,7 @@ export async function artifactResponse(
  * image of it runs in the person's browser, so it gets no origin of its own
  * to speak from: `sandbox` without `allow-same-origin` keeps its requests
  * from carrying the page's cookies, and `connect-src 'none'` keeps them from
- * the arbor dev API at all. Only the viewer's own page may frame it. Anything
+ * the splates dev API at all. Only the viewer's own page may frame it. Anything
  * but a page is served as `fileResponse` would, which runs nothing.
  */
 function artifactPolicy(mimeType: string): string {
@@ -93,7 +93,7 @@ export async function deleteVersion(
 }
 
 /**
- * The agent's own `arbor artifact add`: a form with the artifact's `name`, its
+ * The agent's own `splates artifact add`: a form with the artifact's `name`, its
  * `mimeType`, and its bytes as `file`. The conversation's own store keeps it,
  * so the page hears of it as it would of any change.
  */
@@ -114,7 +114,7 @@ export async function addVersion(
 	return Response.json(version);
 }
 
-/** The agent's own `arbor artifact remove`, `/api/conversations/<id>/artifacts/<name>`. */
+/** The agent's own `splates artifact remove`, `/api/conversations/<id>/artifacts/<name>`. */
 export async function removeNamed(
 	request: Request,
 	conversation: Conversation,

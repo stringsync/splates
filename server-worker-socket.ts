@@ -4,7 +4,7 @@ import type { WorkerRegistry } from "./worker-registry";
 import type { WorkerSocket, WorkerSocketEvents } from "./worker-socket";
 
 /**
- * A worker's WebSocket as `arbor dev` upgraded it on `/api/workers`, seen as
+ * A worker's WebSocket as `splates dev` upgraded it on `/api/workers`, seen as
  * a `WorkerSocket`: the server hands it each socket event, and it hands
  * itself to the registry once open.
  */

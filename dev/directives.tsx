@@ -2,12 +2,12 @@ import type { ThreadMessage } from "@assistant-ui/react";
 import { TreePineIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { DIRECTIVES, UNTRIAGED } from "../prompts";
-import { ArborEvent, type Words } from "./arbor-event";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
+import { SplatesEvent, type Words } from "./splates-event";
 
 /** Where a link written by `linkDirectives` points, read back by `directiveIn`. */
 const DIRECTIVE_LINK = /^#directive=(.+)$/;
@@ -64,7 +64,7 @@ function about(
 	open?: (() => void) | undefined;
 } {
 	const [, kind = "", argument = ""] =
-		/^\[ARBOR ([A-Z]+)(?: ([^\]]+))?\]$/.exec(directive) ?? [];
+		/^\[(?:SPLATES|ARBOR) ([A-Z]+)(?: ([^\]]+))?\]$/.exec(directive) ?? [];
 	const to = HANDOFF_TO.exec(directive);
 	if (to !== null) {
 		return { kind: "Hand off to", name: to.slice(1).filter(Boolean).join(" ") };
@@ -145,7 +145,7 @@ export function DirectiveChip({
 }
 
 /** The page asking an agent to hand its task off: the agent, and any model. */
-const HANDOFF_TO = /^\[ARBOR HANDOFF TO (\S+)(?: (\S+))?\]$/;
+const HANDOFF_TO = /^\[(?:SPLATES|ARBOR) HANDOFF TO (\S+)(?: (\S+))?\]$/;
 
 /**
  * A todo, lane, or task directive, a task handed off, or the report of a
@@ -153,11 +153,11 @@ const HANDOFF_TO = /^\[ARBOR HANDOFF TO (\S+)(?: (\S+))?\]$/;
  * a message of it alone shows as a card.
  */
 const CARDED =
-	/^\[ARBOR (TODO|LANE|TASK|HANDOFF|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
+	/^\[(?:SPLATES|ARBOR) (TODO|LANE|TASK|HANDOFF|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /**
  * The directive that `text` holds and nothing else, when it is one a card
- * shows: one about no todo, lane, or task, such as the checkpoint `arbor dev`
+ * shows: one about no todo, lane, or task, such as the checkpoint `splates dev`
  * sends before a restart or the merge a review's Merge button sends, or one handing the agent a todo, a lane, or a task;
  * null for any other text.
  */
@@ -183,7 +183,7 @@ export function isSoleCommand(text: string): boolean {
 
 /**
  * Whether `message` is a person's message of one bare directive alone, which
- * shows as one of arbor's event lines, as a checkpoint, a resume, or a merge
+ * shows as one of splates's event lines, as a checkpoint, a resume, or a merge
  * does, or of one skill or command alone. It carries on the turn it comes in
  * rather than opening one, and takes none of the scroll a turn's start does,
  * so the message stuck atop that turn stays there while the reply goes on.
@@ -215,7 +215,7 @@ export function unshown(directive: string): boolean {
 }
 
 /**
- * A message of `directive` alone, read by `soleDirective`, as one of arbor's
+ * A message of `directive` alone, read by `soleDirective`, as one of splates's
  * event lines in place of the message: the verb it asked of the agent, and
  * for a todo, a lane, or a task, its chip, which opens a todo still on the
  * board or a live task.
@@ -232,7 +232,7 @@ export function DirectiveLine({
 	const board = useContext(Board);
 	const words = wordsOf(directive, board, (agent) => dispatch?.pickName(agent));
 	return words === null ? null : (
-		<ArborEvent event={{ words, at, title: directive }} />
+		<SplatesEvent event={{ words, at, title: directive }} />
 	);
 }
 

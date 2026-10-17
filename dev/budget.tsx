@@ -368,7 +368,7 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 							{limits.length === 0 ? (
 								<p className="mt-2 text-muted-foreground text-sm">
 									Not said yet: it shows once {name} says, or a conversation
-									drives it in arbor dev.
+									drives it in splates dev.
 								</p>
 							) : (
 								<PlanLimits

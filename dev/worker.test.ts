@@ -36,7 +36,7 @@ describe("the page's service worker", () => {
 					tag: "conversation c1",
 					data: {
 						key: "conversation c1",
-						url: "https://arbor.example.com/?project=alpha#conversations/c1",
+						url: "https://splates.example.com/?project=alpha#conversations/c1",
 					} satisfies Opening,
 				},
 			},
@@ -44,7 +44,7 @@ describe("the page's service worker", () => {
 	});
 
 	it("shows nothing while a window is in front, unless asked to", async () => {
-		scope.windows = [{ url: "https://arbor.example.com/", focused: true }];
+		scope.windows = [{ url: "https://splates.example.com/", focused: true }];
 
 		await scope.push(PUSHED);
 		await scope.push({ ...PUSHED, inFront: true });
@@ -53,7 +53,7 @@ describe("the page's service worker", () => {
 	});
 
 	it("shows it while the page's window is in the background", async () => {
-		scope.windows = [{ url: "https://arbor.example.com/", focused: false }];
+		scope.windows = [{ url: "https://splates.example.com/", focused: false }];
 
 		await scope.push(PUSHED);
 
@@ -67,7 +67,7 @@ class FakeScope {
 	shown: { title: string; options: NotificationOptions }[] = [];
 	windows: { url: string; focused: boolean }[] = [];
 	readonly registration = {
-		scope: "https://arbor.example.com/",
+		scope: "https://splates.example.com/",
 		showNotification: async (title: string, opts: NotificationOptions) => {
 			this.shown.push({ title, options: opts });
 		},

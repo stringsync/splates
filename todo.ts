@@ -103,7 +103,7 @@ export class Todo {
 			if (state.takenBy !== null && state.takenBy !== task) {
 				fail(
 					"exists",
-					`todo ${this.id} is already taken by '${state.takenBy}': pick another from \`arbor todo list\``,
+					`todo ${this.id} is already taken by '${state.takenBy}': pick another from \`splates todo list\``,
 					{ todo: this.id, takenBy: state.takenBy },
 				);
 			}

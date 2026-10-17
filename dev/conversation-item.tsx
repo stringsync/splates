@@ -324,7 +324,7 @@ export function Item({
 
 /**
  * Archives `conversation`, or brings it back, then runs `then`. Archiving
- * removes its task too, as `arbor remove` does, while the task is still there
+ * removes its task too, as `splates remove` does, while the task is still there
  * and this conversation last took it, and takes along the agents it handed
  * tasks to or started. While its agent works, its shell is up, it would remove
  * its task, or an agent it takes along is not done, `file` asks first in

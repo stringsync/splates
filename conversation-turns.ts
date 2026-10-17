@@ -31,7 +31,7 @@ const CHECKPOINT_WAIT = Duration.mins(2);
 
 /** What else a prompt says about who said it. */
 export interface PromptOptions {
-	/** The conversation that said it with `arbor tell`, when the person did not. */
+	/** The conversation that said it with `splates tell`, when the person did not. */
 	told?: string;
 	/** Whether the person said it into the mic rather than typed it. */
 	dictated?: boolean;
@@ -274,7 +274,7 @@ export class ConversationTurns {
 	}
 
 	/**
-	 * Asks the agent to bring its `ARBOR.md` up to date and stop, cancelling
+	 * Asks the agent to bring its `SPLATES.md` up to date and stop, cancelling
 	 * the turn it is on first, unless that turn is `merging`, which it says
 	 * the checkpoint into, or queues it after. An idle agent is not asked,
 	 * having ended its turn already. What the person queued stays queued, for

@@ -15,7 +15,7 @@ describe("handoff", () => {
 	afterEach(() => deps.disposeAsync());
 
 	it("hands the task to another agent, which answers to the user as the one at work on it did", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
 		expect((await deps.service.find("alpha")).caller).toBe("c1");
 
@@ -50,7 +50,7 @@ describe("handoff", () => {
 				handoff: true,
 			},
 		});
-		deps.proc.env.ARBOR_CONVERSATION = "c2";
+		deps.proc.env.SPLATES_CONVERSATION = "c2";
 
 		await handoff(deps, "alpha", { agent: "fake" }, [ROSTERED]);
 
@@ -62,7 +62,7 @@ describe("handoff", () => {
 	});
 
 	it("hands the task to an agent that answers to this conversation, with relay", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
 
 		await handoff(
@@ -93,19 +93,19 @@ describe("handoff", () => {
 		expect(deps.out()).toContain('say "## ⏳ Working alpha: on <agent>"');
 	});
 
-	it("refuses to relay outside arbor dev, where nothing would report back", async () => {
+	it("refuses to relay outside splates dev, where nothing would report back", async () => {
 		await add(deps, "alpha");
 
 		await expect(
 			handoff(deps, "alpha", { agent: "fake" }, [ROSTERED], { relay: true }),
-		).toBail("usage", { message: "--relay needs `arbor dev`" });
+		).toBail("usage", { message: "--relay needs `splates dev`" });
 		expect((await deps.service.find("alpha")).state?.dispatch).toBeUndefined();
 	});
 
 	it("refuses a task another conversation is at work on", async () => {
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
-		deps.proc.env.ARBOR_CONVERSATION = "c2";
+		deps.proc.env.SPLATES_CONVERSATION = "c2";
 
 		await expect(handoff(deps, "alpha", { agent: "fake" }, [ROSTERED])).toBail(
 			"usage",
@@ -116,8 +116,8 @@ describe("handoff", () => {
 
 	it("refuses an agent an orchestrator handed its task to, which escalates instead", async () => {
 		await add(deps, "alpha");
-		deps.proc.env.ARBOR_CONVERSATION = "c2";
-		deps.proc.env.ARBOR_CALLER = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c2";
+		deps.proc.env.SPLATES_CALLER = "c1";
 
 		await expect(handoff(deps, "alpha", { agent: "fake" }, [ROSTERED])).toBail(
 			"usage",

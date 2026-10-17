@@ -7,7 +7,7 @@ import type { ConversationState } from "../conversations";
 import { useNameOf } from "./conversation-names";
 
 /**
- * Under a conversation's header while arbor has its agent stopped for sitting
+ * Under a conversation's header while splates has its agent stopped for sitting
  * idle, across the pane's padding to its edges: why its process is gone, so
  * the person does not take it for a crash, and what wakes it.
  */

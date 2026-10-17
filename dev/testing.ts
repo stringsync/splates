@@ -81,7 +81,7 @@ export interface Stream {
  * The server the dev page runs against, faked in place of `fetch` and
  * `EventSource` from construction until `dispose`.
  *
- * The page never touches arbor: it reads a `Snapshot` the server already
+ * The page never touches splates: it reads a `Snapshot` the server already
  * assembled and writes todos. So the fake is the snapshot and a record of the
  * posts, and none of these tests need a repo, a worktree or the CLI.
  * `dev.test.ts` covers the half that does.
@@ -146,15 +146,15 @@ export class Testing implements Resource {
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
-	/** The `arbor dev`s on this machine the page is told of. */
+	/** The `splates dev`s on this machine the page is told of. */
 	servers: ServerChoice[] = [];
 	/** The restart `/api/projects` says follows the checkpoint, if any. */
 	restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/** How `/api/projects` says this run began, after a checkpoint's restart. */
 	restarted: "resuming" | null = null;
-	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */
+	/** The run of `splates dev` `/api/projects` names: a test changes it to restart. */
 	run = "run-1";
-	/** Whether `/api/projects` says `arbor dev` can restart itself. */
+	/** Whether `/api/projects` says `splates dev` can restart itself. */
 	restartable = true;
 	/** Every path the page fetched, in order. */
 	asked: string[] = [];

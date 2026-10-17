@@ -100,7 +100,7 @@ export function useNotifier(
 			return;
 		}
 		const heard = (event: MessageEvent<Opened>) => {
-			if (event.data?.type === "arbor:open") {
+			if (event.data?.type === "splates:open") {
 				opened.current(event.data.key);
 			}
 		};

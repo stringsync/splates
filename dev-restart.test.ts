@@ -13,7 +13,7 @@ import { Testing } from "./testing";
 describe("dev restart", () => {
 	let deps: Testing;
 	let agent: FakeAgent;
-	// Each project's conversations, by its arbor dir, as the server opens them.
+	// Each project's conversations, by its splates dir, as the server opens them.
 	let opened: Map<string, Conversations>;
 	let exits: number[];
 	let server: DevServer;
@@ -35,14 +35,14 @@ describe("dev restart", () => {
 		await deps.disposeAsync();
 	});
 
-	/** The conversations of the project kept in `arborDir`, made once. */
-	function converse({ arborDir }: { arborDir: string }): Conversations {
+	/** The conversations of the project kept in `splatesDir`, made once. */
+	function converse({ splatesDir }: { splatesDir: string }): Conversations {
 		const found =
-			opened.get(arborDir) ??
-			new Conversations(`${arborDir}/conversations`, [AGENT], {
+			opened.get(splatesDir) ??
+			new Conversations(`${splatesDir}/conversations`, [AGENT], {
 				launch: agent.launch,
 			});
-		opened.set(arborDir, found);
+		opened.set(splatesDir, found);
 		return found;
 	}
 
@@ -60,7 +60,7 @@ describe("dev restart", () => {
 		return conversation;
 	}
 
-	/** Starts `arbor dev` again on the conversations' logs, read afresh. */
+	/** Starts `splates dev` again on the conversations' logs, read afresh. */
 	function again(): Promise<DevServer> {
 		opened.clear();
 		return dev(deps, {
@@ -107,7 +107,7 @@ describe("dev restart", () => {
 		expect(said).toEqual([CHECKPOINT, RESUME]);
 	});
 
-	it("refuses to shut down where arbor dev cannot exit itself", async () => {
+	it("refuses to shut down where splates dev cannot exit itself", async () => {
 		await server.disposeAsync();
 		server = await dev(deps, {
 			ports: OpenPortProvider.any(),

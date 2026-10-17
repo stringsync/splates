@@ -95,16 +95,16 @@ export function recommendation({
 			`${color.bold(`next in lane ${lane.id} ${lane.name}`)} todo ${next.id}: ${next.subject}`,
 			...lane.blockers.map(
 				(blocker) =>
-					`  ${color.yellow("blocked by")} ${blockerLabel(blocker, records)}, ${blocker.takenBy === null ? "not taken yet" : `taken by ${blocker.takenBy}`}: arbor todo wait ${blocker.id}`,
+					`  ${color.yellow("blocked by")} ${blockerLabel(blocker, records)}, ${blocker.takenBy === null ? "not taken yet" : `taken by ${blocker.takenBy}`}: splates todo wait ${blocker.id}`,
 			),
-			`  ${lane.blockers.length === 0 ? "start it" : "then start it"}: arbor add <task> --todo ${next.id}`,
+			`  ${lane.blockers.length === 0 ? "start it" : "then start it"}: splates add <task> --todo ${next.id}`,
 		);
 	} else if (next) {
 		lines.push(
 			"",
 			`${color.bold("next todo")} ${next.id}: ${next.subject}`,
 			`  ${from(next)}, waiting ${age(next.state.createdAt)}`,
-			`  start it: arbor add <task> --todo ${next.id}`,
+			`  start it: splates add <task> --todo ${next.id}`,
 		);
 	}
 	if (stale.length > 0) {
@@ -114,7 +114,7 @@ export function recommendation({
 		);
 		for (const todo of stale) {
 			lines.push(
-				`  ${todo.id}: ${todo.subject} (${age(todo.state.createdAt)})  arbor todo remove ${todo.id}`,
+				`  ${todo.id}: ${todo.subject} (${age(todo.state.createdAt)})  splates todo remove ${todo.id}`,
 			);
 		}
 	}

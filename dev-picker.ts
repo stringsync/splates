@@ -9,15 +9,15 @@ import type { Project } from "./projects";
 import { openRepository } from "./repository";
 
 /**
- * What the page's project picker asks of `arbor dev` beyond listing: adding
- * a project, committing what `arbor init` wrote there, and focusing one. Its
+ * What the page's project picker asks of `splates dev` beyond listing: adding
+ * a project, committing what `splates init` wrote there, and focusing one. Its
  * handlers are properties, so `dev` hands them to its routes as they are.
  */
 export class Picker {
 	constructor(private readonly deps: DevMachine) {}
 
 	/**
-	 * Adds the repository the body's `path` names, as `arbor init` there
+	 * Adds the repository the body's `path` names, as `splates init` there
 	 * would, and focuses it.
 	 */
 	readonly add = async (request: Request): Promise<Response> => {
@@ -30,7 +30,7 @@ export class Picker {
 		return Response.json(await initProject(this.deps, path));
 	};
 
-	/** Commits the body's `paths`, which `arbor init` wrote, once the person said to. */
+	/** Commits the body's `paths`, which `splates init` wrote, once the person said to. */
 	readonly commit = async (request: Request): Promise<Response> => {
 		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
 		const { paths } = (await request.json().catch(() => ({}))) as {
@@ -40,7 +40,7 @@ export class Picker {
 			(each) => each.slug === slug,
 		);
 		if (found === undefined || found.gone) {
-			fail("not_found", `no arbor project '${slug}'`, { project: slug });
+			fail("not_found", `no splates project '${slug}'`, { project: slug });
 		}
 		await commitInit(
 			this.deps,
@@ -58,7 +58,7 @@ export class Picker {
 		const { projects } = this.deps;
 		const found = (await projects.list()).find((each) => each.slug === project);
 		if (found === undefined) {
-			fail("not_found", `no arbor project '${String(project)}'`, {
+			fail("not_found", `no splates project '${String(project)}'`, {
 				project,
 			});
 		}
@@ -68,17 +68,17 @@ export class Picker {
 }
 
 /**
- * What `arbor init` writes in a project: the skill, its link for Claude
+ * What `splates init` writes in a project: the skill, its link for Claude
  * Code, and the lock `skills` keeps. Uncommitted, each is offered again,
  * even when an earlier init left it so.
  */
 export const INIT_WRITES = [
-	".agents/skills/arbor",
-	".claude/skills/arbor",
+	".agents/skills/splates",
+	".claude/skills/splates",
 	"skills-lock.json",
 ];
 
-/** A project the page added, and what `arbor init` left in it to commit. */
+/** A project the page added, and what `splates init` left in it to commit. */
 export interface Added {
 	project: Project;
 	/**
@@ -93,7 +93,7 @@ export interface Added {
 }
 
 /**
- * Makes the repository `path` sits in an arbor project, as `arbor init` run
+ * Makes the repository `path` sits in a splates project, as `splates init` run
  * there would, `~` meaning the home directory: its records, made or brought
  * forward, the skill, and its place in the registry, focused. Commits
  * nothing, but says what init wrote, for the page to ask before it commits.
@@ -153,7 +153,7 @@ export async function initProject(
 }
 
 /**
- * Commits `paths` in the main tree at `root` as setting up arbor, on
+ * Commits `paths` in the main tree at `root` as setting up splates, on
  * whatever it has checked out, leaving every other change as it was.
  */
 export async function commitInit(
@@ -166,7 +166,7 @@ export async function commitInit(
 	}
 	for (const argv of [
 		["add", "--", ...paths],
-		["commit", "--quiet", "--message", "Set up arbor", "--", ...paths],
+		["commit", "--quiet", "--message", "Set up splates", "--", ...paths],
 	]) {
 		const { exitCode, stdout, stderr } = await ps.spawnCapture([
 			"git",

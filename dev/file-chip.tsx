@@ -23,7 +23,7 @@ export function FileIcon({
 	);
 }
 
-/** Hosts that put the page on the machine `arbor dev` runs on, where it can start the person's editor. */
+/** Hosts that put the page on the machine `splates dev` runs on, where it can start the person's editor. */
 const HERE = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** A file as the page shows one: bordered and set as code. */
@@ -33,7 +33,7 @@ const chip =
 /**
  * A file a tool call worked on or a message names, opening in the person's
  * editor at its first line: the logo of its language, then its name with the
- * lines it covers. On the machine `arbor dev` runs on, `dev` opens it inside
+ * lines it covers. On the machine `splates dev` runs on, `dev` opens it inside
  * the worktree it is in, which its link cannot say; elsewhere, or when that
  * fails, the link opens the file alone. A directory, its path ending in `/`, shows a folder. The
  * whole path is its tooltip.

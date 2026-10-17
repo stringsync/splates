@@ -84,7 +84,7 @@ describe("App's lanes", () => {
 			),
 		);
 
-		expect(copied).toEqual(["[ARBOR LANE 2]"]);
+		expect(copied).toEqual(["[SPLATES LANE 2]"]);
 		// The button says so in place.
 		expect(
 			within(
@@ -113,7 +113,7 @@ describe("App's lanes", () => {
 			),
 		);
 
-		expect(copied).toEqual(["[ARBOR LANE untriaged]"]);
+		expect(copied).toEqual(["[SPLATES LANE untriaged]"]);
 	});
 
 	it("offers no untriaged prompt once every todo in no lane is taken", async () => {
@@ -332,9 +332,9 @@ describe("App's lanes", () => {
 
 		expect(view.queryByRole("region", { name: "Licensing" })).toBeNull();
 		expect(view.getByRole("button", { name: /1 hidden/ })).toBeTruthy();
-		expect(JSON.parse(localStorage.getItem("arbor.hiddenLanes") ?? "")).toEqual(
-			[1],
-		);
+		expect(
+			JSON.parse(localStorage.getItem("splates.hiddenLanes") ?? ""),
+		).toEqual([1]);
 		cleanup();
 		const again = await testing.open({
 			todos: sound2score(),

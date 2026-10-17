@@ -1,36 +1,36 @@
 import { color, type Logger } from "webappwiz/log";
 import { FileLock } from "webappwiz/system";
-import type { ArborDeps } from "./arbor";
-import { savedTunnelOf } from "./arbor-flags";
 import { SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import { Projects } from "./projects";
 import { openRepository } from "./repository";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
+import type { SplatesDeps } from "./splates";
+import { savedTunnelOf } from "./splates-flags";
 
-/** How `arbor dev --slot` starts its server: with what added. */
+/** How `splates dev --slot` starts its server: with what added. */
 export interface SlotStart {
 	slot: Slot;
 	/** The public host it answers on, as in fox.example.com. */
 	host: string;
-	/** The slot's home, its `ARBOR_HOME`, and the word it serves under. */
+	/** The slot's home, its `SPLATES_HOME`, and the word it serves under. */
 	env: Record<string, string>;
 }
 
 /**
  * Readies the slot this checkout holds, claimed now when it holds none: its
- * tunnel, made on the slot's first claim, and its home, `~/.arbor/slots/<word>`,
+ * tunnel, made on the slot's first claim, and its home, `~/.splates/slots/<word>`,
  * which keeps its own projects, roster and tunnel apart from the machine's, so
- * it never drives the agents of the `arbor dev` serving your projects. Its
+ * it never drives the agents of the `splates dev` serving your projects. Its
  * home starts out with a throwaway project of its own, made on the first
  * start, so its page has one to show.
  */
-export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
+export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 	const { fs, ps, log, secrets = SYSTEM_STORES } = ctx;
-	// The checkout of arbor it runs from, wherever it is run, whose creds
+	// The checkout of splates it runs from, wherever it is run, whose creds
 	// keep the slot's tunnel token.
 	const checkout = import.meta.dirname;
 	const { git, creds } = await openRepository(ctx, { at: checkout }).catch(
@@ -38,7 +38,7 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 			if (error instanceof Error && error.message.startsWith("not a git")) {
 				fail(
 					"usage",
-					"--slot serves a checkout of arbor: run that checkout's bin/arbor",
+					"--slot serves a checkout of splates: run that checkout's bin/splates",
 					{ at: checkout },
 				);
 			}
@@ -49,11 +49,11 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 	if (machine === null) {
 		fail(
 			"usage",
-			"--slot serves on a subdomain of the zone `arbor tunnel setup` uses: run `arbor tunnel setup <host> --email <you>` first",
+			"--slot serves on a subdomain of the zone `splates tunnel setup` uses: run `splates tunnel setup <host> --email <you>` first",
 			{},
 		);
 	}
-	const registry = ps.env(MACHINE_HOME) ?? arborHome(ps);
+	const registry = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 	const slots = Slots.ofMachine(ctx);
 	// The worktree it runs in, not the main tree every worktree shares, so
 	// each worktree holds a slot of its own.
@@ -65,7 +65,7 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 	if (!(await slots.owns(tree))) {
 		fail(
 			"usage",
-			`--slot serves a task's worktree, and ${tree} is the main tree every agent shares, whose server would be any of theirs to stop: \`cd "$(arbor path <task>)"\` into your task's worktree, then run \`bin/arbor dev --slot\` there`,
+			`--slot serves a task's worktree, and ${tree} is the main tree every agent shares, whose server would be any of theirs to stop: \`cd "$(splates path <task>)"\` into your task's worktree, then run \`bin/splates dev --slot\` there`,
 			{ at: tree },
 		);
 	}
@@ -106,17 +106,17 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 	return {
 		slot,
 		host: record.host,
-		env: { ARBOR_HOME: home, [SLOT]: slot.word, [MACHINE_HOME]: registry },
+		env: { SPLATES_HOME: home, [SLOT]: slot.word, [MACHINE_HOME]: registry },
 	};
 }
 
 /**
  * The slot's own project, `<home>/project`: a repository with one empty
- * commit and arbor's records, registered in the slot's home. Made once, and
+ * commit and splates's records, registered in the slot's home. Made once, and
  * kept for the slot's next start, whichever tree holds it then.
  */
 async function throwaway(
-	ctx: ArborDeps,
+	ctx: SplatesDeps,
 	home: string,
 	projects: Projects,
 ): Promise<string> {
@@ -129,9 +129,9 @@ async function throwaway(
 			[
 				"git",
 				"-c",
-				"user.name=arbor",
+				"user.name=splates",
 				"-c",
-				"user.email=arbor@localhost",
+				"user.email=splates@localhost",
 				"commit",
 				"--quiet",
 				"--allow-empty",

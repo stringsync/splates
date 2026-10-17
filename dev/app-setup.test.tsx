@@ -39,7 +39,9 @@ describe("App's setup", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Set up arbor" })),
+				await waitFor(() =>
+					view.getByRole("button", { name: "Set up splates" }),
+				),
 			),
 		);
 		if (journey !== null) {
@@ -192,7 +194,7 @@ describe("App's setup", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[ARBOR SETUP agents]" },
+				{ text: "[SPLATES SETUP agents]" },
 			]),
 		);
 	});
@@ -209,7 +211,7 @@ describe("App's setup", () => {
 		testing.setup = progress({ fresh: true });
 		const view = await testing.open();
 		expect(
-			view.queryByRole("complementary", { name: "set up arbor" }),
+			view.queryByRole("complementary", { name: "set up splates" }),
 		).toBeNull();
 		expect(view.queryByRole("button", { name: "Open Setup" })).toBeNull();
 		expect(testing.posts).toEqual([]);
@@ -224,7 +226,7 @@ describe("App's setup", () => {
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
 		);
 		expect(
-			view.queryByRole("complementary", { name: "set up arbor" }),
+			view.queryByRole("complementary", { name: "set up splates" }),
 		).toBeNull();
 		expect(view.queryByRole("button", { name: "Open Setup" })).toBeNull();
 		expect(testing.posts).toEqual([]);
@@ -248,10 +250,10 @@ function progress({
 } = {}): SetupProgress {
 	const agentsStep: StepProgress = {
 		id: "agents",
-		title: "Choose the agents arbor starts",
+		title: "Choose the agents splates starts",
 		why: "Only agents on the roster start.",
 		user: "Say which agents you have.",
-		agent: "Run `arbor agents`.",
+		agent: "Run `splates agents`.",
 		optional: false,
 		after: [],
 		status: agents,

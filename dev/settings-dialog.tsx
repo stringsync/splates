@@ -134,7 +134,7 @@ export function SettingsDialog({
 							className="flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground hover:bg-muted hover:text-foreground m-2 mt-0 sm:mt-0"
 						>
 							<ListChecksIcon className="size-4" />
-							Set up arbor
+							Set up splates
 						</button>
 					</div>
 					<div className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">

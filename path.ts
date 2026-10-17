@@ -4,7 +4,7 @@ import type { WorktreeService } from "./worktree-service";
 
 /**
  * Where a task lives, or (with no task) the main tree. Nothing but the path
- * on stdout, so it composes: `cd "$(arbor path)"`, `zed -a "$(arbor path x)"`.
+ * on stdout, so it composes: `cd "$(splates path)"`, `zed -a "$(splates path x)"`.
  * Moving between trees is `cd` and nothing else, and the main tree is the one
  * path a process standing in a worktree cannot otherwise name: git's
  * `--show-toplevel` hands back the worktree it is already in.
@@ -22,7 +22,7 @@ export async function path(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor list\` to see what there is`,
+			`no task '${task}': run \`splates list\` to see what there is`,
 			{ task },
 		);
 	}

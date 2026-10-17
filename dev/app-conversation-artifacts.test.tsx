@@ -61,7 +61,7 @@ describe("App's artifacts", () => {
 		);
 
 		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			const found = within(thread).getAllByRole("note", { name: "splates" });
 			expect(found).toHaveLength(3);
 			return found;
 		});
@@ -276,7 +276,7 @@ describe("App's artifacts", () => {
 			[added(1, "shot.png", 1)],
 		);
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		await act(async () =>
 			fireEvent.click(within(line).getByRole("button", { name: "shot.png" })),
@@ -336,7 +336,7 @@ function version(
 	};
 }
 
-/** An `arbor artifact add` at `secs` that made `version` of `name`. */
+/** A `splates artifact add` at `secs` that made `version` of `name`. */
 function added(secs: number, name: string, version: number): Event {
 	return {
 		id: `add${secs}`,
@@ -351,7 +351,7 @@ function added(secs: number, name: string, version: number): Event {
 	};
 }
 
-/** An `arbor artifact remove` at `secs` of `name`, current at `version`. */
+/** A `splates artifact remove` at `secs` of `name`, current at `version`. */
 function removed(secs: number, name: string, version: number): Event {
 	return {
 		id: `remove${secs}`,

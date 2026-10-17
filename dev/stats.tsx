@@ -126,7 +126,7 @@ export function StatsPage({
 			)}
 			{stats === null ? null : empty ? (
 				<p className="text-muted-foreground text-sm">
-					No task has ended since arbor started counting. Each one merged or
+					No task has ended since splates started counting. Each one merged or
 					removed from now on shows up here.
 				</p>
 			) : (
@@ -200,7 +200,7 @@ export function StatsPage({
 								columns={BY_PROJECT}
 								named={systems}
 							/>
-							{/* Whether a change to the arbor skill helped or hurt, on real work. */}
+							{/* Whether a change to the splates skill helped or hurt, on real work. */}
 							<BySkillVersion versions={stats.skill} />
 						</CollapsibleContent>
 					</Collapsible>
@@ -443,7 +443,7 @@ function Breakdown({
 const VERSIONS_SHOWN = 3;
 
 /**
- * Each rule of the arbor skill a program can check, by how often the
+ * Each rule of the splates skill a program can check, by how often the
  * conversations on each of the newest versions followed it every time, out of
  * those it applied in.
  */
@@ -458,8 +458,8 @@ function BySkillVersion({
 			<h3 className="font-medium text-xs">By skill version</h3>
 			{shown.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					No conversation has been checked yet. Each turn an agent ends in arbor
-					dev from now on counts here.
+					No conversation has been checked yet. Each turn an agent ends in
+					splates dev from now on counts here.
 				</p>
 			) : (
 				<div className="overflow-x-auto">

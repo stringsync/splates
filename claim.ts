@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "./exit";
-import { goalOf, PLAN_FILE } from "./plan";
+import { goalOf, Plans } from "./plan";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -16,21 +16,21 @@ export async function claim(
 	const found = await service.find(task);
 
 	if (found.gone) {
-		fail("not_found", `no task '${task}': run \`arbor add ${task}\``, {
+		fail("not_found", `no task '${task}': run \`splates add ${task}\``, {
 			task,
 		});
 	}
 	if (found.status === "orphaned") {
 		fail(
 			"orphaned",
-			`state file for '${task}' has no worktree at ${found.path}: run \`arbor remove ${task}\``,
+			`state file for '${task}' has no worktree at ${found.path}: run \`splates remove ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}
 	if (found.status === "stray") {
 		fail(
 			"orphaned",
-			`branch ${found.branch} exists but has no worktree: run \`arbor remove ${task}\` and start over`,
+			`branch ${found.branch} exists but has no worktree: run \`splates remove ${task}\` and start over`,
 			{ task, branch: found.branch },
 		);
 	}
@@ -90,14 +90,14 @@ export async function claim(
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
 	log.info(lines.join("\n"));
-	// The agent `arbor handoff` handed the task to, in the conversation `arbor
+	// The agent `splates handoff` handed the task to, in the conversation `splates
 	// dev` started for it, as against the one that handed it on or an outsider.
 	const { dispatch } = found.state ?? {};
 	const tookOver =
 		dispatch?.handoff === true &&
 		dispatch.conversation !== undefined &&
-		service.ps.env("ARBOR_CONVERSATION") === dispatch.conversation;
+		service.ps.env("SPLATES_CONVERSATION") === dispatch.conversation;
 	// What the page shows as the task the conversation is now on.
-	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
+	const plan = (await new Plans(fs).read(worktree.path)) ?? "";
 	return { escalated, tookOver, goal: goalOf(plan) };
 }

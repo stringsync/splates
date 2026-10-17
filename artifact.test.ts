@@ -75,7 +75,7 @@ describe("artifact", () => {
 	});
 
 	it("goes through the server when one is in the env", async () => {
-		deps.proc.env.ARBOR_DEV = "http://dev";
+		deps.proc.env.SPLATES_DEV = "http://dev";
 		const sent: string[] = [];
 		const send = async (url: string) => {
 			sent.push(url);
@@ -92,7 +92,7 @@ describe("artifact", () => {
 	});
 
 	it("falls back to the log when the server cannot be reached", async () => {
-		deps.proc.env.ARBOR_DEV = "http://dev";
+		deps.proc.env.SPLATES_DEV = "http://dev";
 		const send = async () => {
 			throw new Error("refused");
 		};
@@ -109,7 +109,7 @@ describe("artifact", () => {
 		await expect(conversationOf(deps.service, "")).toBail("usage");
 		await expect(conversationOf(deps.service, "nope")).toBail("not_found");
 		expect(await conversationOf(deps.service, ID)).toBe(ID);
-		deps.proc.env.ARBOR_CONVERSATION = ID;
+		deps.proc.env.SPLATES_CONVERSATION = ID;
 		expect(await conversationOf(deps.service, "")).toBe(ID);
 	});
 });

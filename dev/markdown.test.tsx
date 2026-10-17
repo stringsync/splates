@@ -73,10 +73,10 @@ describe("Markdown", () => {
 
 	it("renders inline code, bold and italics inside a line", () => {
 		const { container } = render(
-			<Markdown text={"run `arbor list` for **every** *task*\n"} />,
+			<Markdown text={"run `splates list` for **every** *task*\n"} />,
 		);
 
-		expect(container.querySelector("code")?.textContent).toBe("arbor list");
+		expect(container.querySelector("code")?.textContent).toBe("splates list");
 		expect(container.querySelector("strong")?.textContent).toBe("every");
 		expect(container.querySelector("em")?.textContent).toBe("task");
 	});
@@ -123,7 +123,7 @@ describe("Markdown", () => {
 		);
 	});
 
-	it("names an image by absolute path once the server says arbor holds no such file", () => {
+	it("names an image by absolute path once the server says splates holds no such file", () => {
 		const { container } = render(
 			<Markdown text={"![the header](/abs/a.png)"} />,
 		);

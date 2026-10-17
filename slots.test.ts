@@ -14,17 +14,17 @@ describe("Slots", () => {
 		await fs.mkdir("/trees/one");
 		await fs.mkdir("/trees/two");
 		await fs.mkdir("/trees/three");
-		const slots = new Slots("/home/.arbor/slots.json", {
+		const slots = new Slots("/home/.splates/slots.json", {
 			fs,
 			ps,
 			lock: new MemoryLock(),
 			pool,
 		});
-		// Leaves a server running on `word`, as `arbor dev --slot` does, which
+		// Leaves a server running on `word`, as `splates dev --slot` does, which
 		// a SIGTERM ends.
 		const serve = async (word: string, pid: number) => {
-			await fs.mkdir(`/home/.arbor/slots/${word}`);
-			await fs.write(`/home/.arbor/slots/${word}/${SERVER_PID}`, String(pid));
+			await fs.mkdir(`/home/.splates/slots/${word}`);
+			await fs.write(`/home/.splates/slots/${word}/${SERVER_PID}`, String(pid));
 			ps.setProcesses([
 				{
 					pid,
@@ -40,9 +40,9 @@ describe("Slots", () => {
 				return 0;
 			});
 		};
-		// An arbor repository's main tree, which every agent of it shares.
+		// A splates repository's main tree, which every agent of it shares.
 		const main = async (tree: string) => {
-			await fs.mkdir(`${tree}/.git/arbor`);
+			await fs.mkdir(`${tree}/.git/splates`);
 		};
 		return { fs, ps, slots, serve, main };
 	};
@@ -105,7 +105,7 @@ describe("Slots", () => {
 		expect((await slots.claim("/trees/two")).word).toBe("cat");
 	});
 
-	it("takes a word back from an arbor repository's main tree", async () => {
+	it("takes a word back from a splates repository's main tree", async () => {
 		const { slots, main } = await machine();
 		await slots.claim("/trees/one");
 		await main("/trees/one");

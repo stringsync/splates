@@ -84,7 +84,7 @@ export class AgentConnection {
 	private follows = false;
 	/**
 	 * The turn the agent started for a steer, as Codex does when its turn
-	 * ended on the way: when arbor heard of it, in ms, and whether the
+	 * ended on the way: when splates heard of it, in ms, and whether the
 	 * session list has said since that it runs.
 	 */
 	private following: { since: number; ran: boolean } | null = null;
@@ -184,23 +184,23 @@ export class AgentConnection {
 				}
 				cwd = original;
 			}
-			// The agent's `arbor` finds its conversation, and the server, in its
+			// The agent's `splates` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
 			// working a task another conversation added also finds that one, so
-			// its `arbor add --agent` refuses: agents start agents one level deep.
+			// its `splates add --agent` refuses: agents start agents one level deep.
 			// One a lane's orchestrator started finds it as the one that started
 			// it, not one it reports to: it answers to the person.
 			const { id, lastCaller, startedBy } = host.state;
 			// Reset the log cursor so a replacement process can acknowledge its own frames.
 			host.log.heard(0);
 			process = this.deps.launcher.launch(agent.argv, cwd, {
-				ARBOR_CONVERSATION: id,
+				SPLATES_CONVERSATION: id,
 				...(startedBy !== null
-					? { ARBOR_STARTED_BY: startedBy }
+					? { SPLATES_STARTED_BY: startedBy }
 					: lastCaller === null || lastCaller === id
 						? {}
-						: { ARBOR_CALLER: lastCaller }),
-				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
+						: { SPLATES_CALLER: lastCaller }),
+				...(this.deps.url === null ? {} : { SPLATES_DEV: this.deps.url }),
 			});
 			const launched = process;
 			void launched.exited.then(started, started);
@@ -647,7 +647,7 @@ export class AgentConnection {
 		// An agent that starts a turn of its own rather than answer
 		// `promptRequired`, as Codex does, is followed until its session list
 		// says the turn ended; one that says that neither there nor as Claude
-		// does is steered no more: arbor would show it idle while it works,
+		// does is steered no more: splates would show it idle while it works,
 		// and put the next prompt on top of that turn.
 		if (outcome === "startedNewTurn") {
 			if (this.follows) {
@@ -674,7 +674,7 @@ export class AgentConnection {
 	 * Ends the turn being followed once the session list says it no longer
 	 * runs. A row read before it started can come after `startedNewTurn`,
 	 * saying the turn before it ended: it counts only once a row has said the
-	 * turn runs, or when it ended past the second arbor heard it start in,
+	 * turn runs, or when it ended past the second splates heard it start in,
 	 * since the agent says when in whole seconds.
 	 */
 	private listed(params: Record<string, unknown>): void {

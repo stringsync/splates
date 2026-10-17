@@ -72,7 +72,7 @@ export function ActionBar({
 	const review = useContext(ReviewChanges);
 	const wide = useWide();
 	const remove = useRemove(task);
-	// An arbor dev agent on the task asks its questions in its conversation,
+	// A splates dev agent on the task asks its questions in its conversation,
 	// so only an external agent's need answering from here.
 	const answer: Action | null =
 		open.length === 0 ||
@@ -300,7 +300,7 @@ function ActionItem({ action }: { action: Action }): JSX.Element {
 }
 
 /**
- * Removes the task as `arbor remove` does, asking first while an agent works
+ * Removes the task as `splates remove` does, asking first while an agent works
  * on it (a conversation here mid-turn, which stops and carries on in the main
  * tree, or an external agent holding its lease, which the page cannot stop) or
  * while it has commits its base lacks, which go with its branch: the action,
@@ -346,7 +346,7 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 								{working > 0
 									? `${working === 1 ? "An agent is" : `${working} agents are`} still working on it. Removing stops ${working === 1 ? "it" : "them"} and moves ${working === 1 ? "its conversation" : "their conversations"} to the main tree. `
 									: external
-										? "An agent outside the page is working on it, which the page cannot stop: its next arbor command finds the task gone. "
+										? "An agent outside the page is working on it, which the page cannot stop: its next splates command finds the task gone. "
 										: ""}
 								{ahead > 0
 									? `Its ${ahead} commit${ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
@@ -368,7 +368,7 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	};
 }
 
-/** Escalated with its merge attempts spent: what `arbor retry` is for. */
+/** Escalated with its merge attempts spent: what `splates retry` is for. */
 function outOfMerges(task: Details): boolean {
 	return (
 		task.status === "escalated" &&
@@ -378,7 +378,7 @@ function outOfMerges(task: Details): boolean {
 }
 
 /**
- * Another round of merge attempts for a task out of them, as `arbor retry`
+ * Another round of merge attempts for a task out of them, as `splates retry`
  * gives: its action for the action bar, and the line under the bar on what
  * it gives, or once granted, that the task is working again and what picks
  * it up. Nothing while the task has merges left.
@@ -416,12 +416,12 @@ export function useRetry(task: Details): {
 				<p className="text-muted-foreground">
 					{state === "retried" ? (
 						<>
-							Working again: <code>arbor claim {task.task}</code> picks it up.
+							Working again: <code>splates claim {task.task}</code> picks it up.
 						</>
 					) : (
 						<>
 							Retry gives another {task.mergeAttemptLimit} merge attempts, as{" "}
-							<code>arbor retry</code> does.
+							<code>splates retry</code> does.
 						</>
 					)}
 				</p>

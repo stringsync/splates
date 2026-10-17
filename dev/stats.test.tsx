@@ -159,7 +159,7 @@ describe("StatsPage", () => {
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
 		const row = await waitFor(() =>
 			page.getByRole("cell", {
-				name: "Writes ARBOR.md before the first edit",
+				name: "Writes SPLATES.md before the first edit",
 			}),
 		);
 
@@ -173,7 +173,11 @@ describe("StatsPage", () => {
 			Array.from(row.parentElement?.querySelectorAll("td") ?? []).map(
 				(each) => each.textContent,
 			),
-		).toEqual(["Writes ARBOR.md before the first edit", "50% of 2", "\u2013"]);
+		).toEqual([
+			"Writes SPLATES.md before the first edit",
+			"50% of 2",
+			"\u2013",
+		]);
 	});
 
 	// scry-ignore simple-test-setup: older than this task, which only renamed a check id

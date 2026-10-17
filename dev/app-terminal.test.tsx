@@ -528,7 +528,7 @@ describe("App's terminal", () => {
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
 	});
 
-	it("comes back to the same shell once its socket goes short of an exit, as while arbor dev restarts", async () => {
+	it("comes back to the same shell once its socket goes short of an exit, as while splates dev restarts", async () => {
 		const view = await reading();
 		await press(TOGGLE);
 		const [shell] = testing.shells;

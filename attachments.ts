@@ -13,7 +13,7 @@ export interface Attachment {
 /**
  * The folder of files that belong to a todo or a task: todo 7's beside its
  * record, in `todos/7/`, and task `login`'s in `tasks/login/`.
- * Under `.git/arbor`, so nothing here is ever committed and every tree can
+ * Under `.git/splates`, so nothing here is ever committed and every tree can
  * open what it holds.
  */
 export class Attachments {

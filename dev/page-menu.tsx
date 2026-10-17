@@ -31,7 +31,7 @@ export function usePageMenu({
 	onSettings,
 }: {
 	snapshot: Snapshot | null;
-	/** Why a newer arbor has the server refusing, or null. */
+	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
 	offline: boolean;
 	onSettings: () => void;
@@ -62,7 +62,7 @@ export interface PageMenu {
 	/** How hard the machine is working, or null before it has said. */
 	machine: MachineStatus | null;
 	items: ReactNode;
-	/** Whether a restart would update arbor. */
+	/** Whether a restart would update splates. */
 	dot: boolean;
 }
 

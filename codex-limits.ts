@@ -53,7 +53,9 @@ export async function codexLimits(deps: {
 		send({
 			id: 1,
 			method: "initialize",
-			params: { clientInfo: { name: "arbor", title: "arbor", version: "1" } },
+			params: {
+				clientInfo: { name: "splates", title: "splates", version: "1" },
+			},
 		});
 		const decoder = new TextDecoder();
 		let buffered = "";

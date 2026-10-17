@@ -11,8 +11,8 @@ export function isEscalation(event: Event): event is Escalated {
 
 /**
  * What each action's event says beyond what every event does, keyed by the
- * action as `arbor log` names it. An action with nothing of its own yet maps
- * to `None`: each slice of the Arbor events lane fills in its command's.
+ * action as `splates log` names it. An action with nothing of its own yet maps
+ * to `None`: each slice of the Splates events lane fills in its command's.
  */
 export interface Facts {
 	add: {
@@ -34,10 +34,10 @@ export interface Facts {
 		escalated: boolean;
 		/**
 		 * Whether the agent claiming is the one the task was handed to with
-		 * `arbor handoff`, taking it over.
+		 * `splates handoff`, taking it over.
 		 */
 		tookOver: boolean;
-		/** What its `ARBOR.md` says done means, as markdown, or "" for nothing yet. */
+		/** What its `SPLATES.md` says done means, as markdown, or "" for nothing yet. */
 		goal: string;
 	};
 	tell: {
@@ -280,7 +280,7 @@ void listed;
 /**
  * Whether `event` carries every fact its action records now. One that went
  * through before its action recorded them all does not, and nor does one
- * logged by a newer arbor for an action this one does not know.
+ * logged by a newer splates for an action this one does not know.
  */
 export function isCurrent(event: Event): boolean {
 	if (event.reason !== null) {
@@ -301,7 +301,7 @@ interface Common<A extends Action> {
 	/** The refusal reason, or null when the command succeeded. */
 	reason: string | null;
 	/**
-	 * The `arbor dev` conversation that ran it, so the page can show it there,
+	 * The `splates dev` conversation that ran it, so the page can show it there,
 	 * or null for an external agent or the page itself.
 	 */
 	conversation: string | null;

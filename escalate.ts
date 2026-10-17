@@ -3,7 +3,7 @@ import type { Fs, Lock } from "webappwiz/system";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, questions, ready, unfinished, whatIsLeft } from "./plan";
+import { Plans, questions, ready, unfinished, whatIsLeft } from "./plan";
 import type { Escalation } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -54,14 +54,14 @@ export async function escalate(
 		fail("not_found", `no state file for '${name}'`, { task: name });
 	}
 
-	const plan = await fs.read(`${found.path}/${PLAN_FILE}`).catch(() => "");
+	const plan = (await new Plans(fs).read(found.path)) ?? "";
 	if (review) {
 		// A review is the one thing left: approve it and the task lands.
 		const left = unfinished(plan);
 		if (!ready(left)) {
 			fail(
 				"blocked",
-				`'${name}' is not ready to merge: ${whatIsLeft(left)}. Escalate without --review to ask the questions, and finish or \`arbor todo add\` the steps, then ask for the review`,
+				`'${name}' is not ready to merge: ${whatIsLeft(left)}. Escalate without --review to ask the questions, and finish or \`splates todo add\` the steps, then ask for the review`,
 				{ task: name, blocked: left.questions, steps: left.steps },
 			);
 		}

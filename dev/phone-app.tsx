@@ -49,7 +49,7 @@ export function PhoneApp({
 	offline: boolean;
 	/** The page shown, or what says it is on its way. */
 	body: ReactNode;
-	/** Whether `arbor dev` holds conversations. */
+	/** Whether `splates dev` holds conversations. */
 	available: boolean;
 	/** The agents waiting on you. */
 	waiting: number;

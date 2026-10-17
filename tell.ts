@@ -10,8 +10,8 @@ import type { WorktreeService } from "./worktree-service";
 type Send = (url: string, init: RequestInit) => Promise<Response>;
 
 /**
- * The two ends of a task one conversation handed to an agent with `arbor add
- * --agent`: the caller that handed it out, and the conversation `arbor dev`
+ * The two ends of a task one conversation handed to an agent with `splates add
+ * --agent`: the caller that handed it out, and the conversation `splates dev`
  * started for the agent. Null for any other task, which answers to the user
  * alone.
  */
@@ -44,12 +44,12 @@ export async function tell(
 	text: string,
 	{ stop = false }: { stop?: boolean } = {},
 ): Promise<string> {
-	const url = ps.env("ARBOR_DEV");
-	const id = ps.env("ARBOR_CONVERSATION");
+	const url = ps.env("SPLATES_DEV");
+	const id = ps.env("SPLATES_CONVERSATION");
 	if (url === undefined || id === undefined) {
 		fail(
 			"usage",
-			"only an agent `arbor dev` started can tell another: outside it, say it to your own subagent",
+			"only an agent `splates dev` started can tell another: outside it, say it to your own subagent",
 			{ task },
 		);
 	}
@@ -57,7 +57,7 @@ export async function tell(
 	if (worktree.state === null) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor list\` to see what there is`,
+			`no task '${task}': run \`splates list\` to see what there is`,
 			{ task },
 		);
 	}
@@ -65,7 +65,7 @@ export async function tell(
 	if (ends === null || ends.caller !== id) {
 		fail(
 			"usage",
-			`'${task}' was not handed out by this conversation: only the one that ran \`arbor add ${task} --agent\` tells its agent anything`,
+			`'${task}' was not handed out by this conversation: only the one that ran \`splates add ${task} --agent\` tells its agent anything`,
 			{ task },
 		);
 	}
@@ -81,7 +81,7 @@ export async function tell(
 	if (!response.ok) {
 		fail(
 			"not_found",
-			`arbor dev did not pass it on: ${response.status} ${await response.text()}`,
+			`splates dev did not pass it on: ${response.status} ${await response.text()}`,
 			{ task },
 		);
 	}
@@ -90,7 +90,7 @@ export async function tell(
 
 /**
  * Whether the agent at work on `worktree` answers to the conversation that
- * handed it on, as after `arbor handoff --relay`; a handoff recorded before
+ * handed it on, as after `splates handoff --relay`; a handoff recorded before
  * `relay` was kept always did.
  */
 function relays(worktree: Worktree): boolean {
@@ -103,9 +103,9 @@ function relays(worktree: Worktree): boolean {
 
 /**
  * Tells the conversation that handed `worktree` out that the task stopped,
- * escalated, merged or removed, with `[ARBOR REPORT <task>]`, when its agent
+ * escalated, merged or removed, with `[SPLATES REPORT <task>]`, when its agent
  * answers to that conversation, or that conversation is another project's. Run before the record
- * goes, by the command that stops it. Outside `arbor dev`, or for a task
+ * goes, by the command that stops it. Outside `splates dev`, or for a task
  * nobody handed out, it says nothing; a server that cannot be reached is
  * worth a line, never a failure, since the command has done its work.
  */
@@ -125,18 +125,18 @@ export async function reportToCaller(
 	},
 	worktree: Worktree,
 ): Promise<void> {
-	const url = ps.env("ARBOR_DEV");
+	const url = ps.env("SPLATES_DEV");
 	const ends = handOff(worktree);
 	// The caller stopping a task it handed out already knows.
 	if (
 		url === undefined ||
 		ends === null ||
-		ends.caller === ps.env("ARBOR_CONVERSATION")
+		ends.caller === ps.env("SPLATES_CONVERSATION")
 	) {
 		return;
 	}
 	const here = await service.holds(ends.caller);
-	// A lane's orchestrator here hears of its todos from `arbor dev` instead;
+	// A lane's orchestrator here hears of its todos from `splates dev` instead;
 	// one of another project's page has no todo here to hear of.
 	if (here && !relays(worktree)) {
 		return;
@@ -155,12 +155,12 @@ export async function reportToCaller(
 		);
 		if (!response.ok) {
 			log.error(
-				`arbor dev did not tell ${ends.caller} that '${worktree.task}' stopped: ${response.status}`,
+				`splates dev did not tell ${ends.caller} that '${worktree.task}' stopped: ${response.status}`,
 			);
 		}
 	} catch (error) {
 		log.error(
-			`arbor dev at ${url} could not be told that '${worktree.task}' stopped: ${error instanceof Error ? error.message : String(error)}`,
+			`splates dev at ${url} could not be told that '${worktree.task}' stopped: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 }

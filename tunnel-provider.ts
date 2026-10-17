@@ -12,9 +12,9 @@ export interface TunnelRoute {
 }
 
 /**
- * TunnelProvider is the seam onto whatever puts the `arbor dev` page on a
+ * TunnelProvider is the seam onto whatever puts the `splates dev` page on a
  * public host name: `cloudflared` by default, or any tunnel a repo's
- * `arbor.config.ts` names as `tunnel`:
+ * `splates.config.ts` names as `tunnel`:
  *
  * ```ts
  * export default { tunnel: new MyTunnel() } satisfies ConfigFile;

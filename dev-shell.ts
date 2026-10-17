@@ -14,7 +14,7 @@ export const MAX_SIZE = 1000;
 
 /**
  * How long a keyed shell stays once its page's socket goes, for the page to
- * come back to it: through a reload, or a restart of `arbor dev`.
+ * come back to it: through a reload, or a restart of `splates dev`.
  */
 export const TERMINAL_GRACE = Duration.mins(2);
 
@@ -45,7 +45,7 @@ export interface ShellHost {
 	processes(): Promise<ProcessEntry[]>;
 }
 
-/** A shell handed to the next run of `arbor dev`, as `coordinator.json` keeps it. */
+/** A shell handed to the next run of `splates dev`, as `coordinator.json` keeps it. */
 export interface KeptShell {
 	key: string;
 	handle: ProcessHandle;
@@ -54,7 +54,7 @@ export interface KeptShell {
 /**
  * One shell the server runs for a page's terminal, by its key: the page's
  * socket shows it, and may go and come back, through a reload or a restart
- * of `arbor dev`, the worker redrawing the screen for the one that comes
+ * of `splates dev`, the worker redrawing the screen for the one that comes
  * back. One with no key ends with its socket; one with a key stays
  * `TERMINAL_GRACE` after it, or until the page says it is closing it.
  */

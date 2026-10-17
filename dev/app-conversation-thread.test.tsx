@@ -127,7 +127,7 @@ describe("App's conversation thread", () => {
 
 	it("leaves a reply unstamped while it is still being written", async () => {
 		localStorage.setItem(
-			"arbor.settings",
+			"splates.settings",
 			JSON.stringify({ "conversation.timestamps": true }),
 		);
 		const view = await testing.openConversations([
@@ -375,7 +375,7 @@ describe("App's conversation thread", () => {
 		).toBe("true");
 	});
 
-	it("says arbor stopped an agent left idle, and what wakes it", async () => {
+	it("says splates stopped an agent left idle, and what wakes it", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "stopped",

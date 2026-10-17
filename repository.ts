@@ -10,10 +10,17 @@ import { Format } from "./format";
 import { Git } from "./git";
 import { heavyJobsOfMachine } from "./heavy";
 import { Journal } from "./journal";
+import {
+	LEGACY_DIR,
+	moveLegacyDir,
+	movePlan,
+	unmigrated,
+} from "./legacy-names";
 import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
+import { PLAN_FILE, Plans } from "./plan";
 import { Projects, type Reach, reaches } from "./projects";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 import { Shell } from "./shell";
 import { Slots } from "./slots";
 import { Todos } from "./todos";
@@ -21,10 +28,10 @@ import { WorktreeService } from "./worktree-service";
 
 /** What a command gets to work with, once there is a repository to work in. */
 export interface Repository {
-	/** Where arbor keeps its records: `.git/arbor`, shared by every worktree. */
-	arborDir: string;
+	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
+	splatesDir: string;
 	config: Config;
-	/** Checked before the command runs, so its records are in this arbor's format. */
+	/** Checked before the command runs, so its records are in this splates's format. */
 	format: Format;
 	git: Git;
 	service: WorktreeService;
@@ -34,7 +41,7 @@ export interface Repository {
 	todos: Todos;
 	/** How each task on this machine ended, which a merge reads its findings from. */
 	outcomes: Outcomes;
-	/** Every arbor project on this machine, which `arbor init` joins this one to. */
+	/** Every splates project on this machine, which `splates init` joins this one to. */
 	projects: Projects;
 	/** The creds agents ask for, and the stores they are kept in. */
 	creds: Creds;
@@ -44,17 +51,17 @@ export interface Repository {
 	heavy: HeavyCap;
 }
 
-/** How `repository` treats records in an older format than this arbor's. */
+/** How `repository` treats records in an older format than this splates's. */
 export interface RepositoryOptions {
 	/**
-	 * Brings them forward before the action runs. Only `arbor dev` does: a
+	 * Brings them forward before the action runs. Only `splates dev` does: a
 	 * migration is the server's to run, with its sessions settled, so every
 	 * other command refuses them until it has.
 	 */
 	migrates?: boolean;
 	/**
 	 * Sets up the records of a repository that has none first, as only
-	 * `arbor init` does: every other command refuses one.
+	 * `splates init` does: every other command refuses one.
 	 */
 	creates?: boolean;
 	/** Where to look for the repository; the working directory by default. */
@@ -64,7 +71,7 @@ export interface RepositoryOptions {
 /**
  * Runs the action against the repository `cwd` sits in, or the registered
  * project `--project` names, and refuses to run it at all when that is not
- * a repository, its records are in a format this arbor does not read, or
+ * a repository, its records are in a format this splates does not read, or
  * the command is run from another project that has not been granted what
  * it `needs` there.
  */
@@ -102,7 +109,7 @@ export interface Reached {
 
 /**
  * The other project a command is run from, refusing one that has not been
- * granted what it `needs` here. The project acting is the one whose `arbor dev` conversation runs the
+ * granted what it `needs` here. The project acting is the one whose `splates dev` conversation runs the
  * command, so an agent that `cd`s here is checked as one that names this
  * project with `--project`; else, for an agent outside the page, the one
  * `cwd` sits in.
@@ -115,8 +122,11 @@ async function checkReach(
 	const from =
 		(await service.conversation()) !== undefined
 			? git.root
-			: ((await conversationHome(fs, ps.env("ARBOR_CONVERSATION"), projects)) ??
-				(project === undefined ? git.root : await mainTree(ps)));
+			: ((await conversationHome(
+					fs,
+					ps.env("SPLATES_CONVERSATION"),
+					projects,
+				)) ?? (project === undefined ? git.root : await mainTree(ps)));
 	if (from === null || from === git.root) {
 		return null;
 	}
@@ -136,7 +146,7 @@ async function checkReach(
 			"not_granted",
 			[
 				`${called(git.root)} lets ${called(from)} ${reach === "read" ? "only read" : "only add todos"} here, and this needs ${needs}.`,
-				`Ask the user whether it may: once they say so, \`arbor projects grant ${called(from)} ${needs}\` run in ${git.root} grants it.`,
+				`Ask the user whether it may: once they say so, \`splates projects grant ${called(from)} ${needs}\` run in ${git.root} grants it.`,
 			].join("\n"),
 			{ from: called(from), to: called(git.root), reach, needs },
 		);
@@ -145,7 +155,7 @@ async function checkReach(
 }
 
 /**
- * The main tree of the registered project whose `arbor dev` conversation
+ * The main tree of the registered project whose `splates dev` conversation
  * `id` is, or null for one of none.
  */
 async function conversationHome(
@@ -157,7 +167,11 @@ async function conversationHome(
 		return null;
 	}
 	for (const each of await projects.list()) {
-		if (await fs.exists(`${each.root}/.git/arbor/conversations/${id}.jsonl`)) {
+		if (
+			await fs.exists(
+				`${unmigrated(`${each.root}/.git/splates`, `${each.root}/.git/${LEGACY_DIR}`)}/conversations/${id}.jsonl`,
+			)
+		) {
 			return each.root;
 		}
 	}
@@ -179,7 +193,7 @@ async function mainTree(ps: Ps): Promise<string | null> {
 
 /**
  * What a command works with in the repository `at` sits in, the working
- * directory by default: what `repository` hands an action, and what `arbor
+ * directory by default: what `repository` hands an action, and what `splates
  * dev` opens each project it serves with. Refuses what `repository` does.
  */
 export async function openRepository(
@@ -208,14 +222,20 @@ export async function openRepository(
 	// Every worktree shares one `.git`, so state kept under it is visible to
 	// every agent and is inherently untracked.
 	const gitDir = stdout.trim();
-	const arborDir = `${gitDir}/arbor`;
+	if (migrates) {
+		await moveLegacyDir(`${gitDir}/${LEGACY_DIR}`, `${gitDir}/splates`, {
+			fs,
+			log,
+		});
+	}
+	const splatesDir = unmigrated(`${gitDir}/splates`, `${gitDir}/${LEGACY_DIR}`);
 
 	const git = new Git(dirname(gitDir), { ps, fs });
 	const config = await loadConfig(dirname(gitDir), { fs, git });
 	// Before anything reads or makes a record.
-	const format = new Format(arborDir, {
+	const format = new Format(splatesDir, {
 		fs,
-		lock: new FileLock(`${arborDir}/format.lock`, {
+		lock: new FileLock(`${splatesDir}/format.lock`, {
 			fs,
 			ps,
 			log,
@@ -228,17 +248,39 @@ export async function openRepository(
 	}
 	await (migrates ? format.migrate() : format.check());
 	// The user's, shared by every repository on this machine: the registry,
-	// which only `arbor init` writes this one into, and how each task ended.
-	// `ARBOR_HOME` moves it, as the tests do to keep theirs out of the user's.
-	const registry = arborHome(ps);
+	// which only `splates init` writes this one into, and how each task ended.
+	// `SPLATES_HOME` moves it, as the tests do to keep theirs out of the user's.
+	const registry = splatesHome(ps);
 	const outcomes = new Outcomes(`${registry}/outcomes.jsonl`, fs);
-	const service = new WorktreeService(git, config, arborDir, {
+	const service = new WorktreeService(git, config, splatesDir, {
 		fs,
 		ps,
 		outcomes,
 		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
 	});
 	await service.init();
+	if (migrates) {
+		for (const worktree of await service.list()) {
+			await movePlan(worktree.path, PLAN_FILE, fs);
+		}
+		await new Plans(fs).exclude(gitDir);
+	}
+
+	const creds = await Creds.open(
+		splatesDir,
+		git.root,
+		new FileLock(`${splatesDir}/creds.lock`, {
+			fs,
+			ps,
+			log,
+			stalenessMs: config.leaseStalenessMs,
+		}),
+		secrets,
+		{ fs },
+	);
+	if (migrates) {
+		await creds.copyLegacy();
+	}
 
 	const projects = Projects.ofMachine({ fs, ps, log }, config.leaseStalenessMs);
 
@@ -246,38 +288,27 @@ export async function openRepository(
 		projects,
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
-		creds: await Creds.open(
-			arborDir,
-			git.root,
-			new FileLock(`${arborDir}/creds.lock`, {
-				fs,
-				ps,
-				log,
-				stalenessMs: config.leaseStalenessMs,
-			}),
-			secrets,
-			{ fs },
-		),
-		arborDir,
+		creds,
+		splatesDir,
 		config,
 		format,
 		git,
 		service,
 		outcomes,
-		lock: new FileLock(`${arborDir}/merge.lock`, {
+		lock: new FileLock(`${splatesDir}/merge.lock`, {
 			fs,
 			ps,
 			log,
 			stalenessMs: config.leaseStalenessMs,
 		}),
 		shell: new Shell({ ps }),
-		journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
+		journal: new Journal(`${splatesDir}/log.jsonl`, config.logCapacity, {
 			fs,
 			ps,
 		}),
 		todos: new Todos(
-			`${arborDir}/todos`,
-			new FileLock(`${arborDir}/todos.lock`, {
+			`${splatesDir}/todos`,
+			new FileLock(`${splatesDir}/todos.lock`, {
 				fs,
 				ps,
 				log,

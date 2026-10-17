@@ -8,7 +8,7 @@ import {
 	type SetupStep,
 } from "./setup";
 
-const HOME = "/home/.arbor";
+const HOME = "/home/.splates";
 
 /** A step whose check answers whatever `done` holds for its id. */
 function fake(

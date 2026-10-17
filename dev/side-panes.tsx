@@ -73,7 +73,7 @@ export function useSidePanes({
 }: {
 	snapshot: Snapshot | null;
 	conversations: ConversationState[];
-	/** Whether `arbor dev` holds conversations. */
+	/** Whether `splates dev` holds conversations. */
 	available: boolean;
 	page: Page;
 	/** The conversation open, by its address, or null. */

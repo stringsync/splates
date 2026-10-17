@@ -37,7 +37,7 @@ import { serialize } from "./composer-chips";
 import { TOUCH } from "./hooks/use-touch";
 
 /**
- * Makes each `[ARBOR ...]` directive typed or pasted into the composer's
+ * Makes each `[SPLATES ...]` directive typed or pasted into the composer's
  * editor a chip once its `]` closes it, the caret after it if it was there.
  */
 export function TypedDirectivesPlugin(): null {

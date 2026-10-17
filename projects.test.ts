@@ -4,7 +4,7 @@ import { Projects } from "./projects";
 import { Testing } from "./testing";
 
 describe("Projects", () => {
-	it("registers a repository once, in the order arbor first ran in each", async () => {
+	it("registers a repository once, in the order splates first ran in each", async () => {
 		await using deps = await Testing.open({ init: false });
 		const other = `${deps.root}-other`;
 		await deps.fs.mkdir(`${other}/.git`);
@@ -57,11 +57,11 @@ describe("Projects", () => {
 		expect((await deps.projects.focused())?.root).toBe(second);
 	});
 
-	it("reads the single focused root an earlier arbor wrote", async () => {
+	it("reads the single focused root an earlier splates wrote", async () => {
 		await using deps = await Testing.open({ init: false });
 		const other = `${deps.root}-other`;
 		await deps.fs.mkdir(`${other}/.git`);
-		await deps.fs.mkdir(deps.arborHome);
+		await deps.fs.mkdir(deps.splatesHome);
 		await deps.fs.write(
 			deps.projects.path,
 			JSON.stringify({
@@ -161,7 +161,7 @@ describe("Projects", () => {
 		});
 	});
 
-	it("refuses a registry a newer arbor wrote", async () => {
+	it("refuses a registry a newer splates wrote", async () => {
 		await using deps = await Testing.open({ init: false });
 		await deps.fs.mkdir(deps.projects.path.replace(/\/[^/]+$/, ""));
 		await deps.fs.write(
@@ -170,7 +170,7 @@ describe("Projects", () => {
 		);
 
 		await expect(deps.projects.register(deps.root)).toBail("outdated", {
-			message: ["written by a newer arbor", "bunx @webappwiz/arbor@latest"],
+			message: ["written by a newer splates", "bunx splates@latest"],
 		});
 	});
 });

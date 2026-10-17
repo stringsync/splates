@@ -65,19 +65,19 @@ export interface ConversationDeps {
 	 */
 	// Agents launched through `bunx` at once race in its install, and most die.
 	starting: Lock;
-	/** Where `arbor dev` answers, for the agent's CLI to tell it things. */
+	/** Where `splates dev` answers, for the agent's CLI to tell it things. */
 	url: string | null;
 	/** What watches the agent's commands; null to leave them be. */
 	watch: Watch | null;
 	/** The main tree, where a conversation carries on once its worktree is gone. */
 	root: string | null;
-	/** The arbor projects on this machine, for `#slug`; null for none. */
+	/** The splates projects on this machine, for `#slug`; null for none. */
 	projects: ProjectRoster | null;
 	/** The MCP servers each session is offered, beyond the agent's own; null for none. */
 	servers: SessionServers | null;
 }
 
-/** The arbor projects on this machine, as `Projects` lists them. */
+/** The splates projects on this machine, as `Projects` lists them. */
 export interface ProjectRoster {
 	/** Each project, flagged `gone` when its repository is no longer there. */
 	list(): Promise<(ProjectRef & { gone: boolean })[]>;
@@ -85,7 +85,7 @@ export interface ProjectRoster {
 	reach(from: string, to: string): Promise<Reach>;
 }
 
-/** An arbor project a prompt can name as `#slug`. */
+/** A splates project a prompt can name as `#slug`. */
 export interface ProjectRef {
 	slug: string;
 	/** Its main tree's root. */

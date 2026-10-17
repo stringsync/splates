@@ -244,8 +244,8 @@ export function OpenCodeModelControls(): JSX.Element {
 					</a>
 					<p className="text-sm text-muted-foreground">
 						In your existing Go/Go Plus account, turn Use balance off, then
-						return and confirm below. Arbor cannot inspect this billing setting
-						through ACP.
+						return and confirm below. Splates cannot inspect this billing
+						setting through ACP.
 					</p>
 					<Field orientation="horizontal">
 						<Switch

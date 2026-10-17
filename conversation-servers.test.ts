@@ -23,7 +23,7 @@ describe("Conversation servers", () => {
 	let conversations: Conversations;
 
 	const made = () =>
-		new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+		new Conversations("/repo/.git/splates/conversations", [AGENT], {
 			fs,
 			timer,
 			clock,
@@ -39,7 +39,7 @@ describe("Conversation servers", () => {
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		await fs.mkdir("/repo-arbor/login");
+		await fs.mkdir("/repo-splates/login");
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-16T10:00:00Z"));
 		agent = new FakeAgent();
@@ -52,7 +52,7 @@ describe("Conversation servers", () => {
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
-			cwd: "/repo-arbor/login",
+			cwd: "/repo-splates/login",
 		});
 		await until(conversation, "idle");
 		return conversation;

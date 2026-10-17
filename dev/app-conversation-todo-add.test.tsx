@@ -23,7 +23,7 @@ describe("App's todo add events", () => {
 		const state = turn([
 			tool({
 				id: "x1",
-				command: "arbor todo add 'Upload retries forever on a 413'",
+				command: "splates todo add 'Upload retries forever on a 413'",
 				at: second(2),
 				until: second(3),
 			}),
@@ -47,7 +47,7 @@ describe("App's todo add events", () => {
 
 	it("draws an added todo as one line naming it, and a refused add as none", async () => {
 		const lines = await waitFor(() =>
-			within(thread).getAllByRole("note", { name: "arbor" }),
+			within(thread).getAllByRole("note", { name: "splates" }),
 		);
 
 		expect(lines.map((line) => line.textContent)).toEqual([
@@ -57,7 +57,7 @@ describe("App's todo add events", () => {
 
 	it("removes the todo from its line, and puts it back with Undo", async () => {
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 
 		await act(async () =>
@@ -68,7 +68,7 @@ describe("App's todo add events", () => {
 			{ method: "DELETE" },
 		]);
 		const removed = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 		expect(removed.textContent).toBe(
 			"Removed#4 Upload retries forever on a 413Undo",
@@ -82,7 +82,7 @@ describe("App's todo add events", () => {
 			{ method: "POST" },
 		]);
 		await waitFor(() =>
-			within(within(thread).getByRole("note", { name: "arbor" })).getByRole(
+			within(within(thread).getByRole("note", { name: "splates" })).getByRole(
 				"button",
 				{ name: "Remove" },
 			),
@@ -91,7 +91,7 @@ describe("App's todo add events", () => {
 
 	it("opens the todo from its chip", async () => {
 		const line = await waitFor(() =>
-			within(thread).getByRole("note", { name: "arbor" }),
+			within(thread).getByRole("note", { name: "splates" }),
 		);
 
 		await act(async () =>

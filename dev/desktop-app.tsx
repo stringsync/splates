@@ -74,10 +74,10 @@ export function DesktopApp({
 	opening: ReactNode;
 	/** Whether a pane stands at the right, which the page leaves clear. */
 	paned: boolean;
-	/** Whether `arbor dev` holds conversations. */
+	/** Whether `splates dev` holds conversations. */
 	available: boolean;
 	snapshot: Snapshot | null;
-	/** Why a newer arbor has the server refusing, or null. */
+	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
 	offline: boolean;
 	talk: ConversationFeed;

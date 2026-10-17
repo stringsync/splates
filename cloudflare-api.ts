@@ -18,8 +18,8 @@ const Envelope = z.object({
 const PER_PAGE = 50;
 
 /**
- * The few calls `arbor tunnel setup` makes of Cloudflare's v4 API, over plain
- * `fetch` rather than the `cloudflare` SDK, which every `bunx` of arbor would
+ * The few calls `splates tunnel setup` makes of Cloudflare's v4 API, over plain
+ * `fetch` rather than the `cloudflare` SDK, which every `bunx` of splates would
  * download for some ten endpoints. Each answer's result is checked against
  * the shape the caller names, so a field that moved fails here, saying where.
  */

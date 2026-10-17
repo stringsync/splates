@@ -12,10 +12,10 @@ import type { RemoteWorker, WorkerKind } from "./remote-worker";
 import { table } from "./table";
 import type { WorkerRegistry } from "./worker-registry";
 
-/** One worker as `GET /api/workers` and `arbor worker list` give it. */
+/** One worker as `GET /api/workers` and `splates worker list` give it. */
 export interface WorkerListing {
 	id: string;
-	/** `provisioned` is for workers arbor makes itself, which do not exist yet. */
+	/** `provisioned` is for workers splates makes itself, which do not exist yet. */
 	kind: WorkerKind | "provisioned";
 	platform: string | null;
 	build: string | null;
@@ -85,9 +85,9 @@ const Listings = z.object({
 	),
 });
 
-/** What `arbor worker list` is run with. */
+/** What `splates worker list` is run with. */
 export interface ListWorkersOptions {
-	/** The `arbor dev` to ask; empty for the one this agent runs under. */
+	/** The `splates dev` to ask; empty for the one this agent runs under. */
 	dev: string;
 	json: boolean;
 	log: Logger;
@@ -96,14 +96,14 @@ export interface ListWorkersOptions {
 	wall?: WallClock;
 }
 
-/** `arbor worker list`: asks the running `arbor dev` which workers it has. */
+/** `splates worker list`: asks the running `splates dev` which workers it has. */
 export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 	const { log, ps, send = fetch, wall = new SystemWallClock() } = opts;
-	const url = opts.dev || ps.env("ARBOR_DEV");
+	const url = opts.dev || ps.env("SPLATES_DEV");
 	if (!url) {
 		fail(
 			"usage",
-			"no `arbor dev` to ask: give its URL with --dev, as in --dev http://localhost:4310",
+			"no `splates dev` to ask: give its URL with --dev, as in --dev http://localhost:4310",
 		);
 	}
 	let response: Response;
@@ -115,13 +115,13 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 	} catch (error) {
 		fail(
 			"not_found",
-			`arbor dev at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+			`splates dev at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 	if (!response.ok) {
 		fail(
 			"not_found",
-			`arbor dev at ${url} did not list its workers: ${response.status} ${await response.text()}`,
+			`splates dev at ${url} did not list its workers: ${response.status} ${await response.text()}`,
 		);
 	}
 	const listed = Listings.parse(await response.json());

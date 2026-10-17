@@ -100,7 +100,7 @@ export function stretches(text: string): Stretch[] {
 
 /**
  * A stretch of an agent's message: markdown as it was written, the questions
- * it asks the person in the arbor skill's format, its report asking them to
+ * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it
  * started lanes, a todo it proposes, a demo for the person to try, the calls

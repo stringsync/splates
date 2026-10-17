@@ -5,7 +5,7 @@ import { handoffReference, taskReference } from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Starts the agent of each task `arbor add --agent` or `arbor handoff` handed
+ * Starts the agent of each task `splates add --agent` or `splates handoff` handed
  * to one and that has none yet, in the task's tree, on the model asked for,
  * told to claim it, or to take it over for a handoff. The
  * conversation it starts goes on the record before the agent is told

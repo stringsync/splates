@@ -385,19 +385,19 @@ describe("App's report cards", () => {
 			conversation({
 				messages: [
 					message("user", "fix the header"),
-					message("user", "[ARBOR CHECKPOINT]"),
+					message("user", "[SPLATES CHECKPOINT]"),
 					message("agent", "Stopped before the tests."),
-					message("user", "[ARBOR RESUME]"),
+					message("user", "[SPLATES RESUME]"),
 					message("agent", "Starting the tests."),
-					message("user", "[ARBOR RECONNECT]"),
+					message("user", "[SPLATES RECONNECT]"),
 					message("agent", "Ready to merge."),
-					message("user", "[ARBOR MERGE]"),
+					message("user", "[SPLATES MERGE]"),
 				],
 			}),
 		]);
 
-		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
-		const lines = view.getAllByRole("note", { name: "arbor" });
+		await waitFor(() => view.getAllByRole("note", { name: "splates" }));
+		const lines = view.getAllByRole("note", { name: "splates" });
 		expect(lines.map((line) => line.textContent)).toEqual([
 			"Checkpoint",
 			"Resume",
@@ -407,7 +407,7 @@ describe("App's report cards", () => {
 		expect(lines[0]?.closest('[data-role="user"]')?.className).not.toContain(
 			"sticky",
 		);
-		expect(lines[0]?.querySelector("p")?.title).toBe("[ARBOR CHECKPOINT]");
+		expect(lines[0]?.querySelector("p")?.title).toBe("[SPLATES CHECKPOINT]");
 	});
 
 	it("keeps a checkpoint's and a resume's lines in the turn they come in, under its stuck message", async () => {
@@ -416,22 +416,22 @@ describe("App's report cards", () => {
 				messages: [
 					message("user", "fix the header"),
 					message("agent", "Looking at it."),
-					message("user", "[ARBOR CHECKPOINT]"),
+					message("user", "[SPLATES CHECKPOINT]"),
 					message("agent", "Stopped before the tests."),
-					message("user", "[ARBOR RESUME]"),
+					message("user", "[SPLATES RESUME]"),
 					message("agent", "Starting the tests."),
 					message("user", "and the footer"),
 				],
 			}),
 		]);
 
-		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
+		await waitFor(() => view.getAllByRole("note", { name: "splates" }));
 		const turns = [...document.querySelectorAll('[data-slot="aui_turn"]')];
 		expect(turns.map((turn) => turn.firstElementChild?.textContent)).toEqual([
 			expect.stringContaining("fix the header"),
 			expect.stringContaining("and the footer"),
 		]);
-		const [checkpoint, resume] = view.getAllByRole("note", { name: "arbor" });
+		const [checkpoint, resume] = view.getAllByRole("note", { name: "splates" });
 		expect(checkpoint?.closest('[data-slot="aui_turn"]')).toBe(turns[0]);
 		expect(resume?.closest('[data-slot="aui_turn"]')).toBe(turns[0]);
 	});
@@ -441,12 +441,12 @@ describe("App's report cards", () => {
 			[
 				conversation({
 					messages: [
-						message("user", "[ARBOR TODO #12]"),
+						message("user", "[SPLATES TODO #12]"),
 						message("agent", "Took it."),
-						message("user", "[ARBOR LANE 3]"),
-						message("user", "[ARBOR TASK header]"),
-						message("user", "[ARBOR HANDOFF footer]"),
-						message("user", "[ARBOR LANE untriaged]"),
+						message("user", "[SPLATES LANE 3]"),
+						message("user", "[SPLATES TASK header]"),
+						message("user", "[SPLATES HANDOFF footer]"),
+						message("user", "[SPLATES LANE untriaged]"),
 					],
 				}),
 			],
@@ -457,8 +457,8 @@ describe("App's report cards", () => {
 			},
 		);
 
-		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
-		const lines = view.getAllByRole("note", { name: "arbor" });
+		await waitFor(() => view.getAllByRole("note", { name: "splates" }));
+		const lines = view.getAllByRole("note", { name: "splates" });
 		expect(lines.map((line) => line.textContent)).toEqual([
 			"Todo#12 Retry the upload",
 			"LaneUploads",
@@ -479,12 +479,12 @@ describe("App's report cards", () => {
 	it("keeps a todo said with more as a chip", async () => {
 		const view = await testing.openConversations([
 			conversation({
-				messages: [message("user", "[ARBOR TODO #12] but skip the tests")],
+				messages: [message("user", "[SPLATES TODO #12] but skip the tests")],
 			}),
 		]);
 
 		await waitFor(() =>
-			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+			expect(view.getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
 		);
 		expect(view.queryByRole("region", { name: "take todo #12" })).toBeNull();
 	});
@@ -492,12 +492,12 @@ describe("App's report cards", () => {
 	it("keeps a checkpoint said with more as a chip", async () => {
 		const view = await testing.openConversations([
 			conversation({
-				messages: [message("user", "[ARBOR CHECKPOINT] then wait")],
+				messages: [message("user", "[SPLATES CHECKPOINT] then wait")],
 			}),
 		]);
 
 		await waitFor(() =>
-			expect(view.getByTitle("[ARBOR CHECKPOINT]")).toBeTruthy(),
+			expect(view.getByTitle("[SPLATES CHECKPOINT]")).toBeTruthy(),
 		);
 		expect(view.queryByRole("region", { name: "checkpoint" })).toBeNull();
 	});

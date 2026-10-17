@@ -7,10 +7,10 @@ import type { Projects } from "./projects";
 type Send = (url: string, init: RequestInit) => Promise<Response>;
 
 /**
- * Tells `arbor dev` that the agent in a conversation took or left a task, so
+ * Tells `splates dev` that the agent in a conversation took or left a task, so
  * the conversation follows it into that worktree, or back to the main tree.
  * An agent started from the page runs with its conversation and the server
- * in its env; any other `arbor` has neither, and says nothing. A server that
+ * in its env; any other `splates` has neither, and says nothing. A server that
  * cannot be reached is worth a line, never a failure: the task command has
  * done its work.
  */
@@ -30,8 +30,8 @@ export async function follow(
 		base?: string;
 	} = {},
 ): Promise<void> {
-	const id = ps.env("ARBOR_CONVERSATION");
-	const url = ps.env("ARBOR_DEV");
+	const id = ps.env("SPLATES_CONVERSATION");
+	const url = ps.env("SPLATES_DEV");
 	if (id === undefined || url === undefined) {
 		return;
 	}
@@ -43,19 +43,21 @@ export async function follow(
 			body: JSON.stringify({ task, from, base }),
 		});
 		if (!response.ok) {
-			log.error(`arbor dev did not move the conversation: ${response.status}`);
+			log.error(
+				`splates dev did not move the conversation: ${response.status}`,
+			);
 		}
 	} catch (error) {
 		log.error(
-			`arbor dev at ${url} could not be told of the move: ${error instanceof Error ? error.message : String(error)}`,
+			`splates dev at ${url} could not be told of the move: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 }
 
 /**
- * Asks `arbor dev` to serve the project `git` is in, so the agent a task
+ * Asks `splates dev` to serve the project `git` is in, so the agent a task
  * there was just handed to from another project starts: the server opens a
- * project only once something asks for it. Outside `arbor dev` it says
+ * project only once something asks for it. Outside `splates dev` it says
  * nothing; a server that cannot be reached is worth a line.
  */
 export async function serveProject({
@@ -71,7 +73,7 @@ export async function serveProject({
 	projects: Projects;
 	send?: Send;
 }): Promise<void> {
-	const url = ps.env("ARBOR_DEV");
+	const url = ps.env("SPLATES_DEV");
 	const slug = (await projects.list()).find(
 		(each) => each.root === git.root,
 	)?.slug;
@@ -84,11 +86,11 @@ export async function serveProject({
 			headers: { origin: url },
 		});
 		if (!response.ok) {
-			log.error(`arbor dev did not serve ${slug}: ${response.status}`);
+			log.error(`splates dev did not serve ${slug}: ${response.status}`);
 		}
 	} catch (error) {
 		log.error(
-			`arbor dev at ${url} could not be asked to serve ${slug}: ${error instanceof Error ? error.message : String(error)}`,
+			`splates dev at ${url} could not be asked to serve ${slug}: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 }

@@ -17,7 +17,7 @@ describe("dev conversations", () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{
 				launch: agent.launch,
@@ -65,7 +65,7 @@ describe("dev conversations", () => {
 			const alpha = await deps.service.find("alpha");
 			const [started] = await conversations.list();
 
-			expect(said).toEqual(["[ARBOR TASK alpha]\n\nDo the part."]);
+			expect(said).toEqual(["[SPLATES TASK alpha]\n\nDo the part."]);
 			expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
 			expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
 			expect(started?.state.task).toBe("alpha");
@@ -78,7 +78,7 @@ describe("dev conversations", () => {
 			});
 			await until(() => said.length === 2);
 
-			expect(said[1]).toBe("[ARBOR TASK beta]");
+			expect(said[1]).toBe("[SPLATES TASK beta]");
 		} finally {
 			await server.disposeAsync();
 		}
@@ -111,7 +111,7 @@ describe("dev conversations", () => {
 			told.resolve(text);
 			return "end_turn";
 		};
-		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
 		await add(deps, "alpha");
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
@@ -125,7 +125,7 @@ describe("dev conversations", () => {
 			const alpha = await deps.service.find("alpha");
 			const [started] = await conversations.list();
 
-			expect(said).toBe("[ARBOR HANDOFF alpha]\n\nThe styles.");
+			expect(said).toBe("[SPLATES HANDOFF alpha]\n\nThe styles.");
 			expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
 			expect(started?.state).toMatchObject({ task: "alpha", handedBy: null });
 			expect(alpha.state?.dispatch?.conversation).toBe(started?.id);
@@ -223,8 +223,8 @@ describe("dev conversations", () => {
 					argv: ["fake-acp"],
 					cwd: (await deps.service.find("alpha")).path,
 					env: {
-						ARBOR_CONVERSATION: id,
-						ARBOR_DEV: `http://localhost:${port}`,
+						SPLATES_CONVERSATION: id,
+						SPLATES_DEV: `http://localhost:${port}`,
 					},
 				},
 			]);
@@ -418,7 +418,7 @@ describe("dev conversations", () => {
 		await add(deps, "alpha");
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			hosts: ["repo.arbor.example"],
+			hosts: ["repo.splates.example"],
 			conversations: () => conversations,
 		});
 		try {
@@ -439,7 +439,7 @@ describe("dev conversations", () => {
 				});
 
 			// It discards work, so it answers only to this machine.
-			expect((await removeAs("repo.arbor.example")).status).toBe(403);
+			expect((await removeAs("repo.splates.example")).status).toBe(403);
 			expect((await deps.service.find("alpha")).gone).toBe(false);
 
 			expect((await removeAs(`localhost:${port}`)).status).toBe(200);
@@ -507,7 +507,7 @@ describe("dev conversations", () => {
 	it("answers only to this machine, even for a host the board lets in", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			hosts: ["repo.arbor.example"],
+			hosts: ["repo.splates.example"],
 			conversations: () => conversations,
 		});
 		try {
@@ -516,10 +516,10 @@ describe("dev conversations", () => {
 					headers: { host },
 				});
 
-			expect((await as("repo.arbor.example", "/api/snapshot")).status).toBe(
+			expect((await as("repo.splates.example", "/api/snapshot")).status).toBe(
 				200,
 			);
-			const refused = await as("repo.arbor.example", "/api/conversations");
+			const refused = await as("repo.splates.example", "/api/conversations");
 			expect(refused.status).toBe(403);
 			expect(await refused.json()).toMatchObject({
 				message:

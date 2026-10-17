@@ -5,8 +5,8 @@ import { fail } from "./exit";
 import type { OpenCodeSetup } from "./setup-opencode";
 
 /**
- * Setting arbor up on this machine: the roster's steps, which the user has
- * skipped, kept in `~/.arbor/setup.json` so a skipped step stops asking, and
+ * Setting splates up on this machine: the roster's steps, which the user has
+ * skipped, kept in `~/.splates/setup.json` so a skipped step stops asking, and
  * where each stands.
  */
 export class Setup {
@@ -31,7 +31,7 @@ export class Setup {
 				return found;
 			}
 		}
-		fail("not_found", `no setup step '${id}': \`arbor setup\` lists them`, {
+		fail("not_found", `no setup step '${id}': \`splates setup\` lists them`, {
 			step: id,
 		});
 	}
@@ -130,10 +130,10 @@ export class Setup {
 		const parsed = SKIPS.safeParse(JSON.parse(raw));
 		if (!parsed.success) {
 			throw new Error(
-				`${this.#path} is not what arbor saved: remove it to ask every step again`,
+				`${this.#path} is not what splates saved: remove it to ask every step again`,
 			);
 		}
-		// A newer arbor's: ask everything rather than misread it.
+		// A newer splates's: ask everything rather than misread it.
 		return parsed.data.format > FORMAT ? [] : parsed.data.skipped;
 	}
 
@@ -150,12 +150,12 @@ export class Setup {
 	}
 }
 
-/** What a step's check reads: this machine's arbor home and its device store. */
+/** What a step's check reads: this machine's splates home and its device store. */
 export interface SetupMachine {
 	/** Explicit checks from the optional native setup panel; never launch on page load. */
 	opencode?: OpenCodeSetup;
 	fs: Fs;
-	/** `~/.arbor`, or a test's own. */
+	/** `~/.splates`, or a test's own. */
 	home: string;
 	/** The device's secret store, where creds kept for every project live. */
 	device: SecretStore;
@@ -169,7 +169,7 @@ export interface SetupMachine {
  * stored flag, so a step undone by hand shows as left again.
  */
 export interface SetupStep {
-	/** How `arbor setup <step>` and the page name it, lowercase-with-dashes. */
+	/** How `splates setup <step>` and the page name it, lowercase-with-dashes. */
 	readonly id: string;
 	readonly title: string;
 	/** Why it matters, in a sentence. */
@@ -198,7 +198,7 @@ export interface SetupArea {
 /** A step's state: done and skipped are settled, ready can go now, waiting cannot yet. */
 export type StepStatus = "done" | "skipped" | "ready" | "waiting";
 
-/** A step as `arbor setup --json` and `GET /api/setup` give it. */
+/** A step as `splates setup --json` and `GET /api/setup` give it. */
 export interface StepProgress {
 	id: string;
 	title: string;

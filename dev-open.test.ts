@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { inTree } from "./dev-open";
 
 describe("inTree", () => {
-	const trees = { root: "/repo", worktrees: "/repo-arbor" };
+	const trees = { root: "/repo", worktrees: "/repo-splates" };
 	const there =
 		(...present: string[]) =>
 		async (path: string) =>
@@ -11,18 +11,20 @@ describe("inTree", () => {
 	it("opens a task's file inside its worktree", async () => {
 		expect(
 			await inTree(
-				"/repo-arbor/alpha/src/a.ts",
+				"/repo-splates/alpha/src/a.ts",
 				trees,
-				there("/repo-arbor/alpha"),
+				there("/repo-splates/alpha"),
 			),
 		).toEqual({
-			tree: "/repo-arbor/alpha",
-			file: "/repo-arbor/alpha/src/a.ts",
+			tree: "/repo-splates/alpha",
+			file: "/repo-splates/alpha/src/a.ts",
 		});
 	});
 
 	it("opens a gone worktree's file at its place in the main tree", async () => {
-		expect(await inTree("/repo-arbor/alpha/src/a.ts", trees, there())).toEqual({
+		expect(
+			await inTree("/repo-splates/alpha/src/a.ts", trees, there()),
+		).toEqual({
 			tree: "/repo",
 			file: "/repo/src/a.ts",
 		});

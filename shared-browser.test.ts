@@ -8,7 +8,7 @@ import { IDLE, PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 import { FREE, served } from "./shared-browser-testing";
 
 const INSTALL = `bunx ${PLAYWRIGHT_MCP} install-browser chromium-headless-shell`;
-const SERVE = `sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.arbor/playwright-mcp.json --port 0`;
+const SERVE = `sh -c ${GUARD} sh bunx ${PLAYWRIGHT_MCP} --config /home/.splates/playwright-mcp.json --port 0`;
 
 describe("SharedBrowser", () => {
 	let ps: FakePs;
@@ -20,7 +20,7 @@ describe("SharedBrowser", () => {
 		fs = new FakeFs();
 		browser = new SharedBrowser(
 			{ ps, fs, timer: new FakeTimer(), log: new MemoryLogger(), heavy: FREE },
-			"/home/.arbor",
+			"/home/.splates",
 		);
 		const asked = browser.servers();
 		(await served(ps))?.print(
@@ -42,7 +42,7 @@ describe("SharedBrowser", () => {
 		]);
 		expect(ps.getCalls()).toEqual([INSTALL, SERVE]);
 		expect(
-			JSON.parse(await fs.read("/home/.arbor/playwright-mcp.json")),
+			JSON.parse(await fs.read("/home/.splates/playwright-mcp.json")),
 		).toEqual({
 			browser: {
 				browserName: "chromium",

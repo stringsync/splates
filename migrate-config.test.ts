@@ -15,7 +15,7 @@ describe("moveSystems", () => {
 
 	beforeEach(async () => {
 		// Imported from disk, so a real directory.
-		root = await mkdtemp(join(tmpdir(), "arbor-move-systems-"));
+		root = await mkdtemp(join(tmpdir(), "splates-move-systems-"));
 		log = new MemoryLogger();
 	});
 
@@ -23,12 +23,12 @@ describe("moveSystems", () => {
 		await rm(root, { recursive: true, force: true });
 	});
 
-	const config = () => fs.read(join(root, "arbor.config.ts"));
+	const config = () => fs.read(join(root, "splates.config.ts"));
 	const move = () => moveSystems({ root, fs, log });
 
-	it("moves the systems into arbor.systems.ts and out of the config, keeping the rest", async () => {
+	it("moves the systems into splates.systems.ts and out of the config, keeping the rest", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
+			join(root, "splates.config.ts"),
 			`export default {
 	preMerge: "bun test",
 	// What the code is made of.
@@ -52,7 +52,7 @@ describe("moveSystems", () => {
 	trunk: "main",
 };
 `);
-		expect(await fs.read(join(root, "arbor.systems.ts"))).toBe(
+		expect(await fs.read(join(root, "splates.systems.ts"))).toBe(
 			systemsSource({
 				docs: { aliases: ["manual"], globs: ["docs/**", "*.md"] },
 				mixer: {
@@ -68,29 +68,29 @@ describe("moveSystems", () => {
 
 	it("does nothing when the config names no systems", async () => {
 		const before = `export default { preMerge: "true" };\n`;
-		await fs.write(join(root, "arbor.config.ts"), before);
+		await fs.write(join(root, "splates.config.ts"), before);
 
 		expect(await move()).toBe(0);
 
 		expect(await config()).toBe(before);
-		expect(await fs.exists(join(root, "arbor.systems.ts"))).toBe(false);
+		expect(await fs.exists(join(root, "splates.systems.ts"))).toBe(false);
 	});
 
 	it("does nothing when there is no config", async () => {
 		expect(await move()).toBe(0);
 
-		expect(await fs.exists(join(root, "arbor.systems.ts"))).toBe(false);
+		expect(await fs.exists(join(root, "splates.systems.ts"))).toBe(false);
 	});
 
 	it("leaves both files alone when both name systems", async () => {
 		const before = `export default { systems: { docs: { globs: ["*.md"] } } };\n`;
-		await fs.write(join(root, "arbor.config.ts"), before);
-		await fs.write(join(root, "arbor.systems.ts"), "export default {};\n");
+		await fs.write(join(root, "splates.config.ts"), before);
+		await fs.write(join(root, "splates.systems.ts"), "export default {};\n");
 
 		expect(await move()).toBe(1);
 
 		expect(await config()).toBe(before);
-		expect(await fs.read(join(root, "arbor.systems.ts"))).toBe(
+		expect(await fs.read(join(root, "splates.systems.ts"))).toBe(
 			"export default {};\n",
 		);
 		expect(String(log.entries.at(-1)?.message)).toContain("by hand");
@@ -98,12 +98,12 @@ describe("moveSystems", () => {
 
 	it("leaves the config alone when it names systems it cannot find in the source", async () => {
 		const before = `const systems = { docs: { globs: ["*.md"] } };\nexport default { systems };\n`;
-		await fs.write(join(root, "arbor.config.ts"), before);
+		await fs.write(join(root, "splates.config.ts"), before);
 
 		expect(await move()).toBe(1);
 
 		expect(await config()).toBe(before);
-		expect(await fs.exists(join(root, "arbor.systems.ts"))).toBe(false);
+		expect(await fs.exists(join(root, "splates.systems.ts"))).toBe(false);
 	});
 });
 
@@ -114,7 +114,7 @@ describe("typeConfig", () => {
 
 	beforeEach(async () => {
 		// Imported from disk, and inside this package, so a config's import of
-		// `@webappwiz/arbor/config` resolves as in a repo that installs arbor.
+		// `splates/config` resolves as in a repo that installs splates.
 		root = await mkdtemp(join(import.meta.dirname, ".type-config-"));
 		log = new MemoryLogger();
 	});
@@ -123,12 +123,12 @@ describe("typeConfig", () => {
 		await rm(root, { recursive: true, force: true });
 	});
 
-	const config = () => fs.read(join(root, "arbor.config.ts"));
+	const config = () => fs.read(join(root, "splates.config.ts"));
 
 	it("types a config that calls defineConfig with satisfies, keeping what it names", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
-			`import { defineConfig } from "@webappwiz/arbor/config";
+			join(root, "splates.config.ts"),
+			`import { defineConfig } from "splates/config";
 
 export default defineConfig({
 	preMerge: "bun test",
@@ -140,7 +140,7 @@ export default defineConfig({
 
 		expect(
 			await config(),
-		).toBe(`import type { ConfigFile } from "@webappwiz/arbor/config";
+		).toBe(`import type { ConfigFile } from "splates/config";
 
 export default {
 	preMerge: "bun test",
@@ -152,8 +152,8 @@ export default {
 	});
 
 	it("leaves a config it cannot rewrite as it is, saying so", async () => {
-		const before = `import { defineConfig as d } from "@webappwiz/arbor/config";\nexport default d({});\n`;
-		await fs.write(join(root, "arbor.config.ts"), before);
+		const before = `import { defineConfig as d } from "splates/config";\nexport default d({});\n`;
+		await fs.write(join(root, "splates.config.ts"), before);
 
 		await typeConfig({ root, fs, log });
 
@@ -162,10 +162,10 @@ export default {
 
 	it("leaves a config already typed, or none, alone", async () => {
 		await typeConfig({ root, fs, log });
-		expect(await fs.exists(join(root, "arbor.config.ts"))).toBe(false);
+		expect(await fs.exists(join(root, "splates.config.ts"))).toBe(false);
 
 		const typed = `export default { trunk: "main" };\n`;
-		await fs.write(join(root, "arbor.config.ts"), typed);
+		await fs.write(join(root, "splates.config.ts"), typed);
 		await typeConfig({ root, fs, log });
 
 		expect(await config()).toBe(typed);
@@ -180,7 +180,7 @@ describe("systemsSource", () => {
 				docs: { aliases: ["the manual"], globs: ["*.md"] },
 				"web-app": { globs: ["web/**"] },
 			}),
-		).toBe(`import type { SystemsFile } from "@webappwiz/arbor/systems";
+		).toBe(`import type { SystemsFile } from "splates/systems";
 
 export default {
 	docs: {

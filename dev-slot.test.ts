@@ -7,9 +7,9 @@ import { SERVER_PID, Slots, slotOf } from "./slots";
 
 describe("stopLeftover", () => {
 	const slot = slotOf("fox") ?? { word: "fox", emoji: "🦊" };
-	const home = "/home/.arbor/slots/fox";
+	const home = "/home/.splates/slots/fox";
 	const slotsOf = (fs: FakeFs, ps: FakePs) =>
-		new Slots("/home/.arbor/slots.json", { fs, ps, lock: new MemoryLock() });
+		new Slots("/home/.splates/slots.json", { fs, ps, lock: new MemoryLock() });
 	const left = async (pid: number) => {
 		const fs = new FakeFs();
 		const ps = new FakePs();

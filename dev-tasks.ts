@@ -5,6 +5,7 @@ import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
 import { editorOf } from "./editors";
 import { fail } from "./exit";
+import { movedPath } from "./legacy-names";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
 import { RECENT_COMMITS, systemsReport } from "./system-changes";
@@ -36,7 +37,7 @@ export class TaskRoutes {
 	readonly file = async (request: Request): Promise<Response> => {
 		const { todos, service, fs } = this.#project;
 		const params = new URL(request.url).searchParams;
-		const path = params.get("path") ?? "";
+		const path = movedPath(params.get("path") ?? "");
 		const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
 		const bytes =
 			todos.owns(path) || service.owns(path)
@@ -147,7 +148,7 @@ export class TaskRoutes {
 		return Response.json(files);
 	};
 
-	// `arbor retry` from the page: another round of merge attempts for a
+	// `splates retry` from the page: another round of merge attempts for a
 	// task escalated once it spent its own.
 	readonly retryTask = async (request: Request): Promise<Response> => {
 		const { journal, service } = this.#project;
@@ -164,7 +165,7 @@ export class TaskRoutes {
 		return Response.json(worktree.state);
 	};
 
-	// `arbor remove` from the page, which asks first while an agent works on
+	// `splates remove` from the page, which asks first while an agent works on
 	// the task, so it goes past an external agent's lease. Each conversation
 	// in its tree stops before the tree goes, and carries on in the main tree.
 	readonly removeTask = async (request: Request): Promise<Response> => {

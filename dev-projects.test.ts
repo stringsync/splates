@@ -92,14 +92,14 @@ describe("dev projects", () => {
 		});
 	});
 
-	it("adds a repository by its path, as `arbor init` there would, and commits what it wrote once asked", async () => {
+	it("adds a repository by its path, as `splates init` there would, and commits what it wrote once asked", async () => {
 		await deps.projects.forget(deps.root);
 		// A `bunx` that writes what `skills add` would, off the network.
-		const bin = join(deps.arborHome, "..", "bin");
+		const bin = join(deps.splatesHome, "..", "bin");
 		await deps.fs.mkdir(bin);
 		await deps.fs.write(
 			join(bin, "bunx"),
-			"#!/bin/sh\nmkdir -p .agents/skills/arbor\necho skill > .agents/skills/arbor/SKILL.md\necho {} > skills-lock.json\n",
+			"#!/bin/sh\nmkdir -p .agents/skills/splates\necho skill > .agents/skills/splates/SKILL.md\necho {} > skills-lock.json\n",
 		);
 		await chmod(join(bin, "bunx"), 0o755);
 		deps.proc.env = { ...deps.proc.env, PATH: `${bin}:${process.env.PATH}` };
@@ -133,8 +133,8 @@ describe("dev projects", () => {
 			const body = await add();
 			expect(body).toMatchObject({
 				project: { root: fresh.root },
-				uncommitted: [".agents/skills/arbor/SKILL.md", "skills-lock.json"],
-				shown: [".agents/skills/arbor", "skills-lock.json"],
+				uncommitted: [".agents/skills/splates/SKILL.md", "skills-lock.json"],
+				shown: [".agents/skills/splates", "skills-lock.json"],
 				branch: "main",
 			});
 			// Added again before committing, it offers them again.
@@ -154,7 +154,7 @@ describe("dev projects", () => {
 			);
 			expect(committed.status).toBe(200);
 			expect(await fresh.gitCli(fresh.root, "log", "-1", "--format=%s")).toBe(
-				"Set up arbor",
+				"Set up splates",
 			);
 			expect(
 				await fresh.gitCli(fresh.root, "status", "--porcelain", "-uall"),
@@ -275,8 +275,8 @@ describe("dev projects", () => {
 		const agent = new FakeAgent();
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			conversations: ({ arborDir }) =>
-				new Conversations(`${arborDir}/conversations`, [AGENT], {
+			conversations: ({ splatesDir }) =>
+				new Conversations(`${splatesDir}/conversations`, [AGENT], {
 					launch: agent.launch,
 				}),
 		});
@@ -291,7 +291,7 @@ describe("dev projects", () => {
 			const { id } = (await started.json()) as { id: string };
 			expect(agent.launched[0]?.cwd).toBe(other.root);
 
-			// As the agent's own `arbor` would, naming no project.
+			// As the agent's own `splates` would, naming no project.
 			const renamed = await write(
 				port,
 				`/api/conversations/${id}/name`,
@@ -318,8 +318,8 @@ describe("dev projects", () => {
 		await using _other = await another();
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
-			conversations: ({ arborDir }) =>
-				new Conversations(`${arborDir}/conversations`, [AGENT], {
+			conversations: ({ splatesDir }) =>
+				new Conversations(`${splatesDir}/conversations`, [AGENT], {
 					launch: new FakeAgent().launch,
 				}),
 		});

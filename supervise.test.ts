@@ -24,21 +24,21 @@ describe("supervise", () => {
 		]);
 	});
 
-	it("starts the newest arbor when the child asks to update, keeping its arguments", async () => {
+	it("starts the newest splates when the child asks to update, keeping its arguments", async () => {
 		ps.args = ["dev", "--port", "4400"];
 		exiting(UPDATE, RESTART, 0);
 
 		expect(await supervise(ps)).toBe(0);
 		expect(ps.getCalls()).toEqual([
 			"bun /fake/entry.ts dev --port 4400",
-			"bunx @webappwiz/arbor@latest dev --port 4400",
-			"bunx @webappwiz/arbor@latest dev --port 4400",
+			"bunx splates@latest dev --port 4400",
+			"bunx splates@latest dev --port 4400",
 		]);
 	});
 
-	const build = { argv: ["bun", "install"], cwd: "/fake/arbor" };
+	const build = { argv: ["bun", "install"], cwd: "/fake/splates" };
 
-	it("builds the page before each start of the same arbor, and no more once it updates", async () => {
+	it("builds the page before each start of the same splates, and no more once it updates", async () => {
 		ps.args = ["dev"];
 		exiting(0, RESTART, 0, UPDATE, 0);
 
@@ -48,9 +48,9 @@ describe("supervise", () => {
 			"bun /fake/entry.ts dev",
 			"bun install",
 			"bun /fake/entry.ts dev",
-			"bunx @webappwiz/arbor@latest dev",
+			"bunx splates@latest dev",
 		]);
-		expect(ps.getCallDirs()[0]).toBe("/fake/arbor");
+		expect(ps.getCallDirs()[0]).toBe("/fake/splates");
 	});
 
 	it("still serves when the build fails, telling the server so, and stops telling it once a build passes", async () => {
@@ -78,18 +78,21 @@ describe("supervise", () => {
 		const told: (string | undefined)[] = [];
 		const spawn = ps.spawn.bind(ps);
 		ps.spawn = (argv: string[], opts?: SpawnOptions) => {
-			told.push(opts?.env?.ARBOR_HOME);
+			told.push(opts?.env?.SPLATES_HOME);
 			return spawn(argv, opts);
 		};
 
 		await supervise(ps, {
-			env: { ARBOR_HOME: "/home/.arbor/slots/fox" },
-			cwd: "/home/.arbor/slots/fox/project",
+			env: { SPLATES_HOME: "/home/.splates/slots/fox" },
+			cwd: "/home/.splates/slots/fox/project",
 		});
-		expect(told).toEqual(["/home/.arbor/slots/fox", "/home/.arbor/slots/fox"]);
+		expect(told).toEqual([
+			"/home/.splates/slots/fox",
+			"/home/.splates/slots/fox",
+		]);
 		expect(ps.getCallDirs()).toEqual([
-			"/home/.arbor/slots/fox/project",
-			"/home/.arbor/slots/fox/project",
+			"/home/.splates/slots/fox/project",
+			"/home/.splates/slots/fox/project",
 		]);
 	});
 });

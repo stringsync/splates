@@ -60,13 +60,13 @@ describe("AutoRestart", () => {
 		await pass(65);
 		expect(restart.state).toMatchObject({
 			step: "counting",
-			onto: "arbor 0.0.45",
+			onto: "splates 0.0.45",
 		});
 		await pass(60);
 		expect(server.restarts).toBe(1);
 		expect(restart.state).toMatchObject({
 			step: "restarting",
-			onto: "arbor 0.0.45",
+			onto: "splates 0.0.45",
 		});
 	});
 

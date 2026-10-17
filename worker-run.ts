@@ -1,17 +1,17 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { fail } from "./exit";
-import { arborHome } from "./roster";
+import { splatesHome } from "./roster";
 import { UnixWorkerSocket } from "./unix-worker-socket";
 import { WebSocketWorkerSocket } from "./websocket-worker-socket";
 import { WorkerDaemon, type WorkerDialer } from "./worker-daemon";
 
 /** Where the local worker finds the coordinator on this machine. */
 export function workerSocketPath(ps: Ps): string {
-	return `${arborHome(ps)}/worker.sock`;
+	return `${splatesHome(ps)}/worker.sock`;
 }
 
-/** What `arbor worker run` is run with. */
+/** What `splates worker run` is run with. */
 export interface WorkerRunOptions {
 	/** Empty for this machine's coordinator, a URL for another's, or `unix:<path>`. */
 	coordinator: string;
@@ -23,7 +23,7 @@ export interface WorkerRunOptions {
 }
 
 /**
- * `arbor worker run`: a worker that serves its coordinator until a SIGINT
+ * `splates worker run`: a worker that serves its coordinator until a SIGINT
  * or SIGTERM, or until the coordinator refuses it for speaking another
  * protocol, which is a refusal to update one or the other.
  */

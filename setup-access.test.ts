@@ -6,7 +6,7 @@ import { Setup, type SetupMachine } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import { API_TOKEN } from "./tunnel-setup";
 
-const HOME = "/home/.arbor";
+const HOME = "/home/.splates";
 
 describe("the access setup step", () => {
 	let machine: SetupMachine;
@@ -28,7 +28,12 @@ describe("the access setup step", () => {
 		await new SavedTunnel(`${HOME}/tunnel.json`, {
 			fs: machine.fs,
 			store: machine.device,
-		}).save({ host: "arbor.example.com", team: "crew", aud: "a", tunnel: "i" });
+		}).save({
+			host: "splates.example.com",
+			team: "crew",
+			aud: "a",
+			tunnel: "i",
+		});
 		await machine.device.set(TUNNEL_TOKEN, "token");
 		await machine.device.set(API_TOKEN, "api");
 	});
@@ -51,7 +56,7 @@ describe("the access setup step", () => {
 
 		expect((await access())?.status).toBe("done");
 		expect(asked).toEqual([
-			{ url: "https://arbor.example.com/", redirect: "manual" },
+			{ url: "https://splates.example.com/", redirect: "manual" },
 		]);
 	});
 
@@ -70,7 +75,7 @@ describe("the access setup step", () => {
 		};
 
 		expect((await access())?.problem).toContain(
-			"https://arbor.example.com did not answer: getaddrinfo ENOTFOUND",
+			"https://splates.example.com did not answer: getaddrinfo ENOTFOUND",
 		);
 	});
 

@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-		<title>arbor</title>
+		<title>Spinning Plates</title>
 		<!-- The emoji drawn as SVG inline, so there is no file for the server to
 		     serve. The page grays it out when the server goes away. -->
 		<link
@@ -21,8 +21,20 @@
 		     until the app mounts over it, so opening the app never paints white
 		     while the styles and script are on their way. -->
 		<script>
+			// What the page kept as arbor, under splates's keys, once: kept for one
+			// release after the rename.
 			try {
-				const theme = JSON.parse(localStorage.getItem("arbor.settings") ?? "{}")["appearance.theme"];
+				for (const store of [localStorage, sessionStorage]) {
+					for (const key of Object.keys(store)) {
+						const next = key.replace(/^arbor[.]/, "splates.");
+						if (next !== key && store.getItem(next) === null) {
+							store.setItem(next, store.getItem(key));
+						}
+					}
+				}
+			} catch {}
+			try {
+				const theme = JSON.parse(localStorage.getItem("splates.settings") ?? "{}")["appearance.theme"];
 				const dark = theme === "dark" || (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
 				document.documentElement.classList.toggle("dark", dark);
 				document.querySelector('meta[name="theme-color"]').content = dark ? "#1d1f23" : "#f3f4f7";

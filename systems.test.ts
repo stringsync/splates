@@ -23,7 +23,7 @@ describe("Systems", () => {
 	let root: string;
 
 	beforeEach(async () => {
-		root = await mkdtemp(join(tmpdir(), "arbor-systems-"));
+		root = await mkdtemp(join(tmpdir(), "splates-systems-"));
 	});
 
 	afterEach(async () => {
@@ -58,7 +58,9 @@ describe("Systems", () => {
 	});
 
 	it("mentioned leaves alone a # that names no system, or sits inside a word", () => {
-		expect(names("[ARBOR TODO #12] see issue#mixer and #nothing")).toEqual([]);
+		expect(names("[SPLATES TODO #12] see issue#mixer and #nothing")).toEqual(
+			[],
+		);
 	});
 
 	it("unknown finds each # that names no system, once, in order", () => {
@@ -74,7 +76,7 @@ describe("Systems", () => {
 
 		expect(
 			only.unknown(
-				"[ARBOR TODO #12] see #3, issue#mixer, `#fff` and\n```\n#queue\n```",
+				"[SPLATES TODO #12] see #3, issue#mixer, `#fff` and\n```\n#queue\n```",
 			),
 		).toEqual([]);
 	});
@@ -104,7 +106,7 @@ describe("Systems", () => {
 	it("Systems.at names none when there is no systems file", async () => {
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 
-		await fs.write(join(root, "arbor.config.ts"), "export default {};\n");
+		await fs.write(join(root, "splates.config.ts"), "export default {};\n");
 
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 	});
@@ -121,11 +123,11 @@ describe("Systems", () => {
 		expect(now.all().map((each) => each.name)).toEqual(["playback"]);
 	});
 
-	it("Systems.at reads a systems file made after arbor read the config beside it", async () => {
+	it("Systems.at reads a systems file made after splates read the config beside it", async () => {
 		// On macOS the temporary directory is reached through a symlink, which
 		// is where Bun's resolver missed a file made after it listed the
 		// directory.
-		await fs.write(join(root, "arbor.config.ts"), "export default {};\n");
+		await fs.write(join(root, "splates.config.ts"), "export default {};\n");
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 
 		await named({ mixer: { globs: ["src/mixer/**"] } });
@@ -172,25 +174,25 @@ describe("Systems", () => {
 
 	it("Systems.at refuses a systems file that will not load, naming it", async () => {
 		await fs.write(
-			join(root, "arbor.systems.ts"),
+			join(root, "splates.systems.ts"),
 			`import "./nowhere";\nexport default {};\n`,
 		);
 
-		expect(await failure()).toContain("arbor.systems.ts");
+		expect(await failure()).toContain("splates.systems.ts");
 	});
 
-	it("refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
+	it("refuses systems still in splates.config.ts, saying to run `splates update`", async () => {
 		await fs.write(
-			join(root, "arbor.config.ts"),
+			join(root, "splates.config.ts"),
 			`export default { systems: { docs: { globs: ["*.md"] } } };\n`,
 		);
 
-		expect(await failure()).toContain("arbor update");
+		expect(await failure()).toContain("splates update");
 	});
 
 	const named = (systems: unknown) =>
 		fs.write(
-			join(root, "arbor.systems.ts"),
+			join(root, "splates.systems.ts"),
 			`export default ${JSON.stringify(systems)};\n`,
 		);
 	const failure = () =>

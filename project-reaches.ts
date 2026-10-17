@@ -3,7 +3,7 @@ import type { Git } from "./git";
 import type { Projects, Reach } from "./projects";
 
 /**
- * `arbor projects list`: each other project, with what it may do in the one
+ * `splates projects list`: each other project, with what it may do in the one
  * `git` is in, and what that one may do there.
  */
 export async function listReaches(
@@ -27,7 +27,7 @@ export async function listReaches(
 		return;
 	}
 	if (rows.length === 0) {
-		log.info("no other arbor project is on this machine");
+		log.info("no other splates project is on this machine");
 		return;
 	}
 	log.info(
@@ -41,7 +41,7 @@ export async function listReaches(
 }
 
 /**
- * `arbor projects grant`: lets agents of the project `slug` names do as much
+ * `splates projects grant`: lets agents of the project `slug` names do as much
  * as `reach` in the one `git` is in.
  */
 export async function grantReach(

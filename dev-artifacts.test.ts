@@ -14,7 +14,7 @@ describe("dev artifacts", () => {
 		deps = await Testing.open();
 		const agent = new FakeAgent();
 		conversations = new Conversations(
-			`${deps.arborDir}/conversations`,
+			`${deps.splatesDir}/conversations`,
 			[AGENT],
 			{ launch: agent.launch },
 		);

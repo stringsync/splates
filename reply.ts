@@ -116,7 +116,7 @@ export function quotedIn(text: string, asked: Asked): Answer | null {
 /**
  * What the reply in `text` says to `asked`, or null when it has nothing for
  * it: quoted, as the question cards write it, or a line typed by hand as the
- * arbor skill reads one, `2. b`, `1. a, c`, `2. b: only on phones`, or
+ * splates skill reads one, `2. b`, `1. a, c`, `2. b: only on phones`, or
  * `3. after a phone check`, by the number of the report it answers.
  */
 export function answerIn(text: string, asked: Asked): Answer | null {

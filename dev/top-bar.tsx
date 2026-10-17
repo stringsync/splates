@@ -35,7 +35,7 @@ export interface BarFrame {
 	status?: ReactNode;
 	/** The page menu's items, at the foot of the kebab. */
 	menu?: ReactNode;
-	/** Puts Update before the kebab, once a restart would update arbor. */
+	/** Puts Update before the kebab, once a restart would update splates. */
 	dot?: boolean;
 	/** Ends the bar, never folded, as how many agents wait on you. */
 	end?: ReactNode;
@@ -51,7 +51,7 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
  * page's status and what `detail` adds, then its actions. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
- * Update before it once a restart would update arbor. Under
+ * Update before it once a restart would update splates. Under
  * a shell that keeps a row for it, it goes there, so the bar stays put
  * however the page under it scrolls or is laid out.
  */

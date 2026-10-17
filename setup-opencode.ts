@@ -202,7 +202,7 @@ export class OpenCodeSetup {
 
 	private async probe(signal: AbortSignal): Promise<OpenCodeStatus> {
 		let problem =
-			"OpenCode was not found or could not report its version. Install it, then check again. If already installed, restart arbor so it sees the updated PATH.";
+			"OpenCode was not found or could not report its version. Install it, then check again. If already installed, restart splates so it sees the updated PATH.";
 		try {
 			await this.prepare();
 			const version = (await this.command(["--version"], signal)).trim();
