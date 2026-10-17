@@ -85,6 +85,12 @@ export interface Config {
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */
 	tunnel: TunnelProvider | null;
+	/**
+	 * The platform the project's agents must run on, for a project that
+	 * builds only there: its tasks wait for a worker on it rather than run
+	 * elsewhere. Null runs them on any.
+	 */
+	platform: "linux" | "macos" | "windows" | null;
 }
 
 /**

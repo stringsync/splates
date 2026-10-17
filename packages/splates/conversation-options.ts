@@ -4,7 +4,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Adherence } from "./adherence";
 import type { Agent, Launch, Launcher } from "./agent-process";
 import type { ArtifactLimits } from "./artifacts";
-import type { ProjectRoster } from "./conversation-host";
+import type { ConversationSlots, ProjectRoster } from "./conversation-host";
 import type { Limit } from "./conversation-state";
 import type { Limits } from "./limits";
 import type { Offered } from "./offered";
@@ -21,6 +21,11 @@ export interface ConversationsOptions {
 	launch?: Launch;
 	/** What starts agents and takes them back after a restart, over `launch`: a worker. */
 	launcher?: Launcher;
+	/**
+	 * Where each agent waits for a slot on a worker, which it then starts
+	 * on; none starts every agent at once on `launcher`.
+	 */
+	slots?: ConversationSlots;
 	/**
 	 * Where agents run, which their background output is read from; this
 	 * machine by default.

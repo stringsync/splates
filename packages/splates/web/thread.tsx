@@ -66,6 +66,7 @@ import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
+import { QueueBanner } from "./slot-queue";
 import { SystemsCard } from "./systems";
 import { toWaiting, useArrived } from "./task-view";
 import { Task } from "./tasks";
@@ -310,6 +311,13 @@ function Conversation({
 						onOpen={onOpen}
 					/>
 				)}
+			{conversation.queue !== null && (
+				<QueueBanner
+					id={conversation.id}
+					spot={conversation.queue}
+					phone={onBack !== null}
+				/>
+			)}
 			{conversation.heartbeat !== null && (
 				<HeartbeatBanner at={conversation.heartbeat} phone={onBack !== null} />
 			)}

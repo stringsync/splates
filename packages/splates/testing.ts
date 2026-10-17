@@ -58,7 +58,7 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
-	/** Kept in `splatesHome`, so no test waits on the machine's own jobs. */
+	/** The heavy-job slots the commands under test take, never the machine's, so a test never waits on a real job. */
 	readonly heavy: HeavyJobs;
 	readonly journal: Journal;
 	readonly lockPath: string;
@@ -110,6 +110,7 @@ export class Testing implements AsyncDisposable {
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
+			platform: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = join(base, "home", ".splates");

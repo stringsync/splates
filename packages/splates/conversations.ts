@@ -26,6 +26,7 @@ import { ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts";
 import { Conversation } from "./conversation";
 import type {
 	ConversationDeps,
+	ConversationSlots,
 	ConversationsEvents,
 	ProjectRoster,
 } from "./conversation-host";
@@ -59,6 +60,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
 	private readonly launcher: Launcher;
+	private readonly slots: ConversationSlots | undefined;
 	private readonly machine: WorkerMachine;
 	private readonly starting: Lock;
 	private readonly timer: Timer;
@@ -98,6 +100,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
+		this.slots = opts.slots;
 		this.machine = opts.machine ?? new LocalWorkerMachine(systemPs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
 		this.timer = opts.timer ?? new SystemTimer();
@@ -140,6 +143,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			timer: this.timer,
 			clock: this.clock,
 			launcher: this.launcher,
+			...(this.slots === undefined ? {} : { slots: this.slots }),
 			machine: this.machine,
 			starting: this.starting,
 			watch: this.watch,

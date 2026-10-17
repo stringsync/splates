@@ -102,7 +102,15 @@ export async function serveDev(
 		}
 		// Agents run on the local worker, beside the server, so a restart
 		// leaves them running.
-		const worker = ["worker", "run", "--id", LOCAL_WORKER, "--quiet"];
+		const worker = [
+			"worker",
+			"run",
+			"--id",
+			LOCAL_WORKER,
+			"--slots",
+			String(opts["worker-slots"]),
+			"--quiet",
+		];
 		ctx.ps.exit(await supervise(ctx.ps, { build, env: slot?.env, worker }));
 		return;
 	}
@@ -174,8 +182,10 @@ export async function serveDev(
 	const workers = new DevWorkers(ctx.log, {
 		session: coordinator.session,
 		protocol: coordinator.protocol,
+		platform: ctx.ps.platform,
 	});
 	const worker = workers.local;
+	const { slots } = workers;
 	const server = await dev(
 		{ ...ctx, projects },
 		{
@@ -192,6 +202,7 @@ export async function serveDev(
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
 					launcher: worker,
+					slots: slots.project(git.root, config.platform),
 					machine: worker,
 					starting,
 					offered,
@@ -270,5 +281,6 @@ export interface DevFlags {
 	tunnel: string;
 	"tunnel-name": string;
 	"ports-host": string;
+	"worker-slots": number;
 	slot: boolean;
 }

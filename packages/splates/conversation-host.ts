@@ -2,12 +2,13 @@ import type { Events } from "webappwiz/events";
 import type { IdProvider } from "webappwiz/id";
 import type { Fs, Lock } from "webappwiz/system";
 import type { Timer, WallClock } from "webappwiz/time";
-import type { Agent, Launcher } from "./agent-process";
+import type { Agent, Launch, Launcher } from "./agent-process";
 import type { ArtifactRoom } from "./artifact-room";
 import type { ArtifactLimits } from "./artifacts";
 import type { ConversationLog } from "./conversation-log";
-import type { ConversationState } from "./conversation-state";
+import type { ConversationState, QueueSpot } from "./conversation-state";
 import type { Reach } from "./projects";
+import type { Grant } from "./scheduler";
 import type { SessionServers } from "./shared-browser";
 import type { Watch } from "./watch";
 import type { WorkerMachine } from "./worker-machine";
@@ -57,6 +58,11 @@ export interface ConversationDeps {
 	clock: WallClock;
 	/** What starts each agent, and takes one back after a restart. */
 	launcher: Launcher;
+	/**
+	 * Where each agent waits for a slot on a worker before it starts, and
+	 * starts there; none starts every one at once on `launcher`.
+	 */
+	slots?: ConversationSlots;
 	/** Where the agent runs, which its background commands' output is read from. */
 	machine: WorkerMachine;
 	/**
@@ -75,6 +81,28 @@ export interface ConversationDeps {
 	projects: ProjectRoster | null;
 	/** The MCP servers each session is offered, beyond the agent's own; null for none. */
 	servers: SessionServers | null;
+}
+
+/** A project's way into the machine's queue for worker slots (`Scheduler`). */
+export interface ConversationSlots {
+	/**
+	 * A slot for the agent of conversation `id`, once its turn comes;
+	 * aborting `signal` takes it out of the queue, rejecting.
+	 */
+	take(
+		request: { id: string; task: string | null },
+		signal: AbortSignal,
+	): Promise<Placement>;
+	/** Counts an agent already running on `worker` against its slots. */
+	hold(request: { id: string; task: string | null }, worker: string): Grant;
+	/** Where the agent of conversation `id` waits; null for one not waiting. */
+	spot(id: string): QueueSpot | null;
+	readonly events: Events<{ changed: undefined }>;
+}
+
+/** A slot on a worker, and how to start an agent there. */
+export interface Placement extends Grant {
+	launch: Launch;
 }
 
 /** The splates projects on this machine, as `Projects` lists them. */

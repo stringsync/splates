@@ -121,6 +121,7 @@ export function conversation(
 		status: "idle",
 		error: null,
 		stoppedIdle: null,
+		queue: null,
 		heartbeat: null,
 		name: null,
 		archived: false,

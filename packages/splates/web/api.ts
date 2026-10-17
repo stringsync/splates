@@ -12,6 +12,7 @@ import type { FileDiff } from "../diff";
 import type { Landed } from "../landed";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";
+import type { QueueListing } from "../queue-list";
 import type { AgentPick } from "../roster";
 import type { SetupProgress, StepAnswers } from "../setup";
 import type { PeriodId, Stats } from "../stats";
@@ -317,8 +318,23 @@ export async function taskPorts(): Promise<PortLink[]> {
 	return ((await response.json()) as { ports: PortLink[] }).ports;
 }
 
-/** What the page shows of the machine: its reading, and its heavy jobs. */
-export type MachineStatus = MachineReading & { heavy: HeavyJobsReading };
+/**
+ * What the page shows of the machine: its reading, its heavy jobs, and the
+ * agents waiting for a slot on a worker, first in line first.
+ */
+export type MachineStatus = MachineReading & {
+	heavy: HeavyJobsReading;
+	queue: QueueListing[];
+};
+
+/** Moves the agent of conversation `id` to `position` in the queue for a worker slot, from 1. */
+export async function moveQueued(id: string, position: number): Promise<void> {
+	await send(`/api/queue/${encodeURIComponent(id)}/position`, {
+		method: "PUT",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ position }),
+	});
+}
 
 /** How hard the machine `splates server` runs on is working right now. */
 export async function machine(): Promise<MachineStatus> {

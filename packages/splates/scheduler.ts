@@ -1,0 +1,300 @@
+import type { Resource } from "webappwiz/disposable";
+import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { WallClock } from "webappwiz/time";
+import type { WorkerKind } from "./remote-worker";
+
+/**
+ * Places agents on workers with a free slot, and queues the rest, first come,
+ * first served, in an order the person can change. An agent whose turn in
+ * line cannot be served, as one needing another platform, lets those behind
+ * it take a slot it could not use.
+ */
+export class Scheduler implements Eventful<SchedulerEvents>, Resource {
+	private readonly dispatcher = new Dispatcher<SchedulerEvents>();
+	readonly events = this.dispatcher.events;
+	private readonly waiting: Waiting[] = [];
+	private readonly holding = new Map<string, HeldSlot>();
+	/** The worker each agent last ran on, which it goes back to when it can. */
+	private readonly last = new Map<string, string>();
+
+	constructor(
+		private readonly pool: Pool,
+		private readonly clock: WallClock,
+	) {}
+
+	/**
+	 * A slot for `request`, at once when one is free, else once its turn
+	 * comes; aborting `signal` takes it out of the queue, rejecting.
+	 */
+	take(request: SlotRequest, signal?: AbortSignal): Promise<Grant> {
+		return new Promise<Grant>((resolve, reject) => {
+			if (signal?.aborted) {
+				reject(signal.reason);
+				return;
+			}
+			const waiting: Waiting = {
+				request,
+				since: this.clock.now(),
+				placed: (grant) => {
+					signal?.removeEventListener("abort", abort);
+					resolve(grant);
+				},
+			};
+			const abort = (): void => {
+				const at = this.waiting.indexOf(waiting);
+				if (at >= 0) {
+					this.waiting.splice(at, 1);
+					this.changed();
+				}
+				reject(signal?.reason);
+			};
+			signal?.addEventListener("abort", abort, { once: true });
+			this.waiting.push(waiting);
+			this.place();
+			this.changed();
+		});
+	}
+
+	/**
+	 * Counts `request` against `worker` without queueing, for an agent that
+	 * already runs there, as one taken back after a restart.
+	 */
+	hold(request: SlotRequest, worker: string): Grant {
+		return this.grant(request, worker);
+	}
+
+	/** Those waiting for a slot, first in line first. */
+	queue(): QueueEntry[] {
+		const workers = this.pool.workers();
+		return this.waiting.map(({ request, since }, at) => ({
+			id: request.id,
+			project: request.project,
+			task: request.task,
+			position: at + 1,
+			since,
+			reason: reasonFor(request, workers),
+		}));
+	}
+
+	/** Where `id` waits; null for one not in the queue. */
+	spot(id: string): QueueEntry | null {
+		return this.queue().find((each) => each.id === id) ?? null;
+	}
+
+	/** The agents holding slots, on whichever worker. */
+	held(): HeldSlot[] {
+		return [...this.holding.values()];
+	}
+
+	/**
+	 * Moves `id` to `position` in the queue, from 1, clamped to its ends.
+	 * Answers whether it was waiting.
+	 */
+	move(id: string, position: number): boolean {
+		const at = this.waiting.findIndex((each) => each.request.id === id);
+		if (at < 0) {
+			return false;
+		}
+		const [moved] = this.waiting.splice(at, 1);
+		const to = Math.max(0, Math.min(this.waiting.length, position - 1));
+		if (moved !== undefined) {
+			this.waiting.splice(to, 0, moved);
+		}
+		this.place();
+		this.changed();
+		return true;
+	}
+
+	/** Places whoever can be placed now, as after a worker joins or grows. */
+	poke(): void {
+		if (this.place()) {
+			this.changed();
+		}
+	}
+
+	dispose(): void {
+		this.waiting.length = 0;
+		this.dispatcher.dispose();
+	}
+
+	/** Gives each waiting agent, in order, a free slot it can use; answers whether any got one. */
+	private place(): boolean {
+		let placed = false;
+		for (const waiting of [...this.waiting]) {
+			const worker = this.pick(waiting.request);
+			if (worker === null) {
+				continue;
+			}
+			this.waiting.splice(this.waiting.indexOf(waiting), 1);
+			waiting.placed(this.grant(waiting.request, worker));
+			placed = true;
+		}
+		return placed;
+	}
+
+	/**
+	 * The worker for `request`: the one it last ran on, then the local one,
+	 * then any registered one, among those awake with a slot free on its
+	 * platform.
+	 */
+	private pick(request: SlotRequest): string | null {
+		const used = new Map<string, number>();
+		for (const { worker } of this.holding.values()) {
+			used.set(worker, (used.get(worker) ?? 0) + 1);
+		}
+		const fits = this.pool
+			.workers()
+			.filter(
+				(worker) =>
+					eligible(worker, request) &&
+					(used.get(worker.id) ?? 0) < worker.slots,
+			);
+		const last = this.last.get(request.id);
+		const order = (worker: PoolWorker): number =>
+			worker.id === last ? 0 : worker.kind === "local" ? 1 : 2;
+		const [best] = fits.sort((one, other) => order(one) - order(other));
+		return best?.id ?? null;
+	}
+
+	private grant(request: SlotRequest, worker: string): Grant {
+		const held: HeldSlot = {
+			id: request.id,
+			project: request.project,
+			task: request.task,
+			worker,
+		};
+		this.holding.set(request.id, held);
+		this.last.set(request.id, worker);
+		let freed = false;
+		this.changed();
+		return {
+			worker,
+			dispose: () => {
+				if (freed) {
+					return;
+				}
+				freed = true;
+				if (this.holding.get(request.id) === held) {
+					this.holding.delete(request.id);
+				}
+				this.place();
+				this.changed();
+			},
+		};
+	}
+
+	private changed(): void {
+		this.dispatcher.dispatch("changed");
+	}
+}
+
+/** The platforms a worker runs and a project can require, as people name them. */
+export const PLATFORMS = ["linux", "macos", "windows"] as const;
+export type Platform = (typeof PLATFORMS)[number];
+
+/** What people call the platform `ps.platform` names; null for one splates never runs on. */
+export function platformOf(platform: string): Platform | null {
+	switch (platform) {
+		case "linux":
+			return "linux";
+		case "darwin":
+			return "macos";
+		case "win32":
+			return "windows";
+		default:
+			return null;
+	}
+}
+
+const PLATFORM_NAMES: Record<Platform, string> = {
+	linux: "Linux",
+	macos: "macOS",
+	windows: "Windows",
+};
+
+/** The workers agents can be placed on, as they stand now. */
+export interface Pool {
+	workers(): PoolWorker[];
+}
+
+/** One worker as placement sees it. */
+export interface PoolWorker {
+	id: string;
+	kind: WorkerKind;
+	/** How many agents it runs at once. */
+	slots: number;
+	platform: Platform | null;
+	/** Whether it is up and may be given work now. */
+	awake: boolean;
+	/**
+	 * Whether it can run a task in the checkout the task has: the machine the
+	 * worktrees live on, until workers clone their own (#14).
+	 */
+	checkouts: boolean;
+}
+
+/** What wants a slot: one conversation's agent. */
+export interface SlotRequest {
+	/** The conversation's id. */
+	id: string;
+	/** The project's main tree. */
+	project: string;
+	task: string | null;
+	/** The platform the project requires; null for any. */
+	platform: Platform | null;
+}
+
+/** Why a queued agent waits. */
+export type QueueReason = "no free slot" | `needs ${string}`;
+
+/** One agent waiting for a slot, first in line first. */
+export interface QueueEntry {
+	id: string;
+	project: string;
+	task: string | null;
+	/** From 1, the first to be placed. */
+	position: number;
+	/** When it joined the queue, epoch milliseconds. */
+	since: number;
+	reason: QueueReason;
+}
+
+/** One agent holding a slot. */
+export interface HeldSlot {
+	id: string;
+	project: string;
+	task: string | null;
+	worker: string;
+}
+
+/** A slot an agent holds until it is disposed, which frees it. */
+export interface Grant extends Resource {
+	readonly worker: string;
+}
+
+export type SchedulerEvents = { changed: undefined };
+
+interface Waiting {
+	request: SlotRequest;
+	since: number;
+	placed(grant: Grant): void;
+}
+
+function eligible(worker: PoolWorker, request: SlotRequest): boolean {
+	return (
+		worker.awake &&
+		worker.checkouts &&
+		(request.platform === null || worker.platform === request.platform)
+	);
+}
+
+/** Why `request` waits: no worker it could ever run on, or none free. */
+function reasonFor(request: SlotRequest, workers: PoolWorker[]): QueueReason {
+	if (
+		request.platform !== null &&
+		!workers.some((worker) => eligible(worker, request))
+	) {
+		return `needs ${PLATFORM_NAMES[request.platform]}`;
+	}
+	return "no free slot";
+}

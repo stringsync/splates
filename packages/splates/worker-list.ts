@@ -26,7 +26,7 @@ export interface WorkerListing {
 	health: "connected" | "away";
 	/** When anything last came from it, epoch milliseconds; null before the first. */
 	lastHeard: number | null;
-	/** The tasks placed on it; none until tasks are placed on workers. */
+	/** The tasks its agents run, a conversation's id for one in no task. */
 	tasks: string[];
 	dollarsPerHour: number;
 }
@@ -37,15 +37,23 @@ export interface WorkerListings {
 	refused: { id: string; protocol: string; reason: string }[];
 }
 
-/** The workers a registry keeps and the ones it turned away. */
-export function workerList(registry: WorkerRegistry): WorkerListings {
+/**
+ * The workers a registry keeps and the ones it turned away; `placed`, the
+ * tasks each runs, by its id, a conversation's id for one in no task.
+ */
+export function workerList(
+	registry: WorkerRegistry,
+	placed: Map<string, string[]> = new Map(),
+): WorkerListings {
 	return {
-		workers: registry.workers.map(listing),
+		workers: registry.workers.map((worker) =>
+			listing(worker, placed.get(worker.id) ?? []),
+		),
 		refused: registry.refused,
 	};
 }
 
-function listing(worker: RemoteWorker): WorkerListing {
+function listing(worker: RemoteWorker, tasks: string[]): WorkerListing {
 	const { info, session } = worker;
 	const negotiated = session.negotiated;
 	return {
@@ -55,12 +63,12 @@ function listing(worker: RemoteWorker): WorkerListing {
 		build: typeof info.build === "string" ? info.build : null,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
-			used: 0,
+			used: tasks.length,
 			total: typeof info.slots === "number" ? info.slots : null,
 		},
 		health: worker.connected ? "connected" : "away",
 		lastHeard: session.lastHeard,
-		tasks: [],
+		tasks,
 		dollarsPerHour: 0,
 	};
 }

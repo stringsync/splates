@@ -34,6 +34,7 @@ import { serveDev } from "./splates-dev";
 import { commaList, here, rosterOf, seeded, todoIds } from "./splates-flags";
 import { splatesLane } from "./splates-lane";
 import { splatesProjects } from "./splates-projects";
+import { splatesQueue } from "./splates-queue";
 import { setup } from "./splates-setup";
 import { splatesSlots } from "./splates-slots";
 import { splatesTodo } from "./splates-todo";
@@ -44,6 +45,7 @@ import { reportToCaller, tell } from "./tell";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, untilAfter, wait } from "./wait";
 import type { Assets } from "./web/assets";
+import { LOCAL_SLOTS } from "./worker-slots";
 import { REMOVE_REASONS } from "./worktree";
 
 /** Everything `splates` is run with, before the repository middleware adds to it. */
@@ -437,6 +439,11 @@ splates
 		description:
 			"the wildcard base host to serve task ports under, saved for this machine so a bare `splates server` serves it too: each port a task's processes listen on opens at https://<task>-<port>.<base>, to whoever Cloudflare Access lets in, and is refused without Access; routing *.<base> here, its DNS and TLS, are yours. `none` forgets it, leaving each task port forwarded to a port on this machine's loopback alone",
 	})
+	.option("worker-slots", z.coerce.number().int().min(1), {
+		default: LOCAL_SLOTS,
+		description:
+			"how many agents this machine's worker runs at once; past them, each new or resumed agent waits in the queue, first come, first served, which `splates queue` shows and reorders. Read as the server starts its worker, which a restart from the page leaves running",
+	})
 	.option("slot", z.boolean(), {
 		default: false,
 		description:
@@ -694,4 +701,5 @@ splates
 	.mount("creds", splatesCreds)
 	.mount("tunnel", splatesTunnel)
 	.mount("slots", splatesSlots)
-	.mount("worker", splatesWorker);
+	.mount("worker", splatesWorker)
+	.mount("queue", splatesQueue);

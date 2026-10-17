@@ -18,7 +18,12 @@ import {
 	steers,
 } from "./acp-extensions";
 import { agentError } from "./agent-errors";
-import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
+import type {
+	Agent,
+	AgentProcess,
+	Launch,
+	ProcessHandle,
+} from "./agent-process";
 import { AgentStream } from "./agent-stream";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
 import { type Live, LOG_FORMAT } from "./conversation-log";
@@ -165,9 +170,10 @@ export class AgentConnection {
 
 	/**
 	 * Runs the agent and opens a session with it: the one this conversation
-	 * had, when there was one, else a new one.
+	 * had, when there was one, else a new one. `launch` starts it on the
+	 * worker it was placed on; the launcher's own by default.
 	 */
-	async open(agent: Agent, cwd: string): Promise<void> {
+	async open(agent: Agent, cwd: string, launch?: Launch): Promise<void> {
 		const { host } = this;
 		host.set({ status: "starting", error: null, stoppedIdle: null });
 		const _attempt = ++this.opens;
@@ -202,7 +208,7 @@ export class AgentConnection {
 						)?.slug;
 			// Reset the log cursor so a replacement process can acknowledge its own frames.
 			host.log.heard(0);
-			process = this.deps.launcher.launch(agent.argv, cwd, {
+			process = (launch ?? this.deps.launcher.launch)(agent.argv, cwd, {
 				SPLATES_CONVERSATION: id,
 				...(startedBy !== null
 					? { SPLATES_STARTED_BY: startedBy }
@@ -451,8 +457,8 @@ export class AgentConnection {
 	}
 
 	/**
-	 * Releases the running agent for the next coordinator to reconnect.
-	 * Flush the conversation log after awaiting this before shutting down.
+	 * Lets go of the running agent for the next coordinator to take back:
+	 * await it, then flush the conversation log, before shutting down.
 	 */
 	async detach(): Promise<void> {
 		await this.stream?.detach();

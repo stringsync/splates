@@ -34,6 +34,7 @@ import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
+import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { Roster, splatesHome } from "./roster";
@@ -384,6 +385,7 @@ export async function dev(
 					Response.json({
 						...(await machine.read()),
 						heavy: await jobs.read(),
+						queue: queueListing(workers.slots.scheduler.queue()),
 					}),
 				),
 				// Through a tunnel only once Access verified who is asking, as a
@@ -617,6 +619,10 @@ export async function dev(
 				// Through a worker's relay, which reaches only this machine's
 				// names: the records of a project its commands run on.
 				"/api/state": { POST: talk(guarded(state.answer)) },
+				"/api/queue": guarded(workers.queue),
+				"/api/queue/:id/position": {
+					PUT: talk(guarded(workers.moveQueued)),
+				},
 			},
 			taskPorts,
 		),

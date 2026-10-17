@@ -1,16 +1,23 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
+import { z } from "zod";
 import { hostname, LOCAL_HOSTS, refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
+import { systemPs } from "./legacy-ps";
+import { queueListing } from "./queue-list";
 import type { RemoteWorker } from "./remote-worker";
 import { ServerWorkerSocket } from "./server-worker-socket";
 import { UnixWorkerListener } from "./unix-worker-listener";
 import { workerList } from "./worker-list";
 import { WorkerRegistry } from "./worker-registry";
+import { WorkerSlots } from "./worker-slots";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
+
+/** What `PUT /api/queue/:id/position` is sent. */
+const QueueMove = z.object({ position: z.number().int() });
 
 /** What `DevWorkers` answers workers as. */
 export interface DevWorkersOptions {
@@ -22,16 +29,19 @@ export interface DevWorkersOptions {
 	session?: string;
 	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
 	protocol?: string;
+	/** This machine's `ps.platform`, the local worker's until its hello says. */
+	platform?: string;
 }
 
 /**
  * Where `splates server` takes its workers in, as their coordinator: the local
  * worker through a Unix socket only this user may open, and others through
- * `/api/workers`. Nothing places work on them yet; the registry keeps them
- * for what comes next.
+ * `/api/workers`, and every agent waits in `slots` for room on one.
  */
 export class DevWorkers implements AsyncResource {
 	readonly registry: WorkerRegistry;
+	/** The queue every project's agents take a slot on a worker from. */
+	readonly slots: WorkerSlots;
 	/** This machine's worker, which agents run on; work waits for it to join. */
 	readonly local: RemoteWorker;
 	private listener: UnixWorkerListener | null = null;
@@ -40,7 +50,11 @@ export class DevWorkers implements AsyncResource {
 
 	constructor(
 		private readonly log: Logger,
-		{ session, protocol }: DevWorkersOptions = {},
+		{
+			session,
+			protocol,
+			platform = systemPs().platform,
+		}: DevWorkersOptions = {},
 	) {
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
@@ -52,6 +66,7 @@ export class DevWorkers implements AsyncResource {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
+		this.slots = new WorkerSlots(this.registry, { platform });
 	}
 
 	/**
@@ -129,7 +144,32 @@ export class DevWorkers implements AsyncResource {
 
 	/** `GET /api/workers`: each worker and each refusal, as `splates worker list` shows them. */
 	readonly list = async (): Promise<Response> =>
-		Response.json(workerList(this.registry));
+		Response.json(workerList(this.registry, this.slots.used()));
+
+	/**
+	 * `GET /api/queue`: every agent waiting for a slot, first in line first,
+	 * from every project, as `splates queue list` shows them.
+	 */
+	readonly queue = async (): Promise<Response> =>
+		Response.json({ queue: queueListing(this.slots.scheduler.queue()) });
+
+	/**
+	 * `PUT /api/queue/:id/position`: moves the agent of conversation `id` to
+	 * `position` in the queue, from 1, answering the queue as it stands.
+	 */
+	readonly moveQueued = async (request: Request): Promise<Response> => {
+		const id = decodeURIComponent(
+			new URL(request.url).pathname.split("/")[3] ?? "",
+		);
+		const body = QueueMove.safeParse(await request.json().catch(() => null));
+		if (!body.success) {
+			return refuse(400, "usage", "say the position to move it to, from 1");
+		}
+		if (!this.slots.scheduler.move(id, body.data.position)) {
+			return refuse(404, "not_found", `conversation ${id} is not in the queue`);
+		}
+		return this.queue();
+	};
 
 	/** A worker upgrades; anyone else is asking who has joined, and `guard` decides who may. */
 	readonly route = (
@@ -144,6 +184,7 @@ export class DevWorkers implements AsyncResource {
 			: this.open(request, server);
 
 	async disposeAsync(): Promise<void> {
+		this.slots.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
 	}

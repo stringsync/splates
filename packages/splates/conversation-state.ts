@@ -4,6 +4,18 @@ import type { Event } from "./events";
 import type { OpenCodeUsage } from "./opencode-usage";
 import type { Flag } from "./watch";
 
+/** Where an agent waits for a slot, as the page shows it. */
+export interface QueueSpot {
+	/** From 1, the next to be placed. */
+	position: number;
+	/** How many wait in all, on every project. */
+	of: number;
+	/** When it joined the queue. */
+	since: string;
+	/** Why it waits: "no free slot", or "needs macOS" for a platform no worker runs. */
+	reason: string;
+}
+
 /** Everything the page shows of one conversation. */
 export interface ConversationState {
 	id: string;
@@ -37,6 +49,8 @@ export interface ConversationState {
 	 * and again once it starts.
 	 */
 	stoppedIdle: string | null;
+	/** Where its agent waits for a slot on a worker; null once it has one, or wants none. */
+	queue: QueueSpot | null;
 	/**
 	 * When splates next asks it, idle with an agent it handed a task to at
 	 * work, to check on its agents; null while none is due.
@@ -487,6 +501,7 @@ export function blank(
 		status: "starting",
 		error: null,
 		stoppedIdle: null,
+		queue: null,
 		heartbeat: null,
 		messages: [],
 		events: [],

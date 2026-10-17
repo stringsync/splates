@@ -3,7 +3,12 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { AgentConnection } from "./agent-connection";
-import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
+import type {
+	Agent,
+	AgentProcess,
+	Launch,
+	ProcessHandle,
+} from "./agent-process";
 import { Artifacts, applyArtifact } from "./artifacts";
 import { put } from "./conversation-archive";
 import { ConversationBackground } from "./conversation-background";
@@ -25,12 +30,14 @@ import {
 	type Device,
 	IDLE_STOP,
 	type Limit,
+	type QueueSpot,
 	type Upload,
 } from "./conversation-state";
 import { ConversationTurns, type PromptOptions } from "./conversation-turns";
 import { fail } from "./exit";
 import { fold, heard } from "./fold";
 import { finishObservation } from "./opencode-usage";
+import type { Grant } from "./scheduler";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -54,6 +61,10 @@ export class Conversation
 	private resting: Resource | null = null;
 	/** Let go of its process for a restart: nothing here ends it now. */
 	private detached = false;
+	/** The slot its agent holds on a worker; null while it has none. */
+	private grant: Grant | null = null;
+	/** Takes its agent out of the queue for a slot; null while it waits in none. */
+	private placing: AbortController | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -141,6 +152,11 @@ export class Conversation
 			sessionCwd,
 		});
 		if (taken !== null && agent !== null) {
+			conversation.grant =
+				deps.slots?.hold(
+					{ id: state.id, task: state.task },
+					taken.live.handle.worker,
+				) ?? null;
 			conversation.connection.reattach(agent, taken.process, taken.live);
 		}
 		return conversation;
@@ -572,11 +588,13 @@ export class Conversation
 
 	/** Ends the agent's process, with `error` for one that failed, and keeps that it stopped. */
 	async close(error: string | null): Promise<void> {
-		if (
-			this.detached ||
-			this.state.status === "stopped" ||
-			this.state.status === "failed"
-		) {
+		if (this.detached) {
+			return;
+		}
+		this.placing?.abort();
+		this.grant?.dispose();
+		this.grant = null;
+		if (this.state.status === "stopped" || this.state.status === "failed") {
 			return;
 		}
 		this.connection.close();
@@ -650,11 +668,72 @@ export class Conversation
 		}, IDLE_STOP);
 	}
 
-	/** Opens the agent in `cwd`, clearing `opening` once it has or failed to. */
-	private wake(agent: Agent, cwd: string): Promise<void> {
-		return this.connection.open(agent, cwd).finally(() => {
+	/**
+	 * Opens the agent in `cwd` once it has a slot, clearing `opening` once it
+	 * has, failed to, or was stopped while it waited for one.
+	 */
+	private async wake(agent: Agent, cwd: string): Promise<void> {
+		try {
+			const launch = await this.place();
+			if (launch !== null) {
+				await this.connection.open(agent, cwd, launch);
+			}
+		} finally {
 			this.opening = null;
-		});
+		}
+	}
+
+	/**
+	 * Waits in the queue for a slot for its agent, keeping where it waits in
+	 * its state: the launch on the worker it was placed on, undefined when
+	 * there are no slots to take, or null once a stop takes it out of line.
+	 */
+	private async place(): Promise<Launch | undefined | null> {
+		const { slots } = this.deps;
+		if (slots === undefined) {
+			return undefined;
+		}
+		this.grant?.dispose();
+		this.grant = null;
+		const { id, task } = this.state;
+		const placing = new AbortController();
+		this.placing = placing;
+		this.set({ status: "starting", error: null });
+		const unlisten = slots.events.on("changed", () =>
+			this.queued(slots.spot(id)),
+		);
+		try {
+			const placement = await slots.take({ id, task }, placing.signal);
+			this.grant = placement;
+			return placement.launch;
+		} catch (error) {
+			if (placing.signal.aborted) {
+				return null;
+			}
+			throw error;
+		} finally {
+			unlisten();
+			if (this.placing === placing) {
+				this.placing = null;
+			}
+			this.queued(null);
+		}
+	}
+
+	/** Keeps where its agent waits for a slot, saying so only when that changed. */
+	private queued(spot: QueueSpot | null): void {
+		const was = this.state.queue;
+		if (
+			was === spot ||
+			(was !== null &&
+				spot !== null &&
+				was.position === spot.position &&
+				was.of === spot.of &&
+				was.reason === spot.reason)
+		) {
+			return;
+		}
+		this.set({ queue: spot });
 	}
 }
 

@@ -24,6 +24,7 @@ import { promptConversation, startConversation } from "./conversation-api";
 import { reportedAs, useNameOf } from "./conversation-names";
 import type { Dispatch } from "./dispatch";
 import { Mark } from "./mark";
+import { QueueMark } from "./slot-queue";
 import type { BarAction } from "./top-bar";
 
 /**
@@ -96,7 +97,12 @@ export function OnIt({
 						className="size-3.5 text-foreground/70"
 					/>
 				);
-				const mark = <Mark need={need} reported={reportedAs(conversation)} />;
+				const mark =
+					conversation.queue === null ? (
+						<Mark need={need} reported={reportedAs(conversation)} />
+					) : (
+						<QueueMark spot={conversation.queue} />
+					);
 				if (variant === "marks") {
 					return (
 						<span key={conversation.id} className="inline-flex items-center">

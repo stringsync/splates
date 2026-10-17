@@ -12,6 +12,7 @@ import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
 import { NextWaiting, WaitingBadge } from "./phone-thread";
+import { QueueBadge } from "./slot-queue";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
 
@@ -71,7 +72,7 @@ export function PhoneApp({
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
 	// The drawer's header says more, as why the server is outdated.
-	const status = offline && (
+	const status = offline ? (
 		<span
 			role="status"
 			className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
@@ -79,6 +80,8 @@ export function PhoneApp({
 			<span className="size-1.5 rounded-full bg-destructive" />
 			Offline
 		</span>
+	) : (
+		<QueueBadge queue={pageMenu.machine?.queue ?? []} />
 	);
 	return (
 		<div className="min-h-dvh">

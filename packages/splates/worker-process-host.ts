@@ -1,5 +1,5 @@
 import type { Resource } from "webappwiz/disposable";
-import type { Child, Ps } from "webappwiz/system";
+import type { Child, ProcessEntry, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { SERVING } from "./supervise";
 import type { WorkerChannel } from "./worker-channel";
@@ -26,7 +26,8 @@ const ProcessMessage = z.discriminatedUnion("type", [
  * its stdout as the channel's bytes, its stdin from them, and its pid,
  * stderr and exit code as messages. Its stdout is read only while the
  * session has room, so a coordinator away for long stalls the process
- * rather than losing what it says. Closing the channel kills it.
+ * rather than losing what it says. Closing the channel kills it, and
+ * everything it started.
  */
 export class WorkerProcessHost implements Resource {
 	private readonly child: Child;
@@ -35,7 +36,7 @@ export class WorkerProcessHost implements Resource {
 	constructor(
 		private readonly channel: WorkerChannel,
 		private readonly session: WorkerSession,
-		ps: Ps,
+		private readonly ps: Ps,
 		/**
 		 * This worker's relay, which a process told where `splates server` is
 		 * reaches it through instead, since the coordinator's own address is
@@ -63,7 +64,29 @@ export class WorkerProcessHost implements Resource {
 	}
 
 	dispose(): void {
-		this.child.kill();
+		void this.end();
+	}
+
+	/**
+	 * Ends the child with `signal`, and everything under it with the same:
+	 * the commands an agent runs, dev servers among them, lead process
+	 * groups of their own and outlive it otherwise, holding their ports
+	 * after its slot is freed. Listed before the child goes, while they
+	 * are still its descendants.
+	 */
+	private async end(signal?: NodeJS.Signals): Promise<void> {
+		const { pid } = this.child;
+		const under =
+			pid === null
+				? []
+				: descendants(await this.ps.processes().catch(() => []), pid);
+		this.child.kill(signal);
+		if (under.length > 0) {
+			const name = (signal ?? "SIGTERM").replace(/^SIG/, "");
+			await this.ps
+				.spawn(["kill", `-${name}`, ...under.map(String)])
+				.catch(() => {});
+		}
 	}
 
 	private told(body: unknown): void {
@@ -72,7 +95,7 @@ export class WorkerProcessHost implements Resource {
 			return;
 		}
 		if (parsed.data.type === "kill") {
-			this.child.kill(parsed.data.signal as NodeJS.Signals | undefined);
+			void this.end(parsed.data.signal as NodeJS.Signals | undefined);
 		} else if (parsed.data.type === "describe") {
 			this.channel.send({ type: "started", pid: this.child.pid });
 		} else {
@@ -123,4 +146,23 @@ export class WorkerProcessHost implements Resource {
 			// A process that never started has no output; its exit says why.
 		}
 	}
+}
+
+/** Every process under `pid` in `table`, children first. */
+export function descendants(table: ProcessEntry[], pid: number): number[] {
+	const children = new Map<number, number[]>();
+	for (const each of table) {
+		children.set(each.ppid, [...(children.get(each.ppid) ?? []), each.pid]);
+	}
+	const found: number[] = [];
+	const look = (under: number): void => {
+		for (const child of children.get(under) ?? []) {
+			if (!found.includes(child)) {
+				found.push(child);
+				look(child);
+			}
+		}
+	};
+	look(pid);
+	return found;
 }

@@ -476,6 +476,29 @@ describe("App's conversation thread", () => {
 		);
 	});
 
+	it("says where an agent waits for a slot, and moves it to the front", async () => {
+		const since = new Date(Date.now() - 5 * 60_000).toISOString();
+		const view = await testing.openConversations([
+			conversation({
+				status: "starting",
+				queue: { position: 3, of: 4, since, reason: "no free slot" },
+			}),
+		]);
+
+		const banner = view.container.ownerDocument.querySelector(
+			'[data-slot="queue-banner"]',
+		);
+		expect(banner?.textContent).toContain(
+			"Waiting for a slot, 3rd of 4 in line. Every worker it can run on is full. It has waited 5m, and starts on its own once a slot frees.",
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start next" })),
+		);
+		const moved = testing.posts.find((post) => post.path.includes("/position"));
+		expect(moved?.method).toBe("PUT");
+		expect(JSON.parse(String(moved?.body))).toEqual({ position: 1 });
+	});
+
 	it("says nothing of idling for an agent stopped otherwise", async () => {
 		const view = await testing.openConversations([
 			conversation({ status: "stopped" }),
