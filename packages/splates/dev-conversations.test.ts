@@ -224,7 +224,7 @@ describe("dev conversations", () => {
 					cwd: (await deps.service.find("alpha")).path,
 					env: {
 						SPLATES_CONVERSATION: id,
-						SPLATES_DEV: `http://localhost:${port}`,
+						SPLATES_DEV: `http://127.0.0.1:${port}`,
 					},
 				},
 			]);

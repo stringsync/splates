@@ -636,7 +636,7 @@ export async function dev(
 	// handed to a caller that stops it. Undefined only for a unix socket, which
 	// this never asks for.
 	const port = server.port ?? requested;
-	url = `http://localhost:${port}`;
+	url = `http://${LOOPBACK}:${port}`;
 	// Open now, so the page's first request finds it ready; one that fails
 	// says so when the page asks for it.
 	const focused = await projects.focused();
@@ -662,7 +662,7 @@ export async function dev(
 	// And those a restart stopped agents in, which carry on once served.
 	await restarts.reopenStopped();
 
-	log.info(`splates server on http://localhost:${port}`);
+	log.info(`splates server on http://${LOOPBACK}:${port}`);
 	if (tunnel !== null) {
 		const carrying = await startTunnel(tunnel, url, log);
 		if (carrying !== null) {

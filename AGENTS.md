@@ -8,7 +8,7 @@ After making code changes:
   it needs no `splates heavy`. `splates dev test --evals` tests the eval
   harness, for changes under `evals/`.
 
-During a splates task, the user may be on the splates server server from another device, so give every link as both its remote and its local URL.
+During a splates task, the user may be on the splates server from another device, so give every link as both its remote and its local URL.
 
 If you change the CLI's API, check that the agent skill at
 `skills/splates/SKILL.md` is still in sync. That is the source; this repo's

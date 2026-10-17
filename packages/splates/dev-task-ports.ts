@@ -278,7 +278,7 @@ export class DevTaskPorts implements Resource, Claimer {
 		return {
 			task,
 			port,
-			local: `http://localhost:${local}`,
+			local: `http://${LOOPBACK}:${local}`,
 			remote:
 				this.deps.base === null
 					? null

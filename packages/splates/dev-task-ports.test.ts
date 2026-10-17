@@ -120,7 +120,7 @@ describe("DevTaskPorts", () => {
 			{
 				task: "alpha",
 				port: appPort,
-				local: `http://localhost:${appPort}`,
+				local: `http://127.0.0.1:${appPort}`,
 				remote: `https://alpha-${appPort}.ports.test`,
 			},
 		]);
