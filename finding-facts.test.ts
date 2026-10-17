@@ -45,6 +45,20 @@ describe("factTodos", () => {
 		]);
 	});
 
+	it("makes none of the person's challenges and overturned picks", () => {
+		expect(
+			factTodos({
+				outcome: merged({
+					findings: [
+						{ kind: "challenged", assumptions: 1 },
+						{ kind: "overturned", picks: 2 },
+					],
+				}),
+				baseline: null,
+			}),
+		).toEqual([]);
+	});
+
 	it("makes none of a merge that went as it could", () => {
 		expect(
 			factTodos({ outcome: merged({ findings: [] }), baseline: null }),

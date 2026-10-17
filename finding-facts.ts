@@ -72,14 +72,22 @@ export function foundFacts({ outcome, baseline }: Landed): FoundFacts {
 }
 
 /**
+ * Findings the merged card lists but no todo is made of: the person's own
+ * calls on the agent's picks, which are asking working as meant.
+ */
+export const UNTODOED: Finding["kind"][] = ["overturned", "challenged"];
+
+/**
  * The todos `arbor merge` adds for what went worse in `landed`, the gate's
- * first: one a fact, as the merged card lists them.
+ * first: one a fact, as the merged card lists them, but for `UNTODOED`.
  */
 export function factTodos(landed: Landed): FactTodo[] {
 	const { gate, findings } = foundFacts(landed);
-	return [...(gate ?? []), ...findings].map((fact) =>
-		deferred(landed.outcome.task, fact),
-	);
+	return [...(gate ?? []), ...findings]
+		.filter(
+			(fact) => fact.finding === null || !UNTODOED.includes(fact.finding.kind),
+		)
+		.map((fact) => deferred(landed.outcome.task, fact));
 }
 
 /** The todo made of `fact`, found in `task` as it merged. */
