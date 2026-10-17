@@ -38,6 +38,24 @@ export async function within(
 }
 
 /**
+ * Whether `check` comes to hold within `ms`, for a change no stream tells
+ * of, such as one a page that is not listening fetches.
+ */
+export async function eventually(
+	check: () => Promise<boolean>,
+	ms: number,
+): Promise<boolean> {
+	const until = Date.now() + ms;
+	while (!(await check())) {
+		if (Date.now() > until) {
+			return false;
+		}
+		await Bun.sleep(50);
+	}
+	return true;
+}
+
+/**
  * Serves `deps` on any port, so concurrent test files cannot collide on a
  * fixed one, for as long as `body` runs.
  */

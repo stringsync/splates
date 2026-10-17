@@ -2,6 +2,7 @@ import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
 import type { CredRequest, Creds } from "./creds";
 import type { LaneRecord } from "./lanes";
+import { limited, READ_CONCURRENCY } from "./limited";
 import type { Behind, Release } from "./release";
 import { type Details, TaskDetails } from "./show";
 import type { Slot } from "./slots";
@@ -105,11 +106,9 @@ export async function tasksOf({
 	fs: Fs;
 }): Promise<Details[]> {
 	const details = new TaskDetails({ fs });
-	const tasks: Details[] = [];
-	for (const worktree of await service.list()) {
-		tasks.push(await details.get(worktree));
-	}
-	return tasks;
+	return limited(await service.list(), READ_CONCURRENCY, (worktree) =>
+		details.get(worktree),
+	);
 }
 
 /**

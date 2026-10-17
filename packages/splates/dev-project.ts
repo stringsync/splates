@@ -29,7 +29,7 @@ import { answerState, type StateCall } from "./repo-state";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
 import type { Slot } from "./slots";
-import { tasksOf } from "./snapshot";
+import { type Snapshot, tasksOf } from "./snapshot";
 import type { PortOwners } from "./task-ports";
 import type { Landed, LandRequest } from "./trunk-landing";
 import type { Assets } from "./web/assets";
@@ -141,7 +141,8 @@ export async function serveProject(
 			return value;
 		},
 		refresh: watch.changed,
-		snapshot: async () => Response.json(await watch.read()),
+		snapshot: async () => Response.json(await watch.current()),
+		current: () => watch.current(),
 		waiting: async () =>
 			waitingOn(
 				await tasksOf({ service, fs }),
@@ -251,6 +252,11 @@ export interface Served extends AsyncResource {
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;
+	/**
+	 * Everything its page shows, kept from the last read while nothing in the
+	 * repo moved, so reading it for every project costs little.
+	 */
+	current: () => Promise<Snapshot>;
 	/** How many of its agents wait on the person. */
 	waiting: () => Promise<number>;
 	/** What each of its agents needs, and the lanes that name an orchestrator. */

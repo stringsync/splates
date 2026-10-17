@@ -7,6 +7,7 @@ import type { Config } from "./config";
 import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
 import type { LeaseBeat } from "./lease-beat";
+import { limited, READ_CONCURRENCY } from "./limited";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "./plan";
@@ -254,11 +255,7 @@ export class WorktreeService {
 			.filter((entry) => entry.endsWith(".json"))
 			.map((entry) => entry.slice(0, -".json".length))
 			.sort();
-		const found: Worktree[] = [];
-		for (const task of tasks) {
-			found.push(await this.find(task));
-		}
-		return found;
+		return limited(tasks, READ_CONCURRENCY, (task) => this.find(task));
 	}
 
 	/** Adds the branch and the working directory. The record comes after. */
