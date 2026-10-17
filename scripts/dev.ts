@@ -5,12 +5,7 @@ import { fix } from "./fix";
 import { ship } from "./ship";
 import { test } from "./test";
 
-/**
- * `splates dev` is what a splates checkout runs to work on splates itself, and
- * never ships: `bin/splates` sends it here rather than to the CLI in
- * `packages/splates`. It carries the `webappwiz` cli's commands too, so the
- * repo gets `splates dev scry` and `splates dev skills` without another bin.
- */
+/** Run repository checks, tests, evaluations, releases, and webappwiz commands. */
 export const dev = webappwiz("splates dev");
 
 dev

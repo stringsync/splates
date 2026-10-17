@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # In a checkout, `splates dev <command>` runs the commands for working on
-# splates itself (packages/dev), which never ship; anything else is the CLI
+# splates itself (scripts/), which never ship; anything else is the CLI
 # users get from `bunx splates`. Bare namespaces print their help.
 here="$(dirname "${BASH_SOURCE[0]}")"
 if [[ "${1:-}" == "dev" ]]; then
 	shift
-	exec "$here/_run" packages/dev/index.ts "$@"
+	exec "$here/_run" scripts/index.ts "$@"
 fi
 exec "$here/_run" packages/splates/index.ts "$@"
