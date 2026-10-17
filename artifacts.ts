@@ -1,6 +1,7 @@
 import { basename, dirname, resolve } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import type { Fs } from "webappwiz/system";
+import type { ArtifactRoom } from "./artifact-room";
 import { folderBytes } from "./attachments";
 import type { Config } from "./config";
 import { fail } from "./exit";
@@ -31,6 +32,12 @@ export class Artifacts {
 			held: () => Artifact[];
 			/** Keeps `change`, folding it into `held`. */
 			record: (change: ArtifactChange) => Promise<void>;
+			/**
+			 * The project's room, which evicts what other versions it must
+			 * for an add past the project's capacity; without it, as for a
+			 * CLI that reaches no `arbor dev`, such an add is refused.
+			 */
+			room?: ArtifactRoom;
 		},
 	) {
 		this.dir = `${resolve(log.replace(/\.jsonl$/, ""))}/artifacts`;
@@ -38,58 +45,37 @@ export class Artifacts {
 		this.ids = deps.ids ?? new UuidProvider();
 	}
 
+	/** The record as it stands. */
+	get held(): Artifact[] {
+		return this.deps.held();
+	}
+
 	/**
 	 * Keeps `file` as the next version of the artifact named for it, listing
-	 * it again if it was removed. Refuses one past any limit `too_large`,
+	 * it again if it was removed. Past the project's capacity, its room evicts
+	 * what it can first; refuses one past any limit still `too_large`,
 	 * changing nothing.
 	 */
 	add(file: ArtifactFile): Promise<ArtifactVersion> {
-		return this.serially(async () => {
-			const name = file.name.trim();
-			if (name === "") {
-				fail("usage", "an artifact needs a name: nothing was changed");
-			}
-			const size = file.bytes.length;
-			const { limits } = this.deps;
-			const refuse = (what: string, bytes: number, capacity: number) =>
-				fail(
-					"too_large",
-					`that would have ${what} hold ${megabytes(bytes)} of artifacts, past its ${megabytes(capacity)}: nothing was changed`,
-					{ name, bytes, capacity },
-				);
-			if (size > limits.file) {
-				fail(
-					"too_large",
-					`'${name}' is ${megabytes(size)}, past the ${megabytes(limits.file)} an artifact may be: nothing was changed`,
-					{ name, bytes: size, capacity: limits.file },
-				);
-			}
-			// Files attached to the conversation count toward its capacity too.
-			const attached = await folderBytes(
-				this.deps.fs,
-				`${dirname(this.dir)}/attached`,
-			);
-			const conversation = kept(this.deps.held()) + attached + size;
-			if (conversation > limits.conversation) {
-				refuse("this conversation", conversation, limits.conversation);
-			}
-			const project = (await this.projectBytes()) + size;
-			if (project > limits.project) {
-				refuse("the project", project, limits.project);
-			}
-			const stored = `${this.ids.next()}-${safe(name)}`;
-			await this.deps.fs.mkdir(this.dir);
-			await this.deps.fs.writeBytes(`${this.dir}/${stored}`, file.bytes);
-			await this.deps.record({
-				type: "add",
-				name,
-				file: stored,
-				mimeType: file.mimeType,
-				bytes: size,
-				addedAt: this.deps.now(),
+		const { room } = this.deps;
+		if (room === undefined) {
+			return this.serially(async () => {
+				const size = await this.admit(file);
+				// With no room to make it, nothing another conversation keeps can go.
+				const { fs, limits } = this.deps;
+				const project = (await projectBytes(fs, this.conversations)) + size;
+				if (project > limits.project) {
+					tooLarge("the project", file.name.trim(), project, limits.project);
+				}
+				return this.keep(file);
 			});
-			const added = this.find(name);
-			return added.versions[added.versions.length - 1] as ArtifactVersion;
+		}
+		// Every add of the project takes its turn, so two never evict for each
+		// other; this store's own queue waits until the room is made, since
+		// making it can delete from this store too.
+		return room.hold(async () => {
+			await room.make(await this.admit(file), file.name.trim());
+			return this.serially(() => this.keep(file));
 		});
 	}
 
@@ -119,17 +105,26 @@ export class Artifacts {
 					version,
 				});
 			}
-			if (kept.gone !== null) {
-				return;
+			if (kept.gone === null) {
+				await this.drop(name, kept, why);
 			}
-			await this.deps.fs.rm(`${this.dir}/${kept.file}`, { force: true });
-			await this.deps.record({
-				type: "gone",
-				name,
-				version,
-				at: this.deps.now(),
-				why,
-			});
+		});
+	}
+
+	/**
+	 * Deletes the bytes of every version no longer shown, those of removed
+	 * artifacts and those a later one superseded, as its conversation is
+	 * archived: what stays is what its panel still lists.
+	 */
+	archive(): Promise<void> {
+		return this.serially(async () => {
+			for (const artifact of this.deps.held()) {
+				for (const version of artifact.versions) {
+					if (version.gone === null && !shown(artifact, version)) {
+						await this.drop(artifact.name, version, "archived");
+					}
+				}
+			}
 		});
 	}
 
@@ -154,6 +149,70 @@ export class Artifacts {
 		return bytes === null ? null : { bytes, mimeType: kept.mimeType };
 	}
 
+	/**
+	 * Refuses `file` when it has no name, or when it or this conversation
+	 * would pass its limit; its size when it fits.
+	 */
+	private async admit(file: ArtifactFile): Promise<number> {
+		const name = file.name.trim();
+		if (name === "") {
+			fail("usage", "an artifact needs a name: nothing was changed");
+		}
+		const size = file.bytes.length;
+		const { limits } = this.deps;
+		if (size > limits.file) {
+			fail(
+				"too_large",
+				`'${name}' is ${megabytes(size)}, past the ${megabytes(limits.file)} an artifact may be: nothing was changed`,
+				{ name, bytes: size, capacity: limits.file },
+			);
+		}
+		// Files attached to the conversation count toward its capacity too.
+		const attached = await folderBytes(
+			this.deps.fs,
+			`${dirname(this.dir)}/attached`,
+		);
+		const conversation = kept(this.deps.held()) + attached + size;
+		if (conversation > limits.conversation) {
+			tooLarge("this conversation", name, conversation, limits.conversation);
+		}
+		return size;
+	}
+
+	/** Writes `file`'s bytes and records them as its name's next version. */
+	private async keep(file: ArtifactFile): Promise<ArtifactVersion> {
+		const name = file.name.trim();
+		const stored = `${this.ids.next()}-${safe(name)}`;
+		await this.deps.fs.mkdir(this.dir);
+		await this.deps.fs.writeBytes(`${this.dir}/${stored}`, file.bytes);
+		await this.deps.record({
+			type: "add",
+			name,
+			file: stored,
+			mimeType: file.mimeType,
+			bytes: file.bytes.length,
+			addedAt: this.deps.now(),
+		});
+		const added = this.find(name);
+		return added.versions[added.versions.length - 1] as ArtifactVersion;
+	}
+
+	/** Deletes `version`'s bytes and records that they went, and why. */
+	private async drop(
+		name: string,
+		version: ArtifactVersion,
+		why: ArtifactGone,
+	): Promise<void> {
+		await this.deps.fs.rm(`${this.dir}/${version.file}`, { force: true });
+		await this.deps.record({
+			type: "gone",
+			name,
+			version: version.version,
+			at: this.deps.now(),
+			why,
+		});
+	}
+
 	/** The artifact `name`, refusing `not_found` when there is none. */
 	private find(name: string): Artifact {
 		const artifact = this.deps.held().find((each) => each.name === name);
@@ -163,20 +222,6 @@ export class Artifacts {
 			});
 		}
 		return artifact;
-	}
-
-	/** How many bytes of artifacts every conversation in the project keeps, read from disk. */
-	private async projectBytes(): Promise<number> {
-		const { fs } = this.deps;
-		let total = 0;
-		const entries = await fs.readdir(this.conversations).catch(() => []);
-		for (const entry of entries) {
-			const dir = `${this.conversations}/${entry}/artifacts`;
-			for (const file of await fs.readdir(dir).catch(() => [])) {
-				total += (await fs.stat(`${dir}/${file}`)).size;
-			}
-		}
-		return total;
 	}
 
 	private serially<T>(work: () => Promise<T>): Promise<T> {
@@ -316,6 +361,38 @@ function kept(artifacts: Artifact[]): number {
 		.flatMap((each) => each.versions)
 		.filter((each) => each.gone === null)
 		.reduce((sum, each) => sum + each.bytes, 0);
+}
+
+/** Whether `version` is the one its artifact's panel shows: its current, while listed. */
+export function shown(artifact: Artifact, version: ArtifactVersion): boolean {
+	return artifact.removedAt === null && version.version === artifact.current;
+}
+
+/**
+ * How many bytes every conversation under `dir` keeps, read from disk: its
+ * artifacts' and the files attached to it.
+ */
+export async function projectBytes(fs: Fs, dir: string): Promise<number> {
+	let total = 0;
+	for (const entry of await fs.readdir(dir).catch(() => [])) {
+		total += await folderBytes(fs, `${dir}/${entry}/artifacts`);
+		total += await folderBytes(fs, `${dir}/${entry}/attached`);
+	}
+	return total;
+}
+
+/** Refuses an add that would have `what` hold `bytes`, past its `capacity`. */
+export function tooLarge(
+	what: string,
+	name: string,
+	bytes: number,
+	capacity: number,
+): never {
+	fail(
+		"too_large",
+		`that would have ${what} hold ${megabytes(bytes)} of artifacts, past its ${megabytes(capacity)}: nothing was changed`,
+		{ name, bytes, capacity },
+	);
 }
 
 /** A stored name kept to letters, digits, dots and dashes, as `attach` keeps its own. */

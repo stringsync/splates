@@ -3,7 +3,8 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import type { ArtifactLimits } from "./artifacts";
+import { type ArtifactLimits, Artifacts } from "./artifacts";
+import type { Conversation } from "./conversation";
 import { until } from "./conversation-testing";
 import { Conversations } from "./conversations";
 import type { Exit } from "./exit";
@@ -203,18 +204,152 @@ describe("Conversation artifacts", () => {
 		expect(conversation.state.artifacts[0]?.versions).toHaveLength(2);
 	});
 
-	it("refuses an add that takes the project past its limit, counting every conversation", async () => {
+	/** Each version's number and why its bytes went, by artifact name. */
+	const goneOf = (conversation: Conversation) =>
+		Object.fromEntries(
+			conversation.state.artifacts.map((each) => [
+				each.name,
+				each.versions.map((version) => version.gone?.why ?? null),
+			]),
+		);
+
+	it("evicts removed and superseded versions of any conversation first, oldest first", async () => {
+		const one = await started();
+		const two = await started();
+		await one.artifacts.add(file("a.html", "x".repeat(5)));
+		clock.advance(Duration.secs(1));
+		await two.artifacts.add(file("b.html", "x".repeat(5)));
+		clock.advance(Duration.secs(1));
+		await one.artifacts.add(file("a.html", "x".repeat(5)));
+		clock.advance(Duration.secs(1));
+		await two.artifacts.add(file("b.html", "x".repeat(5)));
+		await two.artifacts.add(file("c.html", "x".repeat(10)));
+
+		await one.artifacts.add(file("d.html", "x".repeat(6)));
+
+		expect(goneOf(one)).toEqual({
+			"a.html": ["evicted", null],
+			"d.html": [null],
+		});
+		expect(goneOf(two)).toEqual({
+			"b.html": ["evicted", null],
+			"c.html": [null],
+		});
+		expect(two.state.artifacts[0]?.versions[0]?.gone?.at).toBe(
+			"2026-10-16T10:00:03.000Z",
+		);
+	});
+
+	it("evicts what archived conversations show before what live ones do", async () => {
+		const live = await started();
+		const archived = await started();
+		const adding = await started();
+		await live.artifacts.add(file("old.html", "x".repeat(10)));
+		clock.advance(Duration.secs(1));
+		await archived.artifacts.add(file("shown.html", "x".repeat(10)));
+		await archived.archive();
+		clock.advance(Duration.secs(1));
+		await adding.artifacts.add(file("new.html", "x".repeat(10)));
+
+		await adding.artifacts.add(file("next.html", "x".repeat(10)));
+		expect(goneOf(archived)).toEqual({ "shown.html": ["evicted"] });
+		expect(goneOf(live)).toEqual({ "old.html": [null] });
+
+		// Then the oldest a live conversation shows, the adding one's own too.
+		await live.artifacts.add(file("last.html", "x"));
+		expect(goneOf(live)).toEqual({
+			"old.html": ["evicted"],
+			"last.html": [null],
+		});
+		expect(goneOf(adding)).toEqual({ "new.html": [null], "next.html": [null] });
+	});
+
+	it("counts attached files toward the project without evicting them, refusing what cannot fit", async () => {
+		const one = await started();
+		const two = await started();
+		await fs.mkdir(`${DIR}/${one.id}/attached/login`);
+		await fs.writeBytes(
+			`${DIR}/${one.id}/attached/login/shot.png`,
+			new Uint8Array(25),
+		);
+		await two.artifacts.add(file("a.html", "x".repeat(5)));
+
+		const exit = await refused(
+			two.artifacts.add(file("b.html", "x".repeat(10))),
+		);
+		expect(exit.reason).toBe("too_large");
+		expect(exit.data).toMatchObject({ bytes: 40, capacity: 30 });
+		expect(goneOf(two)).toEqual({ "a.html": [null] });
+
+		await two.artifacts.add(file("b.html", "x".repeat(5)));
+		expect(goneOf(two)).toEqual({ "a.html": ["evicted"], "b.html": [null] });
+		expect(await fs.exists(`${DIR}/${one.id}/attached/login/shot.png`)).toBe(
+			true,
+		);
+	});
+
+	it("refuses an add past the project's limit from a store with no room, counting every conversation", async () => {
 		const one = await started();
 		const two = await started();
 		await one.artifacts.add(file("a.html", "x".repeat(10)));
 		await one.artifacts.add(file("b.html", "x".repeat(10)));
 		await two.artifacts.add(file("c.html", "x".repeat(10)));
+		const held = [...two.state.artifacts];
+		const roomless = new Artifacts(`${DIR}/${two.id}.jsonl`, {
+			fs,
+			now: () => "2026-10-16T10:00:00.000Z",
+			limits: { file: 10, conversation: 20, project: 30 },
+			held: () => held,
+			record: async () => {},
+		});
 
-		const exit = await refused(two.artifacts.add(file("d.html", "x")));
+		const exit = await refused(roomless.add(file("d.html", "x")));
 
 		expect(exit.reason).toBe("too_large");
 		expect(exit.data).toMatchObject({ bytes: 31, capacity: 30 });
-		expect(two.state.artifacts.map((each) => each.name)).toEqual(["c.html"]);
+		expect(goneOf(one)).toEqual({ "a.html": [null], "b.html": [null] });
+	});
+
+	it("deletes removed and superseded versions as it is archived, keeping what its panel shows", async () => {
+		const conversation = await started();
+		await conversation.artifacts.add(file("report.html", "one"));
+		await conversation.artifacts.add(file("report.html", "two"));
+		await conversation.artifacts.add(file("shot.png", "png", "image/png"));
+		await conversation.artifacts.remove("shot.png");
+
+		clock.advance(Duration.secs(1));
+		await conversation.archive();
+
+		expect(goneOf(conversation)).toEqual({
+			"report.html": ["archived", null],
+			"shot.png": ["archived"],
+		});
+		expect(conversation.state.artifacts[1]?.versions[0]?.gone?.at).toBe(
+			"2026-10-16T10:00:01.000Z",
+		);
+		expect(
+			await fs.readdir(`${DIR}/${conversation.id}/artifacts`),
+		).toHaveLength(1);
+		const current = await conversation.artifacts.read("report.html");
+		expect(new TextDecoder().decode(current?.bytes)).toBe("two");
+	});
+
+	it("tidies a conversation archived before archiving cleaned up, as it is read back", async () => {
+		const conversation = await started();
+		await conversation.artifacts.add(file("report.html", "one"));
+		await conversation.artifacts.add(file("report.html", "two"));
+		await conversation.stop();
+		// Archived as an older arbor did, its artifacts left as they were.
+		await fs.append(
+			`${DIR}/${conversation.id}.jsonl`,
+			`${JSON.stringify({ kind: "archive", archived: true, at: "2026-10-16T09:00:00.000Z" })}\n`,
+		);
+
+		const reread = open({ file: 10, conversation: 20, project: 30 });
+		const read = await reread.find(conversation.id);
+
+		expect(goneOf(read)).toEqual({ "report.html": ["archived", null] });
+		await reread.disposeAsync();
 	});
 
 	it("gives two adds of one name at once a version each", async () => {

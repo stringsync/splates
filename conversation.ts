@@ -67,6 +67,7 @@ export class Conversation
 			fs: deps.fs,
 			ids: deps.ids,
 			limits: deps.artifacts,
+			room: deps.room,
 			now: () => this.now(),
 			held: () => this.state.artifacts,
 			record: async (change) => {
@@ -425,10 +426,12 @@ export class Conversation
 	/**
 	 * Stops it and puts it away, off the list of conversations; `with`, the
 	 * conversation whose archiving takes it along, which brings it back.
+	 * Its artifacts keep only what their panel shows.
 	 */
 	async archive(withConversation?: string): Promise<void> {
 		await this.stop();
 		await this.put({ archived: true, with: withConversation });
+		await this.artifacts.archive();
 	}
 
 	/** Names it `name` over the agent's title; blank goes back to the title. */

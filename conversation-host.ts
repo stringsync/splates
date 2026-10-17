@@ -3,6 +3,7 @@ import type { IdProvider } from "webappwiz/id";
 import type { Fs, Lock } from "webappwiz/system";
 import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch } from "./agent-process";
+import type { ArtifactRoom } from "./artifact-room";
 import type { ArtifactLimits } from "./artifacts";
 import type { ConversationLog } from "./conversation-log";
 import type { ConversationState } from "./conversation-state";
@@ -50,6 +51,8 @@ export interface ConversationDeps {
 	ids: IdProvider;
 	/** How many bytes of artifacts it may keep (`artifacts.ts`). */
 	artifacts: ArtifactLimits;
+	/** What makes room for an add across the project; none refuses one past it. */
+	room?: ArtifactRoom;
 	timer: Timer;
 	clock: WallClock;
 	launch: Launch;

@@ -132,8 +132,11 @@ describe("App's artifacts", () => {
 		expect(
 			within(hidden)
 				.getAllByRole("listitem")
-				.map((row) => row.textContent?.replace(/gone \d+\w ago/, "gone ")),
-		).toEqual(["report.htmlgone v1 · 300 B", "old.pngv1 · 2 KBDelete"]);
+				.map((row) => row.textContent?.replace(/\d+\w ago/, "ago")),
+		).toEqual([
+			"report.htmlevicted for space agov1 · 300 B",
+			"old.pngv1 · 2 KBDelete",
+		]);
 		// The gone one has nothing to open; the removed one still opens.
 		const [gone] = within(hidden).getAllByRole("listitem");
 		expect(within(gone as HTMLElement).queryByRole("button")).toBeNull();

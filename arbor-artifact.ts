@@ -27,7 +27,7 @@ arborArtifact
 	.command("add")
 	.use(repository({ needs: "own" }))
 	.description(
-		"keep files as artifacts of this conversation, each named for its basename, or by --name when there is one; adding a name the conversation holds makes its next version, every earlier one kept. Past the size limits (artifactFileCapacity per file, artifactConversationCapacity per conversation, artifactProjectCapacity per project, every kept version counted) it stops with `too_large`, changing nothing for that file",
+		"keep files as artifacts of this conversation, each named for its basename, or by --name when there is one; adding a name the conversation holds makes its next version, earlier ones kept until cleanup takes them. Past the project's limit (artifactProjectCapacity), `arbor dev` first evicts the oldest bytes the project keeps: removed and replaced versions, then what archived conversations show, then what live ones do. Past the file or conversation limit (artifactFileCapacity, artifactConversationCapacity), or the project's when even that would not make room, it stops with `too_large`, changing nothing for that file",
 	)
 	.arg("files", z.string(), { description: "files to keep, comma separated" })
 	.option("name", z.string(), {

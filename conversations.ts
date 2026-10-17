@@ -22,6 +22,7 @@ import {
 	listSessions,
 	type Session,
 } from "./agent-process";
+import { ArtifactRoom } from "./artifact-room";
 import { ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts";
 import { Conversation } from "./conversation";
 import type { ConversationDeps, ProjectRoster } from "./conversation-host";
@@ -110,6 +111,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly projects: ProjectRoster | null;
 	private readonly servers: SessionServers | null;
 	private readonly artifacts: ArtifactLimits;
+	/** What every conversation's artifacts make room through, across the project. */
+	private readonly room: ArtifactRoom;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
 	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
@@ -142,6 +145,16 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.projects = opts.projects ?? null;
 		this.servers = opts.servers ?? null;
 		this.artifacts = opts.artifacts ?? ARTIFACT_LIMITS;
+		this.room = new ArtifactRoom({
+			fs: this.fs,
+			dir,
+			capacity: this.artifacts.project,
+			shelves: () =>
+				[...this.known.values()].map((each) => ({
+					store: each.artifacts,
+					archived: each.state.archived,
+				})),
+		});
 	}
 
 	/** What each conversation is made with, read as each starts, since `url` is set later. */
@@ -150,6 +163,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			fs: this.fs,
 			ids: this.ids,
 			artifacts: this.artifacts,
+			room: this.room,
 			timer: this.timer,
 			clock: this.clock,
 			launch: this.run,
@@ -378,7 +392,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	/**
 	 * Deletes the archived conversations past the `ARCHIVED_KEPT` archived
-	 * most recently, so their logs do not pile up.
+	 * most recently, so their logs do not pile up, their artifacts and
+	 * attached files going with them.
 	 */
 	prune(): Promise<void> {
 		this.pruning = this.pruning.then(async () => {
@@ -516,6 +531,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			this.known.delete(each.id);
 			await each.delete();
 			this.dispatcher.dispatch("removed", each.id);
+		}
+		// Those archived before archiving cleaned artifacts up keep only what
+		// their panel shows too.
+		for (const each of archived.slice(0, ARCHIVED_KEPT)) {
+			await each.artifacts.archive();
 		}
 	}
 

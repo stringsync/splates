@@ -2,7 +2,7 @@ import { ChevronRightIcon, FilesIcon } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
-import type { Artifact, ArtifactVersion } from "../artifacts";
+import type { Artifact, ArtifactGone, ArtifactVersion } from "../artifacts";
 import { openArtifact } from "./artifact-open";
 import { deleteArtifactVersion } from "./conversation-api";
 import { FileIcon } from "./file-chip";
@@ -136,7 +136,7 @@ function ArtifactRow({
 				{/* Below the name, so a narrow card cuts it no shorter. */}
 				{version.gone !== null && (
 					<span className="text-muted-foreground text-xs not-italic">
-						{gone(version.gone.at)}
+						{gone(version.gone)}
 					</span>
 				)}
 			</span>
@@ -235,11 +235,18 @@ function DeleteControl({
 	);
 }
 
-/** When a version's bytes went: `gone 3d ago`, or `gone just now`. */
-function gone(at: string): string {
+/** Why and when a version's bytes went: `evicted for space 3d ago`. */
+function gone({ at, why }: NonNullable<ArtifactVersion["gone"]>): string {
 	const ago = age(at);
-	return ago === "0m" ? "gone just now" : `gone ${ago} ago`;
+	return `${GONE[why]} ${ago === "0m" ? "just now" : `${ago} ago`}`;
 }
+
+/** What a placeholder says of why its bytes went. */
+const GONE: Record<ArtifactGone, string> = {
+	archived: "removed on archive",
+	evicted: "evicted for space",
+	deleted: "deleted by you",
+};
 
 /** `bytes` at the coarsest unit that still reads: `512 B`, `12 KB`, `1.4 MB`. */
 export function sizeOf(bytes: number): string {
