@@ -23,6 +23,7 @@ import type { LaneRecord } from "./lanes";
 import { type Needing, needs } from "./needs";
 import type { Projects } from "./projects";
 import type { Behind, Release } from "./release";
+import { answerState, type StateCall } from "./repo-state";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
 import type { Slot } from "./slots";
@@ -126,6 +127,13 @@ export async function serveProject(
 		root: service.git.root,
 		format,
 		conversations,
+		answerState: async (call) => {
+			const value = await answerState(fs, project.splatesDir, call);
+			if (!READS.has(call.op)) {
+				watch.changed();
+			}
+			return value;
+		},
 		refresh: watch.changed,
 		snapshot: async () => Response.json(await watch.read()),
 		waiting: async () =>
@@ -226,6 +234,8 @@ export interface Served extends AsyncResource {
 	root: string;
 	format: Format;
 	conversations: Conversations | null;
+	/** Runs a worker's call on its records, as `POST /api/state` asks. */
+	answerState: (call: StateCall) => Promise<unknown>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;
@@ -322,3 +332,13 @@ export function waitingOn(
 		({ need }) => need.kind === "waiting",
 	).length;
 }
+
+/** The calls on a project's records that change nothing. */
+const READS = new Set<StateCall["op"]>([
+	"exists",
+	"read",
+	"readBytes",
+	"readdir",
+	"stat",
+	"isSymlink",
+]);

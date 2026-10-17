@@ -152,7 +152,7 @@ export class Worktree {
 	async take(changes: Partial<TaskState> = {}): Promise<Worktree> {
 		const { ps } = this.service;
 		const conversation = await this.service.conversation();
-		return this.save({
+		const taken = await this.save({
 			...changes,
 			lease: {
 				pid: ps.pid,
@@ -161,6 +161,8 @@ export class Worktree {
 				...(conversation === undefined ? {} : { conversation }),
 			},
 		});
+		this.service.held(this.task);
+		return taken;
 	}
 
 	/** Re-reads from disk. `merge` needs this: the record is the truth. */

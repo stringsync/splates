@@ -10,7 +10,7 @@ export class WorkerProtocol {
 
 	/** The version this end speaks, sent in every hello and welcome. */
 	// Bump the major for a change an older end would misread.
-	static readonly version = "1.0";
+	static readonly version = "1.1";
 
 	static readonly headerBytes = 8;
 

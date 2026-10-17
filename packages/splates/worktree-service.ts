@@ -5,6 +5,7 @@ import { Attachments, folderBytes } from "./attachments";
 import type { Config } from "./config";
 import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
+import type { LeaseBeat } from "./lease-beat";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "./plan";
@@ -44,6 +45,12 @@ export interface WorktreeServiceOptions {
 	outcomes?: Outcomes;
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
+	/**
+	 * What keeps the leases this process takes fresh while it runs, for a
+	 * command on a worker; none on the coordinator's machine, where a pid
+	 * judges its holder.
+	 */
+	leases?: LeaseBeat;
 }
 
 export class WorktreeService {
@@ -53,6 +60,7 @@ export class WorktreeService {
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
+	private readonly leases: LeaseBeat | null;
 	readonly ps: Ps;
 
 	// scry-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
@@ -66,6 +74,7 @@ export class WorktreeService {
 		this.ps = opts.ps ?? new NodePs();
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
+		this.leases = opts.leases ?? null;
 		this.tasksDir = `${splatesDir}/tasks`;
 		this.removedDir = `${splatesDir}/removed`;
 		this.conversationsDir = `${splatesDir}/conversations`;
@@ -89,6 +98,11 @@ export class WorktreeService {
 	/** Whether the `splates server` conversation `id` is one of this repo's. */
 	holds(id: string): Promise<boolean> {
 		return this.fs.exists(`${this.conversationsDir}/${id}.jsonl`);
+	}
+
+	/** Keeps `task`'s lease fresh while this process runs, once it has taken it. */
+	held(task: string): void {
+		this.leases?.held(this, task);
 	}
 
 	async init(): Promise<void> {

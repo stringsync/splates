@@ -170,12 +170,19 @@ export class Testing implements AsyncDisposable {
 			SPLATES_CALLER,
 			SPLATES_STARTED_BY,
 			SPLATES_DEV,
+			SPLATES_PROJECT,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
 			SPLATES_HEAVY,
 			...inherited
 		} = process.env;
-		this.proc.env = { ...inherited, SPLATES_HOME: this.splatesHome };
+		// The same under their old `ARBOR_*` names, which splates still reads.
+		this.proc.env = {
+			...Object.fromEntries(
+				Object.entries(inherited).filter(([key]) => !key.startsWith("ARBOR_")),
+			),
+			SPLATES_HOME: this.splatesHome,
+		};
 		this.slots = Slots.ofMachine(this);
 		this.projects = new Projects(join(this.splatesHome, "projects.json"), {
 			fs: this.fs,

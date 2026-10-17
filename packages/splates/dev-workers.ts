@@ -63,8 +63,12 @@ export class DevWorkers implements AsyncResource {
 		this.ready = false;
 	}
 
-	/** Lets workers join again. */
-	serving(): void {
+	/**
+	 * Lets workers join again, their relays reaching the server at `port`
+	 * on this machine's loopback.
+	 */
+	serving(port: number): void {
+		this.registry.relayTo(port);
 		this.ready = true;
 	}
 

@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -15,6 +16,7 @@ import { LocalWorkerMachine } from "./worker-machine";
 import { WorkerPortHost } from "./worker-port-host";
 import { WorkerProcessHost } from "./worker-process-host";
 import { WorkerPtyHost } from "./worker-pty-host";
+import { RELAY, WorkerRelay } from "./worker-relay";
 import { WorkerSession, type WorkerSessionOptions } from "./worker-session";
 import type { WorkerSocket } from "./worker-socket";
 
@@ -26,7 +28,7 @@ export interface WorkerDialer {
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
-export const WORKER_CAPABILITIES = ["process", "pty", "calls", "port"];
+export const WORKER_CAPABILITIES = ["process", "pty", "calls", "port", RELAY];
 
 /** Who a `WorkerDaemon` is and what it runs on. */
 export interface WorkerDaemonOptions {
@@ -47,6 +49,12 @@ export interface WorkerDaemonOptions {
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
 	timer?: Timer;
 	clock?: Clock;
+	/**
+	 * Where to say the relay listens, for `splates` run by hand on this
+	 * machine, which has no env to find it in; null, the default, says it
+	 * nowhere.
+	 */
+	relayAt?: string | null;
 }
 
 /**
@@ -64,6 +72,8 @@ export class WorkerDaemon implements AsyncResource {
 	private readonly machine: LocalWorkerMachine;
 	private readonly orphanBound: Duration;
 	private orphaned: Resource | undefined;
+	/** Where `splates` on this machine reaches the coordinator, once running. */
+	private relay: WorkerRelay | null = null;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
 
@@ -94,7 +104,18 @@ export class WorkerDaemon implements AsyncResource {
 	 * worker, resolving with why it stopped.
 	 */
 	async run(): Promise<{ refused: string } | { stopped: true }> {
-		const { log } = this.opts;
+		const { log, fs, relayAt = null } = this.opts;
+		this.relay = WorkerRelay.listen(this.session);
+		if (relayAt !== null) {
+			await fs
+				.mkdir(dirname(relayAt))
+				.then(() =>
+					fs.write(relayAt, `${JSON.stringify({ url: this.relay?.url })}\n`),
+				)
+				.catch((error: unknown) =>
+					log.error(`cannot say where the relay listens: ${String(error)}`),
+				);
+		}
 		let wait = this.backoff.min;
 		// Once per outage, rather than at every dial.
 		let said = false;
@@ -151,6 +172,17 @@ export class WorkerDaemon implements AsyncResource {
 			host.dispose();
 		}
 		this.session.dispose();
+		if (this.relay !== null) {
+			this.relay.dispose();
+			const { fs, relayAt = null } = this.opts;
+			// Another daemon on this machine may have said its own since.
+			const said =
+				relayAt === null ? "" : await fs.read(relayAt).catch(() => "");
+			if (relayAt !== null && said.includes(this.relay.url)) {
+				await fs.rm(relayAt, { force: true }).catch(() => {});
+			}
+			this.relay = null;
+		}
 	}
 
 	/**
@@ -177,7 +209,12 @@ export class WorkerDaemon implements AsyncResource {
 		try {
 			switch (channel.kind) {
 				case "process":
-					host = new WorkerProcessHost(channel, this.session, ps);
+					host = new WorkerProcessHost(
+						channel,
+						this.session,
+						ps,
+						this.relay?.url ?? null,
+					);
 					break;
 				case "pty":
 					host = new WorkerPtyHost(channel, ps);

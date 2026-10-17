@@ -27,8 +27,12 @@ export class WorkerPortHost implements Resource {
 	constructor(
 		private readonly channel: WorkerChannel,
 		session: WorkerSession,
+		/**
+		 * The port to connect to, where it is this end's to say rather than
+		 * the channel's, as for a worker's relay into the coordinator's server.
+		 */
+		port: number = PortParams.parse(channel.params).port,
 	) {
-		const { port } = PortParams.parse(channel.params);
 		this.pipe = new PortPipe(channel, session);
 		void this.connect(port);
 	}

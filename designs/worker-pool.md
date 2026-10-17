@@ -80,6 +80,21 @@ points at it, so callbacks and repo-state calls both reach the coordinator.
 the cloud, `splates` run by hand on the Mac reaches repo state through the
 Mac's own worker daemon, so a machine holds one credential, its worker's.
 
+How it is built (todo #12). The interface is the filesystem: `openRepository`
+hands every class an `Fs` that sends paths under `.git/splates` to the
+coordinator, one `POST /api/state` per call, confined there, and everything
+else to the local disk, so records, todos, the journal and attachments read
+and write as before, and the page's watches still fire. A checkout uses it
+when it has no `.git/splates` and a relay is found: `SPLATES_DEV`, else the
+`relay.json` the worker daemon writes in `SPLATES_HOME`. The project is
+`SPLATES_PROJECT`, which the coordinator gives each agent, else the one
+whose origin URL the checkout shares. Locks are `FileLock`'s directories
+taken through the relay, and a command keeps its locks and task leases
+fresh while it runs, since a holder on another host is judged by age. The
+relay is protocol 1.1's `relay` channel: the worker listens on loopback and
+opens one per connection, the coordinator pipes it into its own server, and
+a process the worker starts finds the relay as its `SPLATES_DEV`.
+
 ## Task ports (settled)
 
 Assume nothing of Cloudflare but Access. Any port a task's processes listen

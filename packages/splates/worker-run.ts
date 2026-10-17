@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { fail } from "./exit";
+import { relayFile } from "./repo-state";
 import { splatesHome } from "./roster";
 import { UnixWorkerSocket } from "./unix-worker-socket";
 import { WebSocketWorkerSocket } from "./websocket-worker-socket";
@@ -35,6 +36,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		ps,
 		fs: opts.fs,
 		log,
+		relayAt: relayFile(splatesHome(ps)),
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),

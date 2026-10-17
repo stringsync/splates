@@ -23,6 +23,7 @@ import { Restarts } from "./dev-restart";
 import { SetupRoutes } from "./dev-setup";
 import { OpenCodeSetupRoutes } from "./dev-setup-opencode";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
+import { StateRoutes } from "./dev-state";
 import { claimedFirst, DevTaskPorts, portOwnersOf } from "./dev-task-ports";
 import { Terminals } from "./dev-terminal";
 import { transcriberFor } from "./dev-transcriber";
@@ -84,7 +85,6 @@ export async function dev(
 		portsHost = null,
 		pusher,
 		open = async (root) => ({
-			fs: deps.fs,
 			ps: deps.ps,
 			log: deps.log,
 			...(await openRepository(deps, { at: root, migrates: true })),
@@ -220,6 +220,13 @@ export async function dev(
 				await project.format.check();
 				return pick(project)(request);
 			})(request);
+
+	const state = new StateRoutes({
+		ps,
+		projects,
+		named: projectNamed,
+		at: servedAt,
+	});
 
 	const workers = givenWorkers ?? new DevWorkers(log);
 	if (
@@ -604,6 +611,9 @@ export async function dev(
 					PUT: talk(owned((project) => project.moveConversation)),
 				},
 				"/api/ports": guarded(taskPorts.list),
+				// Through a worker's relay, which reaches only this machine's
+				// names: the records of a project its commands run on.
+				"/api/state": { POST: talk(guarded(state.answer)) },
 			},
 			taskPorts,
 		),
@@ -655,7 +665,7 @@ export async function dev(
 				log.error(`${root} did not open: ${String(error)}`),
 			);
 	}
-	workers.serving();
+	workers.serving(port);
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);
 	}

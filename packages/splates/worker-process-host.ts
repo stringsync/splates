@@ -3,6 +3,7 @@ import type { Child, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { SERVING } from "./supervise";
 import type { WorkerChannel } from "./worker-channel";
+import { relays } from "./worker-relay";
 import type { WorkerSession } from "./worker-session";
 
 /** What a coordinator opens a `process` channel with. */
@@ -35,9 +36,22 @@ export class WorkerProcessHost implements Resource {
 		private readonly channel: WorkerChannel,
 		private readonly session: WorkerSession,
 		ps: Ps,
+		/**
+		 * This worker's relay, which a process told where `splates server` is
+		 * reaches it through instead, since the coordinator's own address is
+		 * its machine's loopback; null to leave its env as it is.
+		 */
+		relay: string | null = null,
 	) {
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
-		this.child = ps.start(argv, { cwd, env, unset: [SERVING] });
+		this.child = ps.start(argv, {
+			cwd,
+			env:
+				relay !== null && env.SPLATES_DEV !== undefined && relays(session)
+					? { ...env, SPLATES_DEV: relay }
+					: env,
+			unset: [SERVING],
+		});
 		this.stdin = this.child.stdin.getWriter();
 		channel.send({ type: "started", pid: this.child.pid });
 		channel.events.on("data", ({ bytes }) => {

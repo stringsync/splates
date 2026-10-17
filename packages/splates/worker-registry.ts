@@ -12,7 +12,10 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { RemoteWorker, type WorkerKind } from "./remote-worker";
+import type { WorkerChannel } from "./worker-channel";
 import { WORKER_CAPABILITIES } from "./worker-daemon";
+import { WorkerPortHost } from "./worker-port-host";
+import { RELAY } from "./worker-relay";
 import { WorkerSession, type WorkerSessionOptions } from "./worker-session";
 import type { WorkerSocket } from "./worker-socket";
 
@@ -61,6 +64,8 @@ export class WorkerRegistry
 	private readonly timer: Timer;
 	private readonly clock: Clock;
 	private readonly wall: WallClock;
+	/** The port of the server a worker's relay reaches, once it listens. */
+	private relayPort: number | null = null;
 
 	constructor(
 		private readonly log: Logger,
@@ -161,14 +166,37 @@ export class WorkerRegistry
 		);
 	}
 
+	/**
+	 * Pipes each connection a worker's relay takes into the server at
+	 * `port` on this machine's loopback, from now on.
+	 */
+	relayTo(port: number): void {
+		this.relayPort = port;
+	}
+
 	private session(): WorkerSession {
-		return new WorkerSession("coordinator", {
+		const session = new WorkerSession("coordinator", {
 			...this.opts.session,
 			capabilities: WORKER_CAPABILITIES,
 			timer: this.timer,
 			clock: this.clock,
 			wall: this.wall,
 		});
+		session.events.on("channel", (channel) => this.serve(channel, session));
+		return session;
+	}
+
+	// Closed rather than left open: its frames would never be acked, and
+	// would fill the worker's buffer until it stopped.
+	private serve(channel: WorkerChannel, session: WorkerSession): void {
+		if (channel.kind === RELAY && this.relayPort !== null) {
+			new WorkerPortHost(channel, session, this.relayPort);
+			return;
+		}
+		this.log.error(
+			`a worker opened a ${channel.kind} channel, which this coordinator does not serve${channel.kind === RELAY ? " until its server listens" : ""}`,
+		);
+		channel.dispose();
 	}
 
 	dispose(): void {

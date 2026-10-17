@@ -78,8 +78,7 @@ describe("WorkerSession handshake", () => {
 		const accepted = coordinator.accept(pair.coordinator, hello);
 		await Bun.sleep(0);
 
-		const reason =
-			"the worker speaks protocol 2.0, and this end speaks 1.0: update the older one";
+		const reason = `the worker speaks protocol 2.0, and this end speaks ${WorkerProtocol.version}: update the older one`;
 		expect(accepted).toEqual({ ok: false, reason, refused: true });
 		expect(answers).toEqual([{ type: "refuse", reason }]);
 		expect(coordinator.connected).toBe(false);

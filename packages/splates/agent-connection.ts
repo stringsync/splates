@@ -191,6 +191,15 @@ export class AgentConnection {
 			// One a lane's orchestrator started finds it as the one that started
 			// it, not one it reports to: it answers to the person.
 			const { id, lastCaller, startedBy } = host.state;
+			// And its project by name, which a worker with no records of its
+			// own names to the coordinator for them.
+			const { root, projects } = this.deps;
+			const slug =
+				root === null || projects === null
+					? undefined
+					: (await projects.list().catch(() => [])).find(
+							(each) => each.root === root,
+						)?.slug;
 			// Reset the log cursor so a replacement process can acknowledge its own frames.
 			host.log.heard(0);
 			process = this.deps.launcher.launch(agent.argv, cwd, {
@@ -201,6 +210,7 @@ export class AgentConnection {
 						? {}
 						: { SPLATES_CALLER: lastCaller }),
 				...(this.deps.url === null ? {} : { SPLATES_DEV: this.deps.url }),
+				...(slug === undefined ? {} : { SPLATES_PROJECT: slug }),
 			});
 			const launched = process;
 			void launched.exited.then(started, started);
