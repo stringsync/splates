@@ -6,19 +6,19 @@ import { LEGACY_PLAN_FILE } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "./plans";
-import { recommend, recommendation } from "./recommend";
 import type { Facts } from "./records";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import { pushedLine, type TaskBranches } from "./task-branches";
-import type { Landed, TrunkLanding } from "./trunk-landing";
 import type {
 	FailedTest,
 	GateFailure,
 	MergeFailure,
 	Worktree,
-} from "./worktree";
-import type { WorktreeService } from "./worktree-service";
+	WorktreeService,
+} from "./tasks";
+import { recommend, recommendation } from "./tasks";
+import type { Landed, TrunkLanding } from "./trunk-landing";
 
 const TAIL_LINES = 40;
 /** The most lines kept of what one failed test said. */

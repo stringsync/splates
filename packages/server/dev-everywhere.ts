@@ -5,7 +5,7 @@ import { type ConversationState, listed } from "./conversations";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { Served } from "./dev-project";
 import type { Projects } from "./projects";
-import type { Details } from "./show";
+import type { Details } from "./tasks";
 
 /**
  * What `GET /api/everywhere` answers: every project served so far, its

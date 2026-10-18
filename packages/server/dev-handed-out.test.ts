@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { add } from "./add";
 import { AGENT, FakeAgent } from "./agents/testing";
 import { type Conversation, Conversations } from "./conversations";
 import { json } from "./dev-testing";
 import { dev } from "./index";
 import { CHECKPOINT, RESUME } from "./plans";
-import { remove } from "./remove";
+import { add, remove } from "./tasks";
 import { Testing } from "./testing";
 
 describe("dev conversations handed a task", () => {

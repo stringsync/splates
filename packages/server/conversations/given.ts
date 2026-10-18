@@ -1,5 +1,5 @@
 import { fail } from "../exit";
-import type { WorktreeService } from "../worktree-service";
+import type { WorktreeService } from "../tasks";
 
 /**
  * The conversation a command is about: `given` from `--conversation`, for an

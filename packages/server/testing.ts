@@ -22,8 +22,8 @@ import { Format, Journal } from "./records";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
+import { WorktreeService } from "./tasks";
 import { CoordinatorLanding } from "./trunk-landing";
-import { WorktreeService } from "./worktree-service";
 
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an

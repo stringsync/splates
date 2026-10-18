@@ -1,5 +1,5 @@
 import type { Question } from "../plans";
-import type { FailedTest, RemoveReason } from "../worktree";
+import type { FailedTest, RemoveReason } from "../tasks";
 
 /** An escalation that went through, which asks the person to act. */
 export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;

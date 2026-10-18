@@ -7,7 +7,7 @@ import {
 	type MergeFailure,
 	REMOVE_REASONS,
 	type RemoveReason,
-} from "./worktree";
+} from "./tasks/browser";
 
 /** What the Stats page shows: how tasks ended, bar by bar and by who did them. */
 export interface Stats {

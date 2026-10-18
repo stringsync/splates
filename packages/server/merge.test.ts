@@ -1,10 +1,10 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
-import { add } from "./add";
 import { merge } from "./merge";
 import { PLAN_FILE } from "./plans";
 import { Shell } from "./shell";
+import { add } from "./tasks";
 import { LIVE_PID, Testing } from "./testing";
 
 // Every test here drives real git in a repo of its own, dozens of processes

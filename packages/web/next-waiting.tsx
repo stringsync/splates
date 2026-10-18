@@ -1,5 +1,5 @@
 import { needs } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useRef, useState } from "react";
 import { openedBy } from "./conversation-address";

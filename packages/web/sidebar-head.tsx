@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { type JSX, useEffect, useRef } from "react";

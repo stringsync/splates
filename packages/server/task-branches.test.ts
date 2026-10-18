@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { add } from "./add";
-import { checkpoint, WIP_MESSAGE } from "./checkpoint";
-import { escalate } from "./escalate";
 import { merge } from "./merge";
 import { PLAN_FILE } from "./plans";
-import { remove } from "./remove";
+import { add, checkpoint, escalate, remove, WIP_MESSAGE } from "./tasks";
 import { Testing } from "./testing";
 
 describe("TaskBranches", () => {

@@ -1,5 +1,5 @@
 import type { Question } from "@stringsync/splates-server/plans";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	CheckIcon,
 	EllipsisIcon,

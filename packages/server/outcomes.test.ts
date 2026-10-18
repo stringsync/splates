@@ -1,12 +1,8 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
-import { add } from "./add";
-import { claim } from "./claim";
-import { escalate } from "./escalate";
 import { merge } from "./merge";
 import { PLAN_FILE } from "./plans";
-import { remove } from "./remove";
-import { retry } from "./retry";
+import { add, claim, escalate, remove, retry } from "./tasks";
 import { Testing } from "./testing";
 
 // Real git in a repo of its own, as in merge.test.ts.

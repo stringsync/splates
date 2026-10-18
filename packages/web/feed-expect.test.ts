@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { Feed } from "./feed";
 import { snapshot, todo } from "./testing";
 

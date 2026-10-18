@@ -1,7 +1,7 @@
 import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "../conversations";
-import type { Details } from "../show";
+import type { Details } from "../tasks";
 import { goalLine, type Question, questions, STUB_STEP } from "./plan";
 
 /**

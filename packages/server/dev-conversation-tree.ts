@@ -1,5 +1,5 @@
 import { fail } from "./exit";
-import type { WorktreeService } from "./worktree-service";
+import type { WorktreeService } from "./tasks";
 
 /**
  * Where a conversation runs: its task's name, the tree, the branch the task

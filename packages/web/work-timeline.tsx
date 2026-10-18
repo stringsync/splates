@@ -1,5 +1,5 @@
 import type { Edit, Tool } from "@stringsync/splates-server/conversations";
-import { editLines } from "@stringsync/splates-server/diff";
+import { editLines } from "@stringsync/splates-server/tasks/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, use } from "react";
 import { CodeDiff } from "#web/components/assistant-ui/elements/code-diff.tsx";

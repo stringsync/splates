@@ -1,4 +1,4 @@
-import type { FileDiff } from "@stringsync/splates-server/diff";
+import type { FileDiff } from "@stringsync/splates-server/tasks";
 import {
 	ChevronsDownUpIcon,
 	ChevronsUpDownIcon,

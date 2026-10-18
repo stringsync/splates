@@ -1,7 +1,6 @@
 import type { TodoState } from "./board";
 import type { ConversationState, Message, Part, Tool } from "./conversations";
-import type { Details } from "./show";
-import type { Snapshot } from "./snapshot";
+import type { Details, Snapshot } from "./tasks";
 
 export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {

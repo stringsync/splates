@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { EverywhereProject } from "@stringsync/splates-server/dev-everywhere";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	act,
 	cleanup,

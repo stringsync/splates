@@ -1,5 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ChevronsRightIcon } from "lucide-react";
 import type { JSX } from "react";

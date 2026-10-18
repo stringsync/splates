@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { add } from "./add";
-import { claim } from "./claim";
 import { CloneCheckouts } from "./clone-checkouts";
 import type { Config } from "./config";
 import { Git } from "./git";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { TaskBranches } from "./task-branches";
+import { add, claim, WorktreeService } from "./tasks";
 import { Testing } from "./testing";
 import { LocalWorkerMachine } from "./workers";
-import { WorktreeService } from "./worktree-service";
 
 describe("CloneCheckouts", () => {
 	let deps: Testing;

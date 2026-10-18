@@ -18,7 +18,7 @@ import {
 	DEFAULT_TIMEOUT,
 	todoWait,
 	untilAfter,
-} from "@stringsync/splates-server/wait";
+} from "@stringsync/splates-server/tasks";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";

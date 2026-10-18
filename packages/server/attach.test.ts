@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
-import { add } from "./add";
 import { attach } from "./attach";
 import { merge } from "./merge";
-import { remove } from "./remove";
+import { add, remove } from "./tasks";
 import { Testing } from "./testing";
 
 describe("attach", () => {

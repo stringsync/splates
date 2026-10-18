@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { add } from "./add";
-import { TaskDetails } from "./show";
+import { add, TaskDetails } from "./tasks";
 import { Testing } from "./testing";
 
 describe("a TaskDetails kept across reads", () => {

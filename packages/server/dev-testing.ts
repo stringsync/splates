@@ -2,7 +2,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import type { FakeAgent } from "./agents/testing";
 import type { Conversation } from "./conversations";
 import { dev } from "./index";
-import type { Snapshot } from "./snapshot";
+import type { Snapshot } from "./tasks";
 import type { Testing } from "./testing";
 
 export async function readUntil(

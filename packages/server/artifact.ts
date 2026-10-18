@@ -11,7 +11,7 @@ import {
 } from "./artifacts";
 import { ConversationLog } from "./conversations";
 import { EXIT, fail, type Reason } from "./exit";
-import type { WorktreeService } from "./worktree-service";
+import type { WorktreeService } from "./tasks";
 
 /** What `fetch` is used for here, so a test can stand in for it. */
 type Send = (url: string, init: RequestInit) => Promise<Response>;

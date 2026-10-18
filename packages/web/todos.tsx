@@ -8,7 +8,7 @@ import {
 	lanes as laneList,
 	named,
 } from "@stringsync/splates-server/board/browser";
-import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

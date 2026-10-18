@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
-import type { Details } from "../show";
+import type { Details } from "../tasks";
 import { need, needs, QUIET_AFTER, quietSince } from "./needs";
 import { STUB_STEP } from "./plan";
 

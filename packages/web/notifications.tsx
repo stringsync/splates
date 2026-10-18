@@ -1,6 +1,6 @@
 import { keyOf } from "@stringsync/splates-server/notices";
 import type { Needing } from "@stringsync/splates-server/plans";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { useEffect, useRef, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";

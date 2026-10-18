@@ -5,7 +5,7 @@ import { readFiles } from "./attachments";
 import { conversationOf } from "./conversations";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import type { WorktreeService } from "./worktree-service";
+import type { WorktreeService } from "./tasks";
 
 export interface AttachOptions {
 	/** Task whose files these are. Defaults to the one `cwd` is a worktree for. */

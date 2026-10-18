@@ -6,8 +6,8 @@ import type { Creds } from "./creds";
 import type { Git } from "./git";
 import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
 import { PLAN_FILE, type PlanStore } from "./plans";
-import type { Worktree } from "./worktree";
-import { taskOf } from "./worktree-service";
+import type { Worktree } from "./tasks";
+import { taskOf } from "./tasks";
 
 /** What a task's branch is pushed as on the central remote: `splates/<task>`. */
 export const PUSHED_PREFIX = "splates/";

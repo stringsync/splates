@@ -3,13 +3,13 @@ import { chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OpenPortProvider } from "webappwiz/system";
-import { add } from "./add";
 import { AGENT, FakeAgent } from "./agents/testing";
 import { Conversations } from "./conversations";
 import { serving } from "./dev-testing";
 import { dev } from "./index";
-import type { Snapshot } from "./snapshot";
 import type { Stats } from "./stats";
+import type { Snapshot } from "./tasks";
+import { add } from "./tasks";
 import { Testing } from "./testing";
 
 describe("dev projects", () => {

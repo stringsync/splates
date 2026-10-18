@@ -2,7 +2,7 @@ import {
 	EDITORS,
 	type Editor,
 	ZED as ZED_EDITOR,
-} from "@stringsync/splates-server/editors";
+} from "@stringsync/splates-server/tasks/browser";
 import { createContext } from "react";
 
 /** An editor a file the page names can open in, through the link it handles. */

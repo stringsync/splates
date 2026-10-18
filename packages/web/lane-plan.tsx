@@ -9,7 +9,7 @@ import {
 	type Need,
 	needOfExternal,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { CheckIcon, CornerUpLeftIcon, Loader2Icon } from "lucide-react";
 import {
 	createContext,

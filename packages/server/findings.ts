@@ -1,6 +1,6 @@
 import type { Judged } from "./adherence";
 import type { TaskLog } from "./task-log";
-import type { GateFailure } from "./worktree";
+import type { GateFailure } from "./tasks";
 
 /** What went worse than it could have, in the order `Finding` lists the kinds. */
 export function findings(evidence: Evidence): Finding[] {

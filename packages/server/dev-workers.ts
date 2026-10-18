@@ -6,6 +6,7 @@ import { systemPs } from "./config";
 import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { queueListing } from "./queue-list";
+import type { WorkerMachines } from "./tasks";
 import type { RemoteWorker } from "./workers";
 import {
 	ServerWorkerSocket,
@@ -15,7 +16,6 @@ import {
 	WorkerSlots,
 	workerList,
 } from "./workers";
-import type { WorkerMachines } from "./worktree-service";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";

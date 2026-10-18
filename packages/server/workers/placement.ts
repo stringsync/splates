@@ -2,7 +2,7 @@ import type { Config } from "../config";
 import type { PlacedCheckouts } from "../conversations";
 import { materialize } from "../materialize";
 import type { TaskBranches } from "../task-branches";
-import type { WorktreeService } from "../worktree-service";
+import type { WorktreeService } from "../tasks";
 import type { WorkerMachine } from "./machine";
 
 /**

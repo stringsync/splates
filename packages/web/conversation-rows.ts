@@ -7,7 +7,7 @@ import {
 	type Needing,
 	need,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
 import type { Drafts } from "./drafts";

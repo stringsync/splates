@@ -1,12 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
-import { add } from "../add";
-import { escalate } from "../escalate";
 import { seed, sound2score } from "../example";
 import { merge } from "../merge";
+import { add, escalate, todoWait } from "../tasks";
 import { Testing } from "../testing";
-import { todoWait } from "../wait";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { lanes } from "./lanes";
 import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";

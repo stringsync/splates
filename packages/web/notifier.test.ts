@@ -5,7 +5,7 @@ import {
 	need,
 	needOfExternal,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { Notifier } from "./notifier";
 import { Settings } from "./settings";
 import { conversation, details, message } from "./testing";

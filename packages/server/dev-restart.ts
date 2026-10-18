@@ -11,8 +11,8 @@ import { fail } from "./exit";
 import { type Held, heldBy } from "./held";
 import { RESUME } from "./plans";
 import type { Projects } from "./projects";
-import { tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
+import { tasksOf } from "./tasks";
 import type { WorkerMachine } from "./workers";
 
 /** The projects `splates server` serves, as its restarts reach them. */

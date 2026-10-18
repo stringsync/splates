@@ -5,7 +5,7 @@ import {
 } from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { needOfExternal } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
 import {

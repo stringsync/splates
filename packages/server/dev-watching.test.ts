@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { add } from "./add";
 import { readUntil, serving, within } from "./dev-testing";
 import { dev } from "./index";
-import type { Snapshot } from "./snapshot";
+import type { Snapshot } from "./tasks";
+import { add } from "./tasks";
 import { Testing } from "./testing";
 
 describe("dev", () => {

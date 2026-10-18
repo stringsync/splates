@@ -9,7 +9,7 @@ import {
 	type Need,
 	quietSince,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	ChevronLeftIcon,
 	GitBranchIcon,

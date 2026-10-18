@@ -1,5 +1,5 @@
 import type { TodoState } from "@stringsync/splates-server/board";
-import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 
 export type TodoViewEvents = { changed: undefined };

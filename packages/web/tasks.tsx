@@ -5,8 +5,7 @@ import {
 	needs,
 	questions,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
-import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
 import { ChevronRightIcon, SquarePenIcon } from "lucide-react";
 import {
 	type CSSProperties,

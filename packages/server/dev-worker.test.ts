@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { add } from "./add";
 import { serving } from "./dev-testing";
+import { add } from "./tasks";
 import { Testing } from "./testing";
 
 describe("dev's service worker", () => {

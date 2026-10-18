@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join, resolve } from "node:path";
-import { add } from "../add";
-import { claim } from "../claim";
 import { CloneCheckouts } from "../clone-checkouts";
 import { Git } from "../git";
 import { TaskBranches } from "../task-branches";
+import { add, claim, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
-import { WorktreeService } from "../worktree-service";
 import { LocalWorkerMachine } from "./machine";
 import { WorkerPlacement } from "./placement";
 

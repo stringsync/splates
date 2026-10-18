@@ -4,7 +4,7 @@ import type {
 	EverywhereListing,
 	EverywhereProject,
 } from "@stringsync/splates-server/dev-everywhere";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { LiveStream } from "./live-stream";

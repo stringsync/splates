@@ -5,8 +5,7 @@ import { LEGACY_PLAN_FILE } from "./config";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
 import { PLAN_FILE } from "./plans";
-import { TaskDetails } from "./show";
-import { fingerprint, type Snapshot, snapshot } from "./snapshot";
+import { fingerprint, type Snapshot, snapshot, TaskDetails } from "./tasks";
 
 /** How long changes to a repo's files settle before it is read again. */
 export const SETTLE = Duration.ms(50);

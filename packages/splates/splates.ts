@@ -1,42 +1,44 @@
 // scry-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
 
 import { DEFAULT_PORT } from "@stringsync/splates-server";
-import { add } from "@stringsync/splates-server/add";
 import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/attach";
-import { checkpoint } from "@stringsync/splates-server/checkpoint";
-import { claim } from "@stringsync/splates-server/claim";
 import { commaList } from "@stringsync/splates-server/comma-list";
-import { escalate } from "@stringsync/splates-server/escalate";
 import { exits, fail } from "@stringsync/splates-server/exit";
 import { addFactTodos } from "@stringsync/splates-server/fact-todos";
-import { follow, serveProject } from "@stringsync/splates-server/follow";
-import { handoff } from "@stringsync/splates-server/handoff";
 import { runHeavy } from "@stringsync/splates-server/heavy-run";
 import { forget, init } from "@stringsync/splates-server/init";
-import { list } from "@stringsync/splates-server/list";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
 import { merge } from "@stringsync/splates-server/merge";
-import { path } from "@stringsync/splates-server/path";
 import { portsLs } from "@stringsync/splates-server/ports-list";
 import type { Facts } from "@stringsync/splates-server/records";
 import { repository } from "@stringsync/splates-server/records";
 import { newest } from "@stringsync/splates-server/release";
-import { remove } from "@stringsync/splates-server/remove";
-import { recordRetry } from "@stringsync/splates-server/retry";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-import { show } from "@stringsync/splates-server/show";
 import { serveDev } from "@stringsync/splates-server/start";
 import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
-import { reportToCaller, tell } from "@stringsync/splates-server/tell";
-import { update } from "@stringsync/splates-server/update";
 import {
+	add,
+	checkpoint,
+	claim,
 	DEFAULT_TIMEOUT,
+	escalate,
+	follow,
+	handoff,
+	list,
+	path,
+	REMOVE_REASONS,
+	recordRetry,
+	remove,
+	reportToCaller,
+	serveProject,
+	show,
+	tell,
 	untilAfter,
 	wait,
-} from "@stringsync/splates-server/wait";
+} from "@stringsync/splates-server/tasks";
+import { update } from "@stringsync/splates-server/update";
 import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
-import { REMOVE_REASONS } from "@stringsync/splates-server/worktree";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";

@@ -9,7 +9,7 @@ import type {
 } from "@stringsync/splates-server/conversations";
 import { modelOption } from "@stringsync/splates-server/models/browser";
 import { AUTO } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { type JSX, type ReactNode, useContext, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";

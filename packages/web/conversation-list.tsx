@@ -2,7 +2,7 @@ import {
 	answersTo,
 	type Needing,
 } from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/show";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
