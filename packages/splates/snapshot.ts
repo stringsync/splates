@@ -60,6 +60,7 @@ export async function snapshot({
 	todos,
 	creds,
 	fs,
+	details,
 	home,
 	release = null,
 	behind = null,
@@ -70,6 +71,11 @@ export async function snapshot({
 	todos: Todos;
 	creds: Creds;
 	fs: Fs;
+	/**
+	 * What reads each task, kept across reads to keep what git said of each
+	 * until git moves; a fresh one, keeping nothing, by default.
+	 */
+	details?: TaskDetails;
 	/** The home directory to show as `~`, when there is one. */
 	home?: string;
 	release?: Release | null;
@@ -77,7 +83,7 @@ export async function snapshot({
 	unbuilt?: boolean;
 	slot?: Slot | null;
 }): Promise<Snapshot> {
-	const tasks = await tasksOf({ service, fs });
+	const tasks = await tasksOf({ service, fs, details });
 	return {
 		repo: basename(service.git.root),
 		path: tilde(service.git.root, home),
@@ -101,11 +107,12 @@ export async function snapshot({
 export async function tasksOf({
 	service,
 	fs,
+	details = new TaskDetails({ fs }),
 }: {
 	service: WorktreeService;
 	fs: Fs;
+	details?: TaskDetails;
 }): Promise<Details[]> {
-	const details = new TaskDetails({ fs });
 	return limited(await service.list(), READ_CONCURRENCY, (worktree) =>
 		details.get(worktree),
 	);

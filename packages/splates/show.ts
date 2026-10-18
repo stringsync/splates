@@ -5,7 +5,7 @@ import { fail } from "./exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "./plan";
 import { type NamedSystem, Systems } from "./systems";
 import { handOff } from "./tell";
-import type { Worktree } from "./worktree";
+import type { DiffSize, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -110,26 +110,42 @@ export interface TaskDetailsOptions {
 }
 
 /**
- * Everything there is to say about one task. Split out so `dev` can render the
- * same fields this prints, rather than assembling its own and drifting.
+ * Everything there is to say about one task, as `show` prints it and the
+ * `splates server` page shows it. Keep one to read tasks many times, and call
+ * {@link moved} whenever a branch or a worktree's files may have moved.
  */
 export class TaskDetails {
+	// Split out so `dev` renders the same fields `show` prints, rather than
+	// assembling its own and drifting.
+	//
+	// What git says of a task costs several git calls, so it is kept until
+	// `moved`; the rest, its record and its SPLATES.md, is read every time.
 	private readonly fs: Fs;
+	/** Each task's git facts, by {@link gitKey}, read since git last moved. */
+	private readonly kept = new Map<string, Promise<GitFacts>>();
+	/** Bumped by {@link moved}, so a read begun before it is not kept. */
+	private generation = 0;
 
 	constructor(opts: TaskDetailsOptions = {}) {
 		this.fs = opts.fs ?? new NodeFs();
 	}
 
+	/**
+	 * Forgets what git said of every task: a branch, its base, or a
+	 * worktree's files may have moved.
+	 */
+	moved(): void {
+		this.generation++;
+		this.kept.clear();
+	}
+
 	async get(worktree: Worktree): Promise<Details> {
 		const { state } = worktree;
-		// A record whose worktree or branch is gone is still worth showing: the
-		// status names what is wrong, and asking git about a branch that is not
-		// there would only fill the fields with nulls.
-		const stat = worktree.hasBranch ? await worktree.size() : null;
 		const plan = worktree.exists
 			? await new Plans(this.fs).read(worktree.path)
 			: null;
-		const ahead = worktree.hasBranch ? await worktree.commitsAhead() : null;
+		const { stat, ahead, committedAt, uncommitted, systems } =
+			await this.git(worktree);
 		const last = state?.escalations?.at(-1);
 		const review =
 			state?.status === "escalated" && last?.review ? last.reason : null;
@@ -147,7 +163,7 @@ export class TaskDetails {
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
 			createdAt: state?.createdAt ?? null,
-			activeAt: await this.activeAt(worktree, ahead ?? 0),
+			activeAt: await this.activeAt(worktree, committedAt, uncommitted),
 			escalation: last?.reason ?? null,
 			mergeAttempts: worktree.mergeAttempts,
 			mergeAttemptLimit: worktree.mergeAttemptLimit,
@@ -167,6 +183,59 @@ export class TaskDetails {
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
 			handedTo: handOff(worktree)?.conversation ?? null,
+			systems,
+		};
+	}
+
+	/** What git says of `worktree`: kept since git last moved, or read now. */
+	private git(worktree: Worktree): Promise<GitFacts> {
+		const key = gitKey(worktree);
+		const kept = this.kept.get(key);
+		if (kept !== undefined) {
+			return kept;
+		}
+		const generation = this.generation;
+		const read = this.readGit(worktree);
+		this.kept.set(key, read);
+		// A failed read, or one git moved under, is read again next time.
+		read.then(
+			() => {
+				if (this.generation !== generation) {
+					this.forget(key, read);
+				}
+			},
+			() => this.forget(key, read),
+		);
+		return read;
+	}
+
+	private forget(key: string, read: Promise<GitFacts>): void {
+		if (this.kept.get(key) === read) {
+			this.kept.delete(key);
+		}
+	}
+
+	private async readGit(worktree: Worktree): Promise<GitFacts> {
+		// A record whose worktree or branch is gone is still worth showing: the
+		// status names what is wrong, and asking git about a branch that is not
+		// there would only fill the fields with nulls.
+		const stat = worktree.hasBranch ? await worktree.size() : null;
+		const ahead = worktree.hasBranch ? await worktree.commitsAhead() : null;
+		// With none of its own, the branch's latest commit is its base's.
+		const committedAt =
+			(ahead ?? 0) > 0
+				? await worktree
+						.committedAt()
+						.then((at) => (at ? Date.parse(at) : null))
+				: null;
+		const uncommitted = worktree.exists
+			? (await worktree.uncommitted().catch(() => [])).map(pathOf)
+			: [];
+		return {
+			stat,
+			ahead,
+			committedAt,
+			uncommitted,
 			systems: await this.systems(worktree),
 		};
 	}
@@ -177,13 +246,11 @@ export class TaskDetails {
 	 */
 	private async activeAt(
 		worktree: Worktree,
-		ahead: number,
+		committedAt: number | null,
+		uncommitted: string[],
 	): Promise<string | null> {
 		const edited = worktree.exists
-			? [
-					PLAN_FILE,
-					...(await worktree.uncommitted().catch(() => [])).map(pathOf),
-				].map((path) =>
+			? [PLAN_FILE, ...uncommitted].map((path) =>
 					this.fs
 						.stat(`${worktree.path}/${path}`)
 						.then((stat) => stat.mtimeMs)
@@ -192,10 +259,7 @@ export class TaskDetails {
 			: [];
 		const times = await Promise.all([
 			worktree.state ? Date.parse(worktree.state.updatedAt) : null,
-			// With none of its own, the branch's latest commit is its base's.
-			ahead > 0
-				? worktree.committedAt().then((at) => (at ? Date.parse(at) : null))
-				: null,
+			committedAt,
 			...edited,
 		]);
 		const known = times.filter(
@@ -225,6 +289,33 @@ export class TaskDetails {
 		}
 		return named.touchedBy((await worktree.changedFiles()) ?? []);
 	}
+}
+
+/**
+ * What git and the worktree's files say of a task, which only a move of its
+ * branch, its base or those files changes. Its systems are among them, since
+ * `splates.systems.ts` is one of those files.
+ */
+interface GitFacts {
+	stat: DiffSize | null;
+	ahead: number | null;
+	/** When its own latest commit was made, in ms; null with none of its own. */
+	committedAt: number | null;
+	/** The paths it has uncommitted, relative to its worktree. */
+	uncommitted: string[];
+	systems: NamedSystem[];
+}
+
+/** What a task's git facts are read from, so a task that changes any is read anew. */
+function gitKey(worktree: Worktree): string {
+	return JSON.stringify([
+		worktree.git.root,
+		worktree.path,
+		worktree.branch,
+		worktree.base,
+		worktree.exists,
+		worktree.hasBranch,
+	]);
 }
 
 /**

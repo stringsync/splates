@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import { eventually, serving } from "./dev-testing";
+import { eventually, post, serving, todoForm } from "./dev-testing";
 import { Testing } from "./testing";
 
 describe("a project's kept snapshot", () => {
@@ -69,6 +69,49 @@ describe("a project's kept snapshot", () => {
 					5_000,
 				),
 			).toBe(true);
+		});
+	}, 15_000);
+
+	it("sees a worktree's edit, which git says, once it settles", async () => {
+		const tree = (await deps.service.find("alpha")).path;
+
+		await serving(deps, async (snapshot) => {
+			const before = (await snapshot()).tasks[0]?.added ?? 0;
+
+			await deps.fs.write(`${tree}/new.txt`, "one\ntwo\n");
+
+			expect(
+				await eventually(
+					async () => (await snapshot()).tasks[0]?.added === before + 2,
+					5_000,
+				),
+			).toBe(true);
+		});
+	}, 15_000);
+
+	it("answers a board write without asking git of its tasks again", async () => {
+		await serving(deps, async (snapshot, port) => {
+			await Bun.sleep(300);
+			await snapshot();
+			let asked = 0;
+			const list = deps.service.list.bind(deps.service);
+			deps.service.list = async () =>
+				(await list()).map((worktree) => {
+					const size = worktree.size.bind(worktree);
+					worktree.size = () => {
+						asked++;
+						return size();
+					};
+					return worktree;
+				});
+
+			const response = await post(port, "/api/todos", todoForm("later"));
+			expect(response.ok).toBe(true);
+
+			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+				"later",
+			]);
+			expect(asked).toBe(0);
 		});
 	}, 15_000);
 });

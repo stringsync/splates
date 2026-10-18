@@ -5,6 +5,7 @@ import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
 import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
+import { TaskDetails } from "./show";
 import { fingerprint, type Snapshot, snapshot } from "./snapshot";
 
 /** How long changes to a repo's files settle before it is read again. */
@@ -31,6 +32,11 @@ export class ProjectWatch implements StreamWatcher {
 	private watches: Resource[] = [];
 	private readonly trees = new Map<string, Tree>();
 	private poll: ReturnType<typeof setInterval> | null = null;
+	/**
+	 * Reads each task, keeping what git said of it until a ref or a
+	 * worktree's file moves, so a board write re-reads only the records.
+	 */
+	private readonly details: TaskDetails;
 	// A write lands as a temp file renamed into place, and a merge moves
 	// several things at once: one read once they settle covers them all.
 	private readonly settle = new Debouncer(new SystemTimer(), SETTLE);
@@ -52,7 +58,9 @@ export class ProjectWatch implements StreamWatcher {
 	private constructor(
 		private readonly project: Project,
 		private readonly context: DevContext,
-	) {}
+	) {
+		this.details = new TaskDetails({ fs: project.fs });
+	}
 
 	/**
 	 * The whole repo, as a page shows it: the one kept since nothing moved,
@@ -94,7 +102,16 @@ export class ProjectWatch implements StreamWatcher {
 		});
 	};
 
-	private readonly edited = (): void => this.edits.call(this.changed);
+	/** As {@link changed}, for a move that git may say something new of. */
+	private readonly moved = (): void => {
+		this.details.moved();
+		this.changed();
+	};
+
+	private readonly edited = (): void => {
+		this.details.moved();
+		this.edits.call(this.changed);
+	};
 
 	/** The stream a page listens to for `changed`. */
 	events(): Response {
@@ -126,7 +143,19 @@ export class ProjectWatch implements StreamWatcher {
 	/** The repo read whole, the server's own facts aside. */
 	private read(): Promise<Snapshot> {
 		const { service, todos, creds, fs, ps } = this.project;
-		return snapshot({ service, todos, creds, fs, home: ps.env("HOME") });
+		const { details } = this;
+		// Unwatched, nothing says when git moved, so it is asked every time.
+		if (!this.watching) {
+			details.moved();
+		}
+		return snapshot({
+			service,
+			todos,
+			creds,
+			fs,
+			details,
+			home: ps.env("HOME"),
+		});
 	}
 
 	/** `snapshot` with what the server says of itself now, which it may have learned since. */
@@ -216,12 +245,12 @@ export class ProjectWatch implements StreamWatcher {
 					},
 					{ recursive: true },
 				),
-				fs.watch(`${gitDir}/refs`, this.changed, { recursive: true }),
+				fs.watch(`${gitDir}/refs`, this.moved, { recursive: true }),
 				// Its own entries, of which only `packed-refs` names branches:
 				// `index` moves on every `git status`.
 				fs.watch(gitDir, (path) => {
 					if (basename(path) === "packed-refs") {
-						this.changed();
+						this.moved();
 					}
 				}),
 			];
@@ -238,13 +267,15 @@ export class ProjectWatch implements StreamWatcher {
 	}
 
 	// A page that arrives may have missed edits made while none listened, so
-	// it reads again behind the snapshot it fetches, rather than ahead of it.
+	// it reads again behind the snapshot it fetches, rather than ahead of it,
+	// asking git anew: a worktree's files are watched only while one listens.
 	private arm(): void {
 		if (!this.watching) {
 			this.poll = setInterval(this.changed, POLL_MS);
 			this.changed();
 			return;
 		}
+		this.details.moved();
 		this.follow(this.kept?.snapshot.tasks.map((task) => task.worktree) ?? []);
 		this.revalidate();
 	}
