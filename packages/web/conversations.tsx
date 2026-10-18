@@ -125,6 +125,8 @@ export function Conversations({
 		setOpenedTodo(null);
 		setOpenedTask(null);
 	}
+	// Said on the card, as the dialog that refused it closed at the click.
+	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
 	const board = useMemo(
 		() => ({
 			linked: true,
@@ -136,12 +138,13 @@ export function Conversations({
 			tasks: tasks.map((each) => each.task),
 			plans: plansOf(tasks),
 			moveLane: () => {},
-			refusedTodos: new Map(),
+			refusedTodos,
+			refuseTodo,
 			refusedLanes: new Map(),
 			refuseLane: () => {},
 			drafts,
 		}),
-		[todos, lanes, drafts, tasks, onTodos],
+		[todos, lanes, drafts, tasks, onTodos, refusedTodos, refuseTodo],
 	);
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);

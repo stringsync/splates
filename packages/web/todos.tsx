@@ -106,6 +106,7 @@ export function Todos({
 					.moveLane(snapshot.lanes, id, position)
 					?.catch((error: unknown) => refuseLane(id, "Not moved", error)),
 			refusedTodos,
+			refuseTodo,
 			refusedLanes,
 			refuseLane,
 			drafts,
@@ -118,6 +119,7 @@ export function Todos({
 			board,
 			snapshot,
 			refusedTodos,
+			refuseTodo,
 			refusedLanes,
 			refuseLane,
 		],

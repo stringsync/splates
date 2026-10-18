@@ -17,8 +17,10 @@ import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
 import { renameLane } from "./api";
 import { Board, still } from "./board";
+import { laneRenamed } from "./board-expectations";
 import { Card, copiedLabel, useCopy } from "./card";
 import { Dispatching, OnIt } from "./dispatching";
+import { useExpectSnapshot } from "./expecting";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu } from "./lane-menu";
 import { Refusal } from "./refusal";
@@ -248,15 +250,19 @@ function LaneName({
 	onDone: () => void;
 }): JSX.Element {
 	const { refuseLane } = useContext(Board);
+	const expect = useExpectSnapshot();
 	const [name, setName] = useState(lane.name);
 	const save = () => {
 		if (name.trim() === "" || name.trim() === lane.name) {
 			onDone();
 			return;
 		}
-		void renameLane(lane.id, name)
-			.catch((error: unknown) => refuseLane(lane.id, "Not renamed", error))
-			.then(onDone);
+		// Shown under its new name at once, so the field can go.
+		onDone();
+		void expect(
+			laneRenamed(lane.id, name.trim()),
+			renameLane(lane.id, name),
+		).catch((error: unknown) => refuseLane(lane.id, "Not renamed", error));
 	};
 	return (
 		<input

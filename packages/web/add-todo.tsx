@@ -11,6 +11,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { Board } from "./board";
 import { AttachPlus } from "./card-box";
 import { type Drafts, todoDraft } from "./drafts";
+import { useExpectSnapshot } from "./expecting";
 import { Dropped, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
@@ -72,12 +73,16 @@ function Composer({
 	);
 	const subject = useMentions<HTMLTextAreaElement>(draft.subject);
 	const { refusal, attempt } = useRefusal();
+	const expect = useExpectSnapshot();
+	const { todos } = useContext(Board);
 
 	const submit = (event?: FormEvent) => {
 		event?.preventDefault();
-		void attempt(draft.add(lane), "Not added").then(() =>
-			subject.ref.current?.focus(),
+		void attempt(
+			draft.add(expect, new Set(todos.map((todo) => todo.id)), lane),
+			"Not added",
 		);
+		subject.ref.current?.focus();
 	};
 	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
 		subject.onKeyDown(event);

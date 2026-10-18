@@ -1,4 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { createContext, type JSX, type ReactNode, use } from "react";
 import { Held } from "./handed-out";
 import { useRefusals } from "./refusal";
@@ -42,6 +43,35 @@ const Expecting = createContext<Expecter>({
 export function useExpect(): Expecter["expect"] {
 	const expecter = use(Expecting);
 	return (id, expectation, write) => expecter.expect(id, expectation, write);
+}
+
+/** What shows a change to the board, or any of the repo's snapshot, before the server says so. */
+export interface SnapshotExpecter {
+	/**
+	 * Shows `expectation`, how `write` turns the snapshot as the server last
+	 * said it, at once, while `write` is on its way; rejects as `write` does,
+	 * once the change no longer shows, for the caller to say why.
+	 */
+	expect(
+		expectation: (snapshot: Snapshot) => Snapshot,
+		write: Promise<unknown>,
+	): Promise<void>;
+}
+
+/**
+ * The snapshot feed, for the controls that change the board to show the
+ * change at once. Without one, a change waits for its write as before.
+ */
+export const SnapshotExpecting = createContext<SnapshotExpecter>({
+	async expect(_expectation, write) {
+		await write;
+	},
+});
+
+/** Shows a change to the snapshot at once, while its write is on its way. */
+export function useExpectSnapshot(): SnapshotExpecter["expect"] {
+	const expecter = use(SnapshotExpecting);
+	return (expectation, write) => expecter.expect(expectation, write);
 }
 
 /**

@@ -67,6 +67,9 @@ describe("App's todo add events", () => {
 		expect(testing.posted("/api/todos/4")).toMatchObject([
 			{ method: "DELETE" },
 		]);
+		const listed = testing.served.todos;
+		testing.served = { ...testing.served, todos: [] };
+		await act(async () => testing.stream?.onmessage?.());
 		const removed = await waitFor(() =>
 			within(thread).getByRole("note", { name: "splates" }),
 		);
@@ -81,6 +84,8 @@ describe("App's todo add events", () => {
 		expect(testing.posted("/api/todos/4/restore")).toMatchObject([
 			{ method: "POST" },
 		]);
+		testing.served = { ...testing.served, todos: listed };
+		await act(async () => testing.stream?.onmessage?.());
 		await waitFor(() =>
 			within(within(thread).getByRole("note", { name: "splates" })).getByRole(
 				"button",

@@ -5,6 +5,8 @@ import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { addLane } from "./api";
+import { laneAdded } from "./board-expectations";
+import { useExpectSnapshot } from "./expecting";
 import { columnId } from "./lanes";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -31,6 +33,7 @@ export function AddLane({
 	const [name, setName] = useState("");
 	const { setNodeRef, isOver } = useDroppable({ id: columnId("new") });
 	const { refusal, attempt } = useRefusal();
+	const expect = useExpectSnapshot();
 	const close = () => {
 		setOpen(false);
 		setName("");
@@ -43,13 +46,24 @@ export function AddLane({
 		if (name.trim() === "") {
 			return;
 		}
-		const write = naming ? onName(name) : addLane(name);
-		void attempt(write, "Lane not added").then((added) => {
-			if (added) {
-				setName("");
-				if (naming) {
+		if (naming) {
+			void attempt(onName(name), "Lane not added").then((added) => {
+				if (added) {
+					setName("");
 					setOpen(false);
 				}
+			});
+			return;
+		}
+		// Shown at once, the field cleared for the next; refused, the name
+		// comes back to try again.
+		setName("");
+		void attempt(
+			expect(laneAdded(name.trim()), addLane(name)),
+			"Lane not added",
+		).then((added) => {
+			if (!added) {
+				setName((typed) => (typed === "" ? name : typed));
 			}
 		});
 	};

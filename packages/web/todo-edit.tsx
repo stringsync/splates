@@ -17,10 +17,12 @@ import {
 } from "#web/components/ui/input-group.tsx";
 import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
+import { assigned } from "./board-expectations";
 import { CopyLink } from "./card";
 import { AttachPlus } from "./card-box";
 import { AssigneeMenu, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
+import { useExpectSnapshot } from "./expecting";
 import { Dropped, FileList } from "./files";
 import { Links } from "./links";
 import { Markdown } from "./markdown";
@@ -71,8 +73,15 @@ export function Edit({
 	const mentions = useMentions<HTMLInputElement>(editor.subject);
 
 	const { refusal, refuse } = useRefusal();
+	const expect = useExpectSnapshot();
+	// Shown on the board at once, so the dialog goes at the click; refused,
+	// the card says why, and the todo opens again on what was typed.
 	const settle = (writing: Promise<void> | null, failed: string): void => {
-		writing?.then(onDone, (error: unknown) => refuse(failed, error));
+		if (writing === null) {
+			return;
+		}
+		onDone();
+		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
 	return (
 		<>
@@ -120,9 +129,10 @@ export function Edit({
 						<AssigneeMenu
 							assignee={todo.assignee ?? null}
 							onPick={(pick) =>
-								void assignTodo(todo.id, pick).catch((error: unknown) =>
-									refuse("Not assigned", error),
-								)
+								void expect(
+									assigned(todo.id, pick),
+									assignTodo(todo.id, pick),
+								).catch((error: unknown) => refuse("Not assigned", error))
 							}
 						/>
 						<StartAssigned
@@ -145,14 +155,14 @@ export function Edit({
 					variant={confirming ? "destructive" : "ghost"}
 					disabled={busy}
 					className="pointer-coarse:h-10 pointer-coarse:px-3"
-					onClick={() => settle(editor.remove(), "Not removed")}
+					onClick={() => settle(editor.remove(expect), "Not removed")}
 				>
 					<Trash2Icon data-icon="inline-start" />
 					{confirming ? "Remove for good" : "Remove"}
 				</Button>
 				<Button
 					disabled={!changed || busy}
-					onClick={() => settle(editor.save(), "Not saved")}
+					onClick={() => settle(editor.save(expect), "Not saved")}
 					className="pointer-coarse:h-10 pointer-coarse:px-4"
 				>
 					Save

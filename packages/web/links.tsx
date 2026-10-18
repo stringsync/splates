@@ -36,6 +36,8 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { arrangeTodo, linkTodo } from "./api";
 import { Board } from "./board";
+import { arranged, linked } from "./board-expectations";
+import { useExpectSnapshot } from "./expecting";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -53,6 +55,10 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 	const lane = useRefusal();
 	const blockedBy = useRefusal();
 	const blocks = useRefusal();
+	const expect = useExpectSnapshot();
+	/** Has todo `id` blocked by `blockedBy`, shown so at once. */
+	const link = (id: number, blockedBy: number[]) =>
+		expect(linked(id, blockedBy), linkTodo(id, blockedBy));
 	return (
 		<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1">
 			<Property title="Lane">
@@ -65,7 +71,7 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					linked={blockers}
 					onRemove={(other) =>
 						blockedBy.attempt(
-							linkTodo(
+							link(
 								todo.id,
 								todo.blockedBy.filter((id) => id !== other.id),
 							),
@@ -79,7 +85,7 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					loops={(other) => cycle(todos, todo.id, other.id)}
 					onPick={(other) =>
 						blockedBy.attempt(
-							linkTodo(todo.id, [...todo.blockedBy, other.id]),
+							link(todo.id, [...todo.blockedBy, other.id]),
 							"Not linked",
 						)
 					}
@@ -92,7 +98,7 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					linked={blocking}
 					onRemove={(other) =>
 						blocks.attempt(
-							linkTodo(
+							link(
 								other.id,
 								other.blockedBy.filter((id) => id !== todo.id),
 							),
@@ -106,7 +112,7 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					loops={(other) => cycle(todos, other.id, todo.id)}
 					onPick={(other) =>
 						blocks.attempt(
-							linkTodo(other.id, [...other.blockedBy, todo.id]),
+							link(other.id, [...other.blockedBy, todo.id]),
 							"Not linked",
 						)
 					}
@@ -154,6 +160,7 @@ function LanePicker({
 	attempt: (write: Promise<void>, failed: string) => Promise<boolean>;
 }): JSX.Element {
 	const { lanes } = useContext(Board);
+	const expect = useExpectSnapshot();
 	const [naming, setNaming] = useState(false);
 	const [name, setName] = useState("");
 	const box = useRef<HTMLInputElement>(null);
@@ -184,10 +191,20 @@ function LanePicker({
 					if (name.trim() === "") {
 						return;
 					}
+					// Shown in its new lane at once; refused, the name comes back.
+					stop();
 					void attempt(
-						arrangeTodo(todo.id, "new", undefined, name),
+						expect(
+							arranged(todo.id, "new", name.trim()),
+							arrangeTodo(todo.id, "new", undefined, name),
+						),
 						"Lane not added",
-					).then((added) => added && stop());
+					).then((added) => {
+						if (!added) {
+							setName(name);
+							setNaming(true);
+						}
+					});
 				}}
 			>
 				<input
@@ -235,8 +252,9 @@ function LanePicker({
 					setNaming(true);
 					return;
 				}
+				const lane = value === "none" ? null : Number(value);
 				attempt(
-					arrangeTodo(todo.id, value === "none" ? null : Number(value)),
+					expect(arranged(todo.id, lane), arrangeTodo(todo.id, lane)),
 					"Not moved",
 				);
 			}}

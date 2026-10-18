@@ -1,6 +1,10 @@
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { type JSX, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
 import { Board } from "./board";
+import { todoRemoved, todoRestored } from "./board-expectations";
+import { useExpectSnapshot } from "./expecting";
 import { Refusal, useRefusal } from "./refusal";
 import { type Act, SplatesEvent, type SplatesEventView } from "./splates-event";
 
@@ -18,28 +22,38 @@ export function AddedLine({
 	id: number;
 }): JSX.Element {
 	const board = useContext(Board);
-	const [removed, setRemoved] = useState(false);
-	const [busy, setBusy] = useState(false);
+	const expect = useExpectSnapshot();
+	// The todo as it stood when removed, to show back in place on Undo.
+	const [removed, setRemoved] = useState<TodoState | null>(null);
 	const { refusal, attempt } = useRefusal();
 	const live = board.todos.find((todo) => todo.id === id);
-	const run = async (write: Promise<void>, failed: string, after: boolean) => {
-		setBusy(true);
-		if (await attempt(write, failed)) {
-			setRemoved(after);
-		}
-		setBusy(false);
+	// Each shows at once; refused, the line goes back to what it said.
+	const run = (
+		expectation: (snapshot: Snapshot) => Snapshot,
+		write: Promise<void>,
+		failed: string,
+		after: TodoState | null,
+	) => {
+		const before = removed;
+		setRemoved(after);
+		void attempt(expect(expectation, write), failed).then((landed) => {
+			if (!landed) {
+				setRemoved(before);
+			}
+		});
 	};
-	const act: Act | null = busy
-		? null
-		: removed
+	const act: Act | null =
+		removed !== null
 			? {
 					label: "Undo",
-					run: () => run(restoreTodo(id), "Not put back", false),
+					run: () =>
+						run(todoRestored(removed), restoreTodo(id), "Not put back", null),
 				}
 			: live !== undefined && live.takenBy === null
 				? {
 						label: "Remove",
-						run: () => run(removeTodo(id), "Not removed", true),
+						run: () =>
+							run(todoRemoved(id), removeTodo(id), "Not removed", live),
 					}
 				: null;
 	return (
@@ -47,7 +61,9 @@ export function AddedLine({
 			<SplatesEvent
 				event={{
 					...view,
-					...(removed && { words: ["Removed", ...view.words.slice(1)] }),
+					...(removed !== null && {
+						words: ["Removed", ...view.words.slice(1)],
+					}),
 					act,
 				}}
 			/>

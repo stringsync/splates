@@ -24,7 +24,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { dropLane, joinLanes } from "./api";
 import { Board, still, touchItems } from "./board";
+import { laneDropped, lanesJoined } from "./board-expectations";
 import { copiedLabel, useCopy } from "./card";
+import { useExpectSnapshot } from "./expecting";
 
 /** What can be done to a whole lane: start it, rename it, move it, fold it into another, or remove it. */
 export function LaneMenu({
@@ -37,6 +39,7 @@ export function LaneMenu({
 	onRename: () => void;
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
+	const expect = useExpectSnapshot();
 	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
@@ -100,7 +103,10 @@ export function LaneMenu({
 								<DropdownMenuItem
 									key={other.id}
 									onClick={() =>
-										void joinLanes(lane.id, other.id).catch((error: unknown) =>
+										void expect(
+											lanesJoined(lane.id, other.id),
+											joinLanes(lane.id, other.id),
+										).catch((error: unknown) =>
 											refuseLane(lane.id, "Not moved", error),
 										)
 									}
@@ -115,8 +121,9 @@ export function LaneMenu({
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onClick={() =>
-						void dropLane(lane.id).catch((error: unknown) =>
-							refuseLane(lane.id, "Lane not removed", error),
+						void expect(laneDropped(lane.id), dropLane(lane.id)).catch(
+							(error: unknown) =>
+								refuseLane(lane.id, "Lane not removed", error),
 						)
 					}
 				>

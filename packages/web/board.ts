@@ -26,10 +26,9 @@ export interface BoardContext {
 	moveLane: (id: number, position: number) => void;
 	/** What was refused of each card, by its id, said on the card. */
 	refusedTodos: ReadonlyMap<number, string>;
-	/**
-	 * What was refused of each lane, by its id, said under its header; null
-	 * for the Untriaged column.
-	 */
+	/** Says on todo `id`'s card that a write to it was refused. */
+	refuseTodo: (id: number, title: string, error: unknown) => void;
+	/** What was refused of each lane, by its id, under its header; null for Untriaged. */
 	refusedLanes: ReadonlyMap<number | null, string>;
 	refuseLane: (id: number | null, title: string, error: unknown) => void;
 	/** Todos being added or edited and not yet sent, kept across pages. */
@@ -48,6 +47,7 @@ export const NO_BOARD: BoardContext = {
 	plans: new Map(),
 	moveLane: () => {},
 	refusedTodos: new Map(),
+	refuseTodo: () => {},
 	refusedLanes: new Map(),
 	refuseLane: () => {},
 	drafts: new Drafts(),

@@ -1,6 +1,8 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { addTodo } from "./api";
+import { todoAdded } from "./board-expectations";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
+import type { SnapshotExpecter } from "./expecting";
 import { Files } from "./files";
 import { Mentions, treePaths } from "./mentions";
 
@@ -20,7 +22,6 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 	readonly files = new Files();
 	/** Files attached before a reload, which the draft could not keep. */
 	dropped: string[];
-	sending = false;
 
 	constructor(
 		private readonly drafts: Drafts,
@@ -39,9 +40,9 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 		}
 	}
 
-	/** There is a subject to add, and no add already on its way. */
+	/** There is a subject to add. */
 	get ready(): boolean {
-		return this.subject.text.trim() !== "" && !this.sending;
+		return this.subject.text.trim() !== "";
 	}
 
 	/** Anything typed yet, which is when there is a detail to ask for. */
@@ -51,26 +52,44 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 
 	/**
 	 * Adds the todo at the bottom of `lane`, or of the untriaged ones for
-	 * null, and starts the draft over; does nothing when not `ready`. A
-	 * refusal is thrown, and leaves the draft as it was.
+	 * null, shown there at once through `expect`, `known` the ids the list
+	 * holds now, and starts the draft over at once, for the next; does
+	 * nothing when not `ready`. A refusal is thrown, and puts the draft back
+	 * as it was, unless another has been started meanwhile.
 	 */
-	async add(lane: number | null = null): Promise<void> {
+	async add(
+		expect: SnapshotExpecter["expect"],
+		known: ReadonlySet<number>,
+		lane: number | null = null,
+	): Promise<void> {
 		if (!this.ready) {
 			return;
 		}
-		this.setSending(true);
+		const subject = this.subject.text;
+		const detail = this.detail.text;
+		const files = this.files.files;
+		const dropped = this.dropped;
+		const write = addTodo({ subject, text: detail }, files, lane);
+		this.subject.write("");
+		this.detail.write("");
+		this.files.clear();
+		this.dropped = [];
 		try {
-			await addTodo(
-				{ subject: this.subject.text, text: this.detail.text },
-				this.files.files,
-				lane,
+			await expect(
+				todoAdded(
+					{ subject: subject.trim(), text: detail.trim(), lane },
+					known,
+				),
+				write,
 			);
-			this.subject.write("");
-			this.detail.write("");
-			this.files.clear();
-			this.dropped = [];
-		} finally {
-			this.setSending(false);
+		} catch (error) {
+			if (!this.started && this.files.files.length === 0) {
+				this.subject.write(subject);
+				this.detail.write(detail);
+				this.files.add(files);
+				this.dropped = dropped;
+			}
+			throw error;
 		}
 	}
 
@@ -85,10 +104,5 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 				: words,
 			files,
 		);
-	}
-
-	private setSending(sending: boolean): void {
-		this.sending = sending;
-		this.dispatcher.dispatch("changed");
 	}
 }

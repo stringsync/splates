@@ -1,7 +1,9 @@
 import type { TodoState } from "@stringsync/splates-server/todo";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { removeTodo, updateTodo } from "./api";
+import { todoEdited, todoRemoved } from "./board-expectations";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
+import type { SnapshotExpecter } from "./expecting";
 import { Files } from "./files";
 import { Mentions, treePaths } from "./mentions";
 
@@ -12,9 +14,11 @@ export type TodoEditorEvents = { changed: undefined };
  * What is changed and not saved is kept in `drafts` under `key`, and comes
  * back as `restored` when the todo is opened again.
  *
- * Each write gives back its promise, or null when it is not allowed now, and
- * a refusal is thrown from that promise. Once a write lands the editor stays
- * `busy`, since it is done with: the list shows what changed.
+ * Each write shows on the board at once through `expect`, and gives back its
+ * promise, or null when it is not allowed now; a refusal is thrown from that
+ * promise. Once a write is made the editor stays `busy`, since it is done
+ * with: the board shows what changed. The changes stay kept until the write
+ * lands, so a refused one comes back as `restored` when the todo opens again.
  */
 // scry-ignore resources-are-disposable: it listens only to the parts it made, which live and die with it, so there is nothing to let go
 export class TodoEditor implements Eventful<TodoEditorEvents> {
@@ -89,21 +93,32 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 		this.files.reset(this.todo.files);
 	}
 
-	save(): Promise<void> {
-		return this.write(() => this.update());
+	save(expect: SnapshotExpecter["expect"]): Promise<void> {
+		return this.write(() =>
+			expect(
+				todoEdited(this.todo.id, {
+					subject: this.subject.text.trim(),
+					text: this.detail.text.trim(),
+					kept: this.files.keep,
+				}),
+				this.update(),
+			),
+		);
 	}
 
 	/**
 	 * Removing cannot be taken back, so the first call only asks for a second,
 	 * and gives null.
 	 */
-	remove(): Promise<void> | null {
+	remove(expect: SnapshotExpecter["expect"]): Promise<void> | null {
 		if (!this.confirming) {
 			this.confirming = true;
 			this.dispatcher.dispatch("changed");
 			return null;
 		}
-		return this.write(() => removeTodo(this.todo.id));
+		return this.write(() =>
+			expect(todoRemoved(this.todo.id), removeTodo(this.todo.id)),
+		);
 	}
 
 	private update(): Promise<void> {
