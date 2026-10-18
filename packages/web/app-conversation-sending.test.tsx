@@ -253,6 +253,7 @@ describe("App's sending messages", () => {
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
 		expect(thread.textContent).toContain("Done.");
+		expect(within(thread).getByText(/^Working/)).toBeTruthy();
 
 		await testing.say(
 			conversation({
@@ -290,7 +291,9 @@ describe("App's sending messages", () => {
 		await waitFor(() =>
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
-		// The agent works once the server says so, not before.
+		// The reply's place is held at once, but there is no turn to stop until
+		// the server says the agent works.
+		expect(within(thread).getByText(/^Working/)).toBeTruthy();
 		expect(
 			within(thread).queryByRole("button", { name: "Stop generating" }),
 		).toBeNull();

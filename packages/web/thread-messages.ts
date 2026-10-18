@@ -38,9 +38,11 @@ export function useThreadMessages(
 ): ThreadMessages {
 	const { id, status } = conversation;
 	// Only once the server says the agent works: a message still on its way
-	// has not woken it, or reached a turn it is in.
+	// has not reached a turn to cancel. Its reply's place is held all the
+	// same (`going`), as the agent is about to answer it.
 	const running = status === "running";
 	const unsent = feed.unsent.get(id);
+	const going = (feed.sending.get(id) ?? []).some((each) => !each.queued);
 	// The last message is still being written while the agent works. An agent
 	// starting is coming back to answer a prompt, never to go on with the turn
 	// it last ended, which a lost connection may have cut short.
@@ -115,7 +117,7 @@ export function useThreadMessages(
 		// agent's first move fills that row rather than putting one in its place.
 		const prompt = said.at(-1);
 		const thread =
-			(running || starting) && prompt?.role === "user"
+			(running || starting || going) && prompt?.role === "user"
 				? [
 						...liked,
 						queuedReply(
@@ -160,6 +162,7 @@ export function useThreadMessages(
 		conversation.lastTask,
 		writing,
 		running,
+		going,
 		shown,
 		feed,
 		unsent,
