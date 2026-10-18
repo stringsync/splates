@@ -7,12 +7,14 @@ import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { Assets } from "./assets";
 import type { LaneRecord } from "./board";
 import { SeenLaneTodos, TodoRoutes } from "./board";
-import type { ConversationState, Conversations } from "./conversations";
+import type {
+	ConversationState,
+	Conversations,
+	ConversationsHeard,
+} from "./conversations";
+import { ConversationRoutes, JournalEvents } from "./conversations";
 import type { SecretStores } from "./creds";
 import { CredRoutes } from "./creds";
-import { ConversationEvents } from "./dev-conversation-events";
-import { ConversationRoutes } from "./dev-conversation-routes";
-import type { ConversationsHeard } from "./dev-conversation-stream";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import type { TranscriberFor } from "./dictate";
 import type { InstallationToken, Landed, LandRequest } from "./merge";
@@ -57,7 +59,7 @@ export async function serveProject(
 			seen: new SeenLaneTodos(fs, `${splatesDir}/lane-todos.json`),
 			log,
 		});
-		events = await ConversationEvents.follow({
+		events = await JournalEvents.follow({
 			journal,
 			conversations,
 			fs,

@@ -1,5 +1,5 @@
 import type { Conversations } from "../conversations";
-import { treeOf } from "../dev-conversation-tree";
+import { treeOf } from "../conversations";
 import { body } from "../dev-http";
 import type { Project } from "../dev-project";
 import { fail } from "../exit";

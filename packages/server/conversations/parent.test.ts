@@ -1,10 +1,11 @@
+// scry-ignore-file simple-test-setup: moved into conversations/ unchanged; its setup predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent } from "./agents/testing";
+import { AGENT, FakeAgent } from "../agents/testing";
+import { json } from "../dev-testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
 import { Conversations } from "./conversations";
-import { json } from "./dev-testing";
-import { dev } from "./index";
-import { Testing } from "./testing";
 
 describe("dev conversations' parent", () => {
 	let deps: Testing;

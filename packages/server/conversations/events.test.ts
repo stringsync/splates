@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { AGENT, FakeAgent } from "./agents/testing";
-import { type Conversation, Conversations } from "./conversations";
-import { eventually } from "./conversations/testing";
-import { ConversationEvents } from "./dev-conversation-events";
-import { Testing } from "./testing";
+import { AGENT, FakeAgent } from "../agents/testing";
+import { Testing } from "../testing";
+import type { Conversation } from "./conversation";
+import { Conversations } from "./conversations";
+import { JournalEvents } from "./events";
+import { eventually } from "./testing";
 
 describe("conversation events", () => {
 	let deps: Testing;
 	let conversations: Conversations;
 	let conversation: Conversation;
-	let following: ConversationEvents;
+	let following: JournalEvents;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
@@ -38,7 +39,7 @@ describe("conversation events", () => {
 				},
 				opts,
 			);
-		following = await ConversationEvents.follow({
+		following = await JournalEvents.follow({
 			journal: deps.journal,
 			conversations,
 			fs,

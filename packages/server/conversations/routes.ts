@@ -3,26 +3,18 @@ import {
 	artifactResponse,
 	deleteVersion,
 	removeNamed,
-} from "./artifacts";
-import type { Conversation } from "./conversations";
-import {
-	type Answer,
-	type Conversations,
-	DEVICES,
-	FROM_HEADER,
-	listing,
-	type Upload,
-} from "./conversations";
-import {
-	ConversationStream,
-	type ConversationsHeard,
-} from "./dev-conversation-stream";
-import { type Tree, treeOf } from "./dev-conversation-tree";
-import { body, fileResponse, MEDIA_TYPES, refuse, uploads } from "./dev-http";
-import type { Project } from "./dev-project";
-import { fail } from "./exit";
-import { directive, RESUME, stoppedReference } from "./plans";
-import { Everywhere } from "./projects";
+} from "../artifacts";
+import { body, fileResponse, MEDIA_TYPES, refuse, uploads } from "../dev-http";
+import type { Project } from "../dev-project";
+import { fail } from "../exit";
+import { directive, RESUME, stoppedReference } from "../plans";
+import { Everywhere } from "../projects";
+import type { Conversation } from "./conversation";
+import type { Conversations } from "./conversations";
+import { listing } from "./listing";
+import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
+import { ConversationStream, type ConversationsHeard } from "./stream";
+import { type Tree, treeOf } from "./tree";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its

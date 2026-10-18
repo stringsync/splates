@@ -1,4 +1,4 @@
-import type { ConversationRoutes } from "../dev-conversation-routes";
+import type { ConversationRoutes } from "../conversations";
 import { body, uploads } from "../dev-http";
 import type { Project } from "../dev-project";
 import type { ProjectWatch } from "../dev-project-watch";

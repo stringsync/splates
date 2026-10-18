@@ -14,6 +14,7 @@ export type {
 export type { Picked } from "./conversation";
 export { Conversation } from "./conversation";
 export { ARCHIVED_KEPT, Conversations } from "./conversations";
+export { JournalEvents } from "./events";
 export { conversationOf } from "./given";
 export type {
 	ConversationDeps,
@@ -39,6 +40,7 @@ export {
 } from "./name";
 export type { ConversationsOptions } from "./options";
 export { conversationReference } from "./reference";
+export { ConversationRoutes } from "./routes";
 export type {
 	After,
 	Answer,
@@ -77,3 +79,5 @@ export {
 	listed,
 	unused,
 } from "./state";
+export type { ConversationsHeard } from "./stream";
+export { treeOf } from "./tree";

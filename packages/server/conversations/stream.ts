@@ -1,7 +1,8 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import { Duration, SystemTimer, Throttler } from "webappwiz/time";
-import type { ConversationState, Conversations } from "./conversations";
-import { type EventSink, eventStream } from "./dev-http";
+import { type EventSink, eventStream } from "../dev-http";
+import type { Conversations } from "./conversations";
+import type { ConversationState } from "./state";
 
 /** What a listener hears of a project's conversations. */
 export interface ConversationsHeard {

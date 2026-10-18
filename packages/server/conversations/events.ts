@@ -2,8 +2,8 @@ import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
+import type { Event, Journal } from "../records";
 import type { Conversations } from "./conversations";
-import type { Event, Journal } from "./records";
 
 /**
  * Hands each conversation the events its agent's splates commands logged: all
@@ -12,7 +12,7 @@ import type { Event, Journal } from "./records";
  * event no conversation ran, an external agent's or the page's own, goes
  * nowhere.
  */
-export class ConversationEvents implements Resource {
+export class JournalEvents implements Resource {
 	readonly #seen = new Set<string>();
 	readonly #throttler: Throttler;
 	#reading = Promise.resolve();
@@ -45,13 +45,8 @@ export class ConversationEvents implements Resource {
 		splatesDir: string;
 		log: Logger;
 		timer?: Timer;
-	}): Promise<ConversationEvents> {
-		const following = new ConversationEvents(
-			journal,
-			conversations,
-			log,
-			timer,
-		);
+	}): Promise<JournalEvents> {
+		const following = new JournalEvents(journal, conversations, log, timer);
 		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER));
 		try {
 			following.#watching = fs.watch(splatesDir, () => following.changed());
