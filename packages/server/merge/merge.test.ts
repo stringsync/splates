@@ -5,6 +5,7 @@ import { PLAN_FILE } from "../plans";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
+import { WorkerBudget } from "../workers";
 import { merge } from "./merge";
 
 // Every test here drives real git in a repo of its own, dozens of processes
@@ -332,6 +333,36 @@ describe.concurrent("merge", () => {
 			kind: "slow_tests",
 			tests: [{ name: "crawls", file: "a.test.ts", seconds: 6.5 }],
 		});
+	});
+
+	it("keeps what made workers cost the task from the worker budget's ledger", async () => {
+		await using deps = await Testing.open();
+		const budget = await WorkerBudget.open(
+			join(deps.splatesHome, "worker-budget.json"),
+			deps.fs,
+		);
+		await budget.started("made", "small", 1);
+		await budget.ran([
+			{
+				id: "c",
+				project: deps.git.root,
+				task: "alpha",
+				worker: "made",
+				uncapped: false,
+			},
+		]);
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const outcome = (await deps.outcomes.list()).find(
+			(each) => each.task === "alpha",
+		);
+		expect(outcome?.workerSpend?.dollars).toBeGreaterThan(0);
+		expect(outcome?.workerSpend?.estimate).toBe(true);
 	});
 
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {

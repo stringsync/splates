@@ -71,8 +71,8 @@ export interface Repository {
 	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
 	splatesDir: string;
 	/**
-	 * The disk, as the command reads and writes it: on a worker, the records
-	 * under `splatesDir` are the coordinator's, reached through its relay.
+	 * Reads and writes the command's files. On a worker, the records under
+	 * `splatesDir` it reaches are the coordinator's.
 	 */
 	fs: Fs;
 	/**
@@ -357,6 +357,7 @@ export async function openRepository(
 		ps,
 		outcomes,
 		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
+		workerBudget: `${registry}/worker-budget.json`,
 		leases: beats ?? undefined,
 		...(machines === undefined ? {} : { machines }),
 		// A remote worker clones each task, the local one keeps worktrees.

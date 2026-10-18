@@ -213,6 +213,7 @@ describe("StatsPage", () => {
 			"Picks overturned",
 			"Tasks removed",
 			"Cost per task",
+			"Worker spend",
 			"Agent working time",
 			"Lines per task",
 		]);
@@ -228,6 +229,7 @@ describe("StatsPage", () => {
 			"Tasks ended",
 			"Tasks removed",
 			"Cost per task",
+			"Worker spend",
 			"Lines per task",
 		]);
 	});

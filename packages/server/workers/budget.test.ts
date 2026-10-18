@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { alertNotice, dollars, WorkerBudget } from "./budget";
+import { WorkerBudget } from "./budget";
 
 describe("WorkerBudget", () => {
 	it("holds made workers to $0.25/h, $5 a day and $75 a month by default", () => {
@@ -160,25 +160,6 @@ describe("WorkerBudget", () => {
 			[],
 		);
 	});
-});
-
-describe("alertNotice", () => {
-	it("says the limit reached and what to do", async () => {
-		const wall = clock();
-		const budget = WorkerBudget.memory(wall);
-		await budget.set("hour", 10);
-		await budget.started("big", "big", 6);
-		wall.advance(Duration.hrs(1));
-		const [alert] = await budget.alerts();
-
-		const notice = alertNotice(alert ?? fail());
-
-		expect(notice.title).toBe("Workers: today's $5.00 reached");
-		expect(notice.body).toContain("splates budget raise");
-	});
-});
-
-describe("WorkerBudget split", () => {
 	it("splits made workers' spend by who held slots on them", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);
@@ -192,6 +173,23 @@ describe("WorkerBudget split", () => {
 		expect(budget.split("day")).toEqual([
 			{ project: "/p", task: "a", dollars: 1, slotHours: 0.5, estimate: true },
 		]);
+	});
+
+	it("says what one task cost between two times", async () => {
+		const wall = clock();
+		const budget = WorkerBudget.memory(wall);
+		await budget.started("made", "small", 1);
+		const since = wall.now();
+		await budget.ran([held("one", "a", "made"), held("two", "b", "made")]);
+		wall.advance(Duration.mins(30));
+		await budget.ran([held("one", "a", "made")]);
+		wall.advance(Duration.mins(30));
+
+		// The hour's dollar goes by slot-time: an hour of a's to half of b's.
+		const spent = budget.spentOn("/p", "a", since, wall.now());
+		expect(spent).toMatchObject({ task: "a", slotHours: 1, estimate: true });
+		expect(spent?.dollars).toBeCloseTo(2 / 3);
+		expect(budget.spentOn("/p", "c", since, wall.now())).toBeNull();
 	});
 
 	it("ends the runs on a worker that ends", async () => {
@@ -243,22 +241,9 @@ function held(id: string, task: string, worker: string) {
 	return { id, project: "/p", task, worker, uncapped: false };
 }
 
-describe("dollars", () => {
-	it("shows cents, and a tenth of a cent only when there is one", () => {
-		expect(dollars(0.25)).toBe("$0.25");
-		expect(dollars(0.05)).toBe("$0.05");
-		expect(dollars(0.0125)).toBe("$0.013");
-		expect(dollars(75)).toBe("$75.00");
-	});
-});
-
 /** A clock at 10:00 on 17 October 2026, local time, mid-day and mid-month. */
 function clock(): FakeWallClock {
 	const wall = new FakeWallClock();
 	wall.set(new Date(2026, 9, 17, 10, 0).getTime());
 	return wall;
-}
-
-function fail(): never {
-	throw new Error("expected an alert");
 }

@@ -18,9 +18,7 @@ export type {
 } from "./budget";
 export {
 	ALERT_TIERS,
-	alertNotice,
 	DEFAULT_WORKER_LIMITS,
-	dollars,
 	RAISE_FOR,
 	span,
 	WORKER_LIMITS,
@@ -35,6 +33,7 @@ export {
 	setBudget,
 	showBudget,
 } from "./budget-command";
+export { alertNotice, dollars } from "./budget-notice";
 export type { WorkerBudgetReport } from "./budget-routes";
 export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";

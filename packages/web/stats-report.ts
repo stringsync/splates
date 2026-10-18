@@ -294,6 +294,13 @@ export interface Row {
 	costPerTask: number | null;
 	/** How long a task's agent worked, in milliseconds, over those with usage kept. */
 	workedPerTask: number | null;
+	/** What made workers cost its tasks in all; null when none held a slot on one. */
+	workers: {
+		dollars: number;
+		slotHours: number;
+		/** True when any of it is at list price rather than billed. */
+		estimate: boolean;
+	} | null;
 	/** Lines added and removed per task, over those whose diff size was kept. */
 	linesPerTask: number | null;
 }
@@ -327,6 +334,14 @@ function row(name: string, tally: Tally): Row {
 		overturnedShare: overturnedShare(tally),
 		costPerTask: tally.costed === 0 ? null : tally.cost / tally.costed,
 		workedPerTask: tally.used === 0 ? null : tally.workedMs / tally.used,
+		workers:
+			tally.workerCosted === 0
+				? null
+				: {
+						dollars: tally.workerCost,
+						slotHours: tally.workerSlotHours,
+						estimate: tally.workerBilled < tally.workerCosted,
+					},
 		linesPerTask:
 			tally.sized === 0
 				? null

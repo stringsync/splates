@@ -4,7 +4,8 @@ import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { table } from "../table";
-import { dollars, WORKER_LIMITS, type WorkerLimit } from "./budget";
+import { WORKER_LIMITS, type WorkerLimit } from "./budget";
+import { dollars } from "./budget-notice";
 import type { WorkerBudgetReport } from "./budget-routes";
 
 /** What `splates budget` is run with. */

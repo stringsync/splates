@@ -96,6 +96,7 @@ describe("StatsReport", () => {
 				overturnedShare: null,
 				costPerTask: null,
 				workedPerTask: null,
+				workers: null,
 				linesPerTask: null,
 			},
 		]);
@@ -132,6 +133,32 @@ describe("StatsReport", () => {
 			costPerTask: 1.5,
 			workedPerTask: 60_000,
 			linesPerTask: 20,
+		});
+	});
+
+	it("totals worker spend, an estimate while any of it is at list price", async () => {
+		const base = stats.models[0] as (typeof stats.models)[number];
+		const report = new StatsReport(
+			new FakeSource({
+				...stats,
+				models: [
+					{
+						...base,
+						workerCosted: 2,
+						workerBilled: 1,
+						workerCost: 0.75,
+						workerSlotHours: 3,
+					},
+				],
+			}),
+		);
+
+		await report.refresh();
+
+		expect(report.models[0]?.workers).toEqual({
+			dollars: 0.75,
+			slotHours: 3,
+			estimate: true,
 		});
 	});
 

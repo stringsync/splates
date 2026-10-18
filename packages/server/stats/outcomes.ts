@@ -234,6 +234,11 @@ export interface Outcome {
 	usage?: TaskUsage;
 	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */
 	workedMs?: number;
+	/**
+	 * What made workers cost it until it ended, its slots' share of each
+	 * worker's hours. Absent when it held no slot on one, and from older lines.
+	 */
+	workerSpend?: WorkerSpend;
 	/** What it landed, or for a removed task, what its branch held. Absent from older lines. */
 	size?: DiffSize;
 	/** What went worse than it could have. Absent from older lines, never read as none. */
@@ -244,6 +249,15 @@ export interface Outcome {
 	agent: string | null;
 	/** The model it was handed over with, if any. */
 	model: string | null;
+}
+
+/** What made workers cost one task. */
+export interface WorkerSpend {
+	dollars: number;
+	/** Slot-hours its agents held on made workers. */
+	slotHours: number;
+	/** True when counted at the provider's list price, false when from its bill. */
+	estimate: boolean;
 }
 
 /**

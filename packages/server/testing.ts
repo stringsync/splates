@@ -129,6 +129,7 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
+			workerBudget: join(this.splatesHome, "worker-budget.json"),
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.heavy = HeavyJobs.under(this.splatesHome, {

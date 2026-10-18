@@ -10,7 +10,7 @@ import { assumptionCounts, decisions, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import type { WorkerMachine } from "../workers";
-import { workerGit } from "../workers";
+import { WorkerBudget, workerGit } from "../workers";
 import type { LeaseBeat } from "./lease-beat";
 import {
 	type DiffSize,
@@ -47,6 +47,8 @@ export interface WorktreeServiceOptions {
 	outcomes?: Outcomes;
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
+	/** The worker budget's ledger, which an ending reads what made workers cost it from. */
+	workerBudget?: string;
 	/**
 	 * What keeps the leases this process takes fresh while it runs, for a
 	 * command on a worker; none on the coordinator's machine, where a pid
@@ -70,6 +72,7 @@ export class WorktreeService {
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
+	private readonly workerBudget: string | null;
 	private readonly leases: LeaseBeat | null;
 	private readonly worktrees: WorktreeCheckouts;
 	private readonly clones: { checkouts: Checkouts; machine: string } | null;
@@ -87,6 +90,7 @@ export class WorktreeService {
 		this.ps = opts.ps ?? new NodePs();
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
+		this.workerBudget = opts.workerBudget ?? null;
 		this.leases = opts.leases ?? null;
 		this.worktrees = new WorktreeCheckouts(git, this.fs);
 		this.clones = opts.clones ?? null;
@@ -432,6 +436,15 @@ export class WorktreeService {
 				: ((await this.adherence.list()).find(
 						(each) => each.conversation === conversation,
 					) ?? null);
+		const workerSpend =
+			this.workerBudget === null
+				? null
+				: (await WorkerBudget.open(this.workerBudget, this.fs)).spentOn(
+						this.git.root,
+						task,
+						Date.parse(state.createdAt),
+						Date.parse(endedAt),
+					);
 		await this.outcomes.record({
 			project: this.git.root,
 			task,
@@ -470,6 +483,15 @@ export class WorktreeService {
 			...(worked === null
 				? {}
 				: { usage: worked.usage, workedMs: worked.workedMs }),
+			...(workerSpend === null
+				? {}
+				: {
+						workerSpend: {
+							dollars: workerSpend.dollars,
+							slotHours: workerSpend.slotHours,
+							estimate: workerSpend.estimate,
+						},
+					}),
 			...(ending.size === null ? {} : { size: ending.size }),
 			findings: findings({
 				gateFailures: state.gateFailures ?? [],

@@ -275,6 +275,29 @@ describe("summarize", () => {
 		expect(stats.baselines).toMatchObject([{ project: "/repo", tasks: 3 }]);
 	});
 
+	it("totals what made workers cost the tasks that held slots on them", () => {
+		const stats = summarize(
+			[
+				ended({
+					workerSpend: { dollars: 0.5, slotHours: 2, estimate: true },
+				}),
+				ended({
+					workerSpend: { dollars: 0.25, slotHours: 1, estimate: false },
+				}),
+				ended({}),
+			],
+			{ period: "1d", now },
+		);
+
+		expect(stats.buckets.at(-3)).toMatchObject({
+			workerCosted: 2,
+			workerBilled: 1,
+			workerCost: 0.75,
+			workerSlotHours: 3,
+		});
+		expect(stats.projects[0]).toMatchObject({ workerCost: 0.75 });
+	});
+
 	it("counts who made each size's calls in scheme order, older outcomes as unsized", () => {
 		const stats = summarize(
 			[

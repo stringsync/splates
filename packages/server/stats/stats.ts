@@ -89,6 +89,14 @@ export interface Tally {
 	cost: number;
 	/** Of the `used` tasks, how long their agents worked, in milliseconds. */
 	workedMs: number;
+	/** Tasks that held slots on made workers, as far as it was kept. */
+	workerCosted: number;
+	/** Of the `workerCosted` tasks, those whose figure is the bill rather than list price. */
+	workerBilled: number;
+	/** Of the `workerCosted` tasks, what made workers cost them, summed. */
+	workerCost: number;
+	/** Of the `workerCosted` tasks, the slot-hours they held on made workers. */
+	workerSlotHours: number;
 	/** Tasks whose diff size was kept. */
 	sized: number;
 	/** Of the `sized` tasks, the files and lines they changed. */
@@ -257,6 +265,9 @@ function tally(outcomes: Outcome[]): Tally {
 	const used = outcomes.filter((each) => each.usage !== undefined);
 	const costed = used.filter((each) => each.usage?.cost != null);
 	const sized = outcomes.filter((each) => each.size !== undefined);
+	const workerCosted = outcomes.filter(
+		(each) => each.workerSpend !== undefined,
+	);
 	const removedFor = blank(["unsaid", ...REMOVE_REASONS]);
 	for (const each of outcomes) {
 		if (each.ended === "removed") {
@@ -298,6 +309,15 @@ function tally(outcomes: Outcome[]): Tally {
 		costed: costed.length,
 		cost: sum(costed, (each) => each.usage?.cost?.amount ?? 0),
 		workedMs: sum(used, (each) => each.workedMs ?? 0),
+		workerCosted: workerCosted.length,
+		workerBilled: workerCosted.filter(
+			(each) => each.workerSpend?.estimate === false,
+		).length,
+		workerCost: sum(workerCosted, (each) => each.workerSpend?.dollars ?? 0),
+		workerSlotHours: sum(
+			workerCosted,
+			(each) => each.workerSpend?.slotHours ?? 0,
+		),
 		sized: sized.length,
 		filesChanged: sum(sized, (each) => each.size?.files ?? 0),
 		linesAdded: sum(sized, (each) => each.size?.added ?? 0),
@@ -407,6 +427,10 @@ const SUMMED = [
 	"costed",
 	"cost",
 	"workedMs",
+	"workerCosted",
+	"workerBilled",
+	"workerCost",
+	"workerSlotHours",
 	"sized",
 	"filesChanged",
 	"linesAdded",

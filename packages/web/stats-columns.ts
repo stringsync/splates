@@ -32,6 +32,16 @@ const COST: Column = {
 	head: "Cost per task",
 	cell: (row) => figure(row.costPerTask, (cost) => `$${cost.toFixed(2)}`),
 };
+/** In all, not per task: most tasks run on no made worker. */
+const WORKERS: Column = {
+	head: "Worker spend",
+	cell: (row) =>
+		figure(
+			row.workers?.dollars ?? null,
+			(spent) =>
+				`${row.workers?.estimate ? "~" : ""}$${spent.toFixed(2)} · ${decimal(row.workers?.slotHours ?? 0)} slot-h`,
+		),
+};
 const WORKED: Column = {
 	head: "Agent working time",
 	cell: (row) => figure(row.workedPerTask, duration),
@@ -49,11 +59,12 @@ export const BY_MODEL = [
 	OVERTURNED,
 	REMOVED,
 	COST,
+	WORKERS,
 	WORKED,
 	LINES,
 ];
 export const BY_DEVICE = [ENDED, QUESTIONS, REVIEWS, REMOVED];
-export const BY_PROJECT = [ENDED, REMOVED, COST, LINES];
+export const BY_PROJECT = [ENDED, REMOVED, COST, WORKERS, LINES];
 
 function figure(
 	value: number | null,
