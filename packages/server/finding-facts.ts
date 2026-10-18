@@ -1,6 +1,7 @@
 import { findingKeys } from "./baselines";
-import type { Finding } from "./findings";
+import { FINDING_THRESHOLDS, type Finding } from "./findings";
 import type { Landed } from "./landed";
+import type { TimedTest } from "./test-report";
 
 /** One thing that went worse than it could have, as the merged card says it. */
 export interface Fact {
@@ -34,6 +35,7 @@ export const SEVERITY: Finding["kind"][] = [
 	"adherence",
 	"churn",
 	"interrupted",
+	"slow_tests",
 ];
 
 /** What went worse in `landed`, from what its outcome kept. */
@@ -74,14 +76,36 @@ export function foundFacts({ outcome, baseline }: Landed): FoundFacts {
 /**
  * The todos `splates merge` adds for what went worse in `landed`: one for each
  * gate run that named the tests it failed on, which a later run passed, so
- * the test is flaky or was fixed on the way. The rest the merged card lists
- * (conflicts, retries, lost connections, the person's own calls) are what a
- * merge goes through, with nothing in the code to act on.
+ * the test is flaky or was fixed on the way, and one for each test the
+ * passing run timed as slow. The rest the merged card lists (conflicts,
+ * retries, lost connections, the person's own calls) are what a merge goes
+ * through, with nothing in the code to act on.
  */
 export function factTodos(landed: Landed): FactTodo[] {
-	return (foundFacts(landed).gate ?? [])
-		.filter(({ finding }) => namesTests(finding))
-		.map((fact) => deferred(landed.outcome.task, fact));
+	const { gate, findings } = foundFacts(landed);
+	const { task } = landed.outcome;
+	return [
+		...(gate ?? [])
+			.filter(({ finding }) => namesTests(finding))
+			.map((fact) => deferred(task, fact)),
+		...findings.flatMap(({ finding }) =>
+			finding?.kind === "slow_tests"
+				? finding.tests.map((test) => slowTodo(task, test))
+				: [],
+		),
+	];
+}
+
+/** The todo made of one test the gate timed as slow in `task`. */
+function slowTodo(task: string, test: TimedTest): FactTodo {
+	return {
+		subject: `Slow test: ${test.name}`,
+		text: [
+			`Found in \`${task}\` as it merged: the gate's passing run took ${seconds(test.seconds)} on \`${test.name}\`${test.file === undefined ? "" : ` in \`${test.file}\``}, over the ${FINDING_THRESHOLDS.slowTestSeconds}s bar.`,
+			"",
+			"Other agents may have loaded the machine while it ran, so time it alone before speeding it up.",
+		].join("\n"),
+	};
 }
 
 function namesTests(finding: Finding | null): boolean {
@@ -143,6 +167,8 @@ function said(finding: Finding): string {
 			return `\`${finding.command}\` failed ${finding.times} times`;
 		case "churn":
 			return `Edited ${finding.edited} lines to land ${finding.landed}`;
+		case "slow_tests":
+			return `Slow ${finding.tests.length === 1 ? "test" : "tests"}: ${finding.tests.map((test) => `${test.name} (${seconds(test.seconds)})`).join(", ")}`;
 		case "adherence":
 			return `Mostly missed the skill's ${finding.check} check, passing ${finding.passed} of ${finding.passed + finding.failed}`;
 	}
@@ -160,6 +186,10 @@ function ordinal(count: number): string {
 			? "th"
 			: (["th", "st", "nd", "rd"][count % 10] ?? "th");
 	return `${count}${suffix}`;
+}
+
+function seconds(time: number): string {
+	return `${time.toFixed(1)}s`;
 }
 
 function times(count: number): string {

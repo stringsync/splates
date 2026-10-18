@@ -31,6 +31,10 @@ export interface Config {
 	 * untouched. Tests are the obvious thing to put here, but splates has no
 	 * opinion; a repo with nothing to run leaves it null and merges on a green
 	 * rebase alone.
+	 *
+	 * To have `merge` make a todo of each test slower than 5 seconds, write a
+	 * JUnit XML report to the path in `$SPLATES_TEST_REPORT`, as `bun test
+	 * --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"` does.
 	 */
 	preMerge: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */

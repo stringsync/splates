@@ -131,6 +131,11 @@ export function findingKeys(finding: Finding): string[] {
 			return [finding.kind, `${finding.kind}:${finding.command}`];
 		case "adherence":
 			return [finding.kind, `${finding.kind}:${finding.check}`];
+		case "slow_tests":
+			return [
+				finding.kind,
+				...finding.tests.map((test) => `${finding.kind}:${test.name}`),
+			];
 		default:
 			return [finding.kind];
 	}

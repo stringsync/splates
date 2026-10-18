@@ -1,6 +1,7 @@
 import type { Judged } from "./adherence";
 import type { TaskLog } from "./task-log";
 import type { GateFailure } from "./tasks";
+import type { TimedTest } from "./test-report";
 
 /** What went worse than it could have, in the order `Finding` lists the kinds. */
 export function findings(evidence: Evidence): Finding[] {
@@ -54,13 +55,16 @@ export function findings(evidence: Evidence): Finding[] {
 			found.push({ kind: "adherence", check, passed, failed });
 		}
 	}
+	const slow = evidence.testTimes
+		.filter((test) => test.seconds > FINDING_THRESHOLDS.slowTestSeconds)
+		.toSorted((one, other) => other.seconds - one.seconds);
+	if (slow.length > 0) {
+		found.push({ kind: "slow_tests", tests: slow });
+	}
 	return found;
 }
 
-/**
- * Where a finding starts: each tuned here, so a finding that fires too often
- * or too rarely is one number to change.
- */
+/** Where each finding starts: change one when its finding fires too often or too rarely. */
 export const FINDING_THRESHOLDS = {
 	/** A command failing this many times in one task. */
 	repeatedFailures: 3,
@@ -70,6 +74,12 @@ export const FINDING_THRESHOLDS = {
 	churnLines: 300,
 	/** A skill check passed less than this share of the times it applied. */
 	adherenceBelow: 0.5,
+	/**
+	 * A test in the passing gate run taking longer than this, bun's own
+	 * timeout: other agents load the machine while the gate runs, so a lower
+	 * bar would name tests that are slow only while contended.
+	 */
+	slowTestSeconds: 5,
 } as const;
 
 /**
@@ -94,7 +104,9 @@ export type Finding =
 	/** Far more lines edited than landed. */
 	| { kind: "churn"; edited: number; landed: number }
 	/** A skill check its conversation mostly failed. */
-	| { kind: "adherence"; check: string; passed: number; failed: number };
+	| { kind: "adherence"; check: string; passed: number; failed: number }
+	/** Tests the passing gate run timed over the bar, slowest first. */
+	| { kind: "slow_tests"; tests: TimedTest[] };
 
 /** What a task leaves to find in, each part absent when it was not kept. */
 export interface Evidence {
@@ -107,4 +119,6 @@ export interface Evidence {
 	landedLines: number | null;
 	/** Its conversation's skill checks as last judged; null when unjudged. */
 	adherence: Judged | null;
+	/** Each test the passing gate run timed; empty when its hook wrote no report. */
+	testTimes: TimedTest[];
 }

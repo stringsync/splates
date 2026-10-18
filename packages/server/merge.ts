@@ -11,18 +11,18 @@ import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import { pushedLine, type TaskBranches } from "./task-branches";
 import type {
-	FailedTest,
 	GateFailure,
 	MergeFailure,
 	Worktree,
 	WorktreeService,
 } from "./tasks";
 import { recommend, recommendation } from "./tasks";
+import { failedTests, timedTests } from "./test-report";
 import type { Landed, TrunkLanding } from "./trunk-landing";
 
 const TAIL_LINES = 40;
-/** The most lines kept of what one failed test said. */
-const MESSAGE_LINES = 30;
+/** The JUnit report a hook may write at `$SPLATES_TEST_REPORT`, in the worktree's git dir. */
+const TEST_REPORT_FILE = "splates-test-report.xml";
 
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
@@ -255,6 +255,12 @@ export async function merge(
 	const gate = [config.postRewrite, config.preMerge]
 		.filter(Boolean)
 		.join(" && ");
+	// Where the hook may write a JUnit report of the run, to time its tests.
+	// In the worktree's own git dir, so it is outside the tree the gate tests
+	// and goes with the worktree; cleared first, so an earlier attempt's
+	// report never stands in for this one's.
+	const report = `${(await git.out(worktree.path, "rev-parse", "--absolute-git-dir")).trim()}/${TEST_REPORT_FILE}`;
+	await fs.rm(report, { force: true });
 	const gated = gate
 		? await (async () => {
 				// A test run is the heaviest thing an agent does, so it waits its
@@ -265,6 +271,7 @@ export async function merge(
 					env: {
 						SPLATES_TASK: task,
 						SPLATES_WORKTREE: worktree.path,
+						SPLATES_TEST_REPORT: report,
 						...slot.env,
 					},
 				});
@@ -305,6 +312,9 @@ export async function merge(
 			{ task, exitCode: gated.exitCode, failedTests: failed },
 		);
 	}
+
+	// A hook that wrote no report, or one that does not parse, times nothing.
+	const testTimes = timedTests((await fs.read(report).catch(() => null)) ?? "");
 
 	// Deliberately re-read from disk rather than trusting the copy in hand: a
 	// long test run can outlive the lease, and landing after someone else
@@ -412,6 +422,7 @@ export async function merge(
 	const discarded = await current.discard("merged", {
 		commits,
 		size,
+		testTimes,
 	});
 	await lock.release();
 	if (discarded.code !== 0) {
@@ -558,42 +569,3 @@ function indent(text: string): string {
 		.map((line) => `    ${line}`)
 		.join("\n");
 }
-
-/**
- * The tests a runner reported as failing, each with what it said, which the
- * tail cuts off. Another runner prints none, so the tail alone is what the
- * agent gets.
- */
-export function failedTests(output: string): FailedTest[] {
-	// bun prints each as a `(fail) name` line well before the summary, with the
-	// expect diff or error and its stack just above it.
-	const lines = output.split("\n");
-	const found = new Map<string, string>();
-	let start = 0;
-	lines.forEach((line, index) => {
-		const name = FAIL_LINE.exec(line)?.[1];
-		if (name === undefined) {
-			return;
-		}
-		if (!found.has(name)) {
-			found.set(
-				name,
-				lines
-					.slice(Math.max(start, index - MESSAGE_LINES), index)
-					.concat(afterFail(lines[index + 1]))
-					.join("\n")
-					.trim(),
-			);
-		}
-		start = index + 1;
-	});
-	return [...found].map(([name, message]) => ({ name, message }));
-}
-
-// bun prints a timed-out test's only explanation on the line after its name,
-// so the lines above it are another test's noise
-function afterFail(next: string | undefined): string[] {
-	return next !== undefined && /^\s*\^ /.test(next) ? [next.trim()] : [];
-}
-
-const FAIL_LINE = /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;

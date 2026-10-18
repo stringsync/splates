@@ -33,6 +33,31 @@ describe("factTodos", () => {
 		]);
 	});
 
+	it("makes a todo of each slow test", () => {
+		const todos = factTodos({
+			outcome: merged({
+				findings: [
+					{
+						kind: "slow_tests",
+						tests: [
+							{ name: "a > crawls", file: "a.test.ts", seconds: 9.25 },
+							{ name: "b > drags", seconds: 6 },
+						],
+					},
+				],
+			}),
+			baseline: null,
+		});
+
+		expect(todos.map((todo) => todo.subject)).toEqual([
+			"Slow test: a > crawls",
+			"Slow test: b > drags",
+		]);
+		expect(todos[0]?.text).toStartWith(
+			"Found in `alpha` as it merged: the gate's passing run took 9.3s on `a > crawls` in `a.test.ts`, over the 5s bar.",
+		);
+	});
+
 	it("makes none of what every merge goes through", () => {
 		expect(
 			factTodos({

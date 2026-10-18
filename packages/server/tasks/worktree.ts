@@ -1,4 +1,5 @@
 import type { Git, GitResult } from "../git";
+import type { TimedTest } from "../test-report";
 import { type FileDiff, parseDiff } from "./diff";
 import type { WorktreeService } from "./worktree-service";
 
@@ -282,6 +283,8 @@ export interface DiscardOptions {
 	reason?: RemoveReason;
 	/** What a merge lands, read before landing. */
 	size?: DiffSize;
+	/** Each test the merge's passing gate run timed, from its JUnit report. */
+	testTimes?: TimedTest[];
 }
 
 /** How big a change is, as its diff counts it. */

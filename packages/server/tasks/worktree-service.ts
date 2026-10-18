@@ -482,6 +482,7 @@ export class WorktreeService {
 				landedLines:
 					ending.size === null ? null : ending.size.added + ending.size.removed,
 				adherence: judged,
+				testTimes: opts.testTimes ?? [],
 			}),
 			conversation,
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,

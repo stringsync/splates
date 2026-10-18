@@ -310,6 +310,30 @@ describe.concurrent("merge", () => {
 		expect((await deps.heavy.read()).running).toEqual([]);
 	});
 
+	it("keeps the slow tests of the JUnit report the gate wrote at $SPLATES_TEST_REPORT", async () => {
+		await using deps = await Testing.open();
+		const report = join(deps.splatesHome, "report.xml");
+		await deps.fs.write(
+			report,
+			'<testsuites><testsuite name="a.test.ts"><testcase name="quick" time="0.01" file="a.test.ts" /><testcase name="crawls" time="6.5" file="a.test.ts" /></testsuite></testsuites>',
+		);
+		deps.config.preMerge = `cp ${report} "$SPLATES_TEST_REPORT"`;
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const outcome = (await deps.outcomes.list()).find(
+			(each) => each.task === "alpha",
+		);
+		expect(outcome?.findings).toContainEqual({
+			kind: "slow_tests",
+			tests: [{ name: "crawls", file: "a.test.ts", seconds: 6.5 }],
+		});
+	});
+
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {
 		await using deps = await Testing.open();
 
