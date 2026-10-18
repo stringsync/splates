@@ -352,7 +352,7 @@ export async function machine(): Promise<MachineStatus> {
 
 /** This machine's setup: every step checked, by area, and the one to do next. */
 export async function setup(): Promise<SetupProgress> {
-	const response = await fetch("/api/setup");
+	const response = await fetch(scoped("/api/setup"));
 	if (!response.ok) {
 		throw new ApiError("error", `/api/setup: ${response.status}`);
 	}

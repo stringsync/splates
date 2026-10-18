@@ -69,6 +69,32 @@ the remote lacks, until they are pushed. Protect `main` with a ruleset that
 lets only the coordinator's identity update it, so the App's tokens, which
 workers push with, reach `splates/*` alone.
 
+Setup's GitHub pushing area walks through it for the project it is opened
+from (`splates setup` in its repository, or the page on that project), each
+step checked against GitHub:
+
+1. `github-app`: [make a GitHub App](https://github.com/settings/apps/new)
+   with Webhook off and Repository permissions **Contents: Read and write**
+   alone, and keep its App ID and a private key it generates as the device
+   creds above.
+2. `github-install`: install it on the project's repository alone.
+3. `github-ruleset`: in the repository's **Settings → Rules → Rulesets**,
+   an active branch ruleset on **All branches** but `splates/*` that
+   restricts creations, updates and deletions, with only **Repository
+   admin** allowed to bypass it, the role of the account the coordinator
+   pushes `main` with. Or, with your own `gh` sign-in:
+
+   ```sh
+   gh api --method POST repos/<owner>/<repo>/rulesets --input - <<'JSON'
+   {"name":"splates","target":"branch","enforcement":"active",
+    "conditions":{"ref_name":{"include":["~ALL"],"exclude":["refs/heads/splates/*"]}},
+    "rules":[{"type":"creation"},{"type":"update"},{"type":"deletion"}],
+    "bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}]}
+   JSON
+   ```
+
+4. `github-push`: add `remote: "origin"` to `splates.config.ts` and merge it.
+
 **Escalating.** When an agent needs you (a decision, access, a review, or
 merges that keep failing), it runs `splates escalate`: it stops, leaves its
 worktree as it is, and writes down its questions. You answer, and it picks up

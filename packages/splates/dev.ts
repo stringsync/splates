@@ -42,6 +42,7 @@ import { Roster, splatesHome } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import { OpenCodeSetup } from "./setup-opencode";
+import { setupProjectAt } from "./splates-setup";
 import { LocalWorkerMachine } from "./worker-machine";
 
 export type { DevOptions } from "./dev-options";
@@ -346,8 +347,15 @@ export async function dev(
 			},
 		}),
 	);
-	const setup = new SetupRoutes(
-		new Setup(
+	// Setup is the machine's, but for the steps that read the repository of
+	// the project the page is on.
+	const setup = new SetupRoutes(async (request) => {
+		const slug = new URL(request.url).searchParams.get("project") ?? "";
+		const project =
+			slug === ""
+				? await projects.focused()
+				: (await projects.list()).find((each) => each.slug === slug);
+		return new Setup(
 			{
 				fs,
 				ps,
@@ -355,10 +363,14 @@ export async function dev(
 				device: (deps.secrets ?? SYSTEM_STORES).device,
 				opencode: opencode.setup,
 				fetch: deps.fetch,
+				project:
+					project == null
+						? undefined
+						: setupProjectAt(project.root, { fs, ps }),
 			},
 			SETUP_AREAS,
-		),
-	);
+		);
+	});
 
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({

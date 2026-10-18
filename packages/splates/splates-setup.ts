@@ -1,27 +1,69 @@
+import { dirname } from "node:path";
 import type { Logger } from "webappwiz/log";
 import { color } from "webappwiz/log";
+import type { Fs, Ps } from "webappwiz/system";
 import { SYSTEM_STORES } from "./creds";
+import { Git } from "./git";
+import { loadConfig } from "./load-config";
+import { Projects } from "./projects";
 import { splatesHome } from "./roster";
 import {
 	Setup,
 	type SetupProgress,
+	type SetupProject,
 	type StepProgress,
 	type StepStatus,
 } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
 import type { SplatesDeps } from "./splates";
 
-/** This machine's setup, read through `deps`. */
-export function setupOf({
-	fs,
-	ps,
-	secrets = SYSTEM_STORES,
-	fetch,
-}: SplatesDeps): Setup {
+/**
+ * This machine's setup, read through `deps`, for the project `--project`
+ * names or the repository the working directory is in, if either.
+ */
+export async function setupOf(deps: SplatesDeps): Promise<Setup> {
+	const { fs, ps, secrets = SYSTEM_STORES, fetch } = deps;
+	const root =
+		deps.project === undefined
+			? await repoRoot(ps)
+			: (await Projects.ofMachine(deps).named(deps.project)).root;
 	return new Setup(
-		{ fs, ps, home: splatesHome(ps), device: secrets.device, fetch },
+		{
+			fs,
+			ps,
+			home: splatesHome(ps),
+			device: secrets.device,
+			fetch,
+			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
+		},
 		SETUP_AREAS,
 	);
+}
+
+/** The project at `root` as setup reads it: its config and remotes, afresh. */
+export function setupProjectAt(
+	root: string,
+	{ fs, ps }: { fs: Fs; ps: Ps },
+): SetupProject {
+	const git = new Git(root, { fs, ps });
+	return {
+		root,
+		config: () => loadConfig(root, { fs, git }),
+		remoteUrl: (remote) => git.remoteUrl(remote),
+	};
+}
+
+/** The main tree of the repository the working directory is in, or null. */
+async function repoRoot(ps: Ps): Promise<string | null> {
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		ps.cwd(),
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	return exitCode === 0 ? dirname(stdout.trim()) : null;
 }
 
 /** What `splates setup` was asked for. */
@@ -41,7 +83,7 @@ export async function setup(
 	deps: SplatesDeps,
 	opts: SetupOptions,
 ): Promise<void> {
-	const machine = setupOf(deps);
+	const machine = await setupOf(deps);
 	const { log } = deps;
 	if (opts.step !== "") {
 		machine.step(opts.step);

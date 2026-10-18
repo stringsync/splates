@@ -7,7 +7,10 @@ splates's `setup-area-*.ts`, one file per area, each step with a check that
 decides whether it is done; `splates setup` lists them by area. Setup changes the machine
 (`~/.splates`, the creds store), not the repo, so it needs no task: stay in the
 main tree. A code change it turns up, such as a check that is wrong, goes in
-a task of its own, as Workflow says.
+a task of its own, as Workflow says. The GitHub pushing area's steps after
+`github-app` check the repository of the project setup is opened from: run
+`splates setup` in its main tree, and make its last step's change to
+`splates.config.ts` in a task, as the step says.
 
 1. **Read the step first.** `splates setup <step> --json`, before you run or
    change anything else, prints its `title`, its `why`, the one thing the

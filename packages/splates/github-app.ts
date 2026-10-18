@@ -1,6 +1,7 @@
 import { createSign } from "node:crypto";
 import { z } from "zod";
 import type { Creds } from "./creds";
+import { GitHubRefused } from "./github-refused";
 
 /** Where GitHub's REST API answers. */
 export const GITHUB_API = "https://api.github.com";
@@ -29,9 +30,6 @@ export interface GitHubAppOptions {
 	now?: () => number;
 }
 
-const Installation = z.object({ id: z.number() });
-const Token = z.object({ token: z.string(), expires_at: z.string() });
-
 /**
  * The GitHub App the user installs on a repository, so workers push with a
  * token it mints rather than a credential of the user's. Each token is good
@@ -42,12 +40,14 @@ const Token = z.object({ token: z.string(), expires_at: z.string() });
 export class GitHubApp {
 	private readonly fetch: typeof fetch;
 	private readonly now: () => number;
+	private readonly key: string;
 
 	constructor(
 		private readonly id: string,
-		private readonly key: string,
+		key: string,
 		opts: GitHubAppOptions = {},
 	) {
+		this.key = pem(key);
 		this.fetch = opts.fetch ?? fetch;
 		this.now = opts.now ?? Date.now;
 	}
@@ -64,16 +64,52 @@ export class GitHubApp {
 			: new GitHubApp(id, key, opts);
 	}
 
+	/** What GitHub knows of the App, which a wrong id or key cannot read. */
+	async about(): Promise<AppAbout> {
+		return About.parse(await this.call("GET", "/app"));
+	}
+
+	/** Whether the App is installed on `repo`. */
+	async installed(repo: GitHubRepo): Promise<boolean> {
+		try {
+			await this.call("GET", `${repoPath(repo)}/installation`);
+			return true;
+		} catch (error) {
+			if (error instanceof GitHubRefused && error.status === 404) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * The type of each rule `repo`'s rulesets apply to `branch`, as `update`,
+	 * read with one of its tokens: whoever a ruleset lets bypass it, the
+	 * rule is listed.
+	 */
+	async rules(
+		repo: GitHubRepo,
+		branch: string,
+		token: InstallationToken,
+	): Promise<string[]> {
+		const rules = Rules.parse(
+			await this.call(
+				"GET",
+				`${repoPath(repo)}/rules/branches/${encodeURIComponent(branch)}`,
+				undefined,
+				token.token,
+			),
+		);
+		return rules.map((rule) => rule.type);
+	}
+
 	/**
 	 * A token that pushes to `repo`'s contents and nothing else, from the
 	 * App's installation there.
 	 */
 	async token(repo: GitHubRepo): Promise<InstallationToken> {
 		const installation = Installation.parse(
-			await this.call(
-				"GET",
-				`/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/installation`,
-			),
+			await this.call("GET", `${repoPath(repo)}/installation`),
 		);
 		const minted = Token.parse(
 			await this.call(
@@ -109,12 +145,14 @@ export class GitHubApp {
 		method: string,
 		path: string,
 		body?: unknown,
+		/** An installation token to ask with, rather than the App's JWT. */
+		token?: string,
 	): Promise<unknown> {
 		const response = await this.fetch(`${GITHUB_API}${path}`, {
 			method,
 			headers: {
 				accept: "application/vnd.github+json",
-				authorization: `Bearer ${this.jwt()}`,
+				authorization: `Bearer ${token ?? this.jwt()}`,
 				"x-github-api-version": "2022-11-28",
 				...(body === undefined ? {} : { "content-type": "application/json" }),
 			},
@@ -122,7 +160,8 @@ export class GitHubApp {
 		});
 		if (!response.ok) {
 			const said = await response.text().catch(() => "");
-			throw new Error(
+			throw new GitHubRefused(
+				response.status,
 				`GitHub ${method} ${path}: ${response.status} ${said.slice(0, 200)}`.trim(),
 			);
 		}
@@ -141,3 +180,41 @@ export function githubRepo(url: string): GitHubRepo | null {
 		);
 	return match?.[1] && match[2] ? { owner: match[1], name: match[2] } : null;
 }
+
+/** Where the REST API keeps `repo`. */
+function repoPath(repo: GitHubRepo): string {
+	return `/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}`;
+}
+
+/**
+ * `key` as PEM with its line breaks, which a password field strips from a
+ * pasted key, leaving one line that will not sign.
+ */
+function pem(key: string): string {
+	const match =
+		/^(-----BEGIN [A-Z ]+-----)([\s\S]*?)(-----END [A-Z ]+-----)$/.exec(
+			key.trim(),
+		);
+	if (match === null) {
+		return key;
+	}
+	const body = (match[2] ?? "").replace(/\s+/g, "");
+	const lines = body.match(/.{1,64}/g) ?? [];
+	return `${[match[1], ...lines, match[3]].join("\n")}\n`;
+}
+
+/** The App as GitHub knows it: what it is called and what it may do. */
+export interface AppAbout {
+	/** Its name in URLs, as in `https://github.com/apps/<slug>`. */
+	slug: string;
+	/** Each permission it was given, as `contents: "write"`. */
+	permissions: Record<string, string>;
+}
+
+const Installation = z.object({ id: z.number() });
+const Token = z.object({ token: z.string(), expires_at: z.string() });
+const About = z.object({
+	slug: z.string(),
+	permissions: z.record(z.string(), z.string()),
+});
+const Rules = z.array(z.object({ type: z.string() }));

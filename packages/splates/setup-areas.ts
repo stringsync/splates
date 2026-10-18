@@ -1,5 +1,6 @@
 import type { SetupArea } from "./setup";
 import { DICTATION_AREA } from "./setup-area-dictation";
+import { GITHUB_AREA } from "./setup-area-github";
 import { CLAUDE_AREA, CODEX_AREA } from "./setup-area-native";
 import { NOTIFICATIONS_AREA } from "./setup-area-notifications";
 import { OPENCODE_AREA } from "./setup-area-opencode";
@@ -15,6 +16,7 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	REMOTE_ACCESS_AREA,
 	NOTIFICATIONS_AREA,
 	DICTATION_AREA,
+	GITHUB_AREA,
 	CLAUDE_AREA,
 	CODEX_AREA,
 ];

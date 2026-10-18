@@ -4,25 +4,27 @@ import type { Setup, StepAnswers } from "./setup";
 import { StepProblem } from "./setup-step-problem";
 
 /**
- * How the page reads this machine's setup and does its steps. Not any
- * project's: every page on the server shares one machine. Each handler is a
- * property, so `dev` hands them straight to its routes.
+ * How the page reads this machine's setup and does its steps. The machine's,
+ * shared by every page on the server, but for the steps that set up the
+ * repository of the project a request names. Each handler is a property, so
+ * `dev` hands them straight to its routes.
  */
 export class SetupRoutes {
-	readonly #setup: Setup;
+	readonly #setupFor: (request: Request) => Promise<Setup>;
 
-	constructor(setup: Setup) {
-		this.#setup = setup;
+	constructor(setupFor: (request: Request) => Promise<Setup>) {
+		this.#setupFor = setupFor;
 	}
 
 	/** Every step checked, by area, and the one to do next. */
-	readonly read = async (): Promise<Response> =>
-		Response.json(await this.#setup.read());
+	readonly read = async (request: Request): Promise<Response> =>
+		Response.json(await (await this.#setupFor(request)).read());
 
 	/** Marks setup seen, so the page stops nudging towards it. */
-	readonly see = async (): Promise<Response> => {
-		await this.#setup.see();
-		return Response.json(await this.#setup.read());
+	readonly see = async (request: Request): Promise<Response> => {
+		const setup = await this.#setupFor(request);
+		await setup.see();
+		return Response.json(await setup.read());
 	};
 
 	/**
@@ -45,7 +47,9 @@ export class SetupRoutes {
 			);
 		}
 		try {
-			return Response.json(await this.#setup.submit(step, answers));
+			return Response.json(
+				await (await this.#setupFor(request)).submit(step, answers),
+			);
 		} catch (error) {
 			if (error instanceof StepProblem) {
 				return refuse(422, "step", error.message);

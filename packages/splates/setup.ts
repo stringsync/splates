@@ -1,6 +1,7 @@
 import type { SecretStore } from "webappwiz/creds";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
+import type { Config } from "./config";
 import { fail } from "./exit";
 import type { OpenCodeSetup } from "./setup-opencode";
 import { StepProblem } from "./setup-step-problem";
@@ -226,6 +227,20 @@ export interface SetupMachine {
 	device: SecretStore;
 	/** How a check reaches the network, as for Access; the global one by default. */
 	fetch?: typeof globalThis.fetch;
+	/**
+	 * The project setup is opened from, for the steps that set up its
+	 * repository rather than the machine; none outside one.
+	 */
+	project?: SetupProject;
+}
+
+/** What a step that sets up a repository reads of its project, afresh each time. */
+export interface SetupProject {
+	readonly root: string;
+	/** Its `splates.config.ts`, as it stands now. */
+	config(): Promise<Pick<Config, "trunk" | "remote">>;
+	/** The URL `remote` fetches from, or null when there is no such remote. */
+	remoteUrl(remote: string): Promise<string | null>;
 }
 
 /**

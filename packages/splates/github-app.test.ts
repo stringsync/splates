@@ -5,6 +5,7 @@ import { GitHubApp, githubRepo } from "./github-app";
 describe("GitHubApp", () => {
 	const now = Date.parse("2026-10-17T12:00:00Z");
 	let publicKey: KeyObject;
+	let privateKey: string;
 	/** The authorization header of each request the App made. */
 	let sent: string[];
 	let app: GitHubApp;
@@ -12,18 +13,17 @@ describe("GitHubApp", () => {
 	beforeEach(() => {
 		const pair = generateKeyPairSync("rsa", { modulusLength: 2048 });
 		publicKey = pair.publicKey;
+		privateKey = pair.privateKey
+			.export({ type: "pkcs8", format: "pem" })
+			.toString();
 		sent = [];
-		app = new GitHubApp(
-			"42",
-			pair.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
-			{
-				now: () => now,
-				fetch: (async (_url: string, init?: RequestInit) => {
-					sent.push(new Headers(init?.headers).get("authorization") ?? "");
-					return new Response("Not Found", { status: 404 });
-				}) as typeof fetch,
-			},
-		);
+		app = new GitHubApp("42", privateKey, {
+			now: () => now,
+			fetch: (async (_url: string, init?: RequestInit) => {
+				sent.push(new Headers(init?.headers).get("authorization") ?? "");
+				return new Response("Not Found", { status: 404 });
+			}) as typeof fetch,
+		});
 	});
 
 	const decode = (part: string) =>
@@ -52,6 +52,14 @@ describe("GitHubApp", () => {
 		expect(
 			sent.map((header) => verifies(header.replace(/^Bearer /, ""))),
 		).toEqual([true]);
+	});
+
+	it("signs with a key whose line breaks a password field stripped", () => {
+		const pasted = new GitHubApp("42", privateKey.replaceAll("\n", ""), {
+			now: () => now,
+		});
+
+		expect(verifies(pasted.jwt())).toBe(true);
 	});
 
 	it("reads the repository from each shape of github.com URL", () => {

@@ -33,6 +33,7 @@ describe("SETUP_AREAS", () => {
 			"remote-access",
 			"notifications",
 			"dictation",
+			"github",
 			"claude",
 			"codex",
 		]);
