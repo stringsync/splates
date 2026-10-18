@@ -80,7 +80,14 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		);
 		await cloudflare.ensureRoute(zone.id, host, tunnel.id);
 		const policy = await ensurePolicy(api, account, name, emails, log);
-		const aud = await cloudflare.ensureApp(account, name, host, policy);
+		// Kept on the app, so setting up again leaves joined workers in.
+		const workers = (
+			await api.list(`/accounts/${account}/access/policies`, Policy)
+		).find((each) => each.name === workersPolicy(name));
+		const aud = await cloudflare.ensureApp(account, name, host, [
+			policy,
+			...(workers === undefined ? [] : [workers.id]),
+		]);
 		await creds.save(TUNNEL_TOKEN, token, {
 			scope: "device",
 			by: "splates tunnel setup",
@@ -123,6 +130,7 @@ export const API_TOKEN = "SPLATES_CLOUDFLARE_API_TOKEN";
 export const TOKEN_PERMISSIONS = [
 	"Account · Cloudflare Tunnel · Edit",
 	"Account · Access: Apps and Policies · Edit",
+	"Account · Access: Service Tokens · Edit",
 	"Account · Access: Organizations, Identity Providers, and Groups · Edit",
 	"Zone · Zone · Read",
 	"Zone · DNS · Edit",
@@ -146,7 +154,15 @@ export function tokenInstructions(host: string): string {
 const ZERO_TRUST = "https://one.dash.cloudflare.com/";
 
 /** How long a sign-in through Access lasts before it asks again. */
-const SESSION = "24h";
+export const SESSION = "24h";
+
+/**
+ * The Service Auth policy on the Access application called `name` that
+ * lets in each joined worker's service token, beside the people's policy.
+ */
+export function workersPolicy(name: string): string {
+	return `${name} workers`;
+}
 
 const Zone = z.object({
 	id: z.string(),
@@ -166,9 +182,9 @@ const DnsRecord = z.object({
 	proxied: z.boolean().optional(),
 });
 
-const Include = z.array(z.record(z.string(), z.unknown()));
+export const Include = z.array(z.record(z.string(), z.unknown()));
 
-const Policy = z.object({
+export const Policy = z.object({
 	id: z.string(),
 	name: z.string(),
 	decision: z.string(),
@@ -177,7 +193,9 @@ const Policy = z.object({
 
 export const App = z.object({
 	id: z.string(),
+	name: z.string().default(""),
 	domain: z.string().optional(),
+	session_duration: z.string().optional(),
 	aud: z.string(),
 	policies: z.array(z.object({ id: z.string() })).default([]),
 });
@@ -302,6 +320,11 @@ export class CloudflareTunnels {
 		private readonly log: Logger,
 	) {}
 
+	/** The account `api` reaches, for a caller holding the API token already. */
+	static over(api: CloudflareApi, log: Logger): CloudflareTunnels {
+		return new CloudflareTunnels(api, log);
+	}
+
 	/**
 	 * Opens the account with the token kept as `API_TOKEN`. Without it,
 	 * requests it with instructions for making it, and refuses with
@@ -421,20 +444,21 @@ export class CloudflareTunnels {
 
 	/**
 	 * The self-hosted Access application in front of `host`, guarded by
-	 * `policy` alone, and its AUD tag, which Cloudflare assigns when it is made.
+	 * `policies` alone, in order, and its AUD tag, which Cloudflare assigns
+	 * when it is made.
 	 */
 	async ensureApp(
 		account: string,
 		name: string,
 		host: string,
-		policy: string,
+		policies: string[],
 	): Promise<string> {
 		const want = {
 			type: "self_hosted",
 			name,
 			domain: host,
 			session_duration: SESSION,
-			policies: [{ id: policy, precedence: 1 }],
+			policies: policies.map((id, at) => ({ id, precedence: at + 1 })),
 		};
 		const existing = (
 			await this.api.list(
@@ -453,7 +477,10 @@ export class CloudflareTunnels {
 			);
 			return made.aud;
 		}
-		if (existing.policies.length === 1 && existing.policies[0]?.id === policy) {
+		if (
+			existing.policies.length === policies.length &&
+			existing.policies.every((each, at) => each.id === policies[at])
+		) {
 			this.log.info(`Access application for ${host} is already there`);
 			return existing.aud;
 		}

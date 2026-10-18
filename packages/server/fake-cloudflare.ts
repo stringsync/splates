@@ -27,6 +27,14 @@ interface Policy {
 	include: Record<string, unknown>[];
 }
 
+interface ServiceToken {
+	id: string;
+	name: string;
+	duration: string;
+	client_id: string;
+	client_secret: string;
+}
+
 interface App {
 	id: string;
 	type: string;
@@ -47,6 +55,7 @@ export class FakeCloudflare {
 	readonly records: DnsRecord[] = [];
 	readonly policies: Policy[] = [];
 	readonly apps: App[] = [];
+	readonly serviceTokens: ServiceToken[] = [];
 	/** `auth_domain` of the Zero Trust organization, or null for none set up. */
 	team: string | null = "team.cloudflareaccess.com";
 	/** Every call but a GET, as `METHOD /path`, in order. */
@@ -140,6 +149,22 @@ export class FakeCloudflare {
 				return `token-of-${kind}`;
 			}
 			return this.tunnels.filter((tunnel) => tunnel.name === query.get("name"));
+		}
+		if (area === "access" && kind === "service_tokens") {
+			const made = this.next;
+			return this.keep(
+				this.serviceTokens,
+				method,
+				item,
+				method === "POST"
+					? {
+							...body,
+							client_id: `client-${made}.access`,
+							client_secret: `secret-${made}`,
+						}
+					: body,
+				id,
+			);
 		}
 		if (area === "access" && kind === "policies") {
 			return this.keep(this.policies, method, item, body, id);

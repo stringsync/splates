@@ -234,10 +234,13 @@ memory-only store, the proxy and the undumpable helper belong to
   every upgrade of `/api/workers`; a worker without one, or whose hello
   names another id, is refused. Joining again under an id revokes its old
   key. Each joined worker also gets a Cloudflare Access service token of its
-  own, minted at join with the API token `splates tunnel setup` keeps and
-  sent as the `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers,
-  so workers pass Access like everything else (#92); both are revoked on
-  remove. The registry, with only each key's and token's sha256, persists
+  own, minted with the join token by the API token `splates tunnel setup`
+  keeps, carried inside the join token so the join itself passes Access,
+  kept in the worker's store beside its key, and sent as the
+  `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers on the join
+  and every upgrade (#92). Access lets it in by a Service Auth policy,
+  `<app> workers`, listing each worker's token and no other. Both are
+  revoked on remove, the token too when a join token runs out unused. The registry, with only each key's and token's sha256, persists
   across coordinator restarts in `~/.splates/workers.json`.
 - `splates worker drain <id>` takes no new tasks and lets in-flight ones
   finish (`--undo` takes them again); `splates worker slots <id> <n>`

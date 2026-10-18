@@ -1,5 +1,8 @@
+export type { ServiceToken, WorkerAccess } from "./access";
+export { joinAccess } from "./access";
 export { addWorker, drainWorker, removeWorker, setWorkerSlots } from "./admin";
 export { WorkerChannel } from "./channel";
+export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";

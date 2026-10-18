@@ -28,8 +28,6 @@ export interface RemoveOptions {
 	fetch?: typeof fetch;
 }
 
-const NamedApp = App.extend({ name: z.string().default("") });
-
 const Named = z.object({ id: z.string(), name: z.string() });
 
 const DnsRecord = z.object({ id: z.string(), content: z.string() });
@@ -74,7 +72,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 		if (machine !== null) {
 			const zone = await cloudflare.findZone(machine.host);
 			const account = zone.account.id;
-			const apps = await api.list(`/accounts/${account}/access/apps`, NamedApp);
+			const apps = await api.list(`/accounts/${account}/access/apps`, App);
 			const mine = [
 				...apps.filter((app) => app.domain === machine.host),
 				...apps.filter(

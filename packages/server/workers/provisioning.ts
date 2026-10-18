@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import type { Platform, Scheduler } from "../scheduler";
+import type { WorkerAccess } from "./access";
 import type { WorkerProvider, WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -24,6 +25,8 @@ export interface WorkerProvisioningOptions {
 	snapshots: Snapshots;
 	records: WorkerRecords;
 	registry: WorkerRegistry;
+	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
+	access?: WorkerAccess | null;
 	/**
 	 * The URL a made worker dials its coordinator at, from wherever it runs:
 	 * the page's tunnel host; null when the page has none, so none is made.
@@ -82,7 +85,9 @@ export class WorkerProvisioning implements Resource {
 		await records.set(id, { provisioned });
 		registry.expect(id, "provisioned");
 		this.coming.set(id, type.slots);
-		const { token } = await records.invite();
+		const { token } = await records.invite(
+			(await this.opts.access?.mint()) ?? null,
+		);
 		try {
 			await provider.create({
 				id,
@@ -134,6 +139,15 @@ export class WorkerProvisioning implements Resource {
 		for (const record of records.all) {
 			if (record.provisioned !== null && !exists.has(record.id)) {
 				await records.remove(record.id);
+				if (record.access !== null) {
+					await this.opts.access
+						?.revoke(record.access)
+						.catch((error: unknown) => {
+							log.error(
+								`could not revoke ${record.id}'s service token ${record.access}: ${String(error)}`,
+							);
+						});
+				}
 				registry.forget(record.id);
 				gone.push(record.id);
 			}

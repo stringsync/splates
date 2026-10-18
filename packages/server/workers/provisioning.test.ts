@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
+import { joinAccess } from "./access";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import { Snapshots } from "./snapshot";
-import { FakeWorkerProvider } from "./testing";
+import { FakeWorkerAccess, FakeWorkerProvider } from "./testing";
 
 describe("WorkerProvisioning", () => {
 	it("makes the cheapest type it can boot, joining with a token of its own", async () => {
@@ -22,7 +23,12 @@ describe("WorkerProvisioning", () => {
 		expect(boot).toContain("https://splates.example.com");
 		expect(boot).toContain("--ephemeral");
 		const token = boot[boot.indexOf("--join") + 1] ?? "";
+		expect(joinAccess(token)).toEqual({
+			clientId: "client-1.access",
+			clientSecret: "secret-1",
+		});
 		expect(await records.join(token, worker.id)).not.toBeNull();
+		expect(records.of(worker.id)?.access).toBe("st-1");
 	});
 
 	it("makes the type asked for", async () => {
@@ -64,7 +70,24 @@ describe("WorkerProvisioning", () => {
 			type: "small",
 		});
 	});
+
+	it("revokes the service token of a made worker whose machine is gone", async () => {
+		const { provider, records, access, made } = await provisioning();
+		const gone = await made.provision();
+		await records.join(joinTokenOf(provider, gone.id), gone.id);
+		await provider.destroy(gone.id);
+
+		await made.reconcile();
+
+		expect(access.revoked).toEqual(["st-1"]);
+	});
 });
+
+/** The join token worker `id` was booted with. */
+function joinTokenOf(provider: FakeWorkerProvider, id: string): string {
+	const boot = provider.specs.find((each) => each.id === id)?.boot ?? [];
+	return boot[boot.indexOf("--join") + 1] ?? "";
+}
 
 /** What the provider makes: a Mac cheapest, which no snapshot boots yet. */
 const TYPES = [
@@ -80,14 +103,16 @@ async function provisioning(
 ) {
 	const records = WorkerRecords.memory();
 	const registry = new WorkerRegistry(new MemoryLogger());
+	const access = new FakeWorkerAccess();
 	const made = new WorkerProvisioning({
 		provider,
 		snapshots: await Snapshots.open(provider, { version: "1.0.0", path: null }),
 		records,
 		registry,
+		access,
 		coordinator: () => coordinator,
 		limit: 2,
 		log: new MemoryLogger(),
 	});
-	return { provider, records, registry, made };
+	return { provider, records, registry, access, made };
 }

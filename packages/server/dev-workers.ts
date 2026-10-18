@@ -8,9 +8,12 @@ import type { Connection } from "./dev-sockets";
 import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
 import type { WorkerMachines } from "./tasks";
+import { API_TOKEN } from "./tunnel-setup";
 import type {
 	RemoteWorker,
+	ServiceToken,
 	Snapshots,
+	WorkerAccess,
 	WorkerPool,
 	WorkerProvider,
 } from "./workers";
@@ -67,6 +70,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
 	private listener: UnixWorkerListener | null = null;
+	private readonly access: WorkerAccess | null;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
 	private ready = true;
 
@@ -78,9 +82,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			platform = systemPs().platform,
 			records = WorkerRecords.memory(),
 			provider,
+			access = null,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
+		this.access = access;
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
@@ -110,6 +116,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				: new WorkerProvisioning({
 						...provider,
 						records,
+						access,
 						registry: this.registry,
 						log,
 					});
@@ -218,9 +225,25 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			build: RUNNING,
 		} satisfies WorkerPool);
 
-	/** `POST /api/workers/invite`: a join token, single use, for `splates worker run --join`. */
-	readonly invite = async (): Promise<Response> =>
-		Response.json(await this.records.invite());
+	/**
+	 * `POST /api/workers/invite`: a join token, single use, for `splates
+	 * worker run --join`, carrying a service token of the worker's own when
+	 * Cloudflare Access stands in front, so it can reach the join itself.
+	 */
+	readonly invite = async (): Promise<Response> => {
+		await this.revoke(await this.records.sweep());
+		let access: ServiceToken | null = null;
+		try {
+			access = (await this.access?.mint()) ?? null;
+		} catch (error) {
+			return refuse(
+				502,
+				"cloudflare",
+				`could not mint the worker a Cloudflare Access service token: ${error instanceof Error ? error.message : String(error)}. When the API token lacks Access: Service Tokens · Edit, \`splates creds request ${API_TOKEN} --device --replace\` asks for a new one`,
+			);
+		}
+		return Response.json(await this.records.invite(access));
+	};
 
 	/**
 	 * `POST /api/workers/join`: spends a join token, answering the key the
@@ -240,6 +263,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				`${LOCAL_WORKER} is this machine's own worker: give another --id`,
 			);
 		}
+		const was = this.records.of(id)?.access ?? null;
 		const key = await this.records.join(token, id);
 		if (key === null) {
 			return refuse(
@@ -255,6 +279,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			this.provisioning?.made(id) ? "provisioned" : "registered",
 		);
 		this.log.info(`worker ${id} joined`);
+		if (was !== null && was !== this.records.of(id)?.access) {
+			await this.revoke([was]);
+		}
 		return Response.json({ id, key });
 	};
 
@@ -351,7 +378,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	}
 
 	/**
-	 * Revokes worker `id`'s key, hangs up on it, and frees what its agents
+	 * Revokes worker `id`'s key and service token, hangs up on it, and frees what its agents
 	 * held, destroying its machine when a provider made it.
 	 */
 	private async forget(id: string): Promise<void> {
@@ -362,10 +389,30 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				);
 			});
 		}
-		await this.records.remove(id);
+		const was = await this.records.remove(id);
 		this.registry.forget(id);
 		this.slots.scheduler.release(id);
 		this.log.info(`worker ${id} removed`);
+		if (was?.access) {
+			await this.revoke([was.access]);
+		}
+	}
+
+	/**
+	 * Revokes each service token in `ids`, logging rather than failing when
+	 * Cloudflare will not, since the worker's key is revoked already and
+	 * Access alone lets no one in.
+	 */
+	private async revoke(ids: string[]): Promise<void> {
+		for (const id of ids) {
+			try {
+				await this.access?.revoke(id);
+			} catch (error) {
+				this.log.error(
+					`could not revoke service token ${id}: ${error instanceof Error ? error.message : String(error)}; revoke it in Zero Trust → Access → Service Auth`,
+				);
+			}
+		}
 	}
 
 	/**
@@ -474,4 +521,10 @@ export interface DevWorkersOptions {
 	records?: WorkerRecords;
 	/** What makes workers when agents queue; none are made without it. */
 	provider?: DevWorkerProvider;
+	/**
+	 * Where each invited worker gets a service token to pass the Cloudflare
+	 * Access in front of the server with; null, the default, where none
+	 * stands in front.
+	 */
+	access?: WorkerAccess | null;
 }

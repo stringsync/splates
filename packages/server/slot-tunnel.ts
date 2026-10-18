@@ -69,7 +69,7 @@ export async function slotTunnelSetup({
 			account,
 			SLOTS_APP,
 			`*.${zone.name}`,
-			policy,
+			[policy],
 		);
 		const token = await api.get(
 			`/accounts/${account}/cfd_tunnel/${tunnel.id}/token`,

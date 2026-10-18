@@ -11,6 +11,7 @@ import { WORKER_KEY_HEADER, workerAuthorization } from "../dev-workers";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { relayFile } from "../records";
+import { type AccessClient, accessHeaders, joinAccess } from "./access";
 import { WorkerDaemon, type WorkerDialer } from "./daemon";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
@@ -25,6 +26,19 @@ export function workerSocketPath(ps: Ps): string {
  * environment where the machine has no store, as a headless one may not.
  */
 export const WORKER_KEY = "SPLATES_WORKER_KEY";
+
+/**
+ * What the two halves of the service token a worker passes Cloudflare
+ * Access with are kept as, beside its key, when its join token carried one.
+ */
+export const WORKER_ACCESS_ID = "SPLATES_WORKER_ACCESS_ID";
+export const WORKER_ACCESS_SECRET = "SPLATES_WORKER_ACCESS_SECRET";
+
+/** What a joined worker shows its coordinator: its key, and the service token Access lets it through with, if any. */
+export interface WorkerCreds {
+	key: string;
+	access: AccessClient | null;
+}
 
 const Joined = z.object({ id: z.string(), key: z.string() });
 
@@ -99,33 +113,45 @@ async function dialer(
 			coordinator === "" ? workerSocketPath(ps) : coordinator.slice(5);
 		return { where: path, dial: () => UnixWorkerSocket.connect(path) };
 	}
-	const key = await workerKey(id, opts);
+	const { key, access } = await workerCreds(id, opts);
 	const url = new URL("/api/workers", coordinator);
 	url.protocol =
 		url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
 	const where = url.toString();
-	const headers = { [WORKER_KEY_HEADER]: workerAuthorization(id, key) };
+	const headers = {
+		...accessHeaders(access),
+		[WORKER_KEY_HEADER]: workerAuthorization(id, key),
+	};
 	return { where, dial: () => WebSocketWorkerSocket.connect(where, headers) };
 }
 
 /**
- * The key this worker shows its coordinator: joined for now with `--join`,
- * kept in the system's store, else the one kept already.
+ * The key this worker shows its coordinator, and the service token it
+ * passes Access with: joined for now with `--join`, kept in the system's
+ * store, else the ones kept already.
  */
-export async function workerKey(
+export async function workerCreds(
 	id: string,
 	opts: WorkerRunOptions,
-): Promise<string> {
+): Promise<WorkerCreds> {
 	const { ps, log } = opts;
 	const store = opts.store ?? SystemSecretStore.device();
 	if (opts.join) {
-		const key = await joinCoordinator(id, opts);
+		const access = joinAccess(opts.join);
+		const key = await joinCoordinator(id, access, opts);
 		if (opts.ephemeral) {
 			log.info(`joined as ${id}, keeping its key for this run alone`);
-			return key;
+			return { key, access };
 		}
 		try {
 			await store.set(WORKER_KEY, key);
+			if (access === null) {
+				await store.delete(WORKER_ACCESS_ID);
+				await store.delete(WORKER_ACCESS_SECRET);
+			} else {
+				await store.set(WORKER_ACCESS_ID, access.clientId);
+				await store.set(WORKER_ACCESS_SECRET, access.clientSecret);
+			}
 			log.info(`joined as ${id}; its key is kept in ${store.label}`);
 		} catch (error) {
 			// Never printed: a key in a terminal's scrollback is a key leaked.
@@ -134,23 +160,34 @@ export async function workerKey(
 				`joined as ${id}, but ${store.label} could not keep its key (${error instanceof Error ? error.message : String(error)}): remove the worker, then join again on a machine with a secret service`,
 			);
 		}
-		return key;
+		return { key, access };
 	}
-	const key = await new Credentials([new Environment({ ps }), store]).get(
-		WORKER_KEY,
-	);
+	const kept = new Credentials([new Environment({ ps }), store]);
+	const key = await kept.get(WORKER_KEY);
 	if (key === undefined) {
 		fail(
 			"usage",
 			"this worker has not joined that coordinator: run `splates worker add` there for a join token, then `splates worker run --join <token>` here",
 		);
 	}
-	return key;
+	const clientId = await kept.get(WORKER_ACCESS_ID);
+	const clientSecret = await kept.get(WORKER_ACCESS_SECRET);
+	return {
+		key,
+		access:
+			clientId === undefined || clientSecret === undefined
+				? null
+				: { clientId, clientSecret },
+	};
 }
 
-/** Spends `opts.join` at the coordinator, answering the key it gave worker `id`. */
+/**
+ * Spends `opts.join` at the coordinator, passing Access with `access` when
+ * given, answering the key it gave worker `id`.
+ */
 async function joinCoordinator(
 	id: string,
+	access: AccessClient | null,
 	opts: WorkerRunOptions,
 ): Promise<string> {
 	const send = opts.send ?? fetch;
@@ -159,7 +196,10 @@ async function joinCoordinator(
 	try {
 		response = await send(url, {
 			method: "POST",
-			headers: { "content-type": "application/json" },
+			headers: {
+				...accessHeaders(access),
+				"content-type": "application/json",
+			},
 			body: JSON.stringify({ token: opts.join, id }),
 		});
 	} catch (error) {

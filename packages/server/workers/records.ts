@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
+import { joinToken, type ServiceToken } from "./access";
 
 /** How long a join token lets a machine join, once. */
 export const JOIN_WITHIN = Duration.mins(15);
@@ -23,20 +24,12 @@ const Record = z.object({
 		.object({ type: z.string(), dollarsPerHour: z.number() })
 		.nullable()
 		.default(null),
+	/** The id of the Cloudflare Access service token it passes Access with; null for none. */
+	access: z.string().nullable().default(null),
 });
 
 /** What the coordinator keeps of one worker across restarts. */
-export type WorkerRecord = z.infer<typeof Record>;
-
-const Kept = z.object({
-	workers: z.array(Record).default([]),
-	/** Join tokens not yet used, by their sha256, with when each runs out. */
-	joins: z
-		.array(z.object({ hash: z.string(), expiresAt: z.number() }))
-		.default([]),
-});
-
-type KeptFile = z.infer<typeof Kept>;
+export type WorkerRecord = z.output<typeof Record>;
 
 /** What may be changed of a worker by hand. */
 export type WorkerSettings = Partial<
@@ -93,15 +86,41 @@ export class WorkerRecords {
 		return this.kept.workers.find((each) => each.id === id);
 	}
 
-	/** A new join token, and when it runs out. */
-	async invite(): Promise<{ token: string; expiresAt: number }> {
-		const token = `splj_${secret()}`;
+	/**
+	 * A new join token, and when it runs out. Given `access`, the service
+	 * token minted for it, the join token carries its client id and secret
+	 * for the worker to pass Access with, and the worker that spends it
+	 * keeps its id.
+	 */
+	async invite(
+		access: ServiceToken | null = null,
+	): Promise<{ token: string; expiresAt: number }> {
+		const token = joinToken(`splj_${secret()}`, access);
 		const expiresAt = this.wall.now() + JOIN_WITHIN.ms;
 		await this.change((kept) => ({
 			...kept,
-			joins: [...this.live(kept), { hash: sha256(token), expiresAt }],
+			joins: [
+				...this.unswept(kept),
+				{ hash: sha256(token), expiresAt, access: access?.id ?? null },
+			],
 		}));
 		return { token, expiresAt };
+	}
+
+	/**
+	 * Forgets each join token run out unused, answering the ids of the
+	 * service tokens minted for them, to revoke.
+	 */
+	async sweep(): Promise<string[]> {
+		const now = this.wall.now();
+		const expired = this.kept.joins.filter((each) => each.expiresAt <= now);
+		if (expired.length === 0) {
+			return [];
+		}
+		await this.change((kept) => ({ ...kept, joins: this.live(kept) }));
+		return expired.flatMap((each) =>
+			each.access === null ? [] : [each.access],
+		);
 	}
 
 	/**
@@ -112,8 +131,8 @@ export class WorkerRecords {
 	 */
 	async join(token: string, id: string): Promise<string | null> {
 		const hash = sha256(token);
-		const live = this.live(this.kept);
-		if (!live.some((each) => same(each.hash, hash))) {
+		const spent = this.live(this.kept).find((each) => same(each.hash, hash));
+		if (spent === undefined) {
 			return null;
 		}
 		const key = secret();
@@ -126,10 +145,11 @@ export class WorkerRecords {
 			draining: false,
 			removing: false,
 			provisioned: was?.provisioned ?? null,
+			access: spent.access,
 		};
 		await this.change((kept) => ({
 			workers: [...kept.workers.filter((each) => each.id !== id), record],
-			joins: this.live(kept).filter((each) => !same(each.hash, hash)),
+			joins: this.unswept(kept).filter((each) => !same(each.hash, hash)),
 		}));
 		return key;
 	}
@@ -151,6 +171,7 @@ export class WorkerRecords {
 				draining: false,
 				removing: false,
 				provisioned: null,
+				access: null,
 			}),
 			...settings,
 		};
@@ -161,16 +182,25 @@ export class WorkerRecords {
 		return record;
 	}
 
-	/** Forgets worker `id`, revoking its key; answers whether it was kept. */
-	async remove(id: string): Promise<boolean> {
-		if (this.of(id) === undefined) {
-			return false;
+	/** Forgets worker `id`, revoking its key; answers what was kept of it, if anything. */
+	async remove(id: string): Promise<WorkerRecord | undefined> {
+		const was = this.of(id);
+		if (was === undefined) {
+			return undefined;
 		}
 		await this.change((kept) => ({
 			...kept,
 			workers: kept.workers.filter((each) => each.id !== id),
 		}));
-		return true;
+		return was;
+	}
+
+	/** The joins `sweep` has yet to see: those live, and those run out with a service token to revoke. */
+	private unswept(kept: KeptFile): KeptFile["joins"] {
+		const now = this.wall.now();
+		return kept.joins.filter(
+			(each) => each.expiresAt > now || each.access !== null,
+		);
 	}
 
 	private live(kept: KeptFile): KeptFile["joins"] {
@@ -195,6 +225,25 @@ export class WorkerRecords {
 		return this.writing;
 	}
 }
+
+const Kept = z.object({
+	workers: z.array(Record).default([]),
+	/**
+	 * Join tokens not yet used, by their sha256, with when each runs out and
+	 * the service token minted for it, if any.
+	 */
+	joins: z
+		.array(
+			z.object({
+				hash: z.string(),
+				expiresAt: z.number(),
+				access: z.string().nullable().default(null),
+			}),
+		)
+		.default([]),
+});
+
+type KeptFile = z.output<typeof Kept>;
 
 /** 32 random bytes, as base64url. */
 function secret(): string {

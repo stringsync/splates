@@ -1,3 +1,5 @@
+export { FakeWorkerAccess } from "./fake-access";
+
 import { MemoryWorkerSocket } from "./memory-socket";
 
 export { FakeWorkerProvider } from "./fake-provider";

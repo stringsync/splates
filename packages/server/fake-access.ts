@@ -35,13 +35,24 @@ export class FakeAccess {
 	}
 
 	/** A token good for a minute, for `me@example.com`. */
-	async token(): Promise<string> {
+	token(): Promise<string> {
+		return this.sign({ sub: "user-1", email: "me@example.com" });
+	}
+
+	/**
+	 * A token good for a minute for service token `clientId`, as Access hands
+	 * one on for a worker: naming no one's email, and no subject.
+	 */
+	serviceToken(clientId: string): Promise<string> {
+		return this.sign({ sub: "", common_name: clientId });
+	}
+
+	private async sign(who: object): Promise<string> {
 		const signed = `${part({ alg: "RS256", kid: "k1" })}.${part({
 			iss: CONFIG.issuer,
 			aud: [CONFIG.aud],
 			exp: Date.now() / 1000 + 60,
-			sub: "user-1",
-			email: "me@example.com",
+			...who,
 		})}`;
 		const signature = await crypto.subtle.sign(
 			"RSASSA-PKCS1-v1_5",

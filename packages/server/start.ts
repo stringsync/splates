@@ -6,6 +6,7 @@ import { artifactLimits } from "./artifacts";
 import { type Config, LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
 import { Conversations } from "./conversations";
 import { CoordinatorState } from "./coordinator-state";
+import { SYSTEM_STORES } from "./creds";
 import { accessConfig } from "./dev-access";
 import { devServers } from "./dev-servers";
 import { devSlot } from "./dev-slot";
@@ -31,7 +32,9 @@ import {
 } from "./start-settings";
 import { Adherence, Outcomes } from "./stats";
 import { SERVING, supervise, UNBUILT } from "./supervise";
+import { API_TOKEN } from "./tunnel-setup";
 import {
+	CloudflareWorkerAccess,
 	Snapshots,
 	WorkerPlacement,
 	WorkerRecords,
@@ -183,6 +186,9 @@ export async function serveDev(
 		`${splatesHome(ctx.ps)}/workers.json`,
 		ctx.fs,
 	);
+	// Through a tunnel, each worker passes Access with a service token of its
+	// own, minted with the API token `splates tunnel setup` keeps.
+	const device = (ctx.secrets ?? SYSTEM_STORES).device;
 	// Made workers dial the page where the tunnel publishes it.
 	const provider = here?.workerProvider ?? null;
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
@@ -191,6 +197,14 @@ export async function serveDev(
 		protocol: coordinator.protocol,
 		platform: ctx.ps.platform,
 		records,
+		access:
+			tunnel === null
+				? null
+				: new CloudflareWorkerAccess({
+						host: tunnel.host,
+						apiToken: () => device.get(API_TOKEN),
+						log: ctx.log,
+					}),
 		...(provider === null || here === null
 			? {}
 			: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
+import { joinAccess } from "./access";
 import { JOIN_WITHIN, WorkerRecords } from "./records";
 
 const PATH = "/home/.splates/workers.json";
@@ -59,7 +60,36 @@ describe("WorkerRecords", () => {
 		const records = WorkerRecords.memory();
 		const key = await records.join((await records.invite()).token, "box");
 
-		expect(await records.remove("box")).toBe(true);
+		expect(await records.remove("box")).toMatchObject({ id: "box" });
 		expect(records.verify("box", key ?? "")).toBe(false);
+	});
+
+	it("hands a service token on in the join token, and keeps its id with the worker that spends it", async () => {
+		const records = WorkerRecords.memory();
+		const access = {
+			id: "st-1",
+			clientId: "client.access",
+			clientSecret: "secret",
+		};
+		const { token } = await records.invite(access);
+
+		expect(joinAccess(token)).toEqual({
+			clientId: "client.access",
+			clientSecret: "secret",
+		});
+		expect(await records.join(token, "box")).not.toBeNull();
+		expect(records.of("box")?.access).toBe("st-1");
+	});
+
+	it("answers the service tokens of join tokens run out unused, once", async () => {
+		const wall = new FakeWallClock(0);
+		const records = WorkerRecords.memory(wall);
+		await records.invite({ id: "st-1", clientId: "c", clientSecret: "s" });
+		await records.invite();
+		wall.advance(JOIN_WITHIN.add(Duration.secs(1)));
+		await records.invite();
+
+		expect(await records.sweep()).toEqual(["st-1"]);
+		expect(await records.sweep()).toEqual([]);
 	});
 });
