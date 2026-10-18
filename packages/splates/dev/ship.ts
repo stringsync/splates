@@ -30,7 +30,7 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 	// The build compiles without checking types, so a typecheck is the only
 	// gate there is: run it before anything is stamped or pushed. The suite is
 	// not run here; whoever ships is expected to have run it already.
-	await fix({ check: true, log, ps });
+	await fix({ check: true, skipScry: true, log, ps });
 
 	const declared = releases.lockstep(
 		await releases.workspace({ fs: opts.fs, ps }),

@@ -7,6 +7,8 @@ export interface FixOptions {
 	check: boolean;
 	/** Check only code rules, without credentials or model calls. */
 	codeOnly?: boolean;
+	/** Skip Scry when checking a release that was already reviewed. */
+	skipScry?: boolean;
 	log?: Logger;
 	ps?: Ps;
 }
@@ -39,6 +41,10 @@ export async function fix(opts: FixOptions): Promise<void> {
 		cwd: ROOT,
 	});
 	step("typecheck", typecheck.exitCode === 0, "Typechecking failed");
+
+	if (opts.skipScry) {
+		return;
+	}
 
 	const scry = await ps.spawn(
 		[
