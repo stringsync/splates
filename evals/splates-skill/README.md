@@ -2,11 +2,11 @@
 
 Focused probes use deterministic assertions without an LLM judge. Read
 [RUNNER.md](RUNNER.md) for commands and guarantees, [COVERAGE.md](COVERAGE.md)
-for all 73 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
+for all 76 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
 
 Today `fast --kind cli` runs eleven local CLI contracts: ten pass and delegation's
 incomplete nested capture remains explicitly uncovered. The native CLI can evaluate partial state/reply evidence for broad shell profiles;
-complete tool/read evidence for the 62 agent probes remains unavailable. Synthetic tests establish
+complete tool/read evidence for the 65 agent probes remains unavailable. Synthetic tests establish
 assertion behavior, not measured model adherence.
 
 The model CLI requires a changed Splates skill/reference snapshot against an
@@ -16,7 +16,8 @@ Native Claude/Codex/OpenCode controls are monitored, with possible in-flight
 overshoot; Codex USD is unavailable. All retain outstanding billing reservations,
 even on success. `--allow-unmetered` cannot bypass admission. Native authentication
 prerequisites and narrow-profile refusals are detailed in RUNNER.md. No empirical
-model cost or live adherence has been measured; #365 remains for user review.
+model cost or live adherence has been measured by these fixtures. Lane 17 tracks
+the shared acceptance and comparison work.
 
 ```sh
 splates dev eval plan --baseline BASE_COMMIT
@@ -36,3 +37,6 @@ old checks and optional model grading. Their execution is now disabled at the
 eval entry point because it lacks the required change gate and aggregate budget
 enforcement. `splates dev eval e2e report` still reads saved results for free.
 Legacy grades do not establish focused tool capture or affordable model execution.
+
+See [shared acceptance](ACCEPTANCE.md) for the lane 17 audit, the two-case
+partial tuning subset, critical gates, reserved validation and concrete #54 gaps.

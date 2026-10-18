@@ -27,7 +27,7 @@ reservations and exhausted subsequent admission. Narrow splates/git-only profile
 are unsupported before prompting on every provider. Provider suites cover
 startup/auth/permission failures, interruption, usage, cancellation and cleanup.
 Fixtures are not live agents. OpenCode is not installed/authenticated for this user.
-AGENTS.md remains unchanged and #365 awaits user review.
+AGENTS.md remains unchanged; lane 17 tracks the next comparison work.
 
 ## Registered probes
 
@@ -273,7 +273,8 @@ by this audit; retired 80%/90% E2E targets do not apply.
   contradictory count ranges and unsupported capabilities before execution.
 - [x] Retain unsupported capture: direct CLI argv/exit capture is tested, but nested
   shells, comprehensive reads/writes and live directive delivery are not certified.
-  A native instrumented adapter is still an implementation blocker for agent runs.
+  Full native instrumentation remains a blocker for complete event/read claims,
+  not for the existing partial state/reply path.
 - [x] Resolve UPDATE's intermediate user-visible reply ordering and multiple
   report coherence explicitly. If adapters cannot observe these, publish gaps;
   do not substitute final reply order or generic edits for compliance.
@@ -290,12 +291,15 @@ by this audit; retired 80%/90% E2E targets do not apply.
   exist; do not run them without authorization. Run `splates dev fix` and
   `splates dev test` for free verification. No paid run is a completion gate.
 
-The remaining blocker for meaningful focused model comparisons is a native,
-authenticated adapter that enforces tool permissions and bounds and certifies
-complete ordered execution and delivered read bytes, without injecting the root
-skill for discovery experiments. CLI target selection currently constructs only
-generic ACP adapters; a custom adapter is injectable through `runProbes`, not a
-CLI plugin flag. Implement and independently test that integration before using
-the model command examples. Also retain UPDATE intermediate reply/mid-turn
+The CLI now constructs native Claude/Codex/OpenCode adapters through
+`native-target.ts`; generic ACP is not its model execution path. Scripted native
+peers already establish useful partial decision state/reply grading. Complete
+ordered execution and delivered read bytes remain unavailable, but are not a
+prerequisite for honestly labelled partial comparisons. Before live comparison,
+resolve selected-source discovery, native task permissions, effective configuration,
+and baseline/candidate admission. Retain UPDATE intermediate reply/mid-turn
 ordering, coherent-report checks, alternate argv semantics and discovery fixture
 gaps; instrumenting tools alone does not close these requirements.
+
+The [shared acceptance audit](ACCEPTANCE.md) narrows this inventory to a concrete
+Codex/Claude subset and distinguishes current implementation from evidence gaps.

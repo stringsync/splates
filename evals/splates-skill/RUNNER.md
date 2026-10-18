@@ -64,7 +64,7 @@ Legacy E2E execution lacks these controls and is now refused at the eval entry
 point. `e2e report` remains available without models; its historical results do
 not become focused evidence. Do not bypass the entry point to claim affordability.
 
-AGENTS.md remains unchanged. #365 may change it only after the user's later
+AGENTS.md remains unchanged. Any policy change requires the user's explicit
 approval, and any replacement must retain skill-change-only model execution and
 small aggregate admission budgets. The policy controls are free-tested here; a useful
 real-model validation still requires separately authorized live smoke testing.
@@ -181,7 +181,7 @@ an adapter can observe it; current event kinds do not represent that reply.
 Similarly, parsed fields across different reports do not establish one coherent
 report, and final state does not prove the order of operations.
 
-Six modules now register 73 probes (11 CLI, 62 agent); see the exact versioned
+Six modules now register 76 probes (11 CLI, 65 agent); see the exact versioned
 inventory in `COVERAGE.md`. Every registered agent probe declares tools, so
 **none is executable with generic ACP today**. An all-unsupported run is not a
 useful quick eval. `--allow-unmetered` does not repair tool capture. The free
@@ -278,11 +278,13 @@ authenticating or testing live requires a separate decision.
 
 Codex is pinned to inspected 0.156.0. Broad read/write plus shell/exec decision
 profiles are supported. Named splates/git-only profiles are refused by all three
-rather than broadened to shell access; many continuity/orchestration cases and
-mapped default smoke cases therefore remain unsupported. Event stops and complete
+rather than broadened to shell access; many continuity/orchestration cases
+therefore remain unsupported. The root-change default `discovery/implicit` has
+a broad profile but lacks useful certified action/read evidence; executable
+transport does not make that default a passing adherence check. Event stops and complete
 nested execution/read/steering evidence remain unavailable. Full adherence and
-empirical affordability remain unmeasured. #365 and the AGENTS.md warning await
-user review; this integration does not authorize their change.
+empirical affordability remain unmeasured. Lane 17 requires explicit approval
+for any execution-policy change; this integration does not authorize one.
 
 Target syntax is `claude:MODEL`, `codex:MODEL`, or `opencode:PROVIDER/MODEL`,
 independent of the configured ACP roster. `--kind cli|agent` also filters list, run and report. Selection groups intersect; within each flag, repeated values form
@@ -331,3 +333,6 @@ performance target**. Required workspace checks are `splates dev fix` and
 `--code-only`: formatting, typechecking and non-model Scry ran; model-backed
 Scry (`som`/`llm`) was explicitly excluded, not claimed as passed. The integrated registry is pinned by `integration.test.ts`; broader audit rows
 remain partial wherever the aspect documents identify gaps.
+
+See [shared acceptance](ACCEPTANCE.md) for the lane 17 audit, the two-case
+partial tuning subset, critical gates, reserved validation and concrete #54 gaps.
