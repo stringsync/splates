@@ -48,7 +48,19 @@ export class StateRoutes {
 		const { project, call } = parsed.data;
 		const served = await this.served(project);
 		await served.format.check();
-		return Response.json({ value: (await served.answerState(call)) ?? null });
+		try {
+			return Response.json({ value: (await served.answerState(call)) ?? null });
+		} catch (error) {
+			// A file that is not there is an ordinary answer, as `tasks/<task>.json`
+			// before the task exists: say so without an error for the log.
+			if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+				return Response.json(
+					{ missing: true, message: (error as Error).message },
+					{ status: 404 },
+				);
+			}
+			throw error;
+		}
 	};
 
 	/**

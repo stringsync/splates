@@ -137,7 +137,16 @@ export class RelayFs implements Fs {
 		const answer = (await response.json().catch(() => null)) as {
 			value?: unknown;
 			message?: string;
+			missing?: boolean;
 		} | null;
+		if (answer?.missing === true) {
+			throw Object.assign(
+				new Error(answer.message ?? `${call.path} is missing`),
+				{
+					code: "ENOENT",
+				},
+			);
+		}
 		if (!response.ok) {
 			throw new Error(
 				answer?.message ??
