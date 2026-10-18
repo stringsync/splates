@@ -2,7 +2,7 @@ import {
 	CHECKS,
 	splatesCalls,
 	type Verdict,
-} from "@stringsync/splates-server/skill-checks";
+} from "@stringsync/splates-server/stats";
 import type { EndRepo } from "./fixture";
 import { lastSaid, openQuestions, turnsOf } from "./reading";
 import type { RunLog } from "./transcript";

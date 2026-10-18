@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Beat } from "@stringsync/splates-server/skill-checks";
+import type { Beat } from "@stringsync/splates-server/stats";
 import { COMMON, type EvalRun } from "./checks";
 import type { EndRepo } from "./fixture";
 import { openQuestions } from "./reading";

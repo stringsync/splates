@@ -1,13 +1,13 @@
-import type { Judged } from "./adherence";
-import { type Baseline, baselines } from "./baselines";
-import type { Outcome } from "./outcomes";
-import { decided, madeBy, SIZES, whose } from "./plans";
-import { CHECKS } from "./skill-checks";
+import { decided, madeBy, SIZES, whose } from "../plans";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
 	type RemoveReason,
-} from "./tasks/browser";
+} from "../tasks/browser";
+import type { Judged } from "./adherence";
+import { type Baseline, baselines } from "./baselines";
+import type { Outcome } from "./outcomes";
+import { CHECKS } from "./skill-checks";
 
 /** What the Stats page shows: how tasks ended, bar by bar and by who did them. */
 export interface Stats {

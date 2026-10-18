@@ -1,7 +1,7 @@
+import type { TimedTest } from "../merge";
+import type { GateFailure } from "../tasks";
 import type { Judged } from "./adherence";
-import type { TimedTest } from "./merge";
 import type { TaskLog } from "./task-log";
-import type { GateFailure } from "./tasks";
 
 /** What went worse than it could have, in the order `Finding` lists the kinds. */
 export function findings(evidence: Evidence): Finding[] {

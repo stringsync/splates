@@ -8,7 +8,6 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import type { Adherence } from "../adherence";
 import type { SessionServers, Watch } from "../agents";
 import {
 	type Agent,
@@ -22,8 +21,8 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
-import type { Outcomes } from "../outcomes";
 import { installedVersion } from "../skills";
+import type { Adherence, Outcomes } from "../stats";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { Conversation, type Picked } from "./conversation";
 import type {

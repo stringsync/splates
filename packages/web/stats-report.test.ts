@@ -4,7 +4,7 @@ import {
 	type PeriodId,
 	type Stats,
 	type Tally,
-} from "@stringsync/splates-server/stats";
+} from "@stringsync/splates-server/stats/browser";
 import {
 	axis,
 	PERIODS,

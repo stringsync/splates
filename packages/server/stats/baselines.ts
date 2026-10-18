@@ -1,6 +1,6 @@
+import { keptDecisions, madeBy } from "../plans";
 import type { Finding } from "./findings";
 import type { Outcome } from "./outcomes";
-import { keptDecisions, madeBy } from "./plans";
 
 /** Each project's baseline, over the merged tasks that ended in the window before `now`. */
 export function baselines(outcomes: Outcome[], now: Date): Baseline[] {

@@ -2,11 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { Adherence } from "../adherence";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { Limits, Offered } from "../models";
-import type { Outcome } from "../outcomes";
-import { Outcomes } from "../outcomes";
+import type { Outcome } from "../stats";
+import { Adherence, Outcomes } from "../stats";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 
@@ -273,6 +272,7 @@ describe("Conversations", () => {
 		expect((await later.all()).fake).toEqual((await offered.all()).fake);
 	});
 
+	// scry-ignore simple-test-setup: the restart and the stored skill version are this test's own inputs.
 	it("keeps the project's splates skill version from the start, past a restart", async () => {
 		await fs.write(
 			"/repo/.agents/skills/splates/SKILL.md",

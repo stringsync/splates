@@ -1,4 +1,4 @@
-import type { Tally } from "@stringsync/splates-server/stats";
+import type { Tally } from "@stringsync/splates-server/stats/browser";
 
 /**
  * What the period's outcomes say to change, one card each: whether agents

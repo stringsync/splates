@@ -1,4 +1,4 @@
-import type { Outcome } from "../outcomes";
+import type { Outcome } from "../stats";
 import type { Decision } from "./plan";
 
 /**

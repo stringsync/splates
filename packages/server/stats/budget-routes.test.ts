@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { json, serving } from "./dev-testing";
-import { Testing } from "./testing";
+import { json, serving } from "../dev-testing";
+import { Testing } from "../testing";
 
 /** A `wiz` that answers with the args it was given, as one JSON string. */
 const ECHO = `f() { printf '{"args":"%s"}' "$*"; }; f`;

@@ -7,7 +7,6 @@ import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
 import { FileLock, HeavyJobs, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
-import { Adherence } from "./adherence";
 import { assets } from "./assets";
 import { Todos } from "./board";
 import type { Config } from "./config";
@@ -16,12 +15,12 @@ import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
 import { HEAVY_HELD } from "./heavy";
 import { CoordinatorLanding, TaskBranches } from "./merge";
-import { Outcomes } from "./outcomes";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { Projects } from "./projects";
 import { Format, Journal } from "./records";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
+import { Adherence, Outcomes } from "./stats";
 import { WorktreeService } from "./tasks";
 
 /**

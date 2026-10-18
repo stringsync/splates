@@ -1,9 +1,9 @@
 import type { Fs } from "webappwiz/system";
-import type { Device } from "./conversations";
+import type { Device } from "../conversations";
+import type { Decision } from "../plans";
+import type { DiffSize, MergeFailure, RemoveReason } from "../tasks";
 import type { Finding } from "./findings";
-import type { Decision } from "./plans";
 import { type TaskUsage, taskLog } from "./task-log";
-import type { DiffSize, MergeFailure, RemoveReason } from "./tasks";
 
 /**
  * Every task that has ended on this machine, across projects, in

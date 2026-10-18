@@ -5,7 +5,6 @@ import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/artifacts";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { exits, fail } from "@stringsync/splates-server/exit";
-import { addFactTodos } from "@stringsync/splates-server/fact-todos";
 import { runHeavy } from "@stringsync/splates-server/heavy-run";
 import { forget, init } from "@stringsync/splates-server/init";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
@@ -17,6 +16,7 @@ import { newest } from "@stringsync/splates-server/release";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { serveDev } from "@stringsync/splates-server/start";
 import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
+import { addFactTodos } from "@stringsync/splates-server/stats";
 import {
 	add,
 	checkpoint,

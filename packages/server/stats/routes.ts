@@ -1,9 +1,9 @@
 import type { Fs, Ps } from "webappwiz/system";
+import type { Handler } from "../dev-project";
+import { fail } from "../exit";
+import { splatesHome } from "../models";
 import { Adherence } from "./adherence";
-import type { Handler } from "./dev-project";
-import { fail } from "./exit";
 import { landed } from "./landed";
-import { splatesHome } from "./models";
 import { Outcomes } from "./outcomes";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 

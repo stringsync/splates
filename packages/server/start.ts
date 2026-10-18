@@ -1,7 +1,6 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
 import { SystemTimer } from "webappwiz/time";
-import { Adherence } from "./adherence";
 import { SharedBrowser, StartLock, Watch } from "./agents";
 import { artifactLimits } from "./artifacts";
 import { LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
@@ -18,7 +17,6 @@ import { heavyJobsOfMachine } from "./heavy";
 import { type DevServer, dev, devPorts } from "./index";
 import { pushOnMove, TaskBranches } from "./merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "./models";
-import { Outcomes } from "./outcomes";
 import { PlanStore } from "./plans";
 import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
@@ -31,6 +29,7 @@ import {
 	savedTunnelOf,
 	seeded,
 } from "./start-settings";
+import { Adherence, Outcomes } from "./stats";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import type { TunnelProvider } from "./tunnel-provider";
 import {

@@ -1,4 +1,4 @@
-import type { Beat } from "@stringsync/splates-server/skill-checks";
+import type { Beat } from "@stringsync/splates-server/stats";
 import type { EvalCheck } from "./checks";
 import { SEEDED } from "./fixture";
 import { lastSaid, splatesRuns, touchesCode, turnsOf } from "./reading";

@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { EndState } from "@stringsync/splates-server/skill-checks";
+import type { EndState } from "@stringsync/splates-server/stats";
 import { $, type ShellExpression } from "bun";
 import type { AsyncResource } from "webappwiz/disposable";
 import type { ProcessEntry, Ps } from "webappwiz/system";

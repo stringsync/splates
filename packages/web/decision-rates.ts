@@ -2,7 +2,7 @@ import {
 	bucketOf,
 	type Decided,
 	type Stats,
-} from "@stringsync/splates-server/stats";
+} from "@stringsync/splates-server/stats/browser";
 import { type Axis, axis, type Bucket, type Period } from "./stats-report";
 
 /**

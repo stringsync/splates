@@ -1,4 +1,4 @@
-import type { SkillVersion } from "@stringsync/splates-server/stats";
+import type { SkillVersion } from "@stringsync/splates-server/stats/browser";
 import { useReactive } from "@webappwiz/react";
 import { CalendarRangeIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
@@ -268,7 +268,6 @@ function Trend({
 }): JSX.Element {
 	return (
 		<figure className="mt-2 flex flex-col gap-2 text-foreground">
-			{/* The card it sits in names the figure. */}
 			<figcaption className="font-medium text-xs">
 				{weekly ? "Week by week" : "Over the period"}
 			</figcaption>

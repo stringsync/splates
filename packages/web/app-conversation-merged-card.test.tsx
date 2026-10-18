@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Outcome } from "@stringsync/splates-server/outcomes";
+import type { Outcome } from "@stringsync/splates-server/stats/browser";
 import {
 	cleanup,
 	conversation,

@@ -10,8 +10,8 @@ import type { EverywhereProject } from "@stringsync/splates-server/dev-everywher
 import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
 import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
 import type { Held } from "@stringsync/splates-server/held";
-import type { Landed } from "@stringsync/splates-server/landed";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
+import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";

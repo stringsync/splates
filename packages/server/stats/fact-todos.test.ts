@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { todoAdd } from "./board";
+import { todoAdd } from "../board";
+import { Testing } from "../testing";
 import { addFactTodos } from "./fact-todos";
 import type { Outcome } from "./outcomes";
-import { Testing } from "./testing";
 
 describe.concurrent("addFactTodos", () => {
 	it("adds a todo for each failing test run of a merge, journaled, once", async () => {

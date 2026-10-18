@@ -1,9 +1,9 @@
 import type { Fs } from "webappwiz/system";
-import { agentTurn, fold, tally } from "./agents";
-import { LEGACY_PLAN_FILE } from "./config";
-import type { Entry } from "./conversations";
-import { blank, type ConversationState, type Usage } from "./conversations";
-import { PLAN_FILE } from "./plans";
+import { agentTurn, fold, tally } from "../agents";
+import { LEGACY_PLAN_FILE } from "../config";
+import type { Entry } from "../conversations";
+import { blank, type ConversationState, type Usage } from "../conversations";
+import { PLAN_FILE } from "../plans";
 
 /** What a task's turns used, apart from the rest of its conversation's. */
 export interface TaskUsage {
@@ -17,7 +17,7 @@ export interface TaskUsage {
 
 /** What a task's stretch of its conversation shows of how the work went. */
 export interface TaskLog {
-	/** OpenCode observations have different scope; kept in the conversation, not legacy task totals. */
+	/** What the task's turns used, when its agent reported any. */
 	usage: TaskUsage | undefined;
 	/** Each agent turn's span, start to last move, summed. */
 	workedMs: number;

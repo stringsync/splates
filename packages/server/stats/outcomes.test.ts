@@ -1,9 +1,9 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
-import { merge } from "./merge";
-import { PLAN_FILE } from "./plans";
-import { add, claim, escalate, remove, retry } from "./tasks";
-import { Testing } from "./testing";
+import { merge } from "../merge";
+import { PLAN_FILE } from "../plans";
+import { add, claim, escalate, remove, retry } from "../tasks";
+import { Testing } from "../testing";
 
 // Real git in a repo of its own, as in merge.test.ts.
 setDefaultTimeout(30_000);
@@ -303,6 +303,7 @@ describe.concurrent("outcomes", () => {
 		expect(beta?.usage?.output).toBe(12);
 	});
 
+	// scry-ignore simple-test-setup: the conversation env and the first turn are this test's own inputs.
 	it("credits a task merged in its first turn with that turn's usage once the turn ends, beside the outcomes", async () => {
 		await using deps = await Testing.open();
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };

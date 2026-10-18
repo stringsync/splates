@@ -3,7 +3,6 @@ import type { Deps, Middleware } from "webappwiz/cmd";
 import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
-import { Adherence } from "../adherence";
 import { Todos } from "../board";
 import type { Config } from "../config";
 import {
@@ -25,11 +24,11 @@ import {
 	type TrunkLanding,
 } from "../merge";
 import { splatesHome } from "../models";
-import { Outcomes } from "../outcomes";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Projects, type Reach, reaches } from "../projects";
 import { Shell } from "../shell";
 import { Slots } from "../slots";
+import { Adherence, Outcomes } from "../stats";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Format } from "./format";
 import { Journal } from "./journal";

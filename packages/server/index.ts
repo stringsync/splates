@@ -7,7 +7,6 @@ import { Dictations } from "./dev-dictation";
 import { EverywhereRoutes } from "./dev-everywhere";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import type { DevOptions } from "./dev-options";
-import { DevOutcomes } from "./dev-outcomes";
 import { Pages } from "./dev-pages";
 import { Picker } from "./dev-picker";
 import { DEFAULT_PORT, devPorts } from "./dev-ports";
@@ -45,6 +44,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "./setup";
+import { DevOutcomes } from "./stats";
 import { LocalWorkerMachine } from "./workers";
 
 export type { DevOptions } from "./dev-options";

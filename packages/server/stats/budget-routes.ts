@@ -1,6 +1,6 @@
-import { body } from "./dev-http";
-import type { Project } from "./dev-project";
-import { fail } from "./exit";
+import { body } from "../dev-http";
+import type { Project } from "../dev-project";
+import { fail } from "../exit";
 
 /**
  * The routes a project's Budget page reads and changes its scry budgets

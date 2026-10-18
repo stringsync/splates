@@ -1,11 +1,11 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Todos } from "./board";
-import { addedFacts, wording } from "./board";
+import type { Todos } from "../board";
+import { addedFacts, wording } from "../board";
+import type { Git } from "../git";
+import type { Journal } from "../records";
 import { factTodos } from "./finding-facts";
-import type { Git } from "./git";
 import { landed } from "./landed";
 import type { Outcomes } from "./outcomes";
-import type { Journal } from "./records";
 
 /**
  * Adds a todo, untriaged, for each of `task`'s gate runs that named failing

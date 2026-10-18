@@ -1,16 +1,14 @@
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import type { Adherence } from "../adherence";
 import { Attachments, folderBytes } from "../artifacts";
 import type { Config } from "../config";
-import { findings } from "../findings";
 import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Checkouts } from "../merge";
 import { ranWith } from "../models";
-import { type Outcomes, promptsFrom } from "../outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "../plans";
-import { taskLog } from "../task-log";
+import type { Adherence } from "../stats";
+import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import type { WorkerMachine } from "../workers";
 import { workerGit } from "../workers";
 import type { LeaseBeat } from "./lease-beat";

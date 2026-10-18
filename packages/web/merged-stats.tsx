@@ -1,5 +1,4 @@
-import type { Fact } from "@stringsync/splates-server/finding-facts";
-import type { Landed } from "@stringsync/splates-server/landed";
+import type { Fact, Landed } from "@stringsync/splates-server/stats/browser";
 import {
 	ArrowUpIcon,
 	BotIcon,
