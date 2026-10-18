@@ -42,6 +42,7 @@ export const SWEEP = Duration.mins(5);
 /** How long the conversations' changes settle before they are checked. */
 const SETTLE = Duration.secs(1);
 
+// scry-ignore doc-comments-address-users: its TODO is the directive's name, not a note left in the code
 /**
  * Keeps the conversation that handed tasks out, a lane's orchestrator with
  * `splates add --agent` or a relaying agent with `splates handoff --relay`, up
@@ -71,6 +72,11 @@ const SETTLE = Duration.secs(1);
  * landed, that sits idle on a Working or Waiting report, as though they were
  * not, is told `[SPLATES LANES DONE]`, once since it last started lanes, so it
  * ends on its Finished report.
+ *
+ * A lane's orchestrator whose turn ends on its Finished report is archived,
+ * with the agents it started or handed tasks to, as the page's Archive lane
+ * button does, unless one of them still holds a task, which leaves the lane
+ * to the person. Only as the turn ends, so a lane they bring back stays.
  */
 export class HandedOut implements Resource {
 	/**
@@ -101,7 +107,11 @@ export class HandedOut implements Resource {
 		this.#disposer.defer(() => settled.cancel());
 		this.#disposer.defer(
 			conversations.events.on("ended", (id) =>
-				this.#queue(async () => this.#check(await conversations.find(id))),
+				this.#queue(async () => {
+					const conversation = await conversations.find(id);
+					await this.#check(conversation);
+					await this.#archiveFinished(conversation);
+				}),
 			),
 		);
 		this.#disposer.defer(
@@ -334,6 +344,34 @@ export class HandedOut implements Resource {
 		await conversation.prompt(LANES_DONE);
 	}
 
+	/**
+	 * Archives `conversation`, with the agents it started or handed tasks to,
+	 * when its last turn ended on its Finished report and none of them holds
+	 * a task.
+	 */
+	async #archiveFinished(conversation: Conversation): Promise<void> {
+		const { state } = conversation;
+		if (
+			state.archived ||
+			state.status !== "idle" ||
+			state.ask !== null ||
+			!finishes(state.messages.at(-1))
+		) {
+			return;
+		}
+		// The agents it handed tasks to or started may be in other projects.
+		const theirs = (await this.#anywhere()).filter(
+			({ state: each }) =>
+				(each.handedBy === state.id || each.startedBy === state.id) &&
+				!each.archived,
+		);
+		if (theirs.some((each) => each.state.task !== null)) {
+			return;
+		}
+		await Promise.all(theirs.map((each) => each.archive(state.id)));
+		await conversation.archive();
+	}
+
 	async #check(conversation: Conversation): Promise<void> {
 		const { state } = conversation;
 		const task = state.task ?? state.lastTask;
@@ -439,6 +477,14 @@ function stretchesOf(message: Message): Stretch[] {
 /** Whether `message`, the agent's, holds a Started card. */
 function startsIn(message: Message): boolean {
 	return stretchesOf(message).some((each) => each.type === "start");
+}
+
+/** Whether `message` is the agent's and its last report on lanes is its Finished one. */
+function finishes(message: Message | undefined): boolean {
+	const last = (message === undefined ? [] : stretchesOf(message)).findLast(
+		(each) => each.type === "report" && "lanes" in each.report,
+	);
+	return last?.type === "report" && last.report.ending === "finished";
 }
 
 /**

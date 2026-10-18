@@ -213,3 +213,8 @@ The Stats page leads with what to act on, and licenses renew on their own.
 - Stats: #155 merged as stats-action-oriented; #152 and #160 landed by another conversation.
 - Licensing: #171 and #172 merged; #173 removed as moot.
 ```
+
+Make it the last thing in your turn, and end the turn there: as the turn
+ends on it, `splates server` archives the lane, your conversation with the
+agents you started, unless one of them still holds a task, which leaves it
+to the user.

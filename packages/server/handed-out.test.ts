@@ -377,9 +377,12 @@ describe("HandedOut", () => {
 
 	/**
 	 * A lane's orchestrator sent lane 1 that answers each prompt with
-	 * `reply`, once it has answered the first.
+	 * `reply`, once it has answered the first: `started`, or a new one.
 	 */
-	const orchestrating = async (reply: string): Promise<Conversation> => {
+	const orchestrating = async (
+		reply: string,
+		started?: Conversation,
+	): Promise<Conversation> => {
 		agent.turn = async (client, session, text) => {
 			said.push(text);
 			await client.sessionUpdate({
@@ -391,10 +394,12 @@ describe("HandedOut", () => {
 			});
 			return "end_turn";
 		};
-		const orchestrator = await conversations.start("fake", {
-			task: null,
-			cwd: deps.root,
-		});
+		const orchestrator =
+			started ??
+			(await conversations.start("fake", {
+				task: null,
+				cwd: deps.root,
+			}));
 		await until(() => orchestrator.state.status === "idle");
 		await orchestrator.prompt("[SPLATES LANE 1]");
 		await until(
@@ -436,6 +441,52 @@ describe("HandedOut", () => {
 		await Bun.sleep(50);
 
 		expect(said).toEqual(["[SPLATES LANE 1]"]);
+	});
+
+	it("archives an orchestrator whose turn ends on its Finished report", async () => {
+		watch();
+		const orchestrator = await orchestrating(
+			"## 🏁 Finished lanes Stats\n\nThe Stats page leads.",
+		);
+		await until(() => orchestrator.state.archived);
+
+		expect(orchestrator.state.archived).toBe(true);
+	});
+
+	it("archives the agents an orchestrator started along with it once their tasks are gone", async () => {
+		const { orchestrator, working } = await startedOut();
+		working.move(null, deps.root);
+		watch();
+		await orchestrating(
+			"## 🏁 Finished lanes Stats\n\nThe Stats page leads.",
+			orchestrator,
+		);
+		await until(() => orchestrator.state.archived);
+
+		expect(working.state.archived).toBe(true);
+		expect(working.state.archivedWith).toBe(orchestrator.id);
+	});
+
+	it("leaves a finished orchestrator to the person while an agent it started holds its task", async () => {
+		const { orchestrator } = await startedOut();
+		watch();
+		await orchestrating(
+			"## 🏁 Finished lanes Stats\n\nThe Stats page leads.",
+			orchestrator,
+		);
+		await Bun.sleep(50);
+
+		expect(orchestrator.state.archived).toBe(false);
+	});
+
+	it("archives no orchestrator whose turn ends with its lanes under way", async () => {
+		watch();
+		const orchestrator = await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		await Bun.sleep(50);
+
+		expect(orchestrator.state.archived).toBe(false);
 	});
 
 	it("tells an orchestrator whose lanes were done while splates server was down", async () => {
