@@ -63,9 +63,12 @@ export function workerAuthorization(id: string, key: string): string {
 export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
-	/** The queue the agents other agents start take a slot on a worker from. */
+	/** The queue agents take a slot on a worker from: capped for those other agents start, not for the person's. */
 	readonly slots: WorkerSlots;
-	/** This machine's worker, which agents run on; work waits for it to join. */
+	/**
+	 * This machine's worker, which the page's shells and task ports run on,
+	 * and agents too while it is on; work waits for it to join.
+	 */
 	readonly local: RemoteWorker;
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
@@ -108,6 +111,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.slots = new WorkerSlots(this.registry, {
 			platform,
 			record: (id) => records.of(id),
+			pooled: (id) => this.pooled(id),
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 		this.provisioning =
@@ -121,6 +125,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						log,
 					});
 		this.provisioning?.watch(this.slots.scheduler);
+	}
+
+	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
+	private pooled(id: string): boolean {
+		return id !== LOCAL_WORKER || this.records.localOn;
 	}
 
 	/** The worker `id`, as a project reads a task cloned there through it. */
@@ -219,8 +228,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	 */
 	readonly list = async (): Promise<Response> =>
 		Response.json({
-			...workerList(this.registry, this.slots.used(), (id) =>
-				this.records.of(id),
+			...workerList(
+				this.registry,
+				this.slots.used(),
+				(id) => this.records.of(id),
+				(id) => this.pooled(id),
 			),
 			build: RUNNING,
 		} satisfies WorkerPool);
@@ -320,6 +332,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	/**
 	 * `PUT /api/workers/:id`: sets how many agents worker `id` runs at once
 	 * (null to go by its hello) and whether it drains, taking no new ones.
+	 * Taking new agents again turns this machine's own back on, removed or
+	 * being removed.
 	 */
 	readonly update = async (request: Request): Promise<Response> => {
 		const id = workerId(request);
@@ -331,9 +345,22 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			return refuse(404, "not_found", `no worker ${id}`);
 		}
 		const { slots, draining } = body.data;
+		const local = id === LOCAL_WORKER;
+		if (local && !this.records.localOn) {
+			if (draining !== false) {
+				return refuse(
+					404,
+					"not_found",
+					`no worker ${id}: add it back with \`splates worker add --local <slots>\``,
+				);
+			}
+			await this.records.turnLocal(true);
+			this.log.info(`worker ${id} added back`);
+		}
 		await this.records.set(id, {
 			...(slots === undefined ? {} : { slots }),
 			...(draining === undefined ? {} : { draining }),
+			...(local ? { removing: false } : {}),
 		});
 		this.slots.scheduler.poke();
 		return this.list();
@@ -342,20 +369,22 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	/**
 	 * `DELETE /api/workers/:id`: removes worker `id`, revoking its key. One
 	 * with agents on it drains and is removed once they end, unless
-	 * `?force`, which ends them now and frees their slots.
+	 * `?force`, which ends them now and frees their slots. This machine's
+	 * own is only taken out of the pool, its process kept for the page's
+	 * shells and task ports, until `PUT` turns it on again.
 	 */
 	readonly remove = async (request: Request): Promise<Response> => {
 		const id = workerId(request);
 		const force = new URL(request.url).searchParams.has("force");
-		if (id === LOCAL_WORKER) {
+		if (this.registry.worker(id) === undefined || !this.pooled(id)) {
+			return refuse(404, "not_found", `no worker ${id}`);
+		}
+		if (id === LOCAL_WORKER && force) {
 			return refuse(
 				400,
 				"usage",
-				"this machine's own worker cannot be removed yet: drain it instead",
+				"this machine's own agents run to their end once it is removed: remove it without --force",
 			);
-		}
-		if (this.registry.worker(id) === undefined) {
-			return refuse(404, "not_found", `no worker ${id}`);
 		}
 		const running = this.slots.used().get(id) ?? [];
 		if (running.length > 0 && !force) {
@@ -378,10 +407,19 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	}
 
 	/**
-	 * Revokes worker `id`'s key and service token, hangs up on it, and frees what its agents
-	 * held, destroying its machine when a provider made it.
+	 * Revokes worker `id`'s key and service token, hangs up on it, and frees
+	 * what its agents held, destroying its machine when a provider made it.
+	 * This machine's own is turned off instead, keeping its slots for when
+	 * it is back.
 	 */
 	private async forget(id: string): Promise<void> {
+		if (id === LOCAL_WORKER) {
+			await this.records.set(id, { draining: false, removing: false });
+			await this.records.turnLocal(false);
+			this.slots.scheduler.poke();
+			this.log.info(`worker ${id} removed: this machine only coordinates`);
+			return;
+		}
 		if (this.provisioning?.made(id)) {
 			await this.provisioning.destroy(id).catch((error: unknown) => {
 				this.log.error(

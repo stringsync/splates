@@ -56,6 +56,18 @@ describe("WorkerRecords", () => {
 		expect(file).not.toContain(token);
 	});
 
+	it("keeps this machine's own worker off across a reopen, until it is turned on", async () => {
+		const fs = new FakeFs();
+		const records = await WorkerRecords.open(PATH, fs);
+		expect(records.localOn).toBe(true);
+		await records.turnLocal(false);
+
+		const reopened = await WorkerRecords.open(PATH, fs);
+		expect(reopened.localOn).toBe(false);
+		await reopened.turnLocal(true);
+		expect((await WorkerRecords.open(PATH, fs)).localOn).toBe(true);
+	});
+
 	it("revokes a removed worker's key", async () => {
 		const records = WorkerRecords.memory();
 		const key = await records.join((await records.invite()).token, "box");

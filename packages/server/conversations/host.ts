@@ -62,9 +62,10 @@ export interface ConversationDeps {
 	/** What starts each agent, and takes one back after a restart. */
 	launcher: Launcher;
 	/**
-	 * Where each agent another agent started waits for a slot on a worker
-	 * before it starts, and starts there; one the person started, or every
-	 * one with none, starts at once on `launcher`.
+	 * Where each agent waits for a slot on a worker before it starts, and
+	 * starts there: one another agent started for a free one, one the person
+	 * started for any worker up. With none, every one starts at once on
+	 * `launcher`.
 	 */
 	slots?: ConversationSlots;
 	/** Where the agent runs, which its background commands' output is read from. */
@@ -98,15 +99,22 @@ export interface ConversationSlots {
 	 * A slot for the agent of conversation `id`, once its turn comes;
 	 * aborting `signal` takes it out of the queue, rejecting.
 	 */
-	take(
-		request: { id: string; task: string | null },
-		signal: AbortSignal,
-	): Promise<Placement>;
+	take(request: SlotAsk, signal: AbortSignal): Promise<Placement>;
 	/** Counts an agent already running on `worker` against its slots. */
-	hold(request: { id: string; task: string | null }, worker: string): Grant;
+	hold(request: SlotAsk, worker: string): Grant;
 	/** Where the agent of conversation `id` waits; null for one not waiting. */
 	spot(id: string): QueueSpot | null;
 	readonly events: Events<{ changed: undefined }>;
+}
+
+/**
+ * What asks for a slot: conversation `id`'s agent, of `task`. An uncapped
+ * one, which the person started, goes on any worker up, however full.
+ */
+export interface SlotAsk {
+	id: string;
+	task: string | null;
+	uncapped?: boolean;
 }
 
 /** A slot on a worker, and how to start an agent there. */

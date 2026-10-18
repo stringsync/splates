@@ -86,7 +86,8 @@ export interface AddWorkerOptions extends ServerCallOptions {
 /**
  * `splates worker add`: a join token another machine joins with, printed
  * with the command to run there; with `--local N`, this machine's own
- * worker runs N agents at once and takes new ones again; with `--provider`,
+ * worker runs N agents at once and takes new ones again, added back if it
+ * was removed; with `--provider`,
  * the server's `workerProvider` makes one, which joins on its own.
  */
 export async function addWorker(opts: AddWorkerOptions): Promise<void> {
@@ -157,7 +158,8 @@ export async function setWorkerSlots(
 
 /**
  * `splates worker remove <id>`: revokes its key and forgets it, once the
- * agents on it end, or at once with `force`, ending them.
+ * agents on it end, or at once with `force`, ending them. This machine's
+ * own only stops taking agents, until `splates worker add --local`.
  */
 export async function removeWorker(
 	opts: ServerCallOptions & { id: string; force: boolean },
@@ -168,6 +170,14 @@ export async function removeWorker(
 			{ ...opts, method: "DELETE" },
 		),
 	);
+	if (id === LOCAL_WORKER) {
+		opts.log.info(
+			removed
+				? "removed this machine's worker: it only coordinates, until `splates worker add --local <slots>`"
+				: `this machine's worker drains, and is removed once ${running.join(", ")} end`,
+		);
+		return;
+	}
 	opts.log.info(
 		removed
 			? `removed ${id}${running.length > 0 ? `, ending ${running.join(", ")}` : ""}`

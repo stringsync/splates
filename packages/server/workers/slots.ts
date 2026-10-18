@@ -17,8 +17,8 @@ export const DEFAULT_SLOTS = 8;
 
 /**
  * How many agents other agents started this machine's worker runs at once,
- * unless `splates server --worker-slots` says; those the person starts take
- * no slot.
+ * unless `splates server --worker-slots` says; those the person starts
+ * count against none.
  */
 export const LOCAL_SLOTS = 16;
 
@@ -37,20 +37,23 @@ export class WorkerSlots implements Resource {
 			platform,
 			wall = new SystemWallClock(),
 			record = () => undefined,
+			pooled = () => true,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
 			wall?: WallClock;
 			/** What was set on worker `id` by hand: its slots, and whether it drains. */
 			record?: (id: string) => WorkerRecord | undefined;
+			/** Whether worker `id` takes agents at all: not this machine's own once it is removed. */
+			pooled?: (id: string) => boolean;
 		},
 	) {
 		this.scheduler = new Scheduler(
 			{
 				workers: () =>
-					registry.workers.map((worker) =>
-						poolWorker(worker, platform, record(worker.id)),
-					),
+					registry.workers
+						.filter((worker) => pooled(worker.id))
+						.map((worker) => poolWorker(worker, platform, record(worker.id))),
 			},
 			wall,
 		);
@@ -60,11 +63,20 @@ export class WorkerSlots implements Resource {
 	/** The queue as the agents of the project at `root` take slots from it. */
 	project(root: string, platform: Platform | null): ConversationSlots {
 		const { scheduler, registry } = this;
-		const request = ({ id, task }: { id: string; task: string | null }) => ({
+		const request = ({
+			id,
+			task,
+			uncapped,
+		}: {
+			id: string;
+			task: string | null;
+			uncapped?: boolean;
+		}) => ({
 			id,
 			task,
 			project: root,
 			platform,
+			...(uncapped === undefined ? {} : { uncapped }),
 		});
 		return {
 			events: scheduler.events,

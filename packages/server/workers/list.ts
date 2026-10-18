@@ -53,17 +53,21 @@ export interface WorkerPool extends WorkerListings {
 /**
  * The workers a registry keeps and the ones it turned away; `placed`, the
  * tasks each runs, by its id, a conversation's id for one in no task;
- * `record`, what was set on each by hand.
+ * `record`, what was set on each by hand; `pooled`, whether each takes
+ * agents at all, leaving out this machine's own once it is removed.
  */
 export function workerList(
 	registry: WorkerRegistry,
 	placed: Map<string, string[]> = new Map(),
 	record: (id: string) => WorkerRecord | undefined = () => undefined,
+	pooled: (id: string) => boolean = () => true,
 ): WorkerListings {
 	return {
-		workers: registry.workers.map((worker) =>
-			listing(worker, placed.get(worker.id) ?? [], record(worker.id)),
-		),
+		workers: registry.workers
+			.filter((worker) => pooled(worker.id))
+			.map((worker) =>
+				listing(worker, placed.get(worker.id) ?? [], record(worker.id)),
+			),
 		refused: registry.refused,
 	};
 }

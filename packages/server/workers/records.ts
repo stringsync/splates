@@ -62,7 +62,7 @@ export class WorkerRecords {
 		wall: WallClock = new SystemWallClock(),
 	): Promise<WorkerRecords> {
 		const read = await fs.read(path).catch(() => null);
-		let kept: KeptFile = { workers: [], joins: [] };
+		let kept: KeptFile = { workers: [], joins: [], local: true };
 		if (read !== null) {
 			try {
 				kept = Kept.parse(JSON.parse(read));
@@ -75,7 +75,11 @@ export class WorkerRecords {
 
 	/** Records kept in memory alone, for a coordinator that keeps nothing. */
 	static memory(wall: WallClock = new SystemWallClock()): WorkerRecords {
-		return new WorkerRecords(null, null, wall, { workers: [], joins: [] });
+		return new WorkerRecords(null, null, wall, {
+			workers: [],
+			joins: [],
+			local: true,
+		});
 	}
 
 	get all(): WorkerRecord[] {
@@ -84,6 +88,20 @@ export class WorkerRecords {
 
 	of(id: string): WorkerRecord | undefined {
 		return this.kept.workers.find((each) => each.id === id);
+	}
+
+	/**
+	 * Whether this machine's own worker runs agents. Removing it keeps its
+	 * process, which the page's shells and task ports run on, but takes it
+	 * out of the pool until it is turned on again.
+	 */
+	get localOn(): boolean {
+		return this.kept.local;
+	}
+
+	/** Turns this machine's own worker on or off, keeping what was set on it. */
+	async turnLocal(on: boolean): Promise<void> {
+		await this.change((kept) => ({ ...kept, local: on }));
 	}
 
 	/**
@@ -148,6 +166,7 @@ export class WorkerRecords {
 			access: spent.access,
 		};
 		await this.change((kept) => ({
+			...kept,
 			workers: [...kept.workers.filter((each) => each.id !== id), record],
 			joins: this.unswept(kept).filter((each) => !same(each.hash, hash)),
 		}));
@@ -241,6 +260,8 @@ const Kept = z.object({
 			}),
 		)
 		.default([]),
+	/** Whether this machine's own worker runs agents; false once it is removed. */
+	local: z.boolean().default(true),
 });
 
 type KeptFile = z.output<typeof Kept>;

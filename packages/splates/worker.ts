@@ -94,7 +94,7 @@ const dev = {
 splatesWorker
 	.command("add")
 	.description(
-		"add a worker to the running `splates server`: prints a join token, single use and good for 15 minutes, for `splates worker run --join <token>` on the machine to join, which gets a key of its own that `splates worker remove` revokes; with --local N, makes this machine's own worker run N agents at once and take new ones again; with --provider, has the `workerProvider` in splates.config.ts make one, booted from the snapshot splates builds for it, which joins on its own and whose machine `splates worker remove` destroys",
+		"add a worker to the running `splates server`: prints a join token, single use and good for 15 minutes, for `splates worker run --join <token>` on the machine to join, which gets a key of its own that `splates worker remove` revokes; with --local N, makes this machine's own worker run N agents at once and take new ones again, adding it back if it was removed; with --provider, has the `workerProvider` in splates.config.ts make one, booted from the snapshot splates builds for it, which joins on its own and whose machine `splates worker remove` destroys",
 	)
 	.option("local", z.coerce.number().int().min(0), {
 		default: 0,
@@ -173,7 +173,7 @@ splatesWorker
 splatesWorker
 	.command("remove")
 	.description(
-		"remove a worker, revoking its key: one with agents on it drains and is removed once they end; --force ends them now and frees their slots. This machine's own worker cannot be removed yet: drain it",
+		"remove a worker, revoking its key: one with agents on it drains and is removed once they end; --force ends them now and frees their slots. This machine's own worker, `local`, stops taking agents, its agents running to their end, and leaves this machine only coordinating until `splates worker add --local <slots>`; it takes no --force",
 	)
 	.arg("id", z.string(), {
 		description: "the worker, as `splates worker list` names it",

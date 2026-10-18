@@ -11,13 +11,13 @@ const DEV = {
 
 /** `splates queue`, which the root cli mounts beside `splates worker`. */
 export const splatesQueue = cli<SplatesDeps>("queue").description(
-	"the agents waiting for a slot on a worker of the running `splates server`: each one another agent started (with `splates add --agent`, or a lane's orchestrator handing out todos), started or resumed while every worker it can run on is full, waits here, first come, first served, and starts once a slot frees, as when an agent left idle 30 minutes stops; none is ever failed for waiting. An agent you start never waits",
+	"the agents waiting for a slot on a worker of the running `splates server`: each one another agent started (with `splates add --agent`, or a lane's orchestrator handing out todos), started or resumed while every worker it can run on is full, waits here, first come, first served, and starts once a slot frees, as when an agent left idle 30 minutes stops; none is ever failed for waiting. An agent you start waits only while no worker is up, as with this machine's own removed",
 );
 
 splatesQueue
 	.command("list")
 	.description(
-		"list the agents waiting for a slot, first in line first: position, project, task, conversation, how long each has waited and why (no free slot, or a platform no worker runs, as `needs macOS`)",
+		"list the agents waiting for a slot, first in line first: position, project, task, conversation, how long each has waited and why (no free slot, no worker up, or a platform no worker runs, as `needs macOS`)",
 	)
 	.option("dev", z.string(), DEV)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })

@@ -129,7 +129,7 @@ function localState(local: WorkerListing | null, on: boolean): string {
 	}
 	return used > 0
 		? `Off: takes no new agents, and the ${used === 1 ? "one" : used} here run${used === 1 ? "s" : ""} to ${used === 1 ? "its" : "their"} end.`
-		: "Off: runs none of the agents other agents start.";
+		: "Off: takes no new agents.";
 }
 
 /** This Mac as a worker: on or off, and how many agents it runs at once. */
@@ -149,7 +149,8 @@ function ThisMac({
 	return (
 		<div className="flex flex-col gap-3">
 			<Heading title="This Mac">
-				Runs the agents other agents start, beside any other worker.
+				Runs agents, yours and those other agents start, beside any other
+				worker.
 			</Heading>
 			<section
 				aria-label="this mac"

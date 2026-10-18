@@ -247,8 +247,11 @@ memory-only store, the proxy and the undumpable helper belong to
   changes how many it runs at once. `splates worker remove <id>` drains
   first and is done once its agents end; `--force` ends them now, frees
   their slots, and is to requeue each task from its last pushed checkpoint
-  (#94). Either way the worker's key is revoked. Removing the local worker,
-  leaving the machine as coordinator only, is #95.
+  (#94). Either way the worker's key is revoked. Removing the local worker
+  (*settled*, #95) leaves the machine coordinator only, across restarts, and
+  takes no `--force`: its agents run to their end. Its process stays, since
+  the page's shells and task ports run on it; `splates worker add --local
+  <n>` brings it back.
 - A Workers page in the nav shows each worker (kind, platform, slots,
   health, build, tasks, $/hour) with the same actions as the CLI, and turns
   this Mac on and off as a worker, after the coordinator moves to the cloud
@@ -272,8 +275,9 @@ memory-only store, the proxy and the undumpable helper belong to
   first served, and the user can reorder the queue.
 - Slots cap the agents other agents start (*settled*): those `splates add
   --agent` or a lane's orchestrator hand out. An agent the person starts
-  always runs at once and takes no slot; by default a worker caps the rest
-  at 16 (`splates server --worker-slots`).
+  goes on any worker up, however full, and counts against no slot, waiting
+  only while none is (as with the local worker removed); by default a
+  worker caps the rest at 16 (`splates server --worker-slots`).
 - A task prefers the worker holding its checkout. Workers advertise their
   platform (Linux or macOS); a project may require one in `splates.config.ts`.
 - A task waiting on the user holds its slot while its agent is live; when

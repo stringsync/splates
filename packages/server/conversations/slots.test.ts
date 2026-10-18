@@ -41,9 +41,9 @@ describe("Conversations waiting for a slot", () => {
 		scheduler = new Scheduler({ workers: () => workers }, clock);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
-			take: async ({ id, task }, signal) => {
+			take: async (asked, signal) => {
 				const grant = await scheduler.take(
-					{ id, task, project: "/repo", platform: null },
+					{ ...asked, project: "/repo", platform: null },
 					signal,
 				);
 				return {
@@ -53,8 +53,8 @@ describe("Conversations waiting for a slot", () => {
 					machine: null,
 				};
 			},
-			hold: ({ id, task }, worker) =>
-				scheduler.hold({ id, task, project: "/repo", platform: null }, worker),
+			hold: (asked, worker) =>
+				scheduler.hold({ ...asked, project: "/repo", platform: null }, worker),
 			spot: (id) => {
 				const entry = scheduler.spot(id);
 				return entry === null
@@ -156,13 +156,38 @@ describe("Conversations waiting for a slot", () => {
 		expect(agent.launched).toHaveLength(3);
 	});
 
-	it("starts an agent the person starts at once, taking no slot", async () => {
+	it("starts an agent the person starts at once on a full worker, taking no slot", async () => {
 		const first = await start("login");
 		await until(first, "idle");
 		const own = await conversations.start("fake", { task: null, cwd: "/repo" });
 		await until(own, "idle");
 		expect(own.state.queue).toBeNull();
-		expect(scheduler.held().map((held) => held.id)).toEqual([first.id]);
+		expect(
+			scheduler.held().map(({ id, uncapped }) => ({ id, uncapped })),
+		).toEqual([
+			{ id: first.id, uncapped: false },
+			{ id: own.id, uncapped: true },
+		]);
+	});
+
+	it("waits to start an agent the person starts while no worker is up", async () => {
+		workers = [];
+		const own = await conversations.start("fake", { task: null, cwd: "/repo" });
+		await eventually(() => own.state.queue?.reason === "no worker up");
+		expect(agent.launched).toHaveLength(0);
+		workers = [
+			{
+				id: "remote",
+				kind: "registered",
+				slots: 1,
+				platform: "linux",
+				awake: true,
+				checkouts: true,
+			},
+		];
+		scheduler.poke();
+		await until(own, "idle");
+		expect(own.state.queue).toBeNull();
 	});
 
 	it("frees the slot of an agent that fails to start", async () => {

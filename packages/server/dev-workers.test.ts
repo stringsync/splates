@@ -153,8 +153,64 @@ describe("DevWorkers", () => {
 		});
 	});
 
-	it("will not remove this machine's own worker", async () => {
-		expect((await workers.remove(del("local"))).status).toBe(400);
+	it("removes this machine's own worker from the pool for good, keeping its process", async () => {
+		await workers.update(put("local", { slots: 3 }));
+		const removed = await (await workers.remove(del("local"))).json();
+		expect(removed).toMatchObject({ removed: true, running: [] });
+
+		const listed = await (await workers.list()).json();
+		expect(listed.workers).toEqual([]);
+		expect(workers.registry.worker("local")).toBe(workers.local);
+		const placed = workers.slots.scheduler.take({
+			...request("mine"),
+			uncapped: true,
+		});
+		await Bun.sleep(10);
+		expect(workers.slots.scheduler.spot("mine")?.reason).toBe("no worker up");
+
+		const again = new DevWorkers(new MemoryLogger(), {
+			records: workers.records,
+		});
+		expect((await (await again.list()).json()).workers).toEqual([]);
+		await again.disposeAsync();
+
+		await workers.update(put("local", { draining: false }));
+		expect((await placed).worker).toBe("local");
+		expect((await (await workers.list()).json()).workers).toMatchObject([
+			{ id: "local", draining: false, removing: false, slots: { total: 3 } },
+		]);
+	});
+
+	it("lets this machine's own agents run to their end as its worker is removed", async () => {
+		const held = workers.slots.scheduler.hold(
+			{ ...request("mine"), uncapped: true },
+			"local",
+		);
+		const waiting = await (await workers.remove(del("local"))).json();
+		expect(waiting).toMatchObject({ removed: false, running: ["mine-task"] });
+		expect((await workers.remove(del("local", true))).status).toBe(400);
+
+		held.dispose();
+		await Bun.sleep(10);
+		expect(workers.records.localOn).toBe(false);
+		expect(workers.records.of("local")).toMatchObject({
+			draining: false,
+			removing: false,
+		});
+		expect((await workers.remove(del("local"))).status).toBe(404);
+	});
+
+	it("brings this machine's own worker back only to take agents again", async () => {
+		await workers.remove(del("local"));
+		expect(
+			(await workers.update(put("local", { draining: true }))).status,
+		).toBe(404);
+		expect(workers.records.localOn).toBe(false);
+		expect(
+			(await workers.update(put("local", { slots: 2, draining: false })))
+				.status,
+		).toBe(200);
+		expect(workers.records.localOn).toBe(true);
 	});
 	it("refuses a page trying to connect a worker", async () => {
 		const answer = await fetch(`http://127.0.0.1:${server.port}/api/workers`, {

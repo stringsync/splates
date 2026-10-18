@@ -48,7 +48,7 @@ describe("App's workers", () => {
 		).toContain("fix-login");
 	});
 
-	it("turns this Mac off as a worker at once, by draining it", async () => {
+	it("turns this Mac off as a worker at once, by removing its worker", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
 		const mac = view.getByRole("region", { name: "this mac" });
 		testing.holdWrites();
@@ -58,10 +58,49 @@ describe("App's workers", () => {
 		);
 
 		expect(mac.textContent).toContain("Not a worker");
+		expect(mac.textContent).toContain("it only coordinates");
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/workers/local",
+			method: "DELETE",
+		});
+		await act(async () => testing.release());
+	});
+
+	it("drains this Mac while its agents run to their end", async () => {
+		const view = await openWorkers(
+			pool([
+				worker("local", {
+					kind: "local",
+					tasks: ["fix-login"],
+					slots: { used: 1, total: 4 },
+				}),
+			]),
+		);
+		const mac = view.getByRole("region", { name: "this mac" });
+		testing.holdWrites();
+
+		await act(async () =>
+			fireEvent.click(within(mac).getByRole("switch", { name: "Runs agents" })),
+		);
+
+		expect(mac.textContent).toContain("the one here runs to its end");
+		await act(async () => testing.release());
+	});
+
+	it("turns this Mac back on as a worker at once, adding its worker back", async () => {
+		const view = await openWorkers(pool([]));
+		const mac = view.getByRole("region", { name: "this mac" });
+		testing.holdWrites();
+
+		await act(async () =>
+			fireEvent.click(within(mac).getByRole("switch", { name: "Runs agents" })),
+		);
+
+		expect(mac.textContent).toContain("A worker");
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/local",
 			method: "PUT",
-			body: JSON.stringify({ draining: true }),
+			body: JSON.stringify({ draining: false }),
 		});
 		await act(async () => testing.release());
 	});

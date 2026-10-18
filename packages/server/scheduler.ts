@@ -151,19 +151,23 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * The worker for `request`: the one it last ran on, then the local one,
 	 * then any registered one, then one a provider made, among those awake
 	 * with a slot free on its platform. Made ones come last, since they are
-	 * the ones paid for by the hour.
+	 * the ones paid for by the hour. An uncapped request needs no free slot,
+	 * and takes none from those that do.
 	 */
 	private pick(request: SlotRequest): string | null {
 		const used = new Map<string, number>();
-		for (const { worker } of this.holding.values()) {
-			used.set(worker, (used.get(worker) ?? 0) + 1);
+		for (const { worker, uncapped } of this.holding.values()) {
+			if (!uncapped) {
+				used.set(worker, (used.get(worker) ?? 0) + 1);
+			}
 		}
 		const fits = this.pool
 			.workers()
 			.filter(
 				(worker) =>
 					eligible(worker, request) &&
-					(used.get(worker.id) ?? 0) < worker.slots,
+					(request.uncapped === true ||
+						(used.get(worker.id) ?? 0) < worker.slots),
 			);
 		const last = this.last.get(request.id);
 		const order = (worker: PoolWorker): number =>
@@ -178,6 +182,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			project: request.project,
 			task: request.task,
 			worker,
+			uncapped: request.uncapped === true,
 		};
 		this.holding.set(request.id, held);
 		this.last.set(request.id, worker);
@@ -265,10 +270,15 @@ export interface SlotRequest {
 	task: string | null;
 	/** The platform the project requires; null for any. */
 	platform: Platform | null;
+	/**
+	 * Placed on any worker awake, however full: an agent the person
+	 * started, which no slot caps.
+	 */
+	uncapped?: boolean;
 }
 
 /** Why a queued agent waits. */
-export type QueueReason = "no free slot" | `needs ${string}`;
+export type QueueReason = "no free slot" | "no worker up" | `needs ${string}`;
 
 /** One agent waiting for a slot, first in line first. */
 export interface QueueEntry {
@@ -290,6 +300,8 @@ export interface HeldSlot {
 	project: string;
 	task: string | null;
 	worker: string;
+	/** Counts against no slot: an agent the person started. */
+	uncapped: boolean;
 }
 
 /** A slot an agent holds until it is disposed, which frees it. */
@@ -313,13 +325,12 @@ function eligible(worker: PoolWorker, request: SlotRequest): boolean {
 	);
 }
 
-/** Why `request` waits: no worker it could ever run on, or none free. */
+/** Why `request` waits: no worker up it could run on, or none free. */
 function reasonFor(request: SlotRequest, workers: PoolWorker[]): QueueReason {
-	if (
-		request.platform !== null &&
-		!workers.some((worker) => eligible(worker, request))
-	) {
-		return `needs ${PLATFORM_NAMES[request.platform]}`;
+	if (workers.some((worker) => eligible(worker, request))) {
+		return "no free slot";
 	}
-	return "no free slot";
+	return request.platform === null
+		? "no worker up"
+		: `needs ${PLATFORM_NAMES[request.platform]}`;
 }

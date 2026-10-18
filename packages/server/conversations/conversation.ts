@@ -171,12 +171,11 @@ export class Conversation
 			conversation.reconnect();
 		}
 		if (taken !== null && agent !== null) {
-			conversation.grant = !spawned(state)
-				? null
-				: (deps.slots?.hold(
-						{ id: state.id, task: state.task },
-						taken.live.handle.worker,
-					) ?? null);
+			conversation.grant =
+				deps.slots?.hold(
+					{ id: state.id, task: state.task, uncapped: !spawned(state) },
+					taken.live.handle.worker,
+				) ?? null;
 			conversation.connection.reattach(agent, taken.process, taken.live);
 		}
 		return conversation;
@@ -768,7 +767,7 @@ export class Conversation
 		}
 		return (
 			(await fs.exists(dir)) ||
-			(task !== null && checkouts !== undefined && spawned(this.state)
+			(task !== null && checkouts !== undefined
 				? await checkouts.elsewhere(task).catch(() => false)
 				: false)
 		);
@@ -861,14 +860,14 @@ export class Conversation
 
 	/**
 	 * Waits in the queue for a slot for its agent, keeping where it waits in
-	 * its state: its placement on the worker it was placed on, undefined when
-	 * it takes no slot, or null once a stop takes it out of line. Only an agent
-	 * another agent started takes one: slots cap how many agents agents
-	 * start, never how many the person does.
+	 * its state: its placement on the worker it was placed on, undefined with
+	 * no queue, or null once a stop takes it out of line. Slots cap how many
+	 * agents agents start, never how many the person does: the person's go
+	 * uncapped, waiting only while no worker is up.
 	 */
 	private async place(): Promise<Placement | undefined | null> {
 		const { slots } = this.deps;
-		if (slots === undefined || !spawned(this.state)) {
+		if (slots === undefined) {
 			return undefined;
 		}
 		this.grant?.dispose();
@@ -881,7 +880,10 @@ export class Conversation
 			this.queued(slots.spot(id)),
 		);
 		try {
-			const placement = await slots.take({ id, task }, placing.signal);
+			const placement = await slots.take(
+				{ id, task, uncapped: !spawned(this.state) },
+				placing.signal,
+			);
 			this.grant = placement;
 			return placement;
 		} catch (error) {

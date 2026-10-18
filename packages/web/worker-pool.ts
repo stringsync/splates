@@ -12,7 +12,7 @@ import {
 	type WorkerChange,
 	workerPool,
 } from "./api";
-import { localChange, localWorker, turnLocalWorker } from "./local-worker";
+import { localTurned, turnLocalWorker } from "./local-worker";
 
 export type WorkerPoolViewEvents = { changed: undefined };
 
@@ -79,14 +79,7 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 		if (pool === null) {
 			return Promise.resolve();
 		}
-		const local = localWorker(pool);
-		return this.write(
-			(shown) =>
-				local === null
-					? shown
-					: changed(shown, local.id, (worker) => set(worker, localChange(on))),
-			turnLocalWorker(pool, on),
-		);
+		return this.write((shown) => localTurned(shown, on), turnLocalWorker(on));
 	}
 
 	/** Sets `change` on worker `id`: its slots, or whether it drains. */

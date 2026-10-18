@@ -32,7 +32,13 @@ describe("Scheduler", () => {
 		const grant = await take("a");
 		expect(grant.worker).toBe("local");
 		expect(scheduler.held()).toEqual([
-			{ id: "a", project: "/repo", task: "a", worker: "local" },
+			{
+				id: "a",
+				project: "/repo",
+				task: "a",
+				worker: "local",
+				uncapped: false,
+			},
 		]);
 	});
 
@@ -142,6 +148,33 @@ describe("Scheduler", () => {
 		await take("a");
 		void take("b", { platform: "linux" });
 		expect(scheduler.spot("b")?.reason).toBe("no free slot");
+	});
+
+	it("says no worker is up when none it could run on is", async () => {
+		workers = [worker("local", { awake: false })];
+		void take("a");
+		expect(scheduler.spot("a")?.reason).toBe("no worker up");
+	});
+
+	it("places an uncapped agent on a full worker, taking no slot from the rest", async () => {
+		await take("a");
+		expect((await take("b", { uncapped: true })).worker).toBe("local");
+		const capped = take("c");
+		await settle();
+		expect(placed).toEqual(["a", "b"]);
+		workers = [worker("local", { slots: 2 })];
+		scheduler.poke();
+		expect((await capped).worker).toBe("local");
+	});
+
+	it("queues an uncapped agent only while no worker is up", async () => {
+		workers = [];
+		const waiting = take("a", { uncapped: true });
+		await settle();
+		expect(scheduler.spot("a")?.reason).toBe("no worker up");
+		workers = [worker("remote")];
+		scheduler.poke();
+		expect((await waiting).worker).toBe("remote");
 	});
 
 	it("counts a held agent against its worker's slots", async () => {
