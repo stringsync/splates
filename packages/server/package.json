@@ -43,7 +43,7 @@
 		"./board/browser": "./board/browser.ts",
 		"./conversations": "./conversations/index.ts",
 		"./conversations/browser": "./conversations/browser.ts",
-		"./creds": "./creds.ts",
+		"./creds": "./creds/index.ts",
 		"./dev-push": "./dev-push.ts",
 		"./dev-servers": "./dev-servers.ts",
 		"./dev-task-ports": "./dev-task-ports.ts",

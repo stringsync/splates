@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { OpenPortProvider } from "webappwiz/system";
-import { json, post, serving } from "./dev-testing";
-import { dev } from "./index";
-import { Testing } from "./testing";
+import { json, post, serving } from "../dev-testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
 
 /** Every file under `dir` that holds `needle`, by path. */
 async function holding(dir: string, needle: string): Promise<string[]> {

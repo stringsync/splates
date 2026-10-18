@@ -1,71 +1,21 @@
-import {
-	Credentials,
-	credentialName,
-	type SecretStore,
-	SystemSecretStore,
-} from "webappwiz/creds";
+import { Credentials, credentialName, type SecretStore } from "webappwiz/creds";
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
-import { z } from "zod";
-import { renamed } from "./config";
-import { fail } from "./exit";
-
-/** Where a cred is kept: for this project alone, or every project on this device. */
-export const SCOPES = ["project", "device"] as const;
-export type Scope = (typeof SCOPES)[number];
+import { renamed } from "../config";
+import { fail } from "../exit";
+import {
+	type CredRequest,
+	type CredsFile,
+	FILE,
+	type KeptCred,
+} from "./requests";
+import { SCOPES, type Scope, type SecretStores } from "./stores";
 
 /** How long `wait` gives a request before handing the wait back to its caller. */
 export const DEFAULT_TIMEOUT = Duration.mins(15);
 
 /** How often `wait` reads the record again. */
 const POLL = Duration.secs(2);
-
-/** The two stores a cred can be kept in, the system's unless a test says otherwise. */
-export interface SecretStores {
-	/** The store of the project whose main tree is at `root`. */
-	project(root: string): Promise<SecretStore>;
-	device: SecretStore;
-}
-
-/** The operating system's own stores, shared with `wiz creds`. */
-export const SYSTEM_STORES: SecretStores = {
-	project: (root) => SystemSecretStore.forProject(root),
-	device: SystemSecretStore.device(),
-};
-
-const REQUEST = z.object({
-	name: z.string(),
-	scope: z.enum(SCOPES),
-	/** Why it is needed and what for; empty in a record from before requests said. */
-	purpose: z.string().default(""),
-	/** How to get it, as markdown, from the agent that asked. */
-	instructions: z.string(),
-	/** The task that asked, or null for an agent in none. */
-	task: z.string().nullable(),
-	/** Open until a person saves a value for it or dismisses it. */
-	status: z.enum(["open", "saved", "dismissed"]),
-	requestedAt: z.string(),
-});
-
-/** A cred an agent asked a person for, with what for and how to get it. */
-export type CredRequest = z.infer<typeof REQUEST>;
-
-const FILE = z.object({
-	/** One per name, the latest, so a card in a thread follows what became of it. */
-	requests: z.array(REQUEST).default([]),
-	/** What saved each cred a tool saved itself, by `<scope>:<name>`. */
-	savedBy: z.record(z.string(), z.string()).default({}),
-});
-
-type CredsFile = z.infer<typeof FILE>;
-
-/** A cred a store keeps, by name; never its value. */
-export interface KeptCred {
-	name: string;
-	scope: Scope;
-	/** The tool that saved it, when one said so; null when a person did. */
-	savedBy: string | null;
-}
 
 /**
  * A project's creds: the requests agents make for them, which `splates server`

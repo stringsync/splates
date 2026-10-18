@@ -1,8 +1,8 @@
-import { SCOPES, type Scope } from "./creds";
-import { body } from "./dev-http";
-import type { Project } from "./dev-project";
-import type { ProjectWatch } from "./dev-project-watch";
-import { fail } from "./exit";
+import { body } from "../dev-http";
+import type { Project } from "../dev-project";
+import type { ProjectWatch } from "../dev-project-watch";
+import { fail } from "../exit";
+import { SCOPES, type Scope } from "./stores";
 
 /**
  * How a project's Creds page fills, replaces and removes creds, and turns
