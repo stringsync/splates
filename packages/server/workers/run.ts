@@ -6,9 +6,10 @@ import {
 	type SecretStore,
 	SystemSecretStore,
 } from "webappwiz/creds";
+import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { SystemTimer } from "webappwiz/time";
+import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { z } from "zod";
 import { SharedBrowser } from "../agents";
 import { fail } from "../exit";
@@ -46,6 +47,39 @@ export const WORKER_KEY = "SPLATES_WORKER_KEY";
  */
 export const WORKER_ACCESS_ID = "SPLATES_WORKER_ACCESS_ID";
 export const WORKER_ACCESS_SECRET = "SPLATES_WORKER_ACCESS_SECRET";
+
+/**
+ * Set in the environment of the worker `splates server` runs beside itself to
+ * its supervisor's pid, so the worker ends once that process is gone, as when
+ * it was killed outright, rather than serve on under the id `local` beside the
+ * next server's worker.
+ */
+export const SUPERVISOR = "SPLATES_WORKER_SUPERVISOR";
+
+/** How often a supervised worker looks for its supervisor. */
+const SUPERVISOR_POLL = Duration.secs(5);
+
+/**
+ * Calls `end` once the supervisor `SUPERVISOR` names has gone, looking every
+ * `SUPERVISOR_POLL`; null for a worker no server supervises.
+ */
+export function endWithSupervisor(
+	ps: Pick<Ps, "env" | "alive">,
+	timer: Timer,
+	end: () => void,
+): Resource | null {
+	const pid = Number.parseInt(ps.env(SUPERVISOR) ?? "", 10);
+	if (!Number.isInteger(pid)) {
+		return null;
+	}
+	const watch = timer.setInterval(() => {
+		if (!ps.alive(pid)) {
+			watch.dispose();
+			end();
+		}
+	}, SUPERVISOR_POLL);
+	return watch;
+}
 
 /** What a joined worker shows its coordinator: its key, and the service token Access lets it through with, if any. */
 export interface WorkerCreds {
@@ -145,7 +179,11 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
 		ps.on("SIGTERM", () => void daemon.disposeAsync()),
-	];
+		endWithSupervisor(ps, new SystemTimer(), () => {
+			log.info("stopping: the server that started this worker is gone");
+			void daemon.disposeAsync();
+		}),
+	].filter((each) => each !== null);
 	let ended: WorkerEnded;
 	try {
 		ended = await daemon.run();

@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { SpawnOptions } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
+import { SUPERVISOR } from "../workers";
 import { supervise, UPDATE } from "./supervise";
 
 describe("supervise with a worker", () => {
 	let ps: FakePs;
 	let timer: FakeTimer;
 	let servers: ((code: number) => void)[];
-	let workers: { argv: string; end(code: number): void; aborted: boolean }[];
+	let workers: {
+		argv: string;
+		env: Record<string, string>;
+		end(code: number): void;
+		aborted: boolean;
+	}[];
 
 	beforeEach(() => {
 		ps = new FakePs();
@@ -24,7 +30,12 @@ describe("supervise with a worker", () => {
 					abort.abort();
 					resolve({ exitCode });
 				};
-				const worker = { argv: argv.join(" "), end, aborted: false };
+				const worker = {
+					argv: argv.join(" "),
+					env: opts?.env ?? {},
+					end,
+					aborted: false,
+				};
 				opts?.signal?.addEventListener(
 					"abort",
 					() => {
@@ -64,6 +75,35 @@ describe("supervise with a worker", () => {
 		servers[0]?.(75);
 		await Bun.sleep(0);
 		servers[1]?.(0);
+
+		expect(await ended).toBe(0);
+		expect(workers.map(({ aborted }) => aborted)).toEqual([true]);
+	});
+
+	it("tells the worker its supervisor's pid, so it ends once the supervisor is gone", async () => {
+		const ended = supervise(ps, { worker: ["worker", "run"], timer });
+		await Bun.sleep(0);
+		servers[0]?.(0);
+		await ended;
+
+		expect(workers[0]?.env[SUPERVISOR]).toBe(String(ps.pid));
+	});
+
+	it("stops the server and its worker once the checkout it runs from is gone", async () => {
+		const fs = new FakeFs();
+		await fs.mkdir("/trees/task/packages/server");
+		const ended = supervise(ps, {
+			worker: ["worker", "run"],
+			checkout: { path: "/trees/task/packages/server", fs },
+			timer,
+		});
+		await Bun.sleep(0);
+		timer.fireIntervals();
+		await Bun.sleep(0);
+		expect(workers.map(({ aborted }) => aborted)).toEqual([false]);
+
+		await fs.rm("/trees/task", { recursive: true });
+		timer.fireIntervals();
 
 		expect(await ended).toBe(0);
 		expect(workers.map(({ aborted }) => aborted)).toEqual([true]);

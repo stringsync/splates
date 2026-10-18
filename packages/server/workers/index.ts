@@ -91,6 +91,7 @@ export { WorkerRollout } from "./rollout";
 export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
 export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
 export {
+	SUPERVISOR,
 	WORKER_KEY,
 	workerCreds,
 	workerJoin,

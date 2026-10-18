@@ -118,7 +118,14 @@ export async function serveDev(
 			String(opts["worker-slots"]),
 			"--quiet",
 		];
-		ctx.ps.exit(await supervise(ctx.ps, { build, env: slot?.env, worker }));
+		ctx.ps.exit(
+			await supervise(ctx.ps, {
+				build,
+				env: slot?.env,
+				worker,
+				checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
+			}),
+		);
 		return;
 	}
 	// The saved tunnel only when no flag says how to reach the page, so a

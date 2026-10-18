@@ -31,7 +31,7 @@ describe("Slots", () => {
 					ppid: 1,
 					pgid: pid,
 					tpgid: 0,
-					command: "bun index.ts dev --slot",
+					command: "bun checkout.ts server --slot",
 				},
 			]);
 			ps.simulate(async () => {

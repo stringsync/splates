@@ -1,5 +1,6 @@
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import { SUPERVISOR } from "../workers";
 
 /** What a server exits with to be started again as it was. */
 export const RESTART = 75;
@@ -14,38 +15,13 @@ export const UPDATE = 76;
 export const SERVING = "SPLATES_DEV_SERVING";
 
 /**
- * Set in the server's environment to tell it its page failed to build, so
- * the page says it may be out of date.
+ * Set in the server's environment when its page failed to build: the page
+ * then says it may be out of date.
  */
 export const UNBUILT = "SPLATES_DEV_UNBUILT";
 
 /** What starts `splates server` on the newest splates, with `args` after `server`. */
 const NEWEST = ["bunx", "@stringsync/splates@latest"];
-
-/** What `supervise` starts the server with, beyond the process it runs in. */
-export interface SuperviseOptions {
-	/**
-	 * Builds the page, run before each start of the same splates, as from a
-	 * checkout, whose page `bun install` built last and the commits since may
-	 * have changed, packages they added included; null for one installed from
-	 * npm, whose page shipped built.
-	 */
-	build?: { argv: string[]; cwd: string } | null;
-	/** Added to the server's environment, as a slot's home is. */
-	env?: Record<string, string>;
-	/** Where the server runs, the working directory by default. */
-	cwd?: string;
-	/**
-	 * The arguments of a worker to run beside the server, as `["worker",
-	 * "run"]`: started again whenever it ends, on the newest splates once the
-	 * server updates, and stopped with this. Null for none.
-	 */
-	worker?: string[] | null;
-	timer?: Timer;
-}
-
-/** How long a worker that ended waits before it is started again. */
-const WORKER_PAUSE = Duration.secs(1);
 
 /**
  * Runs `splates server` as a child of this process, sharing its terminal, and
@@ -53,7 +29,9 @@ const WORKER_PAUSE = Duration.secs(1);
  * started, or on the newest splates when it asks to update. Ctrl-C reaches the
  * child too, and its exit ends this. A SIGTERM or SIGHUP to this one stops the
  * child with a SIGTERM and ends this, since the child would otherwise outlive
- * it, listening on its port. A `worker` runs beside it as a second child.
+ * it, listening on its port. A `worker` runs beside it as a second child,
+ * told this process's pid so it ends once this is gone. Both stop, ending
+ * this with 0, once the `checkout` it runs from is deleted.
  * Answers with the exit code to end on.
  */
 export async function supervise(
@@ -63,6 +41,7 @@ export async function supervise(
 		env = {},
 		cwd,
 		worker = null,
+		checkout = null,
 		timer = new SystemTimer(),
 	}: SuperviseOptions = {},
 ): Promise<number> {
@@ -81,11 +60,12 @@ export async function supervise(
 		});
 	const terminated = stopOn("SIGTERM", 128 + 15);
 	const hungUp = stopOn("SIGHUP", 128 + 1);
+	const watching = checkout === null ? null : watch(checkout, stopping, timer);
 	// Its own, since the server restarting leaves it running.
 	const working = new AbortController();
 	if (worker !== null) {
 		void keep(ps, () => [...splates, ...worker], {
-			env,
+			env: { ...env, [SUPERVISOR]: String(ps.pid) },
 			cwd,
 			signal: working.signal,
 			timer,
@@ -129,10 +109,61 @@ export async function supervise(
 		}
 	} finally {
 		working.abort();
+		watching?.dispose();
 		quiet.dispose();
 		terminated.dispose();
 		hungUp.dispose();
 	}
+}
+
+/** What `supervise` starts the server with, beyond the process it runs in. */
+export interface SuperviseOptions {
+	/**
+	 * Builds the page, run before each start of the same splates, as from a
+	 * checkout, whose page `bun install` built last and the commits since may
+	 * have changed, packages they added included; null for one installed from
+	 * npm, whose page shipped built.
+	 */
+	build?: { argv: string[]; cwd: string } | null;
+	/** Added to the server's environment, as a slot's home is. */
+	env?: Record<string, string>;
+	/** Where the server runs, the working directory by default. */
+	cwd?: string;
+	/**
+	 * The arguments of a worker to run beside the server, as `["worker",
+	 * "run"]`: started again whenever it ends, on the newest splates once the
+	 * server updates, and stopped with this. Null for none.
+	 */
+	worker?: string[] | null;
+	/**
+	 * The checkout this runs from, looked at while it serves: once it is gone,
+	 * as a task's worktree is when the task merges, the server and its worker
+	 * stop, since nothing of theirs is left to start again. Null for splates
+	 * installed from npm.
+	 */
+	checkout?: { path: string; fs: Pick<Fs, "exists"> } | null;
+	timer?: Timer;
+}
+
+/** How often a server run from a checkout looks for the checkout. */
+const CHECKOUT_POLL = Duration.secs(5);
+
+/** How long a worker that ended waits before it is started again. */
+const WORKER_PAUSE = Duration.secs(1);
+
+/** Aborts `stopping` once `checkout` is gone, looking every `CHECKOUT_POLL`. */
+function watch(
+	{ path, fs }: NonNullable<SuperviseOptions["checkout"]>,
+	stopping: AbortController,
+	timer: Timer,
+) {
+	return timer.setInterval(() => {
+		void fs.exists(path).then((there) => {
+			if (!there) {
+				stopping.abort();
+			}
+		});
+	}, CHECKOUT_POLL);
 }
 
 /**

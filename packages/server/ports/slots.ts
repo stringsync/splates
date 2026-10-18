@@ -136,9 +136,10 @@ export class Slots {
 		if (!Number.isInteger(pid) || pid === ps.pid || !ps.alive(pid)) {
 			return null;
 		}
-		// A pid the kernel has since handed to another program is no server.
+		// A pid the kernel has since handed to another program is no server:
+		// `splates server`, or `splates dev` on a checkout from before the rename.
 		const running = (await ps.processes()).find((each) => each.pid === pid);
-		if (running !== undefined && !/\bdev\b/.test(running.command)) {
+		if (running !== undefined && !/\b(server|dev)\b/.test(running.command)) {
 			return null;
 		}
 		return pid;
