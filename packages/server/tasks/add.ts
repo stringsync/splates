@@ -246,9 +246,11 @@ export async function add(
 	}
 
 	// Ready only once the hook has readied the tree, so the agent never starts
-	// in one still installing.
+	// in one still installing. Its lease goes with it: this command drives
+	// the tree no further, and an agent on another host, which judges the
+	// lease by age, could not claim it until it went stale.
 	if (handOff !== undefined) {
-		await worktree.save({ dispatch: handOff });
+		await worktree.save({ dispatch: handOff, lease: null });
 	}
 
 	log.info(

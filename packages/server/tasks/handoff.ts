@@ -70,6 +70,8 @@ export async function handoff(
 		// task, from the agent it goes to.
 		caller: relay ? here : service.ps.env("SPLATES_STARTED_BY"),
 		dispatch: { ...picked, handoff: true, relay },
+		// The tree is the new agent's, which may claim it from another host.
+		lease: null,
 	});
 	const pushed = pushedLine(await branches.pushTree(found), "pushed");
 	log.info(

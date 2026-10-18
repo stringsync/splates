@@ -13,7 +13,7 @@ describe("TaskBranches", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		remote = join(deps.config.worktreeRoot, "..", "remote.git");
-		await deps.gitCli(deps.root, "init", "--bare", remote);
+		await deps.gitCli(deps.root, "init", "--bare", "-b", "main", remote);
 		await deps.gitCli(deps.root, "remote", "add", "origin", remote);
 		// A merge lands on the remote's trunk, so it has one.
 		await deps.gitCli(deps.root, "push", "--quiet", "origin", "main");

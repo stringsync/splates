@@ -188,6 +188,8 @@ describe("add", () => {
 			pending: true,
 		});
 		expect(deps.out()).toContain("agent:    fake (small)");
+		// Free for the agent to claim at once, from whatever host it runs on.
+		expect(found.lease).toBeNull();
 	});
 
 	it("leaves saying it was added to splates's own line, telling the agent nothing to say", async () => {

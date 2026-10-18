@@ -6,9 +6,12 @@ import {
 } from "webappwiz/creds";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
+import { SystemTimer } from "webappwiz/time";
 import { z } from "zod";
+import { SharedBrowser } from "../agents";
 import { WORKER_KEY_HEADER, workerAuthorization } from "../dev-workers";
 import { fail } from "../exit";
+import { heavyJobsOfMachine } from "../heavy";
 import { splatesHome } from "../models";
 import { relayFile } from "../records";
 import { type AccessClient, accessHeaders, joinAccess } from "./access";
@@ -72,6 +75,18 @@ export interface WorkerRunOptions {
 export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const { ps, log } = opts;
 	const id = opts.id || ps.hostname;
+	// Started on the first session that asks, so a worker whose agents all
+	// run on the coordinator's own machine never starts one.
+	const browser = new SharedBrowser(
+		{
+			ps,
+			fs: opts.fs,
+			timer: new SystemTimer(),
+			log,
+			heavy: heavyJobsOfMachine({ fs: opts.fs, ps, log }),
+		},
+		splatesHome(ps),
+	);
 	const daemon = new WorkerDaemon(await dialer(id, opts), {
 		id,
 		slots: opts.slots,
@@ -79,6 +94,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		fs: opts.fs,
 		log,
 		relayAt: relayFile(splatesHome(ps)),
+		servers: browser,
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
@@ -94,6 +110,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 			each.dispose();
 		}
 		await daemon.disposeAsync();
+		await browser.disposeAsync();
 	}
 }
 
@@ -128,7 +145,8 @@ async function dialer(
 /**
  * The key this worker shows its coordinator, and the service token it
  * passes Access with: joined for now with `--join`, kept in the system's
- * store, else the ones kept already.
+ * store, or for this run alone where it has none, else the ones kept
+ * already.
  */
 export async function workerCreds(
 	id: string,
@@ -154,10 +172,11 @@ export async function workerCreds(
 			}
 			log.info(`joined as ${id}; its key is kept in ${store.label}`);
 		} catch (error) {
-			// Never printed: a key in a terminal's scrollback is a key leaked.
-			fail(
-				"usage",
-				`joined as ${id}, but ${store.label} could not keep its key (${error instanceof Error ? error.message : String(error)}): remove the worker, then join again on a machine with a secret service`,
+			// A headless box, such as a container, may have no secret service.
+			// The key stays in memory rather than printed: a key in a
+			// terminal's scrollback is a key leaked.
+			log.error(
+				`joined as ${id}, but ${store.label} could not keep its key (${error instanceof Error ? error.message : String(error)}): it lasts this run only, so run again with a new join token`,
 			);
 		}
 		return { key, access };

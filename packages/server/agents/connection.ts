@@ -261,10 +261,12 @@ export class AgentConnection {
 			this.following = null;
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
-			// Offered only to an agent that takes them over HTTP, which they are.
+			// Offered only to an agent that takes them over HTTP, which they are,
+			// by the worker it runs on, whose loopback they listen on.
+			const offering = this.host.placedOn ?? this.deps.servers;
 			const mcpServers =
 				initialized.agentCapabilities?.mcpCapabilities?.http === true
-					? ((await this.deps.servers?.servers()) ?? [])
+					? ((await offering?.servers()) ?? [])
 					: [];
 			if (this.session === null) {
 				const session = await connection.newSession({

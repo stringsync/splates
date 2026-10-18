@@ -89,4 +89,16 @@ describe("workerCreds", () => {
 		expect(await store.get(WORKER_KEY)).toBeUndefined();
 		expect(await store.get(WORKER_ACCESS_ID)).toBeUndefined();
 	});
+
+	it("keeps the key for this run alone where the store cannot keep it", async () => {
+		store.set = async () => {
+			throw new Error("no secret service");
+		};
+
+		const creds = await workerCreds("box", options("splj_token"));
+
+		expect(creds).toEqual({ key: "the-key", access: null });
+		expect(JSON.stringify(log.entries)).toContain("this run only");
+		expect(JSON.stringify(log.entries)).not.toContain("the-key");
+	});
 });

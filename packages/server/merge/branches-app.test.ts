@@ -15,7 +15,7 @@ describe("TaskBranches with the GitHub App", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		remote = join(deps.config.worktreeRoot, "..", "remote.git");
-		await deps.gitCli(deps.root, "init", "--bare", remote);
+		await deps.gitCli(deps.root, "init", "--bare", "-b", "main", remote);
 		await deps.gitCli(deps.root, "remote", "add", "origin", remote);
 		deps.config.remote = "origin";
 		await add(deps, "alpha");

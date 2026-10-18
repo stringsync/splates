@@ -419,7 +419,7 @@ export async function dev(
 
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
-		worker: workers.local,
+		workers: () => workers.registry.workers,
 		owners: () => portOwnersOf(served),
 		base: portsHost,
 		access: gate.access,

@@ -1,4 +1,6 @@
+import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs, ListeningEntry, ProcessEntry, Ps } from "webappwiz/system";
+import type { SessionServers } from "../agents";
 import { type GitResult, type GitRunner, processGit } from "../git";
 import { splatesHome } from "../models";
 import { type ProjectCheckout, WorkerCheckouts } from "./checkouts";
@@ -39,6 +41,13 @@ export interface WorkerMachine extends GitRunner {
 	checkout(request: ProjectCheckout): Promise<string>;
 	/** Takes away a task's clone made beside a project's (`WorkerCheckouts.remove`). */
 	removeCheckout(path: string): Promise<void>;
+	/**
+	 * The MCP servers it offers each agent session it runs, beyond the
+	 * agent's own, such as its shared browser, which runs there too, so a
+	 * session reaches it on its own loopback; none from a worker that offers
+	 * none.
+	 */
+	servers(): Promise<acp.McpServer[]>;
 }
 
 /** The machine this process runs on, as a worker answers for it. */
@@ -49,6 +58,8 @@ export class LocalWorkerMachine implements WorkerMachine {
 	constructor(
 		private readonly ps: Ps,
 		private readonly fs: Fs,
+		/** What it offers sessions; none by default. */
+		private readonly offered: SessionServers | null = null,
 	) {
 		this.git = processGit(ps).git;
 		this.checkouts = new WorkerCheckouts(splatesHome(ps), ps, fs);
@@ -72,6 +83,10 @@ export class LocalWorkerMachine implements WorkerMachine {
 
 	exists(path: string): Promise<boolean> {
 		return this.fs.exists(path);
+	}
+
+	async servers(): Promise<acp.McpServer[]> {
+		return (await this.offered?.servers()) ?? [];
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

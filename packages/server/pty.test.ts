@@ -9,7 +9,6 @@ describe("Pty", () => {
 	let cwd: string;
 	let pty: Pty;
 	let screen: string;
-	let exited: number | null;
 
 	beforeEach(async () => {
 		cwd = await realpath(await mkdtemp(`${tmpdir()}/splates-pty-`));
@@ -21,25 +20,16 @@ describe("Pty", () => {
 			env: { PS1: "$ " },
 		});
 		screen = "";
-		exited = null;
 		const decoder = new TextDecoder();
 		pty.events.on("data", (bytes) => {
 			screen += decoder.decode(bytes, { stream: true });
-		});
-		pty.events.on("exit", (code) => {
-			exited = code;
 		});
 	});
 
 	afterEach(() => pty.disposeAsync());
 
 	/** Waits for the shell to have written `text`, up to a few seconds. */
-	const shows = async (text: string) => {
-		for (let i = 0; i < 300 && !screen.includes(text); i++) {
-			await Bun.sleep(10);
-		}
-		expect(screen).toContain(text);
-	};
+	const shows = (text: string) => written(() => screen, text);
 
 	it("runs the shell in the directory it was given", async () => {
 		pty.write("echo at:$(pwd)\n");
@@ -58,10 +48,11 @@ describe("Pty", () => {
 		pty.write("sleep 30\n");
 		await Bun.sleep(200);
 		pty.write("\x03");
-		pty.write("echo next\n");
+		// The quotes keep the command the terminal echoes from reading as its output.
+		pty.write('echo n""ext\n');
 
 		// Long before the sleep would have ended on its own.
-		await shows("\nnext");
+		await shows("next");
 	});
 
 	it("passes a resize on to the job in front", async () => {
@@ -73,12 +64,12 @@ describe("Pty", () => {
 	});
 
 	it("says when the shell exits, with its code", async () => {
+		const exited = new Promise<number>((resolve) =>
+			pty.events.on("exit", resolve),
+		);
 		pty.write("exit 3\n");
 
-		for (let i = 0; i < 300 && exited === null; i++) {
-			await Bun.sleep(10);
-		}
-		expect(exited).toBe(3);
+		expect(await exited).toBe(3);
 	});
 
 	it("leaves out that splates server serves, so one run in it supervises itself", async () => {
@@ -100,12 +91,17 @@ describe("Pty", () => {
 		});
 		try {
 			shell.write(`echo serving:\${${SERVING}-unset}\n`);
-			for (let i = 0; i < 300 && !out.includes("serving:unset"); i++) {
-				await Bun.sleep(10);
-			}
-			expect(out).toContain("serving:unset");
+			await written(() => out, "serving:unset");
 		} finally {
 			await shell.disposeAsync();
 		}
 	});
 });
+
+/** Waits for what `screen` reads to hold `text`, up to a few seconds. */
+async function written(screen: () => string, text: string): Promise<void> {
+	for (let i = 0; i < 300 && !screen().includes(text); i++) {
+		await Bun.sleep(10);
+	}
+	expect(screen()).toContain(text);
+}

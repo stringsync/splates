@@ -42,9 +42,10 @@ describe("dev terminal kept by its key", () => {
 		void daemon.run();
 		server = await run();
 		first = await terminal(server.port, "?terminal=tab-1/c1");
-		first.socket.send(new TextEncoder().encode("echo pid:$$\n"));
-		await first.shows("\npid:");
-		pid = /\npid:(\d+)/.exec(first.said.screen)?.[1];
+		// The quotes keep the command the terminal echoes from reading as its output.
+		first.socket.send(new TextEncoder().encode('echo pid"":$$\n'));
+		await first.shows("pid:");
+		pid = /pid:(\d+)/.exec(first.said.screen)?.[1];
 	});
 
 	afterEach(async () => {
@@ -95,9 +96,9 @@ describe("dev terminal kept by its key", () => {
 		await first.closes();
 
 		const next = await terminal(server.port, "?terminal=tab-1/c1");
-		next.socket.send(new TextEncoder().encode("echo pid:$$\n"));
+		next.socket.send(new TextEncoder().encode('echo pid"":$$\n'));
 
-		await next.shows("\npid:");
+		await next.shows("pid:");
 		expect(next.said.screen).not.toContain(`pid:${pid}`);
 	});
 

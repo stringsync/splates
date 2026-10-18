@@ -35,6 +35,7 @@ describe("handoff", () => {
 			relay: false,
 		});
 		expect(found.caller).toBeNull();
+		expect(found.lease).toBeNull();
 		expect(handOff(found)).toBeNull();
 		expect(deps.out()).toContain("agent:    fake (small)");
 		expect(deps.out()).toContain("the task is the new agent's now");

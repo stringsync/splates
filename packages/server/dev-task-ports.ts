@@ -18,8 +18,13 @@ export interface PortLink extends TaskPort {
 	remote: string | null;
 }
 
+/** A task port, on the worker whose processes listen on it. */
+interface WorkerPort extends TaskPort {
+	worker: RemoteWorker;
+}
+
 /**
- * How long one look at the worker's ports serves: a dev server's page asks
+ * How long one look at the workers' ports serves: a dev server's page asks
  * for many modules at once, and each would otherwise read the process table.
  */
 const FRESH = Duration.secs(2);
@@ -44,22 +49,23 @@ const SOCKET_HEADERS = [
 ];
 
 /**
- * The ports each task's processes listen on, found on the worker that runs
+ * The ports each task's processes listen on, found on whichever worker runs
  * them, as VS Code finds the ports to forward: each one forwarded to a
  * loopback port here, down the worker's socket, and, under a saved base
  * host, served at `<task>-<port>.<base>` to whoever Cloudflare Access lets
  * in, and never without it. DNS and TLS for the base are the operator's.
  */
 export class DevTaskPorts implements Resource, Claimer {
-	private readonly forwards = new Map<number, PortForward>();
-	private looked: { at: Duration; ports: Promise<TaskPort[]> } | null = null;
+	/** By worker and port, as `key` names them. */
+	private readonly forwards = new Map<string, PortForward>();
+	private looked: { at: Duration; ports: Promise<WorkerPort[]> } | null = null;
 	private readonly clock: Clock;
 
 	constructor(
 		private readonly deps: {
-			/** The worker the tasks' agents run on. */
-			worker: RemoteWorker;
-			/** Each served project's worktrees and agents. */
+			/** The workers the tasks' agents run on. */
+			workers: () => RemoteWorker[];
+			/** Each served project's worktrees and agents, on every worker. */
 			owners: () => Promise<PortOwners>;
 			/** `<task>-<port>.<base>` is a task port's; null for none. */
 			base: string | null;
@@ -145,7 +151,7 @@ export class DevTaskPorts implements Resource, Claimer {
 				`task '${task}' serves nothing on port ${port} now`,
 			);
 		}
-		const forward = this.forward(port);
+		const forward = this.forward(found);
 		const url = new URL(request.url);
 		const target = `${LOOPBACK}:${forward.local}${url.pathname}${url.search}`;
 		const headers = passed(request.headers, port, host(request));
@@ -210,7 +216,7 @@ export class DevTaskPorts implements Resource, Claimer {
 	}
 
 	/** The ports tasks serve: as last seen while fresh, unless `again`. */
-	private look(again: boolean): Promise<TaskPort[]> {
+	private look(again: boolean): Promise<WorkerPort[]> {
 		const now = this.clock.now();
 		const looked = this.looked;
 		if (
@@ -231,50 +237,76 @@ export class DevTaskPorts implements Resource, Claimer {
 		return ports;
 	}
 
-	private async read(): Promise<TaskPort[]> {
-		const { worker } = this.deps;
-		const [table, listening, owners] = await Promise.all([
-			worker.processes(),
-			worker.listening(),
-			this.deps.owners(),
-		]);
-		const ports = taskPorts(table, listening, owners);
+	private async read(): Promise<WorkerPort[]> {
+		const owners = await this.deps.owners();
+		// One that is away would hold its answer until it is back, and has
+		// nothing to forward meanwhile.
+		const workers = this.deps.workers().filter((each) => each.connected);
+		const looked = await Promise.allSettled(
+			workers.map((worker) => this.readOn(worker, owners)),
+		);
+		const ports = looked.flatMap((each, i) => {
+			if (each.status === "fulfilled") {
+				return each.value;
+			}
+			this.deps.log.error(
+				`could not read the ports on worker ${workers[i]?.id}: ${each.reason instanceof Error ? each.reason.message : String(each.reason)}`,
+			);
+			return [];
+		});
 		// A port no task serves any more takes its forward with it.
-		const served = new Set(ports.map((each) => each.port));
-		for (const [port, forward] of this.forwards) {
-			if (!served.has(port)) {
+		const served = new Set(ports.map(key));
+		for (const [at, forward] of this.forwards) {
+			if (!served.has(at)) {
 				forward.dispose();
-				this.forwards.delete(port);
+				this.forwards.delete(at);
 			}
 		}
-		for (const { port } of ports) {
-			this.forward(port);
+		for (const each of ports) {
+			this.forward(each);
 		}
 		return ports;
 	}
 
+	/** The ports tasks serve on `worker`, tied to them by its own processes. */
+	private async readOn(
+		worker: RemoteWorker,
+		owners: PortOwners,
+	): Promise<WorkerPort[]> {
+		const [table, listening] = await Promise.all([
+			worker.processes(),
+			worker.listening(),
+		]);
+		const on = <Each extends { worker: string }>(each: Each) =>
+			each.worker === worker.id;
+		return taskPorts(table, listening, {
+			worktrees: owners.worktrees.filter(on),
+			agents: owners.agents.filter(on),
+		}).map((each) => ({ ...each, worker }));
+	}
+
 	/**
-	 * The forward to `port` on the worker, made on first use. A local
+	 * The forward to `port` on its worker, made on first use. A local
 	 * worker's port is open here already, so its forward takes any port; a
 	 * remote one's keeps its number when it is free.
 	 */
-	private forward(port: number): PortForward {
-		let forward = this.forwards.get(port);
+	private forward(port: WorkerPort): PortForward {
+		let forward = this.forwards.get(key(port));
 		if (forward === undefined) {
-			const { worker } = this.deps;
+			const { worker } = port;
 			forward = PortForward.listen(
 				worker,
-				port,
-				worker.kind === "local" ? null : port,
+				port.port,
+				worker.kind === "local" ? null : port.port,
 			);
-			this.forwards.set(port, forward);
+			this.forwards.set(key(port), forward);
 		}
 		return forward;
 	}
 
-	private link({ task, port }: TaskPort): PortLink {
-		const local =
-			this.deps.worker.kind === "local" ? port : this.forward(port).local;
+	private link(each: WorkerPort): PortLink {
+		const { task, port, worker } = each;
+		const local = worker.kind === "local" ? port : this.forward(each).local;
 		return {
 			task,
 			port,
@@ -285,6 +317,11 @@ export class DevTaskPorts implements Resource, Claimer {
 					: `https://${task}-${port}.${this.deps.base}`,
 		};
 	}
+}
+
+/** What a forward is kept by: its worker and port. */
+function key({ worker, port }: WorkerPort): string {
+	return `${worker.id}:${port}`;
 }
 
 /** The Host the request came to, its port included. */

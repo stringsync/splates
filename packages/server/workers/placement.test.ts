@@ -24,7 +24,7 @@ describe("WorkerPlacement", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		const remote = join(deps.config.worktreeRoot, "..", "remote.git");
-		await deps.gitCli(deps.root, "init", "--bare", remote);
+		await deps.gitCli(deps.root, "init", "--bare", "-b", "main", remote);
 		await deps.gitCli(deps.root, "remote", "add", "origin", remote);
 		await deps.gitCli(deps.root, "push", "--quiet", "origin", "main");
 		deps.config.remote = "origin";

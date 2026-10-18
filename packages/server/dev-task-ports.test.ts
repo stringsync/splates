@@ -23,12 +23,13 @@ describe("DevTaskPorts", () => {
 	let registry: WorkerRegistry;
 	let listener: UnixWorkerListener;
 	let daemon: WorkerDaemon;
-	let worker: RemoteWorker;
 	let app: Bun.Subprocess<"ignore", "pipe", "inherit">;
 	let appPort: number;
 	let fake: FakeAccess;
 	let ports: DevTaskPorts;
 	let front: Bun.Server<Connection>;
+	/** The worker, by id, alpha's worktree is on. */
+	let on: string;
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-task-ports-"));
@@ -53,17 +54,17 @@ describe("DevTaskPorts", () => {
 			},
 		);
 		void daemon.run();
-		worker = await joined;
-		worker.kind = "local";
+		(await joined).kind = "local";
 		app = Bun.spawn(["bun", "-e", APP], { cwd: worktree, stdout: "pipe" });
 		const reader = app.stdout.getReader();
 		appPort = Number(new TextDecoder().decode((await reader.read()).value));
 		reader.releaseLock();
 		fake = await FakeAccess.make();
+		on = "local";
 		ports = new DevTaskPorts({
-			worker,
+			workers: () => registry.workers,
 			owners: async () => ({
-				worktrees: [{ task: "alpha", path: worktree }],
+				worktrees: [{ task: "alpha", path: worktree, worker: on }],
 				agents: [],
 			}),
 			base: "ports.test",
@@ -126,6 +127,39 @@ describe("DevTaskPorts", () => {
 				remote: `https://alpha-${appPort}.ports.test`,
 			},
 		]);
+	});
+
+	it("forwards a port a task serves on another worker to one here", async () => {
+		const joined = new Promise<RemoteWorker>((resolve) =>
+			registry.events.on("joined", resolve, { once: true }),
+		);
+		const path = join(dir, "worker.sock");
+		const box = new WorkerDaemon(
+			{ where: path, dial: () => UnixWorkerSocket.connect(path) },
+			{
+				id: "box",
+				slots: 2,
+				ps: new NodePs(),
+				fs: new NodeFs(),
+				log: new MemoryLogger(),
+				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
+			},
+		);
+		void box.run();
+		try {
+			await joined;
+			on = "box";
+
+			const [link] = await ports.links();
+			expect(link).toMatchObject({ task: "alpha", port: appPort });
+			// The app holds its own number on this machine, so the forward takes another.
+			expect(link?.local).not.toBe(`http://127.0.0.1:${appPort}`);
+			const response = await fetch(`${link?.local}/app`);
+			expect(await response.json()).toMatchObject({ path: "/app" });
+		} finally {
+			ports.dispose();
+			await box.disposeAsync();
+		}
 	});
 
 	it("proxies a request Access let through to the task's server, as its own localhost", async () => {

@@ -26,7 +26,15 @@ describe("merge with a central remote", () => {
 		const base = join(deps.config.worktreeRoot, "..");
 		remote = join(base, "remote.git");
 		other = join(base, "other");
-		await deps.gitCli(deps.root, "init", "--quiet", "--bare", remote);
+		await deps.gitCli(
+			deps.root,
+			"init",
+			"--quiet",
+			"--bare",
+			"-b",
+			"main",
+			remote,
+		);
 		await deps.gitCli(deps.root, "remote", "add", "origin", remote);
 		await deps.gitCli(deps.root, "push", "--quiet", "origin", "main");
 		await deps.gitCli(base, "clone", "--quiet", remote, other);

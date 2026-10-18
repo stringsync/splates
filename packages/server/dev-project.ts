@@ -15,6 +15,7 @@ import { ConversationRoutes } from "./dev-conversation-routes";
 import type { ConversationsHeard } from "./dev-conversation-stream";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TodoRoutes } from "./dev-todos";
+import { LOCAL_WORKER } from "./dev-workers";
 import type { TranscriberFor } from "./dictate";
 import type { InstallationToken, Landed, LandRequest } from "./merge";
 import { AutoRoutes } from "./models";
@@ -156,9 +157,22 @@ export async function serveProject(
 		portOwners: async () => ({
 			worktrees: (await service.list())
 				.filter((each) => each.exists)
-				.map(({ task, path }) => ({ task, path })),
-			agents: ((await conversations?.list()) ?? []).flatMap(({ state, pid }) =>
-				state.task !== null && pid !== null ? [{ task: state.task, pid }] : [],
+				.map(({ task, path, machine }) => ({
+					task,
+					path,
+					worker: machine ?? LOCAL_WORKER,
+				})),
+			agents: ((await conversations?.list()) ?? []).flatMap(
+				({ state, pid, handle }) =>
+					state.task !== null && pid !== null
+						? [
+								{
+									task: state.task,
+									pid,
+									worker: handle?.worker ?? LOCAL_WORKER,
+								},
+							]
+						: [],
 			),
 		}),
 		events: async () => watch.events(),

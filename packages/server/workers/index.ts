@@ -63,7 +63,12 @@ export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
 export { RemoteWorker } from "./remote";
-export { workerRun, workerSocketPath } from "./run";
+export {
+	WORKER_KEY,
+	workerCreds,
+	workerRun,
+	workerSocketPath,
+} from "./run";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";

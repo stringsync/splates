@@ -1,10 +1,11 @@
+import type * as acp from "@agentclientprotocol/sdk";
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
 import { RemoteProcess } from "../remote-process";
 import { RemotePty } from "../remote-pty";
-import { CallAnswer, type CallRequest } from "./call-host";
+import { CallAnswer, type CallRequest, SERVERS } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine, WorkerRead } from "./machine";
@@ -175,6 +176,15 @@ export class RemoteWorker implements WorkerMachine {
 		await this.call({ method: "removeCheckout", path });
 	}
 
+	/** What it offers its sessions; none from a worker too old to say. */
+	async servers(): Promise<acp.McpServer[]> {
+		const { negotiated } = this.session;
+		if (negotiated?.ok !== true || !negotiated.capabilities.includes(SERVERS)) {
+			return [];
+		}
+		return ServersAnswer.parse(await this.call({ method: "servers" }));
+	}
+
 	private call(request: Call): Promise<unknown> {
 		const id = this.nextCall++;
 		const answered = Promise.withResolvers<unknown>();
@@ -238,3 +248,12 @@ const ListeningAnswer = z.array(
 	}),
 );
 const ReadAnswer = z.object({ size: z.number(), bytes: z.string() });
+
+const ServersAnswer = z.array(
+	z.object({
+		type: z.literal("http"),
+		name: z.string(),
+		url: z.string(),
+		headers: z.array(z.object({ name: z.string(), value: z.string() })),
+	}),
+);

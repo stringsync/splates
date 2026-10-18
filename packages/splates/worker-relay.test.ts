@@ -16,8 +16,11 @@ import { Testing } from "@stringsync/splates-server/testing";
 import type { RemoteWorker } from "@stringsync/splates-server/workers";
 import {
 	UnixWorkerSocket,
+	WORKER_KEY,
 	WorkerDaemon,
+	workerCreds,
 } from "@stringsync/splates-server/workers";
+import { FakeSecretStore } from "webappwiz/creds/testing";
 import { color, MemoryLogger } from "webappwiz/log";
 import { NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -31,6 +34,7 @@ setDefaultTimeout(90_000);
 describe("WorkerRelay", () => {
 	let env: Testing;
 	let server: DevServer;
+	let workers: DevWorkers;
 	let daemon: WorkerDaemon;
 	/** The worker, as the coordinator holds it. */
 	let worker: RemoteWorker;
@@ -52,12 +56,12 @@ describe("WorkerRelay", () => {
 		const base = dirname(env.root);
 		// The central remote, which only the coordinator moves trunk on.
 		const remote = join(base, "remote.git");
-		await env.gitCli(base, "init", "--quiet", "--bare", remote);
+		await env.gitCli(base, "init", "--quiet", "--bare", "-b", "main", remote);
 		await env.gitCli(env.root, "remote", "add", "origin", remote);
 		await env.gitCli(env.root, "push", "--quiet", "origin", "main");
 		const socket = join(base, "worker.sock");
 		const log = new MemoryLogger();
-		const workers = new DevWorkers(log);
+		workers = new DevWorkers(log);
 		server = await dev(env, {
 			ports: OpenPortProvider.any(),
 			workers,
@@ -145,6 +149,31 @@ describe("WorkerRelay", () => {
 		await splates(clone, ["todo", "add", "make it so", "the detail"], {});
 
 		expect(await env.todos.all()).toMatchObject([{ subject: "make it so" }]);
+	});
+
+	it("joins with the token `worker add` mints, over the coordinator's own routes", async () => {
+		const coordinator = `http://127.0.0.1:${server.port}`;
+		const added = await env.ps.spawnCapture(["bun", CLI, "worker", "add"], {
+			cwd: env.root,
+			env: { SPLATES_DEV: coordinator },
+		});
+		const token = /splj_\S+/.exec(color.strip(added.stdout + added.stderr));
+		expect(token).not.toBeNull();
+
+		const store = new FakeSecretStore();
+		const { key } = await workerCreds("box", {
+			coordinator,
+			slots: 1,
+			id: "box",
+			join: token?.[0],
+			log: new MemoryLogger(),
+			ps: new NodePs(),
+			fs: env.fs,
+			store,
+		});
+
+		expect(await store.get(WORKER_KEY)).toBe(key);
+		expect(workers.records.verify("box", key)).toBe(true);
 	});
 
 	it("takes a task from add to merge on the coordinator's records", async () => {

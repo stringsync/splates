@@ -39,6 +39,7 @@ describe("A conversation placed on a remote worker", () => {
 			exists: async (path) => there.has(path),
 			checkout: async () => "",
 			removeCheckout: async () => {},
+			servers: async () => [WORKER_BROWSER],
 		};
 		asked = [];
 		answer = async () => "/w1/projects/repo/repo";
@@ -93,6 +94,7 @@ describe("A conversation placed on a remote worker", () => {
 				slots,
 				checkouts,
 				root: "/repo",
+				servers: { servers: async () => [COORDINATOR_BROWSER] },
 			});
 		conversations = open();
 	});
@@ -116,6 +118,14 @@ describe("A conversation placed on a remote worker", () => {
 		]);
 		expect(conversation.cwd).toBe("/w1/projects/repo/repo");
 		expect(conversation.placedOn).toBe(machine);
+	});
+
+	it("offers its agent the browser of the worker it runs on, not this machine's", async () => {
+		agent.http = true;
+		const conversation = await start();
+		await until(conversation, "idle");
+
+		expect(agent.mcp).toEqual([[WORKER_BROWSER]]);
 	});
 
 	it("fails, freeing its slot, when the checkout cannot be readied", async () => {
@@ -163,3 +173,15 @@ describe("A conversation placed on a remote worker", () => {
 		expect(conversation.state.task).toBe("login");
 	});
 });
+
+const WORKER_BROWSER = {
+	type: "http" as const,
+	name: "playwright",
+	url: "http://localhost:4100/mcp",
+	headers: [],
+};
+
+const COORDINATOR_BROWSER = {
+	...WORKER_BROWSER,
+	url: "http://localhost:4200/mcp",
+};

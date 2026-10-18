@@ -9,8 +9,9 @@ import {
 	SystemTimer,
 	type Timer,
 } from "webappwiz/time";
+import type { SessionServers } from "../agents";
 import { RUNNING } from "../release";
-import { WorkerCallHost } from "./call-host";
+import { SERVERS, WorkerCallHost } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import { LocalWorkerMachine } from "./machine";
 import { WorkerPortHost } from "./port-host";
@@ -28,7 +29,14 @@ export interface WorkerDialer {
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
-export const WORKER_CAPABILITIES = ["process", "pty", "calls", "port", RELAY];
+export const WORKER_CAPABILITIES = [
+	"process",
+	"pty",
+	"calls",
+	"port",
+	RELAY,
+	SERVERS,
+];
 
 /** Who a `WorkerDaemon` is and what it runs on. */
 export interface WorkerDaemonOptions {
@@ -55,6 +63,8 @@ export interface WorkerDaemonOptions {
 	 * nowhere.
 	 */
 	relayAt?: string | null;
+	/** The MCP servers it offers each agent session it runs; none by default. */
+	servers?: SessionServers | null;
 }
 
 /**
@@ -87,7 +97,11 @@ export class WorkerDaemon implements AsyncResource {
 			max: Duration.secs(10),
 		};
 		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
-		this.machine = new LocalWorkerMachine(opts.ps, opts.fs);
+		this.machine = new LocalWorkerMachine(
+			opts.ps,
+			opts.fs,
+			opts.servers ?? null,
+		);
 		this.session = new WorkerSession("worker", {
 			...opts.session,
 			capabilities: WORKER_CAPABILITIES,

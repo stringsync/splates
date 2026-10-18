@@ -1,11 +1,14 @@
 import { relative } from "node:path";
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 
-/** What ties a process to a task: its worktree, and the agents at work in it. */
+/**
+ * What ties a process to a task: its worktree, and the agents at work in
+ * it, each on the worker, by id, that holds it.
+ */
 export interface PortOwners {
-	worktrees: { task: string; path: string }[];
-	/** The pid of each agent `splates server` runs in a task. */
-	agents: { task: string; pid: number }[];
+	worktrees: { task: string; path: string; worker: string }[];
+	/** The pid of each agent `splates server` runs in a task, on its worker. */
+	agents: { task: string; pid: number; worker: string }[];
 }
 
 /** One port a task's processes listen on, on the worker that runs them. */
@@ -23,7 +26,10 @@ export interface TaskPort {
 export function taskPorts(
 	table: ProcessEntry[],
 	listening: ListeningEntry[],
-	owners: PortOwners,
+	owners: {
+		worktrees: { task: string; path: string }[];
+		agents: { task: string; pid: number }[];
+	},
 ): TaskPort[] {
 	const parents = new Map(table.map((each) => [each.pid, each.ppid]));
 	const agents = new Map(owners.agents.map((each) => [each.pid, each.task]));

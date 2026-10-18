@@ -5,6 +5,9 @@ import { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine } from "./machine";
 import type { Json } from "./protocol";
 
+/** The capability of a worker that answers `servers` (protocol 1.2). */
+export const SERVERS = "servers";
+
 /** A question a coordinator asks on a `calls` channel, answered by its id. */
 export const CallRequest = z.discriminatedUnion("method", [
 	z.object({
@@ -37,6 +40,7 @@ export const CallRequest = z.discriminatedUnion("method", [
 		method: z.literal("removeCheckout"),
 		path: z.string(),
 	}),
+	z.object({ id: z.number().int(), method: z.literal("servers") }),
 ]);
 export type CallRequest = z.infer<typeof CallRequest>;
 
@@ -114,6 +118,8 @@ export class WorkerCallHost implements Resource {
 			case "removeCheckout":
 				await this.machine.removeCheckout(request.path);
 				return null;
+			case "servers":
+				return (await this.machine.servers()) as unknown as Json;
 		}
 	}
 

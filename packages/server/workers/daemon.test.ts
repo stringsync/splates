@@ -39,6 +39,7 @@ describe("WorkerDaemon", () => {
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 				session: { bufferBytes: 64 * 1024 },
 				orphanBound: Duration.secs(2),
+				servers: { servers: async () => [BROWSER] },
 			},
 		);
 		void daemon.run();
@@ -142,6 +143,10 @@ describe("WorkerDaemon", () => {
 		});
 	});
 
+	it("offers the coordinator's sessions the MCP servers it runs, such as its browser", async () => {
+		expect(await worker.servers()).toEqual([BROWSER]);
+	});
+
 	it("runs git with what the coordinator adds to its environment, such as a token", async () => {
 		const ran = await worker.git(dir, ["config", "--get", "splates.said"], {
 			GIT_CONFIG_COUNT: "1",
@@ -190,3 +195,10 @@ describe("WorkerDaemon", () => {
 		expect(new NodePs().alive(pid)).toBe(false);
 	});
 });
+
+const BROWSER = {
+	type: "http" as const,
+	name: "playwright",
+	url: "http://localhost:4100/mcp",
+	headers: [],
+};

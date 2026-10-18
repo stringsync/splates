@@ -30,6 +30,8 @@ and scheduler talk only to that contract:
   the worktree around tool calls (`Watch`), background output files, the
   process tree (`heldBy`), session listing;
 - proxy HTTP and WebSocket traffic to its own loopback ports;
+- offer its agents' sessions the MCP servers it runs, its shared browser
+  among them, on its own loopback (the `servers` call, protocol 1.2);
 - push the task's branch;
 - heartbeat; drain and tear down.
 
@@ -387,7 +389,9 @@ macOS RSS double-counts shared pages.
   chrome-headless-shell: 154 MB plus ~120 MB per context.
 - Per-task preview server: ~0.35 GB.
 - `splates dev test` (preMerge, also run mid-task): 31–33 s wall, 220 CPU-s,
-  ~7 cores, 7.2–7.4 GB.
+  ~7 cores, 7.2–7.4 GB. In a Linux container on the same Mac (Docker
+  Desktop, 16 vCPU / 31 GB, measured 2026-10-17): 29–39 s wall, 260–340
+  CPU-s, 6.4 GB peak, the higher figures with another test run on the host.
 - `bun install`: 0.8 s warm cache, 14.6 s cold.
 - splates server: ~0.6 GB with 7 sessions.
 
@@ -417,7 +421,10 @@ Phases merge independently; the single-Mac setup works after each.
 2. Durability and merge: repo state over the relay, the central remote,
    checkpoint pushes, the merge lease, clone-based checkouts.
 3. Registered workers: join tokens, add, drain and remove, the pool UI, the visible
-   queue, proven with a Linux container as a second worker.
+   queue, proven with a Linux container as a second worker
+   (`docker/prove-worker.sh`: a scripted agent placed on the container
+   claims its task there, serves a port the coordinator forwards, opens it
+   in the worker's own shared browser, and merges).
 4. Provisioning and budget.
 5. Cloud coordinator, near New Jersey, backed up by nightly provider
    snapshots; the Mac becomes a registered worker while awake, managed from
