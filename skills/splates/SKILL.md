@@ -386,6 +386,18 @@ who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
 picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
 Access: that host then reaches only the todos.
 
+## Workers
+
+When the user asks to run agents on this Mac with more slots, or on another
+machine, that is the Workers setup area: `local-worker` (`splates worker add
+--local <slots>`), `worker-access` (through a tunnel, whether the API token
+may mint a worker's Access service token, **Account · Access: Service Tokens ·
+Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
+for one that may not) and `remote-worker` (`splates worker add`, then `splates
+worker run --coordinator <url> --join <token>` on the other machine). Walk them
+through it as [references/setup.md](references/setup.md) says. Each checks
+`GET /api/workers` of the `splates server` in `SPLATES_DEV`.
+
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel-provider`:
 `ready()` throws, saying what to do, unless the tunnel can run, and

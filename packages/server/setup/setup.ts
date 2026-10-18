@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";
+import type { WorkerListing } from "../workers";
 import type { OpenCodeSetup } from "./opencode";
 import { StepProblem } from "./step-problem";
 
@@ -232,7 +233,15 @@ export interface SetupMachine {
 	 * repository rather than the machine; none outside one.
 	 */
 	project?: SetupProject;
+	/** The workers `splates server` lists, for the steps that read the pool; none with no server to ask. */
+	workers?(): Promise<readonly SetupWorker[]>;
 }
+
+/** A worker as a step reads it, from `GET /api/workers`. */
+export type SetupWorker = Pick<
+	WorkerListing,
+	"id" | "kind" | "draining" | "removing"
+>;
 
 /** What a step that sets up a repository reads of its project, afresh each time. */
 export interface SetupProject {

@@ -31,6 +31,7 @@ describe("SETUP_AREAS", () => {
 		expect(SETUP_AREAS.map((area) => area.id)).toEqual([
 			"opencode",
 			"remote-access",
+			"workers",
 			"notifications",
 			"dictation",
 			"github",

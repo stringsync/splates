@@ -6,7 +6,7 @@ export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
-export { listWorkers, workerList } from "./list";
+export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
 export { WorkerPlacement } from "./placement";

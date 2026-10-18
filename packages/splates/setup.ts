@@ -11,6 +11,7 @@ import {
 	type StepStatus,
 	setupProjectAt,
 } from "@stringsync/splates-server/setup";
+import { fetchWorkers } from "@stringsync/splates-server/workers";
 import type { Logger } from "webappwiz/log";
 import { color } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
@@ -78,6 +79,10 @@ export async function setupOf(deps: SplatesDeps): Promise<Setup> {
 			home: splatesHome(ps),
 			device: secrets.device,
 			fetch,
+			// Only a server this agent runs under, or is pointed at, can be asked.
+			workers: deps.ps.env("SPLATES_DEV")
+				? () => fetchWorkers({ dev: "", log: deps.log, ps: deps.ps })
+				: undefined,
 			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
 		},
 		SETUP_AREAS,

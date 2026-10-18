@@ -42,7 +42,7 @@ import {
 	setupProjectAt,
 } from "./setup";
 import { DevOutcomes } from "./stats";
-import { LocalWorkerMachine } from "./workers";
+import { LocalWorkerMachine, type WorkerPool } from "./workers";
 
 export type { DevOptions } from "./dev-options";
 export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./dev-ports";
@@ -365,6 +365,12 @@ export async function dev(
 				device: (deps.secrets ?? SYSTEM_STORES).device,
 				opencode: opencode.setup,
 				fetch: deps.fetch,
+				workers: async () =>
+					(
+						(await workers
+							.list()
+							.then((response) => response.json())) as WorkerPool
+					).workers,
 				project:
 					project == null
 						? undefined

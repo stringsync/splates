@@ -8,7 +8,7 @@ import {
 } from "webappwiz/time";
 import { z } from "zod";
 import { table } from "../table";
-import { callServer } from "./admin";
+import { callServer, type ServerCallOptions } from "./admin";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
@@ -128,6 +128,13 @@ export interface ListWorkersOptions {
 	ps: Ps;
 	send?: typeof fetch;
 	wall?: WallClock;
+}
+
+/** The workers the running `splates server` lists. */
+export async function fetchWorkers(
+	opts: ServerCallOptions,
+): Promise<WorkerListing[]> {
+	return Listings.parse(await callServer("/api/workers", opts)).workers;
 }
 
 /** `splates worker list`: asks the running `splates server` which workers it has. */
