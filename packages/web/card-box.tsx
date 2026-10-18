@@ -1,5 +1,5 @@
 import { useReactive, useResource } from "@webappwiz/react";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -77,6 +77,7 @@ function Box({
 	return (
 		<div
 			ref={shell}
+			data-dictation-owner={taking ? box?.by : undefined}
 			className={cn(
 				"group/box relative flex flex-col border border-border/70 bg-muted/30 transition-[background-color,border-color,box-shadow] duration-150 hover:border-border focus-within:border-ring focus-within:bg-background focus-within:ring-3 focus-within:ring-ring/20",
 				roomy ? "rounded-xl" : "rounded-lg",
@@ -108,6 +109,18 @@ function Box({
 				<div
 					className={cn("flex min-w-0 items-center", roomy ? "p-1.5" : "p-1")}
 				>
+					<TooltipIconButton
+						tooltip="Discard dictation"
+						side="bottom"
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="size-7 shrink-0 rounded-full pointer-coarse:size-11"
+						aria-label="Discard dictation"
+						onClick={() => box.dictation.cancel()}
+					>
+						<XIcon aria-hidden="true" />
+					</TooltipIconButton>
 					<DictationStatus expanded />
 					<BoxMic box={box} />
 				</div>
@@ -201,4 +214,32 @@ export function AttachPlus({ files }: { files: Files }): JSX.Element {
 			/>
 		</>
 	);
+}
+
+/** Finish the card's take before navigation can remove its answer box. */
+export function useCardDictationTurn(
+	panel: RefObject<HTMLElement | null>,
+): (move: () => void) => void {
+	const dictation = useContext(DictationContext);
+	const turning = useRef(false);
+	return (move) => {
+		if (turning.current) {
+			return;
+		}
+		const taking = panel.current?.querySelector<HTMLElement>(
+			"[data-dictation-owner]",
+		);
+		if (
+			dictation !== null &&
+			taking?.dataset.dictationOwner === dictation.owner
+		) {
+			turning.current = true;
+			void dictation.finish().then(() => {
+				turning.current = false;
+				move();
+			});
+		} else {
+			move();
+		}
+	};
 }

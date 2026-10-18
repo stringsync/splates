@@ -32,7 +32,7 @@ import { AssumptionList } from "./assumption-list";
 import { caretToEnd } from "./box-editor";
 import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
-import { CardBox } from "./card-box";
+import { CardBox, useCardDictationTurn } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
@@ -222,6 +222,7 @@ export function QuestionCards({
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);
+	const finishThen = useCardDictationTurn(panel);
 	// Answered, every question shows, as on any other card.
 	const paging = paged && live;
 	// The screen shown when paging, over a footer pinned to the sheet's foot:
@@ -234,9 +235,12 @@ export function QuestionCards({
 	const landing = useRef<{ typing: boolean } | null>(null);
 	const turn = (to: number, land: { typing: boolean } | null = null) => {
 		clearTimeout(going.current);
-		landing.current = land;
-		setPage(to);
-		panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+		const move = () => {
+			landing.current = land;
+			setPage(to);
+			panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+		};
+		finishThen(move);
 	};
 	// A pick on a pick-one page goes on by itself, once the pick has shown.
 	const going = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -245,10 +249,7 @@ export function QuestionCards({
 		clearTimeout(going.current);
 		going.current = setTimeout(() => {
 			// The choice picked goes with its page, so the next takes the focus.
-			landing.current = { typing: false };
-			// Unless the person turned the page themselves meanwhile.
-			setPage((now) => (now === from ? from + 1 : now));
-			panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+			turn(from + 1, { typing: false });
 		}, GO_ON_MS);
 	};
 	// Each question's first stop, then "Anything else": where Enter goes next.

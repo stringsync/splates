@@ -8,6 +8,7 @@ import {
 	conversation,
 	fireEvent,
 	message,
+	resize,
 	Testing,
 	textIn,
 	todo,
@@ -31,6 +32,7 @@ describe("App's card answer boxes", () => {
 
 	afterEach(() => {
 		cleanup();
+		resize(1024, 768);
 		testing.dispose();
 		testing.dictation?.dispose();
 	});
@@ -84,6 +86,84 @@ describe("App's card answer boxes", () => {
 
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
 		expect(textIn(answer(view, "2"))).toBe("something more");
+	});
+
+	it("discards a card recording and keeps the words already typed", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		await typeIn(answer(view, "2"), "Keep this");
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "2")).getByRole("button", { name: "Dictate" }),
+			),
+		);
+		await waitFor(() =>
+			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" throw away"));
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "2")).getByRole("button", {
+					name: "Discard dictation",
+				}),
+			),
+		);
+		expect(textIn(answer(view, "2"))).toBe("Keep this");
+		expect(microphone.open).toBe(false);
+		expect(testing.dictation?.state.phase).toBe("idle");
+	});
+
+	// scry-ignore simple-test-setup: only this regression needs a phone sheet and deliberately delayed transcription
+	it("waits for a card transcript on Next and keeps it when returning", async () => {
+		resize(390, 844);
+		const finished = Promise.withResolvers<void>();
+		const link = new FakeDictationLink();
+		const finish = link.finish.bind(link);
+		link.finish = async () => {
+			await finished.promise;
+			return finish();
+		};
+		testing.dictation?.dispose();
+		testing.dictation = new Dictation(microphone, async () => link);
+		const view = await testing.openConversations([asking]);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					within(
+						view.getByRole("complementary", { name: "Waiting on you" }),
+					).getByRole("button", { name: /2 questions for you/ }),
+				),
+			),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "2 questions for you" }),
+		);
+		await typeIn(within(sheet).getByRole("textbox"), "Keep this");
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() =>
+			within(sheet).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		expect(
+			within(sheet).getByRole("listitem", { name: "question 1" }),
+		).toBeTruthy();
+		expect(testing.dictation?.state.phase).toBe("finishing");
+		await act(async () => finished.resolve());
+		await waitFor(() =>
+			within(sheet).getByRole("listitem", { name: "question 2" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Back" })),
+		);
+		expect(textIn(within(sheet).getByRole("textbox"))).toBe(
+			"Keep this something more",
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
 	it("stops a card's take with Escape even when focus moves to the message composer", async () => {
