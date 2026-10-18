@@ -4,52 +4,47 @@ import type { Finding } from "./findings";
 import type { Outcome } from "./outcomes";
 
 describe("factTodos", () => {
-	it("makes a todo of each fact, the gate's first, with the data it came from", () => {
-		const stopped = {
-			kind: "stopped",
-			at: "2026-10-14T09:30:00.000Z",
-		} as const;
-		const conflict: Finding = {
+	it("makes a todo of each gate run that named failing tests, with the data it came from", () => {
+		const failed: Finding = {
 			kind: "gate",
-			reason: "conflict",
+			reason: "tests_failed",
 			at: "",
-			files: ["a.ts"],
+			tests: ["adds up"],
 		};
 
 		const todos = factTodos({
-			outcome: merged({ findings: [stopped, conflict] }),
+			outcome: merged({
+				findings: [{ kind: "stopped", at: "2026-10-14T09:30:00.000Z" }, failed],
+			}),
 			baseline: null,
 		});
 
 		expect(todos).toEqual([
 			{
-				subject: "Conflicted in a.ts",
+				subject: "Tests failed: adds up",
 				text: [
-					"Found in `alpha` as it merged: Conflicted in a.ts.",
+					"Found in `alpha` as it merged: Tests failed: adds up.",
 					"",
 					"```json",
-					JSON.stringify(conflict, null, 2),
-					"```",
-				].join("\n"),
-			},
-			{
-				subject: "You stopped a turn",
-				text: [
-					"Found in `alpha` as it merged: You stopped a turn.",
-					"",
-					"```json",
-					JSON.stringify(stopped, null, 2),
+					JSON.stringify(failed, null, 2),
 					"```",
 				].join("\n"),
 			},
 		]);
 	});
 
-	it("makes none of the person's challenges and overturned picks", () => {
+	it("makes none of what every merge goes through", () => {
 		expect(
 			factTodos({
 				outcome: merged({
+					failedMerges: 1,
 					findings: [
+						{ kind: "gate", reason: "conflict", at: "", files: ["a.ts"] },
+						{ kind: "gate", reason: "tests_failed", at: "", tests: [] },
+						{ kind: "gate", reason: "budget_exhausted", at: "" },
+						{ kind: "retried", times: 2 },
+						{ kind: "interrupted", at: "2026-10-14T09:30:00.000Z" },
+						{ kind: "stopped", at: "2026-10-14T09:30:00.000Z" },
 						{ kind: "challenged", assumptions: 1 },
 						{ kind: "overturned", picks: 2 },
 					],

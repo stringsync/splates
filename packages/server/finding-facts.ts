@@ -72,22 +72,24 @@ export function foundFacts({ outcome, baseline }: Landed): FoundFacts {
 }
 
 /**
- * Findings the merged card lists but no todo is made of: the person's own
- * calls on the agent's picks, which are asking working as meant.
- */
-export const UNTODOED: Finding["kind"][] = ["overturned", "challenged"];
-
-/**
- * The todos `splates merge` adds for what went worse in `landed`, the gate's
- * first: one a fact, as the merged card lists them, but for `UNTODOED`.
+ * The todos `splates merge` adds for what went worse in `landed`: one for each
+ * gate run that named the tests it failed on, which a later run passed, so
+ * the test is flaky or was fixed on the way. The rest the merged card lists
+ * (conflicts, retries, lost connections, the person's own calls) are what a
+ * merge goes through, with nothing in the code to act on.
  */
 export function factTodos(landed: Landed): FactTodo[] {
-	const { gate, findings } = foundFacts(landed);
-	return [...(gate ?? []), ...findings]
-		.filter(
-			(fact) => fact.finding === null || !UNTODOED.includes(fact.finding.kind),
-		)
+	return (foundFacts(landed).gate ?? [])
+		.filter(({ finding }) => namesTests(finding))
 		.map((fact) => deferred(landed.outcome.task, fact));
+}
+
+function namesTests(finding: Finding | null): boolean {
+	return (
+		finding?.kind === "gate" &&
+		finding.reason === "tests_failed" &&
+		(finding.tests?.length ?? 0) > 0
+	);
 }
 
 /** The todo made of `fact`, found in `task` as it merged. */

@@ -107,7 +107,9 @@ which remembers none of it.
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `splates todo add` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
-   added (see Proposing a todo). Write down each call the request
+   added (see Proposing a todo). A snag on the way, such as a lost
+   connection, a conflict or a retry, is no todo; `splates merge` adds one
+   itself for each test that failed its gate. Write down each call the request
    does not settle as you make it, as an assumption or a question, and keep
    going (see Asking as you go), bringing `## Blocked` up to date before
    each step. Before handing a subagent work that may change code, read

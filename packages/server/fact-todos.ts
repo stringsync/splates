@@ -8,8 +8,8 @@ import type { Outcomes } from "./outcomes";
 import type { Journal } from "./records";
 
 /**
- * Adds a todo, untriaged, for each thing that went worse in `task`'s merge,
- * as its merged card lists them, journaled so the conversation that merged
+ * Adds a todo, untriaged, for each of `task`'s gate runs that named failing
+ * tests (see `factTodos`), journaled so the conversation that merged
  * it shows each as an "Added" line the person can remove it from. One whose
  * line is on the list already is not added again.
  */

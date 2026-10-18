@@ -5,12 +5,13 @@ import type { Outcome } from "./outcomes";
 import { Testing } from "./testing";
 
 describe.concurrent("addFactTodos", () => {
-	it("adds a todo for each finding of a merge, journaled, once", async () => {
+	it("adds a todo for each failing test run of a merge, journaled, once", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "Conflicted in a.ts", null);
+		await todoAdd(deps, "Tests failed: adds up", null);
 		await deps.outcomes.record(
 			merged(deps.git.root, [
-				{ kind: "gate", reason: "conflict", at: "", files: ["a.ts"] },
+				{ kind: "gate", reason: "tests_failed", at: "", tests: ["adds up"] },
+				{ kind: "gate", reason: "tests_failed", at: "", tests: ["counts"] },
 				{ kind: "stopped", at: "2026-10-14T09:30:00.000Z" },
 			]),
 		);
@@ -26,15 +27,15 @@ describe.concurrent("addFactTodos", () => {
 				lane,
 			})),
 		).toEqual([
-			{ id: 1, subject: "Conflicted in a.ts", from: null, lane: null },
-			{ id: 2, subject: "You stopped a turn", from: "alpha", lane: null },
+			{ id: 1, subject: "Tests failed: adds up", from: null, lane: null },
+			{ id: 2, subject: "Tests failed: counts", from: "alpha", lane: null },
 		]);
 		expect(
 			(await deps.journal.tail(10)).filter(
 				(event) => event.action === "todo add",
 			),
 		).toMatchObject([
-			{ task: "alpha", todo: 2, subject: "You stopped a turn" },
+			{ task: "alpha", todo: 2, subject: "Tests failed: counts" },
 		]);
 	});
 
