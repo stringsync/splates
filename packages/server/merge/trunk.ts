@@ -1,8 +1,8 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import type { Config } from "./config";
-import type { Git } from "./git";
-import { PUSHED_PREFIX, trackingRef } from "./task-branches";
+import type { Config } from "../config";
+import type { Git } from "../git";
+import { PUSHED_PREFIX, trackingRef } from "./branches";
 
 /** Who holds the merge lease, as its `holder.json` names them. */
 export const LeaseHolder = z.object({
@@ -41,12 +41,9 @@ export interface TrunkLanding {
 }
 
 /**
- * The coordinator's landing: it checks the request's holder still holds the
- * merge lease, that the remote's trunk is still the commit the branch was
- * tested on, and that the pushed branch is the tested commit and a
- * fast-forward of it, then pushes trunk with this machine's own git
- * credentials, compared and swapped against that commit, and fast-forwards
- * its own trunk checkout to match.
+ * Lands a tested branch on the remote's trunk, from the coordinator's machine,
+ * refused unless the request's holder still holds the merge lease and trunk
+ * has not moved since the branch was tested.
  */
 export class CoordinatorLanding implements TrunkLanding {
 	constructor(

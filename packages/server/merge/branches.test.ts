@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { PLAN_FILE } from "../plans";
+import { add, checkpoint, escalate, remove, WIP_MESSAGE } from "../tasks";
+import { Testing } from "../testing";
 import { merge } from "./merge";
-import { PLAN_FILE } from "./plans";
-import { add, checkpoint, escalate, remove, WIP_MESSAGE } from "./tasks";
-import { Testing } from "./testing";
 
 describe("TaskBranches", () => {
 	let deps: Testing;

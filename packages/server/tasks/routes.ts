@@ -4,7 +4,7 @@ import { fileResponse, MEDIA_TYPES, refuse } from "../dev-http";
 import type { Project } from "../dev-project";
 import type { ProjectWatch } from "../dev-project-watch";
 import { fail } from "../exit";
-import { TaskBranches } from "../task-branches";
+import { TaskBranches } from "../merge";
 import { editorOf } from "./editors";
 import { inTree } from "./open";
 import { remove } from "./remove";

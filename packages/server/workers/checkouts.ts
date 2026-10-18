@@ -2,8 +2,8 @@ import { realpath } from "node:fs/promises";
 import { basename, sep } from "node:path";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
-import { MIRROR_KEY } from "../checkouts";
 import { type GitResult, type GitRunner, processGit } from "../git";
+import { MIRROR_KEY } from "../merge";
 
 /** What a coordinator asks a worker to check out for a project. */
 export const ProjectCheckout = z.object({

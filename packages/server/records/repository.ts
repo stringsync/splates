@@ -5,8 +5,6 @@ import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "../adherence";
 import { Todos } from "../board";
-import { HOME_KEY } from "../checkouts";
-import { CloneCheckouts } from "../clone-checkouts";
 import type { Config } from "../config";
 import {
 	LEGACY_DIR,
@@ -19,15 +17,20 @@ import { Creds, type SecretStores, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
 import { heavyJobsOfMachine } from "../heavy";
+import {
+	CloneCheckouts,
+	CoordinatorLanding,
+	HOME_KEY,
+	TaskBranches,
+	type TrunkLanding,
+} from "../merge";
 import { splatesHome } from "../models";
 import { Outcomes } from "../outcomes";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Projects, type Reach, reaches } from "../projects";
 import { Shell } from "../shell";
 import { Slots } from "../slots";
-import { TaskBranches } from "../task-branches";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
-import { CoordinatorLanding, type TrunkLanding } from "../trunk-landing";
 import { Format } from "./format";
 import { Journal } from "./journal";
 import { RelayApp } from "./relay-app";
@@ -64,7 +67,7 @@ export function repository<
 	};
 }
 
-/** What a command gets to work with, once there is a repository to work in. */
+/** What a command works with once there is a repository to work in. */
 export interface Repository {
 	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
 	splatesDir: string;
@@ -113,9 +116,8 @@ export interface Repository {
 /** How `repository` treats records in an older format than this splates's. */
 export interface RepositoryOptions {
 	/**
-	 * Brings them forward before the action runs. Only `splates server` does: a
-	 * migration is the server's to run, with its sessions settled, so every
-	 * other command refuses them until it has.
+	 * Brings them forward before the action runs. Set by `splates server` alone;
+	 * every other command refuses old records until the server has migrated them.
 	 */
 	migrates?: boolean;
 	/**

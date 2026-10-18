@@ -2,6 +2,7 @@ import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Served } from "./dev-project";
 import { fail } from "./exit";
+import { LandRequest } from "./merge";
 import type { Projects } from "./projects";
 import {
 	type StateProject,
@@ -9,7 +10,6 @@ import {
 	sameOrigin,
 	TokenRequest,
 } from "./records";
-import { LandRequest } from "./trunk-landing";
 
 /** What `POST /api/land` takes. */
 const LandBody = z.object({

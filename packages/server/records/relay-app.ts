@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { InstallationToken } from "../github-app";
-import type { AppSource, TokenMinter } from "../task-branches";
+import type { AppSource, InstallationToken, TokenMinter } from "../merge";
 import type { StateProject } from "./repo-state";
 
 /** What `RelayApp` reaches the coordinator through; the global `fetch` by default. */
@@ -16,10 +15,9 @@ const Answer = z.object({
 });
 
 /**
- * The GitHub App as a command on a worker reaches it: through the relay, the
- * coordinator minting each token (`POST /api/token`), since the App's key
- * never leaves it. A token is held in this process's memory alone, and asked
- * for again as it nears its expiry.
+ * The GitHub App for a command on a worker: asks the coordinator for a token
+ * (`POST /api/token`) when it needs one and again as it nears its expiry, since
+ * the App's key never leaves the coordinator.
  */
 export class RelayApp implements AppSource {
 	private readonly fetch: typeof fetch;

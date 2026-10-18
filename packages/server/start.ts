@@ -16,6 +16,7 @@ import { fail } from "./exit";
 import { Git } from "./git";
 import { heavyJobsOfMachine } from "./heavy";
 import { type DevServer, dev, devPorts } from "./index";
+import { pushOnMove, TaskBranches } from "./merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "./models";
 import { Outcomes } from "./outcomes";
 import { PlanStore } from "./plans";
@@ -31,7 +32,6 @@ import {
 	seeded,
 } from "./start-settings";
 import { SERVING, supervise, UNBUILT } from "./supervise";
-import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
 import {
 	WorkerPlacement,

@@ -1,16 +1,14 @@
 import type { Config } from "../config";
 import type { PlacedCheckouts } from "../conversations";
-import { materialize } from "../materialize";
-import type { TaskBranches } from "../task-branches";
+import type { TaskBranches } from "../merge";
+import { materialize } from "../merge";
 import type { WorktreeService } from "../tasks";
 import type { WorkerMachine } from "./machine";
 
 /**
- * Where a project's agents start on a remote worker: in their task's clone
- * when its record names that worker and the clone is still there, else in
- * the project's clone, readied by `materialize`, from which the agent's
- * `splates claim` clones the task again from `splates/<task>`. A task
- * checked out here as a worktree is pushed first, so that branch holds it.
+ * Chooses where a project's agents start on a remote worker: in their task's
+ * clone there when it is still there, else in the project's clone, from which
+ * the agent's `splates claim` clones the task again from `splates/<task>`.
  */
 export class WorkerPlacement implements PlacedCheckouts {
 	constructor(private readonly opts: WorkerPlacementOptions) {}

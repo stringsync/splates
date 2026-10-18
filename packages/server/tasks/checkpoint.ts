@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
 import type { Git } from "../git";
-import { pushedLine, type TaskBranches } from "../task-branches";
+import { pushedLine, type TaskBranches } from "../merge";
 import type { WorktreeService } from "./worktree-service";
 
 /** The message of the commit a checkpoint saves uncommitted work in. */

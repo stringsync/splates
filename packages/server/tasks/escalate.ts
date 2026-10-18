@@ -2,9 +2,9 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import { fail } from "../exit";
 import type { Git } from "../git";
+import { pushedLine, type TaskBranches } from "../merge";
 import { Plans, questions, ready, unfinished, whatIsLeft } from "../plans";
 import type { Facts } from "../records";
-import { pushedLine, type TaskBranches } from "../task-branches";
 import type { Escalation } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

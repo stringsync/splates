@@ -1,8 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
+import type { TaskBranches } from "../merge";
 import { goalOf, Plans } from "../plans";
-import type { TaskBranches } from "../task-branches";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

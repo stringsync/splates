@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join, resolve } from "node:path";
-import { CloneCheckouts } from "../clone-checkouts";
 import { Git } from "../git";
-import { TaskBranches } from "../task-branches";
+import { CloneCheckouts, TaskBranches } from "../merge";
 import { add, claim, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
 import { LocalWorkerMachine } from "./machine";

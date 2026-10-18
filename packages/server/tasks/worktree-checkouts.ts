@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
-import type { Checkouts } from "../checkouts";
 import type { Git, GitResult } from "../git";
+import type { Checkouts } from "../merge";
 
 /** Linked worktrees of the main tree, as the local worker keeps. */
 export class WorktreeCheckouts implements Checkouts {

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import type { Config } from "../config";
+import { Git } from "../git";
+import { PLAN_FILE, PlanStore } from "../plans";
+import { add, claim, WorktreeService } from "../tasks";
+import { Testing } from "../testing";
+import { LocalWorkerMachine } from "../workers";
+import { TaskBranches } from "./branches";
 import { CloneCheckouts } from "./clone-checkouts";
-import type { Config } from "./config";
-import { Git } from "./git";
-import { PLAN_FILE, PlanStore } from "./plans";
-import { TaskBranches } from "./task-branches";
-import { add, claim, WorktreeService } from "./tasks";
-import { Testing } from "./testing";
-import { LocalWorkerMachine } from "./workers";
 
 describe("CloneCheckouts", () => {
 	let deps: Testing;

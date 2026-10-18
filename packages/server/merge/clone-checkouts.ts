@@ -1,10 +1,10 @@
 import { dirname } from "node:path";
 import type { Fs } from "webappwiz/system";
+import type { Config } from "../config";
+import type { Git, GitResult } from "../git";
+import { taskOf } from "../tasks";
+import { PUSHED_PREFIX, type TaskBranches } from "./branches";
 import { type Checkouts, HOME_KEY, MIRROR_KEY } from "./checkouts";
-import type { Config } from "./config";
-import type { Git, GitResult } from "./git";
-import { PUSHED_PREFIX, type TaskBranches } from "./task-branches";
-import { taskOf } from "./tasks";
 
 /**
  * Clones from the central remote, borrowing the objects of the bare mirror

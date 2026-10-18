@@ -18,7 +18,7 @@ import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TodoRoutes } from "./dev-todos";
 import type { TranscriberFor } from "./dev-transcriber";
 import type { Everywhere } from "./everywhere";
-import type { InstallationToken } from "./github-app";
+import type { InstallationToken, Landed, LandRequest } from "./merge";
 import { AutoRoutes } from "./models";
 import { type Needing, needs } from "./plans";
 import type { Projects } from "./projects";
@@ -29,7 +29,6 @@ import type { Slot } from "./slots";
 import type { PortOwners } from "./task-ports";
 import type { Details, Snapshot } from "./tasks";
 import { HandedOut, startDispatched, TaskRoutes } from "./tasks";
-import type { Landed, LandRequest } from "./trunk-landing";
 
 /**
  * Everything one project's page talks to: its records, its stream of

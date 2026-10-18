@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { add } from "../tasks";
+import { Testing } from "../testing";
+import { TaskBranches } from "./branches";
 import { GitHubApp } from "./github-app";
-import { TaskBranches } from "./task-branches";
-import { add } from "./tasks";
-import { Testing } from "./testing";
 
 describe("TaskBranches with the GitHub App", () => {
 	let deps: Testing;

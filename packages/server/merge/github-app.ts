@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 import { z } from "zod";
-import type { Creds } from "./creds";
+import type { Creds } from "../creds";
 import { GitHubRefused } from "./github-refused";
 
 /** Where GitHub's REST API answers. */

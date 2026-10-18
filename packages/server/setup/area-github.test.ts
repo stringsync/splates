@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { APP_ID, APP_KEY } from "../github-app";
+import { APP_ID, APP_KEY } from "../merge";
 import { GITHUB_AREA } from "./area-github";
 import { Setup, type SetupMachine } from "./setup";
 

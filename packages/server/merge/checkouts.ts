@@ -1,4 +1,4 @@
-import type { Git, GitResult } from "./git";
+import type { Git, GitResult } from "../git";
 
 /** Where a worker's project clone names the mirror its clones borrow objects from. */
 export const MIRROR_KEY = "splates.mirror";

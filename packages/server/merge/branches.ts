@@ -1,13 +1,13 @@
 import { color, type Logger } from "webappwiz/log";
-import type { BranchMoves } from "./agents";
-import type { Config } from "./config";
-import { LEGACY_PLAN_FILE } from "./config";
-import type { Creds } from "./creds";
-import type { Git } from "./git";
+import type { BranchMoves } from "../agents";
+import type { Config } from "../config";
+import { LEGACY_PLAN_FILE } from "../config";
+import type { Creds } from "../creds";
+import type { Git } from "../git";
+import { PLAN_FILE, type PlanStore } from "../plans";
+import type { Worktree } from "../tasks";
+import { taskOf } from "../tasks";
 import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
-import { PLAN_FILE, type PlanStore } from "./plans";
-import type { Worktree } from "./tasks";
-import { taskOf } from "./tasks";
 
 /** What a task's branch is pushed as on the central remote: `splates/<task>`. */
 export const PUSHED_PREFIX = "splates/";

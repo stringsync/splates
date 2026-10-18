@@ -1,4 +1,4 @@
-import type { Landed, LandRequest, TrunkLanding } from "../trunk-landing";
+import type { Landed, LandRequest, TrunkLanding } from "../merge";
 import type { StateProject } from "./repo-state";
 
 /**

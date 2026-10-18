@@ -15,15 +15,14 @@ import { Creds, type SecretStores } from "./creds";
 import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
 import { HEAVY_HELD } from "./heavy";
+import { CoordinatorLanding, TaskBranches } from "./merge";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE, PlanStore } from "./plans";
 import { Projects } from "./projects";
 import { Format, Journal } from "./records";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
-import { TaskBranches } from "./task-branches";
 import { WorktreeService } from "./tasks";
-import { CoordinatorLanding } from "./trunk-landing";
 
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an

@@ -9,7 +9,6 @@ import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import type { Facts } from "../records";
 import type { Shell } from "../shell";
 import { freedLine, type Slots } from "../slots";
-import { pushedLine, type TaskBranches } from "../task-branches";
 import type {
 	GateFailure,
 	MergeFailure,
@@ -17,8 +16,9 @@ import type {
 	WorktreeService,
 } from "../tasks";
 import { recommend, recommendation } from "../tasks";
-import type { Landed, TrunkLanding } from "../trunk-landing";
+import { pushedLine, type TaskBranches } from "./branches";
 import { failedTests, timedTests } from "./test-report";
+import type { Landed, TrunkLanding } from "./trunk";
 
 const TAIL_LINES = 40;
 /** The JUnit report a hook may write at `$SPLATES_TEST_REPORT`, in the worktree's git dir. */

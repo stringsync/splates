@@ -4,8 +4,8 @@ import {
 	GitHubApp,
 	type GitHubRepo,
 	githubRepo,
-} from "../github-app";
-import { PUSHED_PREFIX } from "../task-branches";
+	PUSHED_PREFIX,
+} from "../merge";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
 /** Where a GitHub App is made, for the user's own account. */
