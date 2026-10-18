@@ -96,9 +96,14 @@ export default {
 	everywhere: {
 		description: "Every project's work on one page",
 		globs: [
-			"packages/splates/dev-everywhere*.ts",
-			"packages/splates/everywhere.ts",
+			"packages/server/dev-everywhere*.ts",
+			"packages/server/everywhere.ts",
 			"packages/web/everywhere-*.ts",
+			"packages/web/project-folder*.ts*",
 		],
+	},
+	tasks: {
+		description: "The Tasks page",
+		globs: ["packages/web/tasks*.tsx", "packages/web/app-tasks*.test.tsx"],
 	},
 } satisfies SystemsFile;

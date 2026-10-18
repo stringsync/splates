@@ -87,6 +87,7 @@
 @source "./queued-time.tsx";
 @source "./conversation-list.tsx";
 @source "./new-menu.tsx";
+@source "./next-waiting.tsx";
 @source "./auto-brand.tsx";
 @source "./conversation-item.tsx";
 @source "./conversation-archive.tsx";
@@ -153,6 +154,7 @@
 @source "./plan-limits.tsx";
 @source "./project-app.tsx";
 @source "./project-chip.tsx";
+@source "./project-folder-list.tsx";
 @source "./budget.tsx";
 @source "./budget-forms.tsx";
 @source "./meter.tsx";

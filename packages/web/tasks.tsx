@@ -41,6 +41,7 @@ import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
+import { useFolded } from "./folded";
 import { useNow } from "./hooks/use-now";
 import { Mark } from "./mark";
 import { HEADING, Markdown } from "./markdown";
@@ -219,19 +220,6 @@ function nested(tasks: Details[]): Nested<Details>[] {
 /** Where the Tasks page keeps the projects folded away, by slug. */
 const COLLAPSED = "splates.tasks.collapsed";
 
-function collapsedOnes(): Set<string> {
-	try {
-		const read: unknown = JSON.parse(localStorage.getItem(COLLAPSED) ?? "[]");
-		return new Set(
-			Array.isArray(read)
-				? read.filter((each) => typeof each === "string")
-				: [],
-		);
-	} catch {
-		return new Set();
-	}
-}
-
 /**
  * Each project's tasks under its name, which folds them away, as this
  * browser remembers. Another project's task opens on its project's page,
@@ -245,17 +233,7 @@ function ProjectGroups({
 	onOpen: (task: string) => void;
 }): JSX.Element {
 	const navigation = useContext(NavigationContext);
-	const [collapsed, setCollapsed] = useState(collapsedOnes);
-	const fold = (project: string, open: boolean) => {
-		const next = new Set(collapsed);
-		if (open) {
-			next.delete(project);
-		} else {
-			next.add(project);
-		}
-		localStorage.setItem(COLLAPSED, JSON.stringify([...next]));
-		setCollapsed(next);
-	};
+	const { folded, fold } = useFolded(COLLAPSED);
 	return (
 		<div className="flex flex-col gap-4">
 			{groups.map((group) => {
@@ -264,7 +242,7 @@ function ProjectGroups({
 				return (
 					<Collapsible
 						key={key}
-						open={!collapsed.has(key)}
+						open={!folded.has(key)}
 						onOpenChange={(open) => fold(key, open)}
 						render={<section aria-label={group.name} />}
 						className="group/project flex flex-col"

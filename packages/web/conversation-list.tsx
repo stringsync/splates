@@ -1,19 +1,8 @@
-import {
-	answersTo,
-	type Needing,
-	needs,
-} from "@stringsync/splates-server/needs";
+import { answersTo, type Needing } from "@stringsync/splates-server/needs";
 import type { Details } from "@stringsync/splates-server/show";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { useCloseTerminal } from "./close-terminal";
 import {
@@ -32,22 +21,37 @@ import {
 	hintOf,
 	hostsAtWork,
 	isHostOf,
-	nextWaiting,
 	rowsOf,
 	seenFor,
 	waitsOnYou,
 } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import { useEverywhere } from "./everywhere-context";
+import { useFolded } from "./folded";
 import { useHeld } from "./hooks/use-held";
-import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
+import { useShortcut } from "./hooks/use-shortcut";
 import { CommandRow, External, Rows, TerminalRow } from "./list-rows";
+import { NavigationContext } from "./navigation";
+import { newConversationUrl } from "./new-conversation-project";
+import { NextWaiting } from "./next-waiting";
 import { nest } from "./parts";
+import {
+	FolderList,
+	ForeignItem,
+	NeedsYou,
+	type RenderRow,
+} from "./project-folder-list";
+import {
+	FOLDED_FOLDERS,
+	type Folder,
+	folderKey,
+	foldersOf,
+} from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import { NestedPanesContext } from "./side-panes";
-import { arriveAt, useCopiedReplies } from "./task-view";
+import { useCopiedReplies } from "./task-view";
 import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
-import { WaitingLine } from "./waiting-line";
 
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
@@ -69,12 +73,19 @@ const DIGITS = 10;
  * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
  * Atop it, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
+ *
+ * With the feed of every project to be had, the rows go in folders instead,
+ * as `foldersOf` groups them: those waiting on you, whatever their project,
+ * in Needs you on top, each naming its project, then a folder per project.
+ * Another project's row opens by switching the page to that project, where
+ * its task, trunk and lanes are the page's own.
  */
 export function ConversationList({
 	feed,
 	terminals,
 	drafts,
 	tasks,
+	here,
 	open,
 	onOpen,
 }: {
@@ -84,6 +95,8 @@ export function ConversationList({
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	tasks: Details[];
+	/** The project the page shows, as its snapshot has it. */
+	here: { root: string; repo: string; trunk: string | null };
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
@@ -162,9 +175,52 @@ export function ConversationList({
 	const archived = conversations.length - listed.length;
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const hosting = hostsAtWork(nested);
-	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
-	const shown = flatten(nested).slice(0, DIGITS);
+	const everywhere = useEverywhere(
+		({ available, projects, tasks, conversations }) => ({
+			available,
+			projects,
+			tasks,
+			conversations,
+		}),
+	);
+	const grouped = everywhere.available
+		? foldersOf(
+				everywhere.projects,
+				everywhere.tasks,
+				everywhere.conversations,
+				{ ...here, tasks, conversations },
+				drafts,
+			)
+		: null;
+	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const navigation = useContext(NavigationContext);
+	// Every row as it shows, each part under its task, the folded folders' left out.
+	const entries: Entry[] =
+		grouped === null
+			? flatten(nested).map((row) => ({ folder: null, row }))
+			: [
+					...grouped.needsYou.flatMap(({ folder, tree }) =>
+						flatten([tree]).map((row) => ({ folder, row })),
+					),
+					...grouped.folders
+						.filter((folder) => !folded.has(folderKey(folder)))
+						.flatMap((folder) =>
+							flatten([...folder.working, ...folder.recent]).map((row) => ({
+								folder,
+								row,
+							})),
+						),
+				];
+	// What ⌥⌘0 to ⌥⌘9 open.
+	const shown = entries.slice(0, DIGITS).map(({ row }) => row);
 	const held = useHeld();
+	const openEntry = ({ folder, row }: Entry) => {
+		if (folder === null || folder.here || folder.project === null) {
+			openRow(row);
+		} else {
+			navigation.show(newConversationUrl(folder.project, openedBy(row)));
+		}
+	};
 	const openRow = (row: Needing) => {
 		if (row.conversation !== null) {
 			onOpen(row.conversation.id);
@@ -173,10 +229,10 @@ export function ConversationList({
 		}
 	};
 	// The latest, for the listener below, which outlives a render.
-	const openRowRef = useRef(openRow);
-	openRowRef.current = openRow;
-	const shownRef = useRef(shown);
-	shownRef.current = shown;
+	const openRowRef = useRef(openEntry);
+	openRowRef.current = openEntry;
+	const shownRef = useRef(entries.slice(0, DIGITS));
+	shownRef.current = entries.slice(0, DIGITS);
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -198,23 +254,99 @@ export function ConversationList({
 	// From a row, round past either end; from no row, in from the top or the
 	// bottom.
 	const step = (by: 1 | -1) => {
-		// The same rows and order as the sidebar, by what opens each one.
-		const stops = [...mains, ...flatten(nested).map(openedBy)];
+		// The same rows and order as the sidebar, each by what it opens here,
+		// or null for another project's.
+		const stops = [
+			...mains.map((main) => ({ at: main, go: () => onOpen(main) })),
+			...entries.map((entry) => ({
+				at:
+					entry.folder === null || entry.folder.here
+						? openedBy(entry.row)
+						: null,
+				go: () => openEntry(entry),
+			})),
+		];
 		if (stops.length === 0) {
 			return false;
 		}
-		const at = stops.indexOf(open ?? "");
+		const at = stops.findIndex((stop) => stop.at !== null && stop.at === open);
 		const to =
 			at === -1
 				? by === 1
 					? 0
 					: stops.length - 1
 				: (at + by + stops.length) % stops.length;
-		onOpen(stops[to] ?? null);
+		stops[to]?.go();
 		return true;
 	};
 	useShortcut("shortcuts.next", () => step(1));
 	useShortcut("shortcuts.previous", () => step(-1));
+
+	// A row of the page's own project, `project` named after it in Needs you.
+	const renderHere = (
+		row: Needing,
+		nested: boolean,
+		project: string | null,
+	): ReactNode =>
+		row.conversation !== null ? (
+			<Item
+				conversation={row.conversation}
+				agent={agentName(agents, row.conversation.agent)}
+				need={row.need}
+				current={row.conversation.id === open}
+				onOpen={() => openRow(row)}
+				onLeft={
+					row.conversation.id === open
+						? () => goOn(rows, drafts, conversations, open, onOpen)
+						: undefined
+				}
+				hint={held ? hintOf(shown, row) : null}
+				project={project}
+				hosting={hosting.has(row.conversation.id)}
+				nested={nested}
+			/>
+		) : (
+			row.task !== null && (
+				<External
+					task={row.task}
+					need={row.need}
+					copied={copiedFor(drafts, null, row.task, row.need)}
+					seen={seenFor(drafts, null, row.task, row.need)}
+					current={`${TASK}${row.task.task}` === open}
+					onOpen={() => openRow(row)}
+					hint={held ? hintOf(shown, row) : null}
+					project={project}
+					subagent={answersTo(row, conversations) !== null}
+				/>
+			)
+		);
+	const renderRow: RenderRow = (folder, row, nested, named) =>
+		folder.here ? (
+			renderHere(row, nested, named ? folder.name : null)
+		) : (
+			<ForeignItem
+				row={row}
+				agent={
+					row.conversation === null
+						? null
+						: agentName(agents, row.conversation.agent)
+				}
+				project={named ? folder.name : null}
+				hint={held ? hintOf(shown, row) : null}
+				nested={nested}
+				onOpen={() => openEntry({ folder, row })}
+			/>
+		);
+	const beneathOf = (folder: Folder, row: Needing) =>
+		folder.here ? beneath(row) : [];
+	// Waiting on you in other projects, for the waiting line to count and open.
+	const elsewhere = (grouped?.needsYou ?? []).flatMap(({ folder, tree }) =>
+		folder.here
+			? []
+			: flatten([tree])
+					.filter((row) => waitsOnYou(row, drafts, folder.conversations))
+					.map((row) => ({ folder, row })),
+	);
 
 	return (
 		<nav
@@ -244,6 +376,13 @@ export function ConversationList({
 				tasks={tasks}
 				open={open}
 				onOpen={onOpen}
+				elsewhere={elsewhere.length}
+				onElsewhere={() => {
+					const first = elsewhere[0];
+					if (first !== undefined) {
+						openEntry(first);
+					}
+				}}
 			/>
 			{mains.map((each) => (
 				<TerminalRow
@@ -261,52 +400,48 @@ export function ConversationList({
 					}
 				/>
 			))}
-			{/* None, and no list either: an empty one would still take a gap. */}
-			{nested.length > 0 && (
+			{grouped !== null ? (
 				<Placing
 					value={{
 						places: placesOf(nested),
 						agentOf: (each) => agentName(agents, each.agent),
 					}}
 				>
-					<Rows
-						label="conversation list"
-						rows={nested}
-						beneath={beneath}
-						render={(row, nested) =>
-							row.conversation !== null ? (
-								<Item
-									conversation={row.conversation}
-									agent={agentName(agents, row.conversation.agent)}
-									need={row.need}
-									current={row.conversation.id === open}
-									onOpen={() => openRow(row)}
-									onLeft={
-										row.conversation.id === open
-											? () => goOn(rows, drafts, conversations, open, onOpen)
-											: undefined
-									}
-									hint={held ? hintOf(shown, row) : null}
-									hosting={hosting.has(row.conversation.id)}
-									nested={nested}
-								/>
-							) : (
-								row.task !== null && (
-									<External
-										task={row.task}
-										need={row.need}
-										copied={copiedFor(drafts, null, row.task, row.need)}
-										seen={seenFor(drafts, null, row.task, row.need)}
-										current={`${TASK}${row.task.task}` === open}
-										onOpen={() => openRow(row)}
-										hint={held ? hintOf(shown, row) : null}
-										subagent={answersTo(row, conversations) !== null}
-									/>
-								)
-							)
+					<NeedsYou
+						placed={grouped.needsYou}
+						render={renderRow}
+						beneath={beneathOf}
+					/>
+					<FolderList
+						folders={grouped.folders}
+						folded={folded}
+						onFold={fold}
+						onNew={(folder) =>
+							folder.here || folder.project === null
+								? onOpen(NEW)
+								: navigation.show(newConversationUrl(folder.project))
 						}
+						render={renderRow}
+						beneath={beneathOf}
 					/>
 				</Placing>
+			) : (
+				/* None, and no list either: an empty one would still take a gap. */
+				nested.length > 0 && (
+					<Placing
+						value={{
+							places: placesOf(nested),
+							agentOf: (each) => agentName(agents, each.agent),
+						}}
+					>
+						<Rows
+							label="conversation list"
+							rows={nested}
+							beneath={beneath}
+							render={(row, nested) => renderHere(row, nested, null)}
+						/>
+					</Placing>
+				)
 			)}
 			<button
 				type="button"
@@ -327,80 +462,8 @@ export function ConversationList({
 	);
 }
 
-/**
- * A line atop the list saying how many agents wait on you, which opens the next
- * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting, or else the next
- * merged, then unread, one, lighting the line when there is none.
- */
-function NextWaiting({
-	feed,
-	drafts,
-	tasks,
-	open,
-	onOpen,
-}: {
-	feed: ConversationFeed;
-	/** Where a reply copied for an external agent is kept. */
-	drafts: Drafts;
-	tasks: Details[];
-	/** The conversation shown, by id, or `ARCHIVED`. */
-	open: string | null;
-	onOpen: (id: string | null) => void;
-}): JSX.Element {
-	const { conversations } = useReactive(
-		feed,
-		(feed) => ({ conversations: feed.conversations }),
-		["changed"],
-	);
-	const rows = rowsOf(tasks, conversations);
-	useCopiedReplies(drafts);
-	const held = useHeld();
-	const waitingKey = useHeldKey("shortcuts.waiting");
-	// Each time its shortcut finds nothing to open, for the waiting line to say so.
-	const [nudges, setNudges] = useState(0);
-	// The latest, for the listener below, which outlives a render.
-	const next = useRef(() => {});
-	next.current = () => {
-		const waiting = nextWaiting(rows, drafts, conversations, open);
-		if (waiting !== undefined) {
-			arriveAt(openedBy(waiting));
-			onOpen(openedBy(waiting));
-		} else {
-			setNudges((nudges) => nudges + 1);
-		}
-	};
-	useShortcut("shortcuts.waiting", () => next.current());
-
-	return (
-		<WaitingLine
-			waiting={
-				rows.filter((row) => waitsOnYou(row, drafts, conversations)).length
-			}
-			nudges={nudges}
-			hint={held ? waitingKey : null}
-			onNext={() => next.current()}
-		/>
-	);
-}
-
-/**
- * How many agents wait on the person: conversations, and tasks whose agents
- * run outside the page, but for those whose questions were seen or reply
- * copied.
- */
-export function useWaiting(
-	feed: ConversationFeed,
-	drafts: Drafts,
-	tasks: Details[],
-): number {
-	const { conversations } = useReactive(
-		feed,
-		(feed) => ({ conversations: feed.conversations }),
-		["changed"],
-	);
-	useCopiedReplies(drafts);
-	return needs({ tasks, conversations }).filter(
-		({ conversation, task, need }) =>
-			need.kind === "waiting" && !seenFor(drafts, conversation, task, need),
-	).length;
+/** A row as the list shows it, with the folder it is in, or null for none. */
+interface Entry {
+	folder: Folder | null;
+	row: Needing;
 }

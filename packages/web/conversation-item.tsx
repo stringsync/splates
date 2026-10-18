@@ -66,6 +66,7 @@ export function Item({
 	onLeft,
 	where = false,
 	ago = null,
+	project = null,
 	hint = null,
 	hosting = false,
 	nested = false,
@@ -81,6 +82,8 @@ export function Item({
 	where?: boolean;
 	/** How long ago it was archived, as `3h ago`, said after where it ran. */
 	ago?: string | null;
+	/** The project it is in, said after its name, as Needs you names each. */
+	project?: string | null;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
 	hint?: string | null;
 	/** Whether an agent it handed a task to is at work. */
@@ -197,6 +200,11 @@ export function Item({
 				)}
 				{ago !== null && (
 					<span className="shrink-0 text-muted-foreground text-xs">{ago}</span>
+				)}
+				{project !== null && (
+					<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
+						{project}
+					</span>
 				)}
 			</button>
 			<span

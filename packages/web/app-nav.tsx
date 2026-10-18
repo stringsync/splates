@@ -108,6 +108,11 @@ export function AppNav({
 							terminals={terminals}
 							drafts={drafts}
 							tasks={snapshot.tasks}
+							here={{
+								root: snapshot.root,
+								repo: snapshot.repo,
+								trunk: snapshot.trunk,
+							}}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>

@@ -259,6 +259,7 @@ export function External({
 	onOpen,
 	hint = null,
 	subagent = false,
+	project = null,
 }: {
 	task: Details;
 	need: Need;
@@ -272,6 +273,8 @@ export function External({
 	hint?: string | null;
 	/** Whether it answers to a conversation rather than to you. */
 	subagent?: boolean;
+	/** The project it is in, said after its name, as Needs you names each. */
+	project?: string | null;
 }): JSX.Element {
 	const working = need.kind === "working" || need.kind === "assuming";
 	const quiet = quietSince({ task, need }, useNow(working, Duration.mins(1)));
@@ -299,6 +302,11 @@ export function External({
 			>
 				{task.task}
 			</span>
+			{project !== null && (
+				<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
+					{project}
+				</span>
+			)}
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : need.kind === "waiting" && need.why === "abandoned" ? (
