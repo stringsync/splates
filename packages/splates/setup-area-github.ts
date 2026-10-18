@@ -27,22 +27,34 @@ const PROBE_BRANCH = "splates-probe/unnamed";
  */
 const PUSH_RULES = ["creation", "update", "deletion"] as const;
 
-/** How to make the ruleset by hand, in the repository's settings. */
-const RULESET_HOW = `In this repository's **Settings → Rules → Rulesets**, add a branch ruleset that is **Active**, targets **All branches** but excludes \`${PUSHED_PREFIX}*\`, restricts creations, updates and deletions, and lets only **Repository admin** bypass it, the role of the account \`splates server\` pushes trunk with.`;
+/** How to make the rulesets by hand, in the repository's settings. */
+const RULESET_HOW = `In this repository's **Settings → Rules → Rulesets**, add two rulesets that are **Active**, restrict creations, updates and deletions, and let only **Repository admin** bypass them, the role of the account \`splates server\` pushes trunk with. One is a branch ruleset that targets **All branches** but excludes \`${PUSHED_PREFIX}*\`. The other is a tag ruleset that targets **All tags**, since the App's contents permission would let a token push or move a release tag.`;
 
-/** The ruleset, as GitHub's REST API makes it. */
-const RULESET = {
-	name: "splates",
-	target: "branch",
-	enforcement: "active",
-	conditions: {
-		ref_name: { include: ["~ALL"], exclude: [`refs/heads/${PUSHED_PREFIX}*`] },
+/** The rulesets, as GitHub's REST API makes them. */
+const RULESETS = [
+	{
+		name: "splates",
+		target: "branch",
+		conditions: {
+			ref_name: {
+				include: ["~ALL"],
+				exclude: [`refs/heads/${PUSHED_PREFIX}*`],
+			},
+		},
 	},
+	{
+		name: "splates-tags",
+		target: "tag",
+		conditions: { ref_name: { include: ["~ALL"], exclude: [] } },
+	},
+].map((each) => ({
+	...each,
+	enforcement: "active",
 	rules: PUSH_RULES.map((type) => ({ type })),
 	bypass_actors: [
 		{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" },
 	],
-};
+}));
 
 /**
  * Pushing each task's branch to the project's GitHub repository, with a
@@ -129,12 +141,12 @@ function githubArea(): SetupArea {
 
 	const rulesetStep: SetupStep = {
 		id: "github-ruleset",
-		title: "Keep the App to splates branches",
-		why: `A ruleset is what keeps the App's tokens, which workers push with, to \`${PUSHED_PREFIX}*\`: without one they could push trunk.`,
+		title: "Keep the App to splates branches, and off tags",
+		why: `A ruleset is what keeps the App's tokens, which workers push with, to \`${PUSHED_PREFIX}*\`: without one they could push trunk or a release tag.`,
 		user: RULESET_HOW,
-		agent: `Once the user agrees, make it with their own GitHub sign-in (\`gh auth status\`): \`gh api --method POST repos/<owner>/<repo>/rulesets --input -\` with \`${JSON.stringify(RULESET)}\`, the bypass being the Repository admin role. Then run \`splates setup github-ruleset\`.`,
+		agent: `Once the user agrees, make both with their own GitHub sign-in (\`gh auth status\`): \`gh api --method POST repos/<owner>/<repo>/rulesets --input -\` once with each of ${RULESETS.map((each) => `\`${JSON.stringify(each)}\``).join(" and ")}, the bypass being the Repository admin role. Then run \`splates setup github-ruleset\`.`,
 		notDone:
-			"The ruleset does not cover trunk and every other branch yet: make it, then press Next.",
+			"The rulesets do not cover trunk, every other branch and every tag yet: make them, then press Next.",
 		optional: true,
 		after: [installStep],
 		check: async (machine) => {
@@ -157,7 +169,7 @@ function githubArea(): SetupArea {
 					`The ruleset covers \`${PUSHED_PREFIX}*\` too: exclude it, or workers cannot push their branches.`,
 				);
 			}
-			return true;
+			return app.tagsRestricted(repo, PUSH_RULES, token);
 		},
 	};
 

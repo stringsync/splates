@@ -104,6 +104,49 @@ export class GitHubApp {
 	}
 
 	/**
+	 * Whether an active tag ruleset of `repo` puts every rule in `types` on
+	 * every tag, read with one of the App's tokens. The rules endpoint reads
+	 * branches alone, so each tag ruleset is read whole.
+	 */
+	async tagsRestricted(
+		repo: GitHubRepo,
+		types: readonly string[],
+		token: InstallationToken,
+	): Promise<boolean> {
+		const listed = RulesetList.parse(
+			await this.call(
+				"GET",
+				`${repoPath(repo)}/rulesets?targets=tag`,
+				undefined,
+				token.token,
+			),
+		);
+		for (const { id, target, enforcement } of listed) {
+			if (target !== "tag" || enforcement !== "active") {
+				continue;
+			}
+			const ruleset = Ruleset.parse(
+				await this.call(
+					"GET",
+					`${repoPath(repo)}/rulesets/${id}`,
+					undefined,
+					token.token,
+				),
+			);
+			const { include, exclude } = ruleset.conditions?.ref_name ?? {};
+			const kinds = ruleset.rules?.map((rule) => rule.type) ?? [];
+			if (
+				include?.includes("~ALL") &&
+				(exclude ?? []).length === 0 &&
+				types.every((type) => kinds.includes(type))
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * A token that pushes to `repo`'s contents and nothing else, from the
 	 * App's installation there.
 	 */
@@ -218,3 +261,19 @@ const About = z.object({
 	permissions: z.record(z.string(), z.string()),
 });
 const Rules = z.array(z.object({ type: z.string() }));
+const RulesetList = z.array(
+	z.object({ id: z.number(), target: z.string(), enforcement: z.string() }),
+);
+const Ruleset = z.object({
+	conditions: z
+		.object({
+			ref_name: z
+				.object({
+					include: z.array(z.string()),
+					exclude: z.array(z.string()).optional(),
+				})
+				.optional(),
+		})
+		.nullish(),
+	rules: z.array(z.object({ type: z.string() })).nullish(),
+});

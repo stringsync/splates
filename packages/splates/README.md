@@ -66,8 +66,8 @@ pushes `main`, with its machine's own git credentials, and only when the
 remote's `main` is still the commit the checks ran on; then it fast-forwards
 its own `main` checkout. A merge refuses while the local `main` holds commits
 the remote lacks, until they are pushed. Protect `main` with a ruleset that
-lets only the coordinator's identity update it, so the App's tokens, which
-workers push with, reach `splates/*` alone.
+lets only the coordinator's identity update it, and every tag with one, so the
+App's tokens, which workers push with, reach `splates/*` alone.
 
 Setup's GitHub pushing area walks through it for the project it is opened
 from (`splates setup` in its repository, or the page on that project), each
@@ -79,15 +79,24 @@ step checked against GitHub:
    creds above.
 2. `github-install`: install it on the project's repository alone.
 3. `github-ruleset`: in the repository's **Settings → Rules → Rulesets**,
-   an active branch ruleset on **All branches** but `splates/*` that
-   restricts creations, updates and deletions, with only **Repository
-   admin** allowed to bypass it, the role of the account the coordinator
-   pushes `main` with. Or, with your own `gh` sign-in:
+   two active rulesets that restrict creations, updates and deletions, with
+   only **Repository admin** allowed to bypass them, the role of the account
+   the coordinator pushes `main` with: a branch ruleset on **All branches**
+   but `splates/*`, and a tag ruleset on **All tags**, since the App's
+   Contents permission would let a token push or move a release tag. GitHub
+   has no token that pushes branches but not tags. Or, with your own `gh`
+   sign-in, once for each body:
 
    ```sh
    gh api --method POST repos/<owner>/<repo>/rulesets --input - <<'JSON'
    {"name":"splates","target":"branch","enforcement":"active",
     "conditions":{"ref_name":{"include":["~ALL"],"exclude":["refs/heads/splates/*"]}},
+    "rules":[{"type":"creation"},{"type":"update"},{"type":"deletion"}],
+    "bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}]}
+   JSON
+   gh api --method POST repos/<owner>/<repo>/rulesets --input - <<'JSON'
+   {"name":"splates-tags","target":"tag","enforcement":"active",
+    "conditions":{"ref_name":{"include":["~ALL"],"exclude":[]}},
     "rules":[{"type":"creation"},{"type":"update"},{"type":"deletion"}],
     "bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}]}
    JSON

@@ -22,6 +22,8 @@ interface GitHub {
 	installed: boolean;
 	/** The rules on each branch; a branch not here has none. */
 	rules: Record<string, { type: string }[]>;
+	/** The tag rulesets, each with the rules it applies to every tag. */
+	tagRulesets: { enforcement: string; rules: { type: string }[] }[];
 }
 
 describe("GITHUB_AREA", () => {
@@ -38,6 +40,7 @@ describe("GITHUB_AREA", () => {
 				main: PUSH_RULES,
 				"splates-probe/unnamed": PUSH_RULES,
 			},
+			tagRulesets: [{ enforcement: "active", rules: PUSH_RULES }],
 		};
 		remote = "origin";
 		url = "git@github.com:o/r.git";
@@ -112,6 +115,21 @@ describe("GITHUB_AREA", () => {
 		);
 	});
 
+	it("leaves the ruleset to do while tags can be pushed", async () => {
+		github.tagRulesets = [];
+
+		expect((await steps())["github-ruleset"]?.status).toBe("ready");
+	});
+
+	it("does not count a tag ruleset that is not active or lacks a rule", async () => {
+		github.tagRulesets = [
+			{ enforcement: "evaluate", rules: PUSH_RULES },
+			{ enforcement: "active", rules: [{ type: "deletion" }] },
+		];
+
+		expect((await steps())["github-ruleset"]?.status).toBe("ready");
+	});
+
 	it("leaves pushing to turn on while the config names no remote", async () => {
 		remote = null;
 
@@ -163,6 +181,22 @@ function answer(github: GitHub, url: string, method: string): Response {
 		return Response.json({
 			token: "installation-token",
 			expires_at: "2026-10-17T13:00:00Z",
+		});
+	}
+	if (method === "GET" && path === "/repos/o/r/rulesets") {
+		return Response.json(
+			github.tagRulesets.map((each, id) => ({
+				id,
+				target: "tag",
+				enforcement: each.enforcement,
+			})),
+		);
+	}
+	const ruleset = /^\/repos\/o\/r\/rulesets\/(\d+)$/.exec(path)?.[1];
+	if (method === "GET" && ruleset !== undefined) {
+		return Response.json({
+			conditions: { ref_name: { include: ["~ALL"], exclude: [] } },
+			rules: github.tagRulesets[Number(ruleset)]?.rules,
 		});
 	}
 	const branch = /^\/repos\/o\/r\/rules\/branches\/(.+)$/.exec(path)?.[1];
