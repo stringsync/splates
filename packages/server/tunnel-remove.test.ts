@@ -42,6 +42,31 @@ describe("tunnelRemove", () => {
 		expect([...store.values.keys()]).toEqual([API_TOKEN]);
 	});
 
+	it("deletes the workers' policy and the service tokens it lets in, not other tokens", async () => {
+		const { cloudflare, remove } = await account();
+		const app = cloudflare.apps[0] ?? expect.unreachable();
+		const token = (id: string) => ({
+			id,
+			name: "t",
+			duration: "forever",
+			client_id: `${id}.access`,
+			client_secret: "s",
+		});
+		cloudflare.serviceTokens.push(token("w1"), token("w2"), token("mine"));
+		cloudflare.policies.push({
+			id: "workers",
+			name: "splates workers",
+			decision: "non_identity",
+			include: ["w1", "w2"].map((id) => ({ service_token: { token_id: id } })),
+		});
+		app.policies.push({ id: "workers", precedence: 2 });
+
+		await remove();
+
+		expect(cloudflare.policies).toEqual([]);
+		expect(cloudflare.serviceTokens.map(({ id }) => id)).toEqual(["mine"]);
+	});
+
 	it("leaves another record and application alone", async () => {
 		const { cloudflare, remove } = await account();
 		cloudflare.records.push({

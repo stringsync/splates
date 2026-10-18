@@ -231,7 +231,7 @@ export class CloudflareWorkerAccess implements WorkerAccess {
 }
 
 /** The service token ids a policy's `include` lets in. */
-function tokensOf(include: z.output<typeof Include>): string[] {
+export function tokensOf(include: z.output<typeof Include>): string[] {
 	return include.flatMap((each) => {
 		const id = (each.service_token as { token_id?: unknown } | undefined)
 			?.token_id;
