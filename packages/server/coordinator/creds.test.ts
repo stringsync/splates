@@ -31,6 +31,23 @@ describe("MovedCreds", () => {
 		});
 	});
 
+	it("carries what Pulumi needs on the box: the Hetzner token and the state's passphrase", async () => {
+		const creds = new MovedCreds({
+			device: new FakeSecretStore({
+				HCLOUD_TOKEN: "hcloud",
+				PULUMI_CONFIG_PASSPHRASE: "passphrase",
+			}),
+			project: async () => new FakeSecretStore(),
+		});
+
+		const { device } = await creds.carried([]);
+
+		expect(device).toEqual({
+			HCLOUD_TOKEN: "hcloud",
+			PULUMI_CONFIG_PASSPHRASE: "passphrase",
+		});
+	});
+
 	it("keeps what it carried in the box's stores", async () => {
 		const device = new FakeSecretStore();
 		const project = new FakeSecretStore();

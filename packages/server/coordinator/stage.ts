@@ -122,7 +122,7 @@ async function placeOn(
  * Copies `from` to `to`, a file or a tree, leaving out locks, which name
  * this machine's processes, and passing each record and log through `edit`.
  */
-async function copyTree(
+export async function copyTree(
 	fs: Fs,
 	from: string,
 	to: string,

@@ -190,6 +190,23 @@ describe("CoordinatorMove", () => {
 		expect(await fs.exists(`${HOME}/move`)).toBe(false);
 	});
 
+	it("leaves the box's own stack in this machine's Pulumi state, but not the workers'", async () => {
+		const stacks = `${HOME}/pulumi/state/.pulumi/stacks`;
+		await fs.write(`${HOME}/pulumi/state/.pulumi/meta.yaml`, "version: 1");
+		await fs.write(`${stacks}/splates-coordinator/coordinator.json`, "{}");
+		await fs.write(`${stacks}/splates-workers/owl.json`, "{}");
+
+		await new CoordinatorMove(opts).run();
+
+		expect(
+			await fs.exists(`${stacks}/splates-coordinator/coordinator.json`),
+		).toBe(true);
+		expect(await fs.exists(`${HOME}/pulumi/state/.pulumi/meta.yaml`)).toBe(
+			true,
+		);
+		expect(await fs.exists(`${stacks}/splates-workers/owl.json`)).toBe(false);
+	});
+
 	it("takes the box's server down again when it does not come up, leaving this machine's records", async () => {
 		ps.starts = false;
 

@@ -2,7 +2,13 @@ import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { splatesHome } from "../models";
-import { HCLOUD_TOKEN, Pulumi } from "../workers";
+import {
+	HCLOUD_TOKEN,
+	PULUMI_VERSION,
+	Pulumi,
+	pulumiInstallCommand,
+	pulumiPaths,
+} from "../workers";
 
 /**
  * The coordinator's always-on box in the user's own Hetzner Cloud account,
@@ -223,7 +229,8 @@ export const KEYRING_PASSWORD = "/root/splates-keyring";
 /** The user splates runs as on the box, as on a worker. */
 export const BOX_USER = "splates";
 
-const BOX_PROJECT = "splates-coordinator";
+/** The Pulumi project the box's stack is in. */
+export const BOX_PROJECT = "splates-coordinator";
 const STACK = "coordinator";
 
 const Outputs = z.object({
@@ -309,7 +316,7 @@ const BOX_PROGRAM = {
 
 /**
  * The box's first-boot script: git, bun and splates `version` for
- * `BOX_USER`; cloudflared, which carries the saved tunnel to the
+ * `BOX_USER`; Pulumi, for the workers the coordinator makes; cloudflared, which carries the saved tunnel to the
  * coordinator once it runs here; and GNOME Keyring, the Secret Service
  * `Bun.secrets` keeps creds in on Linux, with the password that unlocks it
  * at boot made now, readable by root alone, for the service to be handed.
@@ -331,8 +338,19 @@ export function installScript(version: string): string {
 		`id ${BOX_USER} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ${BOX_USER}`,
 		as("curl -fsSL https://bun.sh/install | bash"),
 		as(`${bun}/bun add -g @stringsync/splates@${version}`),
+		as(boxPulumiInstall()),
 		"apt-get clean",
 		"rm -rf /var/lib/apt/lists/*",
 		"",
 	].join("\n");
+}
+
+/**
+ * The command, for `BOX_USER`, that installs Pulumi under its `~/.splates`
+ * unless the right version is there: the move does not carry the Mac's
+ * build, so the box has its own.
+ */
+export function boxPulumiInstall(): string {
+	const { root, bin } = pulumiPaths(`/home/${BOX_USER}/.splates`);
+	return `${bin} version 2>/dev/null | grep -q "${PULUMI_VERSION}" || ( ${pulumiInstallCommand(root)} )`;
 }

@@ -83,6 +83,7 @@ export {
 	PULUMI_VERSION,
 	Pulumi,
 	pulumiEnv,
+	pulumiInstallCommand,
 	pulumiPaths,
 } from "./pulumi";
 export type { QueueListing } from "./queue";

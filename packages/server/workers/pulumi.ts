@@ -109,6 +109,22 @@ export const PULUMI_PASSPHRASE = "PULUMI_CONFIG_PASSPHRASE";
 /** The Pulumi CLI version splates installs, so every machine drives the same one. */
 export const PULUMI_VERSION = "3.270.0";
 
+/**
+ * The `sh` command that installs Pulumi `PULUMI_VERSION` into `root`, as
+ * Pulumi's official install script does, on any OS it builds for.
+ */
+export function pulumiInstallCommand(root: string): string {
+	return `curl -fsSL https://get.pulumi.com | sh -s -- --version ${PULUMI_VERSION} --install-root ${shellWord(root)} --no-edit-path --silent`;
+}
+
+/** `text` as one word of a POSIX shell, bare when it needs no quoting. */
+function shellWord(text: string): string {
+	if (/^[\w/.@%+=:,-]+$/.test(text)) {
+		return text;
+	}
+	return `'${text.replaceAll("'", `'\\''`)}'`;
+}
+
 /** Pulumi's places under `home`, splates's own `~/.splates`. */
 export function pulumiPaths(home: string): PulumiPaths {
 	const root = `${home}/pulumi`;

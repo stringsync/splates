@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { boxPulumiInstall, installScript } from "./box";
 import { addKeyUrl } from "./move";
 import { movedProjects } from "./paths";
 import {
@@ -8,6 +9,7 @@ import {
 	KEYRING_RUN_SCRIPT,
 	placeScript,
 	readClones,
+	shellQuoted,
 	startScript,
 	unitText,
 	upgradeScript,
@@ -40,6 +42,18 @@ describe("the box's scripts", () => {
 		];
 
 		expect(scripts.map(parses)).toEqual(scripts.map(() => ""));
+	});
+
+	it("installs Pulumi for the box's user, in the home its worker provider reads", () => {
+		const install = boxPulumiInstall();
+
+		expect(install).toContain("--install-root /home/splates/.splates/pulumi");
+		expect(install).toContain(
+			"/home/splates/.splates/pulumi/bin/pulumi version",
+		);
+		expect(upgradeScript("1.2.3")).toContain(shellQuoted(install));
+		expect(installScript("1.2.3")).toContain(`'${install}'`);
+		expect(parses(installScript("1.2.3"))).toBe("");
 	});
 
 	it("hands the box's user a script that parses too", () => {

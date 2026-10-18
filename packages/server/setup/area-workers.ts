@@ -18,6 +18,7 @@ import {
 	PULUMI_PASSPHRASE,
 	PULUMI_VERSION,
 	pulumiEnv,
+	pulumiInstallCommand,
 	pulumiPaths,
 	Snapshots,
 	WORKER_LIMITS,
@@ -242,13 +243,7 @@ function workersArea(): SetupArea {
 		submit: async (machine) => {
 			const { root } = pulumiPaths(machine.home);
 			const installed = await ps(machine).spawnCapture(
-				[
-					"sh",
-					"-c",
-					`curl -fsSL https://get.pulumi.com | sh -s -- --version ${PULUMI_VERSION} --install-root "$1" --no-edit-path --silent`,
-					"sh",
-					root,
-				],
+				["sh", "-c", pulumiInstallCommand(root)],
 				{ timeoutMs: INSTALL_MS },
 			);
 			if (installed.exitCode !== 0) {
