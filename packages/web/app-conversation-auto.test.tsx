@@ -97,7 +97,7 @@ describe("App's Auto", () => {
 	it("draws the pick as a line, what the judge found after it and every reason on hover", async () => {
 		const line = await lineFor(["a well-specified edit"]);
 		expect(line.textContent).toBe(
-			"Auto pickedHaiku 5.5, low effort: a well-specified edit",
+			"Auto picked Haiku 5.5, low effort: a well-specified edit",
 		);
 		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
 			"judged: a well-specified edit\nneeds tier 1 of 4",
@@ -107,7 +107,7 @@ describe("App's Auto", () => {
 	it("says no judge was asked when none was", async () => {
 		const line = await lineFor(null);
 		expect(line.textContent).toBe(
-			"Auto pickedHaiku 5.5, low effort: no judge to ask",
+			"Auto picked Haiku 5.5, low effort: no judge to ask",
 		);
 	});
 });

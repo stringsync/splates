@@ -375,10 +375,11 @@ const DICTATED_MIC =
  * Lines of a message shown before it is clicked open: one on a phone, four
  * on a wider screen. On a phone it sets the words' line height, so `1lh` is
  * one line of them, or shows the row of chips a message starts with, which
- * stands taller than a line.
+ * stands taller than a line. Keep two lines of words below leading chips so
+ * the collapsed message still says what the person asked.
  */
 const CLAMP =
-	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-7";
+	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-[calc(2.25rem+2lh)]";
 /**
  * Where a cut message fades: its last lines on a wider screen. On a phone its
  * one line ends in an ellipsis instead (`CUT_LINE`), since a fade at its end

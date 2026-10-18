@@ -202,8 +202,15 @@ function Line({
 	);
 }
 
-/** Words whole, and the names between them each cut short where room runs out. */
+/** Plain descriptions wrap; names between short words give way where room runs out. */
 function Words({ words }: { words: Words }): ReactNode {
+	if (words.length === 1 && typeof words[0] === "string") {
+		return (
+			<span className="min-w-0 whitespace-normal wrap-anywhere text-center">
+				{words[0]}
+			</span>
+		);
+	}
 	return words.map((word, index) =>
 		typeof word === "string" ? (
 			// biome-ignore lint/suspicious/noArrayIndexKey: words never move

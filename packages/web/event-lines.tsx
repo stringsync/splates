@@ -197,7 +197,7 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 				? "nothing hard in it"
 				: event.signs.join(", ");
 	return {
-		words: ["Auto picked", `${picked}: ${found}`],
+		words: [`Auto picked ${picked}: ${found}`],
 		title: why.join("\n"),
 		at: event.at,
 	};
