@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { rememberPlace } from "./project-places";
 import {
 	act,
 	cleanup,
@@ -19,7 +18,7 @@ function visit(url: string): void {
 	).happyDOM.setURL(url);
 }
 
-describe("App's pages picking their project", () => {
+describe("App's pages and the project switcher", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -53,37 +52,19 @@ describe("App's pages picking their project", () => {
 		resize(1024, 768);
 	});
 
-	it("heads Todos, Budget and Creds with the project they show", async () => {
+	it("leaves the switcher off every page's bar, for the sidebar's head", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
-		await goTo(view, "Todos");
-		expect(await switcherIn(view)).toBe("webappwiz");
-		await goTo(view, "Budget");
-		expect(await switcherIn(view)).toBe("webappwiz");
-		await goTo(view, "Creds");
-		expect(await switcherIn(view)).toBe("webappwiz");
-	});
-
-	it("leaves the switcher off a page that shows every project", async () => {
-		const view = await testing.open();
-		await goTo(view, "Tasks");
-
-		const bar = await barOf(view);
+		const switchers = [
+			await switcherOn(view, "Todos"),
+			await switcherOn(view, "Tasks"),
+			await switcherOn(view, "Budget"),
+			await switcherOn(view, "Creds"),
+		];
+		expect(switchers).toEqual([null, null, null, null]);
 		expect(
-			within(bar).queryByRole("button", { name: /^Switch project/ }),
-		).toBeNull();
-	});
-
-	it("stays on the page picked from, whatever page the other project was left on", async () => {
-		rememberPlace("shop", { hash: "#tasks" });
-		const view = await testing.open();
-		await goTo(view, "Creds");
-
-		await pickInBar(view, "/code/shop");
-
-		const there = new URL(String(testing.visited[0]));
-		expect(there.search).toBe("?project=shop");
-		expect(there.hash).toBe("#creds");
+			view.getByRole("button", { name: /^Switch project/ }).textContent,
+		).toBe("webappwiz");
 	});
 
 	it("counts nothing beside the sidebar's Todos and Tasks", async () => {
@@ -98,7 +79,7 @@ describe("App's pages picking their project", () => {
 		]).toEqual(["Todos", "Tasks"]);
 	});
 
-	it("heads a phone's page with the switcher too, and counts nothing in the drawer", async () => {
+	it("heads a phone's drawer with the switcher, and counts nothing in it", async () => {
 		resize(390, 844);
 		const view = await testing.open({
 			repo: "webappwiz",
@@ -111,6 +92,9 @@ describe("App's pages picking their project", () => {
 			within(drawer).getByRole("button", { name: "Todos" }).textContent,
 			within(drawer).getByRole("button", { name: "Tasks" }).textContent,
 		]).toEqual(["Todos", "Tasks"]);
+		expect(
+			within(drawer).getByRole("button", { name: /^Switch project/ }),
+		).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
@@ -118,8 +102,8 @@ describe("App's pages picking their project", () => {
 		const bar = await barOf(view);
 		expect(within(bar).getByRole("heading", { name: "Creds" })).toBeTruthy();
 		expect(
-			within(bar).getByRole("button", { name: /^Switch project/ }),
-		).toBeTruthy();
+			within(bar).queryByRole("button", { name: /^Switch project/ }),
+		).toBeNull();
 	});
 });
 
@@ -160,26 +144,15 @@ async function barOf(view: ReturnType<typeof within>): Promise<HTMLElement> {
 	});
 }
 
-/** What the switcher in the page's bar names. */
-async function switcherIn(view: ReturnType<typeof within>): Promise<string> {
+/** What a switcher in the bar of the page `name` names, or null when it has none. */
+async function switcherOn(
+	view: ReturnType<typeof within>,
+	name: string,
+): Promise<string | null> {
+	await goTo(view, name);
 	const bar = await barOf(view);
 	return (
-		within(bar).getByRole("button", { name: /^Switch project/ }).textContent ??
-		""
+		within(bar).queryByRole("button", { name: /^Switch project/ })
+			?.textContent ?? null
 	);
-}
-
-/** Opens the switcher in the page's bar and picks the project at `root`. */
-async function pickInBar(
-	view: ReturnType<typeof within>,
-	root: string,
-): Promise<void> {
-	const bar = await barOf(view);
-	await act(async () =>
-		fireEvent.click(
-			within(bar).getByRole("button", { name: /^Switch project/ }),
-		),
-	);
-	const project = await waitFor(() => view.getByText(root));
-	await act(async () => fireEvent.click(project));
 }

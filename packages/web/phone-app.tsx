@@ -12,7 +12,6 @@ import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
 import { NextWaiting, WaitingBadge } from "./phone-thread";
-import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
@@ -23,15 +22,13 @@ import { BarButton, TopBarFrame } from "./top-bar";
  * back, and every other page sits under a bar whose menu opens the drawer and
  * whose pen, as the inbox's, starts a new conversation, then how many agents
  * wait on you, at the end of every bar but the inbox's. Branding and the project
- * switcher head the drawer, and a page that shows one project of several has
- * a switcher in its bar too. Every bar's kebab holds the page menu.
+ * switcher head the drawer. Every bar's kebab holds the page menu.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
 	page,
 	open,
 	go,
-	name,
 	header,
 	offline,
 	body,
@@ -47,8 +44,6 @@ export function PhoneApp({
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null, how?: Move) => void;
-	/** The project's name. */
-	name: string;
 	/** The project's header, which heads the drawer. */
 	header: ReactNode;
 	/** Whether the server stopped answering, said beside the name. */
@@ -172,7 +167,6 @@ export function PhoneApp({
 								...kebab,
 								slot,
 								status,
-								project: <ProjectSwitcher name={name} bar />,
 							}}
 						>
 							{body}

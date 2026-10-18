@@ -4,20 +4,24 @@ import { cn } from "#web/lib/utils.ts";
 import type { MachineStatus } from "./api";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { MachineBadge } from "./machine";
+import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
 
 /**
  * Heads a phone's drawer, as tall as the bar beside it, its border in line
- * with the bar's: the slot mark and the server's state, then how a restart goes and why a
+ * with the bar's: the slot mark, the project switcher and the server's state, then how a restart goes and why a
  * checkpoint could not start, under the row when they show. The page menu
  * is in every bar's kebab.
  */
 export function AppHeader({
+	name,
 	snapshot,
 	outdated,
 	offline,
 	machine,
 }: {
+	/** The project's name. */
+	name: string;
 	snapshot: Snapshot | null;
 	/** Why a newer splates has the server refusing, or null. */
 	outdated: string | null;
@@ -28,6 +32,7 @@ export function AppHeader({
 		<header className="flex min-w-0 flex-col">
 			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
 				<SlotMark snapshot={snapshot} />
+				<ProjectSwitcher name={name} keyed={false} />
 				<ServerBadges
 					snapshot={snapshot}
 					outdated={outdated}

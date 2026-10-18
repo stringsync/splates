@@ -50,20 +50,18 @@ export function foldersOf(
 	if (!listed.some((each) => each.here)) {
 		listed.push(folder(null, here, null, true, drafts));
 	}
-	const byName = (one: Folder, other: Folder) =>
-		one.name.localeCompare(other.name) ||
-		(one.project ?? "").localeCompare(other.project ?? "");
 	const folders = listed
 		.filter((each) => each.here || each.trees.length > 0)
-		.sort(byName);
+		.sort(
+			(one, other) =>
+				one.name.localeCompare(other.name) ||
+				(one.project ?? "").localeCompare(other.project ?? ""),
+		);
 	return {
 		needsYou: folders.flatMap((each) =>
 			each.waiting.map((tree) => ({ folder: each, tree })),
 		),
 		folders,
-		idle: listed
-			.filter((each) => !each.here && each.trees.length === 0)
-			.sort(byName),
 	};
 }
 
@@ -104,8 +102,6 @@ export interface Folders {
 	 * whatever it has.
 	 */
 	folders: Folder[];
-	/** By name, the other projects, with no agent listed, which fold into one row. */
-	idle: Folder[];
 }
 
 /** The page's own project, as its snapshot and conversation feed have it. */
@@ -121,13 +117,6 @@ export interface Here {
 export function hereAlone(here: Here, drafts: Drafts): Folders {
 	return foldersOf([], [], [], here, drafts);
 }
-
-/**
- * Where the sidebar keeps the idle projects' row open, which starts folded:
- * `useFolded`'s set read the other way round, `MORE` in it meaning open.
- */
-export const OPENED_MORE = "splates.sidebar.moreOpen";
-export const MORE = "more";
 
 /** What a folder's fold is kept under. */
 export function folderKey(folder: Folder): string {

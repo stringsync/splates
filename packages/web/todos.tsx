@@ -298,7 +298,6 @@ function TodosBar({
 	return (
 		<TopBar
 			title="Todos"
-			project
 			actions={[
 				shownLanes({
 					lanes,

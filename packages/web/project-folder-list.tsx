@@ -136,65 +136,6 @@ export function FolderList({
 }
 
 /**
- * The projects with no agent listed, folded into one row under the folders,
- * so each still has a place to start a conversation in without a folder of
- * its own. Nothing while every project has one.
- */
-export function MoreProjects({
-	idle,
-	open,
-	onFold,
-	onNew,
-}: {
-	idle: Folder[];
-	open: boolean;
-	onFold: (open: boolean) => void;
-	onNew: (folder: Folder) => void;
-}): ReactNode {
-	if (idle.length === 0) {
-		return null;
-	}
-	return (
-		<Collapsible
-			open={open}
-			onOpenChange={onFold}
-			render={<section aria-label="More projects" />}
-			className="group/more mt-2 flex flex-col"
-		>
-			<CollapsibleTrigger className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-				<ChevronRightIcon
-					aria-hidden
-					className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/more:rotate-90"
-				/>
-				<span className="min-w-0 truncate">
-					{idle.length} more {idle.length === 1 ? "project" : "projects"}
-				</span>
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<ul className="flex flex-col">
-					{idle.map((folder) => (
-						<li key={folderKey(folder)}>
-							<button
-								type="button"
-								title={`New conversation in ${folder.name}`}
-								onClick={() => onNew(folder)}
-								className="group/idle flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 pl-7 text-left text-muted-foreground text-xs outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40"
-							>
-								<span className="min-w-0 flex-1 truncate">{folder.name}</span>
-								<PlusIcon
-									aria-hidden
-									className="size-3.5 shrink-0 opacity-0 group-hover/idle:opacity-100 group-focus-visible/idle:opacity-100 pointer-coarse:opacity-100"
-								/>
-							</button>
-						</li>
-					))}
-				</ul>
-			</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
-/**
  * A row of another project's, which this page holds no actions for: its
  * mark and its name, opening its project's page at it.
  */

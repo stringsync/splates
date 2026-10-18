@@ -12,7 +12,6 @@ import { useShortcut } from "./hooks/use-shortcut";
 import { ShownRoot } from "./new-conversation-project";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
-import { ProjectSwitcher } from "./projects";
 import { Sidebar } from "./sidebar";
 import { SidebarHead } from "./sidebar-head";
 import type { Terminals } from "./terminals";
@@ -112,7 +111,6 @@ export function DesktopApp({
 		),
 		menu: menu.items,
 		dot: menu.dot,
-		project: <ProjectSwitcher name={name} bar />,
 	};
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>
@@ -129,7 +127,7 @@ export function DesktopApp({
 					)}
 					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 				>
-					<SidebarHead snapshot={snapshot} sidebar={sidebar} />
+					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
 					{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 					<header

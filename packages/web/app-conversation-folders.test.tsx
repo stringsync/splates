@@ -86,12 +86,12 @@ describe("App's sidebar, in a folder per project", () => {
 				expect.stringContaining("Zebra brokezebra"),
 			]),
 		);
-		// By name, a project with no agent left to the row after them.
+		// By name, leaving out a project with no agent.
 		expect(
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["Needs you", "webappwiz", "zebra", "More projects"]);
+		).toEqual(["Needs you", "webappwiz", "zebra"]);
 		const zebra = within(nav).getByRole("region", { name: "zebra" });
 		expect(within(zebra).getByRole("button", { name: /Stripes/ })).toBeTruthy();
 		expect(
@@ -155,43 +155,6 @@ describe("App's sidebar, in a folder per project", () => {
 		const folded = within(again.nav).getByRole("region", { name: "zebra" });
 		expect(
 			within(folded).queryByRole("button", { name: /Stripes/ }),
-		).toBeNull();
-	});
-
-	it("folds the projects with no agent into one row, which starts a conversation in one and stays open", async () => {
-		const { nav } = await sidebar();
-		const more = within(nav).getByRole("region", { name: "More projects" });
-		expect(within(more).queryByRole("button", { name: "apple" })).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(
-				within(more).getByRole("button", { name: "1 more project" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(within(more).getByRole("button", { name: "apple" })),
-		);
-
-		const there = new URL(String(testing.visited[0]));
-		expect(there.searchParams.get("project")).toBe("apple");
-		expect(there.hash).toBe("#conversations/new");
-		cleanup();
-
-		const again = await sidebar();
-		const opened = within(again.nav).getByRole("region", {
-			name: "More projects",
-		});
-		expect(within(opened).getByRole("button", { name: "apple" })).toBeTruthy();
-	});
-
-	it("leaves the row out while every project has an agent", async () => {
-		testing.everywhere = (testing.everywhere ?? []).filter(
-			(each) => each.project !== "apple",
-		);
-		const { nav } = await sidebar();
-
-		expect(
-			within(nav).queryByRole("region", { name: "More projects" }),
 		).toBeNull();
 	});
 });
