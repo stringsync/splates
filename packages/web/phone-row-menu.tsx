@@ -24,8 +24,10 @@ import {
 	pinConversation,
 	renameConversation,
 } from "./conversation-api";
-import { useArchive } from "./conversation-item";
+import { useArchive } from "./conversation-archive";
+import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
+import { useExpect } from "./expecting";
 import { useHandedOutBy } from "./handed-out";
 import { Swipeable } from "./phone-swipe";
 import type { Refuse } from "./refusal";
@@ -171,6 +173,7 @@ function RowMenu({
 	const handedOut = useHandedOutBy(conversation) !== null;
 	const places = usePlaces(conversation);
 	const [moving, setMoving] = useState(false);
+	const expect = useExpect();
 	const { id, archived } = conversation;
 	const close = () => {
 		onOpenChange(false);
@@ -189,9 +192,11 @@ function RowMenu({
 		box.current?.select();
 	};
 	const save = () => {
-		void renameConversation(id, value).catch((error: unknown) =>
-			refuse("Not renamed", error),
-		);
+		void expect(
+			id,
+			{ name: nameIn(value) },
+			renameConversation(id, value),
+		).catch((error: unknown) => refuse("Not renamed", error));
 		close();
 	};
 	return (
@@ -259,7 +264,11 @@ function RowMenu({
 										icon={<CircleDotIcon />}
 										onClick={() => {
 											close();
-											void markUnread(id, true).catch((error: unknown) =>
+											void expect(
+												id,
+												{ unread: true },
+												markUnread(id, true),
+											).catch((error: unknown) =>
 												refuse("Not marked unread", error),
 											);
 										}}
@@ -283,12 +292,15 @@ function RowMenu({
 										icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
 										onClick={() => {
 											close();
-											void pinConversation(id, !conversation.pinned).catch(
-												(error: unknown) =>
-													refuse(
-														conversation.pinned ? "Not unpinned" : "Not pinned",
-														error,
-													),
+											void expect(
+												id,
+												{ pinned: !conversation.pinned },
+												pinConversation(id, !conversation.pinned),
+											).catch((error: unknown) =>
+												refuse(
+													conversation.pinned ? "Not unpinned" : "Not pinned",
+													error,
+												),
 											);
 										}}
 									>

@@ -39,8 +39,9 @@ import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { Filed, type useLongPress } from "./phone-row-menu";
-import { Refusal, useRefusal } from "./refusal";
+import { Refusal } from "./refusal";
 import { Placing, placesOf } from "./reparent";
+import { useRowRefusal } from "./row-refusal";
 import { LaneIcon, TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
@@ -332,7 +333,9 @@ function Row({
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const { text, urgent } = statusOf(row, name, trunk);
 	const moved = movedAt(row);
-	const { refusal, refuse } = useRefusal();
+	const { refusal, refuse } = useRowRefusal(
+		conversation?.id ?? `task ${task?.task}`,
+	);
 	const button = (press: Partial<ReturnType<typeof useLongPress>>) => (
 		<button
 			type="button"

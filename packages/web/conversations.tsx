@@ -5,7 +5,14 @@ import type { Details } from "@stringsync/splates/show";
 import type { TodoState } from "@stringsync/splates/todo";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
-import { type JSX, useContext, useEffect, useMemo, useState } from "react";
+import {
+	type JSX,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Duration } from "webappwiz/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
@@ -32,6 +39,7 @@ import { Home } from "./conversation-home";
 import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import { useExpect } from "./expecting";
 import { useNow } from "./hooks/use-now";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
@@ -325,14 +333,24 @@ function useRead(conversation: ConversationState | null): void {
 		observer.events.on("change", check);
 		return () => observer.dispose();
 	}, []);
+	const expect = useExpect();
+	// The one whose marking was refused, which shows it unread again: that is
+	// no new turn to mark read, and marking it again would go round for good.
+	const refused = useRef<string | null>(null);
 	const id = conversation?.id ?? null;
 	const unread = conversation?.unread ?? false;
 	useEffect(() => {
+		if (refused.current === id) {
+			refused.current = null;
+			return;
+		}
 		if (id !== null && unread && inFront) {
 			// Nothing to tell anyone: the dot stays until the next try.
-			markUnread(id, false).catch(() => {});
+			expect(id, { unread: false }, markUnread(id, false)).catch(() => {
+				refused.current = id;
+			});
 		}
-	}, [id, unread, inFront]);
+	}, [id, unread, inFront, expect]);
 }
 
 /**

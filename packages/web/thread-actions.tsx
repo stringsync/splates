@@ -24,7 +24,7 @@ import {
 	promptConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import { useArchive } from "./conversation-item";
+import { useArchive } from "./conversation-archive";
 import { promptFor } from "./dispatch";
 import { AssigneeItems, Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";

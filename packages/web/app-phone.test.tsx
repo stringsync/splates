@@ -238,16 +238,16 @@ describe("App on a phone", () => {
 		);
 		const inbox = view.getByRole("region", { name: "inbox" });
 		// As Android holds a row: the finger down, then the context menu.
-		const hold = async () => {
-			const row = within(inbox).getByRole("button", { name: /Fix login/ });
+		const hold = async (name: string) => {
+			const row = within(inbox).getByRole("button", { name: RegExp(name) });
 			await act(async () => {
 				fireEvent.pointerDown(row);
 				fireEvent.contextMenu(row);
 			});
-			return view.getByRole("dialog", { name: "Fix login" });
+			return view.getByRole("dialog", { name });
 		};
 
-		let menu = await hold();
+		let menu = await hold("Fix login");
 		// The press opens the menu, not the conversation.
 		expect(location.hash).not.toBe("#conversations/c1");
 		await act(async () =>
@@ -265,8 +265,12 @@ describe("App on a phone", () => {
 		expect(testing.posted("/api/conversations/c1/name")).toEqual([
 			{ method: "PUT", body: { name: "Login" } },
 		]);
+		// Before the server streams it back.
+		expect(
+			within(inbox).getByRole("button", { name: /Login/ }).textContent,
+		).toStartWith("Login");
 
-		menu = await hold();
+		menu = await hold("Login");
 		await act(async () =>
 			fireEvent.click(
 				within(menu).getByRole("button", { name: "Mark as unread" }),
@@ -276,13 +280,18 @@ describe("App on a phone", () => {
 			{ method: "PUT", body: { unread: true } },
 		]);
 
-		menu = await hold();
+		menu = await hold("Login");
+		// Marked unread already, so it offers that no more.
+		expect(
+			within(menu).queryByRole("button", { name: "Mark as unread" }),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(menu).getByRole("button", { name: "Archive" })),
 		);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+		expect(within(inbox).queryByRole("button", { name: /Login/ })).toBeNull();
 	});
 
 	it("archives a conversation swiped left on its inbox row, asking first when its agent is at work", async () => {

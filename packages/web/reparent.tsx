@@ -14,6 +14,7 @@ import { AgentIcon } from "./agent-icons";
 import { reparentConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { flatten } from "./conversation-rows";
+import { useExpect } from "./expecting";
 import { Held, useHandedOutBy } from "./handed-out";
 import type { Nested } from "./parts";
 import type { Refuse } from "./refusal";
@@ -95,12 +96,16 @@ export function MoveUnder({
 	const { agentOf } = useContext(Placing);
 	const { startedBy } = conversation;
 	const starter = useContext(Held).find((each) => each.id === startedBy);
+	const expect = useExpect();
 	const move = (parent: string | null) => {
 		onOpenChange(false);
 		if (parent !== places.under) {
-			void reparentConversation(conversation.id, parent).catch(
-				(error: unknown) => refuse("Not moved", error),
-			);
+			// Cut loose from whoever started it, as the server does.
+			void expect(
+				conversation.id,
+				{ parent: { id: parent }, startedBy: null, lastCaller: null },
+				reparentConversation(conversation.id, parent),
+			).catch((error: unknown) => refuse("Not moved", error));
 		}
 	};
 	return (

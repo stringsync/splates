@@ -18,6 +18,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { scoped } from "./api";
+import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
 
 /** How long a message goes unanswered before the page says it is still sending. */
@@ -27,10 +28,7 @@ export type ConversationFeedEvents = { changed: undefined };
 
 /** A message on its way: its words, and its files read from the page's own copies. */
 export interface Sending {
-	/**
-	 * The page's id for it, sent with it for the server to keep on its own
-	 * copy, which is how the page knows that copy when it comes back.
-	 */
+	/** The page's id for it, which the server's own copy of it carries back. */
 	id: string;
 	text: string;
 	images: Image[];
@@ -58,7 +56,7 @@ export interface Unsent {
  * conversations. The phone still keeps its Inbox as home.
  */
 export class ConversationFeed
-	implements Eventful<ConversationFeedEvents>, Resource
+	implements Eventful<ConversationFeedEvents>, Expecter, Resource
 {
 	private readonly dispatcher = new Dispatcher<ConversationFeedEvents>();
 	readonly events = this.dispatcher.events;
@@ -74,6 +72,8 @@ export class ConversationFeed
 	/** Each conversation's refused messages, in the order refused, replaced whole as they change. */
 	readonly unsent = new Map<string, readonly Unsent[]>();
 
+	/** Each conversation's changes on their way, by id, in the order made (see `expect`). */
+	private readonly expected = new Map<string, Expected[]>();
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
 	/**
@@ -117,10 +117,12 @@ export class ConversationFeed
 			}
 		}
 		this.unsent.clear();
+		this.expected.clear();
 	}
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
 	put(state: ConversationState): void {
+		this.settle(state.id, this.changes);
 		this.changedAt.set(state.id, this.changes++);
 		const at = this.recorded.findIndex((each) => each.id === state.id);
 		this.show(
@@ -133,7 +135,75 @@ export class ConversationFeed
 	/** Drops conversation `id`, deleted as an older archived one. */
 	drop(id: string): void {
 		this.changedAt.set(id, this.changes++);
+		this.expected.delete(id);
 		this.show(this.recorded.filter((each) => each.id !== id));
+	}
+
+	/**
+	 * Shows `expectation` over conversation `id` at once, while `write`, the
+	 * request that makes it, is on its way, so an action shows at the click
+	 * rather than on the server's push. It stays over whatever the server
+	 * streams meanwhile, and goes once `write` lands and the server's copy
+	 * holds it, or the next copy streams: the server streams its state before
+	 * it answers, so that copy is there or on its way. Refused, it goes at once
+	 * and the promise rejects with why, for the caller to say. Every page
+	 * action on a conversation's own state goes through here, so each shows
+	 * the same way; `recorded` stays the server's word.
+	 */
+	async expect(
+		id: string,
+		expectation: Expectation,
+		write: Promise<unknown>,
+	): Promise<void> {
+		const expected: Expected = {
+			patch:
+				typeof expectation === "function"
+					? expectation
+					: (state) => ({ ...state, ...expectation }),
+			landed: null,
+		};
+		this.expected.set(id, [...(this.expected.get(id) ?? []), expected]);
+		this.show(this.recorded);
+		try {
+			await write;
+		} catch (error) {
+			this.unexpect(id, expected);
+			throw error;
+		}
+		expected.landed = this.changes;
+		const held = this.recorded.find((each) => each.id === id);
+		if (held === undefined || holds(held, expected.patch)) {
+			this.unexpect(id, expected);
+		}
+	}
+
+	/** Stops showing `expected` over conversation `id`. */
+	private unexpect(id: string, expected: Expected): void {
+		const left = (this.expected.get(id) ?? []).filter(
+			(each) => each !== expected,
+		);
+		if (left.length === 0) {
+			this.expected.delete(id);
+		} else {
+			this.expected.set(id, left);
+		}
+		this.show(this.recorded);
+	}
+
+	/**
+	 * Gives up the changes whose writes landed before `since`, the count at
+	 * which a copy of conversation `id` the server sent was asked for: that copy
+	 * holds them, or the server made them otherwise.
+	 */
+	private settle(id: string, since: number): void {
+		const left = (this.expected.get(id) ?? []).filter(
+			(each) => each.landed === null || each.landed > since,
+		);
+		if (left.length === 0) {
+			this.expected.delete(id);
+		} else {
+			this.expected.set(id, left);
+		}
 	}
 
 	/**
@@ -283,33 +353,38 @@ export class ConversationFeed
 
 	private show(recorded: ConversationState[]): void {
 		this.recorded = recorded;
-		this.conversations = recorded.map((each) => {
-			const sending = this.sending.get(each.id);
-			if (sending === undefined) {
-				return each;
-			}
-			// Its own copies by id, so what others said meanwhile, as an
-			// `splates tell` or another device, never stands in for one.
-			const kept = new Set(each.messages.map((message) => message.id));
-			const left = sending.filter((message) => !kept.has(message.id));
-			for (const message of sending.filter((each) => kept.has(each.id))) {
-				forget(message);
-			}
-			if (left.length === 0) {
-				this.sending.delete(each.id);
-				return each;
-			}
-			this.sending.set(each.id, left);
-			const now = this.wall.now();
-			return {
-				...each,
-				messages: [
-					...each.messages,
-					...left.map((copy) => messageOf(copy, now)),
-				],
-			};
-		});
+		this.conversations = recorded.map((each) =>
+			(this.expected.get(each.id) ?? []).reduce(
+				(state, { patch }) => patch(state),
+				this.withSending(each),
+			),
+		);
 		this.dispatcher.dispatch("changed");
+	}
+
+	/** `each` with its messages on their way said after its own. */
+	private withSending(each: ConversationState): ConversationState {
+		const sending = this.sending.get(each.id);
+		if (sending === undefined) {
+			return each;
+		}
+		// Its own copies by id, so what others said meanwhile, as an
+		// `splates tell` or another device, never stands in for one.
+		const kept = new Set(each.messages.map((message) => message.id));
+		const left = sending.filter((message) => !kept.has(message.id));
+		for (const message of sending.filter((each) => kept.has(each.id))) {
+			forget(message);
+		}
+		if (left.length === 0) {
+			this.sending.delete(each.id);
+			return each;
+		}
+		this.sending.set(each.id, left);
+		const now = this.wall.now();
+		return {
+			...each,
+			messages: [...each.messages, ...left.map((copy) => messageOf(copy, now))],
+		};
 	}
 
 	private async load(): Promise<void> {
@@ -383,6 +458,11 @@ export class ConversationFeed
 		// when the stream reopens and a message is said before this answers.
 		const moved = (id: string) => (this.changedAt.get(id) ?? -1) >= since;
 		const listed = new Set(conversations.map((each) => each.id));
+		for (const id of listed) {
+			if (!moved(id)) {
+				this.settle(id, since);
+			}
+		}
 		this.show([
 			...this.recorded.filter((each) => moved(each.id) && !listed.has(each.id)),
 			...conversations.flatMap((each) =>
@@ -441,6 +521,26 @@ export function messageOf(message: Sending, now = message.at): Message {
 
 /** The images an agent that takes images is sent as such, as the server keeps them. */
 export const SEEN = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+/** A change `expect` shows: how, and when its write landed. */
+interface Expected {
+	patch: (state: ConversationState) => ConversationState;
+	/** `changes` as its write landed; null while it is on its way. */
+	landed: number | null;
+}
+
+/** Whether `state` already holds what `patch` would change of it. */
+function holds(
+	state: ConversationState,
+	patch: (state: ConversationState) => ConversationState,
+): boolean {
+	const patched = patch(state);
+	return (Object.keys(patched) as (keyof ConversationState)[]).every(
+		(key) =>
+			patched[key] === state[key] ||
+			JSON.stringify(patched[key]) === JSON.stringify(state[key]),
+	);
+}
 
 /** Lets go of the page's copies of `message`'s files. */
 function forget(message: Sending): void {

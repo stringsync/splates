@@ -89,6 +89,8 @@
 @source "./new-menu.tsx";
 @source "./auto-brand.tsx";
 @source "./conversation-item.tsx";
+@source "./conversation-archive.tsx";
+@source "./expecting.tsx";
 @source "./reparent.tsx";
 @source "./list-rows.tsx";
 @source "./mark.tsx";

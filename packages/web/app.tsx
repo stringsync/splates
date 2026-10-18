@@ -40,8 +40,8 @@ import { DesktopApp } from "./desktop-app";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
+import { Talking } from "./expecting";
 import { Feed } from "./feed";
-import { Held } from "./handed-out";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
@@ -374,7 +374,7 @@ export function App({
 	return (
 		<SetupProvider creds={snapshot?.creds ?? null}>
 			<OpenerContext value={openerOf(opener)}>
-				<Held value={conversations}>
+				<Talking feed={talk} held={conversations}>
 					<Lanes value={searched.lanes}>
 						{/* Here rather than in the sidebar's list, which a phone has none of. */}
 						{available && snapshot !== null && (
@@ -515,7 +515,7 @@ export function App({
 							</Trunk>
 						</Dispatching>
 					</Lanes>
-				</Held>
+				</Talking>
 			</OpenerContext>
 		</SetupProvider>
 	);
