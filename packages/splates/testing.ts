@@ -18,6 +18,7 @@ import { HEAVY_HELD } from "./heavy";
 import { Journal } from "./journal";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
+import { PlanStore } from "./plan-store";
 import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
@@ -206,7 +207,10 @@ export class Testing implements AsyncDisposable {
 			{ project: this.projectStore, device: this.deviceStore },
 			{ fs: this.fs },
 		);
-		this.branches = TaskBranches.of(this);
+		this.branches = TaskBranches.of({
+			...this,
+			plans: new PlanStore(this.fs, this.splatesDir),
+		});
 		this.trunk = new CoordinatorLanding({
 			git: this.git,
 			fs: this.fs,

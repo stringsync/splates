@@ -5,6 +5,7 @@ import type { Git } from "./git";
 import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
 import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
+import type { PlanStore } from "./plan-store";
 import type { BranchMoves } from "./watch";
 import type { Worktree } from "./worktree";
 import { taskOf } from "./worktree-service";
@@ -81,16 +82,26 @@ export class TaskBranches {
 		/** Names the remote, `remote`, read at each push; null pushes nothing. */
 		private readonly config: Pick<Config, "remote">,
 		private readonly apps: AppSource,
+		/** Where a pushed task's plan is kept beside its branch; none keeps no plans. */
+		private readonly plans: PlanStore | null = null,
 	) {}
 
 	/** The project's, pushing to its configured remote with its kept creds. */
 	static of(
-		{ git, config, creds }: { git: Git; config: Config; creds: Creds },
+		{
+			git,
+			config,
+			creds,
+			plans,
+		}: { git: Git; config: Config; creds: Creds; plans?: PlanStore },
 		opts: TaskBranchesOptions = {},
 	): TaskBranches {
-		return new TaskBranches(git, config, {
-			app: () => GitHubApp.kept(creds, opts),
-		});
+		return new TaskBranches(
+			git,
+			config,
+			{ app: () => GitHubApp.kept(creds, opts) },
+			plans ?? null,
+		);
 	}
 
 	/** The remote's name, or null when none is configured. */
@@ -132,7 +143,7 @@ export class TaskBranches {
 				why: `${branch} tracks ${plans.join(" and ")}, which never leaves this machine: \`git rm --cached ${plans.join(" ")}\` and commit`,
 			};
 		}
-		return this.run(
+		const pushed = await this.run(
 			task,
 			[
 				"--force",
@@ -141,6 +152,20 @@ export class TaskBranches {
 				`refs/heads/${branch}:refs/heads/${this.pushedBranch(task)}`,
 			],
 			at,
+		);
+		// Only a push from a task's own checkout carries its plan: the main
+		// tree's would be another plan's.
+		if (pushed.status === "pushed" && opts.at !== undefined) {
+			await this.plans?.save(task, at.root).catch(() => {});
+		}
+		return pushed;
+	}
+
+	/** Writes the plan kept for `tree`'s task into it when it has none: false when nothing was written. */
+	restorePlan(tree: Pick<Worktree, "task" | "path">): Promise<boolean> {
+		return (
+			this.plans?.restore(tree.task, tree.path).catch(() => false) ??
+			Promise.resolve(false)
 		);
 	}
 
@@ -170,6 +195,7 @@ export class TaskBranches {
 			at,
 		);
 		this.tokens.delete(task);
+		await this.plans?.drop(task).catch(() => {});
 		return deleted.status === "failed" &&
 			/remote ref does not exist/i.test(deleted.why)
 			? { status: "pushed", branch: this.pushedBranch(task) }

@@ -2,6 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "./exit";
 import { goalOf, Plans } from "./plan";
+import type { TaskBranches } from "./task-branches";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -11,7 +12,17 @@ import type { WorktreeService } from "./worktree-service";
  * merge budget stays as it was, which only `retry` refills.
  */
 export async function claim(
-	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
+	{
+		service,
+		log,
+		fs,
+		branches,
+	}: {
+		service: WorktreeService;
+		log: Logger;
+		fs: Fs;
+		branches: TaskBranches;
+	},
 	task: string,
 ): Promise<{ escalated: boolean; tookOver: boolean; goal: string }> {
 	let found = await service.find(task);
@@ -35,6 +46,8 @@ export async function claim(
 		}
 		found = await service.find(task);
 		await new Plans(fs).exclude(await found.git.commonDir());
+		// The clone has the branch, not the plan, which stayed in repo state.
+		await branches.restorePlan(found);
 	}
 	if (found.status === "orphaned") {
 		fail(

@@ -23,6 +23,7 @@ import {
 import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE, Plans } from "./plan";
+import { PlanStore } from "./plan-store";
 import { Projects, type Reach, reaches } from "./projects";
 import { RelayApp } from "./relay-app";
 import { RelayFs } from "./relay-fs";
@@ -346,7 +347,12 @@ export async function openRepository(
 	const relayed =
 		relay === null
 			? null
-			: new TaskBranches(git, config, new RelayApp(relay.url, relay.project));
+			: new TaskBranches(
+					git,
+					config,
+					new RelayApp(relay.url, relay.project),
+					new PlanStore(fs, splatesDir),
+				);
 	const service = new WorktreeService(git, config, splatesDir, {
 		fs,
 		ps,
@@ -389,7 +395,14 @@ export async function openRepository(
 		fs,
 		beats,
 		projects,
-		branches: relayed ?? TaskBranches.of({ git, config, creds }),
+		branches:
+			relayed ??
+			TaskBranches.of({
+				git,
+				config,
+				creds,
+				plans: new PlanStore(fs, splatesDir),
+			}),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		creds,

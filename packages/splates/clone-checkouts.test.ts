@@ -7,6 +7,7 @@ import { CloneCheckouts } from "./clone-checkouts";
 import type { Config } from "./config";
 import { Git } from "./git";
 import { PLAN_FILE } from "./plan";
+import { PlanStore } from "./plan-store";
 import { TaskBranches } from "./task-branches";
 import { Testing } from "./testing";
 import { LocalWorkerMachine } from "./worker-machine";
@@ -45,7 +46,12 @@ describe("CloneCheckouts", () => {
 			...deps.config,
 			worktreeRoot: resolve(clone, "..", "repo-splates.noindex"),
 		};
-		const branches = new TaskBranches(git, config, { app: async () => null });
+		const branches = new TaskBranches(
+			git,
+			config,
+			{ app: async () => null },
+			new PlanStore(deps.fs, deps.splatesDir),
+		);
 		// Its records are the coordinator's, as the relay reaches them.
 		const service = new WorktreeService(git, config, deps.splatesDir, {
 			fs: deps.fs,
@@ -143,17 +149,30 @@ describe("CloneCheckouts", () => {
 		).toEqual({ status: "pushed", branch: "splates/alpha" });
 		expect(await onRemote("refs/heads/splates/alpha")).toBe(tip);
 
+		await deps.fs.write(join(alpha.path, PLAN_FILE), "# alpha\n");
+		await worker.branches.pushTree(alpha);
+		expect(await deps.fs.read(`${deps.splatesDir}/plans/alpha.md`)).toBe(
+			"# alpha\n",
+		);
+
 		// The worker's disk is a cache: its clone goes, and the task with it.
 		await deps.fs.rm(alpha.path, { recursive: true, force: true });
 		alpha = await worker.service.find("alpha");
 		expect(worker.service.elsewhere(alpha)).toBe(true);
 
 		await claim(
-			{ service: worker.service, log: deps.log, fs: deps.fs },
+			{
+				service: worker.service,
+				log: deps.log,
+				fs: deps.fs,
+				branches: worker.branches,
+			},
 			"alpha",
 		);
 		alpha = await worker.service.find("alpha");
 		expect(alpha.status).toBe("working");
+		// The plan comes back with the clone.
+		expect(await deps.fs.read(join(alpha.path, PLAN_FILE))).toBe("# alpha\n");
 		expect(await deps.gitCli(alpha.path, "rev-parse", "HEAD")).toBe(tip);
 		expect(await deps.gitCli(alpha.path, "branch", "--show-current")).toBe(
 			"task/alpha",

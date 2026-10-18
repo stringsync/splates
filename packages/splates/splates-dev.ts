@@ -20,6 +20,7 @@ import { Limits } from "./limits";
 import { loadConfig } from "./load-config";
 import { Offered } from "./offered";
 import { Outcomes } from "./outcomes";
+import { PlanStore } from "./plan-store";
 import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
 import { splatesHome } from "./roster";
@@ -206,7 +207,12 @@ export async function serveDev(
 			tunnel,
 			portsHost,
 			conversations: ({ splatesDir, git, config, creds, service }) => {
-				const branches = TaskBranches.of({ git, config, creds });
+				const branches = TaskBranches.of({
+					git,
+					config,
+					creds,
+					plans: new PlanStore(ctx.fs, splatesDir),
+				});
 				return new Conversations(`${splatesDir}/conversations`, roster, {
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),

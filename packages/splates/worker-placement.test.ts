@@ -18,7 +18,11 @@ describe("WorkerPlacement", () => {
 	/** The project's clone on `w1`, readied for an agent of no task. */
 	let clone: string;
 	/** What `w1` opens in `clone`, its records reached through the relay. */
-	let worker: { service: WorktreeService; config: typeof deps.config };
+	let worker: {
+		service: WorktreeService;
+		config: typeof deps.config;
+		branches: TaskBranches;
+	};
 
 	beforeEach(async () => {
 		deps = await Testing.open();
@@ -58,7 +62,7 @@ describe("WorkerPlacement", () => {
 				machine: "w1",
 			},
 		});
-		return { service, config };
+		return { service, config, branches };
 	};
 
 	it("readies the project's clone for an agent of no task", async () => {
@@ -77,7 +81,12 @@ describe("WorkerPlacement", () => {
 		expect(await placement.elsewhere("alpha")).toBe(false);
 
 		await claim(
-			{ service: worker.service, log: deps.log, fs: deps.fs },
+			{
+				service: worker.service,
+				log: deps.log,
+				fs: deps.fs,
+				branches: worker.branches,
+			},
 			"alpha",
 		);
 		const there = await worker.service.find("alpha");
