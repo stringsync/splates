@@ -2,6 +2,17 @@ import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
+import type { SentKey, TaskKey } from "./task-keys";
+
+/** The provider `id` names; undefined for none. */
+export function keyProvider(id: string): KeyProvider | undefined {
+	return KEY_PROVIDERS.find((each) => each.id === id);
+}
+
+/** The provider whose key `agent` runs on; undefined for an agent that needs none. */
+export function providerOf(agent: string): KeyProvider | undefined {
+	return KEY_PROVIDERS.find((each) => each.agents.includes(agent));
+}
 
 /**
  * A provider whose console makes the API keys workers run its agents on.
@@ -22,6 +33,8 @@ export interface KeyProvider {
 	limits: string;
 	/** What a key is made in, which its limit is set on. */
 	scope: string;
+	/** How a worker's credential proxy forwards its agents' requests with the key. */
+	proxy: ProviderProxy;
 }
 
 /** The roster's file in `~/.splates`. */
@@ -37,6 +50,11 @@ export const KEY_PROVIDERS: readonly KeyProvider[] = [
 		keys: "https://platform.claude.com/settings/keys",
 		limits: "https://platform.claude.com/settings/workspaces",
 		scope: "workspace",
+		proxy: {
+			upstream: "https://api.anthropic.com",
+			header: "x-api-key",
+			base: "ANTHROPIC_BASE_URL",
+		},
 	},
 	{
 		id: "openai",
@@ -46,18 +64,14 @@ export const KEY_PROVIDERS: readonly KeyProvider[] = [
 		keys: "https://platform.openai.com/api-keys",
 		limits: "https://platform.openai.com/settings/organization/projects",
 		scope: "project",
+		proxy: {
+			upstream: "https://api.openai.com/v1",
+			header: "authorization",
+			scheme: "Bearer",
+			base: "OPENAI_BASE_URL",
+		},
 	},
 ];
-
-/** The provider `id` names; undefined for none. */
-export function keyProvider(id: string): KeyProvider | undefined {
-	return KEY_PROVIDERS.find((each) => each.id === id);
-}
-
-/** The provider whose key `agent` runs on; undefined for an agent that needs none. */
-export function providerOf(agent: string): KeyProvider | undefined {
-	return KEY_PROVIDERS.find((each) => each.agents.includes(agent));
-}
 
 /**
  * Who holds a key: one registered worker, by its id, or every worker a
@@ -221,9 +235,30 @@ export class WorkerKeys {
 		return gone;
 	}
 
-	/** The value of `key`, for what hands it to a worker (#93); undefined once it is gone. */
+	/** The value of `key`, for what hands it to a worker; undefined once it is gone. */
 	value(key: WorkerKey): Promise<string | undefined> {
 		return this.store.get(key.cred);
+	}
+
+	/** Every key `worker` holds, with its value, as a worker is sent them. */
+	async sent(worker: KeyedWorker): Promise<SentKey[]> {
+		const sent: SentKey[] = [];
+		for (const key of this.of(worker)) {
+			const value = await this.value(key);
+			if (value !== undefined) {
+				sent.push({ cred: key.cred, value });
+			}
+		}
+		return sent;
+	}
+
+	/** The key `agent` runs on at `worker`, by name, for its process to be proxied; none for an agent that needs none. */
+	taskKeys(worker: KeyedWorker, agent: string): TaskKey[] {
+		const provider = providerOf(agent);
+		const key = this.of(worker).find((each) => each.provider === provider?.id);
+		return key === undefined
+			? []
+			: [{ provider: key.provider, cred: key.cred }];
 	}
 
 	private find(holder: KeyHolder, provider: string): WorkerKey | undefined {
@@ -271,4 +306,19 @@ function sameHolder(one: KeyHolder, other: KeyHolder): boolean {
 	return "worker" in one
 		? "worker" in other && one.worker === other.worker
 		: "type" in other && one.type === other.type;
+}
+
+/**
+ * Where a worker's `CredentialProxy` sends a provider's requests, and how
+ * its agent CLIs are pointed at the proxy instead.
+ */
+export interface ProviderProxy {
+	/** The provider's API origin, with any path requests go under. */
+	upstream: string;
+	/** The header the key travels in. */
+	header: string;
+	/** The word before the key in `header`, if any. */
+	scheme?: string;
+	/** The environment variable its agent CLIs read their base URL from. */
+	base: string;
 }

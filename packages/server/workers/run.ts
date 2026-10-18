@@ -3,12 +3,13 @@ import { dirname } from "node:path";
 import {
 	Credentials,
 	Environment,
+	MemorySecretStore,
 	type SecretStore,
 	SystemSecretStore,
 } from "webappwiz/creds";
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import { type Fs, makeUndumpable, type Ps } from "webappwiz/system";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { z } from "zod";
 import { SharedBrowser } from "../agents";
@@ -167,6 +168,10 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		opts.coordinator === "" || opts.coordinator.startsWith("unix:")
 	);
 	const creds = remote ? await workerCreds(id, opts) : null;
+	// A worker of its own machine keeps API keys its coordinator sends while
+	// agents run beside it as the same user, so no other process may read
+	// its memory; this machine's runs agents signed in as the person.
+	const keys = remote ? await undumpableKeys(log) : null;
 	const daemon = new WorkerDaemon(dialer(id, creds, opts), {
 		id,
 		slots: opts.slots || machineSlots(availableParallelism(), totalmem()),
@@ -178,6 +183,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		awake: keepAwakeOf(ps, log),
 		network: await networkOf(ps, log),
 		waker: wakeSenderOf(ps),
+		keys,
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
@@ -209,6 +215,19 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	if ("refused" in ended) {
 		fail("outdated", `the coordinator refused this worker: ${ended.refused}`);
 	}
+}
+
+/** A store for the keys a worker is sent, once this process is undumpable. */
+async function undumpableKeys(log: Logger): Promise<MemorySecretStore> {
+	const made = await makeUndumpable();
+	if (made.undumpable) {
+		log.info(`keys stay in memory no other process can read: ${made.how}`);
+	} else {
+		log.info(
+			`other processes of this user may read the keys it holds: ${made.why}`,
+		);
+	}
+	return new MemorySecretStore("this worker's keys");
 }
 
 /**

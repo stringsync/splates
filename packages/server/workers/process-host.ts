@@ -1,3 +1,4 @@
+import type { CredentialSource } from "webappwiz/creds";
 import type { Resource } from "webappwiz/disposable";
 import type { Child, ProcessEntry, Ps } from "webappwiz/system";
 import type { Timer } from "webappwiz/time";
@@ -7,12 +8,15 @@ import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
 import { relays } from "./relay";
 import type { WorkerSession } from "./session";
+import { TaskKey, TaskKeys } from "./task-keys";
 
 /** What a coordinator opens a `process` channel with. */
 export const ProcessParams = z.object({
 	argv: z.array(z.string()).min(1),
 	cwd: z.string(),
 	env: z.record(z.string(), z.string()).default({}),
+	/** The keys it runs on, by name: the worker proxies each, so the process never holds one. */
+	keys: z.array(TaskKey).default([]),
 });
 
 /** What the coordinator says on a process's channel that is not stdin. */
@@ -41,6 +45,7 @@ export class WorkerProcessHost implements Resource {
 	private readonly seen = new Set<number>();
 	private ended = false;
 	private watch: Resource | null = null;
+	private readonly keys: TaskKeys;
 
 	constructor(
 		private readonly channel: WorkerChannel,
@@ -48,16 +53,24 @@ export class WorkerProcessHost implements Resource {
 		private readonly ps: Ps,
 		opts: WorkerProcessHostOptions = {},
 	) {
-		const { relay = null, timer = null } = opts;
-		const { argv, cwd, env } = ProcessParams.parse(channel.params);
-		this.child = ps.start(argv, {
-			cwd,
-			env:
-				relay !== null && env.SPLATES_DEV !== undefined && relays(session)
-					? { ...env, SPLATES_DEV: relay }
-					: env,
-			unset: [SERVING],
-		});
+		const { relay = null, timer = null, store = null } = opts;
+		const { argv, cwd, env, keys } = ProcessParams.parse(channel.params);
+		this.keys = TaskKeys.start(keys, store);
+		try {
+			this.child = ps.start(argv, {
+				cwd,
+				env: {
+					...(relay !== null && env.SPLATES_DEV !== undefined && relays(session)
+						? { ...env, SPLATES_DEV: relay }
+						: env),
+					...this.keys.env,
+				},
+				unset: [SERVING],
+			});
+		} catch (error) {
+			void this.keys.disposeAsync();
+			throw error;
+		}
 		this.stdin = this.child.stdin.getWriter();
 		channel.send({ type: "started", pid: this.child.pid });
 		channel.events.on("data", ({ bytes }) => {
@@ -72,7 +85,7 @@ export class WorkerProcessHost implements Resource {
 
 	dispose(): void {
 		this.watch?.dispose();
-		void this.end();
+		void this.end().finally(() => this.keys.disposeAsync());
 	}
 
 	/** Remembers what runs under the child now. */
@@ -175,6 +188,7 @@ export class WorkerProcessHost implements Resource {
 			return 127;
 		});
 		await this.reap();
+		await this.keys.disposeAsync();
 		if (!this.channel.closed) {
 			this.channel.send({ type: "exit", code });
 			this.channel.dispose();
@@ -210,6 +224,8 @@ export interface WorkerProcessHostOptions {
 	relay?: string | null;
 	/** What notes the child's descendants while it runs; absent to note none. */
 	timer?: Timer | null;
+	/** Where the keys this worker was sent are kept; absent for one that keeps none. */
+	store?: CredentialSource | null;
 }
 
 /** Every process under `pid` in `table`, children first. */

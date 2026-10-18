@@ -2,6 +2,7 @@ import type { Resource } from "webappwiz/disposable";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import type { ConversationSlots, SlotAsk } from "../conversations";
 import { RUNNING } from "../server/shared";
+import type { KeyDelivery } from "./key-delivery";
 import type { KeyedWorker } from "./keys";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -35,6 +36,7 @@ export class WorkerSlots implements Resource {
 	/** The workers placement sees, asleep ones among them. */
 	readonly pool: Pool;
 	private readonly unlisten: () => void;
+	private readonly delivery: KeyDelivery | null;
 
 	constructor(
 		readonly registry: WorkerRegistry,
@@ -46,6 +48,7 @@ export class WorkerSlots implements Resource {
 			holds = () => true,
 			build = RUNNING,
 			waking = () => false,
+			delivery = null,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
@@ -60,8 +63,11 @@ export class WorkerSlots implements Resource {
 			build?: string;
 			/** Whether worker `id` was woken and has yet to join; none is, unless said. */
 			waking?: (id: string) => boolean;
+			/** What sends each worker an agent starts on its keys; none, unless said. */
+			delivery?: KeyDelivery | null;
 		},
 	) {
+		this.delivery = delivery;
 		this.pool = {
 			workers: () =>
 				registry.workers
@@ -78,6 +84,7 @@ export class WorkerSlots implements Resource {
 	/** The queue as the agents of the project at `root` take slots from it. */
 	project(root: string, platform: Platform | null): ConversationSlots {
 		const { scheduler, registry } = this;
+		const delivery = this.delivery;
 		const request = ({ id, task, agent, uncapped }: SlotAsk) => ({
 			id,
 			task,
@@ -95,13 +102,20 @@ export class WorkerSlots implements Resource {
 					grant.dispose();
 					throw new Error(`worker ${grant.worker} is gone`);
 				}
+				let launch = worker.launch;
+				try {
+					launch = (await delivery?.launch(worker, asked.agent)) ?? launch;
+				} catch (error) {
+					grant.dispose();
+					throw error;
+				}
 				return {
 					worker: grant.worker,
 					lost: grant.lost,
 					drains: grant.drains,
 					replaces: grant.replaces,
 					dispose: grant.dispose,
-					launch: worker.launch,
+					launch,
 					machine: worker.kind === "local" ? null : worker,
 				};
 			},

@@ -26,7 +26,7 @@ export class WorkerKeyRoutes {
 	constructor(
 		private readonly workers: Pick<
 			DevWorkers,
-			"keys" | "registry" | "slots" | "provisioning"
+			"keys" | "registry" | "slots" | "provisioning" | "delivery"
 		>,
 	) {}
 
@@ -103,6 +103,7 @@ export class WorkerKeyRoutes {
 			}
 		}
 		const key = await keys.add(holder, provider, value);
+		await this.workers.delivery.resend();
 		this.workers.slots.scheduler.poke();
 		void this.workers.provisioning?.refill();
 		return Response.json({ key });
@@ -125,6 +126,7 @@ export class WorkerKeyRoutes {
 		if (!(await this.workers.keys?.remove(holder, provider))) {
 			return refuse(404, "not_found", `no ${provider} key held there`);
 		}
+		await this.workers.delivery.resend();
 		return Response.json({ removed: true });
 	};
 }

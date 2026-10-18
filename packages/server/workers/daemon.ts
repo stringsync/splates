@@ -1,4 +1,5 @@
 import { dirname } from "node:path";
+import type { MemorySecretStore } from "webappwiz/creds";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -24,6 +25,7 @@ import { WorkerPtyHost } from "./pty-host";
 import { WorkerRelay } from "./relay";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
+import { KEYS } from "./task-keys";
 import type { WorkerNetwork } from "./wake";
 
 /** How a worker reaches its coordinator, dialed afresh after each drop. */
@@ -65,6 +67,8 @@ export class WorkerDaemon implements AsyncResource {
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
 	private readonly busy: AwakeWhileBusy;
+	/** The keys its coordinator sent, in this process's memory alone. */
+	private readonly keys: MemorySecretStore | null;
 
 	constructor(
 		private readonly dialer: WorkerDialer,
@@ -77,6 +81,7 @@ export class WorkerDaemon implements AsyncResource {
 		};
 		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
 		this.busy = new AwakeWhileBusy(opts.awake ?? null);
+		this.keys = opts.keys ?? null;
 		this.machine = new LocalWorkerMachine(
 			opts.ps,
 			opts.fs,
@@ -84,7 +89,10 @@ export class WorkerDaemon implements AsyncResource {
 		);
 		this.session = new WorkerSession("worker", {
 			...opts.session,
-			capabilities: WORKER_CAPABILITIES,
+			capabilities:
+				this.keys === null
+					? WORKER_CAPABILITIES
+					: [...WORKER_CAPABILITIES, KEYS],
 			timer: this.timer,
 			clock: opts.clock ?? new SystemClock(),
 		});
@@ -155,6 +163,7 @@ export class WorkerDaemon implements AsyncResource {
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {
+					this.keys?.clear();
 					return {
 						refused: negotiated.reason,
 						...(negotiated.update === undefined
@@ -190,6 +199,7 @@ export class WorkerDaemon implements AsyncResource {
 	/** Stops dialing and everything this worker runs, and hangs up. */
 	async disposeAsync(): Promise<void> {
 		this.stopped = true;
+		this.keys?.clear();
 		this.orphaned?.dispose();
 		this.waiting?.timeout.dispose();
 		this.waiting?.wake();
@@ -225,6 +235,8 @@ export class WorkerDaemon implements AsyncResource {
 				`no coordinator returned within ${this.orphanBound.secs}s; ending what it left`,
 			);
 			this.session.endChannels();
+			// Whoever comes next sends its own.
+			this.keys?.clear();
 		}, this.orphanBound);
 	}
 
@@ -237,6 +249,7 @@ export class WorkerDaemon implements AsyncResource {
 					host = new WorkerProcessHost(channel, this.session, ps, {
 						relay: this.relay?.url ?? null,
 						timer: this.timer,
+						store: this.keys,
 					});
 					break;
 				case "pty":
@@ -247,6 +260,7 @@ export class WorkerDaemon implements AsyncResource {
 						channel,
 						this.machine,
 						this.opts.waker ?? null,
+						this.keys,
 					);
 					break;
 				case "port":
@@ -349,4 +363,11 @@ export interface WorkerDaemonOptions {
 	network?: WorkerNetwork | null;
 	/** What sends a magic packet when the coordinator asks; none by default. */
 	waker?: WakeSender | null;
+	/**
+	 * Where it keeps the API keys its coordinator sends for its agents,
+	 * which it proxies so no agent holds one; none, for a worker whose
+	 * agents run signed in as the person, by default. Make the process
+	 * undumpable before it holds one.
+	 */
+	keys?: MemorySecretStore | null;
 }

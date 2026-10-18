@@ -9,8 +9,9 @@ import type { WorkerMachines } from "../tasks";
 import { API_TOKEN } from "../tunnel";
 import type { ServiceToken, WorkerAccess } from "./access";
 import type { WorkerBudget } from "./budget";
+import { KeyDelivery } from "./key-delivery";
 import { WorkerKeyRoutes } from "./key-routes";
-import { keyProvider, type WorkerKeys } from "./keys";
+import type { WorkerKeys } from "./keys";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
 import type { WorkerProvider } from "./provider";
@@ -66,6 +67,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly records: WorkerRecords;
 	/** Which API keys each worker, or type of made worker, holds; null when none is asked for. */
 	readonly keys: WorkerKeys | null;
+	/** What sends workers the keys they hold. */
+	readonly delivery: KeyDelivery;
 	/** `/api/workers/keys`, over `keys`. */
 	private readonly keyRoutes: WorkerKeyRoutes;
 	/** The queue agents take a slot on a worker from: capped for those other agents start, not for the person's. */
@@ -113,6 +116,12 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
+		this.delivery = new KeyDelivery({
+			keys,
+			registry: this.registry,
+			records,
+			log,
+		});
 		// Listed while away, so one can be drained or removed before it dials.
 		for (const record of records.all) {
 			if (record.provisioned !== null) {
@@ -126,9 +135,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
 			waking: (id) => this.waking.waking(id),
-			...(keys === null
-				? {}
-				: { holds: (worker, agent) => keys.holds(worker, agent) }),
+			delivery: this.delivery,
+			holds: (worker, agent) => keys?.holds(worker, agent) ?? true,
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 		this.wakes = new WakeRelay(this.registry, records, {
@@ -146,9 +154,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						records,
 						access,
 						registry: this.registry,
-						...(keys === null
-							? {}
-							: { holds: (type, agent) => keys.typeHolds(type, agent) }),
+						holds: (type, agent) => keys?.typeHolds(type, agent) ?? true,
 						waking: () => this.waking.seats(),
 						log,
 						stop: (ids) => this.stopMade(ids),
@@ -522,16 +528,12 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				);
 			});
 		}
+		// Before hanging up, so it holds none of them while it stays up.
+		await this.delivery.forget(id);
 		const was = await this.records.remove(id);
 		this.registry.forget(id);
 		this.slots.scheduler.release(id);
 		this.log.info(`worker ${id} removed`);
-		for (const key of (await this.keys?.forget(id)) ?? []) {
-			const provider = keyProvider(key.provider);
-			this.log.info(
-				`worker ${id}'s ${provider?.name ?? key.provider} key is forgotten: revoke it at ${provider?.keys ?? "its console"}`,
-			);
-		}
 		if (was?.access) {
 			await this.revoke([was.access]);
 		}

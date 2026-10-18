@@ -12,6 +12,7 @@ import { WAKE, type WakeTarget } from "./magic-packet";
 import type { Json } from "./protocol";
 import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
+import { KEYS, type SentKey, type TaskKey } from "./task-keys";
 
 /** Where and how big a shell on a worker starts, as `Pty` takes it. */
 export interface RemotePtyOptions {
@@ -64,11 +65,16 @@ export class RemoteWorker implements WorkerMachine {
 	/** `start`, as the `Launch` that conversations start their agents with. */
 	readonly launch: Launch = (argv, cwd, env) => this.start(argv, cwd, env);
 
-	/** Starts `argv` in `cwd` on the worker, its stdio piped back here. */
+	/**
+	 * Starts `argv` in `cwd` on the worker, its stdio piped back here,
+	 * proxying its requests with each of `keys`, which `sendKeys` sent: the
+	 * process gets only a placeholder and the proxy's URL.
+	 */
 	start(
 		argv: string[],
 		cwd: string,
 		env: Record<string, string> = {},
+		keys: TaskKey[] = [],
 	): RemoteProcess {
 		return new RemoteProcess(
 			// Which worker it is, so a task it clones is recorded on this one.
@@ -76,6 +82,7 @@ export class RemoteWorker implements WorkerMachine {
 				argv,
 				cwd,
 				env: { SPLATES_WORKER: this.id, ...env },
+				...(keys.length === 0 ? {} : { keys }),
 			}),
 			this.session,
 			this.id,
@@ -190,6 +197,17 @@ export class RemoteWorker implements WorkerMachine {
 	get wakes(): boolean {
 		const { negotiated } = this.session;
 		return negotiated?.ok === true && negotiated.capabilities.includes(WAKE);
+	}
+
+	/** Whether it keeps keys it is sent and proxies its agents': a worker of its own machine on 1.5 on. */
+	get keeps(): boolean {
+		const { negotiated } = this.session;
+		return negotiated?.ok === true && negotiated.capabilities.includes(KEYS);
+	}
+
+	/** Has it keep `keys`, in its memory alone, in place of every key it kept. */
+	async sendKeys(keys: SentKey[]): Promise<void> {
+		await this.call({ method: "keys", keys });
 	}
 
 	/** Has it send the magic packet that wakes `target`, from its network. */

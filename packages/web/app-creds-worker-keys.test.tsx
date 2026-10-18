@@ -9,6 +9,11 @@ const ANTHROPIC = {
 	keys: "https://platform.claude.com/settings/keys",
 	limits: "https://platform.claude.com/settings/workspaces",
 	scope: "workspace",
+	proxy: {
+		upstream: "https://api.anthropic.com",
+		header: "x-api-key",
+		base: "ANTHROPIC_BASE_URL",
+	},
 };
 
 const HELD = {

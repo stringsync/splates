@@ -221,9 +221,20 @@ its provider's base URL pointed at the proxy (`ANTHROPIC_BASE_URL` and the
 like). The proxy forwards to its provider alone and refuses a request
 without its own placeholder. The daemon makes itself undumpable
 (`PR_SET_DUMPABLE` 0 on Linux) so an agent running as the same user cannot
-read its memory, and Linux workers run agents in containers. The
+read its memory, and Linux workers are to run agents in containers. The
 memory-only store, the proxy and the undumpable helper belong to
 `webappwiz/creds` (webappwiz #402); splates delivers through them (#93).
+
+As built (protocol 1.5, capability `keys`): placing an agent on a worker of
+its own machine sends that worker, in a `keys` call, every key the roster
+says it holds, the whole set each time, so one taken away goes; the
+`process` channel then names only the key's provider and store name, and
+the worker picks the upstream from its own provider list, so nothing sent
+can point a key elsewhere. A key added or removed on the Creds page is sent
+again at once, reaching running agents' proxies. The worker drops every key
+when its coordinator removes it, refuses it, stays gone past the orphan
+bound, or the worker stops; this machine's own worker gets none, its agents
+running signed in as the person.
 
 ## Managing the pool
 

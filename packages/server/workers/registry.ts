@@ -17,6 +17,7 @@ import { WorkerPortHost } from "./port-host";
 import { RemoteWorker, type WorkerKind } from "./remote";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
+import { KEYS } from "./task-keys";
 
 /** How long a restart waits for a worker to ack what it was sent. */
 const ACK_WAIT = Duration.secs(5);
@@ -202,7 +203,8 @@ export class WorkerRegistry
 	private session(): WorkerSession {
 		const session = new WorkerSession("coordinator", {
 			...this.opts.session,
-			capabilities: WORKER_CAPABILITIES,
+			// It sends keys to any worker that keeps them.
+			capabilities: [...WORKER_CAPABILITIES, KEYS],
 			timer: this.timer,
 			clock: this.clock,
 			wall: this.wall,

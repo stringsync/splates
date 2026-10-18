@@ -19,7 +19,7 @@
 	},
 	"dependencies": {
 		"@agentclientprotocol/sdk": "^1.7.0",
-		"webappwiz": "0.0.46",
+		"webappwiz": "0.0.47",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
