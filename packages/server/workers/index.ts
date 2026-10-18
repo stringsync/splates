@@ -32,6 +32,14 @@ export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
+export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
+export {
+	KEY_PROVIDERS,
+	keyProvider,
+	providerOf,
+	WORKER_KEYS_FILE,
+	WorkerKeys,
+} from "./keys";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { WorkerMachine } from "./machine";

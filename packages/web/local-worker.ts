@@ -60,6 +60,7 @@ function added(pool: WorkerPool): WorkerListing {
 		lastHeard: null,
 		tasks: [],
 		dollarsPerHour: 0,
+		keys: [],
 	};
 }
 

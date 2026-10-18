@@ -214,6 +214,7 @@ function worker(
 		lastHeard: null,
 		tasks: [],
 		dollarsPerHour: 0,
+		keys: [],
 		...overrides,
 	};
 }

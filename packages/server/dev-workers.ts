@@ -5,6 +5,7 @@ import { z } from "zod";
 import { systemPs } from "./config";
 import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
+import { WorkerKeyRoutes } from "./dev-worker-keys";
 import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
 import type { HeldSlot } from "./scheduler";
@@ -20,8 +21,10 @@ import type {
 	WorkerProvider,
 } from "./workers";
 import {
+	keyProvider,
 	ServerWorkerSocket,
 	UnixWorkerListener,
+	type WorkerKeys,
 	WorkerProvisioning,
 	WorkerRecords,
 	WorkerRegistry,
@@ -65,6 +68,10 @@ export function workerAuthorization(id: string, key: string): string {
 export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
 	readonly records: WorkerRecords;
+	/** Which API keys each worker, or type of made worker, holds; null when none is asked for. */
+	readonly keys: WorkerKeys | null;
+	/** `/api/workers/keys`, over `keys`. */
+	private readonly keyRoutes: WorkerKeyRoutes;
 	/** The queue agents take a slot on a worker from: capped for those other agents start, not for the person's. */
 	readonly slots: WorkerSlots;
 	/**
@@ -86,12 +93,15 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			protocol,
 			platform = systemPs().platform,
 			records = WorkerRecords.memory(),
+			keys = null,
 			provider,
 			access = null,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
 		this.access = access;
+		this.keys = keys;
+		this.keyRoutes = new WorkerKeyRoutes(this);
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
@@ -114,6 +124,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			platform,
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
+			...(keys === null
+				? {}
+				: { holds: (worker, agent) => keys.holds(worker, agent) }),
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 		this.provisioning =
@@ -124,6 +137,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						records,
 						access,
 						registry: this.registry,
+						...(keys === null
+							? {}
+							: { holds: (type, agent) => keys.typeHolds(type, agent) }),
 						log,
 						stop: (ids) => this.stopMade(ids),
 					});
@@ -236,6 +252,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				this.slots.used(),
 				(id) => this.records.of(id),
 				(id) => this.pooled(id),
+				(worker) => this.keys?.of(worker) ?? [],
 			),
 			build: RUNNING,
 		} satisfies WorkerPool);
@@ -450,6 +467,12 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.registry.forget(id);
 		this.slots.scheduler.release(id);
 		this.log.info(`worker ${id} removed`);
+		for (const key of (await this.keys?.forget(id)) ?? []) {
+			const provider = keyProvider(key.provider);
+			this.log.info(
+				`worker ${id}'s ${provider?.name ?? key.provider} key is forgotten: revoke it at ${provider?.keys ?? "its console"}`,
+			);
+		}
 		if (was?.access) {
 			await this.revoke([was.access]);
 		}
@@ -521,6 +544,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		) => (request: Request) => Promise<Response>,
 	): Promise<Response> => {
 		const [, , , what] = new URL(request.url).pathname.split("/");
+		if (what === "keys") {
+			return guard(this.keyRoutes.handle)(request);
+		}
 		if (what === "join" && request.method === "POST") {
 			return this.join(request);
 		}
@@ -576,6 +602,8 @@ export interface DevWorkersOptions {
 	platform?: string;
 	/** The workers that joined and what was set on each; kept in memory alone by default. */
 	records?: WorkerRecords;
+	/** The API keys workers hold, which placement asks for; none by default, so a worker runs any agent. */
+	keys?: WorkerKeys | null;
 	/** What makes workers when agents queue; none are made without it. */
 	provider?: DevWorkerProvider;
 	/**

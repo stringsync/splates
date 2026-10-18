@@ -54,6 +54,7 @@ describe("Scheduler", () => {
 				project: "/repo",
 				task: "b",
 				platform: null,
+				agent: "claude",
 				position: 1,
 				since: 5_000,
 				reason: "no free slot",
@@ -177,6 +178,17 @@ describe("Scheduler", () => {
 		expect((await waiting).worker).toBe("remote");
 	});
 
+	it("places an agent only on a worker that holds its key, letting others past", async () => {
+		workers = [
+			worker("local", { awake: false }),
+			worker("box", { runs: (agent) => agent !== "codex" }),
+		];
+		void take("a", { agent: "codex" });
+		await take("b");
+		expect(placed).toEqual(["b"]);
+		expect(scheduler.spot("a")?.reason).toBe("needs a key for codex");
+	});
+
 	it("counts a held agent against its worker's slots", async () => {
 		scheduler.hold(request("a"), "local");
 		void take("b");
@@ -217,6 +229,7 @@ function worker(id: string, overrides: Partial<PoolWorker> = {}): PoolWorker {
 		platform: "macos",
 		awake: true,
 		checkouts: true,
+		runs: () => true,
 		...overrides,
 	};
 }
@@ -225,7 +238,14 @@ function request(
 	id: string,
 	overrides: Partial<SlotRequest> = {},
 ): SlotRequest {
-	return { id, project: "/repo", task: id, platform: null, ...overrides };
+	return {
+		id,
+		project: "/repo",
+		task: id,
+		platform: null,
+		agent: "claude",
+		...overrides,
+	};
 }
 
 /** Lets whatever a grant settled run. */

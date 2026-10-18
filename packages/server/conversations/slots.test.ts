@@ -36,6 +36,7 @@ describe("Conversations waiting for a slot", () => {
 				platform: "macos",
 				awake: true,
 				checkouts: true,
+				runs: () => true,
 			},
 		];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
@@ -183,6 +184,7 @@ describe("Conversations waiting for a slot", () => {
 				platform: "linux",
 				awake: true,
 				checkouts: true,
+				runs: () => true,
 			},
 		];
 		scheduler.poke();

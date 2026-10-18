@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { table } from "../table";
 import { callServer, type ServerCallOptions } from "./admin";
+import type { KeyedWorker, WorkerKey } from "./keys";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
@@ -34,6 +35,8 @@ export interface WorkerListing {
 	/** The tasks its agents run, a conversation's id for one in no task. */
 	tasks: string[];
 	dollarsPerHour: number;
+	/** The providers whose API key it holds, of its own or its type's, by id. */
+	keys: string[];
 }
 
 /** What a registry keeps and turned away, as `workerList` gives them. */
@@ -61,13 +64,22 @@ export function workerList(
 	placed: Map<string, string[]> = new Map(),
 	record: (id: string) => WorkerRecord | undefined = () => undefined,
 	pooled: (id: string) => boolean = () => true,
+	keys: (worker: KeyedWorker) => WorkerKey[] = () => [],
 ): WorkerListings {
 	return {
 		workers: registry.workers
 			.filter((worker) => pooled(worker.id))
-			.map((worker) =>
-				listing(worker, placed.get(worker.id) ?? [], record(worker.id)),
-			),
+			.map((worker) => {
+				const kept = record(worker.id);
+				const held = keys({
+					id: worker.id,
+					type: kept?.provisioned?.type ?? null,
+				});
+				return {
+					...listing(worker, placed.get(worker.id) ?? [], kept),
+					keys: held.map((each) => each.provider),
+				};
+			}),
 		refused: registry.refused,
 	};
 }
@@ -76,7 +88,7 @@ function listing(
 	worker: RemoteWorker,
 	tasks: string[],
 	record: WorkerRecord | undefined,
-): WorkerListing {
+): Omit<WorkerListing, "keys"> {
 	const { info, session } = worker;
 	const negotiated = session.negotiated;
 	return {
@@ -116,6 +128,7 @@ const Listings = z.object({
 			lastHeard: z.number().nullable(),
 			tasks: z.array(z.string()),
 			dollarsPerHour: z.number(),
+			keys: z.array(z.string()).default([]),
 		}),
 	),
 	refused: z.array(
@@ -162,6 +175,7 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 					"slots",
 					"health",
 					"tasks",
+					"keys",
 					"$/hour",
 				],
 				listed.workers.map((worker) => [
@@ -173,6 +187,7 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 					`${worker.slots.used}/${worker.slots.total ?? "?"}`,
 					health(worker, wall),
 					worker.tasks.join(",") || "-",
+					worker.keys.join(",") || "-",
 					worker.dollarsPerHour.toFixed(2),
 				]),
 			),

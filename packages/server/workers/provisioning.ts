@@ -30,32 +30,6 @@ export interface Provisioned {
 	dollarsPerHour: number;
 }
 
-/** What `WorkerProvisioning` makes workers with. */
-export interface WorkerProvisioningOptions {
-	provider: WorkerProvider;
-	snapshots: Snapshots;
-	records: WorkerRecords;
-	registry: WorkerRegistry;
-	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
-	access?: WorkerAccess | null;
-	/**
-	 * The URL a made worker dials its coordinator at, from wherever it runs:
-	 * the page's tunnel host; null when the page has none, so none is made.
-	 */
-	coordinator: () => string | null;
-	/** What made workers may cost, which placement makes none past. */
-	budget: WorkerBudget;
-	/**
-	 * Stops the made workers `ids` once the day's or month's limit is
-	 * reached: they take no new agents, and are destroyed once those on
-	 * them end. Answers the agents still on them.
-	 */
-	stop?: (ids: string[]) => Promise<HeldSlot[]>;
-	log: Logger;
-	wall?: WallClock;
-	timer?: Timer;
-}
-
 export type WorkerProvisioningEvents = {
 	/** A limit reached a tier it had not yet in its window. */
 	alert: WorkerAlert;
@@ -103,11 +77,16 @@ export class WorkerProvisioning
 		return this.offering;
 	}
 
-	/** Looks at the queue again, as after the budget changed. */
+	/** Looks at the queue again, as after the budget changed or a type got a key it lacked. */
 	async refill(): Promise<void> {
 		if (this.scheduler !== null) {
 			await this.fill(this.scheduler);
 		}
+	}
+
+	/** The types of worker the provider makes. */
+	types(): Promise<WorkerType[]> {
+		return this.opts.provider.types();
 	}
 
 	/** Whether worker `id` is one a provider made. */
@@ -282,8 +261,7 @@ export class WorkerProvisioning
 			(sum, slots) => sum + slots,
 			0,
 		);
-		const [first] = waiting.slice(seats);
-		if (first === undefined) {
+		if (waiting.length <= seats) {
 			scheduler.withhold(null);
 			this.offering = null;
 			return;
@@ -296,7 +274,21 @@ export class WorkerProvisioning
 		}
 		this.asking = true;
 		try {
-			const type = pick(await provider.types(), { platform: first.platform });
+			// One whose agent no type holds a key for waits for a worker that does.
+			const holds = this.opts.holds ?? (() => true);
+			const types = await provider.types();
+			const first = waiting
+				.slice(seats)
+				.find((entry) => types.some((type) => holds(type.name, entry.agent)));
+			if (first === undefined) {
+				scheduler.withhold(null);
+				return;
+			}
+			const type = pick(types, {
+				platform: first.platform,
+				agent: first.agent,
+				runs: (name) => holds(name, first.agent),
+			});
 			const refusal = budget.refusal(type.dollarsPerHour);
 			scheduler.withhold(refusal);
 			const shortfall = budget.shortfall(type.dollarsPerHour);
@@ -336,17 +328,50 @@ export class WorkerProvisioning
 	}
 }
 
+/** What `WorkerProvisioning` makes workers with. */
+export interface WorkerProvisioningOptions {
+	provider: WorkerProvider;
+	snapshots: Snapshots;
+	records: WorkerRecords;
+	registry: WorkerRegistry;
+	/** Where a made worker gets the service token it passes Cloudflare Access with; none by default. */
+	access?: WorkerAccess | null;
+	/**
+	 * The URL a made worker dials its coordinator at, from wherever it runs:
+	 * the page's tunnel host; null when the page has none, so none is made.
+	 */
+	coordinator: () => string | null;
+	/** What made workers may cost, which placement makes none past. */
+	budget: WorkerBudget;
+	/**
+	 * Stops the made workers `ids` once the day's or month's limit is
+	 * reached: they take no new agents, and are destroyed once those on
+	 * them end. Answers the agents still on them.
+	 */
+	stop?: (ids: string[]) => Promise<HeldSlot[]>;
+	/** Whether workers of `type` hold the key `agent` runs on; all do, unless said. */
+	holds?: (type: string, agent: string) => boolean;
+	log: Logger;
+	wall?: WallClock;
+	timer?: Timer;
+}
+
 /** What worker `WorkerProvisioning.provision` is asked for. */
 export interface ProvisionOptions {
 	/** The provider's type to make; by default its cheapest. */
 	type?: string;
 	/** The platform the cheapest must run; null or unset for any. */
 	platform?: Platform | null;
+	/** The agent it is made for, which says why none fits. */
+	agent?: string;
+	/** Whether workers of a type, by name, can run what it is made for; any can, unless said. */
+	runs?: (type: string) => boolean;
 }
 
 /**
  * The type `opts` asks for: the one it names, else the cheapest on its
- * platform among those splates can build a snapshot for.
+ * platform among those splates can build a snapshot for whose workers hold
+ * the key its agent runs on.
  */
 function pick(types: WorkerType[], opts: ProvisionOptions): WorkerType {
 	if (opts.type !== undefined) {
@@ -358,16 +383,22 @@ function pick(types: WorkerType[], opts: ProvisionOptions): WorkerType {
 		}
 		return named;
 	}
-	const [cheapest] = types
-		.filter(
-			(each) =>
-				(opts.platform == null || each.platform === opts.platform) &&
-				snapshotRecipe(each.platform, "") !== null,
-		)
+	const bootable = types.filter(
+		(each) =>
+			(opts.platform == null || each.platform === opts.platform) &&
+			snapshotRecipe(each.platform, "") !== null,
+	);
+	if (bootable.length === 0) {
+		throw new Error(
+			`the worker provider makes no worker splates can boot${opts.platform == null ? "" : ` on ${opts.platform}`}`,
+		);
+	}
+	const [cheapest] = bootable
+		.filter((each) => opts.runs?.(each.name) ?? true)
 		.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
 	if (cheapest === undefined) {
 		throw new Error(
-			`the worker provider makes no worker splates can boot${opts.platform == null ? "" : ` on ${opts.platform}`}`,
+			`no type of worker the provider makes holds a key for ${opts.agent ?? "its agent"}: add one for a type on the Creds page`,
 		);
 	}
 	return cheapest;

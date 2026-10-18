@@ -28,13 +28,13 @@ describe("WorkerSlots", () => {
 		const macos = slots.project("/repo", "macos");
 		const grants = await Promise.all(
 			Array.from({ length: DEFAULT_SLOTS }, (_, at) =>
-				macos.take({ id: `c${at}`, task: null }, signal),
+				macos.take({ id: `c${at}`, task: null, agent: "claude" }, signal),
 			),
 		);
 		expect(new Set(grants.map((grant) => grant.worker))).toEqual(
 			new Set(["local"]),
 		);
-		void macos.take({ id: "late", task: "login" }, signal);
+		void macos.take({ id: "late", task: "login", agent: "claude" }, signal);
 		expect(macos.spot("late")).toEqual({
 			position: 1,
 			of: 1,
@@ -46,10 +46,12 @@ describe("WorkerSlots", () => {
 	it("takes the local worker's slots and platform from its hello", async () => {
 		registry.expect("local", "local").info = { slots: 1, platform: "linux" };
 		const linux = slots.project("/repo", "linux");
-		await linux.take({ id: "a", task: "login" }, signal);
-		void linux.take({ id: "b", task: null }, signal);
+		await linux.take({ id: "a", task: "login", agent: "claude" }, signal);
+		void linux.take({ id: "b", task: null, agent: "claude" }, signal);
 		expect(linux.spot("b")?.reason).toBe("no free slot");
-		void slots.project("/other", "macos").take({ id: "c", task: null }, signal);
+		void slots
+			.project("/other", "macos")
+			.take({ id: "c", task: null, agent: "claude" }, signal);
 		expect(slots.scheduler.spot("c")?.reason).toBe("needs macOS");
 	});
 
@@ -61,15 +63,15 @@ describe("WorkerSlots", () => {
 			checkouts: true,
 		};
 		const any = slots.project("/repo", null);
-		await any.take({ id: "a", task: "login" }, signal);
-		void any.take({ id: "b", task: null }, signal);
+		await any.take({ id: "a", task: "login", agent: "claude" }, signal);
+		void any.take({ id: "b", task: null, agent: "claude" }, signal);
 		expect(any.spot("b")).not.toBeNull();
 	});
 
 	it("says what each worker runs, by task or by conversation", async () => {
 		const any = slots.project("/repo", null);
-		await any.take({ id: "a", task: "login" }, signal);
-		any.hold({ id: "b", task: null }, "local");
+		await any.take({ id: "a", task: "login", agent: "claude" }, signal);
+		any.hold({ id: "b", task: null, agent: "claude" }, "local");
 		expect(slots.used()).toEqual(new Map([["local", ["login", "b"]]]));
 	});
 });

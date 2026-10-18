@@ -51,14 +51,15 @@ describe("A conversation placed on a remote worker", () => {
 				platform: "linux",
 				awake: true,
 				checkouts: true,
+				runs: () => true,
 			},
 		];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
-			take: async ({ id, task }, signal) => {
+			take: async ({ id, task, agent: wants }, signal) => {
 				const grant = await scheduler.take(
-					{ id, task, project: "/repo", platform: null },
+					{ id, task, agent: wants, project: "/repo", platform: null },
 					signal,
 				);
 				return {
@@ -68,8 +69,11 @@ describe("A conversation placed on a remote worker", () => {
 					machine,
 				};
 			},
-			hold: ({ id, task }, worker) =>
-				scheduler.hold({ id, task, project: "/repo", platform: null }, worker),
+			hold: ({ id, task, agent: wants }, worker) =>
+				scheduler.hold(
+					{ id, task, agent: wants, project: "/repo", platform: null },
+					worker,
+				),
 			spot: () => null,
 		};
 		const checkouts: PlacedCheckouts = {

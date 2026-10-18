@@ -23,12 +23,12 @@ describe("splates queue", () => {
 		});
 		url = `http://127.0.0.1:${server.port}`;
 		const app = workers.slots.project("/code/app", null);
-		await app.take({ id: "c1", task: "login" }, signal);
-		void app.take({ id: "c2", task: "signup" }, signal);
-		void app.take({ id: "c3", task: null }, signal);
+		await app.take({ id: "c1", task: "login", agent: "claude" }, signal);
+		void app.take({ id: "c2", task: "signup", agent: "claude" }, signal);
+		void app.take({ id: "c3", task: null, agent: "claude" }, signal);
 		void workers.slots
 			.project("/code/site", "linux")
-			.take({ id: "c4", task: "deploy" }, signal);
+			.take({ id: "c4", task: "deploy", agent: "claude" }, signal);
 	});
 
 	afterEach(async () => {

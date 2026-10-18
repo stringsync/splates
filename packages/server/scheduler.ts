@@ -73,6 +73,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			project: request.project,
 			task: request.task,
 			platform: request.platform,
+			agent: request.agent,
 			position: at + 1,
 			since,
 			reason: reasonFor(request, workers, this.withheld),
@@ -278,6 +279,11 @@ export interface PoolWorker {
 	 * machine the worktrees live on, and for a worker that clones its own.
 	 */
 	checkouts: boolean;
+	/**
+	 * Whether it can run `agent`: holds the API key it runs on, or is this
+	 * machine's, whose agents sign in as the person.
+	 */
+	runs(agent: string): boolean;
 }
 
 /** What wants a slot: one conversation's agent. */
@@ -289,6 +295,8 @@ export interface SlotRequest {
 	task: string | null;
 	/** The platform the project requires; null for any. */
 	platform: Platform | null;
+	/** The agent it starts, by id, which a worker must hold the key of. */
+	agent: string;
 	/**
 	 * Placed on any worker awake, however full: an agent the person
 	 * started, which no slot caps.
@@ -313,6 +321,8 @@ export interface QueueEntry {
 	task: string | null;
 	/** The platform it needs; null for any. */
 	platform: Platform | null;
+	/** The agent it starts, by id. */
+	agent: string;
 	/** From 1, the first to be placed. */
 	position: number;
 	/** When it joined the queue, epoch milliseconds. */
@@ -344,6 +354,10 @@ interface Waiting {
 }
 
 function eligible(worker: PoolWorker, request: SlotRequest): boolean {
+	return onPlatform(worker, request) && worker.runs(request.agent);
+}
+
+function onPlatform(worker: PoolWorker, request: SlotRequest): boolean {
 	return (
 		worker.awake &&
 		worker.checkouts &&
@@ -351,7 +365,10 @@ function eligible(worker: PoolWorker, request: SlotRequest): boolean {
 	);
 }
 
-/** Why `request` waits: no worker up it could run on, a budget limit, or none free. */
+/**
+ * Why `request` waits: no worker up it could run on, none there holding
+ * its agent's key, a budget limit, or none free.
+ */
 function reasonFor(
 	request: SlotRequest,
 	workers: PoolWorker[],
@@ -359,6 +376,9 @@ function reasonFor(
 ): QueueReason {
 	if (workers.some((worker) => eligible(worker, request))) {
 		return withheld ?? "no free slot";
+	}
+	if (workers.some((worker) => onPlatform(worker, request))) {
+		return `needs a key for ${request.agent}`;
 	}
 	return request.platform === null
 		? (withheld ?? "no worker up")

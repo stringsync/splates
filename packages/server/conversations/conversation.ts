@@ -173,7 +173,12 @@ export class Conversation
 		if (taken !== null && agent !== null) {
 			conversation.grant =
 				deps.slots?.hold(
-					{ id: state.id, task: state.task, uncapped: !spawned(state) },
+					{
+						id: state.id,
+						task: state.task,
+						agent: state.agent,
+						uncapped: !spawned(state),
+					},
 					taken.live.handle.worker,
 				) ?? null;
 			conversation.connection.reattach(agent, taken.process, taken.live);
@@ -872,7 +877,7 @@ export class Conversation
 		}
 		this.grant?.dispose();
 		this.grant = null;
-		const { id, task } = this.state;
+		const { id, task, agent } = this.state;
 		const placing = new AbortController();
 		this.placing = placing;
 		this.set({ status: "starting", error: null });
@@ -881,7 +886,7 @@ export class Conversation
 		);
 		try {
 			const placement = await slots.take(
-				{ id, task, uncapped: !spawned(this.state) },
+				{ id, task, agent, uncapped: !spawned(this.state) },
 				placing.signal,
 			);
 			this.grant = placement;

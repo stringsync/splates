@@ -23,6 +23,7 @@ export type {
 	ConversationsEvents,
 	PlacedCheckouts,
 	ProjectRef,
+	SlotAsk,
 } from "./host";
 export { listing } from "./listing";
 export type { Entry, Live } from "./log";

@@ -8,6 +8,7 @@ import {
 	SavedTunnel,
 } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
+import { WORKER_KEY_STEPS } from "./area-worker-keys";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
 /** Running agents on this Mac and on other machines, the pool `splates server` places them on. */
@@ -98,7 +99,7 @@ function workersArea(): SetupArea {
 	return {
 		id: "workers",
 		title: "Workers",
-		steps: [localStep, permissionStep, remoteStep],
+		steps: [localStep, permissionStep, remoteStep, ...WORKER_KEY_STEPS],
 	};
 }
 

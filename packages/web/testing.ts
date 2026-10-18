@@ -18,7 +18,12 @@ import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import type { Budgets, KeptCreds, MachineStatus } from "./api";
+import type {
+	Budgets,
+	KeptCreds,
+	MachineStatus,
+	WorkerKeysListing,
+} from "./api";
 import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
@@ -105,6 +110,12 @@ export class Testing implements Resource {
 			project: 'the macOS Keychain as "webappwiz:webappwiz"',
 			device: 'the macOS Keychain as "webappwiz"',
 		},
+	};
+	/** What `/api/workers/keys` says workers hold. */
+	workerKeys: WorkerKeysListing = {
+		keys: [],
+		providers: [],
+		holders: { workers: [], types: [] },
 	};
 	/** What `/api/budgets` says of the project's scry budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
@@ -250,6 +261,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/creds") {
 				return Response.json(this.kept);
+			}
+			if (route === "/api/workers/keys") {
+				return Response.json(this.workerKeys);
 			}
 			if (route === "/api/budgets") {
 				return Response.json(this.budgets);

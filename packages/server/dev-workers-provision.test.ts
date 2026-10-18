@@ -166,7 +166,13 @@ async function budgetOf(
 }
 
 function request(id: string) {
-	return { id, task: `${id}-task`, project: "/repo", platform: null };
+	return {
+		id,
+		task: `${id}-task`,
+		agent: "claude",
+		project: "/repo",
+		platform: null,
+	};
 }
 
 function put(id: string, body: unknown): Request {

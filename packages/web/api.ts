@@ -22,7 +22,10 @@ import type {
 } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff } from "@stringsync/splates-server/tasks";
 import type {
+	KeyHolder,
+	KeyProvider,
 	WorkerBudgetReport,
+	WorkerKey,
 	WorkerLimit,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
@@ -497,6 +500,51 @@ export async function saveCred(
 export async function removeCred(name: string, scope: Scope): Promise<void> {
 	await send(
 		`/api/creds/${encodeURIComponent(name)}?${new URLSearchParams({ scope })}`,
+		{ method: "DELETE" },
+	);
+}
+
+/** Every worker's API key, by whose and which provider's, with the providers and who may hold one. */
+export interface WorkerKeysListing {
+	keys: WorkerKey[];
+	providers: KeyProvider[];
+	holders: { workers: string[]; types: string[] };
+}
+
+/** The API keys workers hold; never a value. */
+export async function workerKeys(): Promise<WorkerKeysListing> {
+	const response = await fetch("/api/workers/keys");
+	const body = (await response
+		.json()
+		.catch(() => ({}))) as WorkerKeysListing & {
+		reason?: string;
+		message?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError(
+			body.reason ?? "error",
+			body.message ?? `/api/workers/keys: ${response.status}`,
+		);
+	}
+	return body;
+}
+
+/** Keeps `value` as `provider`'s key for `holder`, over the one it held. */
+export async function addWorkerKey(
+	holder: KeyHolder,
+	provider: string,
+	value: string,
+): Promise<void> {
+	await sendJson("/api/workers/keys", "PUT", { provider, ...holder, value });
+}
+
+/** Deletes `provider`'s key for `holder`. */
+export async function removeWorkerKey(
+	holder: KeyHolder,
+	provider: string,
+): Promise<void> {
+	await send(
+		`/api/workers/keys?${new URLSearchParams({ provider, ...holder })}`,
 		{ method: "DELETE" },
 	);
 }

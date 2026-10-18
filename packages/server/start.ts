@@ -39,7 +39,9 @@ import {
 import {
 	CloudflareWorkerAccess,
 	Snapshots,
+	WORKER_KEYS_FILE,
 	WorkerBudget,
+	WorkerKeys,
 	WorkerPlacement,
 	WorkerRecords,
 	workerGit,
@@ -193,6 +195,13 @@ export async function serveDev(
 	// Through a tunnel, each worker passes Access with a service token of its
 	// own, minted with the API token `splates tunnel setup` keeps.
 	const device = (ctx.secrets ?? SYSTEM_STORES).device;
+	// Each worker's API keys, in the device's store, since workers serve
+	// every project.
+	const keys = await WorkerKeys.open(
+		`${splatesHome(ctx.ps)}/${WORKER_KEYS_FILE}`,
+		ctx.fs,
+		device,
+	);
 	// Made workers dial the page where the tunnel publishes it.
 	const provider = here?.workerProvider ?? null;
 	const reached = tunnel === null ? null : `https://${tunnel.host}`;
@@ -209,6 +218,7 @@ export async function serveDev(
 						apiToken: () => device.get(API_TOKEN),
 						log: ctx.log,
 					}),
+		keys,
 		...(provider === null || here === null
 			? {}
 			: {

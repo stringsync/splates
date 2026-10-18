@@ -108,12 +108,14 @@ export interface ConversationSlots {
 }
 
 /**
- * What asks for a slot: conversation `id`'s agent, of `task`. An uncapped
- * one, which the person started, goes on any worker up, however full.
+ * What asks for a slot: conversation `id`'s agent, of `task`, by the
+ * agent's id, which a worker must hold the key of. An uncapped one, which
+ * the person started, goes on any worker up, however full.
  */
 export interface SlotAsk {
 	id: string;
 	task: string | null;
+	agent: string;
 	uncapped?: boolean;
 }
 

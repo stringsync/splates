@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
-import type { ConversationSlots } from "../conversations";
+import type { ConversationSlots, SlotAsk } from "../conversations";
 import {
 	type Platform,
 	type PoolWorker,
@@ -8,6 +8,7 @@ import {
 	type QueueEntry,
 	Scheduler,
 } from "../scheduler";
+import type { KeyedWorker } from "./keys";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
@@ -38,6 +39,7 @@ export class WorkerSlots implements Resource {
 			wall = new SystemWallClock(),
 			record = () => undefined,
 			pooled = () => true,
+			holds = () => true,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
@@ -46,6 +48,8 @@ export class WorkerSlots implements Resource {
 			record?: (id: string) => WorkerRecord | undefined;
 			/** Whether worker `id` takes agents at all: not this machine's own once it is removed. */
 			pooled?: (id: string) => boolean;
+			/** Whether a worker holds the key an agent runs on; every one, unless said. */
+			holds?: (worker: KeyedWorker, agent: string) => boolean;
 		},
 	) {
 		this.scheduler = new Scheduler(
@@ -53,7 +57,9 @@ export class WorkerSlots implements Resource {
 				workers: () =>
 					registry.workers
 						.filter((worker) => pooled(worker.id))
-						.map((worker) => poolWorker(worker, platform, record(worker.id))),
+						.map((worker) =>
+							poolWorker(worker, platform, record(worker.id), holds),
+						),
 			},
 			wall,
 		);
@@ -63,17 +69,10 @@ export class WorkerSlots implements Resource {
 	/** The queue as the agents of the project at `root` take slots from it. */
 	project(root: string, platform: Platform | null): ConversationSlots {
 		const { scheduler, registry } = this;
-		const request = ({
+		const request = ({ id, task, agent, uncapped }: SlotAsk) => ({
 			id,
 			task,
-			uncapped,
-		}: {
-			id: string;
-			task: string | null;
-			uncapped?: boolean;
-		}) => ({
-			id,
-			task,
+			agent,
 			project: root,
 			platform,
 			...(uncapped === undefined ? {} : { uncapped }),
@@ -150,12 +149,14 @@ export function slotsOf(
  * it. The local worker is always awake, on this machine's platform, since
  * what it is sent waits for it to join, and holds every checkout, which
  * live on its machine; another holds them once it says it makes its own
- * (#14). A draining worker takes nothing new.
+ * (#14). A draining worker takes nothing new. The local worker runs any
+ * agent, signed in as the person; another, only those it holds a key for.
  */
 function poolWorker(
 	worker: RemoteWorker,
 	machine: string,
 	record: WorkerRecord | undefined,
+	holds: (worker: KeyedWorker, agent: string) => boolean,
 ): PoolWorker {
 	const { info, kind } = worker;
 	const local = kind === "local";
@@ -168,5 +169,8 @@ function poolWorker(
 		platform: platform === null ? null : platformOf(platform),
 		awake: (local || worker.connected) && record?.draining !== true,
 		checkouts: local || info.checkouts === true,
+		runs: (agent) =>
+			local ||
+			holds({ id: worker.id, type: record?.provisioned?.type ?? null }, agent),
 	};
 }
