@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakePusher } from "webappwiz/push/testing";
 import { OpenPortProvider } from "webappwiz/system";
-import { json } from "./dev-testing";
-import { dev } from "./index";
-import { Testing } from "./testing";
+import { json } from "../dev-testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
 
 describe("dev's push routes", () => {
 	let deps: Testing;

@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import type { Pushed } from "@stringsync/splates-server/dev-push";
+import type { Pushed } from "@stringsync/splates-server/push";
 import type { Opening } from "./worker";
 
 describe("the page's service worker", () => {
