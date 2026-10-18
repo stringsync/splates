@@ -113,15 +113,11 @@ describe.concurrent("splates", () => {
 
 	it("keeps the journal of a task after it has merged and gone", async () => {
 		await using cli = await setup();
-		const { env, splates, rows } = cli;
+		const { env, splates } = cli;
 
-		expect(
-			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
-		).toBe(0);
-		const alpha = ensure.defined(
-			(await rows())[0]?.worktree,
-			"add did not record a worktree path",
-		);
+		const added = await splates(env.root, "add", "alpha", "--goal", "land it");
+		expect(added.exitCode).toBe(0);
+		const alpha = worktreeFromAdd(added.stdout);
 		expect((await splates(alpha, "claim", "alpha")).exitCode).toBe(0);
 		await env.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await env.finish(alpha);
@@ -147,34 +143,30 @@ describe.concurrent("splates", () => {
 		await using cli = await setup();
 		const { env, splates, rows } = cli;
 
-		expect(
-			(await splates(env.root, "add", "parent", "--goal", "land it")).exitCode,
-		).toBe(0);
-		const parent = ensure.defined(
-			(await rows())[0]?.worktree,
-			"add did not record a worktree path",
+		const parentAdded = await splates(
+			env.root,
+			"add",
+			"parent",
+			"--goal",
+			"land it",
 		);
+		expect(parentAdded.exitCode).toBe(0);
+		const parent = worktreeFromAdd(parentAdded.stdout);
 		await env.commit(parent, "parent.txt", "parent\n", "add parent");
 
 		// The parent hands out a part from inside its own tree, based on its own
 		// branch, so the part lands on it rather than on trunk.
-		expect(
-			(
-				await splates(
-					parent,
-					"add",
-					"part",
-					"--base",
-					"task/parent",
-					"--goal",
-					"land it",
-				)
-			).exitCode,
-		).toBe(0);
-		const part = ensure.defined(
-			(await rows()).find((row) => row.task === "part")?.worktree,
-			"add did not record a worktree path",
+		const partAdded = await splates(
+			parent,
+			"add",
+			"part",
+			"--base",
+			"task/parent",
+			"--goal",
+			"land it",
 		);
+		expect(partAdded.exitCode).toBe(0);
+		const part = worktreeFromAdd(partAdded.stdout);
 		await env.commit(part, "part.txt", "part\n", "add part");
 
 		await env.finish(part);
@@ -200,7 +192,7 @@ describe.concurrent("splates", () => {
 
 	it("lands the work when a second agent picks up an escalated tree", async () => {
 		await using cli = await setup();
-		const { env, splates, rows } = cli;
+		const { env, splates } = cli;
 
 		// Tests pass only once the committed marker says so, which is how the
 		// first agent's merge fails for a reason the second agent can fix.
@@ -208,13 +200,9 @@ describe.concurrent("splates", () => {
 			join(env.root, "splates.config.ts"),
 			`export default { preMerge: "grep -q ok status.txt" };\n`,
 		);
-		expect(
-			(await splates(env.root, "add", "gamma", "--goal", "land it")).exitCode,
-		).toBe(0);
-		const tree = ensure.defined(
-			(await rows())[0]?.worktree,
-			"add did not record a worktree path",
-		);
+		const added = await splates(env.root, "add", "gamma", "--goal", "land it");
+		expect(added.exitCode).toBe(0);
+		const tree = worktreeFromAdd(added.stdout);
 
 		expect((await splates(tree, "claim", "gamma")).exitCode).toBe(0);
 		await env.commit(tree, "status.txt", "wrong\n", "add status");
@@ -249,13 +237,9 @@ describe.concurrent("splates", () => {
 		await using cli = await setup();
 		const { env, splates, rows } = cli;
 
-		expect(
-			(await splates(env.root, "add", "delta", "--goal", "land it")).exitCode,
-		).toBe(0);
-		const tree = ensure.defined(
-			(await rows())[0]?.worktree,
-			"add did not record a worktree path",
-		);
+		const added = await splates(env.root, "add", "delta", "--goal", "land it");
+		expect(added.exitCode).toBe(0);
+		const tree = worktreeFromAdd(added.stdout);
 
 		// The first agent claims, writes, and never comes back: the record keeps
 		// a lease whose pid died with the process.
@@ -291,13 +275,15 @@ describe.concurrent("splates", () => {
 			`export default { preMerge: "if [ -f ${die} ]; then rm ${die}; kill -9 $PPID; fi" };\n`,
 		);
 		await env.fs.write(die, "");
-		expect(
-			(await splates(env.root, "add", "epsilon", "--goal", "land it")).exitCode,
-		).toBe(0);
-		const tree = ensure.defined(
-			(await rows())[0]?.worktree,
-			"add did not record a worktree path",
+		const added = await splates(
+			env.root,
+			"add",
+			"epsilon",
+			"--goal",
+			"land it",
 		);
+		expect(added.exitCode).toBe(0);
+		const tree = worktreeFromAdd(added.stdout);
 
 		expect((await splates(tree, "claim", "epsilon")).exitCode).toBe(0);
 		await env.commit(tree, "epsilon.txt", "epsilon\n", "add epsilon");
@@ -416,6 +402,12 @@ describe.concurrent("splates", () => {
 });
 
 const CLI = join(import.meta.dirname, "index.ts");
+
+const worktreeFromAdd = (stdout: string) =>
+	ensure.defined(
+		stdout.match(/^ {2}worktree: (.+)$/m)?.[1],
+		"add did not print a worktree path",
+	);
 
 /** A repo of its own per test, so the four of them can run at once. */
 const setup = async ({ init = true }: { init?: boolean } = {}) => {
