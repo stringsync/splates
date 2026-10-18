@@ -4,7 +4,7 @@
  * only when asked.
  */
 
-import { judgeFrom } from "@stringsync/splates-server/auto-pick";
+import { judgeFrom } from "@stringsync/splates-server/models";
 import { Credentials, SystemSecretStore } from "webappwiz/creds";
 import { score } from "./cases";
 

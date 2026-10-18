@@ -3,8 +3,8 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { readFiles } from "../attachments";
 import { fail } from "../exit";
+import type { AgentPick } from "../models";
 import type { Facts } from "../records";
-import type { AgentPick } from "../roster";
 import type { Todo, TodoOrigin } from "./todo";
 import type { Todos } from "./todos";
 

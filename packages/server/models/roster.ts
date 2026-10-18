@@ -1,9 +1,9 @@
 import { homedir } from "node:os";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
-import { LEGACY_DIR, unmigrated } from "./config";
-import type { Agent } from "./conversations";
-import { fail } from "./exit";
+import { LEGACY_DIR, unmigrated } from "../config";
+import type { Agent } from "../conversations";
+import { fail } from "../exit";
 
 /**
  * The agents splates can start, and the models each runs, kept in one file

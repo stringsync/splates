@@ -1,6 +1,6 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
-import { DEFAULT_AGENTS, Roster } from "../roster";
+import { DEFAULT_AGENTS, Roster } from "../models";
 import { OpenCodeModelError } from "./opencode-model-error";
 import {
 	contentPrefix,

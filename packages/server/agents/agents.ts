@@ -1,7 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Setting } from "../conversations";
-import { effortsOf } from "../effort";
-import { type Roster, traitsOf } from "../roster";
+import { effortsOf, type Roster, traitsOf } from "../models";
 import { table } from "../table";
 
 export interface AgentsOptions {

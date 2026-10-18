@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { FakeTimer } from "webappwiz/time/testing";
-import { framed } from "./agents";
+import { framed } from "../agents";
+import type { AgentProcess } from "../conversations";
 import { codexLimits, isCodex } from "./codex-limits";
-import type { AgentProcess } from "./conversations";
 
 const NOW = Date.parse("2026-10-13T10:00:00Z");
 

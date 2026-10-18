@@ -1,5 +1,5 @@
 import { Duration, type Timer } from "webappwiz/time";
-import type { Agent, Launch, Limit } from "./conversations";
+import type { Agent, Launch, Limit } from "../conversations";
 
 /** How long Codex's app server gets to say its limits before it is let go. */
 const WAIT = Duration.secs(15);

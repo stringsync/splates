@@ -4,13 +4,13 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import type { TodoState } from "@stringsync/splates-server/board";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import type {
 	LanesStart,
 	Report,
 	TodoProposal,
 } from "@stringsync/splates-server/plans";
 import { todoReference } from "@stringsync/splates-server/plans/browser";
-import type { AgentPick } from "@stringsync/splates-server/roster";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,

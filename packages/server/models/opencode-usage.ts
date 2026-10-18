@@ -1,6 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { agentError } from "./agents";
-import type { ConversationState } from "./conversations";
+import { agentError } from "../agents";
+import type { ConversationState } from "../conversations";
 
 /** Observations, never a quota estimate or evidence of an invoice. */
 export interface OpenCodeUsage {

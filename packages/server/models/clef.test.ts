@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Clef } from "./clef";
-import { JUDGMENT, serve } from "./system-one-testing";
+import { JUDGMENT, serve } from "./testing";
 
 describe("Clef", () => {
 	it("reads answers wrapped in Workers AI's result, kept between 0 and 1", async () => {

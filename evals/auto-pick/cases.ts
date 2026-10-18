@@ -1,5 +1,5 @@
-import type { Judge } from "@stringsync/splates-server/auto-pick";
-import { QUESTIONS, tierFor } from "@stringsync/splates-server/auto-pick";
+import type { Judge } from "@stringsync/splates-server/models";
+import { QUESTIONS, tierFor } from "@stringsync/splates-server/models";
 
 /** A first prompt, and the tier a person would start it on. */
 export interface Case {

@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
-import { type AgentPick, pickAgent, type RosterAgent } from "./roster";
+import { type AgentPick, pickAgent, type RosterAgent } from "./models";
 import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Dispatched } from "./worktree";
 import type { WorktreeService } from "./worktree-service";

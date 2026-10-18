@@ -1,3 +1,5 @@
+import type { Conversation, Conversations, Picked } from "../conversations";
+import type { Project } from "../dev-project";
 import {
 	type AutoPick,
 	JUDGE_CREDS,
@@ -5,8 +7,6 @@ import {
 	judgeFrom,
 	pick,
 } from "./auto-pick";
-import type { Conversation, Conversations, Picked } from "./conversations";
-import type { Project } from "./dev-project";
 import { effortSettings } from "./effort";
 import { Roster, splatesHome } from "./roster";
 

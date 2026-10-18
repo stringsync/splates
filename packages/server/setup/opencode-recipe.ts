@@ -1,6 +1,6 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
-import { Roster } from "../roster";
+import { Roster } from "../models";
 import { OpenCodeModelError } from "./opencode-model-error";
 import type { OpenCodeSelection } from "./opencode-models";
 

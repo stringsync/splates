@@ -8,7 +8,7 @@ import type {
 	Setting,
 	Tool,
 } from "../conversations";
-import { metric, observeTokens, safeOpenCodeUpdate } from "../opencode-usage";
+import { metric, observeTokens, safeOpenCodeUpdate } from "../models";
 import {
 	appendSummary,
 	compactionIn,

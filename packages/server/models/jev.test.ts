@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Jev } from "./jev";
-import { JUDGMENT, serve } from "./system-one-testing";
+import { JUDGMENT, serve } from "./testing";
 
 describe("Jev", () => {
 	it("posts the judgment with its model and reads the answers", async () => {

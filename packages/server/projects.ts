@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { fail } from "./exit";
-import { splatesHome } from "./roster";
+import { splatesHome } from "./models";
 
 /** The registry's own format, apart from each repository's records. */
 const FORMAT = 1;

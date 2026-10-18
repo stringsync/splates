@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
+import type { Limit, Setting } from "../conversations";
 import { type PickInput, pick } from "./auto-pick";
-import type { Limit, Setting } from "./conversations";
 import { DEFAULT_AGENTS } from "./roster";
 import type { Judge, Judgment } from "./system-one";
 

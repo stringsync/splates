@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { agents } from "./agents";
+import { agents } from "../agents";
+import { Testing } from "../testing";
 import { DEFAULT_AGENTS, pickAgent, Roster, traitsOf } from "./roster";
-import { Testing } from "./testing";
 
 async function setup() {
 	const deps = await Testing.open({ init: false });

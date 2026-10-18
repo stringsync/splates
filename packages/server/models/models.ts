@@ -1,5 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import type { Setting } from "./conversations";
+import type { Setting } from "../conversations";
 
 /**
  * Where `model` is among `settings`: the model setting's id, and the value

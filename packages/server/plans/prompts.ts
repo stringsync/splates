@@ -1,4 +1,4 @@
-import type { AgentPick } from "../roster";
+import type { AgentPick } from "../models";
 
 /** What a chat with an agent takes to mean todo `id`. */
 export function todoReference(id: number): string {

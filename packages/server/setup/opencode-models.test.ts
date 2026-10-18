@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { DEFAULT_AGENTS } from "../roster";
+import { DEFAULT_AGENTS } from "../models";
 import { type OpenCodeMetadata, OpenCodeModels } from "./opencode-models";
 import type { OpenCodeRecipe } from "./opencode-recipe";
 

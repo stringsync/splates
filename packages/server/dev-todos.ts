@@ -9,9 +9,8 @@ import type { ConversationRoutes } from "./dev-conversation-routes";
 import { body, uploads } from "./dev-http";
 import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
-import { pickEffort } from "./effort";
 import { fail } from "./exit";
-import { type AgentPick, modelsOf, pickAgent } from "./roster";
+import { type AgentPick, modelsOf, pickAgent, pickEffort } from "./models";
 
 /**
  * How a project's page writes its todos and lanes, each write journaled and

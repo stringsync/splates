@@ -4,7 +4,7 @@ import { add } from "./add";
 import { AGENT, FakeAgent, ROSTERED } from "./agents/testing";
 import { Conversations } from "./conversations";
 import { dev } from "./index";
-import { Offered } from "./offered";
+import { Offered } from "./models";
 import { Testing } from "./testing";
 
 describe("dev dispatched", () => {

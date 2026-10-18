@@ -13,10 +13,10 @@ import { nameOf } from "./conversations";
 import { body } from "./dev-http";
 import type { Handler, Served } from "./dev-project";
 import { fail } from "./exit";
+import { splatesHome } from "./models";
 import { keyOf, Notices } from "./notices";
 import { type Needing, openedBy } from "./plans";
 import type { Projects } from "./projects";
-import { splatesHome } from "./roster";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);

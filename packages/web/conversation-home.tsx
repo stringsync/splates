@@ -7,7 +7,7 @@ import type {
 	ConversationState,
 	Setting,
 } from "@stringsync/splates-server/conversations";
-import { modelOption } from "@stringsync/splates-server/models";
+import { modelOption } from "@stringsync/splates-server/models/browser";
 import { AUTO } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import { type JSX, type ReactNode, useContext, useRef, useState } from "react";

@@ -12,8 +12,7 @@ import type {
 } from "../conversations";
 import { type Live, LOG_FORMAT, said } from "../conversations";
 import { fail } from "../exit";
-import { modelOption } from "../models";
-import { safeOpenCodeUpdate } from "../opencode-usage";
+import { modelOption, safeOpenCodeUpdate } from "../models";
 import {
 	ASYNC_TASK_STOP,
 	ASYNC_TASK_UPDATE,

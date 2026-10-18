@@ -1,5 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import { heard, type Limit } from "./conversations";
+import { heard, type Limit } from "../conversations";
 
 /** The file's own format. */
 const FORMAT = 1;

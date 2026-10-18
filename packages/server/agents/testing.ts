@@ -1,7 +1,7 @@
 import * as acp from "@agentclientprotocol/sdk";
 import type { HeavyCap, StartOptions } from "webappwiz/system";
 import { type FakeChild, FakePs } from "webappwiz/system/testing";
-import type { RosterAgent } from "../roster";
+import type { RosterAgent } from "../models";
 import {
 	type Agent,
 	type AgentFrame,

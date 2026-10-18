@@ -1,7 +1,7 @@
 import type { Credentials } from "webappwiz/creds";
 import { Duration } from "webappwiz/time";
+import type { Limit, Setting } from "../conversations";
 import { Clef } from "./clef";
-import type { Limit, Setting } from "./conversations";
 import { Jev } from "./jev";
 import { modelOption } from "./models";
 import {

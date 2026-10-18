@@ -1,5 +1,5 @@
 import { SYSTEM_STORES } from "./creds";
-import { Roster, type RosterAgent, splatesHome } from "./roster";
+import { Roster, type RosterAgent, splatesHome } from "./models";
 import type { SplatesDeps } from "./runtime-deps";
 import { SavedPortsHost } from "./saved-ports-host";
 import { SavedTunnel } from "./saved-tunnel";

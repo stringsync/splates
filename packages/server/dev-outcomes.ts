@@ -3,8 +3,8 @@ import { Adherence } from "./adherence";
 import type { Handler } from "./dev-project";
 import { fail } from "./exit";
 import { landed } from "./landed";
+import { splatesHome } from "./models";
 import { Outcomes } from "./outcomes";
-import { splatesHome } from "./roster";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /**

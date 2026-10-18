@@ -10,9 +10,9 @@ import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
 import type { FileDiff } from "@stringsync/splates-server/diff";
 import type { Landed } from "@stringsync/splates-server/landed";
 import type { MachineReading } from "@stringsync/splates-server/machine";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import type { Wants } from "@stringsync/splates-server/notices";
 import type { QueueListing } from "@stringsync/splates-server/queue-list";
-import type { AgentPick } from "@stringsync/splates-server/roster";
 import type {
 	SetupProgress,
 	StepAnswers,

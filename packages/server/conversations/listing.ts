@@ -1,4 +1,4 @@
-import { modelsOf } from "../roster";
+import { modelsOf } from "../models";
 import type { Conversations } from "./conversations";
 import { listed } from "./state";
 

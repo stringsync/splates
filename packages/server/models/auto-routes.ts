@@ -1,9 +1,9 @@
+import type { Conversations } from "../conversations";
+import { treeOf } from "../dev-conversation-tree";
+import { body } from "../dev-http";
+import type { Project } from "../dev-project";
+import { fail } from "../exit";
 import { startAuto } from "./auto-start";
-import type { Conversations } from "./conversations";
-import { treeOf } from "./dev-conversation-tree";
-import { body } from "./dev-http";
-import type { Project } from "./dev-project";
-import { fail } from "./exit";
 
 /**
  * How a project's page starts a conversation on what Auto picks. Each

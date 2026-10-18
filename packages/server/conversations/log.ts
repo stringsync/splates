@@ -14,7 +14,7 @@ import {
 	toolIn,
 } from "../agents";
 import { type ArtifactChange, applyArtifact } from "../artifacts";
-import { finishObservation, type ObservedTurn } from "../opencode-usage";
+import { finishObservation, type ObservedTurn } from "../models";
 import { delivered, said, sent, takeBack } from "./messages";
 import {
 	type Ask,

@@ -1,15 +1,15 @@
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
-import { pickEffort } from "@stringsync/splates-server/effort";
 import { fail } from "@stringsync/splates-server/exit";
-import { Offered } from "@stringsync/splates-server/offered";
-import type { Repository } from "@stringsync/splates-server/records";
 import {
 	type AgentPick,
+	Offered,
 	pickAgent,
+	pickEffort,
 	type RosterAgent,
 	splatesHome,
-} from "@stringsync/splates-server/roster";
+} from "@stringsync/splates-server/models";
+import type { Repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { SavedTunnel } from "@stringsync/splates-server/saved-tunnel";
 import { SLOT_POOL } from "@stringsync/splates-server/slots";

@@ -3,7 +3,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
-import { Limits } from "../limits";
+import { Limits } from "../models";
 import { Conversations } from "./index";
 
 describe("Conversations.refreshLimits", () => {

@@ -33,10 +33,10 @@ import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
+import { Roster, splatesHome } from "./models";
 import { queueListing } from "./queue-list";
 import { openRepository } from "./records";
 import { RUNNING } from "./release";
-import { Roster, splatesHome } from "./roster";
 import {
 	OpenCodeSetup,
 	OpenCodeSetupRoutes,

@@ -1,11 +1,11 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { paused } from "@stringsync/splates-server/conversations/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import {
 	DEFER,
 	handoffToReference,
 	RESUME,
 } from "@stringsync/splates-server/plans/browser";
-import type { AgentPick } from "@stringsync/splates-server/roster";
 import type { Details } from "@stringsync/splates-server/show";
 import {
 	ArchiveIcon,

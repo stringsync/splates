@@ -1,5 +1,5 @@
-import type { Setting } from "./conversations";
-import { fail } from "./exit";
+import type { Setting } from "../conversations";
+import { fail } from "../exit";
 
 /** The setting a thinking level goes in, as ACP names its category. */
 const THOUGHT_LEVEL = "thought_level";

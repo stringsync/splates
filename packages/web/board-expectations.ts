@@ -1,5 +1,5 @@
 import type { TodoState } from "@stringsync/splates-server/board";
-import type { AgentPick } from "@stringsync/splates-server/roster";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
 
 /**

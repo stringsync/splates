@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "./creds";
-import { splatesHome } from "./roster";
+import { splatesHome } from "./models";
 import { SavedTunnel } from "./saved-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
 

@@ -1,4 +1,4 @@
-import type { AgentPick } from "@stringsync/splates-server/roster";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import { ChevronDownIcon, PlayIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

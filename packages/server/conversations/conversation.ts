@@ -7,7 +7,7 @@ import type { Agent, AgentProcess, ProcessHandle } from "../agents";
 import { AgentConnection, fold, heard } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
-import { finishObservation } from "../opencode-usage";
+import { finishObservation } from "../models";
 import { RECONNECT } from "../plans";
 import type { Grant } from "../scheduler";
 import type { WorkerMachine } from "../workers";

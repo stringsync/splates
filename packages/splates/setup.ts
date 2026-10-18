@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
+import { splatesHome } from "@stringsync/splates-server/models";
 import { Projects } from "@stringsync/splates-server/projects";
-import { splatesHome } from "@stringsync/splates-server/roster";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import {
 	SETUP_AREAS,

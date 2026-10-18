@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
-import { fold, tally } from "./agents";
-import { blank, ConversationLog } from "./conversations";
+import { fold, tally } from "../agents";
+import { blank, ConversationLog } from "../conversations";
+import { taskLog } from "../task-log";
 import {
 	finishObservation,
 	type ObservedTurn,
 	safeOpenCodeUpdate,
 } from "./opencode-usage";
-import { taskLog } from "./task-log";
 
 const AT = "2026-10-17T12:00:00.000Z";
 const END = "2026-10-17T12:00:02.000Z";
