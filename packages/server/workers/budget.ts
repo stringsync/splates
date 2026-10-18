@@ -108,13 +108,42 @@ export class WorkerBudget {
 	 * day and month hold once reached.
 	 */
 	refusal(dollarsPerHour: number): BudgetReason | null {
+		const holding = this.holding(dollarsPerHour);
+		return holding === null ? null : reached(holding.standing);
+	}
+
+	/**
+	 * What a raise must add for a worker costing `dollarsPerHour` to be made
+	 * now, to the limit that holds it, rounded up to the cent; null when
+	 * none does. The rate cap needs only what the worker overshoots it by;
+	 * the day and month, the overshoot and an hour of the worker.
+	 */
+	shortfall(
+		dollarsPerHour: number,
+	): { limit: WorkerLimit; dollars: number } | null {
+		const holding = this.holding(dollarsPerHour);
+		if (holding === null) {
+			return null;
+		}
+		const { standing } = holding;
+		const need =
+			standing.limit === "hour"
+				? standing.spent + dollarsPerHour - standing.dollars
+				: standing.spent - standing.dollars + dollarsPerHour;
+		return {
+			limit: standing.limit,
+			dollars: Math.max(0.01, Math.ceil(need * 100 - 1e-6) / 100),
+		};
+	}
+
+	private holding(dollarsPerHour: number): { standing: WorkerStanding } | null {
 		for (const standing of this.standing()) {
 			const over =
 				standing.limit === "hour"
 					? standing.spent + dollarsPerHour > standing.dollars + EPSILON
 					: standing.spent >= standing.dollars - EPSILON;
 			if (over) {
-				return reached(standing);
+				return { standing };
 			}
 		}
 		return null;
@@ -373,6 +402,21 @@ export interface WorkerStanding {
 	tier: AlertTier;
 	/** Always true for now: spent is counted at the provider's list price, not its bill. */
 	estimate: boolean;
+}
+
+/** What one click on a held queue raises, and what that buys. */
+export interface RaiseOffer {
+	/** The limit that holds the queue. */
+	limit: WorkerLimit;
+	/** Dollars to add: an hour's rate for the rate cap, else dollars for the window. */
+	dollars: number;
+	/** The worker type it would make. */
+	type: string;
+	platform: string;
+	slots: number;
+	dollarsPerHour: number;
+	/** How many of the queued agents that worker would seat. */
+	clears: number;
 }
 
 /** A tier one limit has newly reached in its window. */

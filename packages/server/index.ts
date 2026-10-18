@@ -337,6 +337,7 @@ export async function dev(
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
 		workers.slots.scheduler,
+		workers.provisioning,
 	);
 	// Loud, whatever a device asks to hear: a limit nearing costs money.
 	workers.provisioning?.events.on("alert", (alert) => {
@@ -470,6 +471,7 @@ export async function dev(
 									: workerBudgetReport(
 											workers.provisioning.budget,
 											workers.slots.scheduler,
+											workers.provisioning.offer(),
 										),
 						}),
 					),

@@ -3,6 +3,7 @@ export { joinAccess } from "./access";
 export { addWorker, drainWorker, removeWorker, setWorkerSlots } from "./admin";
 export type {
 	AlertTier,
+	RaiseOffer,
 	WorkerAlert,
 	WorkerLimit,
 	WorkerRaise,

@@ -60,6 +60,16 @@ describe("WorkerBudget", () => {
 		expect(budget.refusal(0.1)).toBe("rate cap $0.25/h reached");
 	});
 
+	it("prices what a raise must add for a worker the rate cap refuses, to the cent", async () => {
+		const budget = WorkerBudget.memory(clock());
+		await budget.started("one", "small", 0.2);
+
+		expect(budget.shortfall(0.05)).toBeNull();
+		expect(budget.shortfall(0.11)).toEqual({ limit: "hour", dollars: 0.06 });
+		await budget.raise("hour", 0.06);
+		expect(budget.shortfall(0.11)).toBeNull();
+	});
+
 	it("refuses any worker, and stops those running, once the day's limit is spent", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);

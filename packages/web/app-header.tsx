@@ -148,7 +148,12 @@ function ServerBadges({
 				</span>
 			)}
 			{!offline && <MachineBadge reading={machine} />}
-			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
+			{!offline && (
+				<QueueBadge
+					queue={machine?.queue ?? []}
+					offer={machine?.workerBudget?.offer}
+				/>
+			)}
 			{!offline && <WorkerBudgetBadge budget={machine?.workerBudget} />}
 		</>
 	);

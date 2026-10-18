@@ -77,5 +77,6 @@ function report(
 		rate: 0,
 		stopped: null,
 		holding: null,
+		offer: null,
 	};
 }

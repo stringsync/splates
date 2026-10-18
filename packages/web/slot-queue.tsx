@@ -1,6 +1,13 @@
 import type { QueueSpot } from "@stringsync/splates-server/conversations";
 import type { QueueListing } from "@stringsync/splates-server/queue-list";
-import { ArrowUpIcon, ArrowUpToLineIcon, HourglassIcon } from "lucide-react";
+import type { RaiseOffer } from "@stringsync/splates-server/workers";
+import { dollars } from "@stringsync/splates-server/workers/browser";
+import {
+	ArrowUpIcon,
+	ArrowUpToLineIcon,
+	CoinsIcon,
+	HourglassIcon,
+} from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -9,8 +16,9 @@ import {
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ApiError, moveQueued } from "./api";
+import { ApiError, moveQueued, raiseWorkerBudget } from "./api";
 import { useNow } from "./hooks/use-now";
+import { useMachine } from "./machine";
 
 /** `place` as a place in line: 1st, 2nd, 3rd, 4th. */
 export function ordinal(place: number): string {
@@ -51,6 +59,87 @@ function useMove(): {
 	};
 }
 
+/** What `offer` adds, like `+$0.06/h` or `+$0.50 today`. */
+function raised(offer: RaiseOffer): string {
+	return offer.limit === "hour"
+		? `+${dollars(offer.dollars)}/h`
+		: `+${dollars(offer.dollars)} ${offer.limit === "day" ? "today" : "this month"}`;
+}
+
+/**
+ * Next to a queue the worker budget holds: what a raise costs and buys,
+ * the worker's specs under it, and a button that asks once more in place
+ * before raising the limit that holds it for a day.
+ */
+export function RaiseOfferButton({
+	offer,
+}: {
+	offer: RaiseOffer | null | undefined;
+}): JSX.Element | null {
+	const [step, setStep] = useState<"idle" | "asking" | "raising" | "raised">(
+		"idle",
+	);
+	const [error, setError] = useState<string | null>(null);
+	if (offer == null) {
+		return null;
+	}
+	const buys = `starts 1 more worker, which clears ${offer.clears} queued ${offer.clears === 1 ? "task" : "tasks"}`;
+	const raise = () => {
+		setStep("raising");
+		setError(null);
+		raiseWorkerBudget(offer.limit, offer.dollars).then(
+			() => setStep("raised"),
+			(caught: unknown) => {
+				setStep("idle");
+				setError(caught instanceof ApiError ? caught.message : String(caught));
+			},
+		);
+	};
+	return (
+		<div data-slot="raise-offer" className="flex flex-col gap-0.5">
+			<div className="flex items-center gap-2">
+				<span className="min-w-0 flex-1 text-foreground text-xs">
+					{raised(offer)} {buys}
+				</span>
+				{step === "asking" ? (
+					<>
+						<Button size="sm" onClick={raise}>
+							Raise for a day
+						</Button>
+						<Button size="sm" variant="ghost" onClick={() => setStep("idle")}>
+							Cancel
+						</Button>
+					</>
+				) : (
+					<Button
+						variant="outline"
+						size="sm"
+						className="shrink-0"
+						disabled={step === "raising" || step === "raised"}
+						onClick={() => setStep("asking")}
+					>
+						<CoinsIcon />
+						{step === "raised" ? "Raised" : `Raise ${raised(offer)}`}
+					</Button>
+				)}
+			</div>
+			<span className="text-muted-foreground text-xs">
+				A {offer.type} on {offer.platform}: {offer.slots} slots at{" "}
+				{dollars(offer.dollarsPerHour)}/h.
+			</span>
+			{error !== null && (
+				<span className="text-destructive text-xs">{error}</span>
+			)}
+		</div>
+	);
+}
+
+/** The offer for the banner, asked of the machine's reading only while one is held. */
+function BannerOffer(): JSX.Element | null {
+	const machine = useMachine();
+	return <RaiseOfferButton offer={machine?.workerBudget?.offer} />;
+}
+
 /**
  * Under a conversation's header while its agent waits for a slot on a
  * worker, across the pane's padding to its edges: where it is in line, how
@@ -74,36 +163,39 @@ export function QueueBanner({
 			data-slot="queue-banner"
 			className={cn(
 				phone ? "-mx-1" : "-mx-4",
-				"flex shrink-0 items-center gap-2 border-y bg-muted px-4 py-2 text-muted-foreground text-sm",
+				"flex shrink-0 flex-col gap-2 border-y bg-muted px-4 py-2 text-muted-foreground text-sm",
 			)}
 		>
-			<HourglassIcon className="size-4 shrink-0" />
-			<span className="min-w-0 flex-1">
-				<span className="font-medium text-foreground">
-					Waiting for a slot, {ordinal(spot.position)} of {spot.of} in line.
-				</span>{" "}
-				{spot.reason === "no free slot"
-					? `Every worker it can run on is full. It has waited ${waited(spot.since, now)}, and starts on its own once a slot frees.`
-					: spot.reason.endsWith(" reached")
-						? `No worker it can run on is free, and no other is made: the worker budget's ${spot.reason}. It has waited ${waited(spot.since, now)}, and starts once a slot frees or the budget is raised.`
-						: spot.reason === "no worker up"
-							? `No worker is up to run it. It has waited ${waited(spot.since, now)}, and starts once a worker joins.`
-							: `It ${spot.reason}, and no worker on it is up. It has waited ${waited(spot.since, now)}, and starts once one joins.`}
-				{error !== null && (
-					<span className="block text-destructive">{error}</span>
+			<div className="flex items-center gap-2">
+				<HourglassIcon className="size-4 shrink-0" />
+				<span className="min-w-0 flex-1">
+					<span className="font-medium text-foreground">
+						Waiting for a slot, {ordinal(spot.position)} of {spot.of} in line.
+					</span>{" "}
+					{spot.reason === "no free slot"
+						? `Every worker it can run on is full. It has waited ${waited(spot.since, now)}, and starts on its own once a slot frees.`
+						: spot.reason.endsWith(" reached")
+							? `No worker it can run on is free, and no other is made: the worker budget's ${spot.reason}. It has waited ${waited(spot.since, now)}, and starts once a slot frees or the budget is raised.`
+							: spot.reason === "no worker up"
+								? `No worker is up to run it. It has waited ${waited(spot.since, now)}, and starts once a worker joins.`
+								: `It ${spot.reason}, and no worker on it is up. It has waited ${waited(spot.since, now)}, and starts once one joins.`}
+					{error !== null && (
+						<span className="block text-destructive">{error}</span>
+					)}
+				</span>
+				{spot.position > 1 && (
+					<Button
+						variant="outline"
+						size="sm"
+						className="shrink-0"
+						onClick={() => move(id, 1)}
+					>
+						<ArrowUpToLineIcon />
+						Start next
+					</Button>
 				)}
-			</span>
-			{spot.position > 1 && (
-				<Button
-					variant="outline"
-					size="sm"
-					className="shrink-0"
-					onClick={() => move(id, 1)}
-				>
-					<ArrowUpToLineIcon />
-					Start next
-				</Button>
-			)}
+			</div>
+			{spot.reason.endsWith(" reached") && <BannerOffer />}
 		</div>
 	);
 }
@@ -133,7 +225,10 @@ export function QueueMark({ spot }: { spot: QueueSpot }): JSX.Element {
 export function QueueBadge({
 	queue,
 	nameOf,
+	offer,
 }: {
+	/** What a raise would buy, when the worker budget holds the queue. */
+	offer?: RaiseOffer | null;
 	queue: QueueListing[];
 	/** What to call the conversation `id`, when the page holds it. */
 	nameOf?: (id: string) => string | null;
@@ -188,6 +283,7 @@ export function QueueBadge({
 					))}
 				</ol>
 				{error !== null && <p className="text-destructive text-xs">{error}</p>}
+				<RaiseOfferButton offer={offer} />
 			</PopoverContent>
 		</Popover>
 	);

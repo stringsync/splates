@@ -23,6 +23,7 @@ import type {
 import type { FileDiff } from "@stringsync/splates-server/tasks";
 import type {
 	WorkerBudgetReport,
+	WorkerLimit,
 	WorkerPool,
 } from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
@@ -328,6 +329,18 @@ export async function moveQueued(id: string, position: number): Promise<void> {
 		method: "PUT",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ position }),
+	});
+}
+
+/** Adds `dollars` to the worker budget's `limit` for a day. */
+export async function raiseWorkerBudget(
+	limit: WorkerLimit,
+	dollars: number,
+): Promise<void> {
+	await sendJson("/api/worker-budget/raises", "POST", {
+		limit,
+		dollars,
+		for: "1d",
 	});
 }
 

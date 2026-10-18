@@ -11,7 +11,7 @@ import {
 } from "webappwiz/time";
 import type { HeldSlot, Platform, Scheduler } from "../scheduler";
 import type { WorkerAccess } from "./access";
-import type { WorkerAlert, WorkerBudget } from "./budget";
+import type { RaiseOffer, WorkerAlert, WorkerBudget } from "./budget";
 import type { WorkerProvider, WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -87,6 +87,8 @@ export class WorkerProvisioning
 	private failedAt: number | null = null;
 	private readonly wall: WallClock;
 	private tick: Resource | null = null;
+	private offering: RaiseOffer | null = null;
+	private scheduler: Scheduler | null = null;
 
 	constructor(private readonly opts: WorkerProvisioningOptions) {
 		this.wall = opts.wall ?? new SystemWallClock();
@@ -94,6 +96,18 @@ export class WorkerProvisioning
 
 	get budget(): WorkerBudget {
 		return this.opts.budget;
+	}
+
+	/** What a raise would buy while the budget holds the queue; null when it does not. */
+	offer(): RaiseOffer | null {
+		return this.offering;
+	}
+
+	/** Looks at the queue again, as after the budget changed. */
+	async refill(): Promise<void> {
+		if (this.scheduler !== null) {
+			await this.fill(this.scheduler);
+		}
 	}
 
 	/** Whether worker `id` is one a provider made. */
@@ -210,6 +224,7 @@ export class WorkerProvisioning
 	 * budget as time passes, until disposed.
 	 */
 	watch(scheduler: Scheduler): void {
+		this.scheduler = scheduler;
 		this.watching?.();
 		this.tick?.dispose();
 		this.watching = scheduler.events.on("changed", () => {
@@ -270,6 +285,7 @@ export class WorkerProvisioning
 		const [first] = waiting.slice(seats);
 		if (first === undefined) {
 			scheduler.withhold(null);
+			this.offering = null;
 			return;
 		}
 		if (
@@ -283,6 +299,18 @@ export class WorkerProvisioning
 			const type = pick(await provider.types(), { platform: first.platform });
 			const refusal = budget.refusal(type.dollarsPerHour);
 			scheduler.withhold(refusal);
+			const shortfall = budget.shortfall(type.dollarsPerHour);
+			this.offering =
+				shortfall === null
+					? null
+					: {
+							...shortfall,
+							type: type.name,
+							platform: type.platform,
+							slots: type.slots,
+							dollarsPerHour: type.dollarsPerHour,
+							clears: Math.min(type.slots, waiting.length - seats),
+						};
 			if (refusal !== null) {
 				return;
 			}

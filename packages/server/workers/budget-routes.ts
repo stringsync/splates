@@ -2,6 +2,7 @@ import { z } from "zod";
 import { body, refuse } from "../dev-http";
 import type { Scheduler } from "../scheduler";
 import {
+	type RaiseOffer,
 	span,
 	WORKER_LIMITS,
 	type WorkerBudget,
@@ -19,6 +20,8 @@ export interface WorkerBudgetReport {
 	stopped: string | null;
 	/** Why no worker is made for the queue, as the queue says it; null when nothing holds it. */
 	holding: string | null;
+	/** What one click raises to start a worker for the held queue, and what it buys; null when nothing is held. */
+	offer: RaiseOffer | null;
 }
 
 /** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
@@ -41,6 +44,10 @@ export class WorkerBudgetRoutes {
 	constructor(
 		private readonly budget: WorkerBudget | null,
 		private readonly scheduler: Scheduler,
+		private readonly provisioning: {
+			offer(): RaiseOffer | null;
+			refill(): Promise<void>;
+		} | null = null,
 	) {}
 
 	/** `GET /api/worker-budget`. */
@@ -116,10 +123,17 @@ export class WorkerBudgetRoutes {
 		}
 		try {
 			await change(budget);
+			await this.provisioning?.refill();
 		} catch (error) {
 			return refuse(400, "usage", (error as Error).message);
 		}
-		return Response.json(workerBudgetReport(budget, this.scheduler));
+		return Response.json(
+			workerBudgetReport(
+				budget,
+				this.scheduler,
+				this.provisioning?.offer() ?? null,
+			),
+		);
 	}
 }
 
@@ -127,6 +141,7 @@ export class WorkerBudgetRoutes {
 export function workerBudgetReport(
 	budget: WorkerBudget,
 	scheduler: Scheduler,
+	offer: RaiseOffer | null = null,
 ): WorkerBudgetReport {
 	return {
 		standing: budget.standing(),
@@ -134,5 +149,6 @@ export function workerBudgetReport(
 		rate: budget.rate(),
 		stopped: budget.stopped(),
 		holding: scheduler.withheldReason(),
+		offer: scheduler.withheldReason() === null ? null : offer,
 	};
 }

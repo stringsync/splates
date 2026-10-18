@@ -85,7 +85,10 @@ export function PhoneApp({
 		</span>
 	) : (
 		<>
-			<QueueBadge queue={pageMenu.machine?.queue ?? []} />
+			<QueueBadge
+				queue={pageMenu.machine?.queue ?? []}
+				offer={pageMenu.machine?.workerBudget?.offer}
+			/>
 			<WorkerBudgetBadge budget={pageMenu.machine?.workerBudget} />
 		</>
 	);
