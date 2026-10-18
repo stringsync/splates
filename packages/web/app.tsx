@@ -302,7 +302,7 @@ export function App({
 			? null
 			: {
 					todos: <Todos snapshot={snapshot} drafts={drafts} view={todoView} />,
-					tasks: <Tasks tasks={snapshot.tasks} open={task} onOpen={openTask} />,
+					tasks: <Tasks project={snapshot} open={task} onOpen={openTask} />,
 					systems: (
 						<SystemsPage
 							systems={named}

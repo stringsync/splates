@@ -6,6 +6,7 @@ import type {
 	ConversationState,
 	Session,
 } from "@stringsync/splates-server/conversations";
+import type { EverywhereProject } from "@stringsync/splates-server/dev-everywhere";
 import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
 import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
 import type { FileDiff } from "@stringsync/splates-server/diff";
@@ -24,6 +25,8 @@ import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
+import { EverywhereContext } from "./everywhere-context";
+import { EverywhereFeed } from "./everywhere-feed";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
@@ -192,6 +195,13 @@ export class Testing implements Resource {
 	setup: SetupProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
 	ports: PortLink[] = [];
+	/**
+	 * Every project `/api/everywhere` lists, or null for it to refuse, as
+	 * through a tunnel with no Access.
+	 */
+	everywhere: EverywhereProject[] | null = null;
+	/** The page's stream of every project, once it opened one. */
+	everywhereStream: Stream | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -242,6 +252,11 @@ export class Testing implements Resource {
 				};
 				await this.listingProjects;
 				return Response.json(listed);
+			}
+			if (route === "/api/everywhere") {
+				return this.everywhere === null
+					? new Response(null, { status: 403 })
+					: Response.json({ projects: this.everywhere });
 			}
 			if (route === "/api/creds") {
 				return Response.json(this.kept);
@@ -321,8 +336,13 @@ export class Testing implements Resource {
 			closed = false;
 
 			constructor(url: string) {
-				if (url.split("?")[0] === "/api/conversations/events") {
+				const route = url.split("?")[0];
+				if (route === "/api/conversations/events") {
 					testing.talkStream = this;
+				} else if (route === "/api/everywhere/events") {
+					testing.everywhereStream = this;
+					// Open at once, as the server's is, so the feed lists.
+					queueMicrotask(() => this.onopen?.());
 				} else {
 					testing.stream = this;
 				}
@@ -434,18 +454,22 @@ export class Testing implements Resource {
 				createElement(
 					DictationContext,
 					{ value: this.dictation },
-					createElement(ProjectApp, {
-						settings: new Settings(localStorage),
-						checkpointEvery: CHECKPOINT_EVERY,
-						checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
-						offlineAfter: OFFLINE_AFTER,
-						reload: () => {
-							this.reloads++;
-						},
-						autoRestart: this.autoRestart,
-						timer: this.timer,
-						wall: this.wall,
-					}),
+					createElement(
+						EverywhereContext,
+						{ value: new EverywhereFeed() },
+						createElement(ProjectApp, {
+							settings: new Settings(localStorage),
+							checkpointEvery: CHECKPOINT_EVERY,
+							checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
+							offlineAfter: OFFLINE_AFTER,
+							reload: () => {
+								this.reloads++;
+							},
+							autoRestart: this.autoRestart,
+							timer: this.timer,
+							wall: this.wall,
+						}),
+					),
 				),
 			),
 		);

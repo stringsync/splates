@@ -1,7 +1,8 @@
 import { age } from "@stringsync/splates-server/age";
 import { questions } from "@stringsync/splates-server/plan";
 import type { Details } from "@stringsync/splates-server/show";
-import { SquarePenIcon } from "lucide-react";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import { ChevronRightIcon, SquarePenIcon } from "lucide-react";
 import {
 	type CSSProperties,
 	type JSX,
@@ -11,6 +12,11 @@ import {
 } from "react";
 import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -30,8 +36,11 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { NEW } from "./conversation-address";
 import { Dispatching, OnIt } from "./dispatching";
+import { useEverywhere } from "./everywhere-context";
+import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { useNow } from "./hooks/use-now";
 import { HEADING, Markdown } from "./markdown";
+import { NavigationContext } from "./navigation";
 import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
@@ -41,27 +50,33 @@ import { TaskPorts } from "./task-ports";
 import { TopBar } from "./top-bar";
 
 /**
- * Every task in a line: its name and the marks of the conversations on it.
- * Where the task stands in splates (its status, its plan) waits behind a tap.
+ * Every project's tasks, a line each, grouped by project: its name and the
+ * marks of the conversations on it. Where the task stands in splates (its
+ * status, its plan) waits behind a tap; another project's opens on that
+ * project's page, where everything in its dialog is that project's.
  */
 export function Tasks({
-	tasks,
+	project,
 	open,
 	onOpen,
 }: {
-	tasks: Details[];
+	/** This project, as its snapshot has it, to find among every project the feed lists. */
+	project: Here;
 	/** The task whose dialog is open, by name, so it follows the task as the page reads it again. */
 	open: string | null;
 	onOpen: (task: string | null) => void;
 }): JSX.Element {
+	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
 	const dispatching = useContext(Dispatching);
-	useNow(tasks.length > 0, Duration.mins(1));
+	const groups = useGroups(project);
+	const none = groups === null ? tasks.length === 0 : groups.length === 0;
+	useNow(!none, Duration.mins(1));
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
 			<TopBar title="Tasks" />
-			{tasks.length === 0 ? (
+			{none ? (
 				<Empty className="min-h-80 py-16">
 					<EmptyHeader>
 						<EmptyMedia variant="icon">
@@ -85,12 +100,10 @@ export function Tasks({
 						</EmptyContent>
 					)}
 				</Empty>
+			) : groups === null ? (
+				<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
 			) : (
-				<TaskRows
-					label="task list"
-					rows={nest(tasks, (host, part) => isPartOf(part.base, host.task))}
-					onOpen={onOpen}
-				/>
+				<ProjectGroups groups={groups} onOpen={onOpen} />
 			)}
 			<Dialog
 				open={opened !== null}
@@ -106,6 +119,170 @@ export function Tasks({
 	);
 }
 
+/** What the Tasks page reads of this project's snapshot. */
+type Here = Pick<Snapshot, "tasks" | "root" | "repo">;
+
+/** One project's tasks on the Tasks page. */
+interface Group {
+	/** Its slug, as `?project=` names it; null for this one, unlisted yet. */
+	project: string | null;
+	/** Its repository's name, as its page heads itself. */
+	name: string;
+	/** Whether it is the project this page shows. */
+	here: boolean;
+	tasks: Details[];
+}
+
+/**
+ * Every project with tasks, as `groupsOf` gathers them, null while the feed
+ * of every project is not to be had, loading or refused, when the page lists
+ * this one's alone.
+ */
+function useGroups(here: Here): Group[] | null {
+	const feed = useEverywhere(({ available, projects, tasks }) => ({
+		available,
+		projects,
+		tasks,
+	}));
+	return feed.available ? groupsOf(feed.projects, feed.tasks, here) : null;
+}
+
+/**
+ * Every project with tasks, by name, this one's tasks as its snapshot has
+ * them, which its dialog reads too.
+ */
+function groupsOf(
+	projects: EverywhereSummary[],
+	everywhere: InProject<Details>[],
+	here: Here,
+): Group[] {
+	const listed = projects.map(
+		(project): Group =>
+			project.root === here.root
+				? {
+						project: project.project,
+						name: here.repo,
+						here: true,
+						tasks: here.tasks,
+					}
+				: {
+						project: project.project,
+						name: project.repo,
+						here: false,
+						tasks: everywhere.filter(
+							(task) => task.project === project.project,
+						),
+					},
+	);
+	if (!listed.some((group) => group.here)) {
+		listed.push({
+			project: null,
+			name: here.repo,
+			here: true,
+			tasks: here.tasks,
+		});
+	}
+	return listed
+		.filter((group) => group.tasks.length > 0)
+		.sort(
+			(one, other) =>
+				one.name.localeCompare(other.name) ||
+				(one.project ?? "").localeCompare(other.project ?? ""),
+		);
+}
+
+function nested(tasks: Details[]): Nested<Details>[] {
+	return nest(tasks, (host, part) => isPartOf(part.base, host.task));
+}
+
+/** Where the Tasks page keeps the projects folded away, by slug. */
+const COLLAPSED = "splates.tasks.collapsed";
+
+function collapsedOnes(): Set<string> {
+	try {
+		const read: unknown = JSON.parse(localStorage.getItem(COLLAPSED) ?? "[]");
+		return new Set(
+			Array.isArray(read)
+				? read.filter((each) => typeof each === "string")
+				: [],
+		);
+	} catch {
+		return new Set();
+	}
+}
+
+/**
+ * Each project's tasks under its name, which folds them away, as this
+ * browser remembers. Another project's task opens on its project's page,
+ * at the task.
+ */
+function ProjectGroups({
+	groups,
+	onOpen,
+}: {
+	groups: Group[];
+	onOpen: (task: string) => void;
+}): JSX.Element {
+	const navigation = useContext(NavigationContext);
+	const [collapsed, setCollapsed] = useState(collapsedOnes);
+	const fold = (project: string, open: boolean) => {
+		const next = new Set(collapsed);
+		if (open) {
+			next.delete(project);
+		} else {
+			next.add(project);
+		}
+		localStorage.setItem(COLLAPSED, JSON.stringify([...next]));
+		setCollapsed(next);
+	};
+	return (
+		<div className="flex flex-col gap-4">
+			{groups.map((group) => {
+				const key = group.project ?? "";
+				const { project } = group;
+				return (
+					<Collapsible
+						key={key}
+						open={!collapsed.has(key)}
+						onOpenChange={(open) => fold(key, open)}
+						render={<section aria-label={group.name} />}
+						className="group/project flex flex-col"
+					>
+						<CollapsibleTrigger className="-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 max-md:min-h-11">
+							<ChevronRightIcon
+								aria-hidden
+								className="size-3.5 transition-transform duration-150 group-data-[open]/project:rotate-90"
+							/>
+							{group.name}
+							<span className="tabular-nums">{group.tasks.length}</span>
+						</CollapsibleTrigger>
+						<CollapsibleContent>
+							<TaskRows
+								label={`${group.name} tasks`}
+								rows={nested(group.tasks)}
+								marks={group.here}
+								onOpen={
+									group.here || project === null
+										? onOpen
+										: (task) => navigation.show(taskUrl(project, task))
+								}
+							/>
+						</CollapsibleContent>
+					</Collapsible>
+				);
+			})}
+		</div>
+	);
+}
+
+/** Project `project`'s page, opened on its task `task`. */
+function taskUrl(project: string, task: string): string {
+	const url = new URL(location.href);
+	url.searchParams.set("project", project);
+	url.hash = `#tasks/${task}`;
+	return url.toString();
+}
+
 /**
  * Tasks a line each, each part handed out from one in a list of its own
  * under it, indented. On a phone, a row is the inbox's, its name led by a
@@ -115,11 +292,17 @@ function TaskRows({
 	label,
 	rows,
 	onOpen,
+	marks = true,
 	depth = 0,
 }: {
 	label: string;
 	rows: Nested<Details>[];
 	onOpen: (task: string) => void;
+	/**
+	 * Whether to mark the conversations on each, which only this project's
+	 * page knows of.
+	 */
+	marks?: boolean;
 	/** How many tasks it is a part of; 0 for one on its base. */
 	depth?: number;
 }): JSX.Element {
@@ -161,13 +344,14 @@ function TaskRows({
 							</span>
 						)}
 						{/* Only marks, since the row is a button: its dialog opens them. */}
-						<OnIt task={task.task} variant="marks" />
+						{marks && <OnIt task={task.task} variant="marks" />}
 					</button>
 					{parts.length > 0 && (
 						<TaskRows
 							label={`parts of ${task.task}`}
 							rows={parts}
 							onOpen={onOpen}
+							marks={marks}
 							depth={depth + 1}
 						/>
 					)}
