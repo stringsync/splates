@@ -7,7 +7,7 @@ import { NodeFs, NodePs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
-import { DevWorkers } from "./dev-workers";
+import { DevWorkers, workerAuthorization } from "./dev-workers";
 import { UnixWorkerSocket } from "./unix-worker-socket";
 import { WebSocketWorkerSocket } from "./websocket-worker-socket";
 import { WorkerDaemon } from "./worker-daemon";
@@ -85,9 +85,14 @@ describe("splates worker list", () => {
 		await join_("local", 8, () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
 		);
+		const key = await workers.records.join(
+			(await workers.records.invite()).token,
+			"away",
+		);
 		await join_("away", 2, () =>
 			WebSocketWorkerSocket.connect(
 				`ws://127.0.0.1:${server.port}/api/workers`,
+				{ authorization: workerAuthorization("away", key ?? "") },
 			),
 		);
 

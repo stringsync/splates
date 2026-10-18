@@ -7,10 +7,12 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { z } from "zod";
-import { fail } from "./exit";
 import type { RemoteWorker, WorkerKind } from "./remote-worker";
 import { table } from "./table";
+import { callServer } from "./worker-admin";
+import type { WorkerRecord } from "./worker-records";
 import type { WorkerRegistry } from "./worker-registry";
+import { slotsOf } from "./worker-slots";
 
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
 export interface WorkerListing {
@@ -24,6 +26,10 @@ export interface WorkerListing {
 	slots: { used: number; total: number | null };
 	/** `connected` while the link is up, else `away`. */
 	health: "connected" | "away";
+	/** Takes no new agents, by `splates worker drain` or a removal waiting on its agents. */
+	draining: boolean;
+	/** Is removed once its last agent ends. */
+	removing: boolean;
 	/** When anything last came from it, epoch milliseconds; null before the first. */
 	lastHeard: number | null;
 	/** The tasks its agents run, a conversation's id for one in no task. */
@@ -39,21 +45,27 @@ export interface WorkerListings {
 
 /**
  * The workers a registry keeps and the ones it turned away; `placed`, the
- * tasks each runs, by its id, a conversation's id for one in no task.
+ * tasks each runs, by its id, a conversation's id for one in no task;
+ * `record`, what was set on each by hand.
  */
 export function workerList(
 	registry: WorkerRegistry,
 	placed: Map<string, string[]> = new Map(),
+	record: (id: string) => WorkerRecord | undefined = () => undefined,
 ): WorkerListings {
 	return {
 		workers: registry.workers.map((worker) =>
-			listing(worker, placed.get(worker.id) ?? []),
+			listing(worker, placed.get(worker.id) ?? [], record(worker.id)),
 		),
 		refused: registry.refused,
 	};
 }
 
-function listing(worker: RemoteWorker, tasks: string[]): WorkerListing {
+function listing(
+	worker: RemoteWorker,
+	tasks: string[],
+	record: WorkerRecord | undefined,
+): WorkerListing {
 	const { info, session } = worker;
 	const negotiated = session.negotiated;
 	return {
@@ -64,9 +76,14 @@ function listing(worker: RemoteWorker, tasks: string[]): WorkerListing {
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
 			used: tasks.length,
-			total: typeof info.slots === "number" ? info.slots : null,
+			total:
+				record?.slots != null || typeof info.slots === "number"
+					? slotsOf(worker, record)
+					: null,
 		},
 		health: worker.connected ? "connected" : "away",
+		draining: record?.draining === true,
+		removing: record?.removing === true,
 		lastHeard: session.lastHeard,
 		tasks,
 		dollarsPerHour: 0,
@@ -83,6 +100,8 @@ const Listings = z.object({
 			protocol: z.string().nullable(),
 			slots: z.object({ used: z.number(), total: z.number().nullable() }),
 			health: z.enum(["connected", "away"]),
+			draining: z.boolean().default(false),
+			removing: z.boolean().default(false),
 			lastHeard: z.number().nullable(),
 			tasks: z.array(z.string()),
 			dollarsPerHour: z.number(),
@@ -106,33 +125,8 @@ export interface ListWorkersOptions {
 
 /** `splates worker list`: asks the running `splates server` which workers it has. */
 export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
-	const { log, ps, send = fetch, wall = new SystemWallClock() } = opts;
-	const url = opts.dev || ps.env("SPLATES_DEV");
-	if (!url) {
-		fail(
-			"usage",
-			"no `splates server` to ask: give its URL with --dev, as in --dev http://localhost:4310",
-		);
-	}
-	let response: Response;
-	try {
-		// The server refuses a request from any other origin than its own.
-		response = await send(new URL("/api/workers", url), {
-			headers: { origin: new URL(url).origin },
-		});
-	} catch (error) {
-		fail(
-			"not_found",
-			`splates server at ${url} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
-		);
-	}
-	if (!response.ok) {
-		fail(
-			"not_found",
-			`splates server at ${url} did not list its workers: ${response.status} ${await response.text()}`,
-		);
-	}
-	const listed = Listings.parse(await response.json());
+	const { log, wall = new SystemWallClock() } = opts;
+	const listed = Listings.parse(await callServer("/api/workers", opts));
 	if (opts.json) {
 		log.info(JSON.stringify(listed, null, "\t"));
 		return;
@@ -178,9 +172,14 @@ function health(
 	worker: WorkerListings["workers"][number],
 	wall: WallClock,
 ): string {
+	const state = worker.removing
+		? `${worker.health}, removing`
+		: worker.draining
+			? `${worker.health}, draining`
+			: worker.health;
 	if (worker.lastHeard === null) {
-		return worker.health;
+		return state;
 	}
 	const ago = timeAgo(Duration.ms(Math.max(0, wall.now() - worker.lastHeard)));
-	return `${worker.health}, heard ${ago}`;
+	return `${state}, heard ${ago}`;
 }

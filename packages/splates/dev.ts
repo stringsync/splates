@@ -620,6 +620,9 @@ export async function dev(
 			if (pathname === "/api/workers") {
 				return workers.route(request, server, guarded);
 			}
+			if (pathname.startsWith("/api/workers/")) {
+				return workers.manage(request, (handle) => talk(guarded(handle)));
+			}
 			return new Response("not found", { status: 404 });
 		},
 	});

@@ -23,9 +23,14 @@ export class WebSocketWorkerSocket implements WorkerSocket {
 		socket.addEventListener("close", () => this.closed());
 	}
 
-	/** Dials `url`, settling once the socket is open. */
-	static connect(url: string): Promise<WebSocketWorkerSocket> {
-		const socket = new WebSocket(url);
+	/** Dials `url` with `headers`, settling once the socket is open. */
+	static connect(
+		url: string,
+		headers: Record<string, string> = {},
+	): Promise<WebSocketWorkerSocket> {
+		// Bun's constructor takes headers; the DOM's, in scope too, does not.
+		const options: Bun.WebSocketOptions = { headers };
+		const socket = new WebSocket(url, options as string[]);
 		return new Promise((resolve, reject) => {
 			socket.addEventListener("open", () =>
 				resolve(new WebSocketWorkerSocket(socket)),

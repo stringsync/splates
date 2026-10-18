@@ -9,6 +9,7 @@ import {
 	type QueueEntry,
 	Scheduler,
 } from "./scheduler";
+import type { WorkerRecord } from "./worker-records";
 import type { WorkerRegistry } from "./worker-registry";
 
 /** How many agents a worker runs at once until its hello says. */
@@ -35,16 +36,21 @@ export class WorkerSlots implements Resource {
 		{
 			platform,
 			wall = new SystemWallClock(),
+			record = () => undefined,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
 			wall?: WallClock;
+			/** What was set on worker `id` by hand: its slots, and whether it drains. */
+			record?: (id: string) => WorkerRecord | undefined;
 		},
 	) {
 		this.scheduler = new Scheduler(
 			{
 				workers: () =>
-					registry.workers.map((worker) => poolWorker(worker, platform)),
+					registry.workers.map((worker) =>
+						poolWorker(worker, platform, record(worker.id)),
+					),
 			},
 			wall,
 		);
@@ -114,12 +120,31 @@ function spotOf(entry: QueueEntry, of: number) {
 }
 
 /**
- * `worker` as placement sees it, from its last hello. The local worker is
- * always awake, on this machine's platform, since what it is sent waits for it to join, and holds every
- * checkout, which live on its machine; another holds them once it says it
- * makes its own (#14).
+ * How many agents `worker` runs at once: what was set on it by hand, else
+ * what its hello says.
  */
-function poolWorker(worker: RemoteWorker, machine: string): PoolWorker {
+export function slotsOf(
+	worker: RemoteWorker,
+	record: WorkerRecord | undefined,
+): number {
+	return (
+		record?.slots ??
+		(typeof worker.info.slots === "number" ? worker.info.slots : DEFAULT_SLOTS)
+	);
+}
+
+/**
+ * `worker` as placement sees it, from its last hello and what was set on
+ * it. The local worker is always awake, on this machine's platform, since
+ * what it is sent waits for it to join, and holds every checkout, which
+ * live on its machine; another holds them once it says it makes its own
+ * (#14). A draining worker takes nothing new.
+ */
+function poolWorker(
+	worker: RemoteWorker,
+	machine: string,
+	record: WorkerRecord | undefined,
+): PoolWorker {
 	const { info, kind } = worker;
 	const local = kind === "local";
 	const platform =
@@ -127,9 +152,9 @@ function poolWorker(worker: RemoteWorker, machine: string): PoolWorker {
 	return {
 		id: worker.id,
 		kind,
-		slots: typeof info.slots === "number" ? info.slots : DEFAULT_SLOTS,
+		slots: slotsOf(worker, record),
 		platform: platform === null ? null : platformOf(platform),
-		awake: local || worker.connected,
+		awake: (local || worker.connected) && record?.draining !== true,
 		checkouts: local || info.checkouts === true,
 	};
 }

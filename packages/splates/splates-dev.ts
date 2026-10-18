@@ -40,6 +40,7 @@ import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
 import { workerGit } from "./worker-git";
 import { WorkerPlacement } from "./worker-placement";
+import { WorkerRecords } from "./worker-records";
 import { workerSocketPath } from "./worker-run";
 
 /**
@@ -179,10 +180,16 @@ export async function serveDev(
 		`${splatesHome(ctx.ps)}/coordinator.json`,
 		ctx.fs,
 	);
+	// The workers that joined, kept so a restart lets each back in.
+	const records = await WorkerRecords.open(
+		`${splatesHome(ctx.ps)}/workers.json`,
+		ctx.fs,
+	);
 	const workers = new DevWorkers(ctx.log, {
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		platform: ctx.ps.platform,
+		records,
 	});
 	const worker = workers.local;
 	const { slots } = workers;

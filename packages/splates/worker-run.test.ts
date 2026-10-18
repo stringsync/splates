@@ -1,68 +1,40 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
-import { printed } from "./agent-process-testing";
-import type { RemoteWorker } from "./remote-worker";
-import { UnixWorkerListener } from "./unix-worker-listener";
-import { WorkerRegistry } from "./worker-registry";
+import { FakePs } from "webappwiz/system/testing";
+import { WORKER_KEY, workerKey } from "./worker-run";
 
-const CLI = join(import.meta.dirname, "index.ts");
+describe("workerKey", () => {
+	let store: FakeSecretStore;
+	let log: MemoryLogger;
+	let sent: unknown[];
 
-describe("splates worker run", () => {
-	let dir: string;
-	let path: string;
-	let registry: WorkerRegistry;
-	let listener: UnixWorkerListener;
-
-	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "splates-worker-run-"));
-		path = join(dir, "worker.sock");
-		registry = new WorkerRegistry(new MemoryLogger());
-		listener = await UnixWorkerListener.listen(path, new NodeFs());
-		listener.events.on("socket", (socket) => void registry.accept(socket));
+	beforeEach(() => {
+		store = new FakeSecretStore();
+		log = new MemoryLogger();
+		sent = [];
 	});
 
-	afterEach(async () => {
-		registry.dispose();
-		await listener.disposeAsync();
-		await rm(dir, { recursive: true, force: true });
-	});
+	it("joins with the token and keeps the key in the store, never the log", async () => {
+		const key = await workerKey("box", {
+			coordinator: "https://splates.example.com",
+			slots: 2,
+			id: "box",
+			join: "splj_token",
+			log,
+			ps: new FakePs(),
+			fs: new NodeFs(),
+			store,
+			send: (async (_url: string, init?: RequestInit) => {
+				sent.push(JSON.parse(String(init?.body)));
+				return Response.json({ id: "box", key: "the-key" });
+			}) as unknown as typeof fetch,
+		});
 
-	// scry-ignore simple-test-setup: the one test, and its subprocess is what it tests
-	it("joins its coordinator as a process of its own, runs what it is given, and stops on SIGTERM", async () => {
-		const joined = new Promise<RemoteWorker>((resolve) =>
-			registry.events.on("joined", resolve, { once: true }),
-		);
-		const daemon = Bun.spawn(
-			[
-				process.execPath,
-				CLI,
-				"worker",
-				"run",
-				"--coordinator",
-				`unix:${path}`,
-				"--id",
-				"cli",
-				"--slots",
-				"2",
-			],
-			{
-				env: { ...process.env, SPLATES_HOME: dir },
-				stdout: "pipe",
-				stderr: "pipe",
-			},
-		);
-		const worker = await joined;
-		const child = worker.start(["echo", "from the daemon"], dir);
-
-		expect(worker).toMatchObject({ id: "cli", info: { slots: 2 } });
-		expect(await printed(child)).toBe("from the daemon\n");
-
-		daemon.kill("SIGTERM");
-
-		expect(await daemon.exited).toBe(0);
+		expect(key).toBe("the-key");
+		expect(sent).toEqual([{ token: "splj_token", id: "box" }]);
+		expect(await store.get(WORKER_KEY)).toBe("the-key");
+		expect(JSON.stringify(log.entries)).not.toContain("the-key");
 	});
 });

@@ -105,6 +105,20 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return true;
 	}
 
+	/**
+	 * Frees every slot held on `worker`, as when it is removed with its
+	 * agents still on it, and places whoever can go elsewhere.
+	 */
+	release(worker: string): void {
+		for (const [id, held] of this.holding) {
+			if (held.worker === worker) {
+				this.holding.delete(id);
+			}
+		}
+		this.place();
+		this.changed();
+	}
+
 	/** Places whoever can be placed now, as after a worker joins or grows. */
 	poke(): void {
 		if (this.place()) {
@@ -227,8 +241,8 @@ export interface PoolWorker {
 	/** Whether it is up and may be given work now. */
 	awake: boolean;
 	/**
-	 * Whether it can run a task in the checkout the task has: the machine the
-	 * worktrees live on, until workers clone their own (#14).
+	 * Whether it can run a task in the checkout the task has: true for the
+	 * machine the worktrees live on, and for a worker that clones its own.
 	 */
 	checkouts: boolean;
 }

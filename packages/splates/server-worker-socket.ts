@@ -14,7 +14,11 @@ export class ServerWorkerSocket implements WorkerSocket, Connection {
 	private socket: Bun.ServerWebSocket<Connection> | undefined;
 	private live = true;
 
-	constructor(private readonly registry: WorkerRegistry) {}
+	constructor(
+		private readonly registry: WorkerRegistry,
+		/** The worker its key proved it to be. */
+		private readonly identity: string,
+	) {}
 
 	send(frame: string | Uint8Array): void {
 		if (!this.live || !this.socket) {
@@ -34,7 +38,7 @@ export class ServerWorkerSocket implements WorkerSocket, Connection {
 
 	open(socket: Bun.ServerWebSocket<Connection>): void {
 		this.socket = socket;
-		void this.registry.accept(this);
+		void this.registry.accept(this, "registered", this.identity);
 	}
 
 	message(

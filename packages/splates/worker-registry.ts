@@ -107,10 +107,13 @@ export class WorkerRegistry
 	/**
 	 * Takes a worker's new connection, hanging up on one that says nothing in
 	 * time. `kind` is how it reached us: `local` over this machine's socket.
+	 * `identity`, when given, is the worker its key proved it to be, and a
+	 * hello saying it is another is hung up on.
 	 */
 	async accept(
 		socket: WorkerSocket,
 		kind: WorkerKind = "registered",
+		identity?: string,
 	): Promise<void> {
 		const hello = WorkerSession.hello(socket);
 		const answered = await timeouts.race(
@@ -128,6 +131,13 @@ export class WorkerRegistry
 			return null;
 		});
 		if (said === null) {
+			return;
+		}
+		if (identity !== undefined && said.id !== identity) {
+			socket.dispose();
+			this.log.error(
+				`a worker with the key of ${identity} said it was ${said.id}: hung up`,
+			);
 			return;
 		}
 		const known = this.byId.get(said.id);
@@ -150,6 +160,21 @@ export class WorkerRegistry
 		worker.kind = kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
+	}
+
+	/**
+	 * Hangs up on worker `id` for good, ending what it runs, and forgets it;
+	 * answers whether it was known.
+	 */
+	forget(id: string): boolean {
+		const worker = this.byId.get(id);
+		this.refusals.delete(id);
+		if (worker === undefined) {
+			return false;
+		}
+		this.byId.delete(id);
+		worker.session.dispose();
+		return true;
 	}
 
 	/**

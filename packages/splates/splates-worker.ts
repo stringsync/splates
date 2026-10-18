@@ -1,6 +1,12 @@
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import type { SplatesDeps } from "./splates";
+import {
+	addWorker,
+	drainWorker,
+	removeWorker,
+	setWorkerSlots,
+} from "./worker-admin";
 import { listWorkers } from "./worker-list";
 import { workerRun } from "./worker-run";
 
@@ -28,6 +34,11 @@ splatesWorker
 		description:
 			"what the coordinator knows this worker by, kept across restarts so it picks up where it was; by default the machine's host name",
 	})
+	.option("join", z.string(), {
+		default: "",
+		description:
+			"a join token from `splates worker add` on the coordinator, spent to join it before dialing; the key it answers is kept in this machine's system store, or read from SPLATES_WORKER_KEY on one without",
+	})
 	.option("quiet", z.boolean(), {
 		default: false,
 		description:
@@ -38,6 +49,7 @@ splatesWorker
 			coordinator: opts.coordinator,
 			slots: opts.slots,
 			id: opts.id,
+			join: opts.join,
 			log: opts.quiet
 				? { info: () => {}, error: (...said) => ctx.log.error(...said) }
 				: ctx.log,
@@ -61,6 +73,103 @@ splatesWorker
 		listWorkers({
 			dev: opts.dev,
 			json: opts.json,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
+
+const dev = {
+	default: "",
+	description:
+		"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV",
+};
+
+splatesWorker
+	.command("add")
+	.description(
+		"add a worker to the running `splates server`: prints a join token, single use and good for 15 minutes, for `splates worker run --join <token>` on the machine to join, which gets a key of its own that `splates worker remove` revokes; with --local N, makes this machine's own worker run N agents at once and take new ones again",
+	)
+	.option("local", z.coerce.number().int().min(0), {
+		default: 0,
+		description: "this machine's own worker, with this many slots",
+	})
+	.option("dev", z.string(), dev)
+	.action((opts, ctx) =>
+		addWorker({
+			local: opts.local,
+			dev: opts.dev,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
+
+splatesWorker
+	.command("drain")
+	.description(
+		"take no new agents on a worker, letting those on it run to their end; --undo takes new ones again",
+	)
+	.arg("id", z.string(), {
+		description: "the worker, as `splates worker list` names it",
+	})
+	.option("undo", z.boolean(), {
+		default: false,
+		description: "take new agents again",
+	})
+	.option("dev", z.string(), dev)
+	.action((opts, ctx) =>
+		drainWorker({
+			id: opts.id,
+			undo: opts.undo,
+			dev: opts.dev,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
+
+splatesWorker
+	.command("slots")
+	.description(
+		"set how many agents a worker runs at once, from now on, over what it started with",
+	)
+	.arg("id", z.string(), {
+		description: "the worker, as `splates worker list` names it",
+	})
+	.arg("slots", z.coerce.number().int().min(1), {
+		description: "how many at once",
+	})
+	.option("dev", z.string(), dev)
+	.action((opts, ctx) =>
+		setWorkerSlots({
+			id: opts.id,
+			slots: opts.slots,
+			dev: opts.dev,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
+
+splatesWorker
+	.command("remove")
+	.description(
+		"remove a worker, revoking its key: one with agents on it drains and is removed once they end; --force ends them now and frees their slots. This machine's own worker cannot be removed yet: drain it",
+	)
+	.arg("id", z.string(), {
+		description: "the worker, as `splates worker list` names it",
+	})
+	.option("force", z.boolean(), {
+		default: false,
+		description: "end the agents on it now rather than wait for them",
+	})
+	.option("dev", z.string(), dev)
+	.action((opts, ctx) =>
+		removeWorker({
+			id: opts.id,
+			force: opts.force,
+			dev: opts.dev,
 			log: ctx.log,
 			ps: ctx.ps,
 			send: ctx.fetch,

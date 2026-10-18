@@ -201,28 +201,51 @@ identity update main. How workers authenticate is asked in #281.
 ## Credentials
 
 Agent credentials reach workers from the coordinator over the socket at
-task start, kept in memory or tmpfs, never baked into an image, revoked on
-remove. Each worker gets API keys of its own from each provider's console,
-each with its own spend limit, rather than a share of the user's seats:
-seats are per person, and the agent CLIs sign in per user (#305). Delivery flows from `webappwiz/creds`, as a store. A comparison with a
-secrets manager comes before it is built (#284).
+task start, kept in the worker daemon's memory alone, never baked into an
+image or written to disk, revoked on remove. Each worker gets API keys of
+its own from each provider's console, each with its own spend limit, rather
+than a share of the user's seats: seats are per person, and the agent CLIs
+sign in per user (#305).
+
+Settled against a hosted secrets manager such as AWS Secrets Manager
+(#284): it would put a second, standing credential on every worker (an IAM
+key, on disk for a home machine), cost per secret, and couple splates to one
+cloud, while workers cannot start a task without the coordinator anyway.
+
+Agents never see a key. An agent's environment and files are one `env`
+away from the agent, so the daemon runs a loopback credential proxy per
+task that adds the real key, and the agent CLI gets a placeholder key and
+its provider's base URL pointed at the proxy (`ANTHROPIC_BASE_URL` and the
+like). The proxy forwards to its provider alone and refuses a request
+without its own placeholder. The daemon makes itself undumpable
+(`PR_SET_DUMPABLE` 0 on Linux) so an agent running as the same user cannot
+read its memory, and Linux workers run agents in containers. The
+memory-only store, the proxy and the undumpable helper belong to
+`webappwiz/creds` (webappwiz #402); splates delivers through them (#93).
 
 ## Managing the pool
 
 - `splates worker add --local N` makes this machine a worker with N slots;
   `splates worker add` mints a join token, single use and good for 15
-  minutes, for `splates worker run --join <token>` on any machine. Each joined
-  worker gets a revocable identity of its own, checked on every upgrade of
-  `/api/workers`, and a Cloudflare Access service token of its own, minted
-  at join with the API token `splates tunnel setup` keeps and sent as the
-  `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers, so workers
-  pass Access like everything else; both are revoked on remove. The
-  registry persists across coordinator restarts.
+  minutes, for `splates worker run --coordinator <url> --join <token>` on
+  any machine. Spending it (`POST /api/workers/join`) answers a key of the
+  worker's own, which it keeps in its system store (or `SPLATES_WORKER_KEY`
+  where there is none) and shows as `Authorization: Bearer <id>:<key>` on
+  every upgrade of `/api/workers`; a worker without one, or whose hello
+  names another id, is refused. Joining again under an id revokes its old
+  key. Each joined worker also gets a Cloudflare Access service token of its
+  own, minted at join with the API token `splates tunnel setup` keeps and
+  sent as the `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers,
+  so workers pass Access like everything else (#92); both are revoked on
+  remove. The registry, with only each key's and token's sha256, persists
+  across coordinator restarts in `~/.splates/workers.json`.
 - `splates worker drain <id>` takes no new tasks and lets in-flight ones
-  finish, or checkpoint, push and requeue. `splates worker remove <id>`
-  drains first; `--force` requeues each task from its last pushed
-  checkpoint. Either way the worker's credentials are revoked. Removing the
-  local worker leaves the machine as coordinator only.
+  finish (`--undo` takes them again); `splates worker slots <id> <n>`
+  changes how many it runs at once. `splates worker remove <id>` drains
+  first and is done once its agents end; `--force` ends them now, frees
+  their slots, and is to requeue each task from its last pushed checkpoint
+  (#94). Either way the worker's key is revoked. Removing the local worker,
+  leaving the machine as coordinator only, is #95.
 - A Workers page in the nav shows each worker (kind, platform, slots,
   health, build, tasks, $/hour) with the same actions as the CLI, and turns
   this Mac on and off as a worker, after the coordinator moves to the cloud
@@ -400,7 +423,6 @@ Before phase 1: a shared browser and the heavy-job cap, on their own.
 Asked when their todo starts:
 
 - How workers authenticate to GitHub (#281).
-- Credential delivery against a secrets manager (#284).
 - How each worker's API keys are made and kept per provider (#305).
 - Which Pulumi-supported cloud and region for workers, and what one warm
   worker costs (#289).

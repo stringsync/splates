@@ -2,7 +2,7 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import { hostname, LOCAL_HOSTS, refuse } from "./dev-http";
+import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { systemPs } from "./legacy-ps";
 import { queueListing } from "./queue-list";
@@ -10,6 +10,7 @@ import type { RemoteWorker } from "./remote-worker";
 import { ServerWorkerSocket } from "./server-worker-socket";
 import { UnixWorkerListener } from "./unix-worker-listener";
 import { workerList } from "./worker-list";
+import { WorkerRecords } from "./worker-records";
 import { WorkerRegistry } from "./worker-registry";
 import { WorkerSlots } from "./worker-slots";
 import type { WorkerMachines } from "./worktree-service";
@@ -19,6 +20,23 @@ export const LOCAL_WORKER = "local";
 
 /** What `PUT /api/queue/:id/position` is sent. */
 const QueueMove = z.object({ position: z.number().int() });
+
+/** What `POST /api/workers/join` is sent: a join token, and the id the worker goes by. */
+const Join = z.object({ token: z.string(), id: z.string().min(1) });
+
+/** What `PUT /api/workers/:id` is sent: what to set on a worker. */
+const Settings = z.object({
+	slots: z.number().int().min(1).nullable().optional(),
+	draining: z.boolean().optional(),
+});
+
+/** The header a joined worker shows its key in, as `Bearer <id>:<key>`. */
+export const WORKER_KEY_HEADER = "authorization";
+
+/** `Bearer <id>:<key>`, as a joined worker shows its key. */
+export function workerAuthorization(id: string, key: string): string {
+	return `Bearer ${id}:${key}`;
+}
 
 /** What `DevWorkers` answers workers as. */
 export interface DevWorkersOptions {
@@ -32,16 +50,20 @@ export interface DevWorkersOptions {
 	protocol?: string;
 	/** This machine's `ps.platform`, the local worker's until its hello says. */
 	platform?: string;
+	/** The workers that joined and what was set on each; kept in memory alone by default. */
+	records?: WorkerRecords;
 }
 
 /**
  * Where `splates server` takes its workers in, as their coordinator: the local
  * worker through a Unix socket only this user may open, and others through
- * `/api/workers`, and every agent another agent starts waits in `slots`
- * for room on one.
+ * `/api/workers`, each showing the key it was answered when it joined with a
+ * join token, and every agent another agent starts waits in `slots` for
+ * room on one.
  */
 export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
+	readonly records: WorkerRecords;
 	/** The queue the agents other agents start take a slot on a worker from. */
 	readonly slots: WorkerSlots;
 	/** This machine's worker, which agents run on; work waits for it to join. */
@@ -56,8 +78,10 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			session,
 			protocol,
 			platform = systemPs().platform,
+			records = WorkerRecords.memory(),
 		}: DevWorkersOptions = {},
 	) {
+		this.records = records;
 		// Acked by hand: an agent's frame is acked once its log holds it, so
 		// a restart replays from where the log leaves off.
 		this.registry = new WorkerRegistry(log, {
@@ -68,7 +92,17 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			},
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
-		this.slots = new WorkerSlots(this.registry, { platform });
+		// Listed while away, so one can be drained or removed before it dials.
+		for (const record of records.all) {
+			if (record.key !== null) {
+				this.registry.expect(record.id);
+			}
+		}
+		this.slots = new WorkerSlots(this.registry, {
+			platform,
+			record: (id) => records.of(id),
+		});
+		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
 	}
 
 	/** The worker `id`, as a project reads a task cloned there through it. */
@@ -117,9 +151,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		}
 	}
 
-	// A worker runs whatever its coordinator asks, so until workers join with
-	// tokens of their own, only this machine's names may connect one, and never
-	// a page: a browser always sends an Origin, a worker never does.
+	// A worker runs whatever its coordinator asks, so only one showing the key
+	// it joined with may connect, from wherever, and never a page: a browser
+	// always sends an Origin, a worker never does.
 	readonly open = (
 		request: Request,
 		server: Bun.Server<Connection>,
@@ -131,27 +165,146 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				"splates server is still taking back what its last run left: dial again",
 			);
 		}
-		const host = request.headers.get("host") ?? "";
-		if (!LOCAL_HOSTS.includes(hostname(host))) {
-			return refuse(
-				403,
-				"forbidden",
-				"workers connect on this machine only, for now",
-			);
-		}
 		if (request.headers.get("origin") !== null) {
 			return refuse(403, "forbidden", "a page cannot connect a worker");
 		}
+		const id = this.identify(request);
+		if (id === null) {
+			return refuse(
+				401,
+				"unauthorized",
+				"a worker connects with the key it joined with: join it with `splates worker add`, then `splates worker run --join <token>`",
+			);
+		}
 		return server.upgrade(request, {
-			data: new ServerWorkerSocket(this.registry),
+			data: new ServerWorkerSocket(this.registry, id),
 		})
 			? undefined
 			: refuse(400, "usage", "a worker connects with a WebSocket");
 	};
 
+	/** The worker `request`'s key proves it to be; null for none, or a key no worker joined with. */
+	private identify(request: Request): string | null {
+		const shown = request.headers.get(WORKER_KEY_HEADER) ?? "";
+		const match = /^Bearer (.+):([^:]+)$/.exec(shown);
+		if (match === null) {
+			return null;
+		}
+		const [, id = "", key = ""] = match;
+		// One being removed still connects, to finish the agents it drains.
+		return this.records.verify(id, key) ? id : null;
+	}
+
 	/** `GET /api/workers`: each worker and each refusal, as `splates worker list` shows them. */
 	readonly list = async (): Promise<Response> =>
-		Response.json(workerList(this.registry, this.slots.used()));
+		Response.json(
+			workerList(this.registry, this.slots.used(), (id) => this.records.of(id)),
+		);
+
+	/** `POST /api/workers/invite`: a join token, single use, for `splates worker run --join`. */
+	readonly invite = async (): Promise<Response> =>
+		Response.json(await this.records.invite());
+
+	/**
+	 * `POST /api/workers/join`: spends a join token, answering the key the
+	 * worker connects with from now on. Asks for nothing else, since the
+	 * token is the person's say-so.
+	 */
+	readonly join = async (request: Request): Promise<Response> => {
+		const body = Join.safeParse(await request.json().catch(() => null));
+		if (!body.success) {
+			return refuse(400, "usage", "send the join token and the worker's id");
+		}
+		const { token, id } = body.data;
+		if (id === LOCAL_WORKER) {
+			return refuse(
+				400,
+				"usage",
+				`${LOCAL_WORKER} is this machine's own worker: give another --id`,
+			);
+		}
+		const key = await this.records.join(token, id);
+		if (key === null) {
+			return refuse(
+				401,
+				"unauthorized",
+				"that join token is unknown, used, or more than 15 minutes old: make another with `splates worker add`",
+			);
+		}
+		// A worker joining again under its id hangs up its old connection.
+		this.registry.forget(id);
+		this.registry.expect(id);
+		this.log.info(`worker ${id} joined`);
+		return Response.json({ id, key });
+	};
+
+	/**
+	 * `PUT /api/workers/:id`: sets how many agents worker `id` runs at once
+	 * (null to go by its hello) and whether it drains, taking no new ones.
+	 */
+	readonly update = async (request: Request): Promise<Response> => {
+		const id = workerId(request);
+		const body = Settings.safeParse(await request.json().catch(() => null));
+		if (!body.success) {
+			return refuse(400, "usage", "say the slots or whether it drains");
+		}
+		if (this.registry.worker(id) === undefined) {
+			return refuse(404, "not_found", `no worker ${id}`);
+		}
+		const { slots, draining } = body.data;
+		await this.records.set(id, {
+			...(slots === undefined ? {} : { slots }),
+			...(draining === undefined ? {} : { draining }),
+		});
+		this.slots.scheduler.poke();
+		return this.list();
+	};
+
+	/**
+	 * `DELETE /api/workers/:id`: removes worker `id`, revoking its key. One
+	 * with agents on it drains and is removed once they end, unless
+	 * `?force`, which ends them now and frees their slots.
+	 */
+	readonly remove = async (request: Request): Promise<Response> => {
+		const id = workerId(request);
+		const force = new URL(request.url).searchParams.has("force");
+		if (id === LOCAL_WORKER) {
+			return refuse(
+				400,
+				"usage",
+				"this machine's own worker cannot be removed yet: drain it instead",
+			);
+		}
+		if (this.registry.worker(id) === undefined) {
+			return refuse(404, "not_found", `no worker ${id}`);
+		}
+		const running = this.slots.used().get(id) ?? [];
+		if (running.length > 0 && !force) {
+			await this.records.set(id, { draining: true, removing: true });
+			this.slots.scheduler.poke();
+			return Response.json({ id, removed: false, running });
+		}
+		await this.forget(id);
+		return Response.json({ id, removed: true, running });
+	};
+
+	/** Removes each worker waiting to be once its last agent has ended. */
+	private async removeIdle(): Promise<void> {
+		const used = this.slots.used();
+		for (const record of this.records.all) {
+			if (record.removing && (used.get(record.id) ?? []).length === 0) {
+				await this.forget(record.id);
+			}
+		}
+	}
+
+	/** Revokes worker `id`'s key, hangs up on it, and frees what its agents held. */
+	private async forget(id: string): Promise<void> {
+		await this.records.remove(id);
+		this.registry.forget(id);
+		this.slots.scheduler.release(id);
+		this.log.info(`worker ${id} removed`);
+	}
 
 	/**
 	 * `GET /api/queue`: every agent waiting for a slot, first in line first,
@@ -190,9 +343,41 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			? guard(this.list)(request)
 			: this.open(request, server);
 
+	/**
+	 * `/api/workers/<what>`: joining with a token, which a worker does
+	 * before it has a key, or the person changing the pool, which `guard`
+	 * decides who may.
+	 */
+	readonly manage = (
+		request: Request,
+		guard: (
+			handle: (request: Request) => Promise<Response>,
+		) => (request: Request) => Promise<Response>,
+	): Promise<Response> => {
+		const [, , , what] = new URL(request.url).pathname.split("/");
+		if (what === "join" && request.method === "POST") {
+			return this.join(request);
+		}
+		if (what === "invite" && request.method === "POST") {
+			return guard(this.invite)(request);
+		}
+		if (request.method === "PUT") {
+			return guard(this.update)(request);
+		}
+		if (request.method === "DELETE") {
+			return guard(this.remove)(request);
+		}
+		return Promise.resolve(refuse(404, "not_found", "not found"));
+	};
+
 	async disposeAsync(): Promise<void> {
 		this.slots.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
 	}
+}
+
+/** The worker `/api/workers/:id` names. */
+function workerId(request: Request): string {
+	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
 }
