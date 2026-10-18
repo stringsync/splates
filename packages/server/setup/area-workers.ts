@@ -142,6 +142,23 @@ function workersArea(): SetupArea {
 			"No other machine has joined yet: run `splates worker run --join <token>` on it, then press Next.",
 	};
 
+	const windowsStep: SetupStep = {
+		id: "windows-worker",
+		title: "Add a Windows machine as a worker",
+		why: "A Windows PC runs the Linux worker unchanged in WSL2, in a distro of its own, started at each boot whether or not anyone is signed in. It costs nothing an hour, and is held awake only while it runs an agent.",
+		user: "On the Windows machine, open PowerShell as an administrator and run the Windows join command within 15 minutes of making it. If it says to restart Windows, restart, make a new token, and run it again. Then press Next.",
+		agent:
+			"Run `splates worker add` and give the user the Windows command it prints, with this server's URL in place of `<this server's URL>`, to run in PowerShell as an administrator on the Windows machine; the Workers page shows it too. It runs `windows/install-worker.ps1` of this release: turns WSL on (the first time, it asks for a restart and a new token), gives WSL2 all but 6 GB of memory in `.wslconfig`, makes the WSL2 distro `splates`, installs this release there, joins with the key kept in `~/.splates/worker.env` in the distro, and registers the scheduled task `splates worker`, which runs the worker at boot. Check `splates worker list` shows it as `linux (wsl2)`.",
+		optional: true,
+		after: [],
+		check: async (machine) =>
+			(await pool(machine)).some(
+				(worker) => worker.kind === "registered" && worker.host === "wsl2",
+			),
+		notDone:
+			"No Windows machine has joined yet: run the Windows join command on it in PowerShell as an administrator, then press Next.",
+	};
+
 	const budgetStep: SetupStep = {
 		id: "worker-budget",
 		title: "Choose what made workers may cost",
@@ -329,6 +346,7 @@ function workersArea(): SetupArea {
 			localStep,
 			permissionStep,
 			remoteStep,
+			windowsStep,
 			...WORKER_KEY_STEPS,
 			installStep,
 			stateStep,

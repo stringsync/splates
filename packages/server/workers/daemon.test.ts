@@ -18,9 +18,11 @@ describe("WorkerDaemon", () => {
 	let listener: UnixWorkerListener;
 	let daemon: WorkerDaemon;
 	let worker: RemoteWorker;
+	let holds: boolean[];
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
+		holds = [];
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
@@ -40,6 +42,16 @@ describe("WorkerDaemon", () => {
 				session: { bufferBytes: 64 * 1024 },
 				orphanBound: Duration.secs(2),
 				servers: { servers: async () => [BROWSER] },
+				awake: {
+					hold: () => {
+						const at = holds.push(true) - 1;
+						return {
+							dispose: () => {
+								holds[at] = false;
+							},
+						};
+					},
+				},
 			},
 		);
 		void daemon.run();
@@ -96,6 +108,19 @@ describe("WorkerDaemon", () => {
 
 		expect(await printed(child)).toBe("hello\n");
 		expect(await child.exited).toBe(0);
+	});
+
+	it("keeps the machine awake while a process runs", async () => {
+		const child = worker.start(["sleep", "30"], dir);
+		await sleep(Duration.ms(100));
+
+		expect(holds).toEqual([true]);
+
+		child.kill();
+		await child.exited;
+		await sleep(Duration.ms(100));
+
+		expect(holds).toEqual([false]);
 	});
 
 	it("kills a process when asked", async () => {

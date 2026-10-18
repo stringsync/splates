@@ -50,7 +50,10 @@ export function WorkerCard({
 				<Health worker={worker} />
 			</header>
 			<dl className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-6">
-				<Fact name="platform">{worker.platform ?? "?"}</Fact>
+				<Fact name="platform">
+					{worker.platform ?? "?"}
+					{worker.host !== null && ` (${worker.host})`}
+				</Fact>
 				<Fact name="slots">
 					{used}/{worker.slots.total ?? "?"}
 				</Fact>

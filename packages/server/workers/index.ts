@@ -93,6 +93,7 @@ export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
 export {
 	WORKER_KEY,
 	workerCreds,
+	workerJoin,
 	workerRun,
 	workerSocketPath,
 } from "./run";
@@ -113,6 +114,7 @@ export {
 	SNAPSHOT_USER,
 	Snapshots,
 	snapshotRecipe,
+	workerRecipe,
 } from "./snapshot";
 export type { SpendShare } from "./spend";
 export { UnixWorkerListener } from "./unix-listener";

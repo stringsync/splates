@@ -1,3 +1,7 @@
+import {
+	joinCommand,
+	windowsJoinCommand,
+} from "@stringsync/splates-server/workers/browser";
 import { CopyIcon, PlusIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -6,21 +10,17 @@ import { copiedLabel, useCopy } from "./card";
 import { Refusal, useRefusals } from "./refusal";
 
 /**
- * Mints a join token, and shows the command that joins another machine
- * with it, to copy there.
+ * Mints a join token, and shows the commands that join another machine
+ * with it, to copy there: one for Linux or macOS, one for Windows, which
+ * installs the coordinator's own build, `build`, in WSL2.
  */
-export function JoinToken(): JSX.Element {
+export function JoinToken({ build }: { build: string }): JSX.Element {
 	const [invite, setInvite] = useState<{
 		token: string;
 		expiresAt: number;
 	} | null>(null);
 	const [minting, setMinting] = useState(false);
 	const { refusals, refuse } = useRefusals<null>();
-	const { copied, copy } = useCopy();
-	const command =
-		invite === null
-			? null
-			: `splates worker run --coordinator ${location.origin} --join ${invite.token}`;
 	return (
 		<div className="flex flex-col gap-2">
 			<Button
@@ -38,29 +38,57 @@ export function JoinToken(): JSX.Element {
 				<PlusIcon />
 				{invite === null ? "Add a worker" : "Another token"}
 			</Button>
-			{command !== null && invite !== null && (
-				<section aria-label="join command" className="flex flex-col gap-1">
-					<div className="flex items-center gap-2">
-						<code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-md border bg-muted px-2 py-1 font-mono text-[12px]">
-							{command}
-						</code>
-						<Button
-							variant="ghost"
-							size="sm"
-							aria-label="Copy the join command"
-							onClick={() => copy(command)}
-						>
-							<CopyIcon />
-							{copiedLabel(copied, "Copy")}
-						</Button>
-					</div>
+			{invite !== null && (
+				<>
+					<JoinCommand
+						label="join command"
+						platform="Linux or macOS"
+						command={joinCommand(location.origin, invite.token)}
+					/>
+					<JoinCommand
+						label="windows join command"
+						platform="Windows, in PowerShell as an administrator"
+						command={windowsJoinCommand(location.origin, invite.token, build)}
+					/>
 					<span className="text-muted-foreground text-xs">
-						Run it on the machine to join, by{" "}
+						Run one on the machine to join, by{" "}
 						{new Date(invite.expiresAt).toLocaleTimeString()}.
 					</span>
-				</section>
+				</>
 			)}
 			<Refusal refusal={refusals.get(null)} />
 		</div>
+	);
+}
+
+/** One join command, with what it runs on and a button to copy it. */
+function JoinCommand({
+	label,
+	platform,
+	command,
+}: {
+	label: string;
+	platform: string;
+	command: string;
+}): JSX.Element {
+	const { copied, copy } = useCopy();
+	return (
+		<section aria-label={label} className="flex flex-col gap-1">
+			<span className="text-muted-foreground text-xs">{platform}</span>
+			<div className="flex items-center gap-2">
+				<code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-md border bg-muted px-2 py-1 font-mono text-[12px]">
+					{command}
+				</code>
+				<Button
+					variant="ghost"
+					size="sm"
+					aria-label={`Copy the ${label}`}
+					onClick={() => copy(command)}
+				>
+					<CopyIcon />
+					{copiedLabel(copied, "Copy")}
+				</Button>
+			</div>
+		</section>
 	);
 }

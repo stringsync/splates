@@ -1,7 +1,9 @@
+import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
 import { PLAYWRIGHT_MCP } from "../agents";
+import { RUNNING } from "../server/shared";
 import type { Snapshot, SnapshotRecipe, WorkerProvider } from "./provider";
 import type { Platform } from "./scheduler";
 
@@ -47,6 +49,11 @@ export function snapshotRecipe(
 		"",
 	].join("\n");
 	return { platform, version, script };
+}
+
+/** `splates worker recipe`: prints the Linux recipe for this build. */
+export function workerRecipe({ log }: { log: Logger }): void {
+	log.info(snapshotRecipe("linux", RUNNING)?.script.trimEnd() ?? "");
 }
 
 const Kept = z.record(

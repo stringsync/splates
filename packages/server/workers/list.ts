@@ -21,6 +21,8 @@ export interface WorkerListing {
 	id: string;
 	kind: WorkerKind;
 	platform: string | null;
+	/** What the platform runs inside, such as `wsl2`; null on the bare machine. */
+	host: string | null;
 	build: string | null;
 	/** What its link settled on; null before any handshake. */
 	protocol: string | null;
@@ -100,6 +102,7 @@ function listing(
 		id: worker.id,
 		kind: worker.kind,
 		platform: typeof info.platform === "string" ? info.platform : null,
+		host: typeof info.host === "string" ? info.host : null,
 		build: typeof info.build === "string" ? info.build : null,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
@@ -125,6 +128,7 @@ const Listings = z.object({
 			id: z.string(),
 			kind: z.enum(["local", "registered", "provisioned"]),
 			platform: z.string().nullable(),
+			host: z.string().nullable().default(null),
 			build: z.string().nullable(),
 			protocol: z.string().nullable(),
 			slots: z.object({ used: z.number(), total: z.number().nullable() }),
@@ -188,7 +192,7 @@ export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 				listed.workers.map((worker) => [
 					worker.id,
 					worker.kind,
-					worker.platform ?? "?",
+					platformLabel(worker),
 					worker.build ?? "?",
 					worker.protocol ?? "?",
 					`${worker.slots.used}/${worker.slots.total ?? "?"}`,
@@ -224,4 +228,12 @@ function health(
 	}
 	const ago = timeAgo(Duration.ms(Math.max(0, wall.now() - worker.lastHeard)));
 	return `${state}, heard ${ago}`;
+}
+
+/** Its platform as the list shows it, with what it runs inside: `linux (wsl2)`. */
+export function platformLabel(
+	worker: Pick<WorkerListing, "platform" | "host">,
+): string {
+	const platform = worker.platform ?? "?";
+	return worker.host === null ? platform : `${platform} (${worker.host})`;
 }

@@ -1,3 +1,4 @@
+import { availableParallelism, totalmem } from "node:os";
 import { dirname } from "node:path";
 import {
 	Credentials,
@@ -15,10 +16,18 @@ import { splatesHome } from "../models";
 import { relayFile } from "../records";
 import { heavyJobsOfMachine } from "../server/shared";
 import { type AccessClient, accessHeaders, joinAccess } from "./access";
+import { keepAwakeOf } from "./awake";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
+import { KeyFileStore } from "./key-file";
+import { hostOf, machineSlots, onWindowsDrive } from "./machine";
 import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
+
+/** Where `--key-file` keeps a worker's key. */
+export function workerKeyFile(ps: Ps): string {
+	return `${splatesHome(ps)}/worker.env`;
+}
 
 /** Where the local worker finds the coordinator on this machine. */
 export function workerSocketPath(ps: Ps): string {
@@ -50,6 +59,7 @@ const Joined = z.object({ id: z.string(), key: z.string() });
 export interface WorkerRunOptions {
 	/** Empty for this machine's coordinator, a URL for another's, or `unix:<path>`. */
 	coordinator: string;
+	/** How many tasks it takes at once, or 0 for what the machine has (`machineSlots`). */
 	slots: number;
 	id: string;
 	/** A join token from `splates worker add`, spent to join before dialing; empty when joined already. */
@@ -63,7 +73,13 @@ export interface WorkerRunOptions {
 	log: Logger;
 	ps: Ps;
 	fs: Fs;
-	/** Where the worker's key is kept; the device's system store by default. */
+	/**
+	 * Keeps the key in `~/.splates/worker.env`, which its user alone may
+	 * read, rather than the system's store, for a machine whose store is
+	 * locked or missing at boot (`KeyFileStore`).
+	 */
+	keyFile?: boolean;
+	/** Where the worker's key is kept; the device's system store, or the key file, by default. */
 	store?: SecretStore;
 	send?: typeof fetch;
 }
@@ -93,6 +109,13 @@ export function updateFile(ps: Ps, id: string): string {
 export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const { ps, log } = opts;
 	const id = opts.id || ps.hostname;
+	const home = splatesHome(ps);
+	if (onWindowsDrive(hostOf(ps), home)) {
+		fail(
+			"usage",
+			`${home} is on a Windows drive, where clones are slow and paths break: give the worker a home on WSL's own filesystem, such as ~/.splates`,
+		);
+	}
 	// Started on the first session that asks, so a worker whose agents all
 	// run on the coordinator's own machine never starts one.
 	const browser = new SharedBrowser(
@@ -111,12 +134,13 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const creds = remote ? await workerCreds(id, opts) : null;
 	const daemon = new WorkerDaemon(dialer(id, creds, opts), {
 		id,
-		slots: opts.slots,
+		slots: opts.slots || machineSlots(availableParallelism(), totalmem()),
 		ps,
 		fs: opts.fs,
 		log,
 		relayAt: relayFile(splatesHome(ps)),
 		servers: browser,
+		awake: keepAwakeOf(ps, log),
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
@@ -144,6 +168,27 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	if ("refused" in ended) {
 		fail("outdated", `the coordinator refused this worker: ${ended.refused}`);
 	}
+}
+
+/**
+ * `splates worker join`: spends `opts.join` at the coordinator and keeps
+ * the key it answers, as `workerRun` would, then exits, for an installer
+ * to join now and leave running to a service.
+ */
+export async function workerJoin(
+	opts: Omit<WorkerRunOptions, "slots" | "ephemeral">,
+): Promise<void> {
+	if (
+		!opts.join ||
+		opts.coordinator === "" ||
+		opts.coordinator.startsWith("unix:")
+	) {
+		fail(
+			"usage",
+			"give the coordinator's URL with --coordinator and a token from `splates worker add` there with --join",
+		);
+	}
+	await workerCreds(opts.id || opts.ps.hostname, { ...opts, slots: 0 });
 }
 
 /**
@@ -190,6 +235,7 @@ export async function restartWorker(
 						id,
 						"--slots",
 						String(opts.slots),
+						...(opts.keyFile ? ["--key-file"] : []),
 					],
 					{ env: { ...env, [WORKER_KEPT]: "1" }, signal: stopping.signal },
 				)
@@ -217,12 +263,23 @@ export async function restartWorker(
  * show its coordinator who it is: nothing when the system's store keeps its
  * key and service token, else those the join answered for this run alone.
  */
+/** Where the worker's key is kept: the system's store, or the key file with `--key-file`. */
+function keptStore(opts: WorkerRunOptions): SecretStore {
+	return (
+		opts.store ??
+		(opts.keyFile
+			? new KeyFileStore(workerKeyFile(opts.ps), opts.fs)
+			: SystemSecretStore.device())
+	);
+}
+
 async function carried(
 	{ key, access }: WorkerCreds,
 	opts: WorkerRunOptions,
 ): Promise<Record<string, string>> {
-	const store = opts.store ?? SystemSecretStore.device();
-	const kept = await store.get(WORKER_KEY).catch(() => undefined);
+	const kept = await keptStore(opts)
+		.get(WORKER_KEY)
+		.catch(() => undefined);
 	if (kept === key || opts.ps.env(WORKER_KEY) === key) {
 		return {};
 	}
@@ -277,7 +334,7 @@ export async function workerCreds(
 	opts: WorkerRunOptions,
 ): Promise<WorkerCreds> {
 	const { ps, log } = opts;
-	const store = opts.store ?? SystemSecretStore.device();
+	const store = keptStore(opts);
 	if (opts.join) {
 		const access = joinAccess(opts.join);
 		const key = await joinCoordinator(id, access, opts);

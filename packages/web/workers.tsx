@@ -96,7 +96,7 @@ export function WorkersPage({
 						<Heading title="Add a worker">
 							A join token, single use and good for 15 minutes.
 						</Heading>
-						<JoinToken />
+						<JoinToken build={pool.build} />
 					</div>
 				</>
 			)}

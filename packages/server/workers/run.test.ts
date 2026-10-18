@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
@@ -10,18 +13,28 @@ import {
 	WORKER_KEY,
 	type WorkerRunOptions,
 	workerCreds,
+	workerKeyFile,
 } from "./run";
 
 describe("workerCreds", () => {
 	let store: FakeSecretStore;
 	let log: MemoryLogger;
 	let sent: { url: string; headers: Headers; body: unknown }[];
+	let dir: string;
+	let ps: FakePs;
 	const access = { clientId: "client.access", clientSecret: "secret" };
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		store = new FakeSecretStore();
 		log = new MemoryLogger();
 		sent = [];
+		dir = await mkdtemp(join(tmpdir(), "splates-run-"));
+		ps = new FakePs();
+		ps.setEnv({ SPLATES_HOME: dir });
+	});
+
+	afterEach(async () => {
+		await rm(dir, { recursive: true, force: true });
 	});
 
 	function options(join: string): WorkerRunOptions {
@@ -31,7 +44,7 @@ describe("workerCreds", () => {
 			id: "box",
 			join,
 			log,
-			ps: new FakePs(),
+			ps,
 			fs: new NodeFs(),
 			store,
 			send: (async (url: URL, init?: RequestInit) => {
@@ -100,5 +113,23 @@ describe("workerCreds", () => {
 		expect(creds).toEqual({ key: "the-key", access: null });
 		expect(JSON.stringify(log.entries)).toContain("this run only");
 		expect(JSON.stringify(log.entries)).not.toContain("the-key");
+	});
+
+	it("keeps the key it joins with in the key file, and reads it there on the next run", async () => {
+		const keyFile = (token: string): WorkerRunOptions => ({
+			...options(token),
+			store: undefined,
+			keyFile: true,
+		});
+
+		await workerCreds("box", keyFile("splj_token"));
+
+		expect(await Bun.file(workerKeyFile(ps)).text()).toContain(
+			`${WORKER_KEY}=the-key`,
+		);
+		expect(await workerCreds("box", keyFile(""))).toEqual({
+			key: "the-key",
+			access: null,
+		});
 	});
 });

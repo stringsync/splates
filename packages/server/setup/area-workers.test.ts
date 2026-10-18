@@ -13,6 +13,7 @@ const LOCAL: SetupWorker = {
 	kind: "local",
 	draining: false,
 	removing: false,
+	host: null,
 };
 
 describe("WORKERS_AREA", () => {
@@ -70,6 +71,14 @@ describe("WORKERS_AREA", () => {
 
 		listed = [LOCAL, { ...LOCAL, id: "box", kind: "registered" }];
 		expect((await steps())["remote-worker"]?.status).toBe("done");
+	});
+
+	it("is done for a Windows machine once a worker under WSL2 is listed", async () => {
+		listed = [LOCAL, { ...LOCAL, id: "box", kind: "registered" }];
+		expect((await steps())["windows-worker"]?.status).toBe("ready");
+
+		listed = [LOCAL, { ...LOCAL, id: "pc", kind: "registered", host: "wsl2" }];
+		expect((await steps())["windows-worker"]?.status).toBe("done");
 	});
 
 	it("says there is no server to ask when none can be", async () => {

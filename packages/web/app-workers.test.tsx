@@ -79,6 +79,14 @@ describe("App's workers", () => {
 		).toContain("fix-login");
 	});
 
+	it("shows a worker under WSL as linux (wsl2)", async () => {
+		const view = await openWorkers(pool([worker("home", { host: "wsl2" })]));
+
+		expect(
+			view.getByRole("listitem", { name: "worker home" }).textContent,
+		).toContain("linux (wsl2)");
+	});
+
 	it("turns this Mac off as a worker at once, by removing its worker", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
 		const mac = view.getByRole("region", { name: "this mac" });
@@ -258,6 +266,11 @@ describe("App's workers", () => {
 				`splates worker run --coordinator ${location.origin} --join t0ken`,
 			),
 		);
+		expect(
+			view.getByRole("region", { name: "windows join command" }).textContent,
+		).toContain(
+			`stringsync/splates/v1.0.0/windows/install-worker.ps1))) -Coordinator '${location.origin}' -Join 't0ken' -Version '1.0.0'`,
+		);
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/invite",
 			method: "POST",
@@ -284,6 +297,7 @@ function worker(
 		id,
 		kind: "registered",
 		platform: "linux",
+		host: null,
 		build: "1.0.0",
 		protocol: "1.0",
 		slots: { used: 0, total: 4 },

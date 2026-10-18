@@ -263,7 +263,18 @@ memory-only store, the proxy and the undumpable helper belong to
   too.
 - Home workers: the two Windows machines run the Linux worker unchanged in
   WSL2, joined by a one-line PowerShell installer, started at boot by a
-  scheduled task, and shown as `linux (wsl2)`. They may sleep when idle;
+  scheduled task, and shown as `linux (wsl2)`. The installer
+  (`windows/install-worker.ps1`, fetched from the coordinator's release tag,
+  since a bare `irm` cannot pass Access) makes a distro of its own,
+  `splates`, from Ubuntu 24.04's WSL image, gives WSL2 all but 6 GB of
+  memory, runs `splates worker recipe` (the snapshot recipe) as root, joins
+  with `splates worker join --key-file`, and registers the task `splates
+  worker`, run as the user by S4U so it starts with no one signed in. With
+  no secret service unlocked at boot, the key is kept in
+  `~/.splates/worker.env` in the distro, `0600`. Slots default to the fewer
+  of its cores and 4 GB slices of its memory, the heavy-job cap to one each
+  8 cores. While it runs an agent or a terminal, the worker holds Windows
+  awake through `powershell.exe` and `SetThreadExecutionState`. They may sleep when idle;
   the coordinator marks them asleep, not gone, and wakes one with a
   Wake-on-LAN packet sent from the Mac or any awake worker on that network
   when the queue needs it. They are extra capacity at $0/hour, never the

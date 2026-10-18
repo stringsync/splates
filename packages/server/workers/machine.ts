@@ -97,3 +97,32 @@ export class LocalWorkerMachine implements WorkerMachine {
 		return { size: bytes.byteLength, bytes: bytes.slice(from) };
 	}
 }
+
+/**
+ * What the platform runs inside, for the list to show: `wsl2` under
+ * Windows' WSL, which sets `WSL_DISTRO_NAME` in every process it starts;
+ * null on the bare machine.
+ */
+export function hostOf(ps: Ps): string | null {
+	return ps.env("WSL_DISTRO_NAME") ? "wsl2" : null;
+}
+
+/**
+ * Whether `path`, where a worker on `host` would clone each task, is on a
+ * Windows drive WSL mounts at `/mnt/<letter>`, rather than its own disk.
+ */
+export function onWindowsDrive(host: string | null, path: string): boolean {
+	return host === "wsl2" && /^\/mnt\/[a-z](\/|$)/i.test(path);
+}
+
+/** The memory one agent's slot counts on: a session, its tools and a share of a test run. */
+const SLOT_MEMORY = 4 * 1024 ** 3;
+
+/**
+ * The slots a worker takes by default on a machine of `cores` and `memory`
+ * bytes: one for each core and `SLOT_MEMORY`, whichever is fewer, so 6 on
+ * a 6-core WSL2 given 26 GB.
+ */
+export function machineSlots(cores: number, memory: number): number {
+	return Math.max(1, Math.min(cores, Math.floor(memory / SLOT_MEMORY)));
+}

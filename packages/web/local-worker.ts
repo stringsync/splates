@@ -51,6 +51,7 @@ function added(pool: WorkerPool): WorkerListing {
 		id: LOCAL,
 		kind: "local",
 		platform: null,
+		host: null,
 		build: pool.build,
 		protocol: null,
 		slots: { used: 0, total: null },

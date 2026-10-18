@@ -11,9 +11,11 @@ import {
 } from "webappwiz/time";
 import type { SessionServers } from "../agents";
 import { RUNNING } from "../server/shared";
+import type { KeepAwake } from "./awake";
+import { AwakeWhileBusy } from "./awake-while-busy";
 import { SERVERS, WorkerCallHost } from "./call-host";
 import { RELAY, type WorkerChannel } from "./channel";
-import { LocalWorkerMachine } from "./machine";
+import { hostOf, LocalWorkerMachine } from "./machine";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
 import { UPDATE } from "./protocol";
@@ -67,6 +69,8 @@ export interface WorkerDaemonOptions {
 	relayAt?: string | null;
 	/** The MCP servers it offers each agent session it runs; none by default. */
 	servers?: SessionServers | null;
+	/** Keeps the machine awake while it runs a process or terminal; none by default. */
+	awake?: KeepAwake | null;
 }
 
 /**
@@ -88,6 +92,7 @@ export class WorkerDaemon implements AsyncResource {
 	private relay: WorkerRelay | null = null;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
+	private readonly busy: AwakeWhileBusy;
 
 	constructor(
 		private readonly dialer: WorkerDialer,
@@ -99,6 +104,7 @@ export class WorkerDaemon implements AsyncResource {
 			max: Duration.secs(10),
 		};
 		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
+		this.busy = new AwakeWhileBusy(opts.awake ?? null);
 		this.machine = new LocalWorkerMachine(
 			opts.ps,
 			opts.fs,
@@ -123,6 +129,7 @@ export class WorkerDaemon implements AsyncResource {
 	 */
 	async run(): Promise<WorkerEnded> {
 		const { log, fs, relayAt = null } = this.opts;
+		const host = hostOf(this.opts.ps);
 		this.relay = WorkerRelay.listen(this.session);
 		if (relayAt !== null) {
 			await fs
@@ -168,6 +175,7 @@ export class WorkerDaemon implements AsyncResource {
 					info: {
 						slots: this.opts.slots,
 						platform: this.opts.ps.platform,
+						...(host === null ? {} : { host }),
 						build: RUNNING,
 						// It clones each project and task it runs agents in (`checkout`).
 						checkouts: true,
@@ -280,7 +288,16 @@ export class WorkerDaemon implements AsyncResource {
 			return;
 		}
 		this.hosts.add(host);
-		channel.events.on("close", () => this.hosts.delete(host));
+		// An agent or a terminal keeps the machine up; a call or a port is
+		// over in a moment.
+		const busy =
+			channel.kind === "process" || channel.kind === "pty"
+				? this.busy.busy()
+				: null;
+		channel.events.on("close", () => {
+			this.hosts.delete(host);
+			busy?.dispose();
+		});
 	}
 
 	private sleep(duration: Duration): Promise<void> {

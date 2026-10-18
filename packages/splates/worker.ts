@@ -5,6 +5,8 @@ import {
 	listWorkers,
 	removeWorker,
 	setWorkerSlots,
+	workerJoin,
+	workerRecipe,
 	workerRun,
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
@@ -25,9 +27,10 @@ splatesWorker
 		description:
 			"the coordinator to dial: a `splates server` URL, whose /api/workers it opens, or unix:<path>; by default this machine's",
 	})
-	.option("slots", z.coerce.number().int().min(1), {
-		default: 8,
-		description: "how many tasks this worker takes at once",
+	.option("slots", z.coerce.number().int().min(0), {
+		default: 0,
+		description:
+			"how many tasks this worker takes at once; by default one for each core and 4 GB of memory it has, whichever is fewer, as a VM such as WSL2 sees them",
 	})
 	.option("id", z.string(), {
 		default: "",
@@ -44,6 +47,11 @@ splatesWorker
 		description:
 			"keep the key --join answers in memory alone, for a machine destroyed rather than restarted, as one a worker provider makes",
 	})
+	.option("key-file", z.boolean(), {
+		default: false,
+		description:
+			"keep the key --join answers in ~/.splates/worker.env, which only this user may read, rather than the system store, for a machine whose store is locked or missing at boot, as WSL's is with no one signed in; read it from there on each run after",
+	})
 	.option("quiet", z.boolean(), {
 		default: false,
 		description:
@@ -56,6 +64,7 @@ splatesWorker
 			id: opts.id,
 			join: opts.join,
 			ephemeral: opts.ephemeral,
+			keyFile: opts["key-file"],
 			log: opts.quiet
 				? { info: () => {}, error: (...said) => ctx.log.error(...said) }
 				: ctx.log,
@@ -63,6 +72,46 @@ splatesWorker
 			fs: ctx.fs,
 		}),
 	);
+
+splatesWorker
+	.command("join")
+	.description(
+		"spend a join token from `splates worker add` and keep the key it answers, as `splates worker run --join` does, then exit, for an installer that leaves running the worker to a service",
+	)
+	.option("coordinator", z.string(), {
+		description: "the coordinator to join: its `splates server` URL",
+	})
+	.option("join", z.string(), {
+		description: "the join token `splates worker add` printed there",
+	})
+	.option("id", z.string(), {
+		default: "",
+		description:
+			"what the coordinator knows this worker by; by default the machine's host name",
+	})
+	.option("key-file", z.boolean(), {
+		default: false,
+		description:
+			"keep the key in ~/.splates/worker.env, which only this user may read, rather than the system store, for `splates worker run --key-file` to read",
+	})
+	.action((opts, ctx) =>
+		workerJoin({
+			coordinator: opts.coordinator,
+			join: opts.join,
+			id: opts.id,
+			keyFile: opts["key-file"],
+			log: ctx.log,
+			ps: ctx.ps,
+			fs: ctx.fs,
+		}),
+	);
+
+splatesWorker
+	.command("recipe")
+	.description(
+		"print the shell script, run as root on a fresh Debian or Ubuntu machine, that installs what a Linux worker needs: bun, git, the shared browser and this build of splates, for the user `splates`. It is what a provider's snapshot is built from, and what the Windows installer runs in WSL",
+	)
+	.action((_opts, ctx) => workerRecipe({ log: ctx.log }));
 
 splatesWorker
 	.command("list")

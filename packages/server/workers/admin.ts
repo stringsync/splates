@@ -2,6 +2,8 @@ import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
+import { RUNNING } from "../server/shared";
+import { joinCommand, windowsJoinCommand } from "./join-command";
 import { LOCAL_WORKER } from "./routes";
 
 /** How a `splates worker` command reaches the running `splates server`. */
@@ -117,13 +119,16 @@ export async function addWorker(opts: AddWorkerOptions): Promise<void> {
 	const { token, expiresAt } = Invited.parse(
 		await callServer("/api/workers/invite", { ...opts, method: "POST" }),
 	);
+	const url = "<this server's URL>";
 	log.info(
 		[
 			`join token, single use, good until ${new Date(expiresAt).toLocaleTimeString()}:`,
 			"",
-			`  splates worker run --coordinator <this server's URL> --join ${token}`,
+			`  ${joinCommand(url, token)}`,
 			"",
-			"Run it on the machine to join, which keeps the key it is given in its system store.",
+			"Run it on the machine to join, which keeps the key it is given in its system store. On Windows, run this in PowerShell as an administrator instead, which sets up WSL2 and starts the worker at each boot:",
+			"",
+			`  ${windowsJoinCommand(url, token, RUNNING)}`,
 		].join("\n"),
 	);
 }

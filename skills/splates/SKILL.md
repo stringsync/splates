@@ -394,7 +394,10 @@ machine, that is the Workers setup area: `local-worker` (`splates worker add
 may mint a worker's Access service token, **Account · Access: Service Tokens ·
 Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
 for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --coordinator <url> --join <token>` on the other machine). Workers
+worker run --coordinator <url> --join <token>` on the other machine),
+`windows-worker` (the Windows command `splates worker add` prints, run in
+PowerShell as an administrator there: the worker in a WSL2 distro of its own,
+started at each boot, shown as `linux (wsl2)`). Workers
 in their own cloud account start with `pulumi-install` (Pulumi under
 `~/.splates/pulumi`) and `pulumi-state` (its state there, encrypted by the
 device cred `PULUMI_CONFIG_PASSPHRASE`, never shown or replaced), then
