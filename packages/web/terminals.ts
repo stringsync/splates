@@ -85,8 +85,13 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	/**
 	 * The shell for `conversation`, made now in `task`'s worktree (or the main
 	 * tree for null) if it has none; it connects once it is first shown.
+	 * `project` is the slug of the project they are in, the page's for null.
 	 */
-	sessionFor(conversation: string, task: string | null): TerminalSession {
+	sessionFor(
+		conversation: string,
+		task: string | null,
+		project: string | null = null,
+	): TerminalSession {
 		if (this.focusing !== conversation) {
 			this.focusing = null;
 		}
@@ -94,6 +99,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		if (session === undefined) {
 			const made = new TerminalSession(conversation, task, this.toggles, {
 				timer: this.timer,
+				project,
 			});
 			made.events.on("changed", () => {
 				if (made.status === "exited") {

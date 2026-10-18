@@ -6,6 +6,8 @@ import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
+import { EverywhereContext } from "./everywhere-context";
+import { EverywhereFeed } from "./everywhere-feed";
 import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
 
@@ -65,12 +67,16 @@ const dictation =
 	window.isSecureContext &&
 	navigator.mediaDevices?.getUserMedia !== undefined &&
 	typeof AudioWorkletNode !== "undefined"
-		? new Dictation(new BrowserMicrophone(), () =>
+		? new Dictation(new BrowserMicrophone(), (project) =>
 				DictationSocket.open(
-					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped("/api/dictation")}`,
+					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped("/api/dictation", project)}`,
 				),
 			)
 		: null;
+
+// Every project's tasks and conversations, held here, above the project
+// shown, so switching projects leaves it streaming.
+const everywhere = new EverywhereFeed();
 
 createRoot(root).render(
 	location.hash === EVENTS_PREVIEW ? (
@@ -80,7 +86,9 @@ createRoot(root).render(
 	) : (
 		<StrictMode>
 			<DictationContext value={dictation}>
-				<ProjectApp settings={settings} />
+				<EverywhereContext value={everywhere}>
+					<ProjectApp settings={settings} />
+				</EverywhereContext>
 			</DictationContext>
 		</StrictMode>
 	),

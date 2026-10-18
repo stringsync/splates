@@ -19,6 +19,8 @@ export const SETTLE = Duration.ms(50);
 export class ProjectWatch implements StreamWatcher {
 	/** The streams of the pages listening. */
 	private readonly open = new Set<EventSink>();
+	/** What else listens as a page does, such as the every-project feed. */
+	private readonly heard = new Set<() => void>();
 	private last = "";
 	/** Bumped by every sign the repo moved, so a read from before it is stale. */
 	private moves = 0;
@@ -118,20 +120,43 @@ export class ProjectWatch implements StreamWatcher {
 		return eventStream(this.open, this);
 	}
 
+	/**
+	 * Calls `changed` whenever what a page shows moved, listening as a page
+	 * does, so worktrees' edits move it too, until disposed.
+	 */
+	listen(changed: () => void): Resource {
+		const own = () => changed();
+		this.heard.add(own);
+		this.opened();
+		return {
+			dispose: () => {
+				if (this.heard.delete(own)) {
+					this.closed();
+				}
+			},
+		};
+	}
+
 	opened(): void {
-		if (this.open.size === 1) {
+		if (this.listening === 1) {
 			this.arm();
 		}
 	}
 
 	closed(): void {
-		if (this.open.size === 0) {
+		if (this.listening === 0) {
 			this.disarm();
 		}
 	}
 
+	/** How many pages, and whatever else, listen. */
+	private get listening(): number {
+		return this.open.size + this.heard.size;
+	}
+
 	dispose(): void {
 		this.disposed = true;
+		this.heard.clear();
 		this.disarm();
 		for (const watch of [...this.watches, ...this.trees.values()]) {
 			watch.dispose();
@@ -192,7 +217,7 @@ export class ProjectWatch implements StreamWatcher {
 	private async push(): Promise<void> {
 		// Read only for a page that would hear of it. One that connects later
 		// may hear of a change it already fetched, which costs it one refetch.
-		if (this.open.size === 0) {
+		if (this.listening === 0) {
 			return;
 		}
 		this.tell(await this.current());
@@ -205,7 +230,7 @@ export class ProjectWatch implements StreamWatcher {
 	private revalidate(): void {
 		this.fresh()
 			.then((read) => {
-				if (this.open.size > 0) {
+				if (this.listening > 0) {
 					this.tell(this.live(read));
 				}
 			})
@@ -220,6 +245,9 @@ export class ProjectWatch implements StreamWatcher {
 		this.last = print;
 		for (const stream of this.open) {
 			stream.enqueue(encoder.encode("data: changed\n\n"));
+		}
+		for (const changed of this.heard) {
+			changed();
 		}
 	}
 
@@ -301,7 +329,7 @@ export class ProjectWatch implements StreamWatcher {
 		if (!this.watching || this.disposed) {
 			return;
 		}
-		const deep = this.open.size > 0;
+		const deep = this.listening > 0;
 		for (const [path, tree] of this.trees) {
 			if (!paths.includes(path) || tree.deep !== deep) {
 				tree.dispose();

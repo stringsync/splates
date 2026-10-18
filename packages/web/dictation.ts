@@ -76,7 +76,8 @@ export class Dictation
 
 	constructor(
 		private readonly microphone: Microphone,
-		private readonly open: OpenLink,
+		/** Opens a link to the project a slug names, the page's for null. */
+		private readonly open: (project: string | null) => ReturnType<OpenLink>,
 	) {}
 
 	get state(): DictationState {
@@ -91,15 +92,16 @@ export class Dictation
 	/**
 	 * Starts a take, as the composer's mic button asks on the tap itself: the
 	 * mic starts before any await, as a phone needs. `by` names a box other
-	 * than the composer that the take writes in.
+	 * than the composer that the take writes in; `project`, a slug, the
+	 * project whose key it transcribes with, the page's for null.
 	 */
-	listen(by = COMPOSER): DictationSession {
+	listen(by = COMPOSER, project: string | null = null): DictationSession {
 		this.take?.session.ended("cancelled", undefined);
 		this.take?.dispose();
 		this.finishing = undefined;
 		const sink = new BufferedSink();
 		const recording = this.microphone.start(sink);
-		const link = this.open();
+		const link = this.open(project);
 		const take = new TakeUnderWay(
 			new DictationSession({
 				stop: () =>

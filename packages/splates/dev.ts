@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import { SYSTEM_STORES } from "./creds";
 import { Access } from "./dev-access";
 import { Dictations } from "./dev-dictation";
+import { EverywhereRoutes } from "./dev-everywhere";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import type { DevOptions } from "./dev-options";
 import { DevOutcomes } from "./dev-outcomes";
@@ -153,7 +154,10 @@ export async function dev(
 				serve,
 			);
 			// One that failed to open is tried again on the next request.
-			found.catch(() => served.delete(root));
+			found.then(
+				(project) => everywhere.added(root, project),
+				() => served.delete(root),
+			);
 			served.set(root, found);
 		}
 		return found;
@@ -197,26 +201,38 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
+	// Every registered project's tasks and conversations, to one page.
+	const everywhere = new EverywhereRoutes({ projects, served, servedAt, log });
+
+	/** The served project that holds conversation `id`, or null for none. */
+	const holding = async (id: string): Promise<Served | null> => {
+		for (const settled of await Promise.allSettled(served.values())) {
+			const project = settled.status === "fulfilled" ? settled.value : null;
+			if (
+				project?.conversations &&
+				(await project.conversations.find(id).then(
+					() => true,
+					() => false,
+				))
+			) {
+				return project;
+			}
+		}
+		return null;
+	};
+
 	// A conversation is the project's it started in, whichever the page is on:
-	// the agent's own `splates` names no project when it says it moved.
+	// the agent's own `splates` names no project when it says it moved. One
+	// of a project not served yet is found once every one is.
 	const owned =
 		(pick: (project: Served) => Handler) =>
 		(request: Request): Promise<Response> =>
 			guarded(async (request) => {
 				const id = new URL(request.url).pathname.split("/")[3] ?? "";
-				let owner: Served | null = null;
-				for (const settled of await Promise.allSettled(served.values())) {
-					const project = settled.status === "fulfilled" ? settled.value : null;
-					if (
-						project?.conversations &&
-						(await project.conversations.find(id).then(
-							() => true,
-							() => false,
-						))
-					) {
-						owner = project;
-						break;
-					}
+				let owner = await holding(id);
+				if (owner === null) {
+					await everywhere.openAll();
+					owner = await holding(id);
 				}
 				// None holds it: the project asked for refuses it, as ever.
 				const project = owner ?? (await projectFor(request));
@@ -441,6 +457,9 @@ export async function dev(
 				"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 				"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 				"/api/snapshot": scoped((project) => project.snapshot),
+				// Conversations among them, so only as far as a conversation reaches.
+				"/api/everywhere": talk(guarded(everywhere.list)),
+				"/api/everywhere/events": talk(guarded(everywhere.events)),
 				"/api/file": scoped((project) => project.file),
 				// It runs the person's editor, so only as far as a conversation reaches.
 				"/api/open": { POST: talk(scoped((project) => project.open)) },
@@ -669,6 +688,7 @@ export async function dev(
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
 	disposer.defer(() => terminals.disposeAsync());
+	disposer.defer(() => everywhere.disposeAsync());
 	disposer.defer(async () => {
 		for (const settled of await Promise.allSettled(served.values())) {
 			if (settled.status === "fulfilled") {

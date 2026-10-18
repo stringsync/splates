@@ -11,6 +11,7 @@ import { AutoRoutes } from "./dev-auto-routes";
 import { BudgetRoutes } from "./dev-budgets";
 import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
+import type { ConversationsHeard } from "./dev-conversation-stream";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TaskRoutes } from "./dev-tasks";
@@ -167,6 +168,16 @@ export async function serveProject(
 			),
 		}),
 		events: async () => watch.events(),
+		listen: (heard) => {
+			const board = watch.listen(() => heard.board());
+			const unlisten = talks.listen(heard);
+			return {
+				dispose: () => {
+					board.dispose();
+					unlisten();
+				},
+			};
+		},
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
 			watch.dispose();
@@ -266,6 +277,11 @@ export interface Served extends AsyncResource {
 	/** Its tasks' worktrees and agents, whose processes' ports are the tasks'. */
 	portOwners: () => Promise<PortOwners>;
 	events: Handler;
+	/**
+	 * Tells `heard` of each move its pages would hear, listening as a page
+	 * does, until disposed.
+	 */
+	listen: (heard: ProjectHeard) => Resource;
 	file: Handler;
 	open: Handler;
 	paths: Handler;
@@ -336,6 +352,12 @@ export interface Served extends AsyncResource {
 	 * after asking for the key on the Creds page, without one.
 	 */
 	transcriber: () => Promise<Transcriber | null>;
+}
+
+/** What a listener other than a page hears of one project. */
+export interface ProjectHeard extends ConversationsHeard {
+	/** Something its snapshot holds moved, such as a task. */
+	board(): void;
 }
 
 /**

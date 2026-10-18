@@ -30,15 +30,17 @@ export class ApiError extends Error {
 
 /**
  * `path` for the project this page shows: the one `?project=` names, or none
- * for the one `splates server` started in, unless `path` names one itself. Every
- * request the page makes goes through here.
+ * for the one `splates server` started in, unless `path` names one itself.
+ * Given `project`, a slug, for that one instead, as for something of
+ * another project's on this page. Every request the page makes goes
+ * through here.
  */
-export function scoped(path: string): string {
-	const project = new URLSearchParams(location.search).get("project");
-	if (project === null || project === "" || path.includes("project=")) {
+export function scoped(path: string, project: string | null = null): string {
+	const named = project ?? new URLSearchParams(location.search).get("project");
+	if (named === null || named === "" || path.includes("project=")) {
 		return path;
 	}
-	const query = new URLSearchParams({ project });
+	const query = new URLSearchParams({ project: named });
 	return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 }
 

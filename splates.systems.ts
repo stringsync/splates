@@ -11,10 +11,11 @@ export default {
 	},
 	conversations: {
 		description: "The agent conversations on the splates server page",
-		aliases: ["conversation view"],
+		aliases: ["conversation view", "sidebar"],
 		globs: [
 			"packages/splates/conversations*.ts",
 			"packages/web/conversation*.ts*",
+			"packages/web/sidebar*.tsx",
 			"packages/web/work*.ts*",
 			"packages/web/app-conversation*.test.tsx",
 		],
@@ -91,5 +92,13 @@ export default {
 	skills: {
 		description: "The skills agents read",
 		globs: ["skills/**"],
+	},
+	everywhere: {
+		description: "Every project's work on one page",
+		globs: [
+			"packages/splates/dev-everywhere*.ts",
+			"packages/splates/everywhere.ts",
+			"packages/web/everywhere-*.ts",
+		],
 	},
 } satisfies SystemsFile;

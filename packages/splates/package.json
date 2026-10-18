@@ -35,6 +35,7 @@
 		"./creds": "./creds.ts",
 		"./decided": "./decided.ts",
 		"./demo": "./demo.ts",
+		"./dev-everywhere": "./dev-everywhere.ts",
 		"./dev-picker": "./dev-picker.ts",
 		"./dev-push": "./dev-push.ts",
 		"./dev-servers": "./dev-servers.ts",

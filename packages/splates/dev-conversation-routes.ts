@@ -1,4 +1,3 @@
-import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import type { Conversation } from "./conversation";
 import { listing } from "./conversation-listing";
 import {
@@ -14,16 +13,12 @@ import {
 	deleteVersion,
 	removeNamed,
 } from "./dev-artifacts";
-import { type Tree, treeOf } from "./dev-conversation-tree";
 import {
-	body,
-	type EventSink,
-	eventStream,
-	fileResponse,
-	MEDIA_TYPES,
-	refuse,
-	uploads,
-} from "./dev-http";
+	ConversationStream,
+	type ConversationsHeard,
+} from "./dev-conversation-stream";
+import { type Tree, treeOf } from "./dev-conversation-tree";
+import { body, fileResponse, MEDIA_TYPES, refuse, uploads } from "./dev-http";
 import type { Project } from "./dev-project";
 import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
@@ -40,14 +35,8 @@ export class ConversationRoutes {
 	readonly #conversations: Conversations | null;
 	/** Every project's conversations, where a caller of one here may be. */
 	readonly #everywhere: Everywhere | null;
-	// Each change carries the whole conversation, since an agent streams in
-	// small pieces and a page refetching after each would fall behind. At most
-	// one per conversation per beat, the latest, which holds everything before.
-	readonly #listeners = new Set<EventSink>();
-	readonly #beats = new Map<string, Throttler>();
-	readonly #unlisten: (() => void) | undefined;
-	readonly #unlistenSettings: (() => void) | undefined;
-	readonly #unlistenRemoved: (() => void) | undefined;
+	/** Each change to them, to pages and other listeners; null while they are off. */
+	readonly #stream: ConversationStream | null;
 
 	constructor(
 		project: Project,
@@ -61,29 +50,16 @@ export class ConversationRoutes {
 			(conversations === null
 				? null
 				: Everywhere.onlyHere(project.service.git.root, conversations));
-		this.#unlistenSettings = conversations?.events.on("settings", () => {
-			this.#send(encoder.encode("event: settings\ndata: {}\n\n"));
-		});
-		const timer = new SystemTimer();
-		this.#unlisten = conversations?.events.on("changed", (id) => {
-			const beat = this.#beats.get(id) ?? new Throttler(timer, BEAT);
-			this.#beats.set(id, beat);
-			beat.call(async () => {
-				// Gone meanwhile, deleted as an older archived one: `removed` says so.
-				const state = (await conversations.list()).find(
-					(each) => each.id === id,
-				)?.state;
-				if (state !== undefined) {
-					this.#send(encoder.encode(`data: ${JSON.stringify(state)}\n\n`));
-				}
-			});
-		});
-		// An older archived conversation, deleted: the page drops it.
-		this.#unlistenRemoved = conversations?.events.on("removed", (id) => {
-			this.#beats.get(id)?.dispose();
-			this.#beats.delete(id);
-			this.#send(encoder.encode(`event: removed\ndata: ${id}\n\n`));
-		});
+		this.#stream =
+			conversations === null ? null : new ConversationStream(conversations);
+	}
+
+	/**
+	 * Tells `heard` of each change a page's stream hears, at the same beat,
+	 * until the returned function is called.
+	 */
+	listen(heard: ConversationsHeard): () => void {
+		return this.#stream?.listen(heard) ?? (() => {});
 	}
 
 	/** The conversations a page may hold, or a refusal when they are off. */
@@ -543,16 +519,11 @@ export class ConversationRoutes {
 
 	readonly conversationEvents = async (): Promise<Response> => {
 		this.held();
-		return eventStream(this.#listeners);
+		return (this.#stream as ConversationStream).events();
 	};
 
 	async disposeAsync(): Promise<void> {
-		this.#unlisten?.();
-		this.#unlistenRemoved?.();
-		this.#unlistenSettings?.();
-		for (const beat of this.#beats.values()) {
-			beat.dispose();
-		}
+		this.#stream?.dispose();
 		await this.#conversations?.disposeAsync();
 	}
 
@@ -588,15 +559,4 @@ export class ConversationRoutes {
 	private conversationAt(request: Request) {
 		return this.held().find(new URL(request.url).pathname.split("/")[3] ?? "");
 	}
-
-	#send(chunk: Uint8Array): void {
-		for (const stream of this.#listeners) {
-			stream.enqueue(chunk);
-		}
-	}
 }
-
-/** How often an open page hears about one conversation while its agent streams. */
-const BEAT = Duration.ms(50);
-
-const encoder = new TextEncoder();

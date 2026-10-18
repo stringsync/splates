@@ -40,6 +40,8 @@ export class TerminalSession
 	/** Each `front` waiting on the shell's answer, oldest first. */
 	private asking: ((command: string | null) => void)[] = [];
 	private readonly timer: Timer;
+	/** The slug of the project its tree is in; the page's for null. */
+	private readonly project: string | null;
 	/** The try to come, once the socket went short of an exit. */
 	private retrying: Resource | null = null;
 	private disposed = false;
@@ -56,8 +58,16 @@ export class TerminalSession
 		readonly task: string | null,
 		// scry-ignore objects-over-callbacks: a test of one key, read as each key comes
 		toggles: (event: KeyboardEvent) => boolean,
-		{ timer = new SystemTimer() }: { timer?: Timer } = {},
+		{
+			timer = new SystemTimer(),
+			project = null,
+		}: {
+			timer?: Timer;
+			/** The slug of the project `task` is in; the page's for null. */
+			project?: string | null;
+		} = {},
 	) {
+		this.project = project;
 		this.timer = timer;
 		this.element.className = "h-full w-full";
 		this.terminal = new Terminal({
@@ -194,7 +204,7 @@ export class TerminalSession
 		}
 		const scheme = location.protocol === "https:" ? "wss:" : "ws:";
 		const socket = new WebSocket(
-			`${scheme}//${location.host}${scoped(`/api/terminal?${query}`)}`,
+			`${scheme}//${location.host}${scoped(`/api/terminal?${query}`, this.project)}`,
 		);
 		socket.binaryType = "arraybuffer";
 		socket.onopen = () => {
