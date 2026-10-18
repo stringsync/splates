@@ -1,7 +1,7 @@
-import { DictationConnection } from "./dev-dictation-connection";
-import { type HostGate, refuse } from "./dev-http";
-import type { Served } from "./dev-project";
-import type { Connection } from "./dev-sockets";
+import { type HostGate, refuse } from "../dev-http";
+import type { Served } from "../dev-project";
+import type { Connection } from "../dev-sockets";
+import { DictationConnection } from "./connection";
 
 /** How a dictation finds the project its request names. */
 export interface DictationProjects {

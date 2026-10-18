@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { DictationMessage } from "webappwiz/dictate";
 import { FakeTranscriber } from "webappwiz/dictate/testing";
 import { OpenPortProvider } from "webappwiz/system";
-import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
-import { dev } from "./index";
-import { Testing } from "./testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
+import { type TranscriberFor, transcriberFor } from "./transcriber";
 
 describe("dev dictation", () => {
 	let deps: Testing;

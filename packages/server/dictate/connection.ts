@@ -3,8 +3,8 @@ import {
 	DictationRelay,
 	type Transcriber,
 } from "webappwiz/dictate";
-import type { Connection } from "./dev-sockets";
-import { OPENAI_KEY } from "./dev-transcriber";
+import type { Connection } from "../dev-sockets";
+import { OPENAI_KEY } from "./transcriber";
 
 /**
  * One dictation's socket, relaying the page's audio to a transcription and

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { OPENAI_KEY } from "../dev-transcriber";
+import { OPENAI_KEY } from "../dictate";
 import { DICTATION_AREA } from "./area-dictation";
 import { Setup, type SetupArea, type SetupMachine } from "./setup";
 

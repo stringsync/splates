@@ -15,7 +15,7 @@ import type { ConversationsHeard } from "./dev-conversation-stream";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TodoRoutes } from "./dev-todos";
-import type { TranscriberFor } from "./dev-transcriber";
+import type { TranscriberFor } from "./dictate";
 import type { Everywhere } from "./everywhere";
 import type { InstallationToken, Landed, LandRequest } from "./merge";
 import { AutoRoutes } from "./models";

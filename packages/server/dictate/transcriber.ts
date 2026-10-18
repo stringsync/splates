@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import type { Transcriber } from "webappwiz/dictate";
 import { OpenAiTranscriber } from "webappwiz/dictate/server";
-import type { Project } from "./dev-project";
+import type { Project } from "../dev-project";
 import { vocabulary, words } from "./vocabulary";
 
 /** The cred a dictation transcribes with. */
