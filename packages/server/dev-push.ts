@@ -200,6 +200,17 @@ export class Pushes {
 		}
 	}
 
+	/**
+	 * Pushes `notice` to every device at once, whatever it wants and
+	 * however quiet the hour, for what must not be missed: a worker budget
+	 * limit nearing or reached.
+	 */
+	async announce(notice: Omit<Pushed, "inFront">): Promise<void> {
+		for (const device of this.devices) {
+			await this.push(device, { ...notice, inFront: device.wants.inFront });
+		}
+	}
+
 	private async push(device: Device, pushed: Pushed): Promise<void> {
 		try {
 			await this.pusher.push(device.subscription, JSON.stringify(pushed), {

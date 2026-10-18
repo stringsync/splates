@@ -42,7 +42,13 @@ import {
 	setupProjectAt,
 } from "./setup";
 import { DevOutcomes } from "./stats";
-import { LocalWorkerMachine, type WorkerPool } from "./workers";
+import {
+	alertNotice,
+	LocalWorkerMachine,
+	WorkerBudgetRoutes,
+	type WorkerPool,
+	workerBudgetReport,
+} from "./workers";
 
 export type { DevOptions } from "./dev-options";
 export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./dev-ports";
@@ -329,6 +335,26 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
+	const budget = new WorkerBudgetRoutes(
+		workers.provisioning?.budget ?? null,
+		workers.slots.scheduler,
+	);
+	// Loud, whatever a device asks to hear: a limit nearing costs money.
+	workers.provisioning?.events.on("alert", (alert) => {
+		void pushes.announce({ ...alertNotice(alert), url: "#budget" });
+	});
+	// A reached limit stops the agents on made workers at their checkpoint.
+	workers.provisioning?.events.on("stopping", ({ reason, held }) => {
+		void (async () => {
+			for (const root of new Set(held.map((each) => each.project))) {
+				const project = await servedAt(root).catch(() => null);
+				await project?.checkpoint(
+					held.filter((each) => each.project === root).map((each) => each.id),
+				);
+			}
+			log.info(`${reason}: asked the agents on made workers to checkpoint`);
+		})();
+	});
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
@@ -439,8 +465,21 @@ export async function dev(
 							...(await machine.read()),
 							heavy: await jobs.read(),
 							queue: queueListing(workers.slots.scheduler.queue()),
+							workerBudget:
+								workers.provisioning === null
+									? null
+									: workerBudgetReport(
+											workers.provisioning.budget,
+											workers.slots.scheduler,
+										),
 						}),
 					),
+					"/api/worker-budget": guarded(budget.show),
+					"/api/worker-budget/raises": { POST: talk(guarded(budget.raise)) },
+					"/api/worker-budget/raises/:id": {
+						DELETE: talk(guarded(budget.endRaise)),
+					},
+					"/api/worker-budget/:limit": { PUT: talk(guarded(budget.set)) },
 					// Through a tunnel only once Access verified who is asking, as a
 					// conversation is: what an agent said goes to the device.
 					"/api/push": talk(guarded(pushes.key)),

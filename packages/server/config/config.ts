@@ -99,11 +99,6 @@ export interface Config {
 	 */
 	workerProvider: WorkerProvider | null;
 	/**
-	 * How many workers `workerProvider` may have made at once, of those
-	 * placement asks for; `splates worker add --provider` may go past it.
-	 */
-	provisionedWorkers: number;
-	/**
 	 * The platform the project's agents must run on, for a project that
 	 * builds only there: its tasks wait for a worker on it rather than run
 	 * elsewhere. Null runs them on any.

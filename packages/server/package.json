@@ -69,6 +69,7 @@
 		"./records/browser": "./records/browser.ts",
 		"./release": "./release.ts",
 		"./workers": "./workers/index.ts",
+		"./workers/browser": "./workers/browser.ts",
 		"./runtime-deps": "./runtime-deps.ts",
 		"./saved-tunnel": "./saved-tunnel.ts",
 		"./setup": "./setup/index.ts",

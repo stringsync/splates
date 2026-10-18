@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { joinAccess } from "./access";
+import { WorkerBudget } from "./budget";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -29,6 +30,27 @@ describe("WorkerProvisioning", () => {
 		});
 		expect(await records.join(token, worker.id)).not.toBeNull();
 		expect(records.of(worker.id)?.access).toBe("st-1");
+	});
+
+	it("counts a made worker's spend from when it is made until it is destroyed", async () => {
+		const { made, budget } = await provisioning();
+
+		const worker = await made.provision();
+		expect(budget.rate()).toBe(0.05);
+		await made.destroy(worker.id);
+
+		expect(budget.rate()).toBe(0);
+	});
+
+	it("counts nothing for a worker its provider failed to make", async () => {
+		const provider = new FakeWorkerProvider([...TYPES]);
+		provider.create = async () => {
+			throw new Error("quota");
+		};
+		const { made, budget } = await provisioning(provider);
+
+		await expect(made.provision()).rejects.toThrow("quota");
+		expect(budget.rate()).toBe(0);
 	});
 
 	it("makes the type asked for", async () => {
@@ -100,6 +122,7 @@ const TYPES = [
 async function provisioning(
 	provider = new FakeWorkerProvider([...TYPES]),
 	coordinator: string | null = "https://splates.example.com",
+	budget = WorkerBudget.memory(),
 ) {
 	const records = WorkerRecords.memory();
 	const registry = new WorkerRegistry(new MemoryLogger());
@@ -111,8 +134,8 @@ async function provisioning(
 		registry,
 		access,
 		coordinator: () => coordinator,
-		limit: 2,
+		budget,
 		log: new MemoryLogger(),
 	});
-	return { provider, records, registry, access, made };
+	return { provider, records, registry, access, made, budget };
 }

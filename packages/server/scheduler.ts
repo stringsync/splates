@@ -16,6 +16,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	private readonly holding = new Map<string, HeldSlot>();
 	/** The worker each agent last ran on, which it goes back to when it can. */
 	private readonly last = new Map<string, string>();
+	/** Why no worker is made for the queue, as a budget limit says; null when none holds it. */
+	private withheld: BudgetReason | null = null;
 
 	constructor(
 		private readonly pool: Pool,
@@ -73,7 +75,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			platform: request.platform,
 			position: at + 1,
 			since,
-			reason: reasonFor(request, workers),
+			reason: reasonFor(request, workers, this.withheld),
 		}));
 	}
 
@@ -118,6 +120,23 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		}
 		this.place();
 		this.changed();
+	}
+
+	/**
+	 * Says why no worker is made for those waiting, like `rate cap $0.25/h
+	 * reached`, which the queue gives as their reason; null when nothing
+	 * holds it but the slots.
+	 */
+	withhold(reason: BudgetReason | null): void {
+		if (reason !== this.withheld) {
+			this.withheld = reason;
+			this.changed();
+		}
+	}
+
+	/** Why no worker is made for those waiting; null when nothing holds them but the slots. */
+	withheldReason(): BudgetReason | null {
+		return this.withheld;
 	}
 
 	/** Places whoever can be placed now, as after a worker joins or grows. */
@@ -278,7 +297,14 @@ export interface SlotRequest {
 }
 
 /** Why a queued agent waits. */
-export type QueueReason = "no free slot" | "no worker up" | `needs ${string}`;
+export type QueueReason =
+	| "no free slot"
+	| "no worker up"
+	| `needs ${string}`
+	| BudgetReason;
+
+/** A worker budget limit that holds the queue, like `monthly limit $75.00 reached`. */
+export type BudgetReason = `${string} reached`;
 
 /** One agent waiting for a slot, first in line first. */
 export interface QueueEntry {
@@ -325,12 +351,16 @@ function eligible(worker: PoolWorker, request: SlotRequest): boolean {
 	);
 }
 
-/** Why `request` waits: no worker up it could run on, or none free. */
-function reasonFor(request: SlotRequest, workers: PoolWorker[]): QueueReason {
+/** Why `request` waits: no worker up it could run on, a budget limit, or none free. */
+function reasonFor(
+	request: SlotRequest,
+	workers: PoolWorker[],
+	withheld: BudgetReason | null,
+): QueueReason {
 	if (workers.some((worker) => eligible(worker, request))) {
-		return "no free slot";
+		return withheld ?? "no free slot";
 	}
 	return request.platform === null
-		? "no worker up"
+		? (withheld ?? "no worker up")
 		: `needs ${PLATFORM_NAMES[request.platform]}`;
 }

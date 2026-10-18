@@ -1,9 +1,17 @@
 import { randomBytes } from "node:crypto";
 import type { Resource } from "webappwiz/disposable";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Logger } from "webappwiz/log";
-import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
-import type { Platform, Scheduler } from "../scheduler";
+import {
+	Duration,
+	SystemTimer,
+	SystemWallClock,
+	type Timer,
+	type WallClock,
+} from "webappwiz/time";
+import type { HeldSlot, Platform, Scheduler } from "../scheduler";
 import type { WorkerAccess } from "./access";
+import type { WorkerAlert, WorkerBudget } from "./budget";
 import type { WorkerProvider, WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -11,6 +19,9 @@ import { SNAPSHOT_SPLATES, type Snapshots, snapshotRecipe } from "./snapshot";
 
 /** How long placement waits after a failed provision before it asks the provider again. */
 export const PROVISION_BACKOFF = Duration.mins(5);
+
+/** How often the budget is looked at again as time passes, for its alerts and hard stop. */
+export const BUDGET_EVERY = Duration.mins(1);
 
 /** A worker a provider was asked to make. */
 export interface Provisioned {
@@ -32,29 +43,57 @@ export interface WorkerProvisioningOptions {
 	 * the page's tunnel host; null when the page has none, so none is made.
 	 */
 	coordinator: () => string | null;
-	/** How many workers placement may have made at once. */
-	limit: number;
+	/** What made workers may cost, which placement makes none past. */
+	budget: WorkerBudget;
+	/**
+	 * Stops the made workers `ids` once the day's or month's limit is
+	 * reached: they take no new agents, and are destroyed once those on
+	 * them end. Answers the agents still on them.
+	 */
+	stop?: (ids: string[]) => Promise<HeldSlot[]>;
 	log: Logger;
 	wall?: WallClock;
+	timer?: Timer;
 }
+
+export type WorkerProvisioningEvents = {
+	/** A limit reached a tier it had not yet in its window. */
+	alert: WorkerAlert;
+	/**
+	 * Made workers were stopped, `reason` saying which limit was reached,
+	 * with the agents still on them, which should stop at their checkpoint.
+	 */
+	stopping: { reason: string; held: HeldSlot[] };
+};
 
 /**
  * Makes workers through a `WorkerProvider`: each boots from the snapshot
  * for its platform and spends a join token minted for it, joining as any
  * other worker does, and is destroyed when it is removed. Watching a
  * scheduler, it makes one whenever agents queue for want of a slot and
- * those already being made would not seat them, up to `limit`.
+ * those already being made would not seat them, as far as the budget
+ * allows; past it, the queue says which limit holds it. Once the day's or
+ * month's limit is reached, it stops every made worker.
  */
-export class WorkerProvisioning implements Resource {
+export class WorkerProvisioning
+	implements Eventful<WorkerProvisioningEvents>, Resource
+{
+	private readonly dispatcher = new Dispatcher<WorkerProvisioningEvents>();
+	readonly events = this.dispatcher.events;
 	/** Slots of the workers asked for that have yet to dial, by id. */
 	private readonly coming = new Map<string, number>();
 	private watching: (() => void) | null = null;
 	private asking = false;
 	private failedAt: number | null = null;
 	private readonly wall: WallClock;
+	private tick: Resource | null = null;
 
 	constructor(private readonly opts: WorkerProvisioningOptions) {
 		this.wall = opts.wall ?? new SystemWallClock();
+	}
+
+	get budget(): WorkerBudget {
+		return this.opts.budget;
 	}
 
 	/** Whether worker `id` is one a provider made. */
@@ -88,6 +127,7 @@ export class WorkerProvisioning implements Resource {
 		const { token } = await records.invite(
 			(await this.opts.access?.mint()) ?? null,
 		);
+		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
 		try {
 			await provider.create({
 				id,
@@ -112,6 +152,7 @@ export class WorkerProvisioning implements Resource {
 			this.coming.delete(id);
 			registry.forget(id);
 			await records.remove(id);
+			await this.opts.budget.ended(id);
 			throw error;
 		}
 		this.opts.log.info(
@@ -124,6 +165,7 @@ export class WorkerProvisioning implements Resource {
 	async destroy(id: string): Promise<void> {
 		this.coming.delete(id);
 		await this.opts.provider.destroy(id);
+		await this.opts.budget.ended(id);
 	}
 
 	/**
@@ -139,6 +181,7 @@ export class WorkerProvisioning implements Resource {
 		for (const record of records.all) {
 			if (record.provisioned !== null && !exists.has(record.id)) {
 				await records.remove(record.id);
+				await this.opts.budget.ended(record.id);
 				if (record.access !== null) {
 					await this.opts.access
 						?.revoke(record.access)
@@ -162,12 +205,50 @@ export class WorkerProvisioning implements Resource {
 		return gone;
 	}
 
-	/** Makes workers for `scheduler`'s queue as it changes, until disposed. */
+	/**
+	 * Makes workers for `scheduler`'s queue as it changes, and looks at the
+	 * budget as time passes, until disposed.
+	 */
 	watch(scheduler: Scheduler): void {
 		this.watching?.();
+		this.tick?.dispose();
 		this.watching = scheduler.events.on("changed", () => {
 			void this.fill(scheduler);
 		});
+		this.tick = (this.opts.timer ?? new SystemTimer()).setInterval(
+			() => void this.look(scheduler),
+			BUDGET_EVERY,
+		);
+	}
+
+	/**
+	 * Alerts each tier the budget newly reached, stops the made workers once
+	 * the day's or month's limit is, and fills the queue as far as it now
+	 * allows.
+	 */
+	async look(scheduler: Scheduler): Promise<void> {
+		const { budget, records, stop, log } = this.opts;
+		try {
+			for (const alert of await budget.alerts()) {
+				this.dispatcher.dispatch("alert", alert);
+			}
+			const stopped = budget.stopped();
+			const running = records.all.filter(
+				(each) => each.provisioned !== null && !each.removing,
+			);
+			if (stopped !== null && running.length > 0 && stop !== undefined) {
+				log.info(
+					`${stopped}: stopping made workers ${running.map((each) => each.id).join(", ")}`,
+				);
+				const held = await stop(running.map((each) => each.id));
+				if (held.length > 0) {
+					this.dispatcher.dispatch("stopping", { reason: stopped, held });
+				}
+			}
+		} catch (error) {
+			log.error(`the worker budget could not be looked at: ${String(error)}`);
+		}
+		await this.fill(scheduler);
 	}
 
 	/** Makes one worker when the queue has more waiting than is on its way, then looks again. */
@@ -175,7 +256,7 @@ export class WorkerProvisioning implements Resource {
 		if (this.asking) {
 			return;
 		}
-		const { registry, records, limit, log } = this.opts;
+		const { registry, budget, provider, log } = this.opts;
 		for (const id of this.coming.keys()) {
 			if (registry.worker(id)?.connected !== false) {
 				this.coming.delete(id);
@@ -186,19 +267,26 @@ export class WorkerProvisioning implements Resource {
 			(sum, slots) => sum + slots,
 			0,
 		);
-		const made = records.all.filter((each) => each.provisioned !== null);
 		const [first] = waiting.slice(seats);
+		if (first === undefined) {
+			scheduler.withhold(null);
+			return;
+		}
 		if (
-			first === undefined ||
-			made.length >= limit ||
-			(this.failedAt !== null &&
-				this.wall.now() - this.failedAt < PROVISION_BACKOFF.ms)
+			this.failedAt !== null &&
+			this.wall.now() - this.failedAt < PROVISION_BACKOFF.ms
 		) {
 			return;
 		}
 		this.asking = true;
 		try {
-			await this.provision({ platform: first.platform });
+			const type = pick(await provider.types(), { platform: first.platform });
+			const refusal = budget.refusal(type.dollarsPerHour);
+			scheduler.withhold(refusal);
+			if (refusal !== null) {
+				return;
+			}
+			await this.provision({ type: type.name });
 			this.failedAt = null;
 		} catch (error) {
 			this.failedAt = this.wall.now();
@@ -215,6 +303,8 @@ export class WorkerProvisioning implements Resource {
 	dispose(): void {
 		this.watching?.();
 		this.watching = null;
+		this.tick?.dispose();
+		this.tick = null;
 	}
 }
 

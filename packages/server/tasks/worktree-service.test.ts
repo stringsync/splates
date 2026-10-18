@@ -40,7 +40,6 @@ describe("WorktreeService", () => {
 			wiz: "wiz",
 			tunnel: null,
 			workerProvider: null,
-			provisionedWorkers: 2,
 			platform: null,
 		};
 	});

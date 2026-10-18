@@ -36,6 +36,7 @@ import { API_TOKEN } from "./tunnel-setup";
 import {
 	CloudflareWorkerAccess,
 	Snapshots,
+	WorkerBudget,
 	WorkerPlacement,
 	WorkerRecords,
 	workerGit,
@@ -216,7 +217,10 @@ export async function serveDev(
 							fs: ctx.fs,
 						}),
 						coordinator: () => reached,
-						limit: here.provisionedWorkers,
+						budget: await WorkerBudget.open(
+							`${splatesHome(ctx.ps)}/worker-budget.json`,
+							ctx.fs,
+						),
 					},
 				}),
 	});

@@ -15,6 +15,7 @@ import { NextWaiting, WaitingBadge } from "./phone-thread";
 import { QueueBadge } from "./slot-queue";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
+import { WorkerBudgetBadge } from "./worker-budget-badge";
 
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
@@ -83,7 +84,10 @@ export function PhoneApp({
 			Offline
 		</span>
 	) : (
-		<QueueBadge queue={pageMenu.machine?.queue ?? []} />
+		<>
+			<QueueBadge queue={pageMenu.machine?.queue ?? []} />
+			<WorkerBudgetBadge budget={pageMenu.machine?.workerBudget} />
+		</>
 	);
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>

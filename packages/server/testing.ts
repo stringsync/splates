@@ -111,7 +111,6 @@ export class Testing implements AsyncDisposable {
 			wiz: "wiz",
 			tunnel: null,
 			workerProvider: null,
-			provisionedWorkers: 2,
 			platform: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });

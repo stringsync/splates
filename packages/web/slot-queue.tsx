@@ -84,9 +84,11 @@ export function QueueBanner({
 				</span>{" "}
 				{spot.reason === "no free slot"
 					? `Every worker it can run on is full. It has waited ${waited(spot.since, now)}, and starts on its own once a slot frees.`
-					: spot.reason === "no worker up"
-						? `No worker is up to run it. It has waited ${waited(spot.since, now)}, and starts once a worker joins.`
-						: `It ${spot.reason}, and no worker on it is up. It has waited ${waited(spot.since, now)}, and starts once one joins.`}
+					: spot.reason.endsWith(" reached")
+						? `No worker it can run on is free, and no other is made: the worker budget's ${spot.reason}. It has waited ${waited(spot.since, now)}, and starts once a slot frees or the budget is raised.`
+						: spot.reason === "no worker up"
+							? `No worker is up to run it. It has waited ${waited(spot.since, now)}, and starts once a worker joins.`
+							: `It ${spot.reason}, and no worker on it is up. It has waited ${waited(spot.since, now)}, and starts once one joins.`}
 				{error !== null && (
 					<span className="block text-destructive">{error}</span>
 				)}

@@ -6,6 +6,7 @@ import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { MachineBadge } from "./machine";
 import { ProjectSwitcher } from "./projects";
 import { QueueBadge } from "./slot-queue";
+import { WorkerBudgetBadge } from "./worker-budget-badge";
 
 /**
  * Heads a phone's drawer, as tall as the bar beside it, its border in line
@@ -148,6 +149,7 @@ function ServerBadges({
 			)}
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}
+			{!offline && <WorkerBudgetBadge budget={machine?.workerBudget} />}
 		</>
 	);
 }

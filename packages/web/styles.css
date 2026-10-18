@@ -12,6 +12,7 @@
 @source "./dictate-button.tsx";
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";
+@source "./worker-budget-badge.tsx";
 @source "./app-nav.tsx";
 @source "./desktop-app.tsx";
 @source "./sidebar-head.tsx";

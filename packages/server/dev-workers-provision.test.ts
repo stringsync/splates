@@ -4,7 +4,12 @@ import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevWorkers, workerAuthorization } from "./dev-workers";
-import { Snapshots, WebSocketWorkerSocket, WorkerDaemon } from "./workers";
+import {
+	Snapshots,
+	WebSocketWorkerSocket,
+	WorkerBudget,
+	WorkerDaemon,
+} from "./workers";
 import { FakeWorkerProvider } from "./workers/testing";
 
 describe("DevWorkers with a worker provider", () => {
@@ -30,7 +35,8 @@ describe("DevWorkers with a worker provider", () => {
 					path: null,
 				}),
 				coordinator: () => `http://127.0.0.1:${server.port}`,
-				limit: 1,
+				// A rate cap the one small worker fills.
+				budget: await budgetOf({ hour: 0.05 }),
 			},
 		});
 		// This machine's worker takes nothing, so every agent queues.
@@ -59,7 +65,7 @@ describe("DevWorkers with a worker provider", () => {
 		await daemon.disposeAsync();
 	});
 
-	it("makes no more than its limit, however many queue", async () => {
+	it("makes no more than the rate cap allows, and the queue says so", async () => {
 		void workers.slots.scheduler.take(request("one")).catch(() => {});
 		await Bun.sleep(10);
 		void workers.slots.scheduler.take(request("two")).catch(() => {});
@@ -69,6 +75,25 @@ describe("DevWorkers with a worker provider", () => {
 		await Bun.sleep(10);
 
 		expect(provider.specs).toHaveLength(1);
+		expect(workers.slots.scheduler.spot("five")?.reason).toBe(
+			"rate cap $0.05/h reached",
+		);
+	});
+
+	it("stops made workers once the day's limit is reached, destroying each once idle", async () => {
+		const made = await (await workers.provision(post({}))).json();
+		await workers.provisioning?.budget.set("day", 0);
+		const stopping: string[][] = [];
+		workers.provisioning?.events.on("stopping", ({ held }) => {
+			stopping.push(held.map((each) => each.id));
+		});
+
+		await workers.provisioning?.look(workers.slots.scheduler);
+
+		expect(provider.getCalls()).toContain(`destroy ${made.id}`);
+		expect(workers.registry.worker(made.id)).toBeUndefined();
+		expect(workers.provisioning?.budget.rate()).toBe(0);
+		expect(stopping).toEqual([]);
 	});
 
 	it("destroys a made worker's machine when it is removed", async () => {
@@ -127,6 +152,17 @@ async function booted(
 			backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 		},
 	);
+}
+
+/** A budget in memory with `limits` set over the defaults. */
+async function budgetOf(
+	limits: Partial<Record<"hour" | "day" | "month", number>>,
+): Promise<WorkerBudget> {
+	const budget = WorkerBudget.memory();
+	for (const [limit, dollars] of Object.entries(limits)) {
+		await budget.set(limit as "hour" | "day" | "month", dollars);
+	}
+	return budget;
 }
 
 function request(id: string) {

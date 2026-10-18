@@ -1,6 +1,32 @@
 export type { ServiceToken, WorkerAccess } from "./access";
 export { joinAccess } from "./access";
 export { addWorker, drainWorker, removeWorker, setWorkerSlots } from "./admin";
+export type {
+	AlertTier,
+	WorkerAlert,
+	WorkerLimit,
+	WorkerRaise,
+	WorkerStanding,
+} from "./budget";
+export {
+	ALERT_TIERS,
+	alertNotice,
+	DEFAULT_WORKER_LIMITS,
+	dollars,
+	RAISE_FOR,
+	span,
+	WORKER_LIMITS,
+	WorkerBudget,
+} from "./budget";
+export type { BudgetCommandOptions } from "./budget-command";
+export {
+	endBudgetRaise,
+	raiseBudget,
+	setBudget,
+	showBudget,
+} from "./budget-command";
+export type { WorkerBudgetReport } from "./budget-routes";
+export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { WorkerDaemon } from "./daemon";

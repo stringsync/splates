@@ -67,7 +67,6 @@ function defaults(root: string, trunk: string): Config {
 		wiz: "bunx @webappwiz/cli",
 		tunnel: null,
 		workerProvider: null,
-		provisionedWorkers: 2,
 		platform: null,
 	};
 }

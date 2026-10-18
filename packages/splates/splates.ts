@@ -43,6 +43,7 @@ import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
+import { splatesBudget } from "./budget";
 import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, todoIds } from "./flags";
 import { splatesLane } from "./lane";
@@ -699,4 +700,5 @@ splates
 	.mount("tunnel", splatesTunnel)
 	.mount("slots", splatesSlots)
 	.mount("worker", splatesWorker)
-	.mount("queue", splatesQueue);
+	.mount("queue", splatesQueue)
+	.mount("budget", splatesBudget);

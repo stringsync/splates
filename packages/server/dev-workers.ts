@@ -7,6 +7,7 @@ import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
+import type { HeldSlot } from "./scheduler";
 import type { WorkerMachines } from "./tasks";
 import { API_TOKEN } from "./tunnel-setup";
 import type {
@@ -14,6 +15,7 @@ import type {
 	ServiceToken,
 	Snapshots,
 	WorkerAccess,
+	WorkerBudget,
 	WorkerPool,
 	WorkerProvider,
 } from "./workers";
@@ -123,6 +125,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						access,
 						registry: this.registry,
 						log,
+						stop: (ids) => this.stopMade(ids),
 					});
 		this.provisioning?.watch(this.slots.scheduler);
 	}
@@ -396,6 +399,22 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		return Response.json({ id, removed: true, running });
 	};
 
+	/**
+	 * Stops the made workers `ids`, as a reached limit does: each takes no
+	 * new agent and is destroyed once its last ends, answering the agents
+	 * still on them.
+	 */
+	private async stopMade(ids: string[]): Promise<HeldSlot[]> {
+		for (const id of ids) {
+			await this.records.set(id, { draining: true, removing: true });
+		}
+		this.slots.scheduler.poke();
+		await this.removeIdle();
+		return this.slots.scheduler
+			.held()
+			.filter((each) => ids.includes(each.worker));
+	}
+
 	/** Removes each worker waiting to be once its last agent has ended. */
 	private async removeIdle(): Promise<void> {
 		const used = this.slots.used();
@@ -539,8 +558,8 @@ export interface DevWorkerProvider {
 	snapshots: Snapshots;
 	/** The URL a made worker dials, the page's tunnel host; null for none. */
 	coordinator: () => string | null;
-	/** How many workers placement may have made at once (`provisionedWorkers`). */
-	limit: number;
+	/** What made workers may cost, which placement makes none past. */
+	budget: WorkerBudget;
 }
 
 /** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */

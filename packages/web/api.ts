@@ -21,7 +21,10 @@ import type {
 	Stats,
 } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff } from "@stringsync/splates-server/tasks";
-import type { WorkerPool } from "@stringsync/splates-server/workers";
+import type {
+	WorkerBudgetReport,
+	WorkerPool,
+} from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
 
 export class ApiError extends Error {
@@ -315,6 +318,8 @@ export async function taskPorts(): Promise<PortLink[]> {
 export type MachineStatus = MachineReading & {
 	heavy: HeavyJobsReading;
 	queue: QueueListing[];
+	/** Where the worker budget stands; null without a `workerProvider`. */
+	workerBudget?: WorkerBudgetReport | null;
 };
 
 /** Moves the agent of conversation `id` to `position` in the queue for a worker slot, from 1. */
