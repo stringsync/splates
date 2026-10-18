@@ -2,7 +2,13 @@ import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
-import { cycle, type LaneRecord, misordered, settle } from "./lanes";
+import {
+	cycle,
+	type LaneRecord,
+	type LaneRun,
+	misordered,
+	settle,
+} from "./lanes";
 import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
 import { parseTodoFile } from "./todo-file";
 import { TodoLanes } from "./todo-lanes";
@@ -244,6 +250,11 @@ export class Todos {
 	/** Puts lane `id` at `position` among the lanes, 1 the first column. */
 	moveLane(id: number, position: number): Promise<LaneRecord[]> {
 		return this.laneFiles.moveLane(id, position);
+	}
+
+	/** Sets lane `id` running, by `running.by`, or pauses it for null. */
+	runLane(id: number, running: LaneRun | null): Promise<LaneRecord> {
+		return this.laneFiles.runLane(id, running);
 	}
 
 	/** Removes lane `id`, putting its todos back in none, untriaged. */

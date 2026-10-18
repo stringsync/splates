@@ -10,6 +10,7 @@ export { escalate } from "./escalate";
 export { follow, serveProject } from "./follow";
 export { HandedOut } from "./handed-out";
 export { handoff } from "./handoff";
+export { LaneRunner } from "./lane-runner";
 export { LeaseBeat } from "./lease-beat";
 export { list } from "./list";
 export { path } from "./path";

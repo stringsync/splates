@@ -2,6 +2,7 @@ import {
 	laneAdd,
 	laneList,
 	laneRemove,
+	laneRun,
 	laneShow,
 	laneUpdate,
 	laneUpdated,
@@ -87,6 +88,39 @@ splatesLane
 			(record) => laneUpdated(opts.lane, record, change),
 		);
 	});
+
+for (const [verb, running, description] of [
+	[
+		"run",
+		true,
+		"set a lane running: `splates server` starts each of its todos that nothing blocks (`--blocked-by` an open todo) as a task of its own, on the agent and model the todo names, as many at once as agentsPerLane in splates.config.ts allows, and starts the next as each lands; run from a conversation, they nest under it",
+	],
+	[
+		"pause",
+		false,
+		"stop a running lane starting more todos; the tasks already out carry on",
+	],
+] as const) {
+	splatesLane
+		.command(verb)
+		.use(repository({ needs: "tasks" }))
+		.description(description)
+		.arg("lane", z.coerce.number().int().positive(), {
+			description: "lane number",
+		})
+		.action(async (opts, ctx) => {
+			await ctx.journal.record(
+				"lane update",
+				null,
+				() => laneRun(ctx, opts.lane, running),
+				(record) => ({
+					lane: opts.lane,
+					name: record.name,
+					changed: { running },
+				}),
+			);
+		});
+}
 
 splatesLane
 	.command("remove")

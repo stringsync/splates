@@ -48,6 +48,11 @@ export interface Config {
 	 * more and it passes `--over-capacity`.
 	 */
 	agentsPerAgent: number;
+	/**
+	 * How many tasks a running lane may have out at once, each started by
+	 * `splates server` for a todo nothing blocks; null for `agentsPerAgent`.
+	 */
+	agentsPerLane: number | null;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**

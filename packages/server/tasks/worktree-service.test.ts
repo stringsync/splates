@@ -29,6 +29,7 @@ describe("WorktreeService", () => {
 			preMerge: "true",
 			leaseStalenessMs: 90_000,
 			agentsPerAgent: 15,
+			agentsPerLane: null,
 			mergeRetryCount: 2,
 			removedCapacity: 50,
 			logCapacity: 200,

@@ -183,6 +183,8 @@ export interface Facts {
 			name?: string;
 			/** Where it moved to among the lanes, 1 the first column. */
 			position?: number;
+			/** Whether it runs from now on, its todos started by `splates server`. */
+			running?: boolean;
 		};
 	};
 	"lane remove": {

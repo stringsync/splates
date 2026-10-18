@@ -17,7 +17,7 @@ import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
-import { AutoRoutes } from "../models";
+import { type AgentPick, AutoRoutes } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -25,7 +25,7 @@ import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
-import { HandedOut, startDispatched, TaskRoutes } from "../tasks";
+import { HandedOut, LaneRunner, startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER } from "../workers";
 import type { Assets } from "./assets";
 import { ProjectWatch, SETTLE } from "./project-watch";
@@ -48,6 +48,7 @@ export async function serveProject(
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
 	let handedOut: HandedOut | null = null;
+	let laneRunner: LaneRunner | null = null;
 	let todosWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
@@ -60,6 +61,21 @@ export async function serveProject(
 			seen: new SeenLaneTodos(fs, `${splatesDir}/lane-todos.json`),
 			log,
 		});
+		laneRunner = LaneRunner.watch({
+			lanes: () => project.todos.lanes(),
+			todos: () => project.todos.stored(),
+			tasks: async () => (await service.list()).map(({ task }) => task),
+			capacity: project.config.agentsPerLane ?? project.config.agentsPerAgent,
+			start: ({ task, todo, pick, prompt, by }) =>
+				startLaneTodo(project, context.url, {
+					task,
+					todo: todo.id,
+					pick,
+					prompt,
+					by,
+				}),
+			log,
+		});
 		events = await JournalEvents.follow({
 			journal,
 			conversations,
@@ -69,7 +85,10 @@ export async function serveProject(
 		});
 		conversations.url = context.url;
 		let starting = Promise.resolve();
+		const runner = laneRunner;
 		const handOff = (): void => {
+			// A task gone makes room in its lane.
+			void runner.sweep();
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
 				.catch((error: unknown) => log.error(String(error)));
@@ -98,7 +117,10 @@ export async function serveProject(
 		try {
 			await fs.mkdir(`${splatesDir}/todos`);
 			const watching = fs.watch(`${splatesDir}/todos`, () =>
-				todosSettled.call(() => void watched.sweep()),
+				todosSettled.call(() => {
+					void watched.sweep();
+					void runner.sweep();
+				}),
 			);
 			todosWatch = {
 				dispose: () => {
@@ -193,16 +215,76 @@ export async function serveProject(
 			handOffs?.dispose();
 			todosWatch?.dispose();
 			handedOut?.dispose();
+			laneRunner?.dispose();
 			events?.dispose();
 			await talks.disposeAsync();
 		},
 	};
 }
 
+/**
+ * Adds the task a running lane starts for `todo`, as `splates add --todo
+ * --agent` would from the conversation that set the lane running, run as
+ * this splates so it is the same one: `splates server` then starts its agent
+ * as for any other. Its own cap is the lane's, which `LaneRunner` keeps, so
+ * the one per agent is passed over. Throws with what `add` said on a refusal.
+ */
+async function startLaneTodo(
+	{ ps, service }: Project,
+	url: string | null,
+	{
+		task,
+		todo,
+		pick,
+		prompt,
+		by,
+	}: {
+		task: string;
+		todo: number;
+		pick: AgentPick;
+		prompt: string;
+		by: string | null;
+	},
+): Promise<void> {
+	const { exitCode, stderr } = await ps.spawnCapture(
+		[
+			...ps.self,
+			"add",
+			task,
+			"--todo",
+			String(todo),
+			"--agent",
+			pick.agent,
+			...(pick.model === undefined ? [] : ["--model", pick.model]),
+			...(pick.effort === undefined ? [] : ["--effort", pick.effort]),
+			"--prompt",
+			prompt,
+			"--over-capacity",
+		],
+		{
+			cwd: service.git.root,
+			env: {
+				...(by === null ? {} : { SPLATES_CONVERSATION: by }),
+				...(url === null ? {} : { SPLATES_DEV: url }),
+			},
+			// Whatever agent started this server, the task is the lane's.
+			unset: [
+				"SPLATES_CALLER",
+				"SPLATES_STARTED_BY",
+				...(by === null ? ["SPLATES_CONVERSATION"] : []),
+			],
+		},
+	);
+	if (exitCode !== 0) {
+		throw new Error(stderr.trim() || `splates add exited ${exitCode}`);
+	}
+}
+
 /** What `dev` serves a project with: its own records, read and written. */
 export type Project = Pick<
 	Repository,
 	| "service"
+	| "config"
 	| "journal"
 	| "todos"
 	| "format"

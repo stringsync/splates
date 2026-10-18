@@ -40,6 +40,15 @@ stands, and those landed. So you change the plan by changing the lanes:
 
 ## Handing out
 
+A lane can also run on its own: `splates lane run N` has `splates server`
+start each of its todos that no open todo blocks, on the agent and model it
+names, as many at once as `agentsPerLane` allows, and the next as each lands;
+`splates lane pause N` stops it. Its order alone holds nothing back, so link
+every todo that needs another's code, or would change the same files, with
+`--blocked-by` first. `splates lane show N` says it is running and which
+todos name no agent. Hand out nothing yourself in a running lane: link,
+name models, and let it go.
+
 1. `splates lane show N` prints the steps and who is on each. When it says the
    lane is done or gone, done by your agents or by ones you never started,
    say so in your next report. Once every lane you work is, end on a

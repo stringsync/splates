@@ -2,6 +2,7 @@ export {
 	laneAdd,
 	laneList,
 	laneRemove,
+	laneRun,
 	laneShow,
 	laneUpdate,
 	laneUpdated,
@@ -9,7 +10,7 @@ export {
 } from "./lane";
 export type { LaneTodoChange } from "./lane-todos";
 export { laneChanges, laneTodos, SeenLaneTodos } from "./lane-todos";
-export type { LaneRecord, LaneState } from "./lanes";
+export type { LaneRecord, LaneRun, LaneState } from "./lanes";
 export {
 	blockerLabel,
 	cycle,

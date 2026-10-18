@@ -1,4 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { UNTRIAGED } from "../plans";
 import type { Facts, Journal } from "../records";
@@ -88,15 +89,41 @@ export async function laneShow(
 		return;
 	}
 	const lines = [
-		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} todo${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
+		`${color.bold(`lane ${id}`)} ${found.name}${record.running === undefined ? "" : color.green(" (running)")}: ${found.todos.length} todo${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
 	];
 	for (const [i, todo] of found.todos.entries()) {
 		lines.push(
 			`  ${i + 1}. #${todo.id} ${todo.subject}${step(states, records, found, todo)}`,
 		);
 	}
-	lines.push("", ...nextLines(found, records));
+	lines.push(
+		"",
+		...(record.running === undefined
+			? nextLines(found, records)
+			: runningLines(found, states)),
+	);
 	log.info(lines.join("\n"));
+}
+
+/**
+ * What a running lane does next on its own, and each todo it holds back
+ * for a want only an agent or the person can fill.
+ */
+function runningLines(found: LaneState, states: TodoState[]): string[] {
+	const open = new Set(states.map((todo) => todo.id));
+	const unnamed = found.todos.filter(
+		(todo) =>
+			todo.takenBy === null &&
+			todo.assignee === undefined &&
+			!todo.blockedBy.some((id) => open.has(id)),
+	);
+	return [
+		`running: splates server starts each todo here that nothing blocks, as it frees up; \`splates lane pause ${found.id}\` stops it`,
+		...unnamed.map(
+			(todo) =>
+				`  #${todo.id} names no agent, so it waits: splates todo update ${todo.id} --agent <id> --model <m>`,
+		),
+	];
 }
 
 /**
@@ -273,6 +300,35 @@ export async function laneUpdate(
 		].join("\n"),
 	);
 	return record ?? { id, name: "" };
+}
+
+/**
+ * Sets lane `id` running, or pauses it: while it runs, `splates server`
+ * starts each of its todos nothing blocks, as `LaneRunner` says. Run from a
+ * conversation, the tasks it starts nest under that one.
+ */
+export async function laneRun(
+	{ todos, ps, log }: { todos: Todos; ps: Ps; log: Logger },
+	id: number,
+	running: boolean,
+): Promise<LaneRecord> {
+	const record = await todos.runLane(
+		id,
+		running ? { by: ps.env("SPLATES_CONVERSATION") ?? null } : null,
+	);
+	log.info(
+		running
+			? [
+					`${color.green("running")} lane ${id}: ${record.name}`,
+					"  splates server starts each todo in it that nothing blocks, on the agent and model it names, as many at once as agentsPerLane allows",
+					`  link what must land first with \`splates todo update <id> --blocked-by <id>\`; \`splates lane pause ${id}\` stops starting more`,
+				].join("\n")
+			: [
+					`${color.green("paused")} lane ${id}: ${record.name}`,
+					"  the tasks already out carry on; nothing more starts until `splates lane run` again",
+				].join("\n"),
+	);
+	return record;
 }
 
 /** What a lane update changed, for the event: only the parts it was asked to. */

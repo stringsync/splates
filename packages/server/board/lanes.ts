@@ -23,6 +23,8 @@ export interface Blocker {
 export interface LaneRecord {
 	id: number;
 	name: string;
+	/** Set while it runs, its todos started by `splates server`: see `LaneRunner`. */
+	running?: LaneRun;
 }
 
 /** A queue of todos that build on each other, worked top first. */
@@ -233,3 +235,12 @@ export function mentioned(text: string): number[] {
 
 /** `#` and a number, standing on its own. */
 export const MENTION = /(?<![\w/#&])#(\d+)\b/g;
+
+/** Who set a lane running. */
+export interface LaneRun {
+	/**
+	 * The conversation that ran `splates lane run`, which the tasks it starts
+	 * nest under; null for the person.
+	 */
+	by: string | null;
+}
