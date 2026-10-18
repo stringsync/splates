@@ -5,7 +5,7 @@ import type {
 	StepProgress,
 } from "@stringsync/splates-server/setup";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { nextSetupStep, saveCred } from "./api";
+import { nextSetupStep, saveCred, setup } from "./api";
 import type { NextState } from "./setup-form";
 
 /**
@@ -87,8 +87,21 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 			this.dispatcher.dispatch("settled", fresh);
 			this.set(notDone(this.area.steps, this.at + 1), { kind: "ready" });
 		} catch (error) {
+			// What the step shows may have moved, as the keys a check found.
+			await this.reread();
 			this.failed(error instanceof Error ? error.message : String(error));
 		}
+	}
+
+	/** Reads setup again, keeping the area as it was when it will not read. */
+	private async reread(): Promise<void> {
+		const fresh = await setup().catch(() => null);
+		const area = fresh?.areas.find((each) => each.id === this.area.id);
+		if (fresh === null || area === undefined) {
+			return;
+		}
+		this.area = area;
+		this.dispatcher.dispatch("settled", fresh);
 	}
 
 	/** Moves to the step `id` names, as to repair an earlier one. */

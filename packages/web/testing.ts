@@ -9,7 +9,10 @@ import type {
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { ServerChoice } from "@stringsync/splates-server/server";
-import type { SetupProgress } from "@stringsync/splates-server/setup";
+import type {
+	MoveProgress,
+	SetupProgress,
+} from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
 import type { Held } from "@stringsync/splates-server/terminal";
@@ -199,6 +202,8 @@ export class Testing implements Resource {
 	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
+	/** What `/api/setup/coordinator/move` reads, or null for it to fail. */
+	coordinatorMove: MoveProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
 	ports: PortLink[] = [];
 	/**
@@ -283,6 +288,11 @@ export class Testing implements Resource {
 				return this.setup === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.setup);
+			}
+			if (route === "/api/setup/coordinator/move") {
+				return this.coordinatorMove === null
+					? new Response(null, { status: 502 })
+					: Response.json(this.coordinatorMove);
 			}
 			if (route === "/api/ports") {
 				return Response.json({ base: null, ports: this.ports });

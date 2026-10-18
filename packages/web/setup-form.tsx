@@ -145,7 +145,7 @@ export function StepForm({
 					{why !== undefined && <p className="text-muted-foreground">{why}</p>}
 				</header>
 				{children !== undefined && (
-					<fieldset disabled={working} className="flex flex-col gap-6">
+					<fieldset disabled={working} className="flex min-w-0 flex-col gap-6">
 						{children}
 					</fieldset>
 				)}

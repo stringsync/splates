@@ -17,6 +17,11 @@ import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
 import type { Settings } from "./settings";
+import {
+	coordinatorBrowserSteps,
+	MoveWatch,
+	MoveWatchContext,
+} from "./setup-coordinator-steps";
 import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
 import { notifyBrowserSteps } from "./setup-notify-steps";
@@ -75,12 +80,13 @@ function Journey({
 	onLeave: () => void;
 }): JSX.Element {
 	const { settle } = useContext(SetupContext);
+	const [move] = useState(() => new MoveWatch());
 	const [journey] = useState(
 		() =>
-			new SetupJourney(
-				area,
-				settings === undefined ? {} : notifyBrowserSteps(settings),
-			),
+			new SetupJourney(area, {
+				...(settings === undefined ? {} : notifyBrowserSteps(settings)),
+				...coordinatorBrowserSteps(move),
+			}),
 	);
 	const { step, at, next } = useReactive(
 		journey,
@@ -88,6 +94,7 @@ function Journey({
 		["changed"],
 	);
 	useEffect(() => journey.events.on("settled", settle), [journey, settle]);
+	useEffect(() => () => move.stop(), [move]);
 	if (step === undefined) {
 		const End = JOURNEY_ENDS[area.id];
 		return (
@@ -115,33 +122,39 @@ function Journey({
 				};
 	const Body = STEP_BODIES[step.id];
 	return (
-		<StepForm
-			key={step.id}
-			title={step.title}
-			why={
-				<Markdown
-					text={step.detail === null ? step.why : `${step.why} ${step.detail}`}
-					inline
-				/>
-			}
-			at={at + 1}
-			of={journey.steps.length}
-			next={next}
-			// Read before the fields lock, since a disabled field sends nothing.
-			onNext={(form) => void journey.press(new FormData(form))}
-			onAgent={onAgent}
-			onLeave={onLeave}
-		>
-			{Body !== undefined ? (
-				<Body step={step} feed={feed} onOpen={onOpen} journey={journey} />
-			) : step.fields.length > 0 ? (
-				step.fields.map((field) => <StepField key={field.name} field={field} />)
-			) : (
-				<p>
-					<Markdown text={step.user} inline />
-				</p>
-			)}
-		</StepForm>
+		<MoveWatchContext value={move}>
+			<StepForm
+				key={step.id}
+				title={step.title}
+				why={
+					<Markdown
+						text={
+							step.detail === null ? step.why : `${step.why} ${step.detail}`
+						}
+						inline
+					/>
+				}
+				at={at + 1}
+				of={journey.steps.length}
+				next={next}
+				// Read before the fields lock, since a disabled field sends nothing.
+				onNext={(form) => void journey.press(new FormData(form))}
+				onAgent={onAgent}
+				onLeave={onLeave}
+			>
+				{Body !== undefined ? (
+					<Body step={step} feed={feed} onOpen={onOpen} journey={journey} />
+				) : step.fields.length > 0 ? (
+					step.fields.map((field) => (
+						<StepField key={field.name} field={field} />
+					))
+				) : (
+					<p>
+						<Markdown text={step.user} inline />
+					</p>
+				)}
+			</StepForm>
+		</MoveWatchContext>
 	);
 }
 

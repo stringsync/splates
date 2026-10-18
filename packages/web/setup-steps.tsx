@@ -1,6 +1,7 @@
 import type { StepProgress } from "@stringsync/splates-server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
+import { COORDINATOR_STEPS } from "./setup-coordinator-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
 import { NOTIFY_STEPS } from "./setup-notify-steps";
@@ -28,6 +29,7 @@ export const STEP_BODIES: StepBodies = {
 	...OPENCODE_STEPS,
 	...NATIVE_STEPS,
 	...NOTIFY_STEPS,
+	...COORDINATOR_STEPS,
 };
 
 /** What a journey's done page is handed. */

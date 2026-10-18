@@ -8,8 +8,9 @@ import type { SetupMachine } from "./setup";
 
 const HOME = "/home/.splates";
 const PATHS = pulumiPaths(HOME);
+const UNIT = "/etc/systemd/system/splates-coordinator.service";
 
-describe("COORDINATOR_AREA", () => {
+describe("COORDINATOR_AREA's box step", () => {
 	const step = COORDINATOR_AREA.steps[0];
 	let fs: FakeFs;
 	let ps: BoxPs;
@@ -45,6 +46,14 @@ describe("COORDINATOR_AREA", () => {
 		await step?.submit?.(machine, {});
 
 		expect(await step?.check(machine)).toBe(true);
+	});
+
+	it("is done once moved, on the box where no Pulumi made it", async () => {
+		await fs.rm(PATHS.bin);
+		await fs.write(UNIT, "");
+
+		expect(await step?.check(machine)).toBe(true);
+		expect(ps.made).toBe(false);
 	});
 });
 

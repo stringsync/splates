@@ -205,6 +205,7 @@ function progress({
 		fields: [],
 		doing: null,
 		detail: null,
+		data: null,
 	};
 	const dictationStep: StepProgress = {
 		id: "dictation",
@@ -228,6 +229,7 @@ function progress({
 		],
 		doing: null,
 		detail: null,
+		data: null,
 	};
 	const area = (id: string, title: string, step: StepProgress) => ({
 		id,

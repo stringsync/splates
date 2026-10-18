@@ -420,15 +420,19 @@ Ashburn with daily backups, SSH alone open, its key under
 how to SSH in, and `splates coordinator remove` destroys it and its backups.
 It serves nothing until `splates coordinator move` moves the coordinator onto
 it, which needs `remote` set in every project's `splates.config.ts` and an SSH
-origin: the box gives each project a deploy key, and until GitHub lets each
-push trunk the move exits `blocked`, printing each key and where to add it
-with write access; show the user those and run it again once they are added.
-`--dry-run` stops there. Run for real, it checkpoints every agent and stops
+origin (the `coordinator-remotes` step): the box gives each project a deploy
+key, and until GitHub lets each push trunk the move exits `blocked`, printing
+each key and where to add it with write access; show the user those and run
+it again once they are added (`coordinator-keys`). `--dry-run` stops there.
+Run for real (`coordinator-move`), it checkpoints every agent and stops
 this machine's `splates server`, carries the records and creds over, starts
 the server on the box under systemd with the saved tunnel, and joins this
 machine as a worker kept up by a LaunchAgent, where each task carries on in
 its worktree; this machine's records go aside, kept. It touches the user's
-live server and tunnel: ask before running it for real.
+live server and tunnel: ask before running it for real, and run it from a
+terminal outside `splates server`, which it stops, or leave it to the step's
+Next on the page, which runs it apart from the server and follows it onto the
+box's host.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

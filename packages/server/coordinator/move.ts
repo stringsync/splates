@@ -137,16 +137,9 @@ export class CoordinatorMove {
 			missing.push("no project here to move: `splates projects` lists none");
 		}
 		for (const repo of repos) {
-			if (repo.remote === null) {
-				missing.push(
-					`${repo.slug} names no central remote, which this machine checks it out from as a worker: add \`remote: "origin"\` to ${repo.root}/splates.config.ts`,
-				);
-			} else if (repo.url === null) {
-				missing.push(`${repo.slug} has no remote ${repo.remote}`);
-			} else if (!sshUrl(repo.url)) {
-				missing.push(
-					`${repo.slug}'s ${repo.remote} is ${repo.url}, which a deploy key cannot push to: make it an SSH URL, as git@github.com:<owner>/<repo>.git`,
-				);
+			const problem = remoteProblem(repo);
+			if (problem !== null) {
+				missing.push(problem);
 			}
 		}
 		if (box === null || host === null || missing.length > 0) {
@@ -401,6 +394,25 @@ export interface DeployKey {
 }
 
 const Invited = z.object({ token: z.string() });
+
+/**
+ * What keeps the box from cloning and pushing `repo` with a deploy key: no
+ * central remote, or one git reaches other than over SSH; null when none.
+ */
+export function remoteProblem(
+	repo: Pick<MoveRepo, "slug" | "root" | "remote" | "url">,
+): string | null {
+	if (repo.remote === null) {
+		return `${repo.slug} names no central remote, which this machine checks it out from as a worker: add \`remote: "origin"\` to ${repo.root}/splates.config.ts`;
+	}
+	if (repo.url === null) {
+		return `${repo.slug} has no remote ${repo.remote}`;
+	}
+	if (!sshUrl(repo.url)) {
+		return `${repo.slug}'s ${repo.remote} is ${repo.url}, which a deploy key cannot push to: make it an SSH URL, as git@github.com:<owner>/<repo>.git`;
+	}
+	return null;
+}
 
 /** Whether git reaches `url` over SSH, as a deploy key signs in. */
 function sshUrl(url: string): boolean {

@@ -11,6 +11,7 @@ import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
 import { openRepository } from "../records";
 import {
+	CoordinatorMoveRoutes,
 	OpenCodeSetup,
 	OpenCodeSetupRoutes,
 	SETUP_AREAS,
@@ -447,6 +448,14 @@ export async function dev(
 		);
 	});
 
+	const coordinatorMove = new CoordinatorMoveRoutes({
+		fs,
+		ps,
+		home: splatesHome(ps),
+		device: (deps.secrets ?? SYSTEM_STORES).device,
+		dev: () => url,
+	});
+
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
 		workers: () => workers.registry.workers,
@@ -556,6 +565,11 @@ export async function dev(
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },
 					"/api/setup/:step/next": { POST: guarded(setup.next) },
+					// It stops this server: from a page Access let in alone.
+					"/api/setup/coordinator/move": {
+						GET: guarded(coordinatorMove.progress),
+						POST: talk(guarded(coordinatorMove.start)),
+					},
 					"/api/restart": { POST: talk(guarded(restartIdle)) },
 					"/api/power": { POST: talk(guarded(powerNow)) },
 					"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
