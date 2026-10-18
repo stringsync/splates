@@ -1,5 +1,6 @@
 import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
+import type { Lock } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { AgentStream } from "./agent-stream";
 import { systemPs } from "./legacy-ps";
@@ -135,16 +136,29 @@ const LIST_PAGES = 10;
 /**
  * The sessions `agent` holds in `cwd`, asked of a process of its own that
  * stops once it answers; none when it cannot both list and load them.
+ * `starting` is the lock a conversation's agent takes as it starts.
  */
 export async function listSessions(
 	agent: Agent,
 	cwd: string,
 	run: Launch,
 	timer: Timer,
+	starting: Lock,
 ): Promise<Session[]> {
-	const process = run(agent.argv, cwd, {});
+	// Held until it answers `initialize`, when its `bunx` install is done, so
+	// that install relinks nothing under another agent starting.
+	await starting.acquire();
+	let held = true;
+	const started = async () => {
+		if (held) {
+			held = false;
+			await starting.release();
+		}
+	};
+	let process: AgentProcess | null = null;
 	let timeout: Resource | null = null;
 	try {
+		process = run(agent.argv, cwd, {});
 		const connection = new acp.ClientSideConnection(
 			() => ({
 				sessionUpdate: async () => {},
@@ -157,6 +171,7 @@ export async function listSessions(
 				protocolVersion: acp.PROTOCOL_VERSION,
 				clientCapabilities: {},
 			});
+			await started();
 			const capabilities = initialized.agentCapabilities;
 			if (
 				capabilities?.loadSession !== true ||
@@ -201,6 +216,7 @@ export async function listSessions(
 		return await Promise.race([listing, gaveUp, died]);
 	} finally {
 		(timeout as Resource | null)?.dispose();
-		process.kill();
+		(process as AgentProcess | null)?.kill();
+		await started();
 	}
 }

@@ -17,7 +17,7 @@ import {
 	STEER,
 	steers,
 } from "./acp-extensions";
-import { agentError } from "./agent-errors";
+import { agentError, requestError } from "./agent-errors";
 import type {
 	Agent,
 	AgentProcess,
@@ -27,7 +27,7 @@ import type {
 import { AgentStream } from "./agent-stream";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
 import { type Live, LOG_FORMAT } from "./conversation-log";
-import { messageOf, said } from "./conversation-messages";
+import { said } from "./conversation-messages";
 import type { Answer, Asked, Decision, Setting } from "./conversation-state";
 import { fail } from "./exit";
 import {
@@ -247,7 +247,6 @@ export class AgentConnection {
 					`Unsupported ACP protocol version ${initialized.protocolVersion}; expected ${acp.PROTOCOL_VERSION}.`,
 				);
 			}
-			started();
 			this.steering = steers(initialized);
 			this.finishing = false;
 			this.follows = false;
@@ -298,6 +297,10 @@ export class AgentConnection {
 				});
 				host.state.settings = settingsIn(session.configOptions);
 			}
+			// Held until the session opens, not just the process: opening one
+			// runs the agent's own binary, which a `bunx` install starting
+			// beside it relinks, and the agent then fails with "Internal error".
+			started();
 			// Subscribed from the start, since a subscription says only what
 			// changes once it is ready: one made as a turn starts could miss
 			// its end.
@@ -395,9 +398,7 @@ export class AgentConnection {
 			}
 			// The connection closes as the process dies, ahead of its exit, so
 			// its stderr, which says why, is waited for.
-			await host.close(
-				(await this.diedSaying(process)) ?? agentError(messageOf(error)),
-			);
+			await host.close((await this.diedSaying(process)) ?? requestError(error));
 		}
 	}
 
@@ -427,7 +428,7 @@ export class AgentConnection {
 						return;
 					}
 					if ("error" in response) {
-						host.ended(agentError(response.error.message));
+						host.ended(requestError(response.error));
 						return;
 					}
 					const { usage } = response.result as acp.PromptResponse;
@@ -564,7 +565,7 @@ export class AgentConnection {
 
 	/**
 	 * Waits for no other agent to be starting, answering with what lets the
-	 * next one start: once this one's process is up, has died, or has had
+	 * next one start: once this one's session is open, it has died, or it has had
 	 * `START_WAIT` to answer, so one that hangs holds up no other for long.
 	 */
 	private async startAlone(): Promise<() => void> {

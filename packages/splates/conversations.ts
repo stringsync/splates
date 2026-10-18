@@ -298,9 +298,13 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		);
 		const listed = await Promise.all(
 			this.agents.map((agent) =>
-				listSessions(agent, cwd, this.launcher.launch, this.timer).catch(
-					(): Session[] => [],
-				),
+				listSessions(
+					agent,
+					cwd,
+					this.launcher.launch,
+					this.timer,
+					this.starting,
+				).catch((): Session[] => []),
 			),
 		);
 		return listed

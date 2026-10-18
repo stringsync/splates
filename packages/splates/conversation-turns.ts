@@ -1,12 +1,11 @@
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import type { AgentConnection } from "./agent-connection";
-import { agentError } from "./agent-errors";
+import { requestError } from "./agent-errors";
 import type { ConversationFiles } from "./conversation-files";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
 import {
 	delivered,
-	messageOf,
 	said,
 	shown,
 	takeBack,
@@ -503,7 +502,7 @@ export class ConversationTurns {
 						this.ended(null);
 					}
 				},
-				(error: unknown) => this.ended(agentError(messageOf(error))),
+				(error: unknown) => this.ended(requestError(error)),
 			);
 	}
 

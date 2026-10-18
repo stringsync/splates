@@ -179,7 +179,7 @@ describe("Conversation turns", () => {
 
 		await conversation.prompt("one");
 		await until(conversation, "idle");
-		expect(conversation.state.error).toBe("Internal error");
+		expect(conversation.state.error).toBe("Internal error: rate limited");
 
 		agent.turn = (_client, _session, text) => {
 			said.push(text);

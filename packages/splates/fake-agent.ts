@@ -79,6 +79,10 @@ export class FakeAgent {
 	ignoreChoices = false;
 	/** What each start's `initialize` waits on; null, the default, answers at once. */
 	hold: Promise<void> | null = null;
+	/** What each new session waits on before it opens; null, the default, opens at once. */
+	holdSession: Promise<void> | null = null;
+	/** What the next new session fails with, as Claude's adapter does when its binary dies. */
+	refuseSession: acp.RequestError | null = null;
 	/** How many starts to come die before answering `initialize`. */
 	dying = 0;
 	stderr = "fake agent fell over";
@@ -229,6 +233,12 @@ export class FakeAgent {
 				return { outcome: this.steering };
 			},
 			newSession: async ({ _meta, mcpServers }) => {
+				await this.holdSession;
+				const refused = this.refuseSession;
+				if (refused !== null) {
+					this.refuseSession = null;
+					throw refused;
+				}
 				this.opened.push(_meta);
 				this.mcp.push(mcpServers);
 				return { sessionId: "s1", configOptions: this.options };

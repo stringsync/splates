@@ -1,6 +1,5 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
-import { MemoryLock } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
 import { artifactLimits } from "./artifacts";
@@ -34,6 +33,7 @@ import {
 	savedTunnelOf,
 	seeded,
 } from "./splates-flags";
+import { StartLock } from "./start-lock";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
@@ -158,8 +158,9 @@ export async function serveDev(
 		ctx.fs,
 		outcomes,
 	);
-	// One for every project, so agents resumed together start one at a time.
-	const starting = new MemoryLock();
+	// One for every project, and every other splates process here, so agents
+	// resumed together start one at a time.
+	const starting = StartLock.ofMachine(ctx);
 	const projects = Projects.ofMachine(ctx);
 	// One for every project, so every agent on the machine shares one browser.
 	const browser = new SharedBrowser(

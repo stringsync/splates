@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import type * as acp from "@agentclientprotocol/sdk";
+import * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
@@ -380,6 +380,46 @@ describe("Conversation lifecycle", () => {
 		await until(one, "idle");
 		await until(two, "idle");
 		expect(agent.launched).toHaveLength(2);
+	});
+
+	it("starts the next agent only once the one before opens its session", async () => {
+		const { promise: open, resolve: opened } = Promise.withResolvers<void>();
+		agent.holdSession = open;
+		const one = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		const two = await conversations.start("fake", {
+			task: "signup",
+			cwd: "/repo-splates/signup",
+		});
+		await eventually(() => agent.capabilities !== null);
+		await Bun.sleep(5);
+
+		expect(agent.launched).toHaveLength(1);
+		opened();
+		await until(one, "idle");
+		await until(two, "idle");
+		expect(agent.launched).toHaveLength(2);
+	});
+
+	it("says what the agent's error carries when its session will not open", async () => {
+		agent.refuseSession = acp.RequestError.internalError({
+			details: "Claude Code process terminated by signal SIGKILL",
+		});
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		// Past the wait for a process dying to say why, which this one does not.
+		await eventually(() => {
+			timer.fireTimeouts();
+			return conversation.state.status === "failed";
+		});
+
+		expect(conversation.state.error).toBe(
+			"Internal error: Claude Code process terminated by signal SIGKILL",
+		);
 	});
 
 	it("starts the next agent once the one before dies starting", async () => {

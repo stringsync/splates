@@ -78,8 +78,8 @@ export interface ConversationDeps {
 	 */
 	checkouts?: PlacedCheckouts;
 	/**
-	 * Hold it while an agent's process starts, until it answers
-	 * `initialize`, so agents start one at a time.
+	 * Hold it while an agent's process starts, until it is done
+	 * opening its session, so agents start one at a time.
 	 */
 	// Agents launched through `bunx` at once race in its install, and most die.
 	starting: Lock;
