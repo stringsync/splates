@@ -1,4 +1,3 @@
-// scry-ignore-file simple-test-setup: moved into conversations/ unchanged; its setup predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent } from "../agents/testing";
@@ -10,6 +9,7 @@ import { Conversations } from "./conversations";
 describe("dev conversations' parent", () => {
 	let deps: Testing;
 	let conversations: Conversations;
+	let server: Awaited<ReturnType<typeof dev>>;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
@@ -18,31 +18,29 @@ describe("dev conversations' parent", () => {
 			[AGENT],
 			{ launch: new FakeAgent().launch },
 		);
-	});
-
-	afterEach(() => deps.disposeAsync());
-
-	it("nests one where the person put it, but never under itself", async () => {
-		const server = await dev(deps, {
+		server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
 		});
-		try {
-			const { port } = server;
-			const started = await json(port, "/api/conversations", "POST", {
-				agent: "fake",
-			});
-			const { id } = (await started.json()) as { id: string };
-			const path = `/api/conversations/${id}/parent`;
+	});
 
-			const top = await json(port, path, "PUT", { parent: null });
-			const under = await json(port, path, "PUT", { parent: id });
+	afterEach(async () => {
+		await server.disposeAsync();
+		await deps.disposeAsync();
+	});
 
-			expect(await top.json()).toMatchObject({ id, parent: { id: null } });
-			expect(under.status).toBe(400);
-		} finally {
-			await server.disposeAsync();
-		}
+	it("nests one where the person put it, but never under itself", async () => {
+		const started = await json(server.port, "/api/conversations", "POST", {
+			agent: "fake",
+		});
+		const { id } = (await started.json()) as { id: string };
+		const path = `/api/conversations/${id}/parent`;
+
+		const top = await json(server.port, path, "PUT", { parent: null });
+		const under = await json(server.port, path, "PUT", { parent: id });
+
+		expect(await top.json()).toMatchObject({ id, parent: { id: null } });
+		expect(under.status).toBe(400);
 	});
 
 	it("keeps a subagent under the one it answers to", async () => {
@@ -55,22 +53,15 @@ describe("dev conversations' parent", () => {
 			cwd: deps.root,
 			handedBy: host.id,
 		});
-		const server = await dev(deps, {
-			ports: OpenPortProvider.any(),
-			conversations: () => conversations,
-		});
-		try {
-			const moved = await json(
-				server.port,
-				`/api/conversations/${subagent.id}/parent`,
-				"PUT",
-				{ parent: null },
-			);
 
-			expect(await moved.json()).toMatchObject({ reason: "blocked" });
-			expect(subagent.state.parent).toBeNull();
-		} finally {
-			await server.disposeAsync();
-		}
+		const moved = await json(
+			server.port,
+			`/api/conversations/${subagent.id}/parent`,
+			"PUT",
+			{ parent: null },
+		);
+
+		expect(await moved.json()).toMatchObject({ reason: "blocked" });
+		expect(subagent.state.parent).toBeNull();
 	});
 });
