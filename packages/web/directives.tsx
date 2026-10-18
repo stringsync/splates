@@ -1,5 +1,8 @@
 import type { ThreadMessage } from "@assistant-ui/react";
-import { DIRECTIVES, UNTRIAGED } from "@stringsync/splates-server/prompts";
+import {
+	DIRECTIVES,
+	UNTRIAGED,
+} from "@stringsync/splates-server/plans/browser";
 import { TreePineIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";

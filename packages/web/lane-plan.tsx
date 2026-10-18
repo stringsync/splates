@@ -4,8 +4,11 @@ import {
 	lanesOf,
 	startedLanes,
 } from "@stringsync/splates-server/conversations/browser";
-import { type Need, needOfExternal } from "@stringsync/splates-server/needs";
-import { LANES_DONE } from "@stringsync/splates-server/prompts";
+import {
+	LANES_DONE,
+	type Need,
+	needOfExternal,
+} from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import { CheckIcon, CornerUpLeftIcon, Loader2Icon } from "lucide-react";
 import {

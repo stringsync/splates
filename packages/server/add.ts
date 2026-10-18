@@ -5,7 +5,7 @@ import type { Todo, Todos } from "./board";
 import { blockedWarning } from "./board";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import { PLAN_FILE, Plans, STUB_STEP } from "./plan";
+import { PLAN_FILE, Plans, STUB_STEP } from "./plans";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
 import type { Dispatched, Worktree } from "./worktree";

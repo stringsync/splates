@@ -1,4 +1,4 @@
-import { needs } from "@stringsync/splates-server/needs";
+import { needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useRef, useState } from "react";

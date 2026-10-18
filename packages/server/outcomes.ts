@@ -1,7 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import type { Device } from "./conversations";
 import type { Finding } from "./findings";
-import type { Decision } from "./plan";
+import type { Decision } from "./plans";
 import { type TaskUsage, taskLog } from "./task-log";
 import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
 

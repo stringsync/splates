@@ -10,7 +10,7 @@ import type { LeaseBeat } from "./lease-beat";
 import { limited, READ_CONCURRENCY } from "./limited";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
-import { assumptionCounts, decisions, Plans, picks } from "./plan";
+import { assumptionCounts, decisions, Plans, picks } from "./plans";
 import { Systems } from "./systems";
 import { taskLog } from "./task-log";
 import type { WorkerMachine } from "./workers";

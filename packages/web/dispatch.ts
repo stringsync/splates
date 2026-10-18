@@ -1,11 +1,12 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { effortSettings, thinkingOf } from "@stringsync/splates-server/effort";
-import { type Needing, needs } from "@stringsync/splates-server/needs";
 import {
 	laneReference,
+	type Needing,
+	needs,
 	taskReference,
 	todoReference,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans/browser";
 import type { AgentPick } from "@stringsync/splates-server/roster";
 import type { Details } from "@stringsync/splates-server/show";
 import { settingsFor } from "./conversation-address";

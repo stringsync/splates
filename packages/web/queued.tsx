@@ -1,6 +1,6 @@
 import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
 import type { Message } from "@stringsync/splates-server/conversations";
-import { leadingDirectives } from "@stringsync/splates-server/prompts";
+import { leadingDirectives } from "@stringsync/splates-server/plans/browser";
 import {
 	Loader2Icon,
 	PencilIcon,

@@ -4,7 +4,7 @@ import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { LEGACY_PLAN_FILE } from "./config";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE } from "./plans";
 import { TaskDetails } from "./show";
 import { fingerprint, type Snapshot, snapshot } from "./snapshot";
 

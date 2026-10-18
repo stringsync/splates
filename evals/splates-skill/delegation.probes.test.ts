@@ -7,7 +7,7 @@ import {
 	handoffReference,
 	handoffToReference,
 	reportReference,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans";
 import module from "./delegation.probes";
 import { assess, type Event, type Evidence, type Probe } from "./probe";
 import { cliAdapter } from "./probe-adapters";

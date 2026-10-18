@@ -1,4 +1,4 @@
-import type { Question } from "../plan";
+import type { Question } from "../plans";
 import type { FailedTest, RemoveReason } from "../worktree";
 
 /** An escalation that went through, which asks the person to act. */

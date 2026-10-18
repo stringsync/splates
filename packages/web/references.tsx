@@ -13,7 +13,7 @@ import {
 	RESUME,
 	taskReference,
 	todoReference,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import type { NamedSystem } from "@stringsync/splates-server/systems";
 import {

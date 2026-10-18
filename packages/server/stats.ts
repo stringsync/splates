@@ -1,8 +1,7 @@
 import type { Judged } from "./adherence";
 import { type Baseline, baselines } from "./baselines";
-import { decided, madeBy, whose } from "./decided";
 import type { Outcome } from "./outcomes";
-import { SIZES } from "./plan";
+import { decided, madeBy, SIZES, whose } from "./plans";
 import { CHECKS } from "./skill-checks";
 import {
 	type MergeFailure,

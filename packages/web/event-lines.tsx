@@ -1,5 +1,5 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Start } from "@stringsync/splates-server/asked";
+import type { Start } from "@stringsync/splates-server/plans";
 import type { Action, Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { JSX } from "react";

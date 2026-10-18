@@ -1,5 +1,4 @@
-import type { Ending } from "@stringsync/splates-server/asked";
-import type { Need } from "@stringsync/splates-server/needs";
+import type { Ending, Need } from "@stringsync/splates-server/plans";
 import { HourglassIcon, Loader2Icon } from "lucide-react";
 import type { JSX } from "react";
 import { waitsOn } from "./conversation-names";

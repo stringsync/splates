@@ -1,5 +1,4 @@
-import type { Question } from "@stringsync/splates-server/plan";
-import type { Answer } from "@stringsync/splates-server/reply";
+import type { Answer, Question } from "@stringsync/splates-server/plans";
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
 import { type JSX, type KeyboardEvent, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

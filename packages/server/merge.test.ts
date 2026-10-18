@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
 import { merge } from "./merge";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE } from "./plans";
 import { Shell } from "./shell";
 import { LIVE_PID, Testing } from "./testing";
 

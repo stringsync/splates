@@ -1,7 +1,10 @@
 import { age } from "@stringsync/splates-server/age";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { type Needing, needs } from "@stringsync/splates-server/needs";
-import { questions } from "@stringsync/splates-server/plan";
+import {
+	type Needing,
+	needs,
+	questions,
+} from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { ChevronRightIcon, SquarePenIcon } from "lucide-react";

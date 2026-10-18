@@ -5,7 +5,7 @@ import { eventually } from "./conversations/testing";
 import { atWork, json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { dev } from "./index";
-import { CHECKPOINT } from "./prompts";
+import { CHECKPOINT } from "./plans";
 import { Testing } from "./testing";
 
 describe("dev checkpoint", () => {

@@ -6,7 +6,7 @@ import {
 } from "@assistant-ui/react-lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $dfs } from "@lexical/utils";
-import { DIRECTIVES } from "@stringsync/splates-server/prompts";
+import { DIRECTIVES } from "@stringsync/splates-server/plans/browser";
 import {
 	$createTextNode,
 	$getRoot,

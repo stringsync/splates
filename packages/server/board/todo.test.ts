@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { add } from "../add";
 import { merge } from "../merge";
-import { PLAN_FILE } from "../plan";
+import { PLAN_FILE } from "../plans";
 import { recommend } from "../recommend";
 import { remove } from "../remove";
 import { Testing } from "../testing";

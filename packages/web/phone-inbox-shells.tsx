@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/needs";
+import type { Needing } from "@stringsync/splates-server/plans";
 import { useReactive } from "@webappwiz/react";
 import { SquareTerminalIcon, TerminalIcon, XIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";

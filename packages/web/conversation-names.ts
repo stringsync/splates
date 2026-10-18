@@ -1,8 +1,3 @@
-import {
-	type Ending,
-	type Report,
-	stretches,
-} from "@stringsync/splates-server/asked";
 import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
@@ -10,6 +5,11 @@ import {
 	nameOf,
 	realName,
 } from "@stringsync/splates-server/conversations/browser";
+import {
+	type Ending,
+	type Report,
+	stretches,
+} from "@stringsync/splates-server/plans/browser";
 import { createContext, use } from "react";
 
 /** Every lane there has been, to name a lane's orchestrator after it. */

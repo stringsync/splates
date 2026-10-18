@@ -1,5 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { CHECK_IN } from "@stringsync/splates-server/prompts";
+import { CHECK_IN } from "@stringsync/splates-server/plans/browser";
 import { createContext, type JSX, useContext } from "react";
 import { Duration } from "webappwiz/time";
 import { useCardReply } from "./card-reply";

@@ -2,7 +2,7 @@ import type { Logger } from "webappwiz/log";
 import type { Conversations } from "./conversations";
 import { effortSettings } from "./effort";
 import { modelOption } from "./models";
-import { handoffReference, taskReference } from "./prompts";
+import { handoffReference, taskReference } from "./plans";
 import type { WorktreeService } from "./worktree-service";
 
 /**

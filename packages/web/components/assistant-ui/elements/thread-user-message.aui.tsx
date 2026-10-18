@@ -8,7 +8,10 @@ import {
 	type TextMessagePartComponent,
 	useAuiState,
 } from "@assistant-ui/react";
-import { leadingDirectives, MERGE } from "@stringsync/splates-server/prompts";
+import {
+	leadingDirectives,
+	MERGE,
+} from "@stringsync/splates-server/plans/browser";
 import {
 	CheckIcon,
 	CopyIcon,

@@ -1,7 +1,11 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assumptions, questions } from "@stringsync/splates-server/plan";
-import { APPROVE, MERGE } from "@stringsync/splates-server/prompts";
+import {
+	APPROVE,
+	assumptions,
+	MERGE,
+	questions,
+} from "@stringsync/splates-server/plans";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";

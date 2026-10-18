@@ -6,7 +6,7 @@ import type { Served } from "./dev-project";
 import type { Pushed } from "./dev-push";
 import { Pushes } from "./dev-push";
 import { conversation } from "./fixtures";
-import { type Needing, need } from "./needs";
+import { type Needing, need } from "./plans";
 import { Testing } from "./testing";
 
 describe("Pushes", () => {

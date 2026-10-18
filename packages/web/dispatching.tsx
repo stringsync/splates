@@ -1,6 +1,6 @@
 import type { LaneState } from "@stringsync/splates-server/board";
 import { thinkingOf } from "@stringsync/splates-server/effort";
-import { laneReference } from "@stringsync/splates-server/prompts";
+import { laneReference } from "@stringsync/splates-server/plans/browser";
 import type { AgentPick } from "@stringsync/splates-server/roster";
 import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";

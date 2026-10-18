@@ -1,4 +1,4 @@
-import { CHECKPOINT, directive } from "../prompts";
+import { CHECKPOINT, directive } from "../plans";
 import type {
 	Attached,
 	ConversationState,

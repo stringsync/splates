@@ -4,7 +4,7 @@ import type {
 	Step,
 	Tool,
 } from "@stringsync/splates-server/conversations";
-import { RECONNECT } from "@stringsync/splates-server/prompts";
+import { RECONNECT } from "@stringsync/splates-server/plans/browser";
 import {
 	CheckIcon,
 	ChevronRightIcon,

@@ -8,7 +8,7 @@ import {
 	leadingDirectives,
 	RECONNECT,
 	RESUME,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans";
 import module from "./continuity.probes";
 import { assess, type Event, type Evidence } from "./probe";
 import { type Adapter, runProbes, validate } from "./runner";

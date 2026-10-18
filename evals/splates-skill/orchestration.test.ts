@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as prompts from "@stringsync/splates-server/prompts";
+import * as prompts from "@stringsync/splates-server/plans";
 import module from "./orchestration.probes";
 import {
 	assess,

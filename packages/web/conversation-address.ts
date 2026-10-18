@@ -4,7 +4,7 @@ import type {
 } from "@stringsync/splates-server/conversations";
 import type { AgentChoice } from "./conversation-feed";
 
-export { openedBy, TASK } from "@stringsync/splates-server/needs";
+export { openedBy, TASK } from "@stringsync/splates-server/plans/browser";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";

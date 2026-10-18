@@ -1,4 +1,4 @@
-import type { Question } from "@stringsync/splates-server/plan";
+import type { Question } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/show";
 import {
 	CheckIcon,

@@ -3,7 +3,7 @@ import { LEGACY_PLAN_FILE } from "./config";
 import type { Entry } from "./conversations";
 import { blank, type ConversationState, type Usage } from "./conversations";
 import { agentTurn, fold, tally } from "./fold";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE } from "./plans";
 
 /** What a task's turns used, apart from the rest of its conversation's. */
 export interface TaskUsage {

@@ -1,5 +1,5 @@
 import { Duration } from "webappwiz/time";
-import type { Need, Needing } from "./needs";
+import type { Need, Needing } from "./plans";
 
 /** Something a row did worth telling the person about, away from the page. */
 export interface Notice {

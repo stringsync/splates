@@ -3,7 +3,7 @@ import {
 	namedForTask,
 	openingOf,
 } from "@stringsync/splates-server/conversations/browser";
-import type { Need } from "@stringsync/splates-server/needs";
+import type { Need } from "@stringsync/splates-server/plans";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,

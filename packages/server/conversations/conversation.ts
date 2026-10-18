@@ -9,7 +9,7 @@ import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { fold, heard } from "../fold";
 import { finishObservation } from "../opencode-usage";
-import { RECONNECT } from "../prompts";
+import { RECONNECT } from "../plans";
 import type { Grant } from "../scheduler";
 import type { WorkerMachine } from "../workers";
 import { put } from "./archive";

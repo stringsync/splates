@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { age } from "@stringsync/splates-server/age";
 import type { TodoState } from "@stringsync/splates-server/board";
 import { blockerLabel } from "@stringsync/splates-server/board/browser";
-import { todoReference } from "@stringsync/splates-server/prompts";
+import { todoReference } from "@stringsync/splates-server/plans/browser";
 import {
 	ClockIcon,
 	GripVerticalIcon,

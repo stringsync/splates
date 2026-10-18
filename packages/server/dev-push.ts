@@ -13,8 +13,8 @@ import { nameOf } from "./conversations";
 import { body } from "./dev-http";
 import type { Handler, Served } from "./dev-project";
 import { fail } from "./exit";
-import { type Needing, openedBy } from "./needs";
 import { keyOf, Notices } from "./notices";
+import { type Needing, openedBy } from "./plans";
 import type { Projects } from "./projects";
 import { splatesHome } from "./roster";
 

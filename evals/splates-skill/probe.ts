@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { stretches } from "@stringsync/splates-server/asked";
+import { stretches } from "@stringsync/splates-server/plans";
 
 /** Define one bounded skill requirement to check against a seeded environment. */
 export interface Probe {

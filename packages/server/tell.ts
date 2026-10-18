@@ -1,8 +1,8 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { fail } from "./exit";
+import { reportReference } from "./plans";
 import type { Projects } from "./projects";
-import { reportReference } from "./prompts";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

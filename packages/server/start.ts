@@ -19,7 +19,7 @@ import { type DevServer, dev, devPorts } from "./index";
 import { Limits } from "./limits";
 import { Offered } from "./offered";
 import { Outcomes } from "./outcomes";
-import { PlanStore } from "./plan-store";
+import { PlanStore } from "./plans";
 import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
 import { splatesHome } from "./roster";

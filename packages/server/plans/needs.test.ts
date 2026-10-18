@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { type ConversationState, unused } from "./conversations";
+import { type ConversationState, unused } from "../conversations";
+import type { Details } from "../show";
 import { need, needs, QUIET_AFTER, quietSince } from "./needs";
 import { STUB_STEP } from "./plan";
-import type { Details } from "./show";
 
 describe("needs", () => {
 	it("waits on a live ask before anything in the plan", () => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
 import { escalate } from "./escalate";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE } from "./plans";
 import { Testing } from "./testing";
 
 describe("escalate", () => {

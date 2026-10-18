@@ -1,8 +1,11 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type { Review } from "@stringsync/splates-server/asked";
-import { assumptions } from "@stringsync/splates-server/plan";
-import { directive, MERGE } from "@stringsync/splates-server/prompts";
-import { answerIn } from "@stringsync/splates-server/reply";
+import type { Review } from "@stringsync/splates-server/plans";
+import {
+	answerIn,
+	assumptions,
+	directive,
+	MERGE,
+} from "@stringsync/splates-server/plans/browser";
 import { useReactive, useResource } from "@webappwiz/react";
 import {
 	CheckIcon,

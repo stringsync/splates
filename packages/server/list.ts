@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { age } from "./age";
-import { goalLine, Plans } from "./plan";
+import { goalLine, Plans } from "./plans";
 import { table } from "./table";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";

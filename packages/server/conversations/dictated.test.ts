@@ -3,7 +3,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../fake-agent";
-import { DICTATED } from "../prompts";
+import { DICTATED } from "../plans";
 import { type Conversation, Conversations } from "./index";
 import { eventually, finish, type Held, until } from "./testing";
 

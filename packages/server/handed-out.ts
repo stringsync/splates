@@ -8,7 +8,6 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import { type Stretch, stretches } from "./asked";
 import type { LaneRecord, TodoState } from "./board";
 import {
 	type LaneTodoChange,
@@ -25,11 +24,13 @@ import {
 	idleReference,
 	LANES_DONE,
 	reportReference,
+	type Stretch,
 	stoppedReference,
+	stretches,
 	todoDoneReference,
 	todoOpenReference,
 	UNTRIAGED,
-} from "./prompts";
+} from "./plans";
 import type { WorktreeService } from "./worktree-service";
 
 /**

@@ -1,5 +1,5 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Needing } from "@stringsync/splates-server/needs";
+import type { Needing } from "@stringsync/splates-server/plans";
 import { CheckIcon, ListIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import {

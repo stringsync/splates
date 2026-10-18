@@ -1,4 +1,4 @@
-import type { Proposal, TaskReport } from "@stringsync/splates-server/asked";
+import type { Proposal, TaskReport } from "@stringsync/splates-server/plans";
 import type { LucideIcon } from "lucide-react";
 import { ListChecksIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { ENDINGS, type Tone } from "./card-shell";

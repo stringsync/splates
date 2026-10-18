@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
-import { UNTRIAGED } from "../prompts";
+import { UNTRIAGED } from "../plans";
 import type { Facts, Journal } from "../records";
 import { table } from "../table";
 import {

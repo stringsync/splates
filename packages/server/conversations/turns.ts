@@ -4,7 +4,7 @@ import type { AgentConnection } from "../agent-connection";
 import { requestError } from "../agent-errors";
 import { fail } from "../exit";
 import { agentTurn, tally } from "../fold";
-import { CHECKPOINT } from "../prompts";
+import { CHECKPOINT } from "../plans";
 import type { ConversationFiles } from "./files";
 import type { ConversationDeps, ConversationHost } from "./host";
 import { delivered, said, shown, takeBack, textOf } from "./messages";

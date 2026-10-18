@@ -6,7 +6,7 @@ import {
 	CHECKPOINT,
 	RECONNECT,
 	RESUME,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type RunContext, type Seed } from "./runner";

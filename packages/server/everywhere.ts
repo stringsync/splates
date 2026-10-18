@@ -1,8 +1,8 @@
 import type { Conversation, Conversations } from "./conversations";
 import { paused } from "./conversations";
 import type { Served } from "./dev-project";
+import { RESUME } from "./plans";
 import type { Projects } from "./projects";
-import { RESUME } from "./prompts";
 
 /**
  * The conversations of every project `splates server` serves, so a conversation

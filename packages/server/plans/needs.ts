@@ -1,8 +1,8 @@
 import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
-import type { ConversationState } from "./conversations";
+import type { ConversationState } from "../conversations";
+import type { Details } from "../show";
 import { goalLine, type Question, questions, STUB_STEP } from "./plan";
-import type { Details } from "./show";
 
 /**
  * What an agent needs from the person, by how much it costs to leave it:

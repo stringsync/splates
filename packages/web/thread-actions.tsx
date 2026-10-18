@@ -4,7 +4,7 @@ import {
 	DEFER,
 	handoffToReference,
 	RESUME,
-} from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans/browser";
 import type { AgentPick } from "@stringsync/splates-server/roster";
 import type { Details } from "@stringsync/splates-server/show";
 import {

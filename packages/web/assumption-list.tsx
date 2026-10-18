@@ -1,13 +1,13 @@
-import { shownIn } from "@stringsync/splates-server/exhibit";
-import type { Question } from "@stringsync/splates-server/plan";
+import type { Question } from "@stringsync/splates-server/plans";
 import {
 	type Answer,
 	answerIn,
 	besides,
 	challenges,
 	replyOf,
+	shownIn,
 	takenOf,
-} from "@stringsync/splates-server/reply";
+} from "@stringsync/splates-server/plans/browser";
 import {
 	CheckIcon,
 	ChevronRightIcon,

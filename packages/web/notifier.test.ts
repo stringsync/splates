@@ -4,7 +4,7 @@ import {
 	type Needing,
 	need,
 	needOfExternal,
-} from "@stringsync/splates-server/needs";
+} from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import { Notifier } from "./notifier";
 import { Settings } from "./settings";

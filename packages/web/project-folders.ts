@@ -7,7 +7,7 @@
 
 import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Needing } from "@stringsync/splates-server/needs";
+import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/show";
 import { flatten, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";
 import type { Drafts } from "./drafts";

@@ -1,4 +1,4 @@
-import type { Ending, Report } from "@stringsync/splates-server/asked";
+import type { Ending, Report } from "@stringsync/splates-server/plans";
 import {
 	ChevronRightIcon,
 	CirclePauseIcon,

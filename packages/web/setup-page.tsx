@@ -1,4 +1,4 @@
-import { setupReference } from "@stringsync/splates-server/prompts";
+import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type {
 	AreaProgress,
 	FieldProgress,

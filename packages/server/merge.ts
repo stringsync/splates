@@ -5,7 +5,7 @@ import type { Config } from "./config";
 import { LEGACY_PLAN_FILE } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "./plan";
+import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "./plans";
 import { recommend, recommendation } from "./recommend";
 import type { Facts } from "./records";
 import type { Shell } from "./shell";

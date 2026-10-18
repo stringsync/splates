@@ -1,9 +1,15 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type { Proposal, TaskReport } from "@stringsync/splates-server/asked";
-import { type Assumed, assumedIn } from "@stringsync/splates-server/assumed";
-import type { Demo } from "@stringsync/splates-server/demo";
-import type { Question } from "@stringsync/splates-server/plan";
-import { isUpdate } from "@stringsync/splates-server/prompts";
+import type {
+	Demo,
+	Proposal,
+	Question,
+	TaskReport,
+} from "@stringsync/splates-server/plans";
+import {
+	type Assumed,
+	assumedIn,
+	isUpdate,
+} from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import { type JSX, useContext } from "react";

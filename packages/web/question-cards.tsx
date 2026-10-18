@@ -1,16 +1,19 @@
-import type { Proposal, TaskReport } from "@stringsync/splates-server/asked";
-import type { Demo } from "@stringsync/splates-server/demo";
-import type { Question } from "@stringsync/splates-server/plan";
-import { APPROVE } from "@stringsync/splates-server/prompts";
+import type {
+	Demo,
+	Proposal,
+	Question,
+	TaskReport,
+} from "@stringsync/splates-server/plans";
 import {
 	type Answer,
+	APPROVE,
 	answerIn,
 	besides,
 	challenges,
 	isEmpty,
 	replyOf,
 	takenOf,
-} from "@stringsync/splates-server/reply";
+} from "@stringsync/splates-server/plans/browser";
 import { useReactive, useResource } from "@webappwiz/react";
 import {
 	CheckIcon,

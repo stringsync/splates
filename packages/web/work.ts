@@ -1,4 +1,3 @@
-import { stretches } from "@stringsync/splates-server/asked";
 import type {
 	Compaction,
 	Message,
@@ -6,6 +5,7 @@ import type {
 	Step,
 	Tool,
 } from "@stringsync/splates-server/conversations";
+import { stretches } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import type { Flag } from "@stringsync/splates-server/watch";
 import { Duration } from "webappwiz/time";

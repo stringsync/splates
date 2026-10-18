@@ -1,4 +1,4 @@
-import type { Needing } from "@stringsync/splates-server/needs";
+import type { Needing } from "@stringsync/splates-server/plans";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import {

@@ -2,7 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
-import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "./plan";
+import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "./plans";
 import { type NamedSystem, Systems } from "./systems";
 import { handOff } from "./tell";
 import type { DiffSize, Worktree } from "./worktree";

@@ -4,7 +4,7 @@ import { add } from "./add";
 import { claim } from "./claim";
 import { escalate } from "./escalate";
 import { merge } from "./merge";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE } from "./plans";
 import { remove } from "./remove";
 import { retry } from "./retry";
 import { Testing } from "./testing";

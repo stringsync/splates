@@ -3,12 +3,12 @@ import type {
 	ConversationState,
 	Session,
 } from "@stringsync/splates-server/conversations";
+import type { Question } from "@stringsync/splates-server/plans";
 import {
 	answersTo,
 	type Need,
 	quietSince,
-} from "@stringsync/splates-server/needs";
-import type { Question } from "@stringsync/splates-server/plan";
+} from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import {
 	ChevronLeftIcon,

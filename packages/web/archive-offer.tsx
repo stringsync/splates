@@ -1,4 +1,4 @@
-import type { Report } from "@stringsync/splates-server/asked";
+import type { Report } from "@stringsync/splates-server/plans";
 import { ArchiveIcon } from "lucide-react";
 import {
 	createContext,

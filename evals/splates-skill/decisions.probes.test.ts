@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stretches } from "@stringsync/splates-server/asked";
+import { stretches } from "@stringsync/splates-server/plans";
 import decisions, {
 	decisionDirectives,
 	decisionState,

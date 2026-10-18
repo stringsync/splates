@@ -3,13 +3,13 @@ import {
 	type ThreadMessage,
 	useAuiState,
 } from "@assistant-ui/react";
+import type { TodoState } from "@stringsync/splates-server/board";
 import type {
 	LanesStart,
 	Report,
 	TodoProposal,
-} from "@stringsync/splates-server/asked";
-import type { TodoState } from "@stringsync/splates-server/board";
-import { todoReference } from "@stringsync/splates-server/prompts";
+} from "@stringsync/splates-server/plans";
+import { todoReference } from "@stringsync/splates-server/plans/browser";
 import type { AgentPick } from "@stringsync/splates-server/roster";
 import {
 	ArchiveIcon,

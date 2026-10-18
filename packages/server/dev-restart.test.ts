@@ -6,7 +6,7 @@ import { eventually } from "./conversations/testing";
 import { atWork, json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { type DevServer, dev } from "./index";
-import { CHECKPOINT, RESUME } from "./prompts";
+import { CHECKPOINT, RESUME } from "./plans";
 import { RESTART } from "./supervise";
 import { Testing } from "./testing";
 

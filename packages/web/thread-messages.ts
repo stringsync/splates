@@ -1,16 +1,16 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import type {
+	ConversationState,
+	Message,
+	Part,
+} from "@stringsync/splates-server/conversations";
 import {
 	type Report,
 	type Review,
 	type Stretch,
 	stretches,
 	type TaskReport,
-} from "@stringsync/splates-server/asked";
-import type {
-	ConversationState,
-	Message,
-	Part,
-} from "@stringsync/splates-server/conversations";
+} from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import { useEffect, useMemo, useState } from "react";

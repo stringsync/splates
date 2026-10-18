@@ -3,7 +3,7 @@ import {
 	answersTo,
 	type Needing,
 	quietSince,
-} from "@stringsync/splates-server/needs";
+} from "@stringsync/splates-server/plans/browser";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
