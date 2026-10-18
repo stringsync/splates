@@ -4,6 +4,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import type { SecretStores } from "../creds";
 import type { Pushed } from "../merge";
+import { asideOf } from "../tunnel";
 import { BOX_PROJECT, type BoxStanding } from "./box";
 import { MovedCreds } from "./creds";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
@@ -287,7 +288,7 @@ export class CoordinatorMove {
 		const stamp = (this.opts.now?.() ?? new Date())
 			.toISOString()
 			.replace(/[:.]/g, "-");
-		const aside = `${home}/moved-${stamp}`;
+		const aside = asideOf(home, stamp);
 		for (const name of MOVED_HOME) {
 			if (await fs.exists(`${home}/${name}`)) {
 				const to = `${aside}/${name}`;

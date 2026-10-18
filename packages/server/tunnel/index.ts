@@ -3,6 +3,7 @@ export { ACCESS_COOKIE, ACCESS_HEADER, Access, accessConfig } from "./access";
 export { CloudflareApi } from "./cloudflare-api";
 export { CloudflareError } from "./cloudflare-error";
 export { GUARD } from "./cloudflared";
+export { asideOf, machineTunnel } from "./machine";
 export type { TunnelProvider } from "./provider";
 export { tunnelRemove } from "./remove";
 export type { TunnelRecord } from "./saved";

@@ -9,6 +9,7 @@ export type {
 export {
 	answerState,
 	relayFile,
+	relayOf,
 	StateRequest,
 	sameOrigin,
 	TokenRequest,

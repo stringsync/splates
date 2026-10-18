@@ -6,7 +6,7 @@ import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
 import type { SplatesDeps } from "../server/shared";
-import { SavedTunnel } from "../tunnel";
+import { machineTunnel, SavedTunnel } from "../tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
 
@@ -44,10 +44,13 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 			throw error;
 		},
 	);
-	const machine = await new SavedTunnel(`${splatesHome(ps)}/tunnel.json`, {
+	// Moving the coordinator onto its box takes the machine's tunnel with it,
+	// but slots stay here, under its zone still.
+	const machine = await machineTunnel({
 		fs,
+		home: splatesHome(ps),
 		store: secrets.device,
-	}).read();
+	});
 	if (machine === null) {
 		fail(
 			"usage",

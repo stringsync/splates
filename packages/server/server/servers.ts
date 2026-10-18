@@ -3,11 +3,12 @@ import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "../creds";
 import { splatesHome } from "../models";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "../ports";
-import { SavedTunnel } from "../tunnel";
+import { machineTunnel, SavedTunnel } from "../tunnel";
 
 /**
- * A `splates server` on this machine the page can switch to: the machine's own,
- * reached at the host `splates tunnel setup` made, or a slot's.
+ * A `splates server` the page can switch to: the machine's own, reached at
+ * the host `splates tunnel setup` made, on its box once it moved there, or a
+ * slot's on this machine.
  */
 export interface ServerChoice {
 	/** The slot it serves under; null for the machine's own. */
@@ -44,7 +45,9 @@ export async function devServers({
 			.read()
 			.then((record) => record?.host ?? null);
 	const servers: ServerChoice[] = [];
-	const machine = await hostOf(`${home}/tunnel.json`);
+	// Once the coordinator moved onto its box, its host serves it there.
+	const machine =
+		(await machineTunnel({ fs, home, store: secrets.device }))?.host ?? null;
 	if (machine !== null) {
 		servers.push({
 			slot: null,

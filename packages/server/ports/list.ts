@@ -1,9 +1,12 @@
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
+import { splatesHome } from "../models";
+import { relayOf } from "../records";
 import { DEFAULT_PORT } from "../server/shared";
 import { table } from "../table";
+import { LOCAL_WORKER } from "../workers";
 
 const Listed = z.object({
 	base: z.string().nullable(),
@@ -11,7 +14,9 @@ const Listed = z.object({
 		z.object({
 			task: z.string(),
 			port: z.number(),
+			worker: z.string(),
 			local: z.string(),
+			onWorker: z.string(),
 			remote: z.string().nullable(),
 		}),
 	),
@@ -21,10 +26,15 @@ const Listed = z.object({
 export interface PortsOptions {
 	/** Only this task's; empty for every task's. */
 	task: string;
-	/** The `splates server` to ask; empty for the one this agent runs under, or this machine's. */
+	/**
+	 * The `splates server` to ask; empty for the one this agent runs under,
+	 * else the coordinator this machine's worker daemon relays to, else this
+	 * machine's.
+	 */
 	dev: string;
 	json: boolean;
 	log: Logger;
+	fs: Fs;
 	ps: Ps;
 	send?: typeof fetch;
 }
@@ -32,12 +42,17 @@ export interface PortsOptions {
 /**
  * `splates ports`: asks the running `splates server` which ports tasks serve, each
  * with its link through the saved ports host and its link on this machine,
- * so an agent can hand the user both.
+ * so an agent can hand the user both. On a worker whose coordinator runs
+ * elsewhere, only that worker's own ports open on this machine.
  */
 export async function portsLs(opts: PortsOptions): Promise<void> {
-	const { log, ps, send = fetch } = opts;
-	const url =
-		opts.dev || ps.env("SPLATES_DEV") || `http://localhost:${DEFAULT_PORT}`;
+	const { log, fs, ps, send = fetch } = opts;
+	const relay = await relayOf(
+		{ fs, env: (name) => ps.env(name) },
+		splatesHome(ps),
+	);
+	const url = opts.dev || relay?.url || `http://localhost:${DEFAULT_PORT}`;
+	const here = relay?.worker ?? null;
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
@@ -57,9 +72,15 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 		);
 	}
 	const listed = Listed.parse(await response.json());
-	const ports = listed.ports.filter(
-		(each) => opts.task === "" || each.task === opts.task,
-	);
+	const ports = listed.ports
+		.filter((each) => opts.task === "" || each.task === opts.task)
+		.map(({ task, port, worker, local, onWorker, remote }) => ({
+			task,
+			port,
+			worker,
+			remote,
+			local: localHere(here, { worker, local, onWorker }),
+		}));
 	if (opts.json) {
 		log.info(JSON.stringify({ base: listed.base, ports }, null, "\t"));
 		return;
@@ -79,7 +100,7 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 				each.task,
 				String(each.port),
 				each.remote ?? "-",
-				each.local,
+				each.local ?? `- (on ${each.worker})`,
 			]),
 		),
 	];
@@ -89,4 +110,20 @@ export async function portsLs(opts: PortsOptions): Promise<void> {
 		);
 	}
 	log.info(lines.join("\n"));
+}
+
+/**
+ * A port's link on the machine `splates ports` runs on, `here` the worker it
+ * is, null for none: the coordinator's forward on the coordinator's machine,
+ * which runs the local worker; on any other worker, the port itself when the
+ * worker serves it, and null when another does, which opens only remotely.
+ */
+function localHere(
+	here: string | null,
+	link: { worker: string; local: string; onWorker: string },
+): string | null {
+	if (here === null || here === LOCAL_WORKER) {
+		return link.local;
+	}
+	return link.worker === here ? link.onWorker : null;
 }

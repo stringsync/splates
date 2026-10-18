@@ -137,25 +137,40 @@ const RelayFile = z.object({ url: z.string(), worker: z.string().optional() });
  * known, or no project can be named.
  */
 export async function findRelay(
-	{ fs, env }: { fs: Fs; env: (name: string) => string | undefined },
+	deps: { fs: Fs; env: (name: string) => string | undefined },
 	home: string,
 	origin: () => Promise<string | null>,
 ): Promise<FoundRelay | null> {
-	let url = env("SPLATES_DEV");
-	const read = await fs.read(relayFile(home)).catch(() => null);
-	const parsed = read === null ? null : RelayFile.safeParse(safeJson(read));
-	const said = parsed?.success ? parsed.data : null;
-	url ??= said?.url;
-	if (url === undefined) {
+	const relay = await relayOf(deps, home);
+	if (relay === null) {
 		return null;
 	}
-	const worker = env("SPLATES_WORKER") ?? said?.worker ?? null;
-	const slug = env("SPLATES_PROJECT");
+	const { url, worker } = relay;
+	const slug = deps.env("SPLATES_PROJECT");
 	if (slug !== undefined) {
 		return { url, project: { slug }, worker };
 	}
 	const found = await origin();
 	return found === null ? null : { url, project: { origin: found }, worker };
+}
+
+/**
+ * The coordinator's server a command on this machine reaches, and the worker
+ * this machine is: the `splates server` the agent's env names, else the
+ * relay this machine's worker daemon keeps. Null when neither says.
+ */
+export async function relayOf(
+	{ fs, env }: { fs: Fs; env: (name: string) => string | undefined },
+	home: string,
+): Promise<{ url: string; worker: string | null } | null> {
+	const read = await fs.read(relayFile(home)).catch(() => null);
+	const parsed = read === null ? null : RelayFile.safeParse(safeJson(read));
+	const said = parsed?.success ? parsed.data : null;
+	const url = env("SPLATES_DEV") ?? said?.url;
+	if (url === undefined) {
+		return null;
+	}
+	return { url, worker: env("SPLATES_WORKER") ?? said?.worker ?? null };
 }
 
 /** The relay `findRelay` found, and the worker it is this machine's. */

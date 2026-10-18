@@ -11,8 +11,15 @@ import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
 
 /** One task port, with where to open it. */
 export interface PortLink extends TaskPort {
+	/** The worker, by id, whose processes listen on it. */
+	worker: string;
 	/** On the coordinator's machine. */
 	local: string;
+	/**
+	 * On the worker's own machine, where its server listens: the link to give
+	 * a user at that machine once the coordinator runs elsewhere.
+	 */
+	onWorker: string;
 	/** Through the saved base host, behind Access; null with none saved. */
 	remote: string | null;
 }
@@ -309,7 +316,9 @@ export class DevTaskPorts implements Resource, Claimer {
 		return {
 			task,
 			port,
+			worker: worker.id,
 			local: `http://${LOOPBACK}:${local}`,
+			onWorker: `http://${LOOPBACK}:${port}`,
 			remote:
 				this.deps.base === null
 					? null

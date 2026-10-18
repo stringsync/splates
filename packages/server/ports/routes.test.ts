@@ -124,7 +124,9 @@ describe("DevTaskPorts", () => {
 			{
 				task: "alpha",
 				port: appPort,
+				worker: "local",
 				local: `http://127.0.0.1:${appPort}`,
+				onWorker: `http://127.0.0.1:${appPort}`,
 				remote: `https://alpha-${appPort}.ports.test`,
 			},
 		]);
@@ -152,7 +154,13 @@ describe("DevTaskPorts", () => {
 			on = "box";
 
 			const [link] = await ports.links();
-			expect(link).toMatchObject({ task: "alpha", port: appPort });
+			expect(link).toMatchObject({
+				task: "alpha",
+				port: appPort,
+				worker: "box",
+				// Where a user at the worker's machine opens it.
+				onWorker: `http://127.0.0.1:${appPort}`,
+			});
 			// The app holds its own number on this machine, so the forward takes another.
 			expect(link?.local).not.toBe(`http://127.0.0.1:${appPort}`);
 			const response = await fetch(`${link?.local}/app`);

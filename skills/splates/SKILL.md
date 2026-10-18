@@ -740,8 +740,9 @@ throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
 stays out of the user's `splates server` project list. Start the server from your
 worktree, then `splates ports <task>` prints each port it listens on with two
 links: its remote one, `https://<task>-<port>.<base>` behind the user's
-Access, when `splates server --ports-host` saved a base, and its local one on the
-machine `splates server` runs on. Give the user both, the remote one first, in
+Access, when `splates server --ports-host` saved a base, and its local one on
+your machine, which a worker whose coordinator runs elsewhere has only for its
+own ports. Give the user both, the remote one first, in
 the demo's line on where to open it; the task's dialog on the page lists
 them too. When `splates tunnel status`
 shows a tunnel, `splates server --slot` from your worktree does both and prints a

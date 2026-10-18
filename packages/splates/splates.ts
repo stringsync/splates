@@ -440,7 +440,7 @@ splates
 splates
 	.command("ports")
 	.description(
-		"list the ports tasks serve, found by the running `splates server` as an editor finds ports to forward: each port a process in a task's worktree, or under its agent, listens on, with its link through the ports host `splates server --ports-host` saved, behind Cloudflare Access, and its link on this machine; give the user both",
+		"list the ports tasks serve, found by the running `splates server` as an editor finds ports to forward: each port a process in a task's worktree, or under its agent, listens on, with its link through the ports host `splates server --ports-host` saved, behind Cloudflare Access, and its link on this machine, which on a worker whose coordinator runs elsewhere only that worker's own ports have; give the user both",
 	)
 	.arg("task", z.string(), {
 		default: "",
@@ -449,7 +449,7 @@ splates
 	.option("dev", z.string(), {
 		default: "",
 		description:
-			"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV, else this machine's on its default port",
+			"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV, else the coordinator this machine's worker relays to, else this machine's on its default port",
 	})
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) =>
@@ -458,6 +458,7 @@ splates
 			dev: opts.dev,
 			json: opts.json,
 			log: ctx.log,
+			fs: ctx.fs,
 			ps: ctx.ps,
 			send: ctx.fetch,
 		}),
