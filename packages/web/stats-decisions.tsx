@@ -9,9 +9,8 @@ import type { Bar, DecisionRates, Rate } from "./decision-rates";
 import { type Axis, decimal, type Period } from "./stats-report";
 
 /**
- * How many calls the person made over the period against how many agents
- * made without them: each side's rate and how it moved, both charted on one
- * axis to compare, then by size.
+ * How many calls the person made over the period: the rate and how it
+ * moved, charted bar by bar, then by size.
  */
 export function Decisions({
 	rates,
@@ -32,7 +31,7 @@ export function Decisions({
 	/** Counts every size again. */
 	onAll: () => void;
 }): JSX.Element {
-	const { unit, byYou, byAgents, sizes } = rates;
+	const { unit, byYou, sizes } = rates;
 	return (
 		<section
 			aria-label="Decisions"
@@ -54,23 +53,14 @@ export function Decisions({
 				aria-label="Decisions over the period"
 				className="flex flex-col gap-3 rounded-lg border p-3"
 			>
-				{/* The legend: each side's swatch beside its own figures. */}
-				<figcaption className="grid gap-3 sm:grid-cols-2">
+				{/* The legend: the line's swatch beside its figures. */}
+				<figcaption>
 					<Side
 						title="Made by you"
-						series="you"
 						rate={byYou}
 						unit={unit}
 						period={period}
 						better="down"
-					/>
-					<Side
-						title="Made by agents"
-						series="agents"
-						rate={byAgents}
-						unit={unit}
-						period={period}
-						better="up"
 					/>
 				</figcaption>
 				<Chart
@@ -86,7 +76,7 @@ export function Decisions({
 
 /**
  * All, pressed until the person picks a size, then a button a size, pressed
- * while its decisions count: the chart and both rates follow.
+ * while its decisions count: the chart and the rate follow.
  */
 function SizeToggles({
 	sizes,
@@ -107,7 +97,7 @@ function SizeToggles({
 					key={each.size ?? "unsized"}
 					name={each.size ?? "unsized"}
 					on={shown?.has(each.size) ?? false}
-					title={`${each.byYou} by you, ${each.byAgents} by agents`}
+					title={`${each.byYou} by you`}
 					onClick={() => onToggle(each.size)}
 				/>
 			))}
@@ -144,27 +134,22 @@ function Toggle({
 	);
 }
 
-/** Each side's line color, from the validated pair in styles.css. */
-const SERIES = {
-	you: "var(--series-you)",
-	agents: "var(--series-agents)",
-} as const;
+/** The line's color, validated in styles.css. */
+const SERIES = "var(--series-you)";
 
-/** One side's swatch, rate, and how it moved. */
+/** The line's swatch, rate, and how it moved. */
 function Side({
 	title,
-	series,
 	rate,
 	unit,
 	period,
 	better,
 }: {
 	title: string;
-	series: keyof typeof SERIES;
 	rate: Rate;
 	unit: DecisionRates["unit"];
 	period: Period;
-	/** Which way this side's rate should go. */
+	/** Which way the rate should go. */
 	better: "up" | "down";
 }): JSX.Element {
 	const moved = movement(rate, better, period);
@@ -174,7 +159,7 @@ function Side({
 				<span
 					aria-hidden
 					className="h-0.5 w-3 rounded-full"
-					style={{ background: SERIES[series] }}
+					style={{ background: SERIES }}
 				/>
 				{title}
 			</span>
@@ -196,8 +181,8 @@ function Side({
 }
 
 /**
- * Both sides' rates bar by bar as two lines on `axis`, the oldest on the
- * left; hovering a bar's column shows both its figures.
+ * The rate bar by bar as a line on `axis`, the oldest on the left; hovering
+ * a bar's column shows its figure.
  */
 function Chart({
 	bars,
@@ -212,8 +197,9 @@ function Chart({
 }): JSX.Element {
 	const across = (index: number) => ((index + 0.5) / bars.length) * 100;
 	const down = (value: number) => (1 - Math.min(value / axis.max, 1)) * 100;
-	const line = (side: "byYou" | "byAgents") =>
-		bars.map((bar, index) => `${across(index)},${down(bar[side])}`).join(" ");
+	const line = bars
+		.map((bar, index) => `${across(index)},${down(bar.byYou)}`)
+		.join(" ");
 	return (
 		<div className="flex flex-col gap-1">
 			<div className="flex gap-2">
@@ -247,23 +233,20 @@ function Chart({
 						preserveAspectRatio="none"
 						className="pointer-events-none absolute inset-0 size-full overflow-visible"
 					>
-						{(["byYou", "byAgents"] as const).map((side) => (
-							<polyline
-								key={side}
-								points={line(side)}
-								fill="none"
-								stroke={SERIES[side === "byYou" ? "you" : "agents"]}
-								strokeWidth={2}
-								strokeLinejoin="round"
-								strokeLinecap="round"
-								vectorEffect="non-scaling-stroke"
-							/>
-						))}
+						<polyline
+							points={line}
+							fill="none"
+							stroke={SERIES}
+							strokeWidth={2}
+							strokeLinejoin="round"
+							strokeLinecap="round"
+							vectorEffect="non-scaling-stroke"
+						/>
 					</svg>
-					{/* A column a bar, wider than the lines, to hover for both figures. */}
+					{/* A column a bar, wider than the line, to hover for its figure. */}
 					<div className="absolute inset-0 flex">
 						{bars.map((bar) => {
-							const label = `${bar.label}: ${decimal(bar.byYou)} by you, ${decimal(bar.byAgents)} by agents, per ${unit}`;
+							const label = `${bar.label}: ${decimal(bar.byYou)} by you, per ${unit}`;
 							return (
 								<Tooltip key={bar.start}>
 									<TooltipTrigger
@@ -304,47 +287,4 @@ function movement(
 	}
 	const way = rate.rate < rate.before ? "down" : "up";
 	return `${way} from ${before}: ${way === better ? "better" : "worse"}`;
-}
-
-/** Calls by who made them, a row each. */
-function _Split({
-	title,
-	rows,
-}: {
-	title: string;
-	rows: {
-		key: string;
-		name: JSX.Element | string;
-		byYou: number;
-		byAgents: number;
-	}[];
-}): JSX.Element | null {
-	if (rows.length === 0) {
-		return null;
-	}
-	return (
-		<div className="flex min-w-0 flex-col gap-2">
-			<h4 className="font-medium text-xs">{title}</h4>
-			<div className="overflow-x-auto">
-				<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
-					<thead className="text-muted-foreground text-xs">
-						<tr className="whitespace-nowrap border-b text-right">
-							<th className="py-1 text-left font-normal">Name</th>
-							<th className="py-1 font-normal">Made by you</th>
-							<th className="py-1 font-normal">Made by agents</th>
-						</tr>
-					</thead>
-					<tbody>
-						{rows.map((row) => (
-							<tr key={row.key} className="border-b text-right last:border-0">
-								<td className="max-w-40 truncate py-1 text-left">{row.name}</td>
-								<td className="py-1">{row.byYou}</td>
-								<td className="py-1">{row.byAgents}</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-		</div>
-	);
 }

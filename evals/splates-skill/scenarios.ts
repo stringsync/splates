@@ -10,13 +10,7 @@ import {
 	SAME_FILES,
 	UNTRIAGED,
 } from "./lanes";
-import {
-	lastSaid,
-	openQuestions,
-	section,
-	splatesRuns,
-	turnsOf,
-} from "./reading";
+import { lastSaid, openQuestions, splatesRuns, turnsOf } from "./reading";
 import { CHECK_IN, CHECKPOINT } from "./resumed";
 import { CORE, type Scenario } from "./scenario";
 
@@ -91,36 +85,6 @@ export const SCENARIOS: readonly Scenario[] = [
 		checks: [
 			STARTS,
 			{
-				id: "recorded",
-				rule: "Writes down at least two calls, as assumptions or questions",
-				judge: ({ end }) => {
-					// Kept in a task's SPLATES.md while it is open, in its commit once it lands.
-					const open = end.tasks.reduce(
-						(sum, task) =>
-							sum +
-							numbered(section(task.plan ?? "", "Assumptions")) +
-							numbered(section(task.plan ?? "", "Blocked")),
-						0,
-					);
-					const landed = end.main
-						.slice(0, -SEEDED)
-						.reduce(
-							(sum, message) =>
-								sum +
-								(message.split(/^Assumed:$/m)[1] ?? "")
-									.split("\n")
-									.filter((line) => line.startsWith("- ")).length,
-							0,
-						);
-					return [
-						{
-							ok: open + landed >= 2,
-							why: `${open} in SPLATES.md, ${landed} assumed in commits`,
-						},
-					];
-				},
-			},
-			{
 				id: "held",
 				rule: "Merges only once no question is open",
 				judge: ({ end }) => {
@@ -148,7 +112,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"calls-right: the calls written down cover what the request leaves open, such as the cap's number and what happens once it is reached, and each sits where the skill puts it: an assumption when one commit's revert would undo it, a close call included, a question under `## Blocked` when undoing it reaches past the repo's code or a wrong guess would cost much rework",
+			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: made itself and noted under `## Notes` when one commit's revert would undo it, a close call included, a question under `## Blocked` when undoing it reaches past the repo's code or a wrong guess would cost much rework",
 		],
 	},
 	LANE,
@@ -292,7 +256,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		],
 		rubric: [
 			"subagent-brief: the subagent's prompt told it to `splates claim <part>` and work only in that worktree; not to escalate, report to the user, or take todos; to make each unsettled call itself and list in its reply what it chose and what else it could have done, never under `## Blocked`; and to squash and `splates merge` the part",
-			"calls-recorded: each call the subagent listed was written by the parent under its own `## Assumptions` or `## Blocked` (n/a when it listed none)",
+			"calls-recorded: each call the subagent listed was written by the parent under its own `## Notes`, or as a question under `## Blocked` when it needs the user (n/a when it listed none)",
 		],
 	},
 	CHECKPOINT,
@@ -360,12 +324,6 @@ splates escalate --review "the message a too-big upload shows"`,
 	},
 	UNTRIAGED,
 ];
-
-/** How many numbered items, questions or assumptions, a section of SPLATES.md holds. */
-function numbered(text: string): number {
-	return text.split("\n").filter((line) => /^- \[[ x]\] \d+\. /.test(line))
-		.length;
-}
 
 /** A todo's heading in a reply, as one proposed. */
 const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;

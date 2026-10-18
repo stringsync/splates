@@ -70,7 +70,6 @@ describe("factTodos", () => {
 						{ kind: "retried", times: 2 },
 						{ kind: "interrupted", at: "2026-10-14T09:30:00.000Z" },
 						{ kind: "stopped", at: "2026-10-14T09:30:00.000Z" },
-						{ kind: "challenged", assumptions: 1 },
 						{ kind: "overturned", picks: 2 },
 					],
 				}),

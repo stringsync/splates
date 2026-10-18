@@ -1,5 +1,4 @@
 import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
-import type { Details } from "@stringsync/splates-server/tasks";
 import { createContext } from "react";
 import { Drafts } from "./drafts";
 
@@ -19,8 +18,6 @@ export interface BoardContext {
 	openTodos: (ids: readonly number[]) => void;
 	/** Every live task, by name: those a chip naming one opens. */
 	tasks: readonly string[];
-	/** Each live task's `SPLATES.md`, by its name, for what it assumed. */
-	plans: ReadonlyMap<string, string>;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
 	/** What was refused of each card, by its id, said on the card. */
@@ -43,7 +40,6 @@ export const NO_BOARD: BoardContext = {
 	openTask: () => {},
 	openTodos: () => {},
 	tasks: [],
-	plans: new Map(),
 	moveLane: () => {},
 	refusedTodos: new Map(),
 	refuseTodo: () => {},
@@ -53,15 +49,6 @@ export const NO_BOARD: BoardContext = {
 };
 
 export const Board = createContext<BoardContext>(NO_BOARD);
-
-/** Each of `tasks` that has an `SPLATES.md`, by its name. */
-export function plansOf(
-	tasks: readonly Pick<Details, "task" | "plan">[],
-): ReadonlyMap<string, string> {
-	return new Map(
-		tasks.flatMap(({ task, plan }) => (plan === null ? [] : [[task, plan]])),
-	);
-}
 
 /**
  * Keeps a press on a button inside a card from starting a drag of the card,

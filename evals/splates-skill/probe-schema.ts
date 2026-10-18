@@ -49,7 +49,6 @@ export const probeSchema = z.object({
 					"start",
 					"todo",
 					"demo",
-					"assumed",
 				]),
 				field: z.array(z.string()),
 				equals: z.json(),

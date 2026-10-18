@@ -192,7 +192,7 @@ const probes: Probe[] = [
 	probe(
 		"part-decisions",
 		"delegation-parts",
-		"The harness child reports: chose a local cache over recomputation; either is reversible. The user has not selected one. Carry this choice into parent SPLATES.md as your own assumption before continuing. Stop after recording it.",
+		"The harness child reports: chose a local cache over recomputation; either is reversible. The user has not selected one. Carry this choice into the parent SPLATES.md notes before continuing. Stop after recording it.",
 		[
 			required("claim-parent", ["claim", "parent"]),
 			gap(

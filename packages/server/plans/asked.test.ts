@@ -134,7 +134,7 @@ describe("stretches", () => {
 				type: "proposal",
 				proposal: {
 					subject: "a card for proposals",
-					body: "Fold proposals into the questions card, each assumption a question already answered.\n\n#### An assumption is a question with an answer.\n\n- The questions card already tags a `(chosen)` choice.\n- It already heads its questions with an escalation's report.\n- One card then asks everything, answered or not.",
+					body: "Fold proposals into the questions card, each call a question with a pick.\n\n#### A proposal's calls are questions with a pick.\n\n- The questions card already tags a `(chosen)` choice.\n- It already heads its questions with an escalation's report.\n- One card then asks everything, picked or not.",
 				},
 			},
 			{
@@ -142,7 +142,7 @@ describe("stretches", () => {
 				questions: [
 					expect.objectContaining({
 						number: "1",
-						text: "Where should a proposal's assumptions come from?",
+						text: "Where should a proposal's calls come from?",
 						choices: [
 							expect.objectContaining({ key: "a", chosen: true }),
 							expect.objectContaining({ key: "b", chosen: false }),
@@ -449,101 +449,6 @@ describe("stretches", () => {
 			},
 			expect.objectContaining({ type: "questions" }),
 		]);
-	});
-
-	it("reads a reply's `- Assumed <number>:` lines as the calls assumed, out of the list and report they end", () => {
-		const found = stretches(
-			[
-				"## ⚠️ Escalated uploads: needs a call on retries",
-				"",
-				"An upload the server refuses as too big now stops.",
-				"",
-				"- Restart `splates server` to see it.",
-				"- Assumed 3: Three tries, a second apart",
-				"",
-				"- Assumed 4: Kept the old endpoint for a release",
-				"",
-				"1. Should a 429 retry?",
-				"",
-				"- Assumed: an orchestrator's lane name, which no number makes a call",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			expect.objectContaining({
-				type: "report",
-				report: expect.objectContaining({
-					ending: "escalated",
-					body: "An upload the server refuses as too big now stops.\n\n- Restart `splates server` to see it.",
-				}),
-			}),
-			{
-				type: "assumed",
-				assumed: [
-					{ number: "3", text: "Three tries, a second apart" },
-					{ number: "4", text: "Kept the old endpoint for a release" },
-				],
-			},
-			expect.objectContaining({ type: "questions" }),
-			{
-				type: "text",
-				text: "- Assumed: an orchestrator's lane name, which no number makes a call",
-			},
-		]);
-	});
-
-	it("gives the calls an exhibit captions what it shows, up to a blank line", () => {
-		const found = stretches(
-			[
-				"The header wraps now.",
-				"",
-				"- Assumed 4: Named it `Header`",
-				"",
-				"### 🖼️ The header at 390px",
-				"",
-				"![header at 390px](/abs/header.png)",
-				"",
-				"- Assumed 5: The nav collapses into a menu below 480px",
-				"- Assumed 6: The search box moves into the menu too",
-				"",
-				"- Assumed 7: Kept the old breakpoints elsewhere",
-			].join("\n"),
-		);
-
-		const exhibit = {
-			title: "The header at 390px",
-			body: "![header at 390px](/abs/header.png)",
-		};
-		expect(found).toEqual([
-			{ type: "text", text: "The header wraps now." },
-			{
-				type: "assumed",
-				assumed: [
-					{ number: "4", text: "Named it `Header`" },
-					{
-						number: "5",
-						text: "The nav collapses into a menu below 480px",
-						exhibit,
-					},
-					{
-						number: "6",
-						text: "The search box moves into the menu too",
-						exhibit,
-					},
-					{ number: "7", text: "Kept the old breakpoints elsewhere" },
-				],
-			},
-		]);
-	});
-
-	it("leaves an exhibit that captions no call as text", () => {
-		const text = [
-			"### 🖼️ The header at 390px",
-			"",
-			"![header at 390px](/abs/header.png)",
-		].join("\n");
-
-		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
 	it("ends a proposed todo at its paragraph, leaving the message after it as text", () => {

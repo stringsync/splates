@@ -53,7 +53,7 @@ export interface Axis {
  * what they ask, write down what one area draws, and check whether a
  * change helped). The rest always fold away.
  */
-export const LEADS: AdviceId[] = ["picks", "assumptions", "course"];
+export const LEADS: AdviceId[] = ["picks", "course"];
 
 /** How many cards lead the page at most. */
 export const LEADING = 2;

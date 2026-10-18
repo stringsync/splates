@@ -15,7 +15,7 @@ import { here } from "./flags";
 
 /** `splates artifact`, which the root cli mounts after `splates attach`. */
 export const splatesArtifact = cli<SplatesDeps>("artifact").description(
-	"files your conversation made as its outputs, such as a screenshot, a recording or an HTML page: kept by name for the life of the conversation, whatever task it was made in, and listed on the `splates server` page beside its thread. A file that shows a question, an assumption or a demo step is no artifact: `splates attach` it. The conversation is $SPLATES_CONVERSATION, or --conversation <id> from an agent outside `splates server`",
+	"files your conversation made as its outputs, such as a screenshot, a recording or an HTML page: kept by name for the life of the conversation, whatever task it was made in, and listed on the `splates server` page beside its thread. A file that shows a question or a demo step is no artifact: `splates attach` it. The conversation is $SPLATES_CONVERSATION, or --conversation <id> from an agent outside `splates server`",
 );
 
 const conversation = [

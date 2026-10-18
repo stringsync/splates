@@ -121,7 +121,6 @@
 @source "./choice-body.tsx";
 @source "./close-terminal.tsx";
 @source "./review-panel.tsx";
-@source "./assumption-list.tsx";
 @source "./report-cards.tsx";
 @source "./report-header.tsx";
 @source "./merged-stats.tsx";
@@ -229,10 +228,9 @@
 	--border: oklch(0.885 0.007 264);
 	--input: oklch(0.86 0.008 264);
 	--ring: var(--brand);
-	/* The Stats page's two decision lines: the first two slots of the
-	   dataviz reference palette, validated as a pair on each surface. */
+	/* The Stats page's decision line: the first slot of the dataviz
+	   reference palette, validated on each surface. */
 	--series-you: #2a78d6;
-	--series-agents: #eb6834;
 }
 
 .dark {
@@ -255,7 +253,6 @@
 	--border: oklch(1 0 0 / 9%);
 	--input: oklch(1 0 0 / 14%);
 	--series-you: #3987e5;
-	--series-agents: #d95926;
 }
 
 /* Each accent, light then dark. A swatch carrying `data-accent` wears its

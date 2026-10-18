@@ -30,7 +30,6 @@ export interface FactTodo {
 export const SEVERITY: Finding["kind"][] = [
 	"stopped",
 	"overturned",
-	"challenged",
 	"repeated_failure",
 	"adherence",
 	"churn",
@@ -161,8 +160,6 @@ function said(finding: Finding): string {
 			return "A lost connection cut a turn short";
 		case "overturned":
 			return `You picked another choice than the agent's ${times(finding.picks)}`;
-		case "challenged":
-			return `You challenged ${finding.assumptions} ${finding.assumptions === 1 ? "assumption" : "assumptions"}`;
 		case "repeated_failure":
 			return `\`${finding.command}\` failed ${finding.times} times`;
 		case "churn":

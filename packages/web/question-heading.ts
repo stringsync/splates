@@ -1,6 +1,6 @@
 import type { Proposal, TaskReport } from "@stringsync/splates-server/plans";
 import type { LucideIcon } from "lucide-react";
-import { ListChecksIcon, MessageCircleQuestionIcon } from "lucide-react";
+import { MessageCircleQuestionIcon } from "lucide-react";
 import { ENDINGS, type Tone } from "./card-shell";
 
 /** What heads a questions card, on the page and on a phone's sheet alike. */
@@ -12,15 +12,12 @@ export interface QuestionHeading {
 	tone: Tone;
 	/** The task it escalated, shown as a pill; undefined for the rest. */
 	task?: string;
-	/** What a phone's sheet offers to do in it, where not to answer. */
-	action?: string;
 }
 
 /**
  * How a questions card is headed: as the escalation it ends, whatever else it
  * holds, since every escalation card reads the same; else as the proposal
- * it rests under; else, with no questions, as the calls assumed; else as the
- * questions for the person, `count` saying how many on a phone's sheet.
+ * it rests under; else as the questions for the person, `count` saying how many on a phone's sheet.
  */
 export function questionHeading(
 	questions: number,
@@ -42,15 +39,6 @@ export function questionHeading(
 			Icon: MessageCircleQuestionIcon,
 			title: `Questions: ${proposal.subject}`,
 			tone: "info",
-		};
-	}
-	if (questions === 0) {
-		return {
-			label: "assumed",
-			Icon: ListChecksIcon,
-			title: "Assumed",
-			tone: "neutral",
-			action: "Review",
 		};
 	}
 	return {

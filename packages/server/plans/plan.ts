@@ -47,7 +47,7 @@ export const STUB_STEP =
 	"fill in Goal and list the steps here as `- [ ]` items";
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Done", "Next", "Notes", "Assumptions", "Blocked"];
+const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 // A `Q` before the number is how plans were numbered once, and still reads.
@@ -186,16 +186,6 @@ export function sized(text: string): { text: string; size: string | null } {
  */
 export function questions(text: string): Question[] {
 	return items(sectionLines(text, "Blocked"));
-}
-
-/**
- * Every numbered item under `## Assumptions`: a call the agent made without
- * asking, written as a question is, its `(chosen)` choice the one it took.
- * Numbered in the same sequence as `## Blocked`, since a challenged one moves
- * there under its number. None of them hold up a merge.
- */
-export function assumptions(text: string): Question[] {
-	return items(sectionLines(text, "Assumptions"));
 }
 
 /** The numbered items among `lines`, each with the indented lines under it. */
@@ -369,57 +359,23 @@ export interface Decision {
 	text: string;
 	/** The word its line was sized with, or null for none. */
 	size: string | null;
-	/** Put to the person under `## Blocked`, or made without asking. */
-	how: "asked" | "assumed";
 	/**
-	 * What became of the agent's recommendation: an assumption left alone is
-	 * kept; a pick taken as it was, kept; taken with words added, amended;
-	 * answered with another choice, overturned; an assumption the person
-	 * challenged, challenged. Null for a question with no pick to meet, or
-	 * one never answered with a choice.
+	 * What became of the agent's recommendation: a pick taken as it was,
+	 * kept; taken with words added, amended; answered with another choice,
+	 * overturned. Null for a question with no pick to meet, or one never
+	 * answered with a choice.
 	 */
-	ended: "kept" | "amended" | "overturned" | "challenged" | null;
+	ended: "kept" | "amended" | "overturned" | null;
 }
 
-/** Every call in the plan `text`, asked and assumed, in the order numbered. */
+/** Every question in the plan `text`, in the order numbered. */
 export function decisions(text: string): Decision[] {
-	const each = (
-		item: Question,
-		how: Decision["how"],
-		ended: Decision["ended"],
-	): Decision => ({
+	return questions(text).map((item) => ({
 		number: item.number,
 		text: item.text,
 		size: item.size,
-		how,
-		ended,
-	});
-	return [
-		...assumptions(text).map((item) => each(item, "assumed", "kept")),
-		...questions(text).map((item) =>
-			CHALLENGED.test(item.reply ?? "")
-				? each(item, "assumed", "challenged")
-				: each(item, "asked", metPick(item)),
-		),
-	].sort((one, other) => Number(one.number) - Number(other.number));
-}
-
-/** The reply that moves an assumption to `## Blocked`. */
-const CHALLENGED = /^challenged\b/i;
-
-/**
- * How many calls the agent made without asking, and how many of them the
- * person challenged. A challenged one moves to `## Blocked` under its number
- * with a reply starting `challenged:`, so it counts in both.
- */
-export function assumptionCounts(text: string): {
-	made: number;
-	challenged: number;
-} {
-	const challenged = questions(text).filter((each) =>
-		CHALLENGED.test(each.reply ?? ""),
-	).length;
-	return { made: assumptions(text).length + challenged, challenged };
+		ended: metPick(item),
+	}));
 }
 
 /** What still stands between a task and trunk, as its plan tells it. */
@@ -472,17 +428,15 @@ export function whatIsLeft({ questions, steps }: Unfinished): string {
 
 /**
  * The plan with a new open question at the end of `## Blocked`, the section
- * made if missing, numbered after the highest there or under
- * `## Assumptions`. Returns the plan and the number it went by.
+ * made if missing, numbered after the highest there. Returns the plan and the
+ * number it went by.
  */
 export function withQuestion(
 	text: string,
 	subject: string,
 	body = "",
 ): { plan: string; number: string } {
-	const numbers = [...questions(text), ...assumptions(text)].map((asked) =>
-		Number(asked.number),
-	);
+	const numbers = questions(text).map((asked) => Number(asked.number));
 	const number = String(Math.max(0, ...numbers) + 1);
 	const detail = body.trim() === "" ? [] : body.trim().split("\n");
 	const item = [
@@ -630,22 +584,13 @@ export function checkPlan(
 			`## Blocked has open questions ${numbers}: ask the reviewer before merging`,
 		);
 	}
-	for (const assumed of assumptions(text)) {
-		if (!assumed.choices.some((choice) => choice.chosen)) {
-			problems.push(
-				`## Assumptions item ${assumed.number} marks no choice \`(chosen)\`: offer what else it could have been, and mark the one taken`,
-			);
-		}
-	}
-	const numbers = [...questions(text), ...assumptions(text)].map(
-		(item) => item.number,
-	);
+	const numbers = questions(text).map((item) => item.number);
 	const twice = [
 		...new Set(numbers.filter((each, at) => numbers.indexOf(each) !== at)),
 	];
 	if (twice.length > 0) {
 		problems.push(
-			`${twice.join(", ")} numbered twice across ## Assumptions and ## Blocked: a challenged assumption moves to ## Blocked rather than being copied, and new items continue from the highest`,
+			`${twice.join(", ")} numbered twice under ## Blocked: new questions continue from the highest`,
 		);
 	}
 	const known = SECTIONS.map((section) => section.toLowerCase());

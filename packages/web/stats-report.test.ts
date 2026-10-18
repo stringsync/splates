@@ -24,7 +24,6 @@ describe("StatsReport", () => {
 		expect(report.lead.map((each) => each.id)).toEqual(["course"]);
 		expect(report.rest.map((each) => each.id)).toEqual([
 			"picks",
-			"assumptions",
 			"waiting",
 			"failures",
 			"removals",

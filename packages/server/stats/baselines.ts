@@ -1,4 +1,4 @@
-import { keptDecisions, madeBy } from "../plans";
+import { keptDecisions, madeByYou } from "../plans";
 import type { Finding } from "./findings";
 import type { Outcome } from "./outcomes";
 
@@ -64,7 +64,7 @@ export type Measure =
 	| "cost"
 	/** Lines added and removed. */
 	| "lines"
-	/** Calls the person made, asked or challenged. */
+	/** Questions put to the person. */
 	| "decidedByYou"
 	| "failedMerges";
 
@@ -95,9 +95,7 @@ export function measured(outcome: Outcome): Record<Measure, number | null> {
 			outcome.size === undefined
 				? null
 				: outcome.size.added + outcome.size.removed,
-		decidedByYou: keptDecisions(outcome)
-			? madeBy(outcome, "decidedByYou")
-			: null,
+		decidedByYou: keptDecisions(outcome) ? madeByYou(outcome) : null,
 		failedMerges: outcome.failedMerges,
 	};
 }

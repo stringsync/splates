@@ -1,5 +1,4 @@
 import type {
-	Assumed,
 	Demo,
 	Proposal,
 	Question,
@@ -16,15 +15,13 @@ import { MessageReview } from "./review-panel";
 /**
  * What the agent wrote of its escalation in the turn it escalated, which its
  * card takes in rather than drawing a second card: its report, the demo its
- * questions ask about, the calls it says it assumed, its review, or the
- * proposal it waits on with the calls it rests on, which the card asks in
- * place of the task's open questions, since those it chose stand under
- * `## Assumptions`, not `## Blocked`.
+ * questions ask about, its review, or the proposal it waits on with the
+ * calls it rests on, which the card asks in place of the task's open
+ * questions.
  */
 export interface Written {
 	report: TaskReport | null;
 	demo: Demo | null;
-	assumed: Assumed[];
 	review: Review | null;
 	proposal: Proposal | null;
 	questions: Question[];
@@ -73,13 +70,8 @@ export function EscalationCard({
 		body: report?.body ?? "",
 		source: report?.source ?? `## ⚠️ Escalated ${task}: ${event.about}`,
 	};
-	const assumed = written?.assumed ?? [];
 	const proposal = written?.proposal ?? null;
-	if (
-		proposal === null &&
-		event.questions.length === 0 &&
-		assumed.length === 0
-	) {
+	if (proposal === null && event.questions.length === 0) {
 		return <ReportCard report={escalation} />;
 	}
 	return (
@@ -96,7 +88,6 @@ export function EscalationCard({
 				escalation={escalation}
 				proposal={proposal}
 				demo={written?.demo ?? null}
-				assumed={assumed}
 				task={task}
 			/>
 		</InMessage>

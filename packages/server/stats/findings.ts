@@ -22,12 +22,6 @@ export function findings(evidence: Evidence): Finding[] {
 	if (evidence.picksOverturned > 0) {
 		found.push({ kind: "overturned", picks: evidence.picksOverturned });
 	}
-	if (evidence.assumptionsChallenged > 0) {
-		found.push({
-			kind: "challenged",
-			assumptions: evidence.assumptionsChallenged,
-		});
-	}
 	for (const [command, times] of Object.entries(log?.failedCommands ?? {})) {
 		if (times >= FINDING_THRESHOLDS.repeatedFailures) {
 			found.push({ kind: "repeated_failure", command, times });
@@ -97,8 +91,6 @@ export type Finding =
 	| { kind: "interrupted"; at: string }
 	/** The person answered picks with another choice than the agent's. */
 	| { kind: "overturned"; picks: number }
-	/** The person challenged assumptions the agent made. */
-	| { kind: "challenged"; assumptions: number }
 	/** One command failed again and again. */
 	| { kind: "repeated_failure"; command: string; times: number }
 	/** Far more lines edited than landed. */
@@ -113,7 +105,6 @@ export interface Evidence {
 	gateFailures: GateFailure[];
 	retries: number;
 	picksOverturned: number;
-	assumptionsChallenged: number;
 	log: TaskLog | null;
 	/** Lines the landed diff added and removed; null when unknown. */
 	landedLines: number | null;

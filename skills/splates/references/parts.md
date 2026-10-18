@@ -19,8 +19,8 @@ Add the part yourself, then tell the subagent:
 - not to escalate, report to the user, or take todos: it is your part, and
   you are the one the user hears from;
 - to make each call the request does not settle as it sees fit, listing in
-  its reply what it chose and what else it could have done, never under
-  `## Blocked`, which would stop `splates merge`;
+  its reply those the user may need to settle, never under `## Blocked`,
+  which would stop `splates merge`;
 - to squash and `splates merge` the part when done, landing it on your branch;
 - never to wait on you: when the part cannot land until work of yours does,
   to commit it, leave it unmerged, and say so in its reply.
@@ -44,11 +44,11 @@ strengths fit the part at the lowest cost it is worth, a cheap one for a
 mechanical part, and ask about that choice under `## Blocked`.
 `splates server` starts that agent in the part's tree, sent `[SPLATES TASK
 <part>]` and then your prompt. Its replies never reach you, so have the prompt ask it to list
-its calls in the part's commit message, `splates wait <part>` for it to land,
+those calls in the part's commit message, `splates wait <part>` for it to land,
 and read them in `git log`.
 
-Write each call it lists under your own `## Assumptions` or `## Blocked`,
-as you would your own (see Asking as you go), and redo the part when an
+Treat each call it lists as your own (see Asking as you go): a question
+under your `## Blocked` when it needs the user, and redo the part when an
 answer overturns one. A subagent that only reads needs no part. When the
 user asks for the subagents' work to land on its own, give each one a task of
 its own on trunk instead, and let it follow this skill as written. A

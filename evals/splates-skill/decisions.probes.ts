@@ -1,11 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-	APPROVE,
-	assumptions,
-	MERGE,
-	questions,
-} from "@stringsync/splates-server/plans";
+import { APPROVE, MERGE, questions } from "@stringsync/splates-server/plans";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";
@@ -26,8 +21,6 @@ Exercise one isolated decision; no external services are available.
 
 ## Notes
 
-## Assumptions
-
 ## Blocked
 `;
 const question = `- [ ] 3. (small) Which local retry limit?
@@ -47,8 +40,9 @@ export function decisionState(plan: string): Record<string, Json> {
 				.filter((choice) => choice.chosen)
 				.map((choice) => choice.key),
 		}));
+	const notes = /^## Notes\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(plan);
 	return {
-		"plan/assumptions": summarize(assumptions(plan)),
+		"plan/notes": (notes?.[1] ?? "").trim() !== "",
 		"plan/blocked": summarize(questions(plan)),
 		"plan/blocked-kinds": questions(plan).map(({ number, size, done }) => ({
 			number,
@@ -213,18 +207,7 @@ export const probes: Probe[] = [
 		"decisions-local",
 		"Asking as you go",
 		"Choose between three and five for a local retry-limit constant. This is a new decision, cheap to undo in one commit, with no data or external effects. Record your choice and its alternative; implementation continues in a later turn.",
-		[
-			state("plan/assumptions", [summary("1", "small")]),
-			state("plan/blocked", []),
-			{
-				id: "assumption-report",
-				kind: "reply",
-				type: "assumed",
-				field: ["assumed", "0", "number"],
-				equals: "1",
-			},
-			...noMerge,
-		],
+		[state("plan/notes", true), state("plan/blocked", []), ...noMerge],
 	),
 	probe(
 		"external-blocker",
@@ -232,7 +215,6 @@ export const probes: Probe[] = [
 		"Escalation",
 		"The only remaining step is to send a migration notice to customers. The recipient group has not been decided. Record that outward-facing decision and escalate; no sending service is available.",
 		[
-			state("plan/assumptions", []),
 			state("plan/blocked-kinds", [
 				{ number: "1", size: "large", done: false },
 			]),

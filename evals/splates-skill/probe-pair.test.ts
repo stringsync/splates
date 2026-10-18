@@ -14,7 +14,7 @@ it("pairs distinct snapshots without treating matched requested controls as appl
 		"runtime compatibility and execution admission remain unverified",
 	);
 	expect(pairedReport(run("before"), run("after"))).toContain(
-		"assertions observed 0/8; passing 0/0",
+		"assertions observed 0/7; passing 0/0",
 	);
 	expect(pairedReport(run("before"), run("after"))).toContain(
 		"fixture refusal",

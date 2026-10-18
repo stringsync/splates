@@ -303,8 +303,8 @@ or replace a failed cell. Publish per family/snapshot/repetition: duration,
 measured tokens, reported USD or unknown, reservations separately, diagnostics,
 and observed/total assertions.
 
-For local-choice, the three supported assertions cover the assumption record,
-empty blocker record and final assumption report. Keep `no-canonical-merge`,
+For local-choice, the two supported assertions cover the written note and
+empty blocker record. Keep `no-canonical-merge`,
 `merge-argv-gap` and `$runner/complete/events` uncovered. This cannot prove all
 permission behavior, command order, complete skill activation or continued
 implementation. One repetition cannot estimate reliability or rank families.

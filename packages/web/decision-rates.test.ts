@@ -4,34 +4,32 @@ import { decisionRates } from "./decision-rates";
 import { PERIODS, type Period } from "./stats-report";
 
 describe("decisionRates", () => {
-	it("gives each side's calls per day over 7 days, and per day over each 6-hour bar", () => {
+	it("gives the person's calls per day over 7 days, and per day over each 6-hour bar", () => {
 		const rates = decisionRates(stats, week, [], null);
 
 		expect(rates.unit).toBe("day");
-		expect(rates.byYou).toEqual({ count: 7, rate: 1, before: 2 });
-		expect(rates.byAgents).toEqual({ count: 14, rate: 2, before: 1 });
-		// 7 in a quarter of a day is 28 a day.
-		expect(rates.bars.at(-1)).toMatchObject({ byYou: 28, byAgents: 56 });
+		expect(rates.byYou).toEqual({ count: 21, rate: 3, before: 4 });
+		// 21 in a quarter of a day is 84 a day.
+		expect(rates.bars.at(-1)).toMatchObject({ byYou: 84 });
 		expect(rates.axis.max).toBe(100);
 	});
 
 	it("counts only the sizes shown, on the axis every size needs", () => {
 		const rates = decisionRates(stats, week, [], new Set(["large"]));
 
-		expect(rates.byYou).toEqual({ count: 7, rate: 1, before: 2 });
-		expect(rates.byAgents).toEqual({ count: 0, rate: 0, before: 0 });
-		expect(rates.bars.at(-1)).toMatchObject({ byYou: 28, byAgents: 0 });
+		expect(rates.byYou).toEqual({ count: 7, rate: 1, before: 3 });
+		expect(rates.bars.at(-1)).toMatchObject({ byYou: 28 });
 		expect(rates.axis.max).toBe(100);
 		expect(rates.sizes.map((each) => each.size)).toEqual(["small", "large"]);
 	});
 
-	it("says nothing of how the rates moved when the span before has no call", () => {
+	it("says nothing of how the rate moved when the span before has no call", () => {
 		const rates = decisionRates(
 			{
 				...stats,
 				sizes: stats.sizes.map((each) => ({
 					...each,
-					previous: { decidedByYou: 0, decidedByAgents: 0 },
+					previous: { decidedByYou: 0 },
 				})),
 			},
 			week,
@@ -50,36 +48,28 @@ function bars<T>(last: T, none: T): T[] {
 	return Array.from({ length: 28 }, (_, index) => (index === 27 ? last : none));
 }
 
-/** A week whose last bar holds every call, small ones the agents' alone. */
+/** A week whose last bar holds every call, most of them small. */
 const stats: Stats = {
 	buckets: bars(
-		{ start: "bar 27", ...combine([]), decidedByYou: 7, decidedByAgents: 14 },
+		{ start: "bar 27", ...combine([]), decidedByYou: 21 },
 		{ start: "bar", ...combine([]) },
 	).map((each, index) => ({ ...each, start: `bar ${index}` })),
-	previous: { ...combine([]), decidedByYou: 14, decidedByAgents: 7 },
+	previous: { ...combine([]), decidedByYou: 28 },
 	models: [],
 	devices: [],
 	projects: [],
 	sizes: [
 		{
 			size: "small",
-			decidedByYou: 0,
-			decidedByAgents: 14,
-			buckets: bars(
-				{ decidedByYou: 0, decidedByAgents: 14 },
-				{ decidedByYou: 0, decidedByAgents: 0 },
-			),
-			previous: { decidedByYou: 0, decidedByAgents: 7 },
+			decidedByYou: 14,
+			buckets: bars({ decidedByYou: 14 }, { decidedByYou: 0 }),
+			previous: { decidedByYou: 7 },
 		},
 		{
 			size: "large",
 			decidedByYou: 7,
-			decidedByAgents: 0,
-			buckets: bars(
-				{ decidedByYou: 7, decidedByAgents: 0 },
-				{ decidedByYou: 0, decidedByAgents: 0 },
-			),
-			previous: { decidedByYou: 14, decidedByAgents: 0 },
+			buckets: bars({ decidedByYou: 7 }, { decidedByYou: 0 }),
+			previous: { decidedByYou: 21 },
 		},
 	],
 

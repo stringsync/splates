@@ -38,15 +38,13 @@ describe("StatsPage", () => {
 				{
 					size: "large",
 					decidedByYou: 3,
-					decidedByAgents: 1,
-					buckets: [{ decidedByYou: 3, decidedByAgents: 1 }],
+					buckets: [{ decidedByYou: 3 }],
 					previous: null,
 				},
 				{
 					size: "small",
-					decidedByYou: 0,
-					decidedByAgents: 3,
-					buckets: [{ decidedByYou: 0, decidedByAgents: 3 }],
+					decidedByYou: 1,
+					buckets: [{ decidedByYou: 1 }],
 					previous: null,
 				},
 			],
@@ -72,14 +70,12 @@ describe("StatsPage", () => {
 		).toBeTruthy();
 		expect(page.queryByRole("cell", { name: "Opus 5.5" })).toBeNull();
 		expect(page.getByText(/18 tasks ended in the last 7 days/)).toBeTruthy();
-		// Who made the calls shows without unfolding anything.
+		// The person's calls show without unfolding anything.
 		const decisions = page.getByRole("region", { name: "Decisions" });
-		expect(decisions.textContent).toContain("3 in the last 7 days");
 		expect(decisions.textContent).toContain("4 in the last 7 days");
 		const pressed = (name: string) =>
 			page.getByRole("button", { name }).getAttribute("aria-pressed");
 		expect(pressed("all")).toBe("true");
-		// Picking a size counts it alone.
 		await act(async () =>
 			fireEvent.click(page.getByRole("button", { name: "small" })),
 		);
@@ -88,7 +84,7 @@ describe("StatsPage", () => {
 			"true",
 			"false",
 		]);
-		expect(decisions.textContent).toContain("0 in the last 7 days");
+		expect(decisions.textContent).toContain("1 in the last 7 days");
 		expect(decisions.textContent).not.toContain("4 in the last 7 days");
 		// Another adds to it; taking out the last counts all again.
 		await act(async () =>

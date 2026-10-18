@@ -19,7 +19,7 @@ import {
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Duration } from "webappwiz/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
-import { Board, plansOf } from "./board";
+import { Board } from "./board";
 import {
 	ARCHIVED,
 	AUTO,
@@ -139,7 +139,6 @@ export function Conversations({
 			openTask: setOpenedTask,
 			openTodos: onTodos,
 			tasks: tasks.map((each) => each.task),
-			plans: plansOf(tasks),
 			moveLane: () => {},
 			refusedTodos,
 			refuseTodo,

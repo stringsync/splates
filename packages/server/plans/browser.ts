@@ -1,9 +1,6 @@
 export type { Ending, Report, Review, Stretch, TaskReport } from "./asked";
 export { stretches } from "./asked";
-export type { Assumed } from "./assumed";
-export { assumedIn } from "./assumed";
-export { keptDecisions, madeBy } from "./decided";
-export { shownIn } from "./exhibit";
+export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
 export {
 	answeredThrough,
@@ -16,7 +13,7 @@ export {
 	quietSince,
 	TASK,
 } from "./needs";
-export { assumptions, goalLine, questions } from "./plan";
+export { goalLine, questions } from "./plan";
 export {
 	APPROVE,
 	AUTO,
@@ -43,7 +40,7 @@ export type { Answer } from "./reply";
 export {
 	answerIn,
 	besides,
-	challenges,
+	changes,
 	isEmpty,
 	quotedIn,
 	replyOf,

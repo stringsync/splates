@@ -1,7 +1,6 @@
 import type { Fact, Landed } from "@stringsync/splates-server/stats/browser";
 import {
 	ArrowUpIcon,
-	BotIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
@@ -15,8 +14,7 @@ import { type Decided, mergedFacts } from "./merged-facts";
 
 /**
  * How `task` went once it merged, under its card's report: its time, cost,
- * size and the calls the person and the agent made beside its project's
- * usual, what the gate made of it, and anything that
+ * size and the calls the person made beside its project's usual, what the gate made of it, and anything that
  * went worse than it could have. Nothing while it loads, or for a task whose
  * merge was never recorded here.
  */
@@ -101,20 +99,12 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	);
 }
 
-/** Who made the task's calls, a line each for the person and the agent. */
+/** The calls the person made in the task. */
 function Decisions({ decided }: { decided: Decided }): JSX.Element {
-	const sides = [
-		{ who: "you", count: decided.byYou, Icon: UserIcon },
-		{ who: "agent", count: decided.byAgent, Icon: BotIcon },
-	];
 	return (
-		<span className="flex flex-col">
-			{sides.map(({ who, count, Icon }) => (
-				<span key={who} className="flex items-center gap-1.5">
-					<Icon aria-hidden className="size-3.5 text-muted-foreground" />
-					{count} by {who}
-				</span>
-			))}
+		<span className="flex items-center gap-1.5">
+			<UserIcon aria-hidden className="size-3.5 text-muted-foreground" />
+			{decided.byYou} by you
 		</span>
 	);
 }

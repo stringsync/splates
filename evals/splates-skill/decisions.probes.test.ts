@@ -23,19 +23,15 @@ it("validates independently selectable cases and production directive constants"
 });
 
 it("observes placement, stable numbering, chosen answers and checked state through the production parser", () => {
-	const plan = `## Assumptions
-- [ ] 1. (small) Which limit?
-  - (a) Three (chosen)
-  - (b) Five
+	const plan = `## Notes
+Chose three retries over five.
 ## Blocked
 - [x] 3. (small) Which local retry limit? → b
   - (a) Three (chosen)
   - (b) Five
 `;
 	expect(decisionState(plan)).toEqual({
-		"plan/assumptions": [
-			{ number: "1", done: false, size: "small", reply: null, chosen: ["a"] },
-		],
+		"plan/notes": true,
 		"plan/blocked": [
 			{ number: "3", done: true, size: "small", reply: "b", chosen: ["a"] },
 		],
@@ -195,9 +191,7 @@ it.each(probes.filter((probe) => probe.execution.kind === "agent"))(
 	"checks positive, missing and wrong state for $id",
 	// scry-ignore simple-test-setup: expected state is derived separately for each probe; it is not shared mutable setup.
 	(probe) => {
-		const reply = `- Assumed 1: Three retries
-
-1. (large) Which recipients?
+		const reply = `1. (large) Which recipients?
   - (a) Existing customers (chosen)
   - (b) New customers
 

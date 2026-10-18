@@ -10,11 +10,8 @@ export type {
 	TodoProposal,
 } from "./asked";
 export { stretches } from "./asked";
-export type { Assumed } from "./assumed";
-export { assumedIn } from "./assumed";
-export { decided, keptDecisions, madeBy, whose } from "./decided";
+export { decided, keptDecisions, madeByYou } from "./decided";
 export type { Demo } from "./demo";
-export { shownIn } from "./exhibit";
 export type { Need, Needing } from "./needs";
 export {
 	answeredThrough,
@@ -29,8 +26,6 @@ export {
 } from "./needs";
 export type { Decision, Question } from "./plan";
 export {
-	assumptionCounts,
-	assumptions,
 	checkPlan,
 	decisions,
 	goalLine,
@@ -78,7 +73,7 @@ export type { Answer } from "./reply";
 export {
 	answerIn,
 	besides,
-	challenges,
+	changes,
 	isEmpty,
 	quotedIn,
 	replyOf,

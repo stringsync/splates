@@ -6,7 +6,7 @@ import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Checkouts } from "../merge";
 import { ranWith } from "../models";
-import { assumptionCounts, decisions, Plans, picks } from "../plans";
+import { decisions, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import type { WorkerMachine } from "../workers";
@@ -410,7 +410,6 @@ export class WorktreeService {
 		const escalations = state.escalations ?? [];
 		const endedAt = new Date().toISOString();
 		const asked = picks(ending.plan);
-		const assuming = assumptionCounts(ending.plan);
 		const reviews = escalations.filter((each) => each.review).length;
 		// A dispatched task names its conversation once `splates server` started
 		// it; any other agent from the page has it in its env.
@@ -460,8 +459,6 @@ export class WorktreeService {
 			picksAsked: asked.picked,
 			picksOverturned: asked.overturned,
 			picksAmended: asked.amended,
-			assumptionsMade: assuming.made,
-			assumptionsChallenged: assuming.challenged,
 			decisions: decisions(ending.plan),
 			// Each escalation waits until claimed, or until the task ended
 			// while it still waited.
@@ -497,7 +494,6 @@ export class WorktreeService {
 				gateFailures: state.gateFailures ?? [],
 				retries: state.retries ?? 0,
 				picksOverturned: asked.overturned,
-				assumptionsChallenged: assuming.challenged,
 				log: worked,
 				landedLines:
 					ending.size === null ? null : ending.size.added + ending.size.removed,

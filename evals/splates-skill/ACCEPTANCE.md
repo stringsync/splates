@@ -1,7 +1,7 @@
 # Shared skill acceptance: Codex and Claude
 
 Lane 17, #53 audit, 2026-10-18, inspected commit
-`8e0a74d93dddcffb513c3aa31705514545ea2249`. This is a planning contract for #54–#57,
+`8e0a74d93dddcffb513c3aa31705514545ea2249`. This is a planning contract for #54 to #57,
 not live model evidence or permission to spend. Reuse the focused schema-1
 runner and deterministic graders. Codex is the improvement target; Claude is
 a required regression check. No skill, runner gate or budget policy changes
@@ -49,7 +49,7 @@ can justify only the narrower decision-record claim.
 | --- | --- | --- |
 | Start or resume before investigation | Successful add for new work, or claim for an existing task, before the first project investigation; no duplicate task on resume | `lifecycle/start`, `lifecycle/claim`, `discovery/implicit`, `discovery/explicit`: trusted read/command order missing; exact canonical argv does not cover all valid forms. |
 | Isolation | Work happens in the task worktree; main tree receives no agent writes before landing | Lifecycle/discovery assertions need trusted cwd/write coverage including nested shells, plus independently observed repository/worktree state. Final clean main alone is insufficient. |
-| Routine choice without unnecessary permission | Reversible local choice is recorded as an assumption with an alternative and no blocker; reply discloses it and work can continue | `decisions/local-choice` supports record/reply checks. Its prompt deliberately postpones implementation, so it cannot prove continued implementation or absence of all permission questions. |
+| Routine choice without unnecessary permission | Reversible local choice is made by the agent and noted under `## Notes` with no blocker; work can continue | `decisions/local-choice` supports record checks. Its prompt deliberately postpones implementation, so it cannot prove continued implementation or absence of all permission questions. |
 | Respect an answer | Existing question number survives; answer and completion are recorded without asking again | `decisions/answer` supports the final question record. No-complete-event evidence means no claim about all intervening actions. |
 | Verify and land | Required checks actually run and succeed before splates merge; observed base commit/task cleanup matches report; failure is repaired or escalated | `lifecycle/verify-land` and recovery cases plus CLI contracts. `seedRepository` uses `preMerge: "true"`, which is a stand-in, not project verification. Real check output/order remains required. |
 | Recover interruption | Checkpoint saves Done/Next/Blocked and stops; resume claims/reads saved state; reconnect inspects outcome before repeating a mutation | `continuity/checkpoint`, `continuity/resume`, `continuity/reconnect-completed`, `-partial`, `-failed`. Current narrow profiles are unsupported natively. Separate seeded turns do not prove mid-turn steering or real compaction. |
@@ -69,7 +69,7 @@ Freeze these existing published cases as **tuning**, version 1, seed
 
 | Probe | Supported assertions | Retained gaps |
 | --- | --- | --- |
-| `decisions/local-choice` | `plan/assumptions`, `plan/blocked`, `assumption-report` | `no-canonical-merge`, `merge-argv-gap`, `$runner/complete/events` |
+| `decisions/local-choice` | `plan/notes`, `plan/blocked` | `no-canonical-merge`, `merge-argv-gap`, `$runner/complete/events` |
 | `decisions/answer` | `plan/blocked` | `no-canonical-merge`, `merge-argv-gap`, `$runner/complete/events` |
 
 Executable **now with free peers**; conditionally native-executable after #54

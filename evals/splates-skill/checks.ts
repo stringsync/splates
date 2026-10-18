@@ -145,7 +145,7 @@ const NUMBERED = /^\s*\d+\.\s/;
 /** The most words the sentence under a report's title may have. */
 const MAX_WORDS = 24;
 
-/** The most `- ` lines a report may add after its sentence, beyond assumptions. */
+/** The most `- ` lines a report may add after its sentence. */
 const MAX_BULLETS = 3;
 
 function reportBody(lines: string[]): Verdict {
@@ -167,7 +167,7 @@ function reportBody(lines: string[]): Verdict {
 	);
 	const bullets = rest
 		.slice(0, stop === -1 ? undefined : stop)
-		.filter((line) => /^- /.test(line) && !/^- Assumed/.test(line)).length;
+		.filter((line) => /^- /.test(line)).length;
 	const ok = sentences === 1 && words <= MAX_WORDS && bullets <= MAX_BULLETS;
 	return {
 		ok,

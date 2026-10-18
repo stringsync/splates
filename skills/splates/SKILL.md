@@ -109,10 +109,9 @@ which remembers none of it.
    so the task stays one coherent change; the conversation shows what you
    added (see Proposing a todo). A snag on the way, such as a lost
    connection, a conflict or a retry, is no todo; `splates merge` adds one
-   itself for each test that failed its gate. Write down each call the request
-   does not settle as you make it, as an assumption or a question, and keep
-   going (see Asking as you go), bringing `## Blocked` up to date before
-   each step. Before handing a subagent work that may change code, read
+   itself for each test that failed its gate. When a call the request does not
+   settle needs the user, write it as a question and keep going (see Asking
+   as you go), bringing `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
    [references/parts.md](references/parts.md): it works in a part of your
    task. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
@@ -120,8 +119,7 @@ which remembers none of it.
    heavy-job slots, so agents testing at once queue rather than run it out
    of memory.
 5. **Land.** Once every step under `## Next` and every question under
-   `## Blocked` is checked, the task is ready to merge, whatever stands
-   under `## Assumptions`: `splates todo add`
+   `## Blocked` is checked, the task is ready to merge: `splates todo add`
    any step you will not do, then check it off. Groom again, release each
    todo you only partly did (see Todos), squash to one commit (see
    Committing), and `splates merge`, or ask for a review first (see Merge or
@@ -168,8 +166,7 @@ for Relaying and the lane reports):
    todo show <id>`, `splates lane list`, and `splates list --files` for the
    tasks under way, then place it as for a todo you add (see Lanes in
    [references/todos.md](references/todos.md)): in a lane whose work it
-   builds on, or `--lane new` for one of its own when it starts a chain,
-   saying the name you gave it in your report as `- Assumed: <what>`.
+   builds on, or `--lane new` for one of its own when it starts a chain.
    Todos that touch the same files go in one lane, in the order they should
    land, so their agents never fight over rebases.
 2. Link what blocks each: `splates todo update <id> --blocked-by <id>` when it
@@ -448,60 +445,40 @@ whether it came up.
 
 ## Asking as you go
 
-Do not save questions for escalation. Whenever you make a decision that does
-not clearly follow from what the user asked (a name, a default, behavior they
-never mentioned, one reading of an ambiguous ask), write it down in
-`SPLATES.md` right away, saying what you chose and what else you could have
-done, and carry on. Which kind it is depends on how hard the call is to
-undo and what a wrong guess would cost, not on how sure you are:
+Do not save questions for escalation. Most calls the request does not
+settle (a name, a default, wording, one reading of an ambiguous ask) are
+yours: take the better pick, note it in a line under `## Notes` when whoever
+resumes the task would need it, and carry on, saying nothing of it to the
+user. Ask a question, under `## Blocked`, only when undoing the call takes
+more than reverting a commit (a migration, data written, a message sent,
+anything outside the repo), when a wrong guess would cost much rework even
+though it can be undone (a data shape many files will build on), or when it
+goes against something the user said before. The task cannot merge until it
+is answered, though the user can answer in chat while you work.
 
-- **An assumption**, under `## Assumptions`, when reverting or editing one
-  commit would undo the call, in this repo's code alone, touching no data,
-  users or outside systems. A close call is one too: take the better pick and
-  write the runner-up as its other choice. Nothing waits on it: `splates merge`
-  and `splates escalate --review` pass over it, and the user challenges it only
-  if they disagree.
-- **A question**, under `## Blocked`, when undoing the call takes more than
-  that (a migration, data written, a message sent, anything outside the
-  repo), when a wrong guess would cost much rework even though it can be
-  undone (a data shape many files will build on), or when it goes against
-  something the user said before. The task cannot merge until it is
-  answered, though the user can answer in chat while you work.
-
-Size each call by how far it reaches, never by how long it takes, and lead
-its line with the size in parentheses, after its number:
+Size each question by how far it reaches, never by how long it takes, and
+lead its line with the size in parentheses, after its number:
 
 - **small**: stays local and is cheap to redo: a name, a default, wording,
   one component.
 - **medium**: shapes how a feature behaves or looks, or spans systems.
 - **large**: hard to undo or outward-facing: a data format, an API, a
-  migration, the architecture, what other projects or people see. A large
-  call is always a question, never an assumption.
+  migration, the architecture, what other projects or people see.
 
-The Stats page counts, at each size, the calls the user made against those
-agents made without them, so size every call, the ones a proposal asks
-included, wherever you write it.
+The Stats page counts the questions at each size, so size every one, those
+a proposal asks included, wherever you write it.
 
-Build so calls stay cheap to undo, since that is what lets them go ahead as
-assumptions. Keep each choice in one place (a constant, a config value, a
+Build so calls stay cheap to undo, since that is what lets you make them
+without asking. Keep each choice in one place (a constant, a config value, a
 single component or module), and keep what uses it loosely coupled to it:
 callers go through a narrow surface (a function, a type, a module's exports)
 and never reach into how it works, so swapping in another implementation
 changes that one place and none of its callers. Before asking a question
 because a wrong guess would cost much rework, look for such a seam: when one
-would contain the call, build it and assume instead. A seam is a boundary,
-not ceremony: no interface or abstract base for a single implementation, and
-no layer added only in case. When an answer or a challenge overturns a
+would contain the call, build it and decide yourself instead. A seam is a
+boundary, not ceremony: no interface or abstract base for a single
+implementation, and no layer added only in case. When an answer overturns a
 choice, redo that part.
-
-Say each assumption in the conversation too, in the reply that ends the turn
-you wrote it in, so the user sees the call while it is cheap to undo: a
-`- Assumed <number>: <what you chose>` line each, its number the one it has
-in `SPLATES.md`, beyond any cap on `- ` lines, after the others and before any
-todo, demo or question, those an exhibit shows under it (see below). The `splates server` page shows each as that item, with
-its choices, for the user to challenge from the reply. A review leaves
-them out, since its Ready to merge card lists them, and a proposal lists them
-as Proposing says.
 
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
@@ -509,10 +486,8 @@ Blocked current), and redo at once what it overturns, before building more on
 the choice. While a question is open, do the work it touches last where your
 plan allows, so an answer that overturns it costs little.
 
-Number assumptions and questions in one sequence, 1, 2, … in the order you
-write them; numbers never change, and new ones continue from the highest in
-either section. An assumption is written the way a question is, its
-`(chosen)` choice the one you took. A question's line is its subject, short
+Number questions 1, 2, … in the order you write them; numbers never change,
+and new ones continue from the highest. A question's line is its subject, short
 enough to scan and ending at its `?`, with nothing after it; everything else,
 the why included, goes in markdown lines indented under it, code blocks
 included. When checking your own work, ask for what is wrong rather than
@@ -526,7 +501,7 @@ page puts it first and picks it for the user, who answers by changing it. When t
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
 
-When the pick is a close call, or the user may well want to challenge it,
+When the pick is a close call, or the user may well want another,
 give a choice a `Why:` line indented under it: one sentence on why you would
 take it, or why not. Any choice can have one, the `(chosen)` one most often;
 leave it off where the choice says it all. The `splates server` page hides every
@@ -550,15 +525,6 @@ crowd the choices.
   - a. Profile
   - b. Billing
   - c. Notifications
-```
-
-```markdown
-## Assumptions
-
-- [ ] 5. (small) What should the retry limit be?
-  Kept in `MAX_RETRIES` in `src/upload.ts`.
-  - (a) Three tries, a second apart (chosen)
-  - (b) Five tries, backing off
 ```
 
 Show what a question is about whenever it is something to see: a screenshot,
@@ -587,45 +553,6 @@ question they are for.
     ![panel](/abs/path/panel.png)
 ```
 
-An assumption the user can see goes unread as a line of words, so show it:
-whenever a call is about something visible (a layout, a wording on screen)
-or a shape (a data flow, a state machine, a type), put an exhibit in its
-body, under its line: a screenshot or recording, a diagram as an attached
-image (the page draws no diagram source), or a short code block or diff.
-Words alone are no exhibit; they stay its body. Leave a call with nothing to
-show (a name, a limit) a line. An exhibit captions one or two calls, never
-more: two shown by the same screenshot or snippet each carry it, line for
-line, and the `splates server` page shows it once, open, with them under it, among
-the rest by number.
-
-```markdown
-## Assumptions
-
-- [ ] 7. When should the nav collapse into a menu?
-  ![header at 390px](/abs/path/header.png)
-  - (a) Below 480px (chosen)
-  - (b) Below 640px
-- [ ] 8. Where should the search box go once it collapses?
-  ![header at 390px](/abs/path/header.png)
-  - (a) Into the menu (chosen)
-  - (b) Beside the menu button
-```
-
-In a reply, put an exhibit among the `- Assumed` lines as a
-`### 🖼️ <what it shows>` heading, the exhibit, then, with no blank line
-between them, the `- Assumed` lines it captions:
-
-```markdown
-- Assumed 9: Named the breakpoint `NAV_COLLAPSE`
-
-### 🖼️ The header at 390px
-
-![header at 390px](/abs/path/header.png)
-
-- Assumed 7: The nav collapses into a menu below 480px
-- Assumed 8: The search box moves into the menu
-```
-
 ## Keeping Blocked current
 
 `## Blocked` is where every question the user sees comes from, so it must say
@@ -642,10 +569,6 @@ replies, after `splates claim` returns, and between steps), bring it up to date:
 - retake each screenshot an open question shows once your work has changed
   what it shows, attach it in place of the old one (`splates attach new.png
   --remove <old path>`), and point the question at the new one;
-- move each assumption the user challenges to the end of `## Blocked`,
-  keeping its number, and treat it as a question from then on: write what
-  the challenge says after `→`, starting it with `challenged:` so the Stats
-  page can count it, and check it off once you have acted on it;
 - add each question you now need.
 
 The user answers in chat. From the `splates server` page, a reply quotes each
@@ -672,9 +595,6 @@ of an agent that handed its task on with `--relay` (see
 A message `splates tell` says in your conversation for the lane's
 orchestrator that handed you your task, to carry on or to change course,
 you take as you would the user's.
-
-A challenge comes the same way, naming an assumption by its number or its
-line, and you act on it at your next step, as you would an answer.
 
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
@@ -712,8 +632,7 @@ since it reads your `SPLATES.md`, not your replies:
 - for a review, the review report itself, its sentence, demo and `Checks:`
   line, under `## Notes` as a `### Review` of its own, before `splates
   escalate --review`;
-- an answer it gives itself, saying so, moves its question to the end of
-  `## Assumptions`, numbered as it was, its `(chosen)` the answer.
+- an answer it gives itself, saying so, goes after `→` as any answer does.
 
 `splates escalate`, `splates merge` and `splates remove` tell it you stopped.
 
@@ -762,8 +681,7 @@ otherwise ask the user.
 When the user asks what you think, or a request leaves open a design that
 would be costly to build on a wrong guess, propose before you build, so the
 user can approve it or challenge what it rests on. A change one commit's
-revert would undo needs no proposal: make it, writing its calls as
-assumptions.
+revert would undo needs no proposal: make it.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, lowercase after its first word; a blank
@@ -772,28 +690,26 @@ line; one plain sentence, under 25 words, on what you recommend; then a
 a sentence, then three `- ` lines, one fact each, with no paragraphs. It
 ends with each call it rests on that the user has not settled, as a list of
 questions numbered from 1: a call you have a clear pick for marks that
-choice `(chosen)`, as an assumption does, and one you have none for marks
-none, as a question.
+choice `(chosen)`, and one you have none for marks none.
 
 ```markdown
 ## 💡 Proposed a card for proposals
 
-Fold proposals into the questions card, each assumption a question already answered.
+Fold proposals into the questions card, each call a question with a pick.
 
-#### An assumption is a question with an answer.
+#### A proposal's calls are questions with a pick.
 
 - The questions card already tags a `(chosen)` choice.
 - It already heads its questions with an escalation's report.
-- One card then asks everything, answered or not.
+- One card then asks everything, picked or not.
 
-1. (medium) Where should a proposal's assumptions come from?
+1. (medium) Where should a proposal's calls come from?
    - (a) The reply, so a proposal works outside a task too (chosen)
    - (b) `SPLATES.md`, so every proposal needs a task
 2. (small) What should its button say?
 ```
 
-In a task, write each call in `SPLATES.md` too, the chosen ones under
-`## Assumptions` and the rest under `## Blocked`, then `splates escalate` as
+In a task, write each call under `## Blocked` too, then `splates escalate` as
 Escalation says and end your turn, so the task shows as waiting on the user;
 the page draws the proposal as the escalation's card, so ask nothing else.
 
@@ -805,7 +721,7 @@ for, quoted as any answer is (see Keeping Blocked current). That, or a reply
 of "approve", means go ahead as proposed, taking in each answer, every call
 not quoted as you chose it, after `splates add` when no task is under way. A
 reply without it, as the card sends once the user picks another choice,
-challenges a call or writes anything else, answers what it quotes: take that
+changes a call or writes anything else, answers what it quotes: take that
 in and propose again.
 
 ## Demos
@@ -895,10 +811,10 @@ conversation's, or the project's when even eviction would not make room,
 `add` stops on `too_large`, keeping nothing of that file: trim a recording
 rather than ask for more room.
 
-Most files you show are not artifacts: a screenshot that shows a question or
-an assumption, an exhibit in a reply or a report's card, a demo step's image.
-Each serves the moment it is shown in, so it stays inline: `splates attach` it
-and name it as `![what](/abs/path.png)`, as Asking as you go and Demos say.
+Most files you show are not artifacts: a screenshot that shows a question, an
+image in a report's card, a demo step's image. Each serves the moment it is
+shown in, so it stays inline: `splates attach` it and name it as
+`![what](/abs/path.png)`, as Asking as you go and Demos say.
 Make a file an artifact only when the user would look for it on its own,
 apart from the reply it came in.
 
@@ -920,8 +836,7 @@ caught out without: a restart to pick the change up, a file resolved in a
 conflict after their review, a todo gone stale. Leave out what the page, the
 diff, or `SPLATES.md` already says: that tests pass (but for a review's
 checks), that nothing is merged yet, the files touched, how you did it, and
-calls you made, the questions asked as questions and the assumptions said as
-in Asking as you go.
+the calls you made yourself.
 
 Count the sentence's words before you send it, and at 25 or more, cut it
 rather than split it in two. Not this body, which lists the parts, says the
@@ -1055,7 +970,7 @@ when one failed for a reason outside the task, a `Failed:` line naming each
 that failed the same way, then that last line exactly, so every review reads the same. Anything more the user may
 want before merging, such as how it works, goes in sections between the
 checks and the last line: the `splates server` page folds it away as its details,
-below the assumptions it lists from `SPLATES.md` and the checks.
+below the checks.
 
 Number questions the same way wherever you ask them: a mid-task reply, a
 merge report, or a message outside any task. The user answers by number, so
@@ -1089,10 +1004,6 @@ One or two lines on what done means.
 
 Decisions, dead ends, and how to verify.
 
-## Assumptions
-
-- [ ] calls you made without asking, numbered with `## Blocked`
-
 ## Blocked
 
 - [ ] questions the user must answer before the task merges
@@ -1115,10 +1026,6 @@ the base gains, not the path you took:
 ```sh
 git reset --soft "$(git merge-base <base> HEAD)" && git commit -m "<message>"
 ```
-
-End the message with the assumptions that went unchallenged, one `- ` line
-each saying what you chose, under an `Assumed:` line, so the history records
-the calls nobody looked at.
 
 `<base>` is what `splates show <task>` prints: trunk unless the task was created
 with `--base`.

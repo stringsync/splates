@@ -138,7 +138,7 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 					5,
 				),
 			],
-			// Its chosen call stands under Assumptions, so Blocked holds one.
+			// The task's Blocked holds only the call it chose nothing for.
 			[
 				{
 					...escalated(3),

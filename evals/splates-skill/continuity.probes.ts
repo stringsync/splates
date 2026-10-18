@@ -30,8 +30,6 @@ Write result.txt with exactly ready followed by a newline.
 
 Paused before writing result.txt. Continue that step only, then stop before verification or landing.
 
-## Assumptions
-
 ## Blocked
 `;
 

@@ -1,4 +1,3 @@
-import { type Assumed, assumedAt, isAssumed } from "./assumed";
 import { type Demo, demoAt, isDemoTitle } from "./demo";
 import { offers, type Question, settled, sized } from "./plan";
 
@@ -66,14 +65,6 @@ export function stretches(text: string): Stretch[] {
 			i = demo.end - 1;
 			continue;
 		}
-		const assumed = assumedAt(lines, i);
-		if (assumed !== null) {
-			found.push(...prose(lines.slice(from, i)));
-			found.push({ type: "assumed", assumed: assumed.assumed });
-			from = assumed.end;
-			i = assumed.end - 1;
-			continue;
-		}
 		const kept = keptAt(lines, i);
 		if (kept !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -103,8 +94,7 @@ export function stretches(text: string): Stretch[] {
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it
- * started lanes, a todo it proposes, a demo for the person to try, the calls
- * it made without asking, or its word that it requested a cred.
+ * started lanes, a todo it proposes, or a demo for the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -114,8 +104,7 @@ export type Stretch =
 	| { type: "report"; report: Report }
 	| { type: "start"; start: LanesStart }
 	| { type: "todo"; todo: TodoProposal }
-	| { type: "demo"; demo: Demo }
-	| { type: "assumed"; assumed: Assumed[] };
+	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -492,9 +481,8 @@ function paragraphEnd(lines: string[], start: number, end: number): number {
 }
 
 /**
- * The first line from `start` that begins something else: a heading, a
- * `- Assumed <number>:` line or a list of questions, outside code blocks;
- * else the end.
+ * The first line from `start` that begins something else: a heading or a
+ * list of questions, outside code blocks; else the end.
  */
 function endAt(lines: string[], start: number): number {
 	let fenced = false;
@@ -507,7 +495,6 @@ function endAt(lines: string[], start: number): number {
 		if (
 			!fenced &&
 			(HEADING.test(line) ||
-				isAssumed(line) ||
 				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
 		) {
 			return i;

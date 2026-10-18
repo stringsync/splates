@@ -4,7 +4,6 @@ import {
 	type ConversationsView,
 	cleanup,
 	conversation,
-	details,
 	fireEvent,
 	message,
 	Testing,
@@ -98,46 +97,16 @@ describe("App's review panel and demo cards", () => {
 		]);
 	});
 
-	const assumed = {
-		tasks: [
-			details({
-				task: "header",
-				plan: [
-					"# header",
-					"",
-					"## Assumptions",
-					"",
-					"- [ ] 1. Where should the header wrap?",
-					"  - (a) Below 400px (chosen)",
-					"  - (b) Below 600px",
-					"- [ ] 2. What should the menu be called?",
-					"  - (a) Menu (chosen)",
-					"  - (b) More",
-				].join("\n"),
-			}),
-		],
-	};
-
-	it("keeps a challenge written as a draft, open again on return", async () => {
-		localStorage.setItem(
-			"splates.draft.c1:review:0",
-			"> **What should the menu be called?**\n\n- (b) More",
+	it("keeps changes written as a draft, there again on return", async () => {
+		localStorage.setItem("splates.draft.c1:review:0", "merge the header first");
+		const view = await testing.openConversations([reviewing]);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
 		);
-		const view = await testing.openConversations([reviewing], "c1", assumed);
-		const list = await waitFor(() =>
-			view.getByRole("region", { name: "Assumptions" }),
-		);
-		const challenge = within(list).getByRole("listitem", {
-			name: "question 2",
-		});
 		expect(
-			within(challenge)
-				.getByRole("button", { name: /More/ })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
-		expect(button(view.getByRole("region", { name: "review header" }))).toBe(
-			"Send",
-		);
+			textIn(within(panel).getByRole("textbox", { name: "Changes to header" })),
+		).toBe("merge the header first");
+		expect(button(panel)).toBe("Send");
 	});
 
 	it("shows an approved review as a line of splates's, in place of the Merge it sent", async () => {
@@ -242,6 +211,7 @@ describe("App's review panel and demo cards", () => {
 		expect(card.textContent).toContain("1 of 2 tried");
 	});
 
+	// scry-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
 	it("shows an escalation's demo in its questions' card, above them", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -305,34 +275,31 @@ describe("App's review panel and demo cards", () => {
 		expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
 	});
 
-	it("orders a review by what deciding takes: summary, demo, assumptions, checks, then the details folded", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					title: "Header",
-					messages: [
-						message(
-							"agent",
-							[
-								"## 🔍 Ready to merge header onto main",
-								"",
-								"The header wraps on phones.",
-								"",
-								...demo,
-								"",
-								"Checks: `bun run typecheck`, `bun test`",
-								"",
-								"It breaks at 400px, kept in one constant.",
-								"",
-								'Reply "merge", or say what to change.',
-							].join("\n"),
-						),
-					],
-				}),
-			],
-			"c1",
-			assumed,
-		);
+	// scry-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
+	it("orders a review by what deciding takes: summary, demo, checks, then the details folded", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Header",
+				messages: [
+					message(
+						"agent",
+						[
+							"## 🔍 Ready to merge header onto main",
+							"",
+							"The header wraps on phones.",
+							"",
+							...demo,
+							"",
+							"Checks: `bun run typecheck`, `bun test`",
+							"",
+							"It breaks at 400px, kept in one constant.",
+							"",
+							'Reply "merge", or say what to change.',
+						].join("\n"),
+					),
+				],
+			}),
+		]);
 
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
@@ -340,12 +307,7 @@ describe("App's review panel and demo cards", () => {
 		const regions = within(panel)
 			.getAllByRole("region")
 			.map((each) => each.getAttribute("aria-label"));
-		expect(regions).toEqual([
-			"demo dragging a card",
-			"Assumptions",
-			"Checks",
-			"Details",
-		]);
+		expect(regions).toEqual(["demo dragging a card", "Checks", "Details"]);
 		const text = panel.textContent ?? "";
 		expect(text.indexOf("The header wraps on phones.")).toBeLessThan(
 			text.indexOf("Drag it to another lane."),

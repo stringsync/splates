@@ -90,27 +90,8 @@ describe("baselines", () => {
 			measured(
 				merged(3, {
 					decisions: [
-						{
-							number: "1",
-							text: "Asked",
-							size: "small",
-							how: "asked",
-							ended: null,
-						},
-						{
-							number: "2",
-							text: "Challenged",
-							size: "large",
-							how: "assumed",
-							ended: "challenged",
-						},
-						{
-							number: "3",
-							text: "Assumed",
-							size: "small",
-							how: "assumed",
-							ended: "kept",
-						},
+						{ number: "1", text: "Asked", size: "small", ended: null },
+						{ number: "2", text: "Picked", size: "large", ended: "kept" },
 					],
 					usage: { input: 1, cached: 0, output: 1, cost: null },
 				}),

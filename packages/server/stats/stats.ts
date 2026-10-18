@@ -1,4 +1,4 @@
-import { decided, madeBy, SIZES, whose } from "../plans";
+import { decided, madeByYou, SIZES } from "../plans";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
@@ -32,7 +32,7 @@ export interface Stats {
 	/** By the main tree each task in the period was in, the most first. */
 	projects: ({ project: string } & Tally)[];
 	/**
-	 * Who made the calls tasks in the period made, by size: `SIZES` in order, then any
+	 * How many calls the person made in the period, by size: `SIZES` in order, then any
 	 * other word an older scheme used, then null for those with none, which
 	 * holds every call from before sizes were kept.
 	 */
@@ -64,14 +64,8 @@ export interface Tally {
 	picksOverturned: number;
 	/** Of `picksAsked`, those answered with the agent's choice and words added. */
 	picksAmended: number;
-	/** Calls made without asking. */
-	assumptionsMade: number;
-	/** Of `assumptionsMade`, those challenged. */
-	assumptionsChallenged: number;
-	/** Calls the person made: questions put to them, assumptions challenged. */
+	/** Calls the person made: questions put to them. */
 	decidedByYou: number;
-	/** Calls agents made that stood without the person: assumptions left alone. */
-	decidedByAgents: number;
 	/** Tasks whose time waiting on a person was kept; older ones were not. */
 	timed: number;
 	/** Of the `timed` tasks, how long they waited on a person, in milliseconds. */
@@ -109,7 +103,7 @@ export interface Tally {
 	removedFor: Record<RemoveReason | "unsaid", number>;
 }
 
-/** Who made the calls of one size: the person, or agents without asking. */
+/** How many calls of one size the person made. */
 export interface SizeTally extends Decided {
 	size: string | null;
 	/** The same, bar by bar, in the order of `Stats.buckets`. */
@@ -118,10 +112,9 @@ export interface SizeTally extends Decided {
 	previous: Decided | null;
 }
 
-/** How many calls the person made, and how many agents made without them. */
+/** How many calls the person made. */
 export interface Decided {
 	decidedByYou: number;
-	decidedByAgents: number;
 }
 
 /** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
@@ -290,13 +283,7 @@ function tally(outcomes: Outcome[]): Tally {
 		picksAsked: sum(outcomes, (each) => each.picksAsked ?? 0),
 		picksOverturned: sum(outcomes, (each) => each.picksOverturned ?? 0),
 		picksAmended: sum(outcomes, (each) => each.picksAmended ?? 0),
-		assumptionsMade: sum(outcomes, (each) => each.assumptionsMade ?? 0),
-		assumptionsChallenged: sum(
-			outcomes,
-			(each) => each.assumptionsChallenged ?? 0,
-		),
-		decidedByYou: decidedBy(outcomes, "decidedByYou"),
-		decidedByAgents: decidedBy(outcomes, "decidedByAgents"),
+		decidedByYou: sum(outcomes, madeByYou),
 		timed: timed.length,
 		waitedMs: sum(timed, (each) => each.waitedMs ?? 0),
 		spentMs: sum(
@@ -328,7 +315,7 @@ function tally(outcomes: Outcome[]): Tally {
 }
 
 /**
- * Who made the calls in `outcomes`, by size, in the order `Stats.sizes`
+ * How many calls the person made in `outcomes`, by size, in the order `Stats.sizes`
  * gives, each over the period and in each of its `length` bars, `barOf`
  * saying which bar an outcome ended in, and over the span before it, from
  * `earlier`: a size from either gets a row.
@@ -339,7 +326,7 @@ function sizeTallies(
 	length: number,
 	barOf: (outcome: Outcome) => number,
 ): SizeTally[] {
-	const none = (): Decided => ({ decidedByYou: 0, decidedByAgents: 0 });
+	const none = (): Decided => ({ decidedByYou: 0 });
 	const bySize = new Map<string | null, SizeTally>();
 	const rowOf = (size: string | null): SizeTally => {
 		const row = bySize.get(size) ?? {
@@ -355,10 +342,10 @@ function sizeTallies(
 		const bar = barOf(outcome);
 		for (const [decision, count] of decided(outcome)) {
 			const row = rowOf(decision.size);
-			row[whose(decision)] += count;
+			row.decidedByYou += count;
 			const inBar = row.buckets[bar];
 			if (inBar !== undefined) {
-				inBar[whose(decision)] += count;
+				inBar.decidedByYou += count;
 			}
 		}
 	}
@@ -366,7 +353,7 @@ function sizeTallies(
 		for (const [decision, count] of decided(outcome)) {
 			const { previous } = rowOf(decision.size);
 			if (previous !== null) {
-				previous[whose(decision)] += count;
+				previous.decidedByYou += count;
 			}
 		}
 	}
@@ -379,11 +366,6 @@ function sizeTallies(
 			rank(one.size) - rank(other.size) ||
 			(one.size ?? "").localeCompare(other.size ?? ""),
 	);
-}
-
-/** How many calls in `outcomes` `who` made. */
-function decidedBy(outcomes: Outcome[], who: ReturnType<typeof whose>): number {
-	return sum(outcomes, (outcome) => madeBy(outcome, who));
 }
 
 /** Tallies added up, as for the bars of a period. */
@@ -414,10 +396,7 @@ const SUMMED = [
 	"picksAsked",
 	"picksOverturned",
 	"picksAmended",
-	"assumptionsMade",
-	"assumptionsChallenged",
 	"decidedByYou",
-	"decidedByAgents",
 	"timed",
 	"waitedMs",
 	"spentMs",

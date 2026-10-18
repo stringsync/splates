@@ -1,16 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
-import {
-	assumptionCounts,
-	assumptions,
-	checkPlan,
-	goalLine,
-	Plans,
-	questions,
-	ready,
-	unfinished,
-	whatIsLeft,
-} from "./plan";
+import { checkPlan } from "./plan";
 
 const GOOD = `# alpha
 
@@ -102,130 +91,18 @@ describe("checkPlan", () => {
 		const fenced = `${GOOD}\n\`\`\`bash\n# alpha notes\n## Goal\n\`\`\`\n`;
 		expect(checkPlan(fenced, { task: "alpha" })).toEqual([]);
 	});
-});
 
-describe("unfinished", () => {
-	it("finds the unchecked questions and steps a merge waits on", () => {
-		const plan = `${GOOD}\n## Blocked\n- [x] 1. Keep it? → yes\n- [ ] 2. Rename it?\n- [ ] 3. Drop it? → yes\n`;
-		const left = unfinished(plan);
-		expect(left).toEqual({ questions: ["2", "3"], steps: ["wire it up"] });
-		expect(ready(left)).toBe(false);
-		expect(whatIsLeft(left)).toBe(
-			"questions 2, 3 unchecked under ## Blocked and 1 step unchecked under ## Next",
-		);
-	});
-
-	it("leaves nothing once every box is checked, or with no plan at all", () => {
-		const finished = GOOD.replace("- [ ] wire it up", "- [x] wire it up");
-		expect(ready(unfinished(finished))).toBe(true);
-		expect(ready(unfinished(""))).toBe(true);
-	});
-
-	it("ignores an unchecked box outside Next and Blocked", () => {
-		const noted = `${GOOD.replace("- [ ] wire it up", "")}\n- [ ] an aside\n`;
-		expect(unfinished(noted).steps).toEqual([]);
-	});
-});
-
-const ASSUMED = `${GOOD.replace("- [ ] wire it up", "- [x] wire it up")}
-## Assumptions
-
-- [ ] 1. What should the flag be called?
-  - (a) \`--dry-run\` (chosen)
-  - (b) \`--preview\`
-
+	it("catches a number used twice under Blocked", () => {
+		const copied = `${GOOD}
 ## Blocked
 
-- [x] 2. Should it run by default? → b
+- [x] 1. Should it run by default? → b
   - (a) Yes
   - (b) No (chosen)
+- [ ] 1. What should the flag be called?
 `;
-
-describe("assumptions", () => {
-	it("reads the calls made without asking, apart from the questions", () => {
-		expect(assumptions(ASSUMED)).toMatchObject([
-			{
-				number: "1",
-				text: "What should the flag be called?",
-				choices: [
-					{ key: "a", text: "`--dry-run`", chosen: true },
-					{ key: "b", text: "`--preview`", chosen: false },
-				],
-			},
-		]);
-		expect(questions(ASSUMED).map((asked) => asked.number)).toEqual(["2"]);
-	});
-
-	it("leaves a task ready to merge with its assumptions unchallenged", () => {
-		expect(ready(unfinished(ASSUMED))).toBe(true);
-		expect(checkPlan(ASSUMED, { task: "alpha" })).toEqual([]);
-	});
-
-	it("wants each one to mark the choice it took", () => {
-		const unmarked = ASSUMED.replace(
-			" (chosen)\n  - (b) `--preview`",
-			"\n  - (b) `--preview`",
+		expect(checkPlan(copied, { task: "alpha" })).toContain(
+			"1 numbered twice under ## Blocked: new questions continue from the highest",
 		);
-		expect(checkPlan(unmarked, { task: "alpha" })).toEqual([
-			"## Assumptions item 1 marks no choice `(chosen)`: offer what else it could have been, and mark the one taken",
-		]);
-	});
-
-	it("catches a number used in both sections", () => {
-		const copied = ASSUMED.replace("- [x] 2.", "- [x] 1.");
-		expect(checkPlan(copied, { task: "alpha" })).toEqual([
-			"1 numbered twice across ## Assumptions and ## Blocked: a challenged assumption moves to ## Blocked rather than being copied, and new items continue from the highest",
-		]);
-	});
-});
-
-describe("assumptionCounts", () => {
-	it("counts those left under Assumptions and those challenged out to Blocked", () => {
-		const plan = [
-			"## Assumptions",
-			"",
-			"- [ ] 1. Retry limit?",
-			"  - (a) Three (chosen)",
-			"  - (b) Five",
-			"",
-			"## Blocked",
-			"",
-			"- [x] 2. Keep the endpoint? → a",
-			"  - (a) Keep (chosen)",
-			"- [x] 3. Name it? → challenged: call it mixer",
-			"  - (a) Mixer (chosen)",
-		].join("\n");
-		expect(assumptionCounts(plan)).toEqual({ made: 2, challenged: 1 });
-	});
-});
-
-describe("goalLine", () => {
-	it("takes the first line under ## Goal", () => {
-		expect(goalLine(GOOD)).toBe("Teach show to check the plan.");
-		expect(goalLine("# alpha\n\n## Goal\n\n\n  dark mode\ncharts\n")).toBe(
-			"dark mode",
-		);
-	});
-
-	it("is null for a plan that has no Goal yet", () => {
-		expect(goalLine("# alpha\n")).toBeNull();
-		expect(goalLine("# alpha\n\n## Goal\n\n## Next\n")).toBeNull();
-	});
-});
-
-describe("Plans.read", () => {
-	it("reads a worktree's ARBOR.md when it has no SPLATES.md", async () => {
-		const fs = new FakeFs();
-		await fs.write("/tree/ARBOR.md", "# old");
-
-		expect(await new Plans(fs).read("/tree")).toBe("# old");
-	});
-
-	it("reads SPLATES.md over ARBOR.md", async () => {
-		const fs = new FakeFs();
-		await fs.write("/tree/ARBOR.md", "# old");
-		await fs.write("/tree/SPLATES.md", "# new");
-
-		expect(await new Plans(fs).read("/tree")).toBe("# new");
 	});
 });

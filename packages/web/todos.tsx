@@ -14,7 +14,7 @@ import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Dialog, DialogContent } from "#web/components/ui/dialog.tsx";
 import { AddLane } from "./add-lane";
-import { Board as BoardContext, plansOf } from "./board";
+import { Board as BoardContext } from "./board";
 import { BoardDrag } from "./board-drag";
 import { useStartLanes } from "./dispatching";
 import type { Drafts } from "./drafts";
@@ -100,7 +100,6 @@ export function Todos({
 			openTask: (name: string) => view.openTask(snapshot, name),
 			openTodos: (ids: readonly number[]) => view.filter(ids),
 			tasks: snapshot.tasks.map((each) => each.task),
-			plans: plansOf(snapshot.tasks),
 			moveLane: (id: number, position: number) =>
 				void board
 					.moveLane(snapshot.lanes, id, position)

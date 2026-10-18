@@ -40,7 +40,7 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
-	it("says how many calls the person and the agent made", async () => {
+	it("says how many calls the person made", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -49,22 +49,13 @@ describe("App's merged card actions", () => {
 						number: "1",
 						text: "Keep the old endpoint?",
 						size: "large",
-						how: "asked",
 						ended: "kept",
 					},
 					{
 						number: "2",
 						text: "Retry limit",
 						size: "small",
-						how: "assumed",
-						ended: "kept",
-					},
-					{
-						number: "3",
-						text: "Button label",
-						size: "small",
-						how: "assumed",
-						ended: "kept",
+						ended: "overturned",
 					},
 				],
 			},
@@ -79,7 +70,7 @@ describe("App's merged card actions", () => {
 			view.getByRole("region", { name: "how it went" }),
 		);
 
-		expect(within(went).getByText("1 by you")).not.toBeNull();
-		expect(within(went).getByText("2 by agent")).not.toBeNull();
+		expect(within(went).getByText("2 by you")).not.toBeNull();
+		expect(within(went).queryByText(/by agent/)).toBeNull();
 	});
 });

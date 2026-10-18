@@ -17,11 +17,8 @@ describe("mergedFacts", () => {
 				},
 				size: { files: 3, added: 120, removed: 30 },
 				decisions: [
-					decision("1", "large", "asked", "overturned"),
-					decision("2", "small", "assumed", "kept"),
-					decision("3", null, "assumed", "kept"),
-					decision("4", "small", "assumed", "challenged"),
-					decision("5", "medium", "assumed", "kept"),
+					decision("1", "large", "overturned"),
+					decision("2", null, "kept"),
 				],
 			}),
 			baseline: {
@@ -59,7 +56,7 @@ describe("mergedFacts", () => {
 			},
 			{
 				label: "Decisions",
-				value: { byYou: 2, byAgent: 3 },
+				value: { byYou: 2 },
 				detail: null,
 				high: false,
 			},
@@ -126,7 +123,7 @@ describe("mergedFacts", () => {
 
 	it("says nothing of usage never kept, nor calls an older outcome never kept", () => {
 		const facts = mergedFacts({
-			outcome: merged({ assumptionsMade: 0 }),
+			outcome: merged({ questionsAsked: 0 }),
 			baseline: null,
 		});
 		const older = mergedFacts({ outcome: merged({}), baseline: null });
@@ -135,7 +132,7 @@ describe("mergedFacts", () => {
 			"Time",
 			"Decisions",
 		]);
-		expect(facts.stats[1]?.value).toEqual({ byYou: 0, byAgent: 0 });
+		expect(facts.stats[1]?.value).toEqual({ byYou: 0 });
 		expect(older.stats.map((stat) => stat.label)).toEqual(["Time"]);
 	});
 });
@@ -145,10 +142,9 @@ const MINUTE = 60_000;
 function decision(
 	number: string,
 	size: Decision["size"],
-	how: Decision["how"],
 	ended: Decision["ended"],
 ): Decision {
-	return { number, text: `Call ${number}`, size, how, ended };
+	return { number, text: `Call ${number}`, size, ended };
 }
 
 /** A merged task 40 minutes long; a test overrides what it is about. */

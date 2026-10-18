@@ -58,19 +58,19 @@ export function isEmpty(answer: Answer): boolean {
 	return answer.picks.length === 0 && answer.words.trim() === "";
 }
 
-/** The answer that leaves `assumed` as the agent took it: its `(chosen)` choices. */
-export function takenOf(assumed: Question): Answer {
+/** The answer that takes `asked` as the agent recommends it: its `(chosen)` choices. */
+export function takenOf(asked: Question): Answer {
 	return {
-		picks: assumed.choices
+		picks: asked.choices
 			.filter((choice) => choice.chosen)
 			.map((choice) => choice.key),
 		words: "",
 	};
 }
 
-/** Whether `answer` challenges `assumed`: says anything but what it took. */
-export function challenges(assumed: Question, answer: Answer): boolean {
-	const taken = takenOf(assumed).picks;
+/** Whether `answer` changes what `asked` recommends: says anything but its `(chosen)` choices. */
+export function changes(asked: Question, answer: Answer): boolean {
+	const taken = takenOf(asked).picks;
 	return (
 		!isEmpty(answer) &&
 		(answer.words.trim() !== "" ||

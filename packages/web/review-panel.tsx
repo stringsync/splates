@@ -1,10 +1,9 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import type { Review } from "@stringsync/splates-server/plans";
 import {
-	answerIn,
-	assumptions,
 	directive,
 	MERGE,
+	replyOf,
 } from "@stringsync/splates-server/plans/browser";
 import { useReactive, useResource } from "@webappwiz/react";
 import {
@@ -14,7 +13,7 @@ import {
 	SendHorizontalIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useContext, useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -22,13 +21,7 @@ import {
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
-import { focusStop, useTouch } from "#web/hooks/use-touch.ts";
-import {
-	AssumptionList,
-	AssumptionsChanged,
-	useChallenges,
-} from "./assumption-list";
-import { Board } from "./board";
+import { useTouch } from "#web/hooks/use-touch.ts";
 import { BoxFiles } from "./box-files";
 import { CardBox } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
@@ -49,9 +42,7 @@ const TYPED_MERGE = "merge";
  * A review answered by keyboard alone: it comes up in its changes box, where
  * Enter sends them, and Merge is a Tab away while the box is empty. It shows
  * one button, Merge or Send, as the box is empty or not. What is written stays in the
- * panel, never the composer, until it is sent. It lists what the task
- * assumed, read from its `SPLATES.md` so the list is current, and a challenge
- * to one goes out with the changes, quoting its line as an answer would.
+ * panel, never the composer, until it is sent.
  */
 export function ReviewPanel({
 	review,
@@ -64,19 +55,14 @@ export function ReviewPanel({
 	const { reply, sent } = useCardReply();
 	const send = sent === null ? (reply?.send ?? null) : null;
 	const kept = useKept(draft, sent);
-	const plan = useContext(Board).plans.get(review.task) ?? "";
 	const touch = useTouch();
-	const {
-		assumptions: assumed,
-		answers,
-		changes,
-		setChanges,
-		challenge,
-		reply: asked,
-		changed,
-		dropped,
-		reload,
-	} = useChallenges(assumptions(plan), kept);
+	// Kept as it is written, so leaving and coming back loses nothing.
+	const [changes, setWritten] = useState(() => kept.read());
+	const setChanges = (text: string) => {
+		setWritten(text);
+		kept.write(text);
+	};
+	const asked = replyOf([], [], changes);
 	const { refusal, attempt } = useRefusal();
 	// What is attached to the changes, which go with them.
 	const files = useResource(() => new BoxFiles(), []);
@@ -114,7 +100,7 @@ export function ReviewPanel({
 			}
 		>
 			{/* What deciding to merge takes, in order: what changed, how to see
-			it, what was assumed, what passed, and the details, folded. */}
+			it, what passed, and the details, folded. */}
 			<div className="divide-y">
 				{review.summary !== "" && <CardBody text={review.summary} />}
 				{review.demo !== null && (
@@ -122,19 +108,6 @@ export function ReviewPanel({
 						demo={review.demo}
 						kept={draft === null ? null : `${draft}:demo`}
 						className="last:border-b-0"
-					/>
-				)}
-				{assumed.length > 0 && (
-					<AssumptionList
-						assumptions={assumed}
-						answers={
-							sent === null
-								? answers
-								: assumed.map((asked) => answerIn(sent, asked))
-						}
-						live={send !== null}
-						onAnswer={challenge}
-						onNext={() => focusStop(box.current)}
 					/>
 				)}
 				{review.checks.length + review.failed.length > 0 && (
@@ -171,28 +144,20 @@ export function ReviewPanel({
 						className="min-h-9 pointer-coarse:min-h-11"
 					/>
 					<div className="flex items-center gap-2 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:px-3">
-						{changed ? (
-							<AssumptionsChanged
-								dropped={dropped}
-								onReload={reload}
-								className="flex-1"
-							/>
-						) : (
-							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								{!touch &&
-									(asked === "" ? (
-										<span>
-											<Kbd>Tab</Kbd> to merge
-										</span>
-									) : (
-										<span>
-											<Kbd>↵</Kbd> sends changes
-										</span>
-									))}
-							</p>
-						)}
-						{/* One button, for what the box holds: written changes or
-						challenges go out as they are, and nothing written merges. */}
+						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+							{!touch &&
+								(asked === "" ? (
+									<span>
+										<Kbd>Tab</Kbd> to merge
+									</span>
+								) : (
+									<span>
+										<Kbd>↵</Kbd> sends changes
+									</span>
+								))}
+						</p>
+						{/* One button, for what the box holds: written changes go
+						out as they are, and nothing written merges. */}
 						{asked === "" && !attached ? (
 							<Button
 								size="sm"

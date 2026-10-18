@@ -31,8 +31,8 @@ export async function decisionTransport(
 	let plan = await readFile(path, "utf8");
 	if (selected === "local-choice") {
 		plan = plan.replace(
-			"## Assumptions\n",
-			"## Assumptions\n\n- [ ] 1. (small) Which retry limit?\n  - (a) Three (chosen)\n  - (b) Five\n",
+			"## Notes\n",
+			"## Notes\n\nChose three retries over five; one commit reverts it.\n",
 		);
 	} else if (selected === "answer") {
 		plan = plan.replace(
@@ -44,6 +44,6 @@ export async function decisionTransport(
 	}
 	await writeFile(path, plan);
 	return selected === "local-choice"
-		? "- Assumed 1: Three retries."
+		? "Set the retry limit to three."
 		: "Recorded answer b on question 3.";
 }

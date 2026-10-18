@@ -1,6 +1,6 @@
 import {
 	keptDecisions,
-	madeBy,
+	madeByYou,
 } from "@stringsync/splates-server/plans/browser";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import {
@@ -20,7 +20,7 @@ export interface MergedFacts extends FoundFacts {
 /** One figure, beside its project's usual. */
 export interface Stat {
 	label: string;
-	/** Lines added and removed for a size, and calls by who made them, which the card colors. */
+	/** Lines added and removed for a size, and the calls the person made, which the card marks. */
 	value: string | Lines | Decided;
 	/** What it was made of, as working beside waiting; null for nothing more. */
 	detail: string | null;
@@ -82,24 +82,15 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 	// Older outcomes kept no calls, so they say nothing of them.
 	if (keptDecisions(outcome)) {
 		stats.push(
-			stat(
-				"decidedByYou",
-				"Decisions",
-				{
-					byYou: madeBy(outcome, "decidedByYou"),
-					byAgent: madeBy(outcome, "decidedByAgents"),
-				},
-				null,
-			),
+			stat("decidedByYou", "Decisions", { byYou: madeByYou(outcome) }, null),
 		);
 	}
 	return { stats, ...foundFacts({ outcome, baseline }) };
 }
 
-/** The calls a task made, by who made them. */
+/** The calls the person made in a task. */
 export interface Decided {
 	byYou: number;
-	byAgent: number;
 }
 
 function dollars(amount: number): string {

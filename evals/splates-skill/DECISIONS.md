@@ -7,7 +7,7 @@ are synthetic; they establish assertion behavior, not real agent compliance.
 
 | Probe id (prefix `decisions/`) | Audit requirement | Observable boundary |
 | --- | --- | --- |
-| local-choice | decisions-local | Final reply, parsed assumption placement/number/size and chosen option, no blockers |
+| local-choice | decisions-local | Choice noted under Notes, no blockers |
 | external-blocker | decisions-local | Final reply, numbered question, large open blocker, actual CLI escalated status |
 | answer | decisions-local | Seeded question 3 answered b, checked, not renumbered |
 | approval | decisions-approval | APPROVE with explicit answer a recorded on seeded question 3 |
@@ -53,7 +53,7 @@ Keep the following explicit gaps in the combined inventory:
   format remain integration gaps. A repeated review is a seeded follow-up,
   not a multi-turn transport or mid-turn steering test.
 - APPROVE here settles an explicitly selected local record only. General
-  proposal approval, challenged assumptions, partial/moot/follow-up answers,
+  proposal approval, partial/moot/follow-up answers,
   approved system writes and MERGE response/claim/landing remain uncovered.
   MERGE emission/delivery needs a real UI boundary, separately from its constant.
 - #367 owns skill discovery/reference loading; #340 owns orchestration

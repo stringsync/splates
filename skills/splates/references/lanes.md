@@ -67,7 +67,7 @@ name models, and let it go.
    find such a need that no link says, link it, so the plan shows it.
 4. To hand one out, `splates todo show <id>` names its agent, model and any
    thinking level; when it names none, pick one as for a todo you add (see
-   Todos), and say which in your report as `- Assumed: <what>`. Then
+   Todos). Then
    `splates add <task> --todo <id> --agent <a> --model <m> --prompt
    '<what>'`, with `--effort <level>` when the todo names one, where `<what>` holds
    what the todo's detail does not and the lane taught you: names chosen,
@@ -191,11 +191,8 @@ plan does not: why something waits, a conflict you held back, a change of
 course. Say nothing before it in the turn, neither what landed nor what
 went out.
 
-Like a task agent's assumptions, each call it makes is said once, in the
-report that ends the turn it made it in, after the lane lines: a
-`- Assumed: <what>` line for each model it picked for a todo
-that named none, each lane it named, and each link it added. Its own
-questions, such as what becomes of a task that keeps stopping, end it, as
+The models it picks, the lanes it names and the links it adds show on the
+board, so the report says none of them. Its own questions, such as what becomes of a task that keeps stopping, end it, as
 an escalation ends with them.
 
 ```markdown
@@ -205,7 +202,6 @@ an escalation ends with them.
 
 - Stats: #160 waits on #155, out as stats-breakdowns-clear, which waits on you.
 - Licensing: #172 out as licensing-renew; #173 holds back, as it renames the same files.
-- Assumed: Haiku for #172, which named no model, as a mechanical rename.
 ```
 
 Once every lane it works is done, it ends on one report for them all, the page's sign that it is

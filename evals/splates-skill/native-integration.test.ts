@@ -136,18 +136,13 @@ it.each([
 			}).toEqual({ status: "uncovered", detail: undefined });
 			expect(
 				result.result.verdicts
-					.filter(
-						(verdict) =>
-							verdict.id.startsWith("plan/") ||
-							verdict.id === "assumption-report",
-					)
+					.filter((verdict) => verdict.id.startsWith("plan/"))
 					.map((verdict) => [verdict.id, verdict.status]),
 			).toEqual(
 				selected === "local-choice"
 					? [
-							["plan/assumptions", "pass"],
+							["plan/notes", "pass"],
 							["plan/blocked", "pass"],
-							["assumption-report", "pass"],
 						]
 					: [["plan/blocked", "pass"]],
 			);

@@ -298,71 +298,40 @@ describe("summarize", () => {
 		expect(stats.projects[0]).toMatchObject({ workerCost: 0.75 });
 	});
 
-	it("counts who made each size's calls in scheme order, older outcomes as unsized", () => {
+	it("counts each size's calls in scheme order, older outcomes as unsized", () => {
 		const stats = summarize(
 			[
 				ended({
 					decisions: [
-						{
-							number: "1",
-							text: "A?",
-							size: "large",
-							how: "asked",
-							ended: "overturned",
-						},
+						{ number: "1", text: "A?", size: "large", ended: "overturned" },
+						// Kept when agents also made calls without asking, which count for none.
 						{
 							number: "2",
 							text: "B?",
 							size: "small",
-							how: "assumed",
 							ended: "kept",
+							...({ how: "assumed" } as object),
 						},
-						{
-							number: "3",
-							text: "C?",
-							size: "large",
-							how: "asked",
-							ended: "kept",
-						},
-						{
-							number: "4",
-							text: "D?",
-							size: "tiny",
-							how: "assumed",
-							ended: "challenged",
-						},
+						{ number: "3", text: "C?", size: "large", ended: "kept" },
+						{ number: "4", text: "D?", size: "tiny", ended: null },
 					],
 				}),
 				// Written before decisions were kept: its counts read back unsized.
-				ended({
-					questionsAsked: 4,
-					picksAsked: 2,
-					picksAmended: 1,
-					assumptionsMade: 3,
-					assumptionsChallenged: 1,
-				}),
+				ended({ questionsAsked: 4, picksAsked: 2, picksAmended: 1 }),
 			],
 			{ now },
 		);
 		expect(stats.sizes).toMatchObject([
-			{ size: "small", decidedByYou: 0, decidedByAgents: 1 },
-			{ size: "large", decidedByYou: 2, decidedByAgents: 0 },
-			// A challenged assumption took the person's attention.
-			{ size: "tiny", decidedByYou: 1, decidedByAgents: 0 },
-			// Every question put to them, picked or not, and the challenge.
-			{ size: null, decidedByYou: 4, decidedByAgents: 2 },
+			{ size: "large", decidedByYou: 2 },
+			{ size: "tiny", decidedByYou: 1 },
+			// Every question put to them, picked or not.
+			{ size: null, decidedByYou: 4 },
 		]);
 		// Each size's bars line up with the period's: its call sits in the bar
 		// the task ended in.
-		const bar = stats.buckets.findIndex((each) => each.decidedByAgents > 0);
+		const bar = stats.buckets.findIndex((each) => each.decidedByYou > 0);
 		expect(stats.sizes[0]?.buckets).toHaveLength(stats.buckets.length);
-		expect(stats.sizes[0]?.buckets[bar]).toEqual({
-			decidedByYou: 0,
-			decidedByAgents: 1,
-		});
-		expect(combine(stats.buckets)).toMatchObject({
-			decidedByYou: 7,
-			decidedByAgents: 3,
-		});
+		expect(stats.sizes[0]?.buckets[bar]).toEqual({ decidedByYou: 2 });
+		expect(combine(stats.buckets)).toMatchObject({ decidedByYou: 7 });
 	});
 });

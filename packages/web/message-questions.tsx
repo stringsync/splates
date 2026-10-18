@@ -5,15 +5,10 @@ import type {
 	Question,
 	TaskReport,
 } from "@stringsync/splates-server/plans";
-import {
-	type Assumed,
-	assumedIn,
-	isUpdate,
-} from "@stringsync/splates-server/plans/browser";
+import { isUpdate } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
-import { type JSX, useContext } from "react";
-import { Board } from "./board";
+import type { JSX } from "react";
 import { InMessage, textOf } from "./card-reply";
 import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCards } from "./question-cards";
@@ -22,15 +17,14 @@ import { questionHeading } from "./question-heading";
 /**
  * The data a `data-questions` part carries: one message's questions, in
  * order, the escalation they end or the proposal they rest under, when they
- * do, the demo they follow, which is what they ask about, and the calls the
- * agent says it made without asking, with the task it made them in.
+ * do, the demo they follow, which is what they ask about, and the task
+ * they are asked in.
  */
 export interface QuestionsData {
 	questions: Question[];
 	escalation: TaskReport | null;
 	proposal: Proposal | null;
 	demo: Demo | null;
-	assumed: Assumed[];
 	task: string | null;
 }
 
@@ -48,18 +42,14 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 });
 
 /**
- * The questions of the message it is in, kept as a draft under that message,
- * and the calls it assumed, as its task's `SPLATES.md` writes them.
+ * The questions of the message it is in, kept as a draft under that message.
  */
 export function MessageQuestions({
 	questions,
 	escalation,
 	proposal,
 	demo,
-	assumed,
-	task,
 }: QuestionsData): JSX.Element {
-	const plan = useContext(Board).plans.get(task ?? "") ?? "";
 	const message = useAuiState((state) => state.message.id);
 	// The drafts of the questions asked before these since the person last
 	// replied, newest first, which these take over, as when splates told the
@@ -99,7 +89,6 @@ export function MessageQuestions({
 				escalation={escalation}
 				proposal={proposal}
 				demo={demo}
-				assumed={assumedIn(plan, assumed)}
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
 				paged={sheeted}

@@ -9,7 +9,7 @@ import {
 	APPROVE,
 	answerIn,
 	besides,
-	challenges,
+	changes,
 	isEmpty,
 	replyOf,
 	takenOf,
@@ -28,7 +28,6 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { focusStop, raises, useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { AnythingElsePage } from "./anything-else-page";
-import { AssumptionList } from "./assumption-list";
 import { caretToEnd } from "./box-editor";
 import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
@@ -51,18 +50,14 @@ import { Refusal, useRefusal } from "./refusal";
  * recommendation, so a reply says it unless the person picks another. Under a
  * proposal, once every one is answered, Approve approves the proposal, saying
  * any answer to a call the agent chose nothing for. Picking another choice,
- * challenging a call, or writing anything else makes it a reply instead,
- * saying only what differs, for the agent to propose again. The calls the
- * agent assumed list under them, each challenged as on the review card, a
- * challenge going out with the answers; with no questions, it offers to
- * send only once one is challenged.
+ * or writing anything else, makes it a reply instead, saying only what
+ * differs, for the agent to propose again.
  */
 export function QuestionCards({
 	questions,
 	escalation = null,
 	proposal = null,
 	demo = null,
-	assumed = [],
 	draft = null,
 	earlier = [],
 	copy = false,
@@ -76,8 +71,6 @@ export function QuestionCards({
 	proposal?: Proposal | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
-	/** The calls the agent says it made without asking, each with what it chose. */
-	assumed?: Question[];
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
 	/**
@@ -110,28 +103,19 @@ export function QuestionCards({
 	// What a reply says of `answer`: under a proposal, nothing of one that
 	// leaves what the agent chose.
 	const said = (asked: Question, answer: Answer | null): Answer | null =>
-		proposal === null || answer === null || challenges(asked, answer)
+		proposal === null || answer === null || changes(asked, answer)
 			? answer
 			: null;
-	// Everything a reply can answer: the questions, then each call assumed,
-	// which only a challenge answers.
-	const all = [...questions, ...assumed];
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
-			answers: Object.fromEntries([
-				...questions.flatMap((asked) => {
+			answers: Object.fromEntries(
+				questions.flatMap((asked) => {
 					const answer = answerIn(before, asked) ?? chosen(asked);
 					return answer === null ? [] : [[asked.text, answer]];
 				}),
-				...assumed.flatMap((call) => {
-					const answer = answerIn(before, call);
-					return answer === null || !challenges(call, answer)
-						? []
-						: [[call.text, answer]];
-				}),
-			]),
-			more: besides(before, all),
+			),
+			more: besides(before, questions),
 		};
 	});
 	// By each question's line, which stays put as others come and go.
@@ -140,8 +124,8 @@ export function QuestionCards({
 		setWritten(next);
 		kept.write(
 			replyOf(
-				all,
-				all.map((asked) => said(asked, next.answers[asked.text] ?? null)),
+				questions,
+				questions.map((asked) => said(asked, next.answers[asked.text] ?? null)),
 				next.more,
 			),
 		);
@@ -165,19 +149,15 @@ export function QuestionCards({
 			? writtenFor(asked)
 			: (answerIn(sent, asked) ?? unsaid(asked)),
 	);
-	// The challenge to each call assumed, written or sent; null for none.
-	const challenged = assumed.map((call) =>
-		sent === null ? writtenFor(call) : answerIn(sent, call),
-	);
-	const more = sent === null ? written.more : besides(sent, all);
+	const more = sent === null ? written.more : besides(sent, questions);
 	const answered = answers.filter((answer) => answer !== null).length;
 	const send = copy ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
-	const saidOf = () => all.map((asked) => said(asked, writtenFor(asked)));
-	// Every one answered, and nothing the agent chose or assumed changed,
+	const saidOf = () => questions.map((asked) => said(asked, writtenFor(asked)));
+	// Every one answered, and nothing the agent chose changed,
 	// sending approves the proposal; anything changed is a reply to it.
 	const approving =
 		proposal !== null &&
@@ -186,13 +166,10 @@ export function QuestionCards({
 			(asked) =>
 				unsaid(asked) !== null && said(asked, writtenFor(asked)) !== null,
 		) &&
-		assumed.every((call) => writtenFor(call) === null) &&
 		written.more.trim() === "" &&
 		!attached;
-	const out = replyOf(all, saidOf(), written.more);
+	const out = replyOf(questions, saidOf(), written.more);
 	const empty = !approving && out === "" && !attached;
-	// With nothing asked, only a challenge calls for a way to send it.
-	const quiet = questions.length === 0 && proposal === null && empty;
 	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
@@ -207,7 +184,7 @@ export function QuestionCards({
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
 			const { text, files: sending } = boxFiles.reply(
-				all,
+				questions,
 				saidOf(),
 				written.more,
 			);
@@ -385,33 +362,7 @@ export function QuestionCards({
 						)}
 					</ol>
 				)}
-				{assumed.length > 0 && (!paging || page === 0) && (
-					<div className="border-t first:border-t-0">
-						<AssumptionList
-							assumptions={assumed}
-							answers={challenged}
-							live={live}
-							unfolded={questions.length === 0}
-							// Alone in the Assumed card, whose title already says them.
-							bare={
-								proposal === null &&
-								escalation === null &&
-								questions.length === 0
-							}
-							onAnswer={(call, next) =>
-								setAnswer(call, challenges(call, next) ? next : null)
-							}
-							onNext={() =>
-								focusStop(
-									panel.current?.querySelector<HTMLElement>(
-										'[data-stop="more"]',
-									),
-								)
-							}
-						/>
-					</div>
-				)}
-				{paging && page === end && !quiet && (
+				{paging && page === end && (
 					<AnythingElsePage
 						questions={questions}
 						answers={answers}
@@ -421,7 +372,7 @@ export function QuestionCards({
 						onTurn={turn}
 					/>
 				)}
-				{quiet ? null : paging ? (
+				{paging ? (
 					<footer
 						// It stays at the sheet's foot, as a composer does.
 						data-pinned

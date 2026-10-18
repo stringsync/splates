@@ -12,7 +12,6 @@ export function advise({ period, previous, span }: AdviseInput): Advice[] {
 	return [
 		course(period, before),
 		picks(period, before),
-		assumptions(period, before),
 		waiting(period, before),
 		failures(period, before),
 		removals(period, before),
@@ -20,13 +19,7 @@ export function advise({ period, previous, span }: AdviseInput): Advice[] {
 }
 
 /** Which card an `Advice` is, for the page to rank it and give it its chart. */
-export type AdviceId =
-	| "course"
-	| "picks"
-	| "assumptions"
-	| "waiting"
-	| "failures"
-	| "removals";
+export type AdviceId = "course" | "picks" | "waiting" | "failures" | "removals";
 
 /** One figure worth acting on, and what to do about it. */
 export interface Advice {
@@ -153,15 +146,6 @@ const OVERTURNED: Measure = {
 	shown: percent,
 };
 
-const CHALLENGED: Measure = {
-	of: (tally) =>
-		tally.assumptionsMade === 0
-			? null
-			: tally.assumptionsChallenged / tally.assumptionsMade,
-	count: (tally) => tally.assumptionsMade,
-	shown: percent,
-};
-
 const WAITED: Measure = {
 	of: (tally) => (tally.spentMs === 0 ? null : tally.waitedMs / tally.spentMs),
 	count: (tally) => tally.timed,
@@ -230,31 +214,6 @@ function picks(period: Tally, before: Before): Advice {
 			"more questions offering a pick to say",
 		),
 		trend: before.trend(period, OVERTURNED),
-	};
-}
-
-function assumptions(period: Tally, before: Before): Advice {
-	const { assumptionsMade, assumptionsChallenged } = period;
-	const share = CHALLENGED.of(period);
-	return {
-		id: "assumptions",
-		title: "Assumptions you challenged",
-		figure: share === null ? null : percent(share),
-		detail: `${assumptionsChallenged} of ${assumptionsMade} calls agents made without asking`,
-		act:
-			share === null || assumptionsMade < ENOUGH
-				? null
-				: share >= DISAGREE
-					? "Agents often assume wrong: have them ask more in the splates skill's Asking as you go, or give them what they miss."
-					: share <= AGREE
-						? "You almost never challenge them: let agents assume more and ask less, in the splates skill's Asking as you go."
-						: null,
-		short: needs(
-			ENOUGH - assumptionsMade,
-			"more assumption to say",
-			"more assumptions to say",
-		),
-		trend: before.trend(period, CHALLENGED),
 	};
 }
 

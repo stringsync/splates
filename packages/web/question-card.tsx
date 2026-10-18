@@ -1,6 +1,6 @@
 import type { Answer, Question } from "@stringsync/splates-server/plans";
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
-import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
+import { type JSX, type KeyboardEvent, useState } from "react";
 import {
 	Tooltip,
 	TooltipContent,
@@ -21,8 +21,6 @@ export function QuestionCard({
 	live,
 	onAnswer,
 	onNext,
-	action,
-	chosenLabel = "Recommended",
 	roomy = false,
 	files = null,
 }: {
@@ -33,10 +31,6 @@ export function QuestionCard({
 	live: boolean;
 	onAnswer: (answer: Answer) => void;
 	onNext: () => void;
-	/** Beside its line, at the end: a way to put the card away. */
-	action?: ReactNode;
-	/** What tags the `(chosen)` choice: the agent's pick while it waits, or what it went with. */
-	chosenLabel?: string;
 	/**
 	 * Sized for a finger, as the one question on a phone's screen: larger
 	 * text and targets, a typed answer with room to grow, and no number,
@@ -154,7 +148,6 @@ export function QuestionCard({
 							<Markdown text={text} inline />
 						</p>
 						{size !== null && <Size size={size} />}
-						{action}
 					</div>
 					{body !== "" && (
 						<Markdown
@@ -259,7 +252,7 @@ export function QuestionCard({
 													roomy ? "basis-56" : "basis-32",
 												)}
 											/>
-											{choice.chosen && <Chosen label={chosenLabel} />}
+											{choice.chosen && <Chosen />}
 											<CheckIcon
 												className={cn(
 													"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
@@ -339,11 +332,11 @@ function Size({ size }: { size: string }): JSX.Element {
 	);
 }
 
-/** Marks the choice the agent went with, while it waits for the reply or since. */
-function Chosen({ label }: { label: string }): JSX.Element {
+/** Marks the choice the agent recommends, while it waits for the reply or since. */
+function Chosen(): JSX.Element {
 	return (
 		<span className="shrink-0 rounded-full border px-1.5 py-px text-[11px] text-muted-foreground">
-			{label}
+			Recommended
 		</span>
 	);
 }

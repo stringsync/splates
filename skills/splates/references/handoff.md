@@ -125,17 +125,14 @@ and the answers down, with `splates tell <task> '<text>'`, which says
 2. Answer each question that what you know of the task, the user's earlier
    answers, or a look at the code settle, as the user would from the page:
    its line quoted in bold, then the choice picked (see Keeping Blocked
-   current), and a line saying you answered it and why, so it keeps it as
-   an assumption. Say each in your report as an assumption the user can
-   challenge: `- Assumed for <task>: <what you answered>`. Never answer one
+   current), and a line saying you answered it and why. Never answer one
    that is a close call or goes against what the user said.
 3. Ask the user the rest, each open question in a numbered list exactly as
    the agent wrote it, with its choices and screenshots. A review you relay
    as a Ready to merge card of its own, the agent's `### Review` as it
    wrote it.
 4. The user's answers reach you as messages. `splates tell` the task the
-   quotes and words that answer its questions, as they came, and its
-   challenges to an assumption you made. "Merge" or `[SPLATES MERGE]` on a
+   quotes and words that answer its questions, as they came. "Merge" or `[SPLATES MERGE]` on a
    review you relayed goes down as `[SPLATES MERGE]`; changes asked for go
    down as they came. Questions they left open are asked again first in
    your next report.

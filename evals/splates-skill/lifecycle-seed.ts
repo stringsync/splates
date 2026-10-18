@@ -7,7 +7,7 @@ import { hash, type RunContext, type Seed } from "./runner";
 
 export const lifecycleGoal = "Change value to two";
 const plan =
-	"# sample\n\n## Goal\n\nChange value to two.\n\n## Done\n\n- [x] Changed value and verified it.\n\n## Next\n\n## Notes\n\n## Assumptions\n\n## Blocked\n";
+	"# sample\n\n## Goal\n\nChange value to two.\n\n## Done\n\n- [x] Changed value and verified it.\n\n## Next\n\n## Notes\n\n## Blocked\n";
 
 export const lifecycleSeed: Seed = {
 	id: "lifecycle/local",
