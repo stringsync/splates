@@ -50,6 +50,9 @@ import { LocalWorkerMachine } from "./workers";
 export type { DevOptions } from "./dev-options";
 export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./dev-ports";
 
+/** How many times `dev` binds before it gives up on a port that keeps being taken. */
+const BIND_ATTEMPTS = 5;
+
 /**
  * Serves what `todo list`, `list` and `show` print as one page that refetches
  * when the repo changes, where a person adds, edits, reorders and removes
@@ -384,282 +387,298 @@ export async function dev(
 	});
 	disposer.defer(async () => taskPorts.dispose());
 
-	const requested = await ports.get();
-	const server = Bun.serve<Connection>({
-		port: requested,
-		// This machine only. Reaching it from anywhere else is a tunnel's job,
-		// which connects from here too.
-		hostname: LOOPBACK,
-		maxRequestBodySize: MAX_BODY_BYTES,
-		// Zero never closes an idle connection, which is what the SSE stream needs:
-		// it is idle by design between the things it has to say.
-		idleTimeout: 0,
-		// The static files are handed over without entering JS; the rest have
-		// to be asked for, since they answer with the state of the repo right now.
-		routes: claimedFirst(
-			{
-				...pages.routes(),
-				"/api/projects": {
-					GET: guarded(listProjects),
-					// It runs `bunx skills add` there, so only as far as a
-					// conversation reaches.
-					POST: talk(guarded(picker.add)),
-				},
-				"/api/projects/:slug/commit": { POST: talk(guarded(picker.commit)) },
-				// An agent of another project handed it a task: its agent starts
-				// only once the project is served.
-				"/api/projects/:slug/serve": {
-					POST: talk(
-						guarded(async (request) => {
-							await projectNamed(
-								new URL(request.url).pathname.split("/")[3] ?? "",
-							);
-							return new Response(null, { status: 204 });
+	// The port was free when `ports` probed it, not necessarily when it binds,
+	// so a bind lost to someone else's asks again, which moves on past it.
+	let requested = await ports.get();
+	const listen = (): ReturnType<typeof Bun.serve<Connection>> =>
+		Bun.serve<Connection>({
+			port: requested,
+			// This machine only. Reaching it from anywhere else is a tunnel's job,
+			// which connects from here too.
+			hostname: LOOPBACK,
+			maxRequestBodySize: MAX_BODY_BYTES,
+			// Zero never closes an idle connection, which is what the SSE stream needs:
+			// it is idle by design between the things it has to say.
+			idleTimeout: 0,
+			// The static files are handed over without entering JS; the rest have
+			// to be asked for, since they answer with the state of the repo right now.
+			routes: claimedFirst(
+				{
+					...pages.routes(),
+					"/api/projects": {
+						GET: guarded(listProjects),
+						// It runs `bunx skills add` there, so only as far as a
+						// conversation reaches.
+						POST: talk(guarded(picker.add)),
+					},
+					"/api/projects/:slug/commit": { POST: talk(guarded(picker.commit)) },
+					// An agent of another project handed it a task: its agent starts
+					// only once the project is served.
+					"/api/projects/:slug/serve": {
+						POST: talk(
+							guarded(async (request) => {
+								await projectNamed(
+									new URL(request.url).pathname.split("/")[3] ?? "",
+								);
+								return new Response(null, { status: 204 });
+							}),
+						),
+					},
+					"/api/focus": { PUT: guarded(picker.focus) },
+					"/api/stats": guarded(ended.stats),
+					"/api/identity": guarded(async (request) =>
+						Response.json({
+							email: (await gate.identity(request))?.email ?? null,
 						}),
 					),
-				},
-				"/api/focus": { PUT: guarded(picker.focus) },
-				"/api/stats": guarded(ended.stats),
-				"/api/identity": guarded(async (request) =>
-					Response.json({
-						email: (await gate.identity(request))?.email ?? null,
-					}),
-				),
-				"/api/machine": guarded(async () =>
-					Response.json({
-						...(await machine.read()),
-						heavy: await jobs.read(),
-						queue: queueListing(workers.slots.scheduler.queue()),
-					}),
-				),
-				// Through a tunnel only once Access verified who is asking, as a
-				// conversation is: what an agent said goes to the device.
-				"/api/push": talk(guarded(pushes.key)),
-				"/api/push/subscription": {
-					PUT: talk(guarded(pushes.subscribe)),
-					DELETE: talk(guarded(pushes.unsubscribe)),
-				},
-				"/api/setup/opencode/disable": {
-					POST: local(guarded(opencode.disable)),
-				},
-				"/api/setup/opencode/conversation": {
-					POST: local(
-						scoped(
-							(project) => async (request) =>
-								opencode.conversation(project.root, (selection) =>
-									project.startConversation(
-										new Request(request.url, {
-											method: "POST",
-											headers: { "content-type": "application/json" },
-											body: JSON.stringify({
-												agent: "opencode",
-												model: selection.model,
-												task: null,
-												assigned: true,
-											}),
-										}),
-									),
-								),
-						),
+					"/api/machine": guarded(async () =>
+						Response.json({
+							...(await machine.read()),
+							heavy: await jobs.read(),
+							queue: queueListing(workers.slots.scheduler.queue()),
+						}),
 					),
+					// Through a tunnel only once Access verified who is asking, as a
+					// conversation is: what an agent said goes to the device.
+					"/api/push": talk(guarded(pushes.key)),
+					"/api/push/subscription": {
+						PUT: talk(guarded(pushes.subscribe)),
+						DELETE: talk(guarded(pushes.unsubscribe)),
+					},
+					"/api/setup/opencode/disable": {
+						POST: local(guarded(opencode.disable)),
+					},
+					"/api/setup/opencode/conversation": {
+						POST: local(
+							scoped(
+								(project) => async (request) =>
+									opencode.conversation(project.root, (selection) =>
+										project.startConversation(
+											new Request(request.url, {
+												method: "POST",
+												headers: { "content-type": "application/json" },
+												body: JSON.stringify({
+													agent: "opencode",
+													model: selection.model,
+													task: null,
+													assigned: true,
+												}),
+											}),
+										),
+									),
+							),
+						),
+					},
+					"/api/setup": guarded(setup.read),
+					"/api/setup/seen": { PUT: guarded(setup.see) },
+					"/api/setup/:step/next": { POST: guarded(setup.next) },
+					"/api/restart": { POST: talk(guarded(restartIdle)) },
+					"/api/power": { POST: talk(guarded(powerNow)) },
+					"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
+					"/api/projects/:slug": { DELETE: guarded(forgetProject) },
+					"/api/snapshot": scoped((project) => project.snapshot),
+					// Conversations among them, so only as far as a conversation reaches.
+					"/api/everywhere": talk(guarded(everywhere.list)),
+					"/api/everywhere/events": talk(guarded(everywhere.events)),
+					"/api/file": scoped((project) => project.file),
+					// It runs the person's editor, so only as far as a conversation reaches.
+					"/api/open": { POST: talk(scoped((project) => project.open)) },
+					"/api/paths": scoped((project) => project.paths),
+					"/api/tasks/:task/diff": scoped((project) => project.diff),
+					"/api/tasks/:task/outcome": scoped((project) =>
+						ended.landed(project.root),
+					),
+					"/api/tasks/:task/retry": {
+						POST: scoped((project) => project.retryTask),
+					},
+					"/api/tasks/:task": {
+						DELETE: talk(scoped((project) => project.removeTask)),
+					},
+					"/api/todos": { POST: scoped((project) => project.addTodo) },
+					"/api/todos/:id": {
+						PATCH: scoped((project) => project.updateTodo),
+						DELETE: scoped((project) => project.removeTodo),
+					},
+					"/api/todos/:id/restore": {
+						POST: scoped((project) => project.restoreTodo),
+					},
+					"/api/todos/:id/position": {
+						PUT: scoped((project) => project.moveTodo),
+					},
+					"/api/todos/:id/blocked-by": {
+						PUT: scoped((project) => project.linkTodo),
+					},
+					"/api/todos/:id/lane": {
+						PUT: scoped((project) => project.arrangeTodo),
+					},
+					"/api/todos/:id/assignee": {
+						PUT: scoped((project) => project.assignTodo),
+					},
+					"/api/lanes/:id/join": {
+						POST: scoped((project) => project.joinLane),
+					},
+					"/api/lanes": { POST: scoped((project) => project.addLane) },
+					// Through a tunnel only once Access verified who is asking, as a
+					// conversation is: a cred is worth as much as what it opens.
+					"/api/creds": talk(scoped((project) => project.listCreds)),
+					"/api/creds/:name": {
+						PUT: talk(scoped((project) => project.saveCred)),
+						DELETE: talk(scoped((project) => project.removeCred)),
+					},
+					"/api/creds/:name/dismiss": {
+						POST: talk(scoped((project) => project.dismissCred)),
+					},
+					"/api/budgets": scoped((project) => project.listBudgets),
+					"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },
+					"/api/budgets/:role/raises": {
+						POST: scoped((project) => project.raiseBudget),
+					},
+					"/api/budgets/:role/pause": {
+						PUT: scoped((project) => project.pauseBudget),
+						DELETE: scoped((project) => project.resumeBudget),
+					},
+					"/api/budgets/raises/:id": {
+						DELETE: scoped((project) => project.endRaise),
+					},
+					"/api/lanes/:id": {
+						PUT: scoped((project) => project.updateLane),
+						DELETE: scoped((project) => project.dropLane),
+					},
+					"/events": scoped((project) => project.events),
+					"/api/conversations": {
+						GET: talk(scoped((project) => project.listConversations)),
+						POST: talk(scoped((project) => project.startConversation)),
+					},
+					"/api/conversations/auto": {
+						POST: talk(scoped((project) => project.startAutoConversation)),
+					},
+					"/api/conversations/sessions": {
+						GET: talk(scoped((project) => project.listSessions)),
+						POST: talk(scoped((project) => project.bringSession)),
+					},
+					"/api/conversations/limits": {
+						POST: talk(scoped((project) => project.refreshLimits)),
+					},
+					"/api/conversations/events": talk(
+						scoped((project) => project.conversationEvents),
+					),
+					"/api/conversations/:id": {
+						GET: talk(owned((project) => project.showConversation)),
+					},
+					"/api/conversations/:id/prompt": {
+						POST: talk(owned((project) => project.promptConversation)),
+					},
+					"/api/conversations/:id/attachments/:name": {
+						GET: talk(owned((project) => project.conversationAttachment)),
+					},
+					"/api/conversations/:id/artifacts/:name/:version": {
+						GET: talk(owned((project) => project.conversationArtifact)),
+						DELETE: talk(owned((project) => project.deleteArtifactVersion)),
+					},
+					"/api/conversations/:id/tell": {
+						POST: talk(owned((project) => project.tellConversation)),
+					},
+					"/api/conversations/:id/artifacts": {
+						POST: talk(owned((project) => project.addArtifact)),
+					},
+					"/api/conversations/:id/artifacts/:name": {
+						DELETE: talk(owned((project) => project.removeArtifact)),
+					},
+					"/api/conversations/:id/terminate": {
+						POST: talk(owned((project) => project.terminateConversation)),
+					},
+					"/api/conversations/:id/answer": {
+						POST: talk(owned((project) => project.answerConversation)),
+					},
+					"/api/conversations/:id/cancel": {
+						POST: talk(owned((project) => project.cancelConversation)),
+					},
+					"/api/conversations/:id/pause": {
+						POST: talk(owned((project) => project.pauseConversation)),
+					},
+					"/api/conversations/:id/background/:background": {
+						GET: talk(owned((project) => project.backgroundOutput)),
+					},
+					"/api/conversations/:id/stop-background": {
+						POST: talk(owned((project) => project.stopBackground)),
+					},
+					"/api/conversations/:id/unqueue": {
+						POST: talk(owned((project) => project.unqueueConversation)),
+					},
+					"/api/conversations/:id/send-now": {
+						POST: talk(owned((project) => project.sendQueuedNow)),
+					},
+					"/api/conversations/:id/setting": {
+						PUT: talk(owned((project) => project.chooseSetting)),
+					},
+					"/api/conversations/:id/archived": {
+						PUT: talk(owned((project) => project.archiveConversation)),
+					},
+					"/api/conversations/:id/unread": {
+						PUT: talk(owned((project) => project.markUnread)),
+					},
+					"/api/conversations/:id/pinned": {
+						PUT: talk(owned((project) => project.pinConversation)),
+					},
+					"/api/conversations/:id/parent": {
+						PUT: talk(owned((project) => project.reparentConversation)),
+					},
+					"/api/conversations/:id/name": {
+						PUT: talk(owned((project) => project.renameConversation)),
+					},
+					"/api/conversations/:id/task": {
+						PUT: talk(owned((project) => project.moveConversation)),
+					},
+					"/api/ports": guarded(taskPorts.list),
+					// Through a worker's relay, which reaches only this machine's
+					// names: the records of a project its commands run on.
+					"/api/state": { POST: talk(guarded(state.answer)) },
+					// And a merge there holding the lease, which only this end
+					// lands on trunk.
+					"/api/land": { POST: talk(guarded(state.land)) },
+					"/api/queue": guarded(workers.queue),
+					"/api/queue/:id/position": {
+						PUT: talk(guarded(workers.moveQueued)),
+					},
+					"/api/token": { POST: talk(guarded(state.token)) },
 				},
-				"/api/setup": guarded(setup.read),
-				"/api/setup/seen": { PUT: guarded(setup.see) },
-				"/api/setup/:step/next": { POST: guarded(setup.next) },
-				"/api/restart": { POST: talk(guarded(restartIdle)) },
-				"/api/power": { POST: talk(guarded(powerNow)) },
-				"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
-				"/api/projects/:slug": { DELETE: guarded(forgetProject) },
-				"/api/snapshot": scoped((project) => project.snapshot),
-				// Conversations among them, so only as far as a conversation reaches.
-				"/api/everywhere": talk(guarded(everywhere.list)),
-				"/api/everywhere/events": talk(guarded(everywhere.events)),
-				"/api/file": scoped((project) => project.file),
-				// It runs the person's editor, so only as far as a conversation reaches.
-				"/api/open": { POST: talk(scoped((project) => project.open)) },
-				"/api/paths": scoped((project) => project.paths),
-				"/api/tasks/:task/diff": scoped((project) => project.diff),
-				"/api/tasks/:task/outcome": scoped((project) =>
-					ended.landed(project.root),
-				),
-				"/api/tasks/:task/retry": {
-					POST: scoped((project) => project.retryTask),
-				},
-				"/api/tasks/:task": {
-					DELETE: talk(scoped((project) => project.removeTask)),
-				},
-				"/api/todos": { POST: scoped((project) => project.addTodo) },
-				"/api/todos/:id": {
-					PATCH: scoped((project) => project.updateTodo),
-					DELETE: scoped((project) => project.removeTodo),
-				},
-				"/api/todos/:id/restore": {
-					POST: scoped((project) => project.restoreTodo),
-				},
-				"/api/todos/:id/position": {
-					PUT: scoped((project) => project.moveTodo),
-				},
-				"/api/todos/:id/blocked-by": {
-					PUT: scoped((project) => project.linkTodo),
-				},
-				"/api/todos/:id/lane": {
-					PUT: scoped((project) => project.arrangeTodo),
-				},
-				"/api/todos/:id/assignee": {
-					PUT: scoped((project) => project.assignTodo),
-				},
-				"/api/lanes/:id/join": { POST: scoped((project) => project.joinLane) },
-				"/api/lanes": { POST: scoped((project) => project.addLane) },
-				// Through a tunnel only once Access verified who is asking, as a
-				// conversation is: a cred is worth as much as what it opens.
-				"/api/creds": talk(scoped((project) => project.listCreds)),
-				"/api/creds/:name": {
-					PUT: talk(scoped((project) => project.saveCred)),
-					DELETE: talk(scoped((project) => project.removeCred)),
-				},
-				"/api/creds/:name/dismiss": {
-					POST: talk(scoped((project) => project.dismissCred)),
-				},
-				"/api/budgets": scoped((project) => project.listBudgets),
-				"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },
-				"/api/budgets/:role/raises": {
-					POST: scoped((project) => project.raiseBudget),
-				},
-				"/api/budgets/:role/pause": {
-					PUT: scoped((project) => project.pauseBudget),
-					DELETE: scoped((project) => project.resumeBudget),
-				},
-				"/api/budgets/raises/:id": {
-					DELETE: scoped((project) => project.endRaise),
-				},
-				"/api/lanes/:id": {
-					PUT: scoped((project) => project.updateLane),
-					DELETE: scoped((project) => project.dropLane),
-				},
-				"/events": scoped((project) => project.events),
-				"/api/conversations": {
-					GET: talk(scoped((project) => project.listConversations)),
-					POST: talk(scoped((project) => project.startConversation)),
-				},
-				"/api/conversations/auto": {
-					POST: talk(scoped((project) => project.startAutoConversation)),
-				},
-				"/api/conversations/sessions": {
-					GET: talk(scoped((project) => project.listSessions)),
-					POST: talk(scoped((project) => project.bringSession)),
-				},
-				"/api/conversations/limits": {
-					POST: talk(scoped((project) => project.refreshLimits)),
-				},
-				"/api/conversations/events": talk(
-					scoped((project) => project.conversationEvents),
-				),
-				"/api/conversations/:id": {
-					GET: talk(owned((project) => project.showConversation)),
-				},
-				"/api/conversations/:id/prompt": {
-					POST: talk(owned((project) => project.promptConversation)),
-				},
-				"/api/conversations/:id/attachments/:name": {
-					GET: talk(owned((project) => project.conversationAttachment)),
-				},
-				"/api/conversations/:id/artifacts/:name/:version": {
-					GET: talk(owned((project) => project.conversationArtifact)),
-					DELETE: talk(owned((project) => project.deleteArtifactVersion)),
-				},
-				"/api/conversations/:id/tell": {
-					POST: talk(owned((project) => project.tellConversation)),
-				},
-				"/api/conversations/:id/artifacts": {
-					POST: talk(owned((project) => project.addArtifact)),
-				},
-				"/api/conversations/:id/artifacts/:name": {
-					DELETE: talk(owned((project) => project.removeArtifact)),
-				},
-				"/api/conversations/:id/terminate": {
-					POST: talk(owned((project) => project.terminateConversation)),
-				},
-				"/api/conversations/:id/answer": {
-					POST: talk(owned((project) => project.answerConversation)),
-				},
-				"/api/conversations/:id/cancel": {
-					POST: talk(owned((project) => project.cancelConversation)),
-				},
-				"/api/conversations/:id/pause": {
-					POST: talk(owned((project) => project.pauseConversation)),
-				},
-				"/api/conversations/:id/background/:background": {
-					GET: talk(owned((project) => project.backgroundOutput)),
-				},
-				"/api/conversations/:id/stop-background": {
-					POST: talk(owned((project) => project.stopBackground)),
-				},
-				"/api/conversations/:id/unqueue": {
-					POST: talk(owned((project) => project.unqueueConversation)),
-				},
-				"/api/conversations/:id/send-now": {
-					POST: talk(owned((project) => project.sendQueuedNow)),
-				},
-				"/api/conversations/:id/setting": {
-					PUT: talk(owned((project) => project.chooseSetting)),
-				},
-				"/api/conversations/:id/archived": {
-					PUT: talk(owned((project) => project.archiveConversation)),
-				},
-				"/api/conversations/:id/unread": {
-					PUT: talk(owned((project) => project.markUnread)),
-				},
-				"/api/conversations/:id/pinned": {
-					PUT: talk(owned((project) => project.pinConversation)),
-				},
-				"/api/conversations/:id/parent": {
-					PUT: talk(owned((project) => project.reparentConversation)),
-				},
-				"/api/conversations/:id/name": {
-					PUT: talk(owned((project) => project.renameConversation)),
-				},
-				"/api/conversations/:id/task": {
-					PUT: talk(owned((project) => project.moveConversation)),
-				},
-				"/api/ports": guarded(taskPorts.list),
-				// Through a worker's relay, which reaches only this machine's
-				// names: the records of a project its commands run on.
-				"/api/state": { POST: talk(guarded(state.answer)) },
-				// And a merge there holding the lease, which only this end
-				// lands on trunk.
-				"/api/land": { POST: talk(guarded(state.land)) },
-				"/api/queue": guarded(workers.queue),
-				"/api/queue/:id/position": {
-					PUT: talk(guarded(workers.moveQueued)),
-				},
-				"/api/token": { POST: talk(guarded(state.token)) },
+				taskPorts,
+			),
+			websocket: CONNECTIONS,
+			// Here rather than among the routes, since only here may a request be
+			// answered with an upgrade instead of a response.
+			fetch: (request, server) => {
+				const claimed = taskPorts.claim(request, server);
+				if (claimed !== null) {
+					return claimed;
+				}
+				const { pathname } = new URL(request.url);
+				if (pathname === "/api/terminal") {
+					return terminals.open(request, server);
+				}
+				if (pathname === "/api/dictation") {
+					return dictations.open(request, server);
+				}
+				if (pathname === "/api/workers") {
+					return workers.route(request, server, guarded);
+				}
+				if (pathname.startsWith("/api/workers/")) {
+					return workers.manage(request, (handle) => talk(guarded(handle)));
+				}
+				return new Response("not found", { status: 404 });
 			},
-			taskPorts,
-		),
-		websocket: CONNECTIONS,
-		// Here rather than among the routes, since only here may a request be
-		// answered with an upgrade instead of a response.
-		fetch: (request, server) => {
-			const claimed = taskPorts.claim(request, server);
-			if (claimed !== null) {
-				return claimed;
+		});
+	let server = null as ReturnType<typeof listen> | null;
+	for (let attempt = 1; server === null; attempt++) {
+		try {
+			server = listen();
+		} catch (error) {
+			if (!isAddressInUse(error) || attempt >= BIND_ATTEMPTS) {
+				throw error;
 			}
-			const { pathname } = new URL(request.url);
-			if (pathname === "/api/terminal") {
-				return terminals.open(request, server);
-			}
-			if (pathname === "/api/dictation") {
-				return dictations.open(request, server);
-			}
-			if (pathname === "/api/workers") {
-				return workers.route(request, server, guarded);
-			}
-			if (pathname.startsWith("/api/workers/")) {
-				return workers.manage(request, (handle) => talk(guarded(handle)));
-			}
-			return new Response("not found", { status: 404 });
-		},
-	});
+			requested = await ports.get();
+		}
+	}
 	// Read back, because `ports` may hand over 0 to mean any port at all, and
 	// read now, because `server.port` is 0 once the server is stopped and this is
 	// handed to a caller that stops it. Undefined only for a unix socket, which
@@ -720,4 +739,12 @@ export async function dev(
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer extends AsyncResource {
 	port: number;
+}
+
+/** Whether binding failed because another process holds the port. */
+function isAddressInUse(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		(error as NodeJS.ErrnoException).code === "EADDRINUSE"
+	);
 }

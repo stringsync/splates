@@ -57,17 +57,17 @@ describe("a project's kept snapshot", () => {
 		await serving(deps, async (snapshot) => {
 			await snapshot();
 
-			await deps.fs.write(
-				`${tree}/SPLATES.md`,
-				"# alpha\n\n## Goal\n\nmoved\n",
-			);
+			// A watch just opened can still be starting, under load, when the first
+			// write lands, and miss it: write on each look until one is heard.
+			const write = () =>
+				deps.fs.write(`${tree}/SPLATES.md`, "# alpha\n\n## Goal\n\nmoved\n");
+			await write();
 
 			expect(
-				await eventually(
-					async () =>
-						((await snapshot()).tasks[0]?.plan ?? "").includes("moved"),
-					5_000,
-				),
+				await eventually(async () => {
+					await write();
+					return ((await snapshot()).tasks[0]?.plan ?? "").includes("moved");
+				}, 5_000),
 			).toBe(true);
 		});
 	}, 15_000);

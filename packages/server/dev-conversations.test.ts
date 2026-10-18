@@ -3,7 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { AGENT, FakeAgent, heard, ROSTERED, say } from "./agents/testing";
 import { type ConversationState, Conversations } from "./conversations";
-import { json, readUntil, serving } from "./dev-testing";
+import { eventually, json, readUntil, serving } from "./dev-testing";
 import { handoff } from "./handoff";
 import { dev } from "./index";
 import { Testing } from "./testing";
@@ -327,6 +327,17 @@ describe("dev conversations", () => {
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await conversations.find(id);
 			await conversation.prompt("go");
+			// The turn ends when the agent says so, not when its last words have
+			// been taken in: archive once the reply is in the conversation.
+			await eventually(
+				async () =>
+					conversation.state.messages.some((message) =>
+						message.parts.some(
+							(part) => part.type === "text" && part.text === "Done.",
+						),
+					),
+				5_000,
+			);
 			await json(port, `/api/conversations/${id}/archived`, "PUT", {
 				archived: true,
 			});
