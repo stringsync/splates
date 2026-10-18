@@ -1,0 +1,392 @@
+import type { Logger } from "webappwiz/log";
+import type { Fs, Ps } from "webappwiz/system";
+import { Duration, sleep } from "webappwiz/time";
+import { z } from "zod";
+import type { SecretStores } from "../creds";
+import type { Pushed } from "../merge";
+import type { BoxStanding } from "./box";
+import { MovedCreds } from "./creds";
+import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
+import {
+	type BoxProject,
+	BUNDLE,
+	clonesScript,
+	credsScript,
+	inviteScript,
+	placeScript,
+	readClones,
+	startScript,
+	upgradeScript,
+} from "./scripts";
+import { BoxShell } from "./ssh";
+import { MOVED_HOME, stage } from "./stage";
+
+/**
+ * Moves the coordinator onto its box: checks what it needs, readies the
+ * box's clones, each with a deploy key that pushes trunk, and stops at
+ * `keys` until GitHub lets each push; then stops this machine's
+ * `splates server` once its agents checkpoint, carries its records and
+ * creds over, starts the server there for good, and joins this machine to
+ * it as a worker, which carries on each task in its worktree here. This
+ * machine's own records go aside, kept. With `dryRun`, stops before
+ * anything changes here.
+ */
+export class CoordinatorMove {
+	private readonly fetch: typeof fetch;
+	private readonly pause: Duration;
+
+	constructor(private readonly opts: CoordinatorMoveOptions) {
+		this.fetch = opts.fetch ?? fetch;
+		this.pause = opts.pause ?? Duration.secs(2);
+	}
+
+	async run({ dryRun = false }: { dryRun?: boolean } = {}): Promise<Moved> {
+		const { log, version } = this.opts;
+		const { box, host, repos } = await this.check();
+		const shell = new BoxShell({
+			ps: this.opts.ps,
+			ipv4: box.ipv4,
+			key: box.key,
+			knownHosts: `${this.opts.home}/coordinator/known_hosts`,
+		});
+		if (
+			(
+				await shell.run("systemctl is-active splates-coordinator || true\n")
+			).trim() === "active"
+		) {
+			throw new Error(
+				`the coordinator runs on the box already: \`ssh -i ${box.key} root@${box.ipv4} systemctl status splates-coordinator\``,
+			);
+		}
+		const projects = await this.boxProjects(repos);
+		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
+		await shell.run(upgradeScript(version));
+		log.info("readying each project's clone on the box");
+		const { keys } = readClones(await shell.run(clonesScript(projects)));
+		if (keys.length > 0) {
+			return {
+				status: "keys",
+				keys: keys.map(({ slug, key }) => ({
+					slug,
+					key,
+					add: addKeyUrl(projects.find((each) => each.slug === slug)?.url),
+				})),
+			};
+		}
+		if (dryRun) {
+			return {
+				status: "ready",
+				host,
+				projects: repos.map((each) => each.slug),
+			};
+		}
+
+		await this.stopHere(repos);
+		for (const repo of repos) {
+			for (const { task, pushed } of await repo.pushTasks()) {
+				if (pushed.status === "refused" || pushed.status === "failed") {
+					log.info(`${repo.slug}/${task} stays unpushed: ${pushed.why}`);
+				}
+			}
+		}
+		try {
+			await this.carry(shell, repos, projects);
+			log.info(`starting splates server on the box`);
+			await shell.run(startScript());
+			await this.served(host);
+		} catch (error) {
+			await shell
+				.run("systemctl disable --now splates-coordinator || true\n")
+				.catch(() => {});
+			throw new Error(
+				`${error instanceof Error ? error.message : String(error)}\nNothing here changed: start \`splates server\` on this machine again, and move once that is fixed`,
+			);
+		}
+		const aside = await this.putAside(repos);
+		const coordinator = `https://${host}`;
+		const { token } = Invited.parse(
+			JSON.parse(await shell.run(inviteScript())),
+		);
+		await this.opts.join(coordinator, token);
+		const worker = await this.opts.keepWorker(coordinator);
+		return { status: "moved", host, aside, worker };
+	}
+
+	/** What the move needs, all of it said at once when any is missing. */
+	private async check(): Promise<{
+		box: BoxStanding;
+		host: string;
+		repos: MoveRepo[];
+	}> {
+		const missing: string[] = [];
+		const box = await this.opts.box();
+		if (box === null) {
+			missing.push(
+				"no coordinator's box: make it with `splates coordinator up`",
+			);
+		}
+		const host = await this.opts.tunnelHost();
+		if (host === null) {
+			missing.push(
+				"no saved tunnel, which the box carries the page through: set one up with `splates tunnel setup`",
+			);
+		}
+		const repos = await this.opts.repos();
+		if (repos.length === 0) {
+			missing.push("no project here to move: `splates projects` lists none");
+		}
+		for (const repo of repos) {
+			if (repo.remote === null) {
+				missing.push(
+					`${repo.slug} names no central remote, which this machine checks it out from as a worker: add \`remote: "origin"\` to ${repo.root}/splates.config.ts`,
+				);
+			} else if (repo.url === null) {
+				missing.push(`${repo.slug} has no remote ${repo.remote}`);
+			} else if (!sshUrl(repo.url)) {
+				missing.push(
+					`${repo.slug}'s ${repo.remote} is ${repo.url}, which a deploy key cannot push to: make it an SSH URL, as git@github.com:<owner>/<repo>.git`,
+				);
+			}
+		}
+		if (box === null || host === null || missing.length > 0) {
+			throw new Error(
+				`cannot move yet:\n${missing.map((each) => `- ${each}`).join("\n")}`,
+			);
+		}
+		return { box, host, repos };
+	}
+
+	private async boxProjects(repos: MoveRepo[]): Promise<BoxProject[]> {
+		const moved = movedProjects(repos);
+		return repos.map((repo, index) => ({
+			...(moved[index] as MovedProject),
+			url: repo.url ?? "",
+			trunk: repo.trunk,
+		}));
+	}
+
+	/**
+	 * Has this machine's `splates server` checkpoint every agent and shut
+	 * down, then waits until it is gone; nothing to do when it is not up.
+	 */
+	private async stopHere(repos: MoveRepo[]): Promise<void> {
+		const { dev, log } = this.opts;
+		if (!(await this.answers(dev))) {
+			return;
+		}
+		log.info(`asking every agent of ${dev} to checkpoint, then stopping it`);
+		const asked = await this.fetch(new URL("/api/checkpoint", dev), {
+			method: "POST",
+			headers: {
+				origin: new URL(dev).origin,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				projects: repos.map((each) => each.slug),
+				after: "shutdown",
+			}),
+		});
+		if (!asked.ok) {
+			throw new Error(
+				`${dev} would not checkpoint (${asked.status}): ${await asked.text()}`,
+			);
+		}
+		const within = this.opts.checkpointWithin ?? Duration.mins(30);
+		const until = Date.now() + within.ms;
+		while (await this.answers(dev)) {
+			if (Date.now() > until) {
+				throw new Error(
+					`${dev} is still up after ${within.human()}: stop what keeps its agents, or stop it, and move again`,
+				);
+			}
+			await sleep(this.pause);
+		}
+	}
+
+	/** Lays out the records, sends them, puts them in place, and keeps the creds in the box's keyring. */
+	private async carry(
+		shell: BoxShell,
+		repos: MoveRepo[],
+		projects: BoxProject[],
+	): Promise<void> {
+		const { fs, ps, home, log, stores } = this.opts;
+		const staging = `${home}/move`;
+		await fs.rm(staging, { recursive: true, force: true });
+		try {
+			await stage({
+				fs,
+				home,
+				staging: `${staging}/bundle`,
+				worker: this.opts.worker,
+				projects: projects.map((project, index) => ({
+					...project,
+					worktreeRoot: repos[index]?.worktreeRoot ?? "",
+				})),
+			});
+			const bundle = `${staging}/bundle.tgz`;
+			// No AppleDouble `._*` files beside each one in the archive.
+			const packed = await ps.spawnCapture(
+				["tar", "-czf", bundle, "-C", `${staging}/bundle`, "."],
+				{ env: { COPYFILE_DISABLE: "1" } },
+			);
+			if (packed.exitCode !== 0) {
+				throw new Error(`could not pack the records: ${packed.stderr.trim()}`);
+			}
+			log.info("sending the records to the box");
+			await shell.copy(bundle, BUNDLE);
+			await shell.run(placeScript(projects, this.boxHere(projects)));
+			log.info("keeping the creds in the box's keyring");
+			await shell.run(
+				credsScript(),
+				JSON.stringify(await new MovedCreds(stores).carried(projects)),
+			);
+		} finally {
+			await fs.rm(staging, { recursive: true, force: true });
+		}
+	}
+
+	/** The box's clone of the project the move runs in, else of the first. */
+	private boxHere(projects: BoxProject[]): string {
+		const { here } = this.opts;
+		const found = projects.find(
+			(each) => here === each.root || here.startsWith(`${each.root}/`),
+		);
+		return (found ?? projects[0])?.boxRoot ?? BOX_PROJECTS;
+	}
+
+	/**
+	 * Waits until the tunnel's host is carried to the box: Cloudflare
+	 * answers 502 or 530 while no connector serves it, and Access a sign-in
+	 * once one does.
+	 */
+	private async served(host: string): Promise<void> {
+		const until = Date.now() + Duration.mins(2).ms;
+		for (;;) {
+			const status = await this.fetch(`https://${host}/`, {
+				redirect: "manual",
+			})
+				.then((response) => response.status)
+				.catch(() => 0);
+			if (status !== 0 && status !== 502 && status !== 530) {
+				return;
+			}
+			if (Date.now() > until) {
+				throw new Error(`${host} is not carried to the box after two minutes`);
+			}
+			await sleep(this.pause);
+		}
+	}
+
+	/**
+	 * Moves this machine's coordinator records aside, kept: the home files
+	 * into `moved-<date>`, each project's `.git/splates` to
+	 * `.git/splates.moved`. Its checkouts' `splates` then reach the box.
+	 */
+	private async putAside(repos: MoveRepo[]): Promise<string> {
+		const { fs, home } = this.opts;
+		const stamp = (this.opts.now?.() ?? new Date())
+			.toISOString()
+			.replace(/[:.]/g, "-");
+		const aside = `${home}/moved-${stamp}`;
+		for (const name of MOVED_HOME) {
+			if (await fs.exists(`${home}/${name}`)) {
+				const to = `${aside}/${name}`;
+				await fs.mkdir(to.slice(0, to.lastIndexOf("/")), { recursive: true });
+				await fs.rename(`${home}/${name}`, to);
+			}
+		}
+		for (const repo of repos) {
+			const records = `${repo.root}/.git/splates`;
+			if (await fs.exists(records)) {
+				const to = (await fs.exists(`${records}.moved`))
+					? `${records}.moved-${stamp}`
+					: `${records}.moved`;
+				await fs.rename(records, to);
+			}
+		}
+		return aside;
+	}
+
+	private async answers(url: string): Promise<boolean> {
+		return this.fetch(url, { redirect: "manual" })
+			.then(() => true)
+			.catch(() => false);
+	}
+}
+
+/** A project as the move reads it here. */
+export interface MoveRepo {
+	slug: string;
+	root: string;
+	/** Its central remote, as `remote` in its config; null for none. */
+	remote: string | null;
+	/** That remote's URL; null for none. */
+	url: string | null;
+	trunk: string;
+	worktreeRoot: string;
+	/** Pushes each task worked in a worktree here as `splates/<task>`, saying how each went. */
+	pushTasks(): Promise<{ task: string; pushed: Pushed }[]>;
+}
+
+/** What the move runs on; its seams over the box, this machine and the network. */
+export interface CoordinatorMoveOptions {
+	ps: Ps;
+	fs: Fs;
+	log: Logger;
+	/** splates's home here. */
+	home: string;
+	stores: SecretStores;
+	/** The splates release the box runs, and the Mac's worker. */
+	version: string;
+	/** The box as `splates coordinator status` says it stands, or null for none. */
+	box: () => Promise<BoxStanding | null>;
+	/** The host the saved tunnel carries, or null when none is saved. */
+	tunnelHost: () => Promise<string | null>;
+	/** Each project this machine's coordinator keeps. */
+	repos: () => Promise<MoveRepo[]>;
+	/** Where the move runs: the box's server starts in the clone of the project there, whose config names the worker provider. */
+	here: string;
+	/** This machine's `splates server`. */
+	dev: string;
+	/** What this machine is known by as a worker. */
+	worker: string;
+	/** Spends a join token as `splates worker join --key-file` does. */
+	join: (coordinator: string, token: string) => Promise<void>;
+	/** Keeps this machine's worker dialing `coordinator` from now on, saying how. */
+	keepWorker: (coordinator: string) => Promise<string>;
+	fetch?: typeof fetch;
+	/** How long to wait between looks while something comes up or goes down. */
+	pause?: Duration;
+	/** How long this machine's agents have to checkpoint. */
+	checkpointWithin?: Duration;
+	now?: () => Date;
+}
+
+/** How a move ended. */
+export type Moved =
+	| { status: "moved"; host: string; aside: string; worker: string }
+	| { status: "ready"; host: string; projects: string[] }
+	| { status: "keys"; keys: DeployKey[] };
+
+/** A deploy key the box made that GitHub does not yet let push. */
+export interface DeployKey {
+	slug: string;
+	key: string;
+	/** Where on GitHub to add it, when its origin is there. */
+	add: string | null;
+}
+
+const Invited = z.object({ token: z.string() });
+
+/** Whether git reaches `url` over SSH, as a deploy key signs in. */
+function sshUrl(url: string): boolean {
+	return /^ssh:\/\//.test(url) || /^[\w.-]+@[\w.-]+:/.test(url);
+}
+
+/** Where on GitHub a deploy key is added for the repository at `url`; null elsewhere. */
+export function addKeyUrl(url: string | undefined): string | null {
+	const repo = url?.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/);
+	return repo
+		? `https://github.com/${repo[1]}/${repo[2]}/settings/keys/new`
+		: null;
+}

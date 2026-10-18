@@ -418,7 +418,17 @@ coordinator setup area: `coordinator-box`, after `pulumi-state` and
 Ashburn with daily backups, SSH alone open, its key under
 `~/.splates/coordinator`); `splates coordinator status` prints its address and
 how to SSH in, and `splates coordinator remove` destroys it and its backups.
-It serves nothing until the coordinator moves onto it.
+It serves nothing until `splates coordinator move` moves the coordinator onto
+it, which needs `remote` set in every project's `splates.config.ts` and an SSH
+origin: the box gives each project a deploy key, and until GitHub lets each
+push trunk the move exits `blocked`, printing each key and where to add it
+with write access; show the user those and run it again once they are added.
+`--dry-run` stops there. Run for real, it checkpoints every agent and stops
+this machine's `splates server`, carries the records and creds over, starts
+the server on the box under systemd with the saved tunnel, and joins this
+machine as a worker kept up by a LaunchAgent, where each task carries on in
+its worktree; this machine's records go aside, kept. It touches the user's
+live server and tunnel: ask before running it for real.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

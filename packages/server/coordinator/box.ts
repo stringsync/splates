@@ -9,7 +9,7 @@ import { HCLOUD_TOKEN, Pulumi } from "../workers";
  * made through Pulumi as the workers are: the Hetzner token and Pulumi's
  * state and passphrase the Cloud workers setup readied, one stack in the
  * file backend on this machine. The box has splates installed and serves
- * nothing until the coordinator moves onto it.
+ * nothing until `CoordinatorMove` moves the coordinator onto it.
  */
 export class CoordinatorBox {
 	private readonly pulumi: Pulumi;
@@ -202,11 +202,10 @@ export interface BoxStanding {
 	key: string;
 }
 
-/**
- * Hetzner's CPX21, 3 shared vCPU and 4 GB: the server takes ~0.6 GB with 7
- * sessions, and agents and their tests run on workers. About $38 a month in
- * Ashburn after Hetzner's 15 June 2026 prices, its daily backups 20% more.
- */
+/** The box's Hetzner server type, unless `serverType` says another. */
+// Hetzner's CPX21, 3 shared vCPU and 4 GB: the server takes ~0.6 GB with 7
+// sessions, and agents and their tests run on workers. About $38 a month in
+// Ashburn after Hetzner's 15 June 2026 prices, its daily backups 20% more.
 export const BOX_TYPE = "cpx21";
 
 /** Ashburn, Virginia: Hetzner's nearest to New Jersey. */

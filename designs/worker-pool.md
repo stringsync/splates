@@ -391,6 +391,35 @@ Creds stay in `Bun.secrets` through GNOME Keyring run headless beside
 (settled 2026-10-18); every unattended store keeps its unlock secret on the
 box's disk, and the daily backups copy it.
 
+How the coordinator moves (built 2026-10-18, `splates coordinator move`,
+`packages/server/coordinator/move.ts`). Over SSH as root with the box's key,
+it brings the box's splates to the release, then gives each project a clone
+under `/home/splates/projects/<name>` (the name also keys its project creds
+store, so two projects of one name are refused) with a deploy key of its own
+in `core.sshCommand`, and stops at `blocked` until a dry-run push of trunk
+works for each: the coordinator pushes trunk with the machine's own
+credentials, and a key per repository was picked over a token of the user's
+or letting the GitHub App push trunk, which every worker's App token could
+then do. Every project needs `remote` too, since the Mac becomes a worker.
+Then it has the Mac's server checkpoint every agent and shut down, pushes
+each task's branch as a backup, and carries the coordinator's home files
+(roots rewritten for the box; not dev slots, locks or Pulumi's binary) and
+each project's `.git/splates` as they are, but that each task worked in a
+worktree on the Mac is put on the Mac's worker, at that worktree, so agents
+carry on there in place, and conversations keep the paths of the worker
+that ran them. Creds, but the dev slots' tunnel tokens, go on stdin into
+`splates coordinator keep-creds` on the box, in a D-Bus session whose GNOME
+Keyring `/root/splates-keyring` unlocked, as the unit
+`splates-coordinator.service` runs `splates server` (`LoadCredential=`,
+`dbus-run-session`, `Restart=always`), its own worker off. It starts only
+once the Mac's server is gone, since two connectors on one tunnel split
+traffic, and the move waits until the host is carried there; a failure
+before that takes the unit down and leaves the Mac as it was. Last, the Mac's
+records go aside (`~/.splates/moved-<date>/`, `.git/splates.moved`), so its
+checkouts' `splates` relay to the box, and the Mac joins with a token minted
+on the box's loopback, its key in `~/.splates/worker.env`, kept up by the
+LaunchAgent `dev.splates.worker`.
+
 ## Updates without waiting
 
 The coordinator restarts on its own: agents, terminals and dev servers belong
