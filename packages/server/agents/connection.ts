@@ -791,6 +791,16 @@ export class AgentConnection {
 		this.settled(answer);
 	}
 
+	/**
+	 * Lets go of the session, kept on a worker that is gone, so the next
+	 * open starts a new one wherever it is placed.
+	 */
+	forgetSession(): void {
+		this.session = null;
+		this.sessionCwd = null;
+		this.loading = false;
+	}
+
 	// scry-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
 	/** Ends the process, dismissing whatever the agent was asking. */
 	close(): void {

@@ -49,6 +49,7 @@ describe("Conversations waiting for a slot", () => {
 				);
 				return {
 					worker: grant.worker,
+					lost: grant.lost,
 					dispose: grant.dispose,
 					launch: agent.launch,
 					machine: null,

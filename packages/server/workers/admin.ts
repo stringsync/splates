@@ -181,6 +181,6 @@ export async function removeWorker(
 	opts.log.info(
 		removed
 			? `removed ${id}${running.length > 0 ? `, ending ${running.join(", ")}` : ""}`
-			: `${id} drains, and is removed once ${running.join(", ")} end; --force ends them now`,
+			: `${id} drains, and is removed once ${running.join(", ")} end; --force ends them now and carries their tasks on elsewhere`,
 	);
 }

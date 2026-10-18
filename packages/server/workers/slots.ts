@@ -88,6 +88,7 @@ export class WorkerSlots implements Resource {
 				}
 				return {
 					worker: grant.worker,
+					lost: grant.lost,
 					dispose: grant.dispose,
 					launch: worker.launch,
 					machine: worker.kind === "local" ? null : worker,

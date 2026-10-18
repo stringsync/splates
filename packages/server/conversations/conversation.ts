@@ -8,7 +8,7 @@ import { AgentConnection, fold, heard } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
-import { RECONNECT } from "../plans";
+import { RECONNECT, taskReference } from "../plans";
 import type { Grant } from "../scheduler";
 import type { WorkerMachine } from "../workers";
 import { put } from "./archive";
@@ -79,6 +79,11 @@ export class Conversation
 	private placing: AbortController | null = null;
 	/** The worker other than this machine's it was last placed on; null for none. */
 	private placed: WorkerMachine | null = null;
+	/**
+	 * What its next prompt is to follow, for an agent taken off a worker
+	 * while idle: its new session knows nothing of the task. Null for none.
+	 */
+	private carry: string | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -380,6 +385,13 @@ export class Conversation
 		// What the person says takes the place of a reconnect still due.
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
+		const carry = this.carry;
+		if (carry !== null) {
+			this.carry = null;
+			return this.turns
+				.prompt(carry)
+				.then(() => this.turns.prompt(text, files, from, opts));
+		}
 		return this.turns.prompt(text, files, from, opts);
 	}
 
@@ -531,6 +543,38 @@ export class Conversation
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
 		await this.close(null);
+	}
+
+	/**
+	 * Takes its agent off the worker it ran on, whose slot went with it, and
+	 * places it again, as a forced remove does, or a drain that replaces
+	 * the worker: in a new session, since the old one stays on that worker,
+	 * told `[SPLATES TASK <task>]` to claim its task from the checkpoint it
+	 * last pushed. One at work carries on at once; one idle hears it before
+	 * the person's next words; one in no task has nothing pushed to carry
+	 * on from, and stays stopped.
+	 */
+	async requeue(): Promise<void> {
+		const { status, task, checkpoint } = this.state;
+		const busy =
+			status === "running" ||
+			status === "starting" ||
+			checkpoint === "asked" ||
+			// Its process ended first, cut short, as a worker hanging up ends it.
+			this.reconnecting !== null;
+		const carry = task === null ? null : taskReference(task);
+		// Said before the person can say anything once it has stopped.
+		this.carry = busy ? null : carry;
+		// Freed already, with the worker.
+		this.grant = null;
+		this.placed = null;
+		await this.close(null);
+		this.reconnecting?.dispose();
+		this.reconnecting = null;
+		this.connection.forgetSession();
+		if (busy && carry !== null) {
+			await this.turns.prompt(carry);
+		}
 	}
 
 	/**
@@ -894,6 +938,15 @@ export class Conversation
 				placing.signal,
 			);
 			this.grant = placement;
+			placement.lost.addEventListener(
+				"abort",
+				() => {
+					if (this.grant === placement) {
+						void this.requeue().catch(() => {});
+					}
+				},
+				{ once: true },
+			);
 			return placement;
 		} catch (error) {
 			if (placing.signal.aborted) {

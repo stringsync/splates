@@ -65,6 +65,21 @@ describe("Scheduler", () => {
 		expect(scheduler.queue()).toEqual([]);
 	});
 
+	it("tells each grant on a worker released that it is lost, and places the next elsewhere", async () => {
+		workers = [worker("box"), worker("local")];
+		const here = await take("a");
+		const there = await take("b");
+		const next = take("c");
+		await settle();
+
+		workers = [worker("local", { slots: 2 })];
+		scheduler.release("box");
+
+		expect(there.lost.aborted).toBe(true);
+		expect(here.lost.aborted).toBe(false);
+		expect((await next).worker).toBe("local");
+	});
+
 	it("frees a slot once however often its grant is disposed", async () => {
 		workers = [worker("local", { slots: 2 })];
 		const first = await take("a");

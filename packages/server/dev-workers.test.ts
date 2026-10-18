@@ -128,7 +128,7 @@ describe("DevWorkers", () => {
 		await joinedKey(workers, "box");
 		await joinedKey(workers, "other");
 		const held = workers.slots.scheduler.hold(request("one"), "box");
-		workers.slots.scheduler.hold(request("two"), "other");
+		const forcing = workers.slots.scheduler.hold(request("two"), "other");
 
 		const waiting = await (await workers.remove(del("box"))).json();
 		expect(waiting).toMatchObject({ removed: false, running: ["one-task"] });
@@ -141,6 +141,9 @@ describe("DevWorkers", () => {
 		const forced = await (await workers.remove(del("other", true))).json();
 		expect(forced).toMatchObject({ removed: true, running: ["two-task"] });
 		expect(workers.slots.used().get("other")).toBeUndefined();
+		// Which tells its conversation to carry on elsewhere.
+		expect(forcing.lost.aborted).toBe(true);
+		expect(held.lost.aborted).toBe(false);
 	});
 
 	it("lists the build it runs beside the workers, as each set by hand", async () => {

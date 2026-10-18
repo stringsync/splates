@@ -173,7 +173,7 @@ splatesWorker
 splatesWorker
 	.command("remove")
 	.description(
-		"remove a worker, revoking its key: one with agents on it drains and is removed once they end; --force ends them now and frees their slots. This machine's own worker, `local`, stops taking agents, its agents running to their end, and leaves this machine only coordinating until `splates worker add --local <slots>`; it takes no --force",
+		"remove a worker, revoking its key: one with agents on it drains and is removed once they end; --force ends them now, frees their slots, and places each again on another worker, to carry on its task from the checkpoint it last pushed. This machine's own worker, `local`, stops taking agents, its agents running to their end, and leaves this machine only coordinating until `splates worker add --local <slots>`; it takes no --force",
 	)
 	.arg("id", z.string(), {
 		description: "the worker, as `splates worker list` names it",

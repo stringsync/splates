@@ -13,7 +13,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<SchedulerEvents>();
 	readonly events = this.dispatcher.events;
 	private readonly waiting: Waiting[] = [];
-	private readonly holding = new Map<string, HeldSlot>();
+	private readonly holding = new Map<string, Holding>();
 	/** The worker each agent last ran on, which it goes back to when it can. */
 	private readonly last = new Map<string, string>();
 	/** Why no worker is made for the queue, as a budget limit says; null when none holds it. */
@@ -87,7 +87,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 
 	/** The agents holding slots, on whichever worker. */
 	held(): HeldSlot[] {
-		return [...this.holding.values()];
+		return [...this.holding.values()].map(({ held }) => held);
 	}
 
 	/**
@@ -111,13 +111,20 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 
 	/**
 	 * Frees every slot held on `worker`, as when it is removed with its
-	 * agents still on it, and places whoever can go elsewhere.
+	 * agents still on it, telling each grant's holder through `lost`, and
+	 * places whoever can go elsewhere: the holders that take their agents
+	 * back up included, once `worker` is out of the pool.
 	 */
 	release(worker: string): void {
-		for (const [id, held] of this.holding) {
+		const lost: AbortController[] = [];
+		for (const [id, { held, losing }] of this.holding) {
 			if (held.worker === worker) {
 				this.holding.delete(id);
+				lost.push(losing);
 			}
+		}
+		for (const losing of lost) {
+			losing.abort(new Error(`worker ${worker} was removed`));
 		}
 		this.place();
 		this.changed();
@@ -176,7 +183,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 */
 	private pick(request: SlotRequest): string | null {
 		const used = new Map<string, number>();
-		for (const { worker, uncapped } of this.holding.values()) {
+		for (const { worker, uncapped } of this.held()) {
 			if (!uncapped) {
 				used.set(worker, (used.get(worker) ?? 0) + 1);
 			}
@@ -204,18 +211,20 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			worker,
 			uncapped: request.uncapped === true,
 		};
-		this.holding.set(request.id, held);
+		const losing = new AbortController();
+		this.holding.set(request.id, { held, losing });
 		this.last.set(request.id, worker);
 		let freed = false;
 		this.changed();
 		return {
 			worker,
+			lost: losing.signal,
 			dispose: () => {
 				if (freed) {
 					return;
 				}
 				freed = true;
-				if (this.holding.get(request.id) === held) {
+				if (this.holding.get(request.id)?.held === held) {
 					this.holding.delete(request.id);
 				}
 				this.place();
@@ -343,9 +352,20 @@ export interface HeldSlot {
 /** A slot an agent holds until it is disposed, which frees it. */
 export interface Grant extends Resource {
 	readonly worker: string;
+	/**
+	 * Aborts once the slot is taken away with its worker, as a forced
+	 * remove does, while the agent may still think it runs there.
+	 */
+	readonly lost: AbortSignal;
 }
 
 export type SchedulerEvents = { changed: undefined };
+
+/** A slot held, and what tells its holder once it is taken away. */
+interface Holding {
+	held: HeldSlot;
+	losing: AbortController;
+}
 
 interface Waiting {
 	request: SlotRequest;
