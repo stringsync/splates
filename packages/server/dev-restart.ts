@@ -13,7 +13,7 @@ import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
 import { tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
-import type { WorkerMachine } from "./worker-machine";
+import type { WorkerMachine } from "./workers";
 
 /** The projects `splates server` serves, as its restarts reach them. */
 export interface ServedProjects {

@@ -7,7 +7,7 @@ import { json } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { heldBy } from "./held";
 import type { RemotePty } from "./remote-pty";
-import type { RemotePtyOptions } from "./remote-worker";
+import type { RemotePtyOptions } from "./workers";
 
 /** Bigger than any screen, and small enough that a typo cannot hurt. */
 export const MAX_SIZE = 1000;

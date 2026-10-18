@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { LOOPBACK } from "./dev-http";
 import { PIPE_HANDLERS, PortPipe } from "./port-pipe";
-import type { RemoteWorker } from "./remote-worker";
+import type { RemoteWorker } from "./workers";
 
 /**
  * A loopback port on the coordinator standing in for `port` on a worker:

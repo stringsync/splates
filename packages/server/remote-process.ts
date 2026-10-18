@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { AgentFrame, AgentProcess, ProcessHandle } from "./agent-process";
-import type { WorkerChannel } from "./worker-channel";
-import type { WorkerSession } from "./worker-session";
+import type { WorkerChannel, WorkerSession } from "./workers";
 
 /** What a worker says on a process's channel besides its stdout. */
 const Said = z.discriminatedUnion("type", [

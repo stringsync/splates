@@ -27,7 +27,7 @@ import type { Outcomes } from "../outcomes";
 import type { SessionServers } from "../shared-browser";
 import { installedVersion } from "../skills";
 import type { Watch } from "../watch";
-import { LocalWorkerMachine, type WorkerMachine } from "../worker-machine";
+import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { Conversation, type Picked } from "./conversation";
 import type {
 	ConversationDeps,

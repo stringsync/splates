@@ -7,8 +7,8 @@ import { PortSocket } from "./dev-port-socket";
 import type { Served } from "./dev-project";
 import type { Connection } from "./dev-sockets";
 import { PortForward } from "./port-forward";
-import type { RemoteWorker } from "./remote-worker";
 import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
+import type { RemoteWorker } from "./workers";
 
 /** One task port, with where to open it. */
 export interface PortLink extends TaskPort {

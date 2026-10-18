@@ -14,8 +14,7 @@ import { FakeAgentPs } from "./fake-agent-ps";
 import { type DevServer, dev } from "./index";
 import { RESTART } from "./supervise";
 import { Testing } from "./testing";
-import { UnixWorkerSocket } from "./unix-worker-socket";
-import { WorkerDaemon } from "./worker-daemon";
+import { UnixWorkerSocket, WorkerDaemon } from "./workers";
 
 describe("dev restart with agents on the worker", () => {
 	let deps: Testing;

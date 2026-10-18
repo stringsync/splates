@@ -6,13 +6,15 @@ import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { systemPs } from "./legacy-ps";
 import { queueListing } from "./queue-list";
-import type { RemoteWorker } from "./remote-worker";
-import { ServerWorkerSocket } from "./server-worker-socket";
-import { UnixWorkerListener } from "./unix-worker-listener";
-import { workerList } from "./worker-list";
-import { WorkerRecords } from "./worker-records";
-import { WorkerRegistry } from "./worker-registry";
-import { WorkerSlots } from "./worker-slots";
+import type { RemoteWorker } from "./workers";
+import {
+	ServerWorkerSocket,
+	UnixWorkerListener,
+	WorkerRecords,
+	WorkerRegistry,
+	WorkerSlots,
+	workerList,
+} from "./workers";
 import type { WorkerMachines } from "./worktree-service";
 
 /** What the worker the supervisor starts beside the server is known by. */

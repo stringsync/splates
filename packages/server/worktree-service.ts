@@ -13,8 +13,8 @@ import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "./plan";
 import { Systems } from "./systems";
 import { taskLog } from "./task-log";
-import { workerGit } from "./worker-git";
-import type { WorkerMachine } from "./worker-machine";
+import type { WorkerMachine } from "./workers";
+import { workerGit } from "./workers";
 import {
 	type DiffSize,
 	type DiscardOptions,

@@ -9,7 +9,7 @@ import type { Reach } from "../projects";
 import type { Grant } from "../scheduler";
 import type { SessionServers } from "../shared-browser";
 import type { Watch } from "../watch";
-import type { WorkerMachine } from "../worker-machine";
+import type { WorkerMachine } from "../workers";
 import type { ConversationLog } from "./log";
 import type { ConversationState, QueueSpot } from "./state";
 

@@ -5,9 +5,8 @@ import { Duration } from "webappwiz/time";
 import { printed } from "./agent-process-testing";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevWorkers, workerAuthorization } from "./dev-workers";
-import type { RemoteWorker } from "./remote-worker";
-import { WebSocketWorkerSocket } from "./websocket-worker-socket";
-import { WorkerDaemon } from "./worker-daemon";
+import type { RemoteWorker } from "./workers";
+import { WebSocketWorkerSocket, WorkerDaemon } from "./workers";
 
 describe("DevWorkers", () => {
 	let workers: DevWorkers;
@@ -80,7 +79,7 @@ describe("DevWorkers", () => {
 		const { token } = await workers.records.invite();
 		const join = () =>
 			workers.join(
-				new Request("http://127.0.0.1/api/workers/join", {
+				new Request("http://127.0.0.1/api/workers", {
 					method: "POST",
 					body: JSON.stringify({ token, id: "box" }),
 				}),

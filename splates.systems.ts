@@ -58,6 +58,11 @@ export default {
 			"packages/web/app-lanes.test.tsx",
 		],
 	},
+	workers: {
+		description: "The machines that run tasks for splates server",
+		aliases: ["worker"],
+		globs: ["packages/server/workers/**", "packages/splates/worker*.ts"],
+	},
 	mobile: {
 		description: "splates server's phone layout",
 		aliases: ["phone"],

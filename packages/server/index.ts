@@ -45,7 +45,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "./setup";
-import { LocalWorkerMachine } from "./worker-machine";
+import { LocalWorkerMachine } from "./workers";
 
 export type { DevOptions } from "./dev-options";
 export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./dev-ports";

@@ -9,7 +9,7 @@ import { fail } from "../exit";
 import { fold, heard } from "../fold";
 import { finishObservation } from "../opencode-usage";
 import type { Grant } from "../scheduler";
-import type { WorkerMachine } from "../worker-machine";
+import type { WorkerMachine } from "../workers";
 import { put } from "./archive";
 import { ConversationBackground } from "./background";
 import { choose } from "./choice";

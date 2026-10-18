@@ -9,7 +9,7 @@ import type { Offered } from "../offered";
 import type { Outcomes } from "../outcomes";
 import type { SessionServers } from "../shared-browser";
 import type { Watch } from "../watch";
-import type { WorkerMachine } from "../worker-machine";
+import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts, ProjectRoster } from "./host";
 import type { Limit } from "./state";
 export interface ConversationsOptions {

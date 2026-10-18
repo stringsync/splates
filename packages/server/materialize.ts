@@ -1,6 +1,6 @@
 import type { Config } from "./config";
 import type { TaskBranches } from "./task-branches";
-import type { WorkerMachine } from "./worker-machine";
+import type { WorkerMachine } from "./workers";
 
 /** The project `materialize` readies on a worker. */
 export interface MaterializedProject {

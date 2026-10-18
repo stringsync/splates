@@ -39,10 +39,12 @@ import { SERVING, supervise, UNBUILT } from "./supervise";
 import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
-import { workerGit } from "./worker-git";
-import { WorkerPlacement } from "./worker-placement";
-import { WorkerRecords } from "./worker-records";
-import { workerSocketPath } from "./worker-run";
+import {
+	WorkerPlacement,
+	WorkerRecords,
+	workerGit,
+	workerSocketPath,
+} from "./workers";
 
 /**
  * Runs `splates server` with its flags: the page for every registered

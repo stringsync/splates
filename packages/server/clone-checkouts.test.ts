@@ -10,7 +10,7 @@ import { PLAN_FILE } from "./plan";
 import { PlanStore } from "./plan-store";
 import { TaskBranches } from "./task-branches";
 import { Testing } from "./testing";
-import { LocalWorkerMachine } from "./worker-machine";
+import { LocalWorkerMachine } from "./workers";
 import { WorktreeService } from "./worktree-service";
 
 describe("CloneCheckouts", () => {

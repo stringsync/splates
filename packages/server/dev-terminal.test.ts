@@ -8,8 +8,8 @@ import { serving } from "./dev-testing";
 import { DevWorkers } from "./dev-workers";
 import { dev } from "./index";
 import { Testing } from "./testing";
-import { WorkerDaemon } from "./worker-daemon";
-import { WorkerSocketPair } from "./worker-socket-pair";
+import { WorkerDaemon } from "./workers";
+import { WorkerSocketPair } from "./workers/testing";
 
 describe("dev terminal", () => {
 	let deps: Testing;

@@ -3,7 +3,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { z } from "zod";
 import type { ProcessHandle } from "./agent-process";
 import type { PtyEvents } from "./pty";
-import type { WorkerChannel } from "./worker-channel";
+import type { WorkerChannel } from "./workers";
 
 const Said = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("started"), pid: z.number() }),

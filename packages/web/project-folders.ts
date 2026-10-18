@@ -5,8 +5,8 @@
  * own rows.
  */
 
+import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { LaneRecord } from "@stringsync/splates-server/lanes";
 import type { Needing } from "@stringsync/splates-server/needs";
 import type { Details } from "@stringsync/splates-server/show";
 import { flatten, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";

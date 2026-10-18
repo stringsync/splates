@@ -4,7 +4,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../fake-agent";
 import { type PoolWorker, Scheduler } from "../scheduler";
-import type { WorkerMachine } from "../worker-machine";
+import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts } from "./host";
 import { Conversations } from "./index";
 import { until } from "./testing";

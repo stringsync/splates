@@ -6,11 +6,13 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { PortForward } from "./port-forward";
-import type { RemoteWorker } from "./remote-worker";
-import { UnixWorkerListener } from "./unix-worker-listener";
-import { UnixWorkerSocket } from "./unix-worker-socket";
-import { WorkerDaemon } from "./worker-daemon";
-import { WorkerRegistry } from "./worker-registry";
+import type { RemoteWorker } from "./workers";
+import {
+	UnixWorkerListener,
+	UnixWorkerSocket,
+	WorkerDaemon,
+	WorkerRegistry,
+} from "./workers";
 
 describe("PortForward", () => {
 	let dir: string;

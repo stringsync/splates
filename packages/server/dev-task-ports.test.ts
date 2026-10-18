@@ -9,11 +9,13 @@ import { ACCESS_HEADER } from "./dev-access";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevTaskPorts } from "./dev-task-ports";
 import { FakeAccess } from "./fake-access";
-import type { RemoteWorker } from "./remote-worker";
-import { UnixWorkerListener } from "./unix-worker-listener";
-import { UnixWorkerSocket } from "./unix-worker-socket";
-import { WorkerDaemon } from "./worker-daemon";
-import { WorkerRegistry } from "./worker-registry";
+import type { RemoteWorker } from "./workers";
+import {
+	UnixWorkerListener,
+	UnixWorkerSocket,
+	WorkerDaemon,
+	WorkerRegistry,
+} from "./workers";
 
 describe("DevTaskPorts", () => {
 	let dir: string;

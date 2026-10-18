@@ -14,7 +14,7 @@ import type { DevWorkers } from "./dev-workers";
 import type { Git } from "./git";
 import type { MachineSensors } from "./machine";
 import type { Slot } from "./slots";
-import type { WorkerMachine } from "./worker-machine";
+import type { WorkerMachine } from "./workers";
 import type { WorktreeService } from "./worktree-service";
 
 /** What `dev` lets a caller choose. */

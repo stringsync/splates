@@ -36,7 +36,7 @@ import {
 	untilAfter,
 	wait,
 } from "@stringsync/splates-server/wait";
-import { LOCAL_SLOTS } from "@stringsync/splates-server/worker-slots";
+import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
 import { REMOVE_REASONS } from "@stringsync/splates-server/worktree";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";

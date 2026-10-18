@@ -11,11 +11,13 @@ import { basename, dirname, join } from "node:path";
 import { type DevServer, dev } from "@stringsync/splates-server";
 import { printed } from "@stringsync/splates-server/agent-process-testing";
 import { DevWorkers } from "@stringsync/splates-server/dev-workers";
-import type { RemoteWorker } from "@stringsync/splates-server/remote-worker";
 import { relayFile } from "@stringsync/splates-server/repo-state";
 import { Testing } from "@stringsync/splates-server/testing";
-import { UnixWorkerSocket } from "@stringsync/splates-server/unix-worker-socket";
-import { WorkerDaemon } from "@stringsync/splates-server/worker-daemon";
+import type { RemoteWorker } from "@stringsync/splates-server/workers";
+import {
+	UnixWorkerSocket,
+	WorkerDaemon,
+} from "@stringsync/splates-server/workers";
 import { color, MemoryLogger } from "webappwiz/log";
 import { NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";

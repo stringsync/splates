@@ -2,11 +2,11 @@ import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import {
 	addWorker,
 	drainWorker,
+	listWorkers,
 	removeWorker,
 	setWorkerSlots,
-} from "@stringsync/splates-server/worker-admin";
-import { listWorkers } from "@stringsync/splates-server/worker-list";
-import { workerRun } from "@stringsync/splates-server/worker-run";
+	workerRun,
+} from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 
