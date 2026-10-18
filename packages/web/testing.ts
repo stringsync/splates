@@ -13,6 +13,7 @@ import type { Held } from "@stringsync/splates-server/held";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
+import type { WorkerPool } from "@stringsync/splates-server/workers";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
@@ -178,6 +179,8 @@ export class Testing implements Resource {
 	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
 	machine: MachineStatus | null = null;
+	/** What `/api/workers` lists, or null for it to fail. */
+	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
@@ -264,6 +267,11 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/ports") {
 				return Response.json({ base: null, ports: this.ports });
+			}
+			if (route === "/api/workers") {
+				return this.workers === null
+					? new Response(null, { status: 500 })
+					: Response.json(this.workers);
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

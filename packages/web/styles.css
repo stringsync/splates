@@ -159,6 +159,9 @@
 @source "./waiting-line.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";
+@source "./worker-card.tsx";
+@source "./worker-invite.tsx";
+@source "./workers.tsx";
 @source "./changes.tsx";
 @source "./check-in.tsx";
 @source "./thread-action.tsx";

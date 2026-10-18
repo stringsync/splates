@@ -5,6 +5,7 @@ import { Duration } from "webappwiz/time";
 import { printed } from "./agents/testing";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevWorkers, workerAuthorization } from "./dev-workers";
+import { RUNNING } from "./release";
 import type { RemoteWorker } from "./workers";
 import { WebSocketWorkerSocket, WorkerDaemon } from "./workers";
 
@@ -140,6 +141,16 @@ describe("DevWorkers", () => {
 		const forced = await (await workers.remove(del("other", true))).json();
 		expect(forced).toMatchObject({ removed: true, running: ["two-task"] });
 		expect(workers.slots.used().get("other")).toBeUndefined();
+	});
+
+	it("lists the build it runs beside the workers, as each set by hand", async () => {
+		await workers.update(put("local", { slots: 3, draining: true }));
+		const listed = await (await workers.list()).json();
+
+		expect(listed).toMatchObject({
+			build: RUNNING,
+			workers: [{ id: "local", draining: true, slots: { total: 3 } }],
+		});
 	});
 
 	it("will not remove this machine's own worker", async () => {

@@ -36,10 +36,18 @@ export interface WorkerListing {
 	dollarsPerHour: number;
 }
 
-/** What `GET /api/workers` answers. */
+/** What a registry keeps and turned away, as `workerList` gives them. */
 export interface WorkerListings {
 	workers: WorkerListing[];
 	refused: { id: string; protocol: string; reason: string }[];
+}
+
+/**
+ * What `GET /api/workers` answers: the listings, and the build the
+ * coordinator runs, which a worker on another waits to be updated to.
+ */
+export interface WorkerPool extends WorkerListings {
+	build: string;
 }
 
 /**

@@ -6,8 +6,14 @@ import { systemPs } from "./config";
 import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { queueListing } from "./queue-list";
+import { RUNNING } from "./release";
 import type { WorkerMachines } from "./tasks";
-import type { RemoteWorker, Snapshots, WorkerProvider } from "./workers";
+import type {
+	RemoteWorker,
+	Snapshots,
+	WorkerPool,
+	WorkerProvider,
+} from "./workers";
 import {
 	ServerWorkerSocket,
 	UnixWorkerListener,
@@ -200,11 +206,17 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		return this.records.verify(id, key) ? id : null;
 	}
 
-	/** `GET /api/workers`: each worker and each refusal, as `splates worker list` shows them. */
+	/**
+	 * `GET /api/workers`: each worker and each refusal, as `splates worker
+	 * list` shows them, and the build this server runs.
+	 */
 	readonly list = async (): Promise<Response> =>
-		Response.json(
-			workerList(this.registry, this.slots.used(), (id) => this.records.of(id)),
-		);
+		Response.json({
+			...workerList(this.registry, this.slots.used(), (id) =>
+				this.records.of(id),
+			),
+			build: RUNNING,
+		} satisfies WorkerPool);
 
 	/** `POST /api/workers/invite`: a join token, single use, for `splates worker run --join`. */
 	readonly invite = async (): Promise<Response> =>

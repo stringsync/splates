@@ -2,6 +2,7 @@ export { addWorker, drainWorker, removeWorker, setWorkerSlots } from "./admin";
 export { WorkerChannel } from "./channel";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
+export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { listWorkers, workerList } from "./list";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";

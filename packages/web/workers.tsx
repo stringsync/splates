@@ -1,0 +1,262 @@
+import type {
+	WorkerListing,
+	WorkerPool,
+} from "@stringsync/splates-server/workers";
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
+import { type JSX, type ReactNode, useState } from "react";
+import { Switch } from "#web/components/ui/switch.tsx";
+import { cn } from "#web/lib/utils.ts";
+import { localWorker, localWorkerOn } from "./local-worker";
+import { PHONE_HEADING } from "./phone-rows";
+import { Refusal, useRefusals } from "./refusal";
+import { TopBar } from "./top-bar";
+import { SlotsField, WorkerCard } from "./worker-card";
+import { JoinToken } from "./worker-invite";
+import { behind, WorkerPoolView } from "./worker-pool";
+
+/**
+ * The Workers page: this Mac as a worker, which it turns on and off, the
+ * pool as `splates worker list` shows it, with the same actions as the CLI,
+ * the workers waiting on an update, and a join token for another.
+ */
+export function WorkersPage({
+	tasks,
+	onOpenTask,
+}: {
+	/** The tasks of this project, which a worker's tasks open on the Tasks page. */
+	tasks: ReadonlySet<string>;
+	onOpenTask: (name: string) => void;
+}): JSX.Element {
+	const [view] = useState(() => new WorkerPoolView());
+	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
+	const { pool, error } = useReactive(
+		view,
+		({ pool, error }) => ({ pool, error }),
+		["changed"],
+	);
+	const { refusals, refuse } = useRefusals<string>();
+	// Each change says why it was refused on the worker it was for.
+	const attempt = (id: string, title: string, write: Promise<void>) =>
+		void write.catch((caught) => refuse(id, title, caught));
+	const slots = (id: string, slots: number) =>
+		attempt(id, "Slots not changed", view.change(id, { slots }));
+	return (
+		<section aria-label="workers" className="flex min-w-0 flex-col gap-8">
+			<TopBar title="Workers" />
+			{error !== null && (
+				<p role="alert" className="text-destructive text-sm">
+					{error}
+				</p>
+			)}
+			{pool === null && error === null && (
+				<p role="status" className="text-muted-foreground text-sm">
+					Reading workers…
+				</p>
+			)}
+			{pool !== null && (
+				<>
+					<ThisMac
+						pool={pool}
+						refusal={refusals.get("this mac")}
+						onTurn={(on) =>
+							attempt(
+								"this mac",
+								on ? "Not turned on" : "Not turned off",
+								view.turnLocal(on),
+							)
+						}
+						onSlots={slots}
+					/>
+					<Updates pool={pool} />
+					<Pool
+						pool={pool}
+						tasks={tasks}
+						onOpenTask={onOpenTask}
+						refusals={refusals}
+						onDrain={(id, draining) =>
+							attempt(
+								id,
+								draining ? "Not drained" : "Not resumed",
+								view.change(id, { draining }),
+							)
+						}
+						onSlots={slots}
+						onRemove={(worker, force) =>
+							attempt(worker.id, "Not removed", view.remove(worker, force))
+						}
+					/>
+					<div className="flex flex-col gap-3">
+						<Heading title="Add a worker">
+							A join token, single use and good for 15 minutes.
+						</Heading>
+						<JoinToken />
+					</div>
+				</>
+			)}
+		</section>
+	);
+}
+
+/** A section's heading, with a line on what it holds. */
+function Heading({
+	title,
+	children,
+}: {
+	title: string;
+	children?: ReactNode;
+}): JSX.Element {
+	return (
+		<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			{children !== undefined && (
+				<span className="text-muted-foreground text-xs">{children}</span>
+			)}
+		</header>
+	);
+}
+
+/** What this Mac does as a worker, in a sentence. */
+function localState(local: WorkerListing | null, on: boolean): string {
+	if (local === null) {
+		return "This Mac runs no agents: it only coordinates the workers below.";
+	}
+	const { used, total } = local.slots;
+	const running = used === 1 ? "1 agent runs" : `${used} agents run`;
+	if (on) {
+		return total === null
+			? `Takes new agents; ${running} here now.`
+			: `Takes new agents, up to ${total} at once; ${running} here now.`;
+	}
+	return used > 0
+		? `Off: takes no new agents, and the ${used === 1 ? "one" : used} here run${used === 1 ? "s" : ""} to ${used === 1 ? "its" : "their"} end.`
+		: "Off: runs none of the agents other agents start.";
+}
+
+/** This Mac as a worker: on or off, and how many agents it runs at once. */
+function ThisMac({
+	pool,
+	refusal,
+	onTurn,
+	onSlots,
+}: {
+	pool: WorkerPool;
+	refusal: string | undefined;
+	onTurn: (on: boolean) => void;
+	onSlots: (id: string, slots: number) => void;
+}): JSX.Element {
+	const local = localWorker(pool);
+	const on = localWorkerOn(pool);
+	return (
+		<div className="flex flex-col gap-3">
+			<Heading title="This Mac">
+				Runs the agents other agents start, beside any other worker.
+			</Heading>
+			<section
+				aria-label="this mac"
+				className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 shadow-xs"
+			>
+				<div className="flex items-center gap-3">
+					<Switch
+						aria-label="Runs agents"
+						checked={on}
+						onCheckedChange={(checked) => onTurn(checked)}
+					/>
+					<span className="flex min-w-0 flex-col">
+						<span className="font-medium text-sm">
+							{on ? "A worker" : "Not a worker"}
+						</span>
+						<span className="text-muted-foreground text-xs">
+							{localState(local, on)}
+						</span>
+					</span>
+				</div>
+				{local !== null && (
+					<SlotsField
+						worker={local}
+						onSet={(slots) => onSlots(local.id, slots)}
+					/>
+				)}
+				<Refusal refusal={refusal} />
+			</section>
+		</div>
+	);
+}
+
+/** The workers on another build than this server's, while any is. */
+function Updates({ pool }: { pool: WorkerPool }): JSX.Element | null {
+	const waiting = behind(pool);
+	if (waiting.length === 0) {
+		return null;
+	}
+	return (
+		<div className="flex flex-col gap-3">
+			<Heading title="Waiting on an update">
+				This server runs {pool.build}.
+			</Heading>
+			<ul aria-label="waiting on an update" className="flex flex-col gap-1">
+				{waiting.map((worker) => (
+					<li key={worker.id} className="text-sm">
+						<code className="font-mono text-[13px]">{worker.id}</code>{" "}
+						<span className="text-muted-foreground">
+							runs {worker.build}
+							{worker.slots.used > 0 && `, with ${worker.slots.used} running`}
+						</span>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
+/** Every worker, with what can be done to each, and those turned away. */
+function Pool({
+	pool,
+	tasks,
+	onOpenTask,
+	refusals,
+	onDrain,
+	onSlots,
+	onRemove,
+}: {
+	pool: WorkerPool;
+	tasks: ReadonlySet<string>;
+	onOpenTask: (name: string) => void;
+	refusals: ReadonlyMap<string, string>;
+	onDrain: (id: string, draining: boolean) => void;
+	onSlots: (id: string, slots: number) => void;
+	onRemove: (worker: WorkerListing, force: boolean) => void;
+}): JSX.Element {
+	return (
+		<div className="flex flex-col gap-3">
+			<Heading title="Pool">Every worker agents run on.</Heading>
+			<ul aria-label="pool" className="flex flex-col gap-4">
+				{pool.workers.map((worker) => (
+					<WorkerCard
+						key={worker.id}
+						worker={worker}
+						updating={behind(pool).includes(worker)}
+						tasks={tasks}
+						onOpenTask={onOpenTask}
+						refusal={refusals.get(worker.id)}
+						onDrain={(draining) => onDrain(worker.id, draining)}
+						onSlots={(slots) => onSlots(worker.id, slots)}
+						onRemove={(force) => onRemove(worker, force)}
+					/>
+				))}
+			</ul>
+			{pool.refused.length > 0 && (
+				<ul aria-label="turned away" className="flex flex-col gap-1">
+					{pool.refused.map((refused) => (
+						<li
+							key={`${refused.id} ${refused.protocol}`}
+							className="text-muted-foreground text-xs"
+						>
+							Turned away <code className="font-mono">{refused.id}</code> (
+							{refused.protocol}): {refused.reason}
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
+	);
+}

@@ -21,6 +21,7 @@ import type {
 	Stats,
 } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff } from "@stringsync/splates-server/tasks";
+import type { WorkerPool } from "@stringsync/splates-server/workers";
 import type { HeavyJobsReading } from "webappwiz/system";
 
 export class ApiError extends Error {
@@ -332,6 +333,58 @@ export async function machine(): Promise<MachineStatus> {
 		throw new ApiError("error", `/api/machine: ${response.status}`);
 	}
 	return (await response.json()) as MachineStatus;
+}
+
+/** Every worker, those turned away, and the build `splates server` runs, as `splates worker list` reads them. */
+export async function workerPool(): Promise<WorkerPool> {
+	const response = await fetch("/api/workers");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/workers: ${response.status}`);
+	}
+	return (await response.json()) as WorkerPool;
+}
+
+/** A join token, single use, for `splates worker run --join` on another machine. */
+export async function inviteWorker(): Promise<{
+	token: string;
+	expiresAt: number;
+}> {
+	return (await send("/api/workers/invite", {})) as {
+		token: string;
+		expiresAt: number;
+	};
+}
+
+/** What can be set on a worker: its slots, null to go by its hello, and whether it drains. */
+export interface WorkerChange {
+	slots?: number | null;
+	draining?: boolean;
+}
+
+/** Sets `change` on worker `id`, answering the pool as it then stands. */
+export async function updateWorker(
+	id: string,
+	change: WorkerChange,
+): Promise<WorkerPool> {
+	return (await sendJson(
+		`/api/workers/${encodeURIComponent(id)}`,
+		"PUT",
+		change,
+	)) as WorkerPool;
+}
+
+/**
+ * Removes worker `id`, at once if nothing runs on it or `force`, which ends
+ * what does; otherwise it drains and goes once `running` ends.
+ */
+export async function removeWorker(
+	id: string,
+	force: boolean,
+): Promise<{ id: string; removed: boolean; running: string[] }> {
+	return (await send(
+		`/api/workers/${encodeURIComponent(id)}${force ? "?force" : ""}`,
+		{ method: "DELETE" },
+	)) as { id: string; removed: boolean; running: string[] };
 }
 
 /** This machine's setup: every step checked, by area, and the one to do next. */

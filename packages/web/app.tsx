@@ -74,6 +74,7 @@ import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
 import { Visits } from "./visits";
 import { TreesContext } from "./work-row";
+import { WorkersPage } from "./workers";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
@@ -301,6 +302,12 @@ export function App({
 						/>
 					),
 					budget: <BudgetPage talk={talk} />,
+					workers: (
+						<WorkersPage
+							tasks={new Set(snapshot.tasks.map((each) => each.task))}
+							onOpenTask={openTask}
+						/>
+					),
 					setup: (
 						<SetupPage
 							settings={settings}

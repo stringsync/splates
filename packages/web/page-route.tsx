@@ -6,6 +6,7 @@ import {
 	KeyRoundIcon,
 	type LucideIcon,
 	MessagesSquareIcon,
+	ServerIcon,
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
@@ -21,7 +22,7 @@ import { TaskIcon } from "./task-icon";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#stats`,
- * `#creds`, `#budget`, `#setup`, or the board.
+ * `#creds`, `#budget`, `#workers`, `#setup`, or the board.
  */
 export type Page =
 	| "todos"
@@ -30,6 +31,7 @@ export type Page =
 	| "stats"
 	| "creds"
 	| "budget"
+	| "workers"
 	| "setup";
 
 /**
@@ -57,6 +59,7 @@ export const PAGES: {
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
+	{ value: "workers", label: "Workers", Icon: ServerIcon },
 ];
 
 /**
@@ -102,6 +105,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	stats: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	budget: "min-w-0 px-4 py-6",
+	workers: "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };
