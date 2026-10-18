@@ -18,8 +18,6 @@ import type {
 	StepAnswers,
 } from "@stringsync/splates-server/setup";
 import type { PeriodId, Stats } from "@stringsync/splates-server/stats";
-import type { SystemsReport } from "@stringsync/splates-server/system-changes";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import type { HeavyJobsReading } from "webappwiz/system";
 
 export class ApiError extends Error {
@@ -223,26 +221,6 @@ export async function paths(task = ""): Promise<string[]> {
 		throw new ApiError("error", `/api/paths: ${response.status}`);
 	}
 	return (await response.json()) as string[];
-}
-
-/** Every system `task`'s worktree names, or the main tree's for none. */
-export async function systems(task = ""): Promise<NamedSystem[]> {
-	const response = await fetch(
-		scoped(`/api/systems?${new URLSearchParams({ task })}`),
-	);
-	if (!response.ok) {
-		throw new ApiError("error", `/api/systems: ${response.status}`);
-	}
-	return (await response.json()) as NamedSystem[];
-}
-
-/** What each system holds on trunk, and the commits that lately changed it. */
-export async function systemChanges(): Promise<SystemsReport> {
-	const response = await fetch(scoped("/api/systems/changes"));
-	if (!response.ok) {
-		throw new ApiError("error", `/api/systems/changes: ${response.status}`);
-	}
-	return (await response.json()) as SystemsReport;
 }
 
 /** What `task` changed against its base, uncommitted edits included. */

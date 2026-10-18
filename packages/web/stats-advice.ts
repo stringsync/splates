@@ -1,12 +1,30 @@
 import type { Tally } from "@stringsync/splates-server/stats";
 
+/**
+ * What the period's outcomes say to change, one card each: whether agents
+ * need the person more or less than before, how often the person overturns
+ * the agents' picks, how long tasks wait on them, and why merges fail and
+ * tasks are removed. Each is a fixed rule
+ * over the counts, so the same outcomes always say the same.
+ */
+export function advise({ period, previous, span }: AdviseInput): Advice[] {
+	const before = new Before(previous, span);
+	return [
+		course(period, before),
+		picks(period, before),
+		assumptions(period, before),
+		waiting(period, before),
+		failures(period, before),
+		removals(period, before),
+	];
+}
+
 /** Which card an `Advice` is, for the page to rank it and give it its chart. */
 export type AdviceId =
 	| "course"
 	| "picks"
 	| "assumptions"
 	| "waiting"
-	| "hotspot"
 	| "failures"
 	| "removals";
 
@@ -18,8 +36,6 @@ export interface Advice {
 	figure: string | null;
 	/** What the figure counts, in a line. */
 	detail: string;
-	/** The system the card is about, shown as its chip beside the title. */
-	system?: string;
 	/** What to change, given the figure; null when nothing stands out. */
 	act: string | null;
 	/** How much more the card needs before it can say anything; null when it has enough. */
@@ -31,12 +47,11 @@ export interface Advice {
 	trend: string | null;
 }
 
-/** What `advise` reads: the period, the span before it, and its systems. */
+/** What `advise` reads: the period, the span before it. */
 export interface AdviseInput {
 	period: Tally;
 	/** The as long a span before; null for all time, which has nothing before. */
 	previous: Tally | null;
-	systems: { system: string | null; tally: Tally }[];
 	/** The period's name, for "the 7 days before". */
 	span: string;
 }
@@ -53,36 +68,8 @@ export const DISAGREE = 0.3;
 /** At or over this share of task time waiting on you, you set the pace. */
 export const WAITING = 0.5;
 
-/** A system draws questions when its tasks ask this many times the average. */
-export const HOTSPOT = 1.5;
-
 /** A figure moved when it changed by at least this share of what it was. */
 export const MOVED = 0.2;
-
-/**
- * What the period's outcomes say to change, one card each: whether agents
- * need the person more or less than before, how often the person overturns
- * the agents' picks, how long tasks wait on them, which system draws the
- * questions, and why merges fail and tasks are removed. Each is a fixed rule
- * over the counts, so the same outcomes always say the same.
- */
-export function advise({
-	period,
-	previous,
-	systems,
-	span,
-}: AdviseInput): Advice[] {
-	const before = new Before(previous, span);
-	return [
-		course(period, before),
-		picks(period, before),
-		assumptions(period, before),
-		waiting(period, before),
-		hotspot(period, systems),
-		failures(period, before),
-		removals(period, before),
-	];
-}
 
 /** One figure of a tally: how to read it, what it needs, and how it is shown. */
 interface Measure {
@@ -208,7 +195,7 @@ function course(period: Tally, before: Before): Advice {
 			direction === "down"
 				? "Agents need you less than before: keep whatever changed, and write it into CLAUDE.md if it is not there yet."
 				: direction === "up"
-					? "Agents need you more than before: look at By model and By system for where, and at what changed in prompts or the work."
+					? "Agents need you more than before: look at By model for where, and at what changed in prompts or the work."
 					: null,
 		short: needs(
 			ENOUGH - ended(period),
@@ -289,37 +276,6 @@ function waiting(period: Tally, before: Before): Advice {
 			"more tasks timed to say",
 		),
 		trend: before.trend(period, WAITED),
-	};
-}
-
-function hotspot(
-	period: Tally,
-	systems: { system: string | null; tally: Tally }[],
-): Advice {
-	const average = QUESTIONS.of(period);
-	const named = systems
-		.filter(({ system, tally }) => system !== null && ended(tally) >= ENOUGH)
-		.map(({ system, tally }) => ({ system, rate: QUESTIONS.of(tally) ?? 0 }))
-		.sort((one, other) => other.rate - one.rate);
-	const top = named[0];
-	return {
-		id: "hotspot",
-		title: "Questions by system",
-		figure: top ? decimal(top.rate) : null,
-		detail: top
-			? `questions a task, against ${decimal(average ?? 0)} overall`
-			: `No system has ${ENOUGH} tasks yet`,
-		...(top?.system ? { system: top.system } : {}),
-		act:
-			top && average !== null && top.rate >= average * HOTSPOT && top.rate > 0
-				? "It draws the most questions: write down what agents keep asking about it, in CLAUDE.md or a scry rule."
-				: null,
-		short: top
-			? null
-			: `Needs ${ENOUGH} tasks ended in one system to say where questions come from`,
-		// Which system tops the list moves with the work, not with how agents
-		// do, so it is not compared.
-		trend: null,
 	};
 }
 

@@ -25,7 +25,7 @@ import {
 
 /**
  * A reference as the agent reads it: `@path` for a file, `#name` for a
- * system, project or conversation UUID, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
+ * project or conversation UUID, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
  * and an `[SPLATES ...]` directive as itself.
  */
 export function serialize(item: TriggerItem): string {
@@ -33,9 +33,8 @@ export function serialize(item: TriggerItem): string {
 		return `[${item.id}]`;
 	}
 	const sign =
-		{ file: "@", system: "#", project: "#", conversation: "#", command: "/" }[
-			item.type
-		] ?? "";
+		{ file: "@", project: "#", conversation: "#", command: "/" }[item.type] ??
+		"";
 	return `${sign}${item.id}`;
 }
 /**
@@ -46,14 +45,14 @@ const REFERENCES = new RegExp(
 	`${DIRECTIVES.source}|${NAMING.source}|${ATTACHMENT_REFERENCE.source}`,
 	"gu",
 );
-/** What a system's name could be, for a `#` read before the systems come. */
+/** Project slug syntax for a `#` read before projects arrive. */
 const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
 /**
- * Reads the `[SPLATES ...]` directives, and the `@path` and `#system`
+ * Reads the `[SPLATES ...]` directives, and the `@path` and `#project`
  * references, in a line of the composer's text, set from outside it, as a
  * draft or a prompt is, into chips. A directive or an attachment is always one; a
  * reference
- * that names a path or system of `named` is a chip, and so is any while what it
+ * that names a path or project of `named` is a chip, and so is any while what it
  * could name is still on its way, for its chip to resolve; one that names
  * nothing, such as `#12`, stays text.
  */
@@ -68,17 +67,17 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 			return { as: conversation.as, type: "conversation" };
 		}
 		const resolving =
-			sign === "@" ? named.resolving.paths : named.resolving.systems;
+			sign === "@" ? named.resolving.paths : named.resolving.projects;
 		if (!resolving) {
 			const found = reading(named, sign, called);
 			return found && { as: found.as, type: found.kind };
 		}
-		// Told apart once they come: until then, a `#` is a system's.
+		// Told apart once they come: until then, a `#` is a project's.
 		const as = untrailed(called);
 		return sign === "@"
 			? { as, type: "file" }
 			: NAME.test(as)
-				? { as, type: "system" }
+				? { as, type: "project" }
 				: undefined;
 	};
 	return {
@@ -130,8 +129,8 @@ type Segment = ReturnType<Unstable_DirectiveFormatter["parse"]>[number];
  */
 export const FileNames = createContext<ReadonlyMap<string, string>>(new Map());
 /**
- * A reference in the composer, drawn as a message draws it: a file or system
- * chip, "Resolving…" while the paths or systems it could name are on their
+ * A reference in the composer, drawn as a message draws it: a file or project
+ * chip, "Resolving…" while the paths or projects it could name are on their
  * way, and as it was written once they came without it. It sits in a box one
  * line of the composer's text tall, so a chip never makes its line taller.
  */
@@ -161,7 +160,7 @@ function Chip({
 		return <NamedChip named={{ conversation: directiveId }} />;
 	}
 	const file = directiveType === "file";
-	if (file ? named.resolving.paths : named.resolving.systems) {
+	if (file ? named.resolving.paths : named.resolving.projects) {
 		return (
 			<span
 				title={serialize({ id: directiveId, type: directiveType, label })}
@@ -190,9 +189,7 @@ function Chip({
 					? { file: target, name: names.get(target) }
 					: kind === "project"
 						? { project: target }
-						: kind === "conversation"
-							? { conversation: target }
-							: { system: target }
+						: { conversation: target }
 			}
 		/>
 	);

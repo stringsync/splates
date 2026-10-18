@@ -32,12 +32,6 @@ export interface Stats {
 	/** By the main tree each task in the period was in, the most first. */
 	projects: ({ project: string } & Tally)[];
 	/**
-	 * By each system a task in the period touched, the most first: a task
-	 * counts in each of its systems, and in `null` when it touched none or
-	 * ended before systems were kept.
-	 */
-	systems: ({ system: string | null } & Tally)[];
-	/**
 	 * Who made the calls tasks in the period made, by size: `SIZES` in order, then any
 	 * other word an older scheme used, then null for those with none, which
 	 * holds every call from before sizes were kept.
@@ -248,14 +242,6 @@ export function summarize(
 		projects: grouped(everyInPeriod, (each) => each.project).map(
 			([project, tally]) => ({ project, ...tally }),
 		),
-		systems: grouped(
-			inPeriod.flatMap((each) =>
-				each.systems?.length
-					? each.systems.map((system) => ({ ...each, systems: [system] }))
-					: [{ ...each, systems: [] }],
-			),
-			(each) => each.systems?.[0] ?? null,
-		).map(([system, tally]) => ({ system, ...tally })),
 		sizes: sizeTallies(inPeriod, earlier, length, (each) =>
 			Math.round((floor(Date.parse(each.endedAt)) - first) / bucket),
 		),

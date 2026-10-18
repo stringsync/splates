@@ -105,8 +105,7 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
 /**
  * Everything to do with a conversation, as widgets, each a card of its own:
  * the actions, many of them opening the pane beside the page, and cards
- * under them such as the commands it left in the background and the systems
- * its task touches. Docked at the thread's right where it is
+ * under them such as the commands it left in the background. Docked at the thread's right where it is
  * `roomy`, its messages centered in the room left of them; elsewhere
  * floating, frosted, over the thread's top right with the thread veiled
  * behind them, like the Control Center,
@@ -122,7 +121,7 @@ export function Widgets({
 	onClose,
 }: {
 	actions: Action[];
-	/** Cards stacked under the actions, such as the systems a task touches. */
+	/** Cards stacked under the actions, such as background commands. */
 	children?: ReactNode;
 	roomy: boolean;
 	phone?: boolean;

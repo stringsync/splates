@@ -1,6 +1,5 @@
 import type { ProjectRef } from "@stringsync/splates-server/conversations";
 import { conversationReference } from "@stringsync/splates-server/conversations/browser";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { MessageCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
@@ -8,32 +7,24 @@ import { cn } from "#web/lib/utils.ts";
 import { distinctNames, FileChip } from "./file-chip";
 import { outsideCode } from "./markdown";
 import { ProjectChip } from "./project-chip";
-import { SystemChip } from "./systems";
 
-/**
- * What the tree a conversation runs in names, for drawing the `#system`,
- * `#project`, `#uuid` and `@path` mentions in its messages: its systems, the splates
- * projects on this machine, its paths, as `@` lists them, and where it sits,
- * so a file opens in the editor.
- */
+/** Project, conversation and file references available to a conversation. */
 export interface Named {
 	/** Current display names, indexed by the stable conversation UUID. */
 	conversations?: readonly { id: string; name: string }[];
-	systems: readonly NamedSystem[];
 	projects: readonly ProjectRef[];
 	paths: ReadonlySet<string>;
 	/** The tree's absolute path; null until it is known. */
 	tree: string | null;
-	/** Whether the paths, and the systems or projects, are still on their way. */
-	resolving: { paths: boolean; systems: boolean };
+	/** Whether the paths and projects, are still on their way. */
+	resolving: { paths: boolean; projects: boolean };
 }
 
 export const NamedContext = createContext<Named>({
-	systems: [],
 	projects: [],
 	paths: new Set(),
 	tree: null,
-	resolving: { paths: false, systems: false },
+	resolving: { paths: false, projects: false },
 });
 
 /** A `#` or `@` at the start or after a space, and what follows it. */
@@ -43,18 +34,18 @@ export const NAMING = /(^|\s)([#@])([^\s#@]+)/g;
 const TRAILING = /[.,;:!?)\]'"]+$/;
 
 /** Where a link written by `linkNamed` points, read back by `namedIn`. */
-const NAMED_LINK = /^#(system|project|file)=([^&]+)(?:&name=(.+))?$/;
+const NAMED_LINK = /^#(project|file)=([^&]+)(?:&name=(.+))?$/;
 
 /**
- * `text` with each `#name` naming one of `named`'s systems, by its name or an
- * alias, a project by its slug, or a conversation by UUID, and each `@path`
+ * `text` with each `#name` naming a project by its slug or a conversation by
+ * UUID, and each `@path`
  * naming one of its files or directories, outside
  * code, made a link that `namedIn` reads back. A mention that names nothing,
  * such as `#12` or a path not in the tree, is left alone.
  */
 export function linkNamed(
 	text: string,
-	named: Pick<Named, "systems" | "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations">,
 ): string {
 	const names = distinctNames(filesIn(text, named));
 	return outsideCode(text, (prose) =>
@@ -78,7 +69,7 @@ export function linkNamed(
 /** The files and directories the `@` mentions in `text` name, outside code. */
 export function filesIn(
 	text: string,
-	named: Pick<Named, "systems" | "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations">,
 ): string[] {
 	const found: string[] = [];
 	outsideCode(text, (prose) => {
@@ -94,44 +85,16 @@ export function filesIn(
 	return found;
 }
 
-/** The names of the systems `text` mentions as `#name` or `#alias`, outside code, each once. */
-export function systemsIn(
-	text: string,
-	systems: readonly NamedSystem[],
-): string[] {
-	const found = new Set<string>();
-	outsideCode(text, (prose) => {
-		for (const [, , sign, called = ""] of prose.matchAll(NAMING)) {
-			const target =
-				sign === "#"
-					? reading({ systems, projects: [], paths: new Set() }, sign, called)
-							?.target
-					: undefined;
-			if (target !== undefined) {
-				found.add(target);
-			}
-		}
-		return prose;
-	});
-	return [...found];
-}
-
-/**
- * The longest reading of `called`, after a `#` or `@` `sign`, that names one
- * of `named`'s systems, projects, conversations or paths: as typed, or less what a sentence
- * put after it. With the system's name, the project's slug, or the path as
- * `@` lists it, and which of them it is; a system wins over a project of the
- * same name, as for the agent.
- */
+/** The longest known project, conversation or path reading of a mention. */
 export function reading(
-	named: Pick<Named, "systems" | "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations">,
 	sign: string,
 	called: string,
 ):
 	| {
 			as: string;
 			target: string;
-			kind: "system" | "project" | "file" | "conversation";
+			kind: "project" | "file" | "conversation";
 	  }
 	| undefined {
 	for (const as of new Set([called, untrailed(called)])) {
@@ -148,10 +111,6 @@ export function reading(
 		) {
 			return { as, target: as, kind: "conversation" };
 		}
-		const system = systemCalled(named.systems, as);
-		if (system !== undefined) {
-			return { as, target: system.name, kind: "system" };
-		}
 		if (named.projects.some((each) => each.slug === as)) {
 			return { as, target: as, kind: "project" };
 		}
@@ -167,7 +126,6 @@ export function untrailed(called: string): string {
 /** What a link written by `linkNamed` names, or null for another. */
 export type NamedTarget =
 	| { conversation: string }
-	| { system: string }
 	| { project: string }
 	| { file: string; name?: string | undefined };
 
@@ -182,9 +140,6 @@ export function namedIn(href: string | undefined): NamedTarget | null {
 		return null;
 	}
 	const target = decodeURIComponent(link[2] ?? "");
-	if (link[1] === "system") {
-		return { system: target };
-	}
 	if (link[1] === "project") {
 		return { project: target };
 	}
@@ -195,7 +150,7 @@ export function namedIn(href: string | undefined): NamedTarget | null {
 
 /** A mention `linkNamed` linked, as its chip. */
 export function NamedChip({ named }: { named: NamedTarget }): JSX.Element {
-	const { systems, projects, tree, conversations } = use(NamedContext);
+	const { projects, tree, conversations } = use(NamedContext);
 	if ("conversation" in named) {
 		const name =
 			conversations?.find((each) => each.id === named.conversation)?.name ??
@@ -224,29 +179,11 @@ export function NamedChip({ named }: { named: NamedTarget }): JSX.Element {
 			/>
 		);
 	}
-	if ("project" in named) {
-		const project = projects.find((each) => each.slug === named.project);
-		return project === undefined ? (
-			<span>#{named.project}</span>
-		) : (
-			<ProjectChip project={project} />
-		);
-	}
-	const system = systems.find((each) => each.name === named.system);
-	return system === undefined ? (
-		<span>#{named.system}</span>
+	const project = projects.find((each) => each.slug === named.project);
+	return project === undefined ? (
+		<span>#{named.project}</span>
 	) : (
-		<SystemChip system={system} />
-	);
-}
-
-function systemCalled(
-	systems: readonly NamedSystem[],
-	called: string,
-): NamedSystem | undefined {
-	return systems.find(
-		(system) =>
-			system.name === called || (system.aliases ?? []).includes(called),
+		<ProjectChip project={project} />
 	);
 }
 

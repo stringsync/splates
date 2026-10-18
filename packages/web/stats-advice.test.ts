@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { combine, type Tally } from "@stringsync/splates-server/stats";
-import { advise, duration } from "./stats-advice";
+import { advise } from "./stats-advice";
 
 /** A period where nothing ended; a test fills in what it is about. */
 function period(changes: Partial<Tally> = {}): Tally {
@@ -8,16 +8,10 @@ function period(changes: Partial<Tally> = {}): Tally {
 }
 
 /**
- * The card titled `title`, of what `advise` makes of `tally`, its `systems`
- * and the 12 weeks `previous` to it.
+ * The card titled `title`, of what `advise` makes of `tally`, the 12 weeks `previous` to it.
  */
-function card(
-	title: string,
-	tally: Tally,
-	systems: { system: string | null; tally: Tally }[] = [],
-	previous: Tally | null = null,
-) {
-	return advise({ period: tally, previous, systems, span: "12 weeks" }).find(
+function card(title: string, tally: Tally, previous: Tally | null = null) {
+	return advise({ period: tally, previous, span: "12 weeks" }).find(
 		(each) => each.title === title,
 	);
 }
@@ -77,7 +71,6 @@ describe("advise", () => {
 		expect(card("Picks you overturned", few)?.short).toBe(
 			"Needs 1 more question offering a pick to say",
 		);
-		expect(card("Questions by system", few)?.short).toContain("one system");
 		// Nothing failed or was removed, so nothing is missing to say why.
 		expect(card("Why merges failed", few)?.short).toBeNull();
 		expect(card("Why tasks were removed", few)?.short).toBeNull();
@@ -104,27 +97,6 @@ describe("advise", () => {
 			figure: "67%",
 			detail: expect.stringContaining("1.0h a task"),
 			act: expect.stringContaining("batches"),
-		});
-	});
-
-	it("names the system drawing the most questions once it has enough tasks", () => {
-		const systems = [
-			{ system: "mixer", tally: period({ merged: 5, questionRounds: 10 }) },
-			{ system: "docs", tally: period({ merged: 5, questionRounds: 1 }) },
-			{ system: "tiny", tally: period({ merged: 1, questionRounds: 9 }) },
-		];
-
-		expect(
-			card(
-				"Questions by system",
-				period({ merged: 10, questionRounds: 11 }),
-				systems,
-			),
-		).toMatchObject({
-			system: "mixer",
-			figure: "2.0",
-			detail: "questions a task, against 1.1 overall",
-			act: expect.stringContaining("draws the most questions"),
 		});
 	});
 
@@ -167,7 +139,6 @@ describe("advise", () => {
 			card(
 				"Questions per task",
 				period({ merged: 10, questionRounds: 10 }),
-				[],
 				before,
 			),
 		).toMatchObject({
@@ -179,7 +150,6 @@ describe("advise", () => {
 			card(
 				"Questions per task",
 				period({ merged: 10, questionRounds: 30 }),
-				[],
 				before,
 			),
 		).toMatchObject({
@@ -190,7 +160,6 @@ describe("advise", () => {
 			card(
 				"Questions per task",
 				period({ merged: 10, questionRounds: 21 }),
-				[],
 				before,
 			),
 		).toMatchObject({
@@ -201,7 +170,6 @@ describe("advise", () => {
 			card(
 				"Picks you overturned",
 				period({ picksAsked: 10, picksOverturned: 1 }),
-				[],
 				before,
 			)?.trend,
 		).toBe("Down from 40% the 12 weeks before: better");
@@ -209,7 +177,6 @@ describe("advise", () => {
 			card(
 				"Why merges failed",
 				period({ merged: 10, failedMerges: 5 }),
-				[],
 				period({ merged: 10, failedMerges: 2 }),
 			)?.trend,
 		).toBe("0.5 a task, up from 0.2 the 12 weeks before: worse");
@@ -223,12 +190,8 @@ describe("advise", () => {
 			act: null,
 		});
 		expect(
-			card(
-				"Questions per task",
-				now,
-				[],
-				period({ merged: 2, questionRounds: 8 }),
-			)?.trend,
+			card("Questions per task", now, period({ merged: 2, questionRounds: 8 }))
+				?.trend,
 		).toBeNull();
 	});
 
@@ -242,13 +205,5 @@ describe("advise", () => {
 			detail: expect.stringContaining("4 more you took with words added"),
 			act: expect.stringContaining("miss details"),
 		});
-	});
-});
-
-describe("duration", () => {
-	it("reads in minutes, hours or days", () => {
-		expect(
-			[45 * 60_000, 3.2 * 3_600_000, 50 * 3_600_000].map(duration),
-		).toEqual(["45m", "3.2h", "2.1d"]);
 	});
 });

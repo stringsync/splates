@@ -52,18 +52,6 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
-	it("reads a config that still names systems, without them, so `splates update` can move them", async () => {
-		await fs.write(
-			join(root, "splates.config.ts"),
-			`export default { preMerge: "true", systems: { docs: { globs: ["*.md"] } } };\n`,
-		);
-
-		const config = await loadConfig(root, { fs, git });
-
-		expect(config.preMerge).toBe("true");
-		expect("systems" in config).toBe(false);
-	});
-
 	it("falls back to main when the repo has no origin/HEAD", async () => {
 		const config = await loadConfig(root, { fs, git });
 

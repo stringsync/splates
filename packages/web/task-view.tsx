@@ -46,7 +46,6 @@ import { Held, ReadOnlyBanner, SubagentComposer } from "./handed-out";
 import { useNow } from "./hooks/use-now";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
-import { SystemsCard, systemsAction } from "./systems";
 import { TakeUpOrRemove } from "./task-actions";
 import { TaskIcon } from "./task-icon";
 import { Task } from "./tasks";
@@ -153,75 +152,58 @@ export function TaskView({
 								icon: <TaskIcon />,
 								run: () => setDetails(true),
 							},
-					systemsAction(task.systems),
 					{ label: "New conversation", icon: <SquarePenIcon />, run: onNew },
 				].filter((each) => each !== null)}
 			/>
 			{by !== null && <ReadOnlyBanner by={by} phone={onBack !== null} />}
 			<div className="relative min-h-0 flex-1 overflow-y-auto">
-				{/* Where a conversation's widgets stand, at the right. */}
-				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
-					<SystemsCard systems={task.systems} />
-				</div>
-				<div className="@min-[61rem]:pe-[16.75rem]">
-					<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
-						{need.kind === "waiting" && need.why === "abandoned" ? (
-							<Alert>
-								<UnplugIcon className="text-muted-foreground" />
-								<AlertTitle>Abandoned</AlertTitle>
-								<AlertDescription>
-									{need.subject}, so no agent is left on it. Take it up in a new
-									conversation, which picks up from its SPLATES.md, or remove
-									it.
-								</AlertDescription>
-								<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
-							</Alert>
-						) : by !== null ? null : (
-							<Alert variant="warning">
-								<TriangleAlertIcon />
-								<AlertTitle>Its agent runs outside the page</AlertTitle>
-								<AlertDescription>
-									{quiet !== null &&
-										`No sign of it for ${age(quiet)}: no edit, commit or splates command. `}
-									The page cannot message it: answer here, then paste the reply
-									into its own session, or bring that session in below.
-								</AlertDescription>
-							</Alert>
-						)}
-						{open.length > 0 && (
-							<div
-								id={`questions-${task.task}`}
-								className="flex flex-col gap-2"
-							>
-								<ReplyContext value={by === null ? reply : null}>
-									<QuestionCards
-										questions={open}
-										draft="questions"
-										copy={by === null}
-										onSent={() => drafts.write(`${kept}:copied`, asking(open))}
-									/>
-								</ReplyContext>
-							</div>
-						)}
-						{open.length === 0 && (
-							<p className="text-muted-foreground">No open questions.</p>
-						)}
-						<Agent task={task} />
-						{by === null && (
-							<Sessions
-								task={task.task}
-								agents={agents}
-								onBrought={onBrought}
-							/>
-						)}
-					</div>
+				<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
+					{need.kind === "waiting" && need.why === "abandoned" ? (
+						<Alert>
+							<UnplugIcon className="text-muted-foreground" />
+							<AlertTitle>Abandoned</AlertTitle>
+							<AlertDescription>
+								{need.subject}, so no agent is left on it. Take it up in a new
+								conversation, which picks up from its SPLATES.md, or remove it.
+							</AlertDescription>
+							<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
+						</Alert>
+					) : by !== null ? null : (
+						<Alert variant="warning">
+							<TriangleAlertIcon />
+							<AlertTitle>Its agent runs outside the page</AlertTitle>
+							<AlertDescription>
+								{quiet !== null &&
+									`No sign of it for ${age(quiet)}: no edit, commit or splates command. `}
+								The page cannot message it: answer here, then paste the reply
+								into its own session, or bring that session in below.
+							</AlertDescription>
+						</Alert>
+					)}
+					{open.length > 0 && (
+						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
+							<ReplyContext value={by === null ? reply : null}>
+								<QuestionCards
+									questions={open}
+									draft="questions"
+									copy={by === null}
+									onSent={() => drafts.write(`${kept}:copied`, asking(open))}
+								/>
+							</ReplyContext>
+						</div>
+					)}
+					{open.length === 0 && (
+						<p className="text-muted-foreground">No open questions.</p>
+					)}
+					<Agent task={task} />
+					{by === null && (
+						<Sessions task={task.task} agents={agents} onBrought={onBrought} />
+					)}
 				</div>
 			</div>
 			{by !== null && (
-				<div className="@min-[61rem]:pe-[16.75rem]">
-					<div className="mx-auto w-full max-w-[44rem] px-4 pb-4">
-						<SubagentComposer task={task.task} by={by} onOpen={onOpen} />
-					</div>
+				<div className="mx-auto w-full max-w-[44rem] px-4 pb-4">
+					<SubagentComposer task={task.task} by={by} onOpen={onOpen} />
 				</div>
 			)}
 			<Dialog open={details} onOpenChange={setDetails}>

@@ -8,30 +8,21 @@ import {
 	CircleXIcon,
 	UserIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { taskOutcome } from "./api";
 import { Markdown } from "./markdown";
-import { NamedContext } from "./mentioned";
 import { type Decided, mergedFacts } from "./merged-facts";
-import { SystemNameChip } from "./systems";
 
 /**
  * How `task` went once it merged, under its card's report: its time, cost,
  * size and the calls the person and the agent made beside its project's
- * usual, the systems it touched, what the gate made of it, and anything that
+ * usual, what the gate made of it, and anything that
  * went worse than it could have. Nothing while it loads, or for a task whose
  * merge was never recorded here.
  */
 export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
-	const named = useContext(NamedContext).systems;
 	useEffect(() => {
 		let current = true;
 		taskOutcome(task).then(
@@ -85,18 +76,7 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 					</div>
 				))}
 			</dl>
-			{(landed.outcome.systems ?? []).length > 0 && (
-				<div className="flex flex-col gap-1">
-					<span className="text-muted-foreground">Systems</span>
-					<ul aria-label="systems" className="flex flex-wrap gap-1">
-						{(landed.outcome.systems ?? []).map((name) => (
-							<li key={name} className="flex min-w-0">
-								<SystemNameChip name={name} systems={named} />
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
+
 			{facts.gate === null ? (
 				<p className="flex items-center gap-1.5 text-success">
 					<CircleCheckIcon aria-hidden className="size-3.5" />

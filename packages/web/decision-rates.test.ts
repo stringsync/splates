@@ -13,10 +13,6 @@ describe("decisionRates", () => {
 		// 7 in a quarter of a day is 28 a day.
 		expect(rates.bars.at(-1)).toMatchObject({ byYou: 28, byAgents: 56 });
 		expect(rates.axis.max).toBe(100);
-		expect(rates.systems).toEqual([
-			{ system: null, byYou: 2, byAgents: 3 },
-			{ system: "mixer", byYou: 1, byAgents: 0 },
-		]);
 	});
 
 	it("counts only the sizes shown, on the axis every size needs", () => {
@@ -86,11 +82,7 @@ const stats: Stats = {
 			previous: { decidedByYou: 14, decidedByAgents: 0 },
 		},
 	],
-	systems: [
-		{ system: "mixer", ...combine([]), decidedByYou: 1 },
-		{ system: "docs", ...combine([]) },
-		{ system: null, ...combine([]), decidedByYou: 2, decidedByAgents: 3 },
-	],
+
 	since: null,
 	skill: [],
 	baselines: [],

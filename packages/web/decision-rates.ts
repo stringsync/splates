@@ -24,8 +24,6 @@ export interface DecisionRates {
 	 * calls with none, shown or not, with each side's count over the period.
 	 */
 	sizes: { size: string | null; byYou: number; byAgents: number }[];
-	/** By each system a task touched, those with a call only, the most first. */
-	systems: { system: string | null; byYou: number; byAgents: number }[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -46,7 +44,7 @@ export function decisionRates(
 	const per = unit === "hour" ? HOUR : DAY;
 	const bucket = bucketOf(period.id);
 	// A stand-in server can leave any of these out.
-	const { buckets: tallies = [], sizes = [], systems = [] } = stats;
+	const { buckets: tallies = [], sizes = [] } = stats;
 	const span = bucket * tallies.length;
 	const picked = sizes.filter((each) => shown === null || shown.has(each.size));
 	const add = (all: (Decided | null)[]): Decided =>
@@ -94,17 +92,6 @@ export function decisionRates(
 			byYou: each.decidedByYou,
 			byAgents: each.decidedByAgents,
 		})),
-		systems: systems
-			.filter((each) => each.decidedByYou + each.decidedByAgents > 0)
-			.map((each) => ({
-				system: each.system,
-				byYou: each.decidedByYou,
-				byAgents: each.decidedByAgents,
-			}))
-			.sort(
-				(one, other) =>
-					other.byYou + other.byAgents - (one.byYou + one.byAgents),
-			),
 	};
 }
 

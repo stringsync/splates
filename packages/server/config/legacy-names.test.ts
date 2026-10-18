@@ -117,18 +117,15 @@ describe("legacy names", () => {
 			join(root, "arbor.config.ts"),
 			'import type { ConfigFile } from "@webappwiz/arbor/config";\nexport default {} satisfies ConfigFile;\n',
 		);
-		await fs.write(join(root, "arbor.systems.ts"), "export default {};\n");
 
 		await renameLegacyFiles({ root, fs, ps: new NodePs(), log });
 
 		expect({
 			config: await fs.read(join(root, "splates.config.ts")),
-			systems: await fs.exists(join(root, "splates.systems.ts")),
 			old: await fs.exists(join(root, "arbor.config.ts")),
 		}).toEqual({
 			config:
 				'import type { ConfigFile } from "@stringsync/splates-server/config";\nexport default {} satisfies ConfigFile;\n',
-			systems: true,
 			old: false,
 		});
 	});

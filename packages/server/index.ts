@@ -478,8 +478,6 @@ export async function dev(
 				// It runs the person's editor, so only as far as a conversation reaches.
 				"/api/open": { POST: talk(scoped((project) => project.open)) },
 				"/api/paths": scoped((project) => project.paths),
-				"/api/systems": scoped((project) => project.systems),
-				"/api/systems/changes": scoped((project) => project.systemChanges),
 				"/api/tasks/:task/diff": scoped((project) => project.diff),
 				"/api/tasks/:task/outcome": scoped((project) =>
 					ended.landed(project.root),

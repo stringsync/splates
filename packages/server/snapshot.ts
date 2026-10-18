@@ -149,7 +149,6 @@ export function fingerprint({
 			task.review,
 			task.plan,
 			task.planProblems,
-			task.systems,
 		]),
 	]);
 }

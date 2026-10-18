@@ -25,8 +25,7 @@ merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
 
 ## Module directories
 
-`packages/server/` is moving from flat files into one directory per system
-in `splates.systems.ts`, as webappwiz lays out its packages.
+`packages/server/` is moving from flat files into one directory per module, as webappwiz lays out its packages.
 `packages/server/conversations/` is the one to copy:
 
 - Files drop the directory's prefix: `conversation-state.ts` became
@@ -51,8 +50,6 @@ in `splates.systems.ts`, as webappwiz lays out its packages.
   `"./<dir>": "./<dir>/index.ts"`, replacing the entries of the files it took
   in, plus `"./<dir>/browser"` or `"./<dir>/testing"` only when another
   package imports it. Releases bundle each entry, so no `"./*"` wildcard.
-- Point the system's glob in `splates.systems.ts` at
-  `packages/server/<dir>/**`.
 - A move rebases every open task that edits the files it takes in, so check
   `splates list --files` and land between those tasks.
 

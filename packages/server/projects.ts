@@ -321,7 +321,7 @@ export class Projects {
 
 /**
  * What an agent working in one project may do in another through splates,
- * each including those before it: read its tasks, todos, lanes and systems;
+ * each including those before it: read its tasks, todos and lanes;
  * add todos to its untriaged lane; or hand its tasks to agents and
  * orchestrate them. Grants stop splates commands, not file edits.
  */
@@ -364,7 +364,7 @@ export function projectLine({
 
 /** What `projectLine` says each reach lets an agent do there. */
 const REACH_LINES: Record<Reach, string> = {
-	read: "only read its tasks, todos, lanes and systems: ask the user for more when your work needs it",
+	read: "only read its tasks, todos and lanes: ask the user for more when your work needs it",
 	todos:
 		"add todos for it, but hand it no task: ask the user for more when your work needs it",
 	tasks:

@@ -31,7 +31,7 @@ AGENTS.md remains unchanged and #365 awaits user review.
 
 ## Registered probes
 
-77 cases: 11 local CLI cases and 66 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+76 cases: 11 local CLI cases and 65 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
 all eleven CLI cases together: ten pass; `delegation/cli-no-dev-relay` remains
@@ -61,7 +61,6 @@ the broader proposed coverage in the requirements map.
 | `decisions/approval` | 1 | decisions-approval | agent |
 | `decisions/review-request` | 1 | decisions-review | agent |
 | `decisions/review-follow-up` | 1 | decisions-review | agent |
-| `decisions/system-proposal` | 1 | decisions-systems | agent |
 | `decisions/cli-review-ready` | 1 | decisions-review | cli |
 | `decisions/cli-review-blocked` | 1 | decisions-review | cli |
 | `delegation/handoff-checkpoint` | 1 | delegation-handoff | agent |
@@ -162,9 +161,8 @@ selected real integration, never a prerequisite for this audit.
 | lifecycle-recovery / Workflow, Escalation | #339 | CLI failed-check/conflict/budget responses; agent follows stderr, records attempt, retries or escalates at exhaustion | Seed each failure; optional real conflict/check/merge journey tests integration |
 | lifecycle-cleanup / Workflow | #339 | Agent removes moot task or merges verified work; released partial todo retained; resulting task/worktree state | Prove cleanup from observed state, not a final report |
 | decisions-local / Asking as you go, Keeping Blocked current | #355; `ask` | Agent records reversible choice as assumption, external action as blocker; answer updates preserve numbering; no premature action | Only unambiguous seeded choices; whether a real decision is wise remains subjective |
-| decisions-approval / Proposing, Escalation | #355; `ask`, `system` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers and escalation state; forbid action before approval | Format and state do not establish rationale quality |
+| decisions-approval / Proposing, Escalation | #355; `ask` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers and escalation state; forbid action before approval | Format and state do not establish rationale quality |
 | decisions-review / Merge or review, Demos, Reporting | #355; `review-again` | CLI MERGE payload; agent review request retained, review repeated after follow-up, checks/demo structure and no premature merge | Visual correctness and external verification remain manual/optional |
-| decisions-systems / Systems, `references/systems.md` | #355; `system` | Agent system inspection/proposal and approval before config writes; stop at proposal or authorized write | Naming quality is subjective; do not equate schema validity with good architecture |
 | todos-intake / Todos, `references/todos.md`, TODO directive | #340; `todo`, `untriaged` | CLI todo input/output; agent reads/takes requested todo, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | todos-groom / Grooming related todos, next todo | #340 | Agent lists related/taken todos, updates or coordinates without stealing; releases unfinished work; parsed next-todo proposal | Seed explicit relevance; no unrestricted semantic relevance grader |
 | todos-defer / DEFER directive | #340; `defer` | Agent creates todo with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
@@ -198,7 +196,7 @@ unless it can link an implemented case. No downstream task is taken here.
 | artifacts / Artifacts | Real temporary local add/version/remove/size handling and fake conversation; agent chooses attach versus artifact in unambiguous case | Persistence after archive, UI download/lightbox and user usefulness need broader integration/manual checks |
 | cross-project / Other projects | Seed project grants and not_granted response; forbid direct cwd bypass, local claim/merge of delegated foreign task | Real coordinator/project transport and permission propagation optional; no real grants in default tests |
 | resource-control / Workflow, Demos | Instrument heavy slot wrapper, unique sandbox/home/ports, cleanup ownership and remote/local link fields | Global fairness, real tunnel links and other-device rendering need integration |
-| judgment / Proposing, Systems, delegation | Explicit `uncovered` assertions for ambiguous choices, good rationale, appropriate model or useful artifact | No LLM judge fallback; a deterministic surrogate must not silently stand in for quality |
+| judgment / Proposing, delegation | Explicit `uncovered` assertions for ambiguous choices, good rationale, appropriate model or useful artifact | No LLM judge fallback; a deterministic surrogate must not silently stand in for quality |
 
 ## Deterministic grader audit
 

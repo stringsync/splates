@@ -1,5 +1,4 @@
 import type { SkillVersion } from "@stringsync/splates-server/stats";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useReactive } from "@webappwiz/react";
 import { CalendarRangeIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
@@ -20,13 +19,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
 import type { Advice } from "./stats-advice";
-import {
-	BY_DEVICE,
-	BY_MODEL,
-	BY_PROJECT,
-	BY_SYSTEM,
-	type Column,
-} from "./stats-columns";
+import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { Decisions } from "./stats-decisions";
 import { projectFilter } from "./stats-project-filter";
 import {
@@ -38,7 +31,6 @@ import {
 	type Row,
 	type StatsReport,
 } from "./stats-report";
-import { SystemNameChip } from "./systems";
 import { TopBar } from "./top-bar";
 
 /**
@@ -46,14 +38,7 @@ import { TopBar } from "./top-bar";
  * two acts that stand out this period, each with the figures behind it, and
  * everything else folded away.
  */
-export function StatsPage({
-	report,
-	systems,
-}: {
-	report: StatsReport;
-	/** The systems this project names, for each system's chip to open to. */
-	systems: readonly NamedSystem[];
-}): JSX.Element {
+export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 	const {
 		stats,
 		error,
@@ -145,12 +130,7 @@ export function StatsPage({
 							</p>
 						) : (
 							lead.map((each) => (
-								<AdviceCard
-									key={each.id}
-									advice={each}
-									report={report}
-									named={systems}
-								/>
+								<AdviceCard key={each.id} advice={each} report={report} />
 							))
 						)}
 					</section>
@@ -160,7 +140,6 @@ export function StatsPage({
 							rates={decisions}
 							period={period}
 							weekly={period.id === "all"}
-							named={systems}
 							shown={shown}
 							onToggle={(size) => report.toggleSize(size)}
 							onAll={() => report.showAllSizes()}
@@ -177,34 +156,17 @@ export function StatsPage({
 						<CollapsibleContent className="flex flex-col gap-6">
 							<div className="grid items-start gap-3 sm:grid-cols-2">
 								{rest.map((each) => (
-									<AdviceCard
-										key={each.id}
-										advice={each}
-										report={report}
-										named={systems}
-										className={cn(each.id === "hotspot" && "sm:col-span-2")}
-									/>
+									<AdviceCard key={each.id} advice={each} report={report} />
 								))}
 							</div>
 							{/* Which model to name on a todo, by how each did. */}
-							<Breakdown
-								title="By model"
-								rows={models}
-								columns={BY_MODEL}
-								named={systems}
-							/>
+							<Breakdown title="By model" rows={models} columns={BY_MODEL} />
 							{/* Whether work done from a phone lands as well as at a desk. */}
-							<Breakdown
-								title="By device"
-								rows={devices}
-								columns={BY_DEVICE}
-								named={systems}
-							/>
+							<Breakdown title="By device" rows={devices} columns={BY_DEVICE} />
 							<Breakdown
 								title="By project"
 								rows={projects}
 								columns={BY_PROJECT}
-								named={systems}
 							/>
 							{/* Whether a change to the splates skill helped or hurt, on real work. */}
 							<BySkillVersion versions={stats.skill} />
@@ -225,27 +187,23 @@ export function StatsPage({
 
 /**
  * One card of advice, with what backs it: Questions per task charts its
- * figure bar by bar, once there are bars enough, the page's only chart, and
- * Questions by system lists every system.
+ * figure bar by bar, once there are bars enough, the page's only chart.
  */
 function AdviceCard({
 	advice,
 	report,
-	named,
 	className,
 }: {
 	advice: Advice;
 	report: StatsReport;
-	named: readonly NamedSystem[];
 	className?: string;
 }): JSX.Element {
-	const { period, buckets, questionsAxis, systems } = useReactive(
+	const { period, buckets, questionsAxis } = useReactive(
 		report,
 		(report) => ({
 			period: report.period,
 			buckets: report.buckets,
 			questionsAxis: report.questionsAxis,
-			systems: report.systems,
 		}),
 		["changed"],
 	);
@@ -261,9 +219,6 @@ function AdviceCard({
 		>
 			<div className="flex items-baseline gap-2">
 				<span className="text-xs">{advice.title}</span>
-				{advice.system !== undefined && (
-					<SystemNameChip name={advice.system} systems={named} />
-				)}
 				<span className="flex-1" />
 				<span className="font-medium text-lg tabular-nums">
 					{advice.figure ?? NONE}
@@ -285,14 +240,6 @@ function AdviceCard({
 					value={questions}
 					shown={decimal}
 					axis={questionsAxis}
-				/>
-			)}
-			{advice.id === "hotspot" && systems.length > 0 && (
-				<Breakdown
-					title="By system"
-					rows={systems}
-					columns={BY_SYSTEM}
-					named={named}
 				/>
 			)}
 		</article>
@@ -393,18 +340,15 @@ function Trend({
 /** A figure there is not enough data for. */
 const NONE = "\u2013";
 
-/** Every model, device, project or system, with the figures it is read for over the period. */
+/** Every model, device or project, with the figures it is read for over the period. */
 function Breakdown({
 	title,
 	rows,
 	columns,
-	named,
 }: {
 	title: string;
 	rows: Row[];
 	columns: Column[];
-	/** The systems this project names, for a system row's chip. */
-	named: readonly NamedSystem[];
 }): JSX.Element {
 	return (
 		<div className="mt-2 flex min-w-0 flex-col gap-2 text-foreground">
@@ -424,13 +368,7 @@ function Breakdown({
 					<tbody>
 						{rows.map((row) => (
 							<tr key={row.name} className="border-b text-right last:border-0">
-								<td className="max-w-40 truncate py-1 text-left">
-									{row.system === undefined ? (
-										row.name
-									) : (
-										<SystemNameChip name={row.system} systems={named} />
-									)}
-								</td>
+								<td className="max-w-40 truncate py-1 text-left">{row.name}</td>
 								{columns.map((column) => (
 									<td key={column.head} className="py-1">
 										{column.cell(row)}

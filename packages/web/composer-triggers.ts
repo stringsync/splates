@@ -4,10 +4,8 @@ import type {
 	ProjectRef,
 } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
-import type { Details } from "@stringsync/splates-server/show";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useContext, useEffect, useMemo, useState } from "react";
-import { systems as fetchSystems, paths } from "./api";
+import { paths } from "./api";
 import { Lanes } from "./conversation-names";
 import { Held } from "./handed-out";
 import type { Named } from "./mentioned";
@@ -56,12 +54,11 @@ export function useFileMentions(task: string | null): {
 const MENTIONS_SHOWN = 8;
 
 /**
- * What a tree names, for `NamedContext`, from its `paths`, `systems` and the
+ * What a tree names, for `NamedContext`, from its `paths` and the
  * machine's `projects`, each null while it loads, and where it sits.
  */
 export function useNamed(
 	paths: ReadonlySet<string> | null,
-	systems: NamedSystem[] | null,
 	projects: ProjectRef[] | null,
 	tree: string | null,
 ): Named {
@@ -73,16 +70,15 @@ export function useNamed(
 				id: each.id,
 				name: nameOf(each, lanes),
 			})),
-			systems: systems ?? [],
 			projects: projects ?? [],
 			paths: paths ?? new Set(),
 			tree,
 			resolving: {
 				paths: paths === null,
-				systems: systems === null || projects === null,
+				projects: projects === null,
 			},
 		}),
-		[paths, systems, projects, tree, held, lanes],
+		[paths, projects, tree, held, lanes],
 	);
 }
 
@@ -110,30 +106,6 @@ export function useProjects(): ProjectRef[] | null {
 		};
 	}, []);
 	return projects;
-}
-
-/**
- * The systems the tree `task` runs in names, for `#`; null until they come,
- * and none when they cannot. Asked again whenever the tasks move, which an
- * edit to a worktree's config does.
- */
-export function useSystems(
-	task: string | null,
-	tasks: readonly Details[],
-): NamedSystem[] | null {
-	const [named, setNamed] = useState<NamedSystem[] | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `tasks` only says when to ask again.
-	useEffect(() => {
-		let current = true;
-		fetchSystems(task ?? "").then(
-			(found) => current && setNamed(found),
-			() => current && setNamed((named) => named ?? []),
-		);
-		return () => {
-			current = false;
-		};
-	}, [task, tasks]);
-	return named;
 }
 
 /**

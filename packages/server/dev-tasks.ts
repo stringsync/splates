@@ -8,8 +8,6 @@ import { editorOf } from "./editors";
 import { fail } from "./exit";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
-import { RECENT_COMMITS, systemsReport } from "./system-changes";
-import { Systems } from "./systems";
 import { TaskBranches } from "./task-branches";
 
 /**
@@ -106,34 +104,6 @@ export class TaskRoutes {
 		return Response.json(
 			await service.git.paths(worktree?.path ?? service.git.root),
 		);
-	};
-
-	// Every system the tree's config names, for `#` to offer: its own
-	// worktree's for a task, so one named there counts at once.
-	readonly systems = async (request: Request): Promise<Response> => {
-		const { service, fs } = this.#project;
-		const task = new URL(request.url).searchParams.get("task") ?? "";
-		const worktree = task === "" ? null : await service.find(task);
-		if (worktree !== null && !worktree.exists) {
-			fail("not_found", `no worktree for '${task}'`, { task });
-		}
-		const named = await Systems.at(worktree?.path ?? service.git.root, {
-			fs,
-		});
-		return Response.json(named.all());
-	};
-
-	// The Systems page: what each system the main tree names holds on trunk,
-	// and the commits that lately changed it.
-	readonly systemChanges = async (): Promise<Response> => {
-		const { service, fs } = this.#project;
-		const { git, trunk } = service;
-		const [named, files, commits] = await Promise.all([
-			Systems.at(git.root, { fs }),
-			git.files(trunk),
-			git.log(trunk, RECENT_COMMITS),
-		]);
-		return Response.json(systemsReport(named, files, commits));
 	};
 
 	// What a task changed against its base, for its review in the page.

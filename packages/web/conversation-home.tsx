@@ -20,12 +20,7 @@ import { AgentBrand, AgentIcon } from "./agent-icons";
 import { WIDE } from "./app-nav";
 import { AutoBrand } from "./auto-brand";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
-import {
-	useFileMentions,
-	useNamed,
-	useProjects,
-	useSystems,
-} from "./composer-triggers";
+import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
 import { AUTO as AUTO_ADDRESS, NEW, settingsFor } from "./conversation-address";
 import {
 	promptConversation,
@@ -94,7 +89,7 @@ export interface Starting {
 /**
  * An empty thread whose first message starts a conversation with `agent`,
  * opening it once it is up, and what its composer offers: the agent's
- * settings, the files, systems and tasks to mention, and why a start was
+ * settings, the files and tasks to mention, and why a start was
  * refused. Laid out by `Home`, or by the phone's own screen.
  */
 export function useNewConversation({
@@ -209,21 +204,14 @@ export function useNewConversation({
 	restore.current = useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
-	const systems = useSystems(task, tasks);
 	const projects = useProjects();
-	const references = useReferences(
-		tasks,
-		[],
-		systems ?? undefined,
-		projects ?? undefined,
-	);
+	const references = useReferences(tasks, [], projects ?? undefined);
 	const trees = useContext(TreesContext);
 	// As the page heads itself, which keeps the name for this tab.
 	const projectName = useProjectName(undefined);
 	const root = trees?.root ?? null;
 	const named = useNamed(
 		paths,
-		systems,
 		projects,
 		task === null
 			? root

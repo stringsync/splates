@@ -119,7 +119,6 @@ const END: EndRepo = {
 	tasks: [],
 	todos: [],
 	lanes: [],
-	systems: false,
 	main: [],
 };
 

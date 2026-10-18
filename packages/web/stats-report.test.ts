@@ -26,7 +26,6 @@ describe("StatsReport", () => {
 			"picks",
 			"assumptions",
 			"waiting",
-			"hotspot",
 			"failures",
 			"removals",
 		]);
@@ -44,16 +43,12 @@ describe("StatsReport", () => {
 						failedBy: { conflict: 6, tests_failed: 0, merge_failed: 0 },
 					}),
 				],
-				systems: [
-					{ system: "ui", ...bar("", { merged: 5, questionRounds: 20 }) },
-					{ system: "cli", ...bar("", { merged: 5, questionRounds: 0 }) },
-				],
 			}),
 		);
 		await busy.refresh();
 
-		// Four cards have an act, but only two lead, and never Why merges failed.
-		expect(busy.lead.map((each) => each.id)).toEqual(["picks", "hotspot"]);
+		// Three cards have an act, but only two lead, and never Why merges failed.
+		expect(busy.lead.map((each) => each.id)).toEqual(["picks", "course"]);
 		expect(busy.rest.map((each) => each.id)).toContain("failures");
 	});
 
@@ -150,7 +145,7 @@ describe("StatsReport", () => {
 				devices: [],
 				projects: [],
 				sizes: [],
-				systems: [],
+
 				since: null,
 				skill: [],
 				baselines: [],
@@ -273,7 +268,7 @@ const stats: Stats = {
 	],
 	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
 	sizes: [],
-	systems: [],
+
 	since: "2026-08-25T10:00:00.000Z",
 	skill: [],
 	baselines: [],

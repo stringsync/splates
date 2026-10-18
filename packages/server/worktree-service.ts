@@ -11,7 +11,6 @@ import { limited, READ_CONCURRENCY } from "./limited";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "./plans";
-import { Systems } from "./systems";
 import { taskLog } from "./task-log";
 import type { WorkerMachine } from "./workers";
 import { workerGit } from "./workers";
@@ -380,27 +379,19 @@ export class WorktreeService {
 	 * branch or a bare directory, never ran as a task, so says nothing.
 	 */
 	/**
-	 * What a task leaves to read as it ends: its plan's questions, and the
-	 * systems its changes fall in, by the config in its own tree.
+	 * What a task leaves to read as it ends: its plan's questions and diff size.
 	 */
 	private async ending(
 		worktree: Worktree,
-		{ changed, size }: DiscardOptions,
+		{ size }: DiscardOptions,
 	): Promise<Ending> {
 		if (!this.outcomes || !worktree.state) {
-			return { plan: "", systems: [], size: null };
+			return { plan: "", size: null };
 		}
-		const paths =
-			changed ??
-			(worktree.hasBranch ? await worktree.changedFiles() : null) ??
-			[];
-		const root = worktree.exists ? worktree.path : this.git.root;
-		const systems = await Systems.at(root, { fs: this.fs }).catch(() => null);
 		return {
 			plan: worktree.exists
 				? ((await new Plans(this.fs).read(worktree.path)) ?? "")
 				: "",
-			systems: systems?.touchedBy(paths).map((each) => each.name) ?? [],
 			size: size ?? (worktree.hasBranch ? await worktree.size() : null) ?? null,
 		};
 	}
@@ -461,7 +452,6 @@ export class WorktreeService {
 			assumptionsMade: assuming.made,
 			assumptionsChallenged: assuming.challenged,
 			decisions: decisions(ending.plan),
-			systems: ending.systems,
 			// Each escalation waits until claimed, or until the task ended
 			// while it still waited.
 			waitedMs: escalations.reduce(
@@ -566,7 +556,6 @@ export class WorktreeService {
 /** What `discard` reads off a task for its outcome before the tree goes. */
 interface Ending {
 	plan: string;
-	systems: string[];
 	/** What it landed or would have; null when there is no branch to read. */
 	size: DiffSize | null;
 }

@@ -182,7 +182,6 @@ export class Fixture implements AsyncResource {
 			tasks: await Promise.all(tasks.map(({ task }) => json(["show", task]))),
 			todos: (await json(["todo", "list"])) ?? [],
 			lanes: (await json(["lane", "list"])) ?? [],
-			systems: (await sh`cat splates.systems.ts`).exitCode === 0,
 			main: (await sh`git log --format=%B%x00 ${"main"}`.text())
 				.split("\0")
 				.map((message) => message.trim())
@@ -243,8 +242,6 @@ export interface EndRepo extends EndState {
 	todos: Record<string, unknown>[];
 	/** `splates lane list --json`. */
 	lanes: Record<string, unknown>[];
-	/** Whether `splates.systems.ts` exists. */
-	systems: boolean;
 	/** Each commit message on main, newest first. */
 	main: string[];
 }

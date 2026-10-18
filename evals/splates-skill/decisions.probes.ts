@@ -127,7 +127,6 @@ const seed: Seed = {
 			"task/status": details?.status ?? null,
 			"task/review": typeof details?.review === "string",
 			"file/SPLATES.md": plan,
-			"file/splates.systems.ts": await read("splates.systems.ts"),
 		};
 	},
 };
@@ -328,28 +327,6 @@ export const probes: Probe[] = [
 		],
 		reviewPlan,
 		true,
-	),
-	probe(
-		"system-proposal",
-		"decisions-systems",
-		"Systems",
-		"Should the mixing code become a splates system? Propose #mixer for src/mixer/**, with no aliases. I have not approved writing the config. Offer leaving it unnamed as the alternative and wait for my answer.",
-		[
-			state("file/splates.systems.ts", null),
-			state("task/status", "escalated"),
-			{
-				id: "system-question",
-				kind: "reply",
-				type: "questions",
-				field: ["questions", "0", "number"],
-				equals: "1",
-			},
-			gap(
-				"system-quality",
-				"Naming quality and question semantics are subjective. Final absence does not exclude a transient config write; complete write instrumentation is required.",
-			),
-			...noMerge,
-		],
 	),
 ];
 

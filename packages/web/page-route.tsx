@@ -4,7 +4,6 @@ import {
 	GaugeIcon,
 	KanbanIcon,
 	KeyRoundIcon,
-	LayersIcon,
 	type LucideIcon,
 	MessagesSquareIcon,
 } from "lucide-react";
@@ -21,14 +20,13 @@ import { TaskIcon } from "./task-icon";
 /**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), `#systems` (or `#systems/<name>` for one open), `#stats`,
+ * for one open), `#stats`,
  * `#creds`, `#budget`, `#setup`, or the board.
  */
 export type Page =
 	| "todos"
 	| "tasks"
 	| "conversations"
-	| "systems"
 	| "stats"
 	| "creds"
 	| "budget"
@@ -56,7 +54,6 @@ export const PAGES: {
 		shortcut: "shortcuts.todos",
 	},
 	{ value: "tasks", label: "Tasks", Icon: TaskIcon },
-	{ value: "systems", label: "Systems", Icon: LayersIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
@@ -64,18 +61,17 @@ export const PAGES: {
 
 /**
  * Where the page is, as `PageAddress` keeps it in the address and the
- * browser's history. `go`, `openTask` and `openSystem` are new each render.
+ * browser's history. `go` and `openTask` are new each render.
  */
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, system, cred } = useReactive(
+	const { page, open, task, cred } = useReactive(
 		address,
-		({ page, open, task, system, cred }) => ({
+		({ page, open, task, cred }) => ({
 			page,
 			open,
 			task,
-			system,
 			cred,
 		}),
 		["changed"],
@@ -90,11 +86,9 @@ export function usePageRoute(): PageRoute {
 		page,
 		open,
 		task,
-		system,
 		cred,
 		go: (next, conversation, how) => address.go(next, conversation, how),
 		openTask: (name) => address.openTask(name),
-		openSystem: (name) => address.openSystem(name),
 	};
 }
 
@@ -105,7 +99,6 @@ export const PHONE_PAGES: Record<Page, string> = {
 	todos:
 		"flex h-[calc(100dvh-var(--top-bar-height)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
 	tasks: "px-4 py-6",
-	systems: "min-w-0 px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	budget: "min-w-0 px-4 py-6",
@@ -159,10 +152,6 @@ export interface PageRoute {
 	go: (next: Page, conversation?: string | null, how?: Move) => void;
 	/** Opens task `name` on the Tasks page, or closes the one open for null. */
 	openTask: (name: string | null) => void;
-	/** The system open on the Systems page, by name, or null. */
-	system: string | null;
-	/** Opens system `name` on the Systems page, or the list of them for null. */
-	openSystem: (name: string | null) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
 }

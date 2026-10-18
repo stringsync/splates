@@ -3,7 +3,6 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "./plans";
-import { type NamedSystem, Systems } from "./systems";
 import { handOff } from "./tell";
 import type { DiffSize, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -91,11 +90,6 @@ export interface Details {
 	 * user; null for any other task.
 	 */
 	handedTo: string | null;
-	/**
-	 * The systems its changed files fall in, committed or not, in the order
-	 * its worktree's `splates.systems.ts` names them.
-	 */
-	systems: NamedSystem[];
 }
 
 export interface ShowOptions {
@@ -144,8 +138,7 @@ export class TaskDetails {
 		const plan = worktree.exists
 			? await new Plans(this.fs).read(worktree.path)
 			: null;
-		const { stat, ahead, committedAt, uncommitted, systems } =
-			await this.git(worktree);
+		const { stat, ahead, committedAt, uncommitted } = await this.git(worktree);
 		const last = state?.escalations?.at(-1);
 		const review =
 			state?.status === "escalated" && last?.review ? last.reason : null;
@@ -183,7 +176,6 @@ export class TaskDetails {
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
 			handedTo: handOff(worktree)?.conversation ?? null,
-			systems,
 		};
 	}
 
@@ -236,7 +228,6 @@ export class TaskDetails {
 			ahead,
 			committedAt,
 			uncommitted,
-			systems: await this.systems(worktree),
 		};
 	}
 
@@ -269,32 +260,11 @@ export class TaskDetails {
 			? null
 			: new Date(Math.max(...known)).toISOString();
 	}
-
-	/**
-	 * Read from its own worktree, so a system named during the task counts at
-	 * once. Its changed files cost three git calls, spent only once there is a
-	 * system to match them against.
-	 */
-	private async systems(worktree: Worktree): Promise<NamedSystem[]> {
-		if (!worktree.exists) {
-			return [];
-		}
-		// A config the agent is halfway through editing names none for now,
-		// rather than taking the whole page down with it.
-		const named = await Systems.at(worktree.path, { fs: this.fs }).catch(
-			() => null,
-		);
-		if (named === null || named.all().length === 0) {
-			return [];
-		}
-		return named.touchedBy((await worktree.changedFiles()) ?? []);
-	}
 }
 
 /**
  * What git and the worktree's files say of a task, which only a move of its
- * branch, its base or those files changes. Its systems are among them, since
- * `splates.systems.ts` is one of those files.
+ * branch, its base or those files changes.
  */
 interface GitFacts {
 	stat: DiffSize | null;
@@ -303,7 +273,6 @@ interface GitFacts {
 	committedAt: number | null;
 	/** The paths it has uncommitted, relative to its worktree. */
 	uncommitted: string[];
-	systems: NamedSystem[];
 }
 
 /** What a task's git facts are read from, so a task that changes any is read anew. */
@@ -337,11 +306,6 @@ function report(details: Details): string {
 		`  lease:     ${details.lease}`,
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
 		`  age:       ${details.age ?? "?"}`,
-		...(details.systems.length > 0
-			? [
-					`  systems:   ${details.systems.map((system) => system.name).join(", ")}`,
-				]
-			: []),
 	];
 	if (details.review !== null) {
 		lines.push(`  ${color.green(`ready to merge: ${details.review}`)}`);

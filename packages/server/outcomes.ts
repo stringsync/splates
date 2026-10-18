@@ -214,8 +214,6 @@ export interface Outcome {
 	 * of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
 	decisions?: Decision[];
-	/** The systems its changed files fall in, by name. Absent from older lines. */
-	systems?: string[];
 	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */
 	waitedMs?: number;
 	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */

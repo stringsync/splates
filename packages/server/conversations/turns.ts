@@ -558,11 +558,7 @@ export class ConversationTurns {
 
 	/** What `messages` say, as one prompt, for the tree the agent runs in. */
 	private content(messages: Message[]) {
-		return this.files.content(
-			messages,
-			this.host.cwd ?? this.deps.root,
-			this.connection.sees,
-		);
+		return this.files.content(messages, this.connection.sees);
 	}
 
 	/** Settles once no turn is running, or the checkpoint has given up. */

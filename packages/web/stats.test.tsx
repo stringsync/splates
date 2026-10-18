@@ -50,16 +50,13 @@ describe("StatsPage", () => {
 					previous: null,
 				},
 			],
-			systems: [],
+
 			since: "2026-09-28T10:00:00.000Z",
 			skill: [],
 			baselines: [],
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
 		);
 
 		await waitFor(() => page.getByRole("region", { name: "act on" }));
@@ -123,7 +120,7 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [],
 			sizes: [],
-			systems: [],
+
 			since: "2026-10-12T10:00:00.000Z",
 			baselines: [],
 			skill: rates([
@@ -154,10 +151,7 @@ describe("StatsPage", () => {
 			]),
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
 		);
 
 		await waitFor(() => page.getByRole("region", { name: "act on" }));
@@ -194,16 +188,13 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [{ project: "/repo", ...tally }],
 			sizes: [],
-			systems: [],
+
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
 			baselines: [],
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
 		);
 
 		await waitFor(() => page.getByRole("region", { name: "act on" }));
@@ -242,48 +233,6 @@ describe("StatsPage", () => {
 	});
 
 	// scry-ignore simple-test-setup: older than this task, which only renamed a check id
-	it("shows each system as its chip, opening to its globs where this project names it", async () => {
-		const stats: Stats = {
-			buckets: [
-				{
-					start: "2026-10-14T12:00:00.000Z",
-					...tally,
-					merged: 10,
-					questionRounds: 11,
-				},
-			],
-			previous: null,
-			models: [],
-			devices: [],
-			projects: [],
-			sizes: [],
-			systems: [
-				{ system: "mixer", ...tally, merged: 5, questionRounds: 10 },
-				{ system: "docs", ...tally, merged: 5, questionRounds: 1 },
-			],
-			since: "2026-10-12T10:00:00.000Z",
-			skill: [],
-			baselines: [],
-		};
-		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[{ name: "mixer", globs: ["src/mixer/**"] }]}
-			/>,
-		);
-
-		await waitFor(() => page.getByLabelText("Questions by system"));
-		const card = page.getByLabelText("Questions by system");
-		expect(card.textContent).not.toContain("#");
-		// The card names mixer beside its title, and its table lists it again.
-		const chips = page.getAllByRole("button", { name: "mixer" });
-		expect(chips).toHaveLength(2);
-		fireEvent.click(chips[0] as HTMLElement);
-		await waitFor(() => page.getByText("src/mixer/**"));
-		// docs is no system this project names, so its chip opens to nothing.
-		expect(page.queryByRole("button", { name: "docs" })).toBeNull();
-		expect(page.getByText("docs")).toBeTruthy();
-	});
 
 	it("says when nothing stands out, and charts no bar too few to read", async () => {
 		const stats: Stats = {
@@ -293,16 +242,13 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [],
 			sizes: [],
-			systems: [],
+
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
 			baselines: [],
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
 		);
 
 		await waitFor(() => page.getByText("Nothing stands out this period."));
@@ -329,16 +275,13 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [],
 			sizes: [],
-			systems: [],
+
 			since: "2026-07-01T10:00:00.000Z",
 			skill: [],
 			baselines: [],
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => stats })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
 		);
 
 		await waitFor(() => page.getByLabelText("Questions per task"));
@@ -355,16 +298,13 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [],
 			sizes: [],
-			systems: [],
+
 			since: null,
 			skill: [],
 			baselines: [],
 		};
 		const page = render(
-			<StatsPage
-				report={new StatsReport({ stats: async () => empty })}
-				systems={[]}
-			/>,
+			<StatsPage report={new StatsReport({ stats: async () => empty })} />,
 		);
 
 		await waitFor(() => page.getByText(/No task has ended/));
@@ -379,7 +319,7 @@ describe("StatsPage", () => {
 			devices: [],
 			projects: [],
 			sizes: [],
-			systems: [],
+
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
 			baselines: [],
@@ -394,7 +334,6 @@ describe("StatsPage", () => {
 						},
 					})
 				}
-				systems={[]}
 			/>,
 		);
 		await waitFor(() => page.getByText(/tasks ended/));

@@ -321,7 +321,7 @@ export class ProjectWatch implements StreamWatcher {
 	/**
 	 * Watches each worktree in `paths`, and no other: its SPLATES.md always,
 	 * and while a page listens, its files as they are edited, which move its
-	 * counts and its systems. A recursive watch costs a watch per directory
+	 * counts. A recursive watch costs a watch per directory
 	 * on some systems, so none is kept for a page that is not open.
 	 */
 	private follow(paths: string[]): void {

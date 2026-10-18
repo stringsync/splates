@@ -295,29 +295,6 @@ export const SCENARIOS: readonly Scenario[] = [
 			"calls-recorded: each call the subagent listed was written by the parent under its own `## Assumptions` or `## Blocked` (n/a when it listed none)",
 		],
 	},
-	{
-		id: "system",
-		turns: [
-			"Make #retries back off exponentially between attempts.\n\n#retries: no system answers to this name.",
-		],
-		sections: [...CORE, "Systems", "Offering a system", "Asking as you go"],
-		checks: [
-			STARTS,
-			{
-				id: "no-config",
-				rule: "Leaves splates.systems.ts alone until the user answers",
-				judge: ({ end }) => [
-					{
-						ok: !end.systems,
-						why: end.systems ? "wrote splates.systems.ts" : "left it",
-					},
-				],
-			},
-		],
-		rubric: [
-			"offer: the agent wrote a numbered question under `## Blocked` offering to name the retry code as a splates system, recommending the name the code already goes by (such as `#upload`, for `src/upload*`) over `#retries`, with choices including adding `#retries` as an alias or leaving it unnamed, one marked `(chosen)`, and every system name and alias in it written as `#name`",
-		],
-	},
 	CHECKPOINT,
 	CHECK_IN,
 	{

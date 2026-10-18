@@ -175,31 +175,6 @@ Cap upload retries
 		).toEqual(["Take up", "Remove"]);
 	});
 
-	it("lists the systems an external agent's task touches beside its view", async () => {
-		const view = await testing.openConversations([], null, {
-			tasks: [
-				details({
-					task: "beta",
-					systems: [{ name: "uploads", globs: ["src/upload/**"] }],
-				}),
-			],
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /beta/ }),
-			),
-		);
-
-		const alone = view.getByRole("region", { name: "beta" });
-		expect(
-			within(alone).getByRole("region", { name: "systems" }).textContent,
-		).toContain("uploads");
-		// In the page's bar, atop its view.
-		expect(view.getByRole("button", { name: "Systems" })).toBeTruthy();
-	});
-
 	it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, and marks its row once the reply is copied, until it asks again", async () => {
 		const gamma = (plan: string) =>
 			details({

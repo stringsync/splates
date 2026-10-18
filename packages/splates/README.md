@@ -19,7 +19,7 @@ installs the same skill. From then on, your agents start each change with
 
 Spinning Plates was arbor (`@webappwiz/arbor`). In a project that used it, run
 `bunx @stringsync/splates update`: it installs the splates skill in place of arbor's and
-renames `arbor.config.ts` and `arbor.systems.ts`. The next `splates server` moves
+renames `arbor.config.ts`. The next `splates server` moves
 `~/.arbor` and each repository's `.git/arbor` to their new names, leaving links
 behind. For one release, `arbor` still runs splates, and the `ARBOR_*`
 variables, `ARBOR.md` and the `[ARBOR …]` directives are still read.
@@ -256,7 +256,7 @@ with its remote and local links, as the task's dialog on the page does.
 As each task merges or is removed, splates writes down how it went in
 `~/.splates/outcomes.jsonl`: how many times it came to you with questions or for
 a review, how many merges failed and why, how many of the agent's picks you
-overturned or took with words added, how long it waited on you, the systems it touched, why it was
+overturned or took with words added, how long it waited on you, why it was
 removed, and the agent and model behind it. The Stats page sums it over the
 last 6 hours, day, 3 days or 7 days, cut into bars of half an hour to six
 hours, or over all time a bar a week, by model, project and system, so you can tell whether tasks are landing

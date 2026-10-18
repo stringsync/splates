@@ -1,9 +1,4 @@
-import {
-	LayersIcon,
-	ListTodoIcon,
-	type LucideIcon,
-	MessageSquareIcon,
-} from "lucide-react";
+import { ListTodoIcon, type LucideIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type JSX,
 	useCallback,
@@ -27,19 +22,17 @@ const HEADINGS: Record<Kind, string> = {
 	task: "Tasks",
 	conversation: "Conversations",
 	todo: "Todos",
-	system: "Systems",
 };
 
 const ICONS: Record<Kind, LucideIcon> = {
 	task: TaskIcon,
 	conversation: MessageSquareIcon,
 	todo: ListTodoIcon,
-	system: LayersIcon,
 };
 
 /**
  * Its shortcut, ⌘K (Ctrl+K) unless set otherwise: one box over the shown project's tasks, conversations,
- * todos and systems, grouped by kind, the best match first (see `search`). The arrows and
+ * and todos, grouped by kind, the best match first (see `search`). The arrows and
  * Enter pick.
  */
 export function SearchDialog({
@@ -66,11 +59,11 @@ export function SearchDialog({
 	const list = useRef<HTMLUListElement>(null);
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
-	const { systems, tasks, todos, conversations, lanes } = searched;
+	const { tasks, todos, conversations, lanes } = searched;
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
-		() => search(query, { systems, tasks, todos, conversations, lanes }),
-		[query, systems, tasks, todos, conversations, lanes],
+		() => search(query, { tasks, todos, conversations, lanes }),
+		[query, tasks, todos, conversations, lanes],
 	);
 	const rows = groups.flatMap((group) => group.found);
 	const shown = Math.min(active, rows.length - 1);
@@ -98,7 +91,7 @@ export function SearchDialog({
 				<Input
 					autoFocus
 					aria-label="search"
-					placeholder="Search tasks, conversations, todos, systems"
+					placeholder="Search tasks, conversations, todos"
 					value={query}
 					onChange={(event) => {
 						setQuery(event.target.value);

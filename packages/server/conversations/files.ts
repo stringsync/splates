@@ -5,7 +5,6 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs } from "webappwiz/system";
 import { DICTATED } from "../plans";
 import { projectLine } from "../projects";
-import { hashed, mentionLine, Systems, unknownLine } from "../systems";
 import type { ProjectRoster } from "./host";
 import { textOf } from "./messages";
 import { conversationReference } from "./reference";
@@ -85,14 +84,12 @@ export class ConversationFiles {
 
 	/**
 	 * What `messages` say, as one prompt: their images, links to their other
-	 * files, then their words, with a line on each system they name in
-	 * `tree`, the one the agent runs in (none for a log too old to say), one
-	 * on where each project they name sits, and one on reading them as speech
+	 * files, then their words, with a line on where each project they name
+	 * sits, and one on reading them as speech
 	 * when any was dictated.
 	 */
 	async content(
 		messages: Message[],
-		tree: string | null,
 		sees = false,
 	): Promise<acp.ContentBlock[]> {
 		// Uploads queued before initialization are files until capabilities are
@@ -133,9 +130,9 @@ export class ConversationFiles {
 			.map(textOf)
 			.filter((each) => each !== "")
 			.join("\n\n");
-		// For the agent alone, as the systems are: the thread shows a mic.
+		// The thread shows a mic; the agent needs the dictation instruction.
 		const dictated = messages.some((each) => each.dictated) ? DICTATED : "";
-		const text = [said, await this.namedIn(said, tree), dictated]
+		const text = [said, await this.namedIn(said), dictated]
 			.filter((each) => each !== "")
 			.join("\n\n");
 		return [
@@ -150,36 +147,19 @@ export class ConversationFiles {
 		await this.fs.rm(this.dir, { recursive: true, force: true });
 	}
 
-	/**
-	 * A line on each system, conversation UUID and project `text` mentions with `#`,
-	 * then one on each `#word` that names neither, for the agent alone: the
-	 * thread keeps the words as typed. Read from `tree` and the projects as
-	 * it goes, so a system named there a moment ago counts. A system wins
-	 * over a project of the same name.
-	 */
-	private async namedIn(text: string, tree: string | null): Promise<string> {
+	/** Adds project locations and conversation log references for the agent. */
+	private async namedIn(text: string): Promise<string> {
 		if (!text.includes("#")) {
 			return "";
 		}
-		// A config that will not load, or a registry that will not read, names
-		// none, rather than holding the message back.
-		const named =
-			tree === null
-				? null
-				: await Systems.at(tree, { fs: this.fs }).catch(() => null);
 		const listed = (await this.projects?.list().catch(() => null)) ?? [];
 		const projects = listed.filter((each) => !each.gone);
-		const systems = named?.mentioned(text) ?? [];
-		const unknown = named?.unknown(text) ?? [];
 		const conversations = hashed(text).filter(conversationReference);
 		const found = hashed(text).flatMap((called) => {
 			const project = projects.find((each) => each.slug === called);
-			return project === undefined || (named?.find(called) ?? null) !== null
-				? []
-				: [project];
+			return project === undefined ? [] : [project];
 		});
 		return [
-			...systems.map(mentionLine),
 			...conversations.map(
 				(id) =>
 					`#${id} references conversation ${id}. Its log is ${dirname(this.dir)}/${id}.jsonl.`,
@@ -196,13 +176,6 @@ export class ConversationFiles {
 					}),
 				),
 			)),
-			...unknown
-				.filter(
-					(called) =>
-						!conversationReference(called) &&
-						!found.some((each) => each.slug === called),
-				)
-				.map(unknownLine),
 		].join("\n");
 	}
 }
@@ -222,4 +195,16 @@ const IMAGE_TYPES: Record<string, string> = {
 function extensionOf(title: string): string {
 	const extension = /\.([a-z0-9]{1,10})$/i.exec(title)?.[1];
 	return extension === undefined ? "bin" : extension.toLowerCase();
+}
+
+/** Each #word outside code, once, in the order first mentioned. */
+function hashed(text: string): string[] {
+	const prose = text.replace(/```[\s\S]*?(```|$)|`[^`\n]*`/g, " ");
+	return [
+		...new Set(
+			[...prose.matchAll(/(^|\s)#([^\s#]*[^\s#.,;:!?)\]'"-])/g)].map(
+				(match) => match[2] ?? "",
+			),
+		),
+	];
 }

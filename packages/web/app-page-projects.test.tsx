@@ -53,12 +53,10 @@ describe("App's pages picking their project", () => {
 		resize(1024, 768);
 	});
 
-	it("heads Todos, Systems, Budget and Creds with the project they show", async () => {
+	it("heads Todos, Budget and Creds with the project they show", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
 		await goTo(view, "Todos");
-		expect(await switcherIn(view)).toBe("webappwiz");
-		await goTo(view, "Systems");
 		expect(await switcherIn(view)).toBe("webappwiz");
 		await goTo(view, "Budget");
 		expect(await switcherIn(view)).toBe("webappwiz");
@@ -86,16 +84,6 @@ describe("App's pages picking their project", () => {
 		const there = new URL(String(testing.visited[0]));
 		expect(there.search).toBe("?project=shop");
 		expect(there.hash).toBe("#creds");
-	});
-
-	it("goes to the top of the page, off the last project's system", async () => {
-		const view = await testing.open();
-		await goTo(view, "Systems");
-		history.replaceState(null, "", "#systems/web");
-
-		await pickInBar(view, "/code/shop");
-
-		expect(new URL(String(testing.visited[0])).hash).toBe("#systems");
 	});
 
 	it("counts nothing beside the sidebar's Todos and Tasks", async () => {

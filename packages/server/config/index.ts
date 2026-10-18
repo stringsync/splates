@@ -15,4 +15,4 @@ export {
 } from "./legacy-names";
 export { systemPs } from "./legacy-ps";
 export { CONFIG_FILE, ConfigFiles, loadConfig } from "./load";
-export { typedConfig, withoutSystems } from "./source";
+export { typedConfig } from "./source";

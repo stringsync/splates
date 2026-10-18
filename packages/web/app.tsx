@@ -1,7 +1,6 @@
 import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/show";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	type JSX,
@@ -28,7 +27,6 @@ import { WatchBackground } from "./background";
 import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
-import { useSystems } from "./composer-triggers";
 import { NEW, TASK, terminalAddress } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
 import { Lanes } from "./conversation-names";
@@ -64,7 +62,6 @@ import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
-import { SystemsPage } from "./systems-page";
 import { Tasks } from "./tasks";
 import {
 	OpenTerminalPage,
@@ -80,7 +77,6 @@ import { TreesContext } from "./work-row";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
-const NO_SYSTEMS: NamedSystem[] = [];
 const NO_TODOS: TodoState[] = [];
 const NO_CONVERSATIONS: ConversationState[] = [];
 const NO_LANES: LaneRecord[] = [];
@@ -194,15 +190,11 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, go, openTask, system, openSystem, cred } =
-		usePageRoute();
+	const { page, open, task, go, openTask, cred } = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
 	const [todoView] = useState(() => new TodoView(localStorage));
-	// The systems the main tree names, for the Systems and Stats pages and ⌘K.
-	const named = useSystems(null, tasks) ?? NO_SYSTEMS;
 	const searched = {
-		systems: named,
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
 		conversations: available ? conversations : NO_CONVERSATIONS,
@@ -216,8 +208,6 @@ export function App({
 		} else if (found.kind === "todo") {
 			go("todos");
 			todoView.open(found.todo);
-		} else if (found.kind === "system") {
-			openSystem(found.system);
 		}
 	};
 	const name = useProjectName(snapshot?.repo);
@@ -302,21 +292,7 @@ export function App({
 			: {
 					todos: <Todos snapshot={snapshot} drafts={drafts} view={todoView} />,
 					tasks: <Tasks project={snapshot} open={task} onOpen={openTask} />,
-					systems: (
-						<SystemsPage
-							systems={named}
-							tasks={snapshot.tasks}
-							todos={snapshot.todos}
-							open={system}
-							onOpen={openSystem}
-							onTask={openTask}
-							onTodo={(id) => {
-								go("todos");
-								todoView.open(id);
-							}}
-						/>
-					),
-					stats: <StatsPage report={report} systems={named} />,
+					stats: <StatsPage report={report} />,
 					creds: (
 						<CredsPage
 							requests={snapshot.creds}

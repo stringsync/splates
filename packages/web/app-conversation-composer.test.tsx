@@ -72,10 +72,10 @@ describe("App's composer", () => {
 	it("leaves a / anywhere but the start a character", async () => {
 		const { view, box } = await composer();
 
-		for (const text of ["see /in", "src/in"]) {
-			await typeIn(box, text);
-			expect(view.queryByRole("listbox")).toBeNull();
-		}
+		await typeIn(box, "see /in");
+		expect(view.queryByRole("listbox")).toBeNull();
+		await typeIn(box, "src/in");
+		expect(view.queryByRole("listbox")).toBeNull();
 	});
 
 	const held = [conversation({ id: "c1", title: "Fix login" })];
@@ -119,21 +119,19 @@ describe("App's composer", () => {
 		);
 	});
 
-	it("shows the references in a draft as Resolving… until the paths and systems come, then as their chips", async () => {
+	it("shows the references in a draft as Resolving… until the paths come, then as their chips", async () => {
 		let list = () => {};
 		testing.listing = new Promise((resolve) => {
 			list = resolve;
 		});
 		testing.tree = ["src/", "src/index.ts"];
-		testing.systems = [
-			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
-		];
+
 		const draft = "fix #player in @src/index.ts, not #12 or @gone.ts";
 		localStorage.setItem("splates.draft.c1", draft);
 		const view = await testing.openConversations(held, "c1");
 
 		await waitFor(() =>
-			expect(within(box(view)).getAllByText("Resolving…")).toHaveLength(3),
+			expect(within(box(view)).getAllByText("Resolving…")).toHaveLength(2),
 		);
 		expect(textIn(box(view))).toBe(draft);
 
@@ -142,9 +140,7 @@ describe("App's composer", () => {
 		await waitFor(() =>
 			expect(within(box(view)).queryByText("Resolving…")).toBeNull(),
 		);
-		expect(
-			within(box(view)).getByRole("button", { name: "playback" }),
-		).toBeTruthy();
+
 		expect(within(box(view)).getByTitle(/\/src\/index\.ts$/)).toBeTruthy();
 		// Named nothing once they came: as written.
 		expect(within(box(view)).getByText("@gone.ts")).toBeTruthy();

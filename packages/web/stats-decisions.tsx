@@ -1,4 +1,3 @@
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import type { JSX } from "react";
 import {
 	Tooltip,
@@ -8,18 +7,16 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import type { Bar, DecisionRates, Rate } from "./decision-rates";
 import { type Axis, decimal, type Period } from "./stats-report";
-import { SystemNameChip } from "./systems";
 
 /**
  * How many calls the person made over the period against how many agents
  * made without them: each side's rate and how it moved, both charted on one
- * axis to compare, then by size and by system.
+ * axis to compare, then by size.
  */
 export function Decisions({
 	rates,
 	period,
 	weekly,
-	named,
 	shown,
 	onToggle,
 	onAll,
@@ -28,8 +25,6 @@ export function Decisions({
 	period: Period;
 	/** Whether a bar is a week, so the newest is "This week" rather than "Now". */
 	weekly: boolean;
-	/** The systems this project names, for a system row's chip. */
-	named: readonly NamedSystem[];
 	/** The sizes the chart and its rates count; null for all. */
 	shown: ReadonlySet<string | null> | null;
 	/** Adds a size to those counted, or takes it out. */
@@ -37,7 +32,7 @@ export function Decisions({
 	/** Counts every size again. */
 	onAll: () => void;
 }): JSX.Element {
-	const { unit, byYou, byAgents, sizes, systems } = rates;
+	const { unit, byYou, byAgents, sizes } = rates;
 	return (
 		<section
 			aria-label="Decisions"
@@ -85,20 +80,6 @@ export function Decisions({
 					weekly={weekly}
 				/>
 			</figure>
-			<Split
-				title="By system"
-				rows={systems.map((each) => ({
-					key: each.system ?? "none",
-					name:
-						each.system === null ? (
-							"No system"
-						) : (
-							<SystemNameChip name={each.system} systems={named} />
-						),
-					byYou: each.byYou,
-					byAgents: each.byAgents,
-				}))}
-			/>
 		</section>
 	);
 }
@@ -326,7 +307,7 @@ function movement(
 }
 
 /** Calls by who made them, a row each. */
-function Split({
+function _Split({
 	title,
 	rows,
 }: {

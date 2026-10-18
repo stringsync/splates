@@ -15,14 +15,12 @@ import {
 	todoReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import {
 	BookmarkIcon,
 	ClockIcon,
 	FolderGit2Icon,
 	GitMergeIcon,
 	HeartPulseIcon,
-	LayersIcon,
 	LightbulbIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -42,7 +40,7 @@ import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
- * as a chip in place of what was typed, its directive, a system or a
+ * as a chip in place of what was typed, its directive or a
  * project, or runs it, for an action.
  */
 export interface References {
@@ -52,7 +50,7 @@ export interface References {
 	icon: (item: TriggerItem) => ReactNode;
 	/**
 	 * An item as the composer writes it: a chip that reads as its directive,
-	 * or `#name` for a system or project; null for an action, which `pick`
+	 * or `#name` for a project; null for an action, which `pick`
 	 * runs instead.
 	 */
 	chip: (item: TriggerItem) => TriggerItem | null;
@@ -65,20 +63,18 @@ const CATEGORIES = [
 	{ id: "lane", label: "Lanes", icon: LaneIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
-	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
 /**
- * The board's todos and lanes, `tasks`, `systems`, the other splates
+ * The board's todos and lanes, `tasks`, the other splates
  * `projects` on this machine, the directives, and `actions` for `#` in the
  * composer, the conversation's actions run in place.
  */
 export function useReferences(
 	tasks: readonly Details[],
 	actions: readonly Action[] = [],
-	systems: readonly NamedSystem[] = [],
 	projects: readonly ProjectRef[] = [],
 ): References {
 	const { todos, lanes } = useContext(Board);
@@ -131,16 +127,6 @@ export function useReferences(
 				description: `${conversation.archived ? "Archived · " : ""}${conversation.id}`,
 				metadata: { conversation: conversation.id },
 			})),
-			// Its aliases as its description, so typing one finds it too.
-			system: systems.map((system) => ({
-				id: `system:${system.name}`,
-				type: "system",
-				label: system.name,
-				...((system.aliases ?? []).length > 0
-					? { description: (system.aliases ?? []).join(", ") }
-					: {}),
-				metadata: { system: system.name },
-			})),
 			// Its directory as its description, which the agent is told too.
 			project: projects.map((project) => ({
 				id: `project:${project.slug}`,
@@ -170,8 +156,7 @@ export function useReferences(
 				}
 			},
 			chip: (item) => {
-				const { directive, system, project, conversation } =
-					item.metadata ?? {};
+				const { directive, project, conversation } = item.metadata ?? {};
 				if (typeof conversation === "string") {
 					return { id: conversation, type: "conversation", label: item.label };
 				}
@@ -181,9 +166,7 @@ export function useReferences(
 				if (typeof project === "string") {
 					return { id: project, type: "project", label: project };
 				}
-				return typeof system === "string"
-					? { id: system, type: "system", label: system }
-					: null;
+				return null;
 			},
 			icon: (item) => {
 				const { action } = item.metadata ?? {};
@@ -194,16 +177,7 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [
-		todos,
-		lanes,
-		tasks,
-		actions,
-		systems,
-		projects,
-		conversations,
-		namedLanes,
-	]);
+	}, [todos, lanes, tasks, actions, projects, conversations, namedLanes]);
 }
 
 /**

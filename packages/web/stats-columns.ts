@@ -42,7 +42,6 @@ const LINES: Column = {
 };
 
 /** Only what each table is read for: where questions come from, which model to name, how phone work goes, nothing for a project. */
-export const BY_SYSTEM = [ENDED, QUESTIONS];
 export const BY_MODEL = [
 	ENDED,
 	QUESTIONS,

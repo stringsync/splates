@@ -49,14 +49,9 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
-	it("writes down the picks overturned, the systems touched, failures by reason, the wait and the commits landed", async () => {
+	it("writes down the picks overturned, failures by reason, the wait and the commits landed", async () => {
 		await using deps = await Testing.open();
-		await deps.commit(
-			deps.root,
-			"splates.systems.ts",
-			`export default ${JSON.stringify({ mixer: { globs: ["mixer-*.ts"] }, docs: { globs: ["*.md"] } })};\n`,
-			"name systems",
-		);
+
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "mixer-gain.ts", "gain\n", "add gain");
@@ -114,7 +109,6 @@ describe.concurrent("outcomes", () => {
 			picksAsked: 4,
 			picksOverturned: 1,
 			picksAmended: 2,
-			systems: ["mixer"],
 			removedFor: null,
 			commits: ["add fade"],
 		});

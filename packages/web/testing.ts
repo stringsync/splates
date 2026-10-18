@@ -14,8 +14,6 @@ import type { Held } from "@stringsync/splates-server/held";
 import type { Landed } from "@stringsync/splates-server/landed";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
-import type { SystemsReport } from "@stringsync/splates-server/system-changes";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
@@ -114,17 +112,7 @@ export class Testing implements Resource {
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
-	/** What `/api/systems` lists, for `#`. */
-	systems: NamedSystem[] = [];
-	/** What `/api/systems/changes` says, for the Systems page. */
-	changes: SystemsReport = {
-		systems: [],
-		since: null,
-		scanned: 0,
-		uncovered: 0,
-		groups: [],
-	};
-	/** What `/api/paths` and `/api/systems` wait on, for a test to hold them back. */
+	/** What `/api/paths` waits on, for a test to hold them back. */
 	listing: Promise<void> = Promise.resolve();
 	/**
 	 * What `/api/projects` waits on, for a test to hold one listing back, which
@@ -287,13 +275,7 @@ export class Testing implements Resource {
 				await this.listing;
 				return Response.json(this.tree);
 			}
-			if (route === "/api/systems/changes") {
-				return Response.json(this.changes);
-			}
-			if (path.startsWith("/api/systems")) {
-				await this.listing;
-				return Response.json(this.systems);
-			}
+
 			const diff = /^\/api\/tasks\/([^/]+)\/diff$/.exec(route ?? "");
 			if (diff !== null) {
 				return Response.json(

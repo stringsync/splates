@@ -24,7 +24,7 @@ interface Entry {
 }
 
 /**
- * The page, conversation, task and system the address names, kept in the
+ * The page, conversation and task the address names, kept in the
  * address so a reload or a link lands on the same page. Each move is an entry
  * in the browser's history, so its back and forward, and a phone's swipe from
  * the edge, move through them. A move to the entry just left goes back to it,
@@ -40,8 +40,6 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	open = conversationIn(location.hash);
 	/** The task open on the Tasks page, or null. */
 	task = taskIn(location.hash);
-	/** The system open on the Systems page, by name, or null. */
-	system = systemIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
 	/** The window's scroll to put back once the entry returned to is drawn. */
@@ -70,7 +68,6 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.page = next;
 		this.open = conversation;
 		this.task = null;
-		this.system = null;
 		this.cred = null;
 		this.move(
 			next === "todos"
@@ -95,15 +92,6 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.move(name === null ? "#tasks" : `#tasks/${name}`);
 	}
 
-	/** Opens system `name` on the Systems page, or the list of them for null. */
-	openSystem(name: string | null): void {
-		this.page = "systems";
-		this.system = name;
-		this.move(
-			name === null ? "#systems" : `#systems/${encodeURIComponent(name)}`,
-		);
-	}
-
 	/** Sets the Creds page on cred `name`, or on none for null. */
 	openCred(name: string | null): void {
 		this.page = "creds";
@@ -125,7 +113,6 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.page = pageIn(location.hash);
 		this.open = conversationIn(location.hash);
 		this.task = taskIn(location.hash);
-		this.system = systemIn(location.hash);
 		this.cred = credIn(location.hash);
 		this.scroll = entry()?.scroll ?? 0;
 		this.dispatcher.dispatch("changed");
@@ -189,9 +176,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
 		return "tasks";
 	}
-	if (hash === "#systems" || hash.startsWith("#systems/")) {
-		return "systems";
-	}
+
 	if (hash === "#stats") {
 		return "stats";
 	}
@@ -211,12 +196,6 @@ function pageIn(hash: string): Page {
 function taskIn(hash: string): string | null {
 	const [, task] = hash.match(/^#tasks\/(.+)$/) ?? [];
 	return task ?? null;
-}
-
-/** The system `#systems/<name>` has open, or null. */
-function systemIn(hash: string): string | null {
-	const [, system] = hash.match(/^#systems\/(.+)$/) ?? [];
-	return system === undefined ? null : decodeURIComponent(system);
 }
 
 /** The cred `#creds/<name>` sets the Creds page on, or null. */

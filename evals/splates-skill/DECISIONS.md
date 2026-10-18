@@ -13,7 +13,6 @@ are synthetic; they establish assertion behavior, not real agent compliance.
 | approval | decisions-approval | APPROVE with explicit answer a recorded on seeded question 3 |
 | review-request | decisions-review | Review requested note, parsed review, actual escalated review status |
 | review-follow-up | decisions-review | Seeded waiting review, repeated parsed review and actual waiting review status |
-| system-proposal | decisions-systems | Numbered question, escalated task and observed config absence |
 | cli-review-ready | decisions-review | Real local CLI review escalation with completed plan |
 | cli-review-blocked | decisions-review | Real local CLI refuses review while question 3 remains open |
 

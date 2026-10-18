@@ -2,7 +2,6 @@ import { basename } from "node:path";
 import type { Transcriber } from "webappwiz/dictate";
 import { OpenAiTranscriber } from "webappwiz/dictate/server";
 import type { Project } from "./dev-project";
-import { readSystems } from "./systems";
 import { vocabulary, words } from "./vocabulary";
 
 /** The cred a dictation transcribes with. */
@@ -49,10 +48,9 @@ export const transcriberFor: TranscriberFor = async (project, tick) => {
 		return null;
 	}
 	const root = project.service.git.root;
-	const systems = await readSystems(root, project.fs);
 	const name = basename(root);
 	return new OpenAiTranscriber(key, {
-		prompt: vocabulary(name, systems),
-		keywords: words(name, systems),
+		prompt: vocabulary(name),
+		keywords: words(name),
 	});
 };

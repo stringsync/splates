@@ -124,7 +124,6 @@ const smoke: Record<string, string> = {
 	"references/handoff.md": "delegation/takeover",
 	"references/checkpoint.md": "continuity/checkpoint",
 	"references/setup.md": "discovery/setup",
-	"references/systems.md": "decisions/system-proposal",
 };
 /** Default to at most two deterministic targeted cases; unmapped changes require explicit selection. */
 export function smokeProbes(probes: Probe[], files: string[]): Probe[] {

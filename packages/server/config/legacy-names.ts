@@ -31,9 +31,6 @@ export function renamed(old: string): string | null {
 /** `arbor.config.ts`, read when `splates.config.ts` is missing. */
 const LEGACY_CONFIG_FILE = "arbor.config.ts";
 
-/** `arbor.systems.ts`, read when `splates.systems.ts` is missing. */
-const LEGACY_SYSTEMS_FILE = "arbor.systems.ts";
-
 /** A task's notes file in a worktree made before the rename. */
 export const LEGACY_PLAN_FILE = "ARBOR.md";
 
@@ -130,7 +127,6 @@ export function movedPath(path: string): string {
 export function legacyFile(file: string): string | null {
 	const old: Record<string, string> = {
 		"splates.config.ts": LEGACY_CONFIG_FILE,
-		"splates.systems.ts": LEGACY_SYSTEMS_FILE,
 	};
 	return old[file] ?? null;
 }
@@ -145,7 +141,7 @@ export interface LegacyRepoOptions {
 }
 
 /**
- * Renames `arbor.config.ts` and `arbor.systems.ts` to splates's names, through
+ * Renames `arbor.config.ts` to splates's names, through
  * git when it tracks them so the rename is staged as one, and points their
  * imports of `@webappwiz/arbor` at `@stringsync/splates-server`. Leaves a file
  * alone when one under the new name is already there.
@@ -156,7 +152,7 @@ export async function renameLegacyFiles({
 	ps,
 	log,
 }: LegacyRepoOptions): Promise<void> {
-	for (const next of ["splates.config.ts", "splates.systems.ts"]) {
+	for (const next of ["splates.config.ts"]) {
 		const old = legacyFile(next);
 		if (
 			old === null ||

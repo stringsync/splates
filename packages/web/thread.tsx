@@ -36,7 +36,6 @@ import {
 	useFileMentions,
 	useNamed,
 	useProjects,
-	useSystems,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
@@ -68,7 +67,6 @@ import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
-import { SystemsCard } from "./systems";
 import { toWaiting, useArrived } from "./task-view";
 import { Task } from "./tasks";
 import { useThreadActions } from "./thread-actions";
@@ -211,18 +209,11 @@ function Conversation({
 	// opens its questions and review in a sheet instead, and shows a live ask
 	// at the foot of the thread it opens at, keeping the keyboard down.
 	useArrived(id, () => onBack === null && toWaiting(section.current));
-	const systems = useSystems(conversation.task, tasks);
 	const projects = useProjects();
-	const references = useReferences(
-		tasks,
-		actions,
-		systems ?? undefined,
-		projects ?? undefined,
-	);
+	const references = useReferences(tasks, actions, projects ?? undefined);
 	const root = useContext(TreesContext)?.root ?? null;
 	const named = useNamed(
 		paths,
-		systems,
 		projects,
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
@@ -477,7 +468,6 @@ function Conversation({
 										background={conversation.background}
 									/>
 									<StartedByCard conversation={conversation} onOpen={onOpen} />
-									<SystemsCard systems={task?.systems ?? []} />
 									<ArtifactsCard
 										conversation={id}
 										artifacts={conversation.artifacts}

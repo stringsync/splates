@@ -161,7 +161,7 @@ describe("App's conversation header", () => {
 		// The widgets' button in place of one per action.
 		expect(
 			within(toggle.closest("header") as HTMLElement).queryByRole("button", {
-				name: /Terminal|Archive|Systems|Background/,
+				name: /Terminal|Archive|Background/,
 			}),
 		).toBeNull();
 		expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -191,55 +191,6 @@ describe("App's conversation header", () => {
 			),
 		);
 		expect(toggle.getAttribute("aria-expanded")).toBe("false");
-	});
-
-	it("lists the systems its task touches as chips in a card under the actions, each opening to its globs", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
-			"c1",
-			{
-				tasks: [
-					details({
-						task: "alpha",
-						systems: [
-							{
-								name: "auth",
-								globs: ["src/auth/**"],
-								ignore: ["src/auth/**/*.test.ts"],
-							},
-							{ name: "sessions", globs: ["src/sessions/**"] },
-						],
-					}),
-				],
-			},
-		);
-
-		const card = view.getByRole("region", { name: "systems" });
-		expect(
-			within(card)
-				.getAllByRole("button")
-				.map((chip) => chip.textContent),
-		).toEqual(["auth", "sessions"]);
-		expect(view.queryByRole("list", { name: "auth globs" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "auth" })),
-		);
-		expect(
-			view
-				.getByRole("list", { name: "auth globs" })
-				.querySelectorAll("li")
-				.values()
-				.map((item) => item.textContent)
-				.toArray(),
-		).toEqual(["src/auth/**", "!src/auth/**/*.test.ts"]);
-	});
-
-	it("shows no systems card for a task that touches none", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
-		]);
-
-		expect(view.queryByRole("region", { name: "systems" })).toBeNull();
 	});
 
 	it("pauses a running agent from the actions card, saying so until its checkpoint ends", async () => {

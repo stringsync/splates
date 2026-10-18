@@ -40,51 +40,6 @@ const DEFINE_CONFIG_IMPORT =
 	/import\s*\{\s*defineConfig\s*\}\s*from\s*["'](?:@stringsync\/)?splates(?:-server)?\/config["'];?/;
 
 /**
- * `source` with the `systems` property of its outermost object taken out,
- * with its line when it has one to itself, or null unless there is exactly
- * one such property.
- */
-export function withoutSystems(source: string): string | null {
-	const code = [...codeOf(source)];
-	const keys = code.filter(
-		({ index, objects }, at) =>
-			objects === 1 &&
-			KEY.test(source.slice(index)) &&
-			!/[\w$.]/.test(source[code[at - 1]?.index ?? -1] ?? ""),
-	);
-	if (keys.length !== 1) {
-		return null;
-	}
-	const [key] = keys as [Code];
-	const colon = source.indexOf(":", key.index);
-	// The value ends at the first `,` back at the key's own depth, or the
-	// `}` that closes the key's object.
-	const end = code.find(
-		({ index, depth }) =>
-			index > colon &&
-			((source[index] === "," && depth === key.depth) ||
-				(source[index] === "}" && depth === key.depth - 1)),
-	);
-	if (end === undefined) {
-		return null;
-	}
-	let from = key.index;
-	let to = source[end.index] === "," ? end.index + 1 : end.index;
-	const lineStart = source.lastIndexOf("\n", from - 1) + 1;
-	const rest = source.slice(to).match(/^[ \t]*(\/\/[^\n]*)?\n/);
-	if (/^\s*$/.test(source.slice(lineStart, from)) && rest !== null) {
-		from = lineStart;
-		to += rest[0].length;
-	} else if (source[end.index] === ",") {
-		to += (source.slice(to).match(/^[ \t]*/)?.[0] ?? "").length;
-	}
-	return source.slice(0, from) + source.slice(to);
-}
-
-/** A `systems` key, bare or quoted, with its colon. */
-const KEY = /^(systems|"systems"|'systems')\s*:/;
-
-/**
  * One character of code, or the start of a string: anything not inside a
  * string, template text or comment.
  */
@@ -92,8 +47,6 @@ interface Code {
 	index: number;
 	/** How many brackets of any kind are open around it. */
 	depth: number;
-	/** How many of those are `{`. */
-	objects: number;
 }
 
 /**
@@ -105,7 +58,6 @@ interface Code {
 function* codeOf(source: string): Generator<Code> {
 	// `{`, `(`, `[`, or "${" for code inside a template.
 	const open: string[] = [];
-	const objects = () => open.filter((each) => each === "{").length;
 	let i = 0;
 	let template = false;
 	while (i < source.length) {
@@ -132,7 +84,7 @@ function* codeOf(source: string): Generator<Code> {
 			const end = source.indexOf("*/", i + 2);
 			i = end === -1 ? source.length : end + 2;
 		} else if (char === '"' || char === "'") {
-			yield { index: i, depth: open.length, objects: objects() };
+			yield { index: i, depth: open.length };
 			i++;
 			while (i < source.length && source[i] !== char) {
 				i += source[i] === "\\" ? 2 : 1;
@@ -151,7 +103,7 @@ function* codeOf(source: string): Generator<Code> {
 			} else if ("})]".includes(char)) {
 				open.pop();
 			}
-			yield { index: i, depth: open.length, objects: objects() };
+			yield { index: i, depth: open.length };
 			i++;
 		}
 	}

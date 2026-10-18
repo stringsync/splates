@@ -71,8 +71,6 @@ which remembers none of it.
   `splates lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/todos.md](references/todos.md), linking, placing and ordering
   todos.
-- Before offering to name a system, or writing `splates.systems.ts`:
-  [references/systems.md](references/systems.md).
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, notifications, dictation):
   [references/setup.md](references/setup.md), one step at a time.
@@ -218,9 +216,8 @@ it anyway: whoever handed it to you chose you. Say so in a line of its own
 right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
 user can stop you and start the model it names instead.
 
-Name the files and the feature in the detail, the feature by its system name
-when one covers it (see Systems), so whoever grooms the list later can tell
-the todo is about their area.
+Name the files and the feature in the detail, so whoever grooms the list
+later can tell the todo is about their area.
 
 `splates todo update <id> '<detail>'` replaces the whole detail, so pass all of
 it: what still holds and what you learned. Merging removes every todo the task
@@ -298,46 +295,11 @@ full as Todos asks, since whoever picks it up reads nothing else.
 The 📝 belongs to the heading: leave it out of `splates todo add` and
 `--subject`.
 
-## Systems
-
-A repo can name parts of its code as systems in `splates.systems.ts`, each a
-name keying a short description, its aliases, its globs, and globs to
-`ignore`. `splates systems`
-prints them, `splates systems <name>` one by its name or an alias, and
-`splates systems --task <task>` those a task's changed files fall in. Read them
-when you need them, never up front. Wherever a system covers what you mean,
-call it by its name in Goals, todos, questions and reports, so the user and
-every agent use one word for one part of the code. A prompt from the
-`splates server` page that mentions `#name` ends with a line on what that system
-is made of, or, when no system answers to it, a line saying so.
-
-A `#name` can name another splates project on this machine instead, and its
-line then gives that project's directory and how far it lets you go there
-(see Other projects).
-
-Systems are named a few at a time as they come up, never all at once, and
-only the user names one. Offer to as a question under `## Blocked`, and write
-`splates.systems.ts` only once they pick a choice that does:
-
-- when the user keeps calling one part of the code by a phrase no system has;
-- when your task touches files no system covers, at most once per task;
-- when a phrase the user uses means a system that already has another name:
-  offer the phrase as an alias;
-- when the user writes `#name` and no system answers to it: find the code
-  they mean, then, if no system covers it, offer to name it, recommending the
-  name that code already goes by (its directory, module or main type) over
-  theirs; if one does, offer `#name` as its alias.
-
-Before writing that question, read
-[references/systems.md](references/systems.md) on how to word it, each name
-as `#name` so it reads as a splates system rather than a class, and how to
-write the file once the answer comes.
-
 ## Other projects
 
 The other splates projects on this machine are yours to read: their code in
-their directories, and their tasks, todos, lanes and systems with `splates
---project <slug> <command>` (`splates list`, `todo list`, `show`, `systems`
+their directories, and their tasks, todos and lanes with `splates
+--project <slug> <command>` (`splates list`, `todo list`, `show`
 and the like). `splates projects` lists them, with what each lets this one do
 and what this one lets each do. What you may do in one is what it grants
 this project:

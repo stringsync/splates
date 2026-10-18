@@ -40,27 +40,6 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
-	it("shows the systems the task touched as chips", async () => {
-		testing.landed.header = {
-			outcome: { ...header(), systems: ["splates-dev", "skill"] },
-			baseline: null,
-		};
-		const view = await testing.openConversations([
-			conversation({
-				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
-			}),
-		]);
-		const systems = await waitFor(() =>
-			view.getByRole("list", { name: "systems" }),
-		);
-
-		expect(
-			within(systems)
-				.getAllByRole("listitem")
-				.map((item) => item.textContent),
-		).toEqual(["splates-dev", "skill"]);
-	});
-
 	it("says how many calls the person and the agent made", async () => {
 		testing.landed.header = {
 			outcome: {

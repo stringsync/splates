@@ -275,19 +275,12 @@ export interface DiscardOptions {
 	 */
 	conversation?: string;
 	/**
-	 * The repo-relative paths the task changed, for a merge, which reads them
-	 * before landing leaves nothing between the branch and its base. Read
-	 * from the branch when not given.
-	 */
-	changed?: string[];
-	/**
-	 * The message of each commit a merge lands, read before landing as
-	 * `changed` is.
+	 * The message of each commit a merge lands, read before landing.
 	 */
 	commits?: string[];
 	/** Why it was removed, as `splates remove --reason` gives it. */
 	reason?: RemoveReason;
-	/** What a merge lands, read before landing as `changed` is. */
+	/** What a merge lands, read before landing. */
 	size?: DiffSize;
 }
 

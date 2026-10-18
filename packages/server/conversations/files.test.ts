@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CounterIdProvider } from "webappwiz/id";
@@ -7,7 +7,6 @@ import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../fake-agent";
 import { projectLine } from "../projects";
-import { unknownLine } from "../systems";
 import { Conversations } from "./index";
 import { until } from "./testing";
 
@@ -80,12 +79,8 @@ describe("Conversation files", () => {
 	let tree: string;
 
 	beforeEach(async () => {
-		// Imported from disk, and read through `fs` to tell when it changed.
+		// Each conversation runs in a real temporary tree.
 		tree = await mkdtemp(join(tmpdir(), "splates-mentions-"));
-		const systems = `export default ${JSON.stringify({ playback: { aliases: ["player"], globs: ["src/audio/**"] } })};\n`;
-		await writeFile(join(tree, "splates.systems.ts"), systems);
-		await fs.mkdir(tree);
-		await fs.write(join(tree, "splates.systems.ts"), systems);
 	});
 
 	afterEach(() => rm(tree, { recursive: true, force: true }));
@@ -195,7 +190,7 @@ describe("Conversation files", () => {
 		]);
 	});
 
-	it("identifies conversation UUIDs for the agent without treating them as unknown systems", async () => {
+	it("identifies conversation UUIDs for the agent without adding unrelated hints", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
 			cwd: tree,
@@ -212,28 +207,7 @@ describe("Conversation files", () => {
 		]);
 	});
 
-	it("tells the agent what each one is made of, and keeps the words as typed in the thread", async () => {
-		const conversation = await conversations.start("fake", {
-			task: "login",
-			cwd: tree,
-		});
-		await until(conversation, "idle");
-
-		await conversation.prompt("Fix the gap in #player between tracks.");
-		await until(conversation, "idle");
-
-		expect(agent.prompts.at(-1)).toEqual([
-			{
-				type: "text",
-				text: "Fix the gap in #player between tracks.\n\n#playback (player): src/audio/**",
-			},
-		]);
-		expect(conversation.state.messages[0]).toMatchObject({
-			parts: [{ type: "text", text: "Fix the gap in #player between tracks." }],
-		});
-	});
-
-	it("asks the agent to find the code a # naming no system means, and leaves a todo's number alone", async () => {
+	it("leaves unknown # names and todo numbers as written", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
 			cwd: tree,
@@ -246,12 +220,12 @@ describe("Conversation files", () => {
 		expect(agent.prompts.at(-1)).toEqual([
 			{
 				type: "text",
-				text: `See #12, #player and #mixer\n\n#playback (player): src/audio/**\n${unknownLine("mixer")}`,
+				text: "See #12, #player and #mixer",
 			},
 		]);
 	});
 
-	it("tells the agent where a project it names sits, and lets a system of the same name win", async () => {
+	it("tells the agent where projects sit and ignores unknown or gone names", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
 			cwd: tree,
@@ -266,7 +240,7 @@ describe("Conversation files", () => {
 		expect(agent.prompts.at(-1)).toEqual([
 			{
 				type: "text",
-				text: `Match the header in #shop, then #playback, #old and #mixer\n\n#playback (player): src/audio/**\n${projectLine({ slug: "shop", root: "/Users/me/shop", reach: "tasks" })}\n${unknownLine("old")}\n${unknownLine("mixer")}`,
+				text: `Match the header in #shop, then #playback, #old and #mixer\n\n${projectLine({ slug: "shop", root: "/Users/me/shop", reach: "tasks" })}\n${projectLine({ slug: "playback", root: "/Users/me/playback", reach: "todos" })}`,
 			},
 		]);
 	});

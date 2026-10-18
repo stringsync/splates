@@ -45,26 +45,17 @@ describe("dev", () => {
 			});
 		}, 15_000);
 
-		it("hears of an uncommitted edit in a worktree, and the systems it falls in", async () => {
+		it("hears of an uncommitted edit in a worktree", async () => {
 			await add(deps, "alpha");
 			const tree = (await deps.service.find("alpha")).path;
 
 			await serving(deps, async (_, port) => {
 				const reader = await listen(port);
 
-				await deps.fs.write(
-					`${tree}/splates.systems.ts`,
-					`export default ${JSON.stringify({ docs: { globs: ["docs/**"] } })};\n`,
-				);
 				await deps.fs.mkdir(`${tree}/docs/deep`, { recursive: true });
 				await deps.fs.write(`${tree}/docs/deep/notes.md`, "a\n");
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
-				const snapshot = await (
-					await fetch(`http://127.0.0.1:${port}/api/snapshot`)
-				).json();
-				expect(snapshot.tasks[0].systems).toEqual([
-					{ name: "docs", globs: ["docs/**"] },
-				]);
+
 				await reader.cancel();
 			});
 		}, 15_000);
@@ -126,10 +117,7 @@ describe("dev", () => {
 				expect(await read()).toBeNull();
 
 				const events = await fetch(`http://127.0.0.1:${port}/events`);
-				const reader = events.body?.getReader();
-				if (!reader) {
-					throw new Error("no event stream");
-				}
+				const reader = (events.body as ReadableStream<Uint8Array>).getReader();
 				await readUntil(reader, "connected");
 				latest = "0.0.44";
 				expect(await within(reader, "changed", 5_000)).toBe(true);
@@ -161,10 +149,7 @@ describe("dev", () => {
 				expect((await read()).behind).toBeNull();
 
 				const events = await fetch(`http://127.0.0.1:${port}/events`);
-				const reader = events.body?.getReader();
-				if (!reader) {
-					throw new Error("no event stream");
-				}
+				const reader = (events.body as ReadableStream<Uint8Array>).getReader();
 				await readUntil(reader, "connected");
 				commit = "b".repeat(40);
 				expect(await within(reader, "changed", 5_000)).toBe(true);

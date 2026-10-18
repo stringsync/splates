@@ -50,10 +50,10 @@ export interface Axis {
 /**
  * The cards that may lead the page, most worth acting on first: those backing
  * what the person said they would do after reading it (let agents decide
- * what they ask, write down what one system draws, and check whether a
+ * what they ask, write down what one area draws, and check whether a
  * change helped). The rest always fold away.
  */
-export const LEADS: AdviceId[] = ["picks", "assumptions", "hotspot", "course"];
+export const LEADS: AdviceId[] = ["picks", "assumptions", "course"];
 
 /** How many cards lead the page at most. */
 export const LEADING = 2;
@@ -215,21 +215,8 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		return advise({
 			period: combine(this.stats?.buckets ?? []),
 			previous: this.stats?.previous ?? null,
-			systems: (this.stats?.systems ?? []).map(({ system, ...tally }) => ({
-				system,
-				tally,
-			})),
 			span: this.period.span ?? this.period.label,
 		});
-	}
-
-	/** By system, a task counting in each it touched; "No system" for none. */
-	get systems(): Row[] {
-		return (this.stats?.systems ?? []).map((each) =>
-			each.system === null
-				? row("No system", each)
-				: { ...row(each.system, each), system: each.system },
-		);
 	}
 
 	/** How many calls the person made against how many agents took off them; null until loaded. */
@@ -294,11 +281,9 @@ export interface Bucket {
 	questionsPerTask: number | null;
 }
 
-/** A model, device, project or system, with its figures over the period. */
+/** A model, device or project, with its figures over the period. */
 export interface Row {
 	name: string;
-	/** The system the row is, shown as its chip; absent for a model, a project or no system. */
-	system?: string;
 	ended: number;
 	questionsPerTask: number | null;
 	reviewsPerTask: number | null;

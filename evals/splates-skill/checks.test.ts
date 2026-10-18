@@ -99,7 +99,6 @@ function endWith(task?: { status: string; plan: string }): EndRepo {
 		tasks: task === undefined ? [] : [{ task: "cap", base: "main", ...task }],
 		todos: [],
 		lanes: [],
-		systems: false,
 		main: [],
 	};
 }

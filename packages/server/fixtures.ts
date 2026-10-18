@@ -50,7 +50,6 @@ export function details(overrides: Partial<Details> = {}): Details {
 		planProblems: [],
 		dispatched: false,
 		handedTo: null,
-		systems: [],
 		...overrides,
 	};
 }

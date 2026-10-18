@@ -204,66 +204,6 @@ describe("App's composer references", () => {
 		expect(textIn(box)).toBe("see [SPLATES LANE 3] ");
 	});
 
-	it("writes a system picked after a #, by its name when an alias found it", async () => {
-		testing.systems = [
-			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
-		];
-		const { view, box } = await opened();
-
-		await typeIn(box, "fix #playe");
-		const found = await waitFor(() =>
-			view.getByRole("listbox", { name: "references" }),
-		);
-		expect(
-			within(found)
-				.getAllByRole("option")
-				.map((option) => option.textContent),
-		).toEqual(["playbackplayer"]);
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-
-		await waitFor(() => expect(textIn(box)).toBe("fix #playback "));
-		expect(within(box).getByRole("button", { name: "playback" })).toBeTruthy();
-	});
-
-	it("offers no system its name or alias calls without a #, and sends on Enter", async () => {
-		testing.systems = [
-			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
-		];
-		const { view, box } = await opened();
-
-		await typeIn(box, "fix playback");
-		expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
-		await typeIn(box, "the Player");
-		expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
-
-		testing.reply = conversation({ id: "c9", status: "starting" });
-		await typeIn(box, "fix player");
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c9/prompt")).toEqual([
-				{ method: "POST", body: { text: "fix player" } },
-			]),
-		);
-	});
-
-	it("offers the systems as a category of their own", async () => {
-		testing.systems = [{ name: "mixer", globs: ["src/mixer/**"] }];
-		const { view, box } = await opened();
-
-		await typeIn(box, "#");
-		const categories = await waitFor(() =>
-			view.getByRole("listbox", { name: "references" }),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(categories).getByRole("option", { name: /Systems/ }),
-			),
-		);
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-
-		await waitFor(() => expect(textIn(box)).toBe("#mixer "));
-	});
-
 	it("writes a project picked after a #, and sends it as typed", async () => {
 		testing.projects = [
 			{

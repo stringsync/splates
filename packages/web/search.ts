@@ -3,12 +3,9 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import { goalLine } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/show";
-import type { NamedSystem } from "@stringsync/splates-server/systems";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {
-	/** The systems the main tree names. */
-	systems: readonly NamedSystem[];
 	tasks: Details[];
 	todos: TodoState[];
 	conversations: ConversationState[];
@@ -16,7 +13,7 @@ export interface Searched {
 	lanes: readonly LaneRecord[];
 }
 
-export type Kind = "task" | "conversation" | "todo" | "system";
+export type Kind = "task" | "conversation" | "todo";
 
 /** One thing found, and how well: the higher `score`, the better the match. */
 export type Found = {
@@ -32,7 +29,6 @@ export type Found = {
 	| { kind: "task"; task: string }
 	| { kind: "conversation"; conversation: string }
 	| { kind: "todo"; todo: number }
-	| { kind: "system"; system: string }
 );
 
 /** One kind's matches, best first. */
@@ -42,10 +38,9 @@ export interface Group {
 }
 
 /**
- * The order kinds go in when their best matches tie, and with no words,
- * which lists no systems: they stand still, so none is "latest".
+ * The order kinds go in when their best matches tie, and with no words.
  */
-const KINDS: Kind[] = ["task", "conversation", "todo", "system"];
+const KINDS: Kind[] = ["task", "conversation", "todo"];
 
 /**
  * Everything in `searched` that `query` matches, grouped by kind: groups by
@@ -62,7 +57,6 @@ export function search(query: string, searched: Searched): Group[] {
 			conversationOf(each, searched.lanes),
 		),
 		...searched.todos.map(todoOf),
-		...searched.systems.map(systemOf),
 	];
 	const groups: Group[] = [];
 	for (const kind of KINDS) {
@@ -158,24 +152,6 @@ function todoOf(todo: TodoState): Candidate {
 			at: todo.createdAt,
 		},
 		body: todo.text,
-	};
-}
-
-/** A system, found by its name or an alias alike. */
-function systemOf(system: NamedSystem): Candidate {
-	const aliases = system.aliases ?? [];
-	return {
-		found: {
-			kind: "system",
-			key: `system:${system.name}`,
-			system: system.name,
-			title: system.name,
-			detail: aliases.length > 0 ? `Also ${aliases.join(", ")}` : null,
-			score: 0,
-			at: null,
-		},
-		body: "",
-		also: aliases,
 	};
 }
 

@@ -69,12 +69,10 @@ export class ConfigFiles {
 
 	/**
 	 * What `root`'s `splates.config.ts` names, or nothing when there is no such
-	 * file. Systems live in `splates.systems.ts` now: a config that still names
-	 * them is read without them, so `splates update` can run to move them.
+	 * file.
 	 */
 	async read(root: string): Promise<Partial<Config>> {
-		const { systems: _, ...config } = await this.importConfig(root);
-		return config as Partial<Config>;
+		return (await this.importConfig(root)) as Partial<Config>;
 	}
 
 	/**

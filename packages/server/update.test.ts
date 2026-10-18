@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
-import { NodeFs } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { RUNNING } from "./release";
 import { UPDATING, update } from "./update";
@@ -45,29 +41,6 @@ describe("update", () => {
 
 		expect(await run("999.0.0")).toBe(0);
 		expect(ps.getCalls()).toEqual([INSTALL]);
-	});
-
-	it("moves systems an older config names into splates.systems.ts", async () => {
-		// The config is imported from disk.
-		const root = await mkdtemp(join(tmpdir(), "splates-update-"));
-		const disk = new NodeFs();
-		try {
-			await disk.write(
-				join(root, "splates.config.ts"),
-				`export default {\n\tsystems: { docs: { globs: ["*.md"] } },\n};\n`,
-			);
-
-			expect(
-				await update({ root, fs: disk, ps, log, newest: async () => RUNNING }),
-			).toBe(0);
-
-			expect(await disk.read(join(root, "splates.config.ts"))).toBe(
-				"export default {\n};\n",
-			);
-			expect(await disk.exists(join(root, "splates.systems.ts"))).toBe(true);
-		} finally {
-			await rm(root, { recursive: true, force: true });
-		}
 	});
 
 	it("installs the skill of the release it is named, asking npm nothing", async () => {

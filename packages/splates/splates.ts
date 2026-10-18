@@ -28,7 +28,6 @@ import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { show } from "@stringsync/splates-server/show";
 import { serveDev } from "@stringsync/splates-server/start";
 import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
-import { systems } from "@stringsync/splates-server/system";
 import { reportToCaller, tell } from "@stringsync/splates-server/tell";
 import { update } from "@stringsync/splates-server/update";
 import {
@@ -92,7 +91,7 @@ splates
 	.command("update")
 	.use(repository({ needs: "own" }))
 	.description(
-		"bring this repository up to the newest splates on npm: run `update` on that release when it is newer than this one, which installs its splates skill with `bunx skills add` over the copy there, leaving one that links to your own, and moves systems an older splates.config.ts names into splates.systems.ts; commit what changed",
+		"bring this repository up to the newest splates on npm: run `update` on that release when it is newer than this one, which installs its splates skill with `bunx skills add` over the copy there, leaving one that links to your own; commit what changed",
 	)
 	.action(async (_opts, ctx) => {
 		const code = await update({
@@ -336,28 +335,6 @@ splates
 			"add each task's Goal and changed files (committed or not), to check for overlap before starting",
 	})
 	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
-
-splates
-	.command("systems")
-	.use(repository({ needs: "read" }))
-	.description(
-		"print the systems splates.systems.ts names, the parts of the code each name stands for: every one, one by its name or an alias, or with --task those a task's changed files (committed or not) fall in; read from the current task's worktree, or --task's, so one named during a task counts at once",
-	)
-	.arg("name", z.optional(z.string()), {
-		description: "a system to print alone, by its name or an alias",
-	})
-	.option("task", z.optional(z.string()), {
-		description: "print only the systems this task touches",
-	})
-	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action(async (opts, ctx) =>
-		systems(ctx, {
-			name: opts.name,
-			task: opts.task,
-			here: await here(ctx),
-			json: opts.json,
-		}),
-	);
 
 splates
 	.command("show")

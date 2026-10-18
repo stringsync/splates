@@ -341,40 +341,6 @@ describe("App's sending messages", () => {
 		);
 	});
 
-	it("shows each system, file and directory a message names as a chip, the agent's too", async () => {
-		testing.systems = [
-			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
-		];
-		testing.tree = ["src/", "src/index.ts"];
-		const view = await testing.openConversations([
-			conversation({
-				title: "Login",
-				messages: [
-					message("user", "fix #player in @src/index.ts, not @src/gone.ts"),
-					message("agent", "The stutter is in #playback, under @src/."),
-				],
-			}),
-		]);
-		const thread = view.getByRole("region", { name: "Login" });
-
-		const file = await waitFor(() =>
-			within(thread).getByTitle("/repo/src/index.ts"),
-		);
-		expect(file.textContent).toBe("index.ts");
-		expect(file.getAttribute("href")).toBe("zed://file/repo/src/index.ts");
-		const [system, replied] = within(thread).getAllByRole("button", {
-			name: "playback",
-		});
-		expect(replied).toBeTruthy();
-		await act(async () => fireEvent.click(system as HTMLElement));
-		expect(
-			(await view.findByRole("list", { name: "playback globs" })).textContent,
-		).toBe("src/audio/**");
-		expect(within(thread).getByText(/not @src\/gone\.ts/)).toBeTruthy();
-		const folder = within(thread).getByTitle("/repo/src/");
-		expect(folder.textContent).toBe("src/");
-	});
-
 	it("keeps a message the server refuses in the thread, saying it was not sent, to send again", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Login", status: "stopped" }),
