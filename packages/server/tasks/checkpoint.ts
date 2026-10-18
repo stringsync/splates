@@ -1,7 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
 import type { Git } from "../git";
-import { pushedLine, type TaskBranches } from "../merge";
+import { type Pushed, pushedLine, type TaskBranches } from "../merge";
+import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /** The message of the commit a checkpoint saves uncommitted work in. */
@@ -63,19 +64,7 @@ export async function checkpoint(
 		);
 		return { task, committed: false, pushed: false };
 	}
-	const dirty =
-		interrupted.length === 0 && (await git.porcelain(cwd)).length > 0;
-	if (dirty) {
-		const committed = await git.commitAll(cwd, WIP_MESSAGE);
-		if (committed.code !== 0) {
-			fail(
-				"usage",
-				`could not commit '${task}' as ${WIP_MESSAGE}: ${committed.stderr || committed.stdout}`,
-				{ task },
-			);
-		}
-	}
-	const pushed = await branches.pushTree(worktree);
+	const { committed: dirty, pushed } = await save(worktree, branches);
 	log.info(
 		[
 			`${color.green("checkpointed")} ${task}`,
@@ -90,4 +79,31 @@ export async function checkpoint(
 			.join("\n"),
 	);
 	return { task, committed: dirty, pushed: pushed.status === "pushed" };
+}
+
+/**
+ * Commits what `tree` holds uncommitted as a WIP commit, unless a rebase or
+ * the like is under way, then pushes its branch as `splates/<task>`: through
+ * the tree's own git, so a clone on a worker is saved there. Throws when
+ * the commit fails.
+ */
+export async function save(
+	tree: Pick<Worktree, "task" | "branch" | "path" | "git">,
+	branches: TaskBranches,
+): Promise<{ committed: boolean; pushed: Pushed }> {
+	const { git, path, task } = tree;
+	const dirty =
+		(await git.interruptedOps(path)).length === 0 &&
+		(await git.porcelain(path)).length > 0;
+	if (dirty) {
+		const committed = await git.commitAll(path, WIP_MESSAGE);
+		if (committed.code !== 0) {
+			fail(
+				"usage",
+				`could not commit '${task}' as ${WIP_MESSAGE}: ${committed.stderr || committed.stdout}`,
+				{ task },
+			);
+		}
+	}
+	return { committed: dirty, pushed: await branches.pushTree(tree) };
 }

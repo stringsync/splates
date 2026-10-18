@@ -2,7 +2,7 @@ import type { Config } from "../config";
 import type { PlacedCheckouts } from "../conversations";
 import type { TaskBranches } from "../merge";
 import { materialize } from "../merge";
-import type { WorktreeService } from "../tasks";
+import { save, type WorktreeService } from "../tasks";
 import type { WorkerMachine } from "./machine";
 
 /**
@@ -41,6 +41,23 @@ export class WorkerPlacement implements PlacedCheckouts {
 	async elsewhere(task: string): Promise<boolean> {
 		const found = await this.opts.service.find(task);
 		return found.state !== null && found.machine !== null;
+	}
+
+	async save(task: string): Promise<void> {
+		const found = await this.opts.service.find(task);
+		if (found.state === null) {
+			throw new Error(`task ${task} is gone`);
+		}
+		const { pushed } = await save(found, this.opts.branches);
+		if (pushed.status === "refused" || pushed.status === "failed") {
+			throw new Error(`could not push ${found.branch}: ${pushed.why}`);
+		}
+		// Only a checkout on this machine outlives the worker without a push.
+		if (pushed.status === "off" && found.machine !== null) {
+			throw new Error(
+				`no remote to carry ${task} from worker ${found.machine}: name one as \`remote\` in splates.config.ts`,
+			);
+		}
 	}
 }
 

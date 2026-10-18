@@ -7,7 +7,7 @@ import { taskReference } from "../plans";
 import { type PoolWorker, Scheduler } from "../scheduler";
 import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts } from "./host";
-import { Conversations } from "./index";
+import { type Conversation, Conversations } from "./index";
 import { eventually, type Held, until } from "./testing";
 
 describe("A conversation whose worker is removed under it", () => {
@@ -16,17 +16,34 @@ describe("A conversation whose worker is removed under it", () => {
 	let workers: PoolWorker[];
 	let scheduler: Scheduler;
 	let conversations: Conversations;
+	/** The tasks saved to free a slot, and whether saving fails. */
+	let saved: string[];
+	let saving: "ok" | "fails";
 
 	beforeEach(async () => {
+		saved = [];
+		saving = "ok";
 		const fs = new FakeFs();
 		await fs.mkdir("/repo");
 		const clock = new FakeWallClock(Date.parse("2026-10-17T10:00:00Z"));
 		agent = new FakeAgent();
 		held = {};
-		agent.turn = (_client, _session, text) =>
-			text === "work"
-				? new Promise((resolve) => (held.finish = resolve))
-				: Promise.resolve("end_turn");
+		agent.turn = async (client, sessionId, text) => {
+			if (text === "work") {
+				return new Promise((resolve) => (held.finish = resolve));
+			}
+			if (text === "ask") {
+				await client.requestPermission({
+					sessionId,
+					toolCall: { toolCallId: "t1", title: "rm -rf build" },
+					options: [
+						{ optionId: "yes", name: "Allow", kind: "allow_once" },
+						{ optionId: "no", name: "Reject", kind: "reject_once" },
+					],
+				});
+			}
+			return "end_turn";
+		};
 		const worker = (id: string): PoolWorker => ({
 			id,
 			kind: "registered",
@@ -72,6 +89,12 @@ describe("A conversation whose worker is removed under it", () => {
 		const checkouts: PlacedCheckouts = {
 			where: async (worker) => `/${worker}/projects/repo/repo`,
 			elsewhere: async () => true,
+			save: async (task) => {
+				if (saving === "fails") {
+					throw new Error("worker unreachable");
+				}
+				saved.push(task);
+			},
 		};
 		conversations = new Conversations(
 			"/repo/.git/splates/conversations",
@@ -169,5 +192,114 @@ describe("A conversation whose worker is removed under it", () => {
 
 		expect(conversation.state.status).toBe("stopped");
 		expect(agent.launched).toHaveLength(1);
+	});
+
+	/** Stops w1 taking new agents, as `splates worker drain w1` does. */
+	const drain = () => {
+		workers = workers.map((each) =>
+			each.id === "w1" ? { ...each, awake: false, draining: true } : each,
+		);
+		scheduler.poke();
+	};
+
+	/** Starts one on task `task`, or none, asking permission on w1. */
+	const asking = async (task: string | null = "login") => {
+		const conversation = await start(task);
+		void conversation.prompt("ask");
+		await eventually(() => conversation.state.ask !== null);
+		return conversation;
+	};
+
+	/** Waits for `conversation`'s agent to let its slot go, keeping its question. */
+	const freed = (conversation: Conversation) =>
+		eventually(
+			() =>
+				conversation.state.status === "stopped" &&
+				conversation.state.ask !== null,
+		);
+
+	it("frees the slot of one asking once its worker drains, saving its task and keeping the question", async () => {
+		const conversation = await asking();
+
+		drain();
+		await freed(conversation);
+
+		expect(saved).toEqual(["login"]);
+		expect(scheduler.held()).toEqual([]);
+		expect(conversation.state.ask).toMatchObject({
+			type: "permission",
+			id: "t1",
+		});
+	});
+
+	it("carries it on elsewhere once answered, telling a new session its task and the answer", async () => {
+		const conversation = await asking();
+		drain();
+		await freed(conversation);
+
+		conversation.answer("t1", { type: "permission", option: "yes" });
+		await eventually(() => said().length === 3);
+		await until(conversation, "idle");
+
+		expect(conversation.state.ask).toBeNull();
+		expect(said()).toEqual([
+			"ask",
+			taskReference("login"),
+			"You asked permission for: rm -rf build\nI answered: Allow",
+		]);
+		expect(agent.resumed).toEqual([]);
+		expect(agent.launched.at(-1)?.cwd).toBe("/w2/projects/repo/repo");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w2"]);
+	});
+
+	it("drops the question for whatever the person says instead", async () => {
+		const conversation = await asking();
+		drain();
+		await freed(conversation);
+
+		await conversation.prompt("never mind");
+		await eventually(() => said().includes("never mind"));
+
+		expect(conversation.state.ask).toBeNull();
+		expect(said().slice(-2)).toEqual([taskReference("login"), "never mind"]);
+	});
+
+	it("frees one that asks on a worker already draining", async () => {
+		const conversation = await start();
+		drain();
+		await Bun.sleep(0);
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
+
+		void conversation.prompt("ask");
+		await freed(conversation);
+
+		expect(saved).toEqual(["login"]);
+		expect(scheduler.held()).toEqual([]);
+		expect(conversation.state.ask?.id).toBe("t1");
+	});
+
+	it("keeps the slot of one whose task could not be saved", async () => {
+		saving = "fails";
+		const conversation = await asking();
+
+		drain();
+		await Bun.sleep(0);
+		await Bun.sleep(0);
+
+		expect(conversation.state.status).toBe("running");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
+		conversation.answer("t1", { type: "permission", option: "yes" });
+		await until(conversation, "idle");
+	});
+
+	it("keeps the slot of one asking in no task, with nothing to carry on from", async () => {
+		const conversation = await asking(null);
+
+		drain();
+		await Bun.sleep(0);
+
+		expect(saved).toEqual([]);
+		expect(conversation.state.status).toBe("running");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
 	});
 });

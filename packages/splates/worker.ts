@@ -126,7 +126,7 @@ splatesWorker
 splatesWorker
 	.command("drain")
 	.description(
-		"take no new agents on a worker, letting those on it run to their end; --undo takes new ones again",
+		"take no new agents on a worker, letting those on it run to their end, but for one asking you something in a task, which saves its task and lets its slot go, its question kept for you to answer and carry it on elsewhere; --undo takes new ones again",
 	)
 	.arg("id", z.string(), {
 		description: "the worker, as `splates worker list` names it",

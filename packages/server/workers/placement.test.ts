@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join, resolve } from "node:path";
 import { Git } from "../git";
 import { CloneCheckouts, TaskBranches } from "../merge";
-import { add, claim, WorktreeService } from "../tasks";
+import { add, claim, WIP_MESSAGE, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
 import { LocalWorkerMachine } from "./machine";
 import { WorkerPlacement } from "./placement";
@@ -106,6 +106,25 @@ describe("WorkerPlacement", () => {
 
 		await deps.fs.rm(alpha.path, { recursive: true, force: true });
 		expect(await placement.where("w1", machine, "alpha")).toBe(clone);
+	});
+
+	it("saves a task's clone on a worker, its uncommitted work committed, to the remote", async () => {
+		await add(
+			{ ...deps, service: worker.service, config: worker.config },
+			"alpha",
+		);
+		const there = await worker.service.find("alpha");
+		await deps.fs.write(join(there.path, "wip.txt"), "half done\n");
+
+		await placement.save("alpha");
+
+		const remote = join(deps.config.worktreeRoot, "..", "remote.git");
+		expect(
+			await deps.gitCli(remote, "log", "-1", "--format=%s", "splates/alpha"),
+		).toBe(WIP_MESSAGE);
+		expect(await deps.gitCli(remote, "show", "splates/alpha:wip.txt")).toBe(
+			"half done",
+		);
 	});
 
 	it("refuses a project with no central remote", async () => {

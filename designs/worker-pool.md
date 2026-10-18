@@ -245,7 +245,10 @@ memory-only store, the proxy and the undumpable helper belong to
   revoked on remove, the token too when a join token runs out unused. The registry, with only each key's and token's sha256, persists
   across coordinator restarts in `~/.splates/workers.json`.
 - `splates worker drain <id>` takes no new tasks and lets in-flight ones
-  finish (`--undo` takes them again); `splates worker slots <id> <n>`
+  finish (`--undo` takes them again); an agent in a task that asks the
+  person something there saves its task, ends and frees its slot, its
+  question kept on the page, and the answer places it again in a new
+  session told `[SPLATES TASK <task>]` (#185); `splates worker slots <id> <n>`
   changes how many it runs at once. `splates worker remove <id>` drains
   first and is done once its agents end; `--force` ends them now, frees
   their slots, and is to requeue each task from its last pushed checkpoint

@@ -104,7 +104,11 @@ export interface ConversationSlots {
 	hold(request: SlotAsk, worker: string): Grant;
 	/** Where the agent of conversation `id` waits; null for one not waiting. */
 	spot(id: string): QueueSpot | null;
-	readonly events: Events<{ changed: undefined }>;
+	/**
+	 * `changed` as the queue or the slots held change; `drain` with a
+	 * worker's id once it starts draining.
+	 */
+	readonly events: Events<{ changed: undefined; drain: string }>;
 }
 
 /**
@@ -142,6 +146,12 @@ export interface PlacedCheckouts {
 	): Promise<string>;
 	/** Whether `task`'s checkout is a clone on a worker, not on this machine. */
 	elsewhere(task: string): Promise<boolean>;
+	/**
+	 * Saves `task` as `splates checkpoint` does, wherever its checkout is,
+	 * so an agent placed on any worker claims it as it stands; throws when
+	 * it cannot.
+	 */
+	save(task: string): Promise<void>;
 }
 
 /** The splates projects on this machine, as `Projects` lists them. */

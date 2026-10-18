@@ -18,6 +18,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	private readonly last = new Map<string, string>();
 	/** Why no worker is made for the queue, as a budget limit says; null when none holds it. */
 	private withheld: BudgetReason | null = null;
+	/** The workers last seen draining, so each new drain is told once. */
+	private drained = new Set<string>();
 
 	constructor(
 		private readonly pool: Pool,
@@ -147,11 +149,33 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return this.withheld;
 	}
 
-	/** Places whoever can be placed now, as after a worker joins or grows. */
+	/**
+	 * Places whoever can be placed now, as after a worker joins or grows,
+	 * and tells of each worker that has started draining since it last
+	 * looked, for the agents on it to let go of slots they only wait in.
+	 */
 	poke(): void {
+		const draining = new Set(
+			this.pool
+				.workers()
+				.filter((worker) => worker.draining === true)
+				.map((worker) => worker.id),
+		);
+		const started = [...draining].filter((id) => !this.drained.has(id));
+		this.drained = draining;
+		for (const worker of started) {
+			this.dispatcher.dispatch("drain", worker);
+		}
 		if (this.place()) {
 			this.changed();
 		}
+	}
+
+	/** Whether `worker` drains, taking no new agents while those on it end. */
+	drains(worker: string): boolean {
+		return this.pool
+			.workers()
+			.some((each) => each.id === worker && each.draining === true);
 	}
 
 	dispose(): void {
@@ -219,6 +243,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return {
 			worker,
 			lost: losing.signal,
+			drains: () => this.drains(worker),
 			dispose: () => {
 				if (freed) {
 					return;
@@ -283,6 +308,11 @@ export interface PoolWorker {
 	platform: Platform | null;
 	/** Whether it is up and may be given work now. */
 	awake: boolean;
+	/**
+	 * Whether it drains, taking no new agents while those on it end, as
+	 * before it is removed or updated; absent for one that does not.
+	 */
+	draining?: boolean;
 	/**
 	 * Whether it can run a task in the checkout the task has: true for the
 	 * machine the worktrees live on, and for a worker that clones its own.
@@ -357,9 +387,15 @@ export interface Grant extends Resource {
 	 * remove does, while the agent may still think it runs there.
 	 */
 	readonly lost: AbortSignal;
+	/** Whether its worker drains now, waiting on the agent to end. */
+	drains(): boolean;
 }
 
-export type SchedulerEvents = { changed: undefined };
+/**
+ * `changed` whenever the queue or the slots held change; `drain` with a
+ * worker's id once it starts draining (`poke`).
+ */
+export type SchedulerEvents = { changed: undefined; drain: string };
 
 /** A slot held, and what tells its holder once it is taken away. */
 interface Holding {

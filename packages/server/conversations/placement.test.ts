@@ -83,6 +83,7 @@ describe("A conversation placed on a remote worker", () => {
 				return answer();
 			},
 			elsewhere: async () => elsewhere,
+			save: async () => {},
 		};
 		open = () =>
 			new Conversations("/repo/.git/splates/conversations", [AGENT], {

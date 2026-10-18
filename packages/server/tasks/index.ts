@@ -1,5 +1,5 @@
 export { add } from "./add";
-export { checkpoint, WIP_MESSAGE } from "./checkpoint";
+export { checkpoint, save, WIP_MESSAGE } from "./checkpoint";
 export { claim } from "./claim";
 export type { FileDiff } from "./diff";
 export { editLines } from "./diff";

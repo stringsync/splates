@@ -229,6 +229,30 @@ describe("Scheduler", () => {
 		expect(changes).toBeGreaterThan(0);
 	});
 
+	it("tells once of each worker that starts draining, and its grants that it drains", async () => {
+		workers = [worker("local"), worker("w1")];
+		const grant = await take("a", { task: "a" });
+		const drains: string[] = [];
+		scheduler.events.on("drain", (id) => drains.push(id));
+
+		workers = [worker("local"), worker("w1", { draining: true })];
+		scheduler.poke();
+		scheduler.poke();
+		expect(drains).toEqual(["w1"]);
+		expect(grant.drains()).toBe(false);
+
+		workers = [worker("local", { draining: true }), worker("w1")];
+		scheduler.poke();
+		expect(drains).toEqual(["w1", "local"]);
+		expect(grant.drains()).toBe(true);
+
+		workers = [worker("local"), worker("w1")];
+		scheduler.poke();
+		workers = [worker("local", { draining: true }), worker("w1")];
+		scheduler.poke();
+		expect(drains).toEqual(["w1", "local", "local"]);
+	});
+
 	it("names each platform as people do", () => {
 		expect(
 			["darwin", "linux", "win32", "aix"].map((each) => platformOf(each)),

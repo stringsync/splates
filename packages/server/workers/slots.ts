@@ -89,6 +89,7 @@ export class WorkerSlots implements Resource {
 				return {
 					worker: grant.worker,
 					lost: grant.lost,
+					drains: grant.drains,
 					dispose: grant.dispose,
 					launch: worker.launch,
 					machine: worker.kind === "local" ? null : worker,
@@ -169,6 +170,7 @@ function poolWorker(
 		slots: slotsOf(worker, record),
 		platform: platform === null ? null : platformOf(platform),
 		awake: (local || worker.connected) && record?.draining !== true,
+		draining: record?.draining === true,
 		checkouts: local || info.checkouts === true,
 		runs: (agent) =>
 			local ||

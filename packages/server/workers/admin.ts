@@ -140,7 +140,7 @@ export async function drainWorker(
 	opts.log.info(
 		opts.undo
 			? `${opts.id} takes new agents again`
-			: `${opts.id} takes no new agents; those on it run to their end`,
+			: `${opts.id} takes no new agents; those on it run to their end, and those asking you something let their slots go until you answer`,
 	);
 }
 

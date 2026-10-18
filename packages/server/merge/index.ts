@@ -1,4 +1,4 @@
-export type { AppSource, TokenMinter } from "./branches";
+export type { AppSource, Pushed, TokenMinter } from "./branches";
 export {
 	PUSHED_PREFIX,
 	pushedLine,

@@ -11,6 +11,7 @@ import { finishObservation } from "../models";
 import { RECONNECT, taskReference } from "../plans";
 import type { Grant } from "../scheduler";
 import type { WorkerMachine } from "../workers";
+import { answerWords } from "./answered";
 import { put } from "./archive";
 import { ConversationBackground } from "./background";
 import { choose } from "./choice";
@@ -25,6 +26,7 @@ import { ConversationLog, type Live } from "./log";
 import { sent } from "./messages";
 import {
 	type Answer,
+	type Ask,
 	type Attached,
 	blank,
 	type ConversationState,
@@ -84,6 +86,15 @@ export class Conversation
 	 * while idle: its new session knows nothing of the task. Null for none.
 	 */
 	private carry: string | null = null;
+	/**
+	 * The question its agent was asking when a drain freed its slot, kept
+	 * on the page for the person to answer (`free`); null for none.
+	 */
+	private kept: Ask | null = null;
+	/** Under way while it saves its task to free its slot. */
+	private freeing = false;
+	/** Stops hearing of workers that start draining; null with no slots. */
+	private readonly unlistenDrain: (() => void) | null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -128,6 +139,12 @@ export class Conversation
 		});
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
+		this.unlistenDrain =
+			deps.slots?.events.on("drain", (worker) => {
+				if (this.grant?.worker === worker) {
+					void this.free();
+				}
+			}) ?? null;
 	}
 
 	/**
@@ -385,6 +402,8 @@ export class Conversation
 		// What the person says takes the place of a reconnect still due.
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
+		// And of a question kept from a session they no longer talk to.
+		this.unkeep();
 		const carry = this.carry;
 		if (carry !== null) {
 			this.carry = null;
@@ -437,9 +456,22 @@ export class Conversation
 		return this.turns.answered();
 	}
 
-	/** Settles the agent's pending ask, if `id` is still the one it is on. */
+	/**
+	 * Settles the agent's pending ask, if `id` is still the one it is on.
+	 * One kept from an agent a drain freed carries it on instead, the
+	 * answer said as the person's words after its task (`free`).
+	 */
 	answer(id: string, answer: Answer): void {
-		this.connection.answer(id, answer);
+		const kept = this.kept;
+		if (kept === null || kept.id !== id) {
+			this.connection.answer(id, answer);
+			return;
+		}
+		this.unkeep();
+		const words = answerWords(kept, answer);
+		if (words !== null) {
+			void this.prompt(words).catch(() => {});
+		}
 	}
 
 	/** The file `name` the person sent, or null when they sent none by that name. */
@@ -542,6 +574,7 @@ export class Conversation
 	async stop(): Promise<void> {
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
+		this.unkeep();
 		await this.close(null);
 	}
 
@@ -575,6 +608,59 @@ export class Conversation
 		if (busy && carry !== null) {
 			await this.turns.prompt(carry);
 		}
+	}
+
+	/**
+	 * Lets go of the slot of an agent asking the person something on a
+	 * worker that drains, rather than keep the worker up until they answer,
+	 * which may be hours: saves its task as `splates checkpoint` would, since
+	 * the agent is mid-turn and cannot, ends it, and keeps its question on
+	 * the page. The answer, or whatever the person says instead, places it
+	 * again in a new session, told `[SPLATES TASK <task>]` first, as
+	 * `requeue` does for an idle one. One in no task has nothing to carry
+	 * on from, and one whose task could not be saved would lose work, so
+	 * each keeps its slot until answered, as before.
+	 */
+	private async free(): Promise<void> {
+		const { task, ask } = this.state;
+		const grant = this.grant;
+		const { checkouts } = this.deps;
+		if (
+			task === null ||
+			ask === null ||
+			grant === null ||
+			checkouts === undefined ||
+			this.freeing
+		) {
+			return;
+		}
+		this.freeing = true;
+		try {
+			await checkouts.save(task);
+		} catch {
+			return;
+		} finally {
+			this.freeing = false;
+		}
+		// Answered, stopped or placed elsewhere while it saved.
+		if (this.grant !== grant || this.state.ask?.id !== ask.id) {
+			return;
+		}
+		this.kept = ask;
+		this.carry = taskReference(task);
+		this.placed = null;
+		await this.close(null);
+		this.connection.forgetSession();
+		this.set({ ask });
+	}
+
+	/** Lets go of the question kept by `free`, its session gone. */
+	private unkeep(): void {
+		if (this.kept === null) {
+			return;
+		}
+		this.kept = null;
+		this.set({ ask: null });
 	}
 
 	/**
@@ -670,6 +756,7 @@ export class Conversation
 	dispose(): void {
 		this.resting?.dispose();
 		this.reconnecting?.dispose();
+		this.unlistenDrain?.();
 		void this.stop();
 	}
 
@@ -770,6 +857,10 @@ export class Conversation
 		}
 		Object.assign(this.state, next);
 		this.changed();
+		// An agent that asks on a worker already draining lets its slot go too.
+		if (next.ask != null && this.grant?.drains() === true) {
+			void this.free();
+		}
 	}
 
 	changed(): void {
