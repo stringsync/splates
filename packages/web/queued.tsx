@@ -97,7 +97,7 @@ export function Queued({
 					// Still on its way while the agent starts: the server has nothing
 					// to take back yet.
 					const unrecorded = index >= messages.length - pending;
-					const sending = message.sending === true;
+					const sending = message.sending;
 					return (
 						<li
 							// Only ever added at the end and taken from anywhere, but
@@ -120,10 +120,10 @@ export function Queued({
 							<span className="min-w-0 flex-1 truncate text-sm">
 								<Directed text={rest} />
 							</span>
-							{sending && (
+							{sending !== undefined && (
 								<span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
 									<Loader2Icon className="size-3 animate-spin" aria-hidden />
-									Sending…
+									Sending… times out in {sending}s
 								</span>
 							)}
 							{edits !== null && (

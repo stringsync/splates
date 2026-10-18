@@ -40,20 +40,71 @@ describe("App's messages still sending", () => {
 
 	it("says a message is still sending once it goes unanswered for a few seconds", async () => {
 		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).queryByText("Sending…")).toBeNull();
+		expect(within(queued).queryByText(/Sending…/)).toBeNull();
 
 		await act(async () => {
 			testing.wall.advance(Duration.secs(4));
-			testing.timer.fireTimeouts();
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === Duration.secs(3).ms,
+				),
+			);
 		});
 
-		expect(within(queued).getByText("Sending…")).toBeTruthy();
+		expect(within(queued).getByText("Sending… times out in 26s")).toBeTruthy();
+	});
+
+	it("counts down each second and offers Retry and Edit when the deadline passes", async () => {
+		const queued = view.getByRole("region", { name: "queued messages" });
+		await act(async () => {
+			testing.wall.advance(Duration.secs(3));
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === Duration.secs(3).ms,
+				),
+			);
+		});
+		expect(within(queued).getByText("Sending… times out in 27s")).toBeTruthy();
+		await act(async () => {
+			testing.wall.advance(Duration.secs(1));
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === Duration.secs(1).ms,
+				),
+			);
+		});
+		expect(within(queued).getByText("Sending… times out in 26s")).toBeTruthy();
+		await act(async () => {
+			testing.wall.advance(Duration.secs(26));
+			testing.timer.fireTimeouts();
+		});
+		expect(view.queryByText(/Sending…/)).toBeNull();
+		expect(view.getByText("Couldn't send").title).toBe("Sending timed out");
+		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Edit" })).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Retry" })),
+		);
+		expect(view.queryByText("Couldn't send")).toBeNull();
+		await act(async () => {
+			testing.wall.advance(Duration.secs(3));
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === Duration.secs(3).ms,
+				),
+			);
+		});
+		expect(view.getByText("Sending… times out in 27s")).toBeTruthy();
 	});
 
 	it("shows the server's copy at once when the prompt's answer holds the message's id", async () => {
 		await act(async () => {
 			testing.wall.advance(Duration.secs(4));
-			testing.timer.fireTimeouts();
+			testing.timer.fireTimeout(
+				testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === Duration.secs(3).ms,
+				),
+			);
 		});
 		testing.reply = conversation({
 			title: "Login",
@@ -73,9 +124,14 @@ describe("App's messages still sending", () => {
 
 		const queued = view.getByRole("region", { name: "queued messages" });
 		await waitFor(() =>
-			expect(within(queued).queryByText("Sending…")).toBeNull(),
+			expect(within(queued).queryByText(/Sending…/)).toBeNull(),
 		);
 		expect(within(queued).getAllByText("and the logout")).toHaveLength(1);
+		await act(async () => {
+			testing.wall.advance(Duration.secs(30));
+			testing.timer.fireTimeouts();
+		});
+		expect(view.queryByText("Couldn't send")).toBeNull();
 	});
 
 	it("gives up on a message the live stream reconnects without, with Retry", async () => {

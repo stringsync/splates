@@ -6,6 +6,7 @@ import {
 } from "@assistant-ui/react";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { aborts } from "webappwiz/abort";
 import { useAdapters } from "./adapters";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import {
@@ -13,7 +14,11 @@ import {
 	promptConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import type { ConversationFeed, Sending } from "./conversation-feed";
+import {
+	type ConversationFeed,
+	SEND_TIMEOUT,
+	type Sending,
+} from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import type { ThreadMessages } from "./thread-messages";
 
@@ -48,21 +53,31 @@ export function useThreadRuntime(
 				text !== "" || files.length > 0
 					? feed.send(id, noted(text, files), files, text, dictated)
 					: null;
-			const state = await promptConversation(
+			const controller = new AbortController();
+			const deadline = feed.timer.setTimeout(
+				() => controller.abort(new Error("Sending timed out")),
+				SEND_TIMEOUT,
+			);
+			const request = promptConversation(
 				id,
 				noted(text, files),
 				files,
 				dictated,
 				sending?.id,
-			).catch((error: unknown) => {
-				// Kept where it shows, marked unsent, to send again or edit.
-				if (sending !== null) {
-					feed.refused(id, sending, error);
-				} else {
-					refused("Not sent", error);
-				}
-				throw error;
-			});
+				controller.signal,
+			);
+			const state = await aborts
+				.race(controller.signal, request)
+				.catch((error: unknown) => {
+					// Kept where it shows, marked unsent, to send again or edit.
+					if (sending !== null) {
+						feed.refused(id, sending, error);
+					} else {
+						refused("Not sent", error);
+					}
+					throw error;
+				})
+				.finally(() => deadline.dispose());
 			// The answer holds the message when the server has it, whatever the
 			// stream has yet to say.
 			if (sending !== null) {

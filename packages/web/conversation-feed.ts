@@ -24,6 +24,9 @@ import { LiveStream } from "./live-stream";
 /** How long a message goes unanswered before the page says it is still sending. */
 export const STILL_SENDING = Duration.secs(3);
 
+/** How long the page waits for a prompt acknowledgement. */
+export const SEND_TIMEOUT = Duration.secs(30);
+
 export type ConversationFeedEvents = { changed: undefined };
 
 /** A message on its way: its words, and its files read from the page's own copies. */
@@ -346,13 +349,19 @@ export class ConversationFeed
 	}
 
 	/**
-	 * When a message of conversation `id` next passes `STILL_SENDING`
-	 * unanswered, as epoch ms; null when none will.
+	 * When conversation `id` next needs its sending countdown refreshed,
+	 * as epoch ms; null when nothing is on its way.
 	 */
 	nextSlow(id: string): number | null {
 		const now = this.wall.now();
 		const due = (this.sending.get(id) ?? [])
-			.map((each) => each.at + STILL_SENDING.ms)
+			.map((each) =>
+				now < each.at + STILL_SENDING.ms
+					? each.at + STILL_SENDING.ms
+					: each.at +
+						(Math.floor((now - each.at) / Duration.secs(1).ms) + 1) *
+							Duration.secs(1).ms,
+			)
 			.filter((at) => at > now);
 		return due.length === 0 ? null : Math.min(...due);
 	}
@@ -539,7 +548,16 @@ export function messageOf(message: Sending, now = message.at): Message {
 		at: null,
 		until: null,
 		...(message.queued ? { queued: true as const } : {}),
-		...(now - message.at >= STILL_SENDING.ms ? { sending: true as const } : {}),
+		...(now - message.at >= STILL_SENDING.ms
+			? {
+					sending: Math.max(
+						0,
+						Math.ceil(
+							(SEND_TIMEOUT.ms - (now - message.at)) / Duration.secs(1).ms,
+						),
+					),
+				}
+			: {}),
 		...(message.dictated ? { dictated: true as const } : {}),
 	};
 }

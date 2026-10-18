@@ -91,6 +91,7 @@ export async function promptConversation(
 	dictated = false,
 	/** The id the feed gave the copy it shows, which the server keeps on its own. */
 	sent?: string,
+	signal?: AbortSignal,
 ): Promise<ConversationState> {
 	const form = new FormData();
 	form.set("text", text);
@@ -105,6 +106,7 @@ export async function promptConversation(
 	}
 	return (await send(`/api/conversations/${id}/prompt`, {
 		body: form,
+		signal,
 		headers: { [FROM_HEADER]: matchMedia(WIDE).matches ? "desktop" : "phone" },
 	})) as ConversationState;
 }

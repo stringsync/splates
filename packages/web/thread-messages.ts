@@ -255,7 +255,7 @@ export function like(
 					at: message.at,
 					told: message.told ?? null,
 					dictated: message.dictated ?? false,
-					sending: message.sending ?? false,
+					sending: message.sending ?? null,
 				},
 			},
 		};

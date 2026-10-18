@@ -150,9 +150,7 @@ export const UserMessage: FC = () => {
 		const at = s.message.metadata.custom.unsent;
 		return typeof at === "number" ? at : null;
 	});
-	const sending = useAuiState(
-		(s) => s.message.metadata.custom.sending === true,
-	);
+	const sending = useAuiState((s) => s.message.metadata.custom.sending);
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -260,7 +258,7 @@ export const UserMessage: FC = () => {
 					)}
 				</div>
 			)}
-			{sending && <SendingLine />}
+			{typeof sending === "number" && <SendingLine seconds={sending} />}
 			{unsent !== null && <UnsentLine at={unsent} />}
 		</>
 	);

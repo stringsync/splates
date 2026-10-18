@@ -16,14 +16,14 @@ export const UnsentContext = createContext<UnsentActions>({
 });
 
 /** Under a message the server has yet to answer, after a while: still sending. */
-export function SendingLine(): JSX.Element {
+export function SendingLine({ seconds }: { seconds: number }): JSX.Element {
 	return (
 		<div
 			data-slot="aui_user-message-sending"
 			className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
 		>
 			<Loader2Icon className="size-3 animate-spin" aria-hidden />
-			Sending…
+			Sending… times out in {seconds}s
 		</div>
 	);
 }
