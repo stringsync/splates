@@ -150,7 +150,7 @@ const ThreadRoot: FC<{
 				// set `--thread-inset-end`, so the messages center beside them; and
 				// of the padding it reaches across, `--thread-bleed-end`, so its
 				// scrollbar sits at the edge while the messages stay put.
-				className="relative -me-(--thread-bleed-end,0px) flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll pe-[calc(var(--thread-inset-end,0px)+var(--thread-bleed-end,0px))]"
+				className="relative -me-(--thread-bleed-end,0px) flex min-h-0 flex-1 flex-col overflow-x-clip overflow-y-scroll overscroll-x-none pe-[calc(var(--thread-inset-end,0px)+var(--thread-bleed-end,0px))]"
 			>
 				<div
 					className={cn(
