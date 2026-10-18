@@ -305,6 +305,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				const at = replayed.last ?? turn.at ?? state.createdAt;
 				turn.interrupted = at;
 				this.write({ kind: "interrupted", at });
+				replayed.cut = true;
 			}
 			this.write({ kind: "turn", running: false });
 			finishObservation(state, null);
@@ -382,6 +383,8 @@ export interface Replayed {
 	live: Live | null;
 	/** Whether the log says a turn is running. */
 	running: boolean;
+	/** Whether reading it back cut that turn short, its process being gone. */
+	cut?: boolean;
 	/** When the log last said anything happened; null for one that never did. */
 	last: string | null;
 }

@@ -124,7 +124,8 @@ export const RESUME = "[SPLATES RESUME]";
 
 /**
  * What asks an agent to carry on with a turn a lost connection cut short, as
- * the page's Reconnect button sends: the splates skill says what it means.
+ * the page's Reconnect button sends, and splates does by itself once the
+ * agent's process is lost: the splates skill says what it means.
  */
 export const RECONNECT = "[SPLATES RECONNECT]";
 

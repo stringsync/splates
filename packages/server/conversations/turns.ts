@@ -299,19 +299,21 @@ export class ConversationTurns {
 	/**
 	 * Marks a running turn as cut short, as when the connection is lost or the
 	 * process exits, unless the person stopped it, which says so already.
+	 * Answers whether it did.
 	 */
-	interrupt(): void {
+	interrupt(): boolean {
 		const { host } = this;
 		if (host.state.status !== "running") {
-			return;
+			return false;
 		}
 		const at = host.now();
 		const turn = agentTurn(host.state, at);
 		if (turn.stopped !== undefined) {
-			return;
+			return false;
 		}
 		host.log.write({ kind: "interrupted", at });
 		turn.interrupted = at;
+		return true;
 	}
 
 	/** Whether a checkpoint has ended and nothing has been said since. */

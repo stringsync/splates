@@ -4,6 +4,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent, say } from "../fake-agent";
+import { RECONNECT } from "../prompts";
 import { type Conversation, Conversations } from "./index";
 import {
 	eventually,
@@ -105,6 +106,14 @@ describe("Conversation turns", () => {
 			clock,
 			launch: agent.launch,
 		});
+
+	/** A turn on "one" under way as the server is killed, its log saved so far. */
+	const killed = async () => {
+		await working(conversations, held);
+		// What the throttled log has yet to save, saved as the agent streams.
+		timer.fireTimeouts();
+		await Bun.sleep(1);
+	};
 
 	/** Says `update` outside any turn, and waits for the conversation to hear it. */
 	const update = async (update: acp.SessionUpdate) => {
@@ -379,6 +388,64 @@ describe("Conversation turns", () => {
 		await reread.disposeAsync();
 	});
 
+	it("reconnects by itself once a crash cuts the turn short", async () => {
+		const conversation = await working(conversations, held);
+		held.finish = undefined;
+
+		agent.crash();
+		await until(conversation, "failed");
+		timer.fireTimeouts();
+		await eventually(() => held.finish !== undefined);
+
+		expect(said).toEqual(["one", RECONNECT]);
+		expect(conversation.state.status).toBe("running");
+	});
+
+	it("leaves the Reconnect button to the person after three tries in a row", async () => {
+		const conversation = await working(conversations, held);
+		/** Crashes the turn under way, and waits out a reconnect, if one comes. */
+		const crashed = async () => {
+			held.finish = undefined;
+			agent.crash();
+			await until(conversation, "failed");
+			timer.fireTimeouts();
+			await eventually(() => held.finish !== undefined);
+		};
+
+		await crashed();
+		await crashed();
+		await crashed();
+		await crashed();
+
+		expect(said).toEqual(["one", RECONNECT, RECONNECT, RECONNECT]);
+		expect(conversation.state.status).toBe("failed");
+	});
+
+	it("does not reconnect a turn the person terminated", async () => {
+		const conversation = await working(conversations, held);
+
+		await conversation.stop();
+		timer.fireTimeouts();
+		await Bun.sleep(5);
+
+		expect(said).toEqual(["one"]);
+		expect(conversation.state.status).toBe("stopped");
+	});
+
+	it("reconnects a turn a killed server cut short once it is read back", async () => {
+		await killed();
+		held.finish = undefined;
+
+		const reread = readBack();
+		const [read] = await reread.list();
+		timer.fireTimeouts();
+		await eventually(() => held.finish !== undefined);
+
+		expect(said).toEqual(["one", RECONNECT]);
+		expect(read?.state.status).toBe("running");
+		await reread.disposeAsync();
+	});
+
 	it("marks the turn running when the server stops it", async () => {
 		const conversation = await working(conversations, held);
 
@@ -392,10 +459,7 @@ describe("Conversation turns", () => {
 	});
 
 	it("marks the turn running when the server is killed, and keeps the mark when read again", async () => {
-		await working(conversations, held);
-		// What the throttled log has yet to save, saved as the agent streams.
-		timer.fireTimeouts();
-		await Bun.sleep(1);
+		await killed();
 
 		// Read as the next server would, the first never having stopped.
 		const reread = readBack();

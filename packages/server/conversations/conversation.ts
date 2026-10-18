@@ -2,12 +2,14 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Duration } from "webappwiz/time";
 import { AgentConnection } from "../agent-connection";
 import type { Agent, AgentProcess, ProcessHandle } from "../agent-process";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { fold, heard } from "../fold";
 import { finishObservation } from "../opencode-usage";
+import { RECONNECT } from "../prompts";
 import type { Grant } from "../scheduler";
 import type { WorkerMachine } from "../workers";
 import { put } from "./archive";
@@ -38,6 +40,15 @@ import {
 import { ConversationTurns, type PromptOptions } from "./turns";
 
 /**
+ * How many times in a row a conversation reconnects by itself before it
+ * leaves the Reconnect button to the person.
+ */
+const RECONNECTS = 3;
+
+/** How long it waits to reconnect, times the tries so far. */
+const RECONNECT_WAIT = Duration.secs(2);
+
+/**
  * One conversation with one agent. Live, it holds the agent's process; read
  * back from its log, it is what was said, and resumes on the next prompt.
  */
@@ -57,6 +68,10 @@ export class Conversation
 	opening: Promise<void> | null = null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
 	private resting: Resource | null = null;
+	/** Says `[SPLATES RECONNECT]` once its wait is up; null while none is due. */
+	private reconnecting: Resource | null = null;
+	/** How many times in a row it has reconnected by itself. */
+	private reconnects = 0;
 	/** Let go of its process for a restart: nothing here ends it now. */
 	private detached = false;
 	/** The slot its agent holds on a worker; null while it has none. */
@@ -151,6 +166,11 @@ export class Conversation
 			model,
 			sessionCwd,
 		});
+		// A turn cut short as it was read back carries on by itself, as one
+		// whose process is lost while the server runs does.
+		if (replayed.cut === true) {
+			conversation.reconnect();
+		}
 		if (taken !== null && agent !== null) {
 			conversation.grant = !spawned(state)
 				? null
@@ -354,6 +374,9 @@ export class Conversation
 		from?: Device,
 		opts: PromptOptions = {},
 	): Promise<void> {
+		// What the person says takes the place of a reconnect still due.
+		this.reconnecting?.dispose();
+		this.reconnecting = null;
 		return this.turns.prompt(text, files, from, opts);
 	}
 
@@ -498,6 +521,8 @@ export class Conversation
 
 	/** Stops the agent; the next prompt resumes where it left off. */
 	async stop(): Promise<void> {
+		this.reconnecting?.dispose();
+		this.reconnecting = null;
 		await this.close(null);
 	}
 
@@ -593,6 +618,7 @@ export class Conversation
 
 	dispose(): void {
 		this.resting?.dispose();
+		this.reconnecting?.dispose();
 		void this.stop();
 	}
 
@@ -607,6 +633,9 @@ export class Conversation
 
 	/** Back to idle once a turn ends, then on to what was queued meanwhile. */
 	ended(error: string | null): void {
+		if (error === null) {
+			this.reconnects = 0;
+		}
 		this.turns.ended(error);
 	}
 
@@ -622,7 +651,7 @@ export class Conversation
 			return;
 		}
 		this.connection.close();
-		this.turns.interrupt();
+		const cut = this.turns.interrupt();
 		if (this.state.checkpoint === "asked") {
 			this.turns.mark("failed");
 		}
@@ -634,6 +663,41 @@ export class Conversation
 			ask: null,
 			background: [],
 		});
+		// Lost rather than stopped: the person stopping it, or the server
+		// shutting down, ends it with no error.
+		if (cut && error !== null) {
+			this.reconnect();
+		}
+	}
+
+	/**
+	 * Carries on with the turn a lost connection cut short, as the page's
+	 * Reconnect button would, once `RECONNECT_WAIT` is up: a worker that comes
+	 * back without the agent's process loses it just as it reconnects. After
+	 * `RECONNECTS` tries in a row with no turn ending between them, the
+	 * button is left to the person.
+	 */
+	private reconnect(): void {
+		const due = () =>
+			!this.state.archived &&
+			this.state.checkpoint === null &&
+			(this.state.status === "stopped" || this.state.status === "failed") &&
+			this.state.messages.at(-1)?.interrupted !== undefined;
+		if (
+			this.reconnecting !== null ||
+			this.reconnects >= RECONNECTS ||
+			this.agent === null ||
+			!due()
+		) {
+			return;
+		}
+		this.reconnects += 1;
+		this.reconnecting = this.deps.timer.setTimeout(() => {
+			this.reconnecting = null;
+			if (due()) {
+				void this.turns.prompt(RECONNECT).catch(() => {});
+			}
+		}, RECONNECT_WAIT.multiply(this.reconnects));
 	}
 
 	set(next: Partial<ConversationState>): void {

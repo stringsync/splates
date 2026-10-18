@@ -53,7 +53,7 @@ directive, and an `ARBOR.md` in your worktree is the task's `SPLATES.md`.
 | `[SPLATES HEARTBEAT]` | Check on the task you handed on with `--relay` and say where it stands | [handoff.md](references/handoff.md) |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
-| `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
+| `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
 
 ## Reference files
 
