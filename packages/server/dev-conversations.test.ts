@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
+import { AGENT, FakeAgent, heard, ROSTERED, say } from "./agents/testing";
 import { type ConversationState, Conversations } from "./conversations";
 import { json, readUntil, serving } from "./dev-testing";
-import { AGENT, FakeAgent, heard, ROSTERED, say } from "./fake-agent";
 import { handoff } from "./handoff";
 import { dev } from "./index";
 import { Testing } from "./testing";

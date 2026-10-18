@@ -1,6 +1,6 @@
 import { OpenPortProvider } from "webappwiz/system";
+import type { FakeAgent } from "./agents/testing";
 import type { Conversation } from "./conversations";
-import type { FakeAgent } from "./fake-agent";
 import { dev } from "./index";
 import type { Snapshot } from "./snapshot";
 import type { Testing } from "./testing";

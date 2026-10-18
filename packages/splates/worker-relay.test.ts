@@ -9,7 +9,7 @@ import {
 import { chmod } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type DevServer, dev } from "@stringsync/splates-server";
-import { printed } from "@stringsync/splates-server/agent-process-testing";
+import { printed } from "@stringsync/splates-server/agents/testing";
 import { DevWorkers } from "@stringsync/splates-server/dev-workers";
 import { relayFile } from "@stringsync/splates-server/records";
 import { Testing } from "@stringsync/splates-server/testing";

@@ -29,8 +29,8 @@
 		".": "./index.ts",
 		"./add": "./add.ts",
 		"./age": "./age.ts",
-		"./agent-process-testing": "./agent-process-testing.ts",
-		"./agents": "./agents.ts",
+		"./agents": "./agents/index.ts",
+		"./agents/testing": "./agents/testing.ts",
 		"./artifact-viewers": "./artifact-viewers.ts",
 		"./artifact": "./artifact.ts",
 		"./artifacts": "./artifacts.ts",
@@ -110,9 +110,7 @@
 		"./tunnel-setup": "./tunnel-setup.ts",
 		"./update": "./update.ts",
 		"./wait": "./wait.ts",
-		"./watch": "./watch.ts",
 		"./worktree": "./worktree.ts",
-		"./testing/agent": "./fake-agent.ts",
 		"./dev-everywhere": "./dev-everywhere.ts"
 	},
 	"scripts": {

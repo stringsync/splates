@@ -1,12 +1,4 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import {
-	appendSummary,
-	compactionIn,
-	fillCompaction,
-	isCompaction,
-	newCompaction,
-	updateCompaction,
-} from "./compaction";
 import type {
 	ConversationState,
 	Field,
@@ -15,8 +7,16 @@ import type {
 	Part,
 	Setting,
 	Tool,
-} from "./conversations";
-import { metric, observeTokens, safeOpenCodeUpdate } from "./opencode-usage";
+} from "../conversations";
+import { metric, observeTokens, safeOpenCodeUpdate } from "../opencode-usage";
+import {
+	appendSummary,
+	compactionIn,
+	fillCompaction,
+	isCompaction,
+	newCompaction,
+	updateCompaction,
+} from "./compaction";
 import { fill, parentOf, toolIn } from "./tool-calls";
 
 /**

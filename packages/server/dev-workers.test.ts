@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { printed } from "./agent-process-testing";
+import { printed } from "./agents/testing";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevWorkers, workerAuthorization } from "./dev-workers";
 import type { RemoteWorker } from "./workers";

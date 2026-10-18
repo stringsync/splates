@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
+import { AGENT, FakeAgent } from "./agents/testing";
 import { Conversations } from "./conversations";
 import type { EverywhereListing } from "./dev-everywhere";
 import { eventually, json, readUntil } from "./dev-testing";
-import { AGENT, FakeAgent } from "./fake-agent";
 import { dev } from "./index";
 import { Testing } from "./testing";
 

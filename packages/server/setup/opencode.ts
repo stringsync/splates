@@ -1,8 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
 import * as acp from "@agentclientprotocol/sdk";
 import type { Fs, Ps } from "webappwiz/system";
-import { framed } from "../agent-process";
-import { AgentStream } from "../agent-stream";
+import { AgentStream, framed } from "../agents";
 import { OpenCodeModelError } from "./opencode-model-error";
 import { OpenCodeModels, type OpenCodeSelection } from "./opencode-models";
 

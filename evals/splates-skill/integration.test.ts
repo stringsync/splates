@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT, FakeAgent } from "@stringsync/splates-server/testing/agent";
+import { AGENT, FakeAgent } from "@stringsync/splates-server/agents/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { acpAdapter } from "./probe-adapters";
 import { fastCli, loadModules, storedRuns } from "./probe-cli";

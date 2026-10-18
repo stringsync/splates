@@ -2,13 +2,19 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Fs } from "webappwiz/system";
 import { Duration, Throttler, type Timer } from "webappwiz/time";
-import { type AsyncTaskUpdate, foldBackground } from "../acp-extensions";
-import type { ProcessHandle } from "../agent-process";
+import type { Flag, ProcessHandle } from "../agents";
+import {
+	type AsyncTaskUpdate,
+	agentTurn,
+	fold,
+	foldBackground,
+	heard,
+	result,
+	tally,
+	toolIn,
+} from "../agents";
 import { type ArtifactChange, applyArtifact } from "../artifacts";
-import { agentTurn, fold, heard, result, tally } from "../fold";
 import { finishObservation, type ObservedTurn } from "../opencode-usage";
-import { toolIn } from "../tool-calls";
-import type { Flag } from "../watch";
 import { delivered, said, sent, takeBack } from "./messages";
 import {
 	type Ask,

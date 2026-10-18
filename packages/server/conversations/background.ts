@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
-import type { AgentConnection } from "../agent-connection";
+import type { AgentConnection } from "../agents";
 import { fail } from "../exit";
 import type { ConversationDeps, ConversationHost } from "./host";
 import type { Background } from "./state";

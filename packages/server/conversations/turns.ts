@@ -1,9 +1,8 @@
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
-import type { AgentConnection } from "../agent-connection";
-import { requestError } from "../agent-errors";
+import type { AgentConnection } from "../agents";
+import { agentTurn, requestError, tally } from "../agents";
 import { fail } from "../exit";
-import { agentTurn, tally } from "../fold";
 import { CHECKPOINT } from "../plans";
 import type { ConversationFiles } from "./files";
 import type { ConversationDeps, ConversationHost } from "./host";

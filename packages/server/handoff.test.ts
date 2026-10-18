@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import { ROSTERED } from "./fake-agent";
+import { ROSTERED } from "./agents/testing";
 import { handoff } from "./handoff";
 import { handOff } from "./tell";
 import { Testing } from "./testing";

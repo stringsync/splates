@@ -1,8 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Setting } from "./conversations";
-import { effortsOf } from "./effort";
-import { type Roster, traitsOf } from "./roster";
-import { table } from "./table";
+import type { Setting } from "../conversations";
+import { effortsOf } from "../effort";
+import { type Roster, traitsOf } from "../roster";
+import { table } from "../table";
 
 export interface AgentsOptions {
 	/** Print the roster as JSON instead of tables. */

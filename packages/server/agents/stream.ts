@@ -1,6 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { AgentFrame, AgentProcess } from "./agent-process";
+import type { AgentFrame, AgentProcess } from "./process";
 
 /** What an `AgentStream` says beyond the messages it carries. */
 export interface AgentStreamEvents extends Record<string, unknown> {

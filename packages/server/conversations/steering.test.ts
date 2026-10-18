@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent, say } from "../fake-agent";
+import { AGENT, FakeAgent, say } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import {
 	eventually,

@@ -1,6 +1,6 @@
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
-import type { Launch, ProcessHandle } from "../agent-process";
+import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
 import { RemoteProcess } from "../remote-process";
 import { RemotePty } from "../remote-pty";

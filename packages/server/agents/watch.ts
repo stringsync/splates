@@ -1,7 +1,7 @@
-import type { Git } from "./git";
+import type { Git } from "../git";
+import type { WorkerMachine } from "../workers";
+import { workerGit } from "../workers";
 import { Watched } from "./watched";
-import type { WorkerMachine } from "./workers";
-import { workerGit } from "./workers";
 
 /** The git `Watch` runs, on whichever machine the agent works: `Git` here, or a worker's. */
 export type WatchGit = Pick<Git, "root" | "run" | "interruptedOps" | "at">;

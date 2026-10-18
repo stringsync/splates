@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { Testing } from "./testing";
+import { Testing } from "../testing";
 import { Watch } from "./watch";
 
 describe("Watch", () => {

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
-import { printed } from "../agent-process-testing";
+import { printed } from "../agents/testing";
 import { WorkerDaemon } from "./daemon";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";

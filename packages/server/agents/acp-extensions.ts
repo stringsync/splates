@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { ConversationState } from "./conversations";
+import type { ConversationState } from "../conversations";
 import { toolIn } from "./tool-calls";
 
 /**

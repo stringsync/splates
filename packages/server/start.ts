@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
+import { SharedBrowser, StartLock, Watch } from "./agents";
 import { artifactLimits } from "./artifacts";
 import { codexLimits, isCodex } from "./codex-limits";
 import { LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
@@ -25,9 +26,7 @@ import { newest, sourceCommit } from "./release";
 import { splatesHome } from "./roster";
 import type { SplatesDeps } from "./runtime-deps";
 import { portsHostFlag } from "./saved-ports-host";
-import { SharedBrowser } from "./shared-browser";
 import { SERVER_PID, SLOT, slotOf } from "./slots";
-import { StartLock } from "./start-lock";
 import {
 	rosterOf,
 	savedPortsHostOf,
@@ -37,7 +36,6 @@ import {
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
-import { Watch } from "./watch";
 import {
 	WorkerPlacement,
 	WorkerRecords,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AgentFrame, AgentProcess, ProcessHandle } from "./agent-process";
+import type { AgentFrame, AgentProcess, ProcessHandle } from "./agents";
 import type { WorkerChannel, WorkerSession } from "./workers";
 
 /** What a worker says on a process's channel besides its stdout. */

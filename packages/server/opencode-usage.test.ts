@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
+import { fold, tally } from "./agents";
 import { blank, ConversationLog } from "./conversations";
-import { fold, tally } from "./fold";
 import {
 	finishObservation,
 	type ObservedTurn,

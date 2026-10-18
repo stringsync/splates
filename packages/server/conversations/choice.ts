@@ -1,4 +1,4 @@
-import type { AgentConnection } from "../agent-connection";
+import type { AgentConnection } from "../agents";
 import { fail } from "../exit";
 import type { ConversationHost } from "./host";
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT, FakeAgent } from "@stringsync/splates-server/testing/agent";
+import { AGENT, FakeAgent } from "@stringsync/splates-server/agents/testing";
 import type { Probe } from "./probe";
 import { acpAdapter, cliAdapter, launchIsolated } from "./probe-adapters";
 import { comparisonKey, probeReport } from "./probe-report";

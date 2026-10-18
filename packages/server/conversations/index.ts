@@ -4,14 +4,13 @@ export type {
 	Launch,
 	Launcher,
 	Session,
-} from "../agent-process";
-export { launch } from "../agent-process";
+} from "../agents";
+export { fold, heard, launch } from "../agents";
 export type {
 	Artifact,
 	ArtifactGone,
 	ArtifactVersion,
 } from "../artifacts";
-export { fold, heard } from "../fold";
 export type { Picked } from "./conversation";
 export { Conversation } from "./conversation";
 export { ARCHIVED_KEPT, Conversations } from "./conversations";

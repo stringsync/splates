@@ -9,7 +9,7 @@ import {
 	backgroundStarted,
 	backgroundWrites,
 	FakeAgent,
-} from "../fake-agent";
+} from "../agents/testing";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 

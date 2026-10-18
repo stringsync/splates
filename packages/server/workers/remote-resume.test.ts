@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { type FakeChild, FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeClock, FakeTimer } from "webappwiz/time/testing";
-import type { AgentFrame } from "../agent-process";
+import type { AgentFrame } from "../agents";
 import { eventually } from "../conversations/testing";
 import type { RemoteProcess } from "../remote-process";
 import { WorkerDaemon } from "./daemon";

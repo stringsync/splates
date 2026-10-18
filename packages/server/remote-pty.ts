@@ -1,7 +1,7 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { z } from "zod";
-import type { ProcessHandle } from "./agent-process";
+import type { ProcessHandle } from "./agents";
 import type { PtyEvents } from "./pty";
 import type { WorkerChannel } from "./workers";
 

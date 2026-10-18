@@ -9,6 +9,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import type { Adherence } from "../adherence";
+import type { SessionServers, Watch } from "../agents";
 import {
 	type Agent,
 	type Launcher,
@@ -16,7 +17,7 @@ import {
 	launcherOf,
 	listSessions,
 	type Session,
-} from "../agent-process";
+} from "../agents";
 import { ArtifactRoom } from "../artifact-room";
 import { ARTIFACT_LIMITS, type ArtifactLimits } from "../artifacts";
 import { systemPs } from "../config";
@@ -24,9 +25,7 @@ import { fail } from "../exit";
 import type { Limits } from "../limits";
 import type { Offered } from "../offered";
 import type { Outcomes } from "../outcomes";
-import type { SessionServers } from "../shared-browser";
 import { installedVersion } from "../skills";
-import type { Watch } from "../watch";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { Conversation, type Picked } from "./conversation";
 import type {

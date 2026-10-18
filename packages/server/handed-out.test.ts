@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { add } from "./add";
+import { AGENT, FakeAgent } from "./agents/testing";
 import type { LaneRecord, TodoState } from "./board";
 import { SeenLaneTodos } from "./board";
 import {
@@ -10,7 +11,6 @@ import {
 	HEARTBEAT_IDLE,
 } from "./conversations";
 import { Everywhere } from "./everywhere";
-import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
 import { remove } from "./remove";
 import { Testing } from "./testing";

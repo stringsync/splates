@@ -2,6 +2,18 @@
 import * as acp from "@agentclientprotocol/sdk";
 import { Disposer } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
+import type {
+	Answer,
+	Asked,
+	ConversationDeps,
+	ConversationHost,
+	Decision,
+	Setting,
+} from "../conversations";
+import { type Live, LOG_FORMAT, said } from "../conversations";
+import { fail } from "../exit";
+import { modelOption } from "../models";
+import { safeOpenCodeUpdate } from "../opencode-usage";
 import {
 	ASYNC_TASK_STOP,
 	ASYNC_TASK_UPDATE,
@@ -17,24 +29,7 @@ import {
 	STEER,
 	steers,
 } from "./acp-extensions";
-import { agentError, requestError } from "./agent-errors";
-import type {
-	Agent,
-	AgentProcess,
-	Launch,
-	ProcessHandle,
-} from "./agent-process";
-import { AgentStream } from "./agent-stream";
-import type {
-	Answer,
-	Asked,
-	ConversationDeps,
-	ConversationHost,
-	Decision,
-	Setting,
-} from "./conversations";
-import { type Live, LOG_FORMAT, said } from "./conversations";
-import { fail } from "./exit";
+import { agentError, requestError } from "./errors";
 import {
 	configValue,
 	fieldsIn,
@@ -44,8 +39,8 @@ import {
 	starts,
 	tally,
 } from "./fold";
-import { modelOption } from "./models";
-import { safeOpenCodeUpdate } from "./opencode-usage";
+import type { Agent, AgentProcess, Launch, ProcessHandle } from "./process";
+import { AgentStream } from "./stream";
 import { parentOf, toolIn } from "./tool-calls";
 import type { Watched } from "./watched";
 

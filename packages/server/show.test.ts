@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { utimes } from "node:fs/promises";
 import { add } from "./add";
+import { ROSTERED } from "./agents/testing";
 import { claim } from "./claim";
 import { escalate } from "./escalate";
-import { ROSTERED } from "./fake-agent";
 import { show } from "./show";
 import { Testing } from "./testing";
 

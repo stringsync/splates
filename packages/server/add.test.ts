@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
-import { ROSTERED } from "./fake-agent";
+import { ROSTERED } from "./agents/testing";
 import { Testing } from "./testing";
 
 describe("add", () => {

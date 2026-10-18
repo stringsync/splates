@@ -3,7 +3,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
 import { SharedBrowser } from "./shared-browser";
-import { FREE, served } from "./shared-browser-testing";
+import { FREE, served } from "./testing";
 
 describe("SharedBrowser starting", () => {
 	let ps: FakePs;

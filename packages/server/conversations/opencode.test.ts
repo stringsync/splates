@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
-import { FakeAgent, heard, say } from "../fake-agent";
+import { FakeAgent, heard, say } from "../agents/testing";
 import { Conversations } from "./index";
 import { eventually, once, until } from "./testing";
 

@@ -2,7 +2,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { ProcessEntry } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { z } from "zod";
-import type { ProcessHandle } from "./agent-process";
+import type { ProcessHandle } from "./agents";
 import { json } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { heldBy } from "./held";

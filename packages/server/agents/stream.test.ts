@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { HandFedProcess } from "./agent-process-testing";
-import { AgentStream } from "./agent-stream";
+import { AgentStream } from "./stream";
+import { HandFedProcess } from "./testing";
 
 /** One macrotask later, as the stream waits between messages. */
 const later = () => new Promise<void>((resolve) => setImmediate(resolve));

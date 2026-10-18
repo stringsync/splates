@@ -6,7 +6,7 @@ import {
 	MemoryLock,
 	type Ps,
 } from "webappwiz/system";
-import { splatesHome } from "./roster";
+import { splatesHome } from "../roster";
 
 /**
  * Take it while an agent starts, so agents start one at a time across every

@@ -3,7 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { AGENT, FakeAgent } from "../fake-agent";
+import { AGENT, FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "./index";
 import { until } from "./testing";
 
