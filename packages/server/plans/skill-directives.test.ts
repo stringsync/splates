@@ -3,7 +3,6 @@ import { join } from "node:path";
 import {
 	APPROVE,
 	AUTO,
-	CHECK_IN,
 	CHECKPOINT,
 	DEFER,
 	HEARTBEAT,
@@ -36,7 +35,6 @@ describe("the splates skill's Directives table", () => {
 				MERGE,
 				APPROVE,
 				DEFER,
-				CHECK_IN,
 				laneReference(null),
 				laneReference(0).replace("0", "N"),
 				reportReference("<task>"),

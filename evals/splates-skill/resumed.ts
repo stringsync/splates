@@ -5,7 +5,7 @@ import {
 	touchesCode,
 	turnsOf,
 } from "./reading";
-import { CORE, type Scenario } from "./scenario";
+import type { Scenario } from "./scenario";
 
 // The scenarios that resume a task already planned, retry-413, and send it a
 // directive from the `splates server` page as their second turn.
@@ -110,54 +110,5 @@ export const CHECKPOINT: Scenario = {
 	],
 	rubric: [
 		"notes-say-where: in turn 2 the `## Notes` of SPLATES.md say what the agent was doing when stopped and what comes next, and `## Done` and `## Next` match where the work stands",
-	],
-};
-
-/** A check-in gets its update said, then the work carried on. */
-export const CHECK_IN: Scenario = {
-	id: "check-in",
-	turns: [PICK_UP, "[SPLATES UPDATE]"],
-	setup: PLANNED,
-	sections: [...CORE, "SPLATES.md"],
-	checks: [
-		{
-			id: "said-update",
-			rule: "Answers a check-in in one to three `- ` lines before going on",
-			judge: ({ log }) => {
-				const second = turnsOf(log.transcript.beats)[1] ?? [];
-				const said = second.findIndex((beat) => beat.kind === "say");
-				const coded = second.findIndex(touchesCode);
-				const reply = second[said];
-				const lines =
-					reply?.kind === "say"
-						? reply.text.split("\n").filter((line) => line.startsWith("- "))
-								.length
-						: 0;
-				const ok = lines >= 1 && lines <= 3 && (coded === -1 || said < coded);
-				return [
-					{
-						ok,
-						why:
-							said === -1
-								? "said nothing"
-								: coded !== -1 && coded < said
-									? "changed code before answering"
-									: `${lines} \`- \` lines`,
-					},
-				];
-			},
-		},
-		{
-			id: "carried-on",
-			rule: "Carries on with the work after a check-in",
-			judge: ({ log }) => {
-				const second = turnsOf(log.transcript.beats)[1] ?? [];
-				const ok = second.some(touchesCode);
-				return [{ ok, why: ok ? "changed code" : "stopped at the update" }];
-			},
-		},
-	],
-	rubric: [
-		"update-says: the check-in's `- ` lines say what was done since turn 1, what the agent is on now and what is in the way, if anything, and `## Done` and `## Next` in SPLATES.md match where the work stood when it answered",
 	],
 };

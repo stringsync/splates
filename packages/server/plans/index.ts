@@ -43,7 +43,6 @@ export {
 export {
 	APPROVE,
 	AUTO,
-	CHECK_IN,
 	CHECKPOINT,
 	DEFER,
 	DICTATED,

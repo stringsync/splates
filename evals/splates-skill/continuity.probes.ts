@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-	CHECK_IN,
 	CHECKPOINT,
 	RECONNECT,
 	RESUME,
@@ -67,7 +66,6 @@ const seed: Seed = {
 				"completed",
 				"partial",
 				"failed",
-				"update",
 				"removed",
 			].includes(data)
 		) {
@@ -283,16 +281,6 @@ const probes: Probe[] = [
 			],
 		),
 	),
-	probe("update", "continuity-update", "update", CHECK_IN + context, [
-		count("save-plan", write("SPLATES.md")),
-		state("notes-updated", "plan/changed", true),
-		state("meaningful-continuation", "file/result.txt", "ready\n"),
-		gap(
-			"intermediate-reply-order",
-			"UPDATE requires SPLATES.md update -> user-visible intermediate reply before ANY next tool -> meaningful continuation. Schema-1 events cannot represent that reply; final reply or reply-before-code is not evidence.",
-		),
-		steering,
-	]),
 	probe(
 		"removed-report",
 		"continuity-report",

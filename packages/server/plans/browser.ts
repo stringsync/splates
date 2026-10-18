@@ -17,7 +17,6 @@ export { goalLine, questions } from "./plan";
 export {
 	APPROVE,
 	AUTO,
-	CHECK_IN,
 	CHECKPOINT,
 	DEFER,
 	DIRECTIVES,

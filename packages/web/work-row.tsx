@@ -19,7 +19,6 @@ import {
 import { createContext, type JSX, use, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { InMessage, useCardReply } from "./card-reply";
-import { CheckIn } from "./check-in";
 import { useNow } from "./hooks/use-now";
 import { Markdown } from "./markdown";
 import { ThreadAction } from "./thread-action";
@@ -163,20 +162,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					))}
 				{work.going && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
-				{/* Last, under the plan and warnings, as the turn's one action. */}
-				{work.working && !waiting && since !== null && (
-					<InMessage>
-						<CheckIn since={latest(since, work.replied)} now={now} />
-					</InMessage>
-				)}
 			</div>
 		</Going>
 	);
-}
-
-/** The later of `since` and `replied`: the person has heard from the agent since it replied. */
-function latest(since: string, replied: string | null): string {
-	return replied !== null && replied > since ? replied : since;
 }
 
 /**

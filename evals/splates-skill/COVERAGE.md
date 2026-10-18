@@ -53,7 +53,6 @@ the broader proposed coverage in the requirements map.
 | `continuity/reconnect-completed` | 1 | continuity-reconnect | agent |
 | `continuity/reconnect-partial` | 1 | continuity-reconnect | agent |
 | `continuity/reconnect-failed` | 1 | continuity-reconnect | agent |
-| `continuity/update` | 1 | continuity-update | agent |
 | `continuity/removed-report` | 1 | continuity-report | agent |
 | `decisions/local-choice` | 1 | decisions-local | agent |
 | `decisions/external-blocker` | 1 | decisions-local | agent |
@@ -174,12 +173,10 @@ selected real integration, never a prerequisite for this audit.
 | delegation-no-dev / `references/lanes.md`, `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
-| continuity-update / UPDATE directive, SPLATES.md | #357; `check-in` | Observe SPLATES.md update, then user-visible reply before any next tool, then meaningful continuation | Current Event kinds have no dedicated reply event; final reply alone cannot prove this temporal requirement |
 | continuity-report / Reporting, Asking as you go | #357; common checks | Parsed task outcome, questions/choices and next-todo structure, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |
 
 Directive completeness includes SETUP in the gap table below. TASK maps to
-lifecycle-start; UPDATE is check-in handling, not a general proactive progress
-message test. MERGE and APPROVE need both emission and independent response
+lifecycle-start. MERGE and APPROVE need both emission and independent response
 cases. Reports from child tasks and lane events need actor/origin separation.
 
 ## Remaining requirements and explicit gaps

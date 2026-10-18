@@ -2,7 +2,7 @@
 
 `continuity.probes.ts` is automatically discovered, side-effect-free on import
 apart from reading its own implementation/helper bytes for its fingerprint.
-All seven probes are version 1, aspect `continuity`, seed `continuity/task@1`.
+All six probes are version 1, aspect `continuity`, seed `continuity/task@1`.
 The seed stamps empty format-1 splates records locally (no network-backed init),
 creates a real disposable CLI task, writes its saved plan directly,
 and never starts a worker. No model runs were performed for implementation.
@@ -14,7 +14,6 @@ and never starts a worker. No model runs were performed for implementation.
 | reconnect-completed | continuity-reconnect | Inspect status/history/output; forbid duplicate output write |
 | reconnect-partial | continuity-reconnect | Inspect before repairing partial output |
 | reconnect-failed | continuity-reconnect | Inspect before retrying absent output |
-| update | continuity-update | Changed plan and exact continued output; intermediate ordering uncovered |
 | removed-report | continuity-report | Parsed task/outcome and independently absent task plan |
 
 These are seeded **between-turn** continuations, not genuine mid-turn delivery.
@@ -40,9 +39,6 @@ aspect tests; they do not prove UI transport or agent response conformance.
 
 ## Integration needs for #342
 
-- Preserve `intermediate-reply-order`: UPDATE means plan update, user-visible
-  intermediate reply **before any further tool**, then meaningful continuation.
-  A final reply, reply-before-code, or arbitrary edit cannot establish it.
 - Preserve `mid-turn-delivery`: a single seeded input cannot demonstrate steering
   during an active turn. Add actual delivery/cancellation evidence before
   changing this coverage claim. #340 owns orchestrator continuation; #356 owns
@@ -54,7 +50,7 @@ aspect tests; they do not prove UI transport or agent response conformance.
   reports. Preserve `report-coherence`, report truth versus fixture removal,
   and prose quality gaps. Questions/choices and next-todo structure
   need additional report cases; decision ownership remains #355/#340.
-- Reconcile the seven ids with COVERAGE.md without counting them as observed
+- Reconcile the six ids with COVERAGE.md without counting them as observed
   model adherence. All retain explicit uncovered assertions even under a
   synthetic fully captured trace. No speedup, success rate or ranking measured.
 

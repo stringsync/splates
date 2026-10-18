@@ -3,7 +3,6 @@ import type { ProjectRef } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import {
 	APPROVE,
-	CHECK_IN,
 	CHECKPOINT,
 	DEFER,
 	HEARTBEAT,
@@ -25,7 +24,6 @@ import {
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleIcon,
-	MessageCircleQuestionMarkIcon,
 	PlayIcon,
 	PlugIcon,
 	TreePineIcon,
@@ -211,13 +209,6 @@ export const BARE_DIRECTIVES = [
 		label: "Heartbeat",
 		about: "check on the agents it handed tasks to",
 		icon: HeartPulseIcon,
-		tone: "neutral",
-	},
-	{
-		directive: CHECK_IN,
-		label: "Check in",
-		about: "say where the work stands and carry on",
-		icon: MessageCircleQuestionMarkIcon,
 		tone: "neutral",
 	},
 	{

@@ -11,7 +11,7 @@ import {
 	UNTRIAGED,
 } from "./lanes";
 import { lastSaid, openQuestions, splatesRuns, turnsOf } from "./reading";
-import { CHECK_IN, CHECKPOINT } from "./resumed";
+import { CHECKPOINT } from "./resumed";
 import { CORE, type Scenario } from "./scenario";
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -260,7 +260,6 @@ export const SCENARIOS: readonly Scenario[] = [
 		],
 	},
 	CHECKPOINT,
-	CHECK_IN,
 	{
 		id: "review-again",
 		turns: [

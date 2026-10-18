@@ -36,6 +36,7 @@ describe("App's composer queue", () => {
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
 
+	// scry-ignore simple-test-setup: The starting conversation and its timestamp belong only to this startup-queue test.
 	it("pins startup-held messages in the thread above a shimmering Queued label until the first turn starts", async () => {
 		const first = {
 			...message("user", "Fix login"),
@@ -188,7 +189,7 @@ describe("App's composer queue", () => {
 					status: "running",
 					messages: [
 						message("user", "go"),
-						{ ...message("user", "[SPLATES UPDATE]"), queued: true },
+						{ ...message("user", "[SPLATES CHECKPOINT]"), queued: true },
 					],
 				}),
 			],
@@ -196,8 +197,8 @@ describe("App's composer queue", () => {
 		);
 
 		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).getByTitle("[SPLATES UPDATE]").textContent).toBe(
-			"Check in",
+		expect(within(queued).getByTitle("[SPLATES CHECKPOINT]").textContent).toBe(
+			"Checkpoint",
 		);
 	});
 

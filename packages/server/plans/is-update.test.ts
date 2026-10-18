@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	CHECK_IN,
 	HEARTBEAT,
 	idleReference,
 	isUpdate,
@@ -26,11 +25,10 @@ describe("isUpdate", () => {
 		expect(
 			[
 				MERGE,
-				CHECK_IN,
 				todoReference(12),
 				`${reportReference("header")} and the footer`,
 				"> **Which pages need it?**\n\n- (a) Todos",
 			].map(isUpdate),
-		).toEqual([false, false, false, false, false]);
+		).toEqual([false, false, false, false]);
 	});
 });

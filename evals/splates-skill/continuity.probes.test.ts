@@ -3,7 +3,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	CHECK_IN,
 	CHECKPOINT,
 	leadingDirectives,
 	RECONNECT,
@@ -16,26 +15,25 @@ import { type Adapter, runProbes, validate } from "./runner";
 describe("continuity aspect (free synthetic evidence, not model adherence)", () => {
 	it("registers valid independently discoverable cases and stable gaps", () => {
 		validate(module.probes);
-		expect(module.probes).toHaveLength(7);
+		expect(module.probes).toHaveLength(6);
 		expect(
 			module.probes.map((probe) =>
 				probe.assertions.some((item) => item.kind === "uncovered"),
 			),
-		).toEqual(Array(7).fill(true));
+		).toEqual(Array(6).fill(true));
 	});
 	it("pins production directive payloads separately from response conformance", () => {
-		expect([CHECKPOINT, RESUME, RECONNECT, CHECK_IN]).toEqual([
+		expect([CHECKPOINT, RESUME, RECONNECT]).toEqual([
 			"[SPLATES CHECKPOINT]",
 			"[SPLATES RESUME]",
 			"[SPLATES RECONNECT]",
-			"[SPLATES UPDATE]",
 		]);
 		expect(
-			[CHECKPOINT, RESUME, RECONNECT, CHECK_IN].map((directive) =>
+			[CHECKPOINT, RESUME, RECONNECT].map((directive) =>
 				leadingDirectives(`${directive}\n\nContinue.`),
 			),
 		).toEqual(
-			[CHECKPOINT, RESUME, RECONNECT, CHECK_IN].map((directive) => ({
+			[CHECKPOINT, RESUME, RECONNECT].map((directive) => ({
 				directives: [directive],
 				rest: "Continue.",
 			})),
@@ -119,18 +117,6 @@ describe("continuity aspect (free synthetic evidence, not model adherence)", () 
 			),
 		).toBe("uncovered");
 	});
-	it("never substitutes final reply, generic edit or seeded delivery for UPDATE ordering", () => {
-		const evidence: Partial<Evidence> = {
-			events: [{ ...write, name: "SPLATES.md" }, write],
-			reply: "- Updated notes.\n- Continuing.",
-			state: { "plan/changed": true, "file/result.txt": "ready\n" },
-		};
-		expect(grade("update", evidence).status).toBe("uncovered");
-		expect(verdict("update", evidence, "intermediate-reply-order")).toBe(
-			"uncovered",
-		);
-		expect(verdict("update", evidence, "mid-turn-delivery")).toBe("uncovered");
-	});
 	it("recognizes reports but rejects quoted, missing and false outcome fields", () => {
 		const reply =
 			"## 🛑 Removed continuity: moot\n\nThe task is no longer needed.";
@@ -176,13 +162,13 @@ describe("continuity aspect (free synthetic evidence, not model adherence)", () 
 				cliHash: "fixture",
 				reproduction: [],
 			});
-			expect(results).toHaveLength(7);
+			expect(results).toHaveLength(6);
 			expect(
 				results.map((result) => ({
 					termination: result.run.evidence.termination,
 					detail: result.run.evidence.detail,
 				})),
-			).toEqual(Array(7).fill({ termination: "stop", detail: undefined }));
+			).toEqual(Array(6).fill({ termination: "stop", detail: undefined }));
 			expect(
 				results.flatMap((result) => result.run.evidence.complete),
 			).not.toContain("events");

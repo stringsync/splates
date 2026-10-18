@@ -143,12 +143,6 @@ export const MERGE = "[SPLATES MERGE]";
 export const APPROVE = "[SPLATES APPROVE]";
 
 /**
- * What asks an agent long at work to say where its work stands and carry on,
- * as the page's Check in button sends: the splates skill says what it means.
- */
-export const CHECK_IN = "[SPLATES UPDATE]";
-
-/**
  * What asks an agent to make the request after it a todo rather than do it,
  * or, alone, to make the person's message before it one, with what it did on
  * it since, and stop, as the composer's Defer offers: the splates skill says
