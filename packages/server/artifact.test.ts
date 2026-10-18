@@ -6,7 +6,7 @@ import {
 	mimeTypeOf,
 	removeArtifact,
 } from "./artifact";
-import { conversationOf } from "./conversation-given";
+import { conversationOf } from "./conversations";
 import { Testing } from "./testing";
 
 describe("artifact", () => {

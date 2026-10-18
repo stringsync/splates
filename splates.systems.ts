@@ -13,7 +13,7 @@ export default {
 		description: "The agent conversations on the splates server page",
 		aliases: ["conversation view", "sidebar"],
 		globs: [
-			"packages/server/conversations*.ts",
+			"packages/server/conversations/**",
 			"packages/web/conversation*.ts*",
 			"packages/web/sidebar*.tsx",
 			"packages/web/work*.ts*",

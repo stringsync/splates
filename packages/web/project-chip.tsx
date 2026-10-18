@@ -1,4 +1,4 @@
-import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
+import type { ProjectRef } from "@stringsync/splates-server/conversations";
 import { FolderGit2Icon } from "lucide-react";
 import type { JSX } from "react";
 import {

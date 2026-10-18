@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Setting } from "./conversation-state";
+import type { Setting } from "./conversations";
 import { effortSettings, pickEffort } from "./effort";
 
 const EFFORT: Setting = {

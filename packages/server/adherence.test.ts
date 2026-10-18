@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Adherence, condense } from "./adherence";
-import type { ConversationState } from "./conversation-state";
+import type { ConversationState } from "./conversations";
 import { conversation, message, tool } from "./fixtures";
 import { type Outcome, Outcomes } from "./outcomes";
 

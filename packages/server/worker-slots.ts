@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
-import type { ConversationSlots } from "./conversation-host";
+import type { ConversationSlots } from "./conversations";
 import type { RemoteWorker } from "./remote-worker";
 import {
 	type Platform,

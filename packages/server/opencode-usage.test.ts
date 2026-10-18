@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
-import { ConversationLog } from "./conversation-log";
-import { blank } from "./conversation-state";
+import { blank, ConversationLog } from "./conversations";
 import { fold, tally } from "./fold";
 import {
 	finishObservation,

@@ -1,5 +1,5 @@
-import { paused } from "@stringsync/splates-server/conversation-messages";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { paused } from "@stringsync/splates-server/conversations/browser";
 import {
 	DEFER,
 	handoffToReference,

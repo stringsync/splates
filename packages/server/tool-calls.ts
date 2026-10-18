@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { ConversationState, Edit, Tool } from "./conversation-state";
+import type { ConversationState, Edit, Tool } from "./conversations";
 
 /** How much of a tool call's output, and of each side of an edit, is kept. */
 export const TOOL_CHARS = 20_000;

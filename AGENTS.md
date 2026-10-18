@@ -23,6 +23,39 @@ release tag with `bunx skills add`.
 worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `SPLATES_ROOT="$(splates path)" splates merge`.
 
+## Module directories
+
+`packages/server/` is moving from flat files into one directory per system
+in `splates.systems.ts`, as webappwiz lays out its packages.
+`packages/server/conversations/` is the one to copy:
+
+- Files drop the directory's prefix: `conversation-state.ts` became
+  `conversations/state.ts`, its test `conversations/state.test.ts`; the
+  module named for the directory keeps its name (`conversations.ts` became
+  `conversations/conversations.ts`). Fakes and fixtures for other modules'
+  tests go in `testing.ts` (`conversation-testing.ts`).
+- `index.ts` is the directory's surface and holds nothing but re-exports, by
+  name (`export { nameOf } from "./name"`, no `export *`), of everything used
+  from outside the directory. Outside it, import `./conversations` or, in a
+  test, `./conversations/testing`, never a file inside it. Inside it, import
+  a sibling directly (`./state`), never `./index`, and the rest of the
+  package as `../x`. A test inside it may import `./index`, the surface it
+  tests.
+- The page bundles for the browser, and an index that brings in agent
+  processes or `bun:` modules breaks that build. When the page needs values
+  from such a directory, put those in `browser.ts`, re-exported from
+  browser-safe files only, and have the page import its values from
+  `@stringsync/splates-server/<dir>/browser`; `import type` from the index
+  is erased and stays fine. Check with a browser `Bun.build` of `packages/web/main.tsx`.
+- In `packages/server/package.json`, one `exports` entry per directory,
+  `"./<dir>": "./<dir>/index.ts"`, replacing the entries of the files it took
+  in, plus `"./<dir>/browser"` or `"./<dir>/testing"` only when another
+  package imports it. Releases bundle each entry, so no `"./*"` wildcard.
+- Point the system's glob in `splates.systems.ts` at
+  `packages/server/<dir>/**`.
+- A move rebases every open task that edits the files it takes in, so check
+  `splates list --files` and land between those tasks.
+
 Only run `splates dev eval` when the user asks you to, since it uses tokens the
 user pays for: billed to an API key, or counted against their Claude plan's
 usage limits (see `evals/splates-skill/README.md`).

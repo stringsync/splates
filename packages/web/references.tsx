@@ -1,6 +1,6 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
-import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
-import { nameOf } from "@stringsync/splates-server/conversation-name";
+import type { ProjectRef } from "@stringsync/splates-server/conversations";
+import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import {
 	APPROVE,
 	CHECK_IN,

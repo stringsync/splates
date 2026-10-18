@@ -3,12 +3,12 @@ import {
 	type Report,
 	stretches,
 } from "@stringsync/splates-server/asked";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	lanesOf,
 	nameOf,
 	realName,
-} from "@stringsync/splates-server/conversation-name";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
+} from "@stringsync/splates-server/conversations/browser";
 import type { LaneRecord } from "@stringsync/splates-server/lanes";
 import { createContext, use } from "react";
 

@@ -1,5 +1,5 @@
-import { nameOf } from "@stringsync/splates-server/conversation-name";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import type { LaneRecord } from "@stringsync/splates-server/lanes";
 import { goalLine } from "@stringsync/splates-server/plan";
 import type { Details } from "@stringsync/splates-server/show";

@@ -1,8 +1,8 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { realName } from "./conversation-name";
 import type { After, Conversation, ConversationState } from "./conversations";
+import { realName } from "./conversations";
 import { type Project, type Served, waitingOn } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
 import type { Terminals } from "./dev-terminal";

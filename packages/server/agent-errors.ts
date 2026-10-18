@@ -1,4 +1,4 @@
-import { messageOf } from "./conversation-messages";
+import { messageOf } from "./conversations";
 
 /** Redacts common credential-bearing diagnostics before persistence or display. */
 export function agentError(message: string): string {

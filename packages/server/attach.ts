@@ -2,7 +2,7 @@ import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { readFiles } from "./attachments";
-import { conversationOf } from "./conversation-given";
+import { conversationOf } from "./conversations";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import type { WorktreeService } from "./worktree-service";

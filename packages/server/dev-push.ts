@@ -9,7 +9,7 @@ import {
 import type { Fs, Ps } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
-import { nameOf } from "./conversation-name";
+import { nameOf } from "./conversations";
 import { body } from "./dev-http";
 import type { Handler, Served } from "./dev-project";
 import { fail } from "./exit";

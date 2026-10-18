@@ -1,5 +1,5 @@
-import { paused } from "./conversation-messages";
 import type { Conversation, Conversations } from "./conversations";
+import { paused } from "./conversations";
 import type { Served } from "./dev-project";
 import type { Projects } from "./projects";
 import { RESUME } from "./prompts";

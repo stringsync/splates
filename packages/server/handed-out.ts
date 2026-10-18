@@ -9,10 +9,8 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { type Stretch, stretches } from "./asked";
-import { lanesOf, startedLanes } from "./conversation-name";
-import type { Message } from "./conversation-state";
-import { HEARTBEAT_IDLE } from "./conversation-state";
-import type { Conversation, Conversations } from "./conversations";
+import type { Conversation, Conversations, Message } from "./conversations";
+import { HEARTBEAT_IDLE, lanesOf, startedLanes } from "./conversations";
 import { Everywhere } from "./everywhere";
 import {
 	type LaneTodoChange,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
-import { type ConversationState, unused } from "./conversation-state";
+import { type ConversationState, unused } from "./conversations";
 import { fold } from "./fold";
 
 describe("fold", () => {

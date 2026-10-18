@@ -1,5 +1,5 @@
 import { viewerOf } from "./artifact-viewers";
-import type { Conversation } from "./conversation";
+import type { Conversation } from "./conversations";
 import { fileResponse, refuse } from "./dev-http";
 import { fail } from "./exit";
 

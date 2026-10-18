@@ -1,6 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import type { Conversation } from "./conversation";
-import type { Setting } from "./conversations";
+import type { Conversation, Setting } from "./conversations";
 
 /** The file's own format. */
 const FORMAT = 1;

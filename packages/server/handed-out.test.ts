@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { add } from "./add";
-import { HEARTBEAT_IDLE } from "./conversation-state";
-import { type Conversation, Conversations } from "./conversations";
+import {
+	type Conversation,
+	Conversations,
+	HEARTBEAT_IDLE,
+} from "./conversations";
 import { Everywhere } from "./everywhere";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";

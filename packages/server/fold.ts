@@ -15,7 +15,7 @@ import type {
 	Part,
 	Setting,
 	Tool,
-} from "./conversation-state";
+} from "./conversations";
 import { metric, observeTokens, safeOpenCodeUpdate } from "./opencode-usage";
 import { fill, parentOf, toolIn } from "./tool-calls";
 

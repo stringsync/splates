@@ -1,5 +1,5 @@
 import type { Config } from "./config";
-import type { PlacedCheckouts } from "./conversation-host";
+import type { PlacedCheckouts } from "./conversations";
 import { materialize } from "./materialize";
 import type { TaskBranches } from "./task-branches";
 import type { WorkerMachine } from "./worker-machine";

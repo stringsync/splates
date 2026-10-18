@@ -1,6 +1,6 @@
 import "./testing-dom";
 import { afterEach, describe, expect, it } from "bun:test";
-import { blank } from "@stringsync/splates-server/conversation-state";
+import { blank } from "@stringsync/splates-server/conversations/browser";
 import { cleanup, fireEvent, render, waitFor } from "./testing";
 import { ContextMeter, OpenCodeReport } from "./usage";
 

@@ -1,7 +1,9 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
-import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
-import { nameOf } from "@stringsync/splates-server/conversation-name";
-import type { Command } from "@stringsync/splates-server/conversations";
+import type {
+	Command,
+	ProjectRef,
+} from "@stringsync/splates-server/conversations";
+import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import type { Details } from "@stringsync/splates-server/show";
 import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useContext, useEffect, useMemo, useState } from "react";

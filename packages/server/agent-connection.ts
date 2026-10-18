@@ -25,10 +25,15 @@ import type {
 	ProcessHandle,
 } from "./agent-process";
 import { AgentStream } from "./agent-stream";
-import type { ConversationDeps, ConversationHost } from "./conversation-host";
-import { type Live, LOG_FORMAT } from "./conversation-log";
-import { said } from "./conversation-messages";
-import type { Answer, Asked, Decision, Setting } from "./conversation-state";
+import type {
+	Answer,
+	Asked,
+	ConversationDeps,
+	ConversationHost,
+	Decision,
+	Setting,
+} from "./conversations";
+import { type Live, LOG_FORMAT, said } from "./conversations";
 import { fail } from "./exit";
 import {
 	configValue,

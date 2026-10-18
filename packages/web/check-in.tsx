@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversation-state";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { CHECK_IN } from "@stringsync/splates-server/prompts";
 import { createContext, type JSX, useContext } from "react";
 import { Duration } from "webappwiz/time";

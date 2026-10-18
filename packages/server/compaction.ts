@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Compaction, ConversationState } from "./conversation-state";
+import type { Compaction, ConversationState } from "./conversations";
 
 /**
  * What Claude's adapter says of a compaction to a client without ACP's

@@ -1,5 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import type { ConversationState } from "./conversation-state";
+import type { ConversationState } from "./conversations";
 import type { Outcomes } from "./outcomes";
 import {
 	type Beat,

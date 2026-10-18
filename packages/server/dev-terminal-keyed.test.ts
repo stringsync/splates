@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { eventually } from "./conversation-testing";
+import { eventually } from "./conversations/testing";
 import { CoordinatorState } from "./coordinator-state";
 import { terminal } from "./dev-terminal-testing";
 import { json } from "./dev-testing";

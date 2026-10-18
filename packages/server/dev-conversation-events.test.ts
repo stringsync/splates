@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { eventually } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
+import { eventually } from "./conversations/testing";
 import { ConversationEvents } from "./dev-conversation-events";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { Testing } from "./testing";

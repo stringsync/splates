@@ -9,7 +9,7 @@ import {
 	applyArtifact,
 	artifactLimits,
 } from "./artifacts";
-import { ConversationLog } from "./conversation-log";
+import { ConversationLog } from "./conversations";
 import { EXIT, fail, type Reason } from "./exit";
 import type { WorktreeService } from "./worktree-service";
 

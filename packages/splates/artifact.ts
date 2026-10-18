@@ -5,7 +5,7 @@ import {
 	removeArtifact,
 } from "@stringsync/splates-server/artifact";
 import { commaList } from "@stringsync/splates-server/comma-list";
-import { conversationOf } from "@stringsync/splates-server/conversation-given";
+import { conversationOf } from "@stringsync/splates-server/conversations";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/repository";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";

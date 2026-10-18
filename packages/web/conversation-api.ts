@@ -4,7 +4,6 @@
  * settings, and renaming, marking and archiving them.
  */
 
-import { FROM_HEADER } from "@stringsync/splates-server/conversation-state";
 import type {
 	Answer,
 	Attached,
@@ -12,6 +11,7 @@ import type {
 	Image,
 	Session,
 } from "@stringsync/splates-server/conversations";
+import { FROM_HEADER } from "@stringsync/splates-server/conversations/browser";
 import { scoped, send, sendJson } from "./api";
 import { WIDE } from "./app-nav";
 

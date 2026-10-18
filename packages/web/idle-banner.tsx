@@ -1,5 +1,5 @@
-import { IDLE_STOP } from "@stringsync/splates-server/conversation-state";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { IDLE_STOP } from "@stringsync/splates-server/conversations/browser";
 import { MoonIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";

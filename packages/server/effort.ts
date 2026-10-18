@@ -1,4 +1,4 @@
-import type { Setting } from "./conversation-state";
+import type { Setting } from "./conversations";
 import { fail } from "./exit";
 
 /** The setting a thinking level goes in, as ACP names its category. */

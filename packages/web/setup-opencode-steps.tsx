@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates-server/conversation-state";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

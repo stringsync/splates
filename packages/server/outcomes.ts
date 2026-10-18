@@ -1,5 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import type { Device } from "./conversation-state";
+import type { Device } from "./conversations";
 import type { Finding } from "./findings";
 import type { Decision } from "./plan";
 import { type TaskUsage, taskLog } from "./task-log";
