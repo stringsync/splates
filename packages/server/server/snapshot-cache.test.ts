@@ -1,14 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { dirname } from "node:path";
+import { FakeFs } from "webappwiz/system/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { eventually, post, serving, todoForm } from "./testing";
 
 describe("a project's kept snapshot", () => {
 	let deps: Testing;
+	let changes: FakeFs;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
 		await add(deps, "alpha");
+		// Keep real git reads, but deliver changes synchronously: native watch
+		// startup and event coalescing are covered by watching.test.ts.
+		changes = new FakeFs();
+		await changes.mkdir(`${dirname(deps.splatesDir)}/refs`);
+		await changes.mkdir(`${deps.splatesDir}/tasks`);
+		await changes.mkdir(`${deps.splatesDir}/todos`);
+		await changes.mkdir((await deps.service.find("alpha")).path);
+		deps.fs.watch = changes.watch.bind(changes);
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -23,9 +34,6 @@ describe("a project's kept snapshot", () => {
 		};
 
 		await serving(deps, async (snapshot) => {
-			// A watch can still hear of the add made before it began: let that
-			// settle into one read first.
-			await Bun.sleep(300);
 			await snapshot();
 			const before = reads;
 
@@ -41,13 +49,11 @@ describe("a project's kept snapshot", () => {
 			await snapshot();
 
 			await deps.todos.add("later", null);
+			await changes.write(`${deps.splatesDir}/todos/changed`, "");
 
-			expect(
-				await eventually(
-					async () => (await snapshot()).todos.length === 1,
-					5_000,
-				),
-			).toBe(true);
+			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+				"later",
+			]);
 		});
 	}, 15_000);
 
@@ -57,18 +63,13 @@ describe("a project's kept snapshot", () => {
 		await serving(deps, async (snapshot) => {
 			await snapshot();
 
-			// A watch just opened can still be starting, under load, when the first
-			// write lands, and miss it: write on each look until one is heard.
-			const write = () =>
-				deps.fs.write(`${tree}/SPLATES.md`, "# alpha\n\n## Goal\n\nmoved\n");
-			await write();
+			await deps.fs.write(
+				`${tree}/SPLATES.md`,
+				"# alpha\n\n## Goal\n\nmoved\n",
+			);
+			await changes.write(`${tree}/SPLATES.md`, "");
 
-			expect(
-				await eventually(async () => {
-					await write();
-					return ((await snapshot()).tasks[0]?.plan ?? "").includes("moved");
-				}, 5_000),
-			).toBe(true);
+			expect((await snapshot()).tasks[0]?.plan).toContain("moved");
 		});
 	}, 15_000);
 
@@ -79,6 +80,7 @@ describe("a project's kept snapshot", () => {
 			const before = (await snapshot()).tasks[0]?.added ?? 0;
 
 			await deps.fs.write(`${tree}/new.txt`, "one\ntwo\n");
+			await changes.write(`${tree}/new.txt`, "");
 
 			expect(
 				await eventually(
@@ -91,7 +93,6 @@ describe("a project's kept snapshot", () => {
 
 	it("answers a board write without asking git of its tasks again", async () => {
 		await serving(deps, async (snapshot, port) => {
-			await Bun.sleep(300);
 			await snapshot();
 			let asked = 0;
 			const list = deps.service.list.bind(deps.service);

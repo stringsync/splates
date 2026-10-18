@@ -3,7 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
-import { eventually } from "../conversations/testing";
+import { eventually, until } from "../conversations/testing";
 import { CHECKPOINT, RESUME } from "../plans";
 import { Testing } from "../testing";
 import { type DevServer, dev } from "./server";
@@ -164,13 +164,16 @@ describe("dev restart", () => {
 
 	it("restarts or shuts down at once with no checkpoint, though an agent is at work, and reopens nothing after", async () => {
 		const said: string[] = [];
+		const received = Promise.withResolvers<void>();
 		agent.turn = (_, __, text) => {
 			said.push(text);
+			received.resolve();
 			return new Promise(() => {});
 		};
 		const conversation = await start();
-		void conversation.prompt("work");
-		await eventually(() => conversation.state.status === "running", 5);
+		await conversation.prompt("work");
+		// Running is recorded before the prompt reaches the agent.
+		await received.promise;
 
 		const restarted = await json(server.port, "/api/power", "POST", {
 			shutdown: false,
@@ -195,22 +198,23 @@ describe("dev restart", () => {
 	});
 
 	it("restarts at once with every agent idle, refused while one is at work, and reopens nothing after", async () => {
-		let finish = () => {};
-		agent.turn = () =>
-			new Promise((resolve) => {
-				finish = () => resolve("end_turn");
-			});
+		const received = Promise.withResolvers<void>();
+		const finished = Promise.withResolvers<"end_turn">();
+		agent.turn = () => {
+			received.resolve();
+			return finished.promise;
+		};
 		const conversation = await start();
-		void conversation.prompt("work");
-		await eventually(() => conversation.state.status === "running", 5);
+		await conversation.prompt("work");
+		await received.promise;
 
 		const refused = await json(server.port, "/api/restart", "POST");
 
 		expect(refused.status).toBe(400);
 		expect(await refused.json()).toMatchObject({ reason: "usage" });
 
-		finish();
-		await eventually(() => conversation.state.status === "idle", 5);
+		finished.resolve("end_turn");
+		await until(conversation, "idle");
 
 		const restarted = await json(server.port, "/api/restart", "POST");
 
