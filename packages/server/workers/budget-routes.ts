@@ -22,6 +22,8 @@ export interface WorkerBudgetReport {
 	holding: string | null;
 	/** What one click raises to start a worker for the held queue, and what it buys; null when nothing is held. */
 	offer: RaiseOffer | null;
+	/** Whether the user has set a limit, or confirmed the defaults. */
+	reviewed: boolean;
 }
 
 /** What `PUT /api/worker-budget/:limit` is sent: dollars, or null for the default. */
@@ -150,5 +152,6 @@ export function workerBudgetReport(
 		stopped: budget.stopped(),
 		holding: scheduler.withheldReason(),
 		offer: scheduler.withheldReason() === null ? null : offer,
+		reviewed: budget.reviewed,
 	};
 }

@@ -383,6 +383,7 @@ export async function dev(
 			slug === ""
 				? await projects.focused()
 				: (await projects.list()).find((each) => each.slug === slug);
+		const budget = workers.provisioning?.budget;
 		return new Setup(
 			{
 				fs,
@@ -397,6 +398,16 @@ export async function dev(
 							.list()
 							.then((response) => response.json())) as WorkerPool
 					).workers,
+				workerBudget:
+					budget === undefined
+						? undefined
+						: {
+								report: async () => ({
+									standing: budget.standing(),
+									reviewed: budget.reviewed,
+								}),
+								set: (limit, amount) => budget.set(limit, amount),
+							},
 				project:
 					project == null
 						? undefined

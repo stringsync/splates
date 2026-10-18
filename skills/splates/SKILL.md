@@ -394,7 +394,10 @@ machine, that is the Workers setup area: `local-worker` (`splates worker add
 may mint a worker's Access service token, **Account · Access: Service Tokens ·
 Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
 for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --coordinator <url> --join <token>` on the other machine). Walk them
+worker run --coordinator <url> --join <token>` on the other machine), and, only
+when `splates.config.ts` names a `workerProvider`, `worker-budget` (what made
+workers may cost: `splates budget set <hour|day|month> <dollars>`; any set counts
+as the user having seen it). Walk them
 through it as [references/setup.md](references/setup.md) says. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 

@@ -3,7 +3,11 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";
-import type { WorkerListing } from "../workers";
+import type {
+	WorkerBudgetReport,
+	WorkerLimit,
+	WorkerListing,
+} from "../workers";
 import type { OpenCodeSetup } from "./opencode";
 import { StepProblem } from "./step-problem";
 
@@ -106,6 +110,9 @@ export class Setup {
 		for (const area of this.#areas) {
 			const steps: StepProgress[] = [];
 			for (const step of area.steps) {
+				if (!(await listed(step, this.#machine))) {
+					continue;
+				}
 				const { done, problem } = await checked(step, this.#machine);
 				// Prerequisites come earlier on the roster, so each is settled here.
 				const before = step.after.map((each) => statuses.get(each));
@@ -131,6 +138,8 @@ export class Setup {
 						step.fields?.find((field) => field.kind === "cred")?.name ?? null,
 					fields: await fieldsOf(step, this.#machine),
 					doing: step.doing ?? null,
+					detail:
+						(await step.detail?.(this.#machine).catch(() => null)) ?? null,
 				});
 			}
 			areas.push({
@@ -235,6 +244,15 @@ export interface SetupMachine {
 	project?: SetupProject;
 	/** The workers `splates server` lists, for the steps that read the pool; none with no server to ask. */
 	workers?(): Promise<readonly SetupWorker[]>;
+	/** The worker budget of the `splates server`, for the steps that read it; none with no server to ask. */
+	workerBudget?: SetupWorkerBudget;
+}
+
+/** The worker budget as a step reads and sets it. */
+export interface SetupWorkerBudget {
+	report(): Promise<Pick<WorkerBudgetReport, "standing" | "reviewed">>;
+	/** Sets `limit` to `dollars`; null gives it back to its default. */
+	set(limit: WorkerLimit, dollars: number | null): Promise<void>;
 }
 
 /** A worker as a step reads it, from `GET /api/workers`. */
@@ -247,7 +265,7 @@ export type SetupWorker = Pick<
 export interface SetupProject {
 	readonly root: string;
 	/** Its `splates.config.ts`, as it stands now. */
-	config(): Promise<Pick<Config, "trunk" | "remote">>;
+	config(): Promise<Pick<Config, "trunk" | "remote" | "workerProvider">>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;
 }
@@ -273,6 +291,10 @@ export interface SetupStep {
 	readonly after: readonly SetupStep[];
 	/** Whether it is done, from real state. */
 	check(machine: SetupMachine): Promise<boolean>;
+	/** Whether the roster lists it at all on this machine; always when absent. */
+	shown?(machine: SetupMachine): Promise<boolean>;
+	/** Markdown on this machine's own state for the step, as what a choice costs; none when absent. */
+	detail?(machine: SetupMachine): Promise<string | null>;
 	/**
 	 * What its page asks, in order; none when the user does the step
 	 * outside the page, as signing in on a phone, and Next only checks.
@@ -374,6 +396,8 @@ export interface StepProgress {
 	fields: FieldProgress[];
 	/** A line on what its Next runs, or null. */
 	doing: string | null;
+	/** Markdown on this machine's state for it, or null. */
+	detail: string | null;
 }
 
 export interface AreaProgress {
@@ -443,6 +467,14 @@ async function fieldsOf(
 		}
 	}
 	return fields;
+}
+
+/** Whether `step` is on the roster for this machine; a throw reading that hides it. */
+async function listed(
+	step: SetupStep,
+	machine: SetupMachine,
+): Promise<boolean> {
+	return (await step.shown?.(machine).catch(() => false)) ?? true;
 }
 
 /** A step's check, a throw turned into the problem it reports. */

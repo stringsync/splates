@@ -11,7 +11,11 @@ import {
 	type StepStatus,
 	setupProjectAt,
 } from "@stringsync/splates-server/setup";
-import { fetchWorkers } from "@stringsync/splates-server/workers";
+import {
+	fetchWorkerBudget,
+	fetchWorkers,
+	putWorkerLimit,
+} from "@stringsync/splates-server/workers";
 import type { Logger } from "webappwiz/log";
 import { color } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
@@ -83,6 +87,18 @@ export async function setupOf(deps: SplatesDeps): Promise<Setup> {
 			workers: deps.ps.env("SPLATES_DEV")
 				? () => fetchWorkers({ dev: "", log: deps.log, ps: deps.ps })
 				: undefined,
+			workerBudget: deps.ps.env("SPLATES_DEV")
+				? {
+						report: () =>
+							fetchWorkerBudget({ dev: "", log: deps.log, ps: deps.ps }),
+						set: (limit, dollars) =>
+							putWorkerLimit(limit, dollars, {
+								dev: "",
+								log: deps.log,
+								ps: deps.ps,
+							}),
+					}
+				: undefined,
 			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
 		},
 		SETUP_AREAS,
@@ -142,6 +158,9 @@ function printStep(log: Logger, step: StepProgress): void {
 		`${color.bold(step.title)}  ${color.dim(`${step.status}${step.optional ? ", optional" : ""}`)}`,
 	);
 	log.info(step.why);
+	if (step.detail !== null) {
+		log.info(step.detail);
+	}
 	log.info(`you:    ${step.user}`);
 	log.info(`agent:  ${step.agent}`);
 	if (step.after.length > 0) {

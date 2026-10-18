@@ -42,6 +42,7 @@ const Report = z.object({
 	rate: z.number(),
 	stopped: z.string().nullable(),
 	holding: z.string().nullable(),
+	reviewed: z.boolean(),
 });
 
 /** `splates budget show`: where the worker budget stands. */
@@ -106,6 +107,26 @@ export async function endBudgetRaise(
 			opts,
 		),
 		opts,
+	);
+}
+
+/** Where the worker budget stands, asked of the running `splates server`. */
+export async function fetchWorkerBudget(
+	opts: Omit<BudgetCommandOptions, "json">,
+): Promise<WorkerBudgetReport> {
+	return ask("/api/worker-budget", {}, { ...opts, json: false });
+}
+
+/** Sets `limit` on the running `splates server`; null gives it back to its default. */
+export async function putWorkerLimit(
+	limit: WorkerLimit,
+	dollars: number | null,
+	opts: Omit<BudgetCommandOptions, "json">,
+): Promise<void> {
+	await ask(
+		`/api/worker-budget/${limit}`,
+		{ method: "PUT", body: JSON.stringify({ dollars }) },
+		{ ...opts, json: false },
 	);
 }
 

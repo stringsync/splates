@@ -22,6 +22,8 @@ export {
 export type { BudgetCommandOptions } from "./budget-command";
 export {
 	endBudgetRaise,
+	fetchWorkerBudget,
+	putWorkerLimit,
 	raiseBudget,
 	setBudget,
 	showBudget,

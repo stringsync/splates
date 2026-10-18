@@ -78,5 +78,6 @@ function report(
 		stopped: null,
 		holding: null,
 		offer: null,
+		reviewed: false,
 	};
 }

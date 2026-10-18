@@ -7,9 +7,38 @@ import {
 	CloudflareTunnels,
 	SavedTunnel,
 } from "../tunnel";
+import {
+	DEFAULT_WORKER_LIMITS,
+	dollars,
+	WORKER_LIMITS,
+	type WorkerLimit,
+} from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
-import type { SetupArea, SetupMachine, SetupStep } from "./setup";
+import type {
+	SetupArea,
+	SetupMachine,
+	SetupStep,
+	SetupWorkerBudget,
+	StepField,
+} from "./setup";
+
+/** What each limit is asked as, in the order the budget lists them. */
+const LIMIT_FIELDS: readonly StepField[] = [
+	field("hour", "Most made workers running at once may cost, dollars an hour"),
+	field("day", "Most made workers may cost in a day, dollars"),
+	field("month", "Most made workers may cost in a month, dollars"),
+];
+
+function field(limit: WorkerLimit, label: string): StepField {
+	return {
+		kind: "text",
+		name: limit,
+		label,
+		placeholder: String(DEFAULT_WORKER_LIMITS[limit]),
+		optional: true,
+	};
+}
 
 /** Running agents on this Mac and on other machines, the pool `splates server` places them on. */
 export const WORKERS_AREA: SetupArea = workersArea();
@@ -96,10 +125,70 @@ function workersArea(): SetupArea {
 			"No other machine has joined yet: run `splates worker run --join <token>` on it, then press Next.",
 	};
 
+	const budgetStep: SetupStep = {
+		id: "worker-budget",
+		title: "Choose what made workers may cost",
+		why: "`workerProvider` makes workers when work waits and bills your cloud account for them, so splates holds them to a rate cap an hour and to limits on a day and a month. The defaults already hold; this is your chance to see and change them.",
+		user: "Set the most made workers may cost, in dollars, or leave a field empty to keep what it shows, then press Next.",
+		agent: `Show the user the three limits with \`splates budget show\` and the type's price from the step's detail, and ask what each should be. Run \`splates budget set <hour|day|month> <dollars>\` for each, or \`splates budget set <limit> default\` to keep the default (${WORKER_LIMITS.map((limit) => `${limit} ${dollars(DEFAULT_WORKER_LIMITS[limit])}`).join(", ")}). Any set counts as the user having seen the budget.`,
+		optional: true,
+		after: [],
+		shown: async (machine) =>
+			((await machine.project?.config())?.workerProvider ?? null) !== null,
+		detail: async (machine) => {
+			const provider = (await machine.project?.config())?.workerProvider;
+			const types = (await provider?.types()) ?? [];
+			const cheapest = types.toSorted(
+				(cheap, dear) => cheap.dollarsPerHour - dear.dollarsPerHour,
+			)[0];
+			return cheapest === undefined
+				? null
+				: `The cheapest worker is \`${cheapest.name}\`: ${cheapest.platform}, ${cheapest.slots} ${cheapest.slots === 1 ? "slot" : "slots"}, ${dollars(cheapest.dollarsPerHour)} an hour at list price.`;
+		},
+		fields: LIMIT_FIELDS,
+		submit: async (machine, answers) => {
+			const budget = budgetOf(machine);
+			const chosen = new Map<WorkerLimit, number>();
+			for (const field of LIMIT_FIELDS) {
+				const text = String(answers[field.name] ?? "")
+					.trim()
+					.replace(/^\$/, "");
+				if (text === "") {
+					continue;
+				}
+				const value = Number(text);
+				if (!(Number.isFinite(value) && value >= 0)) {
+					throw new Error(
+						`"${field.label}" should be dollars, like 5 or 0.25.`,
+					);
+				}
+				chosen.set(field.name as WorkerLimit, value);
+			}
+			const { standing } = await budget.report();
+			for (const each of standing) {
+				// Left empty, a limit keeps what it was, which still counts as chosen.
+				await budget.set(
+					each.limit,
+					chosen.get(each.limit) ??
+						(each.set ? each.dollars - each.raised : null),
+				);
+			}
+		},
+		check: async (machine) => (await budgetOf(machine).report()).reviewed,
+		notDone:
+			"The worker budget has not been looked at: choose its limits, then press Next.",
+	};
+
 	return {
 		id: "workers",
 		title: "Workers",
-		steps: [localStep, permissionStep, remoteStep, ...WORKER_KEY_STEPS],
+		steps: [
+			localStep,
+			permissionStep,
+			remoteStep,
+			...WORKER_KEY_STEPS,
+			budgetStep,
+		],
 	};
 }
 
@@ -111,4 +200,14 @@ async function pool(machine: SetupMachine) {
 		);
 	}
 	return machine.workers();
+}
+
+/** The server's worker budget, or a throw saying there is none to ask. */
+function budgetOf(machine: SetupMachine): SetupWorkerBudget {
+	if (machine.workerBudget === undefined) {
+		throw new Error(
+			"no `splates server` to ask about its worker budget: start one, or give --dev",
+		);
+	}
+	return machine.workerBudget;
 }

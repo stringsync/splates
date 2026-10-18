@@ -174,7 +174,15 @@ export class WorkerBudget {
 		return this.kept.raises.filter((raise) => raise.until > now);
 	}
 
-	/** Sets `limit` to `dollars`; null gives it back to its default. */
+	/** Whether the user has set a limit, or confirmed the defaults, as setup asks. */
+	get reviewed(): boolean {
+		return this.kept.reviewed;
+	}
+
+	/**
+	 * Sets `limit` to `dollars`; null gives it back to its default. Either
+	 * way the user has chosen, so the budget counts as reviewed.
+	 */
 	async set(limit: WorkerLimit, dollars: number | null): Promise<void> {
 		if (dollars !== null) {
 			checkDollars(dollars);
@@ -186,7 +194,7 @@ export class WorkerBudget {
 			} else {
 				limits[limit] = dollars;
 			}
-			return { ...kept, limits };
+			return { ...kept, limits, reviewed: true };
 		});
 	}
 
@@ -358,6 +366,8 @@ const Raise = z.object({
 export type WorkerRaise = z.infer<typeof Raise>;
 
 const Kept = z.object({
+	/** Whether the user has chosen the limits, rather than left the defaults unseen. */
+	reviewed: z.boolean().default(false),
 	/** The limits set over the defaults. */
 	limits: z
 		.object({

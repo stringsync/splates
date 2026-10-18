@@ -118,7 +118,12 @@ function Journey({
 		<StepForm
 			key={step.id}
 			title={step.title}
-			why={<Markdown text={step.why} inline />}
+			why={
+				<Markdown
+					text={step.detail === null ? step.why : `${step.why} ${step.detail}`}
+					inline
+				/>
+			}
 			at={at + 1}
 			of={journey.steps.length}
 			next={next}
