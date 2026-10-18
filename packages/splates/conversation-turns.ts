@@ -90,29 +90,18 @@ export class ConversationTurns {
 			...(dictated ? { dictated: true } : {}),
 			...(id === undefined ? {} : { id }),
 		};
-		// Save before waiting for startup: the session may never open before
-		// the server restarts. The durable queue then offers Send now / Edit.
+		// Save before waiting for startup or a resume: the session may never
+		// open before the server restarts. The durable queue then offers Send
+		// now / Edit.
 		if (state.status === "starting" && host.opening !== null) {
-			const opening = host.opening;
-			// Capabilities are not known yet; keep uploads as files and choose
-			// their wire representation once the agent has initialized.
-			const kept = await this.files.keep(files, false);
-			this.queue(words, kept, from, marks);
-			await host.log.flush();
-			await opening;
-			if (
-				(state.status as Status) === "idle" &&
-				state.messages.some((each) => each.queued)
-			) {
-				this.held = false;
-				this.send([], { first: true });
-			}
+			await this.queueUntilOpen(words, files, from, marks, host.opening);
 			return;
 		}
 		// Said to an archived one, it goes back on the list to carry on.
 		await host.unarchive();
 		if (state.status === "stopped" || state.status === "failed") {
-			await host.resume();
+			await this.queueUntilOpen(words, files, from, marks, () => host.resume());
+			return;
 		}
 		// Held while the agent starts, it finds a turn running only because a
 		// message said before it started one, which has yet to reach the agent:
@@ -201,6 +190,71 @@ export class ConversationTurns {
 		});
 		state.messages.push(message);
 		this.send([message]);
+	}
+
+	/**
+	 * Records the message as queued and flushes it, then waits for the session
+	 * to open (`opening`, or what starts it) and sends it first once the agent
+	 * is idle. A start that fails takes the message back out, so the refusal
+	 * the person sees is the whole story.
+	 */
+	private async queueUntilOpen(
+		words: string,
+		files: Upload[],
+		from: Device | undefined,
+		marks: Marks,
+		opening: Promise<void> | (() => Promise<void>),
+	): Promise<void> {
+		const { host } = this;
+		const { state } = host;
+		// Capabilities are not known yet; keep uploads as files and choose
+		// their wire representation once the agent has initialized.
+		const kept = await this.files.keep(files, false);
+		this.queue(words, kept, from, marks);
+		await host.log.flush();
+		const resuming = typeof opening === "function";
+		const retract = () => {
+			const index = state.messages.filter((each) => each.queued).length - 1;
+			if (takeBack(state.messages, index) !== null) {
+				host.log.write({ kind: "unqueue", index });
+				host.changed();
+			}
+		};
+		try {
+			await (resuming ? opening() : opening);
+		} catch (error) {
+			retract();
+			throw error;
+		}
+		// A resume that ended without an agent to hear it is refused, as a
+		// start that is still settling is not: that one keeps the queue.
+		if (
+			resuming &&
+			((state.status as Status) !== "idle" || !this.connection.connected)
+		) {
+			retract();
+			fail(
+				"usage",
+				`conversation ${state.id} is ${state.status}: wait for the agent, or cancel its turn`,
+				{ conversation: state.id },
+			);
+		}
+		// Said after a checkpoint ended, the work goes on past it; one that
+		// failed to come back keeps it, for the next resume to try again.
+		if (
+			words !== CHECKPOINT &&
+			state.checkpoint !== null &&
+			state.checkpoint !== "asked"
+		) {
+			this.mark(null);
+		}
+		if (
+			(state.status as Status) === "idle" &&
+			state.messages.some((each) => each.queued)
+		) {
+			this.held = false;
+			this.send([], { first: true });
+		}
 	}
 
 	/**
