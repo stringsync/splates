@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { Access, accessConfig } from "./dev-access";
-import { HostGate } from "./dev-http";
-import { Exit } from "./exit";
+import { HostGate } from "../dev-http";
+import { Exit } from "../exit";
+import { Access, accessConfig } from "./access";
 
 const config = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };
 const NOW = Date.UTC(2026, 9, 14);

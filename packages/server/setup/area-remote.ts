@@ -1,14 +1,16 @@
 import { Credentials } from "webappwiz/creds";
 import { MemoryLogger } from "webappwiz/log";
-import { portsHostFlag, SavedPortsHost } from "../saved-ports-host";
-import { SavedTunnel, type TunnelRecord } from "../saved-tunnel";
 import {
 	API_TOKEN,
+	portsHostFlag,
+	SavedPortsHost,
+	SavedTunnel,
 	TOKEN_PERMISSIONS,
 	TOKENS_PAGE,
+	type TunnelRecord,
 	tokenInstructions,
 	tunnelSetup,
-} from "../tunnel-setup";
+} from "../tunnel";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
 /** Reaching `splates server` from a phone or another computer, behind Access. */

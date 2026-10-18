@@ -2,7 +2,6 @@
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { SYSTEM_STORES } from "./creds";
-import { Access } from "./dev-access";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import type { DevOptions } from "./dev-options";
 import { Pages } from "./dev-pages";
@@ -21,7 +20,6 @@ import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { StateRoutes } from "./dev-state";
 import { claimedFirst, DevTaskPorts, portOwnersOf } from "./dev-task-ports";
 import { Terminals } from "./dev-terminal";
-import { startTunnel } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
 import { Dictations, transcriberFor } from "./dictate";
@@ -42,6 +40,7 @@ import {
 	setupProjectAt,
 } from "./setup";
 import { DevOutcomes } from "./stats";
+import { Access, startTunnel } from "./tunnel";
 import {
 	alertNotice,
 	LocalWorkerMachine,

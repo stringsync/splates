@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
-import { savedTunnelConfig } from "./dev-tunnel";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
+import { CloudflaredTunnelProvider } from "./cloudflared";
+import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { savedTunnelConfig } from "./tunnel";
 
 const ps = new FakePs();
 const access = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };

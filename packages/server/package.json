@@ -71,7 +71,6 @@
 		"./workers": "./workers/index.ts",
 		"./workers/browser": "./workers/browser.ts",
 		"./runtime-deps": "./runtime-deps.ts",
-		"./saved-tunnel": "./saved-tunnel.ts",
 		"./setup": "./setup/index.ts",
 		"./slots": "./slots.ts",
 		"./start-settings": "./start-settings.ts",
@@ -80,9 +79,8 @@
 		"./stats/browser": "./stats/browser.ts",
 		"./supervise": "./supervise.ts",
 		"./testing": "./testing.ts",
-		"./tunnel-provider": "./tunnel-provider.ts",
-		"./tunnel-remove": "./tunnel-remove.ts",
-		"./tunnel-setup": "./tunnel-setup.ts",
+		"./tunnel": "./tunnel/index.ts",
+		"./tunnel-provider": "./tunnel/index.ts",
 		"./update": "./update.ts"
 	},
 	"scripts": {

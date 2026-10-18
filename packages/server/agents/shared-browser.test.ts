@@ -3,7 +3,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
-import { GUARD } from "../cloudflared-tunnel-provider";
+import { GUARD } from "../tunnel";
 import { IDLE, PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 import { FREE, served } from "./testing";
 

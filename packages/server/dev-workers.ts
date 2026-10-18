@@ -9,7 +9,7 @@ import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
 import type { HeldSlot } from "./scheduler";
 import type { WorkerMachines } from "./tasks";
-import { API_TOKEN } from "./tunnel-setup";
+import { API_TOKEN } from "./tunnel";
 import type {
 	RemoteWorker,
 	ServiceToken,

@@ -1,8 +1,7 @@
 import { SYSTEM_STORES } from "./creds";
 import { Roster, type RosterAgent, splatesHome } from "./models";
 import type { SplatesDeps } from "./runtime-deps";
-import { SavedPortsHost } from "./saved-ports-host";
-import { SavedTunnel } from "./saved-tunnel";
+import { SavedPortsHost, SavedTunnel } from "./tunnel";
 
 /** The roster saved for this machine. */
 export function rosterOf({ ps, fs }: SplatesDeps): Roster {

@@ -3,7 +3,7 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Child, Fs, HeavyCap, Ps } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
-import { GUARD } from "../cloudflared-tunnel-provider";
+import { GUARD } from "../tunnel";
 
 /** Pinned, so the browser it installs is the one it launches. */
 export const PLAYWRIGHT_MCP = "@playwright/mcp@0.0.83";

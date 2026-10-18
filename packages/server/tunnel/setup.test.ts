@@ -3,11 +3,11 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
-import { Creds } from "./creds";
-import { Exit } from "./exit";
-import { FakeCloudflare } from "./fake-cloudflare";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
-import { API_TOKEN, tunnelSetup } from "./tunnel-setup";
+import { Creds } from "../creds";
+import { Exit } from "../exit";
+import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { API_TOKEN, tunnelSetup } from "./setup";
+import { FakeCloudflare } from "./testing";
 
 describe("tunnelSetup", () => {
 	it("makes the tunnel, its route and its Access application, and saves them", async () => {

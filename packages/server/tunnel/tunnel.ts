@@ -1,11 +1,11 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
-import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
-import { type AccessConfig, accessConfig } from "./dev-access";
-import { fail } from "./exit";
-import type { SavedTunnel } from "./saved-tunnel";
-import type { TunnelProvider } from "./tunnel-provider";
+import { fail } from "../exit";
+import { type AccessConfig, accessConfig } from "./access";
+import { CloudflaredTunnelProvider } from "./cloudflared";
+import type { TunnelProvider } from "./provider";
+import type { SavedTunnel } from "./saved";
 
 /** The tunnel `splates server` runs to reach the page from elsewhere. */
 export interface TunnelConfig {

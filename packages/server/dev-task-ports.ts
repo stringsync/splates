@@ -1,13 +1,13 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { type Clock, Duration, SystemClock } from "webappwiz/time";
-import { ACCESS_COOKIE, ACCESS_HEADER, type Access } from "./dev-access";
 import { hostname, LOOPBACK, refuse } from "./dev-http";
 import { PortSocket } from "./dev-port-socket";
 import type { Served } from "./dev-project";
 import type { Connection } from "./dev-sockets";
 import { PortForward } from "./port-forward";
 import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
+import { ACCESS_COOKIE, ACCESS_HEADER, type Access } from "./tunnel";
 import type { RemoteWorker } from "./workers";
 
 /** One task port, with where to open it. */

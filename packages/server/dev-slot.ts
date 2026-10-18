@@ -6,9 +6,9 @@ import { splatesHome } from "./models";
 import { Projects } from "./projects";
 import { openRepository } from "./records";
 import type { SplatesDeps } from "./runtime-deps";
-import { SavedTunnel } from "./saved-tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
+import { SavedTunnel } from "./tunnel";
 
 /** How `splates server --slot` starts its server: with what added. */
 export interface SlotStart {

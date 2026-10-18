@@ -5,16 +5,15 @@ import type { Config } from "./config";
 import type { Conversations } from "./conversations";
 import type { CoordinatorState } from "./coordinator-state";
 import type { Creds } from "./creds";
-import type { AccessConfig } from "./dev-access";
 import type { Project } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
-import type { TunnelConfig } from "./dev-tunnel";
 import type { DevWorkers } from "./dev-workers";
 import type { TranscriberFor } from "./dictate";
 import type { Git } from "./git";
 import type { MachineSensors } from "./machine";
 import type { Slot } from "./slots";
 import type { WorktreeService } from "./tasks";
+import type { AccessConfig, TunnelConfig } from "./tunnel";
 import type { WorkerMachine } from "./workers";
 
 /** What `dev` lets a caller choose. */

@@ -5,10 +5,10 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { ACCESS_HEADER } from "./dev-access";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { DevTaskPorts } from "./dev-task-ports";
-import { FakeAccess } from "./fake-access";
+import { ACCESS_HEADER } from "./tunnel";
+import { FakeAccess } from "./tunnel/testing";
 import type { RemoteWorker } from "./workers";
 import {
 	UnixWorkerListener,

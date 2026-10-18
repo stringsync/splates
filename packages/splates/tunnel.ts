@@ -1,11 +1,11 @@
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { savedTunnelOf } from "@stringsync/splates-server/start-settings";
-import { tunnelRemove } from "@stringsync/splates-server/tunnel-remove";
 import {
 	API_TOKEN,
+	tunnelRemove,
 	tunnelSetup,
-} from "@stringsync/splates-server/tunnel-setup";
+} from "@stringsync/splates-server/tunnel";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { here, slotTunnelsOf } from "./flags";

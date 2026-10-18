@@ -4,10 +4,9 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "./creds";
-import { FakeCloudflare } from "./fake-cloudflare";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
 import { slotToken, slotTunnelSetup } from "./slot-tunnel";
-import { API_TOKEN, tunnelSetup } from "./tunnel-setup";
+import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN, tunnelSetup } from "./tunnel";
+import { FakeCloudflare } from "./tunnel/testing";
 
 describe("slotTunnelSetup", () => {
 	it("makes the slot's tunnel and route, and one wildcard Access app for every slot", async () => {

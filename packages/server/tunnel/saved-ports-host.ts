@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import { fail } from "./exit";
+import { fail } from "../exit";
 
 /** The file's own format. */
 const FORMAT = 1;

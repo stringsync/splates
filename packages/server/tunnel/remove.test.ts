@@ -3,12 +3,12 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
-import { Creds } from "./creds";
-import { FakeCloudflare } from "./fake-cloudflare";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
-import { slotTunnelSetup } from "./slot-tunnel";
-import { tunnelRemove } from "./tunnel-remove";
-import { API_TOKEN, tunnelSetup } from "./tunnel-setup";
+import { Creds } from "../creds";
+import { slotTunnelSetup } from "../slot-tunnel";
+import { tunnelRemove } from "./remove";
+import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { API_TOKEN, tunnelSetup } from "./setup";
+import { FakeCloudflare } from "./testing";
 
 describe("tunnelRemove", () => {
 	it("deletes the machine's tunnel, route, application and policy, and forgets them", async () => {

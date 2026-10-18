@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { startTunnel } from "./dev-tunnel";
-import { FakeTunnelProvider } from "./fake-tunnel-provider";
+import { FakeTunnelProvider } from "./testing";
+import { startTunnel } from "./tunnel";
 
 describe("startTunnel", () => {
 	const host = "splates.example.com";

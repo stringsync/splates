@@ -4,9 +4,8 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
-import { FakeCloudflare } from "../fake-cloudflare";
-import { SavedTunnel } from "../saved-tunnel";
-import { API_TOKEN, tunnelSetup } from "../tunnel-setup";
+import { API_TOKEN, SavedTunnel, tunnelSetup } from "../tunnel";
+import { FakeCloudflare } from "../tunnel/testing";
 import {
 	CloudflareWorkerAccess,
 	SERVICE_TOKEN_DURATION,

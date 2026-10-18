@@ -7,10 +7,8 @@ import { type Config, LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
 import { Conversations } from "./conversations";
 import { CoordinatorState } from "./coordinator-state";
 import { SYSTEM_STORES } from "./creds";
-import { accessConfig } from "./dev-access";
 import { devServers } from "./dev-servers";
 import { devSlot } from "./dev-slot";
-import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { fail } from "./exit";
 import { Git } from "./git";
@@ -22,7 +20,6 @@ import { PlanStore } from "./plans";
 import { Projects } from "./projects";
 import { newest, RUNNING, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
-import { portsHostFlag } from "./saved-ports-host";
 import { SERVER_PID, SLOT, slotOf } from "./slots";
 import {
 	rosterOf,
@@ -32,7 +29,13 @@ import {
 } from "./start-settings";
 import { Adherence, Outcomes } from "./stats";
 import { SERVING, supervise, UNBUILT } from "./supervise";
-import { API_TOKEN } from "./tunnel-setup";
+import {
+	API_TOKEN,
+	accessConfig,
+	portsHostFlag,
+	savedTunnelConfig,
+	tunnelConfig,
+} from "./tunnel";
 import {
 	CloudflareWorkerAccess,
 	Snapshots,

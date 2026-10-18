@@ -1,5 +1,5 @@
 import type { AsyncResource } from "webappwiz/disposable";
-import type { TunnelProvider, TunnelRoute } from "./tunnel-provider";
+import type { TunnelProvider, TunnelRoute } from "./provider";
 
 /**
  * A TunnelProvider that publishes nothing and remembers what it was asked

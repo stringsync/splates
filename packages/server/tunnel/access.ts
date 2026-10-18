@@ -1,50 +1,6 @@
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
-import { fail } from "./exit";
-
-/**
- * The Cloudflare Access application in front of `splates server`: the team it
- * belongs to, as the issuer its tokens name, and its AUD tag. The one place
- * both live, so whatever exposes the page beyond this machine can ask whether
- * Access stands in front of it.
- */
-export interface AccessConfig {
-	/** The team's own origin, `https://<team>.cloudflareaccess.com`. */
-	issuer: string;
-	/** The application's AUD tag, which each of its tokens names. */
-	aud: string;
-}
-
-/**
- * The Access application `--access-team` and `--access-aud` name, or null
- * when neither is given. The team is its name, its domain or its URL alike.
- */
-export function accessConfig(team: string, aud: string): AccessConfig | null {
-	team = team.trim();
-	aud = aud.trim();
-	if (team === "" && aud === "") {
-		return null;
-	}
-	if (team === "" || aud === "") {
-		fail(
-			"usage",
-			"Cloudflare Access needs both --access-team and --access-aud",
-			{ team, aud },
-		);
-	}
-	const host = team
-		.replace(/^https:\/\//, "")
-		.replace(/\/+$/, "")
-		.replace(/\.cloudflareaccess\.com$/, "");
-	if (!/^[a-z0-9-]+$/i.test(host)) {
-		fail(
-			"usage",
-			`invalid Access team '${team}': use its name, as in <team>.cloudflareaccess.com`,
-			{ team },
-		);
-	}
-	return { issuer: `https://${host.toLowerCase()}.cloudflareaccess.com`, aud };
-}
+import { fail } from "../exit";
 
 /** Who a verified token says is asking. */
 export interface Identity {
@@ -194,6 +150,50 @@ export class Access {
 		}
 		this.keys = imported;
 	}
+}
+
+/**
+ * The Cloudflare Access application in front of `splates server`: the team it
+ * belongs to, as the issuer its tokens name, and its AUD tag. The one place
+ * both live, so whatever exposes the page beyond this machine can ask whether
+ * Access stands in front of it.
+ */
+export interface AccessConfig {
+	/** The team's own origin, `https://<team>.cloudflareaccess.com`. */
+	issuer: string;
+	/** The application's AUD tag, which each of its tokens names. */
+	aud: string;
+}
+
+/**
+ * The Access application `--access-team` and `--access-aud` name, or null
+ * when neither is given. The team is its name, its domain or its URL alike.
+ */
+export function accessConfig(team: string, aud: string): AccessConfig | null {
+	team = team.trim();
+	aud = aud.trim();
+	if (team === "" && aud === "") {
+		return null;
+	}
+	if (team === "" || aud === "") {
+		fail(
+			"usage",
+			"Cloudflare Access needs both --access-team and --access-aud",
+			{ team, aud },
+		);
+	}
+	const host = team
+		.replace(/^https:\/\//, "")
+		.replace(/\/+$/, "")
+		.replace(/\.cloudflareaccess\.com$/, "");
+	if (!/^[a-z0-9-]+$/i.test(host)) {
+		fail(
+			"usage",
+			`invalid Access team '${team}': use its name, as in <team>.cloudflareaccess.com`,
+			{ team },
+		);
+	}
+	return { issuer: `https://${host.toLowerCase()}.cloudflareaccess.com`, aud };
 }
 
 /** What an `Access` reaches the world through, swapped in tests. */

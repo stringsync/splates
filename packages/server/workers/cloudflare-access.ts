@@ -1,15 +1,15 @@
 import type { Logger } from "webappwiz/log";
 import { z } from "zod";
-import { CloudflareApi } from "../cloudflare-api";
-import { CloudflareError } from "../cloudflare-error";
 import {
 	App,
+	CloudflareApi,
+	CloudflareError,
 	CloudflareTunnels,
 	type Include,
 	Policy,
 	SESSION,
 	workersPolicy,
-} from "../tunnel-setup";
+} from "../tunnel";
 import type { ServiceToken, WorkerAccess } from "./access";
 
 /**

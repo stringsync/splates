@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { FakePs } from "webappwiz/system/testing";
-import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
-import { tunnelConfig } from "./dev-tunnel";
-import { Exit } from "./exit";
-import { FakeTunnelProvider } from "./fake-tunnel-provider";
+import { Exit } from "../exit";
+import { CloudflaredTunnelProvider } from "./cloudflared";
+import { FakeTunnelProvider } from "./testing";
+import { tunnelConfig } from "./tunnel";
 
 const ps = new FakePs();
 const access = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };

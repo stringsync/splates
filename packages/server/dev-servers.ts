@@ -2,8 +2,8 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "./creds";
 import { splatesHome } from "./models";
-import { SavedTunnel } from "./saved-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
+import { SavedTunnel } from "./tunnel";
 
 /**
  * A `splates server` on this machine the page can switch to: the machine's own,

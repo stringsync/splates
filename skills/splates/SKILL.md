@@ -399,14 +399,14 @@ through it as [references/setup.md](references/setup.md) says. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
-implementing `TunnelProvider` from `@stringsync/splates-server/tunnel-provider`:
+implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:
 `ready()` throws, saying what to do, unless the tunnel can run, and
 `run({ host, url, log })` carries `host` to `url` and returns a resource
 whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.
 `--tunnel` runs it in place of cloudflared and still needs the Access flags;
 `--tunnel-name` is refused beside it. Write one only when asked, as a
 separate task from whatever else is under way, and read
-splates's `tunnel-provider.ts` first. A provider that is not ready is
+splates's `tunnel/provider.ts` first. A provider that is not ready is
 logged and skipped, so check the `splates server` log, not the page, to see
 whether it came up.
 

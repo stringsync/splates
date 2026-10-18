@@ -1,24 +1,20 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import type { Creds } from "../creds";
+import { Exit, fail } from "../exit";
+import { SLOTS_APP } from "../slot-tunnel";
+import { tokensOf } from "../workers/cloudflare-access";
 import type { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
-import type { Creds } from "./creds";
-import { Exit, fail } from "./exit";
-import {
-	type SavedTunnel,
-	TUNNEL_TOKEN,
-	type TunnelRecord,
-} from "./saved-tunnel";
-import { SLOTS_APP } from "./slot-tunnel";
+import { type SavedTunnel, TUNNEL_TOKEN, type TunnelRecord } from "./saved";
 import {
 	API_TOKEN,
 	App,
 	CloudflareTunnels,
 	Policy,
 	workersPolicy,
-} from "./tunnel-setup";
-import { tokensOf } from "./workers/cloudflare-access";
+} from "./setup";
 
 /** What `splates tunnel remove` is asked to remove, and what it runs with. */
 export interface RemoveOptions {

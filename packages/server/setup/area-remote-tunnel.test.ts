@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { FakeCloudflare } from "../fake-cloudflare";
-import { SavedTunnel, TUNNEL_TOKEN } from "../saved-tunnel";
-import { API_TOKEN } from "../tunnel-setup";
+import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "../tunnel";
+import { FakeCloudflare } from "../tunnel/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { Setup, type SetupMachine } from "./setup";
 

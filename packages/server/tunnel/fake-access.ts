@@ -1,4 +1,4 @@
-import { Access } from "./dev-access";
+import { Access } from "./access";
 
 const CONFIG = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };
 

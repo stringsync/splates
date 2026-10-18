@@ -1,6 +1,6 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Ps } from "webappwiz/system";
-import type { TunnelProvider, TunnelRoute } from "./tunnel-provider";
+import type { TunnelProvider, TunnelRoute } from "./provider";
 
 /** What `cloudflared` prints once a connection to Cloudflare's edge is up. */
 const REGISTERED = "Registered tunnel connection";

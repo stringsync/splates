@@ -2,10 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodePs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
-import {
-	CloudflaredTunnelProvider,
-	GUARD,
-} from "./cloudflared-tunnel-provider";
+import { CloudflaredTunnelProvider, GUARD } from "./cloudflared";
 
 describe("CloudflaredTunnelProvider", () => {
 	let ps: FakePs;

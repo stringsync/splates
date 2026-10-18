@@ -216,7 +216,7 @@ implements `TunnelProvider`:
 
 ```ts
 import type { ConfigFile } from "@stringsync/splates-server/config";
-import type { TunnelProvider } from "@stringsync/splates-server/tunnel-provider";
+import type { TunnelProvider } from "@stringsync/splates-server/tunnel";
 
 const myTunnel: TunnelProvider = {
 	// throw, saying what to do, unless the tunnel can run

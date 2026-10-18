@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { ACCESS_HEADER } from "./dev-access";
-import { FakeAccess } from "./fake-access";
+import { ACCESS_HEADER } from "./access";
+import { FakeAccess } from "./testing";
 
 describe("Access with a service token", () => {
 	it("verifies the token Access hands a worker on, which names no one's email", async () => {

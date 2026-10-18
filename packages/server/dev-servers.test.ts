@@ -4,8 +4,8 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { devServers } from "./dev-servers";
-import { SavedTunnel } from "./saved-tunnel";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
+import { SavedTunnel } from "./tunnel";
 
 describe("devServers", () => {
 	const machine = async () => {

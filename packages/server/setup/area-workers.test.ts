@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { SavedTunnel } from "../saved-tunnel";
-import { API_TOKEN } from "../tunnel-setup";
+import { API_TOKEN, SavedTunnel } from "../tunnel";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
 import { Setup, type SetupMachine, type SetupWorker } from "./setup";

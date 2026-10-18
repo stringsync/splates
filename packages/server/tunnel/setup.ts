@@ -1,12 +1,12 @@
 import { color, type Logger } from "webappwiz/log";
 import { z } from "zod";
+import { commaList } from "../comma-list";
+import type { Creds } from "../creds";
+import { Exit, fail } from "../exit";
 import { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
-import { commaList } from "./comma-list";
-import type { Creds } from "./creds";
-import { hostName } from "./dev-tunnel";
-import { Exit, fail } from "./exit";
-import { type SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
+import { type SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { hostName } from "./tunnel";
 
 /** The part of a project's creds a tunnel is made with, which the Setup page fills from the device's store alone. */
 export type TunnelCreds = Pick<Creds, "credentials" | "request" | "save">;
