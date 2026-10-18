@@ -109,6 +109,11 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 					await gone(api, `/accounts/${account}/access/service_tokens/${id}`);
 					log.info(`${color.green("deleted")} worker service token ${id}`);
 				}
+				if (tokensOf(workers.include).length > 0) {
+					log.info(
+						"workers joined through the tunnel have lost their access: add them again with `splates worker add` once `splates tunnel setup` is run",
+					);
+				}
 				policies.set(workers.id, workers.name);
 			}
 			for (const [id, name] of policies) {
