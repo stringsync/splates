@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
-import { fail } from "./exit";
-import { splatesHome } from "./models";
+import { fail } from "../exit";
+import { splatesHome } from "../models";
 
 /** The registry's own format, apart from each repository's records. */
 const FORMAT = 1;
@@ -51,9 +51,9 @@ export interface ProjectsOptions {
 }
 
 /**
- * Every splates project on this machine, kept in one file under the user's
- * home: an explicit roster that `splates init` writes each into, so one
- * `splates server` can find them all without scanning the disk.
+ * The roster of splates projects on this machine. `splates init` adds a
+ * project to it, and one `splates server` lists, focuses and forgets the
+ * projects through it instead of scanning the disk.
  */
 export class Projects {
 	private readonly fs: Fs;

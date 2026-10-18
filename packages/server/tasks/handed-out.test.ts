@@ -9,7 +9,7 @@ import {
 	Conversations,
 	HEARTBEAT_IDLE,
 } from "../conversations";
-import { Everywhere } from "../everywhere";
+import { Everywhere } from "../projects";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { HandedOut } from "./handed-out";

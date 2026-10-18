@@ -17,7 +17,6 @@ import {
 } from "../board";
 import type { Conversation, Conversations, Message } from "../conversations";
 import { HEARTBEAT_IDLE, lanesOf, startedLanes } from "../conversations";
-import { Everywhere } from "../everywhere";
 import {
 	directive,
 	HEARTBEAT,
@@ -31,6 +30,7 @@ import {
 	todoOpenReference,
 	UNTRIAGED,
 } from "../plans";
+import { Everywhere } from "../projects";
 import type { WorktreeService } from "./worktree-service";
 
 /**

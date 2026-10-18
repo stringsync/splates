@@ -1,5 +1,5 @@
 import type { Logger } from "webappwiz/log";
-import type { Git } from "./git";
+import type { Git } from "../git";
 import type { Projects, Reach } from "./projects";
 
 /**

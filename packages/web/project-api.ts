@@ -8,9 +8,9 @@ import type {
 	After,
 	Checkpoint,
 } from "@stringsync/splates-server/conversations";
-import type { Added } from "@stringsync/splates-server/dev-picker";
 import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
 import type { Held } from "@stringsync/splates-server/held";
+import type { Added } from "@stringsync/splates-server/projects";
 import type { Behind } from "@stringsync/splates-server/release";
 import { ApiError, send, sendJson } from "./api";
 

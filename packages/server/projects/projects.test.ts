@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FileLock } from "webappwiz/system";
+import { Testing } from "../testing";
 import { Projects } from "./projects";
-import { Testing } from "./testing";
 
 describe("Projects", () => {
 	it("registers a repository once, in the order splates first ran in each", async () => {

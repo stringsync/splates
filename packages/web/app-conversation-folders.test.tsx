@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { EverywhereProject } from "@stringsync/splates-server/dev-everywhere";
+import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import {
 	act,
 	cleanup,

@@ -1,12 +1,12 @@
 import { isAbsolute, resolve } from "node:path";
 import type { Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
-import type { SecretStores } from "./creds";
-import type { DevMachine } from "./dev-project";
-import { fail } from "./exit";
+import type { SecretStores } from "../creds";
+import type { DevMachine } from "../dev-project";
+import { fail } from "../exit";
+import { openRepository } from "../records";
 import { init } from "./init";
 import type { Project } from "./projects";
-import { openRepository } from "./records";
 
 /**
  * What the page's project picker asks of `splates server` beyond listing: adding

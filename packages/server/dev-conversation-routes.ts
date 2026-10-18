@@ -20,9 +20,9 @@ import {
 import { type Tree, treeOf } from "./dev-conversation-tree";
 import { body, fileResponse, MEDIA_TYPES, refuse, uploads } from "./dev-http";
 import type { Project } from "./dev-project";
-import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { directive, RESUME, stoppedReference } from "./plans";
+import { Everywhere } from "./projects";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its

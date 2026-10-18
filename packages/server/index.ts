@@ -3,11 +3,9 @@ import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { SYSTEM_STORES } from "./creds";
 import { Access } from "./dev-access";
-import { EverywhereRoutes } from "./dev-everywhere";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import type { DevOptions } from "./dev-options";
 import { Pages } from "./dev-pages";
-import { Picker } from "./dev-picker";
 import { DEFAULT_PORT, devPorts } from "./dev-ports";
 import {
 	type DevContext,
@@ -27,11 +25,11 @@ import { startTunnel } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
 import { Dictations, transcriberFor } from "./dictate";
-import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { Roster, splatesHome } from "./models";
+import { Everywhere, EverywhereRoutes, Picker } from "./projects";
 import { queueListing } from "./queue-list";
 import { openRepository } from "./records";
 import { RUNNING } from "./release";

@@ -1,4 +1,4 @@
-import type { Added } from "@stringsync/splates-server/dev-picker";
+import type { Added } from "@stringsync/splates-server/projects";
 import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

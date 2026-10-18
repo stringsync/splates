@@ -44,7 +44,6 @@
 		"./conversations": "./conversations/index.ts",
 		"./conversations/browser": "./conversations/browser.ts",
 		"./creds": "./creds.ts",
-		"./dev-picker": "./dev-picker.ts",
 		"./dev-push": "./dev-push.ts",
 		"./dev-servers": "./dev-servers.ts",
 		"./dev-task-ports": "./dev-task-ports.ts",
@@ -55,15 +54,13 @@
 		"./heavy-run": "./heavy-run.ts",
 		"./heavy": "./heavy.ts",
 		"./held": "./held.ts",
-		"./init": "./init.ts",
 		"./log": "./log.ts",
 		"./machine": "./machine.ts",
 		"./merge": "./merge/index.ts",
 		"./notices": "./notices.ts",
 		"./ports-list": "./ports-list.ts",
 		"./probe-runtime": "./probe-runtime.ts",
-		"./project-reaches": "./project-reaches.ts",
-		"./projects": "./projects.ts",
+		"./projects": "./projects/index.ts",
 		"./pulse": "./pulse.ts",
 		"./queue-list": "./queue-list.ts",
 		"./plans": "./plans/index.ts",
@@ -85,8 +82,7 @@
 		"./tunnel-provider": "./tunnel-provider.ts",
 		"./tunnel-remove": "./tunnel-remove.ts",
 		"./tunnel-setup": "./tunnel-setup.ts",
-		"./update": "./update.ts",
-		"./dev-everywhere": "./dev-everywhere.ts"
+		"./update": "./update.ts"
 	},
 	"scripts": {
 		"build": "bun run --cwd ../web build"

@@ -1,9 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import type { Git } from "./git";
+import type { Git } from "../git";
+import { RUNNING } from "../release";
+import { projectSkills } from "../skills";
 import type { Projects } from "./projects";
-import { RUNNING } from "./release";
-import { projectSkills } from "./skills";
 
 /**
  * Makes this repository a splates project: `repository` has set up its records

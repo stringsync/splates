@@ -3,7 +3,7 @@ import type {
 	EverywhereBoard,
 	EverywhereListing,
 	EverywhereProject,
-} from "@stringsync/splates-server/dev-everywhere";
+} from "@stringsync/splates-server/projects";
 import type { Details } from "@stringsync/splates-server/tasks";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";

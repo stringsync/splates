@@ -6,10 +6,10 @@ import type {
 	ConversationState,
 	Session,
 } from "@stringsync/splates-server/conversations";
-import type { EverywhereProject } from "@stringsync/splates-server/dev-everywhere";
 import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
 import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
 import type { Held } from "@stringsync/splates-server/held";
+import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
