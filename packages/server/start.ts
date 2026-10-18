@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { SystemTimer } from "webappwiz/time";
 import { SharedBrowser, StartLock, Watch } from "./agents";
 import { artifactLimits } from "./artifacts";
-import { LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
+import { type Config, LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
 import { Conversations } from "./conversations";
 import { CoordinatorState } from "./coordinator-state";
 import { accessConfig } from "./dev-access";
@@ -19,7 +19,7 @@ import { pushOnMove, TaskBranches } from "./merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "./models";
 import { PlanStore } from "./plans";
 import { Projects } from "./projects";
-import { newest, sourceCommit } from "./release";
+import { newest, RUNNING, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
 import { portsHostFlag } from "./saved-ports-host";
 import { SERVER_PID, SLOT, slotOf } from "./slots";
@@ -31,8 +31,8 @@ import {
 } from "./start-settings";
 import { Adherence, Outcomes } from "./stats";
 import { SERVING, supervise, UNBUILT } from "./supervise";
-import type { TunnelProvider } from "./tunnel-provider";
 import {
+	Snapshots,
 	WorkerPlacement,
 	WorkerRecords,
 	workerGit,
@@ -53,11 +53,12 @@ export async function serveDev(
 	// Read before the child starts, so a half-given pair fails once.
 	let access = accessConfig(opts["access-team"], opts["access-aud"]);
 	const portsFlag = portsHostFlag(opts["ports-host"]);
+	const here = await startedIn(ctx);
 	let tunnel = tunnelConfig(
 		opts.tunnel,
 		opts["tunnel-name"],
 		access,
-		await tunnelProvider(ctx),
+		here?.tunnel ?? null,
 		ctx.ps,
 	);
 	if (
@@ -182,11 +183,33 @@ export async function serveDev(
 		`${splatesHome(ctx.ps)}/workers.json`,
 		ctx.fs,
 	);
+	// Made workers dial the page where the tunnel publishes it.
+	const provider = here?.workerProvider ?? null;
+	const reached = tunnel === null ? null : `https://${tunnel.host}`;
 	const workers = new DevWorkers(ctx.log, {
 		session: coordinator.session,
 		protocol: coordinator.protocol,
 		platform: ctx.ps.platform,
 		records,
+		...(provider === null || here === null
+			? {}
+			: {
+					provider: {
+						provider,
+						snapshots: await Snapshots.open(provider, {
+							version: RUNNING,
+							path: `${splatesHome(ctx.ps)}/snapshots.json`,
+							fs: ctx.fs,
+						}),
+						coordinator: () => reached,
+						limit: here.provisionedWorkers,
+					},
+				}),
+	});
+	void workers.provisioning?.reconcile().catch((error: unknown) => {
+		ctx.log.error(
+			`the worker provider could not list its machines: ${String(error)}`,
+		);
 	});
 	const worker = workers.local;
 	const { slots } = workers;
@@ -271,14 +294,11 @@ export async function serveDev(
 }
 
 /**
- * The tunnel provider `splates.config.ts` names in the repository `splates server`
- * was started in, if it was started in one: the one thing it reads from where
- * it runs. Null outside a repository, or for one naming none.
+ * The config of the repository `splates server` was started in, if it was
+ * started in one, for the providers it names: the one thing it reads from
+ * where it runs. Null outside a repository.
  */
-async function tunnelProvider({
-	fs,
-	ps,
-}: SplatesDeps): Promise<TunnelProvider | null> {
+async function startedIn({ fs, ps }: SplatesDeps): Promise<Config | null> {
 	const { exitCode, stdout } = await ps.spawnCapture(
 		["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
 		{ cwd: ps.cwd() },
@@ -287,8 +307,7 @@ async function tunnelProvider({
 		return null;
 	}
 	const root = dirname(stdout.trim());
-	return (await loadConfig(root, { fs, git: new Git(root, { ps, fs }) }))
-		.tunnel;
+	return loadConfig(root, { fs, git: new Git(root, { ps, fs }) });
 }
 
 /** The flags `splates server` takes, as `serveDev` reads them. */

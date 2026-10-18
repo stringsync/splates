@@ -7,10 +7,11 @@ import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { queueListing } from "./queue-list";
 import type { WorkerMachines } from "./tasks";
-import type { RemoteWorker } from "./workers";
+import type { RemoteWorker, Snapshots, WorkerProvider } from "./workers";
 import {
 	ServerWorkerSocket,
 	UnixWorkerListener,
+	WorkerProvisioning,
 	WorkerRecords,
 	WorkerRegistry,
 	WorkerSlots,
@@ -32,28 +33,15 @@ const Settings = z.object({
 	draining: z.boolean().optional(),
 });
 
+/** What `POST /api/workers/provision` is sent: the provider's type to make, by default its cheapest. */
+const Provision = z.object({ type: z.string().min(1).optional() });
+
 /** The header a joined worker shows its key in, as `Bearer <id>:<key>`. */
 export const WORKER_KEY_HEADER = "authorization";
 
 /** `Bearer <id>:<key>`, as a joined worker shows its key. */
 export function workerAuthorization(id: string, key: string): string {
 	return `Bearer ${id}:${key}`;
-}
-
-/** What `DevWorkers` answers workers as. */
-export interface DevWorkersOptions {
-	/**
-	 * The session id every worker hears in its welcome: the same across
-	 * restarts, so a worker keeps what it runs for the next run to take
-	 * back; new by default, which ends what the worker held.
-	 */
-	session?: string;
-	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
-	protocol?: string;
-	/** This machine's `ps.platform`, the local worker's until its hello says. */
-	platform?: string;
-	/** The workers that joined and what was set on each; kept in memory alone by default. */
-	records?: WorkerRecords;
 }
 
 /**
@@ -70,6 +58,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly slots: WorkerSlots;
 	/** This machine's worker, which agents run on; work waits for it to join. */
 	readonly local: RemoteWorker;
+	/** What makes workers through the `workerProvider`; null without one. */
+	readonly provisioning: WorkerProvisioning | null;
 	private listener: UnixWorkerListener | null = null;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
 	private ready = true;
@@ -81,6 +71,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			protocol,
 			platform = systemPs().platform,
 			records = WorkerRecords.memory(),
+			provider,
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
@@ -96,7 +87,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
 		// Listed while away, so one can be drained or removed before it dials.
 		for (const record of records.all) {
-			if (record.key !== null) {
+			if (record.provisioned !== null) {
+				this.registry.expect(record.id, "provisioned");
+			} else if (record.key !== null) {
 				this.registry.expect(record.id);
 			}
 		}
@@ -105,6 +98,16 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			record: (id) => records.of(id),
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
+		this.provisioning =
+			provider === undefined
+				? null
+				: new WorkerProvisioning({
+						...provider,
+						records,
+						registry: this.registry,
+						log,
+					});
+		this.provisioning?.watch(this.slots.scheduler);
 	}
 
 	/** The worker `id`, as a project reads a task cloned there through it. */
@@ -235,9 +238,44 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		}
 		// A worker joining again under its id hangs up its old connection.
 		this.registry.forget(id);
-		this.registry.expect(id);
+		this.registry.expect(
+			id,
+			this.provisioning?.made(id) ? "provisioned" : "registered",
+		);
 		this.log.info(`worker ${id} joined`);
 		return Response.json({ id, key });
+	};
+
+	/**
+	 * `POST /api/workers/provision`: has the `workerProvider` make a worker,
+	 * of the type asked for or its cheapest, answering it once its machine
+	 * boots; it joins on its own.
+	 */
+	readonly provision = async (request: Request): Promise<Response> => {
+		const body = Provision.safeParse(await request.json().catch(() => ({})));
+		if (!body.success) {
+			return refuse(400, "usage", "say the type to make, or nothing");
+		}
+		if (this.provisioning === null) {
+			return refuse(
+				400,
+				"usage",
+				"no worker provider: name one as `workerProvider` in the splates.config.ts of the repo `splates server` starts in",
+			);
+		}
+		try {
+			return Response.json(
+				await this.provisioning.provision(
+					body.data.type === undefined ? {} : { type: body.data.type },
+				),
+			);
+		} catch (error) {
+			return refuse(
+				502,
+				"provider",
+				error instanceof Error ? error.message : String(error),
+			);
+		}
 	};
 
 	/**
@@ -300,8 +338,18 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		}
 	}
 
-	/** Revokes worker `id`'s key, hangs up on it, and frees what its agents held. */
+	/**
+	 * Revokes worker `id`'s key, hangs up on it, and frees what its agents
+	 * held, destroying its machine when a provider made it.
+	 */
 	private async forget(id: string): Promise<void> {
+		if (this.provisioning?.made(id)) {
+			await this.provisioning.destroy(id).catch((error: unknown) => {
+				this.log.error(
+					`worker ${id}'s machine could not be destroyed, so it may still cost: ${String(error)}`,
+				);
+			});
+		}
 		await this.records.remove(id);
 		this.registry.forget(id);
 		this.slots.scheduler.release(id);
@@ -363,6 +411,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		if (what === "invite" && request.method === "POST") {
 			return guard(this.invite)(request);
 		}
+		if (what === "provision" && request.method === "POST") {
+			return guard(this.provision)(request);
+		}
 		if (request.method === "PUT") {
 			return guard(this.update)(request);
 		}
@@ -373,6 +424,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	};
 
 	async disposeAsync(): Promise<void> {
+		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();
 		await this.listener?.disposeAsync();
@@ -382,4 +434,32 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 /** The worker `/api/workers/:id` names. */
 function workerId(request: Request): string {
 	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
+}
+
+/** The `workerProvider` the server makes workers with, and what it needs to. */
+export interface DevWorkerProvider {
+	provider: WorkerProvider;
+	snapshots: Snapshots;
+	/** The URL a made worker dials, the page's tunnel host; null for none. */
+	coordinator: () => string | null;
+	/** How many workers placement may have made at once (`provisionedWorkers`). */
+	limit: number;
+}
+
+/** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */
+export interface DevWorkersOptions {
+	/**
+	 * The session id every worker hears in its welcome: the same across
+	 * restarts, so a worker keeps what it runs for the next run to take
+	 * back; new by default, which ends what the worker held.
+	 */
+	session?: string;
+	/** The protocol the last run spoke, which a worker's channels are taken back by only when its major is this one's. */
+	protocol?: string;
+	/** This machine's `ps.platform`, the local worker's until its hello says. */
+	platform?: string;
+	/** The workers that joined and what was set on each; kept in memory alone by default. */
+	records?: WorkerRecords;
+	/** What makes workers when agents queue; none are made without it. */
+	provider?: DevWorkerProvider;
 }

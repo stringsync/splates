@@ -157,7 +157,8 @@ export class WorkerRegistry
 		this.refusals.delete(said.id);
 		const worker = known ?? new RemoteWorker(said.id, said.info, session, kind);
 		worker.info = said.info;
-		worker.kind = kind;
+		// One splates made dials as any other, and stays what it was made as.
+		worker.kind = worker.kind === "provisioned" ? worker.kind : kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
 	}

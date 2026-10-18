@@ -39,6 +39,8 @@ describe("WorktreeService", () => {
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
+			workerProvider: null,
+			provisionedWorkers: 2,
 			platform: null,
 		};
 	});

@@ -15,7 +15,7 @@ export type {
 } from "./process";
 export { framed, launch, launcherOf, listSessions } from "./process";
 export type { SessionServers } from "./shared-browser";
-export { SharedBrowser } from "./shared-browser";
+export { PLAYWRIGHT_MCP, SharedBrowser } from "./shared-browser";
 export { StartLock } from "./start-lock";
 export { AgentStream } from "./stream";
 export { toolIn } from "./tool-calls";

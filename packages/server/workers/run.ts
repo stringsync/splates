@@ -36,6 +36,12 @@ export interface WorkerRunOptions {
 	id: string;
 	/** A join token from `splates worker add`, spent to join before dialing; empty when joined already. */
 	join?: string;
+	/**
+	 * Keeps the key `join` answers in memory alone, for a machine that is
+	 * destroyed rather than restarted, as one a provider makes, which may
+	 * have no system store to keep it in.
+	 */
+	ephemeral?: boolean;
 	log: Logger;
 	ps: Ps;
 	fs: Fs;
@@ -114,6 +120,10 @@ export async function workerKey(
 	const store = opts.store ?? SystemSecretStore.device();
 	if (opts.join) {
 		const key = await joinCoordinator(id, opts);
+		if (opts.ephemeral) {
+			log.info(`joined as ${id}, keeping its key for this run alone`);
+			return key;
+		}
 		try {
 			await store.set(WORKER_KEY, key);
 			log.info(`joined as ${id}; its key is kept in ${store.label}`);
@@ -144,7 +154,7 @@ async function joinCoordinator(
 	opts: WorkerRunOptions,
 ): Promise<string> {
 	const send = opts.send ?? fetch;
-	const url = new URL("/api/workers", opts.coordinator);
+	const url = new URL("/api/workers/join", opts.coordinator);
 	let response: Response;
 	try {
 		response = await send(url, {

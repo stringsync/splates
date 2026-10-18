@@ -47,6 +47,7 @@ describe("Scheduler", () => {
 				id: "b",
 				project: "/repo",
 				task: "b",
+				platform: null,
 				position: 1,
 				since: 5_000,
 				reason: "no free slot",
@@ -103,6 +104,17 @@ describe("Scheduler", () => {
 		workers = [worker("local"), worker("remote")];
 		expect((await take("a")).worker).toBe("local");
 		expect((await take("b")).worker).toBe("remote");
+	});
+
+	it("takes a worker paid by the hour only when no other has room", async () => {
+		workers = [
+			worker("made", { kind: "provisioned" }),
+			worker("remote"),
+			worker("local"),
+		];
+		expect((await take("a")).worker).toBe("local");
+		expect((await take("b")).worker).toBe("remote");
+		expect((await take("c")).worker).toBe("made");
 	});
 
 	it("passes over a worker that is away or cannot hold the checkout", async () => {

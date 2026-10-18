@@ -90,6 +90,24 @@ describe("DevWorkers", () => {
 		expect(workers.registry.worker("box")).toBeDefined();
 	});
 
+	it("routes `splates worker add`'s invite and `worker run --join`'s join", async () => {
+		const pass = (handle: (request: Request) => Promise<Response>) => handle;
+		const invited = await workers.manage(
+			new Request("http://127.0.0.1/api/workers/invite", { method: "POST" }),
+			pass,
+		);
+		const { token } = (await invited.json()) as { token: string };
+		const joined = await workers.manage(
+			new Request("http://127.0.0.1/api/workers/join", {
+				method: "POST",
+				body: JSON.stringify({ token, id: "box" }),
+			}),
+			pass,
+		);
+
+		expect(joined.status).toBe(200);
+	});
+
 	it("places nothing new on a drained worker", async () => {
 		await workers.update(put("local", { draining: true }));
 		const placed = workers.slots.scheduler.take(request("one"));

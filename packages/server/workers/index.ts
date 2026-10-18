@@ -8,6 +8,16 @@ export { LocalWorkerMachine } from "./machine";
 export { WorkerPlacement } from "./placement";
 export { WorkerProcessHost } from "./process-host";
 export { WorkerProtocol } from "./protocol";
+export type {
+	ProvisionedMachine,
+	Snapshot,
+	SnapshotRecipe,
+	WorkerProvider,
+	WorkerSpec,
+	WorkerType,
+} from "./provider";
+export type { Provisioned } from "./provisioning";
+export { WorkerProvisioning } from "./provisioning";
 export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
@@ -16,6 +26,7 @@ export { workerRun, workerSocketPath } from "./run";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";
+export { SNAPSHOT_USER, Snapshots, snapshotRecipe } from "./snapshot";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";
 export { WebSocketWorkerSocket } from "./websocket-socket";

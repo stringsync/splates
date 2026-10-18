@@ -39,6 +39,11 @@ splatesWorker
 		description:
 			"a join token from `splates worker add` on the coordinator, spent to join it before dialing; the key it answers is kept in this machine's system store, or read from SPLATES_WORKER_KEY on one without",
 	})
+	.option("ephemeral", z.boolean(), {
+		default: false,
+		description:
+			"keep the key --join answers in memory alone, for a machine destroyed rather than restarted, as one a worker provider makes",
+	})
 	.option("quiet", z.boolean(), {
 		default: false,
 		description:
@@ -50,6 +55,7 @@ splatesWorker
 			slots: opts.slots,
 			id: opts.id,
 			join: opts.join,
+			ephemeral: opts.ephemeral,
 			log: opts.quiet
 				? { info: () => {}, error: (...said) => ctx.log.error(...said) }
 				: ctx.log,
@@ -88,16 +94,28 @@ const dev = {
 splatesWorker
 	.command("add")
 	.description(
-		"add a worker to the running `splates server`: prints a join token, single use and good for 15 minutes, for `splates worker run --join <token>` on the machine to join, which gets a key of its own that `splates worker remove` revokes; with --local N, makes this machine's own worker run N agents at once and take new ones again",
+		"add a worker to the running `splates server`: prints a join token, single use and good for 15 minutes, for `splates worker run --join <token>` on the machine to join, which gets a key of its own that `splates worker remove` revokes; with --local N, makes this machine's own worker run N agents at once and take new ones again; with --provider, has the `workerProvider` in splates.config.ts make one, booted from the snapshot splates builds for it, which joins on its own and whose machine `splates worker remove` destroys",
 	)
 	.option("local", z.coerce.number().int().min(0), {
 		default: 0,
 		description: "this machine's own worker, with this many slots",
 	})
+	.option("provider", z.boolean(), {
+		default: false,
+		description:
+			"have the server's worker provider make the worker, of its cheapest type unless --type says",
+	})
+	.option("type", z.string(), {
+		default: "",
+		description:
+			"the worker provider's type to make, as it names it; implies --provider",
+	})
 	.option("dev", z.string(), dev)
 	.action((opts, ctx) =>
 		addWorker({
 			local: opts.local,
+			provider: opts.provider,
+			type: opts.type,
 			dev: opts.dev,
 			log: ctx.log,
 			ps: ctx.ps,

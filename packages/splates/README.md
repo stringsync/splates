@@ -237,6 +237,42 @@ traffic, and `--tunnel-name` is refused beside a provider of your own. One
 that is not ready, or fails to start, is logged and skipped: the page keeps
 serving on this machine.
 
+### Worker providers
+
+To have splates make workers when agents queue for want of a slot, give
+`splates.config.ts`, in the repo `splates server` starts in, a
+`workerProvider`, any object that implements `WorkerProvider`:
+
+```ts
+import type { ConfigFile } from "@stringsync/splates-server/config";
+import type { WorkerProvider } from "@stringsync/splates-server/workers";
+
+const myCloud: WorkerProvider = {
+	// the machines it makes, with what each costs you per hour
+	types: async () => [
+		{ name: "small", platform: "linux", slots: 4, dollarsPerHour: 0.05 },
+	],
+	// build an image by running recipe.script as root on a fresh machine
+	snapshot: async (recipe) => ({ id: "img-1", version: recipe.version, builtAt: Date.now() }),
+	// boot spec.snapshot and run spec.boot on it, as the `splates` user
+	create: async (spec) => ({ id: spec.id, type: spec.type }),
+	destroy: async (id) => {},
+	// the machines it made that still exist
+	list: async () => [],
+};
+
+export default { workerProvider: myCloud, provisionedWorkers: 2 } satisfies ConfigFile;
+```
+
+A made worker boots from a snapshot splates asks for when there is none, and
+again when splates's version changes or the snapshot is a week old; it holds
+bun, git, the browser and splates, and no credentials. Its boot command spends
+a single-use join token, dialing the page at its tunnel host, so the server
+needs a tunnel. Placement makes one only once agents other agents started are
+queued, and no more than `provisionedWorkers` at once; none is kept warm.
+`splates worker add --provider [--type <name>]` makes one by hand, and
+`splates worker remove` destroys its machine.
+
 ### Task ports
 
 Any port a task's processes listen on, in its worktree or under its agent, is

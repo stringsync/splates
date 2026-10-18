@@ -1,0 +1,93 @@
+import { describe, expect, it } from "bun:test";
+import { MemoryLogger } from "webappwiz/log";
+import { WorkerProvisioning } from "./provisioning";
+import { WorkerRecords } from "./records";
+import { WorkerRegistry } from "./registry";
+import { Snapshots } from "./snapshot";
+import { FakeWorkerProvider } from "./testing";
+
+describe("WorkerProvisioning", () => {
+	it("makes the cheapest type it can boot, joining with a token of its own", async () => {
+		const { provider, records, registry, made } = await provisioning();
+
+		const worker = await made.provision();
+
+		expect(worker).toMatchObject({ type: "small", dollarsPerHour: 0.05 });
+		expect(records.of(worker.id)?.provisioned).toEqual({
+			type: "small",
+			dollarsPerHour: 0.05,
+		});
+		expect(registry.worker(worker.id)?.kind).toBe("provisioned");
+		const boot = provider.specs[0]?.boot ?? [];
+		expect(boot).toContain("https://splates.example.com");
+		expect(boot).toContain("--ephemeral");
+		const token = boot[boot.indexOf("--join") + 1] ?? "";
+		expect(await records.join(token, worker.id)).not.toBeNull();
+	});
+
+	it("makes the type asked for", async () => {
+		const { made } = await provisioning();
+
+		expect((await made.provision({ type: "big" })).type).toBe("big");
+	});
+
+	it("makes none without a URL to dial", async () => {
+		const { provider, made } = await provisioning(undefined, null);
+
+		await expect(made.provision()).rejects.toThrow("tunnel");
+		expect(provider.getCalls()).toEqual([]);
+	});
+
+	it("forgets a worker its provider failed to make", async () => {
+		const provider = new FakeWorkerProvider([...TYPES]);
+		provider.create = async () => {
+			throw new Error("quota");
+		};
+		const { records, registry, made } = await provisioning(provider);
+
+		await expect(made.provision()).rejects.toThrow("quota");
+		expect(records.all).toEqual([]);
+		expect(registry.workers).toEqual([]);
+	});
+
+	it("forgets made workers whose machines are gone, and leaves machines it never made", async () => {
+		const { provider, records, made } = await provisioning();
+		const kept = await made.provision();
+		const gone = await made.provision();
+		await provider.destroy(gone.id);
+		provider.adopt({ id: "stranger", type: "small" });
+
+		expect(await made.reconcile()).toEqual([gone.id]);
+		expect(records.of(kept.id)).toBeDefined();
+		expect(await provider.list()).toContainEqual({
+			id: "stranger",
+			type: "small",
+		});
+	});
+});
+
+/** What the provider makes: a Mac cheapest, which no snapshot boots yet. */
+const TYPES = [
+	{ name: "big", platform: "linux", slots: 16, dollarsPerHour: 0.4 },
+	{ name: "small", platform: "linux", slots: 4, dollarsPerHour: 0.05 },
+	{ name: "mac", platform: "macos", slots: 4, dollarsPerHour: 0.01 },
+] as const;
+
+/** A `WorkerProvisioning` over `provider`, with what it keeps. */
+async function provisioning(
+	provider = new FakeWorkerProvider([...TYPES]),
+	coordinator: string | null = "https://splates.example.com",
+) {
+	const records = WorkerRecords.memory();
+	const registry = new WorkerRegistry(new MemoryLogger());
+	const made = new WorkerProvisioning({
+		provider,
+		snapshots: await Snapshots.open(provider, { version: "1.0.0", path: null }),
+		records,
+		registry,
+		coordinator: () => coordinator,
+		limit: 2,
+		log: new MemoryLogger(),
+	});
+	return { provider, records, registry, made };
+}

@@ -70,6 +70,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			id: request.id,
 			project: request.project,
 			task: request.task,
+			platform: request.platform,
 			position: at + 1,
 			since,
 			reason: reasonFor(request, workers),
@@ -148,8 +149,9 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 
 	/**
 	 * The worker for `request`: the one it last ran on, then the local one,
-	 * then any registered one, among those awake with a slot free on its
-	 * platform.
+	 * then any registered one, then one a provider made, among those awake
+	 * with a slot free on its platform. Made ones come last, since they are
+	 * the ones paid for by the hour.
 	 */
 	private pick(request: SlotRequest): string | null {
 		const used = new Map<string, number>();
@@ -165,7 +167,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			);
 		const last = this.last.get(request.id);
 		const order = (worker: PoolWorker): number =>
-			worker.id === last ? 0 : worker.kind === "local" ? 1 : 2;
+			worker.id === last ? 0 : RANK[worker.kind];
 		const [best] = fits.sort((one, other) => order(one) - order(other));
 		return best?.id ?? null;
 	}
@@ -201,6 +203,13 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		this.dispatcher.dispatch("changed");
 	}
 }
+
+/** Which kind of worker placement tries first, after the one an agent last ran on. */
+const RANK: Record<WorkerKind, number> = {
+	local: 1,
+	registered: 2,
+	provisioned: 3,
+};
 
 /** The platforms a worker runs and a project can require, as people name them. */
 export const PLATFORMS = ["linux", "macos", "windows"] as const;
@@ -266,6 +275,8 @@ export interface QueueEntry {
 	id: string;
 	project: string;
 	task: string | null;
+	/** The platform it needs; null for any. */
+	platform: Platform | null;
 	/** From 1, the first to be placed. */
 	position: number;
 	/** When it joined the queue, epoch milliseconds. */

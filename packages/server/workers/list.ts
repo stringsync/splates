@@ -17,8 +17,7 @@ import { slotsOf } from "./slots";
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
 export interface WorkerListing {
 	id: string;
-	/** `provisioned` is for workers splates makes itself, which do not exist yet. */
-	kind: WorkerKind | "provisioned";
+	kind: WorkerKind;
 	platform: string | null;
 	build: string | null;
 	/** What its link settled on; null before any handshake. */
@@ -86,7 +85,7 @@ function listing(
 		removing: record?.removing === true,
 		lastHeard: session.lastHeard,
 		tasks,
-		dollarsPerHour: 0,
+		dollarsPerHour: record?.provisioned?.dollarsPerHour ?? 0,
 	};
 }
 

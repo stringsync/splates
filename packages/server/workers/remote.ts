@@ -27,8 +27,11 @@ type Call = CallRequest extends infer Each
 		: never
 	: never;
 
-/** How a worker joined: over this machine's socket, or by its own say-so. */
-export type WorkerKind = "local" | "registered";
+/**
+ * How a worker joined: over this machine's socket, by its own say-so, or
+ * made by the `WorkerProvider` when work waited for it.
+ */
+export type WorkerKind = "local" | "registered" | "provisioned";
 
 /**
  * The coordinator's handle on one worker: what it said of itself in its

@@ -110,6 +110,8 @@ export class Testing implements AsyncDisposable {
 			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
+			workerProvider: null,
+			provisionedWorkers: 2,
 			platform: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });

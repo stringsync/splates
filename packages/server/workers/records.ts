@@ -18,6 +18,11 @@ const Record = z.object({
 	draining: z.boolean(),
 	/** Is removed once its last agent ends. */
 	removing: z.boolean(),
+	/** What its provider made it as, for one splates made; null for one that joined by hand. */
+	provisioned: z
+		.object({ type: z.string(), dollarsPerHour: z.number() })
+		.nullable()
+		.default(null),
 });
 
 /** What the coordinator keeps of one worker across restarts. */
@@ -35,7 +40,7 @@ type KeptFile = z.infer<typeof Kept>;
 
 /** What may be changed of a worker by hand. */
 export type WorkerSettings = Partial<
-	Pick<WorkerRecord, "slots" | "draining" | "removing">
+	Pick<WorkerRecord, "slots" | "draining" | "removing" | "provisioned">
 >;
 
 /**
@@ -120,6 +125,7 @@ export class WorkerRecords {
 			slots: was?.slots ?? null,
 			draining: false,
 			removing: false,
+			provisioned: was?.provisioned ?? null,
 		};
 		await this.change((kept) => ({
 			workers: [...kept.workers.filter((each) => each.id !== id), record],
@@ -144,6 +150,7 @@ export class WorkerRecords {
 				slots: null,
 				draining: false,
 				removing: false,
+				provisioned: null,
 			}),
 			...settings,
 		};

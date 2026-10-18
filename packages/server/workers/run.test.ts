@@ -37,4 +37,26 @@ describe("workerKey", () => {
 		expect(await store.get(WORKER_KEY)).toBe("the-key");
 		expect(JSON.stringify(log.entries)).not.toContain("the-key");
 	});
+
+	it("keeps the key in memory alone for an ephemeral machine", async () => {
+		const key = await workerKey("box", {
+			coordinator: "https://splates.example.com",
+			slots: 2,
+			id: "box",
+			join: "splj_token",
+			ephemeral: true,
+			log,
+			ps: new FakePs(),
+			fs: new NodeFs(),
+			store,
+			send: (async (url: URL) => {
+				sent.push(url.pathname);
+				return Response.json({ id: "box", key: "the-key" });
+			}) as unknown as typeof fetch,
+		});
+
+		expect(key).toBe("the-key");
+		expect(sent).toEqual(["/api/workers/join"]);
+		expect(await store.get(WORKER_KEY)).toBeUndefined();
+	});
 });

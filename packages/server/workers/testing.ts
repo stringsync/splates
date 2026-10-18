@@ -1,5 +1,7 @@
 import { MemoryWorkerSocket } from "./memory-socket";
 
+export { FakeWorkerProvider } from "./fake-provider";
+
 /** Two ends of an in-memory connection, for tests. */
 export class WorkerSocketPair {
 	readonly worker = new MemoryWorkerSocket();
