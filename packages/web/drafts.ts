@@ -62,6 +62,20 @@ export class Drafts implements Eventful<DraftsEvents> {
 		this.dispatcher.dispatch("written", key);
 	}
 
+	/**
+	 * Moves the draft under `from` to `to`, after any text already there, as
+	 * when a new conversation's project changes; its files stay behind.
+	 */
+	move(from: string, to: string): void {
+		const text = this.read(from);
+		if (from === to || text === "") {
+			return;
+		}
+		const kept = this.read(to);
+		this.write(to, kept.trim() === "" ? text : `${kept}\n\n${text}`);
+		this.write(from, "");
+	}
+
 	/** Keeps `files` with the draft under `key`, for as long as the page. */
 	attach(key: string, files: File[]): void {
 		if (files.length === 0) {

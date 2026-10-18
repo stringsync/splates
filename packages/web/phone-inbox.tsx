@@ -16,7 +16,7 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { NEW, openedBy } from "./conversation-address";
+import { openedBy } from "./conversation-address";
 import {
 	type AgentChoice,
 	agentName,
@@ -39,6 +39,7 @@ import { Trunk } from "./dispatching";
 import type { Drafts } from "./drafts";
 import { Held } from "./handed-out";
 import { Mark } from "./mark";
+import { useOpenNew } from "./new-conversation-project";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
@@ -98,6 +99,8 @@ export function Inbox({
 		["changed"],
 	);
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
+	// In the project the last one started in, which may be another's page.
+	const openNew = useOpenNew(onOpen);
 	useCopiedReplies(drafts);
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
@@ -141,7 +144,7 @@ export function Inbox({
 						icon: <SquarePenIcon />,
 						run: () => {
 							if (available) {
-								onOpen(NEW);
+								openNew();
 							}
 						},
 					},
@@ -224,7 +227,7 @@ export function Inbox({
 						disabled={!available}
 						onFocus={() => {
 							launch();
-							onOpen(NEW);
+							openNew();
 						}}
 						className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
 					/>

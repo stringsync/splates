@@ -21,6 +21,17 @@ describe("Drafts", () => {
 		expect(drafts.read("c1")).toBe("");
 	});
 
+	it("moves a draft after what the other key holds", () => {
+		const drafts = new Drafts(refusing);
+		drafts.write("new:", "fix the login");
+		drafts.write("new:shop", "and the footer");
+
+		drafts.move("new:", "new:shop");
+
+		expect(drafts.read("new:")).toBe("");
+		expect(drafts.read("new:shop")).toBe("and the footer\n\nfix the login");
+	});
+
 	it("says which draft was written", () => {
 		const drafts = new Drafts(refusing);
 		const written: string[] = [];

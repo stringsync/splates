@@ -2,9 +2,9 @@ import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
-import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import { ShownRoot, useOpenNew } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
@@ -66,6 +66,8 @@ export function PhoneApp({
 	pageMenu: PageMenu;
 }): JSX.Element {
 	const [drawer, setDrawer] = useState(false);
+	// In the project the last one started in, which may be another's page.
+	const openNew = useOpenNew((open) => go("conversations", open));
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
 		talk,
@@ -89,100 +91,99 @@ export function PhoneApp({
 		<QueueBadge queue={pageMenu.machine?.queue ?? []} />
 	);
 	return (
-		<div className="min-h-dvh">
-			{page === "conversations" && open === null ? (
-				<TopBarFrame value={kebab}>
-					<Inbox
-						feed={talk}
-						drafts={drafts}
-						terminals={terminals}
-						tasks={snapshot?.tasks ?? []}
-						loading={snapshot === null}
-						status={status}
-						onMenu={menu}
-						onOpen={(id) => go("conversations", id)}
-					/>
-				</TopBarFrame>
-			) : page === "conversations" ? (
-				<Screen
-					// A thread reaches across the right padding, so its scrollbar
-					// sits at the screen's edge (`--thread-bleed-end`).
-					className="px-1 [--thread-bleed-end:--spacing(1)]"
-				>
-					{/* Every conversation's way back counts how many others wait. */}
-					<TopBarFrame
-						value={{
-							...kebab,
-							// Restarting to update is the inbox's to say.
-							dot: false,
-							badge: snapshot !== null && (
-								<WaitingBadge
+		<ShownRoot value={snapshot?.root ?? null}>
+			<div className="min-h-dvh">
+				{page === "conversations" && open === null ? (
+					<TopBarFrame value={kebab}>
+						<Inbox
+							feed={talk}
+							drafts={drafts}
+							terminals={terminals}
+							tasks={snapshot?.tasks ?? []}
+							loading={snapshot === null}
+							status={status}
+							onMenu={menu}
+							onOpen={(id) => go("conversations", id)}
+						/>
+					</TopBarFrame>
+				) : page === "conversations" ? (
+					<Screen
+						// A thread reaches across the right padding, so its scrollbar
+						// sits at the screen's edge (`--thread-bleed-end`).
+						className="px-1 [--thread-bleed-end:--spacing(1)]"
+					>
+						{/* Every conversation's way back counts how many others wait. */}
+						<TopBarFrame
+							value={{
+								...kebab,
+								// Restarting to update is the inbox's to say.
+								dot: false,
+								badge: snapshot !== null && (
+									<WaitingBadge
+										feed={talk}
+										drafts={drafts}
+										tasks={snapshot.tasks}
+										open={open}
+									/>
+								),
+							}}
+						>
+							{body}
+						</TopBarFrame>
+					</Screen>
+				) : (
+					<div>
+						{/* The page's own bar lands in the middle, as every other's
+					    does beside a sidebar. */}
+						<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
+							<BarButton label="Open menu" onClick={menu}>
+								<MenuIcon />
+							</BarButton>
+							<div
+								ref={setSlot}
+								className="flex min-w-0 flex-1 items-center gap-1"
+							/>
+							{available && (
+								<BarButton label="New conversation" onClick={() => openNew()}>
+									<SquarePenIcon />
+								</BarButton>
+							)}
+							{available && snapshot !== null && (
+								<NextWaiting
 									feed={talk}
 									drafts={drafts}
 									tasks={snapshot.tasks}
-									open={open}
+									open={null}
+									onOpen={(id) => go("conversations", id)}
 								/>
-							),
-						}}
-					>
-						{body}
-					</TopBarFrame>
-				</Screen>
-			) : (
-				<div>
-					{/* The page's own bar lands in the middle, as every other's
-					    does beside a sidebar. */}
-					<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
-						<BarButton label="Open menu" onClick={menu}>
-							<MenuIcon />
-						</BarButton>
-						<div
-							ref={setSlot}
-							className="flex min-w-0 flex-1 items-center gap-1"
-						/>
-						{available && (
-							<BarButton
-								label="New conversation"
-								onClick={() => go("conversations", NEW)}
-							>
-								<SquarePenIcon />
-							</BarButton>
-						)}
-						{available && snapshot !== null && (
-							<NextWaiting
-								feed={talk}
-								drafts={drafts}
-								tasks={snapshot.tasks}
-								open={null}
-								onOpen={(id) => go("conversations", id)}
-							/>
-						)}
-					</header>
-					<TopBarFrame
-						value={{
-							...kebab,
-							slot,
-							status,
-							project: <ProjectSwitcher name={name} keyed={false} bar />,
-						}}
-					>
-						{body}
-					</TopBarFrame>
-				</div>
-			)}
-			<Drawer
-				open={drawer}
-				onOpenChange={setDrawer}
-				header={header}
-				page={page}
-				conversation={open}
-				available={available}
-				waiting={waiting}
-				archived={conversations.filter((each) => each.archived).length}
-				snapshot={snapshot}
-				onGo={go}
-			/>
-		</div>
+							)}
+						</header>
+						<TopBarFrame
+							value={{
+								...kebab,
+								slot,
+								status,
+								project: <ProjectSwitcher name={name} keyed={false} bar />,
+							}}
+						>
+							{body}
+						</TopBarFrame>
+					</div>
+				)}
+				<Drawer
+					open={drawer}
+					onOpenChange={setDrawer}
+					header={header}
+					page={page}
+					conversation={open}
+					available={available}
+					waiting={waiting}
+					archived={conversations.filter((each) => each.archived).length}
+					snapshot={snapshot}
+					onGo={go}
+				/>
+			</div>
+		</ShownRoot>
 	);
 }
 

@@ -28,6 +28,7 @@ import {
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
+import { useOpenNew } from "./new-conversation-project";
 import type { Terminals } from "./terminals";
 
 /**
@@ -62,7 +63,9 @@ export function NewMenu({
 	// With the agent, model, and settings the last one started with, or on
 	// Auto when it started there.
 	const auto = autoLast(conversations);
-	useShortcut("shortcuts.new", () => onOpen(auto ? `${NEW}/${AUTO}` : NEW));
+	// In the project the last one started in, which may be another's page.
+	const openNew = useOpenNew(onOpen);
+	useShortcut("shortcuts.new", () => openNew(auto ? `${NEW}/${AUTO}` : NEW));
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
 	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));
@@ -112,7 +115,7 @@ export function NewMenu({
 				<DropdownMenuItem
 					onClick={() => {
 						picked.current = true;
-						onOpen(`${NEW}/${AUTO}`);
+						openNew(`${NEW}/${AUTO}`);
 					}}
 				>
 					<AutoIcon />
@@ -126,7 +129,7 @@ export function NewMenu({
 						key={each.id}
 						onClick={() => {
 							picked.current = true;
-							onOpen(`${NEW}/${each.id}`);
+							openNew(`${NEW}/${each.id}`);
 						}}
 					>
 						<AgentIcon agent={each.id} name={each.name} />

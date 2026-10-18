@@ -20,7 +20,11 @@ import { AUTO_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
 import { AUTO, NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
-import { type Starting, useNewConversation } from "./conversation-home";
+import {
+	ProjectLine,
+	type Starting,
+	useNewConversation,
+} from "./conversation-home";
 import { NamedContext } from "./mentioned";
 import { Refusal } from "./refusal";
 import type { Terminals } from "./terminals";
@@ -54,7 +58,7 @@ export function PhoneHome({
 	onBack: () => void;
 }): JSX.Element {
 	const { agents, agent, task, auto, onOpen } = starting;
-	const { runtime, refusal, controls, mentions, references, named } =
+	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const section = useRef<HTMLElement>(null);
 	useLayoutEffect(() => {
@@ -154,7 +158,12 @@ export function PhoneHome({
 										)}
 									</div>
 								}
-								above={<Refusal refusal={refusal} className="px-2" />}
+								above={
+									<>
+										<Refusal refusal={refusal} className="px-2" />
+										<ProjectLine>{project}</ProjectLine>
+									</>
+								}
 								controls={controls}
 							/>
 						</div>

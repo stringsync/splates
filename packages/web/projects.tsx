@@ -39,6 +39,7 @@ import { AddProject } from "./add-project";
 import { Dot } from "./dot";
 import { Leaving } from "./leaving";
 import { NavigationContext } from "./navigation";
+import { forgetUsed } from "./new-conversation-project";
 import { OpenerContext } from "./openers";
 import {
 	focusProject,
@@ -78,6 +79,9 @@ export function ProjectSwitcher({
 	name,
 	keyed = true,
 	bar = false,
+	hash,
+	servers: slots = true,
+	onPick,
 	className,
 }: {
 	name: string;
@@ -85,6 +89,12 @@ export function ProjectSwitcher({
 	keyed?: boolean;
 	/** Whether it follows a page's title, picking which project the page shows. */
 	bar?: boolean;
+	/** Where a pick of another project lands, in place of where this tab last left it. */
+	hash?: string;
+	/** Whether it lists the slots' servers too, to open another one's page. */
+	servers?: boolean;
+	/** Told of a pick of another project just before the page shows it. */
+	onPick?: (project: ProjectChoice) => void;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
 	className?: string;
 }): JSX.Element {
@@ -162,7 +172,7 @@ export function ProjectSwitcher({
 		)
 		.sort((one, other) => one.slug.localeCompare(other.slug));
 	// Only worth listing when there is another to go to.
-	const otherServers = servers.length > 1 ? servers : [];
+	const otherServers = slots && servers.length > 1 ? servers : [];
 	const matchingServers = otherServers.filter(
 		(each) =>
 			words === "" ||
@@ -196,7 +206,12 @@ export function ProjectSwitcher({
 			if (placeOf(each.slug).name === undefined) {
 				rememberPlace(each.slug, { name: each.slug });
 			}
-			navigation.show(projectUrl(each, { stay: bar }));
+			onPick?.(each);
+			const url = new URL(projectUrl(each, { stay: bar }));
+			if (hash !== undefined) {
+				url.hash = hash;
+			}
+			navigation.show(url.toString());
 		}
 	};
 
@@ -214,6 +229,7 @@ export function ProjectSwitcher({
 	const forget = (each: ProjectChoice) =>
 		forgetProject(each.slug).then(
 			(next) => {
+				forgetUsed(each.slug);
 				if (!current(each)) {
 					return load();
 				}

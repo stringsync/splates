@@ -9,6 +9,7 @@ import { BESIDE_PANE } from "./changes";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { useShortcut } from "./hooks/use-shortcut";
+import { ShownRoot } from "./new-conversation-project";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
 import { ProjectSwitcher } from "./projects";
@@ -116,62 +117,64 @@ export function DesktopApp({
 		project: <ProjectSwitcher name={name} keyed={false} bar />,
 	};
 	return (
-		<TopBarFrame value={frame}>
-			<Tabs
-				value={page}
-				onValueChange={(value) => go(value as Page)}
-				orientation="vertical"
-				// Clear of the sidebar.
-				className={cn(
-					"min-h-dvh flex-col gap-0",
-					shown && "pl-(--sidebar-width)",
-					paned && BESIDE_PANE,
-				)}
-				style={{ "--sidebar-width": `${width}px` } as CSSProperties}
-			>
-				<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
-				{/* Every page's bar lands here, one row with the sidebar's head,
-				    and clear of it once it hides. */}
-				<header
-					ref={setSlot}
+		<ShownRoot value={snapshot?.root ?? null}>
+			<TopBarFrame value={frame}>
+				<Tabs
+					value={page}
+					onValueChange={(value) => go(value as Page)}
+					orientation="vertical"
+					// Clear of the sidebar.
 					className={cn(
-						"sticky top-0 z-30 flex h-(--top-bar-height) shrink-0 items-center gap-1 bg-background pr-2 pl-4",
-						!shown && "pl-(--top-bar-start)",
+						"min-h-dvh flex-col gap-0",
+						shown && "pl-(--sidebar-width)",
+						paned && BESIDE_PANE,
 					)}
-				/>
-				<AppNav
-					available={available}
-					snapshot={snapshot}
-					page={page}
-					open={open}
-					onOpen={(id) => go("conversations", id)}
-					onPage={(to) => go(to)}
-					talk={talk}
-					terminals={terminals}
-					drafts={drafts}
-					sidebar={sidebar}
-				/>
-				{bodies === null ? (
-					<>
-						{/* Bare, for the status and the page menu it ends with. */}
-						<TopBar title="" />
-						{opening}
-					</>
-				) : (
-					// Every page, those out of the nav, as Setup, too.
-					(Object.keys(DESKTOP_PAGES) as Page[])
-						.filter((value) => value !== "conversations" || available)
-						.map((value) => (
-							<TabsContent
-								key={value}
-								value={value}
-								className={DESKTOP_PAGES[value]}
-							>
-								{bodies[value]}
-							</TabsContent>
-						))
-				)}
-			</Tabs>
-		</TopBarFrame>
+					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
+				>
+					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
+					{/* Every page's bar lands here, one row with the sidebar's head,
+				    and clear of it once it hides. */}
+					<header
+						ref={setSlot}
+						className={cn(
+							"sticky top-0 z-30 flex h-(--top-bar-height) shrink-0 items-center gap-1 bg-background pr-2 pl-4",
+							!shown && "pl-(--top-bar-start)",
+						)}
+					/>
+					<AppNav
+						available={available}
+						snapshot={snapshot}
+						page={page}
+						open={open}
+						onOpen={(id) => go("conversations", id)}
+						onPage={(to) => go(to)}
+						talk={talk}
+						terminals={terminals}
+						drafts={drafts}
+						sidebar={sidebar}
+					/>
+					{bodies === null ? (
+						<>
+							{/* Bare, for the status and the page menu it ends with. */}
+							<TopBar title="" />
+							{opening}
+						</>
+					) : (
+						// Every page, those out of the nav, as Setup, too.
+						(Object.keys(DESKTOP_PAGES) as Page[])
+							.filter((value) => value !== "conversations" || available)
+							.map((value) => (
+								<TabsContent
+									key={value}
+									value={value}
+									className={DESKTOP_PAGES[value]}
+								>
+									{bodies[value]}
+								</TabsContent>
+							))
+					)}
+				</Tabs>
+			</TopBarFrame>
+		</ShownRoot>
 	);
 }

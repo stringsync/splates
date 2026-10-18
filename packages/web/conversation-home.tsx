@@ -10,7 +10,7 @@ import type {
 import { modelOption } from "@stringsync/splates-server/models";
 import { AUTO } from "@stringsync/splates-server/prompts";
 import type { Details } from "@stringsync/splates-server/show";
-import { type JSX, useContext, useRef, useState } from "react";
+import { type JSX, type ReactNode, useContext, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#web/composing.tsx";
@@ -26,7 +26,7 @@ import {
 	useProjects,
 	useSystems,
 } from "./composer-triggers";
-import { settingsFor } from "./conversation-address";
+import { AUTO as AUTO_ADDRESS, NEW, settingsFor } from "./conversation-address";
 import {
 	promptConversation,
 	startAutoConversation,
@@ -49,8 +49,11 @@ import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
+import { rememberProject, rememberShown } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { limitsOf, PlanLimits } from "./plan-limits";
+import { shownProject, useProjectName } from "./project-places";
+import { ProjectSwitcher } from "./projects";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
@@ -169,6 +172,9 @@ export function useNewConversation({
 				throw error;
 			});
 			feed.put(state);
+			if (root !== null) {
+				rememberShown(root);
+			}
 			// Shown at once in its thread, so the person watches the agent come
 			// up; the message waits on the server for the session to open.
 			const sending =
@@ -199,11 +205,8 @@ export function useNewConversation({
 			}
 		},
 	});
-	restore.current = useDraft(
-		runtime,
-		drafts,
-		newDraft(new URLSearchParams(location.search).get("project"), task),
-	);
+	const draft = newDraft(shownProject(), task);
+	restore.current = useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
 	const systems = useSystems(task, tasks);
@@ -214,7 +217,10 @@ export function useNewConversation({
 		systems ?? undefined,
 		projects ?? undefined,
 	);
-	const root = useContext(TreesContext)?.root ?? null;
+	const trees = useContext(TreesContext);
+	// As the page heads itself, which keeps the name for this tab.
+	const projectName = useProjectName(undefined);
+	const root = trees?.root ?? null;
 	const named = useNamed(
 		paths,
 		systems,
@@ -240,9 +246,26 @@ export function useNewConversation({
 			Settings appear once {agentName(agents, agent)} starts
 		</span>
 	);
+	// Picked, the page shows that project's own screen to start one, what was
+	// typed carried there; its trees are its own, so none of this one's task.
+	const project = (
+		<ProjectSwitcher
+			name={projectName}
+			keyed={false}
+			bar
+			servers={false}
+			className="mx-0"
+			hash={`#conversations/${NEW}/${auto ? AUTO_ADDRESS : agent}`}
+			onPick={(each) => {
+				drafts.move(draft, newDraft(each.slug));
+				rememberProject(each);
+			}}
+		/>
+	);
 	return {
 		runtime,
 		refusal,
+		project,
 		starting,
 		controls,
 		mentions: mentions ?? undefined,
@@ -259,7 +282,7 @@ export function useNewConversation({
  */
 export function Home(starting: Starting): JSX.Element {
 	const { tasks, agents, agent, task, auto, conversations, onOpen } = starting;
-	const { runtime, refusal, controls, mentions, references, named } =
+	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const listed = conversations.filter((each) => !each.archived);
 	// Only unfinished work at rest: one at work, through its subagents too, or
@@ -287,7 +310,12 @@ export function Home(starting: Starting): JSX.Element {
 						<ThreadView
 							mentions={mentions}
 							references={references}
-							above={<Refusal refusal={refusal} className="px-2" />}
+							above={
+								<>
+									<Refusal refusal={refusal} className="px-2" />
+									<ProjectLine>{project}</ProjectLine>
+								</>
+							}
 							welcome={
 								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
 									<span>Start a conversation with</span>
@@ -339,6 +367,20 @@ export function Home(starting: Starting): JSX.Element {
 				</Composing.Provider>
 			</AssistantRuntimeProvider>
 		</section>
+	);
+}
+
+/** The project a new conversation starts in, as a line atop its composer. */
+export function ProjectLine({
+	children,
+}: {
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<div className="-mb-2 flex min-w-0 items-center gap-1 px-2 text-muted-foreground text-sm">
+			<span className="shrink-0">In</span>
+			{children}
+		</div>
 	);
 }
 
