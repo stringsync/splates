@@ -21,7 +21,7 @@ const INSTRUCTIONS = `1. Open [API keys](https://platform.openai.com/api-keys), 
 export type TranscriberFor = (
 	project: Project,
 	/** Tells the project's pages that its records moved, as a new request does. */
-	tick: () => Promise<void>,
+	tick: () => void,
 ) => Promise<Transcriber | null>;
 
 /**
@@ -45,7 +45,7 @@ export const transcriberFor: TranscriberFor = async (project, tick) => {
 				}),
 			(asked) => ({ name: OPENAI_KEY, asked: asked !== null }),
 		);
-		await tick();
+		tick();
 		return null;
 	}
 	const root = project.service.git.root;

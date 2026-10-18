@@ -71,10 +71,17 @@ export class ProjectWatch implements StreamWatcher {
 		return this.live(kept.snapshot);
 	}
 
-	/** Reads the repo again now, after a page's own write, telling its pages. */
-	async tick(): Promise<void> {
+	/**
+	 * Marks the repo moved after a page's own write and reads it again behind
+	 * the answer, telling its pages. The write need not wait for the read:
+	 * the page's refetch shares it, and the move already makes that refetch
+	 * read fresh.
+	 */
+	tick(): void {
 		this.moves++;
-		await this.push();
+		this.push().catch((error: unknown) =>
+			this.project.log.error(String(error)),
+		);
 	}
 
 	/** Reads the repo again soon, telling its pages if anything moved. */

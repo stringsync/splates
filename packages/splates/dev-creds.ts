@@ -42,7 +42,7 @@ export class CredRoutes {
 				scope: scope === undefined ? undefined : scopeIn(scope),
 			}),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({ name, scope: kept });
 	};
 
@@ -52,7 +52,7 @@ export class CredRoutes {
 		await this.#project.journal.record("creds remove", null, () =>
 			this.#project.creds.remove(name, scope),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({ name, scope });
 	};
 
@@ -61,7 +61,7 @@ export class CredRoutes {
 		await this.#project.journal.record("creds dismiss", null, () =>
 			this.#project.creds.dismiss(name),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({ name });
 	};
 }

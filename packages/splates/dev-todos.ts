@@ -46,7 +46,7 @@ export class TodoRoutes {
 				}),
 			addedFacts,
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -68,7 +68,7 @@ export class TodoRoutes {
 					keep: form.getAll("keep").map(String),
 				}),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -83,7 +83,7 @@ export class TodoRoutes {
 			found.id,
 			() => found.update({ position: Number(position) }),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -100,7 +100,7 @@ export class TodoRoutes {
 				drop: found.blockedBy.filter((id) => !ids.includes(id)),
 			}),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -116,7 +116,7 @@ export class TodoRoutes {
 					before === undefined || before === null ? undefined : Number(before),
 			}),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -127,7 +127,7 @@ export class TodoRoutes {
 		await journal.record("lane join", null, () =>
 			todos.joinLanes(from, Number(into)),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({ lane: Number(into) });
 	};
 
@@ -140,7 +140,7 @@ export class TodoRoutes {
 			() => todos.addLane(String(name ?? "")),
 			(added) => ({ lane: added.id, name: added.name }),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(lane);
 	};
 
@@ -169,7 +169,7 @@ export class TodoRoutes {
 			},
 			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(lane ?? { id });
 	};
 
@@ -182,7 +182,7 @@ export class TodoRoutes {
 			found.id,
 			() => found.update({ assignee }),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 
@@ -190,7 +190,7 @@ export class TodoRoutes {
 		const { journal, todos } = this.#project;
 		const id = laneAt(request);
 		await recordLaneRemove(journal, todos, id, () => todos.dropLane(id));
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({ lane: id });
 	};
 
@@ -203,7 +203,7 @@ export class TodoRoutes {
 			() => found.discard(),
 			() => ({ todos: todosNamed([found]) }),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(found.state);
 	};
 
@@ -216,7 +216,7 @@ export class TodoRoutes {
 			() => todos.restore(this.idAt(request)),
 			addedFacts,
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(todo.state);
 	};
 

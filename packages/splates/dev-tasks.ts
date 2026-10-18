@@ -162,7 +162,7 @@ export class TaskRoutes {
 			() => grantRetry(service, task),
 			({ attempts }) => ({ attempts }),
 		);
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json(worktree.state);
 	};
 
@@ -208,7 +208,7 @@ export class TaskRoutes {
 		for (const conversation of on) {
 			conversation.move(null, service.git.root);
 		}
-		await this.#watch.tick();
+		this.#watch.tick();
 		return Response.json({});
 	};
 }
