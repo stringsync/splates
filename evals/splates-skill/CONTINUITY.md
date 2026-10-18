@@ -48,8 +48,7 @@ aspect tests; they do not prove UI transport or agent response conformance.
   that gap. The one-line checkpoint reply is not currently graded.
 - Report fields are existential parser checks, potentially from different
   reports. Preserve `report-coherence`, report truth versus fixture removal,
-  and prose quality gaps. Questions/choices and next-todo structure
-  need additional report cases; decision ownership remains #355/#340.
+  and prose quality gaps. Questions/choices need additional report cases; decision ownership remains #355/#340.
 - Reconcile the six ids with COVERAGE.md without counting them as observed
   model adherence. All retain explicit uncovered assertions even under a
   synthetic fully captured trace. No speedup, success rate or ranking measured.

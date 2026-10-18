@@ -304,7 +304,7 @@ const probes: Probe[] = [
 			state("observed-task-plan-absent", "file/SPLATES.md", null),
 			gap(
 				"report-coherence",
-				"Existential parsed fields can belong to separate reports. Absence of the observed plan supports only fixture removal; it does not prove an agent removed the task, prose quality, questions/choices or next-todo relevance.",
+				"Existential parsed fields can belong to separate reports. Absence of the observed plan supports only fixture removal; it does not prove an agent removed the task, prose quality or questions/choices.",
 			),
 		],
 	),

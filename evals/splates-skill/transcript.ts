@@ -8,7 +8,7 @@ import type { Beat, Transcript } from "@stringsync/splates-server/stats";
  */
 export function readRun(turns: string[][], prompts: string[]): RunLog {
 	const log: RunLog = {
-		transcript: { beats: [], handed: false },
+		transcript: { beats: [] },
 		tools: [],
 		text: "",
 		usage: [],

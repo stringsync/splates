@@ -90,9 +90,8 @@ questions up to the user and their answers down:
 
 - `[SPLATES REPORT <task>]`: read `splates show <task>`. When it is gone, read
   in `git log` what landed and end on the report the task would have ended
-  on, `## ✅ Merged <task> onto <base>` or `## 🛑 Removed <task>: <why>`,
-  with the next todo (see The next todo), since the other agent proposes
-  none. When it escalated, relay its questions or its review (see Relaying
+  on, `## ✅ Merged <task> onto <base>` or `## 🛑 Removed <task>: <why>`.
+  When it escalated, relay its questions or its review (see Relaying
   below), under a `## ⚠️ Escalated <task>: <what it needs>` or a Ready to
   merge card.
 - `[SPLATES IDLE <task>]`: it stopped without a word to you. When its

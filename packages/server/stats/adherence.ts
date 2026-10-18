@@ -160,7 +160,7 @@ export function condense(state: ConversationState): Transcript {
 			}
 		}
 	}
-	return { beats, handed: state.handedBy !== null };
+	return { beats };
 }
 
 function textOf(parts: ConversationState["messages"][number]["parts"]): string {

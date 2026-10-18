@@ -158,15 +158,11 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads the skill's merge and remove reports, and the todos they propose", async () => {
+	it("reads the skill's merge and remove reports", async () => {
 		const merged = await skillExample("## ✅ Merged");
 		const removed = await skillExample("## 🛑 Removed");
 
-		// `[#<id>]` is a placeholder, not a number: only a real id makes a card.
-		expect(stretches(merged).map((each) => each.type)).toEqual([
-			"report",
-			"text",
-		]);
+		expect(stretches(merged).map((each) => each.type)).toEqual(["report"]);
 		expect(stretches(merged)[0]).toEqual({
 			type: "report",
 			report: {

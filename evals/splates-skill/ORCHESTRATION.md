@@ -77,7 +77,7 @@ or a coherent report across multiple parsed stretches.
   semantic report truth, and start-card-before-dispatch ordering remain gaps.
   The event schema cannot represent intermediate user-visible replies.
 - Active-task DEFER (save work, commit, update SPLATES.md, escalate, then no
-  continuation), full grooming/release/next-todo quality and arbitrary model
+  continuation), full grooming/release quality and arbitrary model
   choice need additional instrumented cases; the additional-request defer
   fixture does not stand in for them.
 - #367 owns skill discovery and reference reads. #356 owns actual delegation,

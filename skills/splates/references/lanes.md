@@ -207,8 +207,7 @@ an escalation ends with them.
 Once every lane it works is done, it ends on one report for them all, the page's sign that it is
 done: `## 🏁 Finished lanes` and the lanes' names as the board shows them,
 then one sentence on what they added up to, and a `- ` line per lane on what
-became of each todo, including those another agent took and landed. It ends
-with the proposed todos, as a merge report does.
+became of each todo, including those another agent took and landed.
 
 ```markdown
 ## 🏁 Finished lanes Stats, Licensing

@@ -119,37 +119,6 @@ describe("skill checks", () => {
 		).toEqual([]);
 	});
 
-	const proposal = "### 📝 Retry on 413 [#12]\n\nIt shares the retry loop.";
-
-	it("next-todo: passes a proposal after a merge, and fails a remove without one", () => {
-		expect(
-			verdicts("next-todo", [
-				user(),
-				merge(),
-				say(`## ✅ Merged upload-413 onto main\n\nDone.\n\n${proposal}`),
-				user(),
-				run("splates remove old", "removed old"),
-				say("## 🛑 Removed old: moot"),
-			]),
-		).toEqual([true, false]);
-	});
-
-	it("next-todo: does not apply when merge had no todo to propose, or the task was handed", () => {
-		const merged = [
-			user(),
-			merge("upload-413", false),
-			say("## ✅ Merged x onto main"),
-		];
-		expect(verdicts("next-todo", merged)).toEqual([]);
-		expect(
-			verdicts(
-				"next-todo",
-				[user(), merge(), say("## ✅ Merged x onto main")],
-				true,
-			),
-		).toEqual([]);
-	});
-
 	it("setup-read-first: passes a step read before acting, and fails one acted on first", () => {
 		expect(
 			verdicts("setup-read-first", [
@@ -222,7 +191,7 @@ describe("skill checks", () => {
 
 	it("squashed: passes one plain commit, and fails several or an attributed one", () => {
 		const found = judge(
-			{ beats: [], handed: false },
+			{ beats: [] },
 			{
 				landed: [
 					{ task: "a", commits: ["Stop retrying a 413"] },
@@ -264,25 +233,15 @@ function add(task = "upload-413", flags = ""): Beat {
 	);
 }
 
-/** A task merged, as `splates merge` prints it, with a todo to propose or not. */
-function merge(task = "upload-413", proposed = true): Beat {
+/** A task merged, as `splates merge` prints it. */
+function merge(task = "upload-413"): Beat {
 	return run(
 		"SPLATES_ROOT=/repo splates merge",
-		`merged ${task} onto main (abc123)\n  worktree removed, cd /repo${
-			proposed
-				? "\n\nnext todo 12: Retry\n  start it: splates add <task> --todo 12"
-				: ""
-		}`,
+		`merged ${task} onto main (abc123)\n  worktree removed, cd /repo`,
 	);
 }
 
 /** What `check` found of `beats`, as pass or fail per place it applied. */
-function verdicts(
-	check: string,
-	beats: Beat[],
-	handed = false,
-): boolean[] | undefined {
-	return judge({ beats, handed }, { landed: [] })[check]?.map(
-		(each) => each.ok,
-	);
+function verdicts(check: string, beats: Beat[]): boolean[] | undefined {
+	return judge({ beats }, { landed: [] })[check]?.map((each) => each.ok);
 }

@@ -21,8 +21,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		sections: [
 			...CORE,
 			"Todos",
-			"The next todo",
-			"Proposing a todo",
+			"A todo you add",
 			"SPLATES.md",
 			"Committing",
 			"Merge or review",
@@ -134,7 +133,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			"Links",
 			"Lanes",
 			"Positions",
-			"Proposing a todo",
+			"A todo you add",
 		],
 		checks: [
 			{

@@ -78,7 +78,6 @@ function verdicts(
 		log: {
 			transcript: {
 				beats: [{ kind: "user", text: "go" }, ...beats],
-				handed: false,
 			},
 			tools: [],
 			text: "",

@@ -20,12 +20,6 @@ export function judge(
 /** A conversation as the checks read it: its own words and acts, in order. */
 export interface Transcript {
 	beats: Beat[];
-	/**
-	 * Whether another conversation handed it its task, a lane's orchestrator
-	 * or an agent relaying for it, so it reports to that conversation, which
-	 * proposes the next todo in its place.
-	 */
-	handed: boolean;
 }
 
 /**
@@ -122,26 +116,6 @@ export const CHECKS: readonly Check[] = [
 					},
 				];
 			}),
-	},
-	{
-		id: "next-todo",
-		rule: "Proposes the next todo after a merge or remove",
-		judge: ({ beats, handed }) =>
-			handed
-				? []
-				: endings(beats)
-						.filter(
-							({ verb, output }) =>
-								verb === "remove" ||
-								(verb === "merge" && PROPOSED.test(output)),
-						)
-						.map(({ verb, report }) => {
-							const ok = TODO_HEADING.test(report);
-							return {
-								ok,
-								why: `${verb}: ${ok ? "proposed one" : "proposed none"}`,
-							};
-						}),
 	},
 	{
 		id: "squashed",
@@ -290,12 +264,6 @@ const TITLES = {
 	escalate: /^## ⚠️? Escalated \S+: .*[^.!?:]$/,
 	review: /^## 🔍 Ready to merge \S+ onto \S+$/,
 };
-
-/** A proposed todo's heading. */
-const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
-
-/** What `splates merge` prints when it has a todo to propose. */
-const PROPOSED = /splates add <task> --todo \d+/;
 
 /** A numbered list item. */
 const NUMBERED = /^\s*\d+\.\s/;

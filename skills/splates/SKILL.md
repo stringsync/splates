@@ -106,7 +106,7 @@ which remembers none of it.
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `splates todo add` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
-   added (see Proposing a todo). A snag on the way, such as a lost
+   added (see A todo you add). A snag on the way, such as a lost
    connection, a conflict or a retry, is no todo; `splates merge` adds one
    itself for each test that failed its gate. When a call the request does not
    settle needs the user, write it as a question and keep going (see Asking
@@ -254,44 +254,13 @@ again just before merging:
      it: never take it, read its Goal in `splates list --files`, and note it
      in `SPLATES.md`.
 
-### The next todo
+### A todo you add
 
-Whenever a task ends, merged or removed, propose the next todo, so the
-context this conversation built up gets used before it is gone: from
-`splates todo list --open`, the one most related to the work just done (the
-same files, feature, or problem; `splates todo show` one to be sure), preferring
-one that came up in the task; among equally related ones, or when none is related, the top of the list.
-`merge` prints its pick by that order; `remove` prints none. After a merge,
-also propose the next one or two when they are as related, so the user can
-choose.
-
-A task whose todos were in a lane is the exception: propose that lane's next
-todo, even one another lane still blocks, so the lane goes on in order. `merge` prints it; after a `remove`, read it from
-`splates lane show <n>`. When the todos were in more than one lane, propose each
-lane's next todo and let the user choose. Only when the lane is done, fall
-back to the most related todo.
-
-### Proposing a todo
-
-Whenever you propose a todo to the user, head it one level below the report's title with 📝, its subject
-exactly as `splates todo show` prints it, and its id, then write one sentence on
-why it matters now, such as what it shares with the work just done. The page
-shows the todo itself.
-
-```markdown
-### 📝 Upload retries forever on a 413 [#12]
-
-It touches the retry loop this task just rewrote.
-```
-
-A todo you add needs no heading in your reply: the `splates server` page shows
-each `splates todo add` in the conversation as a line naming the todo, which
-opens it. Say more about it only what that line cannot, in your own words.
+The `splates server` page shows each `splates todo add` in the conversation as
+a line naming the todo, which opens it, so your reply needs no heading or
+summary of it. Say more about it only what that line cannot, in your own words.
 That shrinks what you say, never the todo: its subject and detail stay as
 full as Todos asks, since whoever picks it up reads nothing else.
-
-The 📝 belongs to the heading: leave it out of `splates todo add` and
-`--subject`.
 
 ## Other projects
 
@@ -637,8 +606,7 @@ since it reads your `SPLATES.md`, not your replies:
 
 A lane's orchestrator that handed you a todo (`$SPLATES_STARTED_BY` is set)
 is not one you report to: you answer to the user, as for any task, and
-splates tells it where the lane stands from the todos. Propose no next todo
-once you merge or remove: it hands that out.
+splates tells it where the lane stands from the todos.
 
 ## Merge or review
 
@@ -862,28 +830,17 @@ no line.
 One sentence on what changed.
 
 - Restart `splates server` to see it.
-
-### 📝 <subject> [#<id>]
-
-Why it is a good next step.
 ```
 
 ```markdown
 ## 🛑 Removed <task>: superseded by a fix on main
 
 One sentence on what the task set out to do.
-
-### 📝 <subject> [#<id>]
-
-Why it is a good next step.
 ```
 
 When the task made an artifact, a merge report names it in a `- ` line,
 `- Artifact: <name>`, rather than inlining it: the page lists it already, and
 the report stays a glance.
-
-A merge or remove report ends with the proposed todos, the best one first,
-each kept to its one sentence; leave them out only when no todo is open.
 
 A handoff makes no report: the `splates server` page shows it as splates's own line,
 and the agent it went to as that line's hover. Say where the task stands in

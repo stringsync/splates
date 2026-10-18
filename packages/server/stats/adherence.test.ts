@@ -51,7 +51,6 @@ describe("Adherence", () => {
 		);
 
 		expect(condense(state)).toEqual({
-			handed: false,
 			beats: [
 				{ kind: "user", text: "fix the upload" },
 				{

@@ -132,7 +132,6 @@ function verdicts(
 	const log: EvalRun["log"] = {
 		transcript: {
 			beats: [{ kind: "user", text: scenario.turns[0] ?? "" }, ...beats],
-			handed: false,
 		},
 		tools,
 		text: "",
