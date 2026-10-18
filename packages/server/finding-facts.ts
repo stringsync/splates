@@ -1,7 +1,7 @@
 import { findingKeys } from "./baselines";
 import { FINDING_THRESHOLDS, type Finding } from "./findings";
 import type { Landed } from "./landed";
-import type { TimedTest } from "./test-report";
+import type { TimedTest } from "./merge";
 
 /** One thing that went worse than it could have, as the merged card says it. */
 export interface Fact {

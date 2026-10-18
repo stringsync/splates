@@ -1,5 +1,5 @@
 import type { Git, GitResult } from "../git";
-import type { TimedTest } from "../test-report";
+import type { TimedTest } from "../merge";
 import { type FileDiff, parseDiff } from "./diff";
 import type { WorktreeService } from "./worktree-service";
 

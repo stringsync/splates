@@ -7,9 +7,9 @@ import {
 	setDefaultTimeout,
 } from "bun:test";
 import { join } from "node:path";
+import { add } from "../tasks";
+import { Testing } from "../testing";
 import { merge } from "./merge";
-import { add } from "./tasks";
-import { Testing } from "./testing";
 
 // Real git in a repo, a bare remote and a second clone each.
 setDefaultTimeout(30_000);

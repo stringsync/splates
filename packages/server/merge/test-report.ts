@@ -1,4 +1,4 @@
-import type { FailedTest } from "./tasks";
+import type { FailedTest } from "../tasks";
 
 /** One test as a JUnit report timed it. */
 export interface TimedTest {

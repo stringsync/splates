@@ -1,24 +1,24 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Lock } from "webappwiz/system";
-import type { Todos } from "./board";
-import type { Config } from "./config";
-import { LEGACY_PLAN_FILE } from "./config";
-import { fail } from "./exit";
-import type { Git } from "./git";
-import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "./plans";
-import type { Facts } from "./records";
-import type { Shell } from "./shell";
-import { freedLine, type Slots } from "./slots";
-import { pushedLine, type TaskBranches } from "./task-branches";
+import type { Todos } from "../board";
+import type { Config } from "../config";
+import { LEGACY_PLAN_FILE } from "../config";
+import { fail } from "../exit";
+import type { Git } from "../git";
+import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
+import type { Facts } from "../records";
+import type { Shell } from "../shell";
+import { freedLine, type Slots } from "../slots";
+import { pushedLine, type TaskBranches } from "../task-branches";
 import type {
 	GateFailure,
 	MergeFailure,
 	Worktree,
 	WorktreeService,
-} from "./tasks";
-import { recommend, recommendation } from "./tasks";
+} from "../tasks";
+import { recommend, recommendation } from "../tasks";
+import type { Landed, TrunkLanding } from "../trunk-landing";
 import { failedTests, timedTests } from "./test-report";
-import type { Landed, TrunkLanding } from "./trunk-landing";
 
 const TAIL_LINES = 40;
 /** The JUnit report a hook may write at `$SPLATES_TEST_REPORT`, in the worktree's git dir. */

@@ -1,7 +1,7 @@
 import type { Judged } from "./adherence";
+import type { TimedTest } from "./merge";
 import type { TaskLog } from "./task-log";
 import type { GateFailure } from "./tasks";
-import type { TimedTest } from "./test-report";
 
 /** What went worse than it could have, in the order `Finding` lists the kinds. */
 export function findings(evidence: Evidence): Finding[] {
@@ -64,7 +64,7 @@ export function findings(evidence: Evidence): Finding[] {
 	return found;
 }
 
-/** Where each finding starts: change one when its finding fires too often or too rarely. */
+/** How often each finding fires: tune a threshold to make its finding fire less or more. */
 export const FINDING_THRESHOLDS = {
 	/** A command failing this many times in one task. */
 	repeatedFailures: 3,

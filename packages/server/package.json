@@ -62,7 +62,7 @@
 		"./landed": "./landed.ts",
 		"./log": "./log.ts",
 		"./machine": "./machine.ts",
-		"./merge": "./merge.ts",
+		"./merge": "./merge/index.ts",
 		"./notices": "./notices.ts",
 		"./outcomes": "./outcomes.ts",
 		"./ports-list": "./ports-list.ts",
