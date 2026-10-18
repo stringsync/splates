@@ -1,3 +1,4 @@
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import {
 	addWorker,
 	drainWorker,
@@ -8,7 +9,6 @@ import { listWorkers } from "@stringsync/splates-server/worker-list";
 import { workerRun } from "@stringsync/splates-server/worker-run";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
 
 /** `splates worker`, which the root cli mounts after `splates slots`. */
 export const splatesWorker = cli<SplatesDeps>("worker").description(

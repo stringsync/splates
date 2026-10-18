@@ -6,6 +6,7 @@ import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/attach";
 import { checkpoint } from "@stringsync/splates-server/checkpoint";
 import { claim } from "@stringsync/splates-server/claim";
+import { commaList } from "@stringsync/splates-server/comma-list";
 import { escalate } from "@stringsync/splates-server/escalate";
 import type { Facts } from "@stringsync/splates-server/events";
 import { exits, fail } from "@stringsync/splates-server/exit";
@@ -23,8 +24,10 @@ import { newest } from "@stringsync/splates-server/release";
 import { remove } from "@stringsync/splates-server/remove";
 import { repository } from "@stringsync/splates-server/repository";
 import { recordRetry } from "@stringsync/splates-server/retry";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { show } from "@stringsync/splates-server/show";
 import { serveDev } from "@stringsync/splates-server/start";
+import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
 import { systems } from "@stringsync/splates-server/system";
 import { reportToCaller, tell } from "@stringsync/splates-server/tell";
 import { update } from "@stringsync/splates-server/update";
@@ -38,29 +41,17 @@ import { REMOVE_REASONS } from "@stringsync/splates-server/worktree";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { splatesArtifact } from "./splates-artifact";
-import { splatesCreds } from "./splates-creds";
-import {
-	commaList,
-	effortIn,
-	here,
-	offeredOf,
-	rosterOf,
-	seeded,
-	todoIds,
-} from "./splates-flags";
-import { splatesLane } from "./splates-lane";
-import { splatesProjects } from "./splates-projects";
-import { splatesQueue } from "./splates-queue";
-import { setup } from "./splates-setup";
-import { splatesSlots } from "./splates-slots";
-import { splatesTodo } from "./splates-todo";
-import { splatesTunnel } from "./splates-tunnel";
-import { splatesWorker } from "./splates-worker";
-
-export type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import { splatesArtifact } from "./artifact";
+import { splatesCreds } from "./creds";
+import { effortIn, here, offeredOf, todoIds } from "./flags";
+import { splatesLane } from "./lane";
+import { splatesProjects } from "./projects";
+import { splatesQueue } from "./queue";
+import { setup } from "./setup";
+import { splatesSlots } from "./slots";
+import { splatesTodo } from "./todo";
+import { splatesTunnel } from "./tunnel";
+import { splatesWorker } from "./worker";
 
 /**
  * Splits a leading `--project <slug>`, or `--project=<slug>`, off the

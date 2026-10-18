@@ -9,10 +9,10 @@ import {
 } from "@stringsync/splates-server/lane";
 import { UNTRIAGED } from "@stringsync/splates-server/prompts";
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
-import { position } from "./splates-flags";
+import { position } from "./flags";
 
 /** `splates lane`, which the root cli mounts after `splates todo`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(

@@ -13,7 +13,7 @@ describe("typeConfig", () => {
 
 	beforeEach(async () => {
 		// Imported from disk, and inside this package, so a config's import of
-		// `@stringsync/splates/config` resolves as in a repo that installs splates.
+		// `@stringsync/splates-server/config` resolves as in a repo that installs splates.
 		root = await mkdtemp(join(import.meta.dirname, ".type-config-"));
 		log = new MemoryLogger();
 	});
@@ -27,7 +27,7 @@ describe("typeConfig", () => {
 	it("types a config that calls defineConfig with satisfies, keeping what it names", async () => {
 		await fs.write(
 			join(root, "splates.config.ts"),
-			`import { defineConfig } from "@stringsync/splates/config";
+			`import { defineConfig } from "@stringsync/splates-server/config";
 
 export default defineConfig({
 	preMerge: "bun test",
@@ -39,7 +39,7 @@ export default defineConfig({
 
 		expect(
 			await config(),
-		).toBe(`import type { ConfigFile } from "@stringsync/splates/config";
+		).toBe(`import type { ConfigFile } from "@stringsync/splates-server/config";
 
 export default {
 	preMerge: "bun test",
@@ -51,7 +51,7 @@ export default {
 	});
 
 	it("leaves a config it cannot rewrite as it is, saying so", async () => {
-		const before = `import { defineConfig as d } from "@stringsync/splates/config";\nexport default d({});\n`;
+		const before = `import { defineConfig as d } from "@stringsync/splates-server/config";\nexport default d({});\n`;
 		await fs.write(join(root, "splates.config.ts"), before);
 
 		await typeConfig({ root, fs, log });

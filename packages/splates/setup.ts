@@ -2,6 +2,7 @@ import { dirname } from "node:path";
 import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
 import { Projects } from "@stringsync/splates-server/projects";
 import { splatesHome } from "@stringsync/splates-server/roster";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import {
 	Setup,
 	type SetupProgress,
@@ -13,43 +14,6 @@ import { setupProjectAt } from "@stringsync/splates-server/setup-project";
 import type { Logger } from "webappwiz/log";
 import { color } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
-import type { SplatesDeps } from "./splates";
-
-/**
- * This machine's setup, read through `deps`, for the project `--project`
- * names or the repository the working directory is in, if either.
- */
-export async function setupOf(deps: SplatesDeps): Promise<Setup> {
-	const { fs, ps, secrets = SYSTEM_STORES, fetch } = deps;
-	const root =
-		deps.project === undefined
-			? await repoRoot(ps)
-			: (await Projects.ofMachine(deps).named(deps.project)).root;
-	return new Setup(
-		{
-			fs,
-			ps,
-			home: splatesHome(ps),
-			device: secrets.device,
-			fetch,
-			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
-		},
-		SETUP_AREAS,
-	);
-}
-
-/** The main tree of the repository the working directory is in, or null. */
-async function repoRoot(ps: Ps): Promise<string | null> {
-	const { exitCode, stdout } = await ps.spawnCapture([
-		"git",
-		"-C",
-		ps.cwd(),
-		"rev-parse",
-		"--path-format=absolute",
-		"--git-common-dir",
-	]);
-	return exitCode === 0 ? dirname(stdout.trim()) : null;
-}
 
 /** What `splates setup` was asked for. */
 export interface SetupOptions {
@@ -95,6 +59,42 @@ export async function setup(
 		return;
 	}
 	printStep(log, step);
+}
+
+/**
+ * This machine's setup, read through `deps`, for the project `--project`
+ * names or the repository the working directory is in, if either.
+ */
+export async function setupOf(deps: SplatesDeps): Promise<Setup> {
+	const { fs, ps, secrets = SYSTEM_STORES, fetch } = deps;
+	const root =
+		deps.project === undefined
+			? await repoRoot(ps)
+			: (await Projects.ofMachine(deps).named(deps.project)).root;
+	return new Setup(
+		{
+			fs,
+			ps,
+			home: splatesHome(ps),
+			device: secrets.device,
+			fetch,
+			project: root === null ? undefined : setupProjectAt(root, { fs, ps }),
+		},
+		SETUP_AREAS,
+	);
+}
+
+/** The main tree of the repository the working directory is in, or null. */
+async function repoRoot(ps: Ps): Promise<string | null> {
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		ps.cwd(),
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	return exitCode === 0 ? dirname(stdout.trim()) : null;
 }
 
 const MARKS: Record<StepStatus, string> = {

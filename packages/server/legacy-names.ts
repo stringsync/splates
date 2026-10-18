@@ -147,8 +147,8 @@ export interface LegacyRepoOptions {
 /**
  * Renames `arbor.config.ts` and `arbor.systems.ts` to splates's names, through
  * git when it tracks them so the rename is staged as one, and points their
- * imports of `@webappwiz/arbor` at `@stringsync/splates`. Leaves a file alone when one
- * under the new name is already there.
+ * imports of `@webappwiz/arbor` at `@stringsync/splates-server`. Leaves a file
+ * alone when one under the new name is already there.
  */
 export async function renameLegacyFiles({
 	root,
@@ -176,7 +176,7 @@ export async function renameLegacyFiles({
 			path,
 			(await fs.read(path)).replaceAll(
 				"@webappwiz/arbor",
-				"@stringsync/splates",
+				"@stringsync/splates-server",
 			),
 		);
 		log.info(`renamed ${old} to ${next}`);

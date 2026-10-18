@@ -10,11 +10,11 @@ import {
 	type RosterAgent,
 	splatesHome,
 } from "@stringsync/splates-server/roster";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { SavedTunnel } from "@stringsync/splates-server/saved-tunnel";
 import { SLOT_POOL } from "@stringsync/splates-server/slots";
 import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
 
 /** A place in the todo list, 1 at the top; absent leaves it to the command. */
 export const position = z.coerce.number().int().positive().optional();
@@ -134,8 +134,6 @@ export function todoIds(raw: string): number[] {
 	});
 }
 
-export { commaList } from "@stringsync/splates-server/comma-list";
-
 /**
  * Which task a command that takes no task name is about, so the journal can
  * name it. `merge` and `escalate` read it off the current branch.
@@ -151,10 +149,3 @@ export async function here({
 		? service.taskFor(await git.currentBranch(ps.cwd()))
 		: null;
 }
-
-export {
-	rosterOf,
-	savedPortsHostOf,
-	savedTunnelOf,
-	seeded,
-} from "@stringsync/splates-server/start-settings";

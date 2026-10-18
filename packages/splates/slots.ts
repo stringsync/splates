@@ -1,7 +1,7 @@
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { type Held, Slots } from "@stringsync/splates-server/slots";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
 
 /** `splates slots`, which the root cli mounts after `splates tunnel`. */
 export const splatesSlots = cli<SplatesDeps>("slots").description(

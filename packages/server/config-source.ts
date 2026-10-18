@@ -27,7 +27,7 @@ export function typedConfig(source: string): string | null {
 	}
 	return (
 		source.slice(0, from) +
-		'import type { ConfigFile } from "@stringsync/splates/config";' +
+		'import type { ConfigFile } from "@stringsync/splates-server/config";' +
 		source.slice(from + imported[0].length, call.index) +
 		source.slice(open + 1, close.index).trim() +
 		" satisfies ConfigFile" +
@@ -37,7 +37,7 @@ export function typedConfig(source: string): string | null {
 
 /** An import of `defineConfig` alone from splates's config. */
 const DEFINE_CONFIG_IMPORT =
-	/import\s*\{\s*defineConfig\s*\}\s*from\s*["'](?:@stringsync\/)?splates\/config["'];?/;
+	/import\s*\{\s*defineConfig\s*\}\s*from\s*["'](?:@stringsync\/)?splates(?:-server)?\/config["'];?/;
 
 /**
  * `source` with the `systems` property of its outermost object taken out,

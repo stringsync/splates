@@ -70,9 +70,8 @@ export async function moveSystems({
 /**
  * Types an older `splates.config.ts` by a type-only import and `satisfies`
  * rather than `defineConfig`, so a reader can import it without splates
- * installed. Leaves a config it cannot rewrite as it is, since
- * `defineConfig` still works. Rewrites it only once re-importing it shows it
- * unchanged, and puts it back otherwise.
+ * installed. Leaves a config it cannot safely rewrite unchanged and logs
+ * instructions for typing it by hand.
  */
 export async function typeConfig({
 	root,
@@ -122,7 +121,7 @@ export function systemsSource(systems: SystemsFile): string {
 		/^(\s*)"([A-Za-z_$][\w$]*)":/gm,
 		"$1$2:",
 	);
-	return `import type { SystemsFile } from "@stringsync/splates/systems";
+	return `import type { SystemsFile } from "@stringsync/splates-server/systems";
 
 export default ${literal} satisfies SystemsFile;
 `;

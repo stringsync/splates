@@ -1,13 +1,13 @@
 import { DEFAULT_TIMEOUT } from "@stringsync/splates-server/creds";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { untilAfter } from "@stringsync/splates-server/wait";
 import { cli } from "webappwiz/cmd";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
-import { here } from "./splates-flags";
+import { here } from "./flags";
 
 /** `splates creds`, which the root cli mounts after `splates lane`. */
 export const splatesCreds = cli<SplatesDeps>("creds").description(

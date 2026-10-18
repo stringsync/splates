@@ -8,7 +8,7 @@ describe("systemsSource", () => {
 				docs: { aliases: ["the manual"], globs: ["*.md"] },
 				"web-app": { globs: ["web/**"] },
 			}),
-		).toBe(`import type { SystemsFile } from "@stringsync/splates/systems";
+		).toBe(`import type { SystemsFile } from "@stringsync/splates-server/systems";
 
 export default {
 	docs: {

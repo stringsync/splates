@@ -4,9 +4,9 @@ import {
 } from "@stringsync/splates-server/project-reaches";
 import { REACHES } from "@stringsync/splates-server/projects";
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
 
 /** `splates projects`, which the root cli mounts after `splates lane`. */
 export const splatesProjects = cli<SplatesDeps>("projects")

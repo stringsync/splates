@@ -1,5 +1,7 @@
+import { commaList } from "@stringsync/splates-server/comma-list";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { recordUpdate, todosNamed } from "@stringsync/splates-server/todo";
 import {
 	addedFacts,
@@ -17,15 +19,7 @@ import {
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
-import {
-	assigneeIn,
-	commaList,
-	here,
-	laneIn,
-	position,
-	todoIds,
-} from "./splates-flags";
+import { assigneeIn, here, laneIn, position, todoIds } from "./flags";
 
 /** `splates todo`, which the root cli mounts after the task commands. */
 export const splatesTodo = cli<SplatesDeps>("todo").description(

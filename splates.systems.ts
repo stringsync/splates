@@ -1,4 +1,4 @@
-import type { SystemsFile } from "@stringsync/splates/systems";
+import type { SystemsFile } from "@stringsync/splates-server/systems";
 
 export default {
 	models: {
@@ -36,7 +36,7 @@ export default {
 		globs: [
 			"packages/server/setup*.ts",
 			"packages/server/dev-setup*.ts",
-			"packages/splates/splates-setup.ts",
+			"packages/splates/setup.ts",
 			"packages/web/setup-*.ts*",
 			"packages/web/app-setup.test.tsx",
 			"packages/web/review/setup-forms*",

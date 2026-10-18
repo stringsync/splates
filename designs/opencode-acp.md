@@ -82,7 +82,7 @@ optional capabilities must not prevent ordinary text turns.
 Authentication uses the user's existing OpenCode login, just as other agent
 executables own their login. Never read, copy, print, or attach auth.json. Do not
 ask for a Go key in chat or invent an environment-variable bridge. Splates's
-`packages/splates/creds.ts`, `splates-creds.ts`, and `packages/webappwiz/creds/index.ts` are reference boundaries,
+`packages/server/creds.ts`, `packages/splates/creds.ts`, and `packages/webappwiz/creds/index.ts` are reference boundaries,
 not integration targets: OS-store secrets must not be exported to argv, env, or
 files. Native OpenCode login is a separate store, not an implementation of that
 bridge. A future splates-managed login would require a supported secure handoff;

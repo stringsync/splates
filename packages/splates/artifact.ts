@@ -4,13 +4,14 @@ import {
 	listArtifacts,
 	removeArtifact,
 } from "@stringsync/splates-server/artifact";
+import { commaList } from "@stringsync/splates-server/comma-list";
 import { conversationOf } from "@stringsync/splates-server/conversation-given";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
-import { commaList, here } from "./splates-flags";
+import { here } from "./flags";
 
 /** `splates artifact`, which the root cli mounts after `splates attach`. */
 export const splatesArtifact = cli<SplatesDeps>("artifact").description(

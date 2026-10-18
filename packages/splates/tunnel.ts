@@ -1,4 +1,6 @@
 import { repository } from "@stringsync/splates-server/repository";
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import { savedTunnelOf } from "@stringsync/splates-server/start-settings";
 import { tunnelRemove } from "@stringsync/splates-server/tunnel-remove";
 import {
 	API_TOKEN,
@@ -6,8 +8,7 @@ import {
 } from "@stringsync/splates-server/tunnel-setup";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import type { SplatesDeps } from "./splates";
-import { here, savedTunnelOf, slotTunnelsOf } from "./splates-flags";
+import { here, slotTunnelsOf } from "./flags";
 
 /** `splates tunnel`, which the root cli mounts after `splates lane`. */
 export const splatesTunnel = cli<SplatesDeps>("tunnel").description(

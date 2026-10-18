@@ -423,7 +423,7 @@ picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
 Access: that host then reaches only the todos.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
-implementing `TunnelProvider` from `@stringsync/splates/tunnel-provider`:
+implementing `TunnelProvider` from `@stringsync/splates-server/tunnel-provider`:
 `ready()` throws, saying what to do, unless the tunnel can run, and
 `run({ host, url, log })` carries `host` to `url` and returns a resource
 whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.

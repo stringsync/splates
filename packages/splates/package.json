@@ -16,10 +16,7 @@
 		"arbor": "./index.ts"
 	},
 	"exports": {
-		".": "./index.ts",
-		"./config": "./config.ts",
-		"./systems": "./systems.ts",
-		"./tunnel-provider": "./tunnel-provider.ts"
+		".": "./index.ts"
 	},
 	"engines": {
 		"bun": ">=1.3"

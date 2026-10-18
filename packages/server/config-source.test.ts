@@ -12,7 +12,7 @@ export default defineConfig({
 	trunk: "main",
 });
 `),
-		).toBe(`import type { ConfigFile } from "@stringsync/splates/config";
+		).toBe(`import type { ConfigFile } from "@stringsync/splates-server/config";
 
 // Run before each merge.
 export default {
@@ -28,7 +28,7 @@ export default {
 				'import { defineConfig } from "splates/config";\nexport default defineConfig({});',
 			),
 		).toBe(
-			'import type { ConfigFile } from "@stringsync/splates/config";\nexport default {} satisfies ConfigFile;',
+			'import type { ConfigFile } from "@stringsync/splates-server/config";\nexport default {} satisfies ConfigFile;',
 		);
 	});
 
