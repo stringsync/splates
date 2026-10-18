@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { todoAdd } from "./board";
 import { Testing } from "./testing";
-import { todoAdd } from "./todo-edit";
 
 /** The subjects in list order. */
 async function order(deps: Testing): Promise<string[]> {

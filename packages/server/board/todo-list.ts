@@ -1,8 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
-import { age } from "./age";
+import { age } from "../age";
+import { pickLabel } from "../roster";
+import { table } from "../table";
 import { blockersOf, followers, isReady, lane, mentioned } from "./lanes";
-import { pickLabel } from "./roster";
-import { table } from "./table";
 import { cameFrom, type TodoState } from "./todo";
 import type { Todos } from "./todos";
 

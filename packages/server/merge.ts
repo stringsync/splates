@@ -1,5 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Lock } from "webappwiz/system";
+import type { Todos } from "./board";
 import type { Config } from "./config";
 import type { Facts } from "./events";
 import { fail } from "./exit";
@@ -10,7 +11,6 @@ import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import { pushedLine, type TaskBranches } from "./task-branches";
-import type { Todos } from "./todos";
 import type { Landed, TrunkLanding } from "./trunk-landing";
 import type {
 	FailedTest,

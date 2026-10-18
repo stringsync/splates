@@ -12,8 +12,11 @@ import {
 	useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type { LaneRecord, LaneState } from "@stringsync/splates-server/lanes";
-import type { TodoState } from "@stringsync/splates-server/todo";
+import type {
+	LaneRecord,
+	LaneState,
+	TodoState,
+} from "@stringsync/splates-server/board";
 import type { JSX, ReactNode } from "react";
 import { Card } from "./card";
 import { columnOf, LiftedLane, laneOf } from "./lanes";

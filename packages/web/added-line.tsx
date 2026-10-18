@@ -1,5 +1,5 @@
+import type { TodoState } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { type JSX, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
 import { Board } from "./board";

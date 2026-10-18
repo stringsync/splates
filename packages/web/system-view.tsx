@@ -1,4 +1,5 @@
 import { age } from "@stringsync/splates-server/age";
+import type { TodoState } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/show";
 import type {
 	Change,
@@ -7,7 +8,6 @@ import type {
 	SystemsReport,
 } from "@stringsync/splates-server/system-changes";
 import type { NamedSystem } from "@stringsync/splates-server/systems";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import {
 	ChevronLeftIcon,
 	CopyIcon,

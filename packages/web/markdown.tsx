@@ -1,4 +1,4 @@
-import { MENTION } from "@stringsync/splates-server/lanes";
+import { MENTION } from "@stringsync/splates-server/board/browser";
 import { ArchiveIcon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
 import { type ComponentProps, type JSX, useContext } from "react";

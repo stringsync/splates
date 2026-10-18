@@ -1,6 +1,6 @@
+import type { TodoState } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/roster";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
-import type { TodoState } from "@stringsync/splates-server/todo";
 
 /**
  * What each board write is to make of the snapshot, for `Feed.expect` to show

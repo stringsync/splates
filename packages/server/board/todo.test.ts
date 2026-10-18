@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
-import { add } from "./add";
-import { merge } from "./merge";
-import { PLAN_FILE } from "./plan";
-import { recommend } from "./recommend";
-import { remove } from "./remove";
-import { Testing } from "./testing";
+import { add } from "../add";
+import { merge } from "../merge";
+import { PLAN_FILE } from "../plan";
+import { recommend } from "../recommend";
+import { remove } from "../remove";
+import { Testing } from "../testing";
 import type { TodoState } from "./todo";
 import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";

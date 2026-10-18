@@ -1,13 +1,11 @@
 import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
+import type { LaneRecord, TodoState, Todos } from "./board";
 import type { CredRequest, Creds } from "./creds";
-import type { LaneRecord } from "./lanes";
 import { limited, READ_CONCURRENCY } from "./limited";
 import type { Behind, Release } from "./release";
 import { type Details, TaskDetails } from "./show";
 import type { Slot } from "./slots";
-import type { TodoState } from "./todo";
-import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
 /**

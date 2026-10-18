@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/todo";
+import type { TodoState } from "@stringsync/splates-server/board";
 import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";

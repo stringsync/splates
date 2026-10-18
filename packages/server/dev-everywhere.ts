@@ -1,9 +1,9 @@
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
+import type { LaneRecord } from "./board";
 import type { ConversationState } from "./conversations";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { Served } from "./dev-project";
-import type { LaneRecord } from "./lanes";
 import type { Projects } from "./projects";
 import type { Details } from "./show";
 

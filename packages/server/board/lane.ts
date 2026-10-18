@@ -1,7 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Facts } from "./events";
-import { fail } from "./exit";
-import type { Journal } from "./journal";
+import type { Facts } from "../events";
+import { fail } from "../exit";
+import type { Journal } from "../journal";
+import { UNTRIAGED } from "../prompts";
+import { table } from "../table";
 import {
 	blockerLabel,
 	type LaneRecord,
@@ -9,8 +11,6 @@ import {
 	lane,
 	lanes,
 } from "./lanes";
-import { UNTRIAGED } from "./prompts";
-import { table } from "./table";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
 

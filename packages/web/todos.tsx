@@ -2,13 +2,13 @@ import {
 	horizontalListSortingStrategy,
 	SortableContext,
 } from "@dnd-kit/sortable";
+import type { TodoState } from "@stringsync/splates-server/board";
 import {
 	type LaneState,
 	lanes as laneList,
 	named,
-} from "@stringsync/splates-server/lanes";
+} from "@stringsync/splates-server/board/browser";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

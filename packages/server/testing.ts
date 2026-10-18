@@ -9,6 +9,7 @@ import { FileLock, HeavyJobs, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
 import { Adherence } from "./adherence";
 import { assets } from "./assets";
+import { Todos } from "./board";
 import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
 import { Exit, type Reason } from "./exit";
@@ -23,7 +24,6 @@ import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
-import { Todos } from "./todos";
 import { CoordinatorLanding } from "./trunk-landing";
 import { WorktreeService } from "./worktree-service";
 

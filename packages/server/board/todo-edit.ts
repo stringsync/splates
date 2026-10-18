@@ -1,10 +1,10 @@
 import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { readFiles } from "./attachments";
-import type { Facts } from "./events";
-import { fail } from "./exit";
-import type { AgentPick } from "./roster";
+import { readFiles } from "../attachments";
+import type { Facts } from "../events";
+import { fail } from "../exit";
+import type { AgentPick } from "../roster";
 import type { Todo, TodoOrigin } from "./todo";
 import type { Todos } from "./todos";
 

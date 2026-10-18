@@ -1,5 +1,4 @@
-import type { LaneRecord } from "@stringsync/splates-server/lanes";
-import type { TodoState } from "@stringsync/splates-server/todo";
+import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { arrangeTodo, moveLane, moveTodo } from "./api";
 

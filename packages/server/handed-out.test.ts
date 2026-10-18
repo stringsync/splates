@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { add } from "./add";
+import type { LaneRecord, TodoState } from "./board";
+import { SeenLaneTodos } from "./board";
 import {
 	type Conversation,
 	Conversations,
@@ -10,11 +12,8 @@ import {
 import { Everywhere } from "./everywhere";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
-import { SeenLaneTodos } from "./lane-todos";
-import type { LaneRecord } from "./lanes";
 import { remove } from "./remove";
 import { Testing } from "./testing";
-import type { TodoState } from "./todo";
 
 describe("HandedOut", () => {
 	let deps: Testing;

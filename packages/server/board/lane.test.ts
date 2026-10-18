@@ -1,17 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
-import { add } from "./add";
-import { escalate } from "./escalate";
-import { seed, sound2score } from "./example";
+import { add } from "../add";
+import { escalate } from "../escalate";
+import { seed, sound2score } from "../example";
+import { merge } from "../merge";
+import { Testing } from "../testing";
+import { todoWait } from "../wait";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { lanes } from "./lanes";
-import { merge } from "./merge";
-import { Testing } from "./testing";
 import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
 import { todoTake } from "./todo-take";
-import { todoWait } from "./wait";
 
 /** Each lane's todo ids, top first, as stored. */
 async function shape(deps: Testing): Promise<number[][]> {

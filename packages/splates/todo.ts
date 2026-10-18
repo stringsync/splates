@@ -1,16 +1,19 @@
+import {
+	addedFacts,
+	recordUpdate,
+	todoAdd,
+	todoList,
+	todoRelease,
+	todoRemove,
+	todoShow,
+	todosNamed,
+	todoTake,
+	todoUpdate,
+} from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/repository";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-import { recordUpdate, todosNamed } from "@stringsync/splates-server/todo";
-import {
-	addedFacts,
-	todoAdd,
-	todoRemove,
-	todoUpdate,
-} from "@stringsync/splates-server/todo-edit";
-import { todoList, todoShow } from "@stringsync/splates-server/todo-list";
-import { todoRelease, todoTake } from "@stringsync/splates-server/todo-take";
 import {
 	DEFAULT_TIMEOUT,
 	todoWait,

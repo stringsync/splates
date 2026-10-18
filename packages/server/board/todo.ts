@@ -1,9 +1,9 @@
 import { basename } from "node:path";
-import type { Attachment, Attachments } from "./attachments";
-import type { Facts } from "./events";
-import { fail } from "./exit";
-import type { Journal } from "./journal";
-import type { AgentPick } from "./roster";
+import type { Attachment, Attachments } from "../attachments";
+import type { Facts } from "../events";
+import { fail } from "../exit";
+import type { Journal } from "../journal";
+import type { AgentPick } from "../roster";
 import type { Todos } from "./todos";
 
 /** What a todo is on disk: one file apiece, so two agents never rewrite one. */

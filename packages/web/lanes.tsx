@@ -1,9 +1,8 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { LaneState } from "@stringsync/splates-server/lanes";
+import type { LaneState, TodoState } from "@stringsync/splates-server/board";
 import { laneReference } from "@stringsync/splates-server/prompts";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {
 	type JSX,

@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { Duration, sleep } from "webappwiz/time";
+import type { Todos } from "./board";
 import { fail } from "./exit";
-import type { Todos } from "./todos";
 import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

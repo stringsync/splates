@@ -9,16 +9,16 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { type Stretch, stretches } from "./asked";
-import type { Conversation, Conversations, Message } from "./conversations";
-import { HEARTBEAT_IDLE, lanesOf, startedLanes } from "./conversations";
-import { Everywhere } from "./everywhere";
+import type { LaneRecord, TodoState } from "./board";
 import {
 	type LaneTodoChange,
 	laneChanges,
 	laneTodos,
 	type SeenLaneTodos,
-} from "./lane-todos";
-import type { LaneRecord } from "./lanes";
+} from "./board";
+import type { Conversation, Conversations, Message } from "./conversations";
+import { HEARTBEAT_IDLE, lanesOf, startedLanes } from "./conversations";
+import { Everywhere } from "./everywhere";
 import {
 	directive,
 	HEARTBEAT,
@@ -30,7 +30,6 @@ import {
 	todoOpenReference,
 	UNTRIAGED,
 } from "./prompts";
-import type { TodoState } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 /**

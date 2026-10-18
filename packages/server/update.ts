@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { lanesFromTags } from "./lanes-from-tags";
+import { lanesFromTags } from "./board";
 import { LEGACY, removeLegacySkill, renameLegacyFiles } from "./legacy-names";
 import { moveSystems, typeConfig } from "./migrate-config";
 import { isNewer, RUNNING } from "./release";

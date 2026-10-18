@@ -1,10 +1,9 @@
+import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
-import type { LaneRecord } from "@stringsync/splates-server/lanes";
 import { goalLine } from "@stringsync/splates-server/plan";
 import type { Details } from "@stringsync/splates-server/show";
 import type { NamedSystem } from "@stringsync/splates-server/systems";
-import type { TodoState } from "@stringsync/splates-server/todo";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {

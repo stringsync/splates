@@ -4,6 +4,7 @@ import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
+import { Todos } from "./board";
 import { HOME_KEY } from "./checkouts";
 import { CloneCheckouts } from "./clone-checkouts";
 import type { Config } from "./config";
@@ -35,7 +36,6 @@ import { RoutedFs } from "./routed-fs";
 import { Shell } from "./shell";
 import { Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
-import { Todos } from "./todos";
 import { CoordinatorLanding, type TrunkLanding } from "./trunk-landing";
 import { type WorkerMachines, WorktreeService } from "./worktree-service";
 

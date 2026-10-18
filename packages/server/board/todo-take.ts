@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import { fail } from "./exit";
+import { fail } from "../exit";
 import type { Todo } from "./todo";
 import type { Todos } from "./todos";
 

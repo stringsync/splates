@@ -1,5 +1,5 @@
-import { cycle, followers } from "@stringsync/splates-server/lanes";
-import type { TodoState } from "@stringsync/splates-server/todo";
+import type { TodoState } from "@stringsync/splates-server/board";
+import { cycle, followers } from "@stringsync/splates-server/board/browser";
 import {
 	CornerDownRightIcon,
 	HourglassIcon,

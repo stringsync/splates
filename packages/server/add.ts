@@ -1,14 +1,13 @@
 import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
 import type { Fs, HeavyCap } from "webappwiz/system";
+import type { Todo, Todos } from "./board";
+import { blockedWarning } from "./board";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE, Plans, STUB_STEP } from "./plan";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
-import type { Todo } from "./todo";
-import { blockedWarning } from "./todo-take";
-import type { Todos } from "./todos";
 import type { Dispatched, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

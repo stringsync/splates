@@ -1,5 +1,5 @@
 import type { Fs } from "webappwiz/system";
-import { fail } from "./exit";
+import { fail } from "../exit";
 import { aptName, type LaneRecord, named, settle } from "./lanes";
 import type { TodoState } from "./todo";
 import { parseTodoFile } from "./todo-file";

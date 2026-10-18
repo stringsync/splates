@@ -1,5 +1,5 @@
 import { stretches } from "../asked";
-import type { LaneRecord } from "../lanes";
+import type { LaneRecord } from "../board";
 import { AUTO, leadingDirectives, UNTRIAGED } from "../prompts";
 import type { ConversationState } from "./state";
 

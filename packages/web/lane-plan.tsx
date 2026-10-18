@@ -1,13 +1,12 @@
+import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	lanesOf,
 	startedLanes,
 } from "@stringsync/splates-server/conversations/browser";
-import type { LaneRecord } from "@stringsync/splates-server/lanes";
 import { type Need, needOfExternal } from "@stringsync/splates-server/needs";
 import { LANES_DONE } from "@stringsync/splates-server/prompts";
 import type { Details } from "@stringsync/splates-server/show";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { CheckIcon, CornerUpLeftIcon, Loader2Icon } from "lucide-react";
 import {
 	createContext,

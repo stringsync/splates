@@ -6,7 +6,7 @@ import {
 	laneUpdate,
 	laneUpdated,
 	recordLaneRemove,
-} from "@stringsync/splates-server/lane";
+} from "@stringsync/splates-server/board";
 import { UNTRIAGED } from "@stringsync/splates-server/prompts";
 import { repository } from "@stringsync/splates-server/repository";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";

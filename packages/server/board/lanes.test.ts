@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { SOUND2SCORE_LANES, sound2score } from "./example";
+import { SOUND2SCORE_LANES, sound2score } from "../example";
 import { cycle, lane, lanes, mentioned, misordered, settle } from "./lanes";
 import type { TodoState } from "./todo";
 

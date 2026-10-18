@@ -1,3 +1,4 @@
+import type { TodoState } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/show";
 import type {
 	SystemChanges,
@@ -5,7 +6,6 @@ import type {
 	Uncovered,
 } from "@stringsync/splates-server/system-changes";
 import type { NamedSystem } from "@stringsync/splates-server/systems";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { CopyIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";

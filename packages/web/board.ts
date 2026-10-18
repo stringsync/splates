@@ -1,6 +1,5 @@
-import type { LaneRecord } from "@stringsync/splates-server/lanes";
+import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
 import type { Details } from "@stringsync/splates-server/show";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import { createContext } from "react";
 import { Drafts } from "./drafts";
 

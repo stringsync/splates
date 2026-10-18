@@ -51,8 +51,7 @@ export default {
 		description: "Todos and the lanes they sit in",
 		aliases: ["todos", "lanes"],
 		globs: [
-			"packages/server/todo*.ts",
-			"packages/server/lane*.ts",
+			"packages/server/board/**",
 			"packages/web/todo*.ts*",
 			"packages/web/lanes.tsx",
 			"packages/web/board.ts",

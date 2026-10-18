@@ -1,14 +1,13 @@
 import { color } from "webappwiz/log";
 import { age } from "./age";
+import type { Todo, Todos } from "./board";
 import {
 	blockerLabel,
 	isReady,
 	type LaneRecord,
 	type LaneState,
 	lane,
-} from "./lanes";
-import type { Todo } from "./todo";
-import type { Todos } from "./todos";
+} from "./board";
 
 /** What a finished task should be followed by, and what should just go. */
 export interface Recommendation {

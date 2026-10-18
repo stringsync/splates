@@ -8,9 +8,9 @@ import type {
 	Report,
 	TodoProposal,
 } from "@stringsync/splates-server/asked";
+import type { TodoState } from "@stringsync/splates-server/board";
 import { todoReference } from "@stringsync/splates-server/prompts";
 import type { AgentPick } from "@stringsync/splates-server/roster";
-import type { TodoState } from "@stringsync/splates-server/todo";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,
