@@ -3,8 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
-import { typeConfig } from "../migrate-config";
 import { ConfigFiles } from "./load";
+import { typeConfig } from "./type-config";
 
 describe("typeConfig", () => {
 	const fs = new NodeFs();

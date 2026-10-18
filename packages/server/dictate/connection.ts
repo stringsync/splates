@@ -3,7 +3,7 @@ import {
 	DictationRelay,
 	type Transcriber,
 } from "webappwiz/dictate";
-import type { Connection } from "../dev-sockets";
+import type { Connection } from "../server/shared";
 import { OPENAI_KEY } from "./transcriber";
 
 /**

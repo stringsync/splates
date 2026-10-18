@@ -5,7 +5,7 @@ import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
-import type { SplatesDeps } from "../runtime-deps";
+import type { SplatesDeps } from "../server/shared";
 import { SavedTunnel } from "../tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";

@@ -6,7 +6,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
-import { CONNECTIONS, type Connection } from "../dev-sockets";
+import { CONNECTIONS, type Connection } from "../server/shared";
 import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
 import { DevWorkers, workerAuthorization } from "./routes";

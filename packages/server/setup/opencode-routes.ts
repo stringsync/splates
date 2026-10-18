@@ -1,4 +1,4 @@
-import { refuse } from "../dev-http";
+import { refuse } from "../server/shared";
 import type { OpenCodeSetup } from "./opencode";
 import { OpenCodeModelError } from "./opencode-model-error";
 import type { OpenCodeSelection } from "./opencode-models";

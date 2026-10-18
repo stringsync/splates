@@ -1,8 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import type { Git } from "../git";
-import { RUNNING } from "../release";
-import { projectSkills } from "../skills";
+import { projectSkills, RUNNING } from "../server/shared";
 import type { Projects } from "./projects";
 
 /**

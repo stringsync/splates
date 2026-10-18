@@ -5,17 +5,21 @@ import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/artifacts";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { exits, fail } from "@stringsync/splates-server/exit";
-import { runHeavy } from "@stringsync/splates-server/heavy-run";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
 import { merge } from "@stringsync/splates-server/merge";
 import { portsLs } from "@stringsync/splates-server/ports";
 import { forget, init } from "@stringsync/splates-server/projects";
 import type { Facts } from "@stringsync/splates-server/records";
 import { repository } from "@stringsync/splates-server/records";
-import { newest } from "@stringsync/splates-server/release";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-import { serveDev } from "@stringsync/splates-server/start";
-import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
+import {
+	newest,
+	rosterOf,
+	runHeavy,
+	seeded,
+	serveDev,
+	update,
+} from "@stringsync/splates-server/server";
 import { addFactTodos } from "@stringsync/splates-server/stats";
 import {
 	add,
@@ -37,7 +41,6 @@ import {
 	untilAfter,
 	wait,
 } from "@stringsync/splates-server/tasks";
-import { update } from "@stringsync/splates-server/update";
 import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";

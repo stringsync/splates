@@ -5,7 +5,7 @@
  * page's classes, then `bun review/setup-forms-dev.ts [port]`.
  */
 
-import { assets } from "@stringsync/splates-server/assets";
+import { assets } from "@stringsync/splates-server/server";
 
 const built = await Bun.build({
 	entrypoints: [`${import.meta.dirname}/setup-forms-page.tsx`],

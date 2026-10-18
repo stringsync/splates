@@ -1,7 +1,7 @@
 import type { Fs, Ps } from "webappwiz/system";
-import type { Handler } from "../dev-project";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
+import type { Handler } from "../server/shared";
 import { Adherence } from "./adherence";
 import { landed } from "./landed";
 import { Outcomes } from "./outcomes";

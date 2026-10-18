@@ -9,7 +9,7 @@ import {
 } from "@stringsync/splates-server/board";
 import { UNTRIAGED } from "@stringsync/splates-server/plans";
 import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { position } from "./flags";

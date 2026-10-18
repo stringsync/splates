@@ -1,4 +1,4 @@
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	endBudgetRaise,
 	raiseBudget,

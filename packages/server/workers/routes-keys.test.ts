@@ -1,9 +1,10 @@
+// scry-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { CONNECTIONS, type Connection } from "../dev-sockets";
+import { CONNECTIONS, type Connection } from "../server/shared";
 import { FakeWorkerProvider } from "../workers/testing";
 import {
 	type RemoteWorker,

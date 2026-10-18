@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
-import { LOOPBACK } from "../dev-http";
 import { PIPE_HANDLERS, PortPipe } from "../ports";
+import { LOOPBACK } from "../server/shared";
 import { RELAY } from "./channel";
 import type { WorkerSession } from "./session";
 

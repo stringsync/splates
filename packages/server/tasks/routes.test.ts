@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { serving } from "../dev-testing";
+import { serving } from "../server/testing";
 import { Testing } from "../testing";
 import { add } from "./add";
 import type { FileDiff } from "./diff";

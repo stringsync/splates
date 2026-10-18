@@ -10,7 +10,7 @@ import {
 	type Timer,
 } from "webappwiz/time";
 import type { SessionServers } from "../agents";
-import { RUNNING } from "../release";
+import { RUNNING } from "../server/shared";
 import { SERVERS, WorkerCallHost } from "./call-host";
 import { RELAY, type WorkerChannel } from "./channel";
 import { LocalWorkerMachine } from "./machine";

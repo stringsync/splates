@@ -1,8 +1,8 @@
 import type { Conversations } from "../conversations";
 import { treeOf } from "../conversations";
-import { body } from "../dev-http";
-import type { Project } from "../dev-project";
 import { fail } from "../exit";
+import type { Project } from "../server/shared";
+import { body } from "../server/shared";
 import { startAuto } from "./auto-start";
 
 /**

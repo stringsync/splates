@@ -2,9 +2,9 @@ import { isAbsolute, resolve } from "node:path";
 import type { Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
 import type { SecretStores } from "../creds";
-import type { DevMachine } from "../dev-project";
 import { fail } from "../exit";
 import { openRepository } from "../records";
+import type { DevMachine } from "../server/shared";
 import { init } from "./init";
 import type { Project } from "./projects";
 

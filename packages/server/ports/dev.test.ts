@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { Exit } from "../exit";
-import { dev } from "../index";
+import { dev } from "../server";
 import { Testing } from "../testing";
 
 describe("dev's task ports", () => {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { json, serving } from "../dev-testing";
+import { json, serving } from "../server/testing";
 import { Testing } from "../testing";
 
 /** A `wiz` that answers with the args it was given, as one JSON string. */

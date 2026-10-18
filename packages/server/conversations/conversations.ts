@@ -21,7 +21,7 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
-import { installedVersion } from "../skills";
+import { installedVersion } from "../server/shared";
 import type { Adherence, Outcomes } from "../stats";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { Conversation, type Picked } from "./conversation";

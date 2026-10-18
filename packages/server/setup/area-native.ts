@@ -79,7 +79,10 @@ function agentJourney(id: AgentId): SetupArea {
 		agent: `Offer only the default ${id} models; Next writes the ${id} entry of ~/.splates/agents.json, keeping other agents, launch arguments and models. Do not run paid prompts or evals.`,
 		optional: true,
 		after: [signIn],
-		fields: modelFields(id),
+		// Read on use: the roster module may still be loading when this file is.
+		get fields() {
+			return modelFields(id);
+		},
 		check: async (machine) =>
 			(await rosterAgents(machine)).some(
 				(agent) => agent.id === id && agent.models.length > 0,

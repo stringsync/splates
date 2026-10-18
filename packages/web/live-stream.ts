@@ -1,4 +1,4 @@
-import { PULSE } from "@stringsync/splates-server/pulse";
+import { PULSE } from "@stringsync/splates-server/server/browser";
 import type { Resource } from "webappwiz/disposable";
 import { Debouncer, SystemTimer, type Timer } from "webappwiz/time";
 

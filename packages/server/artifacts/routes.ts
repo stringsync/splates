@@ -1,6 +1,6 @@
 import type { Conversation } from "../conversations";
-import { fileResponse, refuse } from "../dev-http";
 import { fail } from "../exit";
+import { fileResponse, refuse } from "../server/shared";
 import { viewerOf } from "./viewers";
 
 /**

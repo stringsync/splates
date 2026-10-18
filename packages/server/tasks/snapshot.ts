@@ -4,7 +4,7 @@ import type { LaneRecord, TodoState, Todos } from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Slot } from "../ports";
-import type { Behind, Release } from "../release";
+import type { Behind, Release } from "../server/shared";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 

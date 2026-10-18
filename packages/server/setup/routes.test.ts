@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { json } from "../dev-testing";
-import { dev } from "../index";
+import { dev } from "../server";
+import { json } from "../server/testing";
 import { Testing } from "../testing";
 import type { SetupProgress } from "./setup";
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it } from "bun:test";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { NodePs } from "webappwiz/system";
-import { SERVING } from "../supervise";
+import { SERVING } from "../server/shared";
 import { Pty } from "./pty";
 import { written } from "./testing";
 

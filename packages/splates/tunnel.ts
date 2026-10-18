@@ -1,6 +1,6 @@
 import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-import { savedTunnelOf } from "@stringsync/splates-server/start-settings";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { savedTunnelOf } from "@stringsync/splates-server/server";
 import {
 	API_TOKEN,
 	tunnelRemove,

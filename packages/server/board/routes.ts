@@ -1,9 +1,8 @@
 import type { ConversationRoutes } from "../conversations";
-import { body, uploads } from "../dev-http";
-import type { Project } from "../dev-project";
-import type { ProjectWatch } from "../dev-project-watch";
 import { fail } from "../exit";
 import { type AgentPick, modelsOf, pickAgent, pickEffort } from "../models";
+import type { Project, ProjectWatch } from "../server/shared";
+import { body, uploads } from "../server/shared";
 import { laneUpdated, recordLaneRemove } from "./lane";
 import { recordUpdate, todosNamed } from "./todo";
 import { addedFacts } from "./todo-edit";

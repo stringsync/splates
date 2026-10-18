@@ -13,7 +13,7 @@ import {
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	DEFAULT_TIMEOUT,
 	todoWait,

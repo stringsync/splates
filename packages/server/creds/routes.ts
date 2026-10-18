@@ -1,7 +1,6 @@
-import { body } from "../dev-http";
-import type { Project } from "../dev-project";
-import type { ProjectWatch } from "../dev-project-watch";
 import { fail } from "../exit";
+import type { Project, ProjectWatch } from "../server/shared";
+import { body } from "../server/shared";
 import { SCOPES, type Scope } from "./stores";
 
 /**

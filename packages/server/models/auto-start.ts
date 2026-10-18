@@ -1,5 +1,5 @@
 import type { Conversation, Conversations, Picked } from "../conversations";
-import type { Project } from "../dev-project";
+import type { Project } from "../server/shared";
 import {
 	type AutoPick,
 	JUDGE_CREDS,

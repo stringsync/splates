@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
-import { dev } from "../index";
+import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
 import { Machine, type MachineSensors, thermalZones } from "./load";

@@ -3,8 +3,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent, heard, ROSTERED, say } from "../agents/testing";
-import { eventually, json, readUntil, serving } from "../dev-testing";
-import { dev } from "../index";
+import { dev } from "../server";
+import { eventually, json, readUntil, serving } from "../server/testing";
 import { add, handoff } from "../tasks";
 import { Testing } from "../testing";
 import { Conversations } from "./conversations";

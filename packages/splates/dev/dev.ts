@@ -1,4 +1,4 @@
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
 import type { Cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";

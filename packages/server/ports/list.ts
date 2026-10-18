@@ -1,8 +1,8 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
-import { DEFAULT_PORT } from "../dev-ports";
 import { fail } from "../exit";
+import { DEFAULT_PORT } from "../server/shared";
 import { table } from "../table";
 
 const Listed = z.object({

@@ -1,8 +1,7 @@
 import { SystemTimer, type Timer } from "webappwiz/time";
-import { type HostGate, refuse } from "../dev-http";
-import type { Served } from "../dev-project";
-import type { Connection } from "../dev-sockets";
 import { fail } from "../exit";
+import type { Connection, Served } from "../server/shared";
+import { type HostGate, refuse } from "../server/shared";
 import { TerminalConnection } from "./connection";
 import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./shell";
 

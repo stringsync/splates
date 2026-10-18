@@ -10,7 +10,7 @@
 		"directory": "packages/server"
 	},
 	"type": "module",
-	"module": "index.ts",
+	"module": "server/index.ts",
 	"engines": {
 		"bun": ">=1.3"
 	},
@@ -26,7 +26,7 @@
 		"@types/bun": "1.3.14"
 	},
 	"exports": {
-		".": "./index.ts",
+		".": "./server/index.ts",
 		"./age": "./age.ts",
 		"./agents": "./agents/index.ts",
 		"./agents/testing": "./agents/testing.ts",
@@ -36,7 +36,6 @@
 		"./models/browser": "./models/browser.ts",
 		"./artifacts": "./artifacts/index.ts",
 		"./artifacts/browser": "./artifacts/browser.ts",
-		"./assets": "./assets.ts",
 		"./comma-list": "./comma-list.ts",
 		"./config": "./config/index.ts",
 		"./board": "./board/index.ts",
@@ -46,11 +45,8 @@
 		"./conversations/browser": "./conversations/browser.ts",
 		"./creds": "./creds/index.ts",
 		"./push": "./push/index.ts",
-		"./dev-servers": "./dev-servers.ts",
 		"./exit": "./exit.ts",
 		"./fixtures": "./fixtures.ts",
-		"./heavy-run": "./heavy-run.ts",
-		"./heavy": "./heavy.ts",
 		"./terminal": "./terminal/index.ts",
 		"./log": "./log.ts",
 		"./merge": "./merge/index.ts",
@@ -58,25 +54,20 @@
 		"./ports": "./ports/index.ts",
 		"./probe-runtime": "./probe-runtime.ts",
 		"./projects": "./projects/index.ts",
-		"./pulse": "./pulse.ts",
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",
 		"./records": "./records/index.ts",
 		"./records/browser": "./records/browser.ts",
-		"./release": "./release.ts",
 		"./workers": "./workers/index.ts",
 		"./workers/browser": "./workers/browser.ts",
-		"./runtime-deps": "./runtime-deps.ts",
 		"./setup": "./setup/index.ts",
-		"./start-settings": "./start-settings.ts",
-		"./start": "./start.ts",
 		"./stats": "./stats/index.ts",
 		"./stats/browser": "./stats/browser.ts",
-		"./supervise": "./supervise.ts",
 		"./testing": "./testing.ts",
 		"./tunnel": "./tunnel/index.ts",
 		"./tunnel-provider": "./tunnel/index.ts",
-		"./update": "./update.ts"
+		"./server": "./server/index.ts",
+		"./server/browser": "./server/browser.ts"
 	},
 	"scripts": {
 		"build": "bun run --cwd ../web build"

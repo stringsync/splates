@@ -1,5 +1,5 @@
 import { availableParallelism } from "node:os";
-import { heavyJobsOfMachine } from "@stringsync/splates-server/heavy";
+import { heavyJobsOfMachine } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { ROOT } from "./root";

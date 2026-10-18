@@ -1,5 +1,5 @@
-import { body, refuse } from "../dev-http";
 import { fail } from "../exit";
+import { body, refuse } from "../server/shared";
 import type { Setup, StepAnswers } from "./setup";
 import { StepProblem } from "./step-problem";
 

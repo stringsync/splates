@@ -1,4 +1,4 @@
-import type { Connection } from "../dev-sockets";
+import type { Connection } from "../server/shared";
 import type { Shell } from "./shell";
 
 /**

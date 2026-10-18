@@ -15,7 +15,6 @@ import {
 import { Creds, type SecretStores, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
-import { heavyJobsOfMachine } from "../heavy";
 import {
 	CloneCheckouts,
 	CoordinatorLanding,
@@ -27,6 +26,7 @@ import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
+import { heavyJobsOfMachine } from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Shell } from "../terminal";

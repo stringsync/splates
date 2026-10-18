@@ -1,5 +1,5 @@
 import type { Resource } from "webappwiz/disposable";
-import { LOOPBACK } from "../dev-http";
+import { LOOPBACK } from "../server/shared";
 import type { RemoteWorker } from "../workers";
 import { PIPE_HANDLERS, PortPipe } from "./pipe";
 

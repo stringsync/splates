@@ -1,9 +1,10 @@
+// scry-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
 import { beforeAll, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { HostGate } from "../dev-http";
 import { Exit } from "../exit";
+import { HostGate } from "../server/shared";
 import { Access, accessConfig } from "./access";
 
 const config = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };

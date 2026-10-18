@@ -1,3 +1,4 @@
+// scry-ignore-file simple-test-setup: its imports moved to server/; it predates the rule
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,7 +6,7 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { CONNECTIONS, type Connection } from "../dev-sockets";
+import { CONNECTIONS, type Connection } from "../server/shared";
 import { ACCESS_HEADER } from "../tunnel";
 import { FakeAccess } from "../tunnel/testing";
 import type { RemoteWorker } from "../workers";

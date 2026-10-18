@@ -10,12 +10,12 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { nameOf } from "../conversations";
-import { body } from "../dev-http";
-import type { Handler, Served } from "../dev-project";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { type Needing, openedBy } from "../plans";
 import type { Projects } from "../projects";
+import type { Handler, Served } from "../server/shared";
+import { body } from "../server/shared";
 import { keyOf, Notices } from "./notices";
 
 /** How often the server looks for something worth pushing, while a device listens. */

@@ -1,7 +1,7 @@
 import type { Conversation, Conversations } from "../conversations";
 import { paused } from "../conversations";
-import type { Served } from "../dev-project";
 import { RESUME } from "../plans";
+import type { Served } from "../server/shared";
 import type { Projects } from "./projects";
 
 /**

@@ -11,8 +11,8 @@ import {
 } from "@stringsync/splates-server/models";
 import { SLOT_POOL } from "@stringsync/splates-server/ports";
 import type { Repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
-import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
+import { rosterOf, seeded } from "@stringsync/splates-server/server";
 import { SavedTunnel } from "@stringsync/splates-server/tunnel";
 import { z } from "zod";
 

@@ -1,6 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
-import { RUNNING } from "../release";
+import { RUNNING } from "../server/shared";
 import {
 	API_TOKEN,
 	CloudflareApi,

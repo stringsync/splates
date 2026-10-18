@@ -4,11 +4,17 @@ import {
 	deleteVersion,
 	removeNamed,
 } from "../artifacts";
-import { body, fileResponse, MEDIA_TYPES, refuse, uploads } from "../dev-http";
-import type { Project } from "../dev-project";
 import { fail } from "../exit";
 import { directive, RESUME, stoppedReference } from "../plans";
 import { Everywhere } from "../projects";
+import type { Project } from "../server/shared";
+import {
+	body,
+	fileResponse,
+	MEDIA_TYPES,
+	refuse,
+	uploads,
+} from "../server/shared";
 import type { Conversation } from "./conversation";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";

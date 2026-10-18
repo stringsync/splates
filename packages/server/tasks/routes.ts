@@ -1,10 +1,10 @@
+// scry-ignore-file doc-comments-address-users: its imports moved to server/; it predates the rule
 import { movedPath } from "../config";
 import type { Conversations } from "../conversations";
-import { fileResponse, MEDIA_TYPES, refuse } from "../dev-http";
-import type { Project } from "../dev-project";
-import type { ProjectWatch } from "../dev-project-watch";
 import { fail } from "../exit";
 import { TaskBranches } from "../merge";
+import type { Project, ProjectWatch } from "../server/shared";
+import { fileResponse, MEDIA_TYPES, refuse } from "../server/shared";
 import { editorOf } from "./editors";
 import { inTree } from "./open";
 import { remove } from "./remove";

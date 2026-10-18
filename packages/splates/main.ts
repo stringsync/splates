@@ -1,10 +1,10 @@
 import { basename } from "node:path";
-import { assets } from "@stringsync/splates-server/assets";
 import {
 	LEGACY,
 	legacyWarnings,
 	systemPs,
 } from "@stringsync/splates-server/config";
+import { assets } from "@stringsync/splates-server/server";
 import { NodeFs } from "webappwiz/system";
 import { projectArgs, splates } from "./splates";
 

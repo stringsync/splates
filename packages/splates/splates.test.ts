@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
-import { SERVING } from "@stringsync/splates-server/supervise";
+import { SERVING } from "@stringsync/splates-server/server";
 import { Testing } from "@stringsync/splates-server/testing";
 import { splates } from "./splates";
 

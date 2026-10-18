@@ -3,7 +3,7 @@ import type { Child, ProcessEntry, Ps } from "webappwiz/system";
 import type { Timer } from "webappwiz/time";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { SERVING } from "../supervise";
+import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
 import { relays } from "./relay";
 import type { WorkerSession } from "./session";

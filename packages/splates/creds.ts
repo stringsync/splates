@@ -1,7 +1,7 @@
 import { DEFAULT_TIMEOUT } from "@stringsync/splates-server/creds";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
-import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { untilAfter } from "@stringsync/splates-server/tasks";
 import { cli } from "webappwiz/cmd";
 import { color } from "webappwiz/log";
