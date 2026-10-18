@@ -134,6 +134,15 @@ export class AgentConnection {
 		this.sessionCwd = sessionCwd;
 	}
 
+	/**
+	 * Asks for `model` and `picks` once the session opens, in place of what
+	 * it was started with.
+	 */
+	openOn(model: string | null, picks: Record<string, string>): void {
+		this.model = model;
+		this.picks = picks;
+	}
+
 	/** The agent's pid while it runs, for the commands it left running. */
 	get pid(): number | null {
 		return this.process?.pid ?? null;

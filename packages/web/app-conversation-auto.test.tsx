@@ -37,7 +37,12 @@ describe("App's Auto", () => {
 				"Auto picks the agent, model and effort from your first message",
 			),
 		).toBeTruthy();
-		testing.reply = conversation({ id: "c9", status: "starting" });
+		// Answered before Auto has picked, so the thread opens at once.
+		testing.reply = conversation({
+			id: "c9",
+			status: "starting",
+			picking: true,
+		});
 
 		const box = view.getByRole("textbox", { name: "Message input" });
 		await typeIn(box, "fix the login");
@@ -55,15 +60,29 @@ describe("App's Auto", () => {
 		).toMatchObject({ text: "[SPLATES AUTO] fix the login" });
 
 		// Named for what the person said, not the directive it went with.
+		const said = [message("user", "[SPLATES AUTO] fix the login")];
 		await testing.say(
 			conversation({
 				id: "c9",
 				status: "starting",
-				messages: [message("user", "[SPLATES AUTO] fix the login")],
+				picking: true,
+				messages: said.map((each) => ({ ...each, queued: true })),
 			}),
 		);
 		await waitFor(() =>
 			expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy(),
+		);
+		expect(
+			view.getByRole("status", { name: "auto is picking the agent" }),
+		).toBeTruthy();
+
+		await testing.say(
+			conversation({ id: "c9", status: "starting", messages: said }),
+		);
+		await waitFor(() =>
+			expect(
+				view.getByRole("status", { name: "waiting for agent to start" }),
+			).toBeTruthy(),
 		);
 	});
 

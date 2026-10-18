@@ -95,6 +95,7 @@ export function conversation(
 		skill: null,
 		assigned: false,
 		auto: false,
+		picking: false,
 		unread: false,
 		seen: 0,
 		messages: [],

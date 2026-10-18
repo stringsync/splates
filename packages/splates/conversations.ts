@@ -23,7 +23,7 @@ import {
 } from "./agent-process";
 import { ArtifactRoom } from "./artifact-room";
 import { ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts";
-import { Conversation } from "./conversation";
+import { Conversation, type Picked } from "./conversation";
 import type {
 	ConversationDeps,
 	ConversationSlots,
@@ -228,6 +228,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model,
 			assigned,
 			auto,
+			picking,
 			handedBy,
 			startedBy,
 		}: {
@@ -244,20 +245,18 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned?: boolean;
 			/** Whether Auto picked the agent and model. */
 			auto?: boolean;
+			/**
+			 * What Auto picks, once it has, to open on in place of `agent`,
+			 * `model` and `settings`, which it starts on meanwhile.
+			 */
+			picking?: Promise<Picked<string>>;
 			/** The conversation that handed it its task, which it answers to. */
 			handedBy?: string | null;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
 		},
 	): Promise<Conversation> {
-		const chosen = this.agents.find((each) => each.id === agent);
-		if (chosen === undefined) {
-			fail(
-				"usage",
-				`no agent '${agent}': use one of ${this.agents.map((each) => each.id).join(", ")}`,
-				{ agent },
-			);
-		}
+		const chosen = this.agentOf(agent);
 		await this.load();
 		await this.fs.mkdir(this.dir);
 		const id = this.ids.next();
@@ -274,6 +273,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				model,
 				assigned,
 				auto,
+				picking: picking?.then((picked) => ({
+					...picked,
+					agent: this.agentOf(picked.agent),
+				})),
 				handedBy,
 				startedBy,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
@@ -282,6 +285,19 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		);
 		this.track(conversation, assigned ? undefined : settings);
 		return conversation;
+	}
+
+	/** The agent `id` names, failing for one splates does not run. */
+	private agentOf(id: string): Agent {
+		const agent = this.agents.find((each) => each.id === id);
+		if (agent === undefined) {
+			fail(
+				"usage",
+				`no agent '${id}': use one of ${this.agents.map((each) => each.id).join(", ")}`,
+				{ agent: id },
+			);
+		}
+		return agent;
 	}
 
 	/**
@@ -338,14 +354,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			title?: string | null;
 		},
 	): Promise<Conversation> {
-		const chosen = this.agents.find((each) => each.id === agent);
-		if (chosen === undefined) {
-			fail(
-				"usage",
-				`no agent '${agent}': use one of ${this.agents.map((each) => each.id).join(", ")}`,
-				{ agent },
-			);
-		}
+		const chosen = this.agentOf(agent);
 		await this.load();
 		const holding = [...this.known.values()].find(
 			(each) => each.state.agent === agent && each.sessionId === session,

@@ -21,7 +21,8 @@ export class AutoRoutes {
 
 	/**
 	 * Starts a conversation on what Auto picks for `prompt`, the first prompt,
-	 * which the page sends once it is up, as for any start.
+	 * which the page sends once it is up, as for any start: it answers before
+	 * Auto has picked, and that prompt waits on the pick.
 	 */
 	readonly startAutoConversation = async (
 		request: Request,
@@ -42,7 +43,7 @@ export class AutoRoutes {
 			task: named,
 			// No pick of the person's, so the next start does not take its
 			// settings, though the next can start on Auto again.
-			start: (agent, { model, settings }) =>
+			start: (agent, { model, settings, picking }) =>
 				conversations.start(agent, {
 					task: named,
 					base,
@@ -52,6 +53,7 @@ export class AutoRoutes {
 					settings,
 					assigned: true,
 					auto: true,
+					picking,
 				}),
 		});
 		return Response.json(conversation.state);

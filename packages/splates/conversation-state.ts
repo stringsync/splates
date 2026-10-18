@@ -118,6 +118,11 @@ export interface ConversationState {
 	 */
 	auto: boolean;
 	/**
+	 * Auto is still picking its agent: it shows the agent it falls back on
+	 * until the pick lands, and opens none before.
+	 */
+	picking: boolean;
+	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -524,6 +529,7 @@ export function blank(
 		skill: null,
 		assigned,
 		auto: false,
+		picking: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,
@@ -538,6 +544,19 @@ export function blank(
 		background: [],
 		artifacts: [],
 	};
+}
+
+/**
+ * Moves `state` onto `agent`, as Auto's pick does before any session opens,
+ * keeping the usage only OpenCode tracks for OpenCode.
+ */
+export function runOn(state: ConversationState, agent: string): void {
+	state.agent = agent;
+	if (agent === "opencode") {
+		state.usage.opencode ??= { turns: [], costAt: null, retry: null };
+	} else {
+		delete state.usage.opencode;
+	}
 }
 
 /**

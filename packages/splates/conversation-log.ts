@@ -17,6 +17,7 @@ import {
 	type Device,
 	type Image,
 	type Limit,
+	runOn,
 	type Setting,
 } from "./conversation-state";
 import { agentTurn, fold, heard, result, tally } from "./fold";
@@ -29,7 +30,7 @@ const SAVE_EVERY = Duration.ms(500);
 
 // Raise it with any change to the entries, their `seq`s or the frame
 // numbering that a log of the last format would be misread by.
-/** The format `ConversationLog` writes; a live log of another is stopped when read, not resumed. */
+/** The format `ConversationLog` writes: a live log in another reads back stopped, never resumed. */
 export const LOG_FORMAT = 1;
 
 /** What a `ConversationLog` says of its saves. */
@@ -177,6 +178,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.usage.limits = heard(state.usage.limits, entry.limits);
 			} else if (entry.kind === "model-request") {
 				replayed.model = entry.model;
+			} else if (entry.kind === "agent") {
+				runOn(state, entry.agent);
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
 				replayed.sessionCwd = entry.cwd ?? replayed.sessionCwd;
@@ -437,6 +440,8 @@ type Said =
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }
+	/** Auto picked another agent than the one it started on, before any session opened. */
+	| { kind: "agent"; agent: string }
 	/** Moved into a task's worktree, or back to the main tree. */
 	| {
 			kind: "task";

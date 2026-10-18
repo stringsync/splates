@@ -1,5 +1,11 @@
-import { JUDGE_CREDS, judgeFrom, pick } from "./auto-pick";
-import type { Conversation } from "./conversation";
+import {
+	type AutoPick,
+	JUDGE_CREDS,
+	type Judge,
+	judgeFrom,
+	pick,
+} from "./auto-pick";
+import type { Conversation, Picked } from "./conversation";
 import type { Conversations } from "./conversations";
 import type { Project } from "./dev-project";
 import { effortSettings } from "./effort";
@@ -20,9 +26,11 @@ const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
 /**
  * Starts a conversation on what Auto picks for `prompt`: the agent, its
  * model, and its thinking level as the agent's `thought_level` setting takes
- * it, through `start`, which knows the tree it runs in. Logs the pick in the
- * conversation as splates's own line, and, with no judge to ask, asks once
- * on the Creds page for the key one needs.
+ * it, through `start`, which knows the tree it runs in. It answers before the
+ * judge does, on what Auto picks with none, so the page opens the thread at
+ * once; the agent opens on the judge's pick, which a prompt said meanwhile
+ * waits on. Logs the pick in the conversation as splates's own line, and,
+ * with no judge to ask, asks once on the Creds page for the key one needs.
  */
 export async function startAuto({
 	project,
@@ -39,27 +47,66 @@ export async function startAuto({
 	task: string | null;
 	start: (
 		agent: string,
-		opts: { model?: string; settings: Record<string, string> },
+		opts: {
+			model?: string;
+			settings: Record<string, string>;
+			picking: Promise<Picked<string>>;
+		},
 	) => Promise<Conversation>;
 	now?: Date;
 }): Promise<Conversation> {
 	const offered = await conversations.settings();
-	const judge = await judgeFrom(project.creds.credentials);
-	const picked = await pick({
+	const input = {
 		prompt,
 		agents: await new Roster(`${splatesHome(project.ps)}/agents.json`, {
 			fs: project.fs,
 		}).agents(),
 		offered,
 		limits: await conversations.limits(),
-		judge,
 		now,
-	});
-	const conversation = await start(picked.agent, {
+	};
+	const fallback = await pick({ ...input, judge: null });
+	const judging = judgeFrom(project.creds.credentials).then(async (judge) => ({
+		judge,
+		picked: judge === null ? fallback : await pick({ ...input, judge }),
+	}));
+	const opened = (picked: AutoPick): Picked<string> => ({
+		agent: picked.agent,
 		...(picked.model === undefined ? {} : { model: picked.model }),
 		settings: effortSettings(picked.effort, offered[picked.agent] ?? []),
 	});
-	const journal = project.journal.in(conversation.id);
+	const starting = opened(fallback);
+	const conversation = start(starting.agent, {
+		...starting,
+		// Logged before the agent opens on it, so its line leads what it says.
+		picking: judging.then(
+			async ({ judge, picked }) => {
+				await conversation
+					.then((started) => logPick(project, started.id, task, picked, judge))
+					.catch((error: unknown) => project.log.error(String(error)));
+				return opened(picked);
+			},
+			(error: unknown) => {
+				project.log.error(`Auto could not ask its judge: ${String(error)}`);
+				return opened(fallback);
+			},
+		),
+	});
+	return conversation;
+}
+
+/**
+ * Logs Auto's pick in the conversation, and, with no judge to ask, the
+ * request for the key one needs.
+ */
+async function logPick(
+	project: Project,
+	conversation: string,
+	task: string | null,
+	picked: AutoPick,
+	judge: Judge | null,
+): Promise<void> {
+	const journal = project.journal.in(conversation);
 	await journal.record("auto", task, async () => {}, {
 		agent: picked.agent,
 		model: picked.model ?? null,
@@ -70,7 +117,6 @@ export async function startAuto({
 	if (judge === null) {
 		await offerJudge(project, journal, task);
 	}
-	return conversation;
 }
 
 /**

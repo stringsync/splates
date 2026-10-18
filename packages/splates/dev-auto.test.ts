@@ -43,8 +43,9 @@ describe("dev Auto", () => {
 			conversations: () => conversations,
 		});
 		try {
-			const start = async () =>
-				(await (
+			// Answered before the pick, which is logged before the agent opens.
+			const start = async () => {
+				const started = (await (
 					await json(server.port, "/api/conversations/auto", "POST", {
 						task: null,
 						prompt: "Rename `foo` to `bar`",
@@ -54,12 +55,17 @@ describe("dev Auto", () => {
 					agent: string;
 					assigned: boolean;
 					auto: boolean;
+					picking: boolean;
 				};
+				await (await conversations.find(started.id)).opening;
+				return started;
+			};
 			const started = await start();
 			expect(started).toMatchObject({
 				agent: "fake",
 				assigned: true,
 				auto: true,
+				picking: true,
 			});
 
 			const events = await deps.journal.tail(10);

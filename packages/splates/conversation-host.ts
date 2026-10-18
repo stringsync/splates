@@ -23,7 +23,7 @@ export interface ConversationHost {
 	readonly log: ConversationLog;
 	readonly events: Events<ConversationEvents>;
 	/** What runs it; null when its agent is no longer known. */
-	readonly agent: Agent | null;
+	get agent(): Agent | null;
 	/** Where it runs; null for a log too old to say. */
 	readonly cwd: string | null;
 	/**
