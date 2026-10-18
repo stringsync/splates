@@ -141,6 +141,9 @@ function localState(local: WorkerListing | null, on: boolean): string {
 	if (local === null) {
 		return "This Mac runs no agents: it only coordinates the workers below.";
 	}
+	if (local.updating) {
+		return "Updating: temporarily takes no new agents; resumes when the update finishes.";
+	}
 	const { used, total } = local.slots;
 	const running = used === 1 ? "1 agent runs" : `${used} agents run`;
 	if (on) {

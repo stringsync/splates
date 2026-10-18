@@ -87,6 +87,28 @@ describe("App's workers", () => {
 		).toContain("linux (wsl2)");
 	});
 
+	it("keeps this Mac enabled with its slots while an update drains it", async () => {
+		const view = await openWorkers(
+			pool([
+				worker("local", {
+					kind: "local",
+					draining: true,
+					updating: true,
+					slots: { used: 0, total: 7 },
+				}),
+			]),
+		);
+		const mac = within(view.getByRole("region", { name: "this mac" }));
+		expect(
+			mac
+				.getByRole("switch", { name: "Runs agents" })
+				.getAttribute("aria-checked"),
+		).toBe("true");
+		expect(mac.getByText("A worker")).toBeDefined();
+		expect(mac.getByText(/Updating: temporarily/)).toBeDefined();
+		expect(mac.getByRole("spinbutton").getAttribute("value")).toBe("7");
+	});
+
 	it("turns this Mac off as a worker at once, by removing its worker", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
 		const mac = view.getByRole("region", { name: "this mac" });

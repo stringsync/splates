@@ -19,7 +19,7 @@ export function localWorker(pool: WorkerPool): WorkerListing | null {
 /** Whether this machine takes new agents as a worker. */
 export function localWorkerOn(pool: WorkerPool): boolean {
 	const local = localWorker(pool);
-	return local !== null && !local.draining;
+	return local !== null && (!local.draining || local.updating);
 }
 
 /**
