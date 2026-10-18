@@ -30,7 +30,7 @@ import { answerState, type StateCall } from "./repo-state";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
 import type { Slot } from "./slots";
-import { type Snapshot, tasksOf } from "./snapshot";
+import type { Snapshot } from "./snapshot";
 import type { PortOwners } from "./task-ports";
 import type { Landed, LandRequest } from "./trunk-landing";
 
@@ -145,12 +145,12 @@ export async function serveProject(
 		current: () => watch.current(),
 		waiting: async () =>
 			waitingOn(
-				await tasksOf({ service, fs }),
+				(await watch.current()).tasks,
 				((await conversations?.list()) ?? []).map(({ state }) => state),
 			),
 		needing: async () => ({
 			rows: needs({
-				tasks: await tasksOf({ service, fs }),
+				tasks: (await watch.current()).tasks,
 				conversations: ((await conversations?.list()) ?? []).map(
 					({ state }) => state,
 				),
