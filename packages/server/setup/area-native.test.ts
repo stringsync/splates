@@ -75,11 +75,13 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 		await expect(
 			setup.submit("codex-models", {
 				"codex-model-gpt-6-astra": false,
+				"codex-model-gpt-6.1-sol": false,
 				"codex-model-gpt-6-luna": false,
 			}),
 		).rejects.toThrow("Tick at least one model.");
 		await setup.submit("codex-models", {
 			"codex-model-gpt-6-astra": false,
+			"codex-model-gpt-6.1-sol": false,
 			"codex-model-gpt-6-luna": true,
 		});
 

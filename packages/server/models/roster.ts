@@ -247,6 +247,15 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 				costRank: 3,
 			},
 			{
+				id: "gpt-6.1-sol",
+				name: "6.1 Sol",
+				strengths: "everyday coding work, the latest workhorse",
+				cost: "medium",
+				tier: 2,
+				speed: "medium",
+				costRank: 2,
+			},
+			{
 				id: "gpt-6-luna",
 				name: "6 Luna",
 				strengths: "easier tasks, fast",

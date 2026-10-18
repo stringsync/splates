@@ -90,6 +90,25 @@ describe("pick", () => {
 		expect(noHaiku.effort).toBeUndefined();
 	});
 
+	it("sends middle-tier work to Codex's Sol when it is the only agent", async () => {
+		const picked = await pick(
+			input({
+				offered: {
+					codex: [
+						select("model", "model", [
+							"gpt-6-astra",
+							"gpt-6.1-sol",
+							"gpt-6-luna",
+						]),
+						select("reasoning_effort", "thought_level", ["low", "medium"]),
+					],
+				},
+				judge: new FakeJudge(),
+			}),
+		);
+		expect(picked).toMatchObject({ agent: "codex", model: "gpt-6.1-sol" });
+	});
+
 	it("breaks a tie between agents toward the one with more plan left", async () => {
 		const limits = {
 			claude: [limit("five_hour", 0.56), limit("seven_day", 0.1)],
