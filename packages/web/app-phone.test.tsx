@@ -111,6 +111,77 @@ describe("App on a phone", () => {
 		expect(waiting.textContent).toContain("Failed");
 	});
 
+	/** The inbox with another project, zebra, listed beside this one. */
+	const inZebraAndHere = async () => {
+		localStorage.clear();
+		testing.everywhere = [
+			{
+				project: "zebra",
+				repo: "zebra",
+				root: "/code/zebra",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				conversations: [
+					conversation({ id: "z1", title: "Stripes", status: "running" }),
+					conversation({ id: "z2", title: "Zebra broke", status: "failed" }),
+				],
+			},
+		];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Mine", status: "running" })],
+			null,
+			{ tasks: [] },
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+		await waitFor(() => within(inbox).getByRole("region", { name: "zebra" }));
+		return inbox;
+	};
+
+	it("folds the inbox by project, with every project's waiting agents in Needs you", async () => {
+		const inbox = await inZebraAndHere();
+		const needsYou = within(inbox).getByRole("region", { name: "Needs you" });
+		expect(needsYou.textContent).toContain("Zebra broke");
+		expect(needsYou.textContent).toContain("zebra");
+		const zebra = within(inbox).getByRole("region", { name: "zebra" });
+		expect(within(zebra).getByRole("button", { name: /Stripes/ })).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(within(zebra).getByRole("button", { name: /Stripes/ })),
+		);
+		const there = new URL(String(testing.visited[0]));
+		expect(there.searchParams.get("project")).toBe("zebra");
+		expect(there.hash).toBe("#conversations/z1");
+	});
+
+	it("starts a conversation in a folder's project from its +", async () => {
+		const inbox = await inZebraAndHere();
+		await act(async () =>
+			fireEvent.click(
+				within(inbox).getByRole("button", {
+					name: "New conversation in zebra",
+				}),
+			),
+		);
+		expect(new URL(String(testing.visited[0])).hash).toBe("#conversations/new");
+	});
+
+	it("folds a folder away, dotted while one of its agents waits", async () => {
+		const inbox = await inZebraAndHere();
+		const zebra = within(inbox).getByRole("region", { name: "zebra" });
+		await act(async () =>
+			fireEvent.click(within(zebra).getByRole("button", { name: /^zebra/ })),
+		);
+		await waitFor(() =>
+			expect(
+				within(zebra).queryByRole("button", { name: /Stripes/ }),
+			).toBeNull(),
+		);
+		expect(
+			within(zebra).getByRole("img", { name: "waiting on you" }),
+		).toBeTruthy();
+	});
+
 	it("marks a lane's orchestrator as a lane in its inbox", async () => {
 		const view = await testing.openConversations(
 			[

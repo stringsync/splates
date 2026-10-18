@@ -100,6 +100,15 @@ export function PhoneApp({
 							drafts={drafts}
 							terminals={terminals}
 							tasks={snapshot?.tasks ?? []}
+							here={
+								snapshot === null
+									? null
+									: {
+											root: snapshot.root,
+											repo: snapshot.repo,
+											trunk: snapshot.trunk,
+										}
+							}
 							loading={snapshot === null}
 							status={status}
 							onMenu={menu}

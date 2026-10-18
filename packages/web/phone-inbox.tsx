@@ -1,13 +1,18 @@
-import { age } from "@stringsync/splates-server/age";
-import {
-	answersTo,
-	type Needing,
-	quietSince,
-} from "@stringsync/splates-server/needs";
+import type { Needing } from "@stringsync/splates-server/needs";
 import type { Details } from "@stringsync/splates-server/show";
 import { useReactive } from "@webappwiz/react";
-import { MenuIcon, SquarePenIcon } from "lucide-react";
+import {
+	ChevronRightIcon,
+	MenuIcon,
+	PlusIcon,
+	SquarePenIcon,
+} from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useContext } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import {
 	Empty,
 	EmptyDescription,
@@ -16,18 +21,12 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { openedBy } from "./conversation-address";
+import { NEW, openedBy } from "./conversation-address";
 import {
 	type AgentChoice,
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
-import {
-	lastReport,
-	leadsLanes,
-	unnamed,
-	useNameOf,
-} from "./conversation-names";
 import {
 	flatten,
 	hostsAtWork,
@@ -35,23 +34,26 @@ import {
 	rowsOf,
 	waitsOnYou,
 } from "./conversation-rows";
-import { Trunk } from "./dispatching";
 import type { Drafts } from "./drafts";
-import { Held } from "./handed-out";
-import { Mark } from "./mark";
-import { useOpenNew } from "./new-conversation-project";
+import { useEverywhere } from "./everywhere-context";
+import { useFolded } from "./folded";
+import { NavigationContext } from "./navigation";
+import { newConversationUrl, useOpenNew } from "./new-conversation-project";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
+import { Row } from "./phone-inbox-row";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
-import { Filed, type useLongPress } from "./phone-row-menu";
-import { Refusal } from "./refusal";
+import { InLanes } from "./project-folder-list";
+import {
+	FOLDED_FOLDERS,
+	type Folder,
+	folderKey,
+	foldersOf,
+} from "./project-folders";
 import { Placing, placesOf } from "./reparent";
-import { useRowRefusal } from "./row-refusal";
-import { LaneIcon, TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
-import { unanswered } from "./unanswered";
 
 /**
  * The phone's home: every agent, sorted by what it asks of you. Those waiting
@@ -65,12 +67,20 @@ import { unanswered } from "./unanswered";
  * the sidebar, sit its terminal while its shell is up and each command its
  * agent left running, each opening the conversation with it on the screen.
  * The main tree's terminals come last, to go back to or close.
+ *
+ * With the feed of every project to be had, the groups are the sidebar's: those
+ * waiting on you, whatever their project, in Needs you on top, each naming its
+ * project, then a folder per project, its agents at work first. A folder folds
+ * away as the sidebar's does, dotted while folded with one waiting, and its +
+ * starts a conversation there. Another project's row only opens, by switching
+ * the page to that project.
  */
 export function Inbox({
 	feed,
 	drafts,
 	terminals,
 	tasks,
+	here,
 	status,
 	loading,
 	onMenu,
@@ -81,6 +91,8 @@ export function Inbox({
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
+	/** The project the page shows, as its snapshot has it; null before it comes. */
+	here: { root: string; repo: string; trunk: string | null } | null;
 	/** Whether the server is offline or outdated, shown in the header. */
 	status: ReactNode;
 	/** Whether the project snapshot is still on its way. */
@@ -118,12 +130,47 @@ export function Inbox({
 	const rest = trees.filter(
 		(tree) => !waiting.includes(tree) && !working.includes(tree),
 	);
-	const open = (row: Needing) => {
+	const everywhere = useEverywhere(
+		({ available, projects, tasks, conversations }) => ({
+			available,
+			projects,
+			tasks,
+			conversations,
+		}),
+	);
+	const grouped =
+		everywhere.available && here !== null
+			? foldersOf(
+					everywhere.projects,
+					everywhere.tasks,
+					everywhere.conversations,
+					{ ...here, tasks, conversations },
+					drafts,
+				)
+			: null;
+	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const navigation = useContext(NavigationContext);
+	const open = (row: Needing, folder: Folder | null) => {
+		if (folder !== null && !folder.here && folder.project !== null) {
+			navigation.show(newConversationUrl(folder.project, openedBy(row)));
+			return;
+		}
 		if (waitsOnYou(row, drafts, conversations)) {
 			arriveAt(openedBy(row));
 		}
 		onOpen(openedBy(row));
 	};
+	const startIn = (folder: Folder) => {
+		if (folder.here || folder.project === null) {
+			onOpen(NEW);
+		} else {
+			navigation.show(newConversationUrl(folder.project));
+		}
+	};
+	const empty =
+		grouped === null
+			? rows.length === 0
+			: grouped.folders.every((each) => each.trees.length === 0);
 	const agent = agents.find((each) => each.id === "claude") ?? agents[0];
 	return (
 		<section
@@ -161,7 +208,7 @@ export function Inbox({
 						<Skeleton className="h-16 w-full" />
 						<Skeleton className="h-16 w-full" />
 					</div>
-				) : rows.length === 0 && mains.length === 0 ? (
+				) : empty && mains.length === 0 ? (
 					<Empty className="py-16">
 						<EmptyHeader>
 							<EmptyDescription>
@@ -178,28 +225,50 @@ export function Inbox({
 							agentOf: (each) => agentName(agents, each.agent),
 						}}
 					>
-						<Group
-							title="Needs you"
-							trees={waiting}
-							agents={agents}
-							urgent
-							beneath={beneath}
-							onOpen={open}
-						/>
-						<Group
-							title="Working"
-							trees={working}
-							agents={agents}
-							beneath={beneath}
-							onOpen={open}
-						/>
-						<Group
-							title="Recent"
-							trees={rest}
-							agents={agents}
-							beneath={beneath}
-							onOpen={open}
-						/>
+						{grouped === null ? (
+							[
+								["Needs you", waiting],
+								["Working", working],
+								["Recent", rest],
+							].map(([title, group]) => (
+								<Group
+									key={String(title)}
+									title={String(title)}
+									items={(group as Nested<Needing>[]).map((tree) => ({
+										tree,
+										folder: null,
+									}))}
+									agents={agents}
+									urgent={title === "Needs you"}
+									beneath={beneath}
+									onOpen={open}
+								/>
+							))
+						) : (
+							<>
+								<Group
+									title="Needs you"
+									items={grouped.needsYou}
+									agents={agents}
+									urgent
+									named
+									beneath={beneath}
+									onOpen={open}
+								/>
+								{grouped.folders.map((folder) => (
+									<FolderSection
+										key={folderKey(folder)}
+										folder={folder}
+										open={!folded.has(folderKey(folder))}
+										onFold={(open) => fold(folderKey(folder), open)}
+										onNew={available ? () => startIn(folder) : null}
+										agents={agents}
+										beneath={beneath}
+										onOpen={open}
+									/>
+								))}
+							</>
+						)}
 						<TerminalGroup
 							mains={mains}
 							nameOf={(key) => terminals.nameOf(key)}
@@ -238,31 +307,149 @@ export function Inbox({
 	);
 }
 
+/** A tree to list, with the folder it is of; null while the inbox is not in folders. */
+interface Item {
+	tree: Nested<Needing>;
+	folder: Folder | null;
+}
+
 /**
  * A heading and its rows, each agent's subagents under it, and what
  * `beneath` puts under each, or nothing when it has none. The count is of the
- * agents at the top.
+ * agents at the top. `named` has each row say which project it is in.
  */
 function Group({
 	title,
-	trees,
+	items,
 	agents,
 	urgent = false,
+	named = false,
 	beneath,
 	onOpen,
 }: {
 	agents: AgentChoice[];
 	title: string;
-	trees: Nested<Needing>[];
+	items: Item[];
 	urgent?: boolean;
+	named?: boolean;
 	/** The rows under an agent's, a level deeper than `depth`, its own. */
 	beneath: (row: Needing, depth: number) => ReactNode[];
-	onOpen: (row: Needing) => void;
+	onOpen: (row: Needing, folder: Folder | null) => void;
 }): ReactNode {
-	if (trees.length === 0) {
+	if (items.length === 0) {
 		return null;
 	}
-	const hosting = hostsAtWork(trees);
+	return (
+		<section aria-label={title} className="pt-4">
+			<h2
+				className={cn(
+					"px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide",
+					urgent && "text-warning",
+				)}
+			>
+				{title} · {items.length}
+			</h2>
+			<Lines
+				items={items}
+				agents={agents}
+				named={named}
+				beneath={beneath}
+				onOpen={onOpen}
+			/>
+		</section>
+	);
+}
+
+/**
+ * A project's folder: its name, a dot while folded with an agent of its
+ * waiting, and a + to start a conversation in it, then its agents at work and
+ * the rest. Another project's rows have no menu.
+ */
+function FolderSection({
+	folder,
+	open,
+	onFold,
+	onNew,
+	agents,
+	beneath,
+	onOpen,
+}: {
+	folder: Folder;
+	open: boolean;
+	onFold: (open: boolean) => void;
+	/** Null while no conversation can start. */
+	onNew: (() => void) | null;
+	agents: AgentChoice[];
+	beneath: (row: Needing, depth: number) => ReactNode[];
+	onOpen: (row: Needing, folder: Folder | null) => void;
+}): JSX.Element {
+	const items = [...folder.working, ...folder.recent].map((tree) => ({
+		tree,
+		folder,
+	}));
+	return (
+		<Collapsible
+			open={open}
+			onOpenChange={onFold}
+			render={<section aria-label={folder.name} />}
+			className="group/folder flex flex-col pt-4"
+		>
+			<div className="flex items-center pr-2">
+				<CollapsibleTrigger className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none">
+					<ChevronRightIcon
+						aria-hidden
+						className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/folder:rotate-90"
+					/>
+					<span className="min-w-0 truncate">{folder.name}</span>
+					{!open && folder.waiting.length > 0 && (
+						<span
+							role="img"
+							aria-label="waiting on you"
+							className="size-1.5 shrink-0 rounded-full bg-warning"
+						/>
+					)}
+				</CollapsibleTrigger>
+				{onNew !== null && (
+					<button
+						type="button"
+						aria-label={`New conversation in ${folder.name}`}
+						onClick={onNew}
+						className="flex size-10 shrink-0 items-center justify-center text-muted-foreground active:bg-muted"
+					>
+						<PlusIcon className="size-4" />
+					</button>
+				)}
+			</div>
+			<CollapsibleContent>
+				{items.length > 0 && (
+					<Lines
+						items={items}
+						agents={agents}
+						named={false}
+						beneath={folder.here ? beneath : () => []}
+						onOpen={onOpen}
+					/>
+				)}
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+/** The rows of `items`, each tree's subagents under it. */
+function Lines({
+	items,
+	agents,
+	named,
+	beneath,
+	onOpen,
+}: {
+	items: Item[];
+	agents: AgentChoice[];
+	named: boolean;
+	beneath: (row: Needing, depth: number) => ReactNode[];
+	onOpen: (row: Needing, folder: Folder | null) => void;
+}): ReactNode {
+	const hosting = hostsAtWork(items.map(({ tree }) => tree));
 	const lines = (
 		trees: Nested<Needing>[],
 		depth: number,
@@ -272,270 +459,53 @@ function Group({
 			...lines(parts, depth + 1),
 		]);
 	return (
-		<section aria-label={title} className="pt-4">
-			<h2
-				className={cn(
-					"px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide",
-					urgent && "text-warning",
-				)}
-			>
-				{title} · {trees.length}
-			</h2>
-			<ul>
-				{lines(trees, 0).map(({ row, depth }) => (
-					<Fragment key={openedBy(row)}>
-						<li>
-							<Row
-								row={row}
-								depth={depth}
-								agent={
-									row.conversation === null
-										? null
-										: agentName(agents, row.conversation.agent)
-								}
-								hosting={
-									row.conversation !== null && hosting.has(row.conversation.id)
-								}
-								onOpen={() => onOpen(row)}
-							/>
-						</li>
-						{beneath(row, depth + 1)}
-					</Fragment>
-				))}
-			</ul>
-		</section>
-	);
-}
-
-/**
- * One agent: its mark, its name, what it waits on, and how long since it
- * moved. One handed out sits indented under the agent it answers to, smaller
- * and muted.
- * Held down, a conversation's row opens its menu.
- */
-function Row({
-	row,
-	depth,
-	agent,
-	hosting,
-	onOpen,
-}: {
-	row: Needing;
-	/** How many agents it is handed out under; 0 for one you talk to. */
-	depth: number;
-	/** The agent's name; null for an external one. */
-	agent: string | null;
-	/** Whether an agent it handed a task to is at work. */
-	hosting: boolean;
-	onOpen: () => void;
-}): JSX.Element {
-	const nameOf = useNameOf();
-	const trunk = useContext(Trunk);
-	const { conversation, task, need } = row;
-	// One that answers to another is not yours to address.
-	const subagent = answersTo(row, useContext(Held)) !== null;
-	const reported =
-		conversation === null ? null : (lastReport(conversation)?.ending ?? null);
-	const name =
-		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
-	const { text, urgent } = statusOf(row, name, trunk);
-	const moved = movedAt(row);
-	const { refusal, refuse } = useRowRefusal(
-		conversation?.id ?? `task ${task?.task}`,
-	);
-	const button = (press: Partial<ReturnType<typeof useLongPress>>) => (
-		<button
-			type="button"
-			onClick={onOpen}
-			{...press}
-			className={cn(
-				// No callout or selection to fight the long press.
-				"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
-				depth === 0 ? "min-h-16" : "min-h-14",
-			)}
-			// Under the name of the agent it answers to.
-			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
-		>
-			<span
-				className={cn(
-					"flex shrink-0 items-center justify-center rounded-full bg-muted",
-					depth === 0 ? "size-10" : "size-8",
-				)}
-			>
-				{conversation !== null && agent !== null ? (
-					<AgentIcon
-						agent={conversation.agent}
-						name={agent}
-						className={cn(
-							"text-foreground/80",
-							depth === 0 ? "size-5" : "size-4",
-						)}
-					/>
-				) : (
-					<TaskIcon
-						className={cn(
-							"text-foreground/80",
-							depth === 0 ? "size-5" : "size-4",
-						)}
-					/>
-				)}
-			</span>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="flex items-baseline gap-2">
-					{conversation !== null && leadsLanes(conversation) && (
-						<LaneIcon
-							aria-label="Lane"
-							className="size-3.5 shrink-0 self-center text-muted-foreground"
-						/>
-					)}
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate font-medium text-[15px]",
-							(subagent || (conversation !== null && unnamed(conversation))) &&
-								"text-muted-foreground italic",
-						)}
-					>
-						{name}
-					</span>
-					{moved !== null && (
-						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-							{moved}
-						</span>
-					)}
-				</span>
-				<span className="flex items-center gap-2">
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate text-sm",
-							urgent ? "text-warning" : "text-muted-foreground",
-						)}
-					>
-						{text}
-					</span>
-					{/* A quiet external agent's status says so, rather than a spinner. */}
-					{(conversation !== null || quietSince(row, Date.now()) === null) && (
-						<Mark
-							need={need}
-							reported={reported}
-							unread={conversation?.unread ?? false}
-							hosting={hosting}
-							subagent={subagent}
-						/>
-					)}
-				</span>
-			</span>
-		</button>
-	);
-	return (
 		<>
-			{conversation !== null ? (
-				<Filed conversation={conversation} refuse={refuse} nested={depth > 0}>
-					{button}
-				</Filed>
-			) : (
-				button({})
-			)}
-			<Refusal refusal={refusal} className="px-4 pb-1.5" />
+			{items.map(({ tree, folder }) => (
+				<InFolder
+					key={`${folder?.project ?? ""} ${openedBy(tree.row)}`}
+					folder={folder}
+				>
+					<ul>
+						{lines([tree], 0).map(({ row, depth }) => (
+							<Fragment key={openedBy(row)}>
+								<li>
+									<Row
+										row={row}
+										depth={depth}
+										agent={
+											row.conversation === null
+												? null
+												: agentName(agents, row.conversation.agent)
+										}
+										hosting={
+											row.conversation !== null &&
+											hosting.has(row.conversation.id)
+										}
+										project={named && folder !== null ? folder.name : null}
+										foreign={folder !== null && !folder.here}
+										onOpen={() => onOpen(row, folder)}
+									/>
+								</li>
+								{folder === null || folder.here ? beneath(row, depth + 1) : []}
+							</Fragment>
+						))}
+					</ul>
+				</InFolder>
+			))}
 		</>
 	);
 }
 
-/** What a row says under its name: what it waits on, does, or last did. */
-export function statusOf(
-	{ conversation, task, need }: Needing,
-	name: string,
-	trunk: string | null,
-): { text: string; urgent: boolean } {
-	if (need.kind === "waiting") {
-		const open =
-			need.why === "questions"
-				? unanswered(need.questions, conversation?.messages ?? []).length
-				: need.questions.length;
-		const label =
-			need.why === "ask"
-				? "Asks to go on"
-				: need.why === "review"
-					? "Ready to merge"
-					: need.why === "failed"
-						? "Failed"
-						: need.why === "abandoned"
-							? "Abandoned"
-							: open > 0
-								? `${open} ${open === 1 ? "question" : "questions"}`
-								: "Escalated";
-		// Named, when it waits for an agent this one handed out.
-		const subject =
-			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
-		return { text: `${label} · ${subject}`, urgent: true };
-	}
-	// An external agent with no sign of it at work for a while may be gone.
-	const quiet = quietSince({ task, need }, Date.now());
-	if (conversation === null && quiet !== null) {
-		return { text: `No sign since ${age(quiet)}`, urgent: false };
-	}
-	if (need.kind === "assuming") {
-		const subject =
-			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
-		return { text: `Working · ${subject}`, urgent: false };
-	}
-	if (need.kind === "working") {
-		return { text: need.subject ?? "Working", urgent: false };
-	}
-	const report = conversation === null ? null : lastReport(conversation);
-	if (report !== null) {
-		const how = {
-			merged: `Merged onto ${("base" in report ? report.base : null) ?? "main"}`,
-			removed: "Removed",
-			escalated: "Escalated",
-			finished: "Lanes finished",
-			waiting: "Lanes waiting",
-			working: "lanes" in report ? "Lanes working" : "Working",
-			handed: `Handed off to ${("to" in report ? report.to : null) ?? "another agent"}`,
-		}[report.ending];
-		return {
-			text: report.reason === null ? how : `${how} · ${report.reason}`,
-			urgent: false,
-		};
-	}
-	// An external agent whose escalation is answered through another's row.
-	if (conversation === null && task?.escalation != null) {
-		return { text: `Escalated · ${task.escalation}`, urgent: false };
-	}
-	if (conversation?.unread === true) {
-		return { text: "New reply", urgent: false };
-	}
-	// What the agent called it, under the task it goes by.
-	if (conversation?.title != null && conversation.title !== name) {
-		return { text: conversation.title, urgent: false };
-	}
-	return {
-		text: conversation?.task ?? task?.task ?? trunk ?? "main",
-		urgent: false,
-	};
-}
-
-/** How long since a row's conversation last moved, shortly: "5m", "3h", "2d". */
-function movedAt({ conversation, task }: Needing): string | null {
-	const last = conversation?.messages.at(-1);
-	const at =
-		last?.until ??
-		last?.at ??
-		conversation?.createdAt ??
-		task?.activeAt ??
-		task?.createdAt;
-	if (at == null) {
-		return null;
-	}
-	const minutes = Math.floor((Date.now() - Date.parse(at)) / 60_000);
-	if (Number.isNaN(minutes)) {
-		return null;
-	}
-	if (minutes < 1) {
-		return "now";
-	}
-	if (minutes < 60) {
-		return `${minutes}m`;
-	}
-	const hours = Math.floor(minutes / 60);
-	return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+function InFolder({
+	folder,
+	children,
+}: {
+	folder: Folder | null;
+	children: ReactNode;
+}): ReactNode {
+	return folder === null ? (
+		children
+	) : (
+		<InLanes folder={folder}>{children}</InLanes>
+	);
 }

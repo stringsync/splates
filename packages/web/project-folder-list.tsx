@@ -206,7 +206,7 @@ export function ForeignItem({
 }
 
 /** Names `folder`'s lane orchestrators after its lanes, the page's own as its snapshot does. */
-function InLanes({
+export function InLanes({
 	folder,
 	children,
 }: {
