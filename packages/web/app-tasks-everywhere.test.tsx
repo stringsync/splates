@@ -4,6 +4,7 @@ import type { Details } from "@stringsync/splates-server/show";
 import {
 	act,
 	cleanup,
+	conversation,
 	details,
 	fireEvent,
 	Testing,
@@ -84,6 +85,29 @@ describe("App's tasks, every project's", () => {
 				{ name: "parts of core" },
 			),
 		).toBeTruthy();
+	});
+
+	it("marks the conversations on another project's tasks", async () => {
+		const stripes = details({ task: "stripes" });
+		testing.everywhere = [
+			{
+				...listed("zebra", "zebra", "/code/zebra", [stripes]),
+				conversations: [
+					conversation({ id: "z1", task: "stripes", status: "running" }),
+				],
+			},
+		];
+		const view = await testing.openTasks({
+			tasks: [details({ task: "mine" })],
+		});
+		const zebra = await waitFor(() =>
+			view.getByRole("list", { name: "zebra tasks" }),
+		);
+
+		const row = within(zebra).getByRole("button", { name: /stripes/ });
+		await waitFor(() =>
+			expect(within(row).getAllByRole("status")).toHaveLength(1),
+		);
 	});
 
 	it("opens this project's task in place", async () => {

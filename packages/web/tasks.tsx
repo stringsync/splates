@@ -1,4 +1,6 @@
 import { age } from "@stringsync/splates-server/age";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { type Needing, needs } from "@stringsync/splates-server/needs";
 import { questions } from "@stringsync/splates-server/plan";
 import type { Details } from "@stringsync/splates-server/show";
 import type { Snapshot } from "@stringsync/splates-server/snapshot";
@@ -35,15 +37,18 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { NEW } from "./conversation-address";
+import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { useNow } from "./hooks/use-now";
+import { Mark } from "./mark";
 import { HEADING, Markdown } from "./markdown";
 import { NavigationContext } from "./navigation";
 import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
+import { QueueMark } from "./slot-queue";
 import { ActionBar, useRetry } from "./task-actions";
 import { TaskIcon } from "./task-icon";
 import { TaskPorts } from "./task-ports";
@@ -131,6 +136,11 @@ interface Group {
 	/** Whether it is the project this page shows. */
 	here: boolean;
 	tasks: Details[];
+	/**
+	 * What each conversation on its tasks needs, for another project's, whose
+	 * `Dispatching` this page does not hold; null for this one.
+	 */
+	needing: Needing[] | null;
 }
 
 /**
@@ -139,12 +149,17 @@ interface Group {
  * this one's alone.
  */
 function useGroups(here: Here): Group[] | null {
-	const feed = useEverywhere(({ available, projects, tasks }) => ({
-		available,
-		projects,
-		tasks,
-	}));
-	return feed.available ? groupsOf(feed.projects, feed.tasks, here) : null;
+	const feed = useEverywhere(
+		({ available, projects, tasks, conversations }) => ({
+			available,
+			projects,
+			tasks,
+			conversations,
+		}),
+	);
+	return feed.available
+		? groupsOf(feed.projects, feed.tasks, feed.conversations, here)
+		: null;
 }
 
 /**
@@ -154,32 +169,38 @@ function useGroups(here: Here): Group[] | null {
 function groupsOf(
 	projects: EverywhereSummary[],
 	everywhere: InProject<Details>[],
+	conversations: InProject<ConversationState>[],
 	here: Here,
 ): Group[] {
-	const listed = projects.map(
-		(project): Group =>
-			project.root === here.root
-				? {
-						project: project.project,
-						name: here.repo,
-						here: true,
-						tasks: here.tasks,
-					}
-				: {
-						project: project.project,
-						name: project.repo,
-						here: false,
-						tasks: everywhere.filter(
-							(task) => task.project === project.project,
-						),
-					},
-	);
+	const listed = projects.map((project): Group => {
+		if (project.root === here.root) {
+			return {
+				project: project.project,
+				name: here.repo,
+				here: true,
+				tasks: here.tasks,
+				needing: null,
+			};
+		}
+		const tasks = everywhere.filter((task) => task.project === project.project);
+		const its = conversations.filter(
+			(conversation) => conversation.project === project.project,
+		);
+		return {
+			project: project.project,
+			name: project.repo,
+			here: false,
+			tasks,
+			needing: needs({ tasks, conversations: its }),
+		};
+	});
 	if (!listed.some((group) => group.here)) {
 		listed.push({
 			project: null,
 			name: here.repo,
 			here: true,
 			tasks: here.tasks,
+			needing: null,
 		});
 	}
 	return listed
@@ -260,7 +281,7 @@ function ProjectGroups({
 							<TaskRows
 								label={`${group.name} tasks`}
 								rows={nested(group.tasks)}
-								marks={group.here}
+								needing={group.needing}
 								onOpen={
 									group.here || project === null
 										? onOpen
@@ -292,17 +313,17 @@ function TaskRows({
 	label,
 	rows,
 	onOpen,
-	marks = true,
+	needing = null,
 	depth = 0,
 }: {
 	label: string;
 	rows: Nested<Details>[];
 	onOpen: (task: string) => void;
 	/**
-	 * Whether to mark the conversations on each, which only this project's
-	 * page knows of.
+	 * What the conversations on another project's tasks need, which this
+	 * page's `Dispatching` does not hold; null for this project's own.
 	 */
-	marks?: boolean;
+	needing?: Needing[] | null;
 	/** How many tasks it is a part of; 0 for one on its base. */
 	depth?: number;
 }): JSX.Element {
@@ -344,20 +365,53 @@ function TaskRows({
 							</span>
 						)}
 						{/* Only marks, since the row is a button: its dialog opens them. */}
-						{marks && <OnIt task={task.task} variant="marks" />}
+						{needing === null ? (
+							<OnIt task={task.task} variant="marks" />
+						) : (
+							<ElsewhereMarks rows={needing} task={task.task} />
+						)}
 					</button>
 					{parts.length > 0 && (
 						<TaskRows
 							label={`parts of ${task.task}`}
 							rows={parts}
 							onOpen={onOpen}
-							marks={marks}
+							needing={needing}
 							depth={depth + 1}
 						/>
 					)}
 				</li>
 			))}
 		</ul>
+	);
+}
+
+/** The marks `OnIt` draws, for the conversations on another project's `task`. */
+function ElsewhereMarks({
+	rows,
+	task,
+}: {
+	rows: Needing[];
+	task: string;
+}): JSX.Element | null {
+	const on = rows.filter(({ conversation }) => conversation?.task === task);
+	if (on.length === 0) {
+		return null;
+	}
+	return (
+		<span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+			{on.map(({ conversation, need }) =>
+				conversation === null ? null : (
+					<span key={conversation.id} className="inline-flex items-center">
+						{conversation.queue === null ? (
+							<Mark need={need} reported={reportedAs(conversation)} />
+						) : (
+							<QueueMark spot={conversation.queue} />
+						)}
+					</span>
+				),
+			)}
+		</span>
 	);
 }
 
