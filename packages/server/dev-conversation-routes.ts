@@ -84,14 +84,25 @@ export class ConversationRoutes {
 	 * whose turn has ended already: one whose task is merging
 	 * gets to finish the merge first. While one is still asked, the
 	 * checkpoint under way stands, and nothing is asked again. Answers with
-	 * what settles as each asked answers.
+	 * what settles as each asked answers. With `budget`, a worker budget
+	 * hard stop's reason, it asks those `only` names for the budget, beside
+	 * any checkpoint under way.
 	 */
-	readonly checkpoint = async (only?: string[]): Promise<Promise<void>[]> => {
-		// A pause is the person's, and goes on beside it.
+	readonly checkpoint = async (
+		only?: string[],
+		budget: string | null = null,
+	): Promise<Promise<void>[]> => {
+		// A pause is the person's, and a budget stop the budget's: each goes
+		// on beside a restart's, and neither is the other's to dismiss.
 		const all = ((await this.#conversations?.list()) ?? []).filter(
-			(each) => !each.state.pausing,
+			(each) =>
+				!each.state.pausing &&
+				(budget === null ? each.state.budgetStop === null : true),
 		);
-		if (all.some((each) => each.state.checkpoint === "asked")) {
+		if (
+			budget === null &&
+			all.some((each) => each.state.checkpoint === "asked")
+		) {
 			return [];
 		}
 		const asked: Promise<void>[] = [];
@@ -109,7 +120,7 @@ export class ConversationRoutes {
 				task === null ? null : await this.#project.service.find(task);
 			asked.push(
 				conversation
-					.checkpoint(worktree?.status === "merging")
+					.checkpoint(worktree?.status === "merging", budget)
 					.catch(() => {})
 					.then(() => conversation.answered()),
 			);

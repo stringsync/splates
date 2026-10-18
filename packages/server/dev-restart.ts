@@ -355,12 +355,13 @@ export class Restarts {
 	}
 
 	// Those at work, or asked already: an idle one has no turn to stop. A
-	// pause is the person's, not Power's.
+	// pause is the person's, and a budget stop the worker budget's, not Power's.
 	private checkpointable(root: string) {
 		return this.conversationsIn(
 			root,
 			(state) =>
 				!state.pausing &&
+				state.budgetStop === null &&
 				(state.checkpoint !== null ||
 					state.status === "running" ||
 					state.status === "starting"),
@@ -441,7 +442,12 @@ export class Restarts {
 				for (const [root, opened] of served.served) {
 					const project = await opened.catch(() => null);
 					const all = (await project?.conversations?.list()) ?? [];
-					if (all.some((each) => each.stoppedByCheckpoint)) {
+					if (
+						all.some(
+							(each) =>
+								each.stoppedByCheckpoint && each.state.budgetStop === null,
+						)
+					) {
 						roots.push(root);
 					}
 				}
@@ -482,13 +488,16 @@ export class Restarts {
 		}
 	}
 
-	/** Each conversation a checkpoint has asked, in every project. */
+	/**
+	 * Each conversation a restart's checkpoint has asked, in every project:
+	 * a pause and a budget stop are not its own to resume or forget.
+	 */
 	private async checkpointed(): Promise<Conversation[]> {
 		const all: Conversation[] = [];
 		for (const project of await this.opened()) {
-			const _lanes = await project.lanes();
 			for (const each of (await project.conversations?.list()) ?? []) {
-				if (each.state.checkpoint !== null && !each.state.pausing) {
+				const { checkpoint, pausing, budgetStop } = each.state;
+				if (checkpoint !== null && !pausing && budgetStop === null) {
 					all.push(each);
 				}
 			}

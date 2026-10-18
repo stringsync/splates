@@ -139,6 +139,27 @@ describe("WorkerBudget", () => {
 		expect(second.standing()[1]?.dollars).toBe(2);
 		expect(second.rate()).toBe(0.05);
 	});
+
+	it("keeps the conversations a stop held across a restart, until released", async () => {
+		const fs = new FakeFs();
+		const wall = clock();
+		const first = await WorkerBudget.open("/budget.json", fs, wall);
+		const one = { project: "/repo", conversation: "one" };
+		await first.hold([one]);
+		await first.hold([one, { project: "/repo", conversation: "two" }]);
+
+		const second = await WorkerBudget.open("/budget.json", fs, wall);
+
+		expect(second.held.map((each) => each.conversation)).toEqual([
+			"one",
+			"two",
+		]);
+		expect(await second.release()).toHaveLength(2);
+		expect(second.held).toEqual([]);
+		expect((await WorkerBudget.open("/budget.json", fs, wall)).held).toEqual(
+			[],
+		);
+	});
 });
 
 describe("alertNotice", () => {

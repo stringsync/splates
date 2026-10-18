@@ -104,6 +104,7 @@ export function conversation(
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
 		pausing: false,
+		budgetStop: null,
 		taking: "start",
 		usage: {
 			context: null,

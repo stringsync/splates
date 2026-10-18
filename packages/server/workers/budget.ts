@@ -303,6 +303,38 @@ export class WorkerBudget {
 		return fresh;
 	}
 
+	/**
+	 * The conversations a hard stop checkpointed, which carry on once the
+	 * budget allows again.
+	 */
+	get held(): BudgetHeld[] {
+		return this.kept.held;
+	}
+
+	/** Keeps `held` with those a hard stop checkpointed before. */
+	async hold(held: BudgetHeld[]): Promise<void> {
+		const known = (each: BudgetHeld) => `${each.project}\0${each.conversation}`;
+		await this.change((kept) => {
+			const already = new Set(kept.held.map(known));
+			return {
+				...kept,
+				held: [
+					...kept.held,
+					...held.filter((each) => !already.has(known(each))),
+				],
+			};
+		});
+	}
+
+	/** Forgets every conversation held, answering them, for them to carry on. */
+	async release(): Promise<BudgetHeld[]> {
+		const { held } = this.kept;
+		if (held.length > 0) {
+			await this.change((kept) => ({ ...kept, held: [] }));
+		}
+		return held;
+	}
+
 	/** Dollars made workers cost from `since` to `now`. */
 	private spentSince(since: number, now: number): number {
 		return this.kept.lives.reduce((sum, life) => {
@@ -354,6 +386,15 @@ const Life = z.object({
 
 type Life = z.infer<typeof Life>;
 
+const Held = z.object({
+	/** The root of the project it is in. */
+	project: z.string(),
+	conversation: z.string(),
+});
+
+/** A conversation a hard stop checkpointed, to carry on once the budget allows. */
+export type BudgetHeld = z.infer<typeof Held>;
+
 const Raise = z.object({
 	id: z.number().int(),
 	limit: z.enum(WORKER_LIMITS),
@@ -379,6 +420,8 @@ const Kept = z.object({
 	raises: z.array(Raise).default([]),
 	/** Each made worker's life, the ledger spend is counted from. */
 	lives: z.array(Life).default([]),
+	/** The conversations a hard stop checkpointed, until the budget allows again. */
+	held: z.array(Held).default([]),
 	/** The highest tier already alerted of each limit, by the window it was in. */
 	alerted: z
 		.array(

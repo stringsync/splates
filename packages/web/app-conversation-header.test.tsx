@@ -280,6 +280,31 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
+	it("says a budget stop waits on the worker budget, beside Resume", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "stopped",
+				checkpoint: "done",
+				budgetStop: "daily limit $5.00 reached",
+				messages: [
+					message("user", "[SPLATES CHECKPOINT]"),
+					message("agent", "Checkpointed."),
+				],
+			}),
+		]);
+		const actions = view.getByRole("navigation", { name: "actions" });
+
+		expect(
+			within(actions).getByText("Waits on the worker budget"),
+		).toBeTruthy();
+		expect(within(actions).getByText("daily limit $5.00 reached")).toBeTruthy();
+		expect(
+			within(actions).getByRole("button", { name: "Resume" }),
+		).toBeTruthy();
+	});
+
 	it("lists the commands it left in the background in a card of their own, newest first, the latest three until expanded", async () => {
 		const command = (id: string, name: string) => ({
 			id,

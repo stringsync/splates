@@ -26,6 +26,7 @@ import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { Roster, splatesHome } from "./models";
+import { RESUME } from "./plans";
 import { Everywhere, EverywhereRoutes, Picker } from "./projects";
 import { Pushes } from "./push";
 import { queueListing } from "./queue-list";
@@ -350,10 +351,38 @@ export async function dev(
 				const project = await servedAt(root).catch(() => null);
 				await project?.checkpoint(
 					held.filter((each) => each.project === root).map((each) => each.id),
+					reason,
 				);
 			}
 			log.info(`${reason}: asked the agents on made workers to checkpoint`);
 		})();
+	});
+	// Once it allows again, each carries on where it stopped, queued for a
+	// slot as any agent is, unless the person has said something since.
+	workers.provisioning?.events.on("carrying", ({ held }) => {
+		for (const { project: root, conversation: id } of held) {
+			void (async () => {
+				const project = await servedAt(root).catch(() => null);
+				const conversation = await project?.conversations
+					?.find(id)
+					.catch(() => null);
+				if (conversation == null) {
+					return;
+				}
+				await conversation.answered();
+				const { budgetStop, checkpoint } = conversation.state;
+				if (budgetStop === null) {
+					return;
+				}
+				if (checkpoint === "done") {
+					await conversation
+						.prompt(RESUME)
+						.catch(() => conversation.dismissCheckpoint());
+				} else {
+					conversation.dismissCheckpoint();
+				}
+			})();
+		}
 	});
 
 	// Not any project's: every page on this server shares one machine.

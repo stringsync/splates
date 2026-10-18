@@ -4,6 +4,18 @@ import type { Artifact } from "../artifacts";
 import type { OpenCodeUsage } from "../models";
 import type { Event } from "../records";
 
+/** What a session has used before its agent says anything of it. */
+export function unused(): Usage {
+	return {
+		context: null,
+		input: 0,
+		cached: 0,
+		output: 0,
+		cost: null,
+		limits: [],
+	};
+}
+
 /** Where an agent waits for a slot, as the page shows it. */
 export interface QueueSpot {
 	/** From 1, the next to be placed. */
@@ -142,6 +154,13 @@ export interface ConversationState {
 	 * alone and nothing resumes: forgotten once it ends.
 	 */
 	pausing: boolean;
+	/**
+	 * Why a worker budget hard stop asked the checkpoint, like `daily limit
+	 * $5.00 reached`, kept in the log so a restart leaves it for the budget
+	 * to carry on once it allows again; null for any other checkpoint, and
+	 * once the work went on past it.
+	 */
+	budgetStop: string | null;
 	/** What a message said now would do, so the page places it as the server will. */
 	taking: Taking;
 	usage: Usage;
@@ -481,18 +500,6 @@ export interface Limit {
 	at: string | null;
 }
 
-/** What a session has used before its agent says anything of it. */
-export function unused(): Usage {
-	return {
-		context: null,
-		input: 0,
-		cached: 0,
-		output: 0,
-		cost: null,
-		limits: [],
-	};
-}
-
 /** A conversation as it starts, before its agent has said anything. */
 export function blank(
 	id: string,
@@ -540,6 +547,7 @@ export function blank(
 		seen: 0,
 		checkpoint: null,
 		pausing: false,
+		budgetStop: null,
 		taking: "start",
 		usage: {
 			...unused(),

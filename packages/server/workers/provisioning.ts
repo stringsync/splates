@@ -11,7 +11,12 @@ import {
 } from "webappwiz/time";
 import type { HeldSlot, Platform, Scheduler } from "../scheduler";
 import type { WorkerAccess } from "./access";
-import type { RaiseOffer, WorkerAlert, WorkerBudget } from "./budget";
+import type {
+	BudgetHeld,
+	RaiseOffer,
+	WorkerAlert,
+	WorkerBudget,
+} from "./budget";
 import type { WorkerProvider, WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -38,6 +43,8 @@ export type WorkerProvisioningEvents = {
 	 * with the agents still on them, which should stop at their checkpoint.
 	 */
 	stopping: { reason: string; held: HeldSlot[] };
+	/** The budget allows made workers again: the conversations a stop held should carry on. */
+	carrying: { held: BudgetHeld[] };
 };
 
 /**
@@ -77,10 +84,13 @@ export class WorkerProvisioning
 		return this.offering;
 	}
 
-	/** Looks at the queue again, as after the budget changed or a type got a key it lacked. */
+	/**
+	 * Looks at the budget and the queue again, as after the budget changed,
+	 * so a raise carries on the agents a stop held at once.
+	 */
 	async refill(): Promise<void> {
 		if (this.scheduler !== null) {
-			await this.fill(this.scheduler);
+			await this.look(this.scheduler);
 		}
 	}
 
@@ -217,8 +227,8 @@ export class WorkerProvisioning
 
 	/**
 	 * Alerts each tier the budget newly reached, stops the made workers once
-	 * the day's or month's limit is, and fills the queue as far as it now
-	 * allows.
+	 * the day's or month's limit is, carries on the agents a stop held once
+	 * it allows again, and fills the queue as far as it now allows.
 	 */
 	async look(scheduler: Scheduler): Promise<void> {
 		const { budget, records, stop, log } = this.opts;
@@ -236,8 +246,21 @@ export class WorkerProvisioning
 				);
 				const held = await stop(running.map((each) => each.id));
 				if (held.length > 0) {
+					await budget.hold(
+						held.map((each) => ({
+							project: each.project,
+							conversation: each.id,
+						})),
+					);
 					this.dispatcher.dispatch("stopping", { reason: stopped, held });
 				}
+			}
+			if (stopped === null && budget.held.length > 0) {
+				const held = await budget.release();
+				log.info(
+					`the worker budget allows made workers again: carrying on ${held.map((each) => each.conversation).join(", ")}`,
+				);
+				this.dispatcher.dispatch("carrying", { held });
 			}
 		} catch (error) {
 			log.error(`the worker budget could not be looked at: ${String(error)}`);

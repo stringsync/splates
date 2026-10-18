@@ -224,6 +224,32 @@ describe("Conversation checkpoint", () => {
 		await finish(read as Conversation, held);
 	});
 
+	it("keeps a budget stop's reason in the log until the work goes on", async () => {
+		const conversation = await working(conversations, held);
+		const asking = conversation.checkpoint(true, "daily limit $5.00 reached");
+		held.finish?.("end_turn");
+		await asking;
+		await eventually(() => said.length === 2);
+		await finish(conversation, held);
+		expect(conversation.state).toMatchObject({
+			checkpoint: "done",
+			budgetStop: "daily limit $5.00 reached",
+		});
+
+		await conversation.stop();
+		const [read] = await new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		).list();
+
+		expect(read?.state.budgetStop).toBe("daily limit $5.00 reached");
+		await read?.prompt(RESUME);
+		expect(read?.state).toMatchObject({ checkpoint: null, budgetStop: null });
+		await eventually(() => said.length === 3);
+		await finish(read as Conversation, held);
+	});
+
 	it("fails when the agent dies before it answers", async () => {
 		const conversation = await asked();
 

@@ -398,9 +398,13 @@ export class Conversation
 		return this.turns.cancel();
 	}
 
-	/** Asks the agent to bring its `SPLATES.md` up to date and stop (see `ConversationTurns`). */
-	checkpoint(merging: boolean): Promise<void> {
-		return this.turns.checkpoint(merging);
+	/**
+	 * Asks the agent to bring its `SPLATES.md` up to date and stop (see
+	 * `ConversationTurns`), for `budget`, a worker budget hard stop's reason,
+	 * when that is what asks.
+	 */
+	checkpoint(merging: boolean, budget: string | null = null): Promise<void> {
+		return this.turns.checkpoint(merging, { budget });
 	}
 
 	/**
@@ -408,7 +412,7 @@ export class Conversation
 	 * it stopped there: nothing resumes a pause, and Power leaves it alone.
 	 */
 	pause(merging: boolean): Promise<void> {
-		return this.turns.checkpoint(merging, true);
+		return this.turns.checkpoint(merging, { pause: true });
 	}
 
 	/** Forgets the checkpoint, done or not, so the next starts afresh. */

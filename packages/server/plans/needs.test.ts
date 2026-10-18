@@ -431,6 +431,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		seen: 0,
 		checkpoint: null,
 		pausing: false,
+		budgetStop: null,
 		taking: "start",
 		usage: unused(),
 		background: [],

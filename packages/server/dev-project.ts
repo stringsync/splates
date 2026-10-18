@@ -327,9 +327,13 @@ export interface Served extends AsyncResource {
 	bringSession: Handler;
 	/**
 	 * Asks every live conversation here to bring its SPLATES.md up to date,
-	 * answering with what settles as each answers.
+	 * answering with what settles as each answers; with `budget`, those
+	 * `only` names, for a worker budget hard stop.
 	 */
-	checkpoint: (only?: string[]) => Promise<Promise<void>[]>;
+	checkpoint: (
+		only?: string[],
+		budget?: string | null,
+	) => Promise<Promise<void>[]>;
 	moveConversation: Handler;
 	promptConversation: Handler;
 	tellConversation: Handler;

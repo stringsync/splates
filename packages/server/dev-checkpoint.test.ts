@@ -148,6 +148,25 @@ describe("dev checkpoint", () => {
 		expect(conversation.state.checkpoint).toBe("asked");
 	});
 
+	it("leaves a budget stop out of Power's sight, for the budget to carry on", async () => {
+		const stopped = await working();
+		await stopped.checkpoint(false, "daily limit $5.00 reached");
+		await eventually(() => stopped.state.checkpoint === "done", 5);
+		const other = await working();
+
+		expect(await listed()).toEqual([expect.objectContaining({ id: other.id })]);
+		await json(port, "/api/checkpoint", "POST", {
+			projects: ["repo"],
+			after: "resume",
+		});
+		await eventually(() => other.state.checkpoint === "done", 5);
+
+		expect(stopped.state).toMatchObject({
+			checkpoint: "done",
+			budgetStop: "daily limit $5.00 reached",
+		});
+	});
+
 	it("pauses one at work, out of Power's sight, and leaves it stopped once it checkpoints", async () => {
 		hold();
 		const conversation = await working();

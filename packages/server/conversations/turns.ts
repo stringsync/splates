@@ -22,6 +22,14 @@ import type {
 const CHECKPOINT_WAIT = Duration.mins(2);
 
 /** What else a prompt says about who said it. */
+/** What a checkpoint is asked for, past a restart's. */
+export interface CheckpointCause {
+	/** The person's pause, which nothing resumes. */
+	pause?: boolean;
+	/** Why a worker budget hard stop asks it, for the budget to resume. */
+	budget?: string | null;
+}
+
 export interface PromptOptions {
 	/** The conversation that said it with `splates tell`, when the person did not. */
 	told?: string;
@@ -327,16 +335,20 @@ export class ConversationTurns {
 	 * the checkpoint into, or queues it after. An idle agent is not asked,
 	 * having ended its turn already. What the person queued stays queued, for
 	 * the next prompt to send. A `pause` is forgotten once it ends, so
-	 * nothing resumes it.
+	 * nothing resumes it; a `budget` stop is kept with its reason, for the
+	 * worker budget to resume once it allows again.
 	 */
-	async checkpoint(merging: boolean, pause = false): Promise<void> {
+	async checkpoint(
+		merging: boolean,
+		{ pause = false, budget = null }: CheckpointCause = {},
+	): Promise<void> {
 		const { host } = this;
 		const { state } = host;
 		await host.opening;
 		if (state.checkpoint === "asked" || state.status !== "running") {
 			return;
 		}
-		host.set({ pausing: pause });
+		host.set({ pausing: pause, budgetStop: budget });
 		// Asked from the start, so an agent slow to stop shows as on its way,
 		// and one that never stops runs out the same wait.
 		this.mark("asked");
@@ -394,10 +406,18 @@ export class ConversationTurns {
 			this.waiting?.dispose();
 			this.waiting = null;
 		}
-		const kept = ended && this.host.state.pausing ? null : checkpoint;
-		this.host.log.write({ kind: "checkpoint", checkpoint: kept });
+		const { pausing, budgetStop } = this.host.state;
+		const kept = ended && pausing ? null : checkpoint;
+		const budget = kept === null ? null : budgetStop;
+		this.host.log.write({
+			kind: "checkpoint",
+			checkpoint: kept,
+			...(budget === null ? {} : { budget }),
+		});
 		this.host.set(
-			ended ? { checkpoint: kept, pausing: false } : { checkpoint },
+			ended
+				? { checkpoint: kept, pausing: false, budgetStop: budget }
+				: { checkpoint, budgetStop: budget },
 		);
 	}
 

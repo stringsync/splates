@@ -17,6 +17,7 @@ import {
 	PauseIcon,
 	PlayIcon,
 	SquareTerminalIcon,
+	WalletIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
@@ -184,7 +185,8 @@ export interface ThreadActions {
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
  * stopped, and Defer under it; while it checkpoints for it, a row saying so
- * in their place; once the person's last word paused it, Resume.
+ * in their place; once the person's last word paused it, Resume, under a
+ * row saying it waits on the worker budget when a hard stop asked it.
  */
 function pauseActions(
 	conversation: ConversationState,
@@ -204,8 +206,21 @@ function pauseActions(
 		return [];
 	}
 	if (status !== "running") {
+		// Carried on once the budget allows; Resume carries it on now.
+		const waits: Action[] =
+			conversation.budgetStop === null
+				? []
+				: [
+						{
+							label: "Waits on the worker budget",
+							icon: <WalletIcon />,
+							detail: conversation.budgetStop,
+							run: null,
+						},
+					];
 		return paused(conversation)
 			? [
+					...waits,
 					{
 						label: "Resume",
 						icon: <PlayIcon />,

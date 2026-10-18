@@ -218,6 +218,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				}
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
+				state.budgetStop = entry.budget ?? null;
 			} else if (entry.kind === "flags") {
 				const tool = toolIn(state, entry.tool);
 				if (tool !== null) {
@@ -507,7 +508,12 @@ type Said =
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */
-	| { kind: "checkpoint"; checkpoint: Checkpoint | null }
+	| {
+			kind: "checkpoint";
+			checkpoint: Checkpoint | null;
+			/** Why a worker budget hard stop asked it; absent for any other. */
+			budget?: string;
+	  }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	/** The tokens a turn used, as the agent said when it ended. */
 	| { kind: "usage"; usage: acp.Usage }

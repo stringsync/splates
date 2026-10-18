@@ -96,6 +96,36 @@ describe("DevWorkers with a worker provider", () => {
 		expect(stopping).toEqual([]);
 	});
 
+	it("holds the agents a stop checkpoints, and carries them on once the budget allows", async () => {
+		const placed = workers.slots.scheduler.take(request("one"));
+		await Bun.sleep(10);
+		const daemon = await booted(server, workers, provider.specs[0]?.boot ?? []);
+		void daemon.run();
+		await placed;
+		const budget = workers.provisioning?.budget;
+		const stopping: string[][] = [];
+		workers.provisioning?.events.on("stopping", ({ held }) => {
+			stopping.push(held.map((each) => each.id));
+		});
+		const carrying: string[][] = [];
+		workers.provisioning?.events.on("carrying", ({ held }) => {
+			carrying.push(held.map((each) => each.conversation));
+		});
+
+		await budget?.set("day", 0);
+		await workers.provisioning?.look(workers.slots.scheduler);
+		await workers.provisioning?.look(workers.slots.scheduler);
+		expect(stopping).toEqual([["one"]]);
+		expect(budget?.held).toEqual([{ project: "/repo", conversation: "one" }]);
+		expect(carrying).toEqual([]);
+
+		await budget?.set("day", null);
+		await workers.provisioning?.refill();
+		expect(carrying).toEqual([["one"]]);
+		expect(budget?.held).toEqual([]);
+		await daemon.disposeAsync();
+	});
+
 	it("destroys a made worker's machine when it is removed", async () => {
 		const made = await (await workers.provision(post({}))).json();
 		await workers.remove(del(made.id));
