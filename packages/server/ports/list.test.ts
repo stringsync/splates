@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
-import { portsLs } from "./ports-list";
+import { portsLs } from "./list";
 
 describe("splates ports", () => {
 	it("asks the splates server it runs under, and gives a task's remote and local links", async () => {

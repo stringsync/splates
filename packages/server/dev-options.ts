@@ -11,7 +11,7 @@ import type { DevWorkers } from "./dev-workers";
 import type { TranscriberFor } from "./dictate";
 import type { Git } from "./git";
 import type { MachineSensors } from "./machine";
-import type { Slot } from "./slots";
+import type { Slot } from "./ports";
 import type { WorktreeService } from "./tasks";
 import type { AccessConfig, TunnelConfig } from "./tunnel";
 import type { WorkerMachine } from "./workers";

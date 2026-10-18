@@ -4,7 +4,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
-import { slotTunnelSetup } from "../slot-tunnel";
+import { slotTunnelSetup } from "../ports";
 import { tunnelRemove } from "./remove";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { API_TOKEN, tunnelSetup } from "./setup";

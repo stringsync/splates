@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { PortForward } from "./port-forward";
-import type { RemoteWorker } from "./workers";
+import type { RemoteWorker } from "../workers";
 import {
 	UnixWorkerListener,
 	UnixWorkerSocket,
 	WorkerDaemon,
 	WorkerRegistry,
-} from "./workers";
+} from "../workers";
+import { PortForward } from "./forward";
 
 describe("PortForward", () => {
 	let dir: string;

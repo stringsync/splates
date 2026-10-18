@@ -8,7 +8,7 @@ import { exits, fail } from "@stringsync/splates-server/exit";
 import { runHeavy } from "@stringsync/splates-server/heavy-run";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
 import { merge } from "@stringsync/splates-server/merge";
-import { portsLs } from "@stringsync/splates-server/ports-list";
+import { portsLs } from "@stringsync/splates-server/ports";
 import { forget, init } from "@stringsync/splates-server/projects";
 import type { Facts } from "@stringsync/splates-server/records";
 import { repository } from "@stringsync/splates-server/records";

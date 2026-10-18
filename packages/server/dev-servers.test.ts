@@ -4,7 +4,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { devServers } from "./dev-servers";
-import { MACHINE_HOME, SLOT, Slots } from "./slots";
+import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { SavedTunnel } from "./tunnel";
 
 describe("devServers", () => {

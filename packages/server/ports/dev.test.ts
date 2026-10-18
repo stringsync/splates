@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { Exit } from "./exit";
-import { dev } from "./index";
-import { Testing } from "./testing";
+import { Exit } from "../exit";
+import { dev } from "../index";
+import { Testing } from "../testing";
 
 describe("dev's task ports", () => {
 	let deps: Testing;

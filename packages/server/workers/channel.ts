@@ -2,6 +2,9 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Json } from "./protocol";
 
+/** The capability, and the channel kind, a relayed connection goes by. */
+export const RELAY = "relay";
+
 /** What a `WorkerChannel` hears from the other end, each with its seq. */
 export interface WorkerChannelEvents extends Record<string, unknown> {
 	data: { bytes: Uint8Array; seq: number };

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { stopLeftover } from "./dev-slot";
+import { stopLeftover } from "./slot";
 import { SERVER_PID, Slots, slotOf } from "./slots";
 
 describe("stopLeftover", () => {

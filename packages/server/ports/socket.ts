@@ -1,4 +1,4 @@
-import type { Connection } from "./dev-sockets";
+import type { Connection } from "../dev-sockets";
 
 /** How long a task's server has to take a WebSocket before it is refused. */
 const OPEN_MS = 10_000;

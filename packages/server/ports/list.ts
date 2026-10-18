@@ -1,9 +1,9 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
-import { DEFAULT_PORT } from "./dev-ports";
-import { fail } from "./exit";
-import { table } from "./table";
+import { DEFAULT_PORT } from "../dev-ports";
+import { fail } from "../exit";
+import { table } from "../table";
 
 const Listed = z.object({
 	base: z.string().nullable(),

@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { z } from "zod";
-import { PIPE_HANDLERS, PortPipe } from "../port-pipe";
+import { PIPE_HANDLERS, PortPipe } from "../ports";
 import type { WorkerChannel } from "./channel";
 import type { WorkerSession } from "./session";
 

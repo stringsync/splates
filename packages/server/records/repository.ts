@@ -25,9 +25,9 @@ import {
 } from "../merge";
 import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
+import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { Shell } from "../shell";
-import { Slots } from "../slots";
 import { Adherence, Outcomes } from "../stats";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Format } from "./format";

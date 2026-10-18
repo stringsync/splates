@@ -1,5 +1,5 @@
 import type { Resource } from "webappwiz/disposable";
-import type { WorkerChannel, WorkerSession } from "./workers";
+import type { WorkerChannel, WorkerSession } from "../workers";
 
 /**
  * Bun's TCP socket, whose handlers hand each event to the `PortPipe` it

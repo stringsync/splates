@@ -16,10 +16,10 @@ import { Git } from "./git";
 import { HEAVY_HELD } from "./heavy";
 import { CoordinatorLanding, TaskBranches } from "./merge";
 import { PLAN_FILE, PlanStore } from "./plans";
+import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
 import { Format, Journal } from "./records";
 import { Shell } from "./shell";
-import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { Adherence, Outcomes } from "./stats";
 import { WorktreeService } from "./tasks";
 

@@ -8,7 +8,6 @@ import { Conversations } from "./conversations";
 import { CoordinatorState } from "./coordinator-state";
 import { SYSTEM_STORES } from "./creds";
 import { devServers } from "./dev-servers";
-import { devSlot } from "./dev-slot";
 import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { fail } from "./exit";
 import { Git } from "./git";
@@ -17,10 +16,10 @@ import { type DevServer, dev, devPorts } from "./index";
 import { pushOnMove, TaskBranches } from "./merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "./models";
 import { PlanStore } from "./plans";
+import { devSlot, SERVER_PID, SLOT, slotOf } from "./ports";
 import { Projects } from "./projects";
 import { newest, RUNNING, sourceCommit } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
-import { SERVER_PID, SLOT, slotOf } from "./slots";
 import {
 	rosterOf,
 	savedPortsHostOf,

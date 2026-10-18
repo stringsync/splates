@@ -11,10 +11,9 @@ import {
 	timeouts,
 	type WallClock,
 } from "webappwiz/time";
-import type { WorkerChannel } from "./channel";
+import { RELAY, type WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import { WorkerPortHost } from "./port-host";
-import { RELAY } from "./relay";
 import { RemoteWorker, type WorkerKind } from "./remote";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";

@@ -17,7 +17,6 @@ import {
 import { Restarts } from "./dev-restart";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { StateRoutes } from "./dev-state";
-import { claimedFirst, DevTaskPorts, portOwnersOf } from "./dev-task-ports";
 import { Terminals } from "./dev-terminal";
 import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
@@ -27,6 +26,7 @@ import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { Roster, splatesHome } from "./models";
 import { RESUME } from "./plans";
+import { claimedFirst, DevTaskPorts, portOwnersOf } from "./ports";
 import { Everywhere, EverywhereRoutes, Picker } from "./projects";
 import { Pushes } from "./push";
 import { queueListing } from "./queue-list";

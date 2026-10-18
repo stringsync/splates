@@ -19,13 +19,12 @@ import type { TranscriberFor } from "./dictate";
 import type { InstallationToken, Landed, LandRequest } from "./merge";
 import { AutoRoutes } from "./models";
 import { type Needing, needs } from "./plans";
+import type { PortOwners, Slot } from "./ports";
 import type { Everywhere, Projects } from "./projects";
 import type { Format, Repository } from "./records";
 import { answerState, type StateCall } from "./records";
 import type { Behind, Release } from "./release";
-import type { Slot } from "./slots";
 import { BudgetRoutes } from "./stats";
-import type { PortOwners } from "./task-ports";
 import type { Details, Snapshot } from "./tasks";
 import { HandedOut, startDispatched, TaskRoutes } from "./tasks";
 

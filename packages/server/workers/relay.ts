@@ -1,10 +1,8 @@
 import type { Resource } from "webappwiz/disposable";
 import { LOOPBACK } from "../dev-http";
-import { PIPE_HANDLERS, PortPipe } from "../port-pipe";
+import { PIPE_HANDLERS, PortPipe } from "../ports";
+import { RELAY } from "./channel";
 import type { WorkerSession } from "./session";
-
-/** The capability, and the channel kind, a relayed connection goes by. */
-export const RELAY = "relay";
 
 /**
  * Where `splates` on a worker reaches its coordinator's server: a port on

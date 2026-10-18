@@ -6,9 +6,9 @@ import { LEGACY_PLAN_FILE } from "../config";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
+import { freedLine, type Slots } from "../ports";
 import type { Facts } from "../records";
 import type { Shell } from "../shell";
-import { freedLine, type Slots } from "../slots";
 import type {
 	GateFailure,
 	MergeFailure,

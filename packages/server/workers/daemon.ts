@@ -12,12 +12,12 @@ import {
 import type { SessionServers } from "../agents";
 import { RUNNING } from "../release";
 import { SERVERS, WorkerCallHost } from "./call-host";
-import type { WorkerChannel } from "./channel";
+import { RELAY, type WorkerChannel } from "./channel";
 import { LocalWorkerMachine } from "./machine";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
 import { WorkerPtyHost } from "./pty-host";
-import { RELAY, WorkerRelay } from "./relay";
+import { WorkerRelay } from "./relay";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
 

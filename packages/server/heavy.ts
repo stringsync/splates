@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import { type Fs, HeavyJobs, type Ps } from "webappwiz/system";
 import { splatesHome } from "./models";
-import { MACHINE_HOME } from "./slots";
+import { MACHINE_HOME } from "./ports";
 
 /**
  * How many heavy jobs run at once on a machine when `SPLATES_HEAVY_JOBS` says

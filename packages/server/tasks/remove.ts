@@ -2,7 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import type { Todos } from "../board";
 import { fail } from "../exit";
 import { pushedLine, type TaskBranches } from "../merge";
-import { freedLine, type Slots } from "../slots";
+import { freedLine, type Slots } from "../ports";
 import type { RemoveReason } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
