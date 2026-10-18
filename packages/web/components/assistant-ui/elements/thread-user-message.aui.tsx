@@ -26,6 +26,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useWide } from "#web/app-nav.tsx";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { lineCardHeight } from "#web/board.ts";
 import { repliesToReview } from "#web/card-reply.tsx";
@@ -127,6 +128,7 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
 const afterDirectives = (text: string) =>
 	linkAttachments(linkDirectives(leadingDirectives(text).rest));
 export const UserMessage: FC = () => {
+	const wide = useWide();
 	const id = useAuiState((s) => s.message.id);
 	const attachments = useAuiState((s) => s.message.attachments);
 	const steered = useAuiState(
@@ -279,7 +281,7 @@ export const UserMessage: FC = () => {
 	}
 	return (
 		<MessagePrimitive.Root
-			ref={unstuckTop}
+			ref={wide ? unstuckTop : undefined}
 			data-slot="aui_user-message-root"
 			// What `useAnchorAtOnce` finds a new turn's start by, and `useOpenAt`
 			// the first unseen message.
@@ -288,18 +290,15 @@ export const UserMessage: FC = () => {
 				// No entrance: the thread jumps to it as it comes, with nothing
 				// else in view, so a fade would show an empty thread for a frame.
 				"flex flex-col gap-y-2 px-2",
-				// Stuck atop the thread for as long as its turn is in view. Opaque,
-				// so the reply cannot show past its rounded corners, then fading
-				// the reply out over the 2rem below it, which its turn keeps clear
-				// while it is not stuck (`data-sticks`). The margin alone is what
-				// its turn holds it by, so the fade comes to the next message's
-				// top as that pushes it out. On a phone the fade is half that, so
-				// it hides less of a short screen.
-				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
-				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
+				"mb-2",
+				// Only desktop pins the prompt and fades the reply beneath it.
+				wide && [
+					"bg-background sticky top-0 z-10 [container-type:scroll-state]",
+					"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-linear-to-b after:from-background after:to-transparent",
+				],
 			)}
 			data-role="user"
-			data-sticks
+			data-sticks={wide || undefined}
 		>
 			{body}
 		</MessagePrimitive.Root>
@@ -369,33 +368,12 @@ const USER_BOX =
 const DICTATED_BOX = "ps-9 max-sm:ps-8";
 const DICTATED_MIC =
 	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-2.5 max-sm:top-[calc((var(--line-card)-2px-0.875rem)/2)] max-sm:size-3.5";
-/**
- * Lines of a message shown before it is clicked open: one on a phone, four
- * on a wider screen. On a phone it sets the words' line height, so `1lh` is
- * one line of them, or shows the row of chips a message starts with, which
- * stands taller than a line. Keep two lines of words below leading chips so
- * the collapsed message still says what the person asked.
- */
-const CLAMP =
-	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-[calc(2.25rem+2lh)]";
-/**
- * Where a cut message fades: its last lines on a wider screen. On a phone its
- * one line ends in an ellipsis instead (`CUT_LINE`), since a fade at its end
- * reads as a shadow over the copy button.
- */
+/** Lines shown on desktop before a long message is opened. */
+const CLAMP = "max-h-24";
+/** The last visible desktop lines fade to show there is more. */
 const CUT_FADE =
-	"sm:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
-/**
- * A message cut to one line on a phone, ending in an ellipsis. Not one that
- * starts with a row of chips: WebKit takes the first line inside a chip as
- * the one to clamp, cutting the chip short with an ellipsis in its label.
- */
-const CUT_LINE = "max-sm:not-has-[.aui-user-message-directives]:line-clamp-1";
-/**
- * A message cut to four lines (one on a phone), fading out where it is cut,
- * and opened or closed again by a click (or Enter) when there is more than
- * fits.
- */
+	"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
+/** Desktop messages collapse; mobile messages always show their full contents. */
 const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
@@ -404,6 +382,7 @@ const Clamped: FC<
 		dictated: boolean;
 	}>
 > = ({ watch, dictated, children }) => {
+	const wide = useWide();
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -417,14 +396,15 @@ const Clamped: FC<
 		const watching = new ResizeObserver(measure);
 		watching.observe(box);
 		return () => watching.disconnect();
-	}, [watch, open]);
-	const toggle = () => (more || open) && setOpen(!open);
+	}, [watch, open, wide]);
+	const collapsible = wide && (more || open);
+	const toggle = () => collapsible && setOpen(!open);
 	return (
 		<div
-			role={more || open ? "button" : undefined}
-			tabIndex={more || open ? 0 : undefined}
-			aria-expanded={more || open ? open : undefined}
-			aria-label={more || open ? (open ? "Show less" : "Show all") : undefined}
+			role={collapsible ? "button" : undefined}
+			tabIndex={collapsible ? 0 : undefined}
+			aria-expanded={collapsible ? open : undefined}
+			aria-label={collapsible ? (open ? "Show less" : "Show all") : undefined}
 			// A link or a button in the words, such as a code block's copy,
 			// does its own thing rather than open or close the message.
 			onClick={(event) =>
@@ -434,7 +414,7 @@ const Clamped: FC<
 					: toggle()
 			}
 			onKeyDown={(event) => {
-				if (event.key === "Enter" || event.key === " ") {
+				if (collapsible && (event.key === "Enter" || event.key === " ")) {
 					event.preventDefault();
 					toggle();
 				}
@@ -445,7 +425,7 @@ const Clamped: FC<
 				dictated && ["relative", DICTATED_BOX],
 				// Raised by a shadow while its message is stuck atop the thread.
 				"[@container_scroll-state(stuck:top)]:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
-				(more || open) && "cursor-pointer",
+				collapsible && "cursor-pointer",
 			)}
 		>
 			{dictated && (
@@ -459,12 +439,11 @@ const Clamped: FC<
 			<div
 				ref={text}
 				className={cn(
-					!open && [CLAMP, "overflow-hidden"],
+					wide && !open && [CLAMP, "overflow-hidden"],
 					// Open, it still sticks atop the thread, so it scrolls past half
 					// the screen rather than hide the reply.
-					open && "max-h-[50dvh] overflow-y-auto",
-					!open && more && CUT_FADE,
-					!open && CUT_LINE,
+					wide && open && "max-h-[50dvh] overflow-y-auto",
+					wide && !open && more && CUT_FADE,
 				)}
 			>
 				{children}
