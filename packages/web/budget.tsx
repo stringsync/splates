@@ -38,10 +38,11 @@ const ROLES: Record<RoleBudget["role"], string> = {
 const PLANS = [
 	{ agent: "claude", name: "Claude" },
 	{ agent: "codex", name: "Codex" },
+	{ agent: "opencode", name: "OpenCode" },
 ];
 
 /**
- * The Budget page: how much of the Claude and Codex plans is used, then what
+ * The Budget page: how much of the agent plans is used, then what
  * scry's checks may spend on each model in this project, with how much of
  * each window is gone and a form to change it, raise it or pause it for a
  * while. Plan limits come first since their cards keep one shape, while the
@@ -327,7 +328,7 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 	);
 }
 
-/** How much of the Claude and Codex plans is used, as each agent last said. */
+/** How much of the agent plans is used, as each agent last said. */
 function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 	const { agents, conversations } = useReactive(
 		talk,
@@ -367,8 +368,14 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 							</div>
 							{limits.length === 0 ? (
 								<p className="mt-2 text-muted-foreground text-sm">
-									Not said yet: it shows once {name} says, or a conversation
-									drives it in splates server.
+									{agent === "opencode" ? (
+										"No plan limits reported by OpenCode. Check your provider for remaining quota."
+									) : (
+										<>
+											Not said yet: it shows once {name} says, or a conversation
+											drives it in splates server.
+										</>
+									)}
 								</p>
 							) : (
 								<PlanLimits
