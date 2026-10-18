@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { withoutSystems } from "./config-source";
+import { withoutSystems } from "./config";
 
 describe("withoutSystems", () => {
 	it("takes out the outermost systems, wherever it sits", () => {

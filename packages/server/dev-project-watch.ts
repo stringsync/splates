@@ -1,9 +1,9 @@
 import { basename, dirname } from "node:path";
 import type { Resource } from "webappwiz/disposable";
 import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
+import { LEGACY_PLAN_FILE } from "./config";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
-import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
 import { TaskDetails } from "./show";
 import { fingerprint, type Snapshot, snapshot } from "./snapshot";

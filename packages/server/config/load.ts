@@ -1,9 +1,9 @@
 import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
-import { ARTIFACT_LIMITS } from "./artifacts";
+import { ARTIFACT_LIMITS } from "../artifacts";
+import { Git } from "../git";
 import type { Config } from "./config";
-import { Git } from "./git";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 
 /** The file a repo's settings are in, at its root. */

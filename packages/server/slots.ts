@@ -2,7 +2,7 @@ import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
-import { LEGACY_DIR } from "./legacy-names";
+import { LEGACY_DIR } from "./config";
 import { splatesHome } from "./roster";
 
 /** The file in a slot's home that its server writes its pid to. */

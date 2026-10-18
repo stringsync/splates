@@ -3,7 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import type { Lock } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { AgentStream } from "./agent-stream";
-import { systemPs } from "./legacy-ps";
+import { systemPs } from "./config";
 import { SERVING } from "./supervise";
 
 /** An agent splates can hold a conversation with over ACP, and how to start it. */

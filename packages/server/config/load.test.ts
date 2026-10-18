@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
-import { Git } from "./git";
-import { loadConfig } from "./load-config";
-import { Testing } from "./testing";
+import { Git } from "../git";
+import { Testing } from "../testing";
+import { loadConfig } from "./load";
 
 describe("loadConfig", () => {
 	const fs = new NodeFs();

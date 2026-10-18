@@ -1,4 +1,4 @@
-import type { TunnelProvider } from "./tunnel-provider";
+import type { TunnelProvider } from "../tunnel-provider";
 
 export interface Config {
 	/**

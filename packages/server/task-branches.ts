@@ -1,9 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Config } from "./config";
+import { LEGACY_PLAN_FILE } from "./config";
 import type { Creds } from "./creds";
 import type { Git } from "./git";
 import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
-import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
 import type { PlanStore } from "./plan-store";
 import type { BranchMoves } from "./watch";

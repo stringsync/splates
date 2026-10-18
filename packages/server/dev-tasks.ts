@@ -1,3 +1,4 @@
+import { movedPath } from "./config";
 import type { Conversations } from "./conversations";
 import { fileResponse, MEDIA_TYPES, refuse } from "./dev-http";
 import { inTree } from "./dev-open";
@@ -5,7 +6,6 @@ import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
 import { editorOf } from "./editors";
 import { fail } from "./exit";
-import { movedPath } from "./legacy-names";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
 import { RECENT_COMMITS, systemsReport } from "./system-changes";

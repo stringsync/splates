@@ -1,6 +1,6 @@
 import { type Fs, type Glob, NodeFs, NodeGlob } from "webappwiz/system";
 import { z } from "zod";
-import { CONFIG_FILE, ConfigFiles } from "./load-config";
+import { CONFIG_FILE, ConfigFiles } from "./config";
 
 /** The file a repo names its systems in, at its root. */
 export const SYSTEMS_FILE = "splates.systems.ts";

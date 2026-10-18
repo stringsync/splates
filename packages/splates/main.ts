@@ -3,8 +3,8 @@ import { assets } from "@stringsync/splates-server/assets";
 import {
 	LEGACY,
 	legacyWarnings,
-} from "@stringsync/splates-server/legacy-names";
-import { systemPs } from "@stringsync/splates-server/legacy-ps";
+	systemPs,
+} from "@stringsync/splates-server/config";
 import { NodeFs } from "webappwiz/system";
 import { projectArgs, splates } from "./splates";
 

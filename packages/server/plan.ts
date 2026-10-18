@@ -1,6 +1,6 @@
 import { Markdown } from "webappwiz/md";
 import type { Fs } from "webappwiz/system";
-import { LEGACY_PLAN_FILE } from "./legacy-names";
+import { LEGACY_PLAN_FILE } from "./config/browser";
 
 /** The plan each task keeps at its worktree root, excluded from git. */
 export const PLAN_FILE = "SPLATES.md";

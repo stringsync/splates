@@ -8,6 +8,13 @@ import { Todos } from "./board";
 import { HOME_KEY } from "./checkouts";
 import { CloneCheckouts } from "./clone-checkouts";
 import type { Config } from "./config";
+import {
+	LEGACY_DIR,
+	loadConfig,
+	moveLegacyDir,
+	movePlan,
+	unmigrated,
+} from "./config";
 import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import { Format } from "./format";
@@ -15,13 +22,6 @@ import { Git } from "./git";
 import { heavyJobsOfMachine } from "./heavy";
 import { Journal } from "./journal";
 import { LeaseBeat } from "./lease-beat";
-import {
-	LEGACY_DIR,
-	moveLegacyDir,
-	movePlan,
-	unmigrated,
-} from "./legacy-names";
-import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE, Plans } from "./plan";
 import { PlanStore } from "./plan-store";

@@ -1,7 +1,7 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Ps, TerminalChild } from "webappwiz/system";
-import { systemPs } from "./legacy-ps";
+import { systemPs } from "./config";
 import { SERVING } from "./supervise";
 
 /** What a shell on a `Pty` says: bytes it wrote, and that it is gone. */

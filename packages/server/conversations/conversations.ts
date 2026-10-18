@@ -19,8 +19,8 @@ import {
 } from "../agent-process";
 import { ArtifactRoom } from "../artifact-room";
 import { ARTIFACT_LIMITS, type ArtifactLimits } from "../artifacts";
+import { systemPs } from "../config";
 import { fail } from "../exit";
-import { systemPs } from "../legacy-ps";
 import type { Limits } from "../limits";
 import type { Offered } from "../offered";
 import type { Outcomes } from "../outcomes";

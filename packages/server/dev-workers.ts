@@ -2,9 +2,9 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import { systemPs } from "./config";
 import { refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
-import { systemPs } from "./legacy-ps";
 import { queueListing } from "./queue-list";
 import type { RemoteWorker } from "./workers";
 import {

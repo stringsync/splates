@@ -1,7 +1,11 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
-import { typedConfig, withoutSystems } from "./config-source";
-import { CONFIG_FILE, ConfigFiles } from "./load-config";
+import {
+	CONFIG_FILE,
+	ConfigFiles,
+	typedConfig,
+	withoutSystems,
+} from "./config";
 import { checkSystems, SYSTEMS_FILE, type SystemsFile } from "./systems";
 
 /**

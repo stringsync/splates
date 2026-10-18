@@ -7,8 +7,8 @@ import {
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
+import { renamed } from "./config";
 import { fail } from "./exit";
-import { renamed } from "./legacy-names";
 
 /** Where a cred is kept: for this project alone, or every project on this device. */
 export const SCOPES = ["project", "device"] as const;

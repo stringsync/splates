@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { typedConfig } from "./config-source";
+import { typedConfig } from "./source";
 
 describe("typedConfig", () => {
 	it("swaps defineConfig for a type-only import and satisfies", () => {
