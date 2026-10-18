@@ -9,19 +9,22 @@ import type {
 	NativeSession,
 	NativeUpdate,
 } from "./native-adapter";
+import { confirmsRoots, fixtureWriteRoots, inside } from "./native-codex-roots";
 import type { Json } from "./probe";
 import { type Allowance, validateAllowance } from "./probe-affordability";
 
 /** Admission is a reservation, never a Codex billing ceiling. No credentials are read or copied. */
 export interface NativeCodexOptions {
 	allowance: Allowance;
+	/** Explicitly permit only this run’s seeded decision task and private Splates metadata. */
+	fixtureWrites?: boolean;
 	/** Native executable override, also used by free subprocess transport fixtures. */
 	argv?: string[];
 	/** Explicitly configured native auth/config home. Defaults to the probe's private HOME/.codex. */
 	codexHome?: string;
 }
 
-/** Compose with nativeAdapter(nativeCodex({ allowance }), { source, mode }) in #382. */
+/** Run Codex probes through its native app-server with an explicit reserved allowance. */
 export function nativeCodex(opts: NativeCodexOptions): NativeDriver {
 	validateAllowance(opts.allowance);
 	const allowance = { ...opts.allowance };
@@ -36,17 +39,24 @@ export function nativeCodex(opts: NativeCodexOptions): NativeDriver {
 	}
 	return {
 		id: "native-codex",
-		version: "1",
+		version: "3",
 		config: {
 			argv,
 			allowance,
 			codexHome: opts.codexHome ?? null,
+			fixtureWrites: opts.fixtureWrites ?? false,
 			protocol: "app-server-0.156.0",
 			usage: "reported cumulative tokens; USD and billing completeness unknown",
 		},
 		limits: { tokens: "monitored", costUsd: "unavailable" },
 		quote: (_probe, model) => (model ? { ...allowance } : null),
-		create: (request) => new CodexSession(request, argv, opts.codexHome),
+		create: (request) =>
+			new CodexSession(
+				request,
+				argv,
+				opts.codexHome,
+				opts.fixtureWrites ?? false,
+			),
 	};
 }
 
@@ -97,11 +107,13 @@ class CodexSession implements NativeSession {
 		private request: NativeRequest,
 		private argv: string[],
 		private codexHome?: string,
+		private fixtureWrites = false,
 	) {
 		// May reject during startup, before run begins waiting on the turn.
 		void this.completed.promise.catch(() => {});
 	}
-	private unsupported(detail: string) {
+	private unsupported(detail: string, cause = "capability") {
+		this.request.context.runtime.failureCause = cause;
 		this.request.context.evidence.termination = "unsupported";
 		this.request.context.evidence.detail = detail;
 	}
@@ -137,6 +149,18 @@ class CodexSession implements NativeSession {
 		const source = await realpath(skill.source);
 		const skillPath = join(source, "SKILL.md");
 		const cwd = await realpath(context.isolation.repository);
+		let writableRoots: string[] = [];
+		if (this.fixtureWrites) {
+			try {
+				writableRoots = await fixtureWriteRoots(context);
+			} catch {
+				return this.unsupported(
+					"Cannot validate isolated Codex fixture-write roots",
+					"permission",
+				);
+			}
+		}
+		context.runtime.codexRequestedRoots = writableRoots;
 		context.signal.throwIfAborted();
 		if (this.cancelled) {
 			return;
@@ -159,12 +183,14 @@ class CodexSession implements NativeSession {
 					capabilities: { experimentalApi: true },
 				}),
 			);
+			context.runtime.codexVersion = initialized.userAgent ?? null;
 			if (
 				typeof initialized.userAgent !== "string" ||
 				!initialized.userAgent.includes("/0.156.0 ")
 			) {
 				return this.unsupported(
 					"Codex protocol version not verified; requires 0.156.0",
+					"version",
 				);
 			}
 			this.send({ method: "initialized" });
@@ -177,6 +203,7 @@ class CodexSession implements NativeSession {
 			) {
 				return this.unsupported(
 					"Codex native authentication is unavailable in the configured home; credentials are not copied",
+					"authentication",
 				);
 			}
 			// Read native config only to disable inherited MCP servers before thread creation.
@@ -193,7 +220,7 @@ class CodexSession implements NativeSession {
 				"features.shell_tool": true,
 				web_search: "disabled",
 				"sandbox_workspace_write.network_access": false,
-				"sandbox_workspace_write.writable_roots": [],
+				"sandbox_workspace_write.writable_roots": writableRoots,
 				"sandbox_workspace_write.exclude_tmpdir_env_var": true,
 				"sandbox_workspace_write.exclude_slash_tmp": true,
 			};
@@ -239,6 +266,22 @@ class CodexSession implements NativeSession {
 					"Codex did not discover the selected native skill source",
 				);
 			}
+			if (
+				array(skills.data)
+					.flatMap((entry) => array(object(entry).skills))
+					.map(object)
+					.some(
+						(entry) =>
+							entry.enabled === true &&
+							entry.name === selected.name &&
+							entry.path !== skillPath,
+					)
+			) {
+				return this.unsupported(
+					"Competing native skill source would contaminate the selected snapshot",
+					"instruction-contamination",
+				);
+			}
 			const started = object(
 				await this.rpc("thread/start", {
 					model,
@@ -260,7 +303,7 @@ class CodexSession implements NativeSession {
 				started.approvalsReviewer !== "user" ||
 				sandbox.type !== "workspaceWrite" ||
 				sandbox.networkAccess !== false ||
-				array(sandbox.writableRoots).some((root) => root !== cwd) ||
+				!confirmsRoots(sandbox.writableRoots, cwd, writableRoots) ||
 				sandbox.excludeTmpdirEnvVar !== true ||
 				sandbox.excludeSlashTmp !== true
 			) {
@@ -269,7 +312,10 @@ class CodexSession implements NativeSession {
 				);
 			}
 			context.runtime.codex = {
-				model,
+				requestedModel: model,
+				model: started.model,
+				reasoning: started.reasoningEffort ?? null,
+				requestedReasoning: null,
 				instructionSources: started.instructionSources ?? [],
 				skill: skillPath,
 				permissions: sandbox,
@@ -279,6 +325,30 @@ class CodexSession implements NativeSession {
 			context.signal.throwIfAborted();
 			if (this.cancelled) {
 				return;
+			}
+			const taskPath = context.runtime.decisionPath;
+			if (typeof taskPath === "string") {
+				const task = await realpath(taskPath);
+				const writable = [cwd, ...writableRoots].some((root) =>
+					inside(root, task),
+				);
+				context.runtime.taskWritePrerequisite = { task, root: cwd };
+				if (!writable) {
+					return this.unsupported(
+						"Seeded decision task is outside the confirmed Codex workspace; no writable roots were widened",
+						"permission",
+					);
+				}
+			}
+			if (
+				this.fixtureWrites &&
+				JSON.stringify(await fixtureWriteRoots(context)) !==
+					JSON.stringify(writableRoots)
+			) {
+				return this.unsupported(
+					"Fixture write roots changed during startup",
+					"permission",
+				);
 			}
 			const input: Json[] = [
 				{ type: "text", text: context.probe.input.text, text_elements: [] },

@@ -32,6 +32,7 @@ it("keeps native discovery, cumulative usage, final reply and tool evidence dist
 	const result = await run();
 	expect(result.result.status).toBe("uncovered");
 	expect(result.run.usage.tokens).toBe(12);
+	expect(result.adapter.runtime.codexVersion).toBe("fixture/0.156.0 (fixture)");
 	const replyIndex = result.updates.findIndex(
 		(update) => update.kind === "reply",
 	);
@@ -68,6 +69,7 @@ it("uses an explicit native skill item without injecting its text", async () => 
 });
 it("refuses auth before prompting and awaits process cleanup", async () => {
 	const result = await run("auth");
+	expect(result.adapter.runtime.failureCause).toBe("authentication");
 	expect(result.result.status).toBe("unsupported");
 	expect((await messages()).some((item) => item.method === "turn/start")).toBe(
 		false,
@@ -76,6 +78,7 @@ it("refuses auth before prompting and awaits process cleanup", async () => {
 });
 it("refuses version before prompting and awaits process cleanup", async () => {
 	const result = await run("version");
+	expect(result.adapter.runtime.failureCause).toBe("version");
 	expect(result.result.status).toBe("unsupported");
 	expect((await messages()).some((item) => item.method === "turn/start")).toBe(
 		false,
@@ -85,6 +88,15 @@ it("refuses version before prompting and awaits process cleanup", async () => {
 it("refuses skill before prompting and awaits process cleanup", async () => {
 	const result = await run("skill");
 	expect(result.result.status).toBe("unsupported");
+	expect((await messages()).some((item) => item.method === "turn/start")).toBe(
+		false,
+	);
+	await stopped();
+});
+it("refuses a competing skill snapshot before prompting", async () => {
+	const result = await run("competing-skill");
+	expect(result.result.status).toBe("unsupported");
+	expect(result.adapter.runtime.failureCause).toBe("instruction-contamination");
 	expect((await messages()).some((item) => item.method === "turn/start")).toBe(
 		false,
 	);
@@ -163,6 +175,7 @@ it("interrupts a monitored threshold, retains overshoot and awaits cleanup", asy
 	const result = await run("cancel");
 	expect(result.result.status).toBe("bound");
 	expect(result.run.usage.tokens).toBe(117);
+	expect(result.adapter.runtime.failureCause).toBe("tokens");
 	expect(
 		(await messages()).filter((item) => item.method === "turn/interrupt"),
 	).toHaveLength(1);
@@ -227,6 +240,7 @@ it("refuses event stops before launching", async () => {
 it("cleans up an unavailable executable", async () => {
 	expect((await run("spawn-error")).result.status).toBe("unsupported");
 });
+// scry-ignore simple-test-setup: only this case needs a caller-owned abort controller and timed cancellation.
 it("honors caller cancellation while a native turn is active", async () => {
 	const controller = new AbortController();
 	const running = run("hang", {}, "discovery", controller.signal);

@@ -66,9 +66,17 @@ it.each(["custom:model", "codex:", "opencode:model"])(
 	},
 );
 
-it.each(["claude", "codex", "opencode"] as const)(
-	"%s: registered decision state/reply assertions survive real free transports; billing remains outstanding",
-	async (provider) => {
+it.each([
+	{ provider: "claude", mode: "discovery", fixtureWrites: false },
+	{ provider: "claude", mode: "explicit", fixtureWrites: false },
+	{ provider: "codex", mode: "discovery", fixtureWrites: false },
+	{ provider: "codex", mode: "explicit", fixtureWrites: false },
+	{ provider: "codex", mode: "discovery", fixtureWrites: true },
+	{ provider: "codex", mode: "explicit", fixtureWrites: true },
+	{ provider: "opencode", mode: "discovery", fixtureWrites: false },
+] as const)(
+	"$provider/$mode/fixture-writes=$fixtureWrites: frozen decisions retain state/reply verdicts or permission refusal and outstanding billing",
+	async ({ provider, mode, fixtureWrites }) => {
 		const sharedBudget = new EvalBudgets(
 			join(directory, "ledger.json"),
 			declared({ tokens: 200, per: "day" }, "fixture"),
@@ -76,7 +84,7 @@ it.each(["claude", "codex", "opencode"] as const)(
 		const results: StoredRun[] = [];
 		// scry-ignore matchers-over-test-logic: sequential sessions exercise retention across runs before the exhausted-ledger assertion.
 		for (const selected of ["local-choice", "answer"]) {
-			const driver = await transport(provider, selected);
+			const driver = await transport(provider, selected, mode, fixtureWrites);
 			const runs = await runProbes(
 				{
 					...decisions,
@@ -86,7 +94,7 @@ it.each(["claude", "codex", "opencode"] as const)(
 				},
 				[
 					{
-						adapter: nativeAdapter(driver, { source, mode: "discovery" }),
+						adapter: nativeAdapter(driver, { source, mode }),
 						selector: provider,
 						model:
 							provider === "claude"
@@ -109,6 +117,19 @@ it.each(["claude", "codex", "opencode"] as const)(
 			);
 			const result = runs[0] as StoredRun;
 			expect(result).toBeDefined();
+			// scry-ignore matchers-over-test-logic: the same frozen cases must refuse Codex permissions while other transports retain state/reply assertions.
+			if (provider === "codex" && !fixtureWrites) {
+				expect(result.result.status).toBe("unsupported");
+				expect(result.adapter.runtime.failureCause).toBe("permission");
+				expect(result.run.evidence.reply).toBeUndefined();
+				const wire = await readFile(
+					join(directory, `${selected}.wire`),
+					"utf8",
+				);
+				expect(wire).not.toContain('"method":"turn/start"');
+				results.push(result);
+				continue;
+			}
 			expect({
 				status: result.result.status,
 				detail: result.run.evidence.detail,
@@ -204,6 +225,7 @@ it.each(["claude", "codex", "opencode"] as const)(
 	15000,
 );
 
+// scry-ignore simple-test-setup: only this comparison combines two different transports in one admitted fixture batch.
 it("compares partial native results without treating unavailable Codex USD or tool evidence as complete", async () => {
 	const claude = await transport("claude", "local-choice");
 	const codex = await transport("codex", "local-choice");
@@ -238,7 +260,7 @@ it("compares partial native results without treating unavailable Codex USD or to
 	);
 	expect(results.map((result) => result.result.status)).toEqual([
 		"uncovered",
-		"uncovered",
+		"unsupported",
 	]);
 	expect(comparisonKey(results[0] as StoredRun)).toBe(
 		comparisonKey(results[1] as StoredRun),
@@ -253,10 +275,13 @@ it("compares partial native results without treating unavailable Codex USD or to
 async function transport(
 	provider: "claude" | "codex" | "opencode",
 	selected: string,
+	mode: "discovery" | "explicit" = "discovery",
+	fixtureWrites = false,
 ): Promise<NativeDriver> {
 	if (provider === "codex") {
 		return nativeCodex({
 			allowance,
+			fixtureWrites,
 			argv: [
 				process.execPath,
 				join(import.meta.dir, "fixtures/native-codex/server.ts"),
@@ -281,9 +306,13 @@ async function transport(
 			executable,
 			`#!${process.execPath}\nimport { decisionTransport } from ${JSON.stringify(join(import.meta.dir, "fixtures/decision-transport.ts"))};
 const args = process.argv.slice(2);
-if (args[0] === '--help') console.log('--model --tools --allowedTools --permission-mode --permission-prompts --max-budget-usd --output-format --setting-sources --strict-mcp-config --no-session-persistence');
+if (args[0] === '--version') console.log('fixture 1');
+else if (args[0] === '--help') console.log('--model --tools --allowedTools --permission-mode --permission-prompts --max-budget-usd --output-format --setting-sources --strict-mcp-config --no-session-persistence');
 else if(args[0] === 'auth') console.log('{"loggedIn":true}');
-else { await Bun.stdin.text(); const frames = ${JSON.stringify(frames)}; frames.at(-1).result = await decisionTransport(process.cwd(), ${JSON.stringify(selected)}); for (const frame of frames) console.log(JSON.stringify(frame)); }
+else { const input = await Bun.stdin.text();
+if (input.startsWith('/splates ') !== ${JSON.stringify(mode === "explicit")}) throw new Error('wrong skill invocation mode');
+if (await Bun.file('.claude/skills/splates/SKILL.md').text() !== ${JSON.stringify(await readFile(join(source, "SKILL.md"), "utf8"))}) throw new Error('wrong selected skill bytes');
+const frames = ${JSON.stringify(frames)}; frames.at(-1).result = await decisionTransport(process.cwd(), ${JSON.stringify(selected)}); for (const frame of frames) console.log(JSON.stringify(frame)); }
 `,
 		);
 		await chmod(executable, 0o755);

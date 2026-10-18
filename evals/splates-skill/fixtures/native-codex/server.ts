@@ -10,6 +10,7 @@ const scenario = process.argv[2];
 const log = process.argv[3] as string;
 let root = "";
 let cwd = "";
+let writableRoots: string[] = [];
 const send = (value: unknown) =>
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 const notice = (method: string, params: object) =>
@@ -138,6 +139,15 @@ for await (const line of createInterface({ input: process.stdin })) {
 											scope: "user",
 											description: "fixture",
 										},
+										...(scenario === "competing-skill"
+											? [
+													{
+														name: "splates",
+														path: "/different/SKILL.md",
+														enabled: true,
+													},
+												]
+											: []),
 									],
 						errors: [],
 					},
@@ -147,6 +157,10 @@ for await (const line of createInterface({ input: process.stdin })) {
 	}
 	if (method === "thread/start") {
 		cwd = params.cwd;
+		writableRoots = params.config["sandbox_workspace_write.writable_roots"];
+		if (!Array.isArray(writableRoots)) {
+			throw new Error("Missing explicit write-root policy");
+		}
 		send({
 			id,
 			result: {
@@ -158,7 +172,12 @@ for await (const line of createInterface({ input: process.stdin })) {
 				instructionSources: [],
 				sandbox: {
 					type: "workspaceWrite",
-					writableRoots: [],
+					writableRoots:
+						scenario === "roots-missing"
+							? []
+							: scenario === "roots-wide"
+								? ["/"]
+								: writableRoots,
 					networkAccess: scenario === "permission",
 					excludeTmpdirEnvVar: true,
 					excludeSlashTmp: true,
@@ -239,7 +258,10 @@ for await (const line of createInterface({ input: process.stdin })) {
 				id: "reply",
 				phase: scenario === "missing-phase" ? null : "final_answer",
 				text: process.argv[4]
-					? await decisionTransport(cwd, process.argv[4])
+					? await decisionTransport(cwd, process.argv[4], [
+							cwd,
+							...writableRoots,
+						])
 					: "## ✅ Merged sample onto main\n\nThe sample now works.",
 			},
 		});

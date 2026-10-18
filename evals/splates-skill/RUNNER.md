@@ -336,3 +336,90 @@ remain partial wherever the aspect documents identify gaps.
 
 See [shared acceptance](ACCEPTANCE.md) for the lane 17 audit, the two-case
 partial tuning subset, critical gates, reserved validation and concrete #54 gaps.
+
+## Paired comparison infrastructure (#54)
+
+The user approved paired admission: one genuine candidate instruction diff may
+admit both immutable snapshots under one aggregate reservation. This does not
+authorize model execution. `--baseline` alone keeps its original candidate-only
+meaning; use `--paired` to select the approved experiment policy. Equal bytes
+still skip execution. Do not manufacture an edit, choose an arbitrary older
+revision as the experiment baseline, or split calls to evade aggregate limits.
+
+`--paired` requires both Codex and Claude targets, parallel one, and explicit
+selection of the frozen `decisions/local-choice@1` and/or `decisions/answer@1`
+cases. Custom modules and selective `--failed` reruns are refused. Inputs,
+assertions and seeds remain unchanged; requested bounds are recorded. Discovery
+probes remain excluded until their selected-source contamination, case variations
+and outcome evidence are addressed.
+
+`plan --paired` checks the complete matrix and aggregate admission arithmetic
+without launching, authenticating or reserving. Execution still requires terminal
+confirmation and the separate #55 authorization. The CLI freezes the gate's exact
+baseline and candidate instruction bytes, including dirty/untracked reference
+edits, into a new `experiment-*` directory. Every session verifies its source
+before startup and after cleanup. Read-only file permissions discourage accidental
+edits; these checks are not an OS sandbox or proof of complete delivered reads.
+Codex rejects a competing enabled skill of the same name before prompting.
+
+One `runProbes` batch reserves every family, snapshot and repetition together.
+`experiment.json` records the planned order, complete probes/assertions/seed data,
+seed fingerprints, CLI and harness hashes, snapshot identities and bytes' paths,
+requested native controls, ledger identity/limits and shared reservation id before
+any cell launches. Unknown native versions, resolved models and reasoning remain
+null in the pre-execution manifest; runtime records retain observations. No claim
+of live configuration compatibility follows from those unknowns.
+
+Unsupported, infrastructure, bound and assertion-failure outcomes stop queued
+cells; each cancelled cell still gets a result. A changed recorded native
+configuration within a pair is persisted as unsupported and stops later cells.
+Cleanup and snapshot-verification failures retain partial evidence. There are no
+automatic retries. The full experiment command remains the reproduction entry;
+per-cell reproduction must not reduce the aggregate reservation to one snapshot.
+
+Free `report` finds nested experiment runs and prints every pair, including
+missing/duplicate counterparts, verdicts, observed/total assertion counts, skill
+identities, raw termination and runtime diagnostics. `pairedReport` checks
+recorded probe/seed/assertion, family/model, CLI, adapter, repetition, mode,
+reservation and observed native-version/model/reasoning controls. Only selected
+skill hash/source may differ. Matching recorded controls does not certify all
+applied native settings, instruction activation, event completeness or an
+improvement. Unknown cost stays unknown; billing-incomplete shared reservations
+remain outstanding, even on success.
+
+### Explicit isolated fixture writes and remaining live prerequisites
+
+The frozen `decisions/task@1` seed places its task outside the seed repository.
+Codex defaults to repository-only writes and refuses that task before prompting.
+The user approved `--codex-fixture-writes` as an explicit opt-in: it adds only the
+canonical task worktree, fixture repository `.git/splates`, and private
+`SPLATES_HOME`. The adapter checks that all roots belong to the isolated run,
+verifies the task's gitdir belongs to the fixture repository, and requires Codex
+to confirm every requested root without adding broader roots. It rechecks roots
+before prompting. Network access, escalation and implicit temporary roots remain
+disabled. Free peers independently enforce write roots for the frozen decisions;
+both invocation modes pass without changing probes, assertions or seed versions.
+These checks establish the transport contract, not live OS sandbox behavior.
+
+Version-only checks on 2026-10-18 found `codex-cli 0.156.0` and Claude Code
+`2.1.296`. Exact available model targets, authentication, live permission behavior
+and effective reasoning remain #55 prerequisites before an executable paid plan
+can be approved; fixture model names are not a target roster. Claude records its
+executable version and explicitly unknown reasoning settings; Codex records the
+initialization version and returned reasoning setting. Auth refusals and
+timeout/cancellation/token/USD/turn stops have separate structured diagnostics.
+
+The later #55 approval plan starts at one `decisions/local-choice@1` case, both
+families and snapshots, one repetition, parallel one: four cells. Existing
+per-cell defaults total 8,000 tokens/USD 0.20, above invocation defaults but within
+configured maxima. That is reservation arithmetic, not a cost estimate, adequate
+token allowance or permission to spend. A genuine candidate diff, appropriate
+baseline, exact native targets/auth/config and a shared allowance must be selected
+before the live plan is actionable. #55 must not force a wording edit to measure
+a baseline. Codex USD stays unknown and monitored thresholds may overshoot.
+
+Keep #54 -> #55 -> #56 -> #57 sequential. Before #56 changes wording, freeze the
+separately authored validation cases described in ACCEPTANCE.md; none are created
+or claimed held-out here. The source agent skill was checked for CLI consistency:
+its general workflow does not document repository-only `dev eval` flags, so no
+skill wording change is needed for this internal CLI extension.

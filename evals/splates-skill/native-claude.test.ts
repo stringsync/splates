@@ -24,8 +24,13 @@ it("preserves native skill bytes, selected model/tools and cumulative multi-mode
 	expect(driver.limits).toEqual({ tokens: "monitored", costUsd: "monitored" });
 	await session.run((update) => updates.push(update));
 	await session.dispose();
-	expect(transport.completed).toBe(3);
-	const invocation = transport.calls[2];
+	expect(transport.completed).toBe(4);
+	expect(request.context.runtime.claudeVersion).toBe("2.1.0 (Claude Code)");
+	expect(request.context.runtime.claudeReasoning).toEqual({
+		requested: null,
+		effective: null,
+	});
+	const invocation = transport.calls[3];
 	expect(invocation?.input).toBe("answer");
 	expect(invocation?.env).toEqual(request.context.env);
 	expect(invocation?.argv).toContain("claude-sonnet-4-6");
@@ -60,8 +65,8 @@ it("explicitly invokes the native skill with the declared shell capability", asy
 	);
 	await session.run(() => {});
 	await session.dispose();
-	expect(transport.calls[2]?.input).toBe("/splates answer");
-	expect(transport.calls[2]?.argv).toContain("Bash,Read,Glob,Grep,Skill");
+	expect(transport.calls[3]?.input).toBe("/splates answer");
+	expect(transport.calls[3]?.argv).toContain("Bash,Read,Glob,Grep,Skill");
 });
 
 it.each([
@@ -118,7 +123,7 @@ it.each([
 	);
 	await expect(session.run(() => {})).rejects.toThrow();
 	await session.dispose();
-	expect(transport.completed).toBe(3);
+	expect(transport.completed).toBe(4);
 });
 
 it("keeps missing usage unknown and zeroed startup errors incomplete", async () => {
@@ -169,8 +174,8 @@ it("shared cancellation stops an active transport, awaits disposal, and retains 
 		allowance,
 	);
 	await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
-	expect(transport.completed).toBe(3);
-	expect(transport.cancelled).toBe(3);
+	expect(transport.completed).toBe(4);
+	expect(transport.cancelled).toBe(4);
 	expect(request.context.usage.tokens).toBe(20);
 	expect(request.context.runtime.nativeUsageComplete).toBe(false);
 	expect(request.context.evidence.reply).toBeUndefined();
@@ -181,7 +186,8 @@ it("owns a real free process transport and handles missing executable startup", 
 	const executable = join(directory, "fake-claude");
 	await writeFile(
 		executable,
-		`#!/usr/bin/env bun\nconst args = process.argv.slice(2);\nif (args[0] === '--help') console.log(${JSON.stringify(help)});\nelse if(args[0] === 'auth') console.log('{"loggedIn":true}');\nelse { await Bun.stdin.text(); console.log(${JSON.stringify(await success())}); }\n`,
+		`#!/usr/bin/env bun\nconst args = process.argv.slice(2);\nif (args[0] === '--version') console.log("fixture 1");
+else if (args[0] === '--help') console.log(${JSON.stringify(help)});\nelse if(args[0] === 'auth') console.log('{"loggedIn":true}');\nelse { await Bun.stdin.text(); console.log(${JSON.stringify(await success())}); }\n`,
 	);
 	await chmod(executable, 0o755);
 	const updates: NativeUpdate[] = [];
@@ -288,13 +294,18 @@ function fixture(output: string, opts: FixtureOptions = {}) {
 			finish = resolve;
 		});
 		queueMicrotask(() => {
-			const preflight = call.argv[1] === "--help" || call.argv[1] === "auth";
+			const preflight =
+				call.argv[1] === "--version" ||
+				call.argv[1] === "--help" ||
+				call.argv[1] === "auth";
 			const text =
-				call.argv[1] === "--help"
-					? (opts.help ?? help)
-					: call.argv[1] === "auth"
-						? JSON.stringify({ loggedIn: opts.auth ?? true })
-						: output;
+				call.argv[1] === "--version"
+					? "2.1.0 (Claude Code)"
+					: call.argv[1] === "--help"
+						? (opts.help ?? help)
+						: call.argv[1] === "auth"
+							? JSON.stringify({ loggedIn: opts.auth ?? true })
+							: output;
 			// Frames must parse independently of the transport chunk boundaries.
 			for (let index = 0; index < text.length; index += 13) {
 				call.stdout(text.slice(index, index + 13));
@@ -358,7 +369,8 @@ it("awaits a real process group when a descendant holds stdout open after its pa
 		`#!/usr/bin/env bun
 import { spawn } from 'node:child_process';
 const args = process.argv.slice(2);
-if (args[0] === '--help') console.log(${JSON.stringify(help)});
+if (args[0] === '--version') console.log("fixture 1");
+else if (args[0] === '--help') console.log(${JSON.stringify(help)});
 else if (args[0] === 'auth') console.log('{"loggedIn":true}');
 else {
   await Bun.stdin.text();

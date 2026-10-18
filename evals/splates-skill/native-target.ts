@@ -21,7 +21,11 @@ export function nativeTarget(value: string, opts: NativeTargetOptions): Target {
 		id === "claude"
 			? claudeDriver({ allowance: opts.allowance })
 			: id === "codex"
-				? nativeCodex({ allowance: opts.allowance, codexHome: opts.codexHome })
+				? nativeCodex({
+						allowance: opts.allowance,
+						codexHome: opts.codexHome,
+						fixtureWrites: opts.codexFixtureWrites,
+					})
 				: opencodeDriver({ allowance: opts.allowance });
 	const quote = driver.quote;
 	driver.quote = (probe, selected) => {
@@ -35,14 +39,20 @@ export function nativeTarget(value: string, opts: NativeTargetOptions): Target {
 	};
 	return {
 		selector: id,
-		adapter: nativeAdapter(driver, { source: opts.source, mode: opts.mode }),
+		adapter: nativeAdapter(driver, {
+			source: opts.source,
+			mode: opts.mode,
+			...(opts.expectedHash ? { expectedHash: opts.expectedHash } : {}),
+		}),
 		model,
 	};
 }
 
 interface NativeTargetOptions {
+	expectedHash?: string;
 	source: string;
 	mode: "discovery" | "explicit";
 	allowance: Allowance;
 	codexHome?: string;
+	codexFixtureWrites?: boolean;
 }

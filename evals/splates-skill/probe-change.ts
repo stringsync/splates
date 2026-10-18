@@ -12,6 +12,10 @@ export interface SkillChange {
 	beforeHash: string;
 	afterHash: string;
 	files: string[];
+	snapshots: {
+		baseline: Record<string, string>;
+		candidate: Record<string, string>;
+	};
 }
 /** Compare complete selected instruction bytes against an explicit immutable Git baseline, including dirty/untracked edits. */
 export async function skillChange(
@@ -77,6 +81,7 @@ export async function skillChange(
 		throw new Error("Selected source has no readable SKILL.md");
 	}
 	return {
+		snapshots: { baseline: before, candidate: after },
 		baseline: commit,
 		skill: source,
 		beforeHash: hash(before),
@@ -89,7 +94,7 @@ export async function skillChange(
 function relevant(name: string): boolean {
 	return name === "SKILL.md" || name.startsWith("references/");
 }
-async function instructionFiles(
+export async function instructionFiles(
 	source: string,
 	prefix = "",
 ): Promise<Record<string, string>> {

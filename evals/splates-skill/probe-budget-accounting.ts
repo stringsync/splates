@@ -55,8 +55,21 @@ export function finishUsage(
 	allowance: Readonly<Allowance> | undefined,
 	metering: import("./probe-affordability").Metering | undefined,
 	warnings: string[],
+	tokenBound = false,
 ): void {
-	const { usage, evidence, runtime } = context;
+	const { usage, evidence, runtime, probe } = context;
+	if (
+		evidence.termination === "stop" &&
+		(usage.turns > probe.bounds.turns ||
+			(tokenBound &&
+				usage.tokens !== null &&
+				usage.tokens > probe.bounds.tokens))
+	) {
+		evidence.termination = "bound";
+		evidence.detail = "observed turn/token bound exceeded";
+		runtime.failureCause =
+			usage.turns > probe.bounds.turns ? "turns" : "tokens";
+	}
 	if (
 		allowance &&
 		((usage.tokens !== null &&

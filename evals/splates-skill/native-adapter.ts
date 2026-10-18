@@ -1,6 +1,7 @@
 import type { Event, Json, Probe } from "./probe";
 import type { Allowance, LimitMode } from "./probe-affordability";
 import type { Adapter, RunContext } from "./probe-record";
+import { verifySnapshot } from "./probe-snapshots";
 
 /** A native runtime owns its agent loop. These are observations, not inferred tool executions. */
 export type NativeUpdate =
@@ -18,7 +19,11 @@ export interface NativeRequest {
 	context: RunContext;
 	model: string | null;
 	allowance: Readonly<Allowance>;
-	skill: { source: string; mode: "discovery" | "explicit" };
+	skill: {
+		source: string;
+		mode: "discovery" | "explicit";
+		expectedHash?: string;
+	};
 	/** Native implementation must enforce these tools before prompting, or return unsupported. */
 	tools: Probe["tools"];
 }
@@ -60,6 +65,11 @@ export function nativeAdapter(
 			quote: (probe, model) => driver.quote(probe, model),
 			async run(context, model, allowance) {
 				context.signal.throwIfAborted();
+				if (skill.expectedHash) {
+					await verifySnapshot(skill.source, skill.expectedHash);
+					const expected = skill.expectedHash;
+					context.cleanup(() => verifySnapshot(skill.source, expected));
+				}
 				context.runtime.nativeUsageComplete = false;
 				const session = driver.create({
 					context,

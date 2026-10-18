@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, it } from "bun:test";
 import { execFile } from "node:child_process";
 import {
+	chmod,
 	mkdir,
 	mkdtemp,
+	readFile,
 	rename,
 	rm,
 	symlink,
@@ -22,6 +24,7 @@ import {
 } from "./probe-affordability";
 import { skillChange, smokeProbes } from "./probe-change";
 import { fastCli, loadModules } from "./probe-cli";
+import { freezeSnapshots, verifySnapshot } from "./probe-snapshots";
 import { type Adapter, type ProbeModule, runProbes } from "./runner";
 
 const exec = promisify(execFile);
@@ -365,6 +368,107 @@ it("never reports success when a bounded provider reports a charge above its res
 	expect(runs[0]?.result.detail).toContain(
 		"violated its reserved metering contract",
 	);
+});
+
+it("freezes genuine baseline and dirty candidate bytes and detects later tampering", async () => {
+	await writeFile(join(skill, "SKILL.md"), "# Candidate\n");
+	const change = await skillChange(skill, "HEAD");
+	await freezeSnapshots(change, directory);
+	expect(
+		await readFile(join(join(directory, "baseline"), "SKILL.md"), "utf8"),
+	).toBe("# Splates\nOriginal instructions\n");
+	expect(
+		await readFile(join(join(directory, "candidate"), "SKILL.md"), "utf8"),
+	).toBe("# Candidate\n");
+	await writeFile(join(skill, "SKILL.md"), "Later edit");
+	await expect(
+		verifySnapshot(join(directory, "candidate"), change.afterHash),
+	).resolves.toBeUndefined();
+	await chmod(join(join(directory, "candidate"), "SKILL.md"), 0o644);
+	await writeFile(join(join(directory, "candidate"), "SKILL.md"), "Tampered");
+	await expect(
+		verifySnapshot(join(directory, "candidate"), change.afterHash),
+	).rejects.toThrow("snapshot changed");
+});
+it("does not freeze equal instructions as an experiment", async () => {
+	await expect(
+		freezeSnapshots(await skillChange(skill, "HEAD"), directory),
+	).rejects.toThrow("genuine instruction diff");
+});
+it("plans all four paired cells without launching or reserving", async () => {
+	await writeFile(join(skill, "SKILL.md"), "# Candidate\n");
+	const log = new MemoryLogger();
+	await fastCli(
+		[
+			"plan",
+			"--paired",
+			"--baseline",
+			"HEAD",
+			"--skill",
+			skill,
+			"--probe",
+			"decisions/local-choice",
+			"--target",
+			"codex:fixture",
+			"--target",
+			"claude:fixture",
+			"--max-tokens",
+			"8000",
+			"--max-usd",
+			"0.20",
+		],
+		log,
+	);
+	expect(log.entries.map((entry) => entry.message).join("\n")).toContain(
+		"4 cells",
+	);
+	expect(log.entries.map((entry) => entry.message).join("\n")).toContain(
+		'"tokens":8000,"microUsd":200000',
+	);
+});
+it("refuses a pair that fits per snapshot but exceeds aggregate admission", async () => {
+	await writeFile(join(skill, "SKILL.md"), "# Candidate\n");
+	await expect(
+		fastCli(
+			[
+				"plan",
+				"--paired",
+				"--baseline",
+				"HEAD",
+				"--skill",
+				skill,
+				"--probe",
+				"decisions/local-choice",
+				"--target",
+				"codex:fixture",
+				"--target",
+				"claude:fixture",
+			],
+			new MemoryLogger(),
+		),
+	).rejects.toThrow("Aggregate token/USD budget exceeded");
+});
+it("does not admit discovery fixtures through paired execution", async () => {
+	await writeFile(join(skill, "SKILL.md"), "# Candidate\n");
+	await expect(
+		fastCli(
+			[
+				"plan",
+				"--paired",
+				"--baseline",
+				"HEAD",
+				"--skill",
+				skill,
+				"--probe",
+				"discovery/implicit",
+				"--target",
+				"codex:fixture",
+				"--target",
+				"claude:fixture",
+			],
+			new MemoryLogger(),
+		),
+	).rejects.toThrow("frozen decision tuning");
 });
 
 function metered(counter = { launched: 0 }): Adapter & { metering: Metering } {

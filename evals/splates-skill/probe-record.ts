@@ -179,6 +179,8 @@ export interface Adapter {
 	run(context: RunContext, model: string | null): Promise<void>;
 }
 export interface Target {
+	/** Frozen paired-experiment instruction identity; absent for legacy single-source runs. */
+	snapshot?: { role: "baseline" | "candidate"; hash: string };
 	/** CLI provider name, separate from transport identity. */
 	selector?: string;
 	adapter: Adapter;
@@ -214,6 +216,9 @@ export interface StoredRun {
 	adapter: { version: string; config: Json; runtime: Record<string, Json> };
 }
 export interface RunOptions {
+	/** Persisted before launching any cell, with the full job matrix and reservation. */
+	experiment?: Json;
+	stopOnFailure?: boolean;
 	directory: string;
 	parallel: number;
 	reps: number;

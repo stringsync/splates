@@ -1,12 +1,13 @@
 // Scripted fixture effects, never model adherence or native tool-execution evidence.
 import { execFile } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 export async function decisionTransport(
 	cwd: string,
 	selected?: string,
+	writableRoots?: string[],
 ): Promise<string> {
 	if (!selected) {
 		return "done";
@@ -19,6 +20,14 @@ export async function decisionTransport(
 		},
 	);
 	const path = join(stdout.trim(), "SPLATES.md");
+	if (writableRoots) {
+		const actual = await realpath(path);
+		if (!writableRoots.some((root) => actual.startsWith(`${root}/`))) {
+			throw new Error(
+				"Scripted Codex peer refused task write outside confirmed roots",
+			);
+		}
+	}
 	let plan = await readFile(path, "utf8");
 	if (selected === "local-choice") {
 		plan = plan.replace(

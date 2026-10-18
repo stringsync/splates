@@ -48,7 +48,7 @@ export function probeReport(values: StoredRun[]): string {
 			);
 			for (const run of runs) {
 				lines.push(
-					`  rep ${run.run.identity.repetition + 1}: ${run.result.status}${run.result.detail ? ` (${run.result.detail})` : ""}`,
+					`  skill ${run.run.identity.skillHash}; rep ${run.run.identity.repetition + 1}: ${run.result.status}${run.result.detail ? ` (${run.result.detail})` : ""}`,
 				);
 				lines.push(
 					`    ${run.run.usage.milliseconds.toFixed(1)}ms; tokens ${run.run.usage.tokens ?? "unknown"}; USD ${run.run.usage.costUsd ?? "unknown"}; overhead ${run.overheadMs.toFixed(1)}ms`,
@@ -63,6 +63,15 @@ export function probeReport(values: StoredRun[]): string {
 						"    Billing incomplete: shared reservation remains outstanding even on success; windows/reset do not release it. Reported usage is not total billing or proof of cheapness.",
 					);
 				}
+				const observed = run.result.verdicts.filter(
+					(verdict) => verdict.status !== "uncovered",
+				);
+				lines.push(
+					`    assertions observed ${observed.length}/${run.result.verdicts.length}; passing ${observed.filter((verdict) => verdict.status === "pass").length}/${observed.length}; termination ${run.run.evidence.termination}`,
+				);
+				lines.push(
+					`    runtime (not compatibility proof): ${JSON.stringify(run.adapter.runtime)}`,
+				);
 				for (const verdict of run.result.verdicts) {
 					lines.push(
 						`    ${verdict.id}: ${verdict.status}; expected ${JSON.stringify(verdict.expected)}; actual ${JSON.stringify(verdict.actual)}; evidence ${verdict.evidence.join(",")}`,

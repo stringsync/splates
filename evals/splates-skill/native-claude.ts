@@ -24,7 +24,7 @@ export function claudeDriver(opts: ClaudeOptions): NativeDriver {
 	}
 	return {
 		id: "native-claude",
-		version: "1",
+		version: "2",
 		config: {
 			executable,
 			allowance,
@@ -140,7 +140,8 @@ function session(
 			child.cancel();
 		}
 	};
-	const unsupported = (detail: string) => {
+	const unsupported = (detail: string, cause = "capability") => {
+		context.runtime.failureCause = cause;
 		context.evidence.termination = "unsupported";
 		context.evidence.detail = detail;
 	};
@@ -214,6 +215,14 @@ function session(
 			"monitored tokens and estimated USD; in-flight overshoot possible";
 		context.runtime.claudeUsage =
 			"Cumulative query-pipeline estimates exclude auxiliary calls; completeness remains false";
+		let version = "";
+		const versionCode = await command(["--version"], "", (text) => {
+			version += text;
+		});
+		context.runtime.claudeVersion =
+			versionCode === 0 ? version.trim() || null : null;
+		context.runtime.claudeReasoning = { requested: null, effective: null };
+		context.runtime.claudeRequestedModel = model;
 		let help = "";
 		if (
 			(await command(["--help"], "", (text) => {
@@ -251,6 +260,7 @@ function session(
 		if (authCode !== 0 || !authenticated) {
 			return unsupported(
 				"Claude native authentication unavailable in isolated environment; no credentials copied",
+				"authentication",
 			);
 		}
 		check();
@@ -420,6 +430,8 @@ function session(
 			result?.subtype === "error_max_budget_usd"
 		) {
 			context.evidence.termination = "bound";
+			context.runtime.failureCause =
+				result.subtype === "error_max_turns" ? "turns" : "usd";
 			context.evidence.detail = `Claude ${result.subtype}; monitored budget may overshoot`;
 			return;
 		}

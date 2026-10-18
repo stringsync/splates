@@ -1,20 +1,26 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
+import { storedRuns, treeHash } from "./probe-files";
+
+export { storedRuns, treeHash } from "./probe-files";
+
 import { nativeTarget } from "./native-target";
 import { cliAdapter } from "./probe-adapters";
 import { admit, budget } from "./probe-affordability";
 import { evalBudgetCli, projectEvalBudgets } from "./probe-budget-cli";
+import type { SkillChange } from "./probe-change";
 import { skillChange, smokeProbes } from "./probe-change";
+import { pairedBatchReport } from "./probe-pair";
+import { pairedCli } from "./probe-paired-cli";
 import { probeReport } from "./probe-report";
 import {
 	configurationHash,
 	hash,
 	type ProbeModule,
-	readRun,
 	runProbes,
 	type StoredRun,
 	type Target,
@@ -52,48 +58,6 @@ export async function loadModules(paths: string[]): Promise<ProbeModule> {
  */
 const NOT_CLI = ["evals", "skills", ".agents", ".claude", ".wiz", "bin"];
 
-export async function treeHash(
-	directory: string,
-	skip: string[] = [],
-): Promise<string> {
-	const entries = await readdir(directory, { withFileTypes: true });
-	const files: unknown[] = [];
-	for (const entry of entries.sort((left, right) =>
-		left.name.localeCompare(right.name),
-	)) {
-		if (["node_modules", ".git", "dist", ...skip].includes(entry.name)) {
-			continue;
-		}
-		const path = join(directory, entry.name);
-		if (entry.isDirectory()) {
-			files.push([entry.name, await treeHash(path)]);
-		} else if (entry.isFile()) {
-			files.push([entry.name, hash(await readFile(path, "utf8"))]);
-		}
-	}
-	return hash(files);
-}
-
-export async function storedRuns(directory: string): Promise<StoredRun[]> {
-	const entries = await readdir(directory, { withFileTypes: true }).catch(
-		(error: NodeJS.ErrnoException) => {
-			if (error.code === "ENOENT") {
-				return [];
-			}
-			throw error;
-		},
-	);
-	const runs: StoredRun[] = [];
-	for (const entry of entries.sort((left, right) =>
-		left.name.localeCompare(right.name),
-	)) {
-		if (entry.isDirectory() && entry.name.startsWith("run-")) {
-			runs.push(await readRun(join(directory, entry.name, "result.json")));
-		}
-	}
-	return runs;
-}
-
 export async function fastCli(
 	args: string[],
 	log: Logger = new ConsoleLogger(),
@@ -115,11 +79,13 @@ export async function fastCli(
 			target: { type: "string", multiple: true },
 			"skill-mode": { type: "string", default: "discovery" },
 			"codex-home": { type: "string" },
+			"codex-fixture-writes": { type: "boolean", default: false },
 			"reserve-tokens": { type: "string", default: "2000" },
 			"reserve-usd": { type: "string", default: "0.05" },
 			reps: { type: "string", default: "1" },
 			parallel: { type: "string", default: "1" },
 			baseline: { type: "string" },
+			paired: { type: "boolean", default: false },
 			"max-tokens": { type: "string" },
 			"max-usd": { type: "string" },
 			milliseconds: { type: "string" },
@@ -173,7 +139,11 @@ export async function fastCli(
 			(run) =>
 				selected(run.probe) && (!values.failed || run.result.status !== "pass"),
 		);
-		log.info(probeReport(runs));
+		log.info(
+			runs.some((run) => run.adapter.runtime.snapshot)
+				? pairedBatchReport(runs)
+				: probeReport(runs),
+		);
 		return;
 	}
 	const module = await loadModules(values.module ?? []);
@@ -219,6 +189,7 @@ export async function fastCli(
 	}
 	const skill = resolve(values.skill);
 	let baseline: string | undefined;
+	let change: SkillChange | undefined;
 	const hasAgents = module.probes.some(
 		(probe) => probe.execution.kind === "agent",
 	);
@@ -228,7 +199,7 @@ export async function fastCli(
 				"--allow-unmetered is forbidden for model execution: declared native controls and aggregate reservations are required",
 			);
 		}
-		const change = await skillChange(skill, values.baseline);
+		change = await skillChange(skill, values.baseline);
 		baseline = change.baseline;
 		log.info(
 			`Skill baseline ${baseline}; ${change.beforeHash} -> ${change.afterHash}; changed: ${change.files.join(", ") || "none"}`,
@@ -260,6 +231,38 @@ export async function fastCli(
 	log.info(
 		`Selected: ${module.probes.map((probe) => probe.id).join(", ")}; reps ${reps}; parallel ${parallel}; aggregate admission limits ${spending.tokens} tokens / USD ${(spending.microUsd / 1000000).toFixed(6)}`,
 	);
+	if (values.paired) {
+		if (!change || values.failed || values.module?.length) {
+			throw new Error(
+				"--paired requires changed agent instructions and forbids selective --failed reruns or custom --module seeds",
+			);
+		}
+		await pairedCli(
+			module,
+			change,
+			{
+				plan: command === "plan",
+				codexFixtureWrites: values["codex-fixture-writes"],
+				directory,
+				root,
+				targets: values.target ?? [],
+				mode,
+				codexHome: values["codex-home"]
+					? resolve(values["codex-home"])
+					: undefined,
+				reps,
+				parallel,
+				spending,
+				reservation,
+				cliHash: await treeHash(root, NOT_CLI),
+				harnessHash: await treeHash(import.meta.dir),
+				reproduction: ["bin/splates", "dev", "eval", ...args],
+			},
+			log,
+		);
+		return;
+	}
+
 	if (command === "plan") {
 		log.info(
 			"Plan only: no authentication/model execution. Native tokens are monitored; USD is monitored for Claude/OpenCode and unavailable for Codex. In-flight work may overshoot; billing is incomplete and reservations remain outstanding.",
@@ -274,6 +277,7 @@ export async function fastCli(
 	for (const value of values.target ?? []) {
 		const target = nativeTarget(value, {
 			source: skill,
+			codexFixtureWrites: values["codex-fixture-writes"],
 			mode,
 			allowance: reservation,
 			codexHome: values["codex-home"]
@@ -361,6 +365,7 @@ export async function fastCli(
 			String(reservation.tokens),
 			"--reserve-usd",
 			(reservation.microUsd / 1000000).toFixed(6),
+			...(values["codex-fixture-writes"] ? ["--codex-fixture-writes"] : []),
 			...(values["codex-home"]
 				? ["--codex-home", resolve(values["codex-home"])]
 				: []),
@@ -455,11 +460,13 @@ const HELP = `splates dev eval [fast|list|plan|report] [options]
   budgets [set <tokens/window|nothing>|reset] [--format json]  free shared token budget controls
   --target agent:model     native claude:MODEL, codex:MODEL, opencode:PROVIDER/MODEL (repeat)
   --skill-mode discovery|explicit  native skill loading (default discovery)
+  --codex-fixture-writes  opt in to validated isolated decision task/metadata writes
   --codex-home PATH        existing native auth/config in place; may write runtime metadata
   --reserve-tokens 2000 --reserve-usd 0.05  per-session reservation, not estimated price
   --parallel 1 --reps 1    bounded independent combinations
   --milliseconds N --turns N --tokens N   override each probe's bounds
   --baseline REV          required Git baseline for skill/reference change gate
+  --paired                both immutable snapshots, both families, one aggregate reservation; frozen decision probes only
   --max-tokens 4000 --max-usd 0.10  aggregate admission limits (configuration maxima 10000 / 0.25)
   --allow-unmetered        rejected for model execution
   --failed                 rerun compatible non-passing probes; report filters non-passes
