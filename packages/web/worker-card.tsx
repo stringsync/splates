@@ -17,6 +17,7 @@ export function WorkerCard({
 	onOpenKeys,
 	refusal,
 	onDrain,
+	onWake,
 	onSlots,
 	onRemove,
 }: {
@@ -30,6 +31,8 @@ export function WorkerCard({
 	onOpenKeys: () => void;
 	refusal: string | undefined;
 	onDrain: (draining: boolean) => void;
+	/** Wakes it, asleep at home. */
+	onWake: () => void;
 	onSlots: (slots: number) => void;
 	onRemove: (force: boolean) => void;
 }): JSX.Element {
@@ -107,6 +110,16 @@ export function WorkerCard({
 				<footer className="flex flex-wrap items-center gap-2 border-t px-4 py-2">
 					<SlotsField worker={worker} onSet={onSlots} />
 					<span className="flex-1" />
+					{worker.health === "asleep" && (
+						<Button
+							variant="outline"
+							size="sm"
+							title="Sends the packet that wakes it, from a worker on its network"
+							onClick={onWake}
+						>
+							Wake
+						</Button>
+					)}
 					{!worker.removing && (
 						<Button
 							variant="outline"

@@ -87,6 +87,7 @@ export function WorkersPage({
 								view.change(id, { draining }),
 							)
 						}
+						onWake={(id) => attempt(id, "Not woken", view.wake(id))}
 						onSlots={slots}
 						onRemove={(worker, force) =>
 							attempt(worker.id, "Not removed", view.remove(worker, force))
@@ -263,6 +264,7 @@ function Pool({
 	onOpenKeys,
 	refusals,
 	onDrain,
+	onWake,
 	onSlots,
 	onRemove,
 }: {
@@ -273,6 +275,7 @@ function Pool({
 	onOpenKeys: () => void;
 	refusals: ReadonlyMap<string, string>;
 	onDrain: (id: string, draining: boolean) => void;
+	onWake: (id: string) => void;
 	onSlots: (id: string, slots: number) => void;
 	onRemove: (worker: WorkerListing, force: boolean) => void;
 }): JSX.Element {
@@ -291,6 +294,7 @@ function Pool({
 						onOpenKeys={onOpenKeys}
 						refusal={refusals.get(worker.id)}
 						onDrain={(draining) => onDrain(worker.id, draining)}
+						onWake={() => onWake(worker.id)}
 						onSlots={(slots) => onSlots(worker.id, slots)}
 						onRemove={(force) => onRemove(worker, force)}
 					/>

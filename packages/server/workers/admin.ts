@@ -149,6 +149,19 @@ export async function drainWorker(
 	);
 }
 
+/** `splates worker wake <id>`: has an awake worker on its network send the packet that wakes it. */
+export async function wakeWorker(
+	opts: ServerCallOptions & { id: string },
+): Promise<void> {
+	await callServer(`/api/workers/${encodeURIComponent(opts.id)}/wake`, {
+		...opts,
+		method: "POST",
+	});
+	opts.log.info(
+		`woke ${opts.id}: it takes agents once it joins, and placement stops counting on it after two minutes`,
+	);
+}
+
 /** `splates worker slots <id> <n>`: how many agents it runs at once, from now on. */
 export async function setWorkerSlots(
 	opts: ServerCallOptions & { id: string; slots: number },

@@ -258,7 +258,7 @@ export interface SetupWorkerBudget {
 /** A worker as a step reads it, from `GET /api/workers`. */
 export type SetupWorker = Pick<
 	WorkerListing,
-	"id" | "kind" | "draining" | "removing" | "host"
+	"id" | "kind" | "draining" | "removing" | "host" | "wokenAt"
 >;
 
 /** What a step that sets up a repository reads of its project, afresh each time. */

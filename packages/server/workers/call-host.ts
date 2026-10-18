@@ -3,52 +3,11 @@ import { z } from "zod";
 import type { WorkerChannel } from "./channel";
 import { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine } from "./machine";
+import { type WakeSender, WakeTarget } from "./magic-packet";
 import type { Json } from "./protocol";
 
 /** The capability of a worker that answers `servers` (protocol 1.2). */
 export const SERVERS = "servers";
-
-/** A question a coordinator asks on a `calls` channel, answered by its id. */
-export const CallRequest = z.discriminatedUnion("method", [
-	z.object({
-		id: z.number().int(),
-		method: z.literal("git"),
-		cwd: z.string(),
-		args: z.array(z.string()),
-		env: z.record(z.string(), z.string()).optional(),
-	}),
-	z.object({ id: z.number().int(), method: z.literal("processes") }),
-	z.object({ id: z.number().int(), method: z.literal("listening") }),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("exists"),
-		path: z.string(),
-	}),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("read"),
-		path: z.string(),
-		from: z.number().int().nonnegative(),
-	}),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("checkout"),
-		request: ProjectCheckout,
-	}),
-	z.object({
-		id: z.number().int(),
-		method: z.literal("removeCheckout"),
-		path: z.string(),
-	}),
-	z.object({ id: z.number().int(), method: z.literal("servers") }),
-]);
-export type CallRequest = z.infer<typeof CallRequest>;
-
-/** How a worker answers: `{ id, result }`, or `{ id, error }` saying what went wrong. */
-export const CallAnswer = z.union([
-	z.object({ id: z.number().int(), result: z.unknown() }),
-	z.object({ id: z.number().int(), error: z.string() }),
-]);
 
 /**
  * Answers a coordinator's calls on the machine a task runs on, each request
@@ -61,6 +20,8 @@ export class WorkerCallHost implements Resource {
 	constructor(
 		private readonly channel: WorkerChannel,
 		private readonly machine: WorkerMachine,
+		/** What sends a magic packet for `wake`; none, refusing it, by default. */
+		private readonly waker: WakeSender | null = null,
 	) {
 		this.unlisten = channel.events.on(
 			"message",
@@ -120,6 +81,14 @@ export class WorkerCallHost implements Resource {
 				return null;
 			case "servers":
 				return (await this.machine.servers()) as unknown as Json;
+			case "wake": {
+				if (this.waker === null) {
+					throw new Error("this worker sends no Wake-on-LAN packet");
+				}
+				const target = WakeTarget.parse(request);
+				await this.waker.send(target);
+				return null;
+			}
 		}
 	}
 
@@ -131,3 +100,51 @@ export class WorkerCallHost implements Resource {
 		}
 	}
 }
+
+/** A question a coordinator asks on a `calls` channel, answered by its id. */
+export const CallRequest = z.discriminatedUnion("method", [
+	z.object({
+		id: z.number().int(),
+		method: z.literal("git"),
+		cwd: z.string(),
+		args: z.array(z.string()),
+		env: z.record(z.string(), z.string()).optional(),
+	}),
+	z.object({ id: z.number().int(), method: z.literal("processes") }),
+	z.object({ id: z.number().int(), method: z.literal("listening") }),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("exists"),
+		path: z.string(),
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("read"),
+		path: z.string(),
+		from: z.number().int().nonnegative(),
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("checkout"),
+		request: ProjectCheckout,
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("removeCheckout"),
+		path: z.string(),
+	}),
+	z.object({ id: z.number().int(), method: z.literal("servers") }),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("wake"),
+		mac: z.string(),
+		broadcast: z.string(),
+	}),
+]);
+export type CallRequest = z.infer<typeof CallRequest>;
+
+/** How a worker answers: `{ id, result }`, or `{ id, error }` saying what went wrong. */
+export const CallAnswer = z.union([
+	z.object({ id: z.number().int(), result: z.unknown() }),
+	z.object({ id: z.number().int(), error: z.string() }),
+]);

@@ -208,6 +208,28 @@ describe("App's workers", () => {
 		await act(async () => testing.release());
 	});
 
+	it("wakes a worker asleep at home, showing it waking at once", async () => {
+		const view = await openWorkers(
+			pool([worker("pc", { health: "asleep", host: "wsl2" }), worker("box")]),
+		);
+		const pc = view.getByRole("listitem", { name: "worker pc" });
+		const box = view.getByRole("listitem", { name: "worker box" });
+		testing.holdWrites();
+
+		expect(within(box).queryByRole("button", { name: "Wake" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(pc).getByRole("button", { name: "Wake" })),
+		);
+
+		expect(pc.textContent).toContain("waking");
+		expect(within(pc).queryByRole("button", { name: "Wake" })).toBeNull();
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/workers/pc/wake",
+			method: "POST",
+		});
+		await act(async () => testing.release());
+	});
+
 	it("names the keys each worker holds, and links an empty cell to the Creds page", async () => {
 		testing.workerKeys = {
 			keys: [],
@@ -306,6 +328,7 @@ function worker(
 		removing: false,
 		updating: false,
 		lastHeard: null,
+		wokenAt: null,
 		tasks: [],
 		dollarsPerHour: 0,
 		keys: [],

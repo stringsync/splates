@@ -8,6 +8,7 @@ import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import {
 	type Platform,
+	type Pool,
 	type PoolWorker,
 	platformOf,
 	type QueueEntry,
@@ -31,6 +32,8 @@ export const LOCAL_SLOTS = 16;
  */
 export class WorkerSlots implements Resource {
 	readonly scheduler: Scheduler;
+	/** The workers placement sees, asleep ones among them. */
+	readonly pool: Pool;
 	private readonly unlisten: () => void;
 
 	constructor(
@@ -42,6 +45,7 @@ export class WorkerSlots implements Resource {
 			pooled = () => true,
 			holds = () => true,
 			build = RUNNING,
+			waking = () => false,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
@@ -54,19 +58,20 @@ export class WorkerSlots implements Resource {
 			holds?: (worker: KeyedWorker, agent: string) => boolean;
 			/** The build the coordinator runs, which a worker on another waits to be updated to. */
 			build?: string;
+			/** Whether worker `id` was woken and has yet to join; none is, unless said. */
+			waking?: (id: string) => boolean;
 		},
 	) {
-		this.scheduler = new Scheduler(
-			{
-				workers: () =>
-					registry.workers
-						.filter((worker) => pooled(worker.id))
-						.map((worker) =>
-							poolWorker(worker, platform, build, record(worker.id), holds),
-						),
-			},
-			wall,
-		);
+		this.pool = {
+			workers: () =>
+				registry.workers
+					.filter((worker) => pooled(worker.id))
+					.map((worker) => ({
+						...poolWorker(worker, platform, build, record(worker.id), holds),
+						...(waking(worker.id) ? { waking: true } : {}),
+					})),
+		};
+		this.scheduler = new Scheduler(this.pool, wall);
 		this.unlisten = registry.events.on("joined", () => this.scheduler.poke());
 	}
 
@@ -164,7 +169,25 @@ export function slotsOf(
 ): number {
 	return (
 		record?.slots ??
-		(typeof worker.info.slots === "number" ? worker.info.slots : DEFAULT_SLOTS)
+		(typeof worker.info.slots === "number"
+			? worker.info.slots
+			: (record?.wake?.slots ?? DEFAULT_SLOTS))
+	);
+}
+
+/**
+ * Whether `worker` sleeps rather than is gone: one that joined by hand,
+ * said how to wake it, and is away, unless it drains.
+ */
+export function sleeps(
+	worker: RemoteWorker,
+	record: WorkerRecord | undefined,
+): boolean {
+	return (
+		worker.kind === "registered" &&
+		!worker.connected &&
+		record?.wake != null &&
+		record.draining !== true
 	);
 }
 
@@ -186,18 +209,25 @@ function poolWorker(
 ): PoolWorker {
 	const { info, kind } = worker;
 	const local = kind === "local";
+	const asleep = sleeps(worker, record);
 	const platform =
-		typeof info.platform === "string" ? info.platform : local ? machine : null;
+		typeof info.platform === "string"
+			? info.platform
+			: local
+				? machine
+				: (record?.wake?.platform ?? null);
 	return {
 		id: worker.id,
 		kind,
 		slots: slotsOf(worker, record),
 		platform: platform === null ? null : platformOf(platform),
 		awake: (local || worker.connected) && record?.draining !== true,
+		...(asleep ? { asleep } : {}),
 		draining: record?.draining === true,
 		outdated: typeof info.build === "string" && info.build !== build,
 		replacing: record?.updating === true,
-		checkouts: local || info.checkouts === true,
+		// One that may sleep is one `splates worker run` runs, which clones its own.
+		checkouts: local || info.checkouts === true || asleep,
 		runs: (agent) =>
 			local ||
 			holds({ id: worker.id, type: record?.provisioned?.type ?? null }, agent),

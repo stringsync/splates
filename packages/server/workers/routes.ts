@@ -25,6 +25,8 @@ import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
 import type { Snapshots } from "./snapshot";
 import { UnixWorkerListener } from "./unix-listener";
+import { WakeRelay } from "./wake-relay";
+import type { WorkerWaking } from "./waking";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
@@ -77,6 +79,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly provisioning: WorkerProvisioning | null;
 	/** What brings every worker to this server's build, one at a time. */
 	readonly rollout: WorkerRollout;
+	/** What wakes sleeping workers for the queue, before any is made. */
+	readonly waking: WorkerWaking;
+	private readonly wakes: WakeRelay;
 	private listener: UnixWorkerListener | null = null;
 	private readonly access: WorkerAccess | null;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
@@ -120,11 +125,19 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			platform,
 			record: (id) => records.of(id),
 			pooled: (id) => this.pooled(id),
+			waking: (id) => this.waking.waking(id),
 			...(keys === null
 				? {}
 				: { holds: (worker, agent) => keys.holds(worker, agent) }),
 		});
 		this.slots.scheduler.events.on("changed", () => void this.removeIdle());
+		this.wakes = new WakeRelay(this.registry, records, {
+			pool: this.slots.pool,
+			log,
+		});
+		this.waking = this.wakes.waking;
+		// Before provisioning watches, so a wake is counted before a worker is made.
+		this.waking.watch(this.slots.scheduler);
 		this.provisioning =
 			provider === undefined
 				? null
@@ -136,11 +149,13 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						...(keys === null
 							? {}
 							: { holds: (type, agent) => keys.typeHolds(type, agent) }),
+						waking: () => this.waking.seats(),
 						log,
 						stop: (ids) => this.stopMade(ids),
 						retire: (ids) => this.retireMade(ids),
 					});
 		this.provisioning?.watch(this.slots.scheduler);
+		this.waking.events.on("missed", () => void this.provisioning?.refill());
 		this.rollout = new WorkerRollout({
 			registry: this.registry,
 			records,
@@ -154,6 +169,27 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		});
 		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
 	}
+
+	/**
+	 * `POST /api/workers/:id/wake`: wakes worker `id`, asleep, answering
+	 * the workers once its packet is sent.
+	 */
+	readonly wake = async (request: Request): Promise<Response> => {
+		const id = workerId(request);
+		if (this.registry.worker(id) === undefined || !this.pooled(id)) {
+			return refuse(404, "not_found", `no worker ${id}`);
+		}
+		try {
+			await this.waking.wake(id);
+		} catch (error) {
+			return refuse(
+				409,
+				"not_woken",
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+		return this.list();
+	};
 
 	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
 	private pooled(id: string): boolean {
@@ -262,6 +298,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				(id) => this.records.of(id),
 				(id) => this.pooled(id),
 				(worker) => this.keys?.of(worker) ?? [],
+				(id) => this.waking.waking(id),
 			),
 			build: RUNNING,
 			rollout: this.rollout.standing(),
@@ -565,7 +602,10 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			handle: (request: Request) => Promise<Response>,
 		) => (request: Request) => Promise<Response>,
 	): Promise<Response> => {
-		const [, , , what] = new URL(request.url).pathname.split("/");
+		const [, , , what, action] = new URL(request.url).pathname.split("/");
+		if (action === "wake" && request.method === "POST") {
+			return guard(this.wake)(request);
+		}
 		if (what === "keys") {
 			return guard(this.keyRoutes.handle)(request);
 		}
@@ -589,6 +629,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 
 	async disposeAsync(): Promise<void> {
 		this.rollout.dispose();
+		this.wakes.dispose();
 		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();

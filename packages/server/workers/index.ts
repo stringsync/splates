@@ -1,6 +1,12 @@
 export type { ServiceToken, WorkerAccess } from "./access";
 export { joinAccess } from "./access";
-export { addWorker, drainWorker, removeWorker, setWorkerSlots } from "./admin";
+export {
+	addWorker,
+	drainWorker,
+	removeWorker,
+	setWorkerSlots,
+	wakeWorker,
+} from "./admin";
 export type {
 	AlertTier,
 	BudgetHeld,

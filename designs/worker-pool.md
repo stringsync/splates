@@ -274,11 +274,19 @@ memory-only store, the proxy and the undumpable helper belong to
   `~/.splates/worker.env` in the distro, `0600`. Slots default to the fewer
   of its cores and 4 GB slices of its memory, the heavy-job cap to one each
   8 cores. While it runs an agent or a terminal, the worker holds Windows
-  awake through `powershell.exe` and `SetThreadExecutionState`. They may sleep when idle;
-  the coordinator marks them asleep, not gone, and wakes one with a
-  Wake-on-LAN packet sent from the Mac or any awake worker on that network
-  when the queue needs it. They are extra capacity at $0/hour, never the
-  only capacity (#302, #303).
+  awake through `powershell.exe` and `SetThreadExecutionState`; idle, its
+  power plan lets it sleep. Its hello says what waking it takes, read on the
+  Windows side (WSL2 sees only a NAT'd adapter): the MAC of the adapter with
+  the default gateway and its network's broadcast address. The coordinator
+  keeps that on its record, so a restart can wake it while it sleeps, and
+  lists it `asleep` rather than `away` while it is gone. The coordinator
+  never sends a packet itself: it asks a worker awake on the same network
+  (same broadcast address) over the `calls` channel (capability `wake`,
+  protocol 1.4), the Mac's own first, so a cloud coordinator wakes it the
+  same way, and none awake there means it is not woken. A worker under WSL
+  sends from Windows through `powershell.exe`. `splates worker wake <id>`
+  and a Wake button do it by hand. They are extra capacity at $0/hour,
+  never the only capacity (#302, #303).
 
 ## Scheduler, queue and budget
 
@@ -286,8 +294,13 @@ memory-only store, the proxy and the undumpable helper belong to
   registered one, then one already provisioned), then waking a sleeping
   registered worker, then a newly provisioned one if the budget allows;
   otherwise the task queues, visibly, with its position, wait and reason.
-  A wake that has not checked in within a time limit falls through to
-  provisioning, so a home machine never holds the queue up. First come,
+  `WorkerWaking` watches the queue as provisioning does, waking sleeping
+  workers that could run what waits while it outnumbers the slots on their
+  way, and provisioning counts a woken worker's slots as coming. A wake
+  that has not joined within two minutes (`WAKE_WITHIN`), or that no worker
+  could send, falls through to provisioning at once, and that worker is not
+  woken for the queue again until it joins on its own, so a home machine
+  never holds the queue up. First come,
   first served, and the user can reorder the queue.
 - Slots cap the agents other agents start (*settled*): those `splates add
   --agent` or a lane's orchestrator hand out. An agent the person starts

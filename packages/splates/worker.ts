@@ -5,6 +5,7 @@ import {
 	listWorkers,
 	removeWorker,
 	setWorkerSlots,
+	wakeWorker,
 	workerJoin,
 	workerRecipe,
 	workerRun,
@@ -189,6 +190,25 @@ splatesWorker
 		drainWorker({
 			id: opts.id,
 			undo: opts.undo,
+			dev: opts.dev,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
+
+splatesWorker
+	.command("wake")
+	.description(
+		"wake a worker asleep at home, a Windows PC that joined in WSL2: a worker awake on its network sends the Wake-on-LAN packet. Placement wakes one by itself when agents queue, before making a worker",
+	)
+	.arg("id", z.string(), {
+		description: "the worker, as `splates worker list` names it",
+	})
+	.option("dev", z.string(), dev)
+	.action((opts, ctx) =>
+		wakeWorker({
+			id: opts.id,
 			dev: opts.dev,
 			log: ctx.log,
 			ps: ctx.ps,

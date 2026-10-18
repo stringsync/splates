@@ -7,39 +7,6 @@ import { joinToken, type ServiceToken } from "./access";
 /** How long a join token lets a machine join, once. */
 export const JOIN_WITHIN = Duration.mins(15);
 
-const Record = z.object({
-	id: z.string(),
-	/** The sha256 of the key it joined with; null for the local worker, which joins over its socket. */
-	key: z.string().nullable(),
-	/** When it joined; null for the local worker. */
-	joinedAt: z.string().nullable(),
-	/** How many agents it runs at once, over what its hello says; null to go by its hello. */
-	slots: z.number().int().min(1).nullable(),
-	/** Takes no new agents while true. */
-	draining: z.boolean(),
-	/** Is removed once its last agent ends. */
-	removing: z.boolean(),
-	/**
-	 * Drains to be replaced by one on the coordinator's build, a rollout's
-	 * one at a time: its agents move off at their next pause.
-	 */
-	updating: z.boolean().default(false),
-	/** What its provider made it as, for one splates made; null for one that joined by hand. */
-	provisioned: z
-		.object({
-			type: z.string(),
-			dollarsPerHour: z.number(),
-			/** How its type is billed; by the second for a record from before this was kept. */
-			billing: z.enum(["hour", "second"]).default("second"),
-			/** When its machine was asked for, epoch milliseconds; null for a record from before this was kept. */
-			createdAt: z.number().nullable().default(null),
-		})
-		.nullable()
-		.default(null),
-	/** The id of the Cloudflare Access service token it passes Access with; null for none. */
-	access: z.string().nullable().default(null),
-});
-
 /** What the coordinator keeps of one worker across restarts. */
 export type WorkerRecord = z.output<typeof Record>;
 
@@ -47,7 +14,13 @@ export type WorkerRecord = z.output<typeof Record>;
 export type WorkerSettings = Partial<
 	Pick<
 		WorkerRecord,
-		"slots" | "draining" | "removing" | "updating" | "provisioned"
+		| "slots"
+		| "draining"
+		| "removing"
+		| "updating"
+		| "provisioned"
+		| "wake"
+		| "wokenAt"
 	>
 >;
 
@@ -180,6 +153,8 @@ export class WorkerRecords {
 			updating: false,
 			provisioned: was?.provisioned ?? null,
 			access: spent.access,
+			wake: was?.wake ?? null,
+			wokenAt: was?.wokenAt ?? null,
 		};
 		await this.change((kept) => ({
 			...kept,
@@ -208,6 +183,8 @@ export class WorkerRecords {
 				updating: false,
 				provisioned: null,
 				access: null,
+				wake: null,
+				wokenAt: null,
 			}),
 			...settings,
 		};
@@ -261,6 +238,56 @@ export class WorkerRecords {
 		return this.writing;
 	}
 }
+
+const Record = z.object({
+	id: z.string(),
+	/** The sha256 of the key it joined with; null for the local worker, which joins over its socket. */
+	key: z.string().nullable(),
+	/** When it joined; null for the local worker. */
+	joinedAt: z.string().nullable(),
+	/** How many agents it runs at once, over what its hello says; null to go by its hello. */
+	slots: z.number().int().min(1).nullable(),
+	/** Takes no new agents while true. */
+	draining: z.boolean(),
+	/** Is removed once its last agent ends. */
+	removing: z.boolean(),
+	/**
+	 * Drains to be replaced by one on the coordinator's build, a rollout's
+	 * one at a time: its agents move off at their next pause.
+	 */
+	updating: z.boolean().default(false),
+	/** What its provider made it as, for one splates made; null for one that joined by hand. */
+	provisioned: z
+		.object({
+			type: z.string(),
+			dollarsPerHour: z.number(),
+			/** How its type is billed; by the second for a record from before this was kept. */
+			billing: z.enum(["hour", "second"]).default("second"),
+			/** When its machine was asked for, epoch milliseconds; null for a record from before this was kept. */
+			createdAt: z.number().nullable().default(null),
+		})
+		.nullable()
+		.default(null),
+	/** The id of the Cloudflare Access service token it passes Access with; null for none. */
+	access: z.string().nullable().default(null),
+	/**
+	 * What waking it takes, for one that may sleep, as its last hello said,
+	 * with the platform and slots it said beside it: kept so that it can be
+	 * woken, and the queue known to fit it, while it sleeps through a
+	 * restart. Null for one that never sleeps.
+	 */
+	wake: z
+		.object({
+			mac: z.string(),
+			broadcast: z.string(),
+			platform: z.string().nullable(),
+			slots: z.number().int().min(1).nullable(),
+		})
+		.nullable()
+		.default(null),
+	/** When it last joined after it was woken, epoch milliseconds, so Wake-on-LAN works for it; null before. */
+	wokenAt: z.number().nullable().default(null),
+});
 
 const Kept = z.object({
 	workers: z.array(Record).default([]),

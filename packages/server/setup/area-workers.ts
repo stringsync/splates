@@ -159,6 +159,23 @@ function workersArea(): SetupArea {
 			"No Windows machine has joined yet: run the Windows join command on it in PowerShell as an administrator, then press Next.",
 	};
 
+	const wakeStep: SetupStep = {
+		id: "wake-on-lan",
+		title: "Let a Windows worker sleep, and wake it over the network",
+		why: "A Windows worker lets the PC sleep when it runs nothing, and splates wakes it with a Wake-on-LAN packet when agents queue, before it makes a worker in the cloud. A PC that does not wake within two minutes never holds the queue up: splates makes one instead. The packet comes from a worker awake on the same network, such as this Mac's.",
+		user: "Turn Wake-on-LAN on in the PC's BIOS or UEFI (often under Power Management, as Wake on LAN or Power On by PCI-E), and in Windows: Device Manager → Network adapters → the wired adapter → Properties, on Power Management tick Allow this device to wake the computer and Only allow a magic packet, and on Advanced set Wake on Magic Packet to Enabled. Wi-Fi rarely wakes a PC: use a cable. Then put the PC to sleep, press Wake on its card on the Workers page, and press Next once it shows connected.",
+		agent:
+			"Walk the user through turning Wake-on-LAN on: in the BIOS or UEFI, and in Windows' Device Manager for the wired adapter (Power Management: Allow this device to wake the computer, Only allow a magic packet; Advanced: Wake on Magic Packet, Enabled). Fast Startup can keep some adapters from waking a PC shut down, though not one asleep. Check `splates worker list` shows the PC; once the user has put it to sleep and it shows `asleep`, run `splates worker wake <id>` and check it shows `connected` within two minutes. A worker awake on the PC's network, such as this Mac's own, sends the packet: when none is, the wake fails saying so.",
+		optional: true,
+		after: [windowsStep],
+		check: async (machine) =>
+			(await pool(machine)).some(
+				(worker) => worker.host === "wsl2" && worker.wokenAt !== null,
+			),
+		notDone:
+			"No Windows worker has been woken yet: put the PC to sleep, press Wake on its card on the Workers page, and press Next once it shows connected.",
+	};
+
 	const budgetStep: SetupStep = {
 		id: "worker-budget",
 		title: "Choose what made workers may cost",
@@ -347,6 +364,7 @@ function workersArea(): SetupArea {
 			permissionStep,
 			remoteStep,
 			windowsStep,
+			wakeStep,
 			...WORKER_KEY_STEPS,
 			installStep,
 			stateStep,

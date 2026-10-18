@@ -11,6 +11,7 @@ import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { UnixWorkerListener } from "./unix-listener";
 import { UnixWorkerSocket } from "./unix-socket";
+import type { WakeTarget } from "./wake";
 
 describe("WorkerDaemon", () => {
 	let dir: string;
@@ -19,10 +20,12 @@ describe("WorkerDaemon", () => {
 	let daemon: WorkerDaemon;
 	let worker: RemoteWorker;
 	let holds: boolean[];
+	let woke: WakeTarget[];
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-worker-"));
 		holds = [];
+		woke = [];
 		const path = join(dir, "worker.sock");
 		registry = new WorkerRegistry(new MemoryLogger());
 		listener = await UnixWorkerListener.listen(path, new NodeFs());
@@ -42,6 +45,15 @@ describe("WorkerDaemon", () => {
 				session: { bufferBytes: 64 * 1024 },
 				orphanBound: Duration.secs(2),
 				servers: { servers: async () => [BROWSER] },
+				network: {
+					broadcasts: ["192.168.1.255"],
+					wake: { mac: "aa:bb:cc:dd:ee:01", broadcast: "192.168.1.255" },
+				},
+				waker: {
+					send: async (target) => {
+						woke.push(target);
+					},
+				},
 				awake: {
 					hold: () => {
 						const at = holds.push(true) - 1;
@@ -73,6 +85,22 @@ describe("WorkerDaemon", () => {
 			checkouts: true,
 		});
 		expect(worker.connected).toBe(true);
+	});
+
+	it("says where it can wake others, and what waking it takes", () => {
+		expect(worker.info).toMatchObject({
+			broadcasts: ["192.168.1.255"],
+			wake: { mac: "aa:bb:cc:dd:ee:01", broadcast: "192.168.1.255" },
+		});
+	});
+
+	it("sends a magic packet when the coordinator asks", async () => {
+		const target = { mac: "aa:bb:cc:dd:ee:02", broadcast: "192.168.1.255" };
+
+		expect(worker.wakes).toBe(true);
+		await worker.wake(target);
+
+		expect(woke).toEqual([target]);
 	});
 
 	it("stops, ending what it runs, once the coordinator asks it to restart on its build", async () => {

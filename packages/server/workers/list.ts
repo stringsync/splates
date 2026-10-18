@@ -14,7 +14,7 @@ import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
 import type { RolloutStanding } from "./rollout";
-import { slotsOf } from "./slots";
+import { sleeps, slotsOf } from "./slots";
 
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
 export interface WorkerListing {
@@ -27,8 +27,11 @@ export interface WorkerListing {
 	/** What its link settled on; null before any handshake. */
 	protocol: string | null;
 	slots: { used: number; total: number | null };
-	/** `connected` while the link is up, else `away`. */
-	health: "connected" | "away";
+	/**
+	 * `connected` while the link is up; `asleep` for one at home that sleeps
+	 * and can be woken, `waking` once it is, until it joins; else `away`.
+	 */
+	health: "connected" | "away" | "asleep" | "waking";
 	/** Takes no new agents, by `splates worker drain` or a removal waiting on its agents. */
 	draining: boolean;
 	/** Is removed once its last agent ends. */
@@ -37,6 +40,8 @@ export interface WorkerListing {
 	updating: boolean;
 	/** When anything last came from it, epoch milliseconds; null before the first. */
 	lastHeard: number | null;
+	/** When it last joined after it was woken over the network, epoch milliseconds; null before. */
+	wokenAt: number | null;
 	/** The tasks its agents run, a conversation's id for one in no task. */
 	tasks: string[];
 	dollarsPerHour: number;
@@ -72,6 +77,7 @@ export function workerList(
 	record: (id: string) => WorkerRecord | undefined = () => undefined,
 	pooled: (id: string) => boolean = () => true,
 	keys: (worker: KeyedWorker) => WorkerKey[] = () => [],
+	waking: (id: string) => boolean = () => false,
 ): WorkerListings {
 	return {
 		workers: registry.workers
@@ -83,7 +89,7 @@ export function workerList(
 					type: kept?.provisioned?.type ?? null,
 				});
 				return {
-					...listing(worker, placed.get(worker.id) ?? [], kept),
+					...listing(worker, placed.get(worker.id) ?? [], kept, waking),
 					keys: held.map((each) => each.provider),
 				};
 			}),
@@ -95,28 +101,41 @@ function listing(
 	worker: RemoteWorker,
 	tasks: string[],
 	record: WorkerRecord | undefined,
+	waking: (id: string) => boolean,
 ): Omit<WorkerListing, "keys"> {
 	const { info, session } = worker;
 	const negotiated = session.negotiated;
 	return {
 		id: worker.id,
 		kind: worker.kind,
-		platform: typeof info.platform === "string" ? info.platform : null,
+		platform:
+			typeof info.platform === "string"
+				? info.platform
+				: (record?.wake?.platform ?? null),
 		host: typeof info.host === "string" ? info.host : null,
 		build: typeof info.build === "string" ? info.build : null,
 		protocol: negotiated?.ok ? negotiated.protocol : null,
 		slots: {
 			used: tasks.length,
 			total:
-				record?.slots != null || typeof info.slots === "number"
+				record?.slots != null ||
+				typeof info.slots === "number" ||
+				record?.wake?.slots != null
 					? slotsOf(worker, record)
 					: null,
 		},
-		health: worker.connected ? "connected" : "away",
+		health: worker.connected
+			? "connected"
+			: waking(worker.id)
+				? "waking"
+				: sleeps(worker, record)
+					? "asleep"
+					: "away",
 		draining: record?.draining === true,
 		removing: record?.removing === true,
 		updating: record?.updating === true,
 		lastHeard: session.lastHeard,
+		wokenAt: record?.wokenAt ?? null,
 		tasks,
 		dollarsPerHour: record?.provisioned?.dollarsPerHour ?? 0,
 	};
@@ -132,11 +151,12 @@ const Listings = z.object({
 			build: z.string().nullable(),
 			protocol: z.string().nullable(),
 			slots: z.object({ used: z.number(), total: z.number().nullable() }),
-			health: z.enum(["connected", "away"]),
+			health: z.enum(["connected", "away", "asleep", "waking"]),
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
 			updating: z.boolean().default(false),
 			lastHeard: z.number().nullable(),
+			wokenAt: z.number().nullable().default(null),
 			tasks: z.array(z.string()),
 			dollarsPerHour: z.number(),
 			keys: z.array(z.string()).default([]),

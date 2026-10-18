@@ -397,7 +397,9 @@ for one that may not) and `remote-worker` (`splates worker add`, then `splates
 worker run --coordinator <url> --join <token>` on the other machine),
 `windows-worker` (the Windows command `splates worker add` prints, run in
 PowerShell as an administrator there: the worker in a WSL2 distro of its own,
-started at each boot, shown as `linux (wsl2)`). Workers
+started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
+on in its BIOS and adapter, so splates wakes it when agents queue, before
+making a worker; `splates worker wake <id>` wakes one by hand). Workers
 in their own cloud account start with `pulumi-install` (Pulumi under
 `~/.splates/pulumi`) and `pulumi-state` (its state there, encrypted by the
 device cred `PULUMI_CONFIG_PASSPHRASE`, never shown or replaced), then

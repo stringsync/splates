@@ -164,5 +164,19 @@ Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Settin
 	-Principal $runAs -Description "Runs the splates worker in WSL2 for $Coordinator." -Force | Out-Null
 Start-ScheduledTask -TaskName $Task
 
+# 7. Let a magic packet wake it, so the coordinator wakes it when agents
+# queue, on the adapter the worker says waking it takes (the one with a
+# default gateway). The BIOS must allow it too, which no script can set.
+$nic = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).NetAdapter
+if ($nic) {
+	try {
+		Set-NetAdapterPowerManagement -Name $nic.Name -WakeOnMagicPacket Enabled -ErrorAction Stop
+		powercfg /deviceenablewake "$($nic.InterfaceDescription)" | Out-Null
+		Say "Wake-on-LAN is on for $($nic.Name); turn it on in the BIOS too, if it is not"
+	} catch {
+		Write-Warning "could not turn Wake-on-LAN on for $($nic.Name): $_. Turn it on in Device Manager, or this PC stays asleep when agents queue"
+	}
+}
+
 Say "done: $Id runs as the task `"$Task`", at each boot, and shows in ``splates worker list``."
-Say 'Windows stays awake while it runs an agent; idle, its own power plan decides.'
+Say 'Windows stays awake while it runs an agent; idle, its own power plan decides, and splates wakes it over the network when agents queue.'

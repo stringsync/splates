@@ -10,6 +10,7 @@ import {
 	removeWorker,
 	updateWorker,
 	type WorkerChange,
+	wakeWorker,
 	workerPool,
 } from "./api";
 import { localTurned, turnLocalWorker } from "./local-worker";
@@ -87,6 +88,15 @@ export class WorkerPoolView implements Eventful<WorkerPoolViewEvents> {
 		return this.write(
 			(pool) => changed(pool, id, (worker) => set(worker, change)),
 			updateWorker(id, change),
+		);
+	}
+
+	/** Wakes worker `id`, asleep at home, showing it waking at once. */
+	wake(id: string): Promise<void> {
+		return this.write(
+			(pool) =>
+				changed(pool, id, (worker) => ({ ...worker, health: "waking" })),
+			wakeWorker(id),
 		);
 	}
 

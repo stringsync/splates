@@ -23,6 +23,7 @@ import { KeyFileStore } from "./key-file";
 import { hostOf, machineSlots, onWindowsDrive } from "./machine";
 import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
+import { networkOf, wakeSenderOf } from "./wake";
 import { WebSocketWorkerSocket } from "./websocket-socket";
 
 /** Where `--key-file` keeps a worker's key. */
@@ -119,9 +120,9 @@ export interface WorkerRunOptions {
 }
 
 /**
- * Set in the environment of a worker that another `splates worker run`
- * keeps; told to update, it leaves the build in `updateFile` and exits
- * `UPDATE_EXIT`, for the one keeping it to start the next.
+ * Set for a worker another `splates worker run` keeps running: told to
+ * update, it hands the build over in `updateFile` and exits `UPDATE_EXIT`,
+ * and the one keeping it starts it again on that build.
  */
 // So each update starts one worker in place of the last, never nesting.
 export const WORKER_KEPT = "SPLATES_WORKER_KEPT";
@@ -175,6 +176,8 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		relayAt: relayFile(splatesHome(ps)),
 		servers: browser,
 		awake: keepAwakeOf(ps, log),
+		network: await networkOf(ps, log),
+		waker: wakeSenderOf(ps),
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),

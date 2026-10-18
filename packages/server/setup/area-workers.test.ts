@@ -14,6 +14,7 @@ const LOCAL: SetupWorker = {
 	draining: false,
 	removing: false,
 	host: null,
+	wokenAt: null,
 };
 
 describe("WORKERS_AREA", () => {
@@ -79,6 +80,20 @@ describe("WORKERS_AREA", () => {
 
 		listed = [LOCAL, { ...LOCAL, id: "pc", kind: "registered", host: "wsl2" }];
 		expect((await steps())["windows-worker"]?.status).toBe("done");
+	});
+
+	it("is done for Wake-on-LAN once a Windows worker has joined after being woken", async () => {
+		const pc = {
+			...LOCAL,
+			id: "pc",
+			kind: "registered" as const,
+			host: "wsl2",
+		};
+		listed = [LOCAL, pc];
+		expect((await steps())["wake-on-lan"]?.status).toBe("ready");
+
+		listed = [LOCAL, { ...pc, wokenAt: 1 }];
+		expect((await steps())["wake-on-lan"]?.status).toBe("done");
 	});
 
 	it("says there is no server to ask when none can be", async () => {

@@ -8,6 +8,7 @@ import { CallAnswer, type CallRequest, SERVERS } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine, WorkerRead } from "./machine";
+import { WAKE, type WakeTarget } from "./magic-packet";
 import type { Json } from "./protocol";
 import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
@@ -183,6 +184,17 @@ export class RemoteWorker implements WorkerMachine {
 			return [];
 		}
 		return ServersAnswer.parse(await this.call({ method: "servers" }));
+	}
+
+	/** Whether it sends a magic packet when asked: a worker on 1.4 on. */
+	get wakes(): boolean {
+		const { negotiated } = this.session;
+		return negotiated?.ok === true && negotiated.capabilities.includes(WAKE);
+	}
+
+	/** Has it send the magic packet that wakes `target`, from its network. */
+	async wake(target: WakeTarget): Promise<void> {
+		await this.call({ method: "wake", ...target });
 	}
 
 	private call(request: Call): Promise<unknown> {

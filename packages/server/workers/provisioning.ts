@@ -385,10 +385,10 @@ export class WorkerProvisioning
 			}
 		}
 		const waiting = scheduler.queue();
-		const seats = [...this.coming.values()].reduce(
-			(sum, slots) => sum + slots,
-			0,
-		);
+		// A sleeping worker woken for the queue seats it before any is made.
+		const seats =
+			[...this.coming.values()].reduce((sum, slots) => sum + slots, 0) +
+			(this.opts.waking?.() ?? 0);
 		if (waiting.length <= seats) {
 			scheduler.withhold(null);
 			this.offering = null;
@@ -484,6 +484,8 @@ export interface WorkerProvisioningOptions {
 	retire?: (ids: string[]) => Promise<void>;
 	/** Whether workers of `type` hold the key `agent` runs on; all do, unless said. */
 	holds?: (type: string, agent: string) => boolean;
+	/** The slots of sleeping workers woken for the queue that have yet to join; none, unless said. */
+	waking?: () => number;
 	log: Logger;
 	wall?: WallClock;
 	timer?: Timer;

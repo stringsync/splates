@@ -381,6 +381,13 @@ export async function updateWorker(
 	)) as WorkerPool;
 }
 
+/** Wakes worker `id`, asleep at home, answering the pool once its packet is sent. */
+export async function wakeWorker(id: string): Promise<WorkerPool> {
+	return (await send(`/api/workers/${encodeURIComponent(id)}/wake`, {
+		method: "POST",
+	})) as WorkerPool;
+}
+
 /**
  * Removes worker `id`, at once if nothing runs on it or `force`, which ends
  * what does; otherwise it drains and goes once `running` ends.

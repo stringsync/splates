@@ -331,6 +331,13 @@ export interface PoolWorker {
 	/** Whether it is up and may be given work now. */
 	awake: boolean;
 	/**
+	 * Whether it sleeps, a machine at home that can be woken over the
+	 * network for agents to run there; absent for one that cannot.
+	 */
+	asleep?: boolean;
+	/** Whether it was woken and has yet to join; absent for one that was not. */
+	waking?: boolean;
+	/**
 	 * Whether it drains, taking no new agents while those on it end, as
 	 * before it is removed or updated; absent for one that does not.
 	 */
@@ -379,6 +386,7 @@ export interface SlotRequest {
 export type QueueReason =
 	| "no free slot"
 	| "no worker up"
+	| "waking a worker"
 	| `needs ${string}`
 	| BudgetReason;
 
@@ -447,6 +455,21 @@ function eligible(worker: PoolWorker, request: SlotRequest): boolean {
 	return onPlatform(worker, request) && worker.runs(request.agent);
 }
 
+/**
+ * Whether `worker` could take `wanted` once up, awake or not: on its
+ * platform, holding its checkout and its agent's key.
+ */
+export function couldRun(
+	worker: PoolWorker,
+	wanted: Pick<SlotRequest, "platform" | "agent">,
+): boolean {
+	return (
+		worker.checkouts &&
+		(wanted.platform === null || worker.platform === wanted.platform) &&
+		worker.runs(wanted.agent)
+	);
+}
+
 function onPlatform(worker: PoolWorker, request: SlotRequest): boolean {
 	return (
 		worker.awake &&
@@ -469,6 +492,13 @@ function reasonFor(
 	}
 	if (workers.some((worker) => onPlatform(worker, request))) {
 		return `needs a key for ${request.agent}`;
+	}
+	if (
+		workers.some(
+			(worker) => worker.waking === true && couldRun(worker, request),
+		)
+	) {
+		return "waking a worker";
 	}
 	return request.platform === null
 		? (withheld ?? "no worker up")

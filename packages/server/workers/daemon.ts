@@ -16,6 +16,7 @@ import { AwakeWhileBusy } from "./awake-while-busy";
 import { SERVERS, WorkerCallHost } from "./call-host";
 import { RELAY, type WorkerChannel } from "./channel";
 import { hostOf, LocalWorkerMachine } from "./machine";
+import { WAKE, type WakeSender } from "./magic-packet";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
 import { UPDATE } from "./protocol";
@@ -23,6 +24,7 @@ import { WorkerPtyHost } from "./pty-host";
 import { WorkerRelay } from "./relay";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
+import type { WorkerNetwork } from "./wake";
 
 /** How a worker reaches its coordinator, dialed afresh after each drop. */
 export interface WorkerDialer {
@@ -40,38 +42,8 @@ export const WORKER_CAPABILITIES = [
 	RELAY,
 	SERVERS,
 	UPDATE,
+	WAKE,
 ];
-
-/** Who a `WorkerDaemon` is and what it runs on. */
-export interface WorkerDaemonOptions {
-	/** Stays the same across restarts, so the coordinator resumes its session. */
-	id: string;
-	slots: number;
-	ps: Ps;
-	fs: Fs;
-	log: Logger;
-	/** The shortest and longest wait between dials. */
-	backoff?: { min: Duration; max: Duration };
-	/**
-	 * How long the coordinator's session may stay lost before every channel
-	 * it held ends; ten minutes by default.
-	 */
-	orphanBound?: Duration;
-	/** Paces the session, as `WorkerSession` takes it. */
-	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
-	timer?: Timer;
-	clock?: Clock;
-	/**
-	 * Where to say the relay listens, for `splates` run by hand on this
-	 * machine, which has no env to find it in; null, the default, says it
-	 * nowhere.
-	 */
-	relayAt?: string | null;
-	/** The MCP servers it offers each agent session it runs; none by default. */
-	servers?: SessionServers | null;
-	/** Keeps the machine awake while it runs a process or terminal; none by default. */
-	awake?: KeepAwake | null;
-}
 
 /**
  * `splates worker run`: a worker that dials out to its coordinator and keeps
@@ -179,6 +151,7 @@ export class WorkerDaemon implements AsyncResource {
 						build: RUNNING,
 						// It clones each project and task it runs agents in (`checkout`).
 						checkouts: true,
+						...hello(this.opts.network ?? null),
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {
@@ -270,7 +243,11 @@ export class WorkerDaemon implements AsyncResource {
 					host = new WorkerPtyHost(channel, ps);
 					break;
 				case "calls":
-					host = new WorkerCallHost(channel, this.machine);
+					host = new WorkerCallHost(
+						channel,
+						this.machine,
+						this.opts.waker ?? null,
+					);
 					break;
 				case "port":
 					host = new WorkerPortHost(channel, this.session);
@@ -312,6 +289,20 @@ export class WorkerDaemon implements AsyncResource {
 }
 
 /**
+ * What a hello says of `network`: the broadcast addresses this worker can
+ * wake another on, and, only for one that may sleep, what waking it takes.
+ */
+function hello(network: WorkerNetwork | null) {
+	if (network === null) {
+		return {};
+	}
+	return {
+		broadcasts: network.broadcasts,
+		...(network.wake === null ? {} : { wake: { ...network.wake } }),
+	};
+}
+
+/**
  * Why `WorkerDaemon.run` stopped: disposed; refused, for speaking another
  * protocol, with the coordinator's build when it says one; or asked to
  * restart on the coordinator's build.
@@ -320,3 +311,42 @@ export type WorkerEnded =
 	| { stopped: true }
 	| { refused: string; update?: string }
 	| { update: string };
+
+/** Who a `WorkerDaemon` is and what it runs on. */
+export interface WorkerDaemonOptions {
+	/** Stays the same across restarts, so the coordinator resumes its session. */
+	id: string;
+	slots: number;
+	ps: Ps;
+	fs: Fs;
+	log: Logger;
+	/** The shortest and longest wait between dials. */
+	backoff?: { min: Duration; max: Duration };
+	/**
+	 * How long the coordinator's session may stay lost before every channel
+	 * it held ends; ten minutes by default.
+	 */
+	orphanBound?: Duration;
+	/** Paces the session, as `WorkerSession` takes it. */
+	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
+	timer?: Timer;
+	clock?: Clock;
+	/**
+	 * Where to say the relay listens, for `splates` run by hand on this
+	 * machine, which has no env to find it in; null, the default, says it
+	 * nowhere.
+	 */
+	relayAt?: string | null;
+	/** The MCP servers it offers each agent session it runs; none by default. */
+	servers?: SessionServers | null;
+	/** Keeps the machine awake while it runs a process or terminal; none by default. */
+	awake?: KeepAwake | null;
+	/**
+	 * The network it says in its hello: where it can send a magic packet
+	 * for the coordinator, and what waking this machine takes, for one that
+	 * may sleep; none by default.
+	 */
+	network?: WorkerNetwork | null;
+	/** What sends a magic packet when the coordinator asks; none by default. */
+	waker?: WakeSender | null;
+}
