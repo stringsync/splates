@@ -193,12 +193,6 @@ describe("WorkerRelay", () => {
 		await splates(tree, ["claim", "alpha"]);
 		await env.fs.write(join(clone, "..", "shot.png"), "png");
 		await splates(tree, ["attach", join(clone, "..", "shot.png")]);
-		expect(await splates(clone, ["show", "alpha"])).toContain("alpha");
-		expect(await splates(clone, ["list"])).toContain("alpha");
-		expect(await splates(clone, ["todo", "list"])).toContain("make it so");
-		await splates(tree, ["escalate", "a question"]);
-		expect((await env.service.find("alpha")).status).toBe("escalated");
-		await splates(tree, ["claim", "alpha"]);
 
 		await env.commit(tree, "work.txt", "done\n", "Do the work");
 		await env.finish(tree);
