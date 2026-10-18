@@ -3,11 +3,11 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
-import { type PoolWorker, Scheduler } from "../scheduler";
+import { type Platform, type PoolWorker, Scheduler } from "../scheduler";
 import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts } from "./host";
 import { Conversations } from "./index";
-import { until } from "./testing";
+import { eventually, until } from "./testing";
 
 describe("A conversation placed on a remote worker", () => {
 	let agent: FakeAgent;
@@ -19,6 +19,9 @@ describe("A conversation placed on a remote worker", () => {
 	let asked: { worker: string; task: string | null }[];
 	let answer: () => Promise<string>;
 	let elsewhere: boolean;
+	let workers: PoolWorker[];
+	/** The platform the project requires; null for any. */
+	let platform: Platform | null;
 	let scheduler: Scheduler;
 	let conversations: Conversations;
 	/** The conversations as `splates server` opens them, again after a restart. */
@@ -44,38 +47,39 @@ describe("A conversation placed on a remote worker", () => {
 		asked = [];
 		answer = async () => "/w1/projects/repo/repo";
 		elsewhere = false;
-		const workers: PoolWorker[] = [
-			{
-				id: "w1",
-				kind: "registered",
-				slots: 2,
-				platform: "linux",
-				awake: true,
-				checkouts: true,
-				runs: () => true,
-			},
-		];
+		platform = null;
+		workers = [LINUX];
 		scheduler = new Scheduler({ workers: () => workers }, clock);
 		const slots: ConversationSlots = {
 			events: scheduler.events,
-			take: async ({ id, task, agent: wants }, signal) => {
+			take: async ({ id, task, agent: wants, uncapped }, signal) => {
 				const grant = await scheduler.take(
-					{ id, task, agent: wants, project: "/repo", platform: null },
+					{ id, task, agent: wants, project: "/repo", platform, uncapped },
 					signal,
 				);
 				return {
 					...grant,
 					dispose: grant.dispose,
 					launch: agent.launch,
-					machine,
+					machine: grant.worker === "local" ? null : machine,
 				};
 			},
-			hold: ({ id, task, agent: wants }, worker) =>
+			hold: ({ id, task, agent: wants, uncapped }, worker) =>
 				scheduler.hold(
-					{ id, task, agent: wants, project: "/repo", platform: null },
+					{ id, task, agent: wants, project: "/repo", platform, uncapped },
 					worker,
 				),
-			spot: () => null,
+			spot: (id) => {
+				const entry = scheduler.spot(id);
+				return entry === null
+					? null
+					: {
+							position: entry.position,
+							of: scheduler.queue().length,
+							since: new Date(entry.since).toISOString(),
+							reason: entry.reason,
+						};
+			},
 		};
 		const checkouts: PlacedCheckouts = {
 			where: async (worker, _machine, task) => {
@@ -173,7 +177,63 @@ describe("A conversation placed on a remote worker", () => {
 
 		expect(conversation.state.task).toBe("login");
 	});
+
+	/** The person starts it, in a project that requires Linux, beside this Mac. */
+	const own = (...beside: PoolWorker[]) => {
+		platform = "linux";
+		workers = [MAC, ...beside];
+		return conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+	};
+
+	it("starts the person's agent on the Linux worker, not this Mac, though its slots are full", async () => {
+		const conversation = await own({ ...LINUX, slots: 0 });
+		await until(conversation, "idle");
+
+		expect(conversation.placedOn).toBe(machine);
+		expect(agent.launched.map(({ cwd }) => cwd)).toEqual([
+			"/w1/projects/repo/repo",
+		]);
+		expect(
+			scheduler.held().map(({ worker, uncapped }) => ({ worker, uncapped })),
+		).toEqual([{ worker: "w1", uncapped: true }]);
+	});
+
+	it("keeps the person's agent waiting, saying it needs Linux, while no Linux worker is joined", async () => {
+		const conversation = await own();
+		await eventually(() => conversation.state.queue?.reason === "needs Linux");
+		expect(agent.launched).toEqual([]);
+
+		workers.push(LINUX);
+		scheduler.poke();
+		await until(conversation, "idle");
+
+		expect(conversation.state.queue).toBeNull();
+		expect(conversation.placedOn).toBe(machine);
+	});
 });
+
+const MAC: PoolWorker = {
+	id: "local",
+	kind: "local",
+	slots: 2,
+	platform: "macos",
+	awake: true,
+	checkouts: true,
+	runs: () => true,
+};
+
+const LINUX: PoolWorker = {
+	id: "w1",
+	kind: "registered",
+	slots: 2,
+	platform: "linux",
+	awake: true,
+	checkouts: true,
+	runs: () => true,
+};
 
 const WORKER_BROWSER = {
 	type: "http" as const,

@@ -27,10 +27,9 @@ cleanup() {
 trap cleanup EXIT
 
 splates() {
-	# Nothing of the agent this runs under, so the task reads as handed out
-	# by the conversation named below.
+	# Nothing of the agent this runs under, so the task reads as the person's.
 	env -i HOME="$HOME" PATH="$PATH" SPLATES_HOME="$dir/home" \
-		SPLATES_DEV="http://127.0.0.1:$port" ${caller:+SPLATES_CONVERSATION=$caller} \
+		SPLATES_DEV="http://127.0.0.1:$port" \
 		bun "$checkout/packages/splates/index.ts" "$@"
 }
 
@@ -73,6 +72,8 @@ echo "starting the coordinator on $port"
 splates server --port "$port" >"$dir/server.log" 2>&1 &
 server=$!
 until grep -q "splates server on" "$dir/server.log"; do sleep 1; done
+# The port it took, the next free one when another server holds this one.
+port=$(sed -n 's/.*splates server on http:\/\/127\.0\.0\.1:\([0-9]*\).*/\1/p' "$dir/server.log")
 
 token=$(splates worker add 2>&1 | grep -o 'splj_[A-Za-z0-9_.=-]*')
 docker run -d --name "$name" -v "$dir/remote.git:$dir/remote.git" splates-worker \
@@ -82,11 +83,7 @@ docker exec "$name" git config --global --add safe.directory '*'
 until splates worker list 2>/dev/null | grep -q "linux-box .*connected"; do sleep 1; done
 splates worker list
 
-# Placement takes in only the agents other agents start, so the task is
-# handed out as by a conversation.
-caller=prove-caller
 splates add proof --agent scripted --model script --goal "prove the Linux worker"
-caller=""
 
 echo "--- the task's port, forwarded here while its agent holds it open"
 until splates ports proof 2>/dev/null | grep -q 4777; do sleep 1; done

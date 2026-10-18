@@ -280,8 +280,9 @@ memory-only store, the proxy and the undumpable helper belong to
   first served, and the user can reorder the queue.
 - Slots cap the agents other agents start (*settled*): those `splates add
   --agent` or a lane's orchestrator hand out. An agent the person starts
-  goes on any worker up, however full, and counts against no slot, waiting
-  only while none is (as with the local worker removed); by default a
+  goes on any worker up on its project's platform, however full, and counts
+  against no slot, waiting only while none is (as with the local worker
+  removed, or no Linux worker joined for a project requiring Linux); by default a
   worker caps the rest at 16 (`splates server --worker-slots`).
 - A task prefers the worker holding its checkout. Workers advertise their
   platform (Linux or macOS); a project may require one in `splates.config.ts`.

@@ -1007,7 +1007,7 @@ export class Conversation
 	 * its state: its placement on the worker it was placed on, undefined with
 	 * no queue, or null once a stop takes it out of line. Slots cap how many
 	 * agents agents start, never how many the person does: the person's go
-	 * uncapped, waiting only while no worker is up.
+	 * uncapped, waiting only while no worker they can run on is up.
 	 */
 	private async place(): Promise<Placement | undefined | null> {
 		const { slots } = this.deps;
