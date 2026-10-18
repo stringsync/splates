@@ -3,14 +3,6 @@ import { EDITS, label, type Work } from "./work";
 
 /** One row of a turn's timeline. */
 export type Item =
-	| {
-			type: "thought";
-			text: string;
-			at: string | null;
-			until: string | null;
-			/** The agent is thinking it still: nothing has come after it in a turn under way. */
-			thinking: boolean;
-	  }
 	/** The same command run again and again in a row: the last run shows. */
 	| { type: "command"; runs: Tool[] }
 	| { type: "edit"; tool: Tool }
@@ -30,7 +22,7 @@ export function timeline(work: Work): Item[] {
 		),
 	);
 	const items: Item[] = [];
-	parts.forEach((part, index) => {
+	parts.forEach((part, _index) => {
 		const last = items.at(-1);
 		// Only the person sends files, and this is the agent's turn.
 		if (part.type === "image" || part.type === "file") {
@@ -44,24 +36,8 @@ export function timeline(work: Work): Item[] {
 		if (part.type === "compaction") {
 			return;
 		}
+		// The agent's thoughts to itself never show.
 		if (part.type === "thought") {
-			const next = parts
-				.slice(index + 1)
-				.find(
-					(each) =>
-						(each.type === "thought" || each.type === "tool") &&
-						each.at !== null,
-				);
-			items.push({
-				type: "thought",
-				text: part.text,
-				at: part.at,
-				until:
-					(next?.type === "thought" || next?.type === "tool"
-						? next.at
-						: null) ?? work.until,
-				thinking: work.running && index === parts.length - 1,
-			});
 			return;
 		}
 		// Above the call it let run, even one a subagent made.

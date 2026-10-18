@@ -153,7 +153,7 @@ describe("App's work row while working", () => {
 		expect(thread.textContent?.match(/Work(ed|ing)/g)).toEqual(["Working"]);
 	});
 
-	it("folds what the agent said before its latest call into the row while it works", async () => {
+	it("shows what the agent said before its latest call in the thread while it works, not in the row", async () => {
 		const thread = await opened(
 			turn(
 				[
@@ -168,11 +168,12 @@ describe("App's work row while working", () => {
 		const timeline = await waitFor(() =>
 			within(thread).getByRole("list", { name: "timeline" }),
 		);
-		expect(timeline.textContent).toContain("Let me look.");
+		expect(timeline.textContent).not.toContain("Let me look.");
 		expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
+		expect(thread.textContent).not.toContain("Which tests?");
 	});
 
-	it("folds the row once the agent speaks, taking in its words as it goes on, and one opened again stays open", async () => {
+	it("starts a new folded row after the agent speaks, keeping the one opened before open", async () => {
 		const thread = await opened(
 			turn([tool({ id: "x1", command: "bun test" }), "Checking."], {
 				status: "running",
@@ -198,27 +199,15 @@ describe("App's work row while working", () => {
 				{ status: "running" },
 			),
 		);
-		await waitFor(() => expect(thread.textContent).toContain("bun run demo"));
-		expect(timelines()).toHaveLength(1);
-		expect(timelines()[0]?.textContent).toContain("Checking.");
+		await waitFor(() => expect(timelines()).toHaveLength(2));
+		expect(timelines().map((each) => each.textContent)).toEqual([
+			expect.not.stringContaining("Checking."),
+			expect.stringContaining("bun run demo"),
+		]);
+		expect(thread.textContent).toMatch(/Worked.*Checking\..*Working/);
 		expect(details(thread).open).toBe(true);
-		await testing.say(
-			turn(
-				[
-					tool({ id: "x1", command: "bun test" }),
-					"Checking.",
-					tool({ id: "x2", command: "bun run demo" }),
-					"Still checking.",
-				],
-				{ status: "running" },
-			),
-		);
-		await waitFor(() =>
-			expect(thread.textContent).toContain("Still checking."),
-		);
-		expect(timelines()).toHaveLength(1);
-		expect(timelines()[0]?.textContent).not.toContain("Still checking.");
-		expect(details(thread).open).toBe(true);
+		const last = timelines()[1]?.closest("details") as HTMLDetailsElement;
+		expect(last.open).toBe(false);
 	});
 	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {
 		const words = "The tests ran, and two of them failed on the parser.";

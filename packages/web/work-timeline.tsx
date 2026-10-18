@@ -21,25 +21,6 @@ export function TimelineItem({
 	short: (path: string) => string;
 }): JSX.Element {
 	switch (item.type) {
-		case "thought":
-			return (
-				<Line
-					state={item.thinking ? "running" : "done"}
-					verb={
-						item.thinking
-							? "Thinking"
-							: item.at === null || item.until === null
-								? "Thought"
-								: `Thought for ${span(item.at, item.until)}`
-					}
-				>
-					{item.text.trim() !== "" && (
-						<p className="whitespace-pre-wrap text-muted-foreground text-xs">
-							{item.text.trim()}
-						</p>
-					)}
-				</Line>
-			);
 		case "command": {
 			const tool = item.runs.at(-1) as Tool;
 			return (

@@ -12,8 +12,8 @@ import { Duration } from "webappwiz/time";
 import { workingSpan } from "./work-time";
 
 /**
- * What an agent did before its reply: its thoughts, its tool calls, and the
- * words it said between them, which the page folds into one row.
+ * A run of what an agent did between the words it says: its tool calls, and
+ * its thoughts, which the page never shows, folded into one row.
  */
 export interface Work {
 	/** Permission waits across this turn, clipped to this row when timed. */
@@ -54,9 +54,9 @@ export type Stretch =
 type Piece = Part[] | Exclude<Stretch, { type: "work" }>;
 
 /**
- * The agent's turn as one row of work, the words it said along the way
- * inside it, then the last thing it said, and, once the turn is over, a row
- * for any work after that.
+ * The agent's turn as rows of work, each folded, with the words it said
+ * along the way between them, then the last thing it said, and, once the
+ * turn is over, a row for any work after that.
  */
 export function stretchesOf(
 	message: Message,
@@ -102,7 +102,16 @@ export function stretchesOf(
 		pieces.push(after);
 	}
 	const replied = going && said?.type === "text" ? (said.at ?? null) : null;
-	const kept = folded(placed(pieces, events));
+	const ordered = folded(placed(pieces, events));
+	const lastWork = ordered.findLastIndex((run) => Array.isArray(run));
+	// Thoughts never show, so work with nothing else in it goes, but for the
+	// last row while it says Working or holds the plan.
+	const kept = ordered.filter(
+		(run, index) =>
+			!Array.isArray(run) ||
+			run.some((part) => part.type !== "thought") ||
+			(index === lastWork && (going || message.plan !== null)),
+	);
 	const works = kept.filter((run) => Array.isArray(run));
 	// The last stretch but for events, which leave the work before them as it was.
 	const end = kept.findLastIndex(
@@ -256,24 +265,13 @@ function endOf(parts: Part[]): string | null {
 }
 
 /**
- * `run` cut at the words in it that say the agent added a task or requested a
- * cred, so they show
- * as a card between the work before and after them rather than folded in.
- * Words still being written, the last of the turn's `parts`, stay in.
+ * `run` cut at the words in it, so each shows between the work before and
+ * after it rather than folded in: as a card when it says the agent added a
+ * task or requested a cred, otherwise as words in the thread. Words still
+ * being written, the last of the turn's `parts`, stay in.
  */
-function cut(
-	run: Part[],
-	parts: Part[],
-): (
-	| Part[]
-	| { type: "added"; text: string }
-	| { type: "compaction"; compaction: Compaction }
-)[] {
-	const pieces: (
-		| Part[]
-		| { type: "added"; text: string }
-		| { type: "compaction"; compaction: Compaction }
-	)[] = [];
+function cut(run: Part[], parts: Part[]): Piece[] {
+	const pieces: Piece[] = [];
 	let from = 0;
 	run.forEach((part, at) => {
 		if (part.type === "compaction") {
@@ -284,13 +282,13 @@ function cut(
 			from = at + 1;
 			return;
 		}
-		if (part.type !== "text" || part === parts.at(-1) || !adds(part.text)) {
+		if (part.type !== "text" || part === parts.at(-1)) {
 			return;
 		}
 		if (at > from) {
 			pieces.push(run.slice(from, at));
 		}
-		pieces.push({ type: "added", text: part.text });
+		pieces.push({ type: adds(part.text) ? "added" : "said", text: part.text });
 		from = at + 1;
 	});
 	// Kept even empty when nothing was cut, for the row that says Working.

@@ -37,13 +37,12 @@ describe("App's work row", () => {
 			(row) => (row.querySelector("summary") ?? row).textContent,
 		);
 
-	it("folds everything before the agent's reply, its words along the way included, into one line", async () => {
+	it("folds each run of calls into a line, the words between them in the thread and its thoughts nowhere", async () => {
 		const thread = await opened(
 			turn([
 				{ type: "thought", text: "Which tests?", at: second(1) },
 				"Let me run them.",
 				tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
-				tool({ id: "r2", kind: "read", paths: ["/repo/b.ts"] }),
 				tool({
 					id: "x1",
 					command: "bun test",
@@ -51,6 +50,8 @@ describe("App's work row", () => {
 					at: second(2),
 					until: second(30),
 				}),
+				{ type: "thought", text: "The parser.", at: second(30) },
+				"One fails: fixing it.",
 				tool({
 					id: "e1",
 					kind: "edit",
@@ -68,25 +69,20 @@ describe("App's work row", () => {
 		);
 
 		await waitFor(() =>
-			expect(within(thread).getByText("Worked 1m 0s").tagName).toBe("SPAN"),
+			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(2),
 		);
-		expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1);
-		const work = within(thread).getByRole("list", { name: "timeline" });
-		expect((work.closest("details") as HTMLDetailsElement).open).toBe(false);
-		expect(lines(work)).toEqual([
-			"Thought for 1s",
-			"Let me run them.",
-			"Reada.ts",
-			"Readb.ts",
-			"Failed to runbun test28s",
-			"Editeda.ts",
-			"Ranbun test29s",
-		]);
-		// Its reply, under the line.
+		const [before, after] = within(thread).getAllByRole("list", {
+			name: "timeline",
+		}) as [HTMLElement, HTMLElement];
+		expect((before.closest("details") as HTMLDetailsElement).open).toBe(false);
+		expect(lines(before)).toEqual(["Reada.ts", "Failed to runbun test28s"]);
+		expect(lines(after)).toEqual(["Editeda.ts", "Ranbun test29s"]);
 		expect(thread.textContent).toMatch(
-			/Worked 1m 0s.*Ranbun test29s.*All tests pass\./,
+			/Let me run them\..*Worked.*One fails: fixing it\..*Worked.*All tests pass\./,
 		);
-		expect(work.textContent).not.toContain("All tests pass.");
+		expect(thread.textContent).not.toContain("Which tests?");
+		expect(thread.textContent).not.toContain("The parser.");
+		expect(thread.textContent).not.toContain("Thought");
 	});
 
 	it("shows the task the agent added along the way as splates's line between its work, its Goal on the task", async () => {
@@ -404,11 +400,11 @@ describe("App's work row", () => {
 			name: "timeline",
 		});
 		expect(timelines.map((each) => each.textContent)).toEqual([
-			"Let me look.Reada.ts",
+			"Reada.ts",
 			expect.stringContaining("bun test"),
 		]);
 		expect(thread.textContent).toMatch(
-			/Worked.*No, I'm not waiting on you\..*Worked/,
+			/Let me look\..*Worked.*No, I'm not waiting on you\..*Worked/,
 		);
 	});
 
