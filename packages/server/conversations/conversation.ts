@@ -20,6 +20,7 @@ import type {
 	ConversationDeps,
 	ConversationEvents,
 	ConversationHost,
+	Hold,
 	Placement,
 } from "./host";
 import { ConversationLog, type Live } from "./log";
@@ -164,18 +165,12 @@ export class Conversation
 		}
 		const { state, session, cwd, picks, model, sessionCwd } = replayed;
 		const agent = agents.find((each) => each.id === state.agent) ?? null;
-		let taken: { process: AgentProcess; live: Live } | null = null;
+		let taken: { process: AgentProcess; live: Live; hold: Hold | null } | null =
+			null;
 		if (replayed.live !== null) {
 			const { live } = replayed;
-			try {
-				if (agent !== null) {
-					taken = {
-						process: deps.launcher.resume(live.handle, live.held),
-						live,
-					};
-				}
-			} catch {
-				// Nothing here runs it any more: stopped, as any dead process is.
+			if (agent !== null) {
+				taken = Conversation.takeBack(state, live, deps);
 			}
 			if (taken === null) {
 				await log.stopped(replayed);
@@ -193,7 +188,26 @@ export class Conversation
 			conversation.reconnect();
 		}
 		if (taken !== null && agent !== null) {
-			conversation.grant =
+			conversation.grant = taken.hold;
+			conversation.placed = taken.hold?.machine ?? null;
+			conversation.connection.reattach(agent, taken.process, taken.live);
+		}
+		return conversation;
+	}
+
+	/**
+	 * The agent `live` names, taken back on the worker it runs on, holding
+	 * its slot there; null when nothing here runs it any more, stopped as
+	 * any dead process is.
+	 */
+	private static takeBack(
+		state: ConversationState,
+		live: Live,
+		deps: ConversationDeps,
+	): { process: AgentProcess; live: Live; hold: Hold | null } | null {
+		let hold: Hold | null = null;
+		try {
+			hold =
 				deps.slots?.hold(
 					{
 						id: state.id,
@@ -201,11 +215,14 @@ export class Conversation
 						agent: state.agent,
 						uncapped: !spawned(state),
 					},
-					taken.live.handle.worker,
+					live.handle.worker,
 				) ?? null;
-			conversation.connection.reattach(agent, taken.process, taken.live);
+			const process = (hold ?? deps.launcher).resume(live.handle, live.held);
+			return { process, live, hold };
+		} catch {
+			hold?.dispose();
+			return null;
 		}
-		return conversation;
 	}
 
 	/** Starts `agent` in `cwd` and opens a session with it. */

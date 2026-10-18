@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { launcherOf } from "../agents";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { type Platform, type PoolWorker, Scheduler } from "../scheduler";
 import type { WorkerMachine } from "../workers";
@@ -64,11 +65,18 @@ describe("A conversation placed on a remote worker", () => {
 					machine: grant.worker === "local" ? null : machine,
 				};
 			},
-			hold: ({ id, task, agent: wants, uncapped }, worker) =>
-				scheduler.hold(
+			hold: ({ id, task, agent: wants, uncapped }, worker) => {
+				const grant = scheduler.hold(
 					{ id, task, agent: wants, project: "/repo", platform, uncapped },
 					worker,
-				),
+				);
+				return {
+					...grant,
+					dispose: grant.dispose,
+					resume: launcherOf(agent.launch).resume,
+					machine: worker === "local" ? null : machine,
+				};
+			},
 			spot: (id) => {
 				const entry = scheduler.spot(id);
 				return entry === null

@@ -100,8 +100,11 @@ export interface ConversationSlots {
 	 * aborting `signal` takes it out of the queue, rejecting.
 	 */
 	take(request: SlotAsk, signal: AbortSignal): Promise<Placement>;
-	/** Counts an agent already running on `worker` against its slots. */
-	hold(request: SlotAsk, worker: string): Grant;
+	/**
+	 * Counts an agent already running on `worker` against its slots, and
+	 * reaches it there; throws for a worker this coordinator no longer knows.
+	 */
+	hold(request: SlotAsk, worker: string): Hold;
 	/** Where the agent of conversation `id` waits; null for one not waiting. */
 	spot(id: string): QueueSpot | null;
 	/**
@@ -126,6 +129,17 @@ export interface SlotAsk {
 /** A slot on a worker, and how to start an agent there. */
 export interface Placement extends Grant {
 	launch: Launch;
+	/** The worker, when it is not this machine's own; null for that one. */
+	machine: WorkerMachine | null;
+}
+
+/** A slot on a worker an agent already runs on, and how to take it back. */
+export interface Hold extends Grant {
+	/**
+	 * Takes back the process `handle` names on the worker, as
+	 * `Launcher.resume` does, once that worker joins.
+	 */
+	resume: Launcher["resume"];
 	/** The worker, when it is not this machine's own; null for that one. */
 	machine: WorkerMachine | null;
 }

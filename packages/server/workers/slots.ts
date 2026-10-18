@@ -95,7 +95,23 @@ export class WorkerSlots implements Resource {
 					machine: worker.kind === "local" ? null : worker,
 				};
 			},
-			hold: (asked, worker) => scheduler.hold(request(asked), worker),
+			// Known from its record from startup, a worker yet to rejoin keeps
+			// what it is sent until it does.
+			hold: (asked, id) => {
+				const worker = registry.worker(id);
+				if (worker === undefined) {
+					throw new Error(`worker ${id} is gone`);
+				}
+				const grant = scheduler.hold(request(asked), id);
+				return {
+					worker: grant.worker,
+					lost: grant.lost,
+					drains: grant.drains,
+					dispose: grant.dispose,
+					resume: (handle, held) => worker.resume(handle, held),
+					machine: worker.kind === "local" ? null : worker,
+				};
+			},
 			spot: (id) => {
 				const queue = scheduler.queue();
 				const entry = queue.find((each) => each.id === id);

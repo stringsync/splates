@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { launcherOf } from "../agents";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { taskReference } from "../plans";
 import { type PoolWorker, Scheduler } from "../scheduler";
@@ -78,11 +79,18 @@ describe("A conversation whose worker is removed under it", () => {
 					machine: machine(grant.worker),
 				};
 			},
-			hold: ({ id, task, agent: wants }, worker) =>
-				scheduler.hold(
+			hold: ({ id, task, agent: wants }, worker) => {
+				const grant = scheduler.hold(
 					{ id, task, agent: wants, project: "/repo", platform: null },
 					worker,
-				),
+				);
+				return {
+					...grant,
+					dispose: grant.dispose,
+					resume: launcherOf(agent.launch).resume,
+					machine: machine(worker),
+				};
+			},
 			spot: () => null,
 		};
 		// Each worker readies the project's clone, which the agent claims its task from.

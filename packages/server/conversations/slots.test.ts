@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { launcherOf } from "../agents";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { type PoolWorker, Scheduler } from "../scheduler";
 import type { ConversationSlots } from "./host";
@@ -56,8 +57,20 @@ describe("Conversations waiting for a slot", () => {
 					machine: null,
 				};
 			},
-			hold: (asked, worker) =>
-				scheduler.hold({ ...asked, project: "/repo", platform: null }, worker),
+			hold: (asked, worker) => {
+				const grant = scheduler.hold(
+					{ ...asked, project: "/repo", platform: null },
+					worker,
+				);
+				return {
+					worker: grant.worker,
+					lost: grant.lost,
+					drains: grant.drains,
+					dispose: grant.dispose,
+					resume: launcherOf(agent.launch).resume,
+					machine: null,
+				};
+			},
 			spot: (id) => {
 				const entry = scheduler.spot(id);
 				return entry === null
