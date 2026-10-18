@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { readFiles } from "../attachments";
+import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts } from "../records";

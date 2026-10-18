@@ -1,10 +1,17 @@
 import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
-import { ARTIFACT_LIMITS } from "../artifacts";
+import type { ArtifactLimits } from "../artifacts";
 import { Git } from "../git";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
+
+/** What `splates.config.ts` leaves the artifact limits at unless it says otherwise. */
+export const ARTIFACT_LIMITS: ArtifactLimits = {
+	file: 50 * 1024 * 1024,
+	conversation: 250 * 1024 * 1024,
+	project: 2 * 1024 * 1024 * 1024,
+};
 
 /** The file a repo's settings are in, at its root. */
 export const CONFIG_FILE = "splates.config.ts";

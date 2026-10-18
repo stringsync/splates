@@ -1,7 +1,7 @@
-import { viewerOf } from "./artifact-viewers";
-import type { Conversation } from "./conversations";
-import { fileResponse, refuse } from "./dev-http";
-import { fail } from "./exit";
+import type { Conversation } from "../conversations";
+import { fileResponse, refuse } from "../dev-http";
+import { fail } from "../exit";
+import { viewerOf } from "./viewers";
 
 /**
  * The version of an artifact that `request` names, `/api/conversations/<id>/

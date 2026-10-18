@@ -14,5 +14,5 @@ export {
 	unmigrated,
 } from "./legacy-names";
 export { systemPs } from "./legacy-ps";
-export { CONFIG_FILE, ConfigFiles, loadConfig } from "./load";
+export { ARTIFACT_LIMITS, CONFIG_FILE, ConfigFiles, loadConfig } from "./load";
 export { typedConfig } from "./source";

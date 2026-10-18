@@ -1,6 +1,6 @@
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
-import { Attachments } from "../attachments";
+import { Attachments } from "../artifacts";
 import { fail } from "../exit";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";

@@ -1,10 +1,10 @@
 import { basename, dirname, resolve } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import type { Fs } from "webappwiz/system";
-import type { ArtifactRoom } from "./artifact-room";
+import type { Config } from "../config";
+import { fail } from "../exit";
 import { folderBytes } from "./attachments";
-import type { Config } from "./config";
-import { fail } from "./exit";
+import type { ArtifactRoom } from "./room";
 
 /**
  * A conversation's artifacts: their bytes, in `artifacts/` beside its log's
@@ -295,13 +295,6 @@ export interface ArtifactLimits {
 	/** Every version every conversation in the project keeps the bytes of. */
 	project: number;
 }
-
-/** What `splates.config.ts` leaves the limits at unless it says otherwise. */
-export const ARTIFACT_LIMITS: ArtifactLimits = {
-	file: 50 * 1024 * 1024,
-	conversation: 250 * 1024 * 1024,
-	project: 2 * 1024 * 1024 * 1024,
-};
 
 /** The limits `config` sets. */
 export function artifactLimits(

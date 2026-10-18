@@ -1,3 +1,9 @@
+import {
+	addVersion,
+	artifactResponse,
+	deleteVersion,
+	removeNamed,
+} from "./artifacts";
 import type { Conversation } from "./conversations";
 import {
 	type Answer,
@@ -7,12 +13,6 @@ import {
 	listing,
 	type Upload,
 } from "./conversations";
-import {
-	addVersion,
-	artifactResponse,
-	deleteVersion,
-	removeNamed,
-} from "./dev-artifacts";
 import {
 	ConversationStream,
 	type ConversationsHeard,

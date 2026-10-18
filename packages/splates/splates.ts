@@ -2,7 +2,7 @@
 
 import { DEFAULT_PORT } from "@stringsync/splates-server";
 import { agents } from "@stringsync/splates-server/agents";
-import { attach } from "@stringsync/splates-server/attach";
+import { attach } from "@stringsync/splates-server/artifacts";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { exits, fail } from "@stringsync/splates-server/exit";
 import { addFactTodos } from "@stringsync/splates-server/fact-todos";

@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { SystemTimer } from "webappwiz/time";
-import type { Attachment } from "./attachments";
+import type { Attachment } from "./artifacts";
 import type { Access, Identity } from "./dev-access";
 import { Exit, type Reason } from "./exit";
 import { PULSE, PULSE_EVENT } from "./pulse";

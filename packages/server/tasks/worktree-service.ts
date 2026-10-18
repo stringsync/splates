@@ -1,7 +1,7 @@
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Adherence } from "../adherence";
-import { Attachments, folderBytes } from "../attachments";
+import { Attachments, folderBytes } from "../artifacts";
 import type { Checkouts } from "../checkouts";
 import type { Config } from "../config";
 import { findings } from "../findings";

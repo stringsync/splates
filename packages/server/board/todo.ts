@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import type { Attachment, Attachments } from "../attachments";
+import type { Attachment, Attachments } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";

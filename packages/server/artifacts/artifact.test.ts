@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { conversationOf } from "../conversations";
+import { Testing } from "../testing";
 import {
 	addArtifact,
 	listArtifacts,
 	mimeTypeOf,
 	removeArtifact,
 } from "./artifact";
-import { conversationOf } from "./conversations";
-import { Testing } from "./testing";
 
 describe("artifact", () => {
 	let deps: Testing;

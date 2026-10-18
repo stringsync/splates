@@ -3,7 +3,7 @@ import {
 	addArtifact,
 	listArtifacts,
 	removeArtifact,
-} from "@stringsync/splates-server/artifact";
+} from "@stringsync/splates-server/artifacts";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { conversationOf } from "@stringsync/splates-server/conversations";
 import { fail } from "@stringsync/splates-server/exit";

@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import type { Fs, Ps } from "webappwiz/system";
-import { fail } from "./exit";
+import { fail } from "../exit";
 
 /** A file handed over, as bytes so a pasted image needs no temp file. */
 export interface Attachment {

@@ -1,9 +1,9 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { viewerOf } from "@stringsync/splates-server/artifact-viewers";
 import type {
 	Artifact,
 	ArtifactVersion,
 } from "@stringsync/splates-server/artifacts";
+import { viewerOf } from "@stringsync/splates-server/artifacts/browser";
 import { ExternalLinkIcon, XIcon } from "lucide-react";
 import {
 	createContext,

@@ -1,11 +1,11 @@
 import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
+import { conversationOf } from "../conversations";
+import { fail } from "../exit";
+import type { Git } from "../git";
+import type { WorktreeService } from "../tasks";
 import { readFiles } from "./attachments";
-import { conversationOf } from "./conversations";
-import { fail } from "./exit";
-import type { Git } from "./git";
-import type { WorktreeService } from "./tasks";
 
 export interface AttachOptions {
 	/** Task whose files these are. Defaults to the one `cwd` is a worktree for. */
