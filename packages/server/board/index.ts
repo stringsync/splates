@@ -21,6 +21,7 @@ export {
 	named,
 } from "./lanes";
 export { lanesFromTags } from "./lanes-from-tags";
+export { TodoRoutes } from "./routes";
 export type { Todo, TodoState } from "./todo";
 export { recordUpdate, todosNamed, wording } from "./todo";
 export { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";

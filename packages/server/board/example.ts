@@ -1,5 +1,7 @@
 import { type Fs, NodeFs } from "webappwiz/system";
-import type { LaneRecord, TodoState, Todos } from "./board";
+import type { LaneRecord } from "./lanes";
+import type { TodoState } from "./todo";
+import type { Todos } from "./todos";
 
 /**
  * A real batch of related todos, from sound2score, and the three lanes they

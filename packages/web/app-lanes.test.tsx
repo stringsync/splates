@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	SOUND2SCORE_LANES,
 	sound2score,
-} from "@stringsync/splates-server/example";
+} from "@stringsync/splates-server/board/example";
 import {
 	act,
 	cleanup,

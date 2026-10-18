@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { post, serving, todoForm } from "./dev-testing";
-import { Testing } from "./testing";
+import { post, serving, todoForm } from "../dev-testing";
+import { Testing } from "../testing";
 
 describe("dev todos", () => {
 	let deps: Testing;
