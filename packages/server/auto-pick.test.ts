@@ -65,7 +65,7 @@ describe("pick", () => {
 		const cheapest = await pick(
 			input({ offered: OFFERED, judge: new FakeJudge({ design: 0.9 }) }),
 		);
-		// Astra and Opus tie on tier, cost and speed; the roster lists Claude first.
+		// Astra and Opus rank the same, with no plan used; the roster lists Claude first.
 		expect(cheapest).toMatchObject({ agent: "claude", model: "opus" });
 
 		const codexOnly = await pick(
@@ -88,6 +88,50 @@ describe("pick", () => {
 		);
 		expect(noHaiku).toMatchObject({ agent: "claude", model: "sonnet" });
 		expect(noHaiku.effort).toBeUndefined();
+	});
+
+	it("breaks a tie between agents toward the one with more plan left", async () => {
+		const limits = {
+			claude: [limit("five_hour", 0.56), limit("seven_day", 0.1)],
+			codex: [limit("seven_day", 0.09)],
+		};
+		const heavy = await pick(
+			input({
+				offered: OFFERED,
+				judge: new FakeJudge({ design: 0.9 }),
+				limits,
+			}),
+		);
+		expect(heavy).toMatchObject({ agent: "codex", model: "gpt-6-astra" });
+		expect(heavy.reasons).toContain(
+			"over Opus 5.5, which ranks the same: Claude has 56% of five_hour used",
+		);
+
+		const light = await pick(
+			input({
+				offered: OFFERED,
+				judge: new FakeJudge({ lookup: 0.9 }),
+				limits,
+			}),
+		);
+		expect(light).toMatchObject({ agent: "codex", model: "gpt-6-luna" });
+
+		const between = await pick(
+			input({ offered: OFFERED, judge: new FakeJudge(), limits }),
+		);
+		expect(between).toMatchObject({ agent: "claude", model: "sonnet" });
+
+		const codexBusier = await pick(
+			input({
+				offered: OFFERED,
+				judge: new FakeJudge({ design: 0.9 }),
+				limits: {
+					claude: [limit("seven_day", 0.1)],
+					codex: [limit("seven_day", 0.5)],
+				},
+			}),
+		);
+		expect(codexBusier).toMatchObject({ agent: "claude", model: "opus" });
 	});
 
 	it("takes the strongest model left when none meets the tier", async () => {

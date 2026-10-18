@@ -204,10 +204,12 @@ export async function pick(input: PickInput): Promise<AutoPick> {
 				: [{ agent, model: model.id, name: model.name, traits, order }];
 		}),
 	);
-	const best = choose(candidates, (agent) => {
-		const tight = (pressure.get(agent)?.used ?? 0) >= TIGHT;
-		return tight ? Math.max(TIERS.least, tier - 1) : tier;
-	});
+	const used = (agent: string) => pressure.get(agent)?.used ?? 0;
+	const best = choose(
+		candidates,
+		(agent) => (used(agent) >= TIGHT ? Math.max(TIERS.least, tier - 1) : tier),
+		used,
+	);
 	if (best === undefined) {
 		const first = input.agents[0];
 		if (first === undefined) {
@@ -220,9 +222,22 @@ export async function pick(input: PickInput): Promise<AutoPick> {
 			...(judged === undefined ? {} : { signs: judged.signs }),
 		};
 	}
-	if ((pressure.get(best.agent.id)?.used ?? 0) >= TIGHT) {
+	if (used(best.agent.id) >= TIGHT) {
 		reasons.push(
 			`a tier lighter on ${best.agent.name}: ${plan(pressure, best.agent.id)}`,
+		);
+	}
+	const rival = candidates.find(
+		(each) =>
+			each.agent.id !== best.agent.id &&
+			each.order < best.order &&
+			each.traits.tier === best.traits.tier &&
+			each.traits.costRank === best.traits.costRank &&
+			each.traits.speed === best.traits.speed,
+	);
+	if (rival !== undefined) {
+		reasons.push(
+			`over ${rival.name}, which ranks the same: ${rival.agent.name} has ${plan(pressure, rival.agent.id)}`,
 		);
 	}
 
@@ -362,11 +377,17 @@ const SPEED: Record<Speed, number> = { fast: 0, medium: 1, slow: 2 };
 
 /**
  * The cheapest, then fastest, then weakest model that meets the tier its
- * agent needs, then the roster's order; when none meets it, the strongest.
+ * agent needs, then the one whose agent has the most plan left, so models
+ * that rank the same take turns as plans fill, then the roster's order;
+ * when none meets it, the strongest.
  */
 function choose<
 	T extends { agent: RosterAgent; traits: ModelTraits; order: number },
->(candidates: T[], need: (agent: string) => number): T | undefined {
+>(
+	candidates: T[],
+	need: (agent: string) => number,
+	used: (agent: string) => number,
+): T | undefined {
 	const meets = candidates.filter(
 		(each) => each.traits.tier >= need(each.agent.id),
 	);
@@ -374,6 +395,7 @@ function choose<
 		left.traits.costRank - right.traits.costRank ||
 		SPEED[left.traits.speed] - SPEED[right.traits.speed] ||
 		left.traits.tier - right.traits.tier ||
+		used(left.agent.id) - used(right.agent.id) ||
 		left.order - right.order;
 	if (meets.length > 0) {
 		return meets.sort(cheapest)[0];
