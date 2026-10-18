@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { Exit } from "../exit";
 import {
 	type Action,
 	type Event,
@@ -8,7 +9,6 @@ import {
 	type FactsOf,
 	isCurrent,
 } from "./events";
-import { Exit } from "./exit";
 
 /** How long a log file is kept once it fills, so a live conversation can still show the events in it. */
 export const LOG_KEPT_MS = 90 * 24 * 60 * 60 * 1000;

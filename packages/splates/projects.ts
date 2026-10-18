@@ -3,7 +3,7 @@ import {
 	listReaches,
 } from "@stringsync/splates-server/project-reaches";
 import { REACHES } from "@stringsync/splates-server/projects";
-import { repository } from "@stringsync/splates-server/repository";
+import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";

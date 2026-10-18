@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import type { Journal } from "./journal";
+import type { Journal } from "./records";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

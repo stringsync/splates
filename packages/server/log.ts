@@ -1,7 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { age } from "./age";
-import type { Event } from "./events";
-import type { Journal } from "./journal";
+import type { Event, Journal } from "./records";
 import { table } from "./table";
 
 /** Enough to cover a session's worth of work without scrolling. */

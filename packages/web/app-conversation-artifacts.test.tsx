@@ -3,7 +3,7 @@ import type {
 	Artifact,
 	ArtifactVersion,
 } from "@stringsync/splates-server/artifacts";
-import type { Event } from "@stringsync/splates-server/events";
+import type { Event } from "@stringsync/splates-server/records";
 import {
 	act,
 	cleanup,

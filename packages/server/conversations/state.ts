@@ -1,7 +1,7 @@
 import { Duration } from "webappwiz/time";
 import type { Artifact } from "../artifacts";
-import type { Event } from "../events";
 import type { OpenCodeUsage } from "../opencode-usage";
+import type { Event } from "../records";
 import type { Flag } from "../watch";
 
 /** Where an agent waits for a slot, as the page shows it. */

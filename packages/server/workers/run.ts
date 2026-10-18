@@ -9,7 +9,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { WORKER_KEY_HEADER, workerAuthorization } from "../dev-workers";
 import { fail } from "../exit";
-import { relayFile } from "../repo-state";
+import { relayFile } from "../records";
 import { splatesHome } from "../roster";
 import { WorkerDaemon, type WorkerDialer } from "./daemon";
 import { UnixWorkerSocket } from "./unix-socket";

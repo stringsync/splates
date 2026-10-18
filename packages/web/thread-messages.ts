@@ -11,7 +11,8 @@ import type {
 	Message,
 	Part,
 } from "@stringsync/splates-server/conversations";
-import { type Event, isEscalation } from "@stringsync/splates-server/events";
+import type { Event } from "@stringsync/splates-server/records";
+import { isEscalation } from "@stringsync/splates-server/records/browser";
 import { useEffect, useMemo, useState } from "react";
 import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";

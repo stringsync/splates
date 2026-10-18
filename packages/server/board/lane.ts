@@ -1,8 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Facts } from "../events";
 import { fail } from "../exit";
-import type { Journal } from "../journal";
 import { UNTRIAGED } from "../prompts";
+import type { Facts, Journal } from "../records";
 import { table } from "../table";
 import {
 	blockerLabel,

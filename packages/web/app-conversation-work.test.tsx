@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/events";
+import type { Event } from "@stringsync/splates-server/records";
 import {
 	act,
 	cleanup,

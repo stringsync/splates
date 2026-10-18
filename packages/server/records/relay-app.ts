@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { InstallationToken } from "./github-app";
+import type { InstallationToken } from "../github-app";
+import type { AppSource, TokenMinter } from "../task-branches";
 import type { StateProject } from "./repo-state";
-import type { AppSource, TokenMinter } from "./task-branches";
 
 /** What `RelayApp` reaches the coordinator through; the global `fetch` by default. */
 export interface RelayAppOptions {

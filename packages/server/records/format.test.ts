@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FileLock } from "webappwiz/system";
+import { Testing } from "../testing";
 import { FORMAT, Format, type Migration } from "./format";
-import { Testing } from "./testing";
 
 describe("Format", () => {
 	it("refuses a repository splates init never ran in, and stamps it as this splates's on create", async () => {

@@ -5,8 +5,8 @@ import type {
 } from "@stringsync/splates-server/asked";
 import type { Assumed } from "@stringsync/splates-server/assumed";
 import type { Demo } from "@stringsync/splates-server/demo";
-import type { Escalated } from "@stringsync/splates-server/events";
 import type { Question } from "@stringsync/splates-server/plan";
+import type { Escalated } from "@stringsync/splates-server/records";
 import type { JSX } from "react";
 import { InMessage } from "./card-reply";
 import { MessageQuestions } from "./message-questions";

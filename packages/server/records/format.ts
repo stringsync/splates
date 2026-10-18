@@ -1,6 +1,6 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
-import { fail } from "./exit";
+import { fail } from "../exit";
 
 /**
  * One step forward in the format of the records under `.git/splates`: from the

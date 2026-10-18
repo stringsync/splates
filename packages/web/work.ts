@@ -6,7 +6,7 @@ import type {
 	Step,
 	Tool,
 } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/events";
+import type { Event } from "@stringsync/splates-server/records";
 import type { Flag } from "@stringsync/splates-server/watch";
 import { Duration } from "webappwiz/time";
 import { workingSpan } from "./work-time";

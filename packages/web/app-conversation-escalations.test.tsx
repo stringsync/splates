@@ -3,8 +3,8 @@ import type {
 	ConversationState,
 	Message,
 } from "@stringsync/splates-server/conversations";
-import type { Event } from "@stringsync/splates-server/events";
 import { questions } from "@stringsync/splates-server/plan";
+import type { Event } from "@stringsync/splates-server/records";
 import {
 	act,
 	cleanup,

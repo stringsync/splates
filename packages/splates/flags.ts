@@ -3,7 +3,7 @@ import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
 import { pickEffort } from "@stringsync/splates-server/effort";
 import { fail } from "@stringsync/splates-server/exit";
 import { Offered } from "@stringsync/splates-server/offered";
-import type { Repository } from "@stringsync/splates-server/repository";
+import type { Repository } from "@stringsync/splates-server/records";
 import {
 	type AgentPick,
 	pickAgent,

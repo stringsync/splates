@@ -3,7 +3,7 @@ import { FileLock } from "webappwiz/system";
 import { SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import { Projects } from "./projects";
-import { openRepository } from "./repository";
+import { openRepository } from "./records";
 import { splatesHome } from "./roster";
 import type { SplatesDeps } from "./runtime-deps";
 import { SavedTunnel } from "./saved-tunnel";

@@ -3,8 +3,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
 import type { Conversations } from "./conversations";
-import type { Event } from "./events";
-import type { Journal } from "./journal";
+import type { Event, Journal } from "./records";
 
 /**
  * Hands each conversation the events its agent's splates commands logged: all

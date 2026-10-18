@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Event } from "@stringsync/splates-server/events";
+import type { Event } from "@stringsync/splates-server/records";
 import { Testing } from "@stringsync/splates-server/testing";
 import { Duration, sleep } from "webappwiz/time";
 import { splates } from "./splates";

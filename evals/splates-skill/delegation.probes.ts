@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { FORMAT } from "@stringsync/splates-server/format";
+import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type Seed } from "./runner";

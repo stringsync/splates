@@ -6,7 +6,7 @@ import type { DevMachine } from "./dev-project";
 import { fail } from "./exit";
 import { init } from "./init";
 import type { Project } from "./projects";
-import { openRepository } from "./repository";
+import { openRepository } from "./records";
 
 /**
  * What the page's project picker asks of `splates server` beyond listing: adding

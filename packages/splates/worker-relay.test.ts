@@ -11,7 +11,7 @@ import { basename, dirname, join } from "node:path";
 import { type DevServer, dev } from "@stringsync/splates-server";
 import { printed } from "@stringsync/splates-server/agent-process-testing";
 import { DevWorkers } from "@stringsync/splates-server/dev-workers";
-import { relayFile } from "@stringsync/splates-server/repo-state";
+import { relayFile } from "@stringsync/splates-server/records";
 import { Testing } from "@stringsync/splates-server/testing";
 import type { RemoteWorker } from "@stringsync/splates-server/workers";
 import {

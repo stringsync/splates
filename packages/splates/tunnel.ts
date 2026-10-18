@@ -1,4 +1,4 @@
-import { repository } from "@stringsync/splates-server/repository";
+import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import { savedTunnelOf } from "@stringsync/splates-server/start-settings";
 import { tunnelRemove } from "@stringsync/splates-server/tunnel-remove";

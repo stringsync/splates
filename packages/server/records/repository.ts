@@ -3,41 +3,41 @@ import type { Deps, Middleware } from "webappwiz/cmd";
 import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
-import { Adherence } from "./adherence";
-import { Todos } from "./board";
-import { HOME_KEY } from "./checkouts";
-import { CloneCheckouts } from "./clone-checkouts";
-import type { Config } from "./config";
+import { Adherence } from "../adherence";
+import { Todos } from "../board";
+import { HOME_KEY } from "../checkouts";
+import { CloneCheckouts } from "../clone-checkouts";
+import type { Config } from "../config";
 import {
 	LEGACY_DIR,
 	loadConfig,
 	moveLegacyDir,
 	movePlan,
 	unmigrated,
-} from "./config";
-import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
-import { fail } from "./exit";
+} from "../config";
+import { Creds, type SecretStores, SYSTEM_STORES } from "../creds";
+import { fail } from "../exit";
+import { Git } from "../git";
+import { heavyJobsOfMachine } from "../heavy";
+import { LeaseBeat } from "../lease-beat";
+import { Outcomes } from "../outcomes";
+import { PLAN_FILE, Plans } from "../plan";
+import { PlanStore } from "../plan-store";
+import { Projects, type Reach, reaches } from "../projects";
+import { splatesHome } from "../roster";
+import { Shell } from "../shell";
+import { Slots } from "../slots";
+import { TaskBranches } from "../task-branches";
+import { CoordinatorLanding, type TrunkLanding } from "../trunk-landing";
+import { type WorkerMachines, WorktreeService } from "../worktree-service";
 import { Format } from "./format";
-import { Git } from "./git";
-import { heavyJobsOfMachine } from "./heavy";
 import { Journal } from "./journal";
-import { LeaseBeat } from "./lease-beat";
-import { Outcomes } from "./outcomes";
-import { PLAN_FILE, Plans } from "./plan";
-import { PlanStore } from "./plan-store";
-import { Projects, type Reach, reaches } from "./projects";
 import { RelayApp } from "./relay-app";
 import { RelayFs } from "./relay-fs";
 import { RelayLanding } from "./relay-landing";
 import { RelayLock } from "./relay-lock";
 import { findRelay } from "./repo-state";
-import { splatesHome } from "./roster";
 import { RoutedFs } from "./routed-fs";
-import { Shell } from "./shell";
-import { Slots } from "./slots";
-import { TaskBranches } from "./task-branches";
-import { CoordinatorLanding, type TrunkLanding } from "./trunk-landing";
-import { type WorkerMachines, WorktreeService } from "./worktree-service";
 
 /**
  * Runs the action against the repository `cwd` sits in, or the registered

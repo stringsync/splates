@@ -3,9 +3,9 @@ import type { Todos } from "./board";
 import { addedFacts, wording } from "./board";
 import { factTodos } from "./finding-facts";
 import type { Git } from "./git";
-import type { Journal } from "./journal";
 import { landed } from "./landed";
 import type { Outcomes } from "./outcomes";
+import type { Journal } from "./records";
 
 /**
  * Adds a todo, untriaged, for each thing that went worse in `task`'s merge,

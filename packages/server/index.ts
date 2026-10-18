@@ -34,8 +34,8 @@ import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
 import { Machine, osSensors } from "./machine";
 import { queueListing } from "./queue-list";
+import { openRepository } from "./records";
 import { RUNNING } from "./release";
-import { openRepository } from "./repository";
 import { Roster, splatesHome } from "./roster";
 import {
 	OpenCodeSetup,

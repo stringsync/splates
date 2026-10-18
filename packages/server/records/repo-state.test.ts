@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { Testing } from "../testing";
 import { answerState, sameOrigin } from "./repo-state";
-import { Testing } from "./testing";
 
 describe("repo state", () => {
 	it("refuses a path outside the project's records", async () => {

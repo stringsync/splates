@@ -1,5 +1,5 @@
+import type { Landed, LandRequest, TrunkLanding } from "../trunk-landing";
 import type { StateProject } from "./repo-state";
-import type { Landed, LandRequest, TrunkLanding } from "./trunk-landing";
 
 /**
  * A worker's landing: it asks the coordinator at `url` to land, through the
