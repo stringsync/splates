@@ -172,7 +172,7 @@ export function PhoneApp({
 								...kebab,
 								slot,
 								status,
-								project: <ProjectSwitcher name={name} keyed={false} bar />,
+								project: <ProjectSwitcher name={name} bar />,
 							}}
 						>
 							{body}

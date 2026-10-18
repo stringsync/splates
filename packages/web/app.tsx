@@ -362,7 +362,6 @@ export function App({
 	);
 	const header = (
 		<AppHeader
-			name={name}
 			snapshot={snapshot}
 			outdated={outdated}
 			offline={offline}

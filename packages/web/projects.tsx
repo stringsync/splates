@@ -18,7 +18,6 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	DropdownMenu,
@@ -58,17 +57,10 @@ import { shortPath } from "./short-path";
 import { TITLE } from "./top-bar";
 
 /**
- * How often the projects are asked again, while the tab shows, for the
- * switcher to say when another one has agents waiting on you.
- */
-const LISTED = Duration.secs(15);
-
-/**
  * The project's name and path, heading the page, as a picker of every
  * project on this machine in order of their names, each marked with how many
  * agents wait on you there: its shortcut, ⌃⌘P unless set otherwise, which no
  * browser takes, opens it, typing narrows it, the arrows and Enter pick.
- * Closed, it is marked while another project has agents waiting on you.
  * Below them, when this machine runs slots, every `splates server` it has a
  * host for, picked to open that one's page instead. Last, a way to add a
  * project by its path. Each project's menu opens it in the editor Settings
@@ -140,25 +132,6 @@ export function ProjectSwitcher({
 			void load();
 		}
 	}, [open, load]);
-	// Only the mark on the trigger hangs on these: one that fails says nothing,
-	// and the next tries again.
-	useEffect(() => {
-		const list = () =>
-			listProjects().then(
-				(listed) => {
-					setProjects(listed.projects);
-					setServers(listed.servers);
-				},
-				() => {},
-			);
-		void list();
-		const tick = new SystemTimer().setInterval(() => {
-			if (!document.hidden) {
-				void list();
-			}
-		}, LISTED);
-		return () => tick.dispose();
-	}, []);
 	useShortcut("shortcuts.projects", () => setOpen((was) => !was), keyed);
 	const shortcut = useShortcutLabel("shortcuts.projects");
 
@@ -183,13 +156,6 @@ export function ProjectSwitcher({
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.focused : each.slug === shown;
 	const here = (projects ?? []).find(current);
-	// This one's own are on the page already.
-	const elsewhere = (projects ?? []).filter(
-		(each) => each.waiting > 0 && !current(each),
-	);
-	const waitingElsewhere = elsewhere
-		.map((each) => `${each.waiting} waiting on you in ${each.slug}`)
-		.join(", ");
 	const go = (each: ProjectChoice | undefined) => {
 		if (each === undefined || each.gone) {
 			return;
@@ -265,14 +231,8 @@ export function ProjectSwitcher({
 					render={
 						<button
 							type="button"
-							aria-label={
-								elsewhere.length > 0
-									? `Switch project: ${waitingElsewhere}`
-									: "Switch project"
-							}
-							title={`Switch project${shortcut === null ? "" : ` (${shortcut})`}${
-								elsewhere.length > 0 ? `: ${waitingElsewhere}` : ""
-							}`}
+							aria-label="Switch project"
+							title={`Switch project${shortcut === null ? "" : ` (${shortcut})`}`}
 							className={cn(
 								"-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left hover:bg-muted max-md:hover:bg-transparent max-md:active:bg-muted",
 								className,
@@ -295,7 +255,6 @@ export function ProjectSwitcher({
 						</span>
 					)}
 					<span className="ml-auto flex shrink-0 items-center gap-0.5">
-						{elsewhere.length > 0 && <Dot aria-hidden color="bg-warning" />}
 						<ChevronsUpDownIcon className="size-3.5 text-muted-foreground max-md:size-4" />
 					</span>
 				</PopoverTrigger>

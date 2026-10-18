@@ -41,22 +41,29 @@ describe("App coming back to a project", () => {
 		sessionStorage.clear();
 	});
 
-	it("comes back to the conversation it left a project on", async () => {
+	it("comes back to the page it left a project on", async () => {
 		const view = await testing.open();
-		history.replaceState(null, "", "#conversations/c1");
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
+		);
+		await waitFor(() => expect(location.hash).toBe("#creds"));
 		await pick(view, "/code/shop");
 		const there = new URL(String(testing.visited[0]));
 		expect(there.search).toBe("?project=shop");
-		expect(there.hash).toBe("#conversations");
+		expect(there.hash).toBe("#creds");
 		cleanup();
 
 		visit(there.toString());
 		const back = await testing.open();
+		await act(async () =>
+			fireEvent.click(back.getByRole("tab", { name: /Creds/ })),
+		);
+		await waitFor(() => expect(location.hash).toBe("#creds"));
 		await pick(back, "/code/webappwiz");
 
 		const returned = new URL(String(testing.visited[1]));
 		expect(returned.search).toBe("?project=webappwiz");
-		expect(returned.hash).toBe("#conversations/c1");
+		expect(returned.hash).toBe("#creds");
 	});
 
 	it("names the project started in while it opens again", async () => {

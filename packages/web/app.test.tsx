@@ -47,21 +47,15 @@ describe("App", () => {
 		expect(edge.getAttribute("aria-valuenow")).toBe("224");
 	});
 
-	it("names the repo atop the sidebar, beside the button that hides it", async () => {
+	it("hides and shows the sidebar from the button beside the slot mark", async () => {
 		const view = await testing.open();
 
-		expect(view.getByRole("heading", { level: 1 }).textContent).toBe(
-			"webappwiz",
-		);
 		const tabs = view.getByRole("tab", { name: /Todos/ });
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^Hide sidebar/ })),
 		);
 		expect(tabs.closest("[role=tablist]")?.classList.contains("hidden")).toBe(
 			true,
-		);
-		expect(view.getByRole("heading", { level: 1 }).textContent).toBe(
-			"webappwiz",
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^Show sidebar/ })),

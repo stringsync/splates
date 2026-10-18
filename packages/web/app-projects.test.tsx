@@ -117,11 +117,18 @@ describe("App's projects", () => {
 
 	it("goes back to the project left on the browser's back", async () => {
 		const view = await testing.open({ repo: "webappwiz" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
+		);
+		await waitFor(() => expect(location.hash).toBe("#creds"));
 		testing.served = snapshot({ repo: "shop" });
 		await pick(view, "/code/shop");
 		const screen = within(document.body);
 		await waitFor(() =>
-			expect(screen.getAllByRole("heading", { name: "shop" })).toBeTruthy(),
+			expect(
+				screen.getAllByRole("button", { name: /^Switch project/ })[0]
+					?.textContent,
+			).toBe("shop"),
 		);
 		testing.served = snapshot({ repo: "webappwiz" });
 
@@ -130,8 +137,9 @@ describe("App's projects", () => {
 		await waitFor(() => expect(location.search).toBe(""));
 		await waitFor(() =>
 			expect(
-				screen.getAllByRole("heading", { name: "webappwiz" }),
-			).toBeTruthy(),
+				screen.getAllByRole("button", { name: /^Switch project/ })[0]
+					?.textContent,
+			).toBe("webappwiz"),
 		);
 	});
 
@@ -216,18 +224,6 @@ describe("App's projects", () => {
 		expect(
 			view.queryAllByRole("status", { name: /waiting on you/ }),
 		).toHaveLength(1);
-	});
-
-	it("marks the closed switcher while another project has agents waiting on you", async () => {
-		const view = await testing.open();
-
-		await waitFor(() =>
-			expect(
-				view.getAllByRole("button", {
-					name: "Switch project: 2 waiting on you in shop",
-				})[0],
-			).toBeTruthy(),
-		);
 	});
 
 	it("opens each project still there in the editor the settings pick", async () => {

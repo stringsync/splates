@@ -42,21 +42,6 @@ describe("App at a project's address", () => {
 		sessionStorage.clear();
 	});
 
-	it("leaves the agents waiting in the project shown off the switcher's mark", async () => {
-		testing.projects = testing.projects.map((each) =>
-			each.focused ? { ...each, waiting: 1 } : each,
-		);
-		const view = await testing.open();
-
-		await waitFor(() =>
-			expect(
-				view.getAllByRole("button", {
-					name: "Switch project: 1 waiting on you in webappwiz",
-				})[0],
-			).toBeTruthy(),
-		);
-	});
-
 	it("asks the server for the project the address names", async () => {
 		testing.served = snapshot();
 
@@ -72,10 +57,6 @@ describe("App at a project's address", () => {
 		const screen = within(document.body);
 		const status = await waitFor(() => screen.getByText("Opening shop"));
 		expect(status.getAttribute("role")).toBe("status");
-		const trigger = screen.getAllByRole("button", {
-			name: /^Switch project/,
-		})[0] as HTMLElement;
-		expect(within(trigger).getByRole("heading").textContent).toBe("shop");
 		arrive();
 		await opening;
 

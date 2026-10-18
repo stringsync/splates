@@ -113,8 +113,7 @@ export function DesktopApp({
 		),
 		menu: menu.items,
 		dot: menu.dot,
-		// The sidebar's head takes the shortcut.
-		project: <ProjectSwitcher name={name} keyed={false} bar />,
+		project: <ProjectSwitcher name={name} bar />,
 	};
 	return (
 		<ShownRoot value={snapshot?.root ?? null}>
@@ -131,7 +130,7 @@ export function DesktopApp({
 					)}
 					style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 				>
-					<SidebarHead name={name} snapshot={snapshot} sidebar={sidebar} />
+					<SidebarHead snapshot={snapshot} sidebar={sidebar} />
 					{/* Every page's bar lands here, one row with the sidebar's head,
 				    and clear of it once it hides. */}
 					<header
