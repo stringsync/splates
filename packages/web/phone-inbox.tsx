@@ -43,12 +43,15 @@ import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { Row } from "./phone-inbox-row";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
+import { MoreSection } from "./phone-more-projects";
 import { InLanes } from "./project-folder-list";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
 	folderKey,
 	foldersOf,
+	MORE,
+	OPENED_MORE,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import { arriveAt, useCopiedReplies } from "./task-view";
@@ -149,6 +152,7 @@ export function Inbox({
 				)
 			: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const more = useFolded(OPENED_MORE);
 	const navigation = useContext(NavigationContext);
 	const open = (row: Needing, folder: Folder | null) => {
 		if (folder !== null && !folder.here && folder.project !== null) {
@@ -267,6 +271,12 @@ export function Inbox({
 										onOpen={open}
 									/>
 								))}
+								<MoreSection
+									idle={grouped.idle}
+									open={more.folded.has(MORE)}
+									onFold={(open) => more.fold(MORE, !open)}
+									onNew={available ? startIn : null}
+								/>
 							</>
 						)}
 						<TerminalGroup

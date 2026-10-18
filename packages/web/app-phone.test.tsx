@@ -166,6 +166,43 @@ describe("App on a phone", () => {
 		expect(new URL(String(testing.visited[0])).hash).toBe("#conversations/new");
 	});
 
+	it("folds the projects with no agent into one section, which starts a conversation in one", async () => {
+		localStorage.clear();
+		testing.everywhere = [
+			{
+				project: "apple",
+				repo: "apple",
+				root: "/code/apple",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				conversations: [],
+			},
+		];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Mine", status: "running" })],
+			null,
+			{ tasks: [] },
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const more = await waitFor(() =>
+			within(inbox).getByRole("region", { name: "More projects" }),
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(more).getByRole("button", { name: "1 more project" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(within(more).getByRole("button", { name: "apple" })),
+		);
+
+		const there = new URL(String(testing.visited[0]));
+		expect(there.searchParams.get("project")).toBe("apple");
+		expect(there.hash).toBe("#conversations/new");
+	});
+
 	it("folds a folder away, dotted while one of its agents waits", async () => {
 		const inbox = await inZebraAndHere();
 		const zebra = within(inbox).getByRole("region", { name: "zebra" });

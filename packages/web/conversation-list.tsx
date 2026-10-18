@@ -41,6 +41,7 @@ import { nest } from "./parts";
 import {
 	FolderList,
 	ForeignItem,
+	MoreProjects,
 	NeedsYou,
 	type RenderRow,
 } from "./project-folder-list";
@@ -49,6 +50,8 @@ import {
 	type Folder,
 	folderKey,
 	foldersOf,
+	MORE,
+	OPENED_MORE,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import { NestedPanesContext } from "./side-panes";
@@ -196,6 +199,7 @@ export function ConversationList({
 			)
 		: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const more = useFolded(OPENED_MORE);
 	const navigation = useContext(NavigationContext);
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
@@ -426,6 +430,15 @@ export function ConversationList({
 						}
 						render={renderRow}
 						beneath={beneathOf}
+					/>
+					<MoreProjects
+						idle={grouped.idle}
+						open={more.folded.has(MORE)}
+						onFold={(open) => more.fold(MORE, !open)}
+						onNew={(folder) =>
+							folder.project !== null &&
+							navigation.show(newConversationUrl(folder.project))
+						}
 					/>
 				</Placing>
 			) : (
