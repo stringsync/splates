@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# In a checkout, `splates dev <command>` runs the commands for working on
-# splates itself (packages/dev), which never ship; anything else is the CLI
-# users get from `bunx @stringsync/splates`. Bare namespaces print their help.
+# In a checkout, `splates` is the published cli with `splates dev` mounted, the
+# commands for working on splates itself (packages/splates/dev), which never
+# ship; anything else is the CLI users get from `bunx @stringsync/splates`.
+# Bare namespaces print their help.
 here="$(dirname "${BASH_SOURCE[0]}")"
 if [[ "${1:-}" == "dev" ]]; then
-	shift
 	# A pin keeps `splates merge` off the tree it rewrites, but the merge's
 	# test gate runs `dev test` and must test the checkout it is in, not the pin.
 	unset SPLATES_ROOT
-	exec "$here/_run" packages/dev/index.ts "$@"
 fi
-exec "$here/_run" packages/splates/index.ts "$@"
+exec "$here/_run" packages/splates/checkout.ts "$@"

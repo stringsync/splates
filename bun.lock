@@ -17,15 +17,6 @@
         "zod": "^4.4.3",
       },
     },
-    "packages/dev": {
-      "name": "splates-dev",
-      "version": "0.0.45",
-      "dependencies": {
-        "@stringsync/splates-server": "workspace:*",
-        "webappwiz": "0.0.46",
-        "zod": "^4.4.3",
-      },
-    },
     "packages/server": {
       "name": "@stringsync/splates-server",
       "version": "0.0.45",
@@ -719,8 +710,6 @@
     "secure-json-parse": ["secure-json-parse@4.1.0", "", {}, "sha512-l4KnYfEyqYJxDwlNVyRfO2E4NTHfMKAWdUuA8J0yve2Dz/E/PdBepY03RvyJpssIpRFwJoCD55wA+mEDs6ByWA=="],
 
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
-
-    "splates-dev": ["splates-dev@workspace:packages/dev"],
 
     "splates-web": ["splates-web@workspace:packages/web"],
 
