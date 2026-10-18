@@ -358,6 +358,26 @@ its creation, which its record keeps with the billing; `"second"` retires it at
 once. `WorkerProvisioning.look` decides, each minute; `DevWorkers` retires.
 Local and registered workers are never made, so never retired.
 
+The coordinator's box (built 2026-10-18, `packages/server/coordinator/box.ts`):
+a Hetzner CPX21 (3 vCPU / 4 GB, about $38 a month after the 15 June 2026
+prices) in Ashburn, Virginia, the nearest Hetzner location to New Jersey,
+picked over DigitalOcean NYC3, Vultr New Jersey and Akamai Newark at $20-24
+so the box shares the workers' account, token, Pulumi provider and setup.
+Its stack, `splates-coordinator/coordinator` in the same file backend, holds
+an SSH key splates makes, a firewall opening port 22 alone, and the server
+with Hetzner's daily backups and delete and rebuild protection;
+`splates coordinator up|status|remove` drive it. Its first boot installs
+git, bun, cloudflared and splates for the user `splates`, and nothing more:
+what moves onto it, and how, comes after. Traffic keeps the tunnel: the
+saved one's cloudflared moves to the box, so no web port opens and the host,
+DNS record and Access app stay as they are (settled 2026-10-18, over serving
+HTTPS straight to Cloudflare's proxy, which needs TLS in splates, a public
+bind, a peer-address Access check and Cloudflare's ranges in the firewall).
+Creds stay in `Bun.secrets` through GNOME Keyring run headless beside
+`splates server`, unlocked at boot by a password in `/root/splates-keyring`
+(settled 2026-10-18); every unattended store keeps its unlock secret on the
+box's disk, and the daily backups copy it.
+
 ## Updates without waiting
 
 The coordinator restarts on its own: agents, terminals and dev servers belong

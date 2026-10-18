@@ -47,6 +47,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
 import { splatesBudget } from "./budget";
+import { splatesCoordinator } from "./coordinator";
 import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, todoIds } from "./flags";
 import { splatesLane } from "./lane";
@@ -704,4 +705,5 @@ splates
 	.mount("slots", splatesSlots)
 	.mount("worker", splatesWorker)
 	.mount("queue", splatesQueue)
-	.mount("budget", splatesBudget);
+	.mount("budget", splatesBudget)
+	.mount("coordinator", splatesCoordinator);

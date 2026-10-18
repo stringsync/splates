@@ -410,6 +410,14 @@ as the user having seen it). Walk them
 through it as [references/setup.md](references/setup.md) says. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
+When the user asks for an always-on coordinator, that is the Cloud
+coordinator setup area: `coordinator-box`, after `pulumi-state` and
+`hetzner-token`, makes it with `splates coordinator up` (a CPX21 in Hetzner's
+Ashburn with daily backups, SSH alone open, its key under
+`~/.splates/coordinator`); `splates coordinator status` prints its address and
+how to SSH in, and `splates coordinator remove` destroys it and its backups.
+It serves nothing until the coordinator moves onto it.
+
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:
 `ready()` throws, saying what to do, unless the tunnel can run, and

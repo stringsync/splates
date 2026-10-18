@@ -42,6 +42,7 @@
 		"./board/browser": "./board/browser.ts",
 		"./board/example": "./board/example.ts",
 		"./conversations": "./conversations/index.ts",
+		"./coordinator": "./coordinator/index.ts",
 		"./conversations/browser": "./conversations/browser.ts",
 		"./creds": "./creds/index.ts",
 		"./push": "./push/index.ts",

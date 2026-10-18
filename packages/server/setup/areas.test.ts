@@ -32,6 +32,7 @@ describe("SETUP_AREAS", () => {
 			"opencode",
 			"remote-access",
 			"workers",
+			"coordinator",
 			"notifications",
 			"dictation",
 			"github",
