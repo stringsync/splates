@@ -13,6 +13,8 @@ export function WorkerCard({
 	updating,
 	tasks,
 	onOpenTask,
+	providers,
+	onOpenKeys,
 	refusal,
 	onDrain,
 	onSlots,
@@ -22,6 +24,10 @@ export function WorkerCard({
 	updating: boolean;
 	tasks: ReadonlySet<string>;
 	onOpenTask: (name: string) => void;
+	/** The names of the key providers, by id; a provider not here shows by its id. */
+	providers: ReadonlyMap<string, string>;
+	/** Opens the Creds page, where a worker's keys are added. */
+	onOpenKeys: () => void;
 	refusal: string | undefined;
 	onDrain: (draining: boolean) => void;
 	onSlots: (slots: number) => void;
@@ -43,7 +49,7 @@ export function WorkerCard({
 				</span>
 				<Health worker={worker} />
 			</header>
-			<dl className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-5">
+			<dl className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-6">
 				<Fact name="platform">{worker.platform ?? "?"}</Fact>
 				<Fact name="slots">
 					{used}/{worker.slots.total ?? "?"}
@@ -58,6 +64,21 @@ export function WorkerCard({
 					)}
 				</Fact>
 				<Fact name="$/hour">{worker.dollarsPerHour.toFixed(2)}</Fact>
+				<Fact name="keys">
+					{local ? (
+						"signs in as you"
+					) : worker.keys.length === 0 ? (
+						<button
+							type="button"
+							className="text-muted-foreground underline-offset-2 hover:underline"
+							onClick={onOpenKeys}
+						>
+							none: add one
+						</button>
+					) : (
+						worker.keys.map((id) => providers.get(id) ?? id).join(", ")
+					)}
+				</Fact>
 				<Fact name="tasks">
 					{worker.tasks.length === 0
 						? "-"

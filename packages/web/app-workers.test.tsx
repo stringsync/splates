@@ -169,6 +169,49 @@ describe("App's workers", () => {
 		await act(async () => testing.release());
 	});
 
+	it("names the keys each worker holds, and links an empty cell to the Creds page", async () => {
+		testing.workerKeys = {
+			keys: [],
+			providers: [
+				{
+					id: "anthropic",
+					name: "Anthropic",
+					env: "ANTHROPIC_API_KEY",
+					agents: ["claude"],
+					keys: "https://platform.claude.com/settings/keys",
+					limits: "https://platform.claude.com/settings/workspaces",
+					scope: "workspace",
+				},
+			],
+			holders: { workers: ["box", "bare"], types: [] },
+		};
+		const view = await openWorkers(
+			pool([
+				worker("local", { kind: "local" }),
+				worker("box", { keys: ["anthropic", "mystery"] }),
+				worker("bare"),
+			]),
+		);
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("listitem", { name: "worker box" }).textContent,
+			).toContain("Anthropic, mystery"),
+		);
+		expect(
+			view.getByRole("listitem", { name: "worker local" }).textContent,
+		).toContain("signs in as you");
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("listitem", { name: "worker bare" })).getByRole(
+					"button",
+					{ name: "none: add one" },
+				),
+			),
+		);
+		expect(view.getByRole("region", { name: "creds" })).toBeTruthy();
+	});
+
 	it("gives a join command to copy for another machine", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
 		testing.reply = { token: "t0ken", expiresAt: Date.now() + 900_000 };

@@ -306,6 +306,7 @@ export function App({
 						<WorkersPage
 							tasks={new Set(snapshot.tasks.map((each) => each.task))}
 							onOpenTask={openTask}
+							onOpenKeys={() => go("creds")}
 						/>
 					),
 					setup: (
