@@ -203,6 +203,27 @@ describe("ConversationFeed", () => {
 
 		expect(feed.conversations).toEqual([after]);
 	});
+
+	it("reads a conversation it holds only in summary whole, once", async () => {
+		const summary = conversation({ id: "c1", archived: true, summary: true });
+		const whole = conversation({
+			id: "c1",
+			archived: true,
+			messages: [message("agent", "Done.")],
+		});
+		feed.start();
+		await list([summary, conversation({ id: "c2" })]);
+		const asked: string[] = [];
+		globalThis.fetch = ((url: string) => {
+			asked.push(url);
+			return Promise.resolve(Response.json(whole));
+		}) as unknown as typeof fetch;
+
+		await Promise.all([feed.whole("c1"), feed.whole("c1"), feed.whole("c2")]);
+
+		expect(asked).toEqual(["/api/conversations/c1"]);
+		expect(feed.conversations[0]).toEqual(whole);
+	});
 });
 
 async function settled(): Promise<void> {

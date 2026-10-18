@@ -1,7 +1,7 @@
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { LaneRecord } from "./board";
-import type { ConversationState } from "./conversations";
+import { type ConversationState, listed } from "./conversations";
 import { type EventSink, eventStream, type StreamWatcher } from "./dev-http";
 import type { Served } from "./dev-project";
 import type { Projects } from "./projects";
@@ -18,7 +18,10 @@ export interface EverywhereListing {
 
 /** One project as the every-project feed carries it. */
 export interface EverywhereProject extends EverywhereBoard {
-	/** Newest first, as its own page lists them; none while they are off. */
+	/**
+	 * Newest first, as its own page lists them, the archived ones as
+	 * summaries; none while they are off.
+	 */
 	conversations: ConversationState[];
 }
 
@@ -78,7 +81,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 					...board,
 					conversations: (
 						(await project.conversations?.list().catch(() => [])) ?? []
-					).map(({ state }) => state),
+					).map(({ state }) => listed(state)),
 				});
 			}
 		}
@@ -160,7 +163,9 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 			project.listen({
 				changed: (conversation) =>
 					void slug.then((project) =>
-						this.say(`data: ${JSON.stringify({ project, conversation })}\n\n`),
+						this.say(
+							`data: ${JSON.stringify({ project, conversation: listed(conversation) })}\n\n`,
+						),
 					),
 				removed: (id) =>
 					void slug.then((project) =>

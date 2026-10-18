@@ -556,6 +556,9 @@ export async function dev(
 				"/api/conversations/events": talk(
 					scoped((project) => project.conversationEvents),
 				),
+				"/api/conversations/:id": {
+					GET: talk(owned((project) => project.showConversation)),
+				},
 				"/api/conversations/:id/prompt": {
 					POST: talk(owned((project) => project.promptConversation)),
 				},

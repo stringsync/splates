@@ -299,6 +299,58 @@ describe("dev conversations", () => {
 		}
 	}, 15_000);
 
+	it("lists an archived one without its tool calls, and serves it whole", async () => {
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({
+				sessionId,
+				update: {
+					sessionUpdate: "tool_call",
+					toolCallId: "t1",
+					title: "Run ls",
+					kind: "execute",
+					status: "completed",
+				},
+			});
+			await client.sessionUpdate({ sessionId, update: say("Done.") });
+			return "end_turn";
+		};
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+				task: null,
+			});
+			const { id } = (await started.json()) as { id: string };
+			const conversation = await conversations.find(id);
+			await conversation.prompt("go");
+			await json(port, `/api/conversations/${id}/archived`, "PUT", {
+				archived: true,
+			});
+			const types = (state: ConversationState) =>
+				state.messages.flatMap((message) =>
+					message.parts.map((part) => part.type),
+				);
+
+			const { conversations: listed } = (await (
+				await fetch(`http://127.0.0.1:${port}/api/conversations`)
+			).json()) as { conversations: ConversationState[] };
+			const whole = (await (
+				await fetch(`http://127.0.0.1:${port}/api/conversations/${id}`)
+			).json()) as ConversationState;
+
+			expect(listed[0]?.summary).toBe(true);
+			expect(types(listed[0] as ConversationState)).toEqual(["text", "text"]);
+			expect(whole.summary).toBeUndefined();
+			expect(types(whole)).toEqual(["text", "tool", "text"]);
+		} finally {
+			await server.disposeAsync();
+		}
+	});
+
 	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),

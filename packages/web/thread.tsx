@@ -8,6 +8,7 @@ import {
 	type JSX,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -148,7 +149,12 @@ function Conversation({
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
-	const { id, settings, archived } = conversation;
+	const { id, settings, archived, summary } = conversation;
+	useEffect(() => {
+		if (summary) {
+			void feed.whole(id);
+		}
+	}, [feed, id, summary]);
 	const refused = useCallback(
 		(title: string, error: unknown) => refuseIn(id, title, error),
 		[refuseIn, id],

@@ -83,6 +83,8 @@ export class ConversationFeed
 	 */
 	private changes = 0;
 	private readonly changedAt = new Map<string, number>();
+	/** The conversations `whole` is reading, by id. */
+	private readonly reading = new Set<string>();
 	private stream: LiveStream | null = null;
 
 	/**
@@ -130,6 +132,29 @@ export class ConversationFeed
 				? [state, ...this.recorded]
 				: this.recorded.map((each, index) => (index === at ? state : each)),
 		);
+	}
+
+	/**
+	 * Reads conversation `id` whole when the page holds only its summary, as
+	 * a listing sends an archived one, so its thread shows its tool calls.
+	 */
+	async whole(id: string): Promise<void> {
+		const held = this.recorded.find((each) => each.id === id);
+		if (held?.summary !== true || this.reading.has(id)) {
+			return;
+		}
+		this.reading.add(id);
+		try {
+			const since = this.changes;
+			const response = await fetch(
+				`/api/conversations/${encodeURIComponent(id)}`,
+			).catch(() => null);
+			if (response?.ok && (this.changedAt.get(id) ?? -1) < since) {
+				this.put((await response.json()) as ConversationState);
+			}
+		} finally {
+			this.reading.delete(id);
+		}
 	}
 
 	/** Drops conversation `id`, deleted as an older archived one. */

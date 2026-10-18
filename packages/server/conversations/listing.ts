@@ -1,5 +1,6 @@
 import { modelsOf } from "../roster";
 import type { Conversations } from "./conversations";
+import { listed } from "./state";
 
 /** The conversations and saved agent defaults offered to the page. */
 export async function listing(all: Conversations) {
@@ -13,6 +14,6 @@ export async function listing(all: Conversations) {
 			settings: offered[each.id] ?? [],
 			limits: limits[each.id] ?? [],
 		})),
-		conversations: (await all.list()).map((each) => each.state),
+		conversations: (await all.list()).map((each) => listed(each.state)),
 	};
 }

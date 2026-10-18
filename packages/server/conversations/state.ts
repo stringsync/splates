@@ -149,6 +149,12 @@ export interface ConversationState {
 	background: Background[];
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
+	/**
+	 * Set when this is only a summary, as a listing sends an archived one:
+	 * read `GET /api/conversations/<id>` for its tool calls, thoughts and
+	 * commands.
+	 */
+	summary?: true;
 }
 
 /**
@@ -543,6 +549,28 @@ export function blank(
 		},
 		background: [],
 		artifacts: [],
+	};
+}
+
+/**
+ * `state` as a listing sends it: an archived one as a summary, since the
+ * page shows little of one until it is opened, and its tool calls are most
+ * of what every conversation weighs.
+ */
+export function listed(state: ConversationState): ConversationState {
+	if (!state.archived) {
+		return state;
+	}
+	return {
+		...state,
+		messages: state.messages.map((message) => ({
+			...message,
+			parts: message.parts.filter(
+				(part) => part.type !== "tool" && part.type !== "thought",
+			),
+		})),
+		commands: [],
+		summary: true,
 	};
 }
 

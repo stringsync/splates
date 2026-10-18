@@ -127,6 +127,11 @@ export class ConversationRoutes {
 		return Response.json(await listing(this.held()));
 	};
 
+	/** One conversation whole, as a listing sends an archived one only in summary. */
+	readonly showConversation = async (request: Request): Promise<Response> => {
+		return Response.json((await this.conversationAt(request)).state);
+	};
+
 	/** The tree a terminal opens in: `?task=`'s worktree, or the main tree. */
 	readonly terminalTree = async (request: Request): Promise<string> => {
 		const [, cwd] = await this.treeFor(
