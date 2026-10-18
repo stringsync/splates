@@ -394,8 +394,14 @@ machine, that is the Workers setup area: `local-worker` (`splates worker add
 may mint a worker's Access service token, **Account · Access: Service Tokens ·
 Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
 for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --coordinator <url> --join <token>` on the other machine), and, only
-when `splates.config.ts` names a `workerProvider`, `worker-budget` (what made
+worker run --coordinator <url> --join <token>` on the other machine). Workers
+in their own cloud account start with `pulumi-install` (Pulumi under
+`~/.splates/pulumi`) and `pulumi-state` (its state there, encrypted by the
+device cred `PULUMI_CONFIG_PASSPHRASE`, never shown or replaced), then
+`hetzner-token` (the cred `HCLOUD_TOKEN`), `hetzner-provider` (a task adding
+`workerProvider: new HetznerWorkerProvider()` to `splates.config.ts`) and
+`worker-snapshot` (builds the snapshot workers boot from); and, only when
+`splates.config.ts` names a `workerProvider`, `worker-budget` (what made
 workers may cost: `splates budget set <hour|day|month> <dollars>`; any set counts
 as the user having seen it). Walk them
 through it as [references/setup.md](references/setup.md) says. Each checks

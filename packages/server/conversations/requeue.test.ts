@@ -46,6 +46,7 @@ describe("A conversation whose worker is removed under it", () => {
 			exists: async (path) => path.startsWith(`/${id}/`),
 			checkout: async () => "",
 			removeCheckout: async () => {},
+			servers: async () => [],
 		});
 		const slots: ConversationSlots = {
 			events: scheduler.events,

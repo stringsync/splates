@@ -73,18 +73,7 @@ export class Snapshots {
 		provider: WorkerProvider,
 		opts: SnapshotsOptions,
 	): Promise<Snapshots> {
-		const { path, fs } = opts;
-		const read =
-			path === null || fs === undefined
-				? null
-				: await fs.read(path).catch(() => null);
-		let kept: z.infer<typeof Kept> = {};
-		try {
-			kept = read === null ? {} : Kept.parse(JSON.parse(read));
-		} catch {
-			// Unreadable: the next worker builds one again.
-		}
-		return new Snapshots(provider, kept, opts);
+		return new Snapshots(provider, await readKept(opts), opts);
 	}
 
 	/** The snapshot on `platform` as kept, fresh or not; null before the first. */
@@ -94,6 +83,10 @@ export class Snapshots {
 
 	/** The snapshot a worker on `platform` boots from now, built first when there is none fresh. */
 	async current(platform: Platform): Promise<Snapshot> {
+		if (!this.freshOn(platform)) {
+			// Setup may have built one since this was opened.
+			this.kept = { ...this.kept, ...(await readKept(this.opts)) };
+		}
 		const kept = this.of(platform);
 		if (kept !== null && this.fresh(kept)) {
 			return kept;
@@ -112,6 +105,11 @@ export class Snapshots {
 		);
 		this.building.set(platform, build);
 		return build;
+	}
+
+	private freshOn(platform: Platform): boolean {
+		const kept = this.of(platform);
+		return kept !== null && this.fresh(kept);
 	}
 
 	private fresh(snapshot: Snapshot): boolean {
@@ -135,6 +133,33 @@ export class Snapshots {
 			await fs.write(path, `${JSON.stringify(this.kept)}\n`);
 		}
 		return built;
+	}
+}
+
+/**
+ * The snapshot kept on `platform` at `opts.path`, fresh or not, without a
+ * provider: null before the first, or when the record is unreadable.
+ */
+export async function keptSnapshot(
+	platform: Platform,
+	opts: Pick<SnapshotsOptions, "path" | "fs">,
+): Promise<Snapshot | null> {
+	return (await readKept(opts))[platform] ?? null;
+}
+
+/** The record at `path`, empty when there is none or it is unreadable, so the next worker builds one again. */
+async function readKept({
+	path,
+	fs,
+}: Pick<SnapshotsOptions, "path" | "fs">): Promise<z.infer<typeof Kept>> {
+	const read =
+		path === null || fs === undefined
+			? null
+			: await fs.read(path).catch(() => null);
+	try {
+		return read === null ? {} : Kept.parse(JSON.parse(read));
+	} catch {
+		return {};
 	}
 }
 

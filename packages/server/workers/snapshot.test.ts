@@ -45,6 +45,14 @@ describe("the worker snapshot", () => {
 		expect(provider.getCalls()).toEqual(["snapshot linux 1.0.0"]);
 	});
 
+	it("boots from one another process built since it opened, as setup does", async () => {
+		const server = await opened("1.0.0");
+		const built = await (await opened("1.0.0")).current("linux");
+
+		expect(await server.current("linux")).toEqual(built);
+		expect(provider.getCalls()).toEqual(["snapshot linux 1.0.0"]);
+	});
+
 	it("builds again for a new version, or once it is a week old", async () => {
 		await (await opened("1.0.0")).current("linux");
 		const upgraded = await opened("1.1.0");

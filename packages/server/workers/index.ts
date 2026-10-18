@@ -35,6 +35,13 @@ export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
+export {
+	HETZNER_LOCATIONS,
+	HETZNER_TYPES,
+	HetznerWorkerProvider,
+	type HetznerWorkerProviderOptions,
+} from "./hetzner";
+export { HCLOUD_TOKEN, HetznerApi } from "./hetzner-api";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
 export {
 	KEY_PROVIDERS,
@@ -60,6 +67,15 @@ export type {
 } from "./provider";
 export type { Provisioned } from "./provisioning";
 export { WorkerProvisioning } from "./provisioning";
+export type { PulumiPaths } from "./pulumi";
+export {
+	newPulumiPassphrase,
+	PULUMI_PASSPHRASE,
+	PULUMI_VERSION,
+	Pulumi,
+	pulumiEnv,
+	pulumiPaths,
+} from "./pulumi";
 export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
@@ -73,7 +89,12 @@ export {
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";
-export { SNAPSHOT_USER, Snapshots, snapshotRecipe } from "./snapshot";
+export {
+	keptSnapshot,
+	SNAPSHOT_USER,
+	Snapshots,
+	snapshotRecipe,
+} from "./snapshot";
 export type { SpendShare } from "./spend";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";

@@ -1,5 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
+import { RUNNING } from "../release";
 import {
 	API_TOKEN,
 	CloudflareApi,
@@ -10,6 +11,15 @@ import {
 import {
 	DEFAULT_WORKER_LIMITS,
 	dollars,
+	HCLOUD_TOKEN,
+	HetznerApi,
+	keptSnapshot,
+	newPulumiPassphrase,
+	PULUMI_PASSPHRASE,
+	PULUMI_VERSION,
+	pulumiEnv,
+	pulumiPaths,
+	Snapshots,
 	WORKER_LIMITS,
 	type WorkerLimit,
 } from "../workers";
@@ -40,7 +50,14 @@ function field(limit: WorkerLimit, label: string): StepField {
 	};
 }
 
-/** Running agents on this Mac and on other machines, the pool `splates server` places them on. */
+/** How long the install, or a `pulumi` check, gets before it counts as failed. */
+const INSTALL_MS = 120_000;
+const PROBE_MS = 10_000;
+
+/**
+ * Running agents on this Mac, on other machines, and on machines Pulumi makes
+ * in your own cloud account: the pool `splates server` places them on.
+ */
 export const WORKERS_AREA: SetupArea = workersArea();
 
 function workersArea(): SetupArea {
@@ -179,6 +196,132 @@ function workersArea(): SetupArea {
 			"The worker budget has not been looked at: choose its limits, then press Next.",
 	};
 
+	const installStep: SetupStep = {
+		id: "pulumi-install",
+		title: "Install Pulumi",
+		why: "splates makes cloud workers through Pulumi, its own copy under `~/.splates/pulumi`, apart from any Pulumi of yours.",
+		user: `Next installs Pulumi ${PULUMI_VERSION} with its official install script.`,
+		agent: `Press Next on the page, or run \`curl -fsSL https://get.pulumi.com | sh -s -- --version ${PULUMI_VERSION} --install-root ~/.splates/pulumi --no-edit-path\`. Never log in to Pulumi Cloud or touch \`~/.pulumi\`.`,
+		optional: true,
+		after: [],
+		check: async (machine) => (await pulumi(machine, ["version"])) !== null,
+		submit: async (machine) => {
+			const { root } = pulumiPaths(machine.home);
+			const installed = await ps(machine).spawnCapture(
+				[
+					"sh",
+					"-c",
+					`curl -fsSL https://get.pulumi.com | sh -s -- --version ${PULUMI_VERSION} --install-root "$1" --no-edit-path --silent`,
+					"sh",
+					root,
+				],
+				{ timeoutMs: INSTALL_MS },
+			);
+			if (installed.exitCode !== 0) {
+				throw new Error(
+					`Pulumi did not install: ${lastLine(installed.stderr) ?? `exit ${installed.exitCode}`}`,
+				);
+			}
+		},
+		doing: "Installing Pulumi…",
+		notDone:
+			"Pulumi installed, but splates cannot run it. Press Next to install it again.",
+	};
+	const stateStep: SetupStep = {
+		id: "pulumi-state",
+		title: "Keep worker state on this machine",
+		why: "Pulumi records each worker it makes in `~/.splates/pulumi/state`, with no Pulumi account, its secrets encrypted by a passphrase kept in this device's keychain.",
+		user: "Next makes the state directory and a passphrase for it. Losing the passphrase loses the secrets in that state, so leave it in the keychain.",
+		agent: `Press Next on the page, which makes the directory and keeps a new passphrase as the device cred \`${PULUMI_PASSPHRASE}\`. Never print the passphrase, ask for it in chat, or replace one already kept.`,
+		optional: true,
+		after: [installStep],
+		check: async (machine) =>
+			(await machine.fs.exists(pulumiPaths(machine.home).state)) &&
+			(await machine.device.get(PULUMI_PASSPHRASE)) !== undefined,
+		submit: async (machine) => {
+			await machine.fs.mkdir(pulumiPaths(machine.home).state, {
+				recursive: true,
+			});
+			// A kept one encrypts state already written: replacing it would lose that.
+			if ((await machine.device.get(PULUMI_PASSPHRASE)) === undefined) {
+				await machine.device.set(PULUMI_PASSPHRASE, newPulumiPassphrase());
+			}
+			if ((await pulumi(machine, ["whoami"])) === null) {
+				throw new Error(
+					"Pulumi cannot read its state directory: check `~/.splates/pulumi/state` is yours.",
+				);
+			}
+		},
+		doing: "Making Pulumi's state directory…",
+	};
+	const tokenStep: SetupStep = {
+		id: "hetzner-token",
+		title: "Paste a Hetzner Cloud API token",
+		why: "Cloud workers are Hetzner Cloud servers in your own account, made only while agents wait for a slot: a CPX62 runs 8 agents for about $0.25 an hour, a CX53 for about $0.06 when Hetzner has one, billed by the started hour.",
+		user: "Make a Read & Write API token in a Hetzner Cloud project and paste it.",
+		agent: `Request it with \`splates creds request ${HCLOUD_TOKEN} --device\`, with how to get it, and \`splates creds wait ${HCLOUD_TOKEN}\`. Never ask for it in chat.`,
+		optional: true,
+		after: [],
+		fields: [
+			{
+				kind: "cred",
+				name: HCLOUD_TOKEN,
+				label: "Hetzner Cloud API token",
+				help: "In the [Hetzner Console](https://console.hetzner.com/projects), open a project for splates (or make one), then **Security › API tokens › Generate API token** with **Read & Write**, and paste it.",
+			},
+		],
+		check: async (machine) => {
+			const token = await machine.device.get(HCLOUD_TOKEN);
+			return (
+				token !== undefined &&
+				(await new HetznerApi(token, machine.fetch).accepted())
+			);
+		},
+		notDone:
+			"Hetzner does not take that token: generate a Read & Write one and paste it again.",
+	};
+
+	const providerStep: SetupStep = {
+		id: "hetzner-provider",
+		title: "Turn cloud workers on",
+		why: "A project makes cloud workers once its `splates.config.ts` names the provider, up to `provisionedWorkers` at once (2 by default), and only for work its agents hand out.",
+		user: "Add `workerProvider: new HetznerWorkerProvider()` to this project's `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next.",
+		agent:
+			"In a task of its own, add `workerProvider: new HetznerWorkerProvider()`, imported from `@stringsync/splates-server/workers`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup hetzner-provider`.",
+		notDone:
+			"`splates.config.ts` names no `workerProvider` yet: add it, merge it, then press Next.",
+		optional: true,
+		after: [stateStep, tokenStep],
+		check: async (machine) =>
+			(await requireProject(machine).config()).workerProvider !== null,
+	};
+
+	const snapshotStep: SetupStep = {
+		id: "worker-snapshot",
+		title: "Build the worker snapshot",
+		why: "Workers boot from a snapshot with splates already installed, so one is ready to work within a minute. splates rebuilds it when it updates or after a week.",
+		user: "Next builds it on a small Hetzner server, about ten minutes and $0.04, then keeps it for about $0.10 a month.",
+		agent:
+			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
+		optional: true,
+		after: [providerStep],
+		doing: "Building the worker snapshot, about ten minutes…",
+		check: async ({ fs, home }) =>
+			(await keptSnapshot("linux", { path: snapshotsPath(home), fs })) !== null,
+		submit: async (machine) => {
+			const { workerProvider } = await requireProject(machine).config();
+			if (workerProvider === null) {
+				throw new Error("`splates.config.ts` names no `workerProvider` yet.");
+			}
+			const snapshots = await Snapshots.open(workerProvider, {
+				version: RUNNING,
+				path: snapshotsPath(machine.home),
+				fs: machine.fs,
+			});
+			await snapshots.current("linux");
+		},
+	};
+
 	return {
 		id: "workers",
 		title: "Workers",
@@ -187,7 +330,12 @@ function workersArea(): SetupArea {
 			permissionStep,
 			remoteStep,
 			...WORKER_KEY_STEPS,
+			installStep,
+			stateStep,
+			tokenStep,
+			providerStep,
 			budgetStep,
+			snapshotStep,
 		],
 	};
 }
@@ -210,4 +358,52 @@ function budgetOf(machine: SetupMachine): SetupWorkerBudget {
 		);
 	}
 	return machine.workerBudget;
+}
+
+/** What the machine runs programs with; setup outside `splates server` runs none. */
+function ps(machine: SetupMachine) {
+	if (machine.ps === undefined) {
+		throw new Error("Pulumi setup runs only under `splates server`.");
+	}
+	return machine.ps;
+}
+
+/** What splates's `pulumi` prints for `args` against its file backend, or null when it fails. */
+async function pulumi(
+	machine: SetupMachine,
+	args: string[],
+): Promise<string | null> {
+	if (machine.ps === undefined) {
+		return null;
+	}
+	const paths = pulumiPaths(machine.home);
+	const ran = await machine.ps
+		.spawnCapture([paths.bin, ...args], {
+			env: pulumiEnv(paths),
+			timeoutMs: PROBE_MS,
+		})
+		.catch(() => null);
+	return ran?.exitCode === 0 ? ran.stdout : null;
+}
+
+function lastLine(text: string): string | undefined {
+	return text
+		.trim()
+		.split("\n")
+		.filter((line) => line.trim() !== "")
+		.at(-1);
+}
+
+/** Where `splates server` keeps the snapshot workers boot from, as `Snapshots` reads it. */
+function snapshotsPath(home: string): string {
+	return `${home}/snapshots.json`;
+}
+
+function requireProject({ project }: SetupMachine) {
+	if (project === undefined) {
+		throw new Error(
+			"No project to check: open Setup from a project, or run `splates setup` in its repository.",
+		);
+	}
+	return project;
 }

@@ -318,6 +318,22 @@ provider calling a remote API could sit behind it later without changing
 it (settled; see [splates.md](splates.md)). A provider's price per hour is
 what the user pays, so the budget would count the same dollars either way.
 
+The first provider is `HetznerWorkerProvider` (`packages/server/workers/hetzner.ts`,
+built 2026-10-17): Hetzner Cloud in the EU (Nuremberg, Falkenstein, Helsinki,
+the first with stock), CPX62 workers, and CX53 ones whenever Hetzner can make
+one, since it is offered only while orderable and placement takes the
+cheapest. It drives Pulumi's own CLI, which setup installs under
+`~/.splates/pulumi` with its state in the file backend there, encrypted by
+the device cred `PULUMI_CONFIG_PASSPHRASE`; programs are Pulumi YAML. Each
+worker is a stack of its own, its boot command a secret config value passed
+on stdin, run as a systemd service; a snapshot is built on the smallest
+orderable x86 type, which powers off once the recipe ran, then imaged, the
+builder and the last snapshot going once the new one exists. The Hetzner
+API (token `HCLOUD_TOKEN`) answers only what Pulumi cannot: stock, a
+builder's status, and the servers labelled `splates-worker`. Prices are
+estimates from EU list prices; Hetzner bills each started hour, capped at
+the monthly price.
+
 ## Updates without waiting
 
 The coordinator restarts on its own: agents, terminals and dev servers belong
@@ -410,7 +426,7 @@ excluding IPv4 and VAT; CX53 specs from third parties. Recommended: CX53,
 a $0.25/h rate cap, $5/day (warn $3.50), $75/month (warn $60), and idle
 shutdown after 15 minutes at the end of the paid hour. All remote, that is
 about $55/month typical and $86 at peak, coordinator included. These
-predate the Pulumi requirement; the provider is chosen again in #289.
+predate the Pulumi requirement. Re-checked 2026-10-17: the CX53 has not been orderable since about 2 September, so a worker is a CPX62 (EU, 16 shared vCPU / 32 GB, $0.2452/h, $0.031/slot-hour, $152.99/month cap) until it is; one kept warm costs $44 at 6 h/day, $59 at 8 h, $103 at 14 h.
 
 ## Delivery
 
