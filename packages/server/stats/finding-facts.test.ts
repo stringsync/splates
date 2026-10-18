@@ -1,9 +1,32 @@
 import { describe, expect, it } from "bun:test";
 import { factTodos } from "./finding-facts";
-import type { Finding } from "./findings";
+import { type Finding, findings } from "./findings";
 import type { Outcome } from "./outcomes";
 
 describe("factTodos", () => {
+	it("files slow-test todos only above 20 seconds", () => {
+		const found = findings({
+			gateFailures: [],
+			retries: 0,
+			picksOverturned: 0,
+			log: null,
+			landedLines: null,
+			adherence: null,
+			testTimes: [
+				{ name: "old noise", seconds: 5.1 },
+				{ name: "below", seconds: 19.9 },
+				{ name: "boundary", seconds: 20 },
+				{ name: "slow", seconds: 20.1 },
+			],
+		});
+		expect(
+			factTodos({
+				outcome: merged({ findings: found }),
+				baseline: null,
+			}).map((todo) => todo.subject),
+		).toEqual(["Slow test: slow"]);
+	});
+
 	it("makes a todo of each gate run that named failing tests, with the data it came from", () => {
 		const failed: Finding = {
 			kind: "gate",
@@ -40,8 +63,8 @@ describe("factTodos", () => {
 					{
 						kind: "slow_tests",
 						tests: [
-							{ name: "a > crawls", file: "a.test.ts", seconds: 9.25 },
-							{ name: "b > drags", seconds: 6 },
+							{ name: "a > crawls", file: "a.test.ts", seconds: 29.25 },
+							{ name: "b > drags", seconds: 26 },
 						],
 					},
 				],
@@ -54,7 +77,7 @@ describe("factTodos", () => {
 			"Slow test: b > drags",
 		]);
 		expect(todos[0]?.text).toStartWith(
-			"Found in `alpha` as it merged: the gate's passing run took 9.3s on `a > crawls` in `a.test.ts`, over the 5s bar.",
+			"Found in `alpha` as it merged: the gate's passing run took 29.3s on `a > crawls` in `a.test.ts`, over the 20s bar.",
 		);
 	});
 

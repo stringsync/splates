@@ -69,11 +69,11 @@ export const FINDING_THRESHOLDS = {
 	/** A skill check passed less than this share of the times it applied. */
 	adherenceBelow: 0.5,
 	/**
-	 * A test in the passing gate run taking longer than this, bun's own
-	 * timeout: other agents load the machine while the gate runs, so a lower
+	 * A test in the passing gate run taking longer than this: other agents
+	 * load the machine while the gate runs, so a lower
 	 * bar would name tests that are slow only while contended.
 	 */
-	slowTestSeconds: 5,
+	slowTestSeconds: 20,
 } as const;
 
 /**

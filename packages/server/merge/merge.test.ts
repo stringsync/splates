@@ -316,7 +316,7 @@ describe.concurrent("merge", () => {
 		const report = join(deps.splatesHome, "report.xml");
 		await deps.fs.write(
 			report,
-			'<testsuites><testsuite name="a.test.ts"><testcase name="quick" time="0.01" file="a.test.ts" /><testcase name="crawls" time="6.5" file="a.test.ts" /></testsuite></testsuites>',
+			'<testsuites><testsuite name="a.test.ts"><testcase name="quick" time="0.01" file="a.test.ts" /><testcase name="crawls" time="26.5" file="a.test.ts" /></testsuite></testsuites>',
 		);
 		deps.config.preMerge = `cp ${report} "$SPLATES_TEST_REPORT"`;
 
@@ -331,7 +331,7 @@ describe.concurrent("merge", () => {
 		);
 		expect(outcome?.findings).toContainEqual({
 			kind: "slow_tests",
-			tests: [{ name: "crawls", file: "a.test.ts", seconds: 6.5 }],
+			tests: [{ name: "crawls", file: "a.test.ts", seconds: 26.5 }],
 		});
 	});
 
