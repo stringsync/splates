@@ -10,7 +10,7 @@ export class WorkerProtocol {
 
 	/** The version this end speaks, sent in every hello and welcome. */
 	// Bump the major for a change an older end would misread.
-	static readonly version = "1.2";
+	static readonly version = "1.3";
 
 	static readonly headerBytes = 8;
 
@@ -81,6 +81,9 @@ export class WorkerProtocol {
 	}
 }
 
+/** The capability of a worker that restarts on another build when its coordinator sends `update`. */
+export const UPDATE = "update";
+
 /** A JSON value, as control frames carry them. */
 export type Json =
 	| string
@@ -117,7 +120,14 @@ export type Frame =
 			session: string;
 			held: Held;
 	  }
-	| { type: "refuse"; reason: string }
+	| {
+			type: "refuse";
+			reason: string;
+			/** The build the coordinator runs, for a worker turned away for its major to restart on; absent from one before 1.3. */
+			update?: string;
+	  }
+	/** Asks a worker that offers `update` to restart on the coordinator's `build`, once nothing of its own runs on it. */
+	| { type: "update"; build: string }
 	| { type: "open"; channel: number; seq: number; kind: string; params: Json }
 	| { type: "message"; channel: number; seq: number; body: Json }
 	| { type: "data"; channel: number; seq: number; bytes: Uint8Array }
@@ -132,8 +142,12 @@ export type ChannelFrame = Extract<Frame, { channel: number }>;
 /** What one end makes of the other's version, from its hello or welcome. */
 export type Negotiated =
 	| { ok: true; protocol: string; capabilities: string[] }
-	/** `refused` when the other end turned this one away, rather than the link going. */
-	| { ok: false; reason: string; refused: boolean };
+	/**
+	 * `refused` when the other end turned this one away, rather than the
+	 * link going; `update`, the build a coordinator that refused a worker
+	 * runs, for the worker to restart on.
+	 */
+	| { ok: false; reason: string; refused: boolean; update?: string };
 
 const json: z.ZodType<Json> = z.lazy(() =>
 	z.union([
@@ -164,7 +178,12 @@ const frameSchema = z.discriminatedUnion("type", [
 		session: z.string(),
 		held,
 	}),
-	z.object({ type: z.literal("refuse"), reason: z.string() }),
+	z.object({
+		type: z.literal("refuse"),
+		reason: z.string(),
+		update: z.string().optional(),
+	}),
+	z.object({ type: z.literal("update"), build: z.string() }),
 	z.object({
 		type: z.literal("open"),
 		channel: id,

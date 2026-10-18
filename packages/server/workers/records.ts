@@ -19,6 +19,11 @@ const Record = z.object({
 	draining: z.boolean(),
 	/** Is removed once its last agent ends. */
 	removing: z.boolean(),
+	/**
+	 * Drains to be replaced by one on the coordinator's build, a rollout's
+	 * one at a time: its agents move off at their next pause.
+	 */
+	updating: z.boolean().default(false),
 	/** What its provider made it as, for one splates made; null for one that joined by hand. */
 	provisioned: z
 		.object({
@@ -40,18 +45,21 @@ export type WorkerRecord = z.output<typeof Record>;
 
 /** What may be changed of a worker by hand. */
 export type WorkerSettings = Partial<
-	Pick<WorkerRecord, "slots" | "draining" | "removing" | "provisioned">
+	Pick<
+		WorkerRecord,
+		"slots" | "draining" | "removing" | "updating" | "provisioned"
+	>
 >;
 
 /**
  * The workers the coordinator has let join, with what was set on each, kept
- * at `path` so a restart forgets none. A worker joins once with a join
- * token, single use and good for `JOIN_WITHIN`, and is answered a key of its
- * own, which it shows on every connection after. Only each key's and
- * token's sha256 is kept: both are 32 random bytes, so a hash cannot be
- * turned back, and the file lets no one in.
+ * at `path` so a restart forgets none. `invite` makes a join token, single
+ * use and good for `JOIN_WITHIN`; `join` spends it, answering the key the
+ * worker shows on every connection after, which `verify` checks.
  */
 export class WorkerRecords {
+	// Only each key's and token's sha256 is kept: both are 32 random bytes,
+	// so a hash cannot be turned back, and the file lets no one in.
 	/** Serializes writes, so two changes never race to the file. */
 	private writing: Promise<void> = Promise.resolve();
 
@@ -169,6 +177,7 @@ export class WorkerRecords {
 			slots: was?.slots ?? null,
 			draining: false,
 			removing: false,
+			updating: false,
 			provisioned: was?.provisioned ?? null,
 			access: spent.access,
 		};
@@ -196,6 +205,7 @@ export class WorkerRecords {
 				slots: null,
 				draining: false,
 				removing: false,
+				updating: false,
 				provisioned: null,
 				access: null,
 			}),

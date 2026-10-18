@@ -357,6 +357,35 @@ out one worker at a time by drain and resume, never re-adopting live agents;
 new tasks go to updated workers first; the pool view, a Workers page in the
 nav, shows each worker's build.
 
+How a rollout goes (built 2026-10-18, `WorkerRollout` in `workers/rollout.ts`).
+A worker whose hello names another build than the coordinator's is placed on
+last, after every worker on the coordinator's build. One at a time, made
+workers first, then registered, then this machine's, and the one with fewest
+agents first within each, a worker drains with `updating` in its record, so a
+restart carries on. Its agents move off at their next pause (`Grant.replaces`):
+one idle, nothing running in the background, saves its task through
+`PlacedCheckouts.save`, ends and frees its slot, and the person's next words
+place it again in a new session told `[SPLATES TASK <task>]`. One asking does
+the same as for a plain drain (#185). One at work moves once its turn ends.
+One in no task, or whose task would not save, keeps its slot until it ends.
+Once the worker is empty, one a provider made is destroyed, and the queue
+makes another from the snapshot of the new version. Any other is sent
+`update` with the build, a frame only a worker offering the `update`
+capability (protocol 1.3) gets. A worker on this machine then exits, and the
+`splates server` that keeps it starts it again on its own splates; one
+elsewhere starts `bunx @stringsync/splates@<build> worker run` with the same
+coordinator, id and slots, keeping it across later updates, its key from the
+system store, or handed over in the environment when the store could not
+keep it. The worker takes agents again once it joins on the build. A worker
+that cannot be sent `update`, or that comes back on its old build, is listed
+"update it by hand" and keeps taking agents; one the person takes the drain
+back from is left alone until the next run. A coordinator refusing a worker
+for another major names its build in the refusal, and a worker from 1.3 on
+restarts on it instead of exiting `outdated`. `/api/workers` answers
+`rollout`, and the Workers page shows under "Waiting on an update" which
+worker is moving its agents off or updating, which is next, and which waits
+on the person.
+
 How a restart keeps its agents (built 2026-10-17, todo #279). Each
 coordinator answers its workers by one session id, kept with the roots and
 shells it let go of in `~/.splates/coordinator.json`, so the next run is the

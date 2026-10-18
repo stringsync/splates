@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import {
 	Credentials,
 	Environment,
@@ -14,7 +15,7 @@ import { splatesHome } from "../models";
 import { relayFile } from "../records";
 import { heavyJobsOfMachine } from "../server/shared";
 import { type AccessClient, accessHeaders, joinAccess } from "./access";
-import { WorkerDaemon, type WorkerDialer } from "./daemon";
+import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
@@ -68,9 +69,26 @@ export interface WorkerRunOptions {
 }
 
 /**
- * `splates worker run`: a worker that serves its coordinator until a SIGINT
- * or SIGTERM, or until the coordinator refuses it for speaking another
- * protocol, which is a refusal to update one or the other.
+ * Set in the environment of a worker that another `splates worker run`
+ * keeps; told to update, it leaves the build in `updateFile` and exits
+ * `UPDATE_EXIT`, for the one keeping it to start the next.
+ */
+// So each update starts one worker in place of the last, never nesting.
+export const WORKER_KEPT = "SPLATES_WORKER_KEPT";
+
+/** What a kept worker exits with when its coordinator asks it to update. */
+export const UPDATE_EXIT = 75;
+
+/** Where a kept worker leaves the build it is to restart on. */
+export function updateFile(ps: Ps, id: string): string {
+	return `${splatesHome(ps)}/workers/${id}.update`;
+}
+
+/**
+ * `splates worker run`: serves the coordinator until a SIGINT or SIGTERM.
+ * Told the coordinator's build, once its agents have moved off it or when
+ * refused for speaking another protocol, it restarts on that build
+ * (`restartWorker`); refused with no build, it exits `outdated`.
  */
 export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const { ps, log } = opts;
@@ -87,7 +105,11 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		},
 		splatesHome(ps),
 	);
-	const daemon = new WorkerDaemon(await dialer(id, opts), {
+	const remote = !(
+		opts.coordinator === "" || opts.coordinator.startsWith("unix:")
+	);
+	const creds = remote ? await workerCreds(id, opts) : null;
+	const daemon = new WorkerDaemon(dialer(id, creds, opts), {
 		id,
 		slots: opts.slots,
 		ps,
@@ -100,11 +122,9 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
 		ps.on("SIGTERM", () => void daemon.disposeAsync()),
 	];
+	let ended: WorkerEnded;
 	try {
-		const ended = await daemon.run();
-		if ("refused" in ended) {
-			fail("outdated", `the coordinator refused this worker: ${ended.refused}`);
-		}
+		ended = await daemon.run();
 	} finally {
 		for (const each of stopping) {
 			each.dispose();
@@ -112,14 +132,118 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		await daemon.disposeAsync();
 		await browser.disposeAsync();
 	}
+	if ("update" in ended && ended.update !== undefined && creds !== null) {
+		await restartWorker(ended.update, id, creds, opts);
+		return;
+	}
+	// This machine's own: the `splates server` keeping it starts it again on
+	// its own splates.
+	if ("update" in ended && !("refused" in ended)) {
+		return;
+	}
+	if ("refused" in ended) {
+		fail("outdated", `the coordinator refused this worker: ${ended.refused}`);
+	}
 }
 
-async function dialer(
+/**
+ * Runs this worker, one dialing a coordinator elsewhere, again on splates
+ * `build`, the coordinator's: one kept already hands the build to the one
+ * that keeps it; any other keeps it, starting it again on each build it is
+ * told of until it ends some other way. A made worker is never told: it is
+ * destroyed and made again from a new snapshot instead.
+ */
+export async function restartWorker(
+	build: string,
 	id: string,
+	creds: WorkerCreds,
 	opts: WorkerRunOptions,
-): Promise<WorkerDialer> {
+): Promise<void> {
+	const { ps, fs, log, coordinator } = opts;
+	const path = updateFile(ps, id);
+	if (ps.env(WORKER_KEPT) !== undefined) {
+		await fs.mkdir(dirname(path));
+		await fs.write(path, build);
+		ps.exit(UPDATE_EXIT);
+		return;
+	}
+	const env = await carried(creds, opts);
+	const stopping = new AbortController();
+	const stops = ["SIGINT", "SIGTERM"].map((signal) =>
+		ps.on(signal, () => stopping.abort()),
+	);
+	try {
+		let next = build;
+		for (;;) {
+			log.info(`restarting worker ${id} on splates ${next}`);
+			await fs.rm(path, { force: true });
+			const { exitCode } = await ps
+				.spawn(
+					[
+						"bunx",
+						`@stringsync/splates@${next}`,
+						"worker",
+						"run",
+						"--coordinator",
+						coordinator,
+						"--id",
+						id,
+						"--slots",
+						String(opts.slots),
+					],
+					{ env: { ...env, [WORKER_KEPT]: "1" }, signal: stopping.signal },
+				)
+				.catch(() => ({ exitCode: 0 }));
+			const told = await fs.read(path).catch(() => null);
+			if (
+				exitCode !== UPDATE_EXIT ||
+				told === null ||
+				stopping.signal.aborted
+			) {
+				ps.exit(exitCode);
+				return;
+			}
+			next = told.trim();
+		}
+	} finally {
+		for (const each of stops) {
+			each.dispose();
+		}
+	}
+}
+
+/**
+ * What the worker started on another build needs in its environment to
+ * show its coordinator who it is: nothing when the system's store keeps its
+ * key and service token, else those the join answered for this run alone.
+ */
+async function carried(
+	{ key, access }: WorkerCreds,
+	opts: WorkerRunOptions,
+): Promise<Record<string, string>> {
+	const store = opts.store ?? SystemSecretStore.device();
+	const kept = await store.get(WORKER_KEY).catch(() => undefined);
+	if (kept === key || opts.ps.env(WORKER_KEY) === key) {
+		return {};
+	}
+	return {
+		[WORKER_KEY]: key,
+		...(access === null
+			? {}
+			: {
+					[WORKER_ACCESS_ID]: access.clientId,
+					[WORKER_ACCESS_SECRET]: access.clientSecret,
+				}),
+	};
+}
+
+function dialer(
+	id: string,
+	creds: WorkerCreds | null,
+	opts: WorkerRunOptions,
+): WorkerDialer {
 	const { coordinator, ps } = opts;
-	if (coordinator === "" || coordinator.startsWith("unix:")) {
+	if (creds === null) {
 		if (opts.join) {
 			fail(
 				"usage",
@@ -130,7 +254,7 @@ async function dialer(
 			coordinator === "" ? workerSocketPath(ps) : coordinator.slice(5);
 		return { where: path, dial: () => UnixWorkerSocket.connect(path) };
 	}
-	const { key, access } = await workerCreds(id, opts);
+	const { key, access } = creds;
 	const url = new URL("/api/workers", coordinator);
 	url.protocol =
 		url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";

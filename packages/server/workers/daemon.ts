@@ -16,6 +16,7 @@ import { RELAY, type WorkerChannel } from "./channel";
 import { LocalWorkerMachine } from "./machine";
 import { WorkerPortHost } from "./port-host";
 import { WorkerProcessHost } from "./process-host";
+import { UPDATE } from "./protocol";
 import { WorkerPtyHost } from "./pty-host";
 import { WorkerRelay } from "./relay";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
@@ -36,6 +37,7 @@ export const WORKER_CAPABILITIES = [
 	"port",
 	RELAY,
 	SERVERS,
+	UPDATE,
 ];
 
 /** Who a `WorkerDaemon` is and what it runs on. */
@@ -114,10 +116,12 @@ export class WorkerDaemon implements AsyncResource {
 	}
 
 	/**
-	 * Dials and serves until disposed, or until the coordinator refuses this
-	 * worker, resolving with why it stopped.
+	 * Dials and serves until disposed, until the coordinator refuses this
+	 * worker, or until it asks this one to restart on its build, resolving
+	 * with why it stopped: a refusal names that build too, from a
+	 * coordinator that says it.
 	 */
-	async run(): Promise<{ refused: string } | { stopped: true }> {
+	async run(): Promise<WorkerEnded> {
 		const { log, fs, relayAt = null } = this.opts;
 		this.relay = WorkerRelay.listen(this.session);
 		if (relayAt !== null) {
@@ -133,6 +137,13 @@ export class WorkerDaemon implements AsyncResource {
 					log.error(`cannot say where the relay listens: ${String(error)}`),
 				);
 		}
+		// Asked once its own have moved off it, so ending what it runs loses
+		// nothing a checkpoint does not hold.
+		const update = new Promise<string>((resolve) =>
+			this.session.events.on("update", ({ build }) => resolve(build), {
+				once: true,
+			}),
+		);
 		let wait = this.backoff.min;
 		// Once per outage, rather than at every dial.
 		let said = false;
@@ -163,13 +174,27 @@ export class WorkerDaemon implements AsyncResource {
 					},
 				});
 				if (!negotiated.ok && negotiated.refused) {
-					return { refused: negotiated.reason };
+					return {
+						refused: negotiated.reason,
+						...(negotiated.update === undefined
+							? {}
+							: { update: negotiated.update }),
+					};
 				}
 				if (negotiated.ok) {
 					log.info(`worker ${this.opts.id} joined ${this.dialer.where}`);
 					wait = this.backoff.min;
 					said = false;
-					log.info(`lost ${this.dialer.where}: ${await lost}`);
+					const ended = await Promise.race([
+						lost.then((reason) => ({ lost: reason })),
+						update.then((build) => ({ update: build })),
+					]);
+					if ("update" in ended) {
+						log.info(`the coordinator runs ${ended.update}: restarting on it`);
+						await this.disposeAsync();
+						return { update: ended.update };
+					}
+					log.info(`lost ${this.dialer.where}: ${ended.lost}`);
 				}
 			}
 			if (this.stopped) {
@@ -268,3 +293,13 @@ export class WorkerDaemon implements AsyncResource {
 		});
 	}
 }
+
+/**
+ * Why `WorkerDaemon.run` stopped: disposed; refused, for speaking another
+ * protocol, with the coordinator's build when it says one; or asked to
+ * restart on the coordinator's build.
+ */
+export type WorkerEnded =
+	| { stopped: true }
+	| { refused: string; update?: string }
+	| { update: string };

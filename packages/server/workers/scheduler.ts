@@ -178,6 +178,21 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			.some((each) => each.id === worker && each.draining === true);
 	}
 
+	/**
+	 * Whether `worker` drains to be replaced, as a rollout does: its agents
+	 * move to another at their next pause rather than run to their end.
+	 */
+	replaces(worker: string): boolean {
+		return this.pool
+			.workers()
+			.some(
+				(each) =>
+					each.id === worker &&
+					each.draining === true &&
+					each.replacing === true,
+			);
+	}
+
 	dispose(): void {
 		this.waiting.length = 0;
 		this.dispatcher.dispose();
@@ -202,8 +217,10 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	 * The worker for `request`: the one it last ran on, then the local one,
 	 * then any registered one, then one a provider made, among those awake
 	 * with a slot free on its platform. Made ones come last, since they are
-	 * the ones paid for by the hour. An uncapped request needs no free slot,
-	 * and takes none from those that do.
+	 * the ones paid for by the hour. Any on the coordinator's build come
+	 * before every one waiting on an update, which a rollout is to take
+	 * down. An uncapped request needs no free slot, and takes none from
+	 * those that do.
 	 */
 	private pick(request: SlotRequest): string | null {
 		const used = new Map<string, number>();
@@ -222,7 +239,8 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			);
 		const last = this.last.get(request.id);
 		const order = (worker: PoolWorker): number =>
-			worker.id === last ? 0 : RANK[worker.kind];
+			(worker.outdated === true ? OUTDATED : 0) +
+			(worker.id === last ? 0 : RANK[worker.kind]);
 		const [best] = fits.sort((one, other) => order(one) - order(other));
 		return best?.id ?? null;
 	}
@@ -244,6 +262,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			worker,
 			lost: losing.signal,
 			drains: () => this.drains(worker),
+			replaces: () => this.replaces(worker),
 			dispose: () => {
 				if (freed) {
 					return;
@@ -269,6 +288,9 @@ const RANK: Record<WorkerKind, number> = {
 	registered: 2,
 	provisioned: 3,
 };
+
+/** Ranks every worker on another build than the coordinator's after the rest. */
+const OUTDATED = 10;
 
 /** The platforms a worker runs and a project can require, as people name them. */
 export const PLATFORMS = ["linux", "macos", "windows"] as const;
@@ -313,6 +335,16 @@ export interface PoolWorker {
 	 * before it is removed or updated; absent for one that does not.
 	 */
 	draining?: boolean;
+	/**
+	 * Whether it runs another build than the coordinator, so waits on an
+	 * update; absent for one on the same build, or that has not said.
+	 */
+	outdated?: boolean;
+	/**
+	 * Whether it drains to be replaced by one on the coordinator's build, so
+	 * its agents move off it at their next pause; absent for one that does not.
+	 */
+	replacing?: boolean;
 	/**
 	 * Whether it can run a task in the checkout the task has: true for the
 	 * machine the worktrees live on, and for a worker that clones its own.
@@ -389,6 +421,8 @@ export interface Grant extends Resource {
 	readonly lost: AbortSignal;
 	/** Whether its worker drains now, waiting on the agent to end. */
 	drains(): boolean;
+	/** Whether its worker drains to be replaced, for the agent to move off at its next pause. */
+	replaces(): boolean;
 }
 
 /**

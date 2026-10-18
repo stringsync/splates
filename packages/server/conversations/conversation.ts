@@ -142,7 +142,7 @@ export class Conversation
 		this.unlistenDrain =
 			deps.slots?.events.on("drain", (worker) => {
 				if (this.grant?.worker === worker) {
-					void this.free();
+					void (this.grant.replaces() ? this.moveOff() : this.free());
 				}
 			}) ?? null;
 	}
@@ -670,6 +670,56 @@ export class Conversation
 		this.set({ ask });
 	}
 
+	/**
+	 * Moves its agent off a worker being replaced, at its next pause, so the
+	 * worker can update without waiting on the person: one asking does as
+	 * `free` says; one idle, nothing running in the background, saves its
+	 * task, ends and frees its slot, and the person's next words place it
+	 * again in a new session told `[SPLATES TASK <task>]` first, as
+	 * `requeue` does for an idle one. One at work moves once its turn ends.
+	 * One in no task has nothing to carry on from, and one whose task could
+	 * not be saved would lose work, so each keeps its slot until it ends.
+	 */
+	private async moveOff(): Promise<void> {
+		if (this.state.ask !== null) {
+			await this.free();
+			return;
+		}
+		const { task, status, background } = this.state;
+		const grant = this.grant;
+		const { checkouts } = this.deps;
+		if (
+			task === null ||
+			status !== "idle" ||
+			background.length > 0 ||
+			grant === null ||
+			checkouts === undefined ||
+			this.freeing
+		) {
+			return;
+		}
+		this.freeing = true;
+		try {
+			await checkouts.save(task);
+		} catch {
+			return;
+		} finally {
+			this.freeing = false;
+		}
+		// Prompted, stopped or placed elsewhere while it saved.
+		if (
+			this.grant !== grant ||
+			this.state.status !== "idle" ||
+			this.state.ask !== null
+		) {
+			return;
+		}
+		this.carry = taskReference(task);
+		this.placed = null;
+		await this.close(null);
+		this.connection.forgetSession();
+	}
+
 	/** Lets go of the question kept by `free`, its session gone. */
 	private unkeep(): void {
 		if (this.kept === null) {
@@ -873,9 +923,15 @@ export class Conversation
 		}
 		Object.assign(this.state, next);
 		this.changed();
-		// An agent that asks on a worker already draining lets its slot go too.
+		// An agent that asks on a worker already draining lets its slot go too,
+		// and one whose turn ends on a worker being replaced moves off it.
 		if (next.ask != null && this.grant?.drains() === true) {
 			void this.free();
+		} else if (
+			(next.status === "idle" || next.background !== undefined) &&
+			this.grant?.replaces() === true
+		) {
+			void this.moveOff();
 		}
 	}
 

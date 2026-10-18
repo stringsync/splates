@@ -310,4 +310,57 @@ describe("A conversation whose worker is removed under it", () => {
 		expect(conversation.state.status).toBe("running");
 		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
 	});
+
+	/** Drains w1 to be replaced, as a rollout updating it does. */
+	const replace = () => {
+		workers = workers.map((each) =>
+			each.id === "w1"
+				? { ...each, awake: false, draining: true, replacing: true }
+				: each,
+		);
+		scheduler.poke();
+	};
+
+	it("moves an idle one off a worker being replaced, saving its task, and carries it on elsewhere", async () => {
+		const conversation = await start();
+
+		replace();
+		await until(conversation, "stopped");
+
+		expect(saved).toEqual(["login"]);
+		expect(scheduler.held()).toEqual([]);
+		await conversation.prompt("and now?");
+		await eventually(() => said().includes("and now?"));
+		expect(said()).toEqual([taskReference("login"), "and now?"]);
+		expect(agent.resumed).toEqual([]);
+		expect(agent.launched.at(-1)?.cwd).toBe("/w2/projects/repo/repo");
+	});
+
+	it("lets one at work on a worker being replaced finish its turn, then moves it", async () => {
+		const conversation = await start();
+		void conversation.prompt("work");
+		await eventually(() => held.finish !== undefined);
+
+		replace();
+		await Bun.sleep(0);
+		expect(conversation.state.status).toBe("running");
+		expect(saved).toEqual([]);
+
+		held.finish?.("end_turn");
+		await until(conversation, "stopped");
+
+		expect(saved).toEqual(["login"]);
+		expect(scheduler.held()).toEqual([]);
+	});
+
+	it("keeps the slot of one in no task on a worker being replaced", async () => {
+		const conversation = await start(null);
+
+		replace();
+		await Bun.sleep(0);
+
+		expect(saved).toEqual([]);
+		expect(conversation.state.status).toBe("idle");
+		expect(scheduler.held().map(({ worker }) => worker)).toEqual(["w1"]);
+	});
 });

@@ -18,7 +18,7 @@ export const splatesWorker = cli<SplatesDeps>("worker").description(
 splatesWorker
 	.command("run")
 	.description(
-		"run a worker on this machine until stopped: it dials the coordinator, by default the `splates server` on this machine through a socket in ~/.splates only you may open, and dials again whenever the link drops, while what it runs carries on; it stops reading a process's output while the coordinator is away too long, so nothing is lost. Exits `outdated` when the coordinator speaks another protocol",
+		"run a worker on this machine until stopped: it dials the coordinator, by default the `splates server` on this machine through a socket in ~/.splates only you may open, and dials again whenever the link drops, while what it runs carries on; it stops reading a process's output while the coordinator is away too long, so nothing is lost. Once its agents have moved off it, a coordinator on another build has it restart on that build, through `bunx @stringsync/splates@<build>`, as it does when it refuses this worker for another protocol; one that says no build has it exit `outdated`",
 	)
 	.option("coordinator", z.string(), {
 		default: "",

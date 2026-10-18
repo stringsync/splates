@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeClock, FakeTimer } from "webappwiz/time/testing";
-import { type Negotiated, WorkerProtocol } from "./protocol";
+import { RUNNING } from "../server/shared";
+import { type Negotiated, UPDATE, WorkerProtocol } from "./protocol";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
 
@@ -17,12 +18,12 @@ describe("WorkerSession handshake", () => {
 		clock = new FakeClock();
 		pair = new WorkerSocketPair();
 		worker = new WorkerSession("worker", {
-			capabilities: ["pty", "ports"],
+			capabilities: ["pty", "ports", UPDATE],
 			timer,
 			clock,
 		});
 		coordinator = new WorkerSession("coordinator", {
-			capabilities: ["pty"],
+			capabilities: ["pty", UPDATE],
 			timer,
 			clock,
 		});
@@ -37,7 +38,7 @@ describe("WorkerSession handshake", () => {
 		const settled: Negotiated = {
 			ok: true,
 			protocol: WorkerProtocol.version,
-			capabilities: ["pty"],
+			capabilities: ["pty", UPDATE],
 		};
 		expect(accepted).toEqual(settled);
 		expect(await connecting).toEqual(settled);
@@ -80,7 +81,8 @@ describe("WorkerSession handshake", () => {
 
 		const reason = `the worker speaks protocol 2.0, and this end speaks ${WorkerProtocol.version}: update the older one`;
 		expect(accepted).toEqual({ ok: false, reason, refused: true });
-		expect(answers).toEqual([{ type: "refuse", reason }]);
+		// A worker from 1.3 on restarts on the build it is told.
+		expect(answers).toEqual([{ type: "refuse", reason, update: RUNNING }]);
 		expect(coordinator.connected).toBe(false);
 	});
 
@@ -98,6 +100,42 @@ describe("WorkerSession handshake", () => {
 			refused: true,
 		});
 		expect(worker.connected).toBe(false);
+	});
+
+	it("tells a refused worker the build its coordinator runs, when it says one", async () => {
+		const connecting = worker.connect(pair.worker, { id: "mac" });
+		await WorkerSession.hello(pair.coordinator);
+
+		pair.coordinator.send(
+			WorkerProtocol.encode({ type: "refuse", reason: "old", update: "2.0.0" }),
+		);
+
+		expect(await connecting).toEqual({
+			ok: false,
+			reason: "old",
+			refused: true,
+			update: "2.0.0",
+		});
+	});
+
+	it("asks a worker that offers it to restart on a build", async () => {
+		const told: unknown[] = [];
+		worker.events.on("update", (event) => told.push(event));
+		const connecting = worker.connect(pair.worker, { id: "mac" });
+		coordinator.accept(
+			pair.coordinator,
+			await WorkerSession.hello(pair.coordinator),
+		);
+		await connecting;
+
+		expect(coordinator.update("2.0.0")).toBe(true);
+		await Bun.sleep(0);
+
+		expect(told).toEqual([{ build: "2.0.0" }]);
+	});
+
+	it("asks no worker to restart before one has joined", () => {
+		expect(coordinator.update("2.0.0")).toBe(false);
 	});
 
 	it("gives up on a welcome that never comes", async () => {

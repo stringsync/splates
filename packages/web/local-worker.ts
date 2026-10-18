@@ -57,6 +57,7 @@ function added(pool: WorkerPool): WorkerListing {
 		health: "connected",
 		draining: false,
 		removing: false,
+		updating: false,
 		lastHeard: null,
 		tasks: [],
 		dollarsPerHour: 0,

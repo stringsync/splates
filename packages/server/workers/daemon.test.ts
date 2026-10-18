@@ -63,6 +63,18 @@ describe("WorkerDaemon", () => {
 		expect(worker.connected).toBe(true);
 	});
 
+	it("stops, ending what it runs, once the coordinator asks it to restart on its build", async () => {
+		const child = worker.start(["sleep", "30"], dir);
+		const stopped = new Promise((resolve) =>
+			worker.session.events.on("lost", resolve, { once: true }),
+		);
+
+		expect(worker.session.update("9.9.9")).toBe(true);
+
+		await stopped;
+		expect(await child.exited).not.toBe(0);
+	});
+
 	it("runs a process and streams back its stdout, stderr and exit code", async () => {
 		const child = worker.start(
 			["/bin/sh", "-c", "echo out; echo err >&2; exit 3"],

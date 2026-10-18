@@ -139,6 +139,16 @@ describe("Scheduler", () => {
 		expect((await take("c")).worker).toBe("made");
 	});
 
+	it("takes a worker waiting on an update only when none on the coordinator's build has room", async () => {
+		workers = [
+			worker("local", { outdated: true }),
+			worker("made", { kind: "provisioned" }),
+		];
+		scheduler.hold(request("a"), "local").dispose();
+		expect((await take("a")).worker).toBe("made");
+		expect((await take("b")).worker).toBe("local");
+	});
+
 	it("passes over a worker that is away or cannot hold the checkout", async () => {
 		workers = [
 			worker("local", { awake: false }),

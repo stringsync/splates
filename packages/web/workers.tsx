@@ -203,16 +203,21 @@ function ThisMac({
 	);
 }
 
-/** The workers on another build than this server's, while any is. */
+/**
+ * The workers on another build than this server's, while any is, and where
+ * the rollout bringing them to it stands with each.
+ */
 function Updates({ pool }: { pool: WorkerPool }): JSX.Element | null {
 	const waiting = behind(pool);
 	if (waiting.length === 0) {
 		return null;
 	}
+	const known = pool.workers.filter((worker) => worker.build !== null);
 	return (
 		<div className="flex flex-col gap-3">
 			<Heading title="Waiting on an update">
-				This server runs {pool.build}.
+				This server runs {pool.build}, and {known.length - waiting.length} of{" "}
+				{known.length} workers do. They update one at a time.
 			</Heading>
 			<ul aria-label="waiting on an update" className="flex flex-col gap-1">
 				{waiting.map((worker) => (
@@ -220,13 +225,33 @@ function Updates({ pool }: { pool: WorkerPool }): JSX.Element | null {
 						<code className="font-mono text-[13px]">{worker.id}</code>{" "}
 						<span className="text-muted-foreground">
 							runs {worker.build}
-							{worker.slots.used > 0 && `, with ${worker.slots.used} running`}
+							{rolloutState(pool, worker)}
 						</span>
 					</li>
 				))}
 			</ul>
 		</div>
 	);
+}
+
+/** Where `worker` stands in `pool`'s rollout, as its line on the page ends. */
+function rolloutState(pool: WorkerPool, worker: WorkerListing): string {
+	const { updating, next, byHand } = pool.rollout;
+	if (updating?.id === worker.id) {
+		return updating.stage === "moving"
+			? `, moving ${updating.agents === 1 ? "its agent" : `its ${updating.agents} agents`} off it`
+			: ", updating now";
+	}
+	if (next[0] === worker.id) {
+		return ", next";
+	}
+	if (next.includes(worker.id)) {
+		return ", waiting its turn";
+	}
+	if (byHand.includes(worker.id)) {
+		return ", update it by hand";
+	}
+	return worker.slots.used > 0 ? `, with ${worker.slots.used} running` : "";
 }
 
 /** Every worker, with what can be done to each, and those turned away. */

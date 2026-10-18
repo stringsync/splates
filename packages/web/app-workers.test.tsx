@@ -27,6 +27,34 @@ describe("App's workers", () => {
 		return view;
 	};
 
+	it("shows where the rollout stands with each worker waiting on an update", async () => {
+		const view = await openWorkers({
+			...pool([
+				worker("made", { build: "0.9.0", kind: "provisioned", tasks: ["a"] }),
+				worker("box", { build: "0.9.0" }),
+				worker("den", { build: "0.9.0" }),
+				worker("old", { build: "0.8.0" }),
+			]),
+			rollout: {
+				updating: { id: "made", stage: "moving", agents: 1 },
+				next: ["box", "den"],
+				byHand: ["old"],
+			},
+		});
+
+		const lines = within(
+			view.getByRole("list", { name: "waiting on an update" }),
+		)
+			.getAllByRole("listitem")
+			.map((line) => line.textContent);
+		expect(lines).toEqual([
+			"made runs 0.9.0, moving its agent off it",
+			"box runs 0.9.0, next",
+			"den runs 0.9.0, waiting its turn",
+			"old runs 0.8.0, update it by hand",
+		]);
+	});
+
 	it("shows each worker as `splates worker list` does, and which waits on an update", async () => {
 		const view = await openWorkers(
 			pool([
@@ -43,6 +71,9 @@ describe("App's workers", () => {
 		expect(
 			view.getByRole("list", { name: "waiting on an update" }).textContent,
 		).toBe("box runs 0.9.0");
+		expect(view.getByText(/This server runs 1\.0\.0/).textContent).toBe(
+			"This server runs 1.0.0, and 1 of 2 workers do. They update one at a time.",
+		);
 		expect(
 			view.getByRole("listitem", { name: "worker local" }).textContent,
 		).toContain("fix-login");
@@ -236,7 +267,12 @@ describe("App's workers", () => {
 
 /** A pool of `workers`, its server on 1.0.0. */
 function pool(workers: WorkerListing[]): WorkerPool {
-	return { workers, refused: [], build: "1.0.0" };
+	return {
+		workers,
+		refused: [],
+		build: "1.0.0",
+		rollout: { updating: null, next: [], byHand: [] },
+	};
 }
 
 /** Worker `id`, up, on the server's build, with nothing running. */
@@ -254,6 +290,7 @@ function worker(
 		health: "connected",
 		draining: false,
 		removing: false,
+		updating: false,
 		lastHeard: null,
 		tasks: [],
 		dollarsPerHour: 0,

@@ -86,6 +86,8 @@ export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
 export { RemoteWorker } from "./remote";
 export { RemoteProcess } from "./remote-process";
+export type { RolloutStanding } from "./rollout";
+export { WorkerRollout } from "./rollout";
 export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
 export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
 export {

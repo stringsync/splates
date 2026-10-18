@@ -10,6 +10,7 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
+import { RUNNING } from "../server/shared";
 import { WorkerChannel, type WorkerChannelLink } from "./channel";
 import { WorkerConnection } from "./connection";
 import {
@@ -18,6 +19,7 @@ import {
 	type Held,
 	type Json,
 	type Negotiated,
+	UPDATE,
 	WorkerProtocol,
 } from "./protocol";
 import { WorkerReplay } from "./replay";
@@ -25,20 +27,6 @@ import type { WorkerSocket } from "./socket";
 
 /** A worker's hello, which the coordinator reads to pick its session. */
 export type WorkerHello = Extract<Frame, { type: "hello" }>;
-
-/** What a `WorkerSession` hears. */
-export interface WorkerSessionEvents extends Record<string, unknown> {
-	/** The other end opened a channel. */
-	channel: WorkerChannel;
-	/** A handshake settled, and what the other end missed has been sent again. */
-	connected: undefined;
-	/** The connection went, by hang-up, missed heartbeats or a bad frame; channels stay. */
-	lost: { reason: string };
-	/** Acks brought unacked bytes back under the bound: writers may go on. */
-	drain: undefined;
-	/** The other end acked something; `acked()` waits on it. */
-	acked: undefined;
-}
 
 /** How a `WorkerSession` paces and bounds itself. */
 export interface WorkerSessionOptions {
@@ -203,6 +191,26 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		return this.connection?.live ?? false;
 	}
 
+	/**
+	 * Asks the worker to restart on `build`, answering whether it could be
+	 * asked: connected, and offering `update`. Belongs to this connection
+	 * alone, so one that drops first is asked again once it is back.
+	 */
+	update(build: string): boolean {
+		this.assertRole("coordinator");
+		const negotiated = this._negotiated;
+		const connection = this.connection;
+		if (
+			!connection?.live ||
+			negotiated?.ok !== true ||
+			!negotiated.capabilities.includes(UPDATE)
+		) {
+			return false;
+		}
+		this.write(connection.socket, { type: "update", build });
+		return true;
+	}
+
 	/** False while unacked bytes are at the bound; `drain` says when that ends. */
 	get writable(): boolean {
 		return !this.replay.full;
@@ -301,7 +309,8 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		);
 		if (!negotiated.ok) {
 			const reason = `the worker ${negotiated.reason}`;
-			this.write(socket, { type: "refuse", reason });
+			// One from 1.3 on restarts on this build rather than stop.
+			this.write(socket, { type: "refuse", reason, update: RUNNING });
 			socket.dispose();
 			return { ok: false, reason, refused: true };
 		}
@@ -499,6 +508,13 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			case "close":
 				this.receive(frame);
 				return;
+			case "update":
+				if (this.role === "worker") {
+					this.dispatcher.dispatch("update", { build: frame.build });
+					return;
+				}
+				this.lose("update came from a worker");
+				return;
 			default:
 				this.lose(`${frame.type} came after the handshake`);
 		}
@@ -514,6 +530,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 				ok: false,
 				reason: frame.reason,
 				refused: true,
+				...(frame.update === undefined ? {} : { update: frame.update }),
 			});
 			this.lose(`refused: ${frame.reason}`);
 			return;
@@ -754,3 +771,19 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 type Unnumbered = {
 	[K in ChannelFrame["type"]]: Omit<Extract<ChannelFrame, { type: K }>, "seq">;
 }[ChannelFrame["type"]];
+
+/** What a `WorkerSession` hears. */
+export interface WorkerSessionEvents extends Record<string, unknown> {
+	/** The other end opened a channel. */
+	channel: WorkerChannel;
+	/** A handshake settled, and what the other end missed has been sent again. */
+	connected: undefined;
+	/** The connection went, by hang-up, missed heartbeats or a bad frame; channels stay. */
+	lost: { reason: string };
+	/** Acks brought unacked bytes back under the bound: writers may go on. */
+	drain: undefined;
+	/** The other end acked something; `acked()` waits on it. */
+	acked: undefined;
+	/** The coordinator asks this worker to restart on its `build`. */
+	update: { build: string };
+}

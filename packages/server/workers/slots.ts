@@ -1,6 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import type { ConversationSlots, SlotAsk } from "../conversations";
+import { RUNNING } from "../server/shared";
 import type { KeyedWorker } from "./keys";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -40,6 +41,7 @@ export class WorkerSlots implements Resource {
 			record = () => undefined,
 			pooled = () => true,
 			holds = () => true,
+			build = RUNNING,
 		}: {
 			/** This machine's `ps.platform`, the local worker's until it says. */
 			platform: string;
@@ -50,6 +52,8 @@ export class WorkerSlots implements Resource {
 			pooled?: (id: string) => boolean;
 			/** Whether a worker holds the key an agent runs on; every one, unless said. */
 			holds?: (worker: KeyedWorker, agent: string) => boolean;
+			/** The build the coordinator runs, which a worker on another waits to be updated to. */
+			build?: string;
 		},
 	) {
 		this.scheduler = new Scheduler(
@@ -58,7 +62,7 @@ export class WorkerSlots implements Resource {
 					registry.workers
 						.filter((worker) => pooled(worker.id))
 						.map((worker) =>
-							poolWorker(worker, platform, record(worker.id), holds),
+							poolWorker(worker, platform, build, record(worker.id), holds),
 						),
 			},
 			wall,
@@ -90,6 +94,7 @@ export class WorkerSlots implements Resource {
 					worker: grant.worker,
 					lost: grant.lost,
 					drains: grant.drains,
+					replaces: grant.replaces,
 					dispose: grant.dispose,
 					launch: worker.launch,
 					machine: worker.kind === "local" ? null : worker,
@@ -107,6 +112,7 @@ export class WorkerSlots implements Resource {
 					worker: grant.worker,
 					lost: grant.lost,
 					drains: grant.drains,
+					replaces: grant.replaces,
 					dispose: grant.dispose,
 					resume: (handle, held) => worker.resume(handle, held),
 					machine: worker.kind === "local" ? null : worker,
@@ -169,10 +175,12 @@ export function slotsOf(
  * live on its machine; another holds them once it says it makes its own
  * (#14). A draining worker takes nothing new. The local worker runs any
  * agent, signed in as the person; another, only those it holds a key for.
+ * One on another build than `build` is placed on last.
  */
 function poolWorker(
 	worker: RemoteWorker,
 	machine: string,
+	build: string,
 	record: WorkerRecord | undefined,
 	holds: (worker: KeyedWorker, agent: string) => boolean,
 ): PoolWorker {
@@ -187,6 +195,8 @@ function poolWorker(
 		platform: platform === null ? null : platformOf(platform),
 		awake: (local || worker.connected) && record?.draining !== true,
 		draining: record?.draining === true,
+		outdated: typeof info.build === "string" && info.build !== build,
+		replacing: record?.updating === true,
 		checkouts: local || info.checkouts === true,
 		runs: (agent) =>
 			local ||

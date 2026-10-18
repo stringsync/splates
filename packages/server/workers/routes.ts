@@ -19,6 +19,7 @@ import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
+import { WorkerRollout } from "./rollout";
 import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
@@ -74,6 +75,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly local: RemoteWorker;
 	/** What makes workers through the `workerProvider`; null without one. */
 	readonly provisioning: WorkerProvisioning | null;
+	/** What brings every worker to this server's build, one at a time. */
+	readonly rollout: WorkerRollout;
 	private listener: UnixWorkerListener | null = null;
 	private readonly access: WorkerAccess | null;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
@@ -138,6 +141,18 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 						retire: (ids) => this.retireMade(ids),
 					});
 		this.provisioning?.watch(this.slots.scheduler);
+		this.rollout = new WorkerRollout({
+			registry: this.registry,
+			records,
+			build: RUNNING,
+			used: () => this.slots.used(),
+			pooled: (id) => this.pooled(id),
+			made: (id) => this.provisioning?.made(id) ?? false,
+			replace: (id) => this.forget(id),
+			poke: () => this.slots.scheduler.poke(),
+			log,
+		});
+		this.slots.scheduler.events.on("changed", () => void this.rollout.look());
 	}
 
 	/** Whether worker `id` takes agents at all: every one but this machine's own once it is off. */
@@ -249,6 +264,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 				(worker) => this.keys?.of(worker) ?? [],
 			),
 			build: RUNNING,
+			rollout: this.rollout.standing(),
 		} satisfies WorkerPool);
 
 	/**
@@ -572,6 +588,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	};
 
 	async disposeAsync(): Promise<void> {
+		this.rollout.dispose();
 		this.provisioning?.dispose();
 		this.slots.dispose();
 		this.registry.dispose();

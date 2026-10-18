@@ -13,6 +13,7 @@ import type { KeyedWorker, WorkerKey } from "./keys";
 import type { WorkerRecord } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { RemoteWorker, WorkerKind } from "./remote";
+import type { RolloutStanding } from "./rollout";
 import { slotsOf } from "./slots";
 
 /** One worker as `GET /api/workers` and `splates worker list` give it. */
@@ -30,6 +31,8 @@ export interface WorkerListing {
 	draining: boolean;
 	/** Is removed once its last agent ends. */
 	removing: boolean;
+	/** Drains to be brought to the coordinator's build, a rollout's one at a time. */
+	updating: boolean;
 	/** When anything last came from it, epoch milliseconds; null before the first. */
 	lastHeard: number | null;
 	/** The tasks its agents run, a conversation's id for one in no task. */
@@ -46,11 +49,13 @@ export interface WorkerListings {
 }
 
 /**
- * What `GET /api/workers` answers: the listings, and the build the
- * coordinator runs, which a worker on another waits to be updated to.
+ * What `GET /api/workers` answers: the listings, the build the coordinator
+ * runs, which a worker on another waits to be updated to, and where the
+ * rollout bringing them to it stands.
  */
 export interface WorkerPool extends WorkerListings {
 	build: string;
+	rollout: RolloutStanding;
 }
 
 /**
@@ -107,6 +112,7 @@ function listing(
 		health: worker.connected ? "connected" : "away",
 		draining: record?.draining === true,
 		removing: record?.removing === true,
+		updating: record?.updating === true,
 		lastHeard: session.lastHeard,
 		tasks,
 		dollarsPerHour: record?.provisioned?.dollarsPerHour ?? 0,
@@ -125,6 +131,7 @@ const Listings = z.object({
 			health: z.enum(["connected", "away"]),
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
+			updating: z.boolean().default(false),
 			lastHeard: z.number().nullable(),
 			tasks: z.array(z.string()),
 			dollarsPerHour: z.number(),
@@ -207,9 +214,11 @@ function health(
 ): string {
 	const state = worker.removing
 		? `${worker.health}, removing`
-		: worker.draining
-			? `${worker.health}, draining`
-			: worker.health;
+		: worker.updating
+			? `${worker.health}, updating`
+			: worker.draining
+				? `${worker.health}, draining`
+				: worker.health;
 	if (worker.lastHeard === null) {
 		return state;
 	}
