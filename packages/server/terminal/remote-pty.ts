@@ -1,9 +1,9 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { z } from "zod";
-import type { ProcessHandle } from "./agents";
+import type { ProcessHandle } from "../agents";
+import type { WorkerChannel } from "../workers";
 import type { PtyEvents } from "./pty";
-import type { WorkerChannel } from "./workers";
 
 const Said = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("started"), pid: z.number() }),

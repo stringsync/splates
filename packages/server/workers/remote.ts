@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
 import { RemoteProcess } from "../remote-process";
-import { RemotePty } from "../remote-pty";
+import { RemotePty } from "../terminal";
 import { CallAnswer, type CallRequest, SERVERS } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { ProjectCheckout } from "./checkouts";

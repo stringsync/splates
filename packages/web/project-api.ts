@@ -9,9 +9,9 @@ import type {
 	Checkpoint,
 } from "@stringsync/splates-server/conversations";
 import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
-import type { Held } from "@stringsync/splates-server/held";
 import type { Added } from "@stringsync/splates-server/projects";
 import type { Behind } from "@stringsync/splates-server/release";
+import type { Held } from "@stringsync/splates-server/terminal";
 import { ApiError, send, sendJson } from "./api";
 
 /** Every splates project on this machine, and the `splates server` serving them. */

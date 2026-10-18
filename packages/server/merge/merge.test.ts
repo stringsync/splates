@@ -2,8 +2,8 @@ import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { PLAN_FILE } from "../plans";
-import { Shell } from "../shell";
 import { add } from "../tasks";
+import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
 import { merge } from "./merge";
 

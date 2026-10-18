@@ -59,3 +59,14 @@ export async function terminal(port: number, query = "") {
 	};
 	return { socket, said, shows, fronts, closes };
 }
+
+/** Waits for what `screen` reads to hold `text`, up to a few seconds. */
+export async function written(
+	screen: () => string,
+	text: string,
+): Promise<void> {
+	for (let i = 0; i < 300 && !screen().includes(text); i++) {
+		await Bun.sleep(10);
+	}
+	expect(screen()).toContain(text);
+}

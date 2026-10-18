@@ -1,10 +1,10 @@
 import { SystemTimer, type Timer } from "webappwiz/time";
-import { type HostGate, refuse } from "./dev-http";
-import type { Served } from "./dev-project";
-import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./dev-shell";
-import type { Connection } from "./dev-sockets";
-import { TerminalConnection } from "./dev-terminal-connection";
-import { fail } from "./exit";
+import { type HostGate, refuse } from "../dev-http";
+import type { Served } from "../dev-project";
+import type { Connection } from "../dev-sockets";
+import { fail } from "../exit";
+import { TerminalConnection } from "./connection";
+import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./shell";
 
 /** How a terminal finds the project its request names. */
 export interface TerminalProjects {

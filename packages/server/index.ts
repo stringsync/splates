@@ -17,7 +17,6 @@ import {
 import { Restarts } from "./dev-restart";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { StateRoutes } from "./dev-state";
-import { Terminals } from "./dev-terminal";
 import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
 import { Dictations, transcriberFor } from "./dictate";
@@ -41,6 +40,7 @@ import {
 	setupProjectAt,
 } from "./setup";
 import { DevOutcomes } from "./stats";
+import { Terminals } from "./terminal";
 import { Access, startTunnel } from "./tunnel";
 import {
 	alertNotice,

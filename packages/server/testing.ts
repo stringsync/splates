@@ -19,9 +19,9 @@ import { PLAN_FILE, PlanStore } from "./plans";
 import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
 import { Format, Journal } from "./records";
-import { Shell } from "./shell";
 import { Adherence, Outcomes } from "./stats";
 import { WorktreeService } from "./tasks";
+import { Shell } from "./terminal";
 
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an
@@ -72,7 +72,7 @@ export class Testing implements AsyncDisposable {
 	readonly adherence: Adherence;
 	/** The dev slots tasks give back as they end, kept in `splatesHome`. */
 	readonly slots: Slots;
-	/** Maps for the system's stores, so no test reads or writes the user's. */
+	/** The stores a test reads and writes, never the user's. */
 	readonly projectStore = new FakeSecretStore({}, "the project's store");
 	readonly deviceStore = new FakeSecretStore({}, "the device's store");
 	readonly secrets: SecretStores = {

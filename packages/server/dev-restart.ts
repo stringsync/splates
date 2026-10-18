@@ -5,14 +5,14 @@ import type { After, Conversation, ConversationState } from "./conversations";
 import { realName } from "./conversations";
 import { type Project, type Served, waitingOn } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
-import type { Terminals } from "./dev-terminal";
 import type { Versions } from "./dev-versions";
 import { fail } from "./exit";
-import { type Held, heldBy } from "./held";
 import { RESUME } from "./plans";
 import type { Projects } from "./projects";
 import { RESTART, UPDATE } from "./supervise";
 import { tasksOf } from "./tasks";
+import type { Terminals } from "./terminal";
+import { type Held, heldBy } from "./terminal";
 import type { WorkerMachine } from "./workers";
 
 /** The projects `splates server` serves, as its restarts reach them. */

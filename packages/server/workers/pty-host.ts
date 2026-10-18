@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
-import { Pty } from "../pty";
+import { Pty } from "../terminal";
 import type { WorkerChannel } from "./channel";
 
 /** What a coordinator opens a `pty` channel with. */

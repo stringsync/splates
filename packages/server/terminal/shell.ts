@@ -2,12 +2,12 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { ProcessEntry } from "webappwiz/system";
 import { Duration, type Timer } from "webappwiz/time";
 import { z } from "zod";
-import type { ProcessHandle } from "./agents";
-import { json } from "./dev-http";
-import type { Connection } from "./dev-sockets";
+import type { ProcessHandle } from "../agents";
+import { json } from "../dev-http";
+import type { Connection } from "../dev-sockets";
+import type { RemotePtyOptions } from "../workers";
 import { heldBy } from "./held";
 import type { RemotePty } from "./remote-pty";
-import type { RemotePtyOptions } from "./workers";
 
 /** Bigger than any screen, and small enough that a typo cannot hurt. */
 export const MAX_SIZE = 1000;

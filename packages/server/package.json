@@ -52,7 +52,7 @@
 		"./fixtures": "./fixtures.ts",
 		"./heavy-run": "./heavy-run.ts",
 		"./heavy": "./heavy.ts",
-		"./held": "./held.ts",
+		"./terminal": "./terminal/index.ts",
 		"./log": "./log.ts",
 		"./machine": "./machine.ts",
 		"./merge": "./merge/index.ts",

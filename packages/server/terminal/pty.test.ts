@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { NodePs } from "webappwiz/system";
 import { Pty } from "./pty";
-import { SERVING } from "./supervise";
+import { written } from "./testing";
 
 describe("Pty", () => {
 	let cwd: string;
@@ -71,37 +70,4 @@ describe("Pty", () => {
 
 		expect(await exited).toBe(3);
 	});
-
-	it("leaves out that splates server serves, so one run in it supervises itself", async () => {
-		const shell = new Pty({
-			argv: ["/bin/sh"],
-			cwd,
-			cols: 80,
-			rows: 24,
-			env: { PS1: "$ " },
-			// As the page's terminals inherit it from the server.
-			ps: new NodePs({
-				proc: { ...process, env: { ...process.env, [SERVING]: "1" } },
-			}),
-		});
-		let out = "";
-		const decoder = new TextDecoder();
-		shell.events.on("data", (bytes) => {
-			out += decoder.decode(bytes, { stream: true });
-		});
-		try {
-			shell.write(`echo serving:\${${SERVING}-unset}\n`);
-			await written(() => out, "serving:unset");
-		} finally {
-			await shell.disposeAsync();
-		}
-	});
 });
-
-/** Waits for what `screen` reads to hold `text`, up to a few seconds. */
-async function written(screen: () => string, text: string): Promise<void> {
-	for (let i = 0; i < 300 && !screen().includes(text); i++) {
-		await Bun.sleep(10);
-	}
-	expect(screen()).toContain(text);
-}

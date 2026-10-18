@@ -8,7 +8,6 @@ import type { Git } from "../git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts } from "../records";
-import type { Shell } from "../shell";
 import type {
 	GateFailure,
 	MergeFailure,
@@ -16,6 +15,7 @@ import type {
 	WorktreeService,
 } from "../tasks";
 import { recommend, recommendation } from "../tasks";
+import type { Shell } from "../terminal";
 import { pushedLine, type TaskBranches } from "./branches";
 import { failedTests, timedTests } from "./test-report";
 import type { Landed, TrunkLanding } from "./trunk";

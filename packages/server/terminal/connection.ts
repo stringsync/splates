@@ -1,5 +1,5 @@
-import type { Shell } from "./dev-shell";
-import type { Connection } from "./dev-sockets";
+import type { Connection } from "../dev-sockets";
+import type { Shell } from "./shell";
 
 /**
  * One terminal's socket, which shows a `Shell`: bytes both ways are the

@@ -7,7 +7,7 @@ import type { Config } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
 import { PLAN_FILE, Plans, STUB_STEP } from "../plans";
-import type { Shell } from "../shell";
+import type { Shell } from "../terminal";
 import type { Dispatched, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

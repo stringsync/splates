@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import type { KeptShell } from "./dev-shell";
+import type { KeptShell } from "./terminal";
 import { WorkerProtocol } from "./workers";
 
 /** What `coordinator.json` holds. */
