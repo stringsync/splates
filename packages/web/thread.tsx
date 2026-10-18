@@ -28,6 +28,7 @@ import { AskPanel } from "./ask-panel";
 import { BackgroundCard } from "./background";
 import { ReplyContext } from "./card-reply";
 import { Hearing, hears } from "./check-in";
+import { useChooseSetting } from "./choose-setting";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -37,7 +38,6 @@ import {
 	useSystems,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
-import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
@@ -153,6 +153,7 @@ function Conversation({
 		(title: string, error: unknown) => refuseIn(id, title, error),
 		[refuseIn, id],
 	);
+	const choose = useChooseSetting(id, refused);
 	const thread = useThreadMessages(conversation, feed);
 	const { queued, openAt, asking } = thread;
 	const {
@@ -388,18 +389,7 @@ function Conversation({
 																				<SettingControls
 																					settings={settings}
 																					current={(setting) => setting.current}
-																					onChange={(setting, value) =>
-																						chooseSetting(
-																							id,
-																							setting.id,
-																							value,
-																						).catch((error: unknown) =>
-																							refused(
-																								`${setting.name} not switched`,
-																								error,
-																							),
-																						)
-																					}
+																					onChange={choose}
 																				/>
 																			</>
 																		)

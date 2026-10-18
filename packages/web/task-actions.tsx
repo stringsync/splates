@@ -32,10 +32,13 @@ import { cn } from "#web/lib/utils.ts";
 import { removeTask, retryTask } from "./api";
 import { useWide } from "./app-nav";
 import { touchItems } from "./board";
+import { taskRemoved } from "./board-expectations";
 import { ReviewChanges } from "./changes";
 import { TASK } from "./conversation-address";
 import { Dispatching, OnIt } from "./dispatching";
-import { Refusal, useRefusal } from "./refusal";
+import { useExpectSnapshot } from "./expecting";
+import { Refusal } from "./refusal";
+import { useRowRefusal } from "./row-refusal";
 import { StartItems, StartMenu } from "./start-menu";
 import { arriveAt } from "./task-view";
 
@@ -308,9 +311,11 @@ function ActionItem({ action }: { action: Action }): JSX.Element {
  */
 function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	const context = useContext(Dispatching);
+	const expect = useExpectSnapshot();
+	// Kept by the task, which is gone while the removal is on its way.
+	const { refusal, refuse } = useRowRefusal(task.task);
 	const [asking, setAsking] = useState(false);
 	const [removing, setRemoving] = useState(false);
-	const { refusal, refuse } = useRefusal();
 	const working = (context?.dispatch.on(task.task) ?? []).filter(
 		({ conversation }) =>
 			conversation?.status === "starting" || conversation?.status === "running",
@@ -320,7 +325,8 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	const go = () => {
 		setAsking(false);
 		setRemoving(true);
-		removeTask(task.task).catch((error: unknown) => {
+		const write = removeTask(task.task);
+		expect(taskRemoved(task.task), write).catch((error: unknown) => {
 			setRemoving(false);
 			refuse("Not removed", error);
 		});

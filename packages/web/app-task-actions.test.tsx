@@ -99,4 +99,22 @@ describe("App's task dialog on a phone", () => {
 		).toBeTruthy();
 		expect(bar.queryByRole("button", { name: "More actions" })).toBeNull();
 	});
+
+	it("hides a removed task at once, and brings it back saying why when refused", async () => {
+		const { view } = await openTask(details({ task: "alpha", ahead: 0 }));
+		testing.holdWrites();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Remove" })),
+		);
+		await waitFor(() =>
+			expect(view.queryAllByRole("button", { name: "Remove" })).toHaveLength(0),
+		);
+		expect(testing.posted("/api/tasks/alpha")).toHaveLength(1);
+
+		testing.refuseWrites = { reason: "busy", message: "locked" };
+		await act(async () => testing.release());
+		await waitFor(() => view.getByRole("button", { name: "Remove" }));
+		expect(view.getByText("Not removed: locked")).toBeTruthy();
+	});
 });

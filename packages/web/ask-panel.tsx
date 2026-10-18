@@ -10,7 +10,9 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { answerConversation } from "./conversation-api";
 import type { Drafts } from "./drafts";
-import { Refusal, useRefusal } from "./refusal";
+import { useExpect } from "./expecting";
+import { Refusal } from "./refusal";
+import { useRowRefusal } from "./row-refusal";
 
 const SELECT =
 	"h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -36,9 +38,16 @@ export function AskPanel({
 }): JSX.Element {
 	// Its own draft beside the composer's: what is typed into its boxes.
 	const key = `${conversation.id}:${ask.id}`;
-	const { refusal, refuse } = useRefusal();
+	// Kept by conversation, since the card is gone while the answer is on its
+	// way and comes back refused.
+	const { refusal, refuse } = useRowRefusal(conversation.id);
+	const expect = useExpect();
 	const send = (answer: Answer) =>
-		answerConversation(conversation.id, ask.id, answer).then(
+		expect(
+			conversation.id,
+			{ ask: null },
+			answerConversation(conversation.id, ask.id, answer),
+		).then(
 			() => drafts.write(key, ""),
 			(error: unknown) => refuse("Not answered", error),
 		);

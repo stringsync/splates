@@ -4,7 +4,13 @@ import type {
 	Tool,
 } from "@stringsync/splates-server/conversations";
 import { GitBranchIcon, LockIcon, OctagonXIcon } from "lucide-react";
-import { createContext, type JSX, type ReactNode, useContext } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useState,
+} from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AskPanel } from "./ask-panel";
@@ -82,6 +88,8 @@ export function HandedOut({
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
+	// From the click until the server answers, which waits on the parent agent.
+	const [terminating, setTerminating] = useState(false);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
 	return (
@@ -97,15 +105,17 @@ export function HandedOut({
 						variant="outline"
 						size="sm"
 						className={touchButton}
-						onClick={() =>
+						disabled={terminating}
+						onClick={() => {
+							setTerminating(true);
 							void attempt(
 								terminateConversation(conversation.id),
 								"Not terminated",
-							)
-						}
+							).finally(() => setTerminating(false));
+						}}
 					>
 						<OctagonXIcon data-icon="inline-start" />
-						Terminate
+						{terminating ? "Terminating…" : "Terminate"}
 					</Button>
 				)
 			}

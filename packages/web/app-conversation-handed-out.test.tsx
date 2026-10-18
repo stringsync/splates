@@ -406,4 +406,27 @@ describe("App's conversation of a task another handed out", () => {
 		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
 		expect(view.queryByRole("note", { name: "handed out" })).toBeNull();
 	});
+
+	it("says it is terminating from the click, with the button off", async () => {
+		const view = await testing.openConversations(
+			newestFirst([orchestrator, agent]),
+			"agent",
+			{ tasks },
+		);
+		const terminate = await waitFor(() =>
+			view.getByRole("button", { name: "Terminate" }),
+		);
+		testing.holdWrites();
+
+		await act(async () => fireEvent.click(terminate));
+		const waiting = view.getByRole("button", { name: "Terminating…" });
+		expect(waiting.hasAttribute("disabled")).toBe(true);
+
+		await act(async () => fireEvent.click(waiting));
+		expect(testing.posted("/api/conversations/agent/terminate")).toHaveLength(
+			1,
+		);
+
+		await act(async () => testing.release());
+	});
 });

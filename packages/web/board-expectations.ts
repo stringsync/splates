@@ -110,6 +110,14 @@ export function laneDropped(id: number) {
 	});
 }
 
+/** Task `task` gone from the board, as removing it leaves it. */
+export function taskRemoved(task: string) {
+	return (snapshot: Snapshot): Snapshot => ({
+		...snapshot,
+		tasks: snapshot.tasks.filter((each) => each.task !== task),
+	});
+}
+
 /** Todo `id` off the list. */
 export function todoRemoved(id: number) {
 	return (snapshot: Snapshot): Snapshot => ({
