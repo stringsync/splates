@@ -23,6 +23,7 @@ import { WorkerProcessHost } from "./process-host";
 import { UPDATE } from "./protocol";
 import { WorkerPtyHost } from "./pty-host";
 import { WorkerRelay } from "./relay";
+import type { AgentSandbox } from "./sandbox";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
 import { KEYS } from "./task-keys";
@@ -250,6 +251,7 @@ export class WorkerDaemon implements AsyncResource {
 						relay: this.relay?.url ?? null,
 						timer: this.timer,
 						store: this.keys,
+						sandbox: this.opts.sandbox ?? null,
 					});
 					break;
 				case "pty":
@@ -370,4 +372,6 @@ export interface WorkerDaemonOptions {
 	 * undumpable before it holds one.
 	 */
 	keys?: MemorySecretStore | null;
+	/** Where it runs each agent, kept from the others; none, running each as this worker's user, by default. */
+	sandbox?: AgentSandbox | null;
 }

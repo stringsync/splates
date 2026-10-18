@@ -7,9 +7,11 @@
 FROM oven/bun:1.4.2-debian
 
 ENV DEBIAN_FRONTEND=noninteractive
-# procps for `ps`, iproute2 for `ss`, which find a task's processes and ports.
+# procps for `ps`, iproute2 for `ss`, which find a task's processes and ports;
+# bubblewrap sandboxes each agent, which needs the container run with
+# seccomp, AppArmor and the system paths unconfined (`prove-worker.sh`).
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates curl git unzip procps iproute2 \
+	&& apt-get install -y --no-install-recommends ca-certificates curl git unzip procps iproute2 bubblewrap \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Agents refuse to run as root.

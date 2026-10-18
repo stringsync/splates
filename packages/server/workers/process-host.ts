@@ -7,6 +7,7 @@ import { z } from "zod";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
 import { relays } from "./relay";
+import type { AgentSandbox } from "./sandbox";
 import type { WorkerSession } from "./session";
 import { TaskKey, TaskKeys } from "./task-keys";
 
@@ -53,11 +54,11 @@ export class WorkerProcessHost implements Resource {
 		private readonly ps: Ps,
 		opts: WorkerProcessHostOptions = {},
 	) {
-		const { relay = null, timer = null, store = null } = opts;
+		const { relay = null, timer = null, store = null, sandbox = null } = opts;
 		const { argv, cwd, env, keys } = ProcessParams.parse(channel.params);
 		this.keys = TaskKeys.start(keys, store);
 		try {
-			this.child = ps.start(argv, {
+			this.child = ps.start(sandbox?.wrap(argv, cwd) ?? argv, {
 				cwd,
 				env: {
 					...(relay !== null && env.SPLATES_DEV !== undefined && relays(session)
@@ -226,6 +227,8 @@ export interface WorkerProcessHostOptions {
 	timer?: Timer | null;
 	/** Where the keys this worker was sent are kept; absent for one that keeps none. */
 	store?: CredentialSource | null;
+	/** Where it runs its process, kept from its siblings; absent to run it as this worker's user alone. */
+	sandbox?: Pick<AgentSandbox, "wrap"> | null;
 }
 
 /** Every process under `pid` in `table`, children first. */

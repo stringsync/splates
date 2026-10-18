@@ -38,7 +38,8 @@ export function snapshotRecipe(
 		"set -eu",
 		"export DEBIAN_FRONTEND=noninteractive",
 		"apt-get update",
-		"apt-get install -y --no-install-recommends ca-certificates curl git unzip",
+		// bubblewrap sandboxes each agent (`sandbox.ts`).
+		"apt-get install -y --no-install-recommends ca-certificates curl git unzip bubblewrap",
 		`id ${SNAPSHOT_USER} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ${SNAPSHOT_USER}`,
 		as("curl -fsSL https://bun.sh/install | bash"),
 		as(`${bun}/bun add -g @stringsync/splates@${version}`),

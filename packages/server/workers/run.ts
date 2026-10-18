@@ -23,6 +23,7 @@ import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
 import { KeyFileStore } from "./key-file";
 import { hostOf, machineSlots, onWindowsDrive } from "./machine";
 import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
+import { AgentSandbox } from "./sandbox";
 import { UnixWorkerSocket } from "./unix-socket";
 import { networkOf, wakeSenderOf } from "./wake";
 import { WebSocketWorkerSocket } from "./websocket-socket";
@@ -172,6 +173,9 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	// agents run beside it as the same user, so no other process may read
 	// its memory; this machine's runs agents signed in as the person.
 	const keys = remote ? await undumpableKeys(log) : null;
+	// Its agents work in the person's own worktrees, whose `.git` a sandbox
+	// would leave read-only.
+	const sandbox = remote ? await agentSandbox(opts) : null;
 	const daemon = new WorkerDaemon(dialer(id, creds, opts), {
 		id,
 		slots: opts.slots || machineSlots(availableParallelism(), totalmem()),
@@ -184,6 +188,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		network: await networkOf(ps, log),
 		waker: wakeSenderOf(ps),
 		keys,
+		sandbox,
 	});
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
@@ -215,6 +220,31 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	if ("refused" in ended) {
 		fail("outdated", `the coordinator refused this worker: ${ended.refused}`);
 	}
+}
+
+/**
+ * Where a Linux worker of a coordinator elsewhere runs its agents, each
+ * kept from the others; none,
+ * said in the log, where it cannot sandbox one, as on macOS or a machine
+ * without bubblewrap, whose agents then run as this worker's user.
+ */
+async function agentSandbox({
+	ps,
+	fs,
+	log,
+}: WorkerRunOptions): Promise<AgentSandbox | null> {
+	if (ps.platform !== "linux") {
+		return null;
+	}
+	const probed = await AgentSandbox.probe(ps, fs);
+	if (typeof probed === "string") {
+		log.info(
+			`agents run unsandboxed, able to read each other's keys and files: ${probed}`,
+		);
+		return null;
+	}
+	log.info("each agent runs in a sandbox of its own (bubblewrap)");
+	return probed;
 }
 
 /** A store for the keys a worker is sent, once this process is undumpable. */
