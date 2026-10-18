@@ -39,6 +39,7 @@ export class HetznerWorkerProvider implements WorkerProvider {
 	private readonly fetch: typeof globalThis.fetch | undefined;
 	private readonly wall: WallClock;
 	private readonly wait: (duration: Duration) => Promise<void>;
+	readonly idleAfter: Duration | undefined;
 
 	constructor(opts: HetznerWorkerProviderOptions = {}) {
 		const ps = opts.ps ?? new NodePs();
@@ -53,6 +54,7 @@ export class HetznerWorkerProvider implements WorkerProvider {
 		this.fetch = opts.fetch;
 		this.wall = opts.wall ?? new SystemWallClock();
 		this.wait = opts.wait ?? sleep;
+		this.idleAfter = opts.idleAfter;
 	}
 
 	/** The types orderable now in one of its locations. */
@@ -258,9 +260,21 @@ export class HetznerWorkerProvider implements WorkerProvider {
  */
 export const HETZNER_TYPES: readonly WorkerType[] = [
 	// 16 shared vCPU, 32 GB; often not orderable, so offered only while it is.
-	{ name: "cx53", platform: "linux", slots: 8, dollarsPerHour: 0.0561 },
+	{
+		name: "cx53",
+		platform: "linux",
+		slots: 8,
+		dollarsPerHour: 0.0561,
+		billing: "hour",
+	},
 	// 16 shared vCPU, 32 GB.
-	{ name: "cpx62", platform: "linux", slots: 8, dollarsPerHour: 0.2452 },
+	{
+		name: "cpx62",
+		platform: "linux",
+		slots: 8,
+		dollarsPerHour: 0.2452,
+		billing: "hour",
+	},
 ];
 
 /** Where workers go, in the order tried: Nuremberg, Falkenstein, Helsinki. */
@@ -297,6 +311,8 @@ export interface HetznerWorkerProviderOptions {
 	store?: SecretStore;
 	fetch?: typeof globalThis.fetch;
 	wall?: WallClock;
+	/** How long an idle worker may stand before it is destroyed at the end of its paid hour; 15 minutes by default. */
+	idleAfter?: Duration;
 	/** How a snapshot's build waits between looks. */
 	wait?: (duration: Duration) => Promise<void>;
 }

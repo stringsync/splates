@@ -1,3 +1,4 @@
+import type { Duration } from "webappwiz/time";
 import type { Platform } from "../scheduler";
 
 /** One kind of machine a provider can make, and what it costs. */
@@ -9,6 +10,13 @@ export interface WorkerType {
 	slots: number;
 	/** What the user pays for one per hour, in US dollars. */
 	dollarsPerHour: number;
+	/**
+	 * How the provider bills a worker of this type: `"hour"` for each started
+	 * hour in full from its creation until it is destroyed, so one idle past
+	 * its limit is kept until its paid hour is nearly over; `"second"` for
+	 * only the time it ran, so it is destroyed as soon as it is idle.
+	 */
+	billing: "hour" | "second";
 }
 
 /**
@@ -72,6 +80,12 @@ export interface ProvisionedMachine {
  * made only when work waits for them: none is kept warm.
  */
 export interface WorkerProvider {
+	/**
+	 * How long a worker it made may sit idle, no agent on it and none queued
+	 * that it could take, before it is destroyed, at the end of its paid hour
+	 * when it bills by the hour; `DEFAULT_IDLE_AFTER` (15 minutes) when unset.
+	 */
+	readonly idleAfter?: Duration;
 	/** The types it makes, with what each costs per hour. */
 	types(): Promise<WorkerType[]>;
 	/**

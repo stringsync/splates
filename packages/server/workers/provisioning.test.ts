@@ -21,6 +21,8 @@ describe("WorkerProvisioning", () => {
 		expect(records.of(worker.id)?.provisioned).toEqual({
 			type: "small",
 			dollarsPerHour: 0.05,
+			billing: "second",
+			createdAt: expect.any(Number),
 		});
 		expect(registry.worker(worker.id)?.kind).toBe("provisioned");
 		const boot = provider.specs[0]?.boot ?? [];
@@ -156,9 +158,27 @@ function joinTokenOf(provider: FakeWorkerProvider, id: string): string {
 
 /** What the provider makes: a Mac cheapest, which no snapshot boots yet. */
 const TYPES = [
-	{ name: "big", platform: "linux", slots: 16, dollarsPerHour: 0.4 },
-	{ name: "small", platform: "linux", slots: 4, dollarsPerHour: 0.05 },
-	{ name: "mac", platform: "macos", slots: 4, dollarsPerHour: 0.01 },
+	{
+		name: "big",
+		platform: "linux",
+		slots: 16,
+		dollarsPerHour: 0.4,
+		billing: "second",
+	},
+	{
+		name: "small",
+		platform: "linux",
+		slots: 4,
+		dollarsPerHour: 0.05,
+		billing: "second",
+	},
+	{
+		name: "mac",
+		platform: "macos",
+		slots: 4,
+		dollarsPerHour: 0.01,
+		billing: "second",
+	},
 ] as const;
 
 /** A `WorkerProvisioning` over `provider`, with what it keeps. */

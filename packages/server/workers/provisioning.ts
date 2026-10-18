@@ -28,6 +28,18 @@ export const PROVISION_BACKOFF = Duration.mins(5);
 /** How often the budget is looked at again as time passes, for its alerts and hard stop. */
 export const BUDGET_EVERY = Duration.mins(1);
 
+/** How long a made worker may be idle before it is destroyed, unless its provider says otherwise. */
+export const DEFAULT_IDLE_AFTER = Duration.mins(15);
+
+/**
+ * How much of a paid hour is left when an idle worker billed by the hour is
+ * destroyed: enough for the destroy to finish before the next hour starts,
+ * so it is never billed for one more.
+ */
+export const HOUR_END_MARGIN = Duration.mins(5);
+
+const HOUR = Duration.hrs(1);
+
 /** A worker a provider was asked to make. */
 export interface Provisioned {
 	id: string;
@@ -70,6 +82,10 @@ export class WorkerProvisioning
 	private tick: Resource | null = null;
 	private offering: RaiseOffer | null = null;
 	private scheduler: Scheduler | null = null;
+	/** When each made worker was first seen idle, by id; absent while it is busy. */
+	/** The platform of each type the provider has made, for what a queued agent could take. */
+	private readonly platforms = new Map<string, Platform>();
+	private readonly idleSince = new Map<string, number>();
 
 	constructor(private readonly opts: WorkerProvisioningOptions) {
 		this.wall = opts.wall ?? new SystemWallClock();
@@ -124,7 +140,13 @@ export class WorkerProvisioning
 			type: type.name,
 			dollarsPerHour: type.dollarsPerHour,
 		};
-		await records.set(id, { provisioned });
+		await records.set(id, {
+			provisioned: {
+				...provisioned,
+				billing: type.billing,
+				createdAt: this.wall.now(),
+			},
+		});
 		registry.expect(id, "provisioned");
 		this.coming.set(id, type.slots);
 		const { token } = await records.invite(
@@ -167,6 +189,7 @@ export class WorkerProvisioning
 	/** Destroys the machine of worker `id`, one a provider made. */
 	async destroy(id: string): Promise<void> {
 		this.coming.delete(id);
+		this.idleSince.delete(id);
 		await this.opts.provider.destroy(id);
 		await this.opts.budget.ended(id);
 	}
@@ -223,6 +246,7 @@ export class WorkerProvisioning
 					`who ran on made workers could not be kept: ${String(error)}`,
 				);
 			});
+			this.track(scheduler);
 			void this.fill(scheduler);
 		});
 		this.tick = (this.opts.timer ?? new SystemTimer()).setInterval(
@@ -271,7 +295,82 @@ export class WorkerProvisioning
 		} catch (error) {
 			log.error(`the worker budget could not be looked at: ${String(error)}`);
 		}
+		await this.retire(scheduler);
 		await this.fill(scheduler);
+	}
+
+	/**
+	 * Notes which made workers are idle now, as it changes: none holds an
+	 * agent and none queued could take it, a worker still booting included.
+	 */
+	private track(scheduler: Scheduler): void {
+		const { records } = this.opts;
+		const now = this.wall.now();
+		const held = new Set(scheduler.held().map((each) => each.worker));
+		const queued = scheduler.queue();
+		const live = new Set<string>();
+		for (const record of records.all) {
+			if (record.provisioned === null || record.removing) {
+				continue;
+			}
+			live.add(record.id);
+			const platform = this.platforms.get(record.provisioned.type);
+			const wanted = queued.some(
+				(entry) => platform === undefined || entry.platform === platform,
+			);
+			if (held.has(record.id) || wanted) {
+				this.idleSince.delete(record.id);
+			} else if (!this.idleSince.has(record.id)) {
+				this.idleSince.set(record.id, now);
+			}
+		}
+		for (const id of this.idleSince.keys()) {
+			if (!live.has(id)) {
+				this.idleSince.delete(id);
+			}
+		}
+	}
+
+	/**
+	 * Destroys each made worker idle for its provider's `idleAfter`: at once
+	 * when its type bills by the second, else only in the last
+	 * `HOUR_END_MARGIN` of the hour it has paid for, counted from its creation.
+	 */
+	private async retire(scheduler: Scheduler): Promise<void> {
+		const { records, provider, retire, log } = this.opts;
+		if (retire === undefined) {
+			return;
+		}
+		try {
+			for (const type of await provider.types()) {
+				this.platforms.set(type.name, type.platform);
+			}
+		} catch {
+			// A type no longer offered keeps the platform last seen.
+		}
+		this.track(scheduler);
+		const now = this.wall.now();
+		const after = (provider.idleAfter ?? DEFAULT_IDLE_AFTER).ms;
+		const due: string[] = [];
+		for (const [id, since] of this.idleSince) {
+			const made = records.of(id)?.provisioned;
+			if (made == null || now - since < after) {
+				continue;
+			}
+			if (made.billing === "hour") {
+				const sinceCreated = now - (made.createdAt ?? since);
+				const left = HOUR.ms - (sinceCreated % HOUR.ms);
+				if (left > HOUR_END_MARGIN.ms) {
+					continue;
+				}
+			}
+			due.push(id);
+		}
+		if (due.length === 0) {
+			return;
+		}
+		log.info(`idle made workers ${due.join(", ")}: destroying them`);
+		await retire(due);
 	}
 
 	/** Makes one worker when the queue has more waiting than is on its way, then looks again. */
@@ -378,6 +477,11 @@ export interface WorkerProvisioningOptions {
 	 * them end. Answers the agents still on them.
 	 */
 	stop?: (ids: string[]) => Promise<HeldSlot[]>;
+	/**
+	 * Destroys the made workers `ids`, idle past their limit: each takes no
+	 * new agent and is destroyed once any that arrived since ends.
+	 */
+	retire?: (ids: string[]) => Promise<void>;
 	/** Whether workers of `type` hold the key `agent` runs on; all do, unless said. */
 	holds?: (type: string, agent: string) => boolean;
 	log: Logger;

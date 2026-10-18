@@ -142,6 +142,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 							: { holds: (type, agent) => keys.typeHolds(type, agent) }),
 						log,
 						stop: (ids) => this.stopMade(ids),
+						retire: (ids) => this.retireMade(ids),
 					});
 		this.provisioning?.watch(this.slots.scheduler);
 	}
@@ -430,6 +431,18 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		return this.slots.scheduler
 			.held()
 			.filter((each) => ids.includes(each.worker));
+	}
+
+	/**
+	 * Retires the made workers `ids` found idle: each takes no new agent and
+	 * is destroyed once any that arrived since ends.
+	 */
+	private async retireMade(ids: string[]): Promise<void> {
+		for (const id of ids) {
+			await this.records.set(id, { draining: true, removing: true });
+		}
+		this.slots.scheduler.poke();
+		await this.removeIdle();
 	}
 
 	/** Removes each worker waiting to be once its last agent has ended. */

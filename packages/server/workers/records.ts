@@ -21,7 +21,14 @@ const Record = z.object({
 	removing: z.boolean(),
 	/** What its provider made it as, for one splates made; null for one that joined by hand. */
 	provisioned: z
-		.object({ type: z.string(), dollarsPerHour: z.number() })
+		.object({
+			type: z.string(),
+			dollarsPerHour: z.number(),
+			/** How its type is billed; by the second for a record from before this was kept. */
+			billing: z.enum(["hour", "second"]).default("second"),
+			/** When its machine was asked for, epoch milliseconds; null for a record from before this was kept. */
+			createdAt: z.number().nullable().default(null),
+		})
 		.nullable()
 		.default(null),
 	/** The id of the Cloudflare Access service token it passes Access with; null for none. */

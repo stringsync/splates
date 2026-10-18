@@ -21,7 +21,13 @@ export class FakeWorkerProvider implements WorkerProvider {
 
 	constructor(
 		private readonly offered: WorkerType[] = [
-			{ name: "small", platform: "linux", slots: 4, dollarsPerHour: 0.05 },
+			{
+				name: "small",
+				platform: "linux",
+				slots: 4,
+				dollarsPerHour: 0.05,
+				billing: "second",
+			},
 		],
 		private readonly wall: WallClock = new SystemWallClock(),
 	) {}

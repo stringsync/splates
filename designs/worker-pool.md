@@ -334,6 +334,15 @@ builder's status, and the servers labelled `splates-worker`. Prices are
 estimates from EU list prices; Hetzner bills each started hour, capped at
 the monthly price.
 
+Idle shutdown (built 2026-10-18). A made worker with no agent on it and none
+queued on its platform for 15 minutes (`WorkerProvider.idleAfter`, default
+`DEFAULT_IDLE_AFTER`) is retired: drained and destroyed. How its type is billed
+is `WorkerType.billing`, `"hour"` for Hetzner: such a worker is retired only in
+the last `HOUR_END_MARGIN` (5 minutes) of the hour it has paid for, counted from
+its creation, which its record keeps with the billing; `"second"` retires it at
+once. `WorkerProvisioning.look` decides, each minute; `DevWorkers` retires.
+Local and registered workers are never made, so never retired.
+
 ## Updates without waiting
 
 The coordinator restarts on its own: agents, terminals and dev servers belong
