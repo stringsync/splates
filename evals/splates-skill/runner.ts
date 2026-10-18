@@ -102,7 +102,7 @@ export async function runProbes(
 					stored.value.result.status,
 				)
 			) {
-				batch.abort("paired experiment stopped after unsuccessful cell");
+				batch.abort("experiment stopped after unsuccessful cell");
 			}
 			opts.completed?.(stored.value, stored.path);
 		}

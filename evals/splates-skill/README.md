@@ -40,3 +40,25 @@ Legacy grades do not establish focused tool capture or affordable model executio
 
 See [shared acceptance](ACCEPTANCE.md) for the lane 17 audit, the two-case
 partial tuning subset, critical gates, reserved validation and concrete #54 gaps.
+
+## Claude on macOS
+
+The native CLI reuses your existing Claude login automatically, with private eval
+configuration and a process-wide write boundary around each invocation. No second
+login or credential copying is needed. Currently verified with Claude Code
+2.1.296; other versions stop before a model prompt because the native Keychain
+selector is version-specific. Reads and network are not restricted by this boundary.
+
+A single-Claude baseline can use the unchanged skill without a manufactured edit:
+
+```sh
+splates dev eval plan --unchanged-baseline --baseline HEAD \
+  --probe decisions/local-choice --target claude:sonnet --parallel 1 --reps 1
+```
+
+Planning is free. `sonnet` is a native alias, not a verified exact model identity;
+the actual model is checked and recorded during execution. To execute, change
+`plan` to `fast` only after reviewing the allowance and explicitly authorizing the
+run. Shared budget admission and terminal confirmation still apply. This is one
+small baseline case, not a full-suite claim. Native authentication was verified
+without inference; no live model outcome is claimed by the free tests.

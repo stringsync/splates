@@ -6,6 +6,10 @@ import type {
 	NativeRequest,
 	NativeUpdate,
 } from "./native-adapter";
+import {
+	type ClaudeLogin,
+	claudeLoginEnvironment,
+} from "./native-claude-login";
 import type { Json } from "./probe";
 import type { Allowance } from "./probe-affordability";
 import { awaitProcessGroupExit } from "./process-group";
@@ -24,16 +28,22 @@ export function claudeDriver(opts: ClaudeOptions): NativeDriver {
 	}
 	return {
 		id: "native-claude",
-		version: "2",
+		version: "3",
 		config: {
 			executable,
+			login: opts.login ? "existing-keychain-private-config" : "isolated",
 			allowance,
 			usageScope: "query-pipeline estimate; auxiliary calls uncovered",
 		},
 		limits: { tokens: "monitored", costUsd: "monitored" },
 		quote: () => ({ ...allowance }),
 		create(request) {
-			return session(request, executable, opts.launch ?? launchClaude);
+			return session(
+				request,
+				executable,
+				opts.launch ?? launchClaude,
+				opts.login,
+			);
 		},
 	};
 }
@@ -52,6 +62,8 @@ export type ClaudeLaunch = (options: {
 }) => ClaudeProcess;
 
 export interface ClaudeOptions {
+	/** Reuse native login with a private config and whole-process write boundary. */
+	login?: ClaudeLogin;
 	/** Native executable, not an ACP wrapper or a shell command. */
 	executable?: string;
 	/** Admission reservation, not a guaranteed billing ceiling. */
@@ -129,9 +141,12 @@ function session(
 	request: NativeRequest,
 	executable: string,
 	launch: ClaudeLaunch,
+	login?: ClaudeLogin,
 ) {
 	const { context, model, tools, skill, allowance } = request;
 	const owned: ClaudeProcess[] = [];
+	let prefix: string[] = [];
+	let env = context.env;
 	let cancelled = false;
 	let work: Promise<void> | undefined;
 	const cancel = () => {
@@ -158,9 +173,9 @@ function session(
 	) {
 		check();
 		const child = launch({
-			argv: [executable, ...args],
+			argv: [...prefix, executable, ...args],
 			cwd: context.isolation.repository,
-			env: context.env,
+			env,
 			input,
 			stdout,
 		});
@@ -215,12 +230,28 @@ function session(
 			"monitored tokens and estimated USD; in-flight overshoot possible";
 		context.runtime.claudeUsage =
 			"Cumulative query-pipeline estimates exclude auxiliary calls; completeness remains false";
+		if (login) {
+			try {
+				({ prefix, env } = await claudeLoginEnvironment(request, login));
+			} catch (error) {
+				return unsupported(String(error), "configuration");
+			}
+		}
 		let version = "";
 		const versionCode = await command(["--version"], "", (text) => {
 			version += text;
 		});
 		context.runtime.claudeVersion =
 			versionCode === 0 ? version.trim() || null : null;
+		if (
+			login &&
+			(versionCode !== 0 || version.trim() !== "2.1.296 (Claude Code)")
+		) {
+			return unsupported(
+				"Existing-login isolation requires verified Claude Code 2.1.296; no prompt submitted",
+				"configuration",
+			);
+		}
 		context.runtime.claudeReasoning = { requested: null, effective: null };
 		context.runtime.claudeRequestedModel = model;
 		let help = "";

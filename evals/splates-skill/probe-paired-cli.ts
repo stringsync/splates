@@ -11,6 +11,7 @@ import { freezeSnapshots } from "./probe-snapshots";
 import { hash, type ProbeModule, runProbes } from "./runner";
 
 interface PairOptions {
+	unchanged?: boolean;
 	plan: boolean;
 	directory: string;
 	root: string;
@@ -27,13 +28,31 @@ interface PairOptions {
 	reproduction: string[];
 }
 
-/** Plan or confirm one change-gated experiment; all snapshots share one admission batch. */
+/** Plan or confirm an admitted experiment with one reservation for every cell. */
 export async function pairedCli(
 	module: ProbeModule,
 	change: SkillChange,
-	opts: PairOptions,
 	log: Logger,
+	opts: PairOptions,
 ): Promise<void> {
+	const unchanged = opts.unchanged === true;
+	const claudeOnly =
+		unchanged &&
+		opts.targets.length === 1 &&
+		opts.targets[0]?.startsWith("claude:");
+	if (
+		unchanged &&
+		(change.files.length ||
+			change.beforeHash !== change.afterHash ||
+			opts.reps !== 1 ||
+			(!claudeOnly && opts.targets.length !== 2) ||
+			module.probes.length !== 1 ||
+			module.probes[0]?.id !== "decisions/local-choice")
+	) {
+		throw new Error(
+			"Unchanged baseline requires identical snapshots, one Claude target or both native families, local-choice only and --reps 1",
+		);
+	}
 	if (opts.parallel !== 1) {
 		throw new Error(
 			"Paired experiments require --parallel 1 for stop-on-failure ordering",
@@ -48,9 +67,10 @@ export async function pairedCli(
 		);
 	}
 	if (
-		!opts.targets.some((value) => value.startsWith("codex:")) ||
-		!opts.targets.some((value) => value.startsWith("claude:")) ||
-		opts.targets.some((value) => !/^(codex|claude):/.test(value))
+		!claudeOnly &&
+		(!opts.targets.some((value) => value.startsWith("codex:")) ||
+			!opts.targets.some((value) => value.startsWith("claude:")) ||
+			opts.targets.some((value) => !/^(codex|claude):/.test(value)))
 	) {
 		throw new Error("Paired experiments require both Codex and Claude targets");
 	}
@@ -65,10 +85,20 @@ export async function pairedCli(
 				"Paired experiments require the frozen decision tuning cases and assertions",
 			);
 		}
+		if (
+			unchanged &&
+			(probe.bounds.milliseconds > frozen.bounds.milliseconds ||
+				probe.bounds.turns > frozen.bounds.turns ||
+				probe.bounds.tokens > frozen.bounds.tokens)
+		) {
+			throw new Error(
+				"Unchanged baseline bounds cannot exceed the frozen local-choice limits",
+			);
+		}
 	}
 	const targetsFor = (
 		snapshots: {
-			role: "baseline" | "candidate";
+			role: "baseline" | "candidate" | "current";
 			source: string;
 			hash: string;
 		}[],
@@ -86,10 +116,14 @@ export async function pairedCli(
 				snapshot: { role: snapshot.role, hash: snapshot.hash },
 			})),
 		);
-	const planned = targetsFor([
-		{ role: "baseline", source: change.skill, hash: change.beforeHash },
-		{ role: "candidate", source: change.skill, hash: change.afterHash },
-	]);
+	const planned = targetsFor(
+		unchanged
+			? [{ role: "current", source: change.skill, hash: change.afterHash }]
+			: [
+					{ role: "baseline", source: change.skill, hash: change.beforeHash },
+					{ role: "candidate", source: change.skill, hash: change.afterHash },
+				],
+	);
 	const jobs = module.probes.flatMap((probe) =>
 		planned.flatMap((target) =>
 			Array.from({ length: opts.reps }, () => ({ probe, target })),
@@ -97,7 +131,7 @@ export async function pairedCli(
 	);
 	const quotes = admit(jobs, opts.spending);
 	log.info(
-		`Paired experiment: ${jobs.length} cells; baseline ${change.beforeHash}; candidate ${change.afterHash}; aggregate reservation ${JSON.stringify(quotes.reduce<Allowance>((sum, value) => ({ tokens: sum.tokens + (value?.tokens ?? 0), microUsd: sum.microUsd + (value?.microUsd ?? 0) }), { tokens: 0, microUsd: 0 }))}. One shared reservation; monitored limits may overshoot, Codex USD unknown.`,
+		`${unchanged ? "Unchanged baseline (no candidate comparison)" : "Paired experiment"}: ${jobs.length} cells; baseline ${change.beforeHash}; selected ${change.afterHash}; aggregate reservation ${JSON.stringify(quotes.reduce<Allowance>((sum, value) => ({ tokens: sum.tokens + (value?.tokens ?? 0), microUsd: sum.microUsd + (value?.microUsd ?? 0) }), { tokens: 0, microUsd: 0 }))}. One shared reservation; monitored limits may overshoot, Codex USD unknown.`,
 	);
 	if (opts.plan) {
 		log.info(
@@ -106,10 +140,14 @@ export async function pairedCli(
 		return;
 	}
 	if (!process.stdin.isTTY) {
-		throw new Error("Paid paired probes require a terminal and confirmation");
+		throw new Error(
+			"Paid experiment probes require a terminal and confirmation",
+		);
 	}
 	if (
-		prompt("Start this potentially paid paired experiment? [y/N]")
+		prompt(
+			`Start this potentially paid ${unchanged ? "unchanged baseline" : "paired experiment"}? [y/N]`,
+		)
 			?.trim()
 			.toLowerCase() !== "y"
 	) {
@@ -117,7 +155,7 @@ export async function pairedCli(
 	}
 	await mkdir(opts.directory, { recursive: true });
 	const directory = await mkdtemp(join(opts.directory, "experiment-"));
-	const snapshots = await freezeSnapshots(change, directory);
+	const snapshots = await freezeSnapshots(change, directory, unchanged);
 	const targets = targetsFor(snapshots);
 	const sharedBudget = await projectEvalBudgets(opts.root);
 	const controller = new AbortController();
@@ -137,17 +175,19 @@ export async function pairedCli(
 			stopOnFailure: true,
 			reproduction: opts.reproduction,
 			experiment: {
-				kind: "paired",
+				kind: unchanged ? "unchanged-baseline" : "paired",
 				baselineRevision: change.baseline,
 				snapshots,
 				harnessHash: opts.harnessHash,
 				sharedBudget: await sharedBudget.report(),
-				ordering: "probe, family, baseline then candidate, repetition",
+				ordering: unchanged
+					? "local-choice, family, current snapshot, one repetition"
+					: "probe, family, baseline then candidate, repetition",
 				authPolicy:
 					"native isolated home; explicit Codex home used in place; no copied credentials",
 			},
 		});
-		log.info(`Paired manifest and every cell: ${directory}`);
+		log.info(`Experiment manifest and every cell: ${directory}`);
 		log.info(pairedBatchReport(runs));
 		if (runs.some((run) => run.result.status !== "pass")) {
 			process.exitCode = 1;

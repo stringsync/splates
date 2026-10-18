@@ -86,6 +86,7 @@ export async function fastCli(
 			parallel: { type: "string", default: "1" },
 			baseline: { type: "string" },
 			paired: { type: "boolean", default: false },
+			"unchanged-baseline": { type: "boolean", default: false },
 			"max-tokens": { type: "string" },
 			"max-usd": { type: "string" },
 			milliseconds: { type: "string" },
@@ -99,9 +100,26 @@ export async function fastCli(
 		},
 	});
 	const command = positionals[0] ?? "fast";
+	const unchanged = values["unchanged-baseline"];
 	if (values.help) {
 		log.info(HELP);
 		return;
+	}
+	if (
+		unchanged &&
+		(values.paired ||
+			values.failed ||
+			values.module?.length ||
+			values.probe?.length !== 1 ||
+			values.probe[0] !== "decisions/local-choice" ||
+			values.aspect?.length ||
+			values.requirement?.length ||
+			values.kind === "cli" ||
+			!["fast", "run", "plan"].includes(command))
+	) {
+		throw new Error(
+			"--unchanged-baseline requires only --probe decisions/local-choice and forbids --paired, --failed, custom modules and other selectors",
+		);
 	}
 	if (
 		positionals.length > 1 ||
@@ -204,7 +222,12 @@ export async function fastCli(
 		log.info(
 			`Skill baseline ${baseline}; ${change.beforeHash} -> ${change.afterHash}; changed: ${change.files.join(", ") || "none"}`,
 		);
-		if (!change.files.length) {
+		if (unchanged && change.files.length) {
+			throw new Error(
+				"--unchanged-baseline requires identical committed and current instruction bytes; use --paired for a genuine diff",
+			);
+		}
+		if (!change.files.length && !unchanged) {
 			log.info(
 				"Skipped model execution: Splates skill/references unchanged. Zero model requests.",
 			);
@@ -231,35 +254,31 @@ export async function fastCli(
 	log.info(
 		`Selected: ${module.probes.map((probe) => probe.id).join(", ")}; reps ${reps}; parallel ${parallel}; aggregate admission limits ${spending.tokens} tokens / USD ${(spending.microUsd / 1000000).toFixed(6)}`,
 	);
-	if (values.paired) {
+	if (values.paired || unchanged) {
 		if (!change || values.failed || values.module?.length) {
 			throw new Error(
 				"--paired requires changed agent instructions and forbids selective --failed reruns or custom --module seeds",
 			);
 		}
-		await pairedCli(
-			module,
-			change,
-			{
-				plan: command === "plan",
-				codexFixtureWrites: values["codex-fixture-writes"],
-				directory,
-				root,
-				targets: values.target ?? [],
-				mode,
-				codexHome: values["codex-home"]
-					? resolve(values["codex-home"])
-					: undefined,
-				reps,
-				parallel,
-				spending,
-				reservation,
-				cliHash: await treeHash(root, NOT_CLI),
-				harnessHash: await treeHash(import.meta.dir),
-				reproduction: ["bin/splates", "dev", "eval", ...args],
-			},
-			log,
-		);
+		await pairedCli(module, change, log, {
+			unchanged,
+			plan: command === "plan",
+			codexFixtureWrites: values["codex-fixture-writes"],
+			directory,
+			root,
+			targets: values.target ?? [],
+			mode,
+			codexHome: values["codex-home"]
+				? resolve(values["codex-home"])
+				: undefined,
+			reps,
+			parallel,
+			spending,
+			reservation,
+			cliHash: await treeHash(root, NOT_CLI),
+			harnessHash: await treeHash(import.meta.dir),
+			reproduction: ["bin/splates", "dev", "eval", ...args],
+		});
 		return;
 	}
 
@@ -467,6 +486,7 @@ const HELP = `splates dev eval [fast|list|plan|report] [options]
   --milliseconds N --turns N --tokens N   override each probe's bounds
   --baseline REV          required Git baseline for skill/reference change gate
   --paired                both immutable snapshots, both families, one aggregate reservation; frozen decision probes only
+  --unchanged-baseline    explicit same-skill exception: local-choice, Claude alone or one Codex and one Claude, one repetition, parallel one
   --max-tokens 4000 --max-usd 0.10  aggregate admission limits (configuration maxima 10000 / 0.25)
   --allow-unmetered        rejected for model execution
   --failed                 rerun compatible non-passing probes; report filters non-passes

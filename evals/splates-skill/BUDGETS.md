@@ -1,7 +1,8 @@
 # Shared eval token budgets
 
 Eval budgets pool **total tokens across every target, probe and repetition** in a
-project. They do not make unsupported providers executable. The skill-change gate,
+project. They do not make unsupported providers executable. The skill-change gate
+(or the explicitly approved narrow `--unchanged-baseline` exception in RUNNER.md),
 terminal confirmation and declared native budget policy remain mandatory. No paid
 runs were used to implement this feature. AGENTS.md's warning is unchanged.
 

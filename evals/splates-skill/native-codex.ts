@@ -39,7 +39,7 @@ export function nativeCodex(opts: NativeCodexOptions): NativeDriver {
 	}
 	return {
 		id: "native-codex",
-		version: "3",
+		version: "4",
 		config: {
 			argv,
 			allowance,
@@ -247,11 +247,15 @@ class CodexSession implements NativeSession {
 			]) {
 				overrides[`features.${feature}`] = false;
 			}
-			for (const name of Object.keys(object(config.mcp_servers))) {
-				overrides[`mcp_servers.${JSON.stringify(name)}.enabled`] = false;
-			}
-			for (const name of Object.keys(object(config.plugins))) {
-				overrides[`plugins.${JSON.stringify(name)}.enabled`] = false;
+			// App-server dotted keys do not parse quoted TOML segments. Nested tables
+			// preserve names literally and merge only enabled, without replaying config/read defaults.
+			for (const group of ["mcp_servers", "plugins"] as const) {
+				overrides[group] = Object.fromEntries(
+					Object.keys(object(config[group])).map((name) => [
+						name,
+						{ enabled: false },
+					]),
+				);
 			}
 			await this.rpc("skills/extraRoots/set", { extraRoots: [source] });
 			const skills = object(

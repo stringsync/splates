@@ -179,8 +179,8 @@ export interface Adapter {
 	run(context: RunContext, model: string | null): Promise<void>;
 }
 export interface Target {
-	/** Frozen paired-experiment instruction identity; absent for legacy single-source runs. */
-	snapshot?: { role: "baseline" | "candidate"; hash: string };
+	/** Frozen experiment instruction identity; current is a same-skill baseline, never a pair. */
+	snapshot?: { role: "baseline" | "candidate" | "current"; hash: string };
 	/** CLI provider name, separate from transport identity. */
 	selector?: string;
 	adapter: Adapter;

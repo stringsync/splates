@@ -14,7 +14,8 @@ The model CLI requires `--baseline REV`, resolved to an immutable Git commit.
 It compares the selected `SKILL.md` and every file under `references/` against
 that commit, including current dirty/untracked additions, deletions and renames.
 Unchanged bytes skip before roster lookup, authentication, confirmation or model
-launch. Unrelated application changes do not trigger model execution. Missing
+launch, except for the explicitly approved `--unchanged-baseline` mode below.
+Unrelated application changes do not trigger model execution. Missing
 baselines, missing root instructions, unsupported entries and symlinked selected
 sources/references fail closed. Alternate skill sources must live within their
 own Git repository and exist at the selected baseline path. Choose the commit
@@ -423,3 +424,50 @@ separately authored validation cases described in ACCEPTANCE.md; none are create
 or claimed held-out here. The source agent skill was checked for CLI consistency:
 its general workflow does not document repository-only `dev eval` flags, so no
 skill wording change is needed for this internal CLI extension.
+
+## Explicit unchanged-baseline exception (#55)
+
+The user approved implementing this exception on 2026-10-18, separately from
+model execution authorization. `--unchanged-baseline --baseline REV --probe
+decisions/local-choice` requires current instruction bytes to equal the immutable
+revision, exactly one Codex and one Claude target, one repetition and parallel one.
+It freezes one `current` snapshot and admits both cells in a single aggregate
+reservation. Reports label these same-skill baseline observations, never a
+candidate comparison or an improvement. Ordinary unchanged calls still skip,
+and `--paired` still needs a genuine diff.
+
+The exception refuses custom modules, selective retries, other cases/selectors,
+extra targets, repetitions, parallelism, and increases to the frozen probe bounds.
+Shared allowance declaration, native metering, terminal confirmation, snapshot
+verification, complete result retention and stop-on-failure remain mandatory.
+At default per-cell reservations its two cells total 4,000 tokens / USD 0.10;
+these are allowances, not adequate-context promises or hard billing limits.
+
+Free planning example (target names are placeholders, not verified accounts):
+
+```sh
+splates dev eval plan --unchanged-baseline --baseline HEAD \
+  --probe decisions/local-choice --target codex:MODEL --target claude:MODEL
+```
+
+No model evaluation was authorized by the implementation decision. See
+`BASELINE-RUN-PLAN.md` for native readiness evidence and the separate approval gate.
+
+### Claude-only usability update
+
+The user replaced the cross-family measurement task with making Claude evals
+usable. `--unchanged-baseline` now also accepts exactly one Claude target, keeping
+the frozen local-choice case, one repetition, parallel one, immutable current
+snapshot and all budget/confirmation gates. It does not require a Codex run.
+Paired genuine-diff policy is unchanged.
+
+On macOS, native Claude targets automatically reuse the existing native Keychain
+login through real HOME/USER, private CLAUDE_CONFIG_DIR and the verified native
+secure-storage selector. All invocations run under Seatbelt with writes limited
+to canonical validated fixture/private directories, including the seeded decision
+task. No unsandboxed fallback exists. Reads and network remain unrestricted.
+Claude Code 2.1.296 is currently required for this auth mode; non-macOS targets
+retain the previous isolated-auth behavior. No credentials are read or copied by
+the runner. See README.md for the one-target planning command. Free native status
+using the implemented environment confirmed the existing Max login; actual model
+execution remains separately authorized and untested.

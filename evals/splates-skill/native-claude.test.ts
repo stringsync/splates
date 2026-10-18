@@ -300,7 +300,7 @@ function fixture(output: string, opts: FixtureOptions = {}) {
 				call.argv[1] === "auth";
 			const text =
 				call.argv[1] === "--version"
-					? "2.1.0 (Claude Code)"
+					? (opts.version ?? "2.1.0 (Claude Code)")
 					: call.argv[1] === "--help"
 						? (opts.help ?? help)
 						: call.argv[1] === "auth"
@@ -341,6 +341,7 @@ function fixture(output: string, opts: FixtureOptions = {}) {
 }
 
 interface FixtureOptions {
+	version?: string;
 	auth?: boolean;
 	help?: string;
 	code?: number;
@@ -388,3 +389,65 @@ else {
 	const pid = Number(await readFile(pidFile, "utf8"));
 	expect(() => process.kill(pid, 0)).toThrow();
 });
+
+it.skipIf(process.platform !== "darwin")(
+	"wraps all native commands with write isolation while reusing only the login identity",
+	async () => {
+		await Promise.all(
+			["home", "tmp", "splates-home"].map((name) =>
+				mkdir(join(directory, name)),
+			),
+		);
+		request.context.env.TMPDIR = join(directory, "tmp");
+		request.context.isolation.splatesHome = join(directory, "splates-home");
+		const calls: Parameters<ClaudeLaunch>[0][] = [];
+		const transport = fixture(await success(), {
+			version: "2.1.296 (Claude Code)",
+		});
+		const session = claudeDriver({
+			allowance,
+			login: { home: "/Users", user: "fixture-user" },
+			launch(call) {
+				calls.push(call);
+				return transport.launch({
+					...call,
+					argv: call.argv.slice(3),
+				});
+			},
+		}).create(request);
+		await session.run(() => {});
+		await session.dispose();
+		expect(calls).toHaveLength(4);
+		// scry-ignore matchers-over-test-logic: verify the boundary on every invocation, not only the model call.
+		for (const call of calls) {
+			expect(call.argv.slice(0, 2)).toEqual(["/usr/bin/sandbox-exec", "-p"]);
+			expect(call.argv[2]).toContain("(deny file-write*)");
+			expect(call.argv[2]).not.toContain('(subpath "/Users")');
+			expect(call.env.HOME).toBe("/Users");
+			expect(call.env.USER).toBe("fixture-user");
+			expect(call.env.CLAUDE_CONFIG_DIR).toEndWith("/home/.claude");
+			expect(call.env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("");
+		}
+		expect(request.context.env.HOME).toBe(join(directory, "home"));
+	},
+);
+
+it.skipIf(process.platform !== "darwin")(
+	"refuses an escaping private directory before launching Claude",
+	async () => {
+		await mkdir(join(directory, "home"));
+		request.context.env.TMPDIR = "/private/tmp";
+		request.context.isolation.splatesHome = directory;
+		const transport = fixture(await success());
+		const session = claudeDriver({
+			allowance,
+			login: { home: "/Users", user: "fixture-user" },
+			launch: transport.launch,
+		}).create(request);
+		await session.run(() => {});
+		await session.dispose();
+		expect(transport.calls).toHaveLength(0);
+		expect(request.context.evidence.termination).toBe("unsupported");
+		expect(request.context.runtime.failureCause).toBe("configuration");
+	},
+);

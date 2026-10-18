@@ -56,7 +56,13 @@ it("keeps native discovery, cumulative usage, final reply and tool evidence dist
 	const thread = wire.find((item) => item.method === "thread/start").params;
 	expect(thread.baseInstructions).toBeUndefined();
 	expect(thread.config["features.multi_agent"]).toBe(false);
-	expect(thread.config['mcp_servers."fixture".enabled']).toBe(false);
+	expect(thread.config.mcp_servers).toEqual({
+		fixture: { enabled: false },
+		"fixture.with.dot": { enabled: false },
+	});
+	expect(thread.config.plugins).toEqual({
+		"fixture@registry": { enabled: false },
+	});
 	expect(thread.allowProviderModelFallback).toBe(false);
 	await stopped();
 });

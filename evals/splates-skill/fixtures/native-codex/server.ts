@@ -109,7 +109,13 @@ for await (const line of createInterface({ input: process.stdin })) {
 		send({
 			id,
 			result: {
-				config: { mcp_servers: { fixture: {} }, plugins: { fixture: {} } },
+				config: {
+					mcp_servers: {
+						fixture: { command: "unused", tool_timeout_sec: "" },
+						"fixture.with.dot": {},
+					},
+					plugins: { "fixture@registry": {} },
+				},
 			},
 		});
 	}

@@ -3,15 +3,33 @@ import { dirname, join } from "node:path";
 import { instructionFiles, type SkillChange } from "./probe-change";
 import { hash } from "./probe-record";
 
-/** Freeze a changed skill and its baseline before running a paired experiment. */
-export async function freezeSnapshots(change: SkillChange, directory: string) {
-	if (!change.files.length || change.beforeHash === change.afterHash) {
+/** Freeze admitted instruction bytes so later edits cannot change an experiment. */
+export async function freezeSnapshots(
+	change: SkillChange,
+	directory: string,
+	unchanged = false,
+) {
+	if (
+		unchanged &&
+		(change.files.length || change.beforeHash !== change.afterHash)
+	) {
+		throw new Error(
+			"Unchanged baseline requires identical instruction snapshots",
+		);
+	}
+	if (
+		!unchanged &&
+		(!change.files.length || change.beforeHash === change.afterHash)
+	) {
 		throw new Error("Paired execution requires a genuine instruction diff");
 	}
 	const snapshots = [];
-	for (const role of ["baseline", "candidate"] as const) {
+	const roles = unchanged
+		? (["current"] as const)
+		: (["baseline", "candidate"] as const);
+	for (const role of roles) {
 		const expected = role === "baseline" ? change.beforeHash : change.afterHash;
-		const files = change.snapshots[role];
+		const files = change.snapshots[role === "current" ? "candidate" : role];
 		if (hash(files) !== expected) {
 			throw new Error("Instruction snapshot identity changed");
 		}

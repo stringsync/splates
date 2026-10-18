@@ -70,9 +70,17 @@ function withoutSkillSource(config: Json): Json {
 export function pairedBatchReport(values: StoredRun[]): string {
 	const groups = new Map<string, StoredRun[]>();
 	const unpaired: StoredRun[] = [];
+	const current: StoredRun[] = [];
 	for (const value of values) {
 		if (!value.adapter.runtime.snapshot) {
 			unpaired.push(value);
+			continue;
+		}
+		if (
+			hash(value.adapter.runtime.snapshot) ===
+			hash({ role: "current", hash: value.run.identity.skillHash })
+		) {
+			current.push(value);
 			continue;
 		}
 		const key = hash([
@@ -85,6 +93,12 @@ export function pairedBatchReport(values: StoredRun[]): string {
 		groups.set(key, [...(groups.get(key) ?? []), value]);
 	}
 	const lines: string[] = [];
+	if (current.length) {
+		lines.push(
+			"Unchanged baseline evidence; no candidate comparison or improvement claim.",
+			probeReport(current),
+		);
+	}
 	for (const group of groups.values()) {
 		const role = (run: StoredRun, name: string) =>
 			hash(run.adapter.runtime.snapshot) ===

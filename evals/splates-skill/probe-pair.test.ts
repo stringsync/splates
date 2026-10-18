@@ -83,6 +83,17 @@ it("keeps missing and duplicate cells visible", () => {
 	);
 });
 
+it("reports current-only snapshots as baseline evidence, never as missing candidate pairs", () => {
+	const current = run("same");
+	current.adapter.runtime.snapshot = { role: "current", hash: "same" };
+	const report = pairedBatchReport([current]);
+	expect(report).toContain(
+		"Unchanged baseline evidence; no candidate comparison or improvement claim.",
+	);
+	expect(report).toContain("fixture refusal");
+	expect(report).not.toContain("Incomplete or duplicate pair");
+});
+
 function run(skillHash: string): StoredRun {
 	const probe = decisions.probes[0] as Probe;
 	const evidence = {

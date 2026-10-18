@@ -97,6 +97,78 @@ it.each(["unsupported", "infrastructure-error", "bound"] as const)(
 	},
 );
 
+it("reserves and persists both unchanged-baseline cells before the first launch and keeps cancellation", async () => {
+	const adapter: Adapter = {
+		id: "free",
+		version: "1",
+		config: {},
+		tokenBound: true,
+		async run() {
+			throw new Error("unmetered path");
+		},
+		metering: {
+			quote: () => ({ tokens: 100, microUsd: 1000 }),
+			async run(context) {
+				launches++;
+				expect((await ledger.report()).windows[0]?.reserved).toBe(200);
+				const manifest = JSON.parse(
+					await readFile(join(directory, "experiment.json"), "utf8"),
+				);
+				expect(manifest.experiment.kind).toBe("unchanged-baseline");
+				expect(manifest.jobs).toHaveLength(2);
+				expect(
+					manifest.jobs.map((job: { snapshot: unknown }) => job.snapshot),
+				).toEqual([
+					{ role: "current", hash: "same" },
+					{ role: "current", hash: "same" },
+				]);
+				context.runtime.nativeUsageComplete = false;
+				context.evidence.termination = "unsupported";
+			},
+		},
+	};
+	const results = await runProbes(
+		{
+			probes: [probe],
+			seeds: [
+				{
+					id: probe.seed.id,
+					version: probe.seed.version,
+					fingerprint: "free",
+					async prepare() {},
+					async observe() {
+						return {};
+					},
+				},
+			],
+		},
+		["codex", "claude"].map((id) => ({
+			adapter: { ...adapter, id },
+			model: "fixture",
+			snapshot: { role: "current" as const, hash: "same" },
+		})),
+		{
+			directory,
+			parallel: 1,
+			reps: 1,
+			skillHash: "same",
+			cliHash: "fixture",
+			reproduction: ["free", "--unchanged-baseline"],
+			budget: { tokens: 200, microUsd: 2000 },
+			sharedBudget: ledger,
+			stopOnFailure: true,
+			experiment: { kind: "unchanged-baseline", free: true },
+		},
+	);
+	expect(launches).toBe(1);
+	expect(results).toHaveLength(2);
+	expect(results[1]?.run.evidence.detail).toBe("cancelled before start");
+	expect(await storedRuns(directory)).toHaveLength(2);
+	expect((await ledger.report()).reservations).toHaveLength(1);
+	expect((await ledger.report()).windows[0]?.reserved).toBe(200);
+	expect(pairedBatchReport(results)).toContain("no candidate comparison");
+});
+
 let directory: string;
 let ledger: EvalBudgets;
 let launches: number;

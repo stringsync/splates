@@ -1,3 +1,4 @@
+import { homedir, userInfo } from "node:os";
 import { nativeAdapter } from "./native-adapter";
 import { claudeDriver } from "./native-claude";
 import { nativeCodex } from "./native-codex";
@@ -19,7 +20,12 @@ export function nativeTarget(value: string, opts: NativeTargetOptions): Target {
 	}
 	const driver =
 		id === "claude"
-			? claudeDriver({ allowance: opts.allowance })
+			? claudeDriver({
+					allowance: opts.allowance,
+					...(process.platform === "darwin"
+						? { login: { home: homedir(), user: userInfo().username } }
+						: {}),
+				})
 			: id === "codex"
 				? nativeCodex({
 						allowance: opts.allowance,
