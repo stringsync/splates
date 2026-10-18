@@ -26,10 +26,17 @@ import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
-import { NavigationContext } from "./navigation";
+import { NavigationContext, showAddress } from "./navigation";
 import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
-import { App, act, fireEvent, render, waitFor, within } from "./testing-dom";
+import {
+	act,
+	fireEvent,
+	ProjectApp,
+	render,
+	waitFor,
+	within,
+} from "./testing-dom";
 
 export * from "./drivers";
 export * from "./fixtures";
@@ -76,6 +83,8 @@ export interface Stream {
 	onerror: (() => void) | null;
 	/** The listeners for named events, such as `removed`. */
 	named?: Map<string, (event: { data: string }) => void>;
+	/** Whether the page closed it. */
+	closed?: boolean;
 }
 
 /**
@@ -159,7 +168,7 @@ export class Testing implements Resource {
 	restartable = true;
 	/** Every path the page fetched, in order. */
 	asked: string[] = [];
-	/** Every address the page asked to go to, in order. */
+	/** Every address the page asked to go to or show, in order. */
 	visited: string[] = [];
 	/** How many times the page asked to reload. */
 	reloads = 0;
@@ -309,9 +318,10 @@ export class Testing implements Resource {
 			onopen: (() => void) | null = null;
 			onerror: (() => void) | null = null;
 			readonly named = new Map<string, (event: { data: string }) => void>();
+			closed = false;
 
 			constructor(url: string) {
-				if (url === "/api/conversations/events") {
+				if (url.split("?")[0] === "/api/conversations/events") {
 					testing.talkStream = this;
 				} else {
 					testing.stream = this;
@@ -325,8 +335,10 @@ export class Testing implements Resource {
 				this.named.set(name, listener);
 			}
 
-			// `EventSource`'s own name for it, which `Feed` calls; nothing is held.
-			close(): void {}
+			// `EventSource`'s own name for it, which `Feed` calls.
+			close(): void {
+				this.closed = true;
+			}
 		} as unknown as typeof EventSource;
 		globalThis.WebSocket = class extends FakeShell {
 			constructor(url: string) {
@@ -408,11 +420,21 @@ export class Testing implements Resource {
 		const view = render(
 			createElement(
 				NavigationContext,
-				{ value: { go: (url: string) => this.visited.push(url) } },
+				{
+					value: {
+						go: (url: string) => this.visited.push(url),
+						// Another project's page draws in this one, as it does
+						// in a browser, so a test sees the switch through.
+						show: (url: string) => {
+							this.visited.push(url);
+							showAddress(url);
+						},
+					},
+				},
 				createElement(
 					DictationContext,
 					{ value: this.dictation },
-					createElement(App, {
+					createElement(ProjectApp, {
 						settings: new Settings(localStorage),
 						checkpointEvery: CHECKPOINT_EVERY,
 						checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,

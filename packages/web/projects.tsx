@@ -95,8 +95,9 @@ export function ProjectSwitcher({
 	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
 	const [servers, setServers] = useState<ServerChoice[]>([]);
 	const [adding, setAdding] = useState(false);
-	// What the page is on its way to, once picked: a new page takes seconds
-	// to come under load, and the old one must not be used meanwhile.
+	// The server the page is on its way to, once picked: a new page takes
+	// seconds to come under load, and the old one must not be used meanwhile.
+	// Another project needs none, since it opens on this page.
 	const [leaving, setLeaving] = useState<string | null>(null);
 	useEffect(() => {
 		// Back to this page from the browser's cache, it is in use again.
@@ -195,8 +196,7 @@ export function ProjectSwitcher({
 			if (placeOf(each.slug).name === undefined) {
 				rememberPlace(each.slug, { name: each.slug });
 			}
-			setLeaving(each.slug);
-			navigation.go(projectUrl(each, { stay: bar }));
+			navigation.show(projectUrl(each, { stay: bar }));
 		}
 	};
 
@@ -223,10 +223,7 @@ export function ProjectSwitcher({
 				const url = new URL(location.href);
 				url.searchParams.delete("project");
 				url.hash = "";
-				if (next !== null) {
-					setLeaving(next.slug);
-				}
-				navigation.go(next === null ? url.toString() : projectUrl(next));
+				navigation.show(next === null ? url.toString() : projectUrl(next));
 			},
 			(error: unknown) => refused(`${each.slug} not forgotten`, error),
 		);

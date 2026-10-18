@@ -2,11 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserMicrophone, DictationSocket } from "webappwiz/dictate/browser";
 import { scoped } from "./api";
-import { App } from "./app";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
+import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
 
 const root = document.getElementById("root");
@@ -80,7 +80,7 @@ createRoot(root).render(
 	) : (
 		<StrictMode>
 			<DictationContext value={dictation}>
-				<App settings={settings} />
+				<ProjectApp settings={settings} />
 			</DictationContext>
 		</StrictMode>
 	),

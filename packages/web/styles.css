@@ -149,6 +149,7 @@
 @source "./systems-page.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";
+@source "./project-app.tsx";
 @source "./project-chip.tsx";
 @source "./budget.tsx";
 @source "./budget-forms.tsx";

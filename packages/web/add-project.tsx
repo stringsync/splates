@@ -27,7 +27,7 @@ export function AddProject({
 	const navigation = useContext(NavigationContext);
 	const { refusal, refuse } = useRefusal();
 
-	const open = (slug: string) => navigation.go(projectUrl({ slug }));
+	const open = (slug: string) => navigation.show(projectUrl({ slug }));
 
 	if (added !== null) {
 		const { project, uncommitted, shown, branch } = added;

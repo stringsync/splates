@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	snapshot,
+	Testing,
+	todo,
+	waitFor,
+	within,
+} from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
 function visit(url: string): void {
@@ -73,33 +82,57 @@ describe("App's projects", () => {
 		expect(new URL(String(testing.visited[0])).search).toBe("?project=shop");
 	});
 
-	it("covers the page, and leaves nothing on it to use, while the pick opens", async () => {
-		const view = await testing.open();
-		await openSwitcher(view);
-		const trigger = view.getAllByRole("button", {
-			name: /^Switch project/,
-		})[0] as HTMLElement;
+	it("opens the pick in place, naming it until its snapshot arrives, with nothing of the last one on it", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open({
+			repo: "webappwiz",
+			todos: [todo({ id: 1, subject: "webappwiz's own" })],
+		});
+		await waitFor(() => view.getByText("webappwiz's own"));
+		await waitFor(() => expect(testing.talkStream).not.toBeNull());
+		const left = { events: testing.stream, talk: testing.talkStream };
+		const arrive = testing.holdSnapshots();
+		testing.served = snapshot({
+			repo: "shop",
+			todos: [todo({ id: 2, subject: "shop's own" })],
+		});
 
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
-		);
+		await pick(view, "/code/shop");
 
+		expect(location.search).toBe("?project=shop");
 		const screen = within(document.body);
-		expect(screen.getByText("Opening shop").getAttribute("role")).toBe(
-			"status",
-		);
-		expect(trigger.closest<HTMLElement>("[inert]")).not.toBeNull();
-		await act(async () =>
-			// Back from the browser's cache: the test DOM's event has no
-			// `persisted` of its own.
-			dispatchEvent(
-				Object.defineProperty(new Event("pageshow"), "persisted", {
-					value: true,
-				}),
+		expect(
+			(await waitFor(() => screen.getByText("Opening shop"))).getAttribute(
+				"role",
 			),
+		).toBe("status");
+		expect(screen.queryByText("webappwiz's own")).toBeNull();
+		expect(left.events?.closed).toBe(true);
+		expect(left.talk?.closed).toBe(true);
+		arrive();
+		await waitFor(() => screen.getByText("shop's own"));
+		expect(testing.asked).toContain("/api/snapshot?project=shop");
+		expect(testing.reloads).toBe(0);
+	});
+
+	it("goes back to the project left on the browser's back", async () => {
+		const view = await testing.open({ repo: "webappwiz" });
+		testing.served = snapshot({ repo: "shop" });
+		await pick(view, "/code/shop");
+		const screen = within(document.body);
+		await waitFor(() =>
+			expect(screen.getAllByRole("heading", { name: "shop" })).toBeTruthy(),
 		);
-		expect(screen.queryByText("Opening shop")).toBeNull();
-		expect(trigger.closest("[inert]")).toBeNull();
+		testing.served = snapshot({ repo: "webappwiz" });
+
+		await act(async () => history.back());
+
+		await waitFor(() => expect(location.search).toBe(""));
+		await waitFor(() =>
+			expect(
+				screen.getAllByRole("heading", { name: "webappwiz" }),
+			).toBeTruthy(),
+		);
 	});
 
 	it("lists this machine's splates server and its slots, and opens the one picked", async () => {
@@ -443,4 +476,14 @@ async function openMenu(
 			),
 		),
 	);
+}
+
+/** Opens the project switcher in `view` and picks the project at `root`. */
+async function pick(
+	view: ReturnType<typeof within>,
+	root: string,
+): Promise<void> {
+	await openSwitcher(view);
+	const project = await waitFor(() => view.getByText(root));
+	await act(async () => fireEvent.click(project));
 }
