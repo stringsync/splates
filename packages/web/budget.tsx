@@ -20,13 +20,14 @@ import {
 	resumeBudget,
 	setBudget,
 } from "./api";
-import { EditForm, PauseForm, RaiseForm } from "./budget-forms";
+import { EditForm, ends, PauseForm, RaiseForm } from "./budget-forms";
 import type { ConversationFeed } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { PHONE_HEADING } from "./phone-rows";
 import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
 import { TopBar } from "./top-bar";
+import { WorkerBudgetSection } from "./worker-budget-card";
 
 /** What each model is, under its name. */
 const ROLES: Record<RoleBudget["role"], string> = {
@@ -45,7 +46,7 @@ const PLANS = [
  * The Budget page: how much of the agent plans is used, then what
  * scry's checks may spend on each model in this project, with how much of
  * each window is gone and a form to change it, raise it or pause it for a
- * while. Plan limits come first since their cards keep one shape, while the
+ * while, then what made workers may cost. Plan limits come first since their cards keep one shape, while the
  * budgets arrive from the CLI a moment later and would shift anything below
  * them.
  */
@@ -104,6 +105,7 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 					</ul>
 				)}
 			</div>
+			<WorkerBudgetSection />
 		</section>
 	);
 }
@@ -402,18 +404,6 @@ function tokens(count: number): string {
 	return count < size * 10
 		? `${Number((count / size).toFixed(1))}${unit}`
 		: `${Math.round(count / size)}${unit}`;
-}
-
-const ENDS = new Intl.DateTimeFormat("en", {
-	weekday: "short",
-	hour: "numeric",
-	minute: "2-digit",
-});
-
-/** When a raise or a pause ends, and how long until then: `Thu 3:00 PM, in 5h`. */
-function ends(at: number, now: number): string {
-	const hours = Math.max(0, Math.round((at - now) / 3_600_000));
-	return `${ENDS.format(at)}, in ${hours >= 48 ? `${Math.round(hours / 24)}d` : `${hours}h`}`;
 }
 
 /** A path with the home directory as `~`, the way a config is named. */

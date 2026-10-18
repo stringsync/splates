@@ -13,6 +13,7 @@
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";
 @source "./worker-budget-badge.tsx";
+@source "./worker-budget-card.tsx";
 @source "./app-nav.tsx";
 @source "./desktop-app.tsx";
 @source "./sidebar-head.tsx";

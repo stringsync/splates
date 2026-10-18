@@ -13,7 +13,10 @@ import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { SetupProgress } from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
-import type { WorkerPool } from "@stringsync/splates-server/workers";
+import type {
+	WorkerBudgetReport,
+	WorkerPool,
+} from "@stringsync/splates-server/workers";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
@@ -190,6 +193,8 @@ export class Testing implements Resource {
 	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
 	machine: MachineStatus | null = null;
+	/** What `/api/worker-budget` reads, or null for no budget, as without a `workerProvider`. */
+	workerBudget: WorkerBudgetReport | null = null;
 	/** What `/api/workers` lists, or null for it to fail. */
 	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
@@ -286,6 +291,14 @@ export class Testing implements Resource {
 				return this.workers === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
+			}
+			if (route === "/api/worker-budget") {
+				return this.workerBudget === null
+					? Response.json(
+							{ reason: "usage", message: "no worker budget" },
+							{ status: 400 },
+						)
+					: Response.json(this.workerBudget);
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

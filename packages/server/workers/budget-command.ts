@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
@@ -15,35 +16,6 @@ export interface BudgetCommandOptions {
 	ps: Ps;
 	send?: typeof fetch;
 }
-
-const Report = z.object({
-	standing: z.array(
-		z.object({
-			limit: z.enum(WORKER_LIMITS),
-			window: z.string(),
-			dollars: z.number(),
-			raised: z.number(),
-			set: z.boolean(),
-			spent: z.number(),
-			left: z.number(),
-			tier: z.number(),
-			estimate: z.boolean(),
-		}),
-	),
-	raises: z.array(
-		z.object({
-			id: z.number(),
-			limit: z.enum(WORKER_LIMITS),
-			dollars: z.number(),
-			from: z.number(),
-			until: z.number(),
-		}),
-	),
-	rate: z.number(),
-	stopped: z.string().nullable(),
-	holding: z.string().nullable(),
-	reviewed: z.boolean(),
-});
 
 /** `splates budget show`: where the worker budget stands. */
 export async function showBudget(opts: BudgetCommandOptions): Promise<void> {
@@ -208,8 +180,24 @@ function print(
 				];
 			}),
 		),
+		`Projected this month: ${dollars(report.projected)}, if those running now run to its end.`,
 		"Spent is an estimate, at each worker type's list price.",
 	];
+	if (report.split.month.length > 0) {
+		lines.push(
+			"",
+			"This month by task:",
+			table(
+				["project", "task", "spent", "slot-hours"],
+				report.split.month.map((share) => [
+					share.project === null ? "idle" : basename(share.project),
+					share.project === null ? "-" : (share.task ?? "no task"),
+					dollars(share.dollars),
+					share.slotHours.toFixed(1),
+				]),
+			),
+		);
+	}
 	for (const raise of report.raises) {
 		lines.push(
 			`raise ${raise.id}: +${dollars(raise.dollars)} on ${raise.limit} until ${new Date(raise.until).toLocaleString()}`,
@@ -224,3 +212,45 @@ function print(
 	}
 	log.info(lines.join("\n"));
 }
+
+const Share = z.object({
+	project: z.string().nullable(),
+	task: z.string().nullable(),
+	dollars: z.number(),
+	slotHours: z.number(),
+	estimate: z.boolean(),
+});
+
+const Report = z.object({
+	standing: z.array(
+		z.object({
+			limit: z.enum(WORKER_LIMITS),
+			window: z.string(),
+			dollars: z.number(),
+			raised: z.number(),
+			set: z.boolean(),
+			spent: z.number(),
+			left: z.number(),
+			tier: z.number(),
+			estimate: z.boolean(),
+		}),
+	),
+	raises: z.array(
+		z.object({
+			id: z.number(),
+			limit: z.enum(WORKER_LIMITS),
+			dollars: z.number(),
+			from: z.number(),
+			until: z.number(),
+		}),
+	),
+	rate: z.number(),
+	// An older `splates server` sends neither.
+	projected: z.number().default(0),
+	split: z
+		.object({ day: z.array(Share), month: z.array(Share) })
+		.default({ day: [], month: [] }),
+	stopped: z.string().nullable(),
+	holding: z.string().nullable(),
+	reviewed: z.boolean(),
+});

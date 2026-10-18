@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
+import { Duration } from "webappwiz/time";
+import { FakeWallClock } from "webappwiz/time/testing";
+import { Scheduler } from "../scheduler";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
 import { WorkerProvisioning } from "./provisioning";
@@ -40,6 +43,46 @@ describe("WorkerProvisioning", () => {
 		await made.destroy(worker.id);
 
 		expect(budget.rate()).toBe(0);
+	});
+
+	it("keeps who holds slots on made workers, for the budget's split", async () => {
+		const wall = new FakeWallClock();
+		const { made, budget } = await provisioning(
+			undefined,
+			undefined,
+			WorkerBudget.memory(wall),
+		);
+		const worker = await made.provision();
+		const scheduler = new Scheduler(
+			{
+				workers: () => [
+					{
+						id: worker.id,
+						kind: "provisioned",
+						slots: 4,
+						platform: "linux",
+						awake: true,
+						checkouts: true,
+						runs: () => true,
+					},
+				],
+			},
+			{ now: () => Date.now() },
+		);
+		made.watch(scheduler);
+
+		await scheduler.take({
+			id: "c",
+			project: "/p",
+			task: "fix-it",
+			platform: null,
+			agent: "claude",
+		});
+		await Bun.sleep(0);
+		wall.advance(Duration.mins(10));
+		made.dispose();
+
+		expect(budget.split("day").map((share) => share.task)).toEqual(["fix-it"]);
 	});
 
 	it("counts nothing for a worker its provider failed to make", async () => {

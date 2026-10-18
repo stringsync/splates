@@ -209,14 +209,20 @@ export class WorkerProvisioning
 	}
 
 	/**
-	 * Makes workers for `scheduler`'s queue as it changes, and looks at the
-	 * budget as time passes, until disposed.
+	 * Makes workers for `scheduler`'s queue as it changes, keeping who holds
+	 * slots on made workers for the budget's split, and looks at the budget
+	 * as time passes, until disposed.
 	 */
 	watch(scheduler: Scheduler): void {
 		this.scheduler = scheduler;
 		this.watching?.();
 		this.tick?.dispose();
 		this.watching = scheduler.events.on("changed", () => {
+			void this.opts.budget.ran(scheduler.held()).catch((error: unknown) => {
+				this.opts.log.error(
+					`who ran on made workers could not be kept: ${String(error)}`,
+				);
+			});
 			void this.fill(scheduler);
 		});
 		this.tick = (this.opts.timer ?? new SystemTimer()).setInterval(

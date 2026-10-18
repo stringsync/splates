@@ -9,6 +9,7 @@ import {
 	type WorkerRaise,
 	type WorkerStanding,
 } from "./budget";
+import type { SpendShare } from "./spend";
 
 /** Where the worker budget stands, as `/api/worker-budget` answers and `splates budget` prints. */
 export interface WorkerBudgetReport {
@@ -16,6 +17,10 @@ export interface WorkerBudgetReport {
 	raises: WorkerRaise[];
 	/** What made workers running now cost an hour together. */
 	rate: number;
+	/** What the month comes to if those running now run to its end: an estimate. */
+	projected: number;
+	/** Who made workers' cost today and this month went to, by project and task. */
+	split: { day: SpendShare[]; month: SpendShare[] };
 	/** Why made workers are stopped, the day's or month's limit reached; null while they may run. */
 	stopped: string | null;
 	/** Why no worker is made for the queue, as the queue says it; null when nothing holds it. */
@@ -149,6 +154,8 @@ export function workerBudgetReport(
 		standing: budget.standing(),
 		raises: budget.raises,
 		rate: budget.rate(),
+		projected: budget.projected(),
+		split: { day: budget.split("day"), month: budget.split("month") },
 		stopped: budget.stopped(),
 		holding: scheduler.withheldReason(),
 		offer: scheduler.withheldReason() === null ? null : offer,

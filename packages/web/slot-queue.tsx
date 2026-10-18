@@ -16,9 +16,10 @@ import {
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ApiError, moveQueued, raiseWorkerBudget } from "./api";
+import { ApiError, moveQueued } from "./api";
 import { useNow } from "./hooks/use-now";
 import { useMachine } from "./machine";
+import { raiseWorkerLimit } from "./worker-budget-api";
 
 /** `place` as a place in line: 1st, 2nd, 3rd, 4th. */
 export function ordinal(place: number): string {
@@ -87,7 +88,7 @@ export function RaiseOfferButton({
 	const raise = () => {
 		setStep("raising");
 		setError(null);
-		raiseWorkerBudget(offer.limit, offer.dollars).then(
+		raiseWorkerLimit(offer.limit, offer.dollars, "1d").then(
 			() => setStep("raised"),
 			(caught: unknown) => {
 				setStep("idle");

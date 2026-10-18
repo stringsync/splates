@@ -74,6 +74,7 @@ export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";
 export { SNAPSHOT_USER, Snapshots, snapshotRecipe } from "./snapshot";
+export type { SpendShare } from "./spend";
 export { UnixWorkerListener } from "./unix-listener";
 export { UnixWorkerSocket } from "./unix-socket";
 export { WebSocketWorkerSocket } from "./websocket-socket";

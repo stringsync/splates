@@ -59,6 +59,27 @@ describe("splates budget", () => {
 		expect(said(log)).toContain("estimate");
 	});
 
+	it("shows this month's spend by project and task", async () => {
+		await budget.started("made", "small", 0.1);
+		await budget.ran([
+			{
+				id: "c",
+				project: "/home/me/app",
+				task: "fix-it",
+				worker: "made",
+				uncapped: false,
+			},
+		]);
+		// Some time on the worker, so the run has spend to show.
+		await Bun.sleep(5);
+		const log = new MemoryLogger();
+
+		await showBudget(opts(log));
+
+		expect(said(log)).toContain("This month by task:");
+		expect(said(log)).toMatch(/app\s+fix-it/);
+	});
+
 	it("sets a limit, and gives it back to its default", async () => {
 		await setBudget({
 			...opts(new MemoryLogger()),

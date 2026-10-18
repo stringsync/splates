@@ -178,6 +178,71 @@ describe("alertNotice", () => {
 	});
 });
 
+describe("WorkerBudget split", () => {
+	it("splits made workers' spend by who held slots on them", async () => {
+		const wall = clock();
+		const budget = WorkerBudget.memory(wall);
+		await budget.started("made", "small", 1);
+
+		await budget.ran([held("one", "a", "made"), held("two", "b", "home")]);
+		wall.advance(Duration.mins(30));
+		await budget.ran([]);
+		wall.advance(Duration.mins(30));
+
+		expect(budget.split("day")).toEqual([
+			{ project: "/p", task: "a", dollars: 1, slotHours: 0.5, estimate: true },
+		]);
+	});
+
+	it("ends the runs on a worker that ends", async () => {
+		const wall = clock();
+		const budget = WorkerBudget.memory(wall);
+		await budget.started("made", "small", 1);
+		await budget.ran([held("one", "a", "made")]);
+		wall.advance(Duration.mins(30));
+
+		await budget.ended("made");
+		wall.advance(Duration.hrs(2));
+
+		expect(budget.split("month")).toEqual([
+			{
+				project: "/p",
+				task: "a",
+				dollars: 0.5,
+				slotHours: 0.5,
+				estimate: true,
+			},
+		]);
+	});
+
+	it("keeps the runs across a restart", async () => {
+		const wall = clock();
+		const fs = new FakeFs();
+		const budget = await WorkerBudget.open("/budget.json", fs, wall);
+		await budget.started("made", "small", 1);
+		await budget.ran([held("one", "a", "made")]);
+		wall.advance(Duration.hrs(1));
+
+		const again = await WorkerBudget.open("/budget.json", fs, wall);
+
+		expect(again.split("day")[0]).toMatchObject({ task: "a", dollars: 1 });
+	});
+
+	it("projects the month from what is spent and what runs now", async () => {
+		const wall = new FakeWallClock();
+		wall.set(new Date(2026, 9, 31, 22, 0).getTime());
+		const budget = WorkerBudget.memory(wall);
+		await budget.started("made", "small", 1);
+		wall.advance(Duration.hrs(1));
+
+		expect(budget.projected()).toBeCloseTo(2);
+	});
+});
+
+function held(id: string, task: string, worker: string) {
+	return { id, project: "/p", task, worker, uncapped: false };
+}
+
 describe("dollars", () => {
 	it("shows cents, and a tenth of a cent only when there is one", () => {
 		expect(dollars(0.25)).toBe("$0.25");
