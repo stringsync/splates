@@ -4,13 +4,13 @@ import { Projects } from "@stringsync/splates-server/projects";
 import { splatesHome } from "@stringsync/splates-server/roster";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 import {
+	SETUP_AREAS,
 	Setup,
 	type SetupProgress,
 	type StepProgress,
 	type StepStatus,
+	setupProjectAt,
 } from "@stringsync/splates-server/setup";
-import { SETUP_AREAS } from "@stringsync/splates-server/setup-areas";
-import { setupProjectAt } from "@stringsync/splates-server/setup-project";
 import type { Logger } from "webappwiz/log";
 import { color } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";

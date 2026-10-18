@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { SavedPortsHost } from "./saved-ports-host";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
+import { SavedPortsHost } from "../saved-ports-host";
+import { SavedTunnel, TUNNEL_TOKEN } from "../saved-tunnel";
+import { API_TOKEN } from "../tunnel-setup";
+import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { Setup, type SetupMachine } from "./setup";
-import { REMOTE_ACCESS_AREA } from "./setup-area-remote";
-import { API_TOKEN } from "./tunnel-setup";
 
 const HOME = "/home/.splates";
 

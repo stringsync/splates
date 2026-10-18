@@ -1,10 +1,10 @@
 import type { SecretStore } from "webappwiz/creds";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
-import type { Config } from "./config";
-import { fail } from "./exit";
-import type { OpenCodeSetup } from "./setup-opencode";
-import { StepProblem } from "./setup-step-problem";
+import type { Config } from "../config";
+import { fail } from "../exit";
+import type { OpenCodeSetup } from "./opencode";
+import { StepProblem } from "./step-problem";
 
 /**
  * Setting splates up on this machine: the roster's steps, which the user has

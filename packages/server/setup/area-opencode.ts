@@ -1,5 +1,5 @@
+import type { OpenCodeSetup } from "./opencode";
 import type { SetupArea, SetupMachine, SetupStep, StepOption } from "./setup";
-import type { OpenCodeSetup } from "./setup-opencode";
 
 /** The device cred OpenCode's Go key is kept as, beside OpenCode's own copy. */
 export const OPENCODE_GO_KEY = "OPENCODE_GO_API_KEY";

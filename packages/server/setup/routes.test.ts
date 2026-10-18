@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { json } from "./dev-testing";
-import { dev } from "./index";
+import { json } from "../dev-testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
 import type { SetupProgress } from "./setup";
-import { Testing } from "./testing";
 
 describe("dev's setup routes", () => {
 	let deps: Testing;

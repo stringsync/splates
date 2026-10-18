@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	SETUP_AREAS,
 	Setup,
 	type SetupProgress,
 	type StepStatus,
 } from "@stringsync/splates-server/setup";
-import { SETUP_AREAS } from "@stringsync/splates-server/setup-areas";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
 import { SetupIndex, StepForm } from "./setup-form";

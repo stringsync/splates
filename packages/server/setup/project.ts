@@ -1,6 +1,6 @@
 import type { Fs, Ps } from "webappwiz/system";
-import { Git } from "./git";
-import { loadConfig } from "./load-config";
+import { Git } from "../git";
+import { loadConfig } from "../load-config";
 import type { SetupProject } from "./setup";
 
 /** The project at `root` as setup reads it: its config and remotes, afresh. */

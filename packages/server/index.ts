@@ -21,8 +21,6 @@ import {
 } from "./dev-project";
 import { Pushes } from "./dev-push";
 import { Restarts } from "./dev-restart";
-import { SetupRoutes } from "./dev-setup";
-import { OpenCodeSetupRoutes } from "./dev-setup-opencode";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { StateRoutes } from "./dev-state";
 import { claimedFirst, DevTaskPorts, portOwnersOf } from "./dev-task-ports";
@@ -39,10 +37,14 @@ import { queueListing } from "./queue-list";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { Roster, splatesHome } from "./roster";
-import { Setup } from "./setup";
-import { SETUP_AREAS } from "./setup-areas";
-import { OpenCodeSetup } from "./setup-opencode";
-import { setupProjectAt } from "./setup-project";
+import {
+	OpenCodeSetup,
+	OpenCodeSetupRoutes,
+	SETUP_AREAS,
+	Setup,
+	SetupRoutes,
+	setupProjectAt,
+} from "./setup";
 import { LocalWorkerMachine } from "./worker-machine";
 
 export type { DevOptions } from "./dev-options";

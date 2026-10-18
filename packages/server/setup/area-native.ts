@@ -1,4 +1,4 @@
-import { DEFAULT_AGENTS, Roster } from "./roster";
+import { DEFAULT_AGENTS, Roster } from "../roster";
 import type {
 	SetupArea,
 	SetupMachine,

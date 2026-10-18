@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { CLAUDE_AREA, CODEX_AREA } from "./area-native";
 import { Setup, type SetupMachine } from "./setup";
-import { CLAUDE_AREA, CODEX_AREA } from "./setup-area-native";
 
 const HOME = "/home/.splates";
 

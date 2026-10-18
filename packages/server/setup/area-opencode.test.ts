@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { OPENCODE_AREA, OPENCODE_GO_KEY } from "./area-opencode";
+import { OpenCodeSetup } from "./opencode";
 import { Setup, type StepStatus } from "./setup";
-import { OPENCODE_AREA, OPENCODE_GO_KEY } from "./setup-area-opencode";
-import { OpenCodeSetup } from "./setup-opencode";
-import { OpenCodeFixturePs } from "./setup-opencode-fixture";
+import { OpenCodeFixturePs } from "./testing";
 
 const HOME = "/home/.splates";
 const MODELS = {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { SETUP_AREAS } from "./areas";
 import { Setup } from "./setup";
-import { SETUP_AREAS } from "./setup-areas";
 
 describe("SETUP_AREAS", () => {
 	it("leaves every step on a fresh machine, each ready once its prerequisites are", async () => {

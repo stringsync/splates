@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { NOTIFICATIONS_AREA } from "./area-notifications";
 import { Setup, type SetupArea, type SetupMachine } from "./setup";
-import { NOTIFICATIONS_AREA } from "./setup-area-notifications";
 
 const HOME = "/home/.splates";
 

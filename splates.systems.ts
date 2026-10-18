@@ -34,8 +34,7 @@ export default {
 	setup: {
 		description: "Setting splates up on a machine",
 		globs: [
-			"packages/server/setup*.ts",
-			"packages/server/dev-setup*.ts",
+			"packages/server/setup/**",
 			"packages/splates/setup.ts",
 			"packages/web/setup-*.ts*",
 			"packages/web/app-setup.test.tsx",

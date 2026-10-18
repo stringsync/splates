@@ -1,7 +1,7 @@
-import { refuse } from "./dev-http";
-import type { OpenCodeSetup } from "./setup-opencode";
-import { OpenCodeModelError } from "./setup-opencode-model-error";
-import type { OpenCodeSelection } from "./setup-opencode-models";
+import { refuse } from "../dev-http";
+import type { OpenCodeSetup } from "./opencode";
+import { OpenCodeModelError } from "./opencode-model-error";
+import type { OpenCodeSelection } from "./opencode-models";
 
 /**
  * What the OpenCode journey's done page does beyond the Setup steps:

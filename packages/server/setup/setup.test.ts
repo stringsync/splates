@@ -7,7 +7,7 @@ import {
 	type SetupMachine,
 	type SetupStep,
 } from "./setup";
-import { StepProblem } from "./setup-step-problem";
+import { StepProblem } from "./step-problem";
 
 const HOME = "/home/.splates";
 

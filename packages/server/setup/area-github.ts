@@ -4,9 +4,9 @@ import {
 	GitHubApp,
 	type GitHubRepo,
 	githubRepo,
-} from "./github-app";
+} from "../github-app";
+import { PUSHED_PREFIX } from "../task-branches";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
-import { PUSHED_PREFIX } from "./task-branches";
 
 /** Where a GitHub App is made, for the user's own account. */
 const NEW_APP_PAGE = "https://github.com/settings/apps/new";

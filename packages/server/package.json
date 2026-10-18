@@ -105,8 +105,7 @@
 		"./roster": "./roster.ts",
 		"./runtime-deps": "./runtime-deps.ts",
 		"./saved-tunnel": "./saved-tunnel.ts",
-		"./setup-areas": "./setup-areas.ts",
-		"./setup": "./setup.ts",
+		"./setup": "./setup/index.ts",
 		"./show": "./show.ts",
 		"./skill-checks": "./skill-checks.ts",
 		"./slots": "./slots.ts",
@@ -134,8 +133,7 @@
 		"./worker-slots": "./worker-slots.ts",
 		"./worktree": "./worktree.ts",
 		"./testing/agent": "./fake-agent.ts",
-		"./dev-everywhere": "./dev-everywhere.ts",
-		"./setup-project": "./setup-project.ts"
+		"./dev-everywhere": "./dev-everywhere.ts"
 	},
 	"scripts": {
 		"build": "bun run --cwd ../web build"

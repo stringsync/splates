@@ -1,8 +1,14 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
-import { Roster } from "./roster";
-import { OpenCodeModelError } from "./setup-opencode-model-error";
-import type { OpenCodeSelection } from "./setup-opencode-models";
+import { Roster } from "../roster";
+import { OpenCodeModelError } from "./opencode-model-error";
+import type { OpenCodeSelection } from "./opencode-models";
+
+export interface OpenCodeRecipe extends OpenCodeSelection {
+	config: Record<string, unknown>;
+	env: Record<string, string>;
+	raw: string;
+}
 
 export class OpenCodeRecipes {
 	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {}
@@ -122,11 +128,6 @@ export function managedArgv(value: unknown): boolean {
 export const projectOff = "OPENCODE_CONFIG_PROJECT_DISABLE=1";
 export const contentPrefix = "OPENCODE_CONFIG_CONTENT=";
 
-export interface OpenCodeRecipe extends OpenCodeSelection {
-	config: Record<string, unknown>;
-	env: Record<string, string>;
-	raw: string;
-}
 export const id = z
 	.string()
 	.max(240)

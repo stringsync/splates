@@ -1,4 +1,4 @@
-import { OPENAI_KEY } from "./dev-transcriber";
+import { OPENAI_KEY } from "../dev-transcriber";
 import type { SetupArea, SetupStep } from "./setup";
 
 /** Speaking a prompt instead of typing it, on an OpenAI key of the user's. */

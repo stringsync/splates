@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { DEFAULT_AGENTS } from "./roster";
-import { type OpenCodeMetadata, OpenCodeModels } from "./setup-opencode-models";
-import type { OpenCodeRecipe } from "./setup-opencode-recipe";
+import { DEFAULT_AGENTS } from "../roster";
+import { type OpenCodeMetadata, OpenCodeModels } from "./opencode-models";
+import type { OpenCodeRecipe } from "./opencode-recipe";
 
 const selected = {
 	model: "opencode-go/Case.Main",

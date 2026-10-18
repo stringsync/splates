@@ -1,7 +1,7 @@
-import { body, refuse } from "./dev-http";
-import { fail } from "./exit";
+import { body, refuse } from "../dev-http";
+import { fail } from "../exit";
 import type { Setup, StepAnswers } from "./setup";
-import { StepProblem } from "./setup-step-problem";
+import { StepProblem } from "./step-problem";
 
 /**
  * How the page reads this machine's setup and does its steps. The machine's,

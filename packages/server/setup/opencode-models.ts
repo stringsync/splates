@@ -1,7 +1,7 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
-import { DEFAULT_AGENTS, Roster } from "./roster";
-import { OpenCodeModelError } from "./setup-opencode-model-error";
+import { DEFAULT_AGENTS, Roster } from "../roster";
+import { OpenCodeModelError } from "./opencode-model-error";
 import {
 	contentPrefix,
 	id,
@@ -9,7 +9,7 @@ import {
 	type OpenCodeRecipe,
 	OpenCodeRecipes,
 	projectOff,
-} from "./setup-opencode-recipe";
+} from "./opencode-recipe";
 
 /** Only metadata commands. The configuration is embedded in the roster argv so
  * a single atomic rename activates both the models and their experiment policy. */
