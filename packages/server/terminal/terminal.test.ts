@@ -3,11 +3,10 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { serving } from "../dev-testing";
-import { DevWorkers } from "../dev-workers";
 import { dev } from "../index";
 import { add } from "../tasks";
 import { Testing } from "../testing";
-import { WorkerDaemon } from "../workers";
+import { DevWorkers, WorkerDaemon } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
 import { terminal } from "./testing";
 

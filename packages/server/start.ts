@@ -5,10 +5,8 @@ import { SharedBrowser, StartLock, Watch } from "./agents";
 import { artifactLimits } from "./artifacts";
 import { type Config, LEGACY_DIR, loadConfig, moveLegacyDir } from "./config";
 import { Conversations } from "./conversations";
-import { CoordinatorState } from "./coordinator-state";
 import { SYSTEM_STORES } from "./creds";
 import { devServers } from "./dev-servers";
-import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { fail } from "./exit";
 import { Git } from "./git";
 import { heavyJobsOfMachine } from "./heavy";
@@ -37,6 +35,9 @@ import {
 } from "./tunnel";
 import {
 	CloudflareWorkerAccess,
+	CoordinatorState,
+	DevWorkers,
+	LOCAL_WORKER,
 	Snapshots,
 	WORKER_KEYS_FILE,
 	WorkerBudget,

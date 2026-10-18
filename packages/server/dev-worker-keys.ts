@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { refuse } from "./dev-http";
-import type { DevWorkers } from "./dev-workers";
+import type { DevWorkers } from "./workers";
 import { KEY_PROVIDERS, type KeyHolder, keyProvider } from "./workers";
 
 /** What `PUT /api/workers/keys` is sent: whose key, of which provider, and its value. */

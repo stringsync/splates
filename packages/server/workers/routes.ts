@@ -2,35 +2,29 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import { systemPs } from "./config";
-import { refuse } from "./dev-http";
-import type { Connection } from "./dev-sockets";
-import { WorkerKeyRoutes } from "./dev-worker-keys";
-import { queueListing } from "./queue-list";
-import { RUNNING } from "./release";
+import { systemPs } from "../config";
+import { refuse } from "../dev-http";
+import type { Connection } from "../dev-sockets";
+import { WorkerKeyRoutes } from "../dev-worker-keys";
+import { RUNNING } from "../release";
+import type { WorkerMachines } from "../tasks";
+import { API_TOKEN } from "../tunnel";
+import type { ServiceToken, WorkerAccess } from "./access";
+import type { WorkerBudget } from "./budget";
+import { keyProvider, type WorkerKeys } from "./keys";
+import type { WorkerPool } from "./list";
+import { workerList } from "./list";
+import type { WorkerProvider } from "./provider";
+import { WorkerProvisioning } from "./provisioning";
+import { queueListing } from "./queue";
+import { WorkerRecords } from "./records";
+import { WorkerRegistry } from "./registry";
+import type { RemoteWorker } from "./remote";
 import type { HeldSlot } from "./scheduler";
-import type { WorkerMachines } from "./tasks";
-import { API_TOKEN } from "./tunnel";
-import type {
-	RemoteWorker,
-	ServiceToken,
-	Snapshots,
-	WorkerAccess,
-	WorkerBudget,
-	WorkerPool,
-	WorkerProvider,
-} from "./workers";
-import {
-	keyProvider,
-	ServerWorkerSocket,
-	UnixWorkerListener,
-	type WorkerKeys,
-	WorkerProvisioning,
-	WorkerRecords,
-	WorkerRegistry,
-	WorkerSlots,
-	workerList,
-} from "./workers";
+import { ServerWorkerSocket } from "./server-socket";
+import { WorkerSlots } from "./slots";
+import type { Snapshots } from "./snapshot";
+import { UnixWorkerListener } from "./unix-listener";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";

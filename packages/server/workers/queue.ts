@@ -8,9 +8,9 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { z } from "zod";
-import { fail } from "./exit";
+import { fail } from "../exit";
+import { table } from "../table";
 import type { QueueEntry } from "./scheduler";
-import { table } from "./table";
 
 /** One agent waiting for a slot, as `GET /api/queue` and `splates queue list` give it. */
 export interface QueueListing {

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { body, refuse } from "../dev-http";
-import type { Scheduler } from "../scheduler";
 import {
 	type RaiseOffer,
 	span,
@@ -9,6 +8,7 @@ import {
 	type WorkerRaise,
 	type WorkerStanding,
 } from "./budget";
+import type { Scheduler } from "./scheduler";
 import type { SpendShare } from "./spend";
 
 /** Where the worker budget stands, as `/api/worker-budget` answers and `splates budget` prints. */

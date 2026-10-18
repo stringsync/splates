@@ -3,9 +3,9 @@ import { type FakeChild, FakeFs, FakePs } from "webappwiz/system/testing";
 import { FakeClock, FakeTimer } from "webappwiz/time/testing";
 import type { AgentFrame } from "../agents";
 import { eventually } from "../conversations/testing";
-import type { RemoteProcess } from "../remote-process";
 import { WorkerDaemon } from "./daemon";
 import { RemoteWorker } from "./remote";
+import type { RemoteProcess } from "./remote-process";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
 

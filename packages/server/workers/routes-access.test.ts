@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { DevWorkers } from "./dev-workers";
-import { joinAccess } from "./workers";
-import { FakeWorkerAccess } from "./workers/testing";
+import { FakeWorkerAccess } from "../workers/testing";
+import { joinAccess } from "./index";
+import { DevWorkers } from "./routes";
 
 describe("DevWorkers behind Cloudflare Access", () => {
 	let access: FakeWorkerAccess;

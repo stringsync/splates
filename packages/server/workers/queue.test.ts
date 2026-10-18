@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodePs } from "webappwiz/system";
-import { DevWorkers } from "./dev-workers";
-import { listQueue, moveQueued } from "./queue-list";
+import { listQueue, moveQueued } from "./queue";
+import { DevWorkers } from "./routes";
 
 describe("splates queue", () => {
 	let workers: DevWorkers;

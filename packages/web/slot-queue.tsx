@@ -1,6 +1,8 @@
 import type { QueueSpot } from "@stringsync/splates-server/conversations";
-import type { QueueListing } from "@stringsync/splates-server/queue-list";
-import type { RaiseOffer } from "@stringsync/splates-server/workers";
+import type {
+	QueueListing,
+	RaiseOffer,
+} from "@stringsync/splates-server/workers";
 import { dollars } from "@stringsync/splates-server/workers/browser";
 import {
 	ArrowUpIcon,

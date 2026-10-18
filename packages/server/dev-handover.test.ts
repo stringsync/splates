@@ -7,13 +7,17 @@ import { AGENT, FakeAgent, FakeAgentPs } from "./agents/testing";
 import type { Conversation } from "./conversations";
 import { Conversations } from "./conversations";
 import { eventually } from "./conversations/testing";
-import { CoordinatorState } from "./coordinator-state";
 import { atWork, json } from "./dev-testing";
-import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { type DevServer, dev } from "./index";
 import { RESTART } from "./supervise";
 import { Testing } from "./testing";
-import { UnixWorkerSocket, WorkerDaemon } from "./workers";
+import {
+	CoordinatorState,
+	DevWorkers,
+	LOCAL_WORKER,
+	UnixWorkerSocket,
+	WorkerDaemon,
+} from "./workers";
 
 describe("dev restart with agents on the worker", () => {
 	let deps: Testing;

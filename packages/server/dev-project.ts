@@ -14,7 +14,6 @@ import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import type { ConversationsHeard } from "./dev-conversation-stream";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
-import { LOCAL_WORKER } from "./dev-workers";
 import type { TranscriberFor } from "./dictate";
 import type { InstallationToken, Landed, LandRequest } from "./merge";
 import { AutoRoutes } from "./models";
@@ -27,6 +26,7 @@ import type { Behind, Release } from "./release";
 import { BudgetRoutes } from "./stats";
 import type { Details, Snapshot } from "./tasks";
 import { HandedOut, startDispatched, TaskRoutes } from "./tasks";
+import { LOCAL_WORKER } from "./workers";
 
 /**
  * Everything one project's page talks to: its records, its stream of

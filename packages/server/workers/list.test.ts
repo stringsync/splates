@@ -7,9 +7,9 @@ import { NodeFs, NodePs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { CONNECTIONS, type Connection } from "../dev-sockets";
-import { DevWorkers, workerAuthorization } from "../dev-workers";
 import { WorkerDaemon } from "./daemon";
 import { listWorkers } from "./list";
+import { DevWorkers, workerAuthorization } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
 

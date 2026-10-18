@@ -33,6 +33,7 @@ export type { WorkerBudgetReport } from "./budget-routes";
 export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
+export { CoordinatorState } from "./coordinator-state";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export {
@@ -52,6 +53,8 @@ export {
 } from "./keys";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
+export type { MachineReading, MachineSensors } from "./load";
+export { Machine, osSensors } from "./load";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
 export { WorkerPlacement } from "./placement";
@@ -76,16 +79,30 @@ export {
 	pulumiEnv,
 	pulumiPaths,
 } from "./pulumi";
+export type { QueueListing } from "./queue";
+export { listQueue, moveQueued, queueListing } from "./queue";
 export { WorkerRecords } from "./records";
 export { WorkerRegistry } from "./registry";
 export type { RemotePtyOptions, WorkerKind } from "./remote";
 export { RemoteWorker } from "./remote";
+export { RemoteProcess } from "./remote-process";
+export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
+export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
 export {
 	WORKER_KEY,
 	workerCreds,
 	workerRun,
 	workerSocketPath,
 } from "./run";
+export type {
+	BudgetReason,
+	Grant,
+	HeldSlot,
+	Platform,
+	PoolWorker,
+	QueueEntry,
+} from "./scheduler";
+export { PLATFORMS, platformOf, Scheduler } from "./scheduler";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";

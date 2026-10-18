@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { Scheduler } from "../scheduler";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
+import { Scheduler } from "./scheduler";
 import { Snapshots } from "./snapshot";
 import { FakeWorkerAccess, FakeWorkerProvider } from "./testing";
 

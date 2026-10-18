@@ -1,5 +1,5 @@
-import { listQueue, moveQueued } from "@stringsync/splates-server/queue-list";
 import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+import { listQueue, moveQueued } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 

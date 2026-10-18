@@ -6,11 +6,9 @@
  */
 
 import type { KeptCred, Scope } from "@stringsync/splates-server/creds";
-import type { MachineReading } from "@stringsync/splates-server/machine";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type { Wants } from "@stringsync/splates-server/push/browser";
-import type { QueueListing } from "@stringsync/splates-server/queue-list";
 import type {
 	SetupProgress,
 	StepAnswers,
@@ -24,6 +22,8 @@ import type { FileDiff } from "@stringsync/splates-server/tasks";
 import type {
 	KeyHolder,
 	KeyProvider,
+	MachineReading,
+	QueueListing,
 	WorkerBudgetReport,
 	WorkerKey,
 	WorkerPool,

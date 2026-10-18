@@ -18,17 +18,14 @@ import { Restarts } from "./dev-restart";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { StateRoutes } from "./dev-state";
 import { Versions } from "./dev-versions";
-import { DevWorkers } from "./dev-workers";
 import { Dictations, transcriberFor } from "./dictate";
 import { fail } from "./exit";
 import { heavyJobsOfMachine } from "./heavy";
-import { Machine, osSensors } from "./machine";
 import { Roster, splatesHome } from "./models";
 import { RESUME } from "./plans";
 import { claimedFirst, DevTaskPorts, portOwnersOf } from "./ports";
 import { Everywhere, EverywhereRoutes, Picker } from "./projects";
 import { Pushes } from "./push";
-import { queueListing } from "./queue-list";
 import { openRepository } from "./records";
 import { RUNNING } from "./release";
 import {
@@ -44,7 +41,11 @@ import { Terminals } from "./terminal";
 import { Access, startTunnel } from "./tunnel";
 import {
 	alertNotice,
+	DevWorkers,
 	LocalWorkerMachine,
+	Machine,
+	osSensors,
+	queueListing,
 	WorkerBudgetRoutes,
 	type WorkerPool,
 	workerBudgetReport,

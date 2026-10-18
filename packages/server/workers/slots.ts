@@ -1,17 +1,17 @@
 import type { Resource } from "webappwiz/disposable";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import type { ConversationSlots, SlotAsk } from "../conversations";
+import type { KeyedWorker } from "./keys";
+import type { WorkerRecord } from "./records";
+import type { WorkerRegistry } from "./registry";
+import type { RemoteWorker } from "./remote";
 import {
 	type Platform,
 	type PoolWorker,
 	platformOf,
 	type QueueEntry,
 	Scheduler,
-} from "../scheduler";
-import type { KeyedWorker } from "./keys";
-import type { WorkerRecord } from "./records";
-import type { WorkerRegistry } from "./registry";
-import type { RemoteWorker } from "./remote";
+} from "./scheduler";
 
 /** How many agents a worker runs at once until its hello says. */
 export const DEFAULT_SLOTS = 8;

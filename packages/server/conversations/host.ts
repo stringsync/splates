@@ -5,8 +5,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits, ArtifactRoom } from "../artifacts";
 import type { Reach } from "../projects";
-import type { Grant } from "../scheduler";
-import type { WorkerMachine } from "../workers";
+import type { Grant, WorkerMachine } from "../workers";
 import type { ConversationLog } from "./log";
 import type { ConversationState, QueueSpot } from "./state";
 

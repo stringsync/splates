@@ -1,10 +1,10 @@
 import { MemoryLogger } from "webappwiz/log";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { Scheduler } from "../scheduler";
 import { WorkerBudget } from "./budget";
 import { WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
+import { Scheduler } from "./scheduler";
 import { Snapshots } from "./snapshot";
 import { FakeWorkerProvider } from "./testing";
 

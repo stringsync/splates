@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
+import { dev } from "../index";
+import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
-import { dev } from "./index";
-import { Machine, type MachineSensors, thermalZones } from "./machine";
-import { Testing } from "./testing";
+import { Machine, type MachineSensors, thermalZones } from "./load";
 
 describe("machine", () => {
 	it("reads the CPU share busy since the reading before", async () => {

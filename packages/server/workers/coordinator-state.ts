@@ -1,7 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
-import type { KeptShell } from "./terminal";
-import { WorkerProtocol } from "./workers";
+import type { KeptShell } from "../terminal";
+import { WorkerProtocol } from "./protocol";
 
 /** What `coordinator.json` holds. */
 const Kept = z.object({

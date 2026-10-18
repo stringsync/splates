@@ -3,13 +3,13 @@ import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
-import { RemoteProcess } from "../remote-process";
 import { RemotePty } from "../terminal";
 import { CallAnswer, type CallRequest, SERVERS } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine, WorkerRead } from "./machine";
 import type { Json } from "./protocol";
+import { RemoteProcess } from "./remote-process";
 import type { WorkerSession } from "./session";
 
 /** Where and how big a shell on a worker starts, as `Pty` takes it. */

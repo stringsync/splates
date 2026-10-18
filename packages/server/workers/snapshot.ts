@@ -2,8 +2,8 @@ import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
 import { PLAYWRIGHT_MCP } from "../agents";
-import type { Platform } from "../scheduler";
 import type { Snapshot, SnapshotRecipe, WorkerProvider } from "./provider";
+import type { Platform } from "./scheduler";
 
 /** How old a snapshot may get before the next worker waits for a new one, for the updates it lacks. */
 export const SNAPSHOT_FRESH = Duration.days(7);

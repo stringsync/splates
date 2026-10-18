@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { CONNECTIONS, type Connection } from "./dev-sockets";
-import { DevWorkers, workerAuthorization } from "./dev-workers";
+import { CONNECTIONS, type Connection } from "../dev-sockets";
+import { FakeWorkerProvider } from "../workers/testing";
 import {
 	Snapshots,
 	WebSocketWorkerSocket,
 	WorkerBudget,
 	WorkerDaemon,
-} from "./workers";
-import { FakeWorkerProvider } from "./workers/testing";
+} from "./index";
+import { DevWorkers, workerAuthorization } from "./routes";
 
 describe("DevWorkers with a worker provider", () => {
 	let provider: FakeWorkerProvider;

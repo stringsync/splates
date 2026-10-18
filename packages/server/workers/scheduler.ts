@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { WallClock } from "webappwiz/time";
-import type { WorkerKind } from "./workers";
+import type { WorkerKind } from "./remote";
 
 /**
  * Places agents on workers with a free slot, and queues the rest, first come,

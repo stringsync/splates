@@ -3,8 +3,8 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { CONNECTIONS, type Connection } from "./dev-sockets";
-import { DevWorkers, workerAuthorization } from "./dev-workers";
+import { CONNECTIONS, type Connection } from "../dev-sockets";
+import { FakeWorkerProvider } from "../workers/testing";
 import {
 	type RemoteWorker,
 	Snapshots,
@@ -12,8 +12,8 @@ import {
 	WorkerBudget,
 	WorkerDaemon,
 	WorkerKeys,
-} from "./workers";
-import { FakeWorkerProvider } from "./workers/testing";
+} from "./index";
+import { DevWorkers, workerAuthorization } from "./routes";
 
 describe("DevWorkers' API keys", () => {
 	let store: FakeSecretStore;

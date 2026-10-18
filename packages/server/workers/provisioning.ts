@@ -9,7 +9,6 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import type { HeldSlot, Platform, Scheduler } from "../scheduler";
 import type { WorkerAccess } from "./access";
 import type {
 	BudgetHeld,
@@ -20,6 +19,7 @@ import type {
 import type { WorkerProvider, WorkerType } from "./provider";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
+import type { HeldSlot, Platform, Scheduler } from "./scheduler";
 import { SNAPSHOT_SPLATES, type Snapshots, snapshotRecipe } from "./snapshot";
 
 /** How long placement waits after a failed provision before it asks the provider again. */

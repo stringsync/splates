@@ -1,5 +1,5 @@
 import type { Duration } from "webappwiz/time";
-import type { Platform } from "../scheduler";
+import type { Platform } from "./scheduler";
 
 /** One kind of machine a provider can make, and what it costs. */
 export interface WorkerType {

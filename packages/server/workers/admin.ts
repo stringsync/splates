@@ -1,8 +1,8 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
-import { LOCAL_WORKER } from "../dev-workers";
 import { fail } from "../exit";
+import { LOCAL_WORKER } from "./routes";
 
 /** How a `splates worker` command reaches the running `splates server`. */
 export interface ServerCallOptions {

@@ -9,13 +9,13 @@ import type { Fs, Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { SharedBrowser } from "../agents";
-import { WORKER_KEY_HEADER, workerAuthorization } from "../dev-workers";
 import { fail } from "../exit";
 import { heavyJobsOfMachine } from "../heavy";
 import { splatesHome } from "../models";
 import { relayFile } from "../records";
 import { type AccessClient, accessHeaders, joinAccess } from "./access";
 import { WorkerDaemon, type WorkerDialer } from "./daemon";
+import { WORKER_KEY_HEADER, workerAuthorization } from "./routes";
 import { UnixWorkerSocket } from "./unix-socket";
 import { WebSocketWorkerSocket } from "./websocket-socket";
 

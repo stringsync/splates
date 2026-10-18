@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodePs } from "webappwiz/system";
-import { Scheduler } from "../scheduler";
 import { WorkerBudget } from "./budget";
 import {
 	endBudgetRaise,
@@ -10,6 +9,7 @@ import {
 	showBudget,
 } from "./budget-command";
 import { WorkerBudgetRoutes } from "./budget-routes";
+import { Scheduler } from "./scheduler";
 
 describe("splates budget", () => {
 	let server: Bun.Server<undefined>;

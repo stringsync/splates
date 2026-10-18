@@ -4,7 +4,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { launcherOf } from "../agents";
 import { AGENT, FakeAgent } from "../agents/testing";
-import { type PoolWorker, Scheduler } from "../scheduler";
+import { type PoolWorker, Scheduler } from "../workers";
 import type { ConversationSlots } from "./host";
 import { Conversations } from "./index";
 import { IDLE_STOP } from "./state";

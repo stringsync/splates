@@ -1,7 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
-import type { BudgetReason, HeldSlot } from "../scheduler";
+import type { BudgetReason, HeldSlot } from "./scheduler";
 import { type SpendShare, splitSpend } from "./spend";
 
 /** The limits a worker budget holds made workers to, each in US dollars. */
