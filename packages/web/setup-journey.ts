@@ -8,6 +8,16 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { nextSetupStep, saveCred } from "./api";
 import type { NextState } from "./setup-form";
 
+/**
+ * What a step does in this browser before the server is asked, by step id,
+ * given the answers: asks for permission, keeps a setting. Throws an
+ * `Error` whose message is the one line the page shows.
+ */
+export type BrowserSteps = Record<
+	string,
+	(answers: StepAnswers) => Promise<void>
+>;
+
 export type SetupJourneyEvents = {
 	changed: undefined;
 	/** Setup as Next left it, for the page to show everywhere. */
@@ -28,7 +38,10 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	at: number;
 	next: NextState = { kind: "ready" };
 
-	constructor(private area: AreaProgress) {
+	constructor(
+		private area: AreaProgress,
+		private readonly browser: BrowserSteps = {},
+	) {
 		const first = notDone(area.steps, 0);
 		this.at = first === area.steps.length ? 0 : first;
 	}
@@ -67,6 +80,7 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 					answers[field.name] = value;
 				}
 			}
+			await this.browser[step.id]?.(answers);
 			const fresh = await nextSetupStep(step.id, answers);
 			this.area =
 				fresh.areas.find((each) => each.id === this.area.id) ?? this.area;

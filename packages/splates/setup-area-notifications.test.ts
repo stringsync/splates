@@ -45,4 +45,20 @@ describe("NOTIFICATIONS_AREA", () => {
 			"notifications-notices": "ready",
 		});
 	});
+
+	it("asks for at least one notice when Next is pressed", async () => {
+		await devices({ waiting: true, finished: false });
+		const setup = new Setup(machine, [NOTIFICATIONS_AREA]);
+
+		await expect(
+			setup.submit("notifications-notices", {
+				waiting: false,
+				finished: false,
+			}),
+		).rejects.toThrow("Turn on at least one notice");
+		await setup.submit("notifications-notices", {
+			waiting: true,
+			finished: false,
+		});
+	});
 });

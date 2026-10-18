@@ -328,6 +328,7 @@ export function App({
 					budget: <BudgetPage talk={talk} />,
 					setup: (
 						<SetupPage
+							settings={settings}
 							feed={available ? talk : null}
 							onOpen={(id) => go("conversations", id)}
 						/>

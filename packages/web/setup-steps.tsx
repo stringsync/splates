@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
+import { NOTIFY_STEPS } from "./setup-notify-steps";
 import { OPENCODE_STEPS, OpenCodeEnd } from "./setup-opencode-steps";
 
 /** What a step's own page body is handed. */
@@ -23,7 +24,11 @@ export type StepBodies = Record<string, (props: StepBodyProps) => JSX.Element>;
  * journey's from a file of its own. A step not here is drawn from its
  * `fields` alone, or its `user` line when it has none.
  */
-export const STEP_BODIES: StepBodies = { ...OPENCODE_STEPS, ...NATIVE_STEPS };
+export const STEP_BODIES: StepBodies = {
+	...OPENCODE_STEPS,
+	...NATIVE_STEPS,
+	...NOTIFY_STEPS,
+};
 
 /** What a journey's done page is handed. */
 export interface JourneyEndProps {

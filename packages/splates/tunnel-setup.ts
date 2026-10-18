@@ -8,6 +8,9 @@ import { Exit, fail } from "./exit";
 import { type SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
 import { commaList } from "./splates-flags";
 
+/** The part of a project's creds a tunnel is made with, which the Setup page fills from the device's store alone. */
+export type TunnelCreds = Pick<Creds, "credentials" | "request" | "save">;
+
 /** What `splates tunnel setup` is asked to make, and what it runs with. */
 export interface SetupOptions {
 	/** The public host name, in a zone of the account. */
@@ -22,7 +25,7 @@ export interface SetupOptions {
 	 */
 	team: string;
 	/** Where the API token is read from, or requested, and the tunnel's token saved. */
-	creds: Creds;
+	creds: TunnelCreds;
 	/** The task asking, for the request to name; null outside any. */
 	task: string | null;
 	/** Where what it made is saved for `splates server`. */
@@ -129,7 +132,7 @@ export const TOKEN_PERMISSIONS = [
 export const TOKENS_PAGE = "https://dash.cloudflare.com/profile/api-tokens";
 
 /** How to make the API token, as its request shows on the Creds page. */
-function tokenInstructions(host: string): string {
+export function tokenInstructions(host: string): string {
 	return [
 		`1. Open [API Tokens](${TOKENS_PAGE}), then **Create Token** → **Create Custom Token**.`,
 		"2. Name it `splates tunnel`, and add these permissions:",
@@ -305,7 +308,7 @@ export class CloudflareTunnels {
 	 * `requested`, to run again once it is saved.
 	 */
 	static async open(
-		creds: Creds,
+		creds: TunnelCreds,
 		host: string,
 		task: string | null,
 		log: Logger,

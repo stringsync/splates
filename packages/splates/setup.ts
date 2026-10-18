@@ -67,6 +67,9 @@ export class Setup {
 				continue;
 			}
 			const text = typeof answer === "string" ? answer.trim() : "";
+			if (text === "" && field.kind === "text" && field.optional) {
+				continue;
+			}
 			if (text === "") {
 				throw new StepProblem(`Fill in "${field.label}" first.`);
 			}
@@ -274,7 +277,14 @@ export interface SetupStep {
  */
 export type StepField =
 	| { kind: "cred"; name: string; label: string; help?: string }
-	| { kind: "text"; name: string; label: string; placeholder?: string }
+	| {
+			kind: "text";
+			name: string;
+			label: string;
+			placeholder?: string;
+			/** May be left empty, as a team name only some accounts need. */
+			optional?: boolean;
+	  }
 	| { kind: "yes-no"; name: string; label: string }
 	| {
 			kind: "choice";
@@ -302,7 +312,13 @@ export type FieldProgress =
 			help: string | null;
 			saved: boolean;
 	  }
-	| { kind: "text"; name: string; label: string; placeholder: string | null }
+	| {
+			kind: "text";
+			name: string;
+			label: string;
+			placeholder: string | null;
+			optional: boolean;
+	  }
 	| { kind: "yes-no"; name: string; label: string }
 	| { kind: "choice"; name: string; label: string; options: StepOption[] };
 
@@ -383,7 +399,11 @@ async function fieldsOf(
 				});
 				break;
 			case "text":
-				fields.push({ ...field, placeholder: field.placeholder ?? null });
+				fields.push({
+					...field,
+					placeholder: field.placeholder ?? null,
+					optional: field.optional ?? false,
+				});
 				break;
 			case "yes-no":
 				fields.push(field);

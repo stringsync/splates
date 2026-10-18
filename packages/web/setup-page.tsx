@@ -13,8 +13,10 @@ import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
+import type { Settings } from "./settings";
 import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
+import { notifyBrowserSteps } from "./setup-notify-steps";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES } from "./setup-steps";
 import { TopBar } from "./top-bar";
@@ -23,11 +25,14 @@ import { TopBar } from "./top-bar";
 export function SetupPage({
 	feed,
 	onOpen,
+	settings,
 }: {
 	/** Where a conversation starts, or null while `splates server` holds none. */
 	feed: ConversationFeed | null;
 	/** Opens the conversation started on a step. */
 	onOpen: (id: string) => void;
+	/** This browser's settings, which the notification pages turn on. */
+	settings?: Settings;
 }): JSX.Element {
 	const { progress } = useContext(SetupContext);
 	const [selected, setSelected] = useState<string | null>(null);
@@ -40,6 +45,7 @@ export function SetupPage({
 					<Journey
 						key={area.id}
 						area={area}
+						settings={settings}
 						feed={feed}
 						onOpen={onOpen}
 						onLeave={() => setSelected(null)}
@@ -55,16 +61,24 @@ export function SetupPage({
 function Journey({
 	area,
 	feed,
+	settings,
 	onOpen,
 	onLeave,
 }: {
 	area: AreaProgress;
+	settings?: Settings;
 	feed: ConversationFeed | null;
 	onOpen: (id: string) => void;
 	onLeave: () => void;
 }): JSX.Element {
 	const { settle } = useContext(SetupContext);
-	const [journey] = useState(() => new SetupJourney(area));
+	const [journey] = useState(
+		() =>
+			new SetupJourney(
+				area,
+				settings === undefined ? {} : notifyBrowserSteps(settings),
+			),
+	);
 	const { step, at, next } = useReactive(
 		journey,
 		(journey) => ({ step: journey.step, at: journey.at, next: journey.next }),

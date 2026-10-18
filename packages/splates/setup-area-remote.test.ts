@@ -105,7 +105,7 @@ describe("the access setup step", () => {
 		expect(await step?.check(machine)).toBe(true);
 	});
 
-	it("is all done once the ports host and a slot's tunnel are saved", async () => {
+	it("saves the ports host Next is given, and refuses a bad one", async () => {
 		answer = async () =>
 			new Response(null, {
 				status: 302,
@@ -113,14 +113,27 @@ describe("the access setup step", () => {
 					location: "https://crew.cloudflareaccess.com/cdn-cgi/access/login",
 				},
 			});
-		await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).save(
-			"ports.example.com",
+		const setup = new Setup(machine, [REMOTE_ACCESS_AREA]);
+
+		await expect(setup.submit("ports-host", { base: "nope" })).rejects.toThrow(
+			"invalid ports host",
 		);
-		await machine.fs.mkdir(`${HOME}/slots/bee`, { recursive: true });
-		await machine.fs.write(`${HOME}/slots/bee/tunnel.json`, "{}");
+		const progress = await setup.submit("ports-host", {
+			base: "*.Ports.example.com",
+		});
 
-		const progress = await new Setup(machine, [REMOTE_ACCESS_AREA]).read();
-
+		expect(
+			await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).read(),
+		).toBe("ports.example.com");
 		expect(progress.areas[0]?.left).toBe(0);
+	});
+
+	it("has no page for slot tunnels", () => {
+		expect(REMOTE_ACCESS_AREA.steps.map((step) => step.id)).toEqual([
+			"cloudflare-token",
+			"tunnel",
+			"access",
+			"ports-host",
+		]);
 	});
 });
