@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { Outcome } from "@stringsync/splates/outcomes";
-import type { Decision } from "@stringsync/splates/plan";
+import type { Outcome } from "@stringsync/splates-server/outcomes";
+import type { Decision } from "@stringsync/splates-server/plan";
 import { mergedFacts } from "./merged-facts";
 
 describe("mergedFacts", () => {

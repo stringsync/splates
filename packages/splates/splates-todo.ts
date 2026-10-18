@@ -1,8 +1,22 @@
+import { fail } from "@stringsync/splates-server/exit";
+import { repository } from "@stringsync/splates-server/repository";
+import { recordUpdate, todosNamed } from "@stringsync/splates-server/todo";
+import {
+	addedFacts,
+	todoAdd,
+	todoRemove,
+	todoUpdate,
+} from "@stringsync/splates-server/todo-edit";
+import { todoList, todoShow } from "@stringsync/splates-server/todo-list";
+import { todoRelease, todoTake } from "@stringsync/splates-server/todo-take";
+import {
+	DEFAULT_TIMEOUT,
+	todoWait,
+	untilAfter,
+} from "@stringsync/splates-server/wait";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { fail } from "./exit";
-import { repository } from "./repository";
 import type { SplatesDeps } from "./splates";
 import {
 	assigneeIn,
@@ -12,11 +26,6 @@ import {
 	position,
 	todoIds,
 } from "./splates-flags";
-import { recordUpdate, todosNamed } from "./todo";
-import { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
-import { todoList, todoShow } from "./todo-list";
-import { todoRelease, todoTake } from "./todo-take";
-import { DEFAULT_TIMEOUT, todoWait, untilAfter } from "./wait";
 
 /** `splates todo`, which the root cli mounts after the task commands. */
 export const splatesTodo = cli<SplatesDeps>("todo").description(

@@ -1,20 +1,18 @@
 import { dirname } from "node:path";
-import type { Logger } from "webappwiz/log";
-import { color } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import { SYSTEM_STORES } from "./creds";
-import { Git } from "./git";
-import { loadConfig } from "./load-config";
-import { Projects } from "./projects";
-import { splatesHome } from "./roster";
+import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
+import { Projects } from "@stringsync/splates-server/projects";
+import { splatesHome } from "@stringsync/splates-server/roster";
 import {
 	Setup,
 	type SetupProgress,
-	type SetupProject,
 	type StepProgress,
 	type StepStatus,
-} from "./setup";
-import { SETUP_AREAS } from "./setup-areas";
+} from "@stringsync/splates-server/setup";
+import { SETUP_AREAS } from "@stringsync/splates-server/setup-areas";
+import { setupProjectAt } from "@stringsync/splates-server/setup-project";
+import type { Logger } from "webappwiz/log";
+import { color } from "webappwiz/log";
+import type { Ps } from "webappwiz/system";
 import type { SplatesDeps } from "./splates";
 
 /**
@@ -38,19 +36,6 @@ export async function setupOf(deps: SplatesDeps): Promise<Setup> {
 		},
 		SETUP_AREAS,
 	);
-}
-
-/** The project at `root` as setup reads it: its config and remotes, afresh. */
-export function setupProjectAt(
-	root: string,
-	{ fs, ps }: { fs: Fs; ps: Ps },
-): SetupProject {
-	const git = new Git(root, { fs, ps });
-	return {
-		root,
-		config: () => loadConfig(root, { fs, git }),
-		remoteUrl: (remote) => git.remoteUrl(remote),
-	};
 }
 
 /** The main tree of the repository the working directory is in, or null. */

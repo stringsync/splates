@@ -1,8 +1,8 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import type { Report } from "@stringsync/splates/asked";
-import type { ConversationState } from "@stringsync/splates/conversations";
-import { isEscalation } from "@stringsync/splates/events";
-import type { Details } from "@stringsync/splates/show";
+import type { Report } from "@stringsync/splates-server/asked";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { isEscalation } from "@stringsync/splates-server/events";
+import type { Details } from "@stringsync/splates-server/show";
 import { ArchiveIcon } from "lucide-react";
 import {
 	type JSX,

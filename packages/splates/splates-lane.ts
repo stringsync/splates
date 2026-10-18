@@ -1,5 +1,3 @@
-import { cli } from "webappwiz/cmd";
-import { z } from "zod";
 import {
 	laneAdd,
 	laneList,
@@ -8,9 +6,11 @@ import {
 	laneUpdate,
 	laneUpdated,
 	recordLaneRemove,
-} from "./lane";
-import { UNTRIAGED } from "./prompts";
-import { repository } from "./repository";
+} from "@stringsync/splates-server/lane";
+import { UNTRIAGED } from "@stringsync/splates-server/prompts";
+import { repository } from "@stringsync/splates-server/repository";
+import { cli } from "webappwiz/cmd";
+import { z } from "zod";
 import type { SplatesDeps } from "./splates";
 import { position } from "./splates-flags";
 

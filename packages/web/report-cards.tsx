@@ -7,10 +7,10 @@ import type {
 	LanesStart,
 	Report,
 	TodoProposal,
-} from "@stringsync/splates/asked";
-import { todoReference } from "@stringsync/splates/prompts";
-import type { AgentPick } from "@stringsync/splates/roster";
-import type { TodoState } from "@stringsync/splates/todo";
+} from "@stringsync/splates-server/asked";
+import { todoReference } from "@stringsync/splates-server/prompts";
+import type { AgentPick } from "@stringsync/splates-server/roster";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,

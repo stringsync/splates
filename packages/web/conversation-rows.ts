@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	answeredThrough,
 	answersTo,
@@ -6,8 +6,8 @@ import {
 	type Need,
 	type Needing,
 	need,
-} from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
+} from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
 import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
 import type { Drafts } from "./drafts";

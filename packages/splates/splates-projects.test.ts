@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
+import { Testing } from "@stringsync/splates-server/testing";
 import { projectArgs, splates } from "./splates";
-import { Testing } from "./testing";
 
 /**
  * Two projects on one machine, the first's registry naming both, its agent

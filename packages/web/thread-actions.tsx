@@ -1,8 +1,12 @@
-import { paused } from "@stringsync/splates/conversation-messages";
-import type { ConversationState } from "@stringsync/splates/conversations";
-import { DEFER, handoffToReference, RESUME } from "@stringsync/splates/prompts";
-import type { AgentPick } from "@stringsync/splates/roster";
-import type { Details } from "@stringsync/splates/show";
+import { paused } from "@stringsync/splates-server/conversation-messages";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import {
+	DEFER,
+	handoffToReference,
+	RESUME,
+} from "@stringsync/splates-server/prompts";
+import type { AgentPick } from "@stringsync/splates-server/roster";
+import type { Details } from "@stringsync/splates-server/show";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,

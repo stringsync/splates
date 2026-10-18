@@ -1,5 +1,9 @@
-import { answersTo, type Needing, needs } from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
+import {
+	answersTo,
+	type Needing,
+	needs,
+} from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import {

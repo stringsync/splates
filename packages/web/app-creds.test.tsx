@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { CredRequest } from "@stringsync/splates/creds";
+import type { CredRequest } from "@stringsync/splates-server/creds";
 import { pasteAndSave, REQUEST } from "./creds-testing";
 import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
 

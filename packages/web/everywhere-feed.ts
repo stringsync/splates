@@ -1,10 +1,10 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type {
 	EverywhereBoard,
 	EverywhereListing,
 	EverywhereProject,
-} from "@stringsync/splates/dev-everywhere";
-import type { Details } from "@stringsync/splates/show";
+} from "@stringsync/splates-server/dev-everywhere";
+import type { Details } from "@stringsync/splates-server/show";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { LiveStream } from "./live-stream";

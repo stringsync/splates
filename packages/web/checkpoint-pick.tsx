@@ -1,4 +1,4 @@
-import type { Held } from "@stringsync/splates/held";
+import type { Held } from "@stringsync/splates-server/held";
 import { TriangleAlertIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

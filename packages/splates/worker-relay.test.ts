@@ -8,17 +8,17 @@ import {
 } from "bun:test";
 import { chmod } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { type DevServer, dev } from "@stringsync/splates-server";
+import { printed } from "@stringsync/splates-server/agent-process-testing";
+import { DevWorkers } from "@stringsync/splates-server/dev-workers";
+import type { RemoteWorker } from "@stringsync/splates-server/remote-worker";
+import { relayFile } from "@stringsync/splates-server/repo-state";
+import { Testing } from "@stringsync/splates-server/testing";
+import { UnixWorkerSocket } from "@stringsync/splates-server/unix-worker-socket";
+import { WorkerDaemon } from "@stringsync/splates-server/worker-daemon";
 import { color, MemoryLogger } from "webappwiz/log";
 import { NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { printed } from "./agent-process-testing";
-import { type DevServer, dev } from "./dev";
-import { DevWorkers } from "./dev-workers";
-import type { RemoteWorker } from "./remote-worker";
-import { relayFile } from "./repo-state";
-import { Testing } from "./testing";
-import { UnixWorkerSocket } from "./unix-worker-socket";
-import { WorkerDaemon } from "./worker-daemon";
 
 const CLI = join(import.meta.dirname, "index.ts");
 

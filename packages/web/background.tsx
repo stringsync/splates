@@ -1,7 +1,7 @@
 import type {
 	Background,
 	BackgroundState,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	CheckIcon,

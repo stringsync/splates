@@ -5,18 +5,21 @@
  * caller can show it.
  */
 
-import type { KeptCred, Scope } from "@stringsync/splates/creds";
-import type { PortLink } from "@stringsync/splates/dev-task-ports";
-import type { FileDiff } from "@stringsync/splates/diff";
-import type { Landed } from "@stringsync/splates/landed";
-import type { MachineReading } from "@stringsync/splates/machine";
-import type { Wants } from "@stringsync/splates/notices";
-import type { QueueListing } from "@stringsync/splates/queue-list";
-import type { AgentPick } from "@stringsync/splates/roster";
-import type { SetupProgress, StepAnswers } from "@stringsync/splates/setup";
-import type { PeriodId, Stats } from "@stringsync/splates/stats";
-import type { SystemsReport } from "@stringsync/splates/system-changes";
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { KeptCred, Scope } from "@stringsync/splates-server/creds";
+import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
+import type { FileDiff } from "@stringsync/splates-server/diff";
+import type { Landed } from "@stringsync/splates-server/landed";
+import type { MachineReading } from "@stringsync/splates-server/machine";
+import type { Wants } from "@stringsync/splates-server/notices";
+import type { QueueListing } from "@stringsync/splates-server/queue-list";
+import type { AgentPick } from "@stringsync/splates-server/roster";
+import type {
+	SetupProgress,
+	StepAnswers,
+} from "@stringsync/splates-server/setup";
+import type { PeriodId, Stats } from "@stringsync/splates-server/stats";
+import type { SystemsReport } from "@stringsync/splates-server/system-changes";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import type { HeavyJobsReading } from "webappwiz/system";
 
 export class ApiError extends Error {

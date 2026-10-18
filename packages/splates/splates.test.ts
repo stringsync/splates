@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
+import { SERVING } from "@stringsync/splates-server/supervise";
+import { Testing } from "@stringsync/splates-server/testing";
 import { splates } from "./splates";
-import { SERVING } from "./supervise";
-import { Testing } from "./testing";
 
 /**
  * The cli in this process, run with fakes: the same commands `e2e.test.ts`

@@ -5,13 +5,13 @@ import {
 	type Stretch,
 	stretches,
 	type TaskReport,
-} from "@stringsync/splates/asked";
+} from "@stringsync/splates-server/asked";
 import type {
 	ConversationState,
 	Message,
 	Part,
-} from "@stringsync/splates/conversations";
-import { type Event, isEscalation } from "@stringsync/splates/events";
+} from "@stringsync/splates-server/conversations";
+import { type Event, isEscalation } from "@stringsync/splates-server/events";
 import { useEffect, useMemo, useState } from "react";
 import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";

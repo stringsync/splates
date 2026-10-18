@@ -1,11 +1,15 @@
-import { age } from "@stringsync/splates/age";
+import { age } from "@stringsync/splates-server/age";
 import type {
 	ConversationState,
 	Session,
-} from "@stringsync/splates/conversations";
-import { answersTo, type Need, quietSince } from "@stringsync/splates/needs";
-import type { Question } from "@stringsync/splates/plan";
-import type { Details } from "@stringsync/splates/show";
+} from "@stringsync/splates-server/conversations";
+import {
+	answersTo,
+	type Need,
+	quietSince,
+} from "@stringsync/splates-server/needs";
+import type { Question } from "@stringsync/splates-server/plan";
+import type { Details } from "@stringsync/splates-server/show";
 import {
 	ChevronLeftIcon,
 	GitBranchIcon,

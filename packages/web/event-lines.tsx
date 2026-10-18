@@ -1,10 +1,10 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Start } from "@stringsync/splates/asked";
+import type { Start } from "@stringsync/splates-server/asked";
 import {
 	type Action,
 	type Event,
 	isEscalation,
-} from "@stringsync/splates/events";
+} from "@stringsync/splates-server/events";
 import type { JSX } from "react";
 import { AddedLine } from "./added-line";
 import { useStartCard } from "./current-task";

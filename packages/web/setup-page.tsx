@@ -1,5 +1,8 @@
-import { setupReference } from "@stringsync/splates/prompts";
-import type { AreaProgress, FieldProgress } from "@stringsync/splates/setup";
+import { setupReference } from "@stringsync/splates-server/prompts";
+import type {
+	AreaProgress,
+	FieldProgress,
+} from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useContext, useEffect, useState } from "react";
 import { Field, FieldLabel } from "#web/components/ui/field.tsx";

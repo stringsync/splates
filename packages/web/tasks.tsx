@@ -1,6 +1,6 @@
-import { age } from "@stringsync/splates/age";
-import { questions } from "@stringsync/splates/plan";
-import type { Details } from "@stringsync/splates/show";
+import { age } from "@stringsync/splates-server/age";
+import { questions } from "@stringsync/splates-server/plan";
+import type { Details } from "@stringsync/splates-server/show";
 import { SquarePenIcon } from "lucide-react";
 import {
 	type CSSProperties,

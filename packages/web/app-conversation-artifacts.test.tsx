@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { Artifact, ArtifactVersion } from "@stringsync/splates/artifacts";
-import type { Event } from "@stringsync/splates/events";
+import type {
+	Artifact,
+	ArtifactVersion,
+} from "@stringsync/splates-server/artifacts";
+import type { Event } from "@stringsync/splates-server/events";
 import {
 	act,
 	cleanup,

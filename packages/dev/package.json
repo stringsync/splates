@@ -5,8 +5,8 @@
 	"type": "module",
 	"module": "index.ts",
 	"dependencies": {
-		"@stringsync/splates": "workspace:*",
 		"webappwiz": "0.0.46",
-		"zod": "^4.4.3"
+		"zod": "^4.4.3",
+		"@stringsync/splates-server": "workspace:*"
 	}
 }

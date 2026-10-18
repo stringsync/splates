@@ -1,11 +1,11 @@
-import type { Details } from "@stringsync/splates/show";
+import type { Details } from "@stringsync/splates-server/show";
 import type {
 	SystemChanges,
 	SystemsReport,
 	Uncovered,
-} from "@stringsync/splates/system-changes";
-import type { NamedSystem } from "@stringsync/splates/systems";
-import type { TodoState } from "@stringsync/splates/todo";
+} from "@stringsync/splates-server/system-changes";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { CopyIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";

@@ -2,7 +2,7 @@ import type {
 	Compaction,
 	Message,
 	Usage,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import type { JSX, ReactNode } from "react";
 import {
 	Popover,

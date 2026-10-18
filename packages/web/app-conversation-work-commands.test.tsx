@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { act, cleanup, Testing, tool, turn, waitFor, within } from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */

@@ -1,4 +1,4 @@
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { LayersIcon } from "lucide-react";
 import type { JSX } from "react";
 import {

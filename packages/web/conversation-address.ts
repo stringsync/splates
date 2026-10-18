@@ -1,10 +1,10 @@
 import type {
 	ConversationState,
 	Setting,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import type { AgentChoice } from "./conversation-feed";
 
-export { openedBy, TASK } from "@stringsync/splates/needs";
+export { openedBy, TASK } from "@stringsync/splates-server/needs";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";

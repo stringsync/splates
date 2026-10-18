@@ -6,7 +6,7 @@ import type {
 	Message,
 	Setting,
 	Taking,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { combine, type Tally } from "@stringsync/splates/stats";
+import { combine, type Tally } from "@stringsync/splates-server/stats";
 import { advise, duration } from "./stats-advice";
 
 /** A period where nothing ended; a test fills in what it is about. */

@@ -6,10 +6,10 @@ import {
 import type {
 	ConversationState,
 	Setting,
-} from "@stringsync/splates/conversations";
-import { modelOption } from "@stringsync/splates/models";
-import { AUTO } from "@stringsync/splates/prompts";
-import type { Details } from "@stringsync/splates/show";
+} from "@stringsync/splates-server/conversations";
+import { modelOption } from "@stringsync/splates-server/models";
+import { AUTO } from "@stringsync/splates-server/prompts";
+import type { Details } from "@stringsync/splates-server/show";
 import { type JSX, useContext, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";

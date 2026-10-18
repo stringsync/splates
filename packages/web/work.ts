@@ -1,13 +1,13 @@
-import { stretches } from "@stringsync/splates/asked";
+import { stretches } from "@stringsync/splates-server/asked";
 import type {
 	Compaction,
 	Message,
 	Part,
 	Step,
 	Tool,
-} from "@stringsync/splates/conversations";
-import type { Event } from "@stringsync/splates/events";
-import type { Flag } from "@stringsync/splates/watch";
+} from "@stringsync/splates-server/conversations";
+import type { Event } from "@stringsync/splates-server/events";
+import type { Flag } from "@stringsync/splates-server/watch";
 import { Duration } from "webappwiz/time";
 import { workingSpan } from "./work-time";
 

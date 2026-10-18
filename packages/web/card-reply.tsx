@@ -1,6 +1,6 @@
 import { type ThreadMessage, useAuiState } from "@assistant-ui/react";
-import { type Event, isEscalation } from "@stringsync/splates/events";
-import { isUpdate } from "@stringsync/splates/prompts";
+import { type Event, isEscalation } from "@stringsync/splates-server/events";
+import { isUpdate } from "@stringsync/splates-server/prompts";
 import {
 	createContext,
 	type JSX,

@@ -6,8 +6,8 @@ import type {
 	Agent,
 	AgentProcess,
 	Launch,
-} from "@stringsync/splates/probe-runtime";
-import { AgentStream, framed } from "@stringsync/splates/probe-runtime";
+} from "@stringsync/splates-server/probe-runtime";
+import { AgentStream, framed } from "@stringsync/splates-server/probe-runtime";
 import { command } from "./probe-sandbox";
 import { awaitProcessGroupExit } from "./process-group";
 import type { Adapter, RunContext } from "./runner";

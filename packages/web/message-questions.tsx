@@ -1,10 +1,10 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type { Proposal, TaskReport } from "@stringsync/splates/asked";
-import { type Assumed, assumedIn } from "@stringsync/splates/assumed";
-import type { Demo } from "@stringsync/splates/demo";
-import { type Event, isEscalation } from "@stringsync/splates/events";
-import type { Question } from "@stringsync/splates/plan";
-import { isUpdate } from "@stringsync/splates/prompts";
+import type { Proposal, TaskReport } from "@stringsync/splates-server/asked";
+import { type Assumed, assumedIn } from "@stringsync/splates-server/assumed";
+import type { Demo } from "@stringsync/splates-server/demo";
+import { type Event, isEscalation } from "@stringsync/splates-server/events";
+import type { Question } from "@stringsync/splates-server/plan";
+import { isUpdate } from "@stringsync/splates-server/prompts";
 import { type JSX, useContext } from "react";
 import { Board } from "./board";
 import { InMessage, textOf } from "./card-reply";

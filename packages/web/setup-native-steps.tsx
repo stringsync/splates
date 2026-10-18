@@ -1,4 +1,4 @@
-import type { StepProgress } from "@stringsync/splates/setup";
+import type { StepProgress } from "@stringsync/splates-server/setup";
 import type { JSX } from "react";
 import { Field, FieldLabel } from "#web/components/ui/field.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";

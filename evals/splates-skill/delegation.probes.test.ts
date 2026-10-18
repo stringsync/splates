@@ -7,8 +7,7 @@ import {
 	handoffReference,
 	handoffToReference,
 	reportReference,
-	// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
-} from "../../packages/splates/prompts";
+} from "@stringsync/splates-server/prompts";
 import module from "./delegation.probes";
 import { assess, type Event, type Evidence, type Probe } from "./probe";
 import { cliAdapter } from "./probe-adapters";

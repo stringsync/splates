@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates/conversations";
-import type { Snapshot } from "@stringsync/splates/snapshot";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import {
 	act,
 	cleanup,

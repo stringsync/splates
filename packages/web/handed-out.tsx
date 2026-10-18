@@ -2,7 +2,7 @@ import type {
 	ConversationState,
 	Setting,
 	Tool,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import { GitBranchIcon, LockIcon, OctagonXIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";

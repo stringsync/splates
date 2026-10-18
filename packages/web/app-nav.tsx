@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";

@@ -1,9 +1,9 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { chmod } from "node:fs/promises";
 import { join } from "node:path";
+import { Testing } from "@stringsync/splates-server/testing";
 import { ensure } from "webappwiz/assert";
 import { color } from "webappwiz/log";
-import { Testing } from "./testing";
 
 // Every test here drives real git in a repo of its own, dozens of processes
 // each: fast alone, but starved past bun's 5s default when the whole suite

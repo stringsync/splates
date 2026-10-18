@@ -1,4 +1,4 @@
-import type { Behind, Release } from "@stringsync/splates/release";
+import type { Behind, Release } from "@stringsync/splates-server/release";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { Projects } from "./project-api";

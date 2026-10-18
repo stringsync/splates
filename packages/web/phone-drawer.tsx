@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import type { Snapshot } from "@stringsync/splates/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { ArchiveIcon, InboxIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";

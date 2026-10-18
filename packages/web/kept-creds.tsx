@@ -1,4 +1,4 @@
-import type { Scope } from "@stringsync/splates/creds";
+import type { Scope } from "@stringsync/splates-server/creds";
 import { EllipsisIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

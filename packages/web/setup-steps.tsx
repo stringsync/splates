@@ -1,4 +1,4 @@
-import type { StepProgress } from "@stringsync/splates/setup";
+import type { StepProgress } from "@stringsync/splates-server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import type { SetupJourney } from "./setup-journey";

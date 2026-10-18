@@ -1,9 +1,12 @@
 #!/usr/bin/env bun
 import { basename } from "node:path";
+import { assets } from "@stringsync/splates-server/assets";
+import {
+	LEGACY,
+	legacyWarnings,
+} from "@stringsync/splates-server/legacy-names";
+import { systemPs } from "@stringsync/splates-server/legacy-ps";
 import { NodeFs } from "webappwiz/system";
-import { assets } from "./assets";
-import { LEGACY, legacyWarnings } from "./legacy-names";
-import { systemPs } from "./legacy-ps";
 import { projectArgs, splates } from "./splates";
 
 // The bin's old name, kept for one release.

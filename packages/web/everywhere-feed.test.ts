@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { EverywhereProject } from "@stringsync/splates/dev-everywhere";
+import type { EverywhereProject } from "@stringsync/splates-server/dev-everywhere";
 import type { Resource } from "webappwiz/disposable";
 import { EverywhereFeed } from "./everywhere-feed";
 import { conversation, details } from "./testing";

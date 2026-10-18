@@ -1,9 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
-import { assumptions, questions } from "../../packages/splates/plan";
-// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
-import { APPROVE, MERGE } from "../../packages/splates/prompts";
+import { assumptions, questions } from "@stringsync/splates-server/plan";
+import { APPROVE, MERGE } from "@stringsync/splates-server/prompts";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";

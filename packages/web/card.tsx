@@ -1,9 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { age } from "@stringsync/splates/age";
-import { blockerLabel } from "@stringsync/splates/lanes";
-import { todoReference } from "@stringsync/splates/prompts";
-import type { TodoState } from "@stringsync/splates/todo";
+import { age } from "@stringsync/splates-server/age";
+import { blockerLabel } from "@stringsync/splates-server/lanes";
+import { todoReference } from "@stringsync/splates-server/prompts";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import {
 	ClockIcon,
 	GripVerticalIcon,

@@ -1,5 +1,5 @@
-import type { CredRequest } from "@stringsync/splates/creds";
-import type { SetupProgress } from "@stringsync/splates/setup";
+import type { CredRequest } from "@stringsync/splates-server/creds";
+import type { SetupProgress } from "@stringsync/splates-server/setup";
 import {
 	createContext,
 	type JSX,

@@ -1,9 +1,9 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
-import type { ProjectRef } from "@stringsync/splates/conversation-host";
-import { nameOf } from "@stringsync/splates/conversation-name";
-import type { Command } from "@stringsync/splates/conversations";
-import type { Details } from "@stringsync/splates/show";
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
+import { nameOf } from "@stringsync/splates-server/conversation-name";
+import type { Command } from "@stringsync/splates-server/conversations";
+import type { Details } from "@stringsync/splates-server/show";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { systems as fetchSystems, paths } from "./api";
 import { Lanes } from "./conversation-names";

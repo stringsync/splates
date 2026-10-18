@@ -1,5 +1,8 @@
-import { taskReference, todoReference } from "@stringsync/splates/prompts";
-import type { Details } from "@stringsync/splates/show";
+import {
+	taskReference,
+	todoReference,
+} from "@stringsync/splates-server/prompts";
+import type { Details } from "@stringsync/splates-server/show";
 import { ChevronDownIcon, GitBranchIcon, ListTodoIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import {

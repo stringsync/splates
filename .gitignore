@@ -44,4 +44,4 @@ SPLATES.md
 .splates-shots
 
 # the splates server page, compiled by packages/web/build.ts
-packages/splates/web-build
+packages/server/web-build

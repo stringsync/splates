@@ -1,6 +1,6 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
-import type { ProjectRef } from "@stringsync/splates/conversation-host";
-import { nameOf } from "@stringsync/splates/conversation-name";
+import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
+import { nameOf } from "@stringsync/splates-server/conversation-name";
 import {
 	APPROVE,
 	CHECK_IN,
@@ -13,9 +13,9 @@ import {
 	RESUME,
 	taskReference,
 	todoReference,
-} from "@stringsync/splates/prompts";
-import type { Details } from "@stringsync/splates/show";
-import type { NamedSystem } from "@stringsync/splates/systems";
+} from "@stringsync/splates-server/prompts";
+import type { Details } from "@stringsync/splates-server/show";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import {
 	BookmarkIcon,
 	ClockIcon,

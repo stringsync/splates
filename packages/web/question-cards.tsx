@@ -1,7 +1,7 @@
-import type { Proposal, TaskReport } from "@stringsync/splates/asked";
-import type { Demo } from "@stringsync/splates/demo";
-import type { Question } from "@stringsync/splates/plan";
-import { APPROVE } from "@stringsync/splates/prompts";
+import type { Proposal, TaskReport } from "@stringsync/splates-server/asked";
+import type { Demo } from "@stringsync/splates-server/demo";
+import type { Question } from "@stringsync/splates-server/plan";
+import { APPROVE } from "@stringsync/splates-server/prompts";
 import {
 	type Answer,
 	answerIn,
@@ -10,7 +10,7 @@ import {
 	isEmpty,
 	replyOf,
 	takenOf,
-} from "@stringsync/splates/reply";
+} from "@stringsync/splates-server/reply";
 import { useReactive, useResource } from "@webappwiz/react";
 import {
 	CheckIcon,

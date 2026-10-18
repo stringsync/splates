@@ -6,9 +6,9 @@ import {
 	type LaneState,
 	lanes as laneList,
 	named,
-} from "@stringsync/splates/lanes";
-import type { Snapshot } from "@stringsync/splates/snapshot";
-import type { TodoState } from "@stringsync/splates/todo";
+} from "@stringsync/splates-server/lanes";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

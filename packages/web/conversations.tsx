@@ -1,8 +1,8 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
-import { type LaneRecord, named } from "@stringsync/splates/lanes";
-import { needOfExternal } from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
-import type { TodoState } from "@stringsync/splates/todo";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { type LaneRecord, named } from "@stringsync/splates-server/lanes";
+import { needOfExternal } from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
 import {

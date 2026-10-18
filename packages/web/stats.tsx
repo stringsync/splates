@@ -1,5 +1,5 @@
-import type { SkillVersion } from "@stringsync/splates/stats";
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { SkillVersion } from "@stringsync/splates-server/stats";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { useReactive } from "@webappwiz/react";
 import { CalendarRangeIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";

@@ -6,8 +6,7 @@ import {
 	CHECKPOINT,
 	RECONNECT,
 	RESUME,
-	// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
-} from "../../packages/splates/prompts";
+} from "@stringsync/splates-server/prompts";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type RunContext, type Seed } from "./runner";

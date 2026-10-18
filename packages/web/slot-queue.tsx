@@ -1,5 +1,5 @@
-import type { QueueSpot } from "@stringsync/splates/conversation-state";
-import type { QueueListing } from "@stringsync/splates/queue-list";
+import type { QueueSpot } from "@stringsync/splates-server/conversation-state";
+import type { QueueListing } from "@stringsync/splates-server/queue-list";
 import { ArrowUpIcon, ArrowUpToLineIcon, HourglassIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

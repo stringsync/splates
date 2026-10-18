@@ -1,9 +1,9 @@
-import { age } from "@stringsync/splates/age";
+import { age } from "@stringsync/splates-server/age";
 import type {
 	Artifact,
 	ArtifactGone,
 	ArtifactVersion,
-} from "@stringsync/splates/artifacts";
+} from "@stringsync/splates-server/artifacts";
 import { ChevronRightIcon, FilesIcon } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";

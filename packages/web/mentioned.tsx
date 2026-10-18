@@ -1,6 +1,6 @@
-import type { ProjectRef } from "@stringsync/splates/conversation-host";
-import { conversationReference } from "@stringsync/splates/conversation-reference";
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { ProjectRef } from "@stringsync/splates-server/conversation-host";
+import { conversationReference } from "@stringsync/splates-server/conversation-reference";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { MessageCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";

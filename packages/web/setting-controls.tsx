@@ -1,4 +1,4 @@
-import type { Setting } from "@stringsync/splates/conversations";
+import type { Setting } from "@stringsync/splates-server/conversations";
 import { SlidersHorizontalIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import {

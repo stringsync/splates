@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Judge, Judgment } from "@stringsync/splates/auto-pick";
+import type { Judge, Judgment } from "@stringsync/splates-server/auto-pick";
 import { CASES, score } from "./cases";
 
 /** Answers every question of every prompt the same, as `answers` says. */

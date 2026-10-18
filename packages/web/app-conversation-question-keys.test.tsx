@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	act,
 	type ConversationsView,

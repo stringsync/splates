@@ -1,7 +1,11 @@
-import { age } from "@stringsync/splates/age";
-import type { Background } from "@stringsync/splates/conversations";
-import { type Need, type Needing, quietSince } from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
+import { age } from "@stringsync/splates-server/age";
+import type { Background } from "@stringsync/splates-server/conversations";
+import {
+	type Need,
+	type Needing,
+	quietSince,
+} from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
 import {
 	ClipboardCheckIcon,
 	MonitorIcon,

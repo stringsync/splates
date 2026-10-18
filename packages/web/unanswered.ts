@@ -1,7 +1,7 @@
-import { stretches } from "@stringsync/splates/asked";
-import type { Message } from "@stringsync/splates/conversations";
-import type { Question } from "@stringsync/splates/plan";
-import { answerIn, quotedIn } from "@stringsync/splates/reply";
+import { stretches } from "@stringsync/splates-server/asked";
+import type { Message } from "@stringsync/splates-server/conversations";
+import type { Question } from "@stringsync/splates-server/plan";
+import { answerIn, quotedIn } from "@stringsync/splates-server/reply";
 
 /**
  * Of `open`, a task's open questions in `## Blocked`, those no reply in

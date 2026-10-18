@@ -8,6 +8,7 @@
         "@agentclientprotocol/sdk": "^1.7.0",
         "@biomejs/biome": "^2.5.7",
         "@stringsync/splates": "workspace:*",
+        "@stringsync/splates-server": "workspace:*",
         "@types/bun": "1.3.14",
         "@webappwiz/cli": "0.0.46",
         "@webappwiz/scry": "0.0.46",
@@ -20,9 +21,21 @@
       "name": "splates-dev",
       "version": "0.0.45",
       "dependencies": {
-        "@stringsync/splates": "workspace:*",
+        "@stringsync/splates-server": "workspace:*",
         "webappwiz": "0.0.46",
         "zod": "^4.4.3",
+      },
+    },
+    "packages/server": {
+      "name": "@stringsync/splates-server",
+      "version": "0.0.45",
+      "dependencies": {
+        "@agentclientprotocol/sdk": "^1.7.0",
+        "webappwiz": "0.0.46",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/bun": "1.3.14",
       },
     },
     "packages/splates": {
@@ -33,7 +46,7 @@
         "arbor": "./index.ts",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^1.7.0",
+        "@stringsync/splates-server": "workspace:*",
         "webappwiz": "0.0.46",
         "zod": "^4.4.3",
       },
@@ -45,7 +58,7 @@
       "name": "splates-web",
       "version": "0.0.45",
       "dependencies": {
-        "@stringsync/splates": "workspace:*",
+        "@stringsync/splates-server": "workspace:*",
         "webappwiz": "0.0.46",
       },
       "devDependencies": {
@@ -350,6 +363,8 @@
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
     "@stringsync/splates": ["@stringsync/splates@workspace:packages/splates"],
+
+    "@stringsync/splates-server": ["@stringsync/splates-server@workspace:packages/server"],
 
     "@tailwindcss/oxide": ["@tailwindcss/oxide@4.3.3", "", { "optionalDependencies": { "@tailwindcss/oxide-android-arm64": "4.3.3", "@tailwindcss/oxide-darwin-arm64": "4.3.3", "@tailwindcss/oxide-darwin-x64": "4.3.3", "@tailwindcss/oxide-freebsd-x64": "4.3.3", "@tailwindcss/oxide-linux-arm-gnueabihf": "4.3.3", "@tailwindcss/oxide-linux-arm64-gnu": "4.3.3", "@tailwindcss/oxide-linux-arm64-musl": "4.3.3", "@tailwindcss/oxide-linux-x64-gnu": "4.3.3", "@tailwindcss/oxide-linux-x64-musl": "4.3.3", "@tailwindcss/oxide-wasm32-wasi": "4.3.3", "@tailwindcss/oxide-win32-arm64-msvc": "4.3.3", "@tailwindcss/oxide-win32-x64-msvc": "4.3.3" } }, "sha512-krXjAikiaFSPaK/FkAQT5UTx3VormQaiZ5hBFlJZ9UFQGB/rwg1MZIhHAG9smMQRTdyJxP6Qt5MwMtdyU5FWrA=="],
 

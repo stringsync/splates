@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import {
 	act,
 	cleanup,

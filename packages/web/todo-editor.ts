@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates/todo";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { removeTodo, updateTodo } from "./api";
 import { type Drafts, readTodo, writeTodo } from "./drafts";

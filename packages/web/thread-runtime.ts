@@ -4,7 +4,7 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdapters } from "./adapters";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";

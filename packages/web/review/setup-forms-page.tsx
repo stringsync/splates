@@ -1,4 +1,4 @@
-import type { AreaProgress } from "@stringsync/splates/setup";
+import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { type JSX, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "../components/ui/button";

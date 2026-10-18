@@ -1,4 +1,4 @@
-import type { Held } from "@stringsync/splates/held";
+import type { Held } from "@stringsync/splates-server/held";
 import { type JSX, useState } from "react";
 import type { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";

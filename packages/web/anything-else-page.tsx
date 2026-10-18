@@ -1,5 +1,5 @@
-import type { Question } from "@stringsync/splates/plan";
-import type { Answer } from "@stringsync/splates/reply";
+import type { Question } from "@stringsync/splates-server/plan";
+import type { Answer } from "@stringsync/splates-server/reply";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import type { JSX } from "react";
 import { CardBox } from "./card-box";

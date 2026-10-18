@@ -3,7 +3,7 @@ import type {
 	SetupProgress,
 	StepAnswers,
 	StepProgress,
-} from "@stringsync/splates/setup";
+} from "@stringsync/splates-server/setup";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { nextSetupStep, saveCred } from "./api";
 import type { NextState } from "./setup-form";

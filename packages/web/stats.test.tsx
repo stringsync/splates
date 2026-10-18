@@ -5,7 +5,7 @@ import {
 	type PeriodId,
 	rates,
 	type Stats,
-} from "@stringsync/splates/stats";
+} from "@stringsync/splates-server/stats";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";

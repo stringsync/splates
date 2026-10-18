@@ -4,8 +4,8 @@ export default {
 	models: {
 		description: "Choosing agents and models",
 		globs: [
-			"packages/splates/models.ts",
-			"packages/splates/roster.ts",
+			"packages/server/models.ts",
+			"packages/server/roster.ts",
 			"packages/web/setting-controls.tsx",
 		],
 	},
@@ -13,7 +13,7 @@ export default {
 		description: "The agent conversations on the splates server page",
 		aliases: ["conversation view", "sidebar"],
 		globs: [
-			"packages/splates/conversations*.ts",
+			"packages/server/conversations*.ts",
 			"packages/web/conversation*.ts*",
 			"packages/web/sidebar*.tsx",
 			"packages/web/work*.ts*",
@@ -34,8 +34,8 @@ export default {
 	setup: {
 		description: "Setting splates up on a machine",
 		globs: [
-			"packages/splates/setup*.ts",
-			"packages/splates/dev-setup*.ts",
+			"packages/server/setup*.ts",
+			"packages/server/dev-setup*.ts",
 			"packages/splates/splates-setup.ts",
 			"packages/web/setup-*.ts*",
 			"packages/web/app-setup.test.tsx",
@@ -51,8 +51,8 @@ export default {
 		description: "Todos and the lanes they sit in",
 		aliases: ["todos", "lanes"],
 		globs: [
-			"packages/splates/todo*.ts",
-			"packages/splates/lane*.ts",
+			"packages/server/todo*.ts",
+			"packages/server/lane*.ts",
 			"packages/web/todo*.ts*",
 			"packages/web/lanes.tsx",
 			"packages/web/board.ts",
@@ -77,9 +77,9 @@ export default {
 		description: "Speaking a message instead of typing it",
 		aliases: ["dictation"],
 		globs: [
-			"packages/splates/dev-dictation*.ts",
-			"packages/splates/dev-transcriber.ts",
-			"packages/splates/vocabulary*.ts",
+			"packages/server/dev-dictation*.ts",
+			"packages/server/dev-transcriber.ts",
+			"packages/server/vocabulary*.ts",
 			"packages/web/dictat*.ts*",
 			"packages/web/take-under-way.ts",
 			"packages/web/app-conversation-dictation.test.tsx",
@@ -87,7 +87,7 @@ export default {
 	},
 	merge: {
 		description: "Landing a task on trunk",
-		globs: ["packages/splates/merge.ts", "packages/splates/merge.test.ts"],
+		globs: ["packages/server/merge.ts", "packages/server/merge.test.ts"],
 	},
 	skills: {
 		description: "The skills agents read",

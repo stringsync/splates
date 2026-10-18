@@ -1,5 +1,5 @@
-import type { LaneState } from "@stringsync/splates/lanes";
-import { laneReference } from "@stringsync/splates/prompts";
+import type { LaneState } from "@stringsync/splates-server/lanes";
+import { laneReference } from "@stringsync/splates-server/prompts";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,

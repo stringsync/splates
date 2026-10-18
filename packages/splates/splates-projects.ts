@@ -1,8 +1,11 @@
+import {
+	grantReach,
+	listReaches,
+} from "@stringsync/splates-server/project-reaches";
+import { REACHES } from "@stringsync/splates-server/projects";
+import { repository } from "@stringsync/splates-server/repository";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import { grantReach, listReaches } from "./project-reaches";
-import { REACHES } from "./projects";
-import { repository } from "./repository";
 import type { SplatesDeps } from "./splates";
 
 /** `splates projects`, which the root cli mounts after `splates lane`. */

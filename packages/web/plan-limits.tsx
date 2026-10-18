@@ -1,7 +1,7 @@
 import type {
 	ConversationState,
 	Limit,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { AgentChoice } from "./conversation-feed";

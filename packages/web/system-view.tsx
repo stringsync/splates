@@ -1,13 +1,13 @@
-import { age } from "@stringsync/splates/age";
-import type { Details } from "@stringsync/splates/show";
+import { age } from "@stringsync/splates-server/age";
+import type { Details } from "@stringsync/splates-server/show";
 import type {
 	Change,
 	Overlap,
 	SystemChanges,
 	SystemsReport,
-} from "@stringsync/splates/system-changes";
-import type { NamedSystem } from "@stringsync/splates/systems";
-import type { TodoState } from "@stringsync/splates/todo";
+} from "@stringsync/splates-server/system-changes";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import {
 	ChevronLeftIcon,
 	CopyIcon,

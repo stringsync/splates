@@ -32,7 +32,10 @@ the source they exercise as `*.test.ts` or `*.test.tsx`; use subdirectories for
 features rather than adding a `src/` wrapper. Import another workspace through
 its declared package exports, rather than a relative path into its files.
 
-`packages/splates` is the published CLI and server. `packages/dev` is a private
+`packages/splates` is the published CLI. `packages/server` owns the HTTP server
+and shared backend operations; the CLI depends on it, and it never imports CLI
+command definitions. `packages/web` owns the browser app, compiled into
+`packages/server/web-build` for the server to ship. `packages/dev` is a private
 workspace for repository commands behind `splates dev`; it is never published.
 One root `tsconfig.json` and `biome.json` cover the workspace. The fix command
 runs Biome, TypeScript, and Scry against these shared settings.

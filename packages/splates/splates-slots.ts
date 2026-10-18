@@ -1,6 +1,6 @@
+import { type Held, Slots } from "@stringsync/splates-server/slots";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import { type Held, Slots } from "./slots";
 import type { SplatesDeps } from "./splates";
 
 /** `splates slots`, which the root cli mounts after `splates tunnel`. */

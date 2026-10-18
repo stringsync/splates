@@ -2,7 +2,7 @@ import {
 	makeAssistantDataUI,
 	type ThreadMessageLike,
 } from "@assistant-ui/react";
-import type { Message } from "@stringsync/splates/conversations";
+import type { Message } from "@stringsync/splates-server/conversations";
 import type { JSX } from "react";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";

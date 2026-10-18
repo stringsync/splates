@@ -1,4 +1,4 @@
-import type { Tally } from "@stringsync/splates/stats";
+import type { Tally } from "@stringsync/splates-server/stats";
 
 /** Which card an `Advice` is, for the page to rank it and give it its chart. */
 export type AdviceId =

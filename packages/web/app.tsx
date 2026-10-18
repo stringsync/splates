@@ -1,8 +1,8 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
-import type { LaneRecord } from "@stringsync/splates/lanes";
-import type { Details } from "@stringsync/splates/show";
-import type { NamedSystem } from "@stringsync/splates/systems";
-import type { TodoState } from "@stringsync/splates/todo";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { LaneRecord } from "@stringsync/splates-server/lanes";
+import type { Details } from "@stringsync/splates-server/show";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	type JSX,

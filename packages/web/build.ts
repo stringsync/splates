@@ -4,7 +4,7 @@ import { compile } from "tailwindcss";
 
 /**
  * Builds the `splates server` page: the React app as one script, and the stylesheet
- * with Tailwind compiled, into `../splates/web-build`. splates's `assets.ts`
+ * with Tailwind compiled, into `../server/web-build`. server's `assets.ts`
  * imports both as text, so they end up inside the bundle a release publishes
  * and the server hands them straight to the browser.
  *
@@ -20,7 +20,7 @@ import { compile } from "tailwindcss";
  */
 
 const here = import.meta.dirname;
-const out = `${here}/../splates/web-build`;
+const out = `${here}/../server/web-build`;
 
 /** The app icon's sizes, the two a manifest needs for an install. */
 const ICON_SIZES = [192, 512] as const;

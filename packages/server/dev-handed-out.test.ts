@@ -1,0 +1,225 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { OpenPortProvider } from "webappwiz/system";
+import { add } from "./add";
+import { type Conversation, Conversations } from "./conversations";
+import { json } from "./dev-testing";
+import { AGENT, FakeAgent } from "./fake-agent";
+import { dev } from "./index";
+import { CHECKPOINT, RESUME } from "./prompts";
+import { remove } from "./remove";
+import { Testing } from "./testing";
+
+describe("dev conversations handed a task", () => {
+	let deps: Testing;
+	let agent: FakeAgent;
+	let conversations: Conversations;
+	let said: string[];
+	let server: Awaited<ReturnType<typeof dev>>;
+	let orchestrator: Conversation;
+	let handed: Conversation;
+
+	const until = async (done: () => boolean) => {
+		for (let i = 0; i < 200 && !done(); i++) {
+			await Bun.sleep(10);
+		}
+	};
+
+	beforeEach(async () => {
+		deps = await Testing.open();
+		agent = new FakeAgent();
+		said = [];
+		agent.turn = async (_, __, text) => {
+			said.push(text);
+			return "end_turn";
+		};
+		conversations = new Conversations(
+			`${deps.splatesDir}/conversations`,
+			[AGENT],
+			{ launch: agent.launch },
+		);
+		server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		orchestrator = await conversations.start("fake", {
+			task: null,
+			cwd: deps.root,
+		});
+		handed = await conversations.start("fake", {
+			task: null,
+			cwd: deps.root,
+			handedBy: orchestrator.id,
+		});
+		await until(
+			() =>
+				orchestrator.state.status === "idle" && handed.state.status === "idle",
+		);
+	});
+
+	afterEach(async () => {
+		await server.disposeAsync();
+		await deps.disposeAsync();
+	});
+
+	const write = (id: string, path: string, method: string, body: object) =>
+		json(server.port, `/api/conversations/${id}/${path}`, method, body);
+
+	it("refuses the page any write to it while the conversation it answers to is there", async () => {
+		const refused = await Promise.all([
+			write(handed.id, "name", "PUT", { name: "mine" }),
+			write(handed.id, "archived", "PUT", { archived: true }),
+			write(handed.id, "cancel", "POST", {}),
+		]);
+
+		expect(
+			await Promise.all(
+				refused.map(async (each) => (await each.json()).reason),
+			),
+		).toEqual(["blocked", "blocked", "blocked"]);
+		expect(handed.state).toMatchObject({ name: null, archived: false });
+	});
+
+	it("takes words only from the conversation that handed it its task", async () => {
+		const stranger = await write(handed.id, "tell", "POST", {
+			from: "someone",
+			text: "drop it",
+		});
+		const told = await write(handed.id, "tell", "POST", {
+			from: orchestrator.id,
+			text: "> **Keep it?**\n- (a) Keep it",
+		});
+		await until(() => said.length === 1);
+
+		expect((await stranger.json()).reason).toBe("usage");
+		expect(told.status).toBe(200);
+		expect(said).toEqual(["> **Keep it?**\n- (a) Keep it"]);
+	});
+
+	it("carries on from a checkpoint when the page resumes the conversation it answers to", async () => {
+		await handed.prompt(CHECKPOINT);
+		await orchestrator.prompt(CHECKPOINT);
+		await until(() => said.length === 2);
+		await handed.stop();
+		await orchestrator.stop();
+		const form = new FormData();
+		form.set("text", RESUME);
+		const resumed = await fetch(
+			`http://127.0.0.1:${server.port}/api/conversations/${orchestrator.id}/prompt`,
+			{
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${server.port}` },
+				body: form,
+			},
+		);
+		await until(() => said.length === 4);
+
+		expect(resumed.status).toBe(200);
+		expect(said).toEqual([CHECKPOINT, CHECKPOINT, RESUME, RESUME]);
+	});
+
+	it("stays stopped when the page resumes the conversation it answers to without a checkpoint", async () => {
+		await orchestrator.prompt(CHECKPOINT);
+		await until(() => said.length === 1);
+		await handed.stop();
+		await orchestrator.stop();
+		const form = new FormData();
+		form.set("text", RESUME);
+		await fetch(
+			`http://127.0.0.1:${server.port}/api/conversations/${orchestrator.id}/prompt`,
+			{
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${server.port}` },
+				body: form,
+			},
+		);
+		await until(() => said.length === 2);
+
+		expect(said).toEqual([CHECKPOINT, RESUME]);
+		expect(handed.state.status).toBe("stopped");
+	});
+
+	it("terminates its agent and tells the conversation that handed it out", async () => {
+		const terminated = await write(handed.id, "terminate", "POST", {});
+		await until(() => said.length === 1);
+
+		expect(await terminated.json()).toMatchObject({ status: "stopped" });
+		expect(said).toEqual([`[SPLATES STOPPED ${handed.id}]`]);
+	});
+
+	it("goes with the one it answers to when that is archived, and comes back with it", async () => {
+		await write(orchestrator.id, "archived", "PUT", { archived: true });
+
+		expect(handed.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
+			status: "stopped",
+		});
+
+		await write(orchestrator.id, "archived", "PUT", { archived: false });
+
+		expect(handed.state).toMatchObject({
+			archived: false,
+			archivedWith: null,
+		});
+	});
+
+	const onTask = async (): Promise<Conversation> => {
+		await add(deps, "alpha");
+		const working = await conversations.start("fake", {
+			task: "alpha",
+			cwd: (await deps.service.find("alpha")).path,
+			handedBy: orchestrator.id,
+		});
+		await until(() => working.state.status === "idle");
+		return working;
+	};
+
+	it("tells the one it answers to when its turn ends with the task under way", async () => {
+		const working = await onTask();
+		await working.prompt("Carry on.");
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["Carry on.", "[SPLATES IDLE alpha]"]);
+	});
+
+	it("tells it nothing once the task is escalated, which reports itself", async () => {
+		const working = await onTask();
+		await (await deps.service.find("alpha")).save({ status: "escalated" });
+		await working.prompt("Carry on.");
+		await Bun.sleep(100);
+
+		expect(said).toEqual(["Carry on."]);
+	});
+
+	it("goes with the one it answers to once its task is gone and its turn is over", async () => {
+		const working = await onTask();
+		await remove(deps, "alpha", { force: true });
+		await working.prompt("Carry on.");
+		await until(() => working.state.archived);
+
+		expect(said).toEqual(["Carry on."]);
+		expect(working.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
+		});
+	});
+
+	it("goes with the one it answers to once the page removes its task", async () => {
+		const working = await onTask();
+		const host = `localhost:${server.port}`;
+		const removed = await fetch(
+			`http://127.0.0.1:${server.port}/api/tasks/alpha`,
+			{
+				method: "DELETE",
+				headers: { host, origin: `http://${host}` },
+			},
+		);
+		await until(() => working.state.archived);
+
+		expect(removed.status).toBe(200);
+		expect(working.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
+		});
+	});
+});

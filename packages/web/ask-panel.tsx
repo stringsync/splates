@@ -2,7 +2,7 @@ import type {
 	Answer,
 	Ask,
 	ConversationState,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import { type JSX, useEffect, useState } from "react";
 import { PermissionGrant } from "#web/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#web/components/assistant-ui/elements/question-flow.tsx";

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { SetupProgress, StepProgress } from "@stringsync/splates/setup";
+import type {
+	SetupProgress,
+	StepProgress,
+} from "@stringsync/splates-server/setup";
 import {
 	act,
 	cleanup,

@@ -1,4 +1,4 @@
-import type { PortLink } from "@stringsync/splates/dev-task-ports";
+import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
 import { type JSX, useEffect, useState } from "react";
 import { taskPorts } from "./api";
 import { HEADING } from "./markdown";

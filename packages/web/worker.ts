@@ -9,7 +9,7 @@
  * address.
  */
 
-import type { Pushed } from "@stringsync/splates/dev-push";
+import type { Pushed } from "@stringsync/splates-server/dev-push";
 
 /** What a notification carries for its click, as `Notifier.show` and a push set it. */
 export interface Opening {

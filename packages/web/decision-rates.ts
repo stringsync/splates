@@ -1,4 +1,8 @@
-import { bucketOf, type Decided, type Stats } from "@stringsync/splates/stats";
+import {
+	bucketOf,
+	type Decided,
+	type Stats,
+} from "@stringsync/splates-server/stats";
 import { type Axis, axis, type Bucket, type Period } from "./stats-report";
 
 /**

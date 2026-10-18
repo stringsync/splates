@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { CredRequest } from "@stringsync/splates/creds";
+import type { CredRequest } from "@stringsync/splates-server/creds";
 import { act, fireEvent, type Testing, waitFor } from "./testing";
 
 /** A request for a cred kept for every project, from task alpha. */

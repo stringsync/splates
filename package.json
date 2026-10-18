@@ -15,7 +15,8 @@
 		"@stringsync/splates": "workspace:*",
 		"typescript": "^7",
 		"webappwiz": "0.0.46",
-		"zod": "^4.4.3"
+		"zod": "^4.4.3",
+		"@stringsync/splates-server": "workspace:*"
 	},
 	"scripts": {
 		"postinstall": "bun run --cwd packages/web build"

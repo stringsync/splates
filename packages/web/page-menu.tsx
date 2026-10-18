@@ -1,4 +1,4 @@
-import type { Snapshot } from "@stringsync/splates/snapshot";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
 import { LogOutIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import {

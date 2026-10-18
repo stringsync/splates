@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
 import {

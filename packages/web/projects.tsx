@@ -1,4 +1,4 @@
-import type { ServerChoice } from "@stringsync/splates/dev-servers";
+import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,

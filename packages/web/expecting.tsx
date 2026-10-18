@@ -1,4 +1,4 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { createContext, type JSX, type ReactNode, use } from "react";
 import { Held } from "./handed-out";
 import { useRefusals } from "./refusal";

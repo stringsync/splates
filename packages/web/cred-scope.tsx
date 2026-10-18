@@ -1,4 +1,4 @@
-import type { Scope } from "@stringsync/splates/creds";
+import type { Scope } from "@stringsync/splates-server/creds";
 import { FolderIcon, LaptopIcon } from "lucide-react";
 import type { JSX } from "react";
 

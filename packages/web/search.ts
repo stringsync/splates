@@ -1,10 +1,10 @@
-import { nameOf } from "@stringsync/splates/conversation-name";
-import type { ConversationState } from "@stringsync/splates/conversations";
-import type { LaneRecord } from "@stringsync/splates/lanes";
-import { goalLine } from "@stringsync/splates/plan";
-import type { Details } from "@stringsync/splates/show";
-import type { NamedSystem } from "@stringsync/splates/systems";
-import type { TodoState } from "@stringsync/splates/todo";
+import { nameOf } from "@stringsync/splates-server/conversation-name";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { LaneRecord } from "@stringsync/splates-server/lanes";
+import { goalLine } from "@stringsync/splates-server/plan";
+import type { Details } from "@stringsync/splates-server/show";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
+import type { TodoState } from "@stringsync/splates-server/todo";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {

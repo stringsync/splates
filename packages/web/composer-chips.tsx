@@ -4,7 +4,7 @@ import type {
 } from "@assistant-ui/react";
 import { useAuiState } from "@assistant-ui/react";
 import type { DirectiveChipProps } from "@assistant-ui/react-lexical";
-import { DIRECTIVES } from "@stringsync/splates/prompts";
+import { DIRECTIVES } from "@stringsync/splates-server/prompts";
 import { LoaderCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import {

@@ -1,10 +1,13 @@
+import { repository } from "@stringsync/splates-server/repository";
+import { tunnelRemove } from "@stringsync/splates-server/tunnel-remove";
+import {
+	API_TOKEN,
+	tunnelSetup,
+} from "@stringsync/splates-server/tunnel-setup";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import { repository } from "./repository";
 import type { SplatesDeps } from "./splates";
 import { here, savedTunnelOf, slotTunnelsOf } from "./splates-flags";
-import { tunnelRemove } from "./tunnel-remove";
-import { API_TOKEN, tunnelSetup } from "./tunnel-setup";
 
 /** `splates tunnel`, which the root cli mounts after `splates lane`. */
 export const splatesTunnel = cli<SplatesDeps>("tunnel").description(

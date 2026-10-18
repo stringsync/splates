@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates/conversations";
-import { type Needing, need, needOfExternal } from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import {
+	type Needing,
+	need,
+	needOfExternal,
+} from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
 import { Notifier } from "./notifier";
 import { Settings } from "./settings";
 import { conversation, details, message } from "./testing";

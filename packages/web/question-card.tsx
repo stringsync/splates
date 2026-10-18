@@ -1,5 +1,5 @@
-import type { Question } from "@stringsync/splates/plan";
-import type { Answer } from "@stringsync/splates/reply";
+import type { Question } from "@stringsync/splates-server/plan";
+import type { Answer } from "@stringsync/splates-server/reply";
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
 import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
 import {

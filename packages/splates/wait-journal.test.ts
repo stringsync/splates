@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { Event } from "@stringsync/splates-server/events";
+import { Testing } from "@stringsync/splates-server/testing";
 import { Duration, sleep } from "webappwiz/time";
-import type { Event } from "./events";
 import { splates } from "./splates";
-import { Testing } from "./testing";
 
 describe("splates's waits in the journal", () => {
 	let env: Testing;

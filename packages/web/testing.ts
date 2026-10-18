@@ -5,16 +5,16 @@ import { expect } from "bun:test";
 import type {
 	ConversationState,
 	Session,
-} from "@stringsync/splates/conversations";
-import type { ServerChoice } from "@stringsync/splates/dev-servers";
-import type { PortLink } from "@stringsync/splates/dev-task-ports";
-import type { FileDiff } from "@stringsync/splates/diff";
-import type { Held } from "@stringsync/splates/held";
-import type { Landed } from "@stringsync/splates/landed";
-import type { SetupProgress } from "@stringsync/splates/setup";
-import type { Snapshot } from "@stringsync/splates/snapshot";
-import type { SystemsReport } from "@stringsync/splates/system-changes";
-import type { NamedSystem } from "@stringsync/splates/systems";
+} from "@stringsync/splates-server/conversations";
+import type { ServerChoice } from "@stringsync/splates-server/dev-servers";
+import type { PortLink } from "@stringsync/splates-server/dev-task-ports";
+import type { FileDiff } from "@stringsync/splates-server/diff";
+import type { Held } from "@stringsync/splates-server/held";
+import type { Landed } from "@stringsync/splates-server/landed";
+import type { SetupProgress } from "@stringsync/splates-server/setup";
+import type { Snapshot } from "@stringsync/splates-server/snapshot";
+import type { SystemsReport } from "@stringsync/splates-server/system-changes";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";

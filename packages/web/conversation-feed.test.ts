@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { ConversationState } from "@stringsync/splates/conversations";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { CounterIdProvider } from "webappwiz/id";
 import { ConversationFeed } from "./conversation-feed";
 import { conversation, message } from "./testing";

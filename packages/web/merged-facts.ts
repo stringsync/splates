@@ -1,7 +1,14 @@
-import { type Measure, measured, outlier } from "@stringsync/splates/baselines";
-import { keptDecisions, madeBy } from "@stringsync/splates/decided";
-import { type FoundFacts, foundFacts } from "@stringsync/splates/finding-facts";
-import type { Landed } from "@stringsync/splates/landed";
+import {
+	type Measure,
+	measured,
+	outlier,
+} from "@stringsync/splates-server/baselines";
+import { keptDecisions, madeBy } from "@stringsync/splates-server/decided";
+import {
+	type FoundFacts,
+	foundFacts,
+} from "@stringsync/splates-server/finding-facts";
+import type { Landed } from "@stringsync/splates-server/landed";
 import { duration } from "./stats-advice";
 
 /** What the merged card says of how a task went, a line each. */

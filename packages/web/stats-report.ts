@@ -4,7 +4,7 @@ import {
 	type Stats,
 	type Tally,
 	type WorkedFrom,
-} from "@stringsync/splates/stats";
+} from "@stringsync/splates-server/stats";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type DecisionRates, decisionRates } from "./decision-rates";
 import {

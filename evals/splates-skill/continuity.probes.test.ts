@@ -8,8 +8,7 @@ import {
 	leadingDirectives,
 	RECONNECT,
 	RESUME,
-	// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
-} from "../../packages/splates/prompts";
+} from "@stringsync/splates-server/prompts";
 import module from "./continuity.probes";
 import { assess, type Event, type Evidence } from "./probe";
 import { type Adapter, runProbes, validate } from "./runner";

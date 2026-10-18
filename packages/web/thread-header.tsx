@@ -1,5 +1,5 @@
-import type { ConversationState } from "@stringsync/splates/conversations";
-import type { Details } from "@stringsync/splates/show";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
+import type { Details } from "@stringsync/splates-server/show";
 import {
 	ChevronDownIcon,
 	ChevronLeftIcon,

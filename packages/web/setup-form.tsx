@@ -1,4 +1,4 @@
-import type { AreaProgress } from "@stringsync/splates/setup";
+import type { AreaProgress } from "@stringsync/splates-server/setup";
 import {
 	BotIcon,
 	CheckIcon,

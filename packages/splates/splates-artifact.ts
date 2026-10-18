@@ -1,10 +1,14 @@
 import { basename, resolve } from "node:path";
+import {
+	addArtifact,
+	listArtifacts,
+	removeArtifact,
+} from "@stringsync/splates-server/artifact";
+import { conversationOf } from "@stringsync/splates-server/conversation-given";
+import { fail } from "@stringsync/splates-server/exit";
+import { repository } from "@stringsync/splates-server/repository";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
-import { addArtifact, listArtifacts, removeArtifact } from "./artifact";
-import { conversationOf } from "./conversation-given";
-import { fail } from "./exit";
-import { repository } from "./repository";
 import type { SplatesDeps } from "./splates";
 import { commaList, here } from "./splates-flags";
 

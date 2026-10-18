@@ -1,4 +1,4 @@
-import type { LaneState } from "@stringsync/splates/lanes";
+import type { LaneState } from "@stringsync/splates-server/lanes";
 import { Columns3Icon, EyeIcon, EyeOffIcon } from "lucide-react";
 import {
 	DropdownMenuCheckboxItem,

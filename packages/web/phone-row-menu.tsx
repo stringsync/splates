@@ -1,6 +1,6 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { openingOf } from "@stringsync/splates/conversation-name";
-import type { ConversationState } from "@stringsync/splates/conversations";
+import { openingOf } from "@stringsync/splates-server/conversation-name";
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	ArchiveIcon,
 	CircleDotIcon,

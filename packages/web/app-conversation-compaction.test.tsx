@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type {
 	Compaction,
 	ConversationState,
-} from "@stringsync/splates/conversations";
+} from "@stringsync/splates-server/conversations";
 import {
 	act,
 	cleanup,

@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { TodoState } from "@stringsync/splates/todo";
+import type { TodoState } from "@stringsync/splates-server/todo";
 import { PlusIcon, XIcon } from "lucide-react";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

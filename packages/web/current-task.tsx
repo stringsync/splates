@@ -1,4 +1,4 @@
-import type { Ending, Report, Start } from "@stringsync/splates/asked";
+import type { Ending, Report, Start } from "@stringsync/splates-server/asked";
 import {
 	createContext,
 	type JSX,

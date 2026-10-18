@@ -1,6 +1,10 @@
-import { age } from "@stringsync/splates/age";
-import { answersTo, type Needing, quietSince } from "@stringsync/splates/needs";
-import type { Details } from "@stringsync/splates/show";
+import { age } from "@stringsync/splates-server/age";
+import {
+	answersTo,
+	type Needing,
+	quietSince,
+} from "@stringsync/splates-server/needs";
+import type { Details } from "@stringsync/splates-server/show";
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useContext } from "react";

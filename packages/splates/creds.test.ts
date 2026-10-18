@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Testing } from "@stringsync/splates-server/testing";
 import { Duration, sleep } from "webappwiz/time";
 import { splates } from "./splates";
-import { Testing } from "./testing";
 
 const WHY = "To read the build logs through the dashboard's API.";
 const HOW = "Open the dashboard, create a token, and paste it here.";

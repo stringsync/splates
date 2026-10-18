@@ -1,4 +1,4 @@
-import type { Decision, Tool } from "@stringsync/splates/conversations";
+import type { Decision, Tool } from "@stringsync/splates-server/conversations";
 import { EDITS, label, type Work } from "./work";
 
 /** One row of a turn's timeline. */

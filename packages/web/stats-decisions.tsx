@@ -1,4 +1,4 @@
-import type { NamedSystem } from "@stringsync/splates/systems";
+import type { NamedSystem } from "@stringsync/splates-server/systems";
 import type { JSX } from "react";
 import {
 	Tooltip,

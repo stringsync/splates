@@ -1,37 +1,45 @@
 // scry-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
-import { cli, type Deps } from "webappwiz/cmd";
-import type { Fs } from "webappwiz/system";
+
+import { DEFAULT_PORT } from "@stringsync/splates-server";
+import { add } from "@stringsync/splates-server/add";
+import { agents } from "@stringsync/splates-server/agents";
+import { attach } from "@stringsync/splates-server/attach";
+import { checkpoint } from "@stringsync/splates-server/checkpoint";
+import { claim } from "@stringsync/splates-server/claim";
+import { escalate } from "@stringsync/splates-server/escalate";
+import type { Facts } from "@stringsync/splates-server/events";
+import { exits, fail } from "@stringsync/splates-server/exit";
+import { addFactTodos } from "@stringsync/splates-server/fact-todos";
+import { follow, serveProject } from "@stringsync/splates-server/follow";
+import { handoff } from "@stringsync/splates-server/handoff";
+import { runHeavy } from "@stringsync/splates-server/heavy-run";
+import { forget, init } from "@stringsync/splates-server/init";
+import { list } from "@stringsync/splates-server/list";
+import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
+import { merge } from "@stringsync/splates-server/merge";
+import { path } from "@stringsync/splates-server/path";
+import { portsLs } from "@stringsync/splates-server/ports-list";
+import { newest } from "@stringsync/splates-server/release";
+import { remove } from "@stringsync/splates-server/remove";
+import { repository } from "@stringsync/splates-server/repository";
+import { recordRetry } from "@stringsync/splates-server/retry";
+import { show } from "@stringsync/splates-server/show";
+import { serveDev } from "@stringsync/splates-server/start";
+import { systems } from "@stringsync/splates-server/system";
+import { reportToCaller, tell } from "@stringsync/splates-server/tell";
+import { update } from "@stringsync/splates-server/update";
+import {
+	DEFAULT_TIMEOUT,
+	untilAfter,
+	wait,
+} from "@stringsync/splates-server/wait";
+import { LOCAL_SLOTS } from "@stringsync/splates-server/worker-slots";
+import { REMOVE_REASONS } from "@stringsync/splates-server/worktree";
+import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { add } from "./add";
-import { agents } from "./agents";
-import type { Assets } from "./assets";
-import { attach } from "./attach";
-import { checkpoint } from "./checkpoint";
-import { claim } from "./claim";
-import type { SecretStores } from "./creds";
-import { DEFAULT_PORT } from "./dev";
-import { escalate } from "./escalate";
-import type { Facts } from "./events";
-import { exits, fail } from "./exit";
-import { addFactTodos } from "./fact-todos";
-import { follow, serveProject } from "./follow";
-import { handoff } from "./handoff";
-import { runHeavy } from "./heavy-run";
-import { forget, init } from "./init";
-import { list } from "./list";
-import { DEFAULT_COUNT, log as showLog } from "./log";
-import { merge } from "./merge";
-import { path } from "./path";
-import { portsLs } from "./ports-list";
-import { newest } from "./release";
-import { remove } from "./remove";
-import { repository } from "./repository";
-import { recordRetry } from "./retry";
-import { show } from "./show";
 import { splatesArtifact } from "./splates-artifact";
 import { splatesCreds } from "./splates-creds";
-import { serveDev } from "./splates-dev";
 import {
 	commaList,
 	effortIn,
@@ -49,28 +57,10 @@ import { splatesSlots } from "./splates-slots";
 import { splatesTodo } from "./splates-todo";
 import { splatesTunnel } from "./splates-tunnel";
 import { splatesWorker } from "./splates-worker";
-import { systems } from "./system";
-import { reportToCaller, tell } from "./tell";
-import { update } from "./update";
-import { DEFAULT_TIMEOUT, untilAfter, wait } from "./wait";
-import { LOCAL_SLOTS } from "./worker-slots";
-import { REMOVE_REASONS } from "./worktree";
 
-/** Everything `splates` is run with, before the repository middleware adds to it. */
-export interface SplatesDeps extends Deps {
-	fs: Fs;
-	/**
-	 * The registered project a leading `--project <slug>` names, which repo
-	 * commands run on instead of the one the working directory is in.
-	 */
-	project?: string;
-	/** The built page `dev` serves as its preview. */
-	assets: Assets;
-	/** Where creds are kept; the system's stores by default. */
-	secrets?: SecretStores;
-	/** How `splates tunnel setup` reaches Cloudflare's API; the global one by default. */
-	fetch?: typeof fetch;
-}
+export type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
+
+import type { SplatesDeps } from "@stringsync/splates-server/runtime-deps";
 
 /**
  * Splits a leading `--project <slug>`, or `--project=<slug>`, off the

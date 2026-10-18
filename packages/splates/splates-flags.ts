@@ -1,19 +1,19 @@
-import { z } from "zod";
-import { SYSTEM_STORES } from "./creds";
-import { pickEffort } from "./effort";
-import { fail } from "./exit";
-import { Offered } from "./offered";
-import type { Repository } from "./repository";
+import { commaList } from "@stringsync/splates-server/comma-list";
+import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
+import { pickEffort } from "@stringsync/splates-server/effort";
+import { fail } from "@stringsync/splates-server/exit";
+import { Offered } from "@stringsync/splates-server/offered";
+import type { Repository } from "@stringsync/splates-server/repository";
 import {
 	type AgentPick,
 	pickAgent,
-	Roster,
 	type RosterAgent,
 	splatesHome,
-} from "./roster";
-import { SavedPortsHost } from "./saved-ports-host";
-import { SavedTunnel } from "./saved-tunnel";
-import { SLOT_POOL } from "./slots";
+} from "@stringsync/splates-server/roster";
+import { SavedTunnel } from "@stringsync/splates-server/saved-tunnel";
+import { SLOT_POOL } from "@stringsync/splates-server/slots";
+import { rosterOf, seeded } from "@stringsync/splates-server/start-settings";
+import { z } from "zod";
 import type { SplatesDeps } from "./splates";
 
 /** A place in the todo list, 1 at the top; absent leaves it to the command. */
@@ -87,28 +87,6 @@ export function offeredOf({ ps, fs }: SplatesDeps): Offered {
 	return new Offered(`${splatesHome(ps)}/offered.json`, { fs });
 }
 
-/** The user's roster, beside the project registry. */
-export function rosterOf({ ps, fs }: SplatesDeps): Roster {
-	return new Roster(`${splatesHome(ps)}/agents.json`, { fs });
-}
-
-/** The tunnel `splates tunnel setup` saved for this machine. */
-/** The base host `splates server --ports-host` saved for this machine. */
-export function savedPortsHostOf({ ps, fs }: SplatesDeps): SavedPortsHost {
-	return new SavedPortsHost(`${splatesHome(ps)}/ports.json`, fs);
-}
-
-export function savedTunnelOf({
-	ps,
-	fs,
-	secrets = SYSTEM_STORES,
-}: SplatesDeps): SavedTunnel {
-	return new SavedTunnel(`${splatesHome(ps)}/tunnel.json`, {
-		fs,
-		store: secrets.device,
-	});
-}
-
 /** The tunnel each slot's home may have saved, for every word of the pool. */
 export function slotTunnelsOf({
 	ps,
@@ -122,12 +100,6 @@ export function slotTunnelsOf({
 				store: secrets.device,
 			}),
 	);
-}
-
-/** The roster's agents, written out as the defaults first when there is none. */
-export async function seeded(roster: Roster): Promise<RosterAgent[]> {
-	await roster.seed();
-	return roster.agents();
 }
 
 /** `--lane 3`, `new` or `none` as a lane; absent leaves it to the command. */
@@ -162,13 +134,7 @@ export function todoIds(raw: string): number[] {
 	});
 }
 
-/** A comma-separated flag's values, with no empty ones. */
-export function commaList(raw: string): string[] {
-	return raw
-		.split(",")
-		.map((value) => value.trim())
-		.filter(Boolean);
-}
+export { commaList } from "@stringsync/splates-server/comma-list";
 
 /**
  * Which task a command that takes no task name is about, so the journal can
@@ -185,3 +151,10 @@ export async function here({
 		? service.taskFor(await git.currentBranch(ps.cwd()))
 		: null;
 }
+
+export {
+	rosterOf,
+	savedPortsHostOf,
+	savedTunnelOf,
+	seeded,
+} from "@stringsync/splates-server/start-settings";

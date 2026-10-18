@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type {
 	ConversationState,
 	Message,
-} from "@stringsync/splates/conversations";
-import type { Event } from "@stringsync/splates/events";
-import { questions } from "@stringsync/splates/plan";
+} from "@stringsync/splates-server/conversations";
+import type { Event } from "@stringsync/splates-server/events";
+import { questions } from "@stringsync/splates-server/plan";
 import {
 	act,
 	cleanup,

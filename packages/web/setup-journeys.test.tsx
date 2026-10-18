@@ -3,8 +3,8 @@ import {
 	Setup,
 	type SetupProgress,
 	type StepStatus,
-} from "@stringsync/splates/setup";
-import { SETUP_AREAS } from "@stringsync/splates/setup-areas";
+} from "@stringsync/splates-server/setup";
+import { SETUP_AREAS } from "@stringsync/splates-server/setup-areas";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
 import { SetupIndex, StepForm } from "./setup-form";

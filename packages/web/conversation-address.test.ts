@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Setting } from "@stringsync/splates/conversations";
+import type { Setting } from "@stringsync/splates-server/conversations";
 import { agentFor, NEW, settingsFor } from "./conversation-address";
 import { conversation } from "./testing";
 

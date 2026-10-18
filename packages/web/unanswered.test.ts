@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { questions } from "@stringsync/splates/plan";
+import { questions } from "@stringsync/splates-server/plan";
 import { message } from "./testing";
 import { unanswered } from "./unanswered";
 
