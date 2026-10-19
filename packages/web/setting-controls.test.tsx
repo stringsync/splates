@@ -18,7 +18,7 @@ describe("composer setting controls", () => {
 	let props: ComponentProps<typeof SettingControls>;
 	let view: ReturnType<typeof render>;
 	let layout: { content: number; available: number };
-	const widths = ["scrollWidth", "clientWidth"].map(
+	const widths = ["offsetWidth", "clientWidth"].map(
 		(name) =>
 			[
 				name,
@@ -37,7 +37,7 @@ describe("composer setting controls", () => {
 	});
 	beforeEach(() => {
 		layout = { content: 100, available: 1000 };
-		Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+		Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
 			configurable: true,
 			get: () => layout.content,
 		});

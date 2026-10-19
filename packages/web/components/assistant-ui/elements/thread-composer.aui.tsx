@@ -325,7 +325,7 @@ const ComposerAction: FC = () => {
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
-		<div className="aui-composer-action-wrapper relative flex min-h-10 flex-[1_0_auto] items-center justify-between gap-2">
+		<div className="aui-composer-action-wrapper relative flex min-h-10 min-w-0 flex-[1_1_auto] items-center justify-between gap-2">
 			<div
 				className={cn(
 					"flex min-w-0 items-center gap-0 overflow-hidden",

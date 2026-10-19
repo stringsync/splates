@@ -81,16 +81,20 @@ function InlineSettings({
 	onChange: (setting: Setting, value: string) => void;
 }): JSX.Element {
 	const row = useRef<HTMLDivElement>(null);
+	const whole = useRef<HTMLDivElement>(null);
 	const [fits, setFits] = useState(true);
 	const fitNow = useRef(() => {});
 	fitNow.current = () => {
 		const room = row.current;
-		if (room === null) {
+		const settings = whole.current;
+		if (room === null || settings === null) {
 			return;
 		}
 		// The settings sit at their whole width, the row clipping what its
-		// room cannot show: it fits only when nothing is clipped away.
-		setFits(room.scrollWidth <= room.clientWidth + 1);
+		// room cannot show: it fits only when the row holds that width. The
+		// row's scrollWidth would count what overhangs a control, as a
+		// switch's hidden input does, and fold settings that read whole.
+		setFits(settings.offsetWidth <= room.clientWidth + 1);
 	};
 	useLayoutEffect(() => fitNow.current());
 	useLayoutEffect(() => {
@@ -116,6 +120,7 @@ function InlineSettings({
 			className="relative flex min-w-0 items-center overflow-hidden"
 		>
 			<div
+				ref={whole}
 				className={cn(
 					"flex w-max flex-nowrap items-center",
 					!fits && "invisible",
