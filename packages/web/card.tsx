@@ -34,7 +34,6 @@ import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
-import { TaskIcon } from "./task-icon";
 import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
 
 export interface CardProps {
@@ -146,7 +145,6 @@ export function Card({
 							/>
 						)}
 					<QueueToggle todo={todo} />
-					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
@@ -202,28 +200,6 @@ function Blocked({ by }: { by: TaskRecord[] }): JSX.Element {
 			</TooltipTrigger>
 			<TooltipContent>{label}</TooltipContent>
 		</Tooltip>
-	);
-}
-
-/**
- * The task that took the todo, in plain text. A tap opens the task; like the
- * copy link, it sits above the card's own button and never starts a drag.
- */
-export function TakenBy({ task }: { task: string }): JSX.Element {
-	const { openTask } = useContext(Board);
-	return (
-		<button
-			type="button"
-			onClick={() => openTask(task)}
-			{...still}
-			className={cn(
-				"relative inline-flex min-w-0 cursor-pointer items-center gap-1 rounded outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-				touchArea,
-			)}
-		>
-			<TaskIcon aria-label="taken by" role="img" className="size-3 shrink-0" />
-			<span className="truncate">{task}</span>
-		</button>
 	);
 }
 

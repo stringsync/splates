@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
-	details,
 	fireEvent,
 	Testing,
 	todo,
@@ -52,8 +51,6 @@ describe("App's todos", () => {
 			view.getByRole("img", { name: "files" }).parentElement?.textContent,
 		).toBe("2");
 		expect(view.getAllByRole("img", { name: "stale" })).toHaveLength(1);
-		expect(view.getByRole("img", { name: "taken by" })).toBeTruthy();
-		expect(cards[2]).toContain("beta");
 	});
 
 	it("says an untriaged one is untriaged in its dialog, not a step of a sequence", async () => {
@@ -103,26 +100,6 @@ describe("App's todos", () => {
 			),
 		);
 		expect(copied).toEqual(["[SPLATES TASK #7]", "[SPLATES TASK #7]"]);
-	});
-
-	it("opens the task that took one, without opening the todo", async () => {
-		const view = await testing.open({
-			todos: [todo({ id: 3, subject: "taken", takenBy: "beta" })],
-			tasks: [
-				details({
-					task: "beta",
-					plan: "# beta\n\n## Goal\n\nship the thing\n",
-				}),
-			],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /taken by beta/i })),
-		);
-
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(dialog.textContent).toContain("ship the thing");
-		expect(view.queryByText("Task 3")).toBeNull();
 	});
 
 	it("adds one at the foot of a column, Trello style, staying open for the next", async () => {

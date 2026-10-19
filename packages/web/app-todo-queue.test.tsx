@@ -66,7 +66,6 @@ describe("App's queue", () => {
 		expect(cards[1]).not.toContain("agent picked when it runs");
 		expect(cards[2]).toContain("Queued · 1");
 		expect(cards[3]).toContain("Queued · 2");
-		expect(cards[4]).toContain("beta");
 		expect(cards[4]).not.toMatch(/Backlog|Ready|Queue/);
 		expect(cards[5]).toContain("Ready");
 		expect(cards[5]).toContain("agent picked when it runs");
