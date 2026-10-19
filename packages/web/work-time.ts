@@ -1,3 +1,4 @@
+import { Duration } from "webappwiz/time";
 import { span, type Work } from "./work";
 
 /** Elapsed work excludes permission waits, including overlapping requests. */
@@ -17,4 +18,15 @@ export function workingSpan(work: Work, now: string | number): string {
 		through = Math.max(through, wait.to);
 	}
 	return span(work.at ?? "", end - paused);
+}
+
+/** Elapsed live work, frozen after thirty seconds without an agent update. */
+export function liveWorkingSpan(work: Work, now: number): string {
+	const latest = Date.parse(work.until ?? "");
+	return workingSpan(
+		work,
+		Number.isFinite(latest)
+			? Math.min(now, latest + Duration.secs(30).ms)
+			: now,
+	);
 }

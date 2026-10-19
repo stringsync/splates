@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { tool } from "./fixtures";
 import { stretchesOf, type Work, worked } from "./work";
-import { workingSpan } from "./work-time";
+import { liveWorkingSpan, workingSpan } from "./work-time";
 
 describe("permission wait timing", () => {
 	it("freezes while waiting and excludes completed waits after resuming", () => {
@@ -24,6 +24,20 @@ describe("permission wait timing", () => {
 		const row = work();
 		row.waits = [];
 		expect(workingSpan(row, at(50))).toBe("50s");
+	});
+	it("freezes after thirty seconds of silence and catches up on a fresh update", () => {
+		const row = work();
+		row.waits = [];
+		row.until = at(10);
+		expect(liveWorkingSpan(row, 20_000)).toBe("20s");
+		expect(liveWorkingSpan(row, 90_000)).toBe("40s");
+		expect(liveWorkingSpan(row, 120_000)).toBe("40s");
+		row.until = at(120);
+		expect(liveWorkingSpan(row, 121_000)).toBe("2m 1s");
+	});
+	it("still excludes permission waits while activity is stale", () => {
+		const row = work(at(40));
+		expect(liveWorkingSpan(row, 300_000)).toBe("20s");
 	});
 });
 
