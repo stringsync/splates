@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../cloud";
+import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
 import { FakeHetzner } from "../cloud/testing";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
@@ -30,11 +30,18 @@ describe("COORDINATOR_AREA's box step", () => {
 		await device.set(HCLOUD_TOKEN, "token");
 	});
 
-	it("asks for the Hetzner token on its own page, waiting on no other journey", () => {
+	it("asks for the cloud provider and its token on its own page, waiting on no other journey", () => {
 		expect(step?.after).toEqual([]);
 		expect(step?.fields?.map((field) => [field.kind, field.name])).toEqual([
+			["choice", "cloud"],
 			["cred", HCLOUD_TOKEN],
 		]);
+	});
+
+	it("keeps the cloud provider picked on its page", async () => {
+		await step?.submit?.(machine, { cloud: "hetzner" });
+
+		expect(await new ChosenCloud(HOME, fs).read()).toBe("hetzner");
 	});
 
 	it("makes no box with a token Hetzner refuses", async () => {

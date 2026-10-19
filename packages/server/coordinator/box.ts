@@ -1,7 +1,7 @@
 import type { SecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
-import { type CloudProvider, type FirewallRule, machineCloud } from "../cloud";
+import { ChosenCloud, type CloudProvider, type FirewallRule } from "../cloud";
 import { splatesHome } from "../models";
 
 /**
@@ -14,25 +14,31 @@ import { splatesHome } from "../models";
 export class CoordinatorBox {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
-	/** The cloud it is made in: the machine's, unless `cloud` says another. */
-	readonly cloud: CloudProvider;
 	/** splates's home, under whose `coordinator` the box's SSH files are kept. */
 	readonly home: string;
 	/** Where its SSH key pair is kept: the private key, with `.pub` beside it. */
 	readonly key: string;
+	#cloud: Promise<CloudProvider> | undefined;
 
 	constructor(private readonly opts: CoordinatorBoxOptions) {
 		this.ps = opts.ps ?? new NodePs();
 		this.fs = opts.fs ?? new NodeFs();
-		this.cloud =
-			opts.cloud ??
-			machineCloud({
-				...(opts.store === undefined ? {} : { store: opts.store }),
-				...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
-				...(opts.wait === undefined ? {} : { wait: opts.wait }),
-			});
 		this.home = opts.home ?? splatesHome(this.ps);
 		this.key = `${this.home}/coordinator/id_ed25519`;
+	}
+
+	/** The cloud it is made in: `cloud`, or the one chosen in setup. */
+	cloud(): Promise<CloudProvider> {
+		const { opts } = this;
+		this.#cloud ??=
+			opts.cloud === undefined
+				? new ChosenCloud(this.home, this.fs).cloud({
+						...(opts.store === undefined ? {} : { store: opts.store }),
+						...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
+						...(opts.wait === undefined ? {} : { wait: opts.wait }),
+					})
+				: Promise.resolve(opts.cloud);
+		return this.#cloud;
 	}
 
 	/**
@@ -41,7 +47,7 @@ export class CoordinatorBox {
 	 * its type, location and install script, which runs only on first boot.
 	 */
 	async up(): Promise<BoxStanding> {
-		const { cloud } = this;
+		const cloud = await this.cloud();
 		const keyId = await cloud.ensureSshKey(BOX_NAME, await this.publicKey());
 		const firewall = await cloud.ensureFirewall(BOX_NAME, BOX_RULES);
 		const machine =
@@ -73,7 +79,7 @@ export class CoordinatorBox {
 
 	/** The box as its cloud has it, or null when there is none. */
 	async status(): Promise<BoxStanding | null> {
-		const [machine] = await this.cloud.machines(BOX_TAG);
+		const [machine] = await (await this.cloud()).machines(BOX_TAG);
 		if (machine === undefined || machine.ipv4 === null) {
 			return null;
 		}
@@ -91,7 +97,7 @@ export class CoordinatorBox {
 	 * lifting the protection that keeps a stray delete off it.
 	 */
 	async remove(): Promise<void> {
-		const { cloud } = this;
+		const cloud = await this.cloud();
 		for (const machine of await cloud.machines(BOX_TAG)) {
 			await cloud.protect(machine.id, false);
 			await cloud.delete(machine.id);
@@ -133,7 +139,7 @@ export class CoordinatorBox {
 export interface CoordinatorBoxOptions {
 	/** The splates the box installs, the coordinator's own release. */
 	version: string;
-	/** The cloud it is made in; `machineCloud()` by default, made with `store`, `fetch` and `wait`. */
+	/** The cloud it is made in; the one chosen in setup by default, made with `store`, `fetch` and `wait`. */
 	cloud?: CloudProvider;
 	/** Its machine type; the cloud's default box type unless set. */
 	type?: string;

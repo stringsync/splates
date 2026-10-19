@@ -1,6 +1,11 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
-import { type CloudProvider, machineCloud } from "../cloud";
+import {
+	ChosenCloud,
+	CLOUDS,
+	type CloudProvider,
+	machineCloud,
+} from "../cloud";
 import { RUNNING } from "../server/shared";
 import {
 	API_TOKEN,
@@ -24,6 +29,7 @@ import type {
 	SetupMachine,
 	SetupStep,
 	SetupWorkerBudget,
+	StepAnswers,
 	StepField,
 } from "./setup";
 
@@ -35,18 +41,60 @@ const LIMIT_FIELDS: readonly StepField[] = [
 ];
 
 /**
- * The cloud this machine's setup makes machines in, for what its steps say;
- * `cloudOf` the one they ask, through the machine's own creds.
+ * The cloud this machine's setup words its steps for: the first offered,
+ * while only one is. `cloudOf` is the one they ask, the one chosen.
  */
 const CLOUD = machineCloud();
 
-/** The machine's cloud, reading its token from the machine's device creds. */
-export function cloudOf(machine: SetupMachine): CloudProvider {
-	return machineCloud({
+/** The cloud chosen on this machine, reading its token from the machine's device creds. */
+export function cloudOf(machine: SetupMachine): Promise<CloudProvider> {
+	return new ChosenCloud(machine.home, machine.fs).cloud({
 		store: machine.device,
 		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
 	});
 }
+
+/**
+ * The cloud provider as a page asks for it: the choice step's, and the
+ * coordinator's box step's, which asks it on its own page.
+ */
+export const CLOUD_CHOICE_FIELD: StepField = {
+	kind: "choice",
+	name: "cloud",
+	label: "Cloud provider",
+	options: async () =>
+		CLOUDS.map((each) => ({ value: each.id, label: each.name })),
+};
+
+/** Keeps the cloud provider picked in `answers`, when a page asked for it. */
+export async function chooseCloud(
+	{ home, fs }: SetupMachine,
+	answers: StepAnswers,
+): Promise<void> {
+	if (typeof answers.cloud === "string") {
+		await new ChosenCloud(home, fs).choose(answers.cloud);
+	}
+}
+
+/**
+ * Choosing the cloud provider splates makes machines in, the cloud workers
+ * and the server's box alike, before either asks for its token.
+ */
+export const CLOUD_CHOICE_STEP: SetupStep = {
+	id: "cloud-choice",
+	title: "Choose a cloud provider",
+	why: `Cloud workers and the server's always-on box are machines splates makes in your own account with a cloud provider, through its API, and only while you want them. ${CLOUDS.length === 1 ? `${CLOUDS[0].name} is the only one so far.` : `It offers ${CLOUDS.map((each) => each.name).join(", ")}.`}`,
+	user: "Pick the cloud provider to make machines in, then press Next.",
+	agent:
+		"Have the user pick on the page and press Next, which keeps the choice in `~/.splates/cloud.json`; the steps after it ask for that provider's token.",
+	optional: true,
+	after: [],
+	fields: [CLOUD_CHOICE_FIELD],
+	check: async ({ home, fs }) =>
+		(await new ChosenCloud(home, fs).read()) !== null,
+	submit: chooseCloud,
+	notDone: "No cloud provider is chosen yet: pick one, then press Next.",
+};
 
 /**
  * The cloud's token as a page asks for it, pasted there and saved for the
@@ -63,8 +111,10 @@ export const CLOUD_TOKEN_FIELD: StepField = {
 export const CLOUD_TOKEN_REFUSED = CLOUD.token.refused;
 
 /** Whether the device keeps a token the machine's cloud takes. */
-export function cloudTokenAccepted(machine: SetupMachine): Promise<boolean> {
-	return cloudOf(machine).accepted();
+export async function cloudTokenAccepted(
+	machine: SetupMachine,
+): Promise<boolean> {
+	return (await cloudOf(machine)).accepted();
 }
 
 /**
@@ -250,7 +300,7 @@ function workersArea(): SetupArea {
 		user: `Make an API token in your ${CLOUD.name} account and paste it.`,
 		agent: `Request it with \`splates creds request ${CLOUD.token.cred} --device\`, with how to get it, and \`splates creds wait ${CLOUD.token.cred}\`. Never ask for it in chat.`,
 		optional: true,
-		after: [],
+		after: [CLOUD_CHOICE_STEP],
 		fields: [CLOUD_TOKEN_FIELD],
 		check: cloudTokenAccepted,
 		notDone: CLOUD_TOKEN_REFUSED,
@@ -306,6 +356,7 @@ function workersArea(): SetupArea {
 			windowsStep,
 			wakeStep,
 			...WORKER_KEY_STEPS,
+			CLOUD_CHOICE_STEP,
 			tokenStep,
 			providerStep,
 			budgetStep,

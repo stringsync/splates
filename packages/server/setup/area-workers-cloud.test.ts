@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../cloud";
+import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
 import { FakeWorkerProvider } from "../workers/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -45,11 +45,37 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		return new Setup(machine, [REMOTE_ACCESS_AREA, WORKERS_AREA]);
 	}
 
+	it("offers each cloud provider, and keeps the one picked", async () => {
+		const choice = async () =>
+			(await setup().read()).areas[1]?.steps.find(
+				(step) => step.id === "cloud-choice",
+			);
+		expect((await choice())?.status).toBe("ready");
+		expect((await choice())?.fields).toEqual([
+			{
+				kind: "choice",
+				name: "cloud",
+				label: "Cloud provider",
+				options: [{ value: "hetzner", label: "Hetzner Cloud" }],
+			},
+		]);
+		await expect(
+			setup().submit("cloud-choice", { cloud: "aws" }),
+		).rejects.toThrow("Pick one of the choices");
+
+		await setup().submit("cloud-choice", { cloud: "hetzner" });
+
+		expect((await choice())?.status).toBe("done");
+		expect(await new ChosenCloud(HOME, machine.fs).read()).toBe("hetzner");
+	});
+
 	it("takes the cloud's token only once the cloud accepts it", async () => {
 		const status = async () =>
 			(await setup().read()).areas[1]?.steps.find(
 				(step) => step.id === "cloud-token",
 			)?.status;
+		expect(await status()).toBe("waiting");
+		await setup().submit("cloud-choice", { cloud: "hetzner" });
 		expect(await status()).toBe("ready");
 
 		await machine.device.set(HCLOUD_TOKEN, "token");

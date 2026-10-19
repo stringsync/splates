@@ -14,8 +14,10 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
+	CLOUD_CHOICE_FIELD,
 	CLOUD_TOKEN_FIELD,
 	CLOUD_TOKEN_REFUSED,
+	chooseCloud,
 	cloudOf,
 	cloudTokenAccepted,
 } from "./area-workers";
@@ -63,12 +65,12 @@ export function coordinatorArea(
 		id: "coordinator-box",
 		title: "Make the server's box",
 		why: `An always-on box keeps the page, the queue and merging up while this machine sleeps. It is ${BOX.about}, reached by SSH alone; it serves nothing until the server is deployed to it.`,
-		user: `Paste a ${CLOUD_TOKEN_FIELD.label}, or leave the one saved, and Next makes the box in that account.`,
-		agent: `Without the cred \`${CLOUD_TOKEN_FIELD.name}\`, request it with \`splates creds request ${CLOUD_TOKEN_FIELD.name} --device\` and \`splates creds wait ${CLOUD_TOKEN_FIELD.name}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
+		user: `Pick the cloud provider and paste a ${CLOUD_TOKEN_FIELD.label}, or leave the one saved, and Next makes the box in that account.`,
+		agent: `Have the user pick the cloud provider on the page, which keeps it in \`~/.splates/cloud.json\` (the \`cloud-choice\` step of Workers asks the same). Without the cred \`${CLOUD_TOKEN_FIELD.name}\`, request it with \`splates creds request ${CLOUD_TOKEN_FIELD.name} --device\` and \`splates creds wait ${CLOUD_TOKEN_FIELD.name}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
 		optional: true,
 		after: [],
-		// The page asks for the token here, so this journey never sends the user to another for it.
-		fields: [CLOUD_TOKEN_FIELD],
+		// The page asks for the provider and its token here, so this journey never sends the user to another for them.
+		fields: [CLOUD_CHOICE_FIELD, CLOUD_TOKEN_FIELD],
 		doing: "Making the coordinator's box, a few minutes…",
 		notDone: CLOUD_TOKEN_REFUSED,
 		check: async (machine) => {
@@ -79,13 +81,14 @@ export function coordinatorArea(
 			if (!(await cloudTokenAccepted(machine))) {
 				return false;
 			}
-			return (await box(machine).status()) !== null;
+			return (await (await box(machine)).status()) !== null;
 		},
-		submit: async (machine) => {
+		submit: async (machine, answers) => {
+			await chooseCloud(machine, answers);
 			if (!(await cloudTokenAccepted(machine))) {
 				throw new Error(CLOUD_TOKEN_REFUSED);
 			}
-			await box(machine).up();
+			await (await box(machine)).up();
 		},
 	};
 
@@ -202,10 +205,10 @@ async function machineProjects(
 	return moving;
 }
 
-function box(machine: SetupMachine): CoordinatorBox {
+async function box(machine: SetupMachine): Promise<CoordinatorBox> {
 	return new CoordinatorBox({
 		version: RUNNING,
-		cloud: cloudOf(machine),
+		cloud: await cloudOf(machine),
 		ps: machine.ps,
 		fs: machine.fs,
 		home: machine.home,
