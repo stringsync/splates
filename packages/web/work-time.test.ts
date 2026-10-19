@@ -79,6 +79,48 @@ describe("permission wait timing", () => {
 		expect(rows[1]?.at).toBe(at(8));
 		expect(rows[1]?.parts).toEqual([]);
 	});
+	it("never says Working above a merge line the reply came after", () => {
+		const stretches = stretchesOf(
+			{
+				role: "agent",
+				at: at(0),
+				until: at(10),
+				plan: null,
+				parts: [
+					tool({ at: at(0), until: at(5) }),
+					{ type: "text", text: "Merged.", at: at(9) },
+				],
+			},
+			at(0),
+			true,
+			Infinity,
+			[
+				{
+					id: "merge",
+					at: at(5),
+					action: "merge",
+					task: "alpha",
+					reason: null,
+					conversation: "c1",
+					base: "main",
+					commit: "abc123",
+					files: [],
+					attemptsLeft: 3,
+					failedTests: [],
+				},
+			],
+		);
+		expect(stretches.map((stretch) => stretch.type)).toEqual([
+			"work",
+			"event",
+			"said",
+		]);
+		const [row] = stretches.flatMap((stretch) =>
+			stretch.type === "work" ? [stretch.work] : [],
+		);
+		expect(row?.working).toBe(false);
+		expect(row?.until).toBe(at(5));
+	});
 });
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();

@@ -27,7 +27,7 @@ export interface Work {
 	until: string | null;
 	/** Still going, with nothing said since: its last thought is still being thought. */
 	running: boolean;
-	/** Whether the row says Working rather than how long it worked: the turn's last row while it goes on, even with words after it, but not one above a compaction. */
+	/** Whether the row says Working rather than how long it worked: the turn's last row while it goes on, even with words after it, but not one above a compaction or a splates line. */
 	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
@@ -192,12 +192,18 @@ export function stretchesOf(
 							startOf(next ?? []) ??
 							message.until),
 				running: going && index === end,
+				// A line below it, splates's or a compaction's, ends it: the
+				// agent moved on, so it never says Working above one.
 				working:
 					going &&
 					run === final &&
 					!kept
 						.slice(index + 1)
-						.some((each) => !Array.isArray(each) && each.type === "compaction"),
+						.some(
+							(each) =>
+								!Array.isArray(each) &&
+								(each.type === "compaction" || each.type === "event"),
+						),
 				going,
 				replied,
 			},
