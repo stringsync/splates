@@ -4,6 +4,7 @@ import {
 	type Needing,
 	quietSince,
 } from "@stringsync/splates-server/plans/browser";
+import { ClipboardCheckIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
@@ -13,7 +14,9 @@ import {
 	unnamed,
 	useNameOf,
 } from "./conversation-names";
+import { copiedFor, seenFor } from "./conversation-rows";
 import { Trunk } from "./dispatching";
+import type { Drafts } from "./drafts";
 import { Held } from "./handed-out";
 import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
@@ -35,6 +38,7 @@ export function Row({
 	hosting,
 	project,
 	foreign,
+	drafts,
 	onOpen,
 }: {
 	row: Needing;
@@ -48,6 +52,8 @@ export function Row({
 	project: string | null;
 	/** Whether it is another project's, which this page holds no menu for. */
 	foreign: boolean;
+	/** Where a reply copied for an external agent is kept. */
+	drafts: Drafts;
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -60,6 +66,9 @@ export function Row({
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const { text, urgent } = statusOf(row, name, trunk);
+	// Another project's drafts say nothing of its tasks.
+	const copied = !foreign && copiedFor(drafts, conversation, task, need);
+	const seen = !foreign && seenFor(drafts, conversation, task, need);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -139,15 +148,18 @@ export function Row({
 						{text}
 					</span>
 					{/* A quiet external agent's status says so, rather than a spinner. */}
-					{(conversation !== null || quietSince(row, Date.now()) === null) && (
-						<Mark
-							need={need}
-							reported={reported}
-							unread={conversation?.unread ?? false}
-							hosting={hosting}
-							subagent={subagent}
-						/>
-					)}
+					{(conversation !== null || quietSince(row, Date.now()) === null) &&
+						(copied ? (
+							<Copied />
+						) : seen ? null : (
+							<Mark
+								need={need}
+								reported={reported}
+								unread={conversation?.unread ?? false}
+								hosting={hosting}
+								subagent={subagent}
+							/>
+						))}
 				</span>
 			</span>
 		</button>
@@ -264,4 +276,18 @@ function movedAt({ conversation, task }: Needing): string | null {
 	}
 	const hours = Math.floor(minutes / 60);
 	return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+/** What a row shows of an external agent whose reply was copied, to paste. */
+function Copied(): JSX.Element {
+	return (
+		<span
+			role="status"
+			aria-label="reply copied"
+			title="Reply copied: paste it into its session"
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<ClipboardCheckIcon className="size-3.5 text-foreground/60" />
+		</span>
+	);
 }

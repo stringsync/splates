@@ -253,6 +253,7 @@ export function Inbox({
 										folder: null,
 									}))}
 									agents={agents}
+									drafts={drafts}
 									urgent={title === "Needs you"}
 									beneath={beneath}
 									onOpen={open}
@@ -264,6 +265,7 @@ export function Inbox({
 									title="Needs you"
 									items={grouped.needsYou}
 									agents={agents}
+									drafts={drafts}
 									urgent
 									named
 									beneath={beneath}
@@ -277,6 +279,7 @@ export function Inbox({
 										onFold={(open) => fold(folderKey(folder), open)}
 										onNew={available ? () => startIn(folder) : null}
 										agents={agents}
+										drafts={drafts}
 										beneath={beneath}
 										onOpen={open}
 									/>
@@ -350,12 +353,14 @@ function Group({
 	title,
 	items,
 	agents,
+	drafts,
 	urgent = false,
 	named = false,
 	beneath,
 	onOpen,
 }: {
 	agents: AgentChoice[];
+	drafts: Drafts;
 	title: string;
 	items: Item[];
 	urgent?: boolean;
@@ -380,6 +385,7 @@ function Group({
 			<Lines
 				items={items}
 				agents={agents}
+				drafts={drafts}
 				named={named}
 				beneath={beneath}
 				onOpen={onOpen}
@@ -399,6 +405,7 @@ function FolderSection({
 	onFold,
 	onNew,
 	agents,
+	drafts,
 	beneath,
 	onOpen,
 }: {
@@ -408,6 +415,7 @@ function FolderSection({
 	/** Null while no conversation can start. */
 	onNew: (() => void) | null;
 	agents: AgentChoice[];
+	drafts: Drafts;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
@@ -453,6 +461,7 @@ function FolderSection({
 					<Lines
 						items={items}
 						agents={agents}
+						drafts={drafts}
 						named={false}
 						beneath={folder.here ? beneath : () => []}
 						onOpen={onOpen}
@@ -467,12 +476,14 @@ function FolderSection({
 function Lines({
 	items,
 	agents,
+	drafts,
 	named,
 	beneath,
 	onOpen,
 }: {
 	items: Item[];
 	agents: AgentChoice[];
+	drafts: Drafts;
 	named: boolean;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
@@ -511,6 +522,7 @@ function Lines({
 										}
 										project={named && folder !== null ? folder.name : null}
 										foreign={folder !== null && !folder.here}
+										drafts={drafts}
 										onOpen={() => onOpen(row, folder)}
 									/>
 								</li>
