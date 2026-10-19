@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { tool } from "./fixtures";
 import { stretchesOf, type Work, worked } from "./work";
-import { liveWorkingSpan, workingSpan } from "./work-time";
+import { liveWorkingSpan, workingSpan, workSilence } from "./work-time";
 
 describe("permission wait timing", () => {
 	it("freezes while waiting and excludes completed waits after resuming", () => {
@@ -29,10 +29,12 @@ describe("permission wait timing", () => {
 		const row = work();
 		row.waits = [];
 		row.until = at(10);
+		row.activityAt = at(10);
 		expect(liveWorkingSpan(row, 20_000)).toBe("20s");
 		expect(liveWorkingSpan(row, 90_000)).toBe("40s");
 		expect(liveWorkingSpan(row, 120_000)).toBe("40s");
 		row.until = at(120);
+		row.activityAt = at(120);
 		expect(liveWorkingSpan(row, 121_000)).toBe("2m 1s");
 	});
 	it("still excludes permission waits while activity is stale", () => {
@@ -79,6 +81,31 @@ describe("permission wait timing", () => {
 		expect(rows[1]?.working).toBe(true);
 		expect(rows[1]?.at).toBe(at(8));
 		expect(rows[1]?.parts).toEqual([]);
+	});
+	it("warns after thirty seconds, escalates after two minutes, and recovers on activity", () => {
+		const row = work();
+		row.activityAt = at(0);
+		expect(workSilence(row, 29_999)).toBeNull();
+		expect(workSilence(row, 30_000)).toEqual({
+			text: "No activity for 30s",
+			stuck: false,
+		});
+		expect(workSilence(row, 120_000)).toEqual({
+			text: "No activity for 2m 0s",
+			stuck: true,
+		});
+		row.activityAt = at(120);
+		expect(workSilence(row, 120_000)).toBeNull();
+	});
+	it("exempts permission waits and finished turns, and tracks a silent startup", () => {
+		expect(workSilence(work(at(40)), 300_000)).toBeNull();
+		const row = work();
+		row.working = false;
+		expect(workSilence(row, 300_000)).toBeNull();
+		row.working = true;
+		row.activityAt = null;
+		row.until = null;
+		expect(workSilence(row, 120_000)?.stuck).toBe(true);
 	});
 });
 
