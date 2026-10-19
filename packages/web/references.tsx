@@ -23,6 +23,7 @@ import {
 	MessageCircleIcon,
 	PlayIcon,
 	PlugIcon,
+	UtensilsIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
 import type { Action } from "./actions";
@@ -30,7 +31,6 @@ import { Board } from "./board";
 import type { Tone } from "./card-shell";
 import { Lanes } from "./conversation-names";
 import { Held } from "./handed-out";
-import { PlateIcon } from "./plate-icon";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -53,7 +53,7 @@ export interface References {
 
 /** The categories, in the order the list shows them. */
 const CATEGORIES = [
-	{ id: "directive", label: "Directives", icon: PlateIcon },
+	{ id: "directive", label: "Directives", icon: UtensilsIcon },
 	{ id: "todo", label: "Board", icon: ListTodoIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },

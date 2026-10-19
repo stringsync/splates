@@ -3,11 +3,11 @@ import {
 	DIRECTIVES,
 	UNTRIAGED,
 } from "@stringsync/splates-server/plans/browser";
+import { UtensilsIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
 import { outsideCode } from "./markdown";
-import { PlateIcon } from "./plate-icon";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
 import { SplatesEvent, type Words } from "./splates-event";
@@ -117,7 +117,7 @@ function about(
 }
 
 /**
- * A directive as the composer shows it: under the plate every directive
+ * A directive as the composer shows it: under the utensils every directive
  * chip shares, what it is about, named from the board, the directive itself
  * in its title. Given `opens`, as in a sent
  * message, a tap opens the todo or task it names; given `inline`, it sits in
@@ -136,7 +136,7 @@ export function DirectiveChip({
 	const { kind, name, open } = about(directive, board);
 	return (
 		<ReferenceChip
-			Icon={PlateIcon}
+			Icon={UtensilsIcon}
 			kind={kind}
 			name={name}
 			title={directive}
