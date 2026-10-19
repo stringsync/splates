@@ -179,6 +179,9 @@ export function foldBackground(
 					? null
 					: toolIn(state, update.toolCallId);
 			const parent = tool?.parent ?? null;
+			const previous = state.background.find(
+				(each) => each.id === update.asyncTaskId,
+			);
 			state.background = [
 				...state.background.filter((each) => each.id !== update.asyncTaskId),
 				{
@@ -192,8 +195,9 @@ export function foldBackground(
 									id: parent,
 									title: toolIn(state, parent)?.title ?? "Subagent",
 								},
-					state: "running",
-					output: update.outputFilePath ?? null,
+					// A repeated announcement must not revive a command that exited.
+					state: previous?.state ?? "running",
+					output: update.outputFilePath ?? previous?.output ?? null,
 				},
 			];
 		}

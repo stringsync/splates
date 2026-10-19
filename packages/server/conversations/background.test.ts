@@ -174,6 +174,24 @@ describe("Conversation background", () => {
 		).toEqual([["b1", "failed"]]);
 	});
 
+	it("does not revive an exited command when its spawn is announced again", async () => {
+		leaves(
+			"b1",
+			"bun test",
+			backgroundWrites("b1", "/tmp/tasks/b1.output"),
+			backgroundEnded("b1", "completed"),
+			backgroundStarted("b1", "Run bun test", "t-b1"),
+		);
+		const conversation = await started();
+
+		await conversation.prompt("test it");
+		await until(conversation, "idle");
+
+		expect(conversation.state.background).toMatchObject([
+			{ id: "b1", state: "completed", output: "/tmp/tasks/b1.output" },
+		]);
+	});
+
 	it("follows what one prints, ending once it has and all of it is read", async () => {
 		const output = "/tmp/tasks/b1.output";
 		await fs.write(output, "building\n");
