@@ -55,21 +55,109 @@ see the header
 		return await waitFor(() => view.getByRole("dialog"));
 	};
 
-	it("shows a task's whole plan, Blocked and all, each question's number beside its box", async () => {
+	/** Picks Remove from the dialog's menu of rarer actions. */
+	const chooseRemove = async (
+		view: Awaited<ReturnType<Testing["open"]>>,
+		dialog: HTMLElement,
+	) => {
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "More actions" }),
+			),
+		);
+		const item = await waitFor(() =>
+			view.getByRole("menuitem", { name: "Remove" }),
+		);
+		await act(async () => fireEvent.click(item));
+	};
+
+	const showTab = async (dialog: HTMLElement, name: RegExp) => {
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name })),
+		);
+		return within(dialog).getByRole("tabpanel");
+	};
+
+	it("opens on where a task stands and its Goal, the rest of its plan a tab away", async () => {
 		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
-		expect(dialog.textContent).toContain("see the header");
+		// Its agent carries on with its own pick while the question waits.
+		expect(within(dialog).getByText("Working")).toBeTruthy();
 		expect(
-			within(dialog).getByRole("heading", { name: "Blocked" }),
+			within(dialog).getAllByText("How should sessions move?").length,
+		).toBeGreaterThan(0);
+		expect(
+			within(dialog)
+				.getAllByRole("tab")
+				.map((each) => each.textContent),
+		).toEqual(["Overview", "Questions1", "Notes", "Details"]);
+		const overview = within(dialog).getByRole("tabpanel");
+		expect(overview.textContent).toContain("ship the thing");
+		expect(overview.textContent).not.toContain("see the header");
+
+		expect((await showTab(dialog, /Notes/)).textContent).toContain(
+			"see the header",
+		);
+		const details = await showTab(dialog, /Details/);
+		expect(within(details).getByText("Merges tried")).toBeTruthy();
+	});
+
+	it("says a task waits on you once its agent goes quiet with a question open", async () => {
+		const view = await testing.openTasks({
+			tasks: [
+				details({
+					task: "beta",
+					activeAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+					plan: "# beta\n\n## Goal\n\nship it\n\n## Blocked\n\n- [ ] 1. Which port should it use?\n",
+				}),
+			],
+		});
+		const dialog = await openBeta(view);
+
+		expect(within(dialog).getByText("Waiting on you")).toBeTruthy();
+		expect(
+			within(dialog).getAllByText("Which port should it use?").length,
+		).toBeGreaterThan(0);
+	});
+
+	it("shows a task's open questions as cards, and those answered a line each", async () => {
+		const view = await testing.openTasks({ tasks: [asking] });
+		const dialog = await openBeta(view);
+
+		const questions = await showTab(dialog, /Questions/);
+		expect(
+			within(questions).getByRole("region", { name: "questions for you" }),
 		).toBeTruthy();
-		const item = within(dialog).getByText(/2\. How should sessions move\?/);
 		expect(
-			item.closest("li")?.querySelector("input[type=checkbox]"),
+			within(
+				within(questions).getByRole("region", { name: "answered" }),
+			).getByRole("listitem").textContent,
+		).toBe("1. Do the tests pass? → yes");
+	});
+
+	it("counts a task's steps done, and keeps a section the skill does not name under Notes", async () => {
+		const view = await testing.openTasks({
+			tasks: [
+				details({
+					task: "beta",
+					plan: "# beta\n\n## Goal\n\nship it\n\n## Next\n\n- [x] one\n- [ ] two\n- [ ] three\n\n## Findings\n\nthe cache is cold\n",
+				}),
+			],
+		});
+		const dialog = await openBeta(view);
+
+		expect(
+			within(within(dialog).getByRole("region", { name: "steps" })).getByText(
+				"1 of 3",
+			),
 		).toBeTruthy();
+		expect(within(dialog).queryByRole("tab", { name: /Questions/ })).toBeNull();
+		const notes = await showTab(dialog, /Notes/);
 		expect(
-			within(dialog).queryByRole("list", { name: "questions" }),
-		).toBeNull();
+			within(notes).getByRole("heading", { name: "Findings" }),
+		).toBeTruthy();
+		expect(notes.textContent).toContain("the cache is cold");
 	});
 
 	it("links each port the task serves, through the ports host and on the machine", async () => {
@@ -231,9 +319,7 @@ see the header
 		});
 		const dialog = await openBeta(view);
 
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
-		);
+		await chooseRemove(view, dialog);
 
 		await waitFor(() =>
 			expect(testing.posts).toEqual([
@@ -252,10 +338,7 @@ see the header
 		};
 		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
-		const remove = () =>
-			act(async () =>
-				fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
-			);
+		const remove = () => chooseRemove(view, dialog);
 
 		await remove();
 		const asked = await waitFor(() =>
@@ -296,9 +379,7 @@ see the header
 		});
 		const dialog = await openBeta(view);
 
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
-		);
+		await chooseRemove(view, dialog);
 
 		const asked = await waitFor(() =>
 			view.getByRole("dialog", { name: "Remove beta?" }),
@@ -317,9 +398,7 @@ see the header
 		});
 		const dialog = await openBeta(view);
 
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
-		);
+		await chooseRemove(view, dialog);
 
 		const asked = await waitFor(() =>
 			view.getByRole("dialog", { name: "Remove beta?" }),

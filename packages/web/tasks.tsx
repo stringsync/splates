@@ -1,19 +1,9 @@
 import { age } from "@stringsync/splates-server/age";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import {
-	type Needing,
-	needs,
-	questions,
-} from "@stringsync/splates-server/plans/browser";
+import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
 import { ChevronRightIcon, SquarePenIcon } from "lucide-react";
-import {
-	type CSSProperties,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useState,
-} from "react";
+import { type CSSProperties, type JSX, useContext } from "react";
 import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -21,14 +11,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "#web/components/ui/dialog.tsx";
+import { Dialog } from "#web/components/ui/dialog.tsx";
 import {
 	Empty,
 	EmptyContent,
@@ -48,15 +31,12 @@ import { useFolded } from "./folded";
 import { useNow } from "./hooks/use-now";
 import { Orphaned } from "./list-rows";
 import { Mark } from "./mark";
-import { HEADING, Markdown } from "./markdown";
 import { NavigationContext } from "./navigation";
 import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
-import { QuestionCards } from "./question-cards";
 import { QueueMark } from "./slot-queue";
-import { ActionBar, useRetry } from "./task-actions";
+import { Task } from "./task-dialog";
 import { TaskIcon } from "./task-icon";
-import { TaskPorts } from "./task-ports";
 import { TopBar } from "./top-bar";
 
 /**
@@ -404,144 +384,5 @@ function ElsewhereMarks({
 				),
 			)}
 		</span>
-	);
-}
-
-/**
- * One task, all of it, in a dialog over the task list or a todo that names
- * it: its plan as its SPLATES.md has it, then what splates knows of it as one
- * more section, and everything to do with it in the footer.
- */
-export function Task({ task }: { task: Details }): JSX.Element {
-	const retry = useRetry(task);
-	// Answered here only when the page has nowhere else to answer them.
-	const [answering, setAnswering] = useState(false);
-	const open =
-		task.plan === null
-			? []
-			: questions(task.plan).filter(
-					(each) => !each.done && each.reply === null,
-				);
-	return (
-		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
-			<DialogHeader>
-				<DialogTitle className="flex items-center gap-2">
-					<TaskIcon aria-hidden className="size-4 shrink-0" />
-					<span className="min-w-0 break-words">{task.task}</span>
-				</DialogTitle>
-			</DialogHeader>
-			<div className="-mx-4 flex min-w-0 flex-col gap-4 overflow-y-auto px-4 text-sm">
-				{answering && open.length > 0 && (
-					<QuestionCards questions={open} copy />
-				)}
-				{task.plan === null ? (
-					<p className="text-muted-foreground">
-						No SPLATES.md: whoever picks this up starts from the diff.
-					</p>
-				) : (
-					<Markdown
-						text={inlineNumbers(task.plan.replace(/^\s*#\s[^\n]*/, ""))}
-					/>
-				)}
-				{task.planProblems.length > 0 && (
-					<ul className="flex flex-col gap-1 text-muted-foreground text-xs">
-						{task.planProblems.map((problem) => (
-							<li key={problem}>{problem}</li>
-						))}
-					</ul>
-				)}
-				<Facts task={task} retry={retry.note} />
-				<TaskPorts task={task.task} />
-			</div>
-			<DialogFooter className="sm:justify-between">
-				<ActionBar
-					task={task}
-					open={open}
-					retry={retry.action}
-					onAnswer={() => setAnswering(true)}
-				/>
-			</DialogFooter>
-		</DialogContent>
-	);
-}
-
-const TASK_DIALOG =
-	"max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-xl";
-
-/**
- * The dialog on a phone: a sheet up from the bottom edge, within a thumb's
- * reach, its footer clear of the home indicator.
- */
-const PHONE_SHEET =
-	"max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:-translate-y-0 max-md:rounded-b-none max-md:data-closed:slide-out-to-bottom max-md:data-open:slide-in-from-bottom max-md:data-closed:zoom-out-100 max-md:data-open:zoom-in-100 max-md:[&_[data-slot=dialog-footer]]:pb-[max(1rem,env(safe-area-inset-bottom))]";
-
-/**
- * `- [ ] 2. Why?` with its number escaped, so the item reads as its box and
- * `2. Why?` on one line, not a box above a list that starts at 2.
- */
-function inlineNumbers(plan: string): string {
-	return plan.replace(/^([ \t]*- \[[ xX]\] [Qq]?\d+)\. /gm, "$1\\. ");
-}
-
-/**
- * What splates knows of a task that its SPLATES.md does not say, as one more of
- * its sections: where it stands, its branch and how much it holds, and its
- * tree. The merges tried show only once there are some.
- */
-function Facts({
-	task,
-	retry,
-}: {
-	task: Details;
-	/** What Retry in the footer gives, or gave, once it is out of merges. */
-	retry: ReactNode;
-}): JSX.Element {
-	const facts: [string, ReactNode][] = [
-		["branch", `${task.branch} → ${task.base}`],
-		["commits", `${task.ahead ?? "?"} commit${task.ahead === 1 ? "" : "s"}`],
-	];
-	if (task.added !== null) {
-		facts.push([
-			"diff",
-			<>
-				<span className="text-success">+{task.added}</span>{" "}
-				<span className="text-destructive">-{task.removed ?? 0}</span>
-			</>,
-		]);
-	}
-	if (task.mergeAttempts > 0) {
-		facts.push([
-			"merges",
-			`${task.mergeAttempts} of ${task.mergeAttemptLimit} merges tried`,
-		]);
-	}
-	if (task.age !== null) {
-		facts.push(["age", `started ${task.age} ago`]);
-	}
-	return (
-		<section aria-label="about the task" className="flex min-w-0 flex-col">
-			<h2 className={HEADING}>Task</h2>
-			<DialogDescription className="text-foreground">
-				{task.status}
-			</DialogDescription>
-			<div className="mt-1 flex min-w-0 flex-col gap-0.5 text-muted-foreground text-xs tabular-nums">
-				<p className="flex min-w-0 flex-wrap gap-x-1">
-					{facts.map(([name, fact], i) => (
-						<span key={name} className="min-w-0 truncate">
-							{i > 0 && (
-								<span aria-hidden className="mr-1">
-									·
-								</span>
-							)}
-							{fact}
-						</span>
-					))}
-				</p>
-				<p className="truncate" title={task.worktree}>
-					{task.worktree}
-				</p>
-			</div>
-			{retry}
-		</section>
 	);
 }

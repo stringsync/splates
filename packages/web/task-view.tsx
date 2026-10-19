@@ -47,8 +47,8 @@ import { useNow } from "./hooks/use-now";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { TakeUpOrRemove } from "./task-actions";
+import { Task } from "./task-dialog";
 import { TaskIcon } from "./task-icon";
-import { Task } from "./tasks";
 import { BarButton, BELOW_BAR, TopBar } from "./top-bar";
 
 /**

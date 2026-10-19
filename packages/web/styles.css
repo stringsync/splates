@@ -39,6 +39,7 @@
 @source "./todo-edit.tsx";
 @source "./todo-queue.tsx";
 @source "./tasks.tsx";
+@source "./task-dialog.tsx";
 @source "./task-ports.tsx";
 @source "./task-actions.tsx";
 @source "./dispatching.tsx";

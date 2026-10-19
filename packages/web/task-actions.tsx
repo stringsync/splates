@@ -131,7 +131,23 @@ export function ActionBar({
 					{revive}
 				</div>
 				<div className="flex flex-wrap items-center gap-1.5">
-					{[remove.action, retry, changes].map(
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									aria-label="More actions"
+								/>
+							}
+						>
+							<EllipsisIcon />
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-48">
+							<ActionItem action={remove.action} />
+						</DropdownMenuContent>
+					</DropdownMenu>
+					{[retry, changes].map(
 						(action) =>
 							action !== null && (
 								<ActionButton key={action.label} action={action} outline />

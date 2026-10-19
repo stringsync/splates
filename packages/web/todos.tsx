@@ -21,7 +21,7 @@ import { fadeOf, useEdges } from "./hooks/use-edges";
 import { columnId, Lane, Untriaged } from "./lanes";
 import { useRefusals } from "./refusal";
 import { shownLanes } from "./shown-lanes";
-import { Task } from "./tasks";
+import { Task } from "./task-dialog";
 import { TodoBoard } from "./todo-board";
 import { Edit } from "./todo-edit";
 import type { TodoView } from "./todo-view";

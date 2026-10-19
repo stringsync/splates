@@ -46,7 +46,7 @@ describe("App's tasks", () => {
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(dialog.textContent).toContain("ship the thing");
-		expect(dialog.textContent).toContain("working");
+		expect(within(dialog).getByText("Working")).toBeTruthy();
 	});
 
 	it("nests each part under the task it was handed out from", async () => {

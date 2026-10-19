@@ -46,8 +46,8 @@ import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
+import { Task } from "./task-dialog";
 import { TaskView } from "./task-view";
-import { Task } from "./tasks";
 import {
 	ConversationTerminal,
 	MainTerminal,
