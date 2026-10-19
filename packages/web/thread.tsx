@@ -289,6 +289,7 @@ function Conversation({
 				<QueueBanner
 					id={conversation.id}
 					spot={conversation.queue}
+					held={conversation.queued}
 					phone={onBack !== null}
 				/>
 			)}

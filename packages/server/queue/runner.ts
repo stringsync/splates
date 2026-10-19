@@ -46,8 +46,9 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
  * slot with its worktree made.
  *
  * Checked as tasks change, as workers' slots free, and every `QUEUE_SWEEP`.
- * A queued task whose start was refused is not tried again until it changes
- * or the server restarts, so a broken one never loops.
+ * A queued task whose start was refused is not tried again until it changes,
+ * the person asks (`retry`), or the server restarts, so a broken one never
+ * loops; its held conversation says why it was refused meanwhile.
  */
 export class QueueRunner implements Resource {
 	readonly #disposer = new Disposer();
@@ -55,8 +56,16 @@ export class QueueRunner implements Resource {
 	#checking = Promise.resolve();
 	/** The queued tasks being started now, until their task takes them. */
 	readonly #starting = new Set<number>();
-	/** Each queued task whose start was refused, as it stood then, by id. */
-	readonly #refused = new Map<number, string>();
+	/**
+	 * Each queued task whose start was refused, by id: as it stood then, and
+	 * why.
+	 */
+	readonly #refused = new Map<number, { was: string; why: string }>();
+	/**
+	 * When each queued task was first placed as starting, by id, so its held
+	 * conversation says how long the start has taken, not the queue.
+	 */
+	readonly #startingSince = new Map<number, string>();
 	/** The pick each held conversation was made on, by its id, while this runs. */
 	readonly #picks = new Map<string, string>();
 
@@ -86,9 +95,15 @@ export class QueueRunner implements Resource {
 		return this.#checking;
 	}
 
+	/** Tries queued task `id` again, its start refused, as though it changed. */
+	retry(id: number): Promise<void> {
+		this.#refused.delete(id);
+		return this.sweep();
+	}
+
 	async #check(): Promise<void> {
 		const all = await this.deps.queued();
-		for (const [id, was] of this.#refused) {
+		for (const [id, { was }] of this.#refused) {
 			const now = all.find((queued) => queued.id === id);
 			if (now === undefined || JSON.stringify(now) !== was) {
 				this.#refused.delete(id);
@@ -147,10 +162,16 @@ export class QueueRunner implements Resource {
 						`the queue started task ${start.queued.id} as ${start.task}`,
 					);
 				} catch (error) {
-					this.#refused.set(start.queued.id, JSON.stringify(start.queued));
+					this.#refused.set(start.queued.id, {
+						was: JSON.stringify(start.queued),
+						why: refusal(error),
+					});
 					this.deps.log.error(
 						`the queue could not start task ${start.queued.id} as ${start.task}, and leaves it until it changes: ${String(error)}`,
 					);
+					// Its held conversation says so now, not at the next sweep;
+					// the check runs after `finally`, so it is no longer starting.
+					void this.sweep();
 				} finally {
 					this.#starting.delete(start.queued.id);
 				}
@@ -217,11 +238,22 @@ export class QueueRunner implements Resource {
 				this.#picks.set(each.id, JSON.stringify(queued.assignee ?? fallback));
 			}
 			held.set(each.queued, each.id);
+			const reason = waitsFor(
+				queued,
+				all,
+				next.includes(queued),
+				this.#refused.get(queued.id)?.why,
+			);
+			if (reason !== "starting") {
+				this.#startingSince.delete(queued.id);
+			} else if (!this.#startingSince.has(queued.id)) {
+				this.#startingSince.set(queued.id, new Date().toISOString());
+			}
 			conversations.place(each.id, {
 				position: at + 1,
 				of: queue.length,
-				since: each.createdAt,
-				reason: waitsFor(queued, all, next.includes(queued)),
+				since: this.#startingSince.get(queued.id) ?? each.createdAt,
+				reason,
 			});
 		}
 		return held;
@@ -233,14 +265,19 @@ export class QueueRunner implements Resource {
 }
 
 /**
- * Why queued task `queued` has yet to start, among `all`: what it waits on,
- * or a free slot, unless it is `next`, starting now.
+ * Why queued task `queued` has yet to start, among `all`: its start
+ * `refused`, what it waits on, or a free slot, unless it is `next`, starting
+ * now.
  */
 function waitsFor(
 	queued: TaskRecord,
 	all: readonly TaskRecord[],
 	next: boolean,
+	refused: string | undefined,
 ): string {
+	if (refused !== undefined) {
+		return `could not start: ${refused}`;
+	}
 	const { open, lost } = holdsBack(queued, all);
 	if (lost.length > 0) {
 		return `needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`;
@@ -249,6 +286,12 @@ function waitsFor(
 		return `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
 	}
 	return next ? "starting" : "no free slot";
+}
+
+/** Why a start was refused, in its error's first line. */
+function refusal(error: unknown): string {
+	const said = error instanceof Error ? error.message : String(error);
+	return said.trim().split("\n")[0] || "it was refused";
 }
 
 /** What a `QueueRunner` works with. */

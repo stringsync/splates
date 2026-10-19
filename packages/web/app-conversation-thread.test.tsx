@@ -498,6 +498,97 @@ describe("App's conversation thread", () => {
 		expect(JSON.parse(String(moved?.body))).toEqual({ position: 1 });
 	});
 
+	it("says a wait past a minute is longer than usual, with the Workers page to try", async () => {
+		const since = new Date(Date.now() - 5 * 60_000).toISOString();
+		const view = await testing.openConversations([
+			conversation({
+				status: "starting",
+				queue: { position: 1, of: 1, since, reason: "no worker up" },
+			}),
+		]);
+
+		const late = view.container.ownerDocument.querySelector(
+			'[data-slot="queue-late"]',
+		);
+		expect(late?.textContent).toContain("Taking longer than usual.");
+		expect(
+			view.getByRole("link", { name: "Open Workers" }).getAttribute("href"),
+		).toBe("#workers");
+	});
+
+	it("says nothing is late of a wait under a minute", async () => {
+		const since = new Date(Date.now() - 20_000).toISOString();
+		const view = await testing.openConversations([
+			conversation({
+				status: "starting",
+				queued: 3,
+				queue: { position: 1, of: 1, since, reason: "starting" },
+			}),
+		]);
+
+		const banner = view.container.ownerDocument.querySelector(
+			'[data-slot="queue-banner"]',
+		);
+		expect(banner?.textContent).toContain(
+			"Queued, 1st of 1 to start. Its task is starting, readying a worktree and installing. It has been at it under a minute.",
+		);
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="queue-late"]'),
+		).toBeNull();
+	});
+
+	it("says a held task waits on its blocker, never late, with no slot to move", async () => {
+		const since = new Date(Date.now() - 30 * 60_000).toISOString();
+		const view = await testing.openConversations([
+			conversation({
+				status: "starting",
+				queued: 3,
+				queue: { position: 2, of: 2, since, reason: "waits on #2" },
+			}),
+		]);
+
+		const banner = view.container.ownerDocument.querySelector(
+			'[data-slot="queue-banner"]',
+		);
+		expect(banner?.textContent).toContain(
+			"Queued, 2nd of 2 to start. It waits on #2 to land first, and starts once it does.",
+		);
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="queue-late"]'),
+		).toBeNull();
+		expect(view.queryByRole("button", { name: "Start next" })).toBeNull();
+	});
+
+	it("says why a held task's start was refused, and retries it", async () => {
+		const since = new Date().toISOString();
+		const view = await testing.openConversations([
+			conversation({
+				status: "starting",
+				queued: 3,
+				queue: {
+					position: 1,
+					of: 1,
+					since,
+					reason: "could not start: hook_failed: install exited 1",
+				},
+			}),
+		]);
+
+		const banner = view.container.ownerDocument.querySelector(
+			'[data-slot="queue-banner"]',
+		);
+		expect(banner?.textContent).toContain(
+			"Its task could not start: hook_failed: install exited 1. Fix what that says, then retry.",
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Retry" })),
+		);
+		const retried = testing.posts.find((post) =>
+			post.path.includes("/api/todos/3/retry"),
+		);
+		expect(retried?.method).toBe("POST");
+	});
+
 	it("says nothing of idling for an agent stopped otherwise", async () => {
 		const view = await testing.openConversations([
 			conversation({ status: "stopped" }),

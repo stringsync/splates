@@ -9,16 +9,21 @@ import {
 	ArrowUpToLineIcon,
 	CoinsIcon,
 	HourglassIcon,
+	ListTodoIcon,
+	RotateCwIcon,
+	ServerIcon,
 } from "lucide-react";
-import { type JSX, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { type JSX, useContext, useState } from "react";
+import { Duration } from "webappwiz/time";
+import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { ApiError, moveQueued } from "./api";
+import { ApiError, moveQueued, retryQueuedStart } from "./api";
+import { Board } from "./board";
 import { useNow } from "./hooks/use-now";
 import { useMachine } from "./machine";
 import { raiseWorkerLimit } from "./worker-budget-api";
@@ -143,23 +148,117 @@ function BannerOffer(): JSX.Element | null {
 	return <RaiseOfferButton offer={machine?.workerBudget?.offer} />;
 }
 
+/** How long a wait goes before the page calls it longer than usual. */
+export const QUEUE_LATE = Duration.mins(1);
+
+/**
+ * Whether the wait at `spot` wants the person by `now`: at once for a start
+ * refused or a blocker removed, past `QUEUE_LATE` for any other but one on a
+ * blocker still open, which is meant to wait.
+ */
+export function queueWantsYou(spot: QueueSpot, now: number): boolean {
+	if (spot.reason.startsWith("needs you") || spot.reason.startsWith(REFUSED)) {
+		return true;
+	}
+	return (
+		!spot.reason.startsWith("waits on") &&
+		now - Date.parse(spot.since) >= QUEUE_LATE.ms
+	);
+}
+
+/** How the queue's runner begins the reason for a start it was refused. */
+const REFUSED = "could not start: ";
+
+/** The task numbers `reason` names, as in "waits on #3, #4". */
+function numbersIn(reason: string): number[] {
+	return [...reason.matchAll(/#(\d+)/g)].map(([, id]) => Number(id));
+}
+
+/**
+ * Why a conversation at `spot` waits, held for queued task `held` or else in
+ * the line for a worker's slot, having waited `span`.
+ */
+function waitSays(spot: QueueSpot, held: number | null, span: string): string {
+	const { reason } = spot;
+	if (reason === "no free slot") {
+		return held === null
+			? `Every worker it can run on is full. It has waited ${span}, and starts on its own once a slot frees.`
+			: `Every agent slot is taken. It has waited ${span}, and starts on its own once a slot frees.`;
+	}
+	if (reason === "starting") {
+		return `Its task is starting, readying a worktree and installing. It has been at it ${span}.`;
+	}
+	if (reason.startsWith("waits on")) {
+		const ids = numbersIn(reason).map((id) => `#${id}`);
+		return `It waits on ${ids.join(", ")} to land first, and starts once ${ids.length === 1 ? "it does" : "they do"}.`;
+	}
+	if (reason.startsWith("needs you")) {
+		const ids = numbersIn(reason).map((id) => `#${id}`);
+		return `${ids.join(", ")}, which it waits on, ${ids.length === 1 ? "was" : "were"} removed, so it cannot start: unlink ${ids.length === 1 ? "it" : "them"}, or restore ${ids.length === 1 ? "it" : "them"}.`;
+	}
+	if (reason.startsWith(REFUSED)) {
+		return `Its task could not start: ${reason.slice(REFUSED.length)}. Fix what that says, then retry.`;
+	}
+	if (reason.endsWith(" reached")) {
+		return `No worker it can run on is free, and no other is made: the worker budget's ${reason}. It has waited ${span}, and starts once a slot frees or the budget is raised.`;
+	}
+	if (reason === "no worker up") {
+		return `No worker is up to run it. It has waited ${span}, and starts once a worker joins.`;
+	}
+	return `It ${reason}, and no worker on it is up. It has waited ${span}, and starts once one joins.`;
+}
+
+/**
+ * What to try for a wait at `spot` that wants the person, past
+ * `QUEUE_LATE` or at once, held for queued task `held` or else for a slot:
+ * a line on it, and what to do, or null when the banner already offers it.
+ */
+function lateSays(spot: QueueSpot, held: number | null): string | null {
+	const { reason } = spot;
+	if (
+		reason.startsWith("needs you") ||
+		reason.startsWith(REFUSED) ||
+		reason.endsWith(" reached")
+	) {
+		return null;
+	}
+	if (reason === "starting") {
+		return "Taking longer than usual. A fresh install can take a few minutes; if the start fails, this says why.";
+	}
+	return held === null || reason === "no free slot"
+		? "Taking longer than usual. The Workers page shows what holds each slot, and can wake or add a worker."
+		: null;
+}
+
 /**
  * Under a conversation's header while its agent waits for a slot on a
- * worker, across the pane's padding to its edges: where it is in line, how
- * long it has waited and why, so the person does not take the wait for a
- * hang, and a way to put it first.
+ * worker, or is held for a queued task until the queue starts it, across the
+ * pane's padding to its edges: where it is in line, how long it has waited
+ * and why, so the person does not take the wait for a hang. Past
+ * `QUEUE_LATE`, or at once when only the person can move it, it says what to
+ * try and offers it: the Workers page, the task in the way, or a retry.
  */
 export function QueueBanner({
 	id,
 	spot,
+	held,
 	phone,
 }: {
 	id: string;
 	spot: QueueSpot;
+	/** The queued task it is held for, or null for one in the line for a slot. */
+	held: number | null;
 	phone: boolean;
 }): JSX.Element {
 	const now = useNow();
-	const { move, error } = useMove();
+	const board = useContext(Board);
+	const { move, error: moveError } = useMove();
+	const { retry, retrying, error: retryError } = useRetry();
+	const error = moveError ?? retryError;
+	const wants = queueWantsYou(spot, now);
+	const late = wants ? lateSays(spot, held) : null;
+	const { reason } = spot;
+	const [blocker] = numbersIn(reason);
 	return (
 		<div
 			role="status"
@@ -170,23 +269,21 @@ export function QueueBanner({
 			)}
 		>
 			<div className="flex items-center gap-2">
-				<HourglassIcon className="size-4 shrink-0" />
+				<HourglassIcon
+					className={cn("size-4 shrink-0", wants && "text-warning")}
+				/>
 				<span className="min-w-0 flex-1">
 					<span className="font-medium text-foreground">
-						Waiting for a slot, {ordinal(spot.position)} of {spot.of} in line.
+						{held === null
+							? `Waiting for a slot, ${ordinal(spot.position)} of ${spot.of} in line.`
+							: `Queued, ${ordinal(spot.position)} of ${spot.of} to start.`}
 					</span>{" "}
-					{spot.reason === "no free slot"
-						? `Every worker it can run on is full. It has waited ${waited(spot.since, now)}, and starts on its own once a slot frees.`
-						: spot.reason.endsWith(" reached")
-							? `No worker it can run on is free, and no other is made: the worker budget's ${spot.reason}. It has waited ${waited(spot.since, now)}, and starts once a slot frees or the budget is raised.`
-							: spot.reason === "no worker up"
-								? `No worker is up to run it. It has waited ${waited(spot.since, now)}, and starts once a worker joins.`
-								: `It ${spot.reason}, and no worker on it is up. It has waited ${waited(spot.since, now)}, and starts once one joins.`}
+					{waitSays(spot, held, waited(spot.since, now))}
 					{error !== null && (
 						<span className="block text-destructive">{error}</span>
 					)}
 				</span>
-				{spot.position > 1 && (
+				{held === null && spot.position > 1 && (
 					<Button
 						variant="outline"
 						size="sm"
@@ -197,23 +294,112 @@ export function QueueBanner({
 						Start next
 					</Button>
 				)}
+				{held !== null && reason.startsWith(REFUSED) && (
+					<Button
+						variant="outline"
+						size="sm"
+						className="shrink-0"
+						disabled={retrying}
+						onClick={() => retry(held)}
+					>
+						<RotateCwIcon />
+						Retry
+					</Button>
+				)}
+				{held !== null && reason.startsWith("needs you") && board.linked && (
+					<Button
+						variant="outline"
+						size="sm"
+						className="shrink-0"
+						onClick={() => board.open(held)}
+					>
+						<ListTodoIcon />
+						Open #{held}
+					</Button>
+				)}
+				{reason.startsWith("waits on") &&
+					blocker !== undefined &&
+					board.linked && (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="shrink-0"
+							onClick={() => board.open(blocker)}
+						>
+							<ListTodoIcon />
+							Open #{blocker}
+						</Button>
+					)}
 			</div>
-			{spot.reason.endsWith(" reached") && <BannerOffer />}
+			{late !== null && (
+				<div
+					data-slot="queue-late"
+					className="flex items-center gap-2 border-border/60 border-t pt-2"
+				>
+					<span className="min-w-0 flex-1 text-foreground">{late}</span>
+					{reason !== "starting" && (
+						<a
+							href="#workers"
+							className={cn(
+								buttonVariants({ variant: "outline", size: "sm" }),
+								"shrink-0",
+							)}
+						>
+							<ServerIcon />
+							Open Workers
+						</a>
+					)}
+				</div>
+			)}
+			{reason.endsWith(" reached") && <BannerOffer />}
 		</div>
 	);
 }
 
 /**
+ * Tries a queued task's refused start again, keeping why that was refused
+ * in turn, and whether one is under way.
+ */
+function useRetry(): {
+	retry: (todo: number) => void;
+	retrying: boolean;
+	error: string | null;
+} {
+	const [retrying, setRetrying] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	return {
+		retrying,
+		error,
+		retry: (todo) => {
+			setRetrying(true);
+			setError(null);
+			retryQueuedStart(todo)
+				.catch((caught: unknown) =>
+					setError(
+						caught instanceof ApiError ? caught.message : String(caught),
+					),
+				)
+				.finally(() => setRetrying(false));
+		},
+	};
+}
+
+/**
  * Where a conversation waits in the queue, for a mark on its task's row:
- * its place in line, with why in its title.
+ * its place in line, with why in its title, in the warning's color once the
+ * wait wants the person.
  */
 export function QueueMark({ spot }: { spot: QueueSpot }): JSX.Element {
+	const wants = queueWantsYou(spot, useNow());
 	return (
 		<span
 			role="img"
 			aria-label={`${ordinal(spot.position)} in line for a slot`}
-			title={`Waiting for a slot, ${ordinal(spot.position)} of ${spot.of}: ${spot.reason}`}
-			className="inline-flex items-center gap-0.5 whitespace-nowrap text-muted-foreground text-xs tabular-nums"
+			title={`${ordinal(spot.position)} of ${spot.of} in line: ${spot.reason}${wants ? ". Taking longer than usual: open it for what to try." : ""}`}
+			className={cn(
+				"inline-flex items-center gap-0.5 whitespace-nowrap text-xs tabular-nums",
+				wants ? "text-warning" : "text-muted-foreground",
+			)}
 		>
 			<HourglassIcon className="size-3" />
 			{spot.position}

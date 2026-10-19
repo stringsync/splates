@@ -20,6 +20,7 @@ import {
 import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
+import { fail } from "../exit";
 import {
 	HookRunner,
 	HookStore,
@@ -197,6 +198,15 @@ export async function serveProject(
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...talks,
+		retryQueued: async (request) => {
+			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+			const id = Number(raw);
+			if (!Number.isInteger(id) || id <= 0) {
+				fail("usage", `'${raw}' is not a task id`, { number: raw });
+			}
+			await queueRunner?.retry(id);
+			return new Response(null, { status: 204 });
+		},
 		root: service.git.root,
 		format,
 		conversations,
@@ -437,6 +447,8 @@ export interface Served extends AsyncResource {
 	assignQueued: Handler;
 	queueQueued: Handler;
 	moveInQueue: Handler;
+	/** Tries a queued task's refused start again. */
+	retryQueued: Handler;
 	joinLane: Handler;
 	addLane: Handler;
 	updateLane: Handler;

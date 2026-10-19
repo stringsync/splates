@@ -156,6 +156,29 @@ describe("QueueRunner", () => {
 		expect(started).toHaveLength(2);
 	});
 
+	it("says on its held conversation why a start was refused, and tries it again once asked", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		starting = async () => {
+			throw new Error("hook_failed: install exited 1\nat line 3");
+		};
+
+		await runner.sweep();
+		await settled();
+		await runner.sweep();
+		expect(held.placed()).toEqual([
+			{
+				queued: 1,
+				position: 1,
+				reason: "could not start: hook_failed: install exited 1",
+			},
+		]);
+
+		starting = async () => {};
+		await runner.retry(1);
+		expect(started).toHaveLength(2);
+	});
+
 	it("holds a conversation for each queued task from the start, placed in queue order with what it waits on", async () => {
 		await taskAdd(deps, "Breakdowns", null);
 		await taskAdd(deps, "Totals first", null);

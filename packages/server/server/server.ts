@@ -626,6 +626,9 @@ export async function dev(
 					"/api/todos/:id/queue-position": {
 						PUT: scoped((project) => project.moveInQueue),
 					},
+					"/api/todos/:id/retry": {
+						POST: scoped((project) => project.retryQueued),
+					},
 					"/api/lanes/:id/join": {
 						POST: scoped((project) => project.joinLane),
 					},

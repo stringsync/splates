@@ -169,6 +169,11 @@ export async function queueTodo(id: number, queued: boolean): Promise<void> {
 	await sendJson(`/api/todos/${id}/queued`, "PUT", { queued });
 }
 
+/** Tries queued todo `id`'s start again, after its start was refused. */
+export async function retryQueuedStart(id: number): Promise<void> {
+	await send(`/api/todos/${id}/retry`, {});
+}
+
 /** Moves lane `from`'s todos to the bottom of lane `into`. */
 export async function joinLanes(from: number, into: number): Promise<void> {
 	await sendJson(`/api/lanes/${from}/join`, "POST", { into });
