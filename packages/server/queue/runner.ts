@@ -18,7 +18,7 @@ export interface QueueStart {
 	queued: TaskRecord;
 	/** The name for its task, one no task out has. */
 	task: string;
-	/** The agent and model to work it: the one it names, else the default. */
+	/** The agent and model to work it: the one it names, else what Auto pick decided. */
 	pick: AgentPick;
 	/** What its agent is told beyond claiming the task. */
 	prompt: string;
@@ -41,9 +41,9 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
 /**
  * Works the queue down: whenever a worker has a slot free, the first queued
  * task in queue order that nothing open blocks goes out as a task of its
- * own, on the agent and model it names, or the roster's first agent for one
- * that names none. As many go at once as there is room, so none waits for a
- * slot with its worktree made.
+ * own, on the agent and model it names, or for one that names none, what
+ * the `picker`, Auto pick, decides as it starts. As many go at once as there
+ * is room, so none waits for a slot with its worktree made.
  *
  * A lane the person queued whole has each of its tasks queued as soon as
  * nothing blocks it, first thing in each check, until no task is left in it.
@@ -51,7 +51,8 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
  * Checked as tasks change, as workers' slots free, and every `QUEUE_SWEEP`.
  * A queued task whose start was refused is not tried again until it changes,
  * the person asks (`retry`), or the server restarts, so a broken one never
- * loops; its held conversation says why it was refused meanwhile.
+ * loops; its held conversation says why it was refused meanwhile. What Auto
+ * pick keeps on a task's record is not such a change.
  */
 export class QueueRunner implements Resource {
 	readonly #disposer = new Disposer();
@@ -70,7 +71,7 @@ export class QueueRunner implements Resource {
 	 */
 	readonly #startingSince = new Map<number, string>();
 	/** The pick each held conversation was made on, by its id, while this runs. */
-	readonly #picks = new Map<string, string>();
+	readonly #heldOn = new Map<string, string>();
 
 	private constructor(
 		private readonly deps: QueueRunnerDeps,
@@ -109,7 +110,7 @@ export class QueueRunner implements Resource {
 		const all = await this.deps.queued();
 		for (const [id, { was }] of this.#refused) {
 			const now = all.find((queued) => queued.id === id);
-			if (now === undefined || JSON.stringify(now) !== was) {
+			if (now === undefined || asWas(now) !== was) {
 				this.#refused.delete(id);
 			}
 		}
@@ -121,13 +122,12 @@ export class QueueRunner implements Resource {
 		);
 		const room = Math.max(0, this.deps.room() - this.#starting.size);
 		const next = startable.slice(0, room);
-		const fallback =
-			queueOrder(all).length === 0 ? null : await this.deps.fallback();
+		const picks = await this.#picks(all, next);
 		const held =
 			this.deps.held === undefined
 				? new Map<number, string>()
-				: await this.#hold(this.deps.held, all, fallback, next);
-		if (startable.length === 0 || fallback === null) {
+				: await this.#hold(this.deps.held, all, picks.of, next);
+		if (startable.length === 0) {
 			this.deps.want([]);
 			return;
 		}
@@ -136,14 +136,14 @@ export class QueueRunner implements Resource {
 		this.deps.want(
 			startable.slice(room).map((queued) => ({
 				queued,
-				pick: queued.assignee ?? fallback,
+				pick: picks.of(queued),
 			})),
 		);
 		if (next.length === 0) {
 			return;
 		}
 		const names = new Set(await this.deps.tasks());
-		const starts: QueueStart[] = [];
+		const starts: (QueueStart & { decided?: QueuePicked })[] = [];
 		for (const queued of next) {
 			const task = taskName(queued.subject, names);
 			names.add(task);
@@ -151,23 +151,30 @@ export class QueueRunner implements Resource {
 			starts.push({
 				queued,
 				task,
-				pick: queued.assignee ?? fallback,
+				pick: picks.of(queued),
 				prompt: queuePrompt(queued),
 				...(held.has(queued.id) ? { held: held.get(queued.id) } : {}),
+				...(picks.decided.has(queued.id)
+					? { decided: picks.decided.get(queued.id) }
+					: {}),
 			});
 		}
 		// Each add readies a worktree, an install included, so neither another
 		// start nor the next check waits on it: `#starting` holds its queued task.
-		for (const start of starts) {
+		for (const { decided, ...start } of starts) {
 			void (async () => {
 				try {
+					// Said in its held conversation before its agent opens there.
+					if (decided !== undefined && start.held !== undefined) {
+						await decided.tell(start.held);
+					}
 					await this.deps.start(start);
 					this.deps.log.info(
 						`the queue started task ${start.queued.id} as ${start.task}`,
 					);
 				} catch (error) {
 					this.#refused.set(start.queued.id, {
-						was: JSON.stringify(start.queued),
+						was: asWas(start.queued),
 						why: refusal(error),
 					});
 					this.deps.log.error(
@@ -184,6 +191,46 @@ export class QueueRunner implements Resource {
 	}
 
 	/**
+	 * Whom each queued task goes to: the agent it names, else Auto pick's
+	 * pick. Each that names none has its words judged in the background,
+	 * once for each wording, so the rest take what that judged, guessed
+	 * without asking again; those about to start, `next`, are decided now on
+	 * fresh plan limits.
+	 */
+	async #picks(
+		all: readonly TaskRecord[],
+		next: readonly TaskRecord[],
+	): Promise<{
+		of: (queued: TaskRecord) => AgentPick;
+		decided: Map<number, QueuePicked>;
+	}> {
+		const unnamed = queueOrder(all).filter(
+			(queued) => queued.assignee === undefined,
+		);
+		const decided = new Map<number, QueuePicked>();
+		if (unnamed.length === 0) {
+			return { of: (queued) => queued.assignee ?? NO_PICK, decided };
+		}
+		await this.deps.picker.ahead(unnamed);
+		const guessed = await this.deps.picker.guess(unnamed);
+		await Promise.all(
+			next
+				.filter((queued) => queued.assignee === undefined)
+				.map(async (queued) => {
+					decided.set(queued.id, await this.deps.picker.decide(queued));
+				}),
+		);
+		return {
+			of: (queued) =>
+				queued.assignee ??
+				decided.get(queued.id)?.pick ??
+				guessed.get(queued.id) ??
+				NO_PICK,
+			decided,
+		};
+	}
+
+	/**
 	 * Gives each queued task a held conversation, places each in the queue,
 	 * and drops those whose task left it, was taken another way, or now names
 	 * another agent or model; answers the held one of each, by queued task.
@@ -191,8 +238,8 @@ export class QueueRunner implements Resource {
 	async #hold(
 		conversations: HeldConversations,
 		all: readonly TaskRecord[],
-		/** Who works one that names no model; null while none is queued. */
-		fallback: AgentPick | null,
+		/** Who works each, as `#picks` says. */
+		pickOf: (queued: TaskRecord) => AgentPick,
 		next: readonly TaskRecord[],
 	): Promise<Map<number, string>> {
 		const queue = queueOrder(all);
@@ -201,8 +248,8 @@ export class QueueRunner implements Resource {
 		for (const each of listed) {
 			const task = all.find((queued) => queued.id === each.queued);
 			const busy = this.#starting.has(each.queued) || each.handed;
-			const pick = task?.assignee ?? fallback;
-			const was = this.#picks.get(each.id);
+			const pick = task === undefined ? null : pickOf(task);
+			const was = this.#heldOn.get(each.id);
 			const gone =
 				task === undefined ||
 				task.stage !== "queued" ||
@@ -213,23 +260,27 @@ export class QueueRunner implements Resource {
 						(was !== undefined && was !== JSON.stringify(pick)))) ||
 				kept.has(each.queued);
 			if (gone && !busy) {
-				this.#picks.delete(each.id);
+				this.#heldOn.delete(each.id);
 				await conversations.drop(each.id);
 			} else {
 				kept.set(each.queued, each);
 			}
 		}
 		for (const queued of queue) {
-			const pick = queued.assignee ?? fallback;
-			if (!kept.has(queued.id) && pick !== null) {
-				await conversations.hold(queued, pick);
+			// One being judged is held once that lands on its record, which
+			// checks the queue again, so it never waits on the wrong agent.
+			if (
+				!kept.has(queued.id) &&
+				(queued.assignee !== undefined || !this.deps.picker.judging(queued.id))
+			) {
+				await conversations.hold(queued, pickOf(queued));
 			}
 		}
 		const held = new Map<number, string>();
 		const now = await conversations.list();
-		for (const id of this.#picks.keys()) {
+		for (const id of this.#heldOn.keys()) {
 			if (!now.some((each) => each.id === id)) {
-				this.#picks.delete(id);
+				this.#heldOn.delete(id);
 			}
 		}
 		for (const each of now) {
@@ -238,8 +289,8 @@ export class QueueRunner implements Resource {
 			if (queued === undefined) {
 				continue;
 			}
-			if (!this.#picks.has(each.id)) {
-				this.#picks.set(each.id, JSON.stringify(queued.assignee ?? fallback));
+			if (!this.#heldOn.has(each.id)) {
+				this.#heldOn.set(each.id, JSON.stringify(pickOf(queued)));
 			}
 			held.set(each.queued, each.id);
 			const reason = waitsFor(
@@ -292,6 +343,20 @@ function waitsFor(
 	return next ? "starting" : "no free slot";
 }
 
+/**
+ * Who works a queued task when the picker knew nothing of it, which only a
+ * task queued between its reads can be: the next check picks it properly.
+ */
+const NO_PICK: AgentPick = { agent: "claude" };
+
+/**
+ * `queued` as a refused start remembers it, to tell a change from: all but
+ * what Auto pick keeps on it, which a start writes itself.
+ */
+function asWas({ autoPick: _, ...queued }: TaskRecord): string {
+	return JSON.stringify(queued);
+}
+
 /** Why a start was refused, in its error's first line. */
 function refusal(error: unknown): string {
 	const said = error instanceof Error ? error.message : String(error);
@@ -316,12 +381,50 @@ export interface QueueRunnerDeps {
 	 * wait in the workers' line: each sweep says them all, none when none.
 	 */
 	want: (waiting: QueueWaiting[]) => void;
-	/** Who works a queued task that names no model: the roster's first agent. */
-	fallback: () => Promise<AgentPick>;
+	/** Who works a queued task that names no agent: Auto pick. */
+	picker: QueuePicker;
 	start: QueueStarter;
 	/** The conversations held for queued tasks; absent, none is held. */
 	held?: HeldConversations;
 	log: Logger;
+}
+
+/**
+ * Whom a queued task that names no agent goes to. Guessing is cheap, for
+ * every check; deciding may ask a judge, so it is done as a task starts.
+ */
+export interface QueuePicker {
+	/**
+	 * Has the words of each of `queued` the judge has not read judged in the
+	 * background, keeping what it says on the task, so guesses find it: one
+	 * judgment at a time for a task, its latest words superseding any
+	 * waiting. Answers once each is under way, not judged.
+	 */
+	ahead(queued: readonly TaskRecord[]): Promise<void>;
+	/**
+	 * Whether queued task `id` is being judged ahead now, so its held
+	 * conversation waits for the pick, to be made once its record says it.
+	 */
+	judging(id: number): boolean;
+	/**
+	 * Whom each of `queued` would go to now, by id, asking no judge: what was
+	 * judged of its words before, else the rule for any task.
+	 */
+	guess(queued: readonly TaskRecord[]): Promise<Map<number, AgentPick>>;
+	/**
+	 * Decides whom `queued` starts on, on fresh plan limits, waiting out its
+	 * judgment under way and asking the judge only for words it has not
+	 * read, and keeps the decision on its record. Never rejects: with no
+	 * judge, or one that fails, it takes the rule for any task.
+	 */
+	decide(queued: TaskRecord): Promise<QueuePicked>;
+}
+
+/** What `QueuePicker.decide` decided for a queued task. */
+export interface QueuePicked {
+	pick: AgentPick;
+	/** Logs the decision in conversation `id`, the one that works the task. */
+	tell(id: string): Promise<void>;
 }
 
 /** A conversation held for a queued task, as `HeldConversations` lists it. */

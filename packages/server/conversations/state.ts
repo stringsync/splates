@@ -113,6 +113,11 @@ export interface ConversationState {
 	 */
 	assigned: boolean;
 	/**
+	 * Auto pick is still deciding its agent: it shows the agent the rules
+	 * fall back on with no judge until the pick lands, and opens none before.
+	 */
+	picking: boolean;
+	/**
 	 * Started by the server's queue or a hook, so its agent holds one of the
 	 * workers' slots; the person's own conversations take none.
 	 */
@@ -537,6 +542,7 @@ export function blank(
 		startedBy,
 		skill: null,
 		assigned,
+		picking: false,
 		capped: false,
 		queued: null,
 		unread: false,

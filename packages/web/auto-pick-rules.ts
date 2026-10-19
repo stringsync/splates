@@ -1,0 +1,349 @@
+import type {
+	AutoPickAgent,
+	AutoPickRules,
+	AutoPickRulesView,
+	DifficultyId,
+	KindId,
+	Rule,
+} from "@stringsync/splates-server/auto-pick";
+import {
+	ANY,
+	checkRules,
+	DEFAULT_RULES,
+	KIND_IDS,
+} from "@stringsync/splates-server/auto-pick/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
+import { Dispatcher, type Eventful } from "webappwiz/events";
+import {
+	autoPickRules,
+	resetAutoPickRules,
+	saveAutoPickRules,
+} from "./auto-pick-api";
+
+/** Where the editor reads and writes the machine's rules. */
+export interface RulesStore {
+	read(): Promise<AutoPickRulesView>;
+	save(rules: AutoPickRules): Promise<AutoPickRulesView>;
+	reset(): Promise<AutoPickRulesView>;
+}
+
+export type RulesEditorEvents = { changed: undefined };
+
+/** The thinking levels offered for an agent that has not said which it takes. */
+export const EFFORTS = ["low", "medium", "high"];
+
+/**
+ * Setup's Auto pick rules editor: a draft of the machine's rules, edited a
+ * control at a time, checked as it goes, and saved or reset at once on the
+ * page, put back with the refusal thrown when the server refuses. The last
+ * rule, `* *`, keeps its place and its matchers, so every task maps somewhere.
+ */
+export class RulesEditor implements Eventful<RulesEditorEvents> {
+	private readonly dispatcher = new Dispatcher<RulesEditorEvents>();
+	readonly events = this.dispatcher.events;
+
+	/** The rules as edited, the saved ones until a control moves. */
+	draft: AutoPickRules = DEFAULT_RULES;
+	/** The rules the server holds, as far as the page knows; null before the first read. */
+	saved: AutoPickRules | null = null;
+	/** The roster's agents a pick can name. */
+	agents: readonly AutoPickAgent[] = [];
+	/** Why the file did not read, so saving replaces it; null when it read. */
+	fileProblem: string | null = null;
+	/** Why the rules could not be read at all; null once they were, or before. */
+	loadProblem: string | null = null;
+
+	constructor(private readonly store: RulesStore = HTTP_RULES) {}
+
+	/** Whether the draft differs from what the server holds. */
+	get dirty(): boolean {
+		return (
+			this.saved !== null &&
+			JSON.stringify(this.draft) !== JSON.stringify(this.saved)
+		);
+	}
+
+	/** What does not check out in the draft, in one line, or null. */
+	get problem(): string | null {
+		const checked = checkRules(this.draft);
+		return checked.ok ? null : checked.problem;
+	}
+
+	/** The confidence threshold, as a whole percent. */
+	get percent(): number {
+		return Math.round(this.draft.threshold * 100);
+	}
+
+	/** Reads the rules, unless they were read already. */
+	async load(): Promise<void> {
+		if (this.saved !== null) {
+			return;
+		}
+		try {
+			this.take(await this.store.read());
+			this.loadProblem = null;
+		} catch (error) {
+			this.loadProblem = error instanceof Error ? error.message : String(error);
+		}
+		this.changed();
+	}
+
+	/** Whether rule `index` is the last, fixed `* *` rule. */
+	fixed(index: number): boolean {
+		return index === this.draft.rules.length - 1;
+	}
+
+	setPercent(percent: number): void {
+		if (Number.isFinite(percent)) {
+			const clamped = Math.min(100, Math.max(0, Math.round(percent)));
+			this.edit((rules) => ({ ...rules, threshold: clamped / 100 }));
+		}
+	}
+
+	setKind(index: number, kind: KindId | typeof ANY): void {
+		this.editRule(index, (rule) => ({ ...rule, kind }));
+	}
+
+	setDifficulty(index: number, difficulty: DifficultyId | typeof ANY): void {
+		this.editRule(index, (rule) => ({ ...rule, difficulty }));
+	}
+
+	/** Adds a rule just above the last, where a specific rule has to sit to win. */
+	addRule(): void {
+		const agent =
+			this.agents[0]?.id ?? this.draft.rules.at(-1)?.picks[0]?.agent;
+		const rule: Rule = {
+			kind: KIND_IDS[0],
+			difficulty: ANY,
+			picks: agent === undefined ? [] : [{ agent }],
+		};
+		this.edit((rules) => ({
+			...rules,
+			rules: [...rules.rules.slice(0, -1), rule, ...rules.rules.slice(-1)],
+		}));
+	}
+
+	removeRule(index: number): void {
+		if (this.fixed(index)) {
+			return;
+		}
+		this.edit((rules) => ({
+			...rules,
+			rules: rules.rules.filter((_, at) => at !== index),
+		}));
+	}
+
+	/** Moves rule `index` up (-1) or down (1), never past the last. */
+	moveRule(index: number, by: -1 | 1): void {
+		const to = index + by;
+		if (this.fixed(index) || to < 0 || this.fixed(to)) {
+			return;
+		}
+		this.edit((rules) => ({
+			...rules,
+			rules: swapped(rules.rules, index, to),
+		}));
+	}
+
+	/** Adds a pick at the end of rule `index`'s, on the roster's first agent. */
+	addPick(index: number): void {
+		const agent = this.agents[0]?.id;
+		if (agent !== undefined) {
+			this.editRule(
+				index,
+				(rule) => ({ ...rule, picks: [...rule.picks, { agent }] }),
+				true,
+			);
+		}
+	}
+
+	removePick(index: number, pick: number): void {
+		this.editRule(
+			index,
+			(rule) => ({ ...rule, picks: rule.picks.filter((_, at) => at !== pick) }),
+			true,
+		);
+	}
+
+	movePick(index: number, pick: number, by: -1 | 1): void {
+		this.editRule(
+			index,
+			(rule) => {
+				const to = pick + by;
+				return to < 0 || to >= rule.picks.length
+					? rule
+					: { ...rule, picks: swapped(rule.picks, pick, to) };
+			},
+			true,
+		);
+	}
+
+	/**
+	 * Names `agent` on a pick, keeping its model and thinking level only
+	 * where the new agent offers them, and the agent's default otherwise.
+	 */
+	setAgent(index: number, pick: number, agent: string): void {
+		this.editPick(index, pick, (was) => {
+			const next: AgentPick = { agent };
+			if (was.model !== undefined && this.models(agent).includes(was.model)) {
+				next.model = was.model;
+			}
+			if (
+				was.effort !== undefined &&
+				this.efforts(agent).includes(was.effort)
+			) {
+				next.effort = was.effort;
+			}
+			return next;
+		});
+	}
+
+	/** Sets a pick's model; undefined for the agent's default. */
+	setModel(index: number, pick: number, model: string | undefined): void {
+		this.editPick(index, pick, ({ model: _, ...rest }) =>
+			model === undefined ? rest : { ...rest, model },
+		);
+	}
+
+	/** Sets a pick's thinking level; undefined for the agent's default. */
+	setEffort(index: number, pick: number, effort: string | undefined): void {
+		this.editPick(index, pick, ({ effort: _, ...rest }) =>
+			effort === undefined ? rest : { ...rest, effort },
+		);
+	}
+
+	/** The model ids a pick of `agent` can name: the roster's for it. */
+	models(agent: string): string[] {
+		return (
+			this.agents
+				.find((each) => each.id === agent)
+				?.models.map((each) => each.id) ?? []
+		);
+	}
+
+	/** The thinking levels a pick of `agent` can name: those it offered, or the usual three. */
+	efforts(agent: string): string[] {
+		return this.agents.find((each) => each.id === agent)?.efforts ?? EFFORTS;
+	}
+
+	/**
+	 * Saves the draft, shown as saved at once; throws, the saved rules put
+	 * back, when it does not check out or the server refuses it.
+	 */
+	async save(): Promise<void> {
+		const problem = this.problem;
+		if (problem !== null) {
+			throw new Error(problem);
+		}
+		const draft = this.draft;
+		await this.write(draft, () => this.store.save(draft));
+	}
+
+	/** Saves the draft when it differs from what the server holds, as Next does. */
+	async saveIfDirty(): Promise<void> {
+		if (this.dirty) {
+			await this.save();
+		}
+	}
+
+	/** Writes the defaults over the rules, shown at once; throws, put back, when refused. */
+	async reset(): Promise<void> {
+		const before = this.draft;
+		this.draft = DEFAULT_RULES;
+		try {
+			await this.write(DEFAULT_RULES, () => this.store.reset());
+		} catch (error) {
+			this.draft = before;
+			this.changed();
+			throw error;
+		}
+	}
+
+	/** Shows `rules` as saved at once, taking what the server answers, or putting back what was. */
+	private async write(
+		rules: AutoPickRules,
+		send: () => Promise<AutoPickRulesView>,
+	): Promise<void> {
+		const before = this.saved;
+		this.saved = rules;
+		this.changed();
+		try {
+			const view = await send();
+			// A control moved since: its draft stays, measured against what saved.
+			const edited = this.draft !== rules;
+			const draft = this.draft;
+			this.take(view);
+			if (edited) {
+				this.draft = draft;
+			}
+		} catch (error) {
+			if (this.saved === rules) {
+				this.saved = before;
+			}
+			throw error;
+		} finally {
+			this.changed();
+		}
+	}
+
+	private take(view: AutoPickRulesView): void {
+		this.saved = view.rules;
+		this.draft = view.rules;
+		this.agents = view.agents;
+		this.fileProblem = view.problem;
+	}
+
+	private editRule(
+		index: number,
+		edit: (rule: Rule) => Rule,
+		picksOnly = false,
+	): void {
+		if (!picksOnly && this.fixed(index)) {
+			return;
+		}
+		this.edit((rules) => ({
+			...rules,
+			rules: rules.rules.map((rule, at) => (at === index ? edit(rule) : rule)),
+		}));
+	}
+
+	private editPick(
+		index: number,
+		pick: number,
+		edit: (pick: AgentPick) => AgentPick,
+	): void {
+		this.editRule(
+			index,
+			(rule) => ({
+				...rule,
+				picks: rule.picks.map((each, at) => (at === pick ? edit(each) : each)),
+			}),
+			true,
+		);
+	}
+
+	private edit(change: (rules: AutoPickRules) => AutoPickRules): void {
+		this.draft = change(this.draft);
+		this.changed();
+	}
+
+	private changed(): void {
+		this.dispatcher.dispatch("changed");
+	}
+}
+
+/** The rules over `splates server`'s routes. */
+const HTTP_RULES: RulesStore = {
+	read: autoPickRules,
+	save: saveAutoPickRules,
+	reset: resetAutoPickRules,
+};
+
+/** `items` with those at `from` and `to` swapped. */
+function swapped<T>(items: readonly T[], from: number, to: number): T[] {
+	const next = [...items];
+	const moved = next[from] as T;
+	next[from] = next[to] as T;
+	next[to] = moved;
+	return next;
+}

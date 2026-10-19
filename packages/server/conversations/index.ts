@@ -11,6 +11,7 @@ export type {
 	ArtifactGone,
 	ArtifactVersion,
 } from "../artifacts";
+export type { Picked } from "./conversation";
 export { Conversation } from "./conversation";
 export { ARCHIVED_KEPT, Conversations } from "./conversations";
 export { JournalEvents } from "./events";

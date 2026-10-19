@@ -30,6 +30,8 @@
 		"./age": "./age.ts",
 		"./agents": "./agents/index.ts",
 		"./agents/testing": "./agents/testing.ts",
+		"./auto-pick": "./auto-pick/index.ts",
+		"./auto-pick/browser": "./auto-pick/browser.ts",
 		"./tasks": "./tasks/index.ts",
 		"./tasks/browser": "./tasks/browser.ts",
 		"./models": "./models/index.ts",

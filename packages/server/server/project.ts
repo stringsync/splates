@@ -5,6 +5,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
+import { AutoPickRoutes, QueueAutoPick } from "../auto-pick";
 import type { LaneRecord } from "../board";
 import { BoardRoutes } from "../board";
 import type {
@@ -18,7 +19,7 @@ import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
-import { type AgentPick, Roster, splatesHome } from "../models";
+import type { AgentPick } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -84,13 +85,7 @@ export async function serveProject(
 						agent: pick.agent,
 					})),
 				),
-			fallback: async () => {
-				const [first] = await new Roster(
-					`${splatesHome(project.ps)}/agents.json`,
-					{ fs },
-				).agents();
-				return { agent: first?.id ?? "claude" };
-			},
+			picker: new QueueAutoPick(project, conversations),
 			start: ({ task, queued, pick, prompt, held }) =>
 				startQueuedTask(project, context.url, {
 					task,
@@ -151,6 +146,7 @@ export async function serveProject(
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...automations.routes,
+		...new AutoPickRoutes(project, conversations, watch),
 		...talks,
 		retryQueued: async (request) => {
 			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
@@ -432,6 +428,8 @@ export interface Served extends AsyncResource {
 	showConversation: Handler;
 	refreshLimits: Handler;
 	startConversation: Handler;
+	startAutoPick: Handler;
+	tryAutoPick: Handler;
 	listSessions: Handler;
 	bringSession: Handler;
 	/**

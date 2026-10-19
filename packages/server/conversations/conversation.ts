@@ -35,6 +35,7 @@ import {
 	IDLE_STOP,
 	type Limit,
 	type QueueSpot,
+	runOn,
 	SERVER_TOLD,
 	type Upload,
 } from "./state";
@@ -234,6 +235,7 @@ export class Conversation
 		{
 			settings = {},
 			model,
+			picking,
 			...opening
 		}: Opening & {
 			/** Values to set, by setting id, once the session offers them. */
@@ -243,6 +245,11 @@ export class Conversation
 			 * setting, over what `settings` says. An unavailable choice fails.
 			 */
 			model?: string;
+			/**
+			 * What Auto pick decides, once it has, to open on in place of
+			 * `agent`, `settings` and `model`, which it shows meanwhile.
+			 */
+			picking?: Promise<Picked>;
 		},
 		deps: ConversationDeps,
 	): Promise<Conversation> {
@@ -250,6 +257,14 @@ export class Conversation
 			picks: settings,
 			model: model ?? null,
 		});
+		if (picking !== undefined) {
+			conversation.state.picking = true;
+			conversation.opening = conversation.pick(picking, opening.cwd, {
+				model,
+				settings,
+			});
+			return conversation;
+		}
 		if (model !== undefined) {
 			conversation.log.write({ kind: "model-request", model });
 		}
@@ -1117,6 +1132,40 @@ export class Conversation
 	}
 
 	/**
+	 * Opens on what Auto pick decides once it has, or, when the pick fails,
+	 * on what the conversation started on; opens nothing when it was stopped
+	 * meanwhile. The model is asked for only now, so a log read back mid-pick
+	 * asks for none the pick may not keep.
+	 */
+	private async pick(
+		picking: Promise<Picked>,
+		cwd: string,
+		started: Omit<Picked, "agent">,
+	): Promise<void> {
+		const picked = await picking.catch(() => null);
+		const { agent, model, settings } = picked ?? {
+			...started,
+			agent: this.ran as Agent,
+		};
+		if (agent.id !== this.state.agent) {
+			this.ran = agent;
+			runOn(this.state, agent.id);
+			this.log.write({ kind: "agent", agent: agent.id });
+		}
+		if (model !== undefined) {
+			this.log.write({ kind: "model-request", model });
+		}
+		this.connection.openOn(model ?? null, settings);
+		this.state.picking = false;
+		this.changed();
+		if (this.state.status !== "starting") {
+			this.opening = null;
+			return;
+		}
+		await this.wake(agent, cwd);
+	}
+
+	/**
 	 * Opens the agent in `cwd` once it has a slot, clearing `opening` once it
 	 * has, failed to, or was stopped while it waited for one. On a worker
 	 * other than this machine's it opens in its checkout there instead.
@@ -1268,6 +1317,15 @@ interface Opening {
 	title?: string | null;
 	/** The persistent agent's role it is started for, as `"groomer"`. */
 	persistent?: string;
+}
+
+/** What Auto pick decided for a conversation to open on, its agent as `A` names it. */
+export interface Picked<A = Agent> {
+	agent: A;
+	/** The model to pick, as `Conversation.start` takes it; none for the agent's default. */
+	model?: string;
+	/** Values to set, by setting id, once the session offers them. */
+	settings: Record<string, string>;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

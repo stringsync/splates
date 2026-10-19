@@ -299,6 +299,7 @@ export function App({
 					setup: (
 						<SetupPage
 							settings={settings}
+							todos={snapshot.todos}
 							feed={available ? talk : null}
 							onOpen={(id) => go("conversations", id)}
 						/>

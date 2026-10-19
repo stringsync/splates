@@ -158,8 +158,10 @@ blocks it, and put it in a lane when its lane is plain (see
 to do that without looking into it, as for a rough idea or a request
 deferred as it came, `splates task defer` it instead, which takes the same
 flags and leaves it in the backlog for whoever grooms it. Leave its position
-and its model to the user and the queue, unless the user names them, or the
-model it takes is plain, as for a change spelled out step by step.
+to the user and the queue, unless the user names it. Leave its model off
+too, unless the user names one: a task that names none goes to Auto pick,
+which judges its words and starts it on the agent, model and thinking level
+the user's rules give.
 
 Write a task's subject short enough to scan. Put the why, the where, the
 files and the feature in its detail, as markdown the `splates server` page

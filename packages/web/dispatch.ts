@@ -20,6 +20,7 @@ import { agentFor, NEW, newAddress, settingsFor } from "./conversation-address";
 import {
 	archiveConversation,
 	promptConversation,
+	startAutoPick,
 	startConversation,
 } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
@@ -158,6 +159,33 @@ export class Dispatch {
 	}
 
 	/**
+	 * Starts a conversation on what Auto pick decides for `assignment`, and
+	 * sends it the prompt, answering its address once it is started, as
+	 * `begin` does: the server answers before the judge, so the thread opens
+	 * at once, its agent opening on the pick. When it does not start, the
+	 * address of the screen that starts one with the first agent, the prompt
+	 * in its composer.
+	 */
+	async auto(assignment: Assignment): Promise<string> {
+		const task = assignment.kind === "task" ? assignment.task : null;
+		const text = promptFor(assignment);
+		const started = await startAutoPick(
+			assignment.kind === "task"
+				? { task: assignment.task }
+				: { todo: assignment.id },
+		).catch(() => null);
+		if (started === null) {
+			this.compose(newDraft(this.project, task), text);
+			return newAddress(
+				agentFor(NEW, this.agents, this.conversations),
+				task,
+				null,
+			);
+		}
+		return this.send(started, text);
+	}
+
+	/**
 	 * Asks for a demo of `task` at `point` in `conversation`, the one that
 	 * last worked it, or for null the newest in its tree, put back on the list first when archived; or, when it
 	 * is gone or there is none, in a new conversation in the main tree, where
@@ -219,12 +247,7 @@ export class Dispatch {
 			this.compose(newDraft(this.project, task), text);
 			return newAddress(pick.agent, task, pick.model ?? null);
 		}
-		this.feed.put(started);
-		const sending = this.feed.send(started.id, text);
-		void promptConversation(started.id, text, [], false, sending.id)
-			.then((state) => this.feed.answered(started.id, sending, state))
-			.catch((error: unknown) => this.feed.refused(started.id, sending, error));
-		return started.id;
+		return this.send(started, text);
 	}
 
 	/**
@@ -253,6 +276,19 @@ export class Dispatch {
 	link(id: string, assignment: Assignment): string {
 		this.compose(id, promptFor(assignment));
 		return id;
+	}
+
+	/**
+	 * Shows `started` and sends it `text`, showing as sent at once and kept
+	 * in its thread as unsent when refused; answers its address.
+	 */
+	private send(started: ConversationState, text: string): string {
+		this.feed.put(started);
+		const sending = this.feed.send(started.id, text);
+		void promptConversation(started.id, text, [], false, sending.id)
+			.then((state) => this.feed.answered(started.id, sending, state))
+			.catch((error: unknown) => this.feed.refused(started.id, sending, error));
+		return started.id;
 	}
 
 	/** Puts `text` ahead of whatever waits in the draft under `key`. */

@@ -11,6 +11,7 @@ import {
 	QueueRunner,
 	type QueueStart,
 } from "./runner";
+import { FakePicker } from "./testing";
 
 describe("QueueRunner", () => {
 	let deps: Testing;
@@ -27,6 +28,7 @@ describe("QueueRunner", () => {
 	/** Every start under way, for `settled` to wait out. */
 	let pending: Promise<void>[];
 	let held: FakeHeld;
+	let picker: FakePicker;
 
 	/** Waits out every start under way, and the runner's note that it ended. */
 	const settled = async (): Promise<void> => {
@@ -41,6 +43,7 @@ describe("QueueRunner", () => {
 		waiting = [];
 		pending = [];
 		held = new FakeHeld();
+		picker = new FakePicker();
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
 			if (each.held !== undefined) {
@@ -55,7 +58,7 @@ describe("QueueRunner", () => {
 			want: (each) => {
 				waiting = each.map(({ queued }) => queued.id);
 			},
-			fallback: async () => ({ agent: "claude" }),
+			picker,
 			start: (each) => {
 				started.push(each);
 				const start = starting(each);
@@ -83,7 +86,7 @@ describe("QueueRunner", () => {
 		expect(started).toEqual([]);
 	});
 
-	it("starts queued tasks in dependency order, once each, on the model each names or the fallback", async () => {
+	it("starts queued tasks in dependency order, once each, on the model each names or Auto pick's", async () => {
 		await taskAdd(deps, "Breakdowns", null, {
 			assignee: { agent: "claude", model: "sonnet" },
 		});
@@ -264,6 +267,93 @@ describe("QueueRunner", () => {
 
 		expect(held.dropped).toEqual(["h1"]);
 		expect(held.held.map((each) => each.agent)).toEqual(["codex"]);
+	});
+
+	it("starts a task that names no agent on what Auto pick decides as it starts, held and told there", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		picker.decides = { agent: "codex", model: "o3", effort: "high" };
+		room = 0;
+		await runner.sweep();
+		await runner.sweep();
+		expect(picker.decided).toEqual([]);
+		expect(held.held.map((each) => each.agent)).toEqual(["claude"]);
+
+		room = 1;
+		await runner.sweep();
+		await settled();
+
+		expect(picker.decided).toEqual([1]);
+		expect(started.map(({ pick, held }) => ({ pick, held }))).toEqual([
+			{ pick: { agent: "codex", model: "o3", effort: "high" }, held: "h2" },
+		]);
+		expect(held.dropped).toEqual(["h1"]);
+		expect(picker.told).toEqual([{ queued: 1, conversation: "h2" }]);
+	});
+
+	it("keeps the agent a task names, asking Auto pick nothing", async () => {
+		await taskAdd(deps, "Totals first", null, {
+			assignee: { agent: "codex", model: "o3" },
+		});
+		await queueAdd(deps, [1]);
+
+		await runner.sweep();
+		await settled();
+
+		expect(picker.aheadOf).toEqual([]);
+		expect(picker.guessed).toEqual([]);
+		expect(picker.decided).toEqual([]);
+		expect(started.map(({ pick }) => pick)).toEqual([
+			{ agent: "codex", model: "o3" },
+		]);
+	});
+
+	it("leaves to a person's conversation the queued task it took, as a `[SPLATES TASK #N]` start does", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		room = 0;
+		await runner.sweep();
+
+		// The person's own agent claims it with `splates add --task 1`.
+		await (await deps.tasks.find(1)).take("totals-by-hand");
+		room = 1;
+		await runner.sweep();
+		await settled();
+
+		expect(started).toEqual([]);
+		expect(picker.decided).toEqual([]);
+		expect(held.dropped).toEqual(["h1"]);
+	});
+
+	it("tries a refused start again only once its task changes, not for what Auto pick kept on it", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		picker.keeps = async (queued) => {
+			await deps.tasks.store.locked(async () => {
+				const record = await deps.tasks.store.read(queued.id);
+				await deps.tasks.store.write({
+					...(record ?? queued),
+					autoPick: {
+						pick: { agent: "claude" },
+						rule: 0,
+						kind: null,
+						difficulty: null,
+						reasons: [],
+						at: new Date().toISOString(),
+					},
+				});
+			});
+		};
+		starting = async () => {
+			throw new Error("hook_failed");
+		};
+
+		await runner.sweep();
+		await settled();
+		await runner.sweep();
+		await settled();
+
+		expect(started).toHaveLength(1);
 	});
 });
 

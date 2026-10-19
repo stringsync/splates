@@ -11,6 +11,8 @@ export { canStart, holdsBack, queueOrder } from "./order";
 export type {
 	HeldConversation,
 	HeldConversations,
+	QueuePicked,
+	QueuePicker,
 	QueueRunnerDeps,
 	QueueStart,
 	QueueStarter,

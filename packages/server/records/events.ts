@@ -212,7 +212,7 @@ export interface Facts {
 	};
 	"tunnel setup": None;
 	"tunnel remove": None;
-	/** `splates server` starting a conversation on what Auto picked for its first prompt. */
+	/** `splates server` starting a task on what Auto pick decided, or, before it, a first prompt on what Auto picked. */
 	auto: {
 		/** The roster agent it picked, by its id. */
 		agent: string;
@@ -220,9 +220,13 @@ export interface Facts {
 		model: string | null;
 		/** The thinking level it set, or null for the agent's default. */
 		effort: string | null;
-		/** What it picked, then why, as `AutoPick.reasons`. */
+		/** What it picked, then why, as `AutoPickDecision.reasons`. */
 		reasons: string[];
-		/** What the judge found in the prompt, as `AutoPick.signs`; null when no judge answered. */
+		/**
+		 * What the judge found: the likeliest kind and difficulty, each with its
+		 * confidence, or what old Auto found in the prompt; null when no judge
+		 * answered, the first reason after the pick then saying why.
+		 */
 		signs: string[] | null;
 	};
 }

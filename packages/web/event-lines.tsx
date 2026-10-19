@@ -182,15 +182,15 @@ const LINES: {
 };
 
 /**
- * What Auto picked for a conversation's first prompt, and what the judge
- * found in it, or that none answered: `Auto picked Haiku 5.5, low effort: a
- * quick question`. Every reason shows on hover.
+ * What Auto pick started a task on, and what the judge found in it, or why
+ * it found nothing: `Auto picked Haiku 5.5, low effort: Lookup 91%, Light
+ * 80%`. Every reason shows on hover.
  */
 function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 	const [picked = event.agent, ...why] = event.reasons;
 	const found =
 		event.signs === null
-			? "no judge to ask"
+			? (why[0] ?? "no judge to ask")
 			: event.signs.length === 0
 				? "nothing hard in it"
 				: event.signs.join(", ");

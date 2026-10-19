@@ -1,5 +1,6 @@
 import { basename } from "node:path";
 import type { Attachment, Attachments } from "../artifacts";
+import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";
@@ -49,6 +50,8 @@ export interface TaskRecord {
 	 * the person's call, made by unlinking each. Absent for none.
 	 */
 	blockersLost?: GoneBlocker[];
+	/** Its last Auto pick, with what the judge said of its words; absent for none. */
+	autoPick?: AutoPicked;
 }
 
 /**

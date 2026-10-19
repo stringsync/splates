@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type {
 	AreaProgress,
@@ -12,11 +13,16 @@ import {
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
+import { RulesEditor } from "./auto-pick-rules";
 import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
 import type { Settings } from "./settings";
+import {
+	autoPickBrowserSteps,
+	RulesEditorContext,
+} from "./setup-auto-pick-steps";
 import {
 	coordinatorBrowserSteps,
 	MoveWatch,
@@ -26,7 +32,7 @@ import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
 import { notifyBrowserSteps } from "./setup-notify-steps";
 import { SetupContext } from "./setup-state";
-import { JOURNEY_ENDS, STEP_BODIES } from "./setup-steps";
+import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
 import { TopBar } from "./top-bar";
 
 /** Intentional setup: choose an area, then answer its steps a page at a time. */
@@ -34,6 +40,7 @@ export function SetupPage({
 	feed,
 	onOpen,
 	settings,
+	todos,
 }: {
 	/** Where a conversation starts, or null while `splates server` holds none. */
 	feed: ConversationFeed | null;
@@ -41,6 +48,8 @@ export function SetupPage({
 	onOpen: (id: string) => void;
 	/** This browser's settings, which the notification pages turn on. */
 	settings?: Settings;
+	/** The project's tasks, which Auto pick's try picks from. */
+	todos: readonly TaskRecord[];
 }): JSX.Element {
 	const { progress } = useContext(SetupContext);
 	const [selected, setSelected] = useState<string | null>(null);
@@ -55,6 +64,7 @@ export function SetupPage({
 						area={area}
 						settings={settings}
 						feed={feed}
+						todos={todos}
 						onOpen={onOpen}
 						onLeave={() => setSelected(null)}
 					/>
@@ -70,23 +80,31 @@ function Journey({
 	area,
 	feed,
 	settings,
+	todos,
 	onOpen,
 	onLeave,
 }: {
 	area: AreaProgress;
 	settings?: Settings;
 	feed: ConversationFeed | null;
+	todos: readonly TaskRecord[];
 	onOpen: (id: string) => void;
 	onLeave: () => void;
 }): JSX.Element {
 	const { settle } = useContext(SetupContext);
 	const [move] = useState(() => new MoveWatch());
+	const [rules] = useState(() => new RulesEditor());
 	const [journey] = useState(
 		() =>
-			new SetupJourney(area, {
-				...(settings === undefined ? {} : notifyBrowserSteps(settings)),
-				...coordinatorBrowserSteps(move),
-			}),
+			new SetupJourney(
+				area,
+				{
+					...(settings === undefined ? {} : notifyBrowserSteps(settings)),
+					...coordinatorBrowserSteps(move),
+					...autoPickBrowserSteps(rules),
+				},
+				STEP_STOPS,
+			),
 	);
 	const { step, at, next } = useReactive(
 		journey,
@@ -123,37 +141,45 @@ function Journey({
 	const Body = STEP_BODIES[step.id];
 	return (
 		<MoveWatchContext value={move}>
-			<StepForm
-				key={step.id}
-				title={step.title}
-				why={
-					<Markdown
-						text={
-							step.detail === null ? step.why : `${step.why} ${step.detail}`
-						}
-						inline
-					/>
-				}
-				at={at + 1}
-				of={journey.steps.length}
-				next={next}
-				// Read before the fields lock, since a disabled field sends nothing.
-				onNext={(form) => void journey.press(new FormData(form))}
-				onAgent={onAgent}
-				onLeave={onLeave}
-			>
-				{Body !== undefined ? (
-					<Body step={step} feed={feed} onOpen={onOpen} journey={journey} />
-				) : step.fields.length > 0 ? (
-					step.fields.map((field) => (
-						<StepField key={field.name} field={field} />
-					))
-				) : (
-					<p>
-						<Markdown text={step.user} inline />
-					</p>
-				)}
-			</StepForm>
+			<RulesEditorContext value={rules}>
+				<StepForm
+					key={step.id}
+					title={step.title}
+					why={
+						<Markdown
+							text={
+								step.detail === null ? step.why : `${step.why} ${step.detail}`
+							}
+							inline
+						/>
+					}
+					at={at + 1}
+					of={journey.steps.length}
+					next={next}
+					// Read before the fields lock, since a disabled field sends nothing.
+					onNext={(form) => void journey.press(new FormData(form))}
+					onAgent={onAgent}
+					onLeave={onLeave}
+				>
+					{Body !== undefined ? (
+						<Body
+							step={step}
+							feed={feed}
+							onOpen={onOpen}
+							journey={journey}
+							todos={todos}
+						/>
+					) : step.fields.length > 0 ? (
+						step.fields.map((field) => (
+							<StepField key={field.name} field={field} />
+						))
+					) : (
+						<p>
+							<Markdown text={step.user} inline />
+						</p>
+					)}
+				</StepForm>
+			</RulesEditorContext>
 		</MoveWatchContext>
 	);
 }

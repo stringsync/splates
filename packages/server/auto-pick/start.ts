@@ -1,0 +1,297 @@
+import type { StoredTask } from "../board";
+import type { Conversation, Conversations, Picked } from "../conversations";
+import { fail } from "../exit";
+import { effortSettings, Roster, splatesHome } from "../models";
+import { goalOf, Plans } from "../plans";
+import type { Project } from "../server/shared";
+import { DIFFICULTIES, KINDS, type TaskClass } from "./classes";
+import {
+	type AutoPickDecision,
+	type DecideContext,
+	decide,
+	decideWithout,
+} from "./decide";
+import { JUDGE_CREDS, judgeFrom } from "./judge";
+import { autoPicked, cachedFor, decideFor } from "./judged";
+import { classificationKey } from "./key";
+import type { AutoPicked } from "./record";
+import { AutoPickStore } from "./store";
+import type { Judge } from "./system-one";
+
+/** The cred Auto pick asks for when no judge's is kept: Jev's, the one key. */
+const JUDGE_KEY = JUDGE_CREDS.jev[0];
+
+/** What {@link JUDGE_KEY} is for, as the Creds page shows it. */
+const PURPOSE =
+	"Auto pick asks TypeSafe's Jev what kind of work a task is and how hard, to start it on the agent, model and thinking level your Auto pick rules give that; without a key every Auto pick takes the rule for any kind and difficulty.";
+
+/** How to get {@link JUDGE_KEY}, as the Creds page shows it. */
+const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
+2. Create an API key.
+3. Paste it here.`;
+
+/** Which task Auto pick starts: a started one by name, or a queued one by number. */
+export type AutoPickTarget = { task: string } | { todo: number };
+
+/** How `startAutoPick` starts the conversation, in the tree it runs in. */
+export type AutoPickStart = (
+	agent: string,
+	opts: {
+		model?: string;
+		settings: Record<string, string>;
+		picking: Promise<Picked<string>>;
+	},
+) => Promise<Conversation>;
+
+/**
+ * Starts a conversation on what Auto pick decides for a task, through
+ * `start`, which knows the tree it runs in. It answers before the judge does,
+ * on what the rules give a task of no sure kind, so the page opens the
+ * thread at once; the agent opens on the decision, which a prompt said
+ * meanwhile waits on. A task whose words the judge read before is decided on
+ * what it said then. Keeps the decision on the task's record, logs it in the
+ * conversation as splates's own line, and, with no judge to ask, asks once
+ * on the Creds page for the key one needs.
+ */
+export async function startAutoPick({
+	project,
+	conversations,
+	target,
+	start,
+	judge = () => judgeFrom(project.creds.credentials),
+	now = () => new Date(),
+}: {
+	project: Project;
+	conversations: Conversations;
+	target: AutoPickTarget;
+	start: AutoPickStart;
+	/** The judge to ask; the one the project's creds give by default. */
+	judge?: () => Promise<Judge | null>;
+	now?: () => Date;
+}): Promise<Conversation> {
+	const record = await recordOf(project, target);
+	const { subject, detail } = await wordsOf(project, record);
+	const key = classificationKey(subject, detail);
+	const context = await contextOf(project, conversations, now());
+	const { offered } = context;
+	const cached = cachedFor(record, key);
+
+	const fallback =
+		cached === null
+			? decideWithout({ ...context, reason: "the judge has yet to answer" })
+			: decide({ ...context, classification: cached });
+	const deciding = decideFor({ subject, detail, cached, judge, context });
+	const opened = ({ pick }: AutoPickDecision): Picked<string> => ({
+		agent: pick.agent,
+		...(pick.model === undefined ? {} : { model: pick.model }),
+		settings: effortSettings(pick.effort, offered[pick.agent] ?? []),
+	});
+	const starting = opened(fallback);
+	const conversation = start(starting.agent, {
+		...starting,
+		// Kept and logged before the agent opens on it, so its line leads what it says.
+		picking: deciding.then(
+			async (judged) => {
+				await settle(project, record.id, autoPicked(judged, key, now()), {
+					conversation,
+					judged: judged.judged,
+				});
+				return opened(judged.decision);
+			},
+			(error: unknown) => {
+				project.log.error(`Auto pick could not decide: ${String(error)}`);
+				return starting;
+			},
+		),
+	});
+	return conversation;
+}
+
+/** What a decision for a task in `project` reads besides its classification. */
+export async function contextOf(
+	project: Project,
+	conversations: Conversations,
+	now: Date,
+): Promise<DecideContext> {
+	const home = splatesHome(project.ps);
+	return {
+		rules: await new AutoPickStore(`${home}/auto-pick.json`, {
+			fs: project.fs,
+		}).rules(),
+		agents: await new Roster(`${home}/agents.json`, {
+			fs: project.fs,
+		}).agents(),
+		runnable: conversations.agents.map((each) => each.id),
+		limits: await conversations.limits(),
+		offered: await conversations.settings(),
+		now,
+	};
+}
+
+/** The record of the task `target` names, failing for none. */
+export async function recordOf(
+	project: Project,
+	target: AutoPickTarget,
+): Promise<StoredTask> {
+	const { store } = project.tasks;
+	const record =
+		"todo" in target
+			? await store.read(target.todo)
+			: await store.find(target.task);
+	if (record === null) {
+		const named = "todo" in target ? `#${target.todo}` : `'${target.task}'`;
+		fail(
+			"not_found",
+			`no task ${named}: run \`splates task list\` to see what there is`,
+			target,
+		);
+	}
+	return record;
+}
+
+/**
+ * What the judge reads of a task: its subject and text, or for a started
+ * task with no text, as one never queued has, the goal its `SPLATES.md` sets.
+ */
+export async function wordsOf(
+	project: Project,
+	record: StoredTask,
+): Promise<{ subject: string; detail: string }> {
+	if (record.text !== "" || record.task === undefined) {
+		return { subject: record.subject, detail: record.text };
+	}
+	const worktree = await project.service.find(record.task);
+	const plan = worktree.exists
+		? await new Plans(project.fs).read(worktree.path)
+		: null;
+	return { subject: record.subject, detail: goalOf(plan ?? "") };
+}
+
+/**
+ * Keeps `picked` on task `id`'s record and logs it in `conversation`, when
+ * there is one, before its agent opens, asking once for the judge's key
+ * unless it `judged`. Each failure is logged, so neither stops the start.
+ */
+export async function settle(
+	project: Project,
+	id: number,
+	picked: AutoPicked,
+	{
+		conversation,
+		judged,
+	}: { conversation: Promise<Conversation> | null; judged: boolean },
+): Promise<void> {
+	await keep(project, id, picked).catch((error: unknown) =>
+		project.log.error(
+			`Auto pick could not keep its decision on task ${id}: ${String(error)}`,
+		),
+	);
+	if (conversation !== null) {
+		await announce(project, conversation, picked, judged);
+	}
+}
+
+/**
+ * Logs `picked` in `conversation`, asking once for the judge's key unless it
+ * `judged`; a failure is logged, so it never stops the start.
+ */
+export async function announce(
+	project: Project,
+	conversation: Promise<Conversation>,
+	picked: AutoPicked,
+	judged: boolean,
+): Promise<void> {
+	await conversation
+		.then((started) =>
+			logPick(project, started, picked, judged ? null : JUDGE_KEY),
+		)
+		.catch((error: unknown) => project.log.error(String(error)));
+}
+
+/** Writes `picked` on task `id`'s record, under the store's lock, leaving the rest as it is. */
+async function keep(
+	project: Project,
+	id: number,
+	picked: AutoPicked,
+): Promise<void> {
+	const { store } = project.tasks;
+	await store.locked(async () => {
+		const record = await store.read(id);
+		if (record !== null) {
+			await store.write({ ...record, autoPick: picked });
+		}
+	});
+}
+
+/**
+ * Logs the pick in the conversation, and, when `asking` names the judge's
+ * key for want of a judge, the request for it.
+ */
+async function logPick(
+	project: Project,
+	conversation: Conversation,
+	picked: AutoPicked,
+	asking: string | null,
+): Promise<void> {
+	const journal = project.journal.in(conversation.id);
+	const task = conversation.state.task;
+	const classification = picked.classified?.classification;
+	await journal.record("auto", task, async () => {}, {
+		agent: picked.pick.agent,
+		model: picked.pick.model ?? null,
+		effort: picked.pick.effort ?? null,
+		reasons: picked.reasons,
+		signs:
+			classification === undefined
+				? null
+				: [
+						likeliest(KINDS, classification.kinds),
+						likeliest(DIFFICULTIES, classification.difficulty),
+					],
+	});
+	if (asking !== null) {
+		await offerJudge(project, journal, task, asking);
+	}
+}
+
+/** The likeliest of `classes` in words: `Mechanical 80%`. */
+function likeliest<Id extends string>(
+	classes: readonly TaskClass<Id>[],
+	answers: Record<Id, number>,
+): string {
+	const best = classes.reduce((most, each) =>
+		answers[each.id] > answers[most.id] ? each : most,
+	);
+	return `${best.label} ${Math.round(answers[best.id] * 100)}%`;
+}
+
+/**
+ * Asks on the Creds page for the judge's key, logged in the conversation so
+ * its Requested line opens it, unless it was asked for before: one the
+ * person dismissed stays dismissed, and one still open needs no second line.
+ */
+async function offerJudge(
+	project: Project,
+	journal: Project["journal"],
+	task: string | null,
+	name: string,
+): Promise<void> {
+	const asked = (await project.creds.requests()).some(
+		(each) => each.name === name,
+	);
+	if (asked) {
+		return;
+	}
+	await journal.record(
+		"creds request",
+		task,
+		() =>
+			project.creds.request(name, {
+				scope: "device",
+				purpose: PURPOSE,
+				instructions: INSTRUCTIONS,
+				task,
+			}),
+		(request) => ({ name, asked: request !== null }),
+	);
+}

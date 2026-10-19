@@ -47,6 +47,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		planProblems: [],
 		dispatched: false,
 		handedTo: null,
+		autoPick: null,
 		...overrides,
 	};
 }
@@ -89,6 +90,7 @@ export function conversation(
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		picking: false,
 		capped: false,
 		queued: null,
 		unread: false,

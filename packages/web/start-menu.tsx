@@ -16,6 +16,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import { useNameOf } from "./conversation-names";
 import type { Assignment } from "./dispatch";
@@ -174,8 +175,54 @@ export function StartAssigned({
 }
 
 /**
- * What `StartMenu` offers, for a menu of its own or one with more in it: each
- * agent for a new conversation, then the conversations already going.
+ * Starts `assignment` on what Auto pick decides in one tap, as `StartItems`'
+ * Auto pick item does: a sparkle button for beside `StartAssigned`, opening
+ * the conversation at once while the server's judge decides its agent.
+ */
+export function StartAuto({
+	assignment,
+	onStart,
+}: {
+	assignment: Assignment;
+	/** Called as it opens its conversation, as to close a dialog. */
+	onStart?: () => void;
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	// Started once: a second tap before the conversation opens would start
+	// another.
+	const [starting, setStarting] = useState(false);
+	if (context === null) {
+		return null;
+	}
+	const start = (): void => {
+		setStarting(true);
+		onStart?.();
+		void context.dispatch
+			.auto(assignment)
+			.then(context.open)
+			.finally(() => setStarting(false));
+	};
+	return (
+		<Button
+			size="icon-xs"
+			variant="outline"
+			aria-label={`Start with ${AUTO_PICK_NAME}`}
+			title={`Start with ${AUTO_PICK_NAME}: the agent your rules give this task`}
+			disabled={starting}
+			onClick={start}
+			className="bg-transparent pointer-coarse:size-10"
+			{...still}
+		>
+			<AutoIcon />
+		</Button>
+	);
+}
+
+/**
+ * What `StartMenu` offers, for a menu of its own or one with more in it: the
+ * assignee, Auto pick, which starts the agent the person's rules give the
+ * task, and each agent for a new conversation, then the conversations
+ * already going.
  */
 export function StartItems({
 	assignment,
@@ -223,6 +270,15 @@ export function StartItems({
 						</span>
 					</DropdownMenuItem>
 				)}
+				<DropdownMenuItem
+					onClick={() => {
+						onStart?.();
+						void dispatch.auto(assignment).then(context.open);
+					}}
+				>
+					<AutoIcon />
+					{AUTO_PICK_NAME}
+				</DropdownMenuItem>
 				{dispatch.agents.map((each) => (
 					<DropdownMenuItem
 						key={each.id}

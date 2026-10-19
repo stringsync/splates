@@ -8,7 +8,10 @@ import { decodeTask, encodeTask, TASK_FILE } from "./task-file";
  * its record keeps them. Its start is `startedAt`, apart from when it was
  * first numbered.
  */
-export type Started = Omit<TaskState, "id" | "status" | "createdAt"> & {
+export type Started = Omit<
+	TaskState,
+	"id" | "status" | "createdAt" | "autoPick"
+> & {
 	startedAt: string;
 	/** The stage it was in before it started, which ending its start puts it back in. */
 	startedFrom: WaitingStage;

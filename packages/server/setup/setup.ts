@@ -68,7 +68,10 @@ export class Setup {
 				continue;
 			}
 			if (field.kind === "cred") {
-				if ((await this.#machine.device.get(field.name)) === undefined) {
+				if (
+					!field.optional &&
+					(await this.#machine.device.get(field.name)) === undefined
+				) {
 					throw new StepProblem(`Paste the ${field.label} first.`);
 				}
 				continue;
@@ -333,7 +336,17 @@ export interface SetupStep {
  * before it submits, so a step's `submit` reads it from `machine.device`.
  */
 export type StepField =
-	| { kind: "cred"; name: string; label: string; help?: string }
+	| {
+			kind: "cred";
+			name: string;
+			label: string;
+			help?: string;
+			/**
+			 * May be left unpasted, as a key with another way to the same end;
+			 * the step's check then says whether it is done.
+			 */
+			optional?: boolean;
+	  }
 	| {
 			kind: "text";
 			name: string;
@@ -455,13 +468,15 @@ async function fieldsOf(
 	const fields: FieldProgress[] = [];
 	for (const field of step.fields ?? []) {
 		switch (field.kind) {
-			case "cred":
+			case "cred": {
+				const { optional: _, ...rest } = field;
 				fields.push({
-					...field,
+					...rest,
 					help: field.help ?? null,
 					saved: (await machine.device.get(field.name)) !== undefined,
 				});
 				break;
+			}
 			case "text":
 				fields.push({
 					...field,

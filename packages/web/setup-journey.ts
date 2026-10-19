@@ -25,10 +25,10 @@ export type SetupJourneyEvents = {
 };
 
 /**
- * One area walked a page at a time, from its first step not done; a
- * finished one opens on its first page, to review or redo it. Next does
- * what the step needs, and moves on only once it reads done, passing over
- * the steps already done.
+ * One area walked a page at a time, from its first step not done or to
+ * review; a finished one with none to review opens on its first page, to
+ * review or redo it. Next does what the step needs, and moves on only once
+ * it reads done, passing over the steps already done but those to review.
  */
 export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	private readonly dispatcher = new Dispatcher<SetupJourneyEvents>();
@@ -41,8 +41,13 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	constructor(
 		private area: AreaProgress,
 		private readonly browser: BrowserSteps = {},
+		/**
+		 * Steps Next stops on even when done, as an editor of what is set
+		 * up already, so a finished journey walked again still shows them.
+		 */
+		private readonly stops: ReadonlySet<string> = new Set(),
 	) {
-		const first = notDone(area.steps, 0);
+		const first = notDone(area.steps, 0, stops);
 		this.at = first === area.steps.length ? 0 : first;
 	}
 
@@ -85,7 +90,9 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 			this.area =
 				fresh.areas.find((each) => each.id === this.area.id) ?? this.area;
 			this.dispatcher.dispatch("settled", fresh);
-			this.set(notDone(this.area.steps, this.at + 1), { kind: "ready" });
+			this.set(notDone(this.area.steps, this.at + 1, this.stops), {
+				kind: "ready",
+			});
 		} catch (error) {
 			// What the step shows may have moved, as the keys a check found.
 			await this.reread();
@@ -122,10 +129,15 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 	}
 }
 
-/** The first step from `from` on that is not done, or past the last. */
-function notDone(steps: readonly StepProgress[], from: number): number {
+/** The first step from `from` on that is not done or is one of `stops`, or past the last. */
+function notDone(
+	steps: readonly StepProgress[],
+	from: number,
+	stops: ReadonlySet<string>,
+): number {
 	const found = steps.findIndex(
-		(step, index) => index >= from && step.status !== "done",
+		(step, index) =>
+			index >= from && (step.status !== "done" || stops.has(step.id)),
 	);
 	return found === -1 ? steps.length : found;
 }

@@ -44,6 +44,10 @@
 @source "./task-ports.tsx";
 @source "./task-actions.tsx";
 @source "./task-demo.tsx";
+@source "./task-auto-pick.tsx";
+@source "./auto-pick-rules-editor.tsx";
+@source "./auto-pick-trial-view.tsx";
+@source "./setup-auto-pick-steps.tsx";
 @source "./dispatching.tsx";
 @source "./start-menu.tsx";
 @source "./markdown.tsx";
@@ -98,6 +102,7 @@
 @source "./new-menu.tsx";
 @source "./next-waiting.tsx";
 @source "./conversation-item.tsx";
+@source "./auto-brand.tsx";
 @source "./conversation-archive.tsx";
 @source "./expecting.tsx";
 @source "./reparent.tsx";

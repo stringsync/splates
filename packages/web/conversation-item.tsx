@@ -27,6 +27,7 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationTag, RowIcon } from "./agent-icons";
+import { AutoIcon } from "./auto-brand";
 import { copiedLabel, useCopy } from "./card";
 import {
 	markUnread,
@@ -149,11 +150,15 @@ export function Item({
 							: "pr-6",
 				)}
 			>
-				<RowIcon
-					conversation={conversation}
-					name={agent}
-					className="size-3.5 text-foreground/70"
-				/>
+				{conversation.picking ? (
+					<AutoIcon className="size-3.5 shrink-0 text-foreground/70" />
+				) : (
+					<RowIcon
+						conversation={conversation}
+						name={agent}
+						className="size-3.5 text-foreground/70"
+					/>
+				)}
 				<span className="flex min-w-0 flex-1 items-center gap-1.5">
 					<span
 						className={cn(
@@ -204,6 +209,7 @@ export function Item({
 				) : (
 					<Mark
 						starting={conversation.status === "starting"}
+						picking={conversation.picking}
 						need={need}
 						reported={reported}
 						unread={conversation.unread}

@@ -87,7 +87,7 @@ A lane is a named group of related tasks, for the user to see them together
 on the board. It orders nothing: the queue starts tasks, and links
 alone say what must land first, so link a task `--blocked-by` another
 whenever it needs that one's code or changes its files, even in the same
-lane. A lane has no model of its own: each task names its own. Placing a task, read `splates lane
+lane. A lane has no model of its own: each task names its own, or Auto pick picks it. Placing a task, read `splates lane
 list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,

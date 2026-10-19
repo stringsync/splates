@@ -2,6 +2,7 @@
 // before anything below loads react-dom.
 import "./testing-dom";
 import { expect } from "bun:test";
+import type { AutoPickRulesView } from "@stringsync/splates-server/auto-pick";
 import type {
 	ConversationState,
 	Session,
@@ -205,6 +206,8 @@ export class Testing implements Resource {
 	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
+	/** What `/api/auto-pick/rules` reads, or null for it to fail. */
+	autoPickRules: AutoPickRulesView | null = null;
 	/** What `/api/setup/coordinator/move` reads, or null for it to fail. */
 	coordinatorMove: MoveProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
@@ -294,6 +297,11 @@ export class Testing implements Resource {
 				return this.setup === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.setup);
+			}
+			if (route === "/api/auto-pick/rules") {
+				return this.autoPickRules === null
+					? new Response(null, { status: 500 })
+					: Response.json(this.autoPickRules);
 			}
 			if (route === "/api/setup/coordinator/move") {
 				return this.coordinatorMove === null

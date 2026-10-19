@@ -52,6 +52,7 @@ describe("App's task dialog on a phone", () => {
 		);
 		const items = await waitFor(() => view.getAllByRole("menuitem"));
 		expect(items.map((each) => each.textContent)).toEqual([
+			"Auto pick",
 			"Claude",
 			"Codex",
 			"Remove",

@@ -147,6 +147,7 @@ export function fingerprint({
 			task.removed,
 			task.plan,
 			task.planProblems,
+			task.autoPick,
 		]),
 	]);
 }

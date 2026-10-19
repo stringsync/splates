@@ -77,7 +77,7 @@ describe("Cloud server journey", () => {
 						},
 					}}
 				>
-					<SetupPage feed={null} onOpen={() => {}} />
+					<SetupPage feed={null} onOpen={() => {}} todos={[]} />
 				</SetupContext>
 			);
 		}

@@ -1,6 +1,8 @@
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { StepProgress } from "@stringsync/splates-server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
+import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";
 import { COORDINATOR_STEPS } from "./setup-coordinator-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
@@ -15,6 +17,8 @@ export interface StepBodyProps {
 	onOpen: (id: string) => void;
 	/** The journey the step is on, as to go back to an earlier step. */
 	journey: SetupJourney;
+	/** The project's tasks, as for a step that tries something on one. */
+	todos: readonly TaskRecord[];
 }
 
 /** Pages of a journey drawn by its own controls, by step id. */
@@ -30,7 +34,14 @@ export const STEP_BODIES: StepBodies = {
 	...NATIVE_STEPS,
 	...NOTIFY_STEPS,
 	...COORDINATOR_STEPS,
+	...AUTO_PICK_STEPS,
 };
+
+/**
+ * The steps a walk through a journey stops on even when done, as an editor
+ * of what is set up, each journey's from a file of its own.
+ */
+export const STEP_STOPS: ReadonlySet<string> = new Set(AUTO_PICK_STOPS);
 
 /** What a journey's done page is handed. */
 export interface JourneyEndProps {

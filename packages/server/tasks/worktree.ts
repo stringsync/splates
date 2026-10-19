@@ -1,3 +1,4 @@
+import type { AutoPicked } from "../auto-pick";
 import type { Git, GitResult } from "../git";
 import type { TimedTest } from "../merge";
 import { type FileDiff, parseDiff } from "./diff";
@@ -322,6 +323,7 @@ export interface LeaseState {
 	conversation?: string;
 }
 
+// scry-ignore doc-comments-address-users: a retired record's shape, kept only for old records
 /**
  * A hand-over to a person from before `splates escalate` was retired, which
  * old records still carry for the Stats page.
@@ -330,8 +332,8 @@ export interface Escalation {
 	reason: string;
 	at: string;
 	/**
-	 * Set for a task handed over to be approved rather than to answer
-	 * questions, the reason saying what to look at.
+	 * Whether it was handed over to be approved rather than to answer
+	 * questions; the reason then says what to look at.
 	 */
 	// Records from before reviews were a state hold the number of the
 	// question that asked, `"4"`.
@@ -380,8 +382,8 @@ export interface TaskState {
 	lease: LeaseState | null;
 	mergeAttempts: number;
 	/**
-	 * Every merge that failed, which `retry` leaves alone while it hands back
-	 * the attempts. Absent in old records: none counted yet.
+	 * How many merges failed in all, those before a `retry` gave the
+	 * attempts back too. Absent in old records: none counted yet.
 	 */
 	mergeFailures?: number;
 	/** `mergeFailures` by why each failed. Absent in old records. */
@@ -412,6 +414,11 @@ export interface TaskState {
 	 * asks about it; absent for a worktree of the main tree.
 	 */
 	machine?: string;
+	/**
+	 * The last Auto pick for it, as its record keeps it beside what it was
+	 * queued as: read with the rest, never written back through it.
+	 */
+	autoPick?: AutoPicked;
 }
 
 /**

@@ -28,7 +28,7 @@ import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
-import { StartAssigned } from "./start-menu";
+import { StartAssigned, StartAuto } from "./start-menu";
 import { TodoEditor } from "./todo-editor";
 import { QueueToggle, StageBadge } from "./todo-queue";
 
@@ -140,6 +140,10 @@ export function Edit({
 						<StartAssigned
 							assignment={{ kind: "todo", id: todo.id }}
 							assignee={todo.assignee ?? null}
+							onStart={onDone}
+						/>
+						<StartAuto
+							assignment={{ kind: "todo", id: todo.id }}
 							onStart={onDone}
 						/>
 						<QueueToggle todo={todo} refuse={refuse} />

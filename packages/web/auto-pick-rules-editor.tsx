@@ -1,0 +1,403 @@
+import type { Rule } from "@stringsync/splates-server/auto-pick";
+import {
+	ANY,
+	DIFFICULTIES,
+	KINDS,
+} from "@stringsync/splates-server/auto-pick/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
+import { useReactive } from "@webappwiz/react";
+import {
+	ArrowDownIcon,
+	ArrowUpIcon,
+	PlusIcon,
+	RotateCcwIcon,
+	XIcon,
+} from "lucide-react";
+import { type JSX, useEffect } from "react";
+import { Button } from "#web/components/ui/button.tsx";
+import {
+	Field,
+	FieldDescription,
+	FieldLabel,
+} from "#web/components/ui/field.tsx";
+import { Input } from "#web/components/ui/input.tsx";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "#web/components/ui/native-select.tsx";
+import type { RulesEditor } from "./auto-pick-rules";
+import { Refusal, useRefusal } from "./refusal";
+
+/**
+ * The Auto pick rules as a list to edit: each rule's kind and difficulty and
+ * its ordered picks, the last rule fixed as any kind and any difficulty, the
+ * confidence threshold, and Save and Reset, each shown at once and said
+ * beside it when the server refuses.
+ */
+export function RulesEditorView({
+	editor,
+}: {
+	editor: RulesEditor;
+}): JSX.Element {
+	const { draft, dirty, problem, fileProblem, loadProblem, saved, percent } =
+		useReactive(
+			editor,
+			(each) => ({
+				draft: each.draft,
+				dirty: each.dirty,
+				problem: each.problem,
+				fileProblem: each.fileProblem,
+				loadProblem: each.loadProblem,
+				saved: each.saved,
+				percent: each.percent,
+			}),
+			["changed"],
+		);
+	const { refusal, attempt } = useRefusal();
+	useEffect(() => void editor.load(), [editor]);
+	if (loadProblem !== null) {
+		return (
+			<p role="alert" className="text-destructive text-sm">
+				Could not read your rules: {loadProblem}
+			</p>
+		);
+	}
+	if (saved === null) {
+		return <p className="text-muted-foreground text-sm">Reading your rules…</p>;
+	}
+	return (
+		<div className="flex flex-col gap-6">
+			{fileProblem !== null && (
+				<p role="alert" className="text-destructive text-sm">
+					{fileProblem} Saving here replaces it.
+				</p>
+			)}
+			<ol aria-label="Auto pick rules" className="flex flex-col gap-3">
+				{draft.rules.map((rule, index) => (
+					<RuleRow
+						// Rules have no ids: a row is its place in the list.
+						// biome-ignore lint/suspicious/noArrayIndexKey: see above
+						key={index}
+						editor={editor}
+						index={index}
+						kind={rule.kind}
+						difficulty={rule.difficulty}
+						picks={rule.picks}
+						last={index === draft.rules.length - 1}
+					/>
+				))}
+			</ol>
+			<Button
+				type="button"
+				variant="outline"
+				className="self-start"
+				onClick={() => editor.addRule()}
+			>
+				<PlusIcon data-icon="inline-start" /> Add rule
+			</Button>
+			<Field>
+				<FieldLabel htmlFor="auto-pick-threshold">
+					How sure the judge has to be, in percent
+				</FieldLabel>
+				<div>
+					<Input
+						id="auto-pick-threshold"
+						type="number"
+						inputMode="numeric"
+						min={0}
+						max={100}
+						step={5}
+						className="w-24"
+						value={percent}
+						onChange={(event) =>
+							editor.setPercent(event.currentTarget.valueAsNumber)
+						}
+					/>
+				</div>
+				<FieldDescription>
+					Below it, a task counts as any kind, or any difficulty, and only rules
+					with * there match it.
+				</FieldDescription>
+			</Field>
+			{problem !== null && (
+				<p role="alert" className="text-destructive text-sm">
+					{problem}
+				</p>
+			)}
+			<div className="flex flex-wrap items-center gap-3">
+				<Button
+					type="button"
+					disabled={!dirty || problem !== null}
+					onClick={() => void attempt(editor.save(), "Not saved")}
+				>
+					Save rules
+				</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					onClick={() =>
+						void attempt(editor.reset(), "Not reset to the defaults")
+					}
+				>
+					<RotateCcwIcon data-icon="inline-start" /> Reset to defaults
+				</Button>
+				<span role="status" className="text-muted-foreground text-sm">
+					{dirty ? "Unsaved changes" : "Saved"}
+				</span>
+			</div>
+			<Refusal refusal={refusal} className="text-sm" />
+		</div>
+	);
+}
+
+/** One rule: what it matches, or that it matches everything, and its picks. */
+function RuleRow({
+	editor,
+	index,
+	kind,
+	difficulty,
+	picks,
+	last,
+}: {
+	editor: RulesEditor;
+	index: number;
+	kind: string;
+	difficulty: string;
+	picks: readonly AgentPick[];
+	last: boolean;
+}): JSX.Element {
+	const name = `rule ${index + 1}`;
+	return (
+		<li
+			aria-label={name}
+			className="flex flex-col gap-3 rounded-lg border bg-card p-3"
+		>
+			<div className="flex flex-wrap items-center gap-2">
+				<span className="w-5 text-right text-muted-foreground text-sm tabular-nums">
+					{index + 1}
+				</span>
+				{last ? (
+					<span className="flex-1 text-sm">
+						Any kind, any difficulty{" "}
+						<span className="text-muted-foreground">
+							· last, so every task maps somewhere
+						</span>
+					</span>
+				) : (
+					<>
+						<NativeSelect
+							size="sm"
+							aria-label={`${name} kind`}
+							value={kind}
+							onChange={(event) =>
+								editor.setKind(index, event.currentTarget.value as Rule["kind"])
+							}
+						>
+							<NativeSelectOption value={ANY}>Any kind</NativeSelectOption>
+							{KINDS.map((each) => (
+								<NativeSelectOption key={each.id} value={each.id}>
+									{each.label}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+						<NativeSelect
+							size="sm"
+							aria-label={`${name} difficulty`}
+							value={difficulty}
+							onChange={(event) =>
+								editor.setDifficulty(
+									index,
+									event.currentTarget.value as Rule["difficulty"],
+								)
+							}
+						>
+							<NativeSelectOption value={ANY}>
+								Any difficulty
+							</NativeSelectOption>
+							{DIFFICULTIES.map((each) => (
+								<NativeSelectOption key={each.id} value={each.id}>
+									{each.label}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+						<span className="ml-auto flex">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label={`Move ${name} up`}
+								disabled={index === 0}
+								onClick={() => editor.moveRule(index, -1)}
+							>
+								<ArrowUpIcon />
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label={`Move ${name} down`}
+								disabled={editor.fixed(index + 1)}
+								onClick={() => editor.moveRule(index, 1)}
+							>
+								<ArrowDownIcon />
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label={`Remove ${name}`}
+								onClick={() => editor.removeRule(index)}
+							>
+								<XIcon />
+							</Button>
+						</span>
+					</>
+				)}
+			</div>
+			<ol aria-label={`${name} picks`} className="flex flex-col gap-2 pl-7">
+				{picks.map((pick, at) => (
+					<PickRow
+						// biome-ignore lint/suspicious/noArrayIndexKey: a pick is its place on the rule
+						key={at}
+						editor={editor}
+						rule={index}
+						index={at}
+						pick={pick}
+						count={picks.length}
+					/>
+				))}
+			</ol>
+			<Button
+				type="button"
+				variant="link"
+				size="sm"
+				className="h-auto self-start p-0 pl-7 text-muted-foreground"
+				onClick={() => editor.addPick(index)}
+			>
+				<PlusIcon data-icon="inline-start" /> Add a pick to {name}
+			</Button>
+		</li>
+	);
+}
+
+/** One pick of a rule: its agent, model and thinking level, each with the agent's default. */
+function PickRow({
+	editor,
+	rule,
+	index,
+	pick,
+	count,
+}: {
+	editor: RulesEditor;
+	rule: number;
+	index: number;
+	pick: AgentPick;
+	count: number;
+}): JSX.Element {
+	const name = `rule ${rule + 1} pick ${index + 1}`;
+	const agent = editor.agents.find((each) => each.id === pick.agent);
+	const models = agent?.models ?? [];
+	const efforts = editor.efforts(pick.agent);
+	return (
+		<li
+			aria-label={name}
+			className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-center gap-2"
+		>
+			<NativeSelect
+				size="sm"
+				className="w-full"
+				aria-label={`${name} agent`}
+				value={pick.agent}
+				onChange={(event) =>
+					editor.setAgent(rule, index, event.currentTarget.value)
+				}
+			>
+				{agent === undefined && (
+					<NativeSelectOption value={pick.agent}>
+						{pick.agent} (not on the roster)
+					</NativeSelectOption>
+				)}
+				{editor.agents.map((each) => (
+					<NativeSelectOption key={each.id} value={each.id}>
+						{each.name}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+			<NativeSelect
+				size="sm"
+				className="w-full"
+				aria-label={`${name} model`}
+				value={pick.model ?? ""}
+				onChange={(event) =>
+					editor.setModel(rule, index, event.currentTarget.value || undefined)
+				}
+			>
+				<NativeSelectOption value="">Default model</NativeSelectOption>
+				{pick.model !== undefined &&
+					!models.some((each) => each.id === pick.model) && (
+						<NativeSelectOption value={pick.model}>
+							{pick.model}
+						</NativeSelectOption>
+					)}
+				{models.map((each) => (
+					<NativeSelectOption key={each.id} value={each.id}>
+						{each.name}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+			<NativeSelect
+				size="sm"
+				className="w-full"
+				aria-label={`${name} thinking`}
+				value={pick.effort ?? ""}
+				onChange={(event) =>
+					editor.setEffort(rule, index, event.currentTarget.value || undefined)
+				}
+			>
+				<NativeSelectOption value="">Default thinking</NativeSelectOption>
+				{pick.effort !== undefined && !efforts.includes(pick.effort) && (
+					<NativeSelectOption value={pick.effort}>
+						{pick.effort}
+					</NativeSelectOption>
+				)}
+				{efforts.map((each) => (
+					<NativeSelectOption key={each} value={each}>
+						{each}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+			<span className="flex">
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-xs"
+					aria-label={`Move ${name} up`}
+					disabled={index === 0}
+					onClick={() => editor.movePick(rule, index, -1)}
+				>
+					<ArrowUpIcon />
+				</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-xs"
+					aria-label={`Move ${name} down`}
+					disabled={index === count - 1}
+					onClick={() => editor.movePick(rule, index, 1)}
+				>
+					<ArrowDownIcon />
+				</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-xs"
+					aria-label={`Remove ${name}`}
+					disabled={count === 1}
+					onClick={() => editor.removePick(rule, index)}
+				>
+					<XIcon />
+				</Button>
+			</span>
+		</li>
+	);
+}

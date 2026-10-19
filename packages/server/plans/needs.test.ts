@@ -337,6 +337,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		planProblems: [],
 		dispatched: false,
 		handedTo: null,
+		autoPick: null,
 
 		...overrides,
 	};
@@ -370,6 +371,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		picking: false,
 		capped: false,
 		queued: null,
 		unread: false,

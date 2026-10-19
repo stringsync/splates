@@ -32,6 +32,7 @@ import { Dispatching } from "./dispatching";
 import { Held, SubagentComposer } from "./handed-out";
 import { Markdown } from "./markdown";
 import { ActionBar, useRetry } from "./task-actions";
+import { AutoPickFact } from "./task-auto-pick";
 import { DemoButtons } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { type PlanParts, planParts, stepsIn } from "./task-plan-parts";
@@ -420,6 +421,12 @@ function Facts({
 			task.lease === "held"
 				? "Outside the page, running a splates command now"
 				: "Outside the page, or gone: the page sees only its edits, commits and splates commands",
+		]);
+	}
+	if (task.autoPick !== null) {
+		facts.push([
+			"Auto pick",
+			<AutoPickFact key="auto-pick" picked={task.autoPick} />,
 		]);
 	}
 	if (task.planProblems.length > 0) {

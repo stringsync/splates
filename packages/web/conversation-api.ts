@@ -41,6 +41,23 @@ export async function startConversation(
 }
 
 /**
+ * Starts a conversation on what Auto pick decides for a task: a started one
+ * by name, in its tree, or a queued one by number, in the main tree. The
+ * server answers before the judge does, on the rule for any task, and moves
+ * it onto the pick before its agent opens; the page sends the prompt as for
+ * any start.
+ */
+export async function startAutoPick(
+	target: { task: string } | { todo: number },
+): Promise<ConversationState> {
+	return (await sendJson(
+		"/api/conversations/auto",
+		"POST",
+		target,
+	)) as ConversationState;
+}
+
+/**
  * The sessions the agents hold in `task`'s tree that no conversation does,
  * such as ones started in their CLI, newest first.
  */

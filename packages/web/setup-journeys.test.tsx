@@ -41,7 +41,7 @@ describe("Setup journeys", () => {
 						},
 					}}
 				>
-					<SetupPage feed={null} onOpen={() => {}} />
+					<SetupPage feed={null} onOpen={() => {}} todos={[]} />
 				</SetupContext>
 			);
 		}

@@ -1,6 +1,7 @@
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
+import { AutoPickRulesRoutes } from "../auto-pick";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import { fail } from "../exit";
@@ -459,6 +460,8 @@ export async function dev(
 		);
 	});
 
+	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
+
 	const coordinatorMove = new CoordinatorMoveRoutes({
 		fs,
 		ps,
@@ -576,6 +579,17 @@ export async function dev(
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },
 					"/api/setup/:step/next": { POST: guarded(setup.next) },
+					"/api/auto-pick/rules": {
+						GET: guarded(autoPickRules.read),
+						PUT: guarded(autoPickRules.save),
+					},
+					"/api/auto-pick/rules/reset": {
+						POST: guarded(autoPickRules.reset),
+					},
+					// It may ask the judge, on the person's key, as a start would.
+					"/api/auto-pick/try": {
+						POST: talk(scoped((project) => project.tryAutoPick)),
+					},
 					// It stops this server: from a page Access let in alone.
 					"/api/setup/coordinator/move": {
 						GET: guarded(coordinatorMove.progress),
@@ -682,6 +696,9 @@ export async function dev(
 					"/api/conversations": {
 						GET: talk(scoped((project) => project.listConversations)),
 						POST: talk(scoped((project) => project.startConversation)),
+					},
+					"/api/conversations/auto": {
+						POST: talk(scoped((project) => project.startAutoPick)),
 					},
 					"/api/conversations/sessions": {
 						GET: talk(scoped((project) => project.listSessions)),

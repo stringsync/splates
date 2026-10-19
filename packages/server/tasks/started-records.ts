@@ -59,7 +59,8 @@ export class StartedRecords {
 			const record =
 				(await this.store.find(state.task)) ??
 				(await this.numbered(state.task));
-			const { id: _, createdAt, status, ...started } = state;
+			// Its Auto pick is the record's own, which a stale read must not undo.
+			const { id: _, createdAt, status, autoPick: __, ...started } = state;
 			await this.store.write({
 				...queuedOf(record),
 				...(record.listed === false ? { listed: false } : {}),
@@ -174,5 +175,6 @@ function stateOf(record: StoredTask): TaskState {
 		id: record.id,
 		status: record.status ?? "working",
 		createdAt: startedAt,
+		...(record.autoPick === undefined ? {} : { autoPick: record.autoPick }),
 	};
 }

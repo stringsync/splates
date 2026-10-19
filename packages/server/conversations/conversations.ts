@@ -24,7 +24,7 @@ import type { Limits, Offered } from "../models";
 import { installedVersion } from "../server/shared";
 import type { Adherence, Outcomes } from "../stats";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
-import { Conversation } from "./conversation";
+import { Conversation, type Picked } from "./conversation";
 import type {
 	ConversationDeps,
 	ConversationSlots,
@@ -236,6 +236,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			queued,
 			title,
 			persistent,
+			picking,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -258,6 +259,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			title?: string;
 			/** The persistent agent's role it is started for, as `"groomer"`. */
 			persistent?: string;
+			/**
+			 * What Auto pick decides, once it has, to open on in place of
+			 * `agent`, `model` and `settings`, which it shows meanwhile.
+			 */
+			picking?: Promise<Picked<string>>;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
@@ -281,6 +287,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				queued,
 				title,
 				persistent,
+				picking: picking?.then((picked) => ({
+					...picked,
+					agent: this.agentOf(picked.agent),
+				})),
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,

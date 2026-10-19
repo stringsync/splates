@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "../age";
+import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
 import type { FinishedPlan } from "./finished";
@@ -99,6 +100,8 @@ export interface Details {
 	 * user; null for any other task.
 	 */
 	handedTo: string | null;
+	/** The last Auto pick that started it, as its record keeps it; null before any. */
+	autoPick: AutoPicked | null;
 }
 
 export interface ShowOptions {
@@ -177,6 +180,7 @@ export class TaskDetails {
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
 			handedTo: handOff(worktree)?.conversation ?? null,
+			autoPick: state?.autoPick ?? null,
 		};
 	}
 
