@@ -30,6 +30,12 @@ export interface TaskRecord {
 	lane: number | null;
 	/** How far it has come: groomed, queued, running, or none of them yet. */
 	stage: TaskStage;
+	/**
+	 * Whether it was groomed, once `ready`: kept while it is queued and
+	 * running, so one let go goes back to ready, and its agent knows not to
+	 * groom it again. Absent for one never groomed.
+	 */
+	groomed?: true;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
@@ -161,6 +167,7 @@ export class Task {
 		blockedBy,
 		lane,
 		assignee,
+		ready,
 	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -178,7 +185,18 @@ export class Task {
 		const added = await this.attachments.store(files);
 		const updated = await this.tasks.revise(this.id, (state) =>
 			assigned(
-				{ ...state, ...words, files: [...kept, ...added] },
+				{
+					...state,
+					...words,
+					files: [...kept, ...added],
+					// Groomed once running, it stays running.
+					...(ready
+						? {
+								groomed: true as const,
+								stage: state.stage === "backlog" ? "ready" : state.stage,
+							}
+						: {}),
+				},
 				assignee === undefined ? state.assignee : assignee,
 			),
 		);
@@ -215,6 +233,34 @@ export class Task {
 	}
 }
 
+/**
+ * `state` taken out of the queue: back in ready when it was groomed, else
+ * the backlog.
+ */
+export function unqueued(state: TaskRecord): TaskRecord {
+	return { ...state, stage: state.groomed ? "ready" : "backlog" };
+}
+
+/**
+ * `state` as it is saved, `running` when it has started: only the person
+ * takes one out of the queue, and ready means groomed, whether it names an
+ * agent or not, which it stays once it moves on.
+ */
+export function staged(state: TaskRecord, running: boolean): TaskRecord {
+	const { groomed: _, ...rest } = state;
+	return {
+		...rest,
+		stage: running
+			? "running"
+			: state.stage === "running"
+				? unqueued(state).stage
+				: state.stage,
+		...(state.groomed || state.stage === "ready"
+			? { groomed: true as const }
+			: {}),
+	};
+}
+
 /** A task's words, place or files changed: new ones added, some of the old kept. */
 export interface TaskChange {
 	/** A new line; the old one stays when this is absent. */
@@ -233,6 +279,8 @@ export interface TaskChange {
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
 	assignee?: AgentPick | null;
+	/** Marks it groomed, moving it from the backlog to ready; absent leaves it as it is. */
+	ready?: boolean;
 }
 
 /**
@@ -271,6 +319,11 @@ export interface TaskNew {
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
 	origin?: TaskOrigin;
+	/**
+	 * Whether whoever wrote it groomed it, so it goes in ready; by default it
+	 * goes in the backlog, for grooming.
+	 */
+	ready?: boolean;
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */
@@ -347,6 +400,7 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
 		...(same(before.assignee, after.assignee)
 			? {}
 			: { assignee: after.assignee ?? null }),
+		...(after.groomed && !before.groomed ? { ready: true as const } : {}),
 	};
 	return { number: after.id, subject: after.subject, changed };
 }
@@ -370,10 +424,11 @@ export interface LandedBlocker extends GoneBlocker {
 }
 
 /**
- * Where a task stands: `backlog` until grooming has looked for a duplicate,
- * linked what it depends on and named its model, then `ready`; `queued` once
- * the person puts it in the queue, from either, for a worker to start; and
- * `running` while an agent works it in a worktree.
+ * Where a task stands: `backlog` until grooming has looked for a duplicate
+ * and linked what it depends on, then `ready`, whether or not it names an
+ * agent, which is picked when it runs otherwise; `queued` once the person
+ * puts it in the queue, from either, for a worker to start; and `running`
+ * while an agent works it in a worktree.
  */
 export type TaskStage = "backlog" | "ready" | "queued" | "running";
 

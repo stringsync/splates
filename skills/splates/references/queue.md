@@ -1,14 +1,26 @@
 # Linking, placing and ordering tasks
 
-An agent that adds a task checks that none already asks it, then only adds it:
-it leaves the task untriaged, unless
-the user names a lane, a position or what blocks it. Placing, linking and
-ordering are for the user, or the agent that
-starts the task, which grooms it first (see Grooming a task you start).
+A task is ready once groomed: no other task asks it, what blocks it is
+linked, and it is in its lane when that is plain. Whoever writes a task
+grooms it as they add it with `splates task add`, which makes it ready, or,
+knowing too little of it, `splates task defer`s it to the backlog, rough. A
+backlog task is groomed later, by a groomer or the agent that starts it,
+which `splates task update N --ready` moves to ready. Ordering is the
+user's (see Positions).
+
+## Grooming a task you write
+
+Before `splates task add`, check none already asks it (see One that already
+asks it), give it `--blocked-by` for each task whose code it needs or whose
+files it changes, read from `splates task list` and `splates list --files`,
+and `--lane` when it builds on a lane's work (see Lanes). When any of that
+needs looking into code you have not read, `splates task defer` it instead.
 
 ## Grooming a task you start
 
-A task is groomed once, by the agent that starts it, before any work on it:
+A task from the backlog, which `splates task show N` shows as `groomed: no`,
+is groomed once, by the agent that starts it, before any work on it. A ready
+one was groomed when it was written: start work on it.
 
 1. **One that already asks it.** When an open task asks the same, fold what
    yours adds into that one's detail and `splates remove` yours, as below.
@@ -19,6 +31,8 @@ A task is groomed once, by the agent that starts it, before any work on it:
    it starts once that lands.
 3. **Ask what the user's answer would change**, under `## Blocked`, as
    Questions in `SKILL.md` says; make every other call yourself.
+4. **Mark it groomed** with `splates task update N --ready`, so it goes back
+   to ready rather than the backlog should it be let go.
 
 ## One that already asks it
 
@@ -39,7 +53,7 @@ reading it again.
 ## Deferring
 
 `[SPLATES DEFER]` asks you to make a request a task rather than do it.
-`splates task add` it as Queueing tasks in the skill says, from your worktree when a
+`splates task defer` it as Queueing tasks in the skill says, from your worktree when a
 task is under way, its detail all the message gives and what you already
 know of the code it touches, with no new investigation.
 

@@ -42,14 +42,14 @@ export function taskEventsOf(event: Event): TaskEvent[] {
 	});
 	switch (event.action) {
 		case "task add":
-			return [of("task.created", [event.number])];
+			return [
+				of("task.created", [event.number]),
+				...(event.ready ? [of("task.ready", [event.number])] : []),
+			];
 		case "task update":
 			return [
 				of("task.updated", [event.number]),
-				// Naming its model is grooming's last call.
-				...(event.changed.assignee == null
-					? []
-					: [of("task.ready", [event.number])]),
+				...(event.changed.ready ? [of("task.ready", [event.number])] : []),
 			];
 		case "queue add":
 			return [

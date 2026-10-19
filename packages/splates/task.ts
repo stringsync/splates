@@ -27,89 +27,113 @@ export const splatesTask = cli<SplatesDeps>("task").description(
 	"the numbered tasks: defer work for later instead of growing the task you are in, and `splates add <slug> --task <n>` starts one; `merge` recommends the next one when a task lands. The person puts tasks in `splates queue`, for workers to start",
 );
 
-splatesTask
-	.command("add")
-	.use(repository({ needs: "queue" }))
-	.description(
-		"queue a task to do later and move on; run from a worktree, it records the task it came up in",
-	)
-	.arg("subject", z.string(), { description: "what is left to do, in a line" })
-	.arg("text", z.string(), {
-		default: "",
-		description: "whatever more there is to say about it, in markdown",
-	})
-	.option("position", position, {
-		description:
-			"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
-	})
-	.option("file", z.string(), {
-		default: "",
-		description:
-			"files to attach, comma separated: copied under .git/splates/tasks/<n>/",
-	})
-	.option("blocked-by", z.string(), {
-		default: "",
-		description:
-			"numbers of the tasks blocking it, comma separated: each has to merge before this one starts",
-	})
-	.option("lane", z.string(), {
-		default: "",
-		description:
-			"the lane it goes in, at the bottom: a lane's number, or `new` for one of its own (default: none, untriaged)",
-	})
-	.option("agent", z.string(), {
-		default: "",
-		description:
-			"the agent on the roster (`splates agents`) that should work it, which Start on the `splates server` board offers first",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "with --agent: the model, by its id or name on the roster",
-	})
-	.option("effort", z.string(), {
-		default: "",
-		description:
-			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
-	})
-	.action(async (opts, ctx) => {
-		if (ctx.elsewhere !== null && opts.lane !== "") {
-			fail(
-				"not_granted",
-				"a task from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
-				{ subject: opts.subject },
+/**
+ * `splates task add` or `defer`: one writes a task its agent groomed, for
+ * ready, the other a rough one, for the backlog and whoever grooms it.
+ */
+function adding(name: string, description: string, ready: boolean) {
+	splatesTask
+		.command(name)
+		.use(repository({ needs: "queue" }))
+		.description(description)
+		.arg("subject", z.string(), {
+			description: "what is left to do, in a line",
+		})
+		.arg("text", z.string(), {
+			default: "",
+			description: "whatever more there is to say about it, in markdown",
+		})
+		.option("position", position, {
+			description:
+				"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
+		})
+		.option("file", z.string(), {
+			default: "",
+			description:
+				"files to attach, comma separated: copied under .git/splates/tasks/<n>/",
+		})
+		.option("blocked-by", z.string(), {
+			default: "",
+			description:
+				"numbers of the tasks blocking it, comma separated: each has to merge before this one starts",
+		})
+		.option("lane", z.string(), {
+			default: "",
+			description:
+				"the lane it goes in, at the bottom: a lane's number, or `new` for one of its own (default: none, untriaged)",
+		})
+		.option("agent", z.string(), {
+			default: "",
+			description:
+				"the agent on the roster (`splates agents`) that should work it, which Start on the `splates server` board offers first",
+		})
+		.option("model", z.string(), {
+			default: "",
+			description: "with --agent: the model, by its id or name on the roster",
+		})
+		.option("effort", z.string(), {
+			default: "",
+			description:
+				"with --agent: the thinking level, one the agent offers (default: the agent's own)",
+		})
+		.action(async (opts, ctx) => {
+			if (ctx.elsewhere !== null && opts.lane !== "") {
+				fail(
+					"not_granted",
+					"a task from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
+					{ subject: opts.subject },
+				);
+			}
+			const from = await here(ctx);
+			const assignee = await assigneeIn(
+				ctx,
+				opts.agent,
+				opts.model,
+				opts.effort,
 			);
-		}
-		const from = await here(ctx);
-		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
-		// Run with `--project`, the working directory is in the other project.
-		const origin =
-			ctx.elsewhere === null
-				? undefined
-				: {
-						project: ctx.elsewhere,
-						task:
-							ctx.project === undefined
-								? null
-								: ctx.service.taskFor(
-										await ctx.git.currentBranch(ctx.ps.cwd()),
-									),
-					};
-		await ctx.journal.record(
-			"task add",
-			from,
-			() =>
-				taskAdd(ctx, opts.subject, from, {
-					text: opts.text,
-					position: opts.position,
-					files: commaList(opts.file),
-					blockedBy: taskIds(opts["blocked-by"]),
-					lane: laneIn(opts.lane) ?? null,
-					assignee,
-					origin,
-				}),
-			addedFacts,
-		);
-	});
+			// Run with `--project`, the working directory is in the other project.
+			const origin =
+				ctx.elsewhere === null
+					? undefined
+					: {
+							project: ctx.elsewhere,
+							task:
+								ctx.project === undefined
+									? null
+									: ctx.service.taskFor(
+											await ctx.git.currentBranch(ctx.ps.cwd()),
+										),
+						};
+			await ctx.journal.record(
+				"task add",
+				from,
+				() =>
+					taskAdd(ctx, opts.subject, from, {
+						text: opts.text,
+						position: opts.position,
+						files: commaList(opts.file),
+						blockedBy: taskIds(opts["blocked-by"]),
+						lane: laneIn(opts.lane) ?? null,
+						assignee,
+						origin,
+						ready,
+					}),
+				addedFacts,
+			);
+		});
+}
+
+adding(
+	"add",
+	"queue a task to do later and move on, groomed, so it goes in ready: you checked no task already asks it, and linked what blocks it; run from a worktree, it records the task it came up in",
+	true,
+);
+
+adding(
+	"defer",
+	"queue a task as it is, rough, in the backlog for whoever grooms it: to check for one that already asks it, link what blocks it, and mark it ready; run from a worktree, it records the task it came up in",
+	false,
+);
 
 splatesTask
 	.command("list")
@@ -201,6 +225,11 @@ splatesTask
 		description:
 			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
 	})
+	.option("ready", z.boolean(), {
+		default: false,
+		description:
+			"mark it groomed, moving it from the backlog to ready: no task already asks it, and what blocks it is linked",
+	})
 	.action(async (opts, ctx) => {
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		await recordUpdate(ctx.journal, ctx.tasks, opts.id, () =>
@@ -214,6 +243,7 @@ splatesTask
 				removeBlockedBy: taskIds(opts["remove-blocked-by"]),
 				lane: laneIn(opts.lane),
 				assignee,
+				ready: opts.ready,
 			}),
 		);
 	});

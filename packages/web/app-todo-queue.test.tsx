@@ -36,6 +36,7 @@ describe("App's queue", () => {
 					subject: "groomed",
 					position: 2,
 					stage: "ready",
+					groomed: true,
 					assignee: { agent: "claude" },
 				}),
 				todo({ id: 3, subject: "first up", position: 3, stage: "queued" }),
@@ -47,6 +48,13 @@ describe("App's queue", () => {
 					stage: "running",
 					takenBy: "beta",
 				}),
+				todo({
+					id: 6,
+					subject: "groomed, no agent",
+					position: 6,
+					stage: "ready",
+					groomed: true,
+				}),
 			],
 		});
 
@@ -55,10 +63,13 @@ describe("App's queue", () => {
 			.map((card) => card.textContent ?? "");
 		expect(cards[0]).toContain("Backlog");
 		expect(cards[1]).toContain("Ready");
+		expect(cards[1]).not.toContain("agent picked when it runs");
 		expect(cards[2]).toContain("Queued · 1");
 		expect(cards[3]).toContain("Queued · 2");
 		expect(cards[4]).toContain("beta");
 		expect(cards[4]).not.toMatch(/Backlog|Ready|Queue/);
+		expect(cards[5]).toContain("Ready");
+		expect(cards[5]).toContain("agent picked when it runs");
 	});
 
 	it("counts a lane's todos by stage in its header, leaving out the stages it has none in", async () => {

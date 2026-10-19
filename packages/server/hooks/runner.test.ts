@@ -67,6 +67,7 @@ describe("HookRunner", () => {
 				subject: task.subject,
 				lane: null,
 				position: task.position,
+				ready: false,
 			}),
 		);
 

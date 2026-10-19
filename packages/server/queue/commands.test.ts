@@ -7,19 +7,22 @@ describe("queue commands", () => {
 	it("queues tasks from the backlog or groomed, and takes them out to where they were", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "Ungroomed", null);
-		await taskAdd(deps, "Groomed", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Groomed", null, { ready: true });
 
 		await queueAdd(deps, [1, 2]);
 		expect((await deps.tasks.all()).map((task) => task.state.stage)).toEqual([
 			"queued",
 			"queued",
 		]);
-		// Naming a model, as grooming does, leaves a queued task queued.
+		// Naming a model is no grooming, and leaves a queued task queued.
 		await taskUpdate(deps, 1, { assignee: { agent: "claude" } });
 		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
 
-		await queueRemove(deps, [2]);
-		expect((await deps.tasks.find(2)).state.stage).toBe("ready");
+		await queueRemove(deps, [1, 2]);
+		expect((await deps.tasks.all()).map((task) => task.state.stage)).toEqual([
+			"backlog",
+			"ready",
+		]);
 		await expect(queueRemove(deps, [2])).toBail("not_found");
 	});
 

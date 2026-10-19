@@ -26,6 +26,8 @@ export interface TaskAddOptions extends TaskFileOptions {
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
 	origin?: TaskOrigin;
+	/** Whether whoever wrote it groomed it, for ready; the backlog by default. */
+	ready?: boolean;
 }
 
 export async function taskAdd(
@@ -40,6 +42,7 @@ export async function taskAdd(
 		lane,
 		assignee,
 		origin,
+		ready,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.add(subject, from, {
@@ -50,10 +53,11 @@ export async function taskAdd(
 		lane,
 		assignee,
 		origin,
+		ready,
 	});
 	deps.log.info(
 		[
-			`${color.green("added")} task ${task.id} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}`,
+			`${color.green("added")} task ${task.id} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
 			...task.files.map((path) => `  ${path}`),
 			task.blockedBy.length === 0
 				? `  start it: splates add <slug> --task ${task.id}`
@@ -70,6 +74,7 @@ export function addedFacts(task: Task): Facts["task add"] {
 		subject: task.subject,
 		lane: task.lane,
 		position: task.position,
+		ready: task.state.stage === "ready",
 	};
 }
 
@@ -90,6 +95,8 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
 	assignee?: AgentPick | null;
+	/** Marks it groomed, moving it from the backlog to ready. */
+	ready?: boolean;
 }
 
 export async function taskUpdate(
@@ -105,6 +112,7 @@ export async function taskUpdate(
 		removeBlockedBy = [],
 		lane,
 		assignee,
+		ready,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.find(id);
@@ -155,10 +163,11 @@ export async function taskUpdate(
 					),
 		lane,
 		assignee,
+		ready,
 	});
 	deps.log.info(
 		[
-			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}: ${updated.subject}`,
+			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}, ${updated.state.stage}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
 			...(updated.blockedBy.length === 0
 				? []

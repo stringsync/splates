@@ -1,7 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
 import { aptName, isReady, type LaneRecord, named, settle } from "./lanes";
-import type { TaskRecord } from "./task";
+import { type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
@@ -99,8 +99,8 @@ export class TaskLanes {
 	/**
 	 * Queues lane `id` whole, or stops: queued, each of its tasks is queued
 	 * once nothing blocks it (`queueFromLanes`); stopped, each it holds that
-	 * is queued and not yet started goes back to the backlog, so nothing more
-	 * of it starts. Gives back the lane, and the tasks stopping took out.
+	 * is queued and not yet started goes back to ready when groomed, else the
+	 * backlog, so nothing more of it starts. Gives back the lane, and the tasks stopping took out.
 	 */
 	async queueLane(
 		id: number,
@@ -116,7 +116,7 @@ export class TaskLanes {
 				...rest
 			} = records.find((record) => record.id === id) as LaneRecord;
 			const changed: LaneRecord = queued ? { ...rest, queued: true } : rest;
-			const unqueued: TaskRecord[] = [];
+			const taken: TaskRecord[] = [];
 			if (!queued) {
 				for (const state of states) {
 					if (
@@ -124,16 +124,14 @@ export class TaskLanes {
 						state.stage === "queued" &&
 						state.takenBy === null
 					) {
-						unqueued.push(
-							(await this.tasks.save({ ...state, stage: "backlog" })).state,
-						);
+						taken.push((await this.tasks.save(unqueued(state))).state);
 					}
 				}
 			}
 			await this.writeLanes(
 				records.map((record) => (record.id === id ? changed : record)),
 			);
-			return { lane: changed, unqueued };
+			return { lane: changed, unqueued: taken };
 		});
 	}
 

@@ -73,17 +73,13 @@ export function arranged(id: number, lane: number | "new" | null, name = "") {
 
 /**
  * Todo `id` in the queue, or out of it, where the server puts it: ready
- * once a model is named for it, else the backlog.
+ * once groomed, else the backlog.
  */
 export function queued(id: number, queued: boolean) {
 	return (snapshot: Snapshot): Snapshot =>
 		changed(snapshot, id, (todo) => ({
 			...todo,
-			stage: queued
-				? "queued"
-				: todo.assignee === undefined
-					? "backlog"
-					: "ready",
+			stage: queued ? "queued" : todo.groomed ? "ready" : "backlog",
 		}));
 }
 
@@ -129,7 +125,8 @@ export function lanesJoined(from: number, into: number) {
 
 /**
  * Lane `id` queued whole, each of its todos nothing blocks queued with it,
- * or no longer, each of its queued todos no agent has back in the backlog.
+ * or no longer, each of its queued todos no agent has back in ready when
+ * groomed, else the backlog.
  */
 export function laneQueued(id: number, queued: boolean) {
 	return (snapshot: Snapshot): Snapshot => ({
@@ -142,7 +139,7 @@ export function laneQueued(id: number, queued: boolean) {
 						? { ...todo, stage: "queued" }
 						: todo
 					: todo.stage === "queued" && todo.takenBy === null
-						? { ...todo, stage: "backlog" }
+						? { ...todo, stage: todo.groomed ? "ready" : "backlog" }
 						: todo,
 		),
 		lanes: snapshot.lanes.map((lane) => {

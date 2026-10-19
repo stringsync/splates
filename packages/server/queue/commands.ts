@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { age } from "../age";
-import type { Task, TaskRecord, Tasks } from "../board";
+import { type Task, type TaskRecord, type Tasks, unqueued } from "../board";
 import { fail } from "../exit";
 import { pickLabel } from "../models";
 import { table } from "../table";
@@ -84,8 +84,8 @@ export async function queueAdd(
 }
 
 /**
- * Takes tasks `ids` out of the queue, back to `ready` when a model is named
- * for them, else `backlog`, and out of their lane's when it is queued whole,
+ * Takes tasks `ids` out of the queue, back to `ready` when they were
+ * groomed, else `backlog`, and out of their lane's when it is queued whole,
  * until they are queued again. Refuses one not in it.
  */
 export async function queueRemove(
@@ -105,9 +105,7 @@ export async function queueRemove(
 	}
 	const removed: Task[] = [];
 	for (const task of found) {
-		removed.push(
-			await tasks.revise(task.id, (state) => ({ ...state, stage: "backlog" })),
-		);
+		removed.push(await tasks.revise(task.id, unqueued));
 	}
 	// So a queued lane does not queue it straight back.
 	await tasks.skipInLanes(ids, true);

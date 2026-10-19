@@ -122,6 +122,7 @@ function added(id: number, secs: number): Event {
 		subject: "Upload retries forever on a 413",
 		lane: 1,
 		position: 2,
+		ready: true,
 	};
 }
 

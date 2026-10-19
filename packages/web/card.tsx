@@ -117,6 +117,12 @@ export function Card({
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 					<CopyLink id={todo.id} />
 					<StageBadge todo={todo} />
+					{/* Groomed with no agent named, it runs on whichever is picked then. */}
+					{todo.takenBy === null &&
+						todo.stage === "ready" &&
+						todo.assignee === undefined && (
+							<span>agent picked when it runs</span>
+						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
 					{(todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">

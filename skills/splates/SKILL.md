@@ -29,7 +29,7 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then groom it as [queue.md](references/queue.md) says under Grooming a task you start |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then, when `splates task show N` says `groomed: no`, groom it as [queue.md](references/queue.md) says under Grooming a task you start |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
@@ -49,9 +49,9 @@ comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
-- Before `splates lane add`, `splates lane queue` or `unqueue`, or `splates
-  task add`, `splates task update` or `splates lane update` with `--lane`,
-  `--position` or `--blocked-by`:
+- Before `splates lane add`, `splates lane queue` or `unqueue`, `splates task
+  defer`, or `splates task add`, `splates task update` or `splates lane
+  update` with `--lane`, `--position`, `--blocked-by` or `--ready`:
   [references/queue.md](references/queue.md), linking, placing and ordering
   queued tasks.
 - When the user asks to set splates up on this machine, or any part of it
@@ -92,7 +92,7 @@ which remembers none of it.
 4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
-   task), `splates task add` it from your worktree and move on,
+   task), `splates task add` or `defer` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
    queued (see Queueing tasks). A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
@@ -150,11 +150,15 @@ never its lease: `stale` is normal for one mid-edit.
 ## Queueing tasks
 
 When something outside your Goal comes up, queue it as a task and move on:
-its subject and what you know, once you have checked no task already asks
-it (see [references/queue.md](references/queue.md)). Leave placing it, linking it
-and picking its model to whoever starts it, who grooms it first, unless the
-user names a lane, a position or what blocks it, or the model it takes is
-plain, as for a change spelled out step by step.
+its subject and what you know. `splates task add` makes it ready, which
+says you groomed it: you checked no task already asks it, linked what
+blocks it, and put it in a lane when its lane is plain (see
+[references/queue.md](references/queue.md)). When you know too little of it
+to do that without looking into it, as for a rough idea or a request
+deferred as it came, `splates task defer` it instead, which takes the same
+flags and leaves it in the backlog for whoever grooms it. Leave its position
+and its model to the user and the queue, unless the user names them, or the
+model it takes is plain, as for a change spelled out step by step.
 
 Write a task's subject short enough to scan. Put the why, the where, the
 files and the feature in its detail, as markdown the `splates server` page
@@ -340,7 +344,7 @@ without naming it, write that answer after `→` and check it off, so it is not
 asked again. Check an item off only when its answer is one you can act on;
 anything else stays open and leads your next report. A reply about something
 you did is an instruction. When the user defers or skips a question, check it
-off and carry on without it (for a defer, `splates task add` it first). Only
+off and carry on without it (for a defer, `splates task defer` it first). Only
 the user answers questions, yours or another agent's.
 
 When the user asks to see the work before it lands, write `Review:

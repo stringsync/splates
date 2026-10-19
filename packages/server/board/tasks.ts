@@ -6,7 +6,14 @@ import { fail } from "../exit";
 import type { LaneUpdateOptions } from "./lane";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
-import { assigned, Task, type TaskNew, type TaskRecord, wording } from "./task";
+import {
+	assigned,
+	staged,
+	Task,
+	type TaskNew,
+	type TaskRecord,
+	wording,
+} from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import { TaskLanes } from "./task-lanes";
 
@@ -63,6 +70,7 @@ export class Tasks {
 			lane = null,
 			assignee = null,
 			origin,
+			ready = false,
 		}: TaskNew = {},
 	): Promise<Task> {
 		const words = wording(subject, text);
@@ -90,7 +98,7 @@ export class Tasks {
 				files: await this.attachments(id).store(files),
 				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
 				lane: null,
-				stage: "backlog",
+				stage: ready ? "ready" : "backlog",
 				...(origin === undefined ? {} : { origin }),
 			};
 			const task = await this.save(
@@ -344,19 +352,7 @@ export class Tasks {
 	async save(state: TaskRecord): Promise<Task> {
 		const stored = await this.store.read(state.id);
 		const started = stored === null ? null : startedOf(stored);
-		const saved: TaskRecord = {
-			...state,
-			// Naming its model is grooming's last call, so it makes a task ready,
-			// and only the person takes one out of the queue.
-			stage:
-				started !== null
-					? "running"
-					: state.stage === "queued"
-						? "queued"
-						: state.stage === "ready" || state.assignee !== undefined
-							? "ready"
-							: "backlog",
-		};
+		const saved = staged(state, started !== null);
 		await this.store.write({
 			...saved,
 			...started,

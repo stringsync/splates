@@ -3,17 +3,32 @@ import type { Event } from "../records";
 import { taskEventsOf } from "./events";
 
 describe("taskEventsOf", () => {
-	it("makes naming a model ready a task, as well as updating it", () => {
-		const update = event({
-			action: "task update",
-			number: 3,
-			subject: "Totals",
-			changed: { assignee: { agent: "claude" } },
-		});
+	it("makes a task ready when it is added groomed, not deferred", () => {
+		const added = (number: number, ready: boolean) =>
+			names(
+				event({
+					action: "task add",
+					number,
+					subject: "Totals",
+					lane: null,
+					position: number,
+					ready,
+				}),
+			);
 
-		expect(taskEventsOf(update).map(({ name }) => name)).toEqual([
+		expect(added(4, true)).toEqual(["task.created", "task.ready"]);
+		expect(added(5, false)).toEqual(["task.created"]);
+	});
+
+	it("makes a task ready when an update grooms it, not when it names a model", () => {
+		const updated = (changed: Record<string, unknown>) =>
+			names(
+				event({ action: "task update", number: 3, subject: "Totals", changed }),
+			);
+
+		expect(updated({ ready: true })).toEqual(["task.updated", "task.ready"]);
+		expect(updated({ assignee: { agent: "claude" } })).toEqual([
 			"task.updated",
-			"task.ready",
 		]);
 	});
 
@@ -46,6 +61,10 @@ describe("taskEventsOf", () => {
 		expect(taskEventsOf(event({ action: "tell", to: "beta" }))).toEqual([]);
 	});
 });
+
+function names(each: Event): string[] {
+	return taskEventsOf(each).map(({ name }) => name);
+}
 
 function event(fields: Record<string, unknown>): Event {
 	return {

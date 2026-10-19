@@ -42,7 +42,7 @@ export function decodeTask(raw: string): Record<string, unknown> | null {
 
 /**
  * The stage a queued task saved without one is in: `ready` once a model is
- * named for it, as grooming does last, else `backlog`.
+ * named for it, as grooming did last when tasks had no stage, else `backlog`.
  */
 export function stageOf(state: {
 	stage?: TaskStage;

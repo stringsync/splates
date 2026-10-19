@@ -346,6 +346,28 @@ describe.concurrent("task", () => {
 		await expect(add(deps, "missing", { tasks: [9] })).toBail("not_found");
 	});
 
+	it("is ready once groomed, whether it names an agent or not, and stays groomed once started", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "rough", null);
+		await taskAdd(deps, "groomed", null, { ready: true });
+		await taskUpdate(deps, 1, { assignee: { agent: "claude" } });
+		const stages = async () =>
+			(await deps.tasks.all()).map((task) => task.state.stage);
+		expect(await stages()).toEqual(["backlog", "ready"]);
+
+		await taskUpdate(deps, 1, { ready: true });
+		expect(await stages()).toEqual(["ready", "ready"]);
+
+		await taskAdd(deps, "started rough", null);
+		await add(deps, "rough", { tasks: [3] });
+		await taskUpdate(deps, 3, { ready: true });
+		const started = (await deps.tasks.find(3)).state;
+		expect([started.stage, started.groomed]).toEqual(["running", true]);
+		deps.log.clear();
+		await taskShow(deps, 3);
+		expect(deps.out()).toContain("groomed:   yes");
+	});
+
 	it("puts a removed task's queued task back on the list", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);

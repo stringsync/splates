@@ -117,14 +117,19 @@ describe("QueueRunner", () => {
 		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
 	});
 
-	it("asks the agent to groom the task before working it", async () => {
+	it("asks the agent to groom a task from the backlog before working it, and not one groomed", async () => {
 		await taskAdd(deps, "Raw", null);
-		await queueAdd(deps, [1]);
+		await taskAdd(deps, "Groomed", null, { ready: true });
+		await queueAdd(deps, [1, 2]);
 
 		await runner.sweep();
 		await settled();
 
-		expect(started[0]?.prompt).toContain("Groom it first");
+		const prompts = new Map(
+			started.map(({ queued, prompt }) => [queued.id, prompt]),
+		);
+		expect(prompts.get(1)).toContain("Groom it first");
+		expect(prompts.get(2)).not.toContain("Groom it first");
 	});
 
 	it("starts only as many as the workers have room for, the rest waiting in their line", async () => {

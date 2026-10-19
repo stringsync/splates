@@ -156,10 +156,14 @@ const probes: Probe[] = [
 		"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and assign fake; leave it untriaged.",
 		[],
 		[
-			required(
-				"save-request",
-				queue("Add widget", "Change widget.ts and add a regression test."),
-			),
+			required("save-request", [
+				"task",
+				"defer",
+				"Add widget",
+				"Change widget.ts and add a regression test.",
+				"--agent",
+				"fake",
+			]),
 			{
 				id: "no-investigation",
 				kind: "count",
