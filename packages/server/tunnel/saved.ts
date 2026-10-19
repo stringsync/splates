@@ -1,12 +1,20 @@
 import type { SecretStore } from "webappwiz/creds";
 import { z } from "zod";
 import type { Document, Storage } from "../storage";
+import { CloudflareApi } from "./cloudflare-api";
 
 /** The file's own format. */
 const FORMAT = 1;
 
 /** The name the tunnel's token is kept under in the system's secret store. */
 export const TUNNEL_TOKEN = "SPLATES_TUNNEL_TOKEN";
+
+/**
+ * The cred the Cloudflare API token is kept as, on the device, since the
+ * account is the person's. Not `CLOUDFLARE_API_TOKEN`, which scry's Workers
+ * AI token goes by in the same store.
+ */
+export const API_TOKEN = "SPLATES_CLOUDFLARE_API_TOKEN";
 
 /** What `splates tunnel setup` made, which a bare `splates server` runs. */
 export interface TunnelRecord {
@@ -19,10 +27,11 @@ export interface TunnelRecord {
 	/** The Cloudflare tunnel's id. */
 	tunnel: string;
 	/**
-	 * The cred its token is kept as, when not `TUNNEL_TOKEN`: a slot's own,
-	 * since every slot runs a tunnel of its own.
+	 * The account a slot's tunnel is in, whose token is asked of the API at
+	 * each start rather than kept, so slots leave no creds behind. The
+	 * machine's tunnel has none: its token is kept as `TUNNEL_TOKEN`.
 	 */
-	token?: string;
+	account?: string;
 }
 
 const Saved = z.object({
@@ -31,7 +40,7 @@ const Saved = z.object({
 	team: z.string(),
 	aud: z.string(),
 	tunnel: z.string(),
-	token: z.string().optional(),
+	account: z.string().optional(),
 });
 
 /**
@@ -47,12 +56,18 @@ export class SavedTunnel {
 		private readonly deps: {
 			/** The device's store, which `splates tunnel setup` saves the token in. */
 			store: SecretStore;
+			/** How a slot's token is asked of the Cloudflare API. */
+			fetch?: typeof fetch;
 		},
 	) {}
 
 	/** The tunnel saved in `storage`, a machine's or a slot's. */
-	static in(storage: Storage, store: SecretStore): SavedTunnel {
-		return new SavedTunnel(storage.document("tunnel.json"), { store });
+	static in(
+		storage: Storage,
+		store: SecretStore,
+		fetch?: typeof globalThis.fetch,
+	): SavedTunnel {
+		return new SavedTunnel(storage.document("tunnel.json"), { store, fetch });
 	}
 
 	/** Where it is kept, as a key of the storage it is in. */
@@ -84,10 +99,23 @@ export class SavedTunnel {
 		return record;
 	}
 
-	/** The token that runs the saved tunnel, or undefined when the store lost it. */
+	/**
+	 * The token that runs the saved tunnel, or undefined when the store lost
+	 * it: a slot's asked of the API with the token kept as `API_TOKEN`.
+	 */
 	async token(): Promise<string | undefined> {
 		const record = await this.read();
-		return this.deps.store.get(record?.token ?? TUNNEL_TOKEN);
+		if (record?.account === undefined) {
+			return this.deps.store.get(TUNNEL_TOKEN);
+		}
+		const apiToken = await this.deps.store.get(API_TOKEN);
+		if (apiToken === undefined) {
+			return undefined;
+		}
+		return new CloudflareApi(apiToken, { fetch: this.deps.fetch }).get(
+			`/accounts/${record.account}/cfd_tunnel/${record.tunnel}/token`,
+			z.string(),
+		);
 	}
 
 	/** Keeps `record` in the file, over what was there; its token is a cred. */

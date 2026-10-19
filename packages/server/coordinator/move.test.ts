@@ -72,7 +72,6 @@ describe("CoordinatorMove", () => {
 			stores: {
 				device: new FakeSecretStore({
 					SPLATES_TUNNEL_TOKEN: "tunnel",
-					SPLATES_SLOT_OWL_TUNNEL_TOKEN: "owl",
 				}),
 				project: async () => new FakeSecretStore(),
 			},

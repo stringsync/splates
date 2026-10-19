@@ -7,7 +7,7 @@ import { Creds } from "../creds";
 import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN, tunnelSetup } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
-import { slotToken, slotTunnelSetup } from "./slot-tunnel";
+import { slotTunnelSetup } from "./slot-tunnel";
 
 describe("slotTunnelSetup", () => {
 	it("makes the slot's tunnel and route, and one wildcard Access app for every slot", async () => {
@@ -36,16 +36,17 @@ describe("slotTunnelSetup", () => {
 			team: machine.team,
 			aud: wildcard?.aud ?? "",
 			tunnel: tunnel?.id ?? "",
-			token: "SPLATES_SLOT_FOX_TUNNEL_TOKEN",
+			account: "acct",
 		});
 		const saved = SavedTunnel.in(
 			new FsStorage("/home/.splates/slots/fox", fs),
 			store,
+			cloudflare.fetch,
 		);
 		expect(await saved.read()).toEqual(fox);
+		// Asked of the API, never kept beside the machine's own.
 		expect(await saved.token()).toBe(`token-of-${tunnel?.id}`);
-		// The machine's own tunnel keeps its token.
-		expect(store.values.get(TUNNEL_TOKEN)).not.toBe(await saved.token());
+		expect([...store.values.keys()].sort()).toEqual([API_TOKEN, TUNNEL_TOKEN]);
 
 		cloudflare.changes.length = 0;
 		await setup("owl");
@@ -63,12 +64,6 @@ describe("slotTunnelSetup", () => {
 
 		await setup("fox");
 		expect(cloudflare.changes).toEqual([]);
-	});
-
-	it("names each slot's token by its word", () => {
-		expect(slotToken({ word: "bear", emoji: "🐻" })).toBe(
-			"SPLATES_SLOT_BEAR_TUNNEL_TOKEN",
-		);
 	});
 });
 

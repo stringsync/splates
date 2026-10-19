@@ -18,11 +18,13 @@ export function savedPortsHostOf({ ps, fs }: SplatesDeps): SavedPortsHost {
 export function savedTunnelOf({
 	ps,
 	fs,
+	fetch,
 	secrets = SYSTEM_STORES,
 }: SplatesDeps): SavedTunnel {
 	return SavedTunnel.in(
 		new FsStorage(`${splatesHome(ps)}`, fs),
 		secrets.device,
+		fetch,
 	);
 }
 

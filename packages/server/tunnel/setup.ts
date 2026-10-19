@@ -5,7 +5,7 @@ import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
 import { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
-import { type SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { API_TOKEN, type SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { hostName } from "./tunnel";
 
 /** The part of a project's creds a tunnel is made with, which the Setup page fills from the device's store alone. */
@@ -118,13 +118,6 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		`${color.green("saved")} ${host} in ${saved.key}, its token in the device's store: \`splates server\` now serves https://${host} to ${emails.join(", ")}`,
 	);
 }
-
-/**
- * The cred the Cloudflare API token is kept as, on the device, since the
- * account is the person's. Not `CLOUDFLARE_API_TOKEN`, which scry's Workers
- * AI token goes by in the same store.
- */
-export const API_TOKEN = "SPLATES_CLOUDFLARE_API_TOKEN";
 
 /** What the API token has to be allowed, as the dashboard names each. */
 export const TOKEN_PERMISSIONS = [

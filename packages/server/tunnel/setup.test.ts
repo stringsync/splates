@@ -6,8 +6,8 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
-import { API_TOKEN, tunnelSetup } from "./setup";
+import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { tunnelSetup } from "./setup";
 import { FakeCloudflare } from "./testing";
 
 describe("tunnelSetup", () => {

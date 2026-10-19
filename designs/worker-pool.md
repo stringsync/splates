@@ -445,7 +445,7 @@ each task's branch as a backup, and carries the coordinator's home files
 each project's `.git/splates` as they are, but that each task worked in a
 worktree on the Mac is put on the Mac's worker, at that worktree, so agents
 carry on there in place, and conversations keep the paths of the worker
-that ran them. Creds, but the dev slots' tunnel tokens, go on stdin into
+that ran them. Creds go on stdin into
 `splates server keep-creds` on the box, in a D-Bus session whose GNOME
 Keyring `/root/splates-keyring` unlocked, as the unit
 `splates-coordinator.service` runs `splates server` (`LoadCredential=`,

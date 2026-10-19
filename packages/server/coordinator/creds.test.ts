@@ -4,11 +4,10 @@ import { MovedCreds } from "./creds";
 import { movedProjects } from "./paths";
 
 describe("MovedCreds", () => {
-	it("carries the device's but the dev slots' tunnels, and each project's by its box root", async () => {
+	it("carries the device's, and each project's by its box root", async () => {
 		const creds = new MovedCreds({
 			device: new FakeSecretStore({
 				SPLATES_TUNNEL_TOKEN: "tunnel",
-				SPLATES_SLOT_OWL_TUNNEL_TOKEN: "owl",
 			}),
 			project: async (root) =>
 				new FakeSecretStore(

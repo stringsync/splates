@@ -13,10 +13,7 @@ export class MovedCreds {
 	/** Every cred kept here that the box needs. */
 	async carried(projects: MovedProject[]): Promise<CarriedCreds> {
 		const carried: CarriedCreds = {
-			device: await everything(
-				this.stores.device,
-				(name) => !SLOT_TOKEN.test(name),
-			),
+			device: await everything(this.stores.device),
 			projects: {},
 		};
 		for (const project of projects) {
@@ -70,19 +67,10 @@ export const CarriedCreds = z.object({
 });
 export type CarriedCreds = z.infer<typeof CarriedCreds>;
 
-/**
- * A dev slot's tunnel token: each runs `splates server --slot` here, which
- * stays a dev server on this machine.
- */
-const SLOT_TOKEN = /^SPLATES_SLOT_[A-Z0-9_]+_TUNNEL_TOKEN$/;
-
-async function everything(
-	store: SecretStore,
-	wanted: (name: string) => boolean = () => true,
-): Promise<Record<string, string>> {
+async function everything(store: SecretStore): Promise<Record<string, string>> {
 	const values: Record<string, string> = {};
 	for (const name of await store.names()) {
-		const value = wanted(name) ? await store.get(name) : undefined;
+		const value = await store.get(name);
 		if (value !== undefined) {
 			values[name] = value;
 		}

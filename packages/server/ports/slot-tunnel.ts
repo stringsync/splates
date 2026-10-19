@@ -1,5 +1,4 @@
 import type { Logger } from "webappwiz/log";
-import { z } from "zod";
 import type { Creds } from "../creds";
 import { Exit, fail } from "../exit";
 import type { CloudflareApi, SavedTunnel, TunnelRecord } from "../tunnel";
@@ -9,18 +8,14 @@ import type { Slot } from "./slots";
 /** What the Access application in front of every slot is called. */
 export const SLOTS_APP = "splates-slots";
 
-/** The cred a slot's tunnel token is kept as, on the device. */
-export function slotToken({ word }: Slot): string {
-	return `SPLATES_SLOT_${word.toUpperCase()}_TUNNEL_TOKEN`;
-}
-
 /**
  * Makes what carries `<word>.<zone>` to a slot's `splates server`, beside the
  * tunnel `splates tunnel setup` made, through the API with the same token: the
  * slot's tunnel, `splates-<word>`, the DNS record routing its host to it, and,
  * once for every slot, an Access application in front of `*.<zone>` letting
  * in whom the machine's own lets in. Saves them in the slot's home, so its
- * `splates server` runs them as a bare one runs the machine's. What already exists
+ * `splates server` runs them as a bare one runs the machine's, asking the API
+ * for the tunnel's token at each start rather than keeping it as a cred. What already exists
  * by name is reused, so running it again is safe.
  */
 export async function slotTunnelSetup({
@@ -69,20 +64,12 @@ export async function slotTunnelSetup({
 			`*.${zone.name}`,
 			[policy],
 		);
-		const token = await api.get(
-			`/accounts/${account}/cfd_tunnel/${tunnel.id}/token`,
-			z.string(),
-		);
-		await creds.save(slotToken(slot), token, {
-			scope: "device",
-			by: "splates server --slot",
-		});
 		const record = {
 			host,
 			team: machine.team,
 			aud,
 			tunnel: tunnel.id,
-			token: slotToken(slot),
+			account,
 		};
 		await saved.save(record);
 		return record;

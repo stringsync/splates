@@ -84,7 +84,9 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 	await stopLeftover(slots, slot, log);
 	const saved = SavedTunnel.in(new FsStorage(`${home}`, fs), secrets.device);
 	let record = await saved.read();
-	if (record === null || (await saved.token()) === undefined) {
+	// One saved before slots asked for their token at each start names no
+	// account, so it is set up again, reusing its tunnel.
+	if (record?.account === undefined) {
 		log.info(`setting up slot ${slot.word} ${slot.emoji}`);
 		record = await slotTunnelSetup({
 			slot,

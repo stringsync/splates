@@ -7,8 +7,8 @@ import { Creds } from "../creds";
 import { slotTunnelSetup } from "../ports";
 import { FsStorage } from "../storage";
 import { tunnelRemove } from "./remove";
-import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
-import { API_TOKEN, tunnelSetup } from "./setup";
+import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "./saved";
+import { tunnelSetup } from "./setup";
 import { FakeCloudflare } from "./testing";
 
 describe("tunnelRemove", () => {
@@ -27,7 +27,7 @@ describe("tunnelRemove", () => {
 		expect(store.values.get(API_TOKEN)).toBe("api-token");
 	});
 
-	it("removes the slots' tunnels, routes, wildcard application and tokens too", async () => {
+	it("removes the slots' tunnels, routes and wildcard application too", async () => {
 		const { cloudflare, store, slot, remove } = await account(["fox", "owl"]);
 
 		await remove();

@@ -7,14 +7,13 @@ import { SLOTS_APP } from "../ports";
 import { tokensOf } from "../workers/cloudflare-access";
 import type { CloudflareApi } from "./cloudflare-api";
 import { CloudflareError } from "./cloudflare-error";
-import { type SavedTunnel, TUNNEL_TOKEN, type TunnelRecord } from "./saved";
 import {
 	API_TOKEN,
-	App,
-	CloudflareTunnels,
-	Policy,
-	workersPolicy,
-} from "./setup";
+	type SavedTunnel,
+	TUNNEL_TOKEN,
+	type TunnelRecord,
+} from "./saved";
+import { App, CloudflareTunnels, Policy, workersPolicy } from "./setup";
 
 /** What `splates tunnel remove` is asked to remove, and what it runs with. */
 export interface RemoveOptions {
@@ -37,8 +36,8 @@ const DnsRecord = z.object({ id: z.string(), content: z.string() });
  * Deletes what `splates tunnel setup` and `splates server --slot` made, by what they
  * saved: each tunnel and the DNS record routing to it, the Access application
  * in front of the machine's host and the one in front of every slot, and the
- * policy they share, and the workers' policy with the service tokens it lets in. Then forgets each saved file and the tunnel token kept
- * for it. What is already gone is passed over, and a file is forgotten only
+ * policy they share, and the workers' policy with the service tokens it lets in. Then forgets each saved file and the machine's tunnel
+ * token. What is already gone is passed over, and a file is forgotten only
  * once its tunnel is, so running it again after a failure finishes the job.
  * The Cloudflare API token is kept, for `splates tunnel setup` to use again.
  */
@@ -68,7 +67,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 	try {
 		for (const slot of slots) {
 			await removeTunnel(cloudflare, slot.record, log);
-			await forget(creds, slot.saved, slot.record.token, log);
+			await forget(creds, slot.saved, null, log);
 		}
 		if (machine !== null) {
 			const zone = await cloudflare.findZone(machine.host);
@@ -183,14 +182,16 @@ async function gone(api: CloudflareApi, path: string): Promise<void> {
 	}
 }
 
-/** Forgets a saved tunnel's file and the token kept for it. */
+/** Forgets a saved tunnel's file and the token kept for it, if any is. */
 async function forget(
 	creds: Creds,
 	saved: SavedTunnel,
-	token: string | undefined,
+	token: string | null,
 	log: Logger,
 ): Promise<void> {
-	await creds.remove(token ?? TUNNEL_TOKEN, "device");
+	if (token !== null) {
+		await creds.remove(token, "device");
+	}
 	await saved.forget();
 	log.info(`forgot ${saved.key}`);
 }

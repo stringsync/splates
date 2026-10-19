@@ -7,10 +7,9 @@ export { asideOf, machineTunnel } from "./machine";
 export type { TunnelProvider } from "./provider";
 export { tunnelRemove } from "./remove";
 export type { TunnelRecord } from "./saved";
-export { SavedTunnel, TUNNEL_TOKEN } from "./saved";
+export { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "./saved";
 export { portsHostFlag, SavedPortsHost } from "./saved-ports-host";
 export {
-	API_TOKEN,
 	App,
 	CloudflareTunnels,
 	Include,
