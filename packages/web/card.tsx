@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { age } from "@stringsync/splates-server/age";
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { blockerLabel } from "@stringsync/splates-server/board/browser";
 import { todoReference } from "@stringsync/splates-server/plans/browser";
 import {
@@ -37,7 +37,7 @@ import { StartAssigned } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 
 export interface CardProps {
-	todo: TodoState;
+	todo: TaskRecord;
 	staleness: number;
 	/** Its place in its lane, 1 at the top, when it is in one. */
 	step?: number;
@@ -177,7 +177,7 @@ export function Card({
  * merge first. Which todos those are is in its label, on hover, and in the
  * dialog, so the card stays quiet.
  */
-function Blocked({ by }: { by: TodoState[] }): JSX.Element {
+function Blocked({ by }: { by: TaskRecord[] }): JSX.Element {
 	const { lanes } = useContext(Board);
 	const label = `Blocked by ${by.map((other) => blockerLabel(other, lanes)).join(", ")}`;
 	return (

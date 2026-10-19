@@ -42,7 +42,7 @@ describe("attach", () => {
 			remove: [basename(old)],
 		});
 
-		const held = await deps.service.files("alpha").held();
+		const held = (await (await deps.service.files("alpha"))?.held()) ?? [];
 		expect(held.map((file) => file.path)).toEqual([
 			expect.stringMatching(/-new\.png$/),
 		]);
@@ -62,7 +62,9 @@ describe("attach", () => {
 			"too_large",
 			{ data: { task: "alpha", bytes: 12, capacity: 10 } },
 		);
-		expect(await deps.service.files("alpha").held()).toHaveLength(1);
+		expect(
+			(await (await deps.service.files("alpha"))?.held()) ?? [],
+		).toHaveLength(1);
 	});
 
 	it("needs a task", async () => {
@@ -101,7 +103,7 @@ describe("attach", () => {
 		await add(deps, "alpha");
 		const tree = (await deps.service.find("alpha")).path;
 		const [stored = ""] = await attach(deps, [await taken("a.png")], tree);
-		await deps.fs.rm(deps.service.recordPath("alpha"));
+		await deps.fs.rm(await deps.recordOf("alpha"));
 
 		await deps.service.init();
 

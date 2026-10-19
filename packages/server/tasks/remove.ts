@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Todos } from "../board";
+import type { Tasks } from "../board";
 import { fail } from "../exit";
 import { pushedLine, type TaskBranches } from "../merge";
 import { freedLine, type Slots } from "../ports";
@@ -32,7 +32,7 @@ export async function remove(
 	}: {
 		service: WorktreeService;
 		log: Logger;
-		todos: Todos;
+		todos: Tasks;
 		slots: Slots;
 		branches: TaskBranches;
 	},

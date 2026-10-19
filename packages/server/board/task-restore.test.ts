@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Testing } from "../testing";
-import { todoAdd } from "./todo-edit";
+import { taskAdd } from "./task-edit";
 
 /** The subjects in list order. */
 async function order(deps: Testing): Promise<string[]> {
@@ -12,12 +12,12 @@ describe.concurrent("todo restore", () => {
 		await using deps = await Testing.open();
 		const shot = `${deps.root}/shot.png`;
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
-		await todoAdd(deps, "first", null);
-		const second = await todoAdd(deps, "second", null, {
+		await taskAdd(deps, "first", null);
+		const second = await taskAdd(deps, "second", null, {
 			files: [shot],
 			lane: "new",
 		});
-		await todoAdd(deps, "third", null, { blockedBy: [2] });
+		await taskAdd(deps, "third", null, { blockedBy: [2] });
 		await (await deps.todos.find(2)).take("alpha");
 
 		await (await deps.todos.find(2)).discard();

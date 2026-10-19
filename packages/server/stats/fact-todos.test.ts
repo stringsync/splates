@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { todoAdd } from "../board";
+import { taskAdd } from "../board";
 import { Testing } from "../testing";
 import { addFactTodos } from "./fact-todos";
 import type { Outcome } from "./outcomes";
@@ -7,7 +7,7 @@ import type { Outcome } from "./outcomes";
 describe.concurrent("addFactTodos", () => {
 	it("adds a todo for each failing test run of a merge, journaled, once", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "Tests failed: adds up", null);
+		await taskAdd(deps, "Tests failed: adds up", null);
 		await deps.outcomes.record(
 			merged(deps.git.root, [
 				{ kind: "gate", reason: "tests_failed", at: "", tests: ["adds up"] },

@@ -1,7 +1,8 @@
 import { isAbsolute, resolve } from "node:path";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { FileLock, type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import { Todos } from "./todos";
+import { TaskStore } from "./store";
+import { Tasks } from "./tasks";
 
 /** Where the repository at `dir` keeps its todos, and what to do it with. */
 export interface LanesFromTagsOptions {
@@ -22,16 +23,22 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
 	const fs = opts.fs ?? new NodeFs();
 	const git = await commonDir(opts.dir, fs);
-	if (git === null || !(await fs.exists(`${git}/splates/todos`))) {
+	if (git === null) {
 		return;
 	}
-	const todos = new Todos(
-		`${git}/splates/todos`,
-		new FileLock(`${git}/splates/todos.lock`, {
+	// Records not yet moved into the task store keep their todos apart.
+	const dir = (await fs.exists(`${git}/splates/todos`))
+		? `${git}/splates/todos`
+		: `${git}/splates/tasks`;
+	if (!(await fs.exists(dir))) {
+		return;
+	}
+	const todos = new Tasks(
+		new TaskStore(
+			dir,
+			new FileLock(`${dir}.lock`, { fs, ps: opts.ps ?? new NodePs(), log }),
 			fs,
-			ps: opts.ps ?? new NodePs(),
-			log,
-		}),
+		),
 		{ fs },
 	);
 	for (const { lane, todos: moved } of await todos.moveTagsToLanes()) {

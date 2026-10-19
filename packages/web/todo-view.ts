@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 
@@ -7,9 +7,9 @@ export type TodoViewEvents = { changed: undefined };
 /** What the todo list shows of a snapshot, given what has been picked. */
 export interface TodosShown {
 	/** Every todo, top of the list first. */
-	todos: TodoState[];
+	todos: TaskRecord[];
 	/** The todo open in its dialog. */
-	current?: TodoState;
+	current?: TaskRecord;
 	/** The task open in its dialog. */
 	task?: Snapshot["tasks"][number];
 }

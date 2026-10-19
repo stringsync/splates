@@ -1,4 +1,4 @@
-import type { TodoState } from "./todo";
+import type { TaskRecord } from "./task";
 
 /**
  * What blocks which todos, and the lanes they run in, worked out from the
@@ -31,13 +31,13 @@ export interface LaneRecord {
 export interface LaneState {
 	id: number;
 	name: string;
-	todos: TodoState[];
+	todos: TaskRecord[];
 	/** Whether `splates server` starts the lane's todos on its own, as `splates lane run` sets. */
 	running: boolean;
 	/** The tasks at work on its todos now, top first: who is on the lane. */
 	agents: string[];
 	/** The first todo no task has taken: what the lane's orchestrator hands out next. */
-	next: TodoState | null;
+	next: TaskRecord | null;
 	/**
 	 * Todos in other lanes, or in none, blocking `next` that have
 	 * yet to merge: what the lane is waiting on before it can go on.
@@ -52,12 +52,15 @@ export interface LaneState {
  * order. A lane some todo is in but `records` lacks, as one written before
  * lanes had names, comes last, called by its number.
  */
-export function lanes(todos: TodoState[], records: LaneRecord[]): LaneState[] {
+export function lanes(todos: TaskRecord[], records: LaneRecord[]): LaneState[] {
 	return named(todos, records).map((record) => lane(todos, record));
 }
 
 /** `records`, and after them a record for each lane a todo is in that they lack. */
-export function named(todos: TodoState[], records: LaneRecord[]): LaneRecord[] {
+export function named(
+	todos: TaskRecord[],
+	records: LaneRecord[],
+): LaneRecord[] {
 	const unnamed = [
 		...new Set(
 			todos.flatMap((todo) =>
@@ -72,7 +75,7 @@ export function named(todos: TodoState[], records: LaneRecord[]): LaneRecord[] {
 
 /** The lane `record` stands for, empty when no todo is in it. */
 export function lane(
-	todos: TodoState[],
+	todos: TaskRecord[],
 	{ id, name, running }: LaneRecord,
 ): LaneState {
 	const steps = todos
@@ -103,14 +106,14 @@ export function lane(
 }
 
 /** What blocks `todo` and has yet to merge, in list order. */
-export function blockersOf(todos: TodoState[], todo: TodoState): Blocker[] {
+export function blockersOf(todos: TaskRecord[], todo: TaskRecord): Blocker[] {
 	return todos
 		.filter((other) => todo.blockedBy.includes(other.id))
 		.map(({ id, subject, lane, takenBy }) => ({ id, subject, lane, takenBy }));
 }
 
 /** The todos `id` blocks, in list order. */
-export function followers(todos: TodoState[], id: number): TodoState[] {
+export function followers(todos: TaskRecord[], id: number): TaskRecord[] {
 	return todos.filter((todo) => todo.blockedBy.includes(id));
 }
 
@@ -118,7 +121,7 @@ export function followers(todos: TodoState[], id: number): TodoState[] {
  * Nothing blocking it is still open, none was removed from under it, and
  * nobody has it: free to start.
  */
-export function isReady(todo: TodoState): boolean {
+export function isReady(todo: TaskRecord): boolean {
 	return (
 		todo.takenBy === null &&
 		todo.blockedBy.length === 0 &&
@@ -132,7 +135,7 @@ export function isReady(todo: TodoState): boolean {
  * loop is `id` already blocking `blocker`, however far down.
  */
 export function cycle(
-	todos: TodoState[],
+	todos: TaskRecord[],
 	id: number,
 	blocker: number,
 ): number[] | null {
@@ -166,21 +169,21 @@ export function cycle(
  * that blocks it: a todo that would come too soon is moved down to just
  * below the last of them, and everything else keeps its place.
  */
-export function settle(todos: TodoState[]): TodoState[] {
+export function settle(todos: TaskRecord[]): TaskRecord[] {
 	const pending = [...todos];
 	const placed = new Set<number>();
 	const byId = new Map(todos.map((todo) => [todo.id, todo]));
-	const free = (todo: TodoState) =>
+	const free = (todo: TaskRecord) =>
 		todo.lane === null ||
 		todo.blockedBy.every(
 			(id) => placed.has(id) || byId.get(id)?.lane !== todo.lane,
 		);
-	const order: TodoState[] = [];
+	const order: TaskRecord[] = [];
 	while (pending.length > 0) {
 		// The links have no loop, so one is always free; the first stands in
 		// for safety, should a hand-edited file ever make one.
 		const at = Math.max(0, pending.findIndex(free));
-		const [todo] = pending.splice(at, 1) as [TodoState];
+		const [todo] = pending.splice(at, 1) as [TaskRecord];
 		placed.add(todo.id);
 		order.push(todo);
 	}
@@ -193,8 +196,8 @@ export function settle(todos: TodoState[]): TodoState[] {
  * links.
  */
 export function misordered(
-	todos: TodoState[],
-): { todo: TodoState; blockedBy: TodoState } | null {
+	todos: TaskRecord[],
+): { todo: TaskRecord; blockedBy: TaskRecord } | null {
 	const at = new Map(todos.map((todo, i) => [todo.id, i]));
 	for (const [i, todo] of todos.entries()) {
 		if (todo.lane === null) {
@@ -224,7 +227,7 @@ export function blockerLabel(
  * subject, numbered past any lane already called that. The user renames it
  * to what the run adds up to.
  */
-export function aptName(todos: TodoState[], taken: string[]): string {
+export function aptName(todos: TaskRecord[], taken: string[]): string {
 	const used = new Set(taken.map((name) => name.toLowerCase()));
 	const base = todos[0]?.subject ?? "New lane";
 	let name = base;
@@ -262,7 +265,7 @@ export interface LaneRun {
  * Why `todo` waits on the person, its blockers removed without merging,
  * and how to let it go on.
  */
-export function lostLine(todo: TodoState): string {
+export function lostLine(todo: TaskRecord): string {
 	const lost = todo.blockersLost ?? [];
 	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates todo update ${todo.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
 }

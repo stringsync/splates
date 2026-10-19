@@ -12,8 +12,8 @@ import {
 	lanes,
 	lostLine,
 } from "./lanes";
-import type { TodoState } from "./todo";
-import type { Todos } from "./todos";
+import type { TaskRecord } from "./task";
+import type { Tasks } from "./tasks";
 
 export interface LaneListOptions {
 	/** Print the lanes as JSON instead of a table. */
@@ -22,7 +22,7 @@ export interface LaneListOptions {
 
 /** Every lane, with its todos in order, who is on it, and what blocks it. */
 export async function laneList(
-	{ todos, log }: { todos: Todos; log: Logger },
+	{ todos, log }: { todos: Tasks; log: Logger },
 	{ json = false }: LaneListOptions = {},
 ): Promise<void> {
 	const states = (await todos.all()).map((todo) => todo.state);
@@ -66,7 +66,7 @@ export interface LaneShowOptions {
  * null, the untriaged todos, and how to place them in lanes.
  */
 export async function laneShow(
-	{ todos, log }: { todos: Todos; log: Logger },
+	{ todos, log }: { todos: Tasks; log: Logger },
 	id: number | null,
 	{ json = false }: LaneShowOptions = {},
 ): Promise<void> {
@@ -110,7 +110,7 @@ export async function laneShow(
  * What a running lane does next on its own, and each todo it holds back
  * for a want only an agent or the person can fill.
  */
-function runningLines(found: LaneState, states: TodoState[]): string[] {
+function runningLines(found: LaneState, states: TaskRecord[]): string[] {
 	const open = new Set(states.map((todo) => todo.id));
 	const unnamed = found.todos.filter(
 		(todo) =>
@@ -137,7 +137,7 @@ function runningLines(found: LaneState, states: TodoState[]): string[] {
  * then work down the lanes it placed them in.
  */
 function untriagedShow(
-	states: TodoState[],
+	states: TaskRecord[],
 	records: LaneRecord[],
 	json: boolean,
 ): string {
@@ -215,7 +215,7 @@ function nextLines(found: LaneState, records: LaneRecord[]): string[] {
 }
 
 /** The flags that hand `todo` to the agent and model it names, if any. */
-function handTo({ assignee }: TodoState): string {
+function handTo({ assignee }: TaskRecord): string {
 	if (assignee === undefined) {
 		return "";
 	}
@@ -224,10 +224,10 @@ function handTo({ assignee }: TodoState): string {
 
 /** How a step stands, after its subject: taken, or what blocks it outside the lane. */
 function step(
-	states: TodoState[],
+	states: TaskRecord[],
 	records: LaneRecord[],
 	found: LaneState,
-	todo: TodoState,
+	todo: TaskRecord,
 ): string {
 	if (todo.takenBy !== null) {
 		return color.green(`  (taken by ${todo.takenBy})`);
@@ -256,7 +256,7 @@ function laneJson(found: LaneState) {
 
 /** Starts an empty lane called `name`, after the others. */
 export async function laneAdd(
-	{ todos, log }: { todos: Todos; log: Logger },
+	{ todos, log }: { todos: Tasks; log: Logger },
 	name: string,
 ): Promise<LaneRecord> {
 	const record = await todos.addLane(name);
@@ -280,7 +280,7 @@ export interface LaneUpdateOptions {
 
 /** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
-	{ todos, log }: { todos: Todos; log: Logger },
+	{ todos, log }: { todos: Tasks; log: Logger },
 	id: number,
 	{ name, position }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
@@ -315,7 +315,7 @@ export async function laneUpdate(
  * conversation, the tasks it starts nest under that one.
  */
 export async function laneRun(
-	{ todos, ps, log }: { todos: Todos; ps: Ps; log: Logger },
+	{ todos, ps, log }: { todos: Tasks; ps: Ps; log: Logger },
 	id: number,
 	running: boolean,
 ): Promise<LaneRecord> {
@@ -361,7 +361,7 @@ export function laneUpdated(
  */
 export async function recordLaneRemove(
 	journal: Journal,
-	todos: Todos,
+	todos: Tasks,
 	id: number,
 	drop: () => Promise<void>,
 ): Promise<void> {
@@ -386,7 +386,7 @@ export async function recordLaneRemove(
 
 /** Removes a lane, putting its todos back with the untriaged ones. */
 export async function laneRemove(
-	{ todos, log }: { todos: Todos; log: Logger },
+	{ todos, log }: { todos: Tasks; log: Logger },
 	id: number,
 ): Promise<void> {
 	await todos.dropLane(id);

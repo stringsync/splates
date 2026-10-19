@@ -112,9 +112,11 @@ describe("dev tasks", () => {
 
 	it("serves a file a task holds in parts, but never its record", async () => {
 		await add(deps, "alpha");
-		const [clip = ""] = await deps.service
-			.files("alpha")
-			.store([{ name: "run.webm", bytes: new Uint8Array([1, 2, 3, 4]) }]);
+		const [clip = ""] =
+			(await (
+				await deps.service.files("alpha")
+			)?.store([{ name: "run.webm", bytes: new Uint8Array([1, 2, 3, 4]) }])) ??
+			[];
 
 		await serving(deps, async (_snapshot, port) => {
 			const file = (path: string, headers = {}) =>
@@ -136,7 +138,7 @@ describe("dev tasks", () => {
 			expect(new Uint8Array(await tail.arrayBuffer())).toEqual(
 				new Uint8Array([4]),
 			);
-			expect((await file(deps.service.recordPath("alpha"))).status).toBe(404);
+			expect((await file(await deps.recordOf("alpha"))).status).toBe(404);
 		});
 	});
 

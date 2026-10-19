@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 
@@ -141,7 +141,7 @@ export function todoRemoved(id: number) {
  * `todo`, removed, back where it stood, as the server puts it back: in its
  * lane while there is one, blocked by what is still on the list.
  */
-export function todoRestored(todo: TodoState) {
+export function todoRestored(todo: TaskRecord) {
 	return (snapshot: Snapshot): Snapshot => {
 		if (snapshot.todos.some((each) => each.id === todo.id)) {
 			return snapshot;
@@ -192,7 +192,7 @@ export function todoAdded(adding: Adding, known: ReadonlySet<number>) {
 		) {
 			return snapshot;
 		}
-		const todo: TodoState = {
+		const todo: TaskRecord = {
 			id: -1 - known.size,
 			subject: adding.subject,
 			text: adding.text,
@@ -253,7 +253,7 @@ function freeLane(snapshot: Snapshot): number {
 function changed(
 	snapshot: Snapshot,
 	id: number,
-	change: (todo: TodoState) => TodoState,
+	change: (todo: TaskRecord) => TaskRecord,
 ): Snapshot {
 	return {
 		...snapshot,

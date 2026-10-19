@@ -15,7 +15,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import type {
 	LaneRecord,
 	LaneState,
-	TodoState,
+	TaskRecord,
 } from "@stringsync/splates-server/board";
 import type { JSX, ReactNode } from "react";
 import { Card } from "./card";
@@ -47,10 +47,10 @@ export function BoardDrag({
 	refuseTodo: (id: number, title: string, error: unknown) => void;
 	/** Says under a lane's header that it was not moved. */
 	refuseLane: (id: number, title: string, error: unknown) => void;
-	todos: TodoState[];
+	todos: TaskRecord[];
 	lanes: LaneRecord[];
 	staleness: number;
-	lifted?: TodoState;
+	lifted?: TaskRecord;
 	liftedLane?: LaneState;
 	children: ReactNode;
 }): JSX.Element {

@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import {
 	type LaneRecord,
 	named,
@@ -89,7 +89,7 @@ export function Conversations({
 	drafts: Drafts;
 	tasks: Details[];
 	/** What a todo an agent proposes is read from, live. */
-	todos: TodoState[];
+	todos: TaskRecord[];
 	lanes: LaneRecord[];
 	/** The main tree's branch. */
 	trunk: string;

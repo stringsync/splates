@@ -1,7 +1,7 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
-import type { LaneRecord, TodoState } from "../board";
+import type { LaneRecord, TaskRecord } from "../board";
 import type { AgentPick } from "../models";
 
 /**
@@ -16,7 +16,7 @@ const NAME_LENGTH = 40;
 /** One todo a running lane starts, as `LaneRunner` hands it to its `start`. */
 export interface LaneStart {
 	lane: LaneRecord;
-	todo: TodoState;
+	todo: TaskRecord;
 	/** The name for its task, one no task out has. */
 	task: string;
 	/** The agent and model the todo names. */
@@ -61,7 +61,7 @@ export class LaneRunner implements Resource {
 	private constructor(
 		private readonly deps: {
 			lanes: () => Promise<LaneRecord[]>;
-			todos: () => Promise<TodoState[]>;
+			todos: () => Promise<TaskRecord[]>;
 			tasks: () => Promise<string[]>;
 			capacity: number;
 			start: LaneStarter;
@@ -80,7 +80,7 @@ export class LaneRunner implements Resource {
 		/** The lanes on the board, each running one marked so. */
 		lanes: () => Promise<LaneRecord[]>;
 		/** Every todo on the list. */
-		todos: () => Promise<TodoState[]>;
+		todos: () => Promise<TaskRecord[]>;
 		/** The name of every task out, so a new one takes another. */
 		tasks: () => Promise<string[]>;
 		/** How many tasks one lane may have out at once. */
@@ -182,7 +182,7 @@ export class LaneRunner implements Resource {
  */
 export function startable(
 	record: LaneRecord,
-	todos: TodoState[],
+	todos: TaskRecord[],
 	{
 		capacity,
 		starting,
@@ -193,8 +193,8 @@ export function startable(
 		refused: ReadonlySet<number>;
 	},
 ): {
-	ready: { todo: TodoState; pick: AgentPick }[];
-	unnamed: TodoState[];
+	ready: { todo: TaskRecord; pick: AgentPick }[];
+	unnamed: TaskRecord[];
 } {
 	const steps = todos
 		.filter((todo) => todo.lane === record.id)
@@ -254,8 +254,8 @@ export function taskName(subject: string, taken: ReadonlySet<string>): string {
  */
 export function lanePrompt(
 	record: LaneRecord,
-	todo: TodoState,
-	todos: TodoState[],
+	todo: TaskRecord,
+	todos: TaskRecord[],
 ): string {
 	const beside = todos.filter(
 		(each) =>

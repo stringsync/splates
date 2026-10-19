@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import { fail } from "../exit";
+import { ONE_TASK_STORE } from "./one-task-store";
 
 /**
  * One step forward in the format of the records under `.git/splates`: from the
@@ -17,7 +18,7 @@ export interface Migration {
  * Every step from version 1, in order: the one at index 0 takes records from
  * version 1 to 2. Forward only; splates never writes an older format.
  */
-export const MIGRATIONS: readonly Migration[] = [];
+export const MIGRATIONS: readonly Migration[] = [ONE_TASK_STORE];
 
 /**
  * The version of the records under `.git/splates` this splates reads and writes:

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
-import type { LaneRecord, TodoState } from "../board";
-import { SeenLaneTodos } from "../board";
+import type { LaneRecord, TaskRecord } from "../board";
+import { SeenLaneTasks } from "../board";
 import {
 	type Conversation,
 	Conversations,
@@ -28,7 +28,7 @@ describe("HandedOut", () => {
 	/** The lanes on the board, lane 1 until a test empties it. */
 	let board: LaneRecord[];
 	/** The todos on the list, none until a test adds some. */
-	let list: TodoState[];
+	let list: TaskRecord[];
 
 	const until = async (done: () => boolean) => {
 		for (let i = 0; i < 200 && !done(); i++) {
@@ -60,7 +60,7 @@ describe("HandedOut", () => {
 			conversations,
 			lanes: async () => board,
 			todos: async () => list,
-			seen: new SeenLaneTodos(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+			seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-todos.json`),
 			stuck,
 			log: deps.log,
 			timer,
@@ -151,7 +151,7 @@ describe("HandedOut", () => {
 				}),
 				lanes: async () => board,
 				todos: async () => list,
-				seen: new SeenLaneTodos(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+				seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-todos.json`),
 				stuck,
 				log: deps.log,
 				timer,
@@ -417,7 +417,7 @@ describe("HandedOut", () => {
 		id: number,
 		takenBy: string | null,
 		lane: number | null = 1,
-	): TodoState => ({
+	): TaskRecord => ({
 		id,
 		subject: `todo ${id}`,
 		text: "",

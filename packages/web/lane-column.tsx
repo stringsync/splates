@@ -3,7 +3,7 @@ import {
 	SortableContext,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { CSSProperties, JSX, ReactNode, Ref } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { Sortable } from "./card";
@@ -48,7 +48,7 @@ export function Column({
 
 /** The lane of the card `id` names, null for none, undefined for no card. */
 export function laneOfCard(
-	todos: TodoState[],
+	todos: TaskRecord[],
 	id: UniqueIdentifier | undefined,
 ): number | null | undefined {
 	return todos.find((todo) => todo.id === id)?.lane;
@@ -62,7 +62,7 @@ export function Cards({
 	steps,
 	coming,
 }: {
-	todos: TodoState[];
+	todos: TaskRecord[];
 	label: string;
 	staleness: number;
 	/** Number the cards, as a lane's steps are. */

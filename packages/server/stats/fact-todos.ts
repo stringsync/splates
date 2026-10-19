@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Todos } from "../board";
+import type { Tasks } from "../board";
 import { addedFacts, wording } from "../board";
 import type { Git } from "../git";
 import type { Journal } from "../records";
@@ -23,7 +23,7 @@ export async function addFactTodos(
 	}: {
 		git: Git;
 		outcomes: Outcomes;
-		todos: Todos;
+		todos: Tasks;
 		journal: Journal;
 		log: Logger;
 	},

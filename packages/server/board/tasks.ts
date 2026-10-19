@@ -1,5 +1,6 @@
+import { relative, resolve, sep } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, type Lock, NodeFs } from "webappwiz/system";
+import { type Fs, NodeFs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
 import {
@@ -9,29 +10,37 @@ import {
 	misordered,
 	settle,
 } from "./lanes";
-import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
-import { parseTodoFile } from "./todo-file";
-import { TodoLanes } from "./todo-lanes";
+import { startedOf, type TaskStore } from "./store";
+import { assigned, Task, type TaskNew, type TaskRecord, wording } from "./task";
+import { parseTaskFile } from "./task-file";
+import { TaskLanes } from "./task-lanes";
 
-/** Every todo in the repo, one JSON file each under `.git/splates/todos`. */
-export class Todos {
+/**
+ * The list of tasks: every queued one, and each started one that was queued
+ * first, in the store under `.git/splates/tasks`.
+ */
+export class Tasks {
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
-	private readonly laneFiles: TodoLanes;
+	private readonly laneFiles: TaskLanes;
 
 	constructor(
-		readonly dir: string,
 		/**
-		 * Held while numbering a new todo, so two agents never share an id, and
-		 * while writing one, so a move renumbering the rest never loses to a
-		 * write of a position it just changed.
+		 * Where the records are, whose lock is held while numbering a new
+		 * task, so two agents never share an id, and while writing one, so a
+		 * move renumbering the rest never loses to a write of a position it
+		 * just changed.
 		 */
-		private readonly lock: Lock,
-		opts: TodosOptions = {},
+		readonly store: TaskStore,
+		opts: TasksOptions = {},
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
-		this.laneFiles = new TodoLanes(this, this.fs);
+		this.laneFiles = new TaskLanes(this, this.fs);
+	}
+
+	get dir(): string {
+		return this.store.dir;
 	}
 
 	/** Where a todo's files live, beside its record. */
@@ -39,9 +48,13 @@ export class Todos {
 		return new Attachments(`${this.dir}/${id}`, this.fs, this.ids);
 	}
 
-	/** Whether `path` is a file some todo holds, and not a way out of here. */
+	/**
+	 * Whether `path` is a file some todo holds, one level inside its folder:
+	 * never a record, and not a way out of here.
+	 */
 	owns(path: string): boolean {
-		return new Attachments(this.dir, this.fs).owns(path);
+		const parts = relative(this.dir, resolve(path)).split(sep);
+		return parts.length === 2 && /^\d+$/.test(parts[0] ?? "");
 	}
 
 	async add(
@@ -55,8 +68,8 @@ export class Todos {
 			lane = null,
 			assignee = null,
 			origin,
-		}: TodoNew = {},
-	): Promise<Todo> {
+		}: TaskNew = {},
+	): Promise<Task> {
 		const words = wording(subject, text);
 		if (words.subject === "") {
 			fail("usage", "a todo needs a subject: say what is left to do", {});
@@ -71,11 +84,8 @@ export class Todos {
 					missing(id);
 				}
 			}
-			// Numbered past every id handed out before, removed ones included, so
-			// a number never comes back meaning something else.
-			const id = (await this.lastId()) + 1;
-			await this.fs.write(`${this.dir}/last`, String(id));
-			const state: TodoState = {
+			const id = await this.store.next();
+			const state: TaskRecord = {
 				id,
 				...words,
 				position: 0,
@@ -107,18 +117,18 @@ export class Todos {
 	 * gap or a tie left by a crash, or a todo saved before they had any (it
 	 * goes below those that do, oldest first), never shows.
 	 */
-	async all(): Promise<Todo[]> {
+	async all(): Promise<Task[]> {
 		return (await this.stored()).map(
-			(state, i) => new Todo(this, { ...state, position: i + 1 }),
+			(state, i) => new Task(this, { ...state, position: i + 1 }),
 		);
 	}
 
-	async find(id: number): Promise<Todo> {
+	async find(id: number): Promise<Task> {
 		return (await this.all()).find((todo) => todo.id === id) ?? missing(id);
 	}
 
 	/** The todos `task` has taken; what a merge or remove settles. */
-	async takenBy(task: string): Promise<Todo[]> {
+	async takenBy(task: string): Promise<Task[]> {
 		return (await this.all()).filter((todo) => todo.takenBy === task);
 	}
 
@@ -127,7 +137,7 @@ export class Todos {
 	 * bottom, and numbers the rest around it. Refuses to put one above a todo
 	 * in its own lane that it comes after, or below one that comes after it.
 	 */
-	async move(id: number, position: number): Promise<Todo> {
+	async move(id: number, position: number): Promise<Task> {
 		return this.locked(async () => {
 			const state = await this.state(id);
 			this.ordered(slot(await this.stored(), state, position));
@@ -144,7 +154,7 @@ export class Todos {
 	async link(
 		id: number,
 		{ add = [], drop = [] }: { add?: number[]; drop?: number[] },
-	): Promise<Todo> {
+	): Promise<Task> {
 		return this.locked(async () => {
 			const states = await this.stored();
 			const state = states.find((other) => other.id === id) ?? missing(id);
@@ -200,7 +210,7 @@ export class Todos {
 		id: number,
 		lane: number | "new" | null,
 		{ before, name }: { before?: number; name?: string } = {},
-	): Promise<Todo> {
+	): Promise<Task> {
 		return this.locked(async () => {
 			const states = await this.stored();
 			const state = states.find((other) => other.id === id) ?? missing(id);
@@ -301,18 +311,24 @@ export class Todos {
 	 */
 	async revise(
 		id: number,
-		change: (state: TodoState) => TodoState,
-	): Promise<Todo> {
+		change: (state: TaskRecord) => TaskRecord,
+	): Promise<Task> {
 		return this.locked(async () => this.save(change(await this.state(id))));
 	}
 
-	/** @internal Writes one todo. Rename makes the swap atomic for readers. */
-	async save(state: TodoState): Promise<Todo> {
-		const path = this.path(state.id);
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(tmp, `${JSON.stringify(state, null, "\t")}\n`);
-		await this.fs.rename(tmp, path);
-		return new Todo(this, state);
+	/**
+	 * @internal Writes one todo, keeping what starting it added, which the
+	 * list leaves to the task's worktree. Call it under the lock.
+	 */
+	async save(state: TaskRecord): Promise<Task> {
+		const stored = await this.store.read(state.id);
+		const started = stored === null ? null : startedOf(stored);
+		await this.store.write({
+			...state,
+			...started,
+			status: started === null ? "queued" : (stored?.status ?? "queued"),
+		});
+		return new Task(this, state);
 	}
 
 	/**
@@ -321,11 +337,18 @@ export class Todos {
 	 * is gone, but each keeps what became of it: landed as commit `landed`,
 	 * or, without one, lost.
 	 */
-	async delete(id: number, landed?: string): Promise<void> {
-		await this.locked(async () => {
+	async delete(id: number, landed?: string): Promise<boolean> {
+		return this.locked(async () => {
 			const gone = await this.read(this.path(id));
-			await this.fs.rm(this.path(id), { force: true });
-			const order: TodoState[] = [];
+			const stored = await this.store.read(id);
+			const kept = stored !== null && startedOf(stored) !== null;
+			if (kept) {
+				// Its task goes on, off the list.
+				await this.store.write({ ...stored, takenBy: null, listed: false });
+			} else {
+				await this.store.remove(id);
+			}
+			const order: TaskRecord[] = [];
 			for (const state of await this.stored()) {
 				if (state.blockedBy.includes(id)) {
 					const blocker = { id, subject: gone?.subject ?? "" };
@@ -350,6 +373,7 @@ export class Todos {
 				}
 			}
 			await this.renumber(order);
+			return kept;
 		});
 	}
 
@@ -358,9 +382,9 @@ export class Todos {
 	 * `removed/` for `restore` to put back. Only the newest `REMOVED_KEPT` are
 	 * kept, the older going for good.
 	 */
-	async discard(state: TodoState): Promise<void> {
+	async discard(state: TaskRecord): Promise<void> {
 		await this.fs.mkdir(this.removedDir);
-		const kept: RemovedTodo = { state, removedAt: new Date().toISOString() };
+		const kept: RemovedTask = { state, removedAt: new Date().toISOString() };
 		await this.fs.write(
 			this.removedPath(state.id),
 			`${JSON.stringify(kept, null, "\t")}\n`,
@@ -369,7 +393,10 @@ export class Todos {
 		const removed = await this.removed();
 		for (const { state: old } of removed.slice(0, -REMOVED_KEPT)) {
 			await this.fs.rm(this.removedPath(old.id), { force: true });
-			await this.attachments(old.id).clear();
+			// One still started keeps its files: its task holds them.
+			if ((await this.store.read(old.id)) === null) {
+				await this.attachments(old.id).clear();
+			}
 		}
 	}
 
@@ -378,7 +405,7 @@ export class Todos {
 	 * list, untaken: in its lane while that lane is still on the board, after
 	 * those it waited on that still are.
 	 */
-	async restore(id: number): Promise<Todo> {
+	async restore(id: number): Promise<Task> {
 		return this.locked(async () => {
 			const raw = await this.fs.read(this.removedPath(id)).catch(() => null);
 			if (raw === null) {
@@ -388,7 +415,7 @@ export class Todos {
 					{ todo: id },
 				);
 			}
-			const { state } = JSON.parse(raw) as RemovedTodo;
+			const { state } = JSON.parse(raw) as RemovedTask;
 			const stored = await this.stored();
 			if (stored.some((other) => other.id === id)) {
 				fail("exists", `todo ${id} is on the list already`, { todo: id });
@@ -424,13 +451,8 @@ export class Todos {
 	}
 
 	/** @internal Runs `run` holding the lock every write goes through. */
-	async locked<T>(run: () => Promise<T>): Promise<T> {
-		await this.lock.acquire();
-		try {
-			return await run();
-		} finally {
-			await this.lock.release();
-		}
+	locked<T>(run: () => Promise<T>): Promise<T> {
+		return this.store.locked(run);
 	}
 
 	/**
@@ -438,13 +460,13 @@ export class Todos {
 	 * what it comes after in its lane, and gives back `id` as it ends up.
 	 * Call it under the lock.
 	 */
-	private async settled(id: number): Promise<Todo> {
+	private async settled(id: number): Promise<Task> {
 		await this.renumber(settle(await this.stored()));
 		return this.find(id);
 	}
 
 	/** Refuses `order` when a lane in it puts a todo above one it comes after. */
-	private ordered(order: TodoState[]): void {
+	private ordered(order: TaskRecord[]): void {
 		const wrong = misordered(order);
 		if (wrong) {
 			fail(
@@ -460,7 +482,7 @@ export class Todos {
 	}
 
 	/** One todo as it stands on disk; call it under the lock. */
-	private async state(id: number): Promise<TodoState> {
+	private async state(id: number): Promise<TaskRecord> {
 		const state = await this.read(this.path(id));
 		return state ?? missing(id);
 	}
@@ -470,9 +492,9 @@ export class Todos {
 	 * Call it under the lock.
 	 */
 	private async place(
-		state: TodoState,
+		state: TaskRecord,
 		position: number | undefined,
-	): Promise<Todo> {
+	): Promise<Task> {
 		if (
 			position !== undefined &&
 			(!Number.isInteger(position) || position <= 0)
@@ -490,10 +512,10 @@ export class Todos {
 	 * @internal Every todo in list order, with the positions it has on disk. `tagged`
 	 * are read though they still have tags, to move them into lanes.
 	 */
-	async stored(tagged: number[] = []): Promise<TodoState[]> {
+	async stored(tagged: number[] = []): Promise<TaskRecord[]> {
 		const entries = await this.fs.readdir(this.dir).catch(() => []);
-		const states: TodoState[] = [];
-		for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
+		const states: TaskRecord[] = [];
+		for (const entry of entries.filter((entry) => /^\d+\.json$/.test(entry))) {
 			const state = await this.read(`${this.dir}/${entry}`, tagged);
 			if (state) {
 				states.push(state);
@@ -507,7 +529,7 @@ export class Todos {
 	}
 
 	/** @internal Saves each todo in `order` whose position on disk is not its place there. */
-	async renumber(order: TodoState[]): Promise<void> {
+	async renumber(order: TaskRecord[]): Promise<void> {
 		for (const [i, state] of order.entries()) {
 			if (state.position !== i + 1) {
 				await this.save({ ...state, position: i + 1 });
@@ -524,15 +546,15 @@ export class Todos {
 	}
 
 	/** The todos `discard` kept, the oldest removed first. */
-	private async removed(): Promise<RemovedTodo[]> {
+	private async removed(): Promise<RemovedTask[]> {
 		const entries = await this.fs.readdir(this.removedDir).catch(() => []);
-		const kept: RemovedTodo[] = [];
+		const kept: RemovedTask[] = [];
 		for (const entry of entries.filter((each) => each.endsWith(".json"))) {
 			const raw = await this.fs
 				.read(`${this.removedDir}/${entry}`)
 				.catch(() => null);
 			if (raw !== null) {
-				kept.push(JSON.parse(raw) as RemovedTodo);
+				kept.push(JSON.parse(raw) as RemovedTask);
 			}
 		}
 		return kept.sort((left, right) =>
@@ -544,12 +566,6 @@ export class Todos {
 		return `${this.dir}/${id}.json`;
 	}
 
-	private async lastId(): Promise<number> {
-		const last = Number(await this.fs.read(`${this.dir}/last`).catch(() => 0));
-		const ids = (await this.all()).map((todo) => todo.id);
-		return Math.max(Number.isInteger(last) ? last : 0, ...ids);
-	}
-
 	/**
 	 * One todo, or null when it will not parse. One saved with tags is
 	 * refused, unless it is one of `tagged`: dropping them unasked would lose
@@ -558,9 +574,11 @@ export class Todos {
 	private async read(
 		path: string,
 		tagged: number[] = [],
-	): Promise<TodoState | null> {
+	): Promise<TaskRecord | null> {
 		const raw = await this.fs.read(path).catch(() => null);
-		const found = raw === null ? null : parseTodoFile(raw);
+		const parsed = raw === null ? null : parseTaskFile(raw);
+		// A task started without being queued is no todo.
+		const found = parsed?.listed ? parsed : null;
 		if (
 			found !== null &&
 			found.tags.length > 0 &&
@@ -583,13 +601,13 @@ export class Todos {
 export const REMOVED_KEPT = 50;
 
 /** A removed todo as `discard` keeps it. */
-interface RemovedTodo {
-	state: TodoState;
+interface RemovedTask {
+	state: TaskRecord;
 	removedAt: string;
 }
 
 /** What `Todos` is stored through; the real filesystem by default. */
-export interface TodosOptions {
+export interface TasksOptions {
 	fs?: Fs;
 	/** What names stored files apart; random ids by default. */
 	ids?: IdProvider;
@@ -597,10 +615,10 @@ export interface TodosOptions {
 
 /** `states` with `state` taken out and put back at `position`, 1 at the top. */
 function slot(
-	states: TodoState[],
-	state: TodoState,
+	states: TaskRecord[],
+	state: TaskRecord,
 	position: number | undefined,
-): TodoState[] {
+): TaskRecord[] {
 	const rest = states.filter((other) => other.id !== state.id);
 	const at = Math.min((position ?? Infinity) - 1, rest.length);
 	return [...rest.slice(0, at), state, ...rest.slice(at)];

@@ -1,4 +1,4 @@
-import type { TodoState } from "./board";
+import type { TaskRecord } from "./board";
 import type { ConversationState, Message, Part, Tool } from "./conversations";
 import type { Details, Snapshot } from "./tasks";
 
@@ -53,7 +53,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 	};
 }
 
-export function todo(overrides: Partial<TodoState> = {}): TodoState {
+export function todo(overrides: Partial<TaskRecord> = {}): TaskRecord {
 	return {
 		id: 1,
 		subject: "retry the upload",

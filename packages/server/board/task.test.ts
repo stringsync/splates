@@ -5,10 +5,10 @@ import { PLAN_FILE } from "../plans";
 import { add, recommend, remove } from "../tasks";
 import { Testing } from "../testing";
 import { isReady } from "./lanes";
-import type { TodoState } from "./todo";
-import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
-import { todoList, todoShow } from "./todo-list";
-import { todoRelease, todoTake } from "./todo-take";
+import type { TaskRecord } from "./task";
+import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
+import { taskList, taskShow } from "./task-list";
+import { taskRelease, taskTake } from "./task-take";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -30,29 +30,29 @@ describe.concurrent("todo", () => {
 	it("adds, lists and removes, never reusing a number", async () => {
 		await using deps = await Testing.open();
 
-		await todoAdd(deps, "  write the docs  ", null);
-		await todoAdd(deps, "fix the flake", "alpha");
-		await todoRemove(deps, 2);
-		const third = await todoAdd(deps, "third", null);
+		await taskAdd(deps, "  write the docs  ", null);
+		await taskAdd(deps, "fix the flake", "alpha");
+		await taskRemove(deps, 2);
+		const third = await taskAdd(deps, "third", null);
 
 		expect(third.id).toBe(3);
 		deps.log.clear();
-		await todoList(deps, { json: true });
+		await taskList(deps, { json: true });
 		const listed = JSON.parse(deps.out());
 		expect(
-			listed.map(({ subject, position }: TodoState) => [subject, position]),
+			listed.map(({ subject, position }: TaskRecord) => [subject, position]),
 		).toEqual([
 			["write the docs", 1],
 			["third", 2],
 		]);
-		await expect(todoRemove(deps, 2)).toBail("not_found");
+		await expect(taskRemove(deps, 2)).toBail("not_found");
 	});
 
 	it("rewords one, keeping its number", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "write docs", "alpha", { text: "the CLI first" });
+		await taskAdd(deps, "write docs", "alpha", { text: "the CLI first" });
 
-		const updated = await todoUpdate(deps, 1, {
+		const updated = await taskUpdate(deps, 1, {
 			subject: "  write the splates docs ",
 		});
 
@@ -62,13 +62,13 @@ describe.concurrent("todo", () => {
 			text: "the CLI first",
 			from: "alpha",
 		});
-		const detailed = await todoUpdate(deps, 1, { text: " and the page " });
+		const detailed = await taskUpdate(deps, 1, { text: " and the page " });
 		expect(detailed.state).toMatchObject({
 			subject: "write the splates docs",
 			text: "and the page",
 		});
-		await expect(todoUpdate(deps, 1, { subject: " " })).toBail("usage");
-		await expect(todoUpdate(deps, 9, { subject: "x" })).toBail("not_found");
+		await expect(taskUpdate(deps, 1, { subject: " " })).toBail("usage");
+		await expect(taskUpdate(deps, 9, { subject: "x" })).toBail("not_found");
 	});
 
 	it("keeps a subject to one line, the rest leading the detail", async () => {
@@ -86,30 +86,30 @@ describe.concurrent("todo", () => {
 
 	it("puts a new todo at the bottom, or where asked, pushing the rest down", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "one", null);
-		await todoAdd(deps, "two", null);
+		await taskAdd(deps, "one", null);
+		await taskAdd(deps, "two", null);
 
-		await todoAdd(deps, "urgent", null, { position: 1 });
-		await todoAdd(deps, "past the end", null, { position: 99 });
+		await taskAdd(deps, "urgent", null, { position: 1 });
+		await taskAdd(deps, "past the end", null, { position: 99 });
 
 		expect(await order(deps)).toEqual(["urgent", "one", "two", "past the end"]);
-		await expect(todoAdd(deps, "nowhere", null, { position: 0 })).toBail(
+		await expect(taskAdd(deps, "nowhere", null, { position: 0 })).toBail(
 			"usage",
 		);
 	});
 
 	it("moves one up or down, and closes the gap a removed one leaves", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "a", null);
-		await todoAdd(deps, "b", null);
-		await todoAdd(deps, "c", null);
-		await todoAdd(deps, "d", null);
+		await taskAdd(deps, "a", null);
+		await taskAdd(deps, "b", null);
+		await taskAdd(deps, "c", null);
+		await taskAdd(deps, "d", null);
 
-		await todoUpdate(deps, 4, { position: 2 });
+		await taskUpdate(deps, 4, { position: 2 });
 		expect(await order(deps)).toEqual(["a", "d", "b", "c"]);
-		await todoUpdate(deps, 1, { position: 9 });
+		await taskUpdate(deps, 1, { position: 9 });
 		expect(await order(deps)).toEqual(["d", "b", "c", "a"]);
-		await todoRemove(deps, 2);
+		await taskRemove(deps, 2);
 
 		expect(
 			(await deps.todos.all()).map(({ subject, position }) => [
@@ -134,14 +134,14 @@ describe.concurrent("todo", () => {
 		await using deps = await Testing.open();
 		const shot = `${deps.root}/shot.png`;
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
-		await todoAdd(deps, "first", null);
-		await todoAdd(deps, "fix the chart", "alpha", {
+		await taskAdd(deps, "first", null);
+		await taskAdd(deps, "fix the chart", "alpha", {
 			text: "the bars overlap on a phone",
 			files: [shot],
 		});
 		deps.log.clear();
 
-		await todoShow(deps, 2);
+		await taskShow(deps, 2);
 
 		const out = color.strip(deps.out());
 		expect(out).toContain("todo 2 fix the chart");
@@ -150,13 +150,13 @@ describe.concurrent("todo", () => {
 		expect(out).toContain(`file:      ${deps.todos.dir}/2/0-shot.png`);
 		expect(out).toEndWith("\n\nthe bars overlap on a phone");
 		deps.log.clear();
-		await todoShow(deps, 2, { json: true });
+		await taskShow(deps, 2, { json: true });
 		expect(JSON.parse(deps.out())).toMatchObject({
 			id: 2,
 			position: 2,
 			text: "the bars overlap on a phone",
 		});
-		await expect(todoShow(deps, 9)).toBail("not_found");
+		await expect(taskShow(deps, 9)).toBail("not_found");
 	});
 
 	it("keeps files beside a todo, adds and drops them, and removes them with it", async () => {
@@ -166,7 +166,7 @@ describe.concurrent("todo", () => {
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
 		await deps.fs.writeBytes(log, new Uint8Array([2]));
 
-		const todo = await todoAdd(deps, "fix the chart", null, {
+		const todo = await taskAdd(deps, "fix the chart", null, {
 			files: [shot],
 		});
 		const dir = `${deps.todos.dir}/1`;
@@ -175,12 +175,12 @@ describe.concurrent("todo", () => {
 			new Uint8Array([1]),
 		);
 
-		const reworded = await todoUpdate(deps, 1, {
+		const reworded = await taskUpdate(deps, 1, {
 			subject: "fix the bar chart",
 		});
 		expect(reworded.files).toEqual(todo.files);
 
-		const swapped = await todoUpdate(deps, 1, {
+		const swapped = await taskUpdate(deps, 1, {
 			files: [log],
 			removeFiles: ["0-shot.png"],
 		});
@@ -189,12 +189,12 @@ describe.concurrent("todo", () => {
 			files: [`${dir}/1-trace.log`],
 		});
 		expect(await deps.fs.exists(`${dir}/0-shot.png`)).toBe(false);
-		await expect(todoUpdate(deps, 1, { removeFiles: ["nope.png"] })).toBail(
+		await expect(taskUpdate(deps, 1, { removeFiles: ["nope.png"] })).toBail(
 			"not_found",
 			{ message: "no file 'nope.png'" },
 		);
 
-		await todoRemove(deps, 1);
+		await taskRemove(deps, 1);
 		expect(await deps.fs.exists(dir)).toBe(false);
 	});
 
@@ -202,7 +202,7 @@ describe.concurrent("todo", () => {
 		await using deps = await Testing.open();
 		const shot = `${deps.root}/shot.png`;
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
-		await todoAdd(deps, "fix the chart", null, { files: [shot] });
+		await taskAdd(deps, "fix the chart", null, { files: [shot] });
 
 		await add(deps, "chart", { todos: [1] });
 
@@ -214,7 +214,7 @@ describe.concurrent("todo", () => {
 
 	it("reads one saved before todos took files as having none", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "old one", null);
+		await taskAdd(deps, "old one", null);
 		const { files: _, ...older } = (await deps.todos.find(1)).state;
 		await deps.fs.write(`${deps.todos.dir}/1.json`, JSON.stringify(older));
 
@@ -224,13 +224,13 @@ describe.concurrent("todo", () => {
 	it("refuses one saved with tags until they move into lanes, one lane a tag", async () => {
 		await using deps = await Testing.open();
 		await deps.todos.addLane("Licensing");
-		await todoAdd(deps, "a", null);
-		await todoAdd(deps, "b", null);
-		await todoAdd(deps, "c", null);
-		await todoAdd(deps, "d", null);
-		await todoAdd(deps, "e", null);
-		await todoAdd(deps, "f", null);
-		await todoUpdate(deps, 1, { blockedBy: [6] });
+		await taskAdd(deps, "a", null);
+		await taskAdd(deps, "b", null);
+		await taskAdd(deps, "c", null);
+		await taskAdd(deps, "d", null);
+		await taskAdd(deps, "e", null);
+		await taskAdd(deps, "f", null);
+		await taskUpdate(deps, 1, { blockedBy: [6] });
 		// Read first: once one has tags, none can be.
 		const states = (await deps.todos.all()).map((todo) => todo.state);
 		const tag = async (id: number, tags: string[]) => {
@@ -277,8 +277,8 @@ describe.concurrent("todo", () => {
 
 	it("reads one saved before subjects and positions, below those with them", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "older", null);
-		await todoAdd(deps, "newer", null);
+		await taskAdd(deps, "older", null);
+		await taskAdd(deps, "newer", null);
 		const {
 			subject: _,
 			position: __,
@@ -298,38 +298,38 @@ describe.concurrent("todo", () => {
 	it("refuses a todo with no subject", async () => {
 		await using deps = await Testing.open();
 
-		await expect(todoAdd(deps, "   ", null)).toBail("usage");
+		await expect(taskAdd(deps, "   ", null)).toBail("usage");
 	});
 
 	it("lists only the todos no task has taken when asked", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "taken", null);
-		await todoAdd(deps, "free", null);
+		await taskAdd(deps, "taken", null);
+		await taskAdd(deps, "free", null);
 		await add(deps, "busy", { todos: [1] });
 
 		deps.log.clear();
-		await todoList(deps, { json: true, open: true });
+		await taskList(deps, { json: true, open: true });
 
 		expect(
-			JSON.parse(deps.out()).map(({ subject }: TodoState) => subject),
+			JSON.parse(deps.out()).map(({ subject }: TaskRecord) => subject),
 		).toEqual(["free"]);
-		await todoTake(deps, [2], "busy");
+		await taskTake(deps, [2], "busy");
 		deps.log.clear();
-		await todoList(deps, { open: true });
+		await taskList(deps, { open: true });
 		expect(deps.out()).toContain("no open todos");
 	});
 
 	it("says so plainly when there is nothing to do", async () => {
 		await using deps = await Testing.open();
 
-		await todoList(deps, { open: true });
+		await taskList(deps, { open: true });
 
 		expect(deps.out()).toContain("no todos");
 	});
 
 	it("seeds the plan's Goal from the todo a task takes up", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null, { text: "charts too" });
+		await taskAdd(deps, "support dark mode", null, { text: "charts too" });
 
 		await add(deps, "dark", { todos: [1] });
 
@@ -348,8 +348,8 @@ describe.concurrent("todo", () => {
 
 	it("takes up several todos at once, naming each in the Goal", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "dark charts too", "beta");
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts too", "beta");
 
 		await add(deps, "dark", { todos: [1, 2] });
 
@@ -364,54 +364,54 @@ describe.concurrent("todo", () => {
 
 	it("takes todos for a task already under way, all or none", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "dark charts too", null);
-		await todoAdd(deps, "someone else's", null);
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts too", null);
+		await taskAdd(deps, "someone else's", null);
 		await add(deps, "other", { todos: [3] });
 
-		await todoTake(deps, [1, 2, 1], "dark");
+		await taskTake(deps, [1, 2, 1], "dark");
 
 		expect((await deps.todos.takenBy("dark")).map((todo) => todo.id)).toEqual([
 			1, 2,
 		]);
 		expect(color.strip(deps.out())).toContain("took todo 2: dark charts too");
-		await todoRelease(deps, [2], "dark");
-		await expect(todoTake(deps, [2, 3], "dark")).toBail("exists", {
+		await taskRelease(deps, [2], "dark");
+		await expect(taskTake(deps, [2, 3], "dark")).toBail("exists", {
 			message: "already taken by 'other'",
 		});
 		// Refused as a whole: 2 was not taken on the way.
 		expect((await deps.todos.find(2)).takenBy).toBeNull();
-		await expect(todoTake(deps, [9], "dark")).toBail("not_found");
-		await expect(todoTake(deps, [2], null)).toBail("usage");
-		await expect(todoTake(deps, [], "dark")).toBail("usage");
+		await expect(taskTake(deps, [9], "dark")).toBail("not_found");
+		await expect(taskTake(deps, [2], null)).toBail("usage");
+		await expect(taskTake(deps, [], "dark")).toBail("usage");
 	});
 
 	it("releases only its own task's todos from a worktree", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "support dark mode", null);
 		await add(deps, "dark", { todos: [1] });
 
-		await expect(todoRelease(deps, [1], "other")).toBail("exists", {
+		await expect(taskRelease(deps, [1], "other")).toBail("exists", {
 			message: "taken by 'dark'",
 		});
-		await todoRelease(deps, [1], "dark");
+		await taskRelease(deps, [1], "dark");
 		expect((await deps.todos.find(1)).takenBy).toBeNull();
 
-		await todoTake(deps, [1], "dark");
+		await taskTake(deps, [1], "dark");
 		// From the main tree, anyone's.
-		await todoRelease(deps, [1], null);
+		await taskRelease(deps, [1], null);
 		expect((await deps.todos.find(1)).takenBy).toBeNull();
 	});
 
 	it("leaves a released todo on the list when its task lands", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "dark charts too", null);
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts too", null);
 		await add(deps, "dark", { todos: [1, 2] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
-		await todoUpdate(deps, 2, { subject: "dark tooltips on charts" });
-		await todoRelease(deps, [2], "dark");
+		await taskUpdate(deps, 2, { subject: "dark tooltips on charts" });
+		await taskRelease(deps, [2], "dark");
 		deps.log.clear();
 
 		await deps.finish(worktree);
@@ -425,7 +425,7 @@ describe.concurrent("todo", () => {
 
 	it("marks one stuck, and clears it as its task lets it go", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "write docs", null);
+		await taskAdd(deps, "write docs", null);
 		await (await deps.todos.find(1)).take("alpha");
 
 		await deps.todos.markStuck(1, "2026-10-18T00:00:00Z");
@@ -438,7 +438,7 @@ describe.concurrent("todo", () => {
 
 	it("puts a removed task's todo back on the list", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "support dark mode", null);
 		await add(deps, "dark", { todos: [1] });
 
 		await remove(deps, "dark");
@@ -449,9 +449,9 @@ describe.concurrent("todo", () => {
 
 	it("removes a merged task's todo and recommends the next", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "older, from elsewhere", "beta");
-		await todoAdd(deps, "follow-up from dark", "dark", { position: 2 });
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "older, from elsewhere", "beta");
+		await taskAdd(deps, "follow-up from dark", "dark", { position: 2 });
 		await add(deps, "dark", { todos: [1] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
@@ -468,8 +468,8 @@ describe.concurrent("todo", () => {
 
 	it("keeps on each todo it blocked the commit a merged blocker landed as", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "dark charts", null, { blockedBy: [1] });
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts", null, { blockedBy: [1] });
 		await add(deps, "dark", { todos: [1] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
@@ -487,7 +487,7 @@ describe.concurrent("todo", () => {
 		});
 		expect(next.state.blockersLost).toBeUndefined();
 		deps.log.clear();
-		await todoShow(deps, 2);
+		await taskShow(deps, 2);
 		expect(color.strip(deps.out())).toContain(
 			`landed:    #1 support dark mode, as ${head}`,
 		);
@@ -495,10 +495,10 @@ describe.concurrent("todo", () => {
 
 	it("holds a todo whose blocker was removed for the person, until they let it go", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
-		await todoAdd(deps, "dark charts", null, { blockedBy: [1] });
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts", null, { blockedBy: [1] });
 
-		await todoRemove(deps, 1);
+		await taskRemove(deps, 1);
 
 		const held = await deps.todos.find(2);
 		expect(held.state).toMatchObject({
@@ -507,22 +507,22 @@ describe.concurrent("todo", () => {
 		});
 		expect(isReady(held.state)).toBe(false);
 		deps.log.clear();
-		await todoShow(deps, 2);
+		await taskShow(deps, 2);
 		expect(color.strip(deps.out())).toContain(
 			"splates todo update 2 --remove-blocked-by 1",
 		);
 
-		const freed = await todoUpdate(deps, 2, { removeBlockedBy: [1] });
+		const freed = await taskUpdate(deps, 2, { removeBlockedBy: [1] });
 		expect(freed.state.blockersLost).toBeUndefined();
 		expect(isReady(freed.state)).toBe(true);
 	});
 
 	it("recommends the highest open todo, and sets stale ones aside", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "taken", null);
-		await todoAdd(deps, "ancient", null);
-		await todoAdd(deps, "lower", null);
-		await todoAdd(deps, "higher", null, { position: 3 });
+		await taskAdd(deps, "taken", null);
+		await taskAdd(deps, "ancient", null);
+		await taskAdd(deps, "lower", null);
+		await taskAdd(deps, "higher", null, { position: 3 });
 		await (await deps.todos.find(1)).take("alpha");
 		await age(deps, 2, 90);
 
@@ -534,9 +534,9 @@ describe.concurrent("todo", () => {
 
 	it("recommends what came up in the task that landed before the rest", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "top", null);
-		await todoAdd(deps, "from alpha, lower", "alpha");
-		await todoAdd(deps, "from alpha, higher", "alpha", { position: 2 });
+		await taskAdd(deps, "top", null);
+		await taskAdd(deps, "from alpha, lower", "alpha");
+		await taskAdd(deps, "from alpha, higher", "alpha", { position: 2 });
 
 		const { next } = await recommend(deps.todos, "alpha", 30 * DAY);
 
@@ -545,7 +545,7 @@ describe.concurrent("todo", () => {
 
 	it("recommends nothing once every todo is taken or stale", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "taken", null);
+		await taskAdd(deps, "taken", null);
 		await (await deps.todos.find(1)).take("alpha");
 
 		const { next, stale } = await recommend(deps.todos, null, 30 * DAY);

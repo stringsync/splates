@@ -3,7 +3,7 @@ import {
 	type ThreadMessage,
 	useAuiState,
 } from "@assistant-ui/react";
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type {
 	LanesStart,
@@ -328,7 +328,7 @@ export const TodoUI = makeAssistantDataUI<{
 });
 
 /** Whether `todo` came up in `turn`'s task while it ran. */
-function addedIn(todo: TodoState, turn: Turn | null): boolean {
+function addedIn(todo: TaskRecord, turn: Turn | null): boolean {
 	if (
 		turn === null ||
 		turn.task === null ||
@@ -348,7 +348,7 @@ function addedIn(todo: TodoState, turn: Turn | null): boolean {
  */
 function gathered(
 	proposals: TodoProposal[],
-	todos: TodoState[],
+	todos: TaskRecord[],
 	turn: Turn | null,
 ): { lane: number | null | undefined; proposals: TodoProposal[] }[] {
 	const groups: {

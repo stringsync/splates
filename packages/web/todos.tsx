@@ -2,7 +2,7 @@ import {
 	horizontalListSortingStrategy,
 	SortableContext,
 } from "@dnd-kit/sortable";
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import {
 	type LaneState,
 	lanes as laneList,
@@ -242,7 +242,7 @@ export function TodoDialog({
 	todo,
 	onClose,
 }: {
-	todo: TodoState | undefined;
+	todo: TaskRecord | undefined;
 	onClose: () => void;
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { SOUND2SCORE_LANES, sound2score } from "./example";
 import { cycle, lane, lanes, mentioned, misordered, settle } from "./lanes";
-import type { TodoState } from "./todo";
+import type { TaskRecord } from "./task";
 
-function todo(overrides: Partial<TodoState>): TodoState {
+function todo(overrides: Partial<TaskRecord>): TaskRecord {
 	return {
 		id: 1,
 		subject: "a todo",
@@ -20,7 +20,7 @@ function todo(overrides: Partial<TodoState>): TodoState {
 }
 
 /** Each lane's todo ids, top first. */
-function shape(todos: TodoState[]): number[][] {
+function shape(todos: TaskRecord[]): number[][] {
 	return lanes(todos, SOUND2SCORE_LANES).map((found) =>
 		found.todos.map((each) => each.id),
 	);
@@ -71,6 +71,7 @@ describe("lanes", () => {
 		expect(cycle(todos, 5, 5)).toEqual([5, 5]);
 	});
 
+	// scry-ignore simple-test-setup: these five todos, two lanes and their links are the case it checks, and no other test uses them.
 	it("moves a todo below what it comes after in its lane, and nothing else", () => {
 		const one = todo({ id: 1, lane: 1, position: 1, blockedBy: [3] });
 		const two = todo({ id: 2, lane: 2, position: 2 });

@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { removeTodo, updateTodo } from "./api";
 import { todoEdited, todoRemoved } from "./board-expectations";
@@ -37,7 +37,7 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 	dropped: string[];
 
 	constructor(
-		private readonly todo: TodoState,
+		private readonly todo: TaskRecord,
 		private readonly drafts: Drafts,
 		private readonly key: string,
 	) {

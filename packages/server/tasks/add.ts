@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
 import type { Fs, HeavyCap } from "webappwiz/system";
-import type { Todo, Todos } from "../board";
+import type { Task, Tasks } from "../board";
 import { blockedWarning } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
@@ -61,7 +61,7 @@ export async function add(
 		config: Config;
 		log: Logger;
 		fs: Fs;
-		todos: Todos;
+		todos: Tasks;
 		heavy: HeavyCap;
 	},
 	task: string,
@@ -145,7 +145,7 @@ export async function add(
 
 	// Looked up before anything is created, so a todo that is gone or taken
 	// refuses the whole add instead of leaving a tree behind.
-	const taken: Todo[] = [];
+	const taken: Task[] = [];
 	const blocked: string[] = [];
 	for (const id of new Set(ids)) {
 		const todo = await todos.find(id);
@@ -177,6 +177,11 @@ export async function add(
 	}
 
 	await onTree?.();
+	// Taken before the record is first written, which starts the task under
+	// the lowest number among them.
+	for (const todo of taken) {
+		await todo.take(task);
+	}
 	// An agent `splates server` started has its conversation in its env: the page
 	// nests the task under it, as for a subagent's task landing on trunk.
 	const caller = service.ps.env("SPLATES_CONVERSATION");
@@ -199,9 +204,6 @@ export async function add(
 				.join("\n\n") || null,
 		),
 	);
-	for (const todo of taken) {
-		await todo.take(task);
-	}
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
@@ -272,7 +274,7 @@ function refuseTaken(found: Worktree): never {
  * by path, which stay readable until the task lands and takes the todo with
  * it. One todo is the Goal as it stands; several are each named by id.
  */
-function goal(todos: Todo[]): string {
+function goal(todos: Task[]): string {
 	return todos
 		.map((todo) => {
 			const subject =

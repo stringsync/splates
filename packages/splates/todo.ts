@@ -1,14 +1,14 @@
 import {
 	addedFacts,
 	recordUpdate,
-	todoAdd,
-	todoList,
-	todoRelease,
-	todoRemove,
-	todoShow,
-	todosNamed,
-	todoTake,
-	todoUpdate,
+	taskAdd,
+	taskList,
+	taskRelease,
+	taskRemove,
+	taskShow,
+	tasksNamed,
+	taskTake,
+	taskUpdate,
 } from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { fail } from "@stringsync/splates-server/exit";
@@ -100,7 +100,7 @@ splatesTodo
 			"todo add",
 			from,
 			() =>
-				todoAdd(ctx, opts.subject, from, {
+				taskAdd(ctx, opts.subject, from, {
 					text: opts.text,
 					position: opts.position,
 					files: commaList(opts.file),
@@ -130,7 +130,7 @@ splatesTodo
 			"only todos free to start now: nobody has taken them, and nothing blocking them is still open",
 	})
 	.action((opts, ctx) =>
-		todoList(ctx, {
+		taskList(ctx, {
 			json: opts.json,
 			open: opts.open,
 			ready: opts.ready,
@@ -143,7 +143,7 @@ splatesTodo
 	.description("one todo in full: where it stands, its files, and its detail")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) => todoShow(ctx, opts.id, { json: opts.json }));
+	.action((opts, ctx) => taskShow(ctx, opts.id, { json: opts.json }));
 
 splatesTodo
 	.command("update")
@@ -205,7 +205,7 @@ splatesTodo
 	.action(async (opts, ctx) => {
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		await recordUpdate(ctx.journal, ctx.todos, opts.id, () =>
-			todoUpdate(ctx, opts.id, {
+			taskUpdate(ctx, opts.id, {
 				subject: opts.subject,
 				text: opts.text,
 				position: opts.position,
@@ -233,8 +233,8 @@ splatesTodo
 		await ctx.journal.record(
 			"todo take",
 			task,
-			() => todoTake(ctx, opts.ids, task),
-			(taken) => ({ todos: todosNamed(taken) }),
+			() => taskTake(ctx, opts.ids, task),
+			(taken) => ({ todos: tasksNamed(taken) }),
 		);
 	});
 
@@ -252,8 +252,8 @@ splatesTodo
 		await ctx.journal.record(
 			"todo release",
 			task,
-			() => todoRelease(ctx, opts.ids, task),
-			(released) => ({ todos: todosNamed(released) }),
+			() => taskRelease(ctx, opts.ids, task),
+			(released) => ({ todos: tasksNamed(released) }),
 		);
 	});
 
@@ -266,8 +266,8 @@ splatesTodo
 		ctx.journal.record(
 			"todo remove",
 			null,
-			() => todoRemove(ctx, opts.id),
-			(removed) => ({ todos: todosNamed([removed]) }),
+			() => taskRemove(ctx, opts.id),
+			(removed) => ({ todos: tasksNamed([removed]) }),
 		),
 	);
 

@@ -350,7 +350,7 @@ describe.concurrent("splates", () => {
 		];
 		expect(registered.exitCode).toBe(0);
 		expect(registered.stdout).toContain(`registered ${env.root}`);
-		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("1\n");
+		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("2\n");
 		expect(again.stdout).toContain(`${env.root} is already registered`);
 		expect(
 			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
@@ -397,9 +397,9 @@ describe.concurrent("splates", () => {
 		const format = join(env.splatesDir, "format");
 
 		expect((await splates(env.root, "list")).exitCode).toBe(0);
-		expect(await env.fs.read(format)).toBe("1\n");
+		expect(await env.fs.read(format)).toBe("2\n");
 
-		await env.fs.write(format, "2\n");
+		await env.fs.write(format, "3\n");
 		const refused = await splates(
 			env.root,
 			"add",
@@ -410,9 +410,9 @@ describe.concurrent("splates", () => {
 		expect(refused.exitCode).toBe(19);
 		expect(refused.stdout).toContain("outdated");
 		expect(refused.stderr).toContain("bunx @stringsync/splates@latest");
-		expect(
-			await env.fs.exists(join(env.splatesDir, "tasks", "alpha.json")),
-		).toBe(false);
+		expect(await env.fs.exists(join(env.splatesDir, "tasks", "1.json"))).toBe(
+			false,
+		);
 	});
 });
 

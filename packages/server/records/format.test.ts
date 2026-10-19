@@ -27,12 +27,13 @@ describe("Format", () => {
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("1\n");
 
 		await deps.format.create();
-		expect(FORMAT).toBe(1);
+		expect(FORMAT).toBe(2);
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("1\n");
 	});
 
 	it("moves older records forward a step at a time, in order, saying each", async () => {
 		await using deps = await Testing.open();
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		const ran: string[] = [];
 		const steps = [step("splits lanes", ran), step("renames tasks", ran)];
 
@@ -66,6 +67,7 @@ describe("Format", () => {
 
 	it("starts again from a step cut short", async () => {
 		await using deps = await Testing.open();
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		const ran: string[] = [];
 		const steps = [step("splits lanes", ran), step("renames tasks", ran, true)];
 
@@ -81,6 +83,7 @@ describe("Format", () => {
 
 	it("runs each step once when two commands meet older records at once", async () => {
 		await using deps = await Testing.open();
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		const ran: string[] = [];
 		const steps = [step("splits lanes", ran), step("renames tasks", ran)];
 
@@ -94,6 +97,7 @@ describe("Format", () => {
 
 	it("refuses older records until splates server has migrated them", async () => {
 		await using deps = await Testing.open();
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		const ran: string[] = [];
 		const older = format(deps, [step("splits lanes", ran)]);
 

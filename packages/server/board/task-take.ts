@@ -1,18 +1,18 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
-import type { Todo } from "./todo";
-import type { Todos } from "./todos";
+import type { Task } from "./task";
+import type { Tasks } from "./tasks";
 
 /**
  * Takes up todos for `task` after it started, as when one turns out to be
  * part of the work. Every id is checked before any is taken, so one that is
  * gone or another task's refuses them all.
  */
-export async function todoTake(
-	{ todos, log }: { todos: Todos; log: Logger },
+export async function taskTake(
+	{ todos, log }: { todos: Tasks; log: Logger },
 	ids: number[],
 	task: string | null,
-): Promise<Todo[]> {
+): Promise<Task[]> {
 	if (task === null) {
 		fail(
 			"usage",
@@ -49,11 +49,11 @@ export async function todoTake(
  * them: say what is left with `splates todo update` first. From a worktree it
  * gives back only its own task's todos.
  */
-export async function todoRelease(
-	{ todos, log }: { todos: Todos; log: Logger },
+export async function taskRelease(
+	{ todos, log }: { todos: Tasks; log: Logger },
 	ids: number[],
 	task: string | null,
-): Promise<Todo[]> {
+): Promise<Task[]> {
 	const found = await findAll(todos, ids);
 	const other = found.find(
 		(todo) => task !== null && todo.takenBy !== null && todo.takenBy !== task,
@@ -81,12 +81,12 @@ export async function todoRelease(
  * or none when nothing blocks it: it may be started, but what it builds on
  * is not there yet.
  */
-export function blockedWarning(todo: Todo, blockers: Todo[]): string[] {
+export function blockedWarning(todo: Task, blockers: Task[]): string[] {
 	const [first] = blockers;
 	if (first === undefined) {
 		return [];
 	}
-	const where = (other: Todo) =>
+	const where = (other: Task) =>
 		[
 			other.lane === null ? null : `lane ${other.lane}`,
 			other.takenBy === null ? "open" : `taken by ${other.takenBy}`,
@@ -100,7 +100,7 @@ export function blockedWarning(todo: Todo, blockers: Todo[]): string[] {
 }
 
 /** Every todo in `ids`, once each, refusing the lot if one is missing. */
-async function findAll(todos: Todos, ids: number[]): Promise<Todo[]> {
+async function findAll(todos: Tasks, ids: number[]): Promise<Task[]> {
 	if (ids.length === 0) {
 		fail("usage", "name at least one todo id: run `splates todo list`", {});
 	}

@@ -7,7 +7,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
 import { FileLock, HeavyJobs, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
-import { Todos } from "./board";
+import { TaskStore, Tasks } from "./board";
 import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
 import { Exit, type Reason } from "./exit";
@@ -61,7 +61,7 @@ export class Testing implements AsyncDisposable {
 	readonly journal: Journal;
 	readonly lockPath: string;
 	readonly lock: FileLock;
-	readonly todos: Todos;
+	readonly todos: Tasks;
 	readonly format: Format;
 	/** Where splates keeps what is the user's, under the test's own directory. */
 	readonly splatesHome: string;
@@ -124,7 +124,17 @@ export class Testing implements AsyncDisposable {
 			this.fs,
 			null,
 		);
+		const store = new TaskStore(
+			join(this.splatesDir, "tasks"),
+			new FileLock(join(this.splatesDir, "tasks.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+			this.fs,
+		);
 		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
+			store,
 			fs: this.fs,
 			ps: this.ps,
 			outcomes: this.outcomes,
@@ -151,15 +161,7 @@ export class Testing implements AsyncDisposable {
 			log: this.log,
 			stalenessMs: this.config.leaseStalenessMs,
 		});
-		this.todos = new Todos(
-			join(this.splatesDir, "todos"),
-			new FileLock(join(this.splatesDir, "todos.lock"), {
-				fs: this.fs,
-				ps: this.ps,
-				log: this.log,
-			}),
-			{ fs: this.fs, ids: this.ids },
-		);
+		this.todos = new Tasks(store, { fs: this.fs, ids: this.ids });
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
 		// agent in `splates server`, it leaves out that agent's conversation too, so
@@ -289,6 +291,12 @@ export class Testing implements AsyncDisposable {
 			return next ? line.replace(/^(\s*)- \[ \]/, "$1- [x]") : line;
 		});
 		await this.fs.write(path, lines.join("\n"));
+	}
+
+	/** Where the record of started task `task` is, under its number. */
+	async recordOf(task: string): Promise<string> {
+		const { state } = await this.service.find(task);
+		return join(this.splatesDir, "tasks", `${state?.id}.json`);
 	}
 
 	/** Everything logged so far, one line each, without colour. */

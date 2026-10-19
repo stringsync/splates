@@ -1,6 +1,6 @@
 import { color } from "webappwiz/log";
 import { age } from "../age";
-import type { Todo, Todos } from "../board";
+import type { Task, Tasks } from "../board";
 import {
 	blockerLabel,
 	isReady,
@@ -12,9 +12,9 @@ import {
 /** What a finished task should be followed by, and what should just go. */
 export interface Recommendation {
 	/** The todo to pick up next, or null when there is nothing fresh left. */
-	next: Todo | null;
+	next: Task | null;
 	/** Todos left waiting so long they probably no longer apply. */
-	stale: Todo[];
+	stale: Task[];
 	/**
 	 * The lane the finished task's todos ran in, when it has more to do:
 	 * `next` is its next step then, even one another lane still blocks.
@@ -36,7 +36,7 @@ export interface Recommendation {
  * offered for removal.
  */
 export async function recommend(
-	todos: Todos,
+	todos: Tasks,
 	task: string | null,
 	staleness: number,
 	ran: LaneRecord[] = [],
@@ -61,7 +61,7 @@ export async function recommend(
 	const finished = ran.find(
 		(record) => lane(states, record).todos.length === 0,
 	);
-	const rank = (todo: Todo) => (todo.from === task ? 1 : 0);
+	const rank = (todo: Task) => (todo.from === task ? 1 : 0);
 	const open = all
 		.filter((todo) => isReady(todo.state))
 		// Stable, so each group keeps its place in the list.
@@ -120,6 +120,6 @@ export function recommendation({
 	return lines;
 }
 
-function from(todo: Todo): string {
+function from(todo: Task): string {
 	return todo.from === null ? "added by hand" : `from ${todo.from}`;
 }

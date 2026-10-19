@@ -1,9 +1,9 @@
 import type { Fs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
-import type { TodoState } from "./todo";
+import type { TaskRecord } from "./task";
 
 /** A todo in a lane, as a lane's orchestrator hears of it. */
-export interface LaneTodo {
+export interface LaneTask {
 	id: number;
 	/** Its lane, by number and name, the name kept for once the lane ends. */
 	lane: LaneSeen;
@@ -20,7 +20,7 @@ export interface LaneSeen {
 }
 
 /** What became of a todo in a lane since it was last seen. */
-export interface LaneTodoChange {
+export interface LaneTaskChange {
 	todo: number;
 	lane: LaneSeen;
 	/**
@@ -31,7 +31,10 @@ export interface LaneTodoChange {
 }
 
 /** The todos in a lane, out of every todo and the lanes on the board. */
-export function laneTodos(todos: TodoState[], lanes: LaneRecord[]): LaneTodo[] {
+export function laneTasks(
+	todos: TaskRecord[],
+	lanes: LaneRecord[],
+): LaneTask[] {
 	return todos.flatMap((todo) => {
 		const lane = lanes.find((each) => each.id === todo.lane);
 		return lane === undefined
@@ -58,11 +61,11 @@ export function laneTodos(todos: TodoState[], lanes: LaneRecord[]): LaneTodo[] {
  * not run is none of them.
  */
 export function laneChanges(
-	before: LaneTodo[],
-	now: LaneTodo[],
-	all: TodoState[],
-): LaneTodoChange[] {
-	const gone = before.flatMap((was): LaneTodoChange[] => {
+	before: LaneTask[],
+	now: LaneTask[],
+	all: TaskRecord[],
+): LaneTaskChange[] {
+	const gone = before.flatMap((was): LaneTaskChange[] => {
 		if (!all.some((todo) => todo.id === was.id)) {
 			return was.lane.running
 				? []
@@ -73,7 +76,7 @@ export function laneChanges(
 			? [{ todo: is.id, lane: is.lane, change: "open" }]
 			: [];
 	});
-	const added = now.flatMap((is): LaneTodoChange[] =>
+	const added = now.flatMap((is): LaneTaskChange[] =>
 		is.lane.running &&
 		!before.some((was) => was.id === is.id && was.lane.id === is.lane.id)
 			? [{ todo: is.id, lane: is.lane, change: "added" }]
@@ -86,26 +89,26 @@ export function laneChanges(
  * The lane todos as last seen, kept on disk, so what changed while `splates
  * dev` was down is told once it is back.
  */
-export class SeenLaneTodos {
+export class SeenLaneTasks {
 	constructor(
 		private readonly fs: Fs,
 		private readonly path: string,
 	) {}
 
 	/** What was last seen, or null before anything was. */
-	async read(): Promise<LaneTodo[] | null> {
+	async read(): Promise<LaneTask[] | null> {
 		const raw = await this.fs.read(this.path).catch(() => null);
 		if (raw === null) {
 			return null;
 		}
 		try {
-			return JSON.parse(raw) as LaneTodo[];
+			return JSON.parse(raw) as LaneTask[];
 		} catch {
 			return null;
 		}
 	}
 
-	async write(seen: LaneTodo[]): Promise<void> {
+	async write(seen: LaneTask[]): Promise<void> {
 		await this.fs.write(this.path, `${JSON.stringify(seen, null, "\t")}\n`);
 	}
 }

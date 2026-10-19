@@ -1,4 +1,4 @@
-import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
@@ -78,7 +78,7 @@ import { WorkersPage } from "./workers";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
-const NO_TODOS: TodoState[] = [];
+const NO_TODOS: TaskRecord[] = [];
 const NO_CONVERSATIONS: ConversationState[] = [];
 const NO_LANES: LaneRecord[] = [];
 

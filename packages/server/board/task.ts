@@ -3,10 +3,10 @@ import type { Attachment, Attachments } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";
-import type { Todos } from "./todos";
+import type { Tasks } from "./tasks";
 
 /** What a todo is on disk: one file apiece, so two agents never rewrite one. */
-export interface TodoState {
+export interface TaskRecord {
 	id: number;
 	/** What is left to do, in a line. */
 	subject: string;
@@ -31,7 +31,7 @@ export interface TodoState {
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
-	origin?: TodoOrigin;
+	origin?: TaskOrigin;
 	/**
 	 * Since when its task, in a running lane, has sat idle though told to
 	 * carry on, as its card shows; absent while it is not stuck.
@@ -56,10 +56,10 @@ export interface TodoState {
  * shared `.git`, so every worktree sees a new one at once, with nothing to
  * commit and nothing to merge.
  */
-export class Todo {
+export class Task {
 	constructor(
-		private readonly todos: Todos,
-		readonly state: TodoState,
+		private readonly todos: Tasks,
+		readonly state: TaskRecord,
 	) {}
 
 	get id(): number {
@@ -100,7 +100,7 @@ export class Todo {
 	 * has or takes in the same breath, among `together`: what it should not be
 	 * started before.
 	 */
-	async blockers(task: string, together: number[] = []): Promise<Todo[]> {
+	async blockers(task: string, together: number[] = []): Promise<Task[]> {
 		if (this.takenBy === task) {
 			return [];
 		}
@@ -113,7 +113,7 @@ export class Todo {
 	}
 
 	/** Marks it as the work of `task`, refusing one another task already has. */
-	async take(task: string): Promise<Todo> {
+	async take(task: string): Promise<Task> {
 		return this.todos.revise(this.id, (state) => {
 			if (state.takenBy !== null && state.takenBy !== task) {
 				fail(
@@ -128,7 +128,7 @@ export class Todo {
 	}
 
 	/** Puts it back on the list, as when the task that took it is removed. */
-	release(): Promise<Todo> {
+	release(): Promise<Task> {
 		return this.todos.revise(this.id, ({ stuck: _, ...state }) => ({
 			...state,
 			takenBy: null,
@@ -165,7 +165,7 @@ export class Todo {
 		blockedBy,
 		lane,
 		assignee,
-	}: TodoChange): Promise<Todo> {
+	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
 			fail("usage", "a todo needs a subject: say what is left to do", {
@@ -205,8 +205,12 @@ export class Todo {
 	 * person.
 	 */
 	async remove(landed?: string): Promise<void> {
-		await this.todos.delete(this.id, landed);
-		await this.attachments.clear();
+		if (await this.todos.delete(this.id, landed)) {
+			// Its task goes on, holding its own files beside these.
+			await this.attachments.remove(this.files);
+		} else {
+			await this.attachments.clear();
+		}
 	}
 
 	/** Removes it, as the person did, keeping it for `Todos.restore` to put back. */
@@ -216,7 +220,7 @@ export class Todo {
 }
 
 /** A todo's words, place or files changed: new ones added, some of the old kept. */
-export interface TodoChange {
+export interface TaskChange {
 	/** A new line; the old one stays when this is absent. */
 	subject?: string;
 	/** New detail, empty for none; the old stays when this is absent. */
@@ -240,7 +244,7 @@ export interface TodoChange {
  * from another project, `<project>/<task>`, the project by its directory's
  * name; null for one a person added from the main tree.
  */
-export function cameFrom({ from, origin }: TodoState): string | null {
+export function cameFrom({ from, origin }: TaskRecord): string | null {
 	if (origin === undefined) {
 		return from;
 	}
@@ -249,7 +253,7 @@ export function cameFrom({ from, origin }: TodoState): string | null {
 }
 
 /** The other project a todo was added from, and the task there it came up in. */
-export interface TodoOrigin {
+export interface TaskOrigin {
 	/** That project's main tree. */
 	project: string;
 	/** Its task the todo came up in, or null for its main tree. */
@@ -257,7 +261,7 @@ export interface TodoOrigin {
 }
 
 /** What a new todo has besides its subject, all of it optional. */
-export interface TodoNew {
+export interface TaskNew {
 	/** Whatever more there is to say about it. */
 	text?: string;
 	files?: Attachment[];
@@ -270,7 +274,7 @@ export interface TodoNew {
 	/** The agent that should work it; none by default. */
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
-	origin?: TodoOrigin;
+	origin?: TaskOrigin;
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */
@@ -304,11 +308,11 @@ export function wording(
  */
 export async function recordUpdate(
 	journal: Journal,
-	todos: Todos,
+	todos: Tasks,
 	id: number,
-	update: () => Promise<Todo>,
-): Promise<Todo> {
-	let before: TodoState | undefined;
+	update: () => Promise<Task>,
+): Promise<Task> {
+	let before: TaskRecord | undefined;
 	return journal.record(
 		"todo update",
 		null,
@@ -321,7 +325,7 @@ export async function recordUpdate(
 }
 
 /** What moved between `before` and `after`, of one todo. */
-function updated(before: TodoState, after: TodoState): Facts["todo update"] {
+function updated(before: TaskRecord, after: TaskRecord): Facts["todo update"] {
 	const named = (paths: string[]) => paths.map((path) => basename(path));
 	const attached = after.files.filter((path) => !before.files.includes(path));
 	const detached = before.files.filter((path) => !after.files.includes(path));
@@ -352,8 +356,8 @@ function updated(before: TodoState, after: TodoState): Facts["todo update"] {
 }
 
 /** `todos` as an event names them: each by its id and subject. */
-export function todosNamed(
-	todos: readonly Todo[],
+export function tasksNamed(
+	todos: readonly Task[],
 ): { id: number; subject: string }[] {
 	return todos.map(({ id, subject }) => ({ id, subject }));
 }

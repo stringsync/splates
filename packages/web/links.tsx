@@ -1,4 +1,4 @@
-import type { GoneBlocker, TodoState } from "@stringsync/splates-server/board";
+import type { GoneBlocker, TaskRecord } from "@stringsync/splates-server/board";
 import { cycle, followers } from "@stringsync/splates-server/board/browser";
 import {
 	CornerDownRightIcon,
@@ -47,7 +47,7 @@ import { Refusal, useRefusal } from "./refusal";
  * picked, and each link comes off with its own ×, so undoing one is as quick
  * as making it.
  */
-export function Links({ todo }: { todo: TodoState }): JSX.Element {
+export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
 	const { todos } = useContext(Board);
 	const blockers = todos.filter((other) => todo.blockedBy.includes(other.id));
 	const lost = todo.blockersLost ?? [];
@@ -168,7 +168,7 @@ function LanePicker({
 	todo,
 	attempt,
 }: {
-	todo: TodoState;
+	todo: TaskRecord;
 	/** Makes a write, saying whether it landed. */
 	attempt: (write: Promise<void>, failed: string) => Promise<boolean>;
 }): JSX.Element {
@@ -306,8 +306,8 @@ function LinkList({
 	onRemove,
 }: {
 	title: string;
-	linked: TodoState[];
-	onRemove: (todo: TodoState) => void;
+	linked: TaskRecord[];
+	onRemove: (todo: TaskRecord) => void;
 }): JSX.Element | null {
 	const { open } = useContext(Board);
 	const laneName = useLaneName();
@@ -409,8 +409,8 @@ function TodoPicker({
 	label: string;
 	exclude: number[];
 	/** The loop linking `todo` would make, or null for none. */
-	loops: (todo: TodoState) => number[] | null;
-	onPick: (todo: TodoState) => void;
+	loops: (todo: TaskRecord) => number[] | null;
+	onPick: (todo: TaskRecord) => void;
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const laneName = useLaneName();

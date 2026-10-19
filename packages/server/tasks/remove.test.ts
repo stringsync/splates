@@ -16,12 +16,13 @@ describe("remove", () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
+		const record = await deps.recordOf("alpha");
 
 		await remove(deps, "alpha");
 
 		expect(deps.out()).toContain("discarded 1 commit(s)");
 		expect(await deps.fs.exists(worktree)).toBe(false);
-		expect(await deps.fs.exists(deps.service.recordPath("alpha"))).toBe(false);
+		expect(await deps.fs.exists(record)).toBe(false);
 		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
 			"",
 		);

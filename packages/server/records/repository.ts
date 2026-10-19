@@ -3,7 +3,7 @@ import type { Deps, Middleware } from "webappwiz/cmd";
 import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
-import { Todos } from "../board";
+import { TaskStore, Tasks } from "../board";
 import type { Config } from "../config";
 import {
 	LEGACY_DIR,
@@ -89,7 +89,7 @@ export interface Repository {
 	lock: Lock;
 	shell: Shell;
 	journal: Journal;
-	todos: Todos;
+	todos: Tasks;
 	/** How each task on this machine ended, which a merge reads its findings from. */
 	outcomes: Outcomes;
 	/** Every splates project on this machine, which `splates init` joins this one to. */
@@ -352,7 +352,13 @@ export async function openRepository(
 					new RelayApp(relay.url, relay.project),
 					new PlanStore(fs, splatesDir),
 				);
+	const store = new TaskStore(
+		`${splatesDir}/tasks`,
+		lockAt(`${splatesDir}/tasks.lock`),
+		fs,
+	);
 	const service = new WorktreeService(git, config, splatesDir, {
+		store,
 		fs,
 		ps,
 		outcomes,
@@ -423,11 +429,7 @@ export async function openRepository(
 			fs,
 			ps,
 		}),
-		todos: new Todos(
-			`${splatesDir}/todos`,
-			lockAt(`${splatesDir}/todos.lock`),
-			{ fs },
-		),
+		todos: new Tasks(store, { fs }),
 	};
 }
 

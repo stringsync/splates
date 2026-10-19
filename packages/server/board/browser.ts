@@ -8,4 +8,4 @@ export {
 	MENTION,
 	named,
 } from "./lanes";
-export type { Todo, TodoState } from "./todo";
+export type { Task, TaskRecord } from "./task";

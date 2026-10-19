@@ -5,7 +5,7 @@ import { conversationOf } from "../conversations";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import type { WorktreeService } from "../tasks";
-import { readFiles } from "./attachments";
+import { type Attachments, readFiles } from "./attachments";
 
 export interface AttachOptions {
 	/** Task whose files these are. Defaults to the one `cwd` is a worktree for. */
@@ -123,7 +123,9 @@ export async function attach(
 	for (const folder of folders) {
 		await folder.remove(gone);
 	}
-	const stored = await (here ?? service.files(name)).store(added);
+	// Its record was found above, so it has a folder of its own.
+	const own = here ?? ((await service.files(name)) as Attachments);
+	const stored = await own.store(added);
 	log.info(
 		[
 			`${color.green("attached")} ${stored.length} file${stored.length === 1 ? "" : "s"} to ${name}, holding ${megabytes(total)} of ${megabytes(capacity)}`,

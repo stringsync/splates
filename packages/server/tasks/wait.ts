@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { Duration, sleep } from "webappwiz/time";
-import type { Todos } from "../board";
+import type { Tasks } from "../board";
 import { fail } from "../exit";
 import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -93,7 +93,7 @@ export async function todoWait(
 		service,
 		todos,
 		log,
-	}: { service: WorktreeService; todos: Todos; log: Logger },
+	}: { service: WorktreeService; todos: Tasks; log: Logger },
 	id: number,
 	{ timeout = DEFAULT_TIMEOUT, poll = POLL }: WaitOptions = {},
 ): Promise<void> {

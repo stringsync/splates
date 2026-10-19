@@ -1,17 +1,17 @@
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
 import { aptName, type LaneRecord, type LaneRun, named, settle } from "./lanes";
-import type { TodoState } from "./todo";
-import { parseTodoFile } from "./todo-file";
-import type { Todos } from "./todos";
+import type { TaskRecord } from "./task";
+import { parseTaskFile } from "./task-file";
+import type { Tasks } from "./tasks";
 
 /**
  * The lanes of a `Todos`: their records in `lanes` beside the todos, and every
  * change that moves todos between them, each made under the todos' lock.
  */
-export class TodoLanes {
+export class TaskLanes {
 	constructor(
-		private readonly todos: Todos,
+		private readonly todos: Tasks,
 		private readonly fs: Fs,
 	) {}
 
@@ -154,12 +154,12 @@ export class TodoLanes {
 	async moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
 		return this.todos.locked(async () => {
 			const entries = await this.fs.readdir(this.todos.dir).catch(() => []);
-			const parsed: { state: TodoState; tags: string[] }[] = [];
+			const parsed: { state: TaskRecord; tags: string[] }[] = [];
 			for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
 				const raw = await this.fs
 					.read(`${this.todos.dir}/${entry}`)
 					.catch(() => "");
-				const found = parseTodoFile(raw);
+				const found = parseTaskFile(raw);
 				if (found !== null && found.tags.length > 0) {
 					parsed.push(found);
 				}
@@ -219,8 +219,8 @@ export class TodoLanes {
 	 */
 	async laneId(
 		lane: number | "new" | null,
-		states: TodoState[],
-		todos: TodoState[],
+		states: TaskRecord[],
+		todos: TaskRecord[],
 		name?: string,
 	): Promise<number | null> {
 		if (lane === null) {
@@ -238,8 +238,8 @@ export class TodoLanes {
 	 * named without one. Call it under the lock.
 	 */
 	private async newLane(
-		states: TodoState[],
-		todos: TodoState[],
+		states: TaskRecord[],
+		todos: TaskRecord[],
 		name?: string,
 	): Promise<LaneRecord> {
 		const records = await this.records(states);
@@ -260,7 +260,7 @@ export class TodoLanes {
 	 * A lane id never handed out before, so a lane's number never comes back
 	 * meaning another. Call it under the lock.
 	 */
-	private async nextLaneId(states: TodoState[]): Promise<number> {
+	private async nextLaneId(states: TaskRecord[]): Promise<number> {
 		const last = Number(
 			await this.fs.read(`${this.todos.dir}/last-lane`).catch(() => 0),
 		);
@@ -279,7 +279,7 @@ export class TodoLanes {
 	 * @internal The lanes as stored, and after them any lane a todo is in that
 	 * has no record. A file that will not parse reads as none.
 	 */
-	async records(states: TodoState[]): Promise<LaneRecord[]> {
+	async records(states: TaskRecord[]): Promise<LaneRecord[]> {
 		return named(states, await this.read("lanes"));
 	}
 
@@ -288,7 +288,7 @@ export class TodoLanes {
 	 * them each that is gone as it was last called, so an orchestrator whose
 	 * lanes are done still goes by their names.
 	 */
-	async names(states: TodoState[]): Promise<LaneRecord[]> {
+	async names(states: TaskRecord[]): Promise<LaneRecord[]> {
 		const records = await this.records(states);
 		const ended = await this.read("ended-lanes");
 		return [

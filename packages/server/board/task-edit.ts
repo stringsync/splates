@@ -5,15 +5,15 @@ import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts } from "../records";
-import type { Todo, TodoOrigin } from "./todo";
-import type { Todos } from "./todos";
+import type { Task, TaskOrigin } from "./task";
+import type { Tasks } from "./tasks";
 
-export interface TodoFileOptions {
+export interface TaskFileOptions {
 	/** Files to attach, relative to the current directory or absolute. */
 	files?: string[];
 }
 
-export interface TodoAddOptions extends TodoFileOptions {
+export interface TaskAddOptions extends TaskFileOptions {
 	/** Whatever more there is to say than the subject. */
 	text?: string;
 	/** Where it goes in the list, 1 at the top; the bottom by default. */
@@ -25,11 +25,11 @@ export interface TodoAddOptions extends TodoFileOptions {
 	/** The agent that should work it; none by default. */
 	assignee?: AgentPick | null;
 	/** The other project it is added from; none by default. */
-	origin?: TodoOrigin;
+	origin?: TaskOrigin;
 }
 
-export async function todoAdd(
-	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
+export async function taskAdd(
+	deps: { todos: Tasks; log: Logger; fs: Fs; ps: Ps },
 	subject: string,
 	from: string | null,
 	{
@@ -40,8 +40,8 @@ export async function todoAdd(
 		lane,
 		assignee,
 		origin,
-	}: TodoAddOptions = {},
-): Promise<Todo> {
+	}: TaskAddOptions = {},
+): Promise<Task> {
 	const todo = await deps.todos.add(subject, from, {
 		text,
 		files: await readFiles(deps, files),
@@ -64,7 +64,7 @@ export async function todoAdd(
 }
 
 /** What a `todo add` event says of the todo it added. */
-export function addedFacts(todo: Todo): Facts["todo add"] {
+export function addedFacts(todo: Task): Facts["todo add"] {
 	return {
 		todo: todo.id,
 		subject: todo.subject,
@@ -73,7 +73,7 @@ export function addedFacts(todo: Todo): Facts["todo add"] {
 	};
 }
 
-export interface TodoUpdateOptions extends TodoFileOptions {
+export interface TaskUpdateOptions extends TaskFileOptions {
 	/** A new line; the old one stays when this is absent or empty. */
 	subject?: string;
 	/** New detail; the old stays when this is absent or empty. */
@@ -92,8 +92,8 @@ export interface TodoUpdateOptions extends TodoFileOptions {
 	assignee?: AgentPick | null;
 }
 
-export async function todoUpdate(
-	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
+export async function taskUpdate(
+	deps: { todos: Tasks; log: Logger; fs: Fs; ps: Ps },
 	id: number,
 	{
 		subject,
@@ -105,8 +105,8 @@ export async function todoUpdate(
 		removeBlockedBy = [],
 		lane,
 		assignee,
-	}: TodoUpdateOptions = {},
-): Promise<Todo> {
+	}: TaskUpdateOptions = {},
+): Promise<Task> {
 	const todo = await deps.todos.find(id);
 	// A blocker removed without merging is let go of as one still linked is.
 	const lost = removeBlockedBy.filter((each) =>
@@ -170,10 +170,10 @@ export async function todoUpdate(
 	return updated;
 }
 
-export async function todoRemove(
-	{ todos, log }: { todos: Todos; log: Logger },
+export async function taskRemove(
+	{ todos, log }: { todos: Tasks; log: Logger },
 	id: number,
-): Promise<Todo> {
+): Promise<Task> {
 	const todo = await todos.find(id);
 	await todo.remove();
 	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);

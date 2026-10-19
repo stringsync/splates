@@ -1,6 +1,7 @@
 import { relative, resolve, sep } from "node:path";
-import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { type Fs, MemoryLock, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Attachments, folderBytes } from "../artifacts";
+import { TaskStore } from "../board";
 import type { Config } from "../config";
 import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
@@ -12,6 +13,7 @@ import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import type { WorkerMachine } from "../workers";
 import { WorkerBudget, workerGit } from "../workers";
 import type { LeaseBeat } from "./lease-beat";
+import { StartedRecords } from "./started-records";
 import {
 	type DiffSize,
 	type DiscardOptions,
@@ -39,34 +41,9 @@ export interface AddOptions {
  * directories, the records under `.git/splates/tasks`, and the names of tasks
  * already removed. One name, one lookup, whatever state it turns out to be in.
  */
-/** What a `WorktreeService` works through; the real ones by default. */
-export interface WorktreeServiceOptions {
-	fs?: Fs;
-	ps?: Ps;
-	/** Where each task's ending is written down; none, and nothing is. */
-	outcomes?: Outcomes;
-	/** How closely conversations follow the skill, which an ending's findings read. */
-	adherence?: Adherence;
-	/** The worker budget's ledger, which an ending reads what made workers cost it from. */
-	workerBudget?: string;
-	/**
-	 * What keeps the leases this process takes fresh while it runs, for a
-	 * command on a worker; none on the coordinator's machine, where a pid
-	 * judges its holder.
-	 */
-	leases?: LeaseBeat;
-	/**
-	 * How this machine checks tasks out when it is a remote worker: clones,
-	 * each record naming `machine`, this worker's id. None on the
-	 * coordinator's machine, whose tasks are worktrees of the main tree.
-	 */
-	clones?: { checkouts: Checkouts; machine: string };
-	/** The workers the coordinator reaches, which a clone elsewhere is read on. */
-	machines?: WorkerMachines;
-}
-
 export class WorktreeService {
 	private readonly tasksDir: string;
+	private readonly records: StartedRecords;
 	private readonly removedDir: string;
 	private readonly conversationsDir: string;
 	private readonly fs: Fs;
@@ -96,6 +73,10 @@ export class WorktreeService {
 		this.clones = opts.clones ?? null;
 		this.machines = opts.machines ?? null;
 		this.tasksDir = `${splatesDir}/tasks`;
+		this.records = new StartedRecords(
+			opts.store ?? new TaskStore(this.tasksDir, new MemoryLock(), this.fs),
+			this.fs,
+		);
 		this.removedDir = `${splatesDir}/removed`;
 		this.conversationsDir = `${splatesDir}/conversations`;
 	}
@@ -128,7 +109,7 @@ export class WorktreeService {
 	async init(): Promise<void> {
 		await this.fs.mkdir(this.tasksDir);
 		await this.fs.mkdir(this.removedDir);
-		await this.sweep();
+		await this.records.sweep();
 	}
 
 	get trunk(): string {
@@ -148,16 +129,14 @@ export class WorktreeService {
 		return taskOf(branch);
 	}
 
-	recordPath(task: string): string {
-		return `${this.tasksDir}/${task}.json`;
-	}
-
 	/**
-	 * Where a task's files live, beside its record: the screenshots and videos
-	 * its questions show, in `tasks/<task>/`. They go when the task does.
+	 * Where a started task's files live, beside its record: the screenshots
+	 * and videos its questions show, in `tasks/<N>/started/`, apart from those
+	 * it was queued with. They go when the task ends. Null for a task with
+	 * no record.
 	 */
-	files(task: string): Attachments {
-		return new Attachments(`${this.tasksDir}/${task}`, this.fs);
+	files(task: string): Promise<Attachments | null> {
+		return this.records.files(task);
 	}
 
 	/**
@@ -177,7 +156,8 @@ export class WorktreeService {
 	 * conversation that attached some.
 	 */
 	async filesOf(task: string): Promise<Attachments[]> {
-		const folders = [this.files(task)];
+		const own = await this.files(task);
+		const folders = own === null ? [] : [own];
 		const entries = await this.fs
 			.readdir(this.conversationsDir)
 			.catch(() => []);
@@ -200,12 +180,12 @@ export class WorktreeService {
 
 	/**
 	 * Whether `path` is a file some task or conversation holds for a task:
-	 * one level inside a task's folder, or inside a conversation's
+	 * one level inside a started task's folder, or inside a conversation's
 	 * `attached/<task>/`, never a record or log, and not a way out of here.
 	 */
 	owns(path: string): boolean {
 		const parts = relative(this.tasksDir, resolve(path)).split(sep);
-		if (!parts.includes("..") && parts.length === 2) {
+		if (!parts.includes("..") && parts.length === 3 && parts[1] === "started") {
 			return true;
 		}
 		const inside = relative(this.conversationsDir, resolve(path)).split(sep);
@@ -216,13 +196,16 @@ export class WorktreeService {
 
 	/** Always answers; the returned worktree's status says what was found. */
 	async find(task: string): Promise<Worktree> {
-		let state: TaskState | null = null;
-		let corrupt = false;
-		try {
-			state = await this.readRecord(task);
-		} catch {
-			corrupt = true; // a record that will not parse is still a record
-		}
+		return this.found(task, await this.readRecord(task));
+	}
+
+	/** `task` as `find` gives it, its record already read. */
+	private async found(
+		task: string,
+		state: TaskState | null,
+	): Promise<Worktree> {
+		// A record that will not parse has no name to be found by.
+		const corrupt = false;
 		const path = state?.worktree ?? this.pathFor(task);
 		const branch = state?.branch ?? this.branchFor(task);
 		const machine =
@@ -249,14 +232,12 @@ export class WorktreeService {
 	}
 
 	async list(): Promise<Worktree[]> {
-		const entries: string[] = await this.fs
-			.readdir(this.tasksDir)
-			.catch(() => []);
-		const tasks = entries
-			.filter((entry) => entry.endsWith(".json"))
-			.map((entry) => entry.slice(0, -".json".length))
-			.sort();
-		return limited(tasks, READ_CONCURRENCY, (task) => this.find(task));
+		const states = (await this.records.all()).sort((left, right) =>
+			left.task.localeCompare(right.task),
+		);
+		return limited(states, READ_CONCURRENCY, (state) =>
+			this.found(state.task, state),
+		);
 	}
 
 	/** Adds the branch and the working directory. The record comes after. */
@@ -324,8 +305,7 @@ export class WorktreeService {
 		if (removed.code !== 0) {
 			return removed;
 		}
-		await this.fs.rm(this.recordPath(worktree.task), { force: true });
-		await this.files(worktree.task).clear();
+		await this.records.end(worktree.task);
 		await this.rememberRemoved(worktree.task);
 		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
@@ -366,14 +346,12 @@ export class WorktreeService {
 		};
 	}
 
-	/** Writes a task's record. A concurrent reader sees the old one or the new. */
-	async saveRecord(state: TaskState): Promise<void> {
-		// A half-written record read by a concurrent agent is a real failure mode,
-		// and rename is the only way to make the swap atomic.
-		const path = this.recordPath(state.task);
-		const tmp = `${path}.${this.ps.pid}.tmp`;
-		await this.fs.write(tmp, `${JSON.stringify(state, null, "\t")}\n`);
-		await this.fs.rename(tmp, path);
+	/**
+	 * Writes what a started task's record holds, leaving what the list holds
+	 * of it alone.
+	 */
+	saveRecord(state: TaskState): Promise<void> {
+		return this.records.save(state);
 	}
 
 	/**
@@ -506,29 +484,8 @@ export class WorktreeService {
 		});
 	}
 
-	private async readRecord(task: string): Promise<TaskState | null> {
-		const raw = await this.fs.read(this.recordPath(task)).catch(() => null);
-		return raw === null ? null : (JSON.parse(raw) as TaskState);
-	}
-
-	/**
-	 * Drops the files of every task with no record left: what a process that
-	 * died between discarding a task and clearing its folder left behind.
-	 */
-	private async sweep(): Promise<void> {
-		const entries: string[] = await this.fs
-			.readdir(this.tasksDir)
-			.catch(() => []);
-		for (const entry of entries) {
-			const path = `${this.tasksDir}/${entry}`;
-			if (
-				entries.includes(`${entry}.json`) ||
-				!(await this.fs.stat(path).catch(() => null))?.isDirectory()
-			) {
-				continue;
-			}
-			await this.fs.rm(path, { recursive: true, force: true });
-		}
+	private readRecord(task: string): Promise<TaskState | null> {
+		return this.records.find(task);
 	}
 
 	private removedPath(task: string): string {
@@ -589,4 +546,35 @@ interface Reach {
 	exists(): Promise<boolean>;
 	/** Takes the checkout away, and its branch with it. */
 	remove(): Promise<GitResult>;
+}
+
+/** What a `WorktreeService` works through; the real ones by default. */
+export interface WorktreeServiceOptions {
+	fs?: Fs;
+	ps?: Ps;
+	/** Where each task's ending is written down; none, and nothing is. */
+	outcomes?: Outcomes;
+	/** How closely conversations follow the skill, which an ending's findings read. */
+	adherence?: Adherence;
+	/** The worker budget's ledger, which an ending reads what made workers cost it from. */
+	workerBudget?: string;
+	/**
+	 * What keeps the leases this process takes fresh while it runs, for a
+	 * command on a worker; none on the coordinator's machine, where a pid
+	 * judges its holder.
+	 */
+	leases?: LeaseBeat;
+	/**
+	 * How this machine checks tasks out when it is a remote worker: clones,
+	 * each record naming `machine`, this worker's id. None on the
+	 * coordinator's machine, whose tasks are worktrees of the main tree.
+	 */
+	clones?: { checkouts: Checkouts; machine: string };
+	/** The workers the coordinator reaches, which a clone elsewhere is read on. */
+	machines?: WorkerMachines;
+	/**
+	 * The numbered records, shared with the list of tasks so both write under
+	 * one lock; one of its own, locked in this process alone, by default.
+	 */
+	store?: TaskStore;
 }

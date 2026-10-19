@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Lock } from "webappwiz/system";
-import type { Todos } from "../board";
+import type { Tasks } from "../board";
 import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import { fail } from "../exit";
@@ -57,7 +57,7 @@ export async function merge(
 		shell: Shell;
 		config: Config;
 		log: Logger;
-		todos: Todos;
+		todos: Tasks;
 		fs: Fs;
 		slots: Slots;
 		heavy: HeavyCap;

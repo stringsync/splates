@@ -363,6 +363,8 @@ export interface GateFailure {
 }
 
 export interface TaskState {
+	/** Its number, which it shares with the todo it started from; absent until first saved. */
+	id?: number;
 	task: string;
 	branch: string;
 	worktree: string;
@@ -423,8 +425,8 @@ export interface Dispatched {
 	/** The conversation `splates server` started, once it has. */
 	conversation?: string;
 	/**
-	 * Set while the postCheckout hook readies the tree; `splates server` starts the
-	 * agent once it clears.
+	 * Whether the postCheckout hook is still readying the tree: `splates
+	 * server` starts the agent once it is not.
 	 */
 	// Recorded from the start, so the task reads as handed over rather than
 	// an external agent's.

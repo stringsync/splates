@@ -1,0 +1,125 @@
+import { describe, expect, it } from "bun:test";
+import { merge } from "../merge";
+import { add, remove } from "../tasks";
+import { Testing } from "../testing";
+import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
+import { taskRelease } from "./task-take";
+
+/** Task `id` as its record holds it. */
+async function stored(deps: Testing, id: number): Promise<unknown> {
+	return JSON.parse(
+		await deps.fs
+			.read(`${deps.splatesDir}/tasks/${id}.json`)
+			.catch(() => "null"),
+	);
+}
+
+describe.concurrent("TaskStore", () => {
+	it("starts a task under the lowest todo it takes up, the rest held by it", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "support dark mode", null);
+		await taskAdd(deps, "dark charts too", null);
+
+		await add(deps, "dark", { todos: [2, 1] });
+
+		expect((await deps.service.find("dark")).state?.id).toBe(1);
+		expect(await stored(deps, 1)).toMatchObject({
+			id: 1,
+			subject: "support dark mode",
+			takenBy: "dark",
+			task: "dark",
+			status: "working",
+		});
+		expect(await stored(deps, 2)).toMatchObject({
+			takenBy: "dark",
+			status: "queued",
+		});
+		expect(await stored(deps, 2)).not.toHaveProperty("task");
+		expect((await deps.todos.all()).map((todo) => todo.id)).toEqual([1, 2]);
+	});
+
+	it("numbers a task that takes up no todo off the list, and forgets it as it goes", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "write docs", null);
+
+		await add(deps, "alpha");
+
+		expect(await stored(deps, 2)).toMatchObject({
+			task: "alpha",
+			listed: false,
+		});
+		expect((await deps.todos.all()).map((todo) => todo.id)).toEqual([1]);
+		expect((await taskAdd(deps, "next", null)).id).toBe(3);
+
+		await remove(deps, "alpha");
+
+		expect(await stored(deps, 2)).toBeNull();
+		expect((await deps.service.find("alpha")).status).toBe("removed");
+	});
+
+	it("queues a removed task's todo again, as it was", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "support dark mode", null, { lane: "new" });
+		await add(deps, "dark", { todos: [1] });
+
+		await remove(deps, "dark");
+
+		const record = await stored(deps, 1);
+		expect(record).toMatchObject({
+			id: 1,
+			subject: "support dark mode",
+			lane: 1,
+			takenBy: null,
+			status: "queued",
+		});
+		expect(record).not.toHaveProperty("task");
+		expect(record).not.toHaveProperty("lease");
+	});
+
+	it("leaves the todo a task started under queued when released before it lands", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "support dark mode", null);
+		await add(deps, "dark", { todos: [1] });
+		const worktree = (await deps.service.find("dark")).path;
+		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
+		await taskRelease(deps, [1], "dark");
+
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		expect(await stored(deps, 1)).toMatchObject({
+			takenBy: null,
+			status: "queued",
+		});
+		expect((await deps.service.find("dark")).gone).toBeTrue();
+	});
+
+	it("keeps a task going when the todo it started under is removed", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "support dark mode", null);
+		await add(deps, "dark", { todos: [1] });
+
+		await taskRemove(deps, 1);
+
+		await expect(deps.todos.find(1)).toBail("not_found");
+		expect((await deps.service.find("dark")).status).toBe("working");
+		expect(await stored(deps, 1)).toMatchObject({ listed: false });
+	});
+
+	it("keeps what each side wrote when the other writes the same record", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "support dark mode", null);
+		await add(deps, "dark", { todos: [1] });
+
+		await taskUpdate(deps, 1, { subject: "dark mode everywhere" });
+		await (await deps.service.find("dark")).save({ mergeAttempts: 2 });
+
+		expect(await stored(deps, 1)).toMatchObject({
+			subject: "dark mode everywhere",
+			task: "dark",
+			mergeAttempts: 2,
+			status: "working",
+		});
+		expect((await deps.todos.find(1)).state).not.toHaveProperty("task");
+	});
+});

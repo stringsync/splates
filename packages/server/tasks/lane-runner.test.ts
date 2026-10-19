@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
-import type { LaneRecord, TodoState } from "../board";
-import { todoAdd, todoUpdate } from "../board";
+import type { LaneRecord, TaskRecord } from "../board";
+import { taskAdd, taskUpdate } from "../board";
 import { Testing } from "../testing";
 import {
 	LaneRunner,
@@ -47,7 +47,7 @@ describe("LaneRunner", () => {
 	});
 
 	it("starts nothing in a lane that is not running", async () => {
-		await todoAdd(deps, "Totals first", null, {
+		await taskAdd(deps, "Totals first", null, {
 			lane: lane.id,
 			assignee: { agent: "claude" },
 		});
@@ -58,11 +58,11 @@ describe("LaneRunner", () => {
 	});
 
 	it("starts a running lane's unblocked todos as the conversation that ran it, once each", async () => {
-		await todoAdd(deps, "Totals first", null, {
+		await taskAdd(deps, "Totals first", null, {
 			lane: lane.id,
 			assignee: { agent: "claude", model: "sonnet" },
 		});
-		await todoAdd(deps, "Breakdowns", null, {
+		await taskAdd(deps, "Breakdowns", null, {
 			lane: lane.id,
 			blockedBy: [1],
 			assignee: { agent: "claude", model: "sonnet" },
@@ -91,7 +91,7 @@ describe("LaneRunner", () => {
 	});
 
 	it("tries a refused todo again only once it changes", async () => {
-		await todoAdd(deps, "Totals first", null, {
+		await taskAdd(deps, "Totals first", null, {
 			lane: lane.id,
 			assignee: { agent: "claude" },
 		});
@@ -106,7 +106,7 @@ describe("LaneRunner", () => {
 		await settled();
 		expect(started).toHaveLength(1);
 
-		await todoUpdate(deps, 1, { text: "with the hook fixed" });
+		await taskUpdate(deps, 1, { text: "with the hook fixed" });
 		await runner.sweep();
 		expect(started).toHaveLength(2);
 	});
@@ -232,7 +232,7 @@ const RUNNING: LaneRecord = { id: 1, name: "Stats", running: { by: null } };
 const NONE: ReadonlySet<number> = new Set();
 const NAMES: ReadonlySet<string> = new Set();
 
-function todo(overrides: Partial<TodoState>): TodoState {
+function todo(overrides: Partial<TaskRecord>): TaskRecord {
 	return {
 		id: 1,
 		subject: "a todo",
@@ -251,7 +251,7 @@ function todo(overrides: Partial<TodoState>): TodoState {
 
 /** The ids `startable` starts in `RUNNING`, top first. */
 function ready(
-	todos: TodoState[],
+	todos: TaskRecord[],
 	{
 		capacity = 5,
 		starting = NONE,

@@ -8,12 +8,12 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import type { LaneRecord, TodoState } from "../board";
+import type { LaneRecord, TaskRecord } from "../board";
 import {
-	type LaneTodoChange,
+	type LaneTaskChange,
 	laneChanges,
-	laneTodos,
-	type SeenLaneTodos,
+	laneTasks,
+	type SeenLaneTasks,
 } from "../board";
 import type { Conversation, Conversations, Message } from "../conversations";
 import { lanesOf, SERVER_TOLD, startedLanes } from "../conversations";
@@ -95,8 +95,8 @@ export class HandedOut implements Resource {
 		private readonly conversations: Conversations,
 		private readonly everywhere: Everywhere,
 		private readonly lanes: () => Promise<LaneRecord[]>,
-		private readonly todos: () => Promise<TodoState[]>,
-		private readonly seen: SeenLaneTodos,
+		private readonly todos: () => Promise<TaskRecord[]>,
+		private readonly seen: SeenLaneTasks,
 		private readonly stuck: StuckTodos,
 		private readonly log: Logger,
 		readonly timer: Timer,
@@ -144,9 +144,9 @@ export class HandedOut implements Resource {
 		/** The lanes on the board, a lane gone from it once it is done. */
 		lanes: () => Promise<LaneRecord[]>;
 		/** Every todo on the list. */
-		todos: () => Promise<TodoState[]>;
+		todos: () => Promise<TaskRecord[]>;
 		/** The lane todos as last seen, kept past a restart. */
-		seen: SeenLaneTodos;
+		seen: SeenLaneTasks;
 		/** Where a todo is marked stuck. */
 		stuck: StuckTodos;
 		log: Logger;
@@ -218,7 +218,7 @@ export class HandedOut implements Resource {
 	 */
 	async #tell(all: Conversation[], lanes: LaneRecord[]): Promise<void> {
 		const stored = await this.todos();
-		const now = laneTodos(stored, lanes);
+		const now = laneTasks(stored, lanes);
 		const before = await this.seen.read();
 		if (before !== null) {
 			for (const change of laneChanges(before, now, stored)) {
@@ -241,7 +241,7 @@ export class HandedOut implements Resource {
 	}
 
 	/** Whether `conversation` orchestrates the lane `change` is in, and is still at it. */
-	#works(conversation: Conversation, change: LaneTodoChange): boolean {
+	#works(conversation: Conversation, change: LaneTaskChange): boolean {
 		const { state } = conversation;
 		return (
 			!state.archived &&
@@ -400,7 +400,7 @@ export class HandedOut implements Resource {
 	}
 
 	/** The todo `task` holds in a running lane, or null for none. */
-	async #laneTodo(task: string): Promise<TodoState | null> {
+	async #laneTodo(task: string): Promise<TaskRecord | null> {
 		const todo = (await this.todos()).find((each) => each.takenBy === task);
 		if (todo === undefined || todo.lane === null) {
 			return null;

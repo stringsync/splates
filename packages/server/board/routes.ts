@@ -4,8 +4,8 @@ import { type AgentPick, modelsOf, pickAgent, pickEffort } from "../models";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { laneUpdated, recordLaneRemove } from "./lane";
-import { recordUpdate, todosNamed } from "./todo";
-import { addedFacts } from "./todo-edit";
+import { recordUpdate, tasksNamed } from "./task";
+import { addedFacts } from "./task-edit";
 
 /**
  * How a project's page writes its todos and lanes, each write journaled and
@@ -13,7 +13,7 @@ import { addedFacts } from "./todo-edit";
  * `serveProject` spreads them into the project's routes; what they work on
  * stays private, out of the spread.
  */
-export class TodoRoutes {
+export class BoardRoutes {
 	readonly #project: Project;
 	readonly #conversations: ConversationRoutes;
 	readonly #watch: ProjectWatch;
@@ -209,7 +209,7 @@ export class TodoRoutes {
 			null,
 			// Kept, so the conversation line it was added on can put it back.
 			() => found.discard(),
-			() => ({ todos: todosNamed([found]) }),
+			() => ({ todos: tasksNamed([found]) }),
 		);
 		this.#watch.tick();
 		return Response.json(found.state);

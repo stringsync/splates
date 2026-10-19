@@ -73,6 +73,7 @@ describe("splates cli", () => {
 		).toBe(1);
 	});
 
+	// scry-ignore simple-test-setup: the escalated task is what numbers the todo after it, which this case checks.
 	it("escalates a task and edits its todos", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
 		const worktree = await env.service.find("alpha");
@@ -93,11 +94,15 @@ describe("splates cli", () => {
 			"--file",
 			"a.png",
 		]);
-		const [attached = ""] = (await env.todos.find(1)).files;
+		// Task alpha took number 1, so the todo is numbered after it.
+		const [todo] = await env.todos.all();
+		const id = todo?.id ?? 0;
+		expect(id).toBe(2);
+		const [attached = ""] = todo?.files ?? [];
 		await splates.run(deps, [
 			"todo",
 			"update",
-			"1",
+			String(id),
 			"--subject",
 			"write the docs",
 			"--position",
@@ -105,7 +110,7 @@ describe("splates cli", () => {
 			"--remove-file",
 			basename(attached),
 		]);
-		expect((await env.todos.find(1)).state).toMatchObject({
+		expect((await env.todos.find(id)).state).toMatchObject({
 			subject: "write the docs",
 			text: "the CLI first",
 			position: 1,

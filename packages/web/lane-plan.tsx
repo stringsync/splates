@@ -1,4 +1,4 @@
-import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	lanesOf,
@@ -38,7 +38,7 @@ export interface PlanLane {
 
 /** An open todo in a lane, with whoever is on it. */
 export interface PlanStep {
-	todo: TodoState;
+	todo: TaskRecord;
 	/** The conversation at work on the task that took it; null for none here. */
 	agent: ConversationState | null;
 }
@@ -63,7 +63,7 @@ export interface Plan {
 export function planOf(
 	orchestrator: ConversationState,
 	conversations: readonly ConversationState[],
-	todos: readonly TodoState[],
+	todos: readonly TaskRecord[],
 	lanes: readonly LaneRecord[],
 	tasks: readonly string[],
 ): Plan | null {
@@ -389,7 +389,7 @@ function Finished({
 	);
 }
 
-function TodoLine({ todo }: { todo: TodoState }): JSX.Element {
+function TodoLine({ todo }: { todo: TaskRecord }): JSX.Element {
 	return (
 		<>
 			<span className="text-muted-foreground tabular-nums">#{todo.id}</span>{" "}
@@ -448,7 +448,7 @@ function PlanColumn({
 }
 
 /** What holds an open todo no task has taken back, as its row says it. */
-function waitsOn(todo: TodoState, open: ReadonlySet<number>): string {
+function waitsOn(todo: TaskRecord, open: ReadonlySet<number>): string {
 	const blockers = todo.blockedBy.filter((id) => open.has(id));
 	return blockers.length === 0
 		? "Ready"

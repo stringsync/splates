@@ -16,14 +16,14 @@ describe("list", () => {
 	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
-		await deps.fs.write(deps.service.recordPath("broken"), "{not json");
+		await deps.fs.write(`${deps.splatesDir}/tasks/999.json`, "{not json");
 		const beta = (await deps.service.find("beta")).path;
 		await deps.fs.rm(beta, { recursive: true, force: true });
 
 		await list(deps);
 
 		expect(deps.out()).toContain("alpha");
-		expect(deps.out()).toContain("unknown"); // the corrupt row, not a crash
+		expect(deps.out()).not.toContain("999"); // the corrupt record, not a crash
 		expect(deps.out()).toContain("orphaned");
 		expect(color.strip(deps.out())).toContain("+0 -0");
 
@@ -33,7 +33,6 @@ describe("list", () => {
 		expect(rows.map((fixture: { task: string }) => fixture.task)).toEqual([
 			"alpha",
 			"beta",
-			"broken",
 		]);
 	});
 

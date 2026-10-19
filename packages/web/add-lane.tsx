@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { PlusIcon, XIcon } from "lucide-react";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -23,7 +23,7 @@ export function AddLane({
 }: {
 	dragging: boolean;
 	/** The card dropped here, waiting for its lane's name. */
-	naming?: TodoState;
+	naming?: TaskRecord;
 	/** Starts the lane `naming` waits for. */
 	onName: (name: string) => Promise<void>;
 	/** Puts `naming` back where it was. */

@@ -1,4 +1,4 @@
-import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import { createContext } from "react";
 import { Drafts } from "./drafts";
 
@@ -9,7 +9,7 @@ import { Drafts } from "./drafts";
 export interface BoardContext {
 	/** Whether this is a board at all, rather than the empty default. */
 	linked: boolean;
-	todos: TodoState[];
+	todos: TaskRecord[];
 	/** Every lane, in board order, to call each by its name. */
 	lanes: LaneRecord[];
 	open: (id: number) => void;

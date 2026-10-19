@@ -6,7 +6,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { LaneRecord } from "../board";
-import { SeenLaneTodos, TodoRoutes } from "../board";
+import { BoardRoutes, SeenLaneTasks } from "../board";
 import type {
 	ConversationState,
 	Conversations,
@@ -66,7 +66,7 @@ export async function serveProject(
 			everywhere: context.everywhere,
 			lanes: () => project.todos.lanes(),
 			todos: () => project.todos.stored(),
-			seen: new SeenLaneTodos(fs, `${splatesDir}/lane-todos.json`),
+			seen: new SeenLaneTasks(fs, `${splatesDir}/lane-tasks.json`),
 			stuck: project.todos,
 			log,
 		});
@@ -89,7 +89,7 @@ export async function serveProject(
 			todos: () => project.todos.stored(),
 			conversations,
 			root: service.git.root,
-			seen: new SeenGroomed(fs, `${splatesDir}/groomed-todos`),
+			seen: new SeenGroomed(fs, `${splatesDir}/groomed-tasks`),
 			log,
 		});
 		events = await JournalEvents.follow({
@@ -132,8 +132,8 @@ export async function serveProject(
 		const watched = handedOut;
 		const grooming = groomer;
 		try {
-			await fs.mkdir(`${splatesDir}/todos`);
-			const watching = fs.watch(`${splatesDir}/todos`, () =>
+			await fs.mkdir(`${splatesDir}/tasks`);
+			const watching = fs.watch(`${splatesDir}/tasks`, () =>
 				todosSettled.call(() => {
 					void watched.sweep();
 					void runner.sweep();
@@ -160,7 +160,7 @@ export async function serveProject(
 	);
 	return {
 		...new TaskRoutes(project, conversations, watch),
-		...new TodoRoutes(project, talks, watch),
+		...new BoardRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...new AutoRoutes(project, conversations),

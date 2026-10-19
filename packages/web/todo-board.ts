@@ -1,4 +1,4 @@
-import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { arrangeTodo, moveLane, moveTodo } from "./api";
 
@@ -33,9 +33,9 @@ export interface BoardWrites {
 /** What the board shows of the todos it was given. */
 export interface BoardShown {
 	/** The todos in list order, each in the lane it shows in. */
-	todos: TodoState[];
+	todos: TaskRecord[];
 	/** The todo in hand, while one is dragged. */
-	lifted?: TodoState;
+	lifted?: TaskRecord;
 }
 
 /**
@@ -52,7 +52,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	/** The id of the card in hand, while one is dragged. */
 	dragging: number | null = null;
 	/** The list dropped, and the list it was dropped on, until a refusal or a new list. */
-	dropped: { todos: TodoState[]; on: TodoState[] } | null = null;
+	dropped: { todos: TaskRecord[]; on: TaskRecord[] } | null = null;
 	/** The id of the card dropped to start a lane, until the lane is named. */
 	naming: number | null = null;
 	/** The id of the lane in hand, while one is dragged by its header. */
@@ -130,7 +130,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 		});
 	}
 
-	show(todos: TodoState[]): BoardShown {
+	show(todos: TaskRecord[]): BoardShown {
 		const shown = this.dropped?.on === todos ? this.dropped.todos : todos;
 		return {
 			todos: shown,
@@ -159,7 +159,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	 * thrown from the promise.
 	 */
 	drop(
-		todos: TodoState[],
+		todos: TaskRecord[],
 		id: number,
 		target: Target | null,
 	): Promise<void> | null {
@@ -176,7 +176,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	 * Starts the lane called `name` for the card dropped to start one, as
 	 * `drop` makes its writes; null when no card waits for a name.
 	 */
-	name(todos: TodoState[], name: string): Promise<void> | null {
+	name(todos: TaskRecord[], name: string): Promise<void> | null {
 		const id = this.naming;
 		if (id === null) {
 			return null;
@@ -199,7 +199,7 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	}
 
 	private land(
-		todos: TodoState[],
+		todos: TaskRecord[],
 		id: number,
 		target: Target | null,
 		name?: string,
@@ -225,11 +225,11 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 
 	/** The list as it shows once `card` lands on `target`, and the write that makes it so. */
 	private plan(
-		list: TodoState[],
-		card: TodoState,
+		list: TaskRecord[],
+		card: TaskRecord,
 		target: Target,
 		name?: string,
-	): { todos: TodoState[]; write: () => Promise<void> } | null {
+	): { todos: TaskRecord[]; write: () => Promise<void> } | null {
 		const rest = list.filter((todo) => todo.id !== card.id);
 		if ("card" in target) {
 			const onto = list.find((todo) => todo.id === target.card);

@@ -1,7 +1,7 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
-import type { TodoState } from "../board";
+import type { TaskRecord } from "../board";
 import type { Agent, Conversation, Conversations } from "../conversations";
 import { grooms, SERVER_TOLD } from "../conversations";
 import { type AgentPick, modelsOf } from "../models";
@@ -44,7 +44,7 @@ export class Groomer implements Resource {
 
 	private constructor(
 		private readonly deps: {
-			todos: () => Promise<TodoState[]>;
+			todos: () => Promise<TaskRecord[]>;
 			conversations: Conversations;
 			root: string;
 			seen: SeenGroomed;
@@ -61,7 +61,7 @@ export class Groomer implements Resource {
 		...deps
 	}: {
 		/** Every todo on the list. */
-		todos: () => Promise<TodoState[]>;
+		todos: () => Promise<TaskRecord[]>;
 		/** The project's conversations, where its groomer is. */
 		conversations: Conversations;
 		/** The main tree, where a groomer starts. */
@@ -150,7 +150,7 @@ export class Groomer implements Resource {
  * and still in no lane and taken by no task, which would each be a call
  * already made. One that names its agent still wants placing.
  */
-export function groomable(todo: TodoState): boolean {
+export function groomable(todo: TaskRecord): boolean {
 	return (
 		todo.from !== null &&
 		todo.origin === undefined &&

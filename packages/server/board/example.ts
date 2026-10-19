@@ -1,7 +1,7 @@
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
-import type { TodoState } from "./todo";
-import type { Todos } from "./todos";
+import type { TaskRecord } from "./task";
+import type { Tasks } from "./tasks";
 
 /**
  * A real batch of related todos, from sound2score, and the three lanes they
@@ -27,7 +27,7 @@ export function sound2score({
 }: {
 	/** Put the todos in the lanes they ran in; false leaves every one in none. */
 	lanes?: boolean;
-} = {}): TodoState[] {
+} = {}): TaskRecord[] {
 	const rows: [number, string, number[], number | null][] = [
 		[187, "Store a license per account", [], 1],
 		[191, "Check the license on every transcription", [187], 1],
@@ -74,8 +74,8 @@ export const SOUND2SCORE_LANES: LaneRecord[] = [
  * named them.
  */
 export async function seed(
-	todos: Todos,
-	states: TodoState[],
+	todos: Tasks,
+	states: TaskRecord[],
 	fs: Fs = new NodeFs(),
 	lanes: LaneRecord[] = SOUND2SCORE_LANES.filter((record) =>
 		states.some((state) => state.lane === record.id),

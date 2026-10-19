@@ -10,10 +10,10 @@ import {
 	lostLine,
 	mentioned,
 } from "./lanes";
-import { cameFrom, type TodoState } from "./todo";
-import type { Todos } from "./todos";
+import { cameFrom, type TaskRecord } from "./task";
+import type { Tasks } from "./tasks";
 
-export interface TodoListOptions {
+export interface TaskListOptions {
 	/** Print the todos as JSON instead of a table. */
 	json?: boolean;
 	/** Only those no task has taken: the ones free to pick up. */
@@ -25,9 +25,9 @@ export interface TodoListOptions {
 	ready?: boolean;
 }
 
-export async function todoList(
-	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false, open = false, ready = false }: TodoListOptions = {},
+export async function taskList(
+	{ todos, log }: { todos: Tasks; log: Logger },
+	{ json = false, open = false, ready = false }: TaskListOptions = {},
 ): Promise<void> {
 	const every = await todos.all();
 	const listed = every.filter(
@@ -84,16 +84,16 @@ export async function todoList(
 	);
 }
 
-export interface TodoShowOptions {
+export interface TaskShowOptions {
 	/** Print the todo as JSON instead of prose. */
 	json?: boolean;
 }
 
 /** One todo in full: what `todo list` shows of it, its files, and its detail. */
-export async function todoShow(
-	{ todos, log }: { todos: Todos; log: Logger },
+export async function taskShow(
+	{ todos, log }: { todos: Tasks; log: Logger },
 	id: number,
-	{ json = false }: TodoShowOptions = {},
+	{ json = false }: TaskShowOptions = {},
 ): Promise<void> {
 	const todo = await todos.find(id);
 	if (json) {
@@ -102,12 +102,12 @@ export async function todoShow(
 	}
 	const states = (await todos.all()).map((each) => each.state);
 	// How another todo stands, in a few words: where it runs, who has it.
-	const where = (other: TodoState) =>
+	const where = (other: TaskRecord) =>
 		[
 			other.lane === null ? null : `lane ${other.lane}`,
 			other.takenBy === null ? null : `taken by ${other.takenBy}`,
 		].filter(Boolean);
-	const named = (other: TodoState) => {
+	const named = (other: TaskRecord) => {
 		const said = where(other);
 		return `#${other.id} ${other.subject}${said.length === 0 ? "" : ` (${said.join(", ")})`}`;
 	};
@@ -130,7 +130,7 @@ export async function todoShow(
 				]),
 		...blockersOf(states, todo.state).map(
 			(wait) =>
-				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TodoState)}`,
+				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TaskRecord)}`,
 		),
 		...(todo.state.blockersLanded ?? []).map(
 			(landed) =>

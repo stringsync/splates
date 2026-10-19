@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { type JSX, useContext, useState } from "react";
 import { removeTodo, restoreTodo } from "./api";
@@ -24,7 +24,7 @@ export function AddedLine({
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
 	// The todo as it stood when removed, to show back in place on Undo.
-	const [removed, setRemoved] = useState<TodoState | null>(null);
+	const [removed, setRemoved] = useState<TaskRecord | null>(null);
 	const { refusal, attempt } = useRefusal();
 	const live = board.todos.find((todo) => todo.id === id);
 	// Each shows at once; refused, the line goes back to what it said.
@@ -32,7 +32,7 @@ export function AddedLine({
 		expectation: (snapshot: Snapshot) => Snapshot,
 		write: Promise<void>,
 		failed: string,
-		after: TodoState | null,
+		after: TaskRecord | null,
 	) => {
 		const before = removed;
 		setRemoved(after);

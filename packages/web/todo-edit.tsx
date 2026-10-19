@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board";
 import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -39,7 +39,7 @@ export function Edit({
 	todo,
 	onDone,
 }: {
-	todo: TodoState;
+	todo: TaskRecord;
 	onDone: () => void;
 }): JSX.Element {
 	const board = useContext(BoardContext);

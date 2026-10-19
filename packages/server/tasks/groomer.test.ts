@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
-import type { TodoState } from "../board";
+import type { TaskRecord } from "../board";
 import { Conversations, SERVER_TOLD } from "../conversations";
 import { DEFAULT_AGENTS } from "../models";
 import { DIRECTIVES } from "../plans";
@@ -15,7 +15,7 @@ describe("Groomer", () => {
 	let agent: FakeAgent;
 	let said: string[];
 	let conversations: Conversations;
-	let list: TodoState[];
+	let list: TaskRecord[];
 	let groomer: Groomer | null;
 
 	const until = async (done: () => boolean) => {
@@ -24,7 +24,7 @@ describe("Groomer", () => {
 		}
 	};
 
-	const todo = (id: number, more: Partial<TodoState> = {}): TodoState => ({
+	const todo = (id: number, more: Partial<TaskRecord> = {}): TaskRecord => ({
 		id,
 		subject: `Todo ${id}`,
 		text: "",

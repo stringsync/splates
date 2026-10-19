@@ -96,15 +96,14 @@ async function placeOn(
 		} catch {
 			continue; // as the service reads it: a record still, if unreadable
 		}
-		if (typeof record.machine === "string") {
+		// A queued task has no tree to place.
+		if (typeof record.machine === "string" || typeof record.task !== "string") {
 			continue;
 		}
-		const task =
-			typeof record.task === "string" ? record.task : name.slice(0, -5);
 		const worktree =
 			typeof record.worktree === "string"
 				? record.worktree
-				: resolve(worktreeRoot, task);
+				: resolve(worktreeRoot, record.task);
 		await fs.write(
 			path,
 			`${JSON.stringify({ ...record, worktree, machine: worker }, null, "\t")}\n`,

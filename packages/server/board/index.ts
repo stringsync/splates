@@ -8,8 +8,8 @@ export {
 	laneUpdated,
 	recordLaneRemove,
 } from "./lane";
-export type { LaneTodoChange } from "./lane-todos";
-export { laneChanges, laneTodos, SeenLaneTodos } from "./lane-todos";
+export type { LaneTaskChange } from "./lane-tasks";
+export { laneChanges, laneTasks, SeenLaneTasks } from "./lane-tasks";
 export type { LaneRecord, LaneRun, LaneState } from "./lanes";
 export {
 	blockerLabel,
@@ -22,10 +22,12 @@ export {
 	named,
 } from "./lanes";
 export { lanesFromTags } from "./lanes-from-tags";
-export { TodoRoutes } from "./routes";
-export type { GoneBlocker, LandedBlocker, Todo, TodoState } from "./todo";
-export { recordUpdate, todosNamed, wording } from "./todo";
-export { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
-export { todoList, todoShow } from "./todo-list";
-export { blockedWarning, todoRelease, todoTake } from "./todo-take";
-export { Todos } from "./todos";
+export { BoardRoutes } from "./routes";
+export type { Started, StoredTask, TaskStatus } from "./store";
+export { queuedOf, startedOf, TaskStore } from "./store";
+export type { GoneBlocker, LandedBlocker, Task, TaskRecord } from "./task";
+export { recordUpdate, tasksNamed, wording } from "./task";
+export { addedFacts, taskAdd, taskRemove, taskUpdate } from "./task-edit";
+export { taskList, taskShow } from "./task-list";
+export { blockedWarning, taskRelease, taskTake } from "./task-take";
+export { Tasks } from "./tasks";

@@ -165,7 +165,7 @@ describe("add", () => {
 	});
 
 	it("hands the task to an agent pending while its hook readies the tree", async () => {
-		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "alpha.json")} > record.json`;
+		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "1.json")} > record.json`;
 
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },

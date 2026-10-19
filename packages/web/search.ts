@@ -1,4 +1,4 @@
-import type { LaneRecord, TodoState } from "@stringsync/splates-server/board";
+import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import { goalLine } from "@stringsync/splates-server/plans/browser";
@@ -7,7 +7,7 @@ import type { Details } from "@stringsync/splates-server/tasks";
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {
 	tasks: Details[];
-	todos: TodoState[];
+	todos: TaskRecord[];
 	conversations: ConversationState[];
 	/** Every lane there has been, to name a lane's orchestrator after it. */
 	lanes: readonly LaneRecord[];
@@ -137,7 +137,7 @@ function conversationOf(
 	};
 }
 
-function todoOf(todo: TodoState): Candidate {
+function todoOf(todo: TaskRecord): Candidate {
 	return {
 		found: {
 			kind: "todo",

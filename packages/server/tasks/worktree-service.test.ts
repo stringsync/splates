@@ -55,10 +55,11 @@ describe("WorktreeService", () => {
 
 		await (await worktrees.find("alpha")).save();
 
-		const path = worktrees.recordPath("alpha");
-		expect(fs.ops).toEqual([
-			`write ${path}.4242.tmp`,
-			`rename ${path}.4242.tmp -> ${path}`,
+		const path = `${SPLATES_DIR}/tasks/1.json`;
+		const writes = fs.ops.filter((op) => op.includes(path));
+		expect(writes).toEqual([
+			expect.stringMatching(/^write .*\/1\.json\.[\w-]+\.tmp$/),
+			expect.stringMatching(/^rename .*\.tmp -> .*\/1\.json$/),
 		]);
 		expect((await worktrees.find("alpha")).state).toMatchObject({
 			task: "alpha",
@@ -84,16 +85,16 @@ describe("WorktreeService", () => {
 		});
 	});
 
-	it("reports unknown, not absent, when a record will not parse", async () => {
+	it("passes over a record that will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
 		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
 			fs: fs,
 			ps: ps,
 		});
-		await fs.write(worktrees.recordPath("alpha"), "{not json");
+		await fs.write(`${SPLATES_DIR}/tasks/1.json`, "{not json");
 
-		expect((await worktrees.find("alpha")).status).toBe("unknown");
+		expect(await worktrees.list()).toEqual([]);
 		expect((await worktrees.find("missing")).status).toBe("absent");
 	});
 

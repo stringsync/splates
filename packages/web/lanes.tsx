@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { LaneState, TodoState } from "@stringsync/splates-server/board";
+import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
 import { laneReference } from "@stringsync/splates-server/plans/browser";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {
@@ -57,7 +57,7 @@ export function Untriaged({
 	staleness,
 }: {
 	/** Every untriaged todo. */
-	todos: TodoState[];
+	todos: TaskRecord[];
 	staleness: number;
 }): JSX.Element {
 	const board = useContext(Board);

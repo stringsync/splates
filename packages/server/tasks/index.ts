@@ -32,6 +32,7 @@ export type {
 	GateFailure,
 	MergeFailure,
 	RemoveReason,
+	TaskState,
 	Worktree,
 } from "./worktree";
 export { REMOVE_REASONS } from "./worktree";

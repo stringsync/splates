@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
-import type { LaneRecord, TodoState, Todos } from "../board";
+import type { LaneRecord, TaskRecord, Tasks } from "../board";
 import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Slot } from "../ports";
@@ -23,7 +23,7 @@ export interface Snapshot {
 	worktreeRoot: string;
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
-	todos: TodoState[];
+	todos: TaskRecord[];
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
 	/**
@@ -66,7 +66,7 @@ export async function snapshot({
 	slot = null,
 }: {
 	service: WorktreeService;
-	todos: Todos;
+	todos: Tasks;
 	creds: Creds;
 	fs: Fs;
 	/**

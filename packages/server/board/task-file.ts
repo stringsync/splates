@@ -1,16 +1,21 @@
-import { type TodoState, wording } from "./todo";
+import { queuedOf, type StoredTask } from "./store";
+import { type TaskRecord, wording } from "./task";
 
-/** A todo as stored, with any tags it was saved with; null when it will not parse. */
-export function parseTodoFile(
+/**
+ * A task as the list reads it, with any tags it was saved with, and whether
+ * the list shows it at all; null when it will not parse.
+ */
+export function parseTaskFile(
 	raw: string,
-): { state: TodoState; tags: string[] } | null {
+): { state: TaskRecord; tags: string[]; listed: boolean } | null {
 	try {
 		// One saved before todos took files has none, rather than no list; one
 		// saved before they had subjects has its first line as one; one saved
 		// before they had positions has 0 until `all` places it; and one saved
 		// before links and lanes is blocked by nothing, in none.
-		const { tags = [], ...state } = JSON.parse(raw) as Omit<
-			TodoState,
+		const stored = JSON.parse(raw) as StoredTask;
+		const { tags = [], ...state } = queuedOf(stored) as Omit<
+			TaskRecord,
 			"files" | "subject" | "position" | "blockedBy" | "lane"
 		> & {
 			files?: string[];
@@ -32,6 +37,7 @@ export function parseTodoFile(
 				lane: state.lane ?? null,
 			},
 			tags,
+			listed: stored.listed !== false,
 		};
 	} catch {
 		return null;
