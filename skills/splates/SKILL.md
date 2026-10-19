@@ -349,14 +349,16 @@ A task ready to merge has every step under `## Next` and every question under
 `## Blocked` checked; `splates merge` and `splates escalate --review` both refuse
 one that is not. Whether the user looks first is yours to decide:
 
-- **Merge** work you verified yourself, then show it in a demo (see Demos).
-  This is the default, even for a change the user will want to see: they
-  ask for a fix once it lands.
-- **Ask for a review** only when something needs the user to check it before
-  it lands and you cannot (external services, destructive migrations), or
-  when `## Notes` says `Review: requested`. Leave something to
-  look at (step 1 of Escalation), `splates escalate --review "<what to look
-  at>"`, report it (see Reporting), and end your turn.
+- **Merge** work you verified yourself. This is the default, and the usual
+  end of a small change.
+- **Ask for a review**, with a demo (see Demos), when the change is invasive
+  (it reworks how something the user relies on works, or touches much of the
+  project) and above all when it is hard or impossible to reverse (a
+  migration, data written, anything sent outside the repo), or when
+  `## Notes` says `Review: requested`. The demo is the user's chance to step
+  in before it lands: their feedback decides whether it merges. Leave
+  something to look at (step 1 of Escalation), `splates escalate --review
+  "<what to look at>"`, report it (see Reporting), and end your turn.
 
 When the user has to try a change before it lands, make that cheap: run it
 for them where they can open it (a dev server on throwaway data that shows
@@ -373,7 +375,8 @@ them too. When `splates tunnel status`
 shows a tunnel, `splates server --slot` from your worktree does both and prints a
 `https://<word>.<zone>` the user can open on their phone too: give them that.
 Your worktree keeps its slot until the task merges or is removed, which stops
-its server. Every other slot is another task's: never kill its server or edit
+its server; that stops nothing else, so before merging, stop every process
+you started in the worktree yourself, such as a dev server in the background. Every other slot is another task's: never kill its server or edit
 `~/.splates/slots.json`, even when it looks left behind. When none is free, run
 `splates slots prune`, which frees only those no task holds any more, and
 otherwise ask the user.
@@ -426,28 +429,18 @@ in and propose again.
 
 ## Demos
 
-Show the user what you built rather than describing it: after a merge of
-anything they can see or try, and whenever they are to try something before
-it lands (a review, a question on how something looks or feels, a test only
-they can run). A demo is a `### 🎬 Demo: <what it shows>` heading, a line on
+Show the user what you built rather than describing it whenever they are to
+try something before it lands (a review, a question on how something looks or
+feels, a test only they can run); a merged task gets no demo. A demo is a `### 🎬 Demo: <what it shows>` heading, a line on
 where to open it, then the steps, numbered from 1. Each step's line is one
 thing to do; indented under it, one line on what they should see, and a
 screenshot or recording when it helps. The `splates server` page shows a demo
 as a checklist they tick off as they go.
 
-A demo after a merge tells the story of how the goal was reached: the steps
-the user takes to see it working, in the order that shows it, each with what
-they should see. Screenshots are optional: add one only where a step's result
-is hard to put in words. The merge report above it gives only the one change
-in a line, so nothing it says is said again in the demo. A merge stops your
-worktree's server, so point the demo at where the change now lives (the
-user's own app once they pick it up, or what `splates server` serves after a
-restart), and take any screenshot from your worktree before merging. Before
-merging, stop every process you started in the worktree, such as a dev server
-in the background: a merge stops only a `--slot` server, and anything else
-keeps its port and holds your session open until the conversation is
-archived. Attached files stay with the conversation and go when it is
-deleted.
+A demo tells the story of how the goal was reached: the steps the user takes
+to see it working, in the order that shows it, each with what they should
+see. Screenshots are optional: add one only where a step's result is hard to
+put in words. Say nothing in it that the report around it already says.
 
 ```markdown
 ### 🎬 Demo: dragging a card on a phone
@@ -461,8 +454,7 @@ Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
    ![dropped in Doing](/abs/path/drop.png)
 ```
 
-Give one demo per message: after a merge report's sentence, right before
-the questions it is for, or inside a review before its last line. The steps
+Give one demo per message: right before the questions it is for, or inside a review before its last line. The steps
 are the demo's only numbered list: never number steps elsewhere in a report,
 where they would read as questions.
 
@@ -521,17 +513,6 @@ heading inside it to `####`.
 ## ✅ Merged <task> onto <base>
 
 Cards on a phone now drag on a long press. Restart `splates server` to pick it up.
-
-### 🎬 Demo: dragging a card on a phone
-
-Open the task board at 390px wide.
-
-1. Swipe up over a lane.
-   The lane scrolls; no card moves.
-2. Press and hold a card for half a second.
-   It lifts.
-3. Drag it to another lane and let go.
-   It lands where you drop it.
 ```
 
 ```markdown
@@ -540,8 +521,8 @@ Open the task board at 390px wide.
 The task set out to stop uploads retrying a 413.
 ```
 
-A merge report ends with its demo (see Demos), and names any artifact the
-task made as `Artifact: <name>` rather than inlining it.
+A merge report names any artifact the task made as `Artifact: <name>`
+rather than inlining it.
 
 An escalation ends with every open question, those left open from earlier
 reports first, as a list numbered from 1 whatever their numbers in

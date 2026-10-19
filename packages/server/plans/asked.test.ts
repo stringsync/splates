@@ -125,14 +125,11 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads the skill's merge report with its demo, and its remove report", async () => {
+	it("reads the skill's merge and remove reports", async () => {
 		const merged = await skillExample("## ✅ Merged");
 		const removed = await skillExample("## 🛑 Removed");
 
-		expect(stretches(merged).map((each) => each.type)).toEqual([
-			"report",
-			"demo",
-		]);
+		expect(stretches(merged).map((each) => each.type)).toEqual(["report"]);
 		expect(stretches(merged)[0]).toEqual({
 			type: "report",
 			report: {
