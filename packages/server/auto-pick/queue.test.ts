@@ -150,16 +150,20 @@ describe("QueueAutoPick", () => {
 	});
 
 	it("guesses with no judge, and decides the same words again on what the judge said of them", async () => {
+		// Words the queue has yet to judge, as it judged the task's first ones when added.
+		await runner.sweep();
+		await picker.settled();
+		await taskUpdate(deps, id, { text: "In src/names.ts and its test." });
 		expect((await picker.guess([await queued()])).get(id)).toEqual({
 			agent: "fake",
 			model: "big",
 		});
-		expect(fake.asked).toEqual([]);
+		expect(fake.asked).toHaveLength(1);
 
 		await picker.decide(await queued());
 		const again = await picker.decide(await queued());
 
-		expect(fake.asked).toHaveLength(1);
+		expect(fake.asked).toHaveLength(2);
 		expect(again.pick.agent).toBe("other");
 		expect((await picker.guess([await queued()])).get(id)?.agent).toBe("other");
 	});
@@ -204,21 +208,47 @@ describe("QueueAutoPick", () => {
 		await runner.sweep();
 		await eventually(async () => started.length === 1);
 
+		await picker.settled();
 		expect(started[0]?.pick).toEqual({ agent: "other" });
-		expect(fake.asked).toEqual([]);
+		expect(fake.asked.map(({ state }) => state.subject)).not.toContain(
+			"Breakdowns",
+		);
 		expect((await deps.tasks.store.read(named))?.autoPick).toBeUndefined();
 	});
 
 	it("never decides for a task a person's own conversation took", async () => {
+		await runner.sweep();
+		await picker.settled();
+		const judged = (await queued()).autoPick;
 		await queueAdd(deps, [id]);
 		// As the person's agent does, told `[SPLATES TASK #N]`.
 		await (await deps.tasks.find(id)).take("rename-by-hand");
 
 		await runner.sweep();
+		await picker.settled();
 
 		expect(started).toEqual([]);
-		expect(fake.asked).toEqual([]);
-		expect((await queued()).autoPick).toBeUndefined();
+		expect(fake.asked).toHaveLength(1);
+		expect((await queued()).autoPick).toEqual(judged);
+	});
+
+	it("judges a task as it is added, before it is queued, and again when its words change", async () => {
+		await runner.sweep();
+		await picker.settled();
+
+		expect(fake.asked).toHaveLength(1);
+		expect((await queued()).stage).not.toBe("queued");
+		expect((await queued()).autoPick?.pick).toEqual({
+			agent: "other",
+			model: "small",
+		});
+
+		await taskUpdate(deps, id, { text: "Across every package." });
+		await runner.sweep();
+		await picker.settled();
+
+		expect(fake.asked).toHaveLength(2);
+		expect(started).toEqual([]);
 	});
 
 	it("judges a task as it is queued, once, keeping its pick on it", async () => {

@@ -291,6 +291,21 @@ describe("QueueRunner", () => {
 		expect(picker.told).toEqual([{ queued: 1, conversation: "h2" }]);
 	});
 
+	it("has Auto pick judge a task that names no agent as it is added, queued or not", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await taskAdd(deps, "Named", null, {
+			assignee: { agent: "codex", model: "o3" },
+		});
+
+		await runner.sweep();
+		await settled();
+
+		expect(new Set(picker.aheadOf)).toEqual(new Set([1]));
+		expect(picker.guessed).toEqual([]);
+		expect(picker.decided).toEqual([]);
+		expect(started).toEqual([]);
+	});
+
 	it("keeps the agent a task names, asking Auto pick nothing", async () => {
 		await taskAdd(deps, "Totals first", null, {
 			assignee: { agent: "codex", model: "o3" },

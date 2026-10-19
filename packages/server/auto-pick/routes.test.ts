@@ -3,6 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
 import type { StoredTask } from "../board";
 import { Conversations } from "../conversations";
+import { eventually } from "../conversations/testing";
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";
@@ -49,6 +50,10 @@ describe("dev Auto pick", () => {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
 		});
+		// The queue judges a task as it is added, so a test reads its record after.
+		await eventually(
+			async () => (await deps.tasks.store.read(id))?.autoPick !== undefined,
+		);
 	});
 
 	afterEach(async () => {
@@ -101,6 +106,7 @@ describe("dev Auto pick", () => {
 	}, 15_000);
 
 	it("tries a task with no judge on the rule for any task, saying why", async () => {
+		const before = (await deps.tasks.store.read(id))?.autoPick;
 		const trial = (await (
 			await json(server.port, "/api/auto-pick/try", "POST", { todo: id })
 		).json()) as AutoPickTrial;
@@ -111,7 +117,7 @@ describe("dev Auto pick", () => {
 			decision: { pick: { agent: "fake", model: "big" }, kind: null },
 		});
 		expect(trial.decision.reasons[1]).toStartWith("no judge:");
-		expect((await deps.tasks.store.read(id))?.autoPick).toBeUndefined();
+		expect((await deps.tasks.store.read(id))?.autoPick).toEqual(before);
 	}, 15_000);
 
 	it("refuses a body that names no task", async () => {

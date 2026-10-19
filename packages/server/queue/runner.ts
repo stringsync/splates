@@ -192,10 +192,10 @@ export class QueueRunner implements Resource {
 
 	/**
 	 * Whom each queued task goes to: the agent it names, else Auto pick's
-	 * pick. Each that names none has its words judged in the background,
-	 * once for each wording, so the rest take what that judged, guessed
-	 * without asking again; those about to start, `next`, are decided now on
-	 * fresh plan limits.
+	 * pick. Every waiting task that names none, queued or not, has its words
+	 * judged in the background as it is added and once for each new wording,
+	 * so the queued ones take what that judged, guessed without asking again;
+	 * those about to start, `next`, are decided now on fresh plan limits.
 	 */
 	async #picks(
 		all: readonly TaskRecord[],
@@ -204,6 +204,15 @@ export class QueueRunner implements Resource {
 		of: (queued: TaskRecord) => AgentPick;
 		decided: Map<number, QueuePicked>;
 	}> {
+		const waiting = all.filter(
+			(task) =>
+				task.stage !== "running" &&
+				task.takenBy === null &&
+				task.assignee === undefined,
+		);
+		if (waiting.length > 0) {
+			await this.deps.picker.ahead(waiting);
+		}
 		const unnamed = queueOrder(all).filter(
 			(queued) => queued.assignee === undefined,
 		);
@@ -211,7 +220,6 @@ export class QueueRunner implements Resource {
 		if (unnamed.length === 0) {
 			return { of: (queued) => queued.assignee ?? NO_PICK, decided };
 		}
-		await this.deps.picker.ahead(unnamed);
 		const guessed = await this.deps.picker.guess(unnamed);
 		await Promise.all(
 			next
