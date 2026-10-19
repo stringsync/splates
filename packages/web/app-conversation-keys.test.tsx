@@ -216,12 +216,12 @@ describe("App's sidebar keys", () => {
 		const tab = (name: RegExp) => view.getByRole("tab", { name });
 		const key = (name: RegExp) =>
 			tab(name).querySelector("kbd")?.textContent ?? null;
-		expect(key(/Todos/)).toBeNull();
+		expect(key(/Board/)).toBeNull();
 
 		await act(async () =>
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
-		expect(key(/Todos/)).toBe("T");
+		expect(key(/Board/)).toBe("T");
 		expect(key(/Tasks/)).toBeNull();
 
 		await act(async () =>
@@ -231,11 +231,11 @@ describe("App's sidebar keys", () => {
 				metaKey: true,
 			}),
 		);
-		expect(tab(/Todos/).getAttribute("aria-selected")).toBe("true");
+		expect(tab(/Board/).getAttribute("aria-selected")).toBe("true");
 		await act(async () =>
 			fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
 		);
-		expect(key(/Todos/)).toBeNull();
+		expect(key(/Board/)).toBeNull();
 	});
 
 	it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {

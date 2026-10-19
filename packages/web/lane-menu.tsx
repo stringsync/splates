@@ -82,7 +82,7 @@ export function LaneMenu({
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
 							<DropdownMenuLabel>
-								Move its todos to the end of
+								Move its tasks to the end of
 							</DropdownMenuLabel>
 							{others.map((other) => (
 								<DropdownMenuItem
@@ -115,7 +115,7 @@ export function LaneMenu({
 					<Undo2Icon />
 					{lane.todos.length === 0
 						? "Remove lane"
-						: "Remove lane, untriage its todos"}
+						: "Remove lane, untriage its tasks"}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

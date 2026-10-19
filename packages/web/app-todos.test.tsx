@@ -43,7 +43,7 @@ describe("App's todos", () => {
 		});
 
 		expect(document.body.textContent).not.toContain("alpha");
-		const cards = within(view.getByRole("list", { name: "Untriaged todos" }))
+		const cards = within(view.getByRole("list", { name: "Untriaged tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent);
 		expect(cards[0]).toContain("more to say");
@@ -79,15 +79,15 @@ describe("App's todos", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				view.getByRole("button", { name: "copy a link to todo 7" }),
+				view.getByRole("button", { name: "copy a link to task 7" }),
 			),
 		);
 
 		expect(copied).toEqual(["[SPLATES TASK #7]"]);
-		expect(view.queryByText("Todo 7")).toBeNull();
+		expect(view.queryByText("Task 7")).toBeNull();
 		// The id says so in place, with no toast.
 		expect(
-			view.getByRole("button", { name: "copy a link to todo 7" }).textContent,
+			view.getByRole("button", { name: "copy a link to task 7" }).textContent,
 		).toBe("Copied");
 		expect(view.queryByText("Copied [SPLATES TASK #7]")).toBeNull();
 
@@ -95,11 +95,11 @@ describe("App's todos", () => {
 			fireEvent.click(view.getByRole("button", { name: "fix it" })),
 		);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /Todo 7/ }),
+			view.getByRole("dialog", { name: /Task 7/ }),
 		);
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "copy a link to todo 7" }),
+				within(dialog).getByRole("button", { name: "copy a link to task 7" }),
 			),
 		);
 		expect(copied).toEqual(["[SPLATES TASK #7]", "[SPLATES TASK #7]"]);
@@ -122,7 +122,7 @@ describe("App's todos", () => {
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(dialog.textContent).toContain("ship the thing");
-		expect(view.queryByText("Todo 3")).toBeNull();
+		expect(view.queryByText("Task 3")).toBeNull();
 	});
 
 	it("adds one at the foot of a column, Trello style, staying open for the next", async () => {
@@ -133,9 +133,9 @@ describe("App's todos", () => {
 
 		const docs = view.getByRole("region", { name: "Docs" });
 		await act(async () =>
-			fireEvent.click(within(docs).getByRole("button", { name: "Add a todo" })),
+			fireEvent.click(within(docs).getByRole("button", { name: "Add a task" })),
 		);
-		const input = view.getByRole("textbox", { name: "new todo" });
+		const input = view.getByRole("textbox", { name: "new task" });
 		await act(async () =>
 			fireEvent.change(input, { target: { value: "write the docs" } }),
 		);
@@ -151,31 +151,31 @@ describe("App's todos", () => {
 		// Still open, empty, for the next; Escape puts it away.
 		await waitFor(() =>
 			expect(
-				(view.getByRole("textbox", { name: "new todo" }) as HTMLTextAreaElement)
+				(view.getByRole("textbox", { name: "new task" }) as HTMLTextAreaElement)
 					.value,
 			).toBe(""),
 		);
 		await act(async () =>
-			fireEvent.keyDown(view.getByRole("textbox", { name: "new todo" }), {
+			fireEvent.keyDown(view.getByRole("textbox", { name: "new task" }), {
 				key: "Escape",
 			}),
 		);
-		expect(view.queryByRole("textbox", { name: "new todo" })).toBeNull();
+		expect(view.queryByRole("textbox", { name: "new task" })).toBeNull();
 	});
 
 	it("adds an untriaged one with no lane", async () => {
 		const view = await testing.open();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Add a todo" })),
+			fireEvent.click(view.getByRole("button", { name: "Add a task" })),
 		);
 		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "new todo" }), {
+			fireEvent.change(view.getByRole("textbox", { name: "new task" }), {
 				target: { value: "later" },
 			}),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Add todo" })),
+			fireEvent.click(view.getByRole("button", { name: "Add task" })),
 		);
 
 		await waitFor(() => expect(testing.posts).toHaveLength(1));

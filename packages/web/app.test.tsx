@@ -28,7 +28,7 @@ describe("App", () => {
 
 		expect(view.queryByLabelText("banner")).toBeNull();
 		expect(
-			view.getByRole("tab", { name: /Todos/ }).getAttribute("aria-selected"),
+			view.getByRole("tab", { name: /Board/ }).getAttribute("aria-selected"),
 		).toBe("true");
 		expect(view.queryByRole("tab", { name: /blocked/i })).toBeNull();
 	});
@@ -50,7 +50,7 @@ describe("App", () => {
 	it("hides and shows the sidebar from the button beside the slot mark", async () => {
 		const view = await testing.open();
 
-		const tabs = view.getByRole("tab", { name: /Todos/ });
+		const tabs = view.getByRole("tab", { name: /Board/ });
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^Hide sidebar/ })),
 		);
@@ -109,7 +109,7 @@ describe("App", () => {
 		expect(view.queryByText("later")).toBeNull();
 		expect(location.hash).toBe("#tasks");
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Todos/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Board/ })),
 		);
 		expect(location.hash).toBe("");
 	});

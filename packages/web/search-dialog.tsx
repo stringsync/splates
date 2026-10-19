@@ -21,7 +21,7 @@ import { TaskIcon } from "./task-icon";
 const HEADINGS: Record<Kind, string> = {
 	task: "Tasks",
 	conversation: "Conversations",
-	todo: "Todos",
+	todo: "Board",
 };
 
 const ICONS: Record<Kind, LucideIcon> = {
@@ -91,7 +91,7 @@ export function SearchDialog({
 				<Input
 					autoFocus
 					aria-label="search"
-					placeholder="Search tasks, conversations, todos"
+					placeholder="Search tasks and conversations"
 					value={query}
 					onChange={(event) => {
 						setQuery(event.target.value);

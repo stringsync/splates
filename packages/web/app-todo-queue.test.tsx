@@ -64,7 +64,7 @@ describe("App's queue", () => {
 			],
 		});
 
-		const cards = within(view.getByRole("list", { name: "Untriaged todos" }))
+		const cards = within(view.getByRole("list", { name: "Untriaged tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 		expect(cards[0]).toContain("Backlog");

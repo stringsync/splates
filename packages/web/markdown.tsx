@@ -143,8 +143,8 @@ function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
 	return { component: tag, props: { className: HEADING } };
 }
 
-/** Where a mention of todo `#N` links to, read back by `mentionIn`. */
-const TODO_LINK = /^#todo-(\d+)$/;
+/** Where a mention of task `#N` links to, read back by `mentionIn`; `#task-N` reads back too. */
+const TODO_LINK = /^#(?:todo|task)-(\d+)$/;
 
 /**
  * `text` with each `#N` outside code made a link to that todo, which a link

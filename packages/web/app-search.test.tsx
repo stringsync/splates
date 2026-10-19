@@ -61,7 +61,7 @@ describe("App's search", () => {
 		await waitFor(() =>
 			expect(view.queryByRole("textbox", { name: "search" })).toBeNull(),
 		);
-		await waitFor(() => view.getByRole("dialog", { name: /Todo 7/ }));
+		await waitFor(() => view.getByRole("dialog", { name: /Task 7/ }));
 	});
 
 	it("opens a task picked", async () => {

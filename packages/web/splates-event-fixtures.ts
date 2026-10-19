@@ -35,7 +35,7 @@ export function fixtureThread(now: number): FixtureItem[] {
 						kind: "todos",
 						todos: [
 							{ id: 212, subject: "Upload retries forever on a 413" },
-							{ id: 214, subject: "Show a stale todo as muted" },
+							{ id: 214, subject: "Show a stale task as muted" },
 							{ id: 219, subject: "Name the journal's event kinds" },
 							{ id: 221, subject: "Drop the old upload endpoint" },
 							{ id: 226, subject: "Count refused merges on Stats" },

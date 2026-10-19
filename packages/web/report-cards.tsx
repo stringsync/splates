@@ -368,7 +368,7 @@ export function TodoCard({
 	const open = todo !== null && todo.takenBy === null;
 	return (
 		<section
-			aria-label={`todo ${proposal.id}`}
+			aria-label={`task ${proposal.id}`}
 			className={cn(
 				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
 				// On a phone, as far from the words as any card.

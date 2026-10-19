@@ -126,7 +126,7 @@ describe("App's controls that put agents to work", () => {
 			conversation({ id: "c1", task: "alpha", status: "running" }),
 		]);
 		const card = within(
-			view.getByRole("list", { name: "Uploads todos" }),
+			view.getByRole("list", { name: "Uploads tasks" }),
 		).getAllByRole("listitem")[1] as HTMLElement;
 		const chip = within(card).getByRole("button", { name: "Open alpha" });
 
@@ -141,7 +141,7 @@ describe("App's controls that put agents to work", () => {
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),
 		]);
 		const card = within(
-			view.getByRole("list", { name: "Uploads todos" }),
+			view.getByRole("list", { name: "Uploads tasks" }),
 		).getAllByRole("listitem")[1] as HTMLElement;
 
 		await act(async () =>
@@ -270,7 +270,7 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Todos/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Board/ })),
 		);
 		expect(view.queryByRole("dialog")).toBeNull();
 	});

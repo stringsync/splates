@@ -22,7 +22,7 @@ async function away(view: View): Promise<void> {
 		fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
 	);
 	await act(async () =>
-		fireEvent.click(view.getByRole("tab", { name: /Todos/ })),
+		fireEvent.click(view.getByRole("tab", { name: /Board/ })),
 	);
 }
 
@@ -44,43 +44,43 @@ describe("App's todo drafts", () => {
 
 		const docs = view.getByRole("region", { name: "Docs" });
 		await act(async () =>
-			fireEvent.click(within(docs).getByRole("button", { name: "Add a todo" })),
+			fireEvent.click(within(docs).getByRole("button", { name: "Add a task" })),
 		);
 		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "new todo" }), {
+			fireEvent.change(view.getByRole("textbox", { name: "new task" }), {
 				target: { value: "write the docs" },
 			}),
 		);
 		await away(view);
-		expect(value(view, "new todo")).toBe("write the docs");
+		expect(value(view, "new task")).toBe("write the docs");
 
 		cleanup();
 		view = await testing.open({ lanes });
 		// Open on its own in its lane, and only there.
-		expect(view.getAllByRole("textbox", { name: "new todo" })).toHaveLength(1);
+		expect(view.getAllByRole("textbox", { name: "new task" })).toHaveLength(1);
 		const box = within(view.getByRole("region", { name: "Docs" })).getByRole(
 			"textbox",
-			{ name: "new todo" },
+			{ name: "new task" },
 		);
 		expect((box as HTMLTextAreaElement).value).toBe("write the docs");
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 		await waitFor(() => expect(testing.posts).toHaveLength(1));
-		await waitFor(() => expect(value(view, "new todo")).toBe(""));
+		await waitFor(() => expect(value(view, "new task")).toBe(""));
 		cleanup();
 		view = await testing.open({ lanes });
-		expect(view.queryByRole("textbox", { name: "new todo" })).toBeNull();
+		expect(view.queryByRole("textbox", { name: "new task" })).toBeNull();
 	});
 
 	it("keeps a file attached across pages, and names it once a reload drops it", async () => {
 		let view = await testing.open();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Add a todo" })),
+			fireEvent.click(view.getByRole("button", { name: "Add a task" })),
 		);
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		await act(async () =>
-			fireEvent.paste(view.getByRole("textbox", { name: "new todo" }), {
+			fireEvent.paste(view.getByRole("textbox", { name: "new task" }), {
 				clipboardData: { files: [shot] },
 			}),
 		);

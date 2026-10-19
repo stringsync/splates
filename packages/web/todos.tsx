@@ -165,7 +165,7 @@ export function Todos({
 			>
 				{only !== null && (
 					<p className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
-						Showing {kept.length} of {all.length} todos
+						Showing {kept.length} of {all.length} tasks
 						<Button
 							variant="outline"
 							size="xs"
@@ -289,7 +289,7 @@ function TodosBar({
 }): JSX.Element {
 	return (
 		<TopBar
-			title="Todos"
+			title="Board"
 			actions={[
 				shownLanes({
 					lanes,

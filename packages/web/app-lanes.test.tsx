@@ -27,7 +27,7 @@ describe("App's lanes", () => {
 
 	/** The subjects of a lane's cards, top first. */
 	const steps = (view: Awaited<ReturnType<Testing["open"]>>, lane: string) =>
-		within(view.getByRole("list", { name: `${lane} todos` }))
+		within(view.getByRole("list", { name: `${lane} tasks` }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
@@ -51,7 +51,7 @@ describe("App's lanes", () => {
 		expect(two.textContent).toContain("decoder on #200, #209");
 		// A lone hourglass, naming what blocks it only in its label and tooltip.
 		const third = within(
-			view.getByRole("list", { name: "Audio, uploads and pricing todos" }),
+			view.getByRole("list", { name: "Audio, uploads and pricing tasks" }),
 		).getAllByRole("listitem")[2] as HTMLElement;
 		expect(
 			within(third).getByLabelText("Blocked by #177 in Licensing"),
@@ -59,7 +59,7 @@ describe("App's lanes", () => {
 		// Every todo is in a lane: the untriaged column is empty.
 		expect(
 			within(
-				view.getByRole("list", { name: "Untriaged todos" }),
+				view.getByRole("list", { name: "Untriaged tasks" }),
 			).queryAllByRole("listitem"),
 		).toHaveLength(0);
 	});
@@ -293,7 +293,7 @@ describe("App's lanes", () => {
 		expect(again.getByRole("region", { name: "Licensing" })).toBeTruthy();
 		await all("Hide all");
 		expect(again.queryByRole("region", { name: "Licensing" })).toBeNull();
-		expect(again.queryByRole("list", { name: "Untriaged todos" })).toBeNull();
+		expect(again.queryByRole("list", { name: "Untriaged tasks" })).toBeNull();
 	});
 
 	it("links a mention to its todo, and shows one that is gone as archived", async () => {
@@ -317,7 +317,7 @@ describe("App's lanes", () => {
 		expect(view.getByText("#3")).toBeTruthy();
 		await act(async () => fireEvent.click(mention));
 		await waitFor(() =>
-			expect(view.getByRole("dialog", { name: /Todo 1/ })).toBeTruthy(),
+			expect(view.getByRole("dialog", { name: /Task 1/ })).toBeTruthy(),
 		);
 	});
 });

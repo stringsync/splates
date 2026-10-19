@@ -37,7 +37,7 @@ describe("App's board writes at once", () => {
 
 	/** The subjects of a column's cards, top first. */
 	const cards = (column: string) =>
-		within(view.getByRole("list", { name: `${column} todos` }))
+		within(view.getByRole("list", { name: `${column} tasks` }))
 			.queryAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
@@ -94,7 +94,7 @@ describe("App's board writes at once", () => {
 	});
 
 	it("removes a lane at once, and puts it back saying why when refused", async () => {
-		await pick("Docs", "Remove lane, untriage its todos");
+		await pick("Docs", "Remove lane, untriage its tasks");
 
 		expect(columns()).not.toContain("Docs");
 		expect(cards("Untriaged").join()).toContain("second");
@@ -123,10 +123,10 @@ describe("App's board writes at once", () => {
 	it("shows a todo added at once, the box empty for the next", async () => {
 		const docs = view.getByRole("region", { name: "Docs" });
 		await act(async () =>
-			fireEvent.click(within(docs).getByRole("button", { name: "Add a todo" })),
+			fireEvent.click(within(docs).getByRole("button", { name: "Add a task" })),
 		);
 		const box = view.getByRole("textbox", {
-			name: "new todo",
+			name: "new task",
 		}) as HTMLTextAreaElement;
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "write the docs" } }),
@@ -190,7 +190,7 @@ describe("App's board writes at once", () => {
 
 	it("keeps an expected change over the refetch that began before its write landed", async () => {
 		const arrive = testing.holdSnapshots();
-		await pick("Docs", "Remove lane, untriage its todos");
+		await pick("Docs", "Remove lane, untriage its tasks");
 		await act(async () => testing.stream?.onmessage?.());
 		await answer();
 		await act(async () => arrive());

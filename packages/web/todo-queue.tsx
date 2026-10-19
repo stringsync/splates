@@ -196,7 +196,7 @@ export function QueueColumn({
 				</p>
 			) : (
 				<ol
-					aria-label="Queued todos"
+					aria-label="Queued tasks"
 					className="-mx-1 flex min-h-2 flex-col gap-1.5 overflow-y-auto px-1 py-0.5"
 				>
 					{queue.map((todo) => (

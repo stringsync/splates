@@ -481,7 +481,7 @@ describe("App's report cards", () => {
 		await waitFor(() => view.getAllByRole("note", { name: "splates" }));
 		const lines = view.getAllByRole("note", { name: "splates" });
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Todo#12 Retry the upload",
+			"Task#12 Retry the upload",
 			"LaneUploads",
 			"Taskheader",
 			"Handofffooter",
@@ -491,9 +491,9 @@ describe("App's report cards", () => {
 			"sticky",
 		);
 
-		fireEvent.click(view.getByTitle("Todo #12: Retry the upload"));
+		fireEvent.click(view.getByTitle("Task #12: Retry the upload"));
 		await waitFor(() =>
-			expect(view.getByRole("dialog").textContent).toContain("Todo 12"),
+			expect(view.getByRole("dialog").textContent).toContain("Task 12"),
 		);
 	});
 

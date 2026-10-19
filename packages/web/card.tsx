@@ -223,7 +223,7 @@ export function CopyLink({ id }: { id: number }): JSX.Element {
 	return (
 		<button
 			type="button"
-			aria-label={`copy a link to todo ${id}`}
+			aria-label={`copy a link to task ${id}`}
 			title={copied.state === "failed" ? copied.error : undefined}
 			onClick={() => copy(taskNumberReference(id))}
 			{...still}

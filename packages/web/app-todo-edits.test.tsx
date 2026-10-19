@@ -113,7 +113,7 @@ describe("App's todo edits", () => {
 			});
 			// Where it was let go, before the server says so.
 			expect(
-				within(view.getByRole("list", { name: "Untriaged todos" }))
+				within(view.getByRole("list", { name: "Untriaged tasks" }))
 					.getAllByRole("listitem")
 					.map((card) => card.textContent),
 			).toEqual([

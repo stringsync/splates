@@ -58,7 +58,7 @@ describe("App's todo cards", () => {
 	it("shows a proposed todo as the board has it, with Start sending its reference at once", async () => {
 		const view = await testing.openConversations([proposing], undefined, board);
 		const open = await waitFor(() =>
-			view.getByRole("region", { name: "todo 12" }),
+			view.getByRole("region", { name: "task 12" }),
 		);
 		// Live: the subject as the board has it now, and its lane.
 		expect(open.textContent).toContain("Retry the upload on a 413");
@@ -66,10 +66,10 @@ describe("App's todo cards", () => {
 		expect(open.textContent).toContain("It fails on a 413.");
 		// Proposed with no report above, they go unheaded.
 		expect(view.queryByText("Next up")).toBeNull();
-		const taken = view.getByRole("region", { name: "todo 14" });
+		const taken = view.getByRole("region", { name: "task 14" });
 		expect(taken.textContent).toContain("limits");
 		expect(within(taken).queryByRole("button", { name: /Start/ })).toBeNull();
-		const gone = view.getByRole("region", { name: "todo 15" });
+		const gone = view.getByRole("region", { name: "task 15" });
 		expect(gone.textContent).toContain("archived");
 		expect(within(gone).queryByRole("button")).toBeNull();
 		const box = view.getByRole("textbox", {
@@ -111,7 +111,7 @@ describe("App's todo cards", () => {
 			undefined,
 			board,
 		);
-		await waitFor(() => view.getByRole("region", { name: "todo 12" }));
+		await waitFor(() => view.getByRole("region", { name: "task 12" }));
 		expect(view.getByText("Next up")).toBeTruthy();
 	});
 
@@ -133,9 +133,9 @@ describe("App's todo cards", () => {
 			},
 		);
 		const open = await waitFor(() =>
-			view.getByRole("region", { name: "todo 12" }),
+			view.getByRole("region", { name: "task 12" }),
 		);
-		const taken = view.getByRole("region", { name: "todo 14" });
+		const taken = view.getByRole("region", { name: "task 14" });
 		expect(
 			within(taken).queryByRole("button", {
 				name: "Open in new chat",
@@ -194,7 +194,7 @@ describe("App's todo cards", () => {
 			board,
 		);
 		const open = await waitFor(() =>
-			view.getByRole("region", { name: "todo 12" }),
+			view.getByRole("region", { name: "task 12" }),
 		);
 		await typeIn(
 			view.getByRole("textbox", { name: "Message input" }),
@@ -239,7 +239,7 @@ describe("App's todo cards", () => {
 			board,
 		);
 		const started = await waitFor(() =>
-			view.getByRole("region", { name: "todo 12" }),
+			view.getByRole("region", { name: "task 12" }),
 		);
 
 		expect(started.textContent).toContain("Retry the upload");
@@ -247,7 +247,7 @@ describe("App's todo cards", () => {
 		expect(started.textContent).not.toContain("Uploads");
 		expect(started.textContent).toContain("Started");
 		expect(within(started).queryByRole("button", { name: /Start/ })).toBeNull();
-		const other = view.getByRole("region", { name: "todo 15" });
+		const other = view.getByRole("region", { name: "task 15" });
 		expect(other.textContent).not.toContain("archived");
 		expect(other.textContent).not.toContain("Started");
 	});
@@ -292,7 +292,7 @@ describe("App's todo cards", () => {
 				lanes: [{ id: 3, name: "Uploads" }],
 			},
 		);
-		await waitFor(() => view.getByRole("region", { name: "todo 12" }));
+		await waitFor(() => view.getByRole("region", { name: "task 12" }));
 
 		// Each line, with the cards on the rail under it.
 		const groups = view.getAllByText(/^Added /).map((each) => {
@@ -305,8 +305,8 @@ describe("App's todo cards", () => {
 			];
 		});
 		expect(groups).toEqual([
-			["Added 2 to Uploads by this task", ["todo 12", "todo 13"]],
-			["Added to Untriaged by this task", ["todo 14"]],
+			["Added 2 to Uploads by this task", ["task 12", "task 13"]],
+			["Added to Untriaged by this task", ["task 14"]],
 		]);
 		// Only a line over two or more cards draws a rail.
 		const railed = view
@@ -315,7 +315,7 @@ describe("App's todo cards", () => {
 				each.closest("p")?.nextElementSibling?.classList.contains("border-l-2"),
 			);
 		expect(railed).toEqual([true, false]);
-		expect(view.getByRole("region", { name: "todo 16" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "task 16" })).toBeTruthy();
 	});
 
 	it("opens a proposed todo from its subject, over the conversation", async () => {
@@ -331,7 +331,7 @@ describe("App's todo cards", () => {
 			],
 		});
 		const open = await waitFor(() =>
-			view.getByRole("region", { name: "todo 12" }),
+			view.getByRole("region", { name: "task 12" }),
 		);
 
 		await act(async () =>
@@ -343,7 +343,7 @@ describe("App's todo cards", () => {
 		);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /Todo 12/ }),
+			view.getByRole("dialog", { name: /Task 12/ }),
 		);
 		expect(
 			(
@@ -364,7 +364,7 @@ describe("App's todo cards", () => {
 		);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await waitFor(() =>
-			expect(view.queryByRole("dialog", { name: /Todo 12/ })).toBeNull(),
+			expect(view.queryByRole("dialog", { name: /Task 12/ })).toBeNull(),
 		);
 	});
 
@@ -398,11 +398,11 @@ describe("App's todo cards", () => {
 			fireEvent.click(view.getByTitle("[SPLATES TASK #14]")),
 		);
 		await waitFor(() =>
-			expect(view.getByRole("dialog", { name: /Todo 14/ })).toBeTruthy(),
+			expect(view.getByRole("dialog", { name: /Task 14/ })).toBeTruthy(),
 		);
 		await act(async () => fireEvent.click(twelve));
 		await waitFor(() =>
-			expect(view.getByRole("dialog", { name: /Todo 12/ })).toBeTruthy(),
+			expect(view.getByRole("dialog", { name: /Task 12/ })).toBeTruthy(),
 		);
 	});
 });

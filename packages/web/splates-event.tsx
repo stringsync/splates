@@ -274,7 +274,7 @@ function NamedChip({
 			return (
 				<Chip
 					Icon={ListTodoIcon}
-					title={`Todo #${id}: ${subject}${note === undefined ? "" : `\n${note}`}`}
+					title={`Task #${id}: ${subject}${note === undefined ? "" : `\n${note}`}`}
 					open={
 						board.todos.some((todo) => todo.id === id)
 							? () => board.open(id)
@@ -292,7 +292,7 @@ function NamedChip({
 			return (
 				<Chip
 					Icon={ListTodoIcon}
-					title={`Todos ${todos.map(({ id }) => `#${id}`).join(", ")}`}
+					title={`Tasks ${todos.map(({ id }) => `#${id}`).join(", ")}`}
 					open={
 						board.linked
 							? () => board.openTodos(todos.map(({ id }) => id))
@@ -300,7 +300,7 @@ function NamedChip({
 					}
 					className={GIVES_WAY}
 				>
-					{todos.length} todos
+					{todos.length} tasks
 				</Chip>
 			);
 		}

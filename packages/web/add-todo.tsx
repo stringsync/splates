@@ -39,7 +39,7 @@ export function AddTodo({ lane }: { lane: number | null }): JSX.Element {
 				className="flex w-full pointer-coarse:min-h-10 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-muted-foreground text-sm outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				<PlusIcon aria-hidden className="size-4" />
-				Add a todo
+				Add a task
 			</button>
 		);
 	}
@@ -103,8 +103,8 @@ function Composer({
 					ref={subject.ref}
 					// biome-ignore lint/a11y/noAutofocus: it opens because "Add a todo" was just pressed, to type one
 					autoFocus
-					aria-label="new todo"
-					placeholder="Enter a title for this todo, @ for a file"
+					aria-label="new task"
+					placeholder="Enter a title for this task, @ for a file"
 					rows={3}
 					value={subject.value}
 					onChange={subject.onChange}
@@ -125,7 +125,7 @@ function Composer({
 					disabled={!ready}
 					className="pointer-coarse:h-10 pointer-coarse:px-3"
 				>
-					Add todo
+					Add task
 				</Button>
 				<Button
 					type="button"

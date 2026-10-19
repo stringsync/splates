@@ -149,7 +149,7 @@ export const SETTINGS = {
 	},
 	"shortcuts.search": shortcut(
 		"Search",
-		"Find a task, conversation or todo.",
+		"Find a task or conversation.",
 		"Mod+KeyK",
 	),
 	"shortcuts.settings": shortcut(
@@ -162,7 +162,7 @@ export const SETTINGS = {
 		"Open the list of projects on this machine.",
 		"Ctrl+Mod+KeyP",
 	),
-	"shortcuts.todos": shortcut("Todos", "Open the todo board.", "Alt+Mod+KeyT"),
+	"shortcuts.todos": shortcut("Board", "Open the board.", "Alt+Mod+KeyT"),
 	"shortcuts.new": shortcut(
 		"New conversation",
 		"Start one with the agent, model and settings the last one started with, or on Auto when it started there.",

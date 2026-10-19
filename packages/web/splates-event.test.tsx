@@ -152,7 +152,7 @@ describe("splates events", () => {
 			</Board>,
 		);
 
-		fireEvent.click(page.getByTitle("Todos #212, #214"));
+		fireEvent.click(page.getByTitle("Tasks #212, #214"));
 
 		expect(opened).toEqual([[212, 214]]);
 	});
@@ -176,9 +176,9 @@ describe("splates events", () => {
 			/>,
 		);
 
-		expect(page.getByTitle("Todos #212, #214").textContent).toBe("2 todos");
+		expect(page.getByTitle("Tasks #212, #214").textContent).toBe("2 tasks");
 		expect(
-			page.getByTitle("Todo #212: Upload retries forever on a 413").textContent,
+			page.getByTitle("Task #212: Upload retries forever on a 413").textContent,
 		).toBe("#212 Upload retries forever on a 413");
 	});
 

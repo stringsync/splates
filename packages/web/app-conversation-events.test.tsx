@@ -108,7 +108,7 @@ describe("App's splates events", () => {
 		});
 		const [took, released, removed] = lines.map((line) => line.textContent);
 		expect(took).toContain("Took#12 Fix the lease");
-		expect(released).toContain("Released3 todos");
+		expect(released).toContain("Released3 tasks");
 		expect(released).toContain("Two");
 		expect(removed).toContain("Removed#12 Fix the lease");
 	});
@@ -234,7 +234,7 @@ describe("App's splates events", () => {
 			expect(found).toHaveLength(1);
 			return found[0] as HTMLElement;
 		});
-		expect(line.textContent).toContain("Updated3 todos");
+		expect(line.textContent).toContain("Updated3 tasks");
 		expect(line.textContent).toContain("#1 One");
 		expect(line.textContent).toContain("#3 Three");
 	});
@@ -298,7 +298,7 @@ describe("App's splates events", () => {
 		);
 		expect(line.textContent).toBe("Removedalpha");
 		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
-			"Task alpha\nReason: redo\nTodo #7 open again: Seven",
+			"Task alpha\nReason: redo\nTask #7 open again: Seven",
 		);
 	});
 });

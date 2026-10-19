@@ -96,7 +96,7 @@ export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
 					}
 				/>
 				<TodoPicker
-					label="Add a todo blocking this one"
+					label="Add a task blocking this one"
 					exclude={[todo.id, ...todo.blockedBy]}
 					loops={(other) => cycle(todos, todo.id, other.id)}
 					onPick={(other) =>
@@ -120,7 +120,7 @@ export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
 					}
 				/>
 				<TodoPicker
-					label="Add a todo this one blocks"
+					label="Add a task this one blocks"
 					exclude={[todo.id, ...blocking.map((other) => other.id)]}
 					loops={(other) => cycle(todos, other.id, todo.id)}
 					onPick={(other) =>
@@ -448,7 +448,7 @@ function TodoPicker({
 			<PopoverContent align="start" className="w-80 gap-2 p-2">
 				<Input
 					autoFocus
-					aria-label="find a todo"
+					aria-label="find a task"
 					placeholder="Number or words"
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
@@ -456,7 +456,7 @@ function TodoPicker({
 				<ul className="flex max-h-64 flex-col overflow-y-auto">
 					{shown.length === 0 && (
 						<li className="px-2 py-1.5 text-muted-foreground text-sm">
-							No todo matches
+							No task matches
 						</li>
 					)}
 					{shown.map((other) => {

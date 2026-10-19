@@ -56,7 +56,7 @@ describe("App's pages and the project switcher", () => {
 		const view = await testing.open({ repo: "webappwiz" });
 
 		const switchers = [
-			await switcherOn(view, "Todos"),
+			await switcherOn(view, "Board"),
 			await switcherOn(view, "Tasks"),
 			await switcherOn(view, "Budget"),
 			await switcherOn(view, "Creds"),
@@ -74,9 +74,9 @@ describe("App's pages and the project switcher", () => {
 		});
 
 		expect([
-			view.getByRole("tab", { name: /Todos/ }).textContent,
+			view.getByRole("tab", { name: /Board/ }).textContent,
 			view.getByRole("tab", { name: /Tasks/ }).textContent,
-		]).toEqual(["Todos", "Tasks"]);
+		]).toEqual(["Board", "Tasks"]);
 	});
 
 	it("heads a phone's drawer with the switcher, and counts nothing in it", async () => {
@@ -89,9 +89,9 @@ describe("App's pages and the project switcher", () => {
 
 		const drawer = await openDrawer(view);
 		expect([
-			within(drawer).getByRole("button", { name: "Todos" }).textContent,
+			within(drawer).getByRole("button", { name: "Board" }).textContent,
 			within(drawer).getByRole("button", { name: "Tasks" }).textContent,
-		]).toEqual(["Todos", "Tasks"]);
+		]).toEqual(["Board", "Tasks"]);
 		expect(
 			within(drawer).getByRole("button", { name: /^Switch project/ }),
 		).toBeTruthy();

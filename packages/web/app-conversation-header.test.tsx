@@ -88,9 +88,7 @@ describe("App's conversation header", () => {
 		);
 		const open = async () =>
 			act(async () =>
-				fireEvent.click(
-					view.getByRole("button", { name: "Take up a task or todo" }),
-				),
+				fireEvent.click(view.getByRole("button", { name: "Take up a task" })),
 			);
 
 		await open();

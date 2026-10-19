@@ -38,8 +38,8 @@ export function TakeUp({
 				render={
 					<button
 						type="button"
-						aria-label="Take up a task or todo"
-						title="Take up a task or todo"
+						aria-label="Take up a task"
+						title="Take up a task"
 						className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
 					>
 						<GitBranchIcon
@@ -78,12 +78,12 @@ export function TakeUpItems({
 		<>
 			{tasks.length === 0 && todos.length === 0 && (
 				<p className="px-1.5 py-1 text-muted-foreground text-xs">
-					No task or open todo to take up.
+					No task to take up.
 				</p>
 			)}
 			{tasks.length > 0 && (
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>Claim a task</DropdownMenuLabel>
+					<DropdownMenuLabel>Claim a started task</DropdownMenuLabel>
 					{tasks.map((each) => (
 						<DropdownMenuItem
 							key={each.task}
@@ -98,7 +98,7 @@ export function TakeUpItems({
 			{tasks.length > 0 && todos.length > 0 && <DropdownMenuSeparator />}
 			{todos.length > 0 && (
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>Start a todo</DropdownMenuLabel>
+					<DropdownMenuLabel>Start a task</DropdownMenuLabel>
 					{todos.map((each) => (
 						<DropdownMenuItem
 							key={each.id}

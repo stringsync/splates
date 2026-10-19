@@ -82,10 +82,10 @@ async function todoBox(testing: Testing, paths: string[]) {
 	testing.tree = paths;
 	const view = await testing.open();
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Add a todo" })),
+		fireEvent.click(view.getByRole("button", { name: "Add a task" })),
 	);
 	const box = view.getByRole("textbox", {
-		name: "new todo",
+		name: "new task",
 	}) as HTMLInputElement;
 	return { view, box };
 }

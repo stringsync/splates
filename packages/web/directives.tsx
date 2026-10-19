@@ -81,7 +81,7 @@ function about(
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
 			return {
-				kind: `Todo ${argument}`,
+				kind: `Task ${argument}`,
 				name: todo?.subject ?? "",
 				open: todo === undefined ? undefined : () => board.open(id),
 			};
@@ -285,7 +285,7 @@ function wordsOf(
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
-			return ["Todo", { kind: "todo", id, subject: todo?.subject ?? "" }];
+			return ["Task", { kind: "todo", id, subject: todo?.subject ?? "" }];
 		}
 		default: {
 			if (argument === UNTRIAGED) {

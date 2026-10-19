@@ -419,7 +419,7 @@ function removedNote(event: EventOf<"remove">): string | undefined {
 	const notes = [
 		event.why != null && `Reason: ${event.why}`,
 		...(event.released ?? []).map(
-			({ id, subject }) => `Todo #${id} open again: ${subject}`,
+			({ id, subject }) => `Task #${id} open again: ${subject}`,
 		),
 	].filter((note) => typeof note === "string");
 	return notes.length === 0 ? undefined : notes.join("\n");

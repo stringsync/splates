@@ -73,7 +73,7 @@ export function Untriaged({
 			</header>
 			<Cards
 				todos={todos}
-				label="Untriaged todos"
+				label="Untriaged tasks"
 				staleness={staleness}
 				steps={false}
 				coming={isOver && laneOfCard(board.todos, active?.id) !== null}
@@ -185,7 +185,7 @@ export function Lane({
 			</header>
 			<Cards
 				todos={lane.todos}
-				label={`${lane.name} todos`}
+				label={`${lane.name} tasks`}
 				staleness={staleness}
 				steps
 				coming={lit && laneOfCard(todos, active?.id) !== lane.id}

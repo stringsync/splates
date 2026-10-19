@@ -105,7 +105,7 @@ describe("App's todo add events", () => {
 			),
 		);
 
-		await waitFor(() => view.getByRole("dialog", { name: /Todo 4/ }));
+		await waitFor(() => view.getByRole("dialog", { name: /Task 4/ }));
 	});
 });
 

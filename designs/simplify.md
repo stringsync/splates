@@ -230,7 +230,12 @@ one is deleted.
    so the task queue drives provisioning and wake-on-LAN. `splates slots`
    names `--slot` ports, nothing of the queue, so it stays.
 5. **Web.** The board shows lanes of tasks by stage, beside a queue view;
-   "todo" becomes "task".
+   "todo" becomes "task". Lanes stay columns: each card carries its stage
+   and each lane counts its tasks by stage, and a Queue column before them
+   lists the queue in start order, to move up or down or take out. The
+   page says task wherever it said todo, and calls the board Board, since
+   Tasks names the started ones; names in the code, API paths and stored
+   keys keep todo, so links and settings from before still work.
 
 Phase 1 moves `board/` into `tasks/`, so each phase checks `splates list
 --files` and lands between the tasks that edit the files it takes in, as

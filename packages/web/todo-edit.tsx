@@ -88,7 +88,7 @@ export function Edit({
 		<>
 			<DialogHeader>
 				<DialogTitle className="flex items-center gap-2">
-					Todo {todo.id}
+					Task {todo.id}
 					<span className="font-normal text-muted-foreground text-xs">
 						<CopyLink id={todo.id} />
 					</span>

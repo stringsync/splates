@@ -41,7 +41,7 @@ describe("App on a phone", () => {
 			view.getByRole("button", { name: "Inbox" }).getAttribute("aria-current"),
 		).toBe("page");
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Todos" })),
+			fireEvent.click(view.getByRole("button", { name: "Board" })),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),

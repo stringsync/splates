@@ -46,7 +46,7 @@ export const PAGES: {
 }[] = [
 	{
 		value: "todos",
-		label: "Todos",
+		label: "Board",
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
 	},

@@ -54,7 +54,7 @@ export interface References {
 /** The categories, in the order the list shows them. */
 const CATEGORIES = [
 	{ id: "directive", label: "Directives", icon: TreePineIcon },
-	{ id: "todo", label: "Todos", icon: ListTodoIcon },
+	{ id: "todo", label: "Board", icon: ListTodoIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
@@ -187,7 +187,7 @@ export const BARE_DIRECTIVES = [
 	{
 		directive: DEFER,
 		label: "Defer",
-		about: "make the request a todo rather than do it",
+		about: "put the request on the board rather than do it",
 		icon: ClockIcon,
 		tone: "neutral",
 	},
