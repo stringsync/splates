@@ -182,7 +182,7 @@ Cap upload retries
 		runs.focus();
 
 		await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));
-		expect(document.activeElement?.textContent).toBe("Builds");
+		expect(document.activeElement?.textContent).toBe("Asks");
 		await act(async () =>
 			fireEvent.keyDown(document.activeElement as HTMLElement, {
 				key: "ArrowUp",

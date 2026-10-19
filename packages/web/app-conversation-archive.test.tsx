@@ -184,7 +184,11 @@ describe("App's archiving conversations", () => {
 			),
 		);
 
-		expect(await view.findByText(/Not removed/)).toBeTruthy();
+		expect(
+			await within(view.getByRole("region", { name: "inbox" })).findByText(
+				/Not removed/,
+			),
+		).toBeTruthy();
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
 	});
 

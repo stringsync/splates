@@ -219,7 +219,11 @@ Cap upload retries
 			["Answered", "unread"],
 			["Landed", null],
 		]);
-		expect(view.getByRole("img", { name: "merged" })).toBeDefined();
+		expect(
+			within(view.getByRole("region", { name: "inbox" })).getByRole("img", {
+				name: "merged",
+			}),
+		).toBeDefined();
 	});
 
 	it("heads a conversation with its branch, which opens its task", async () => {

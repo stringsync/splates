@@ -47,7 +47,7 @@ Cap upload retries
 `;
 
 	/** The sidebar's agents at work, by what each says, and its mark. */
-	const working = (view: ConversationsView) =>
+	const sidebar = (view: ConversationsView) =>
 		within(view.getByRole("navigation", { name: "conversations" }))
 			.getAllByRole("listitem")
 			.map((row) => [
@@ -91,8 +91,12 @@ Cap upload retries
 			["beta", "Working", "working"],
 			["alpha", "Recent", null],
 		]);
-		// The sidebar, listing those at work, tells where it works.
-		expect(working(view)).toEqual([["beta", "working elsewhere"]]);
+		// The sidebar tells where it works.
+		expect(sidebar(view)).toEqual([
+			["alpha", null],
+			["beta", "working elsewhere"],
+			["gamma", "waiting on you"],
+		]);
 		await openRow(view, "gamma");
 		expect(location.hash).toBe("#conversations/task/gamma");
 		const alone = view.getByRole("region", { name: "gamma" });
@@ -166,8 +170,10 @@ Cap upload retries
 			["gamma", "Working", null],
 			["alpha", "Recent", null],
 		]);
-		expect(working(view)).toEqual([
+		expect(sidebar(view)).toEqual([
+			["alpha", null],
 			["beta", "working elsewhere"],
+			["delta", "abandoned"],
 			["gamma", "no sign since 2h"],
 		]);
 		await openRow(view, "delta");

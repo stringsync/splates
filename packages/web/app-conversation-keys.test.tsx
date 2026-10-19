@@ -33,7 +33,7 @@ describe("App's sidebar keys", () => {
 		options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
 	};
 
-	// scry-ignore simple-test-setup: the four agents at work, one more than the sidebar shows, are what it checks
+	// scry-ignore simple-test-setup: the four agents at work and the one waiting are the rows it numbers
 	it("shows each key while ⌥⌘ is held, and opens a row shown with ⌥⌘ and its digit", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
@@ -53,7 +53,7 @@ describe("App's sidebar keys", () => {
 		await act(async () =>
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
-		expect(keys()).toEqual(["0", "1", "2"]);
+		expect(keys()).toEqual(["0", "1", "2", "3", "4"]);
 		expect(
 			within(view.getByRole("tablist")).getByRole("button", { name: /^New/ })
 				.textContent,
@@ -74,10 +74,10 @@ describe("App's sidebar keys", () => {
 			}),
 		);
 		expect(location.hash).toBe("#conversations/c3");
-		// The fourth at work is behind +1 more, with no key of its own.
+		// No row has a key past the last.
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
-				code: "Digit3",
+				code: "Digit9",
 				altKey: true,
 				metaKey: true,
 			}),

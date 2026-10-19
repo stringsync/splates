@@ -78,7 +78,7 @@ describe("App's conversation list", () => {
 		expect(
 			within(nav).getByRole("button", { name: "Claude alpha" }).title,
 		).toBe("alpha");
-		expect(within(nav).queryByRole("button", { name: /Archived/ })).toBeNull();
+		expect(within(nav).getByRole("button", { name: /Archived/ })).toBeTruthy();
 		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
@@ -87,8 +87,8 @@ describe("App's conversation list", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
-	// scry-ignore simple-test-setup: the seven agents, four more than it shows folded, are what it checks
-	it("lists three agents at work, folding the rest behind See N more, which unfolds them in place until Show less", async () => {
+	// scry-ignore simple-test-setup: the seven agents, more than a folded list once showed, are what it checks
+	it("lists every agent, with nothing to unfold or fold", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "Broke", status: "failed" }),
@@ -103,16 +103,12 @@ describe("App's conversation list", () => {
 			{ tasks: [] },
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
-		const listed = () =>
+
+		expect(
 			within(nav)
 				.getAllByRole("listitem")
-				.map((item) => item.textContent);
-
-		expect(listed()).toEqual(["First", "Second", "Third"]);
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: "See 4 more" })),
-		);
-		expect(listed()).toEqual([
+				.map((item) => item.textContent),
+		).toEqual([
 			"Broke",
 			"First",
 			"Rests",
@@ -121,20 +117,8 @@ describe("App's conversation list", () => {
 			"Fourth",
 			"Fifth",
 		]);
-		expect(location.hash).toBe("#conversations/c2");
-		// This browser keeps it unfolded.
-		view.unmount();
-		const again = await testing.openConversations([], null, { tasks: [] });
-		const kept = again.getByRole("navigation", { name: "conversations" });
-		expect(
-			within(kept).getByRole("button", { name: "Show less" }),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(within(kept).getByRole("button", { name: "Show less" })),
-		);
-		expect(
-			within(kept).queryByRole("button", { name: "Show less" }),
-		).toBeNull();
+		expect(within(nav).queryByRole("button", { name: /more$/ })).toBeNull();
+		expect(within(nav).queryByRole("button", { name: "Show less" })).toBeNull();
 	});
 
 	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
@@ -233,7 +217,7 @@ describe("App's conversation list", () => {
 		expect(archived.textContent).not.toContain("Older");
 	});
 
-	it("nests a part's conversations under the task it was handed out from, in the inbox, the sidebar listing the task alone", async () => {
+	it("nests a part's conversations under the task it was handed out from, in the inbox and the sidebar", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -270,7 +254,7 @@ describe("App's conversation list", () => {
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["alpha"]);
+		).toEqual(["Look around", "alphaalpha-api", "alpha-api"]);
 	});
 
 	it("keeps a part's conversation under its caller's once both merged", async () => {

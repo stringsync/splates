@@ -105,17 +105,24 @@ describe("App's agents, in a folder per project", () => {
 		).toBeTruthy();
 	});
 
-	it("lists every project's agents at work in the sidebar, another's naming it and opening on its page", async () => {
+	it("lists every project's agents in the sidebar, another's opening on its page", async () => {
 		const { view } = await inbox();
 		const nav = view.getByRole("navigation", { name: "conversations" });
 		await waitFor(() => within(nav).getByRole("button", { name: /Stripes/ }));
 
-		// This project's, the fixture's external alpha among them, then zebra's.
+		// Those waiting, each naming its project, then this project's, the
+		// fixture's external alpha among them, then zebra's.
 		expect(
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Mine", "alpha", "Stripeszebra"]);
+		).toEqual([
+			"Mine brokewebappwiz",
+			"Zebra brokezebra",
+			"Mine",
+			"alpha",
+			"Stripes",
+		]);
 		await act(async () =>
 			fireEvent.click(within(nav).getByRole("button", { name: /Stripes/ })),
 		);

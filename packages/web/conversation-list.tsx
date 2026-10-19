@@ -5,14 +5,7 @@ import {
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED, NEW, openedBy, TASK } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
@@ -26,7 +19,6 @@ import {
 	isHostOf,
 	rowsOf,
 	seenFor,
-	waitsOnYou,
 } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
@@ -37,11 +29,10 @@ import { useBeneath } from "./list-beneath";
 import { External, Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
-import { type Nested, nest } from "./parts";
+import { nest } from "./parts";
 import {
 	FolderList,
 	ForeignItem,
-	InLanes,
 	NeedsYou,
 	type RenderRow,
 } from "./project-folder-list";
@@ -55,21 +46,13 @@ import { Placing, placesOf } from "./reparent";
 import { useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 
-/** How many agents at work the list shows folded, before a link to the rest. */
-const WORKING = 3;
-
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
 
-/** Where this browser keeps whether the list is unfolded. */
-const UNFOLDED = "splates.sidebar.unfolded";
-
 /**
- * The sidebar's agents, folded to up to three at work, newest first, then
- * "See N more" for the rest. Unfolded, as this browser keeps it, it lists
- * them all, after the main tree's own terminals, oldest first, until each is
- * closed, with the archived ones behind a link and "Show less" at the
- * bottom. Each row is named alone, with its task on hover. A conversation
+ * The sidebar's agents, all of them, after the main tree's own terminals,
+ * oldest first, until each is closed, with the archived ones behind a link
+ * at the bottom. Each row is named alone, with its task on hover. A conversation
  * follows its agent as it takes and lands tasks. A task whose agent runs
  * outside the page is a row of its own. Rows stay put as their agents change
  * state; each one's mark says whether it works or waits on you. Under a
@@ -79,14 +62,14 @@ const UNFOLDED = "splates.sidebar.unfolded";
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
  * the rows shown, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or
- * above the one open, in the unfolded order, main-tree terminals among
+ * above the one open, in the list's order, main-tree terminals among
  * them, round past either end; each but the digits as the settings bind it.
  * Holding ⌥⌘ shows each of those keys beside what it opens.
  *
  * With the feed of every project to be had, the rows go in folders instead,
  * as `foldersOf` groups them: those waiting on you, whatever their project,
- * in Needs you on top, each naming its project, then a folder per project;
- * folded, those at work come from every folder in turn. Another project's
+ * in Needs you on top, each naming its project, then a folder per project.
+ * Another project's
  * row opens by switching the page to that project, where its task, trunk
  * and lanes are the page's own.
  */
@@ -141,13 +124,6 @@ export function ConversationList({
 			)
 		: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
-	const [unfolded, setUnfolded] = useState(
-		() => localStorage.getItem(UNFOLDED) === "true",
-	);
-	const unfold = (unfolded: boolean) => {
-		localStorage.setItem(UNFOLDED, String(unfolded));
-		setUnfolded(unfolded);
-	};
 	const navigation = useContext(NavigationContext);
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
@@ -166,38 +142,8 @@ export function ConversationList({
 							})),
 						),
 				];
-	// The agents at work, each with the folder it is in, or null for none.
-	const working: { folder: Folder | null; tree: Nested<Needing> }[] =
-		grouped === null
-			? nested
-					.filter(
-						(tree) =>
-							!flatten([tree]).some((row) =>
-								waitsOnYou(row, drafts, conversations),
-							) &&
-							flatten([tree]).some(
-								(row) =>
-									row.need.kind === "working" || row.need.kind === "assuming",
-							),
-					)
-					.map((tree) => ({ folder: null, tree }))
-			: grouped.folders.flatMap((folder) =>
-					folder.working.map((tree) => ({ folder, tree })),
-				);
-	const listed = working.slice(0, WORKING);
-	// Every agent but those listed, each with those it handed out.
-	const more =
-		(grouped === null
-			? nested.length
-			: grouped.needsYou.length +
-				grouped.folders.reduce(
-					(sum, folder) => sum + folder.working.length + folder.recent.length,
-					0,
-				)) - listed.length;
 	// What ⌥⌘0 to ⌥⌘9 open: the rows that show.
-	const shownEntries = unfolded
-		? entries.slice(0, DIGITS)
-		: listed.map(({ folder, tree }) => ({ folder, row: tree.row }));
+	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
 	const held = useHeld();
 	const openEntry = ({ folder, row }: Entry) => {
@@ -347,153 +293,83 @@ export function ConversationList({
 				}
 			}}
 		>
-			{unfolded ? (
-				<>
-					{mains.map((each) => (
-						<TerminalRow
-							key={each}
-							name={terminals.nameOf(each)}
-							onRename={(name) => terminals.rename(each, name)}
-							current={open === each}
-							onOpen={() => onOpen(each)}
-							onClose={() =>
-								closing.close(each, () => {
-									if (open === each) {
-										onOpen(NEW);
-									}
-								})
+			{mains.map((each) => (
+				<TerminalRow
+					key={each}
+					name={terminals.nameOf(each)}
+					onRename={(name) => terminals.rename(each, name)}
+					current={open === each}
+					onOpen={() => onOpen(each)}
+					onClose={() =>
+						closing.close(each, () => {
+							if (open === each) {
+								onOpen(NEW);
 							}
-						/>
-					))}
-					{grouped !== null ? (
-						<Placing
-							value={{
-								places: placesOf(nested),
-								agentOf: (each) => agentName(agents, each.agent),
-							}}
-						>
-							<NeedsYou
-								placed={grouped.needsYou}
-								render={renderRow}
-								beneath={beneathOf}
-							/>
-							<FolderList
-								folders={grouped.folders}
-								folded={folded}
-								onFold={fold}
-								onNew={(folder) =>
-									folder.here || folder.project === null
-										? onOpen(NEW)
-										: navigation.show(newConversationUrl(folder.project))
-								}
-								render={renderRow}
-								beneath={beneathOf}
-							/>
-						</Placing>
-					) : (
-						/* None, and no list either: an empty one would still take a gap. */
-						nested.length > 0 && (
-							<Placing
-								value={{
-									places: placesOf(nested),
-									agentOf: (each) => agentName(agents, each.agent),
-								}}
-							>
-								<Rows
-									label="conversation list"
-									rows={nested}
-									beneath={beneath}
-									render={(row, nested) => renderHere(row, nested, null)}
-								/>
-							</Placing>
-						)
-					)}
-					<button
-						type="button"
-						data-row
-						aria-current={open === ARCHIVED ? "page" : undefined}
-						onClick={() => onOpen(ARCHIVED)}
-						className={cn(
-							"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-							open === ARCHIVED && "bg-muted text-foreground",
-						)}
-					>
-						<ArchiveIcon className="size-3.5" />
-						<span className="flex-1">Archived</span>
-						{archived > 0 && <span className="tabular-nums">{archived}</span>}
-					</button>
-					<button
-						type="button"
-						data-row
-						onClick={() => unfold(false)}
-						className={FOLD}
-					>
-						Show less
-					</button>
-				</>
+						})
+					}
+				/>
+			))}
+			{grouped !== null ? (
+				<Placing
+					value={{
+						places: placesOf(nested),
+						agentOf: (each) => agentName(agents, each.agent),
+					}}
+				>
+					<NeedsYou
+						placed={grouped.needsYou}
+						render={renderRow}
+						beneath={beneathOf}
+					/>
+					<FolderList
+						folders={grouped.folders}
+						folded={folded}
+						onFold={fold}
+						onNew={(folder) =>
+							folder.here || folder.project === null
+								? onOpen(NEW)
+								: navigation.show(newConversationUrl(folder.project))
+						}
+						render={renderRow}
+						beneath={beneathOf}
+					/>
+				</Placing>
 			) : (
-				<>
-					{/* None, and no list either: an empty one would still take a gap. */}
-					{listed.length > 0 && (
-						<Placing
-							value={{
-								places: placesOf(nested),
-								agentOf: (each) => agentName(agents, each.agent),
-							}}
-						>
-							<section aria-label="Working" className="flex flex-col">
-								{grouped === null ? (
-									<Rows
-										label="conversation list"
-										rows={listed.map(({ tree }) => ({
-											row: tree.row,
-											parts: [],
-										}))}
-										beneath={beneath}
-										render={(row, nested) => renderHere(row, nested, null)}
-									/>
-								) : (
-									listed.map(({ folder, tree }) =>
-										folder === null ? null : (
-											<InLanes
-												key={`${folderKey(folder)} ${openedBy(tree.row)}`}
-												folder={folder}
-											>
-												<Rows
-													label={`working in ${folder.name}`}
-													rows={[{ row: tree.row, parts: [] }]}
-													beneath={(row) => beneathOf(folder, row)}
-													render={(row, nested) =>
-														renderRow(folder, row, nested, !folder.here)
-													}
-												/>
-											</InLanes>
-										),
-									)
-								)}
-							</section>
-						</Placing>
-					)}
-					{more > 0 && (
-						<button
-							type="button"
-							data-row
-							onClick={() => unfold(true)}
-							className={FOLD}
-						>
-							See {more} more
-						</button>
-					)}
-				</>
+				/* None, and no list either: an empty one would still take a gap. */
+				nested.length > 0 && (
+					<Placing
+						value={{
+							places: placesOf(nested),
+							agentOf: (each) => agentName(agents, each.agent),
+						}}
+					>
+						<Rows
+							label="conversation list"
+							rows={nested}
+							beneath={beneath}
+							render={(row, nested) => renderHere(row, nested, null)}
+						/>
+					</Placing>
+				)
 			)}
+			<button
+				type="button"
+				data-row
+				aria-current={open === ARCHIVED ? "page" : undefined}
+				onClick={() => onOpen(ARCHIVED)}
+				className={cn(
+					"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
+					open === ARCHIVED && "bg-muted text-foreground",
+				)}
+			>
+				<ArchiveIcon className="size-3.5" />
+				<span className="flex-1">Archived</span>
+				{archived > 0 && <span className="tabular-nums">{archived}</span>}
+			</button>
 			{closing.confirm}
 		</nav>
 	);
 }
-
-/** The line that unfolds the list, or folds it back. */
-const FOLD =
-	"flex items-center rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted";
 
 /** A row as the list shows it, with the folder it is in, or null for none. */
 interface Entry {
