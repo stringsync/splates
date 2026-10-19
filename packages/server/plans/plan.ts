@@ -41,9 +41,13 @@ export class Plans {
 
 /**
  * The one step under `## Next` a fresh task's `SPLATES.md` starts with, asking
- * its agent to plan, which no one should read as the work under way.
+ * its agent to plan, which no one should read as the work under way. Its Goal
+ * is already written, from `--goal` or the queued task it took.
  */
-export const STUB_STEP =
+export const STUB_STEP = "list the steps here as `- [ ]` items";
+
+/** The stub step plans written before the Goal was required still hold. */
+export const OLD_STUB_STEP =
 	"fill in Goal and list the steps here as `- [ ]` items";
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */

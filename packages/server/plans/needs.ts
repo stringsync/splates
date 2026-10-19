@@ -2,7 +2,13 @@ import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../tasks";
-import { goalLine, type Question, questions, STUB_STEP } from "./plan";
+import {
+	goalLine,
+	OLD_STUB_STEP,
+	type Question,
+	questions,
+	STUB_STEP,
+} from "./plan";
 
 /**
  * What an agent needs from the person, by how much it costs to leave it:
@@ -376,8 +382,13 @@ function nextStep(plan: string): string | null {
 		return null;
 	}
 	for (const [, step] of md.section("Next").body.matchAll(STEPS)) {
-		if (step !== undefined && step.trim() !== STUB_STEP) {
-			return step.trim();
+		const trimmed = step?.trim();
+		if (
+			trimmed !== undefined &&
+			trimmed !== STUB_STEP &&
+			trimmed !== OLD_STUB_STEP
+		) {
+			return trimmed;
 		}
 	}
 	return null;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import type { Details } from "../tasks";
 import { need, needs, QUIET_AFTER, quietSince } from "./needs";
-import { STUB_STEP } from "./plan";
+import { OLD_STUB_STEP, STUB_STEP } from "./plan";
 
 describe("needs", () => {
 	it("waits on a live ask before anything in the plan", () => {
@@ -137,6 +137,9 @@ describe("needs", () => {
 			kind: "working",
 			subject: null,
 		});
+		expect(
+			need(task({ plan: stub.replace(STUB_STEP, OLD_STUB_STEP) }), talk()),
+		).toEqual({ kind: "working", subject: "ship it" });
 	});
 
 	it("lists waiting by oldest stop, then assuming by most questions, then the rest", () => {

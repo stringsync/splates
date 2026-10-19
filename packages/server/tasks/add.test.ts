@@ -48,14 +48,14 @@ describe("add", () => {
 		expect((await deps.service.find("beta")).caller).toBeNull();
 	});
 
-	it("leaves a stub SPLATES.md for the agent to fill in", async () => {
-		await add(deps, "alpha");
+	it("leaves a SPLATES.md with its Goal, asking only for the steps", async () => {
+		await add(deps, "alpha", { goal: "Stop the retries." });
 
 		const state = (await deps.service.find("alpha")).state;
 		const plan = await deps.fs.read(join(state?.worktree ?? "", "SPLATES.md"));
-		expect(plan).toStartWith("# alpha\n");
-		expect(plan).toContain("## Goal");
-		expect(plan).toContain("- [ ]");
+		expect(plan).toBe(
+			"# alpha\n\n## Goal\n\nStop the retries.\n\n## Next\n\n- [ ] list the steps here as `- [ ]` items\n",
+		);
 	});
 
 	it("puts the Goal it is given ahead of what its queued tasks seed", async () => {

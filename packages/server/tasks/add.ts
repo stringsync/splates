@@ -295,8 +295,9 @@ function goal(queued: Task[]): string {
 }
 
 /** The plan a fresh task starts with. `## Goal` is the Goal it was given and
- * the queued tasks it takes up, if any; it is otherwise left empty on purpose:
- * `splates show` nags until the agent fills it in. */
+ * the queued tasks it takes up; `splates add` refuses a task with neither, so
+ * only a caller that skips the CLI leaves it empty, which `splates show` nags
+ * about. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
 	if (goal !== null) {
