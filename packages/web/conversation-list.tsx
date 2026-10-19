@@ -355,8 +355,8 @@ export function ConversationList({
 }
 
 /**
- * The link to the archived conversations, with how many there are, pinned at
- * the sidebar's foot under the list.
+ * The sidebar's menu item for the archived conversations, with how many
+ * there are, pinned at its foot under the list.
  */
 export function ArchivedEntry({
 	feed,
@@ -380,14 +380,20 @@ export function ArchivedEntry({
 			type="button"
 			aria-current={open === ARCHIVED ? "page" : undefined}
 			onClick={() => onOpen(ARCHIVED)}
+			// As the page tabs above it look, so it reads as one of the menu's.
 			className={cn(
-				"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-				open === ARCHIVED && "bg-muted text-foreground",
+				"flex h-9 w-full flex-none items-center gap-3 rounded-md px-3 text-left font-medium text-foreground/60 text-sm hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0",
+				open === ARCHIVED &&
+					"bg-accent text-foreground dark:text-foreground [&_svg]:text-primary",
 			)}
 		>
-			<ArchiveIcon className="size-3.5" />
+			<ArchiveIcon />
 			<span className="flex-1">Archived</span>
-			{archived > 0 && <span className="tabular-nums">{archived}</span>}
+			{archived > 0 && (
+				<span className="text-muted-foreground text-xs tabular-nums">
+					{archived}
+				</span>
+			)}
 		</button>
 	);
 }
