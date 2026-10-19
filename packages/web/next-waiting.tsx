@@ -22,36 +22,93 @@ import { foldersOf } from "./project-folders";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { WaitingLine } from "./waiting-line";
 
-/**
- * The sidebar's Inbox, its first page, counting the agents waiting on you,
- * in every project when the feed of every project is to be had, and under it
- * a line saying so, which opens the next as ⌥⌘M (Ctrl+Alt+M off a Mac) does:
- * the next one waiting here, then another project's, on its page, or else the
- * next merged, then unread, one here, lighting the line when there is none.
- */
-export function InboxEntry({
-	feed,
-	drafts,
-	tasks,
-	here,
-	open,
-	onOpen,
-	inbox,
-	onInbox,
-}: {
+/** What the sidebar's waiting lines are given. */
+type Waiting = {
 	feed: ConversationFeed;
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	tasks: Details[];
 	/** The project the page shows, as its snapshot has it. */
 	here: { root: string; repo: string; trunk: string | null };
-	/** The conversation shown, by id, or `ARCHIVED`. */
-	open: string | null;
-	onOpen: (id: string | null) => void;
+};
+
+/**
+ * The sidebar's Inbox, its first page, counting the agents waiting on you,
+ * in every project when the feed of every project is to be had.
+ */
+export function InboxEntry({
+	inbox,
+	onInbox,
+	...given
+}: Waiting & {
 	/** Whether the inbox is the page shown. */
 	inbox: boolean;
 	onInbox: () => void;
 }): JSX.Element {
+	const { waiting } = useWaitingEverywhere(given);
+	return <InboxLine current={inbox} waiting={waiting} onOpen={onInbox} />;
+}
+
+/**
+ * A line atop the sidebar's agents saying how many wait on you, in every
+ * project when the feed of every project is to be had, which opens the next
+ * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting here, then another
+ * project's, on its page, or else the next merged, then unread, one here,
+ * lighting the line when there is none.
+ */
+export function NextWaiting({
+	open,
+	onOpen,
+	...given
+}: Waiting & {
+	/** The conversation shown, by id, or `ARCHIVED`. */
+	open: string | null;
+	onOpen: (id: string | null) => void;
+}): JSX.Element {
+	const { drafts } = given;
+	const { rows, conversations, waiting, others } = useWaitingEverywhere(given);
+	const navigation = useContext(NavigationContext);
+	const held = useHeld();
+	const waitingKey = useHeldKey("shortcuts.waiting");
+	// Each time its shortcut finds nothing to open, for the waiting line to say so.
+	const [nudges, setNudges] = useState(0);
+	// The latest, for the listener below, which outlives a render.
+	const next = useRef(() => {});
+	next.current = () => {
+		const first = nextWaiting(rows, drafts, conversations, open);
+		const elsewhere = others[0];
+		// Here's waiting ones, then another project's, then here's merged or unread.
+		if (
+			elsewhere !== undefined &&
+			(first === undefined ||
+				!waitsOnYou(first, drafts, conversations) ||
+				openedBy(first) === open)
+		) {
+			navigation.show(elsewhere);
+		} else if (first !== undefined) {
+			arriveAt(openedBy(first));
+			onOpen(openedBy(first));
+		} else {
+			setNudges((nudges) => nudges + 1);
+		}
+	};
+	useShortcut("shortcuts.waiting", () => next.current());
+
+	return (
+		<WaitingLine
+			waiting={waiting}
+			nudges={nudges}
+			hint={held ? waitingKey : null}
+			onNext={() => next.current()}
+		/>
+	);
+}
+
+/**
+ * The agents waiting on you: how many, here and in other projects, with
+ * this project's rows and the address of each other project's, on its page.
+ */
+function useWaitingEverywhere({ feed, drafts, tasks, here }: Waiting) {
 	const { conversations } = useReactive(
 		feed,
 		(feed) => ({ conversations: feed.conversations }),
@@ -67,8 +124,6 @@ export function InboxEntry({
 			conversations,
 		}),
 	);
-	const navigation = useContext(NavigationContext);
-	// Waiting on you in other projects, each opening on its project's page.
 	const others = everywhere.available
 		? foldersOf(
 				everywhere.projects,
@@ -85,53 +140,10 @@ export function InboxEntry({
 							.map((row) => newConversationUrl(project, openedBy(row)));
 			})
 		: [];
-	const elsewhere = others.length;
-	const onElsewhere = () => {
-		const first = others[0];
-		if (first !== undefined) {
-			navigation.show(first);
-		}
-	};
-	const held = useHeld();
-	const waitingKey = useHeldKey("shortcuts.waiting");
-	// Each time its shortcut finds nothing to open, for the waiting line to say so.
-	const [nudges, setNudges] = useState(0);
-	// The latest, for the listener below, which outlives a render.
-	const next = useRef(() => {});
-	next.current = () => {
-		const waiting = nextWaiting(rows, drafts, conversations, open);
-		// Here's waiting ones, then another project's, then here's merged or unread.
-		if (
-			elsewhere > 0 &&
-			(waiting === undefined ||
-				!waitsOnYou(waiting, drafts, conversations) ||
-				openedBy(waiting) === open)
-		) {
-			onElsewhere();
-		} else if (waiting !== undefined) {
-			arriveAt(openedBy(waiting));
-			onOpen(openedBy(waiting));
-		} else {
-			setNudges((nudges) => nudges + 1);
-		}
-	};
-	useShortcut("shortcuts.waiting", () => next.current());
-
 	const waiting =
 		rows.filter((row) => waitsOnYou(row, drafts, conversations)).length +
-		elsewhere;
-
-	return (
-		<>
-			<InboxLine current={inbox} waiting={waiting} onOpen={onInbox} />
-			<WaitingLine
-				waiting={waiting}
-				nudges={nudges}
-				hint={held ? waitingKey : null}
-				onNext={() => next.current()}
-			/>
-		</>
-	);
+		others.length;
+	return { rows, conversations, waiting, others };
 }
 
 /**

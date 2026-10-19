@@ -203,7 +203,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("counts the agents waiting on you on the Inbox, which opens the inbox, and on the line under it, which opens the next as ⌥⌘M does and blinks when it finds none", async () => {
+	it("counts the agents waiting on you on the Inbox, which opens the inbox, and on the line atop the agents, which opens the next as ⌥⌘M does and blinks when it finds none", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "Runs", status: "running" }),
@@ -211,9 +211,12 @@ Cap upload retries
 			]),
 			"c1",
 		);
-		// The first of the pages, the line under it.
-		expect(inboxOf(view).nextElementSibling).toBe(lineOf(view));
-		expect(lineOf(view).nextElementSibling?.textContent).toContain("Todos");
+		// The first of the pages; the line, the first thing under them, atop the agents.
+		expect(inboxOf(view).nextElementSibling?.textContent).toContain("Todos");
+		expect(lineOf(view).previousElementSibling).toBe(null);
+		expect(lineOf(view).nextElementSibling).toBe(
+			view.getByRole("navigation", { name: "conversations" }),
+		);
 		expect(waiting(view)).toBe("1 waiting on you");
 		expect(lineOf(view).textContent).toBe("1 waiting on you");
 
