@@ -87,15 +87,20 @@ export class TodoRoutes {
 
 	// What blocks it, all of it: the page sends the whole list, and
 	// only the difference is linked or unlinked, so a loop is still refused.
+	// A blocker removed without merging stays while the list names it, and
+	// is let go of once it does not.
 	readonly linkTodo = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const found = await this.todoAt(request);
 		const { blockedBy } = await body(request);
 		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
+		const lost = (found.state.blockersLost ?? []).map((gone) => gone.id);
 		const todo = await recordUpdate(journal, todos, found.id, () =>
 			todos.link(found.id, {
-				add: ids.filter((id) => !found.blockedBy.includes(id)),
-				drop: found.blockedBy.filter((id) => !ids.includes(id)),
+				add: ids.filter(
+					(id) => !found.blockedBy.includes(id) && !lost.includes(id),
+				),
+				drop: [...found.blockedBy, ...lost].filter((id) => !ids.includes(id)),
 			}),
 		);
 		this.#watch.tick();

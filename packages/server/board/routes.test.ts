@@ -144,6 +144,35 @@ describe("dev todos", () => {
 		});
 	});
 
+	it("keeps a blocker removed without merging while the page's list names it", async () => {
+		await deps.todos.add("first", null);
+		await deps.todos.add("second", null);
+		await deps.todos.add("third", null, { blockedBy: [1] });
+		await (await deps.todos.find(1)).remove();
+
+		await serving(deps, async (snapshot, port) => {
+			const link = (blockedBy: number[]) =>
+				fetch(`http://127.0.0.1:${port}/api/todos/3/blocked-by`, {
+					method: "PUT",
+					headers: {
+						origin: `http://127.0.0.1:${port}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({ blockedBy }),
+				});
+			const state = async () =>
+				(await snapshot()).todos.find((todo) => todo.id === 3);
+
+			expect((await link([1, 2])).status).toBe(200);
+			expect(await state()).toMatchObject({
+				blockedBy: [2],
+				blockersLost: [{ id: 1, subject: "first" }],
+			});
+			expect((await link([2])).status).toBe(200);
+			expect((await state())?.blockersLost).toBeUndefined();
+		});
+	});
+
 	it("updates, removes and puts back a todo", async () => {
 		const todo = await deps.todos.add("write docs", null, {
 			files: [

@@ -108,8 +108,12 @@ export async function todoUpdate(
 	}: TodoUpdateOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.find(id);
+	// A blocker removed without merging is let go of as one still linked is.
+	const lost = removeBlockedBy.filter((each) =>
+		todo.state.blockersLost?.some((gone) => gone.id === each),
+	);
 	const unlinked = removeBlockedBy.find(
-		(each) => !todo.blockedBy.includes(each),
+		(each) => !todo.blockedBy.includes(each) && !lost.includes(each),
 	);
 	if (unlinked !== undefined) {
 		fail(
@@ -133,6 +137,9 @@ export async function todoUpdate(
 	const dropped = todo.files.filter((path) =>
 		removeFiles.some((named) => matches(path, named)),
 	);
+	if (lost.length > 0) {
+		await deps.todos.link(id, { drop: lost });
+	}
 	const updated = await todo.update({
 		subject: subject || undefined,
 		text: text || undefined,
@@ -140,7 +147,8 @@ export async function todoUpdate(
 		files: await readFiles(deps, files),
 		keep: todo.files.filter((path) => !dropped.includes(path)),
 		blockedBy:
-			blockedBy.length === 0 && removeBlockedBy.length === 0
+			blockedBy.length === 0 &&
+			removeBlockedBy.every((each) => lost.includes(each))
 				? undefined
 				: [...todo.blockedBy, ...blockedBy].filter(
 						(each) => !removeBlockedBy.includes(each),

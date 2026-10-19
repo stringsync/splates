@@ -34,8 +34,11 @@ describe.concurrent("todo restore", () => {
 		expect(await deps.fs.readBytes(second.files[0] ?? "")).toEqual(
 			new Uint8Array([1]),
 		);
-		// What waited on it stopped waiting when it went.
-		expect((await deps.todos.find(3)).blockedBy).toEqual([]);
+		// What its removal held for the person waits on it again.
+		expect((await deps.todos.find(3)).state).toMatchObject({
+			blockedBy: [2],
+		});
+		expect((await deps.todos.find(3)).state.blockersLost).toBeUndefined();
 		await expect(deps.todos.restore(2)).toBail("not_found");
 		await expect(deps.todos.restore(9)).toBail("not_found");
 	});

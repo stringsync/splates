@@ -458,7 +458,7 @@ export async function merge(
 		done.some((todo) => todo.lane === lane.id),
 	);
 	for (const todo of done) {
-		await todo.remove();
+		await todo.remove(head);
 	}
 	await todos.endLanes(ran.map((lane) => lane.id));
 	const lines = [

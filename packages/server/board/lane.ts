@@ -10,6 +10,7 @@ import {
 	type LaneState,
 	lane,
 	lanes,
+	lostLine,
 } from "./lanes";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -117,12 +118,16 @@ function runningLines(found: LaneState, states: TodoState[]): string[] {
 			todo.assignee === undefined &&
 			!todo.blockedBy.some((id) => open.has(id)),
 	);
+	const lost = found.todos.filter(
+		(todo) => todo.takenBy === null && (todo.blockersLost ?? []).length > 0,
+	);
 	return [
 		`running: splates server starts each todo here that nothing blocks, as it frees up; \`splates lane pause ${found.id}\` stops it`,
 		...unnamed.map(
 			(todo) =>
 				`  #${todo.id} names no agent, so it waits: splates todo update ${todo.id} --agent <id> --model <m>`,
 		),
+		...lost.map((todo) => `  #${todo.id} ${lostLine(todo)}`),
 	];
 }
 

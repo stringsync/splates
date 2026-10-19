@@ -37,6 +37,17 @@ export interface TodoState {
 	 * carry on, as its card shows; absent while it is not stuck.
 	 */
 	stuck?: string;
+	/**
+	 * Todos it was blocked by that merged, and the commit each landed as, so
+	 * whoever starts it can read what it builds on; absent for none.
+	 */
+	blockersLanded?: LandedBlocker[];
+	/**
+	 * Todos it was blocked by that were removed without merging. While any
+	 * is here, nothing starts it on its own: whether it still makes sense is
+	 * the person's call, made by unlinking each. Absent for none.
+	 */
+	blockersLost?: GoneBlocker[];
 }
 
 /**
@@ -188,8 +199,13 @@ export class Todo {
 		return position === undefined ? linked : this.todos.move(this.id, position);
 	}
 
-	async remove(): Promise<void> {
-		await this.todos.delete(this.id);
+	/**
+	 * Removes it for good. `landed` is the commit it merged as, written on
+	 * each todo it blocked; without one, those it blocked are held for the
+	 * person.
+	 */
+	async remove(landed?: string): Promise<void> {
+		await this.todos.delete(this.id, landed);
 		await this.attachments.clear();
 	}
 
@@ -340,4 +356,15 @@ export function todosNamed(
 	todos: readonly Todo[],
 ): { id: number; subject: string }[] {
 	return todos.map(({ id, subject }) => ({ id, subject }));
+}
+
+/** A todo that blocked another and has left the list. */
+export interface GoneBlocker {
+	id: number;
+	subject: string;
+}
+
+/** A blocker that merged, as the commit it landed as. */
+export interface LandedBlocker extends GoneBlocker {
+	commit: string;
 }

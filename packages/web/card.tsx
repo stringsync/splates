@@ -114,19 +114,27 @@ export function Card({
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 					<CopyLink id={todo.id} />
 					{blockers.length > 0 && <Blocked by={blockers} />}
+					{(todo.blockersLost ?? []).length > 0 && (
+						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
+							<span className="text-warning">needs you</span>
+						</Badge>
+					)}
 					{todo.files.length > 0 && (
 						<Badge Icon={PaperclipIcon} label="files">
 							{todo.files.length}
 						</Badge>
 					)}
 					{/* Its assigned agent starts it in one tap; one blocked waits. */}
-					{todo.takenBy === null && todo.assignee && blockers.length === 0 && (
-						<StartAssigned
-							assignment={{ kind: "todo", id: todo.id }}
-							assignee={todo.assignee}
-							quiet
-						/>
-					)}
+					{todo.takenBy === null &&
+						todo.assignee &&
+						blockers.length === 0 &&
+						(todo.blockersLost ?? []).length === 0 && (
+							<StartAssigned
+								assignment={{ kind: "todo", id: todo.id }}
+								assignee={todo.assignee}
+								quiet
+							/>
+						)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
 					{todo.stuck !== undefined && todo.takenBy !== null && (

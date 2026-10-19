@@ -23,7 +23,7 @@ export {
 } from "./lanes";
 export { lanesFromTags } from "./lanes-from-tags";
 export { TodoRoutes } from "./routes";
-export type { Todo, TodoState } from "./todo";
+export type { GoneBlocker, LandedBlocker, Todo, TodoState } from "./todo";
 export { recordUpdate, todosNamed, wording } from "./todo";
 export { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 export { todoList, todoShow } from "./todo-list";

@@ -171,6 +171,19 @@ describe("LaneRunner", () => {
 		).toEqual([unnamed]);
 	});
 
+	it("holds back a todo whose blocker was removed without merging", () => {
+		const todos = [
+			todo({
+				id: 1,
+				position: 1,
+				blockersLost: [{ id: 9, subject: "gone" }],
+			}),
+			todo({ id: 2, position: 2 }),
+		];
+
+		expect(ready(todos)).toEqual([2]);
+	});
+
 	it("names a task for its todo's words, cut at a word, numbered past a name taken", () => {
 		expect(taskName("Upload retries forever on a 413", NAMES)).toBe(
 			"upload-retries-forever-on-a-413",
@@ -199,6 +212,19 @@ describe("LaneRunner", () => {
 
 		expect(prompt).toContain("lane 1 (Stats)");
 		expect(prompt).toContain("totals-first on #1 Totals first");
+	});
+
+	it("tells the agent the commit each todo it was blocked by landed as", () => {
+		const next = todo({
+			id: 2,
+			blockersLanded: [{ id: 1, subject: "Totals first", commit: "abc1234" }],
+		});
+
+		const prompt = lanePrompt(RUNNING, next, [next]);
+
+		expect(prompt).toContain(
+			"It was blocked by #1 Totals first, which landed as abc1234: `git show abc1234`",
+		);
 	});
 });
 

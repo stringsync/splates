@@ -17,13 +17,24 @@ export function assigned(id: number, assignee: AgentPick | null) {
 		);
 }
 
-/** Todo `id` blocked by `blockedBy`, sorted as the server keeps them. */
+/**
+ * Todo `id` blocked by `blockedBy`, sorted as the server keeps them; a
+ * blocker removed without merging that it leaves out is let go of.
+ */
 export function linked(id: number, blockedBy: readonly number[]) {
 	return (snapshot: Snapshot): Snapshot =>
-		changed(snapshot, id, (todo) => ({
-			...todo,
-			blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
-		}));
+		changed(snapshot, id, ({ blockersLost, ...todo }) => {
+			const lost = (blockersLost ?? []).filter((gone) =>
+				blockedBy.includes(gone.id),
+			);
+			return {
+				...todo,
+				blockedBy: [...new Set(blockedBy)]
+					.filter((each) => !lost.some((gone) => gone.id === each))
+					.sort((left, right) => left - right),
+				...(lost.length === 0 ? {} : { blockersLost: lost }),
+			};
+		});
 }
 
 /**

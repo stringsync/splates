@@ -114,9 +114,16 @@ export function followers(todos: TodoState[], id: number): TodoState[] {
 	return todos.filter((todo) => todo.blockedBy.includes(id));
 }
 
-/** Nothing blocking it is still open, and nobody has it: free to start. */
+/**
+ * Nothing blocking it is still open, none was removed from under it, and
+ * nobody has it: free to start.
+ */
 export function isReady(todo: TodoState): boolean {
-	return todo.takenBy === null && todo.blockedBy.length === 0;
+	return (
+		todo.takenBy === null &&
+		todo.blockedBy.length === 0 &&
+		(todo.blockersLost ?? []).length === 0
+	);
 }
 
 /**
@@ -249,4 +256,13 @@ export interface LaneRun {
 	 * nest under; null for the person.
 	 */
 	by: string | null;
+}
+
+/**
+ * Why `todo` waits on the person, its blockers removed without merging,
+ * and how to let it go on.
+ */
+export function lostLine(todo: TodoState): string {
+	const lost = todo.blockersLost ?? [];
+	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates todo update ${todo.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
 }

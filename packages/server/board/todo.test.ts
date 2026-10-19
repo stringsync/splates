@@ -4,6 +4,7 @@ import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import { add, recommend, remove } from "../tasks";
 import { Testing } from "../testing";
+import { isReady } from "./lanes";
 import type { TodoState } from "./todo";
 import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
@@ -223,9 +224,12 @@ describe.concurrent("todo", () => {
 	it("refuses one saved with tags until they move into lanes, one lane a tag", async () => {
 		await using deps = await Testing.open();
 		await deps.todos.addLane("Licensing");
-		for (const subject of ["a", "b", "c", "d", "e", "f"]) {
-			await todoAdd(deps, subject, null);
-		}
+		await todoAdd(deps, "a", null);
+		await todoAdd(deps, "b", null);
+		await todoAdd(deps, "c", null);
+		await todoAdd(deps, "d", null);
+		await todoAdd(deps, "e", null);
+		await todoAdd(deps, "f", null);
 		await todoUpdate(deps, 1, { blockedBy: [6] });
 		// Read first: once one has tags, none can be.
 		const states = (await deps.todos.all()).map((todo) => todo.state);
@@ -460,6 +464,57 @@ describe.concurrent("todo", () => {
 		const out = color.strip(deps.out());
 		expect(out).toContain("next todo 3: follow-up from dark");
 		expect(out).toContain("splates add <task> --todo 3");
+	});
+
+	it("keeps on each todo it blocked the commit a merged blocker landed as", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "dark charts", null, { blockedBy: [1] });
+		await add(deps, "dark", { todos: [1] });
+		const worktree = (await deps.service.find("dark")).path;
+		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
+
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const head = (
+			await deps.git.out(deps.git.root, "rev-parse", "--short", "HEAD")
+		).trim();
+		const next = await deps.todos.find(2);
+		expect(next.state).toMatchObject({
+			blockedBy: [],
+			blockersLanded: [{ id: 1, subject: "support dark mode", commit: head }],
+		});
+		expect(next.state.blockersLost).toBeUndefined();
+		deps.log.clear();
+		await todoShow(deps, 2);
+		expect(color.strip(deps.out())).toContain(
+			`landed:    #1 support dark mode, as ${head}`,
+		);
+	});
+
+	it("holds a todo whose blocker was removed for the person, until they let it go", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "dark charts", null, { blockedBy: [1] });
+
+		await todoRemove(deps, 1);
+
+		const held = await deps.todos.find(2);
+		expect(held.state).toMatchObject({
+			blockedBy: [],
+			blockersLost: [{ id: 1, subject: "support dark mode" }],
+		});
+		expect(isReady(held.state)).toBe(false);
+		deps.log.clear();
+		await todoShow(deps, 2);
+		expect(color.strip(deps.out())).toContain(
+			"splates todo update 2 --remove-blocked-by 1",
+		);
+
+		const freed = await todoUpdate(deps, 2, { removeBlockedBy: [1] });
+		expect(freed.state.blockersLost).toBeUndefined();
+		expect(isReady(freed.state)).toBe(true);
 	});
 
 	it("recommends the highest open todo, and sets stale ones aside", async () => {

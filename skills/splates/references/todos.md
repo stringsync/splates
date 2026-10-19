@@ -47,7 +47,10 @@ When a todo cannot start before another merges, it is blocked by that one:
 say so with `--blocked-by` (`splates todo add <subject> --blocked-by 12`, or
 `splates todo update 14 --blocked-by 12`), rather than in its detail. splates
 then warns whoever takes it early, drops the link when 12 merges or is
-removed, and shows it on the board. `--remove-blocked-by 12` undoes one.
+removed, and shows it on the board. Once 12 merges, `splates todo show 14`
+names the commit it landed as; once it is removed without merging, 14 waits
+for the user, and nothing starts it until they let 12 go with
+`--remove-blocked-by 12`, which also undoes a link.
 Link only for a real order (one needs the other's code or data), never for
 priority, which is the position's job.
 

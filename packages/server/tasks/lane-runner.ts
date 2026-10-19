@@ -40,7 +40,8 @@ export type LaneStarter = (start: LaneStart) => Promise<void>;
  * own, top first, as many at once as `capacity` allows the lane. As each
  * lands, or its task lets it go, the next check starts what it held back.
  * What blocks what is the links alone: the lane's order is only which goes
- * first when there is no room for all.
+ * first when there is no room for all. One whose blocker was removed without
+ * merging waits for the person to let that blocker go.
  *
  * Checked as the todos or tasks change, as `splates server` sees them, and
  * every `LANE_SWEEP`. A todo whose start was refused is not tried again
@@ -175,7 +176,8 @@ export class LaneRunner implements Resource {
 /**
  * What running lane `record` can start now: `ready`, top first, as many as
  * it has room for beside the tasks it has out and the todos `starting`, of
- * those no task has taken and no open todo blocks, but for any `refused`;
+ * those no task has taken and no open todo blocks, nor lost a blocker
+ * removed without merging, but for any `refused`;
  * and `unnamed`, those that could go but name no agent to work them.
  */
 export function startable(
@@ -206,7 +208,8 @@ export function startable(
 			todo.takenBy === null &&
 			!starting.has(todo.id) &&
 			!refused.has(todo.id) &&
-			!todo.blockedBy.some((id) => open.has(id)),
+			!todo.blockedBy.some((id) => open.has(id)) &&
+			(todo.blockersLost ?? []).length === 0,
 	);
 	return {
 		ready: free
@@ -245,8 +248,9 @@ export function taskName(subject: string, taken: ReadonlySet<string>): string {
 
 /**
  * What a todo's agent is told beyond claiming its task: that its lane runs
- * on its own, and what else in the lane is out beside it, which it may
- * have to rebase onto.
+ * on its own, the commit each todo it was blocked by landed as, which it
+ * builds on, and what else in the lane is out beside it, which it may have
+ * to rebase onto.
  */
 export function lanePrompt(
 	record: LaneRecord,
@@ -259,6 +263,10 @@ export function lanePrompt(
 	);
 	return [
 		`splates server started this task for todo #${todo.id} on its own, as lane ${record.id} (${record.name}) runs: nothing it is blocked by is left open.`,
+		...(todo.blockersLanded ?? []).map(
+			(landed) =>
+				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
+		),
 		beside.length === 0
 			? "Nothing else in the lane is out beside it."
 			: `Out beside it in the lane: ${beside.map((each) => `${each.takenBy} on #${each.id} ${each.subject}`).join("; ")}.`,

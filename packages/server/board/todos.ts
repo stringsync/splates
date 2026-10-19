@@ -163,7 +163,12 @@ export class Todos {
 					);
 				}
 			}
-			const unknown = drop.find((before) => !state.blockedBy.includes(before));
+			const lost = state.blockersLost ?? [];
+			const unknown = drop.find(
+				(before) =>
+					!state.blockedBy.includes(before) &&
+					!lost.some((gone) => gone.id === before),
+			);
 			if (unknown !== undefined) {
 				fail(
 					"not_found",
@@ -171,11 +176,14 @@ export class Todos {
 					{ todo: id, blockedBy: unknown },
 				);
 			}
+			const { blockersLost: _, ...rest } = state;
+			const kept = lost.filter((gone) => !drop.includes(gone.id));
 			await this.save({
-				...state,
+				...rest,
 				blockedBy: [...new Set([...state.blockedBy, ...add])]
 					.filter((before) => !drop.includes(before))
 					.sort((left, right) => left - right),
+				...(kept.length === 0 ? {} : { blockersLost: kept }),
 			});
 			return this.settled(id);
 		});
@@ -310,17 +318,30 @@ export class Todos {
 	/**
 	 * @internal Removes one, moving those below it up to close the gap. What
 	 * came after it no longer waits on it, so no todo is left naming one that
-	 * is gone.
+	 * is gone, but each keeps what became of it: landed as commit `landed`,
+	 * or, without one, lost.
 	 */
-	async delete(id: number): Promise<void> {
+	async delete(id: number, landed?: string): Promise<void> {
 		await this.locked(async () => {
+			const gone = await this.read(this.path(id));
 			await this.fs.rm(this.path(id), { force: true });
 			const order: TodoState[] = [];
 			for (const state of await this.stored()) {
 				if (state.blockedBy.includes(id)) {
+					const blocker = { id, subject: gone?.subject ?? "" };
 					const freed = {
 						...state,
 						blockedBy: state.blockedBy.filter((before) => before !== id),
+						...(landed === undefined
+							? {
+									blockersLost: [...(state.blockersLost ?? []), blocker],
+								}
+							: {
+									blockersLanded: [
+										...(state.blockersLanded ?? []),
+										{ ...blocker, commit: landed },
+									],
+								}),
 					};
 					await this.save(freed);
 					order.push(freed);
@@ -383,6 +404,20 @@ export class Todos {
 				),
 			});
 			await this.fs.rm(this.removedPath(id), { force: true });
+			// Those its removal held for the person wait on it again.
+			for (const other of stored) {
+				if (other.blockersLost?.some((gone) => gone.id === id)) {
+					const { blockersLost: lost, ...rest } = other;
+					const kept = lost.filter((gone) => gone.id !== id);
+					await this.save({
+						...rest,
+						blockedBy: [...other.blockedBy, id].sort(
+							(left, right) => left - right,
+						),
+						...(kept.length === 0 ? {} : { blockersLost: kept }),
+					});
+				}
+			}
 			await this.place(restored.state, state.position);
 			return this.settled(id);
 		});

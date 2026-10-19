@@ -1,4 +1,4 @@
-import type { TodoState } from "@stringsync/splates-server/board";
+import type { GoneBlocker, TodoState } from "@stringsync/splates-server/board";
 import { cycle, followers } from "@stringsync/splates-server/board/browser";
 import {
 	CornerDownRightIcon,
@@ -50,6 +50,10 @@ import { Refusal, useRefusal } from "./refusal";
 export function Links({ todo }: { todo: TodoState }): JSX.Element {
 	const { todos } = useContext(Board);
 	const blockers = todos.filter((other) => todo.blockedBy.includes(other.id));
+	const lost = todo.blockersLost ?? [];
+	// What blocks it as the server takes the whole list: those it lost stay
+	// held for the person until they are left out.
+	const held = [...todo.blockedBy, ...lost.map((gone) => gone.id)];
 	const blocking = followers(todos, todo.id);
 	// Each row says what of it was refused, under its own links.
 	const lane = useRefusal();
@@ -73,9 +77,21 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 						blockedBy.attempt(
 							link(
 								todo.id,
-								todo.blockedBy.filter((id) => id !== other.id),
+								held.filter((id) => id !== other.id),
 							),
 							"Not unlinked",
+						)
+					}
+				/>
+				<LostList
+					lost={lost}
+					onRemove={(gone) =>
+						blockedBy.attempt(
+							link(
+								todo.id,
+								held.filter((id) => id !== gone.id),
+							),
+							"Not let go",
 						)
 					}
 				/>
@@ -84,10 +100,7 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					exclude={[todo.id, ...todo.blockedBy]}
 					loops={(other) => cycle(todos, todo.id, other.id)}
 					onPick={(other) =>
-						blockedBy.attempt(
-							link(todo.id, [...todo.blockedBy, other.id]),
-							"Not linked",
-						)
+						blockedBy.attempt(link(todo.id, [...held, other.id]), "Not linked")
 					}
 				/>
 				<Refusal refusal={blockedBy.refusal} className="w-full" />
@@ -326,6 +339,53 @@ function LinkList({
 						type="button"
 						aria-label={`unlink #${other.id}`}
 						onClick={() => onRemove(other)}
+						className="flex h-full cursor-pointer items-center rounded-md px-1 pointer-coarse:px-3 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
+					>
+						<XIcon className="size-3" />
+					</button>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
+ * The todos it was blocked by that were removed without merging, which hold
+ * it back until the person lets each go with its ×, once it still makes
+ * sense without them.
+ */
+function LostList({
+	lost,
+	onRemove,
+}: {
+	lost: GoneBlocker[];
+	onRemove: (gone: GoneBlocker) => void;
+}): JSX.Element | null {
+	if (lost.length === 0) {
+		return null;
+	}
+	return (
+		<ul aria-label="Removed blockers" className="contents">
+			{lost.map((gone) => (
+				<li
+					key={gone.id}
+					className="group/link inline-flex h-6 pointer-coarse:h-10 items-center rounded-md bg-muted/70 text-sm"
+				>
+					<Tooltip>
+						<TooltipTrigger
+							render={<span />}
+							className="cursor-default pl-2 text-warning tabular-nums line-through"
+						>
+							#{gone.id}
+						</TooltipTrigger>
+						<TooltipContent>
+							{`${gone.subject}: removed without merging, so this waits on you. Let it go to start this anyway.`}
+						</TooltipContent>
+					</Tooltip>
+					<button
+						type="button"
+						aria-label={`let go of removed #${gone.id}`}
+						onClick={() => onRemove(gone)}
 						className="flex h-full cursor-pointer items-center rounded-md px-1 pointer-coarse:px-3 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
 					>
 						<XIcon className="size-3" />

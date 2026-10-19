@@ -2,7 +2,14 @@ import { color, type Logger } from "webappwiz/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";
-import { blockersOf, followers, isReady, lane, mentioned } from "./lanes";
+import {
+	blockersOf,
+	followers,
+	isReady,
+	lane,
+	lostLine,
+	mentioned,
+} from "./lanes";
 import { cameFrom, type TodoState } from "./todo";
 import type { Todos } from "./todos";
 
@@ -125,6 +132,13 @@ export async function todoShow(
 			(wait) =>
 				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TodoState)}`,
 		),
+		...(todo.state.blockersLanded ?? []).map(
+			(landed) =>
+				`  landed:    #${landed.id} ${landed.subject}, as ${landed.commit}`,
+		),
+		...((todo.state.blockersLost ?? []).length === 0
+			? []
+			: [`  held:      ${lostLine(todo.state)}`]),
 		...followers(states, todo.id).map(
 			(other) => `  blocking:  ${named(other)}`,
 		),
