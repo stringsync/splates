@@ -140,9 +140,9 @@ describe("stretches", () => {
 				task: "<task>",
 				base: "<base>",
 				reason: null,
-				body: "A card on a phone now drags only after a long press, so a short one scrolls.\n\nRestart `splates server` to pick it up.",
+				body: "Cards on a phone now drag on a long press. Restart `splates server` to pick it up.",
 				source:
-					"## ✅ Merged <task> onto <base>\n\nA card on a phone now drags only after a long press, so a short one scrolls.\n\nRestart `splates server` to pick it up.",
+					"## ✅ Merged <task> onto <base>\n\nCards on a phone now drag on a long press. Restart `splates server` to pick it up.",
 			},
 		});
 		expect(stretches(removed)[0]).toEqual({

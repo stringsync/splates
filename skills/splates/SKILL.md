@@ -435,15 +435,19 @@ thing to do; indented under it, one line on what they should see, and a
 screenshot or recording when it helps. The `splates server` page shows a demo
 as a checklist they tick off as they go.
 
-A merge stops your worktree's server, so a demo after one points at where
-the change now lives (the user's own app once they pick it up, or what
-`splates server` serves after a restart) and shows each step's result in a
-screenshot or recording you took from your worktree before merging. With
-nothing to try, as for a change only seen, a demo can be its screenshots
-alone, a step each. Keep it to the few shots that show the change. Attached
-files stay with the conversation and go when it is deleted, so a demo needs
-no cleanup; put it after the merge report's title and sentence, never as an
-artifact.
+A demo after a merge tells the story of how the goal was reached: the steps
+the user takes to see it working, in the order that shows it, each with what
+they should see. Screenshots are optional: add one only where a step's result
+is hard to put in words. The merge report above it gives only the one change
+in a line, so nothing it says is said again in the demo. A merge stops your
+worktree's server, so point the demo at where the change now lives (the
+user's own app once they pick it up, or what `splates server` serves after a
+restart), and take any screenshot from your worktree before merging. Before
+merging, stop every process you started in the worktree, such as a dev server
+in the background: a merge stops only a `--slot` server, and anything else
+keeps its port and holds your session open until the conversation is
+archived. Attached files stay with the conversation and go when it is
+deleted.
 
 ```markdown
 ### 🎬 Demo: dragging a card on a phone
@@ -516,17 +520,18 @@ heading inside it to `####`.
 ```markdown
 ## ✅ Merged <task> onto <base>
 
-A card on a phone now drags only after a long press, so a short one scrolls.
-
-Restart `splates server` to pick it up.
+Cards on a phone now drag on a long press. Restart `splates server` to pick it up.
 
 ### 🎬 Demo: dragging a card on a phone
 
 Open the task board at 390px wide.
 
-1. Press and hold a card, then drag it to another lane.
+1. Swipe up over a lane.
+   The lane scrolls; no card moves.
+2. Press and hold a card for half a second.
+   It lifts.
+3. Drag it to another lane and let go.
    It lands where you drop it.
-   ![dropped in Doing](/abs/path/drop.png)
 ```
 
 ```markdown
