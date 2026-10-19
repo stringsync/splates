@@ -49,34 +49,38 @@ export function SetupIndex({
 					{group.map((area) => {
 						const done = area.done === area.steps.length;
 						return (
-							<li key={area.id} className="flex items-center">
+							<li
+								key={area.id}
+								className="relative flex min-h-14 items-center justify-end gap-2 pr-4"
+							>
 								<button
 									type="button"
-									className="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+									className="absolute inset-0 flex cursor-pointer items-center gap-3 px-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
 									onClick={() => onSelect(area.id)}
 								>
 									<span className="flex-1">Set up {area.title}</span>
-									{done ? (
+									{done && (
 										<span className="flex items-center gap-1.5 text-sm text-success">
 											<CheckIcon className="size-4" aria-hidden /> Done
 										</span>
-									) : (
-										<ChevronRightIcon
-											className="size-4 text-muted-foreground"
-											aria-hidden
-										/>
 									)}
 								</button>
 								{area.undoable && (
 									<Button
 										variant="ghost"
 										size="sm"
-										className="mr-2 text-muted-foreground"
+										className="relative text-muted-foreground"
 										aria-label={`Undo ${area.title}`}
 										onClick={() => onUndo(area.id)}
 									>
 										<Undo2Icon aria-hidden /> Undo
 									</Button>
+								)}
+								{!done && (
+									<ChevronRightIcon
+										className="pointer-events-none relative size-4 text-muted-foreground"
+										aria-hidden
+									/>
 								)}
 							</li>
 						);
