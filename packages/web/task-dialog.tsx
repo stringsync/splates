@@ -90,7 +90,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					)}
 					<Overview
 						task={task.task}
-						conversation={task.takenBy}
 						plan={task.plan === null ? null : plan}
 						none="No SPLATES.md: whoever picks this up starts from the diff."
 						ports

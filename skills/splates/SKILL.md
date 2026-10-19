@@ -471,9 +471,9 @@ where they would read as questions.
 
 `[SPLATES DEMO <task> <point>]` asks you to show `<task>`, open or finished,
 at one point: `before` its change, `after` it, or on `main` as it is now.
-It comes to the conversation that last worked the task, so you may hold its
-context already; otherwise read it all with `splates show <task>`, which
-prints a finished task's facts and the `SPLATES.md` it ended on too.
+It starts a new conversation, so read the task first with `splates show
+<task>`, which prints a finished task's facts and the `SPLATES.md` it ended
+on too.
 
 1. `splates add demo-<task>-<point> --goal "Demo <task> at <point>"`, with
    `--base task/<task>` for `after` while the task is open, so the demo runs

@@ -14,23 +14,17 @@ const POINTS: { point: DemoPoint; label: string }[] = [
 ];
 
 /**
- * Before, After and Main: each asks the conversation that last worked `task`
- * for its demo at that point and opens it, closing the dialog; a conversation
- * is started for it when that one is gone, at work on another task, or none. None while the page holds no conversations.
+ * Before, After and Main: each starts a conversation that demos `task` at
+ * that point and opens it, closing the dialog. None while the page holds no
+ * conversations.
  */
-export function DemoButtons({
-	task,
-	conversation,
-}: {
-	task: string;
-	conversation: string | null;
-}): JSX.Element | null {
+export function DemoButtons({ task }: { task: string }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	if (context === null) {
 		return null;
 	}
 	const show = (point: DemoPoint) => {
-		void context.dispatch.demo(task, conversation, point).then(context.open);
+		void context.dispatch.demo(task, point).then(context.open);
 	};
 	return (
 		<section aria-label="demo" className="flex min-w-0 flex-col gap-1">

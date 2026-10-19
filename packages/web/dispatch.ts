@@ -18,7 +18,6 @@ import {
 import type { Details } from "@stringsync/splates-server/tasks";
 import { agentFor, NEW, newAddress, settingsFor } from "./conversation-address";
 import {
-	archiveConversation,
 	promptConversation,
 	startAutoPick,
 	startConversation,
@@ -186,43 +185,13 @@ export class Dispatch {
 	}
 
 	/**
-	 * Asks for a demo of `task` at `point` in `conversation`, the one that
-	 * last worked it, or for null the newest in its tree, put back on the list first when archived; or, when it
-	 * is gone, there is none, or it has since moved on to another task, in a
-	 * new conversation in the main tree, where the agent adds the demo's own
-	 * task. Nothing stops a conversation holding several open tasks, so one
-	 * that took `task` may be at work on another, which a demo would derail. Answers the conversation's address,
-	 * the request showing as sent at once; a refused one stays in the thread
-	 * as unsent. When no conversation starts, the address of the screen that
-	 * starts one, the request in its composer.
+	 * Asks for a demo of `task` at `point` in a new conversation in the main
+	 * tree, where the agent adds the demo's own task, answering its address
+	 * as `beginWith` does.
 	 */
-	async demo(
-		task: string,
-		conversation: string | null,
-		point: DemoPoint,
-	): Promise<string> {
-		const text = demoReference(task, point);
-		const found = this.conversations.find((each) =>
-			conversation === null ? each.task === task : each.id === conversation,
-		);
-		if (found === undefined || !demoes(found.task, task)) {
-			const agent = agentFor(NEW, this.agents, this.conversations);
-			return this.beginWith({ agent }, null, text);
-		}
-		const back = found.archived
-			? archiveConversation(found.id, false)
-			: Promise.resolve();
-		if (found.archived) {
-			void this.feed
-				.expect(found.id, { archived: false }, back)
-				.catch(() => {});
-		}
-		const sending = this.feed.send(found.id, text);
-		void back
-			.then(() => promptConversation(found.id, text, [], false, sending.id))
-			.then((state) => this.feed.answered(found.id, sending, state))
-			.catch((error: unknown) => this.feed.refused(found.id, sending, error));
-		return found.id;
+	demo(task: string, point: DemoPoint): Promise<string> {
+		const agent = agentFor(NEW, this.agents, this.conversations);
+		return this.beginWith({ agent }, null, demoReference(task, point));
 	}
 
 	/**
@@ -311,14 +280,4 @@ export function promptFor(assignment: Assignment): string {
 		case "task":
 			return taskReference(assignment.task);
 	}
-}
-
-/**
- * Whether a conversation in `current`'s tree is free to demo `task`: in the
- * main tree, in `task`'s own, or in one of its demos'.
- */
-function demoes(current: string | null, task: string): boolean {
-	return (
-		current === null || current === task || current.startsWith(`demo-${task}-`)
-	);
 }

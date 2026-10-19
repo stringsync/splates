@@ -13,14 +13,11 @@ import { TaskPorts } from "./task-ports";
  */
 export function Overview({
 	task,
-	conversation,
 	plan,
 	none,
 	ports = false,
 }: {
 	task: string;
-	/** The conversation that last worked it, which a demo asks. */
-	conversation: string | null;
 	/** Its SPLATES.md in parts, or null for none. */
 	plan: PlanParts | null;
 	/** What to say when it has no SPLATES.md. */
@@ -49,9 +46,7 @@ export function Overview({
 							<Markdown text={plan.verification} />
 						</section>
 					)}
-					{plan.demo !== "" && (
-						<DemoButtons task={task} conversation={conversation} />
-					)}
+					{plan.demo !== "" && <DemoButtons task={task} />}
 					{plan.steps !== "" && (
 						<section aria-label="steps" className="flex flex-col gap-1">
 							<SectionHeading>

@@ -148,29 +148,11 @@ describe("App's task demos", () => {
 		expect(within(dialog).queryByRole("region", { name: "demo" })).toBeNull();
 	});
 
-	it("asks a live task's conversation for its demo, opening it at once", async () => {
+	it("starts a new conversation for a live task's demo, past the one working it", async () => {
 		const view = await tasksPage([
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),
 		]);
 		const dialog = await liveDialog(view);
-
-		testing.reply = conversation({ id: "c1", task: "alpha" });
-		await demo(dialog, "after");
-
-		await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
-		await waitFor(() =>
-			expect(prompts("c1")).toEqual(["[SPLATES DEMO alpha after]"]),
-		);
-		expect(testing.posted("/api/conversations")).toEqual([]);
-	});
-
-	it("starts a conversation for a task whose own has moved on to another", async () => {
-		testing.finished = [finished({ conversation: "c2" })];
-		const view = await tasksPage(
-			[conversation({ id: "c2", task: "beta", status: "stopped" })],
-			[],
-		);
-		const dialog = await finishedDialog(view);
 
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		await demo(dialog, "after");
@@ -182,25 +164,10 @@ describe("App's task demos", () => {
 		await waitFor(() =>
 			expect(prompts("c9")).toEqual(["[SPLATES DEMO alpha after]"]),
 		);
-		expect(prompts("c2")).toEqual([]);
+		expect(prompts("c1")).toEqual([]);
 	});
 
-	it("asks a conversation already in one of the task's demos again", async () => {
-		const view = await tasksPage([
-			conversation({ id: "c1", task: "demo-alpha-before", status: "stopped" }),
-		]);
-		const dialog = await liveDialog(view);
-
-		testing.reply = conversation({ id: "c1", task: "demo-alpha-before" });
-		await demo(dialog, "after");
-
-		await waitFor(() =>
-			expect(prompts("c1")).toEqual(["[SPLATES DEMO alpha after]"]),
-		);
-		expect(testing.posted("/api/conversations")).toEqual([]);
-	});
-
-	it("puts a finished task's archived conversation back before asking it", async () => {
+	it("starts a new conversation for a finished task's demo, leaving its own archived", async () => {
 		testing.finished = [finished({ conversation: "c2" })];
 		const view = await tasksPage(
 			[conversation({ id: "c2", task: null, archived: true })],
@@ -208,37 +175,15 @@ describe("App's task demos", () => {
 		);
 		const dialog = await finishedDialog(view);
 
-		testing.reply = conversation({ id: "c2", task: null });
-		await demo(dialog, "before");
-
-		await waitFor(() => expect(location.hash).toBe("#conversations/c2"));
-		await waitFor(() =>
-			expect(prompts("c2")).toEqual(["[SPLATES DEMO alpha before]"]),
-		);
-		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
-			{ method: "PUT", body: { archived: false } },
-		]);
-		const order = testing.posts.map((post) => post.path);
-		expect(order.indexOf("/api/conversations/c2/archived")).toBeLessThan(
-			order.indexOf("/api/conversations/c2/prompt"),
-		);
-	});
-
-	it("starts a conversation for a finished task whose own is gone", async () => {
-		testing.finished = [finished({ conversation: "gone" })];
-		const view = await tasksPage([], []);
-		const dialog = await finishedDialog(view);
-
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		await demo(dialog, "main");
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
-		expect(
-			testing.posted("/api/conversations").map((post) => post.body.task),
-		).toEqual([null]);
 		await waitFor(() =>
 			expect(prompts("c9")).toEqual(["[SPLATES DEMO alpha main]"]),
 		);
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([]);
+		expect(prompts("c2")).toEqual([]);
 	});
 });
 

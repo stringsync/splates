@@ -262,7 +262,6 @@ function FinishedDialog({
 					) : read === null ? null : (
 						<Overview
 							task={read.task}
-							conversation={read.conversation}
 							plan={plan}
 							none="It ended with no SPLATES.md."
 						/>
