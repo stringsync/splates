@@ -1,11 +1,16 @@
 # Linking, placing and ordering todos
 
+An agent that adds a todo checks that none already asks it, then only adds it:
+it leaves the todo untriaged, unless
+the user names a lane, a position or what blocks it. Placing, linking and
+ordering are for the user, or the orchestrator of a lane.
+
 ## One that already asks it
 
 Before adding a todo, scan `splates todo list`, leaving off `--open`, by
 subject alone: it prints one line per todo and no detail. When one or two
 subjects look like the same request, `splates todo show` just those. Reuse
-the list you read grooming when little has happened since, rather than
+a list you read this task when little has happened since, rather than
 reading it again.
 
 - **Open, the same request**: add none. `splates todo update` its detail with
@@ -15,6 +20,24 @@ reading it again.
   against it.
 - **Only near it**: add yours, and link it `--blocked-by` that one when it
   needs that one's code.
+
+## Deferring
+
+`[SPLATES DEFER]` asks you to make a request a todo rather than do it.
+`splates todo add` it as Todos in the skill says, from your worktree when a
+task is under way, its detail all the message gives and what you already
+know of the code it touches, with no new investigation.
+
+Sent alone, it defers work you may have begun: save it before you stop. Put
+what you learned and did on that request since the message in the todo's
+detail, ticking off the `- [ ]` steps done. When you started a task for it,
+commit what its worktree holds, write in the detail that it carries on there
+with `splates claim <task>`, bring `SPLATES.md` up to date, and `splates
+escalate "deferred to todo #N"`.
+
+Either way, take no further step toward the request and reply with nothing
+beyond the line the page shows for the todo; then, after a request, carry on
+with any work under way, and, sent alone, end your turn.
 
 ## Links
 
@@ -32,9 +55,8 @@ A lane is a queue of todos that build on each other, landed top first by an
 orchestrator (see [references/lanes.md](lanes.md)), which hands out several at
 once when nothing holds them back: link a todo `--blocked-by` the one above it
 whenever it needs that one's code, even in the same lane. A lane has no model
-of its own: each todo names its own. Groom lanes as you add todos: you know
-what each new one builds on, and nobody lays lanes out for you. Read
-`splates lane list`, then for each todo you add:
+of its own: each todo names its own. Placing a todo, read `splates lane
+list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,
   files, or context: `--lane <n>` puts it at the bottom.

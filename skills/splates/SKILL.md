@@ -27,9 +27,6 @@ A prompt that starts with `[SPLATES ...]` comes from the `splates server` page o
 from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says.
 
-splates was arbor until this release: a `[ARBOR ...]` prompt is the same
-directive, and an `ARBOR.md` in your worktree is the task's `SPLATES.md`.
-
 | Directive | What it asks | What to do |
 | --- | --- | --- |
 | `[SPLATES TODO #N]` | Take todo N | `splates todo show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --todo N`, or `splates todo take N` from a task under way |
@@ -40,7 +37,7 @@ directive, and an `ARBOR.md` in your worktree is the task's `SPLATES.md`.
 | `[SPLATES HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
-| `[SPLATES DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | Read [todos.md](references/todos.md), then `splates todo add` the request as Todos says, from your worktree when a task is under way, its detail all the message gives and what you already know of the code it touches, with no new investigation. Sent alone, it defers work you may have begun: save it before you stop. Put what you learned and did on that request since the message in the todo's detail, ticking off the `- [ ]` steps done. When you started a task for it, commit what its worktree holds, write in the detail that it carries on there with `splates claim <task>`, bring `SPLATES.md` up to date, and `splates escalate "deferred to todo #N"`. Either way, take no further step toward the request and reply with nothing beyond the line the page shows for the todo; then, after a request, carry on with any work under way, and, sent alone, end your turn |
+| `[SPLATES DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | [todos.md](references/todos.md), Deferring |
 | `[SPLATES LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[SPLATES LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
 | `[SPLATES REPORT <task>]` | A task you handed on with `--relay`, or to another project, stopped: escalated, merged or removed | [handoff.md](references/handoff.md); for another project's, [lanes.md](references/lanes.md) |
@@ -66,13 +63,20 @@ which remembers none of it.
 - Before `splates handoff`, or when the task gives you a reason to hand it to
   another model: [references/handoff.md](references/handoff.md), handing a
   task to another agent or taking one over.
-- Before `splates todo add`, `splates lane add`, or `splates todo update` or
+- Before `splates lane add`, or `splates todo add`, `splates todo update` or
   `splates lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/todos.md](references/todos.md), linking, placing and ordering
   todos.
 - When the user asks to set splates up on this machine, or any part of it
-  (agents, remote access, notifications, dictation):
-  [references/setup.md](references/setup.md), one step at a time.
+  (agents, remote access, workers, a cloud coordinator, a tunnel of their
+  own, notifications, dictation): [references/setup.md](references/setup.md),
+  one step at a time.
+- When your work needs a secret only the user can get, such as an API token:
+  [references/creds.md](references/creds.md).
+- When work here needs another splates project, or you run `splates
+  --project`: [references/projects.md](references/projects.md).
+- When `splates artifact add` stops on `too_large`, or the user asks about
+  artifact space: [references/artifacts.md](references/artifacts.md).
 
 ## Workflow
 
@@ -91,8 +95,7 @@ which remembers none of it.
    what you are doing, say in one line what you will do next, without the
    task's name or Goal, which that line already shows.
 2. **Plan.** Once you know what done means, fill in `SPLATES.md` before
-   touching code (see SPLATES.md below), then groom the todos your work touches
-   (see Grooming related todos). Keep the task yourself unless it gives you
+   touching code (see SPLATES.md below). Keep the task yourself unless it gives you
    a reason another model should take it: work that has failed you, or a
    long, fully planned, mechanical rest (see
    [references/handoff.md](references/handoff.md)).
@@ -108,9 +111,9 @@ which remembers none of it.
    so the task stays one coherent change; the conversation shows what you
    added (see A todo you add). A snag on the way, such as a lost
    connection, a conflict or a retry, is no todo; `splates merge` adds one
-   itself for each test that failed its gate. When a call the request does not
-   settle needs the user, write it as a question and keep going (see Asking
-   as you go), bringing `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
+   itself for each test that failed its gate. Make every call a revert would
+   undo yourself; only one that is hard to reverse needs the user (see
+   Questions), bringing `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
    [references/parts.md](references/parts.md): it works in a part of your
    task. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
@@ -119,7 +122,7 @@ which remembers none of it.
    of memory.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge: `splates todo add`
-   any step you will not do, then check it off. Groom again, release each
+   any step you will not do, then check it off. Release each
    todo you only partly did (see Todos), squash to one commit (see
    Committing), and `splates merge`, or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again. A successful
@@ -182,41 +185,35 @@ for Relaying and the lane reports):
 
 ## Todos
 
-Write a todo's subject the way you write a question's, short enough to scan.
-Put the why, the where, and anything else in its detail, as markdown the
-`splates server` page renders: paragraphs, lists, `- [ ]` steps, inline code for
-paths and commands, and fenced blocks for snippets. Single quotes keep the
-shell off the backticks. Before every `splates todo add`, read
-[references/todos.md](references/todos.md) on whether one already asks it,
-linking it to what blocks it, placing it in a lane, and where in the list it
-goes:
+When something outside your Goal comes up, add it as a todo and move on:
+its subject and what you know, once you have checked no todo already asks
+it (see [references/todos.md](references/todos.md)). Leave placing it, linking it
+and picking its model to whoever grooms the list, unless the user names a
+lane, a position or what blocks it, or the model it takes is
+plain, as for a change spelled out step by step.
+
+Write a todo's subject short enough to scan. Put the why, the where, the
+files and the feature in its detail, as markdown the `splates server` page
+renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
+commands, and fenced blocks for snippets. Single quotes keep the shell off
+the backticks:
 
 ```sh
 splates todo add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
 
 - [ ] stop retrying on 413
-- [ ] tell the user the file is too big' --agent claude --model sonnet
+- [ ] tell the user the file is too big'
 ```
 
-Every todo you add names the model to run it with, `--agent <id> --model
-<m>`, since you know what it takes better than whoever starts it later. Read
-`splates agents` once per task for what each model is good at, how fast it is
-and what it costs, and pick the cheapest one the todo is worth: a cheap one for a
-mechanical change, a strong one for a design call or a long, tangled change.
-Keep the agent you run as unless another fits clearly better. Add `--effort
-<level>`, one of those `splates agents` lists under THINKING, only when the
-todo needs a level off from the model's own: a low one for a change spelled
-out step by step, a high one for a call you could not settle. When grooming
-changes what a todo takes, `splates todo update <id> --agent <id> --model <m>`
-picks again.
+The `splates server` page shows each `splates todo add` in the conversation as
+a line naming the todo, which opens it, so your reply needs no heading or
+summary of it. That shrinks what you say, never the todo: its subject and
+detail stay full, since whoever picks it up reads nothing else.
 
 When you take a todo that names a model other than the one you run as, take
 it anyway: whoever handed it to you chose you. Say so in a line of its own
 right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
 user can stop you and start the model it names instead.
-
-Name the files and the feature in the detail, so whoever grooms the list
-later can tell the todo is about their area.
 
 `splates todo update <id> '<detail>'` replaces the whole detail, so pass all of
 it: what still holds and what you learned. Merging removes every todo the task
@@ -228,226 +225,19 @@ what blocks it has yet to merge: `splates todo wait <id>` for it, or, when the
 user asked for this todo now, do only what does not need the blocker and say
 so in your report.
 
-### Grooming related todos
+## Questions
 
-Todos about the same area as yours: your change can settle them, shrink
-them, move what they point at, or make them wrong, and you hold the context
-that makes each one cheap right now. Groom them once you have planned, and
-again just before merging:
+Make every call a revert would undo yourself: a name, a default, wording, a
+design, one reading of an ambiguous ask. Take the better pick and carry on,
+saying nothing of it to the user; write it in a line under `## Notes` only
+when whoever resumes the task would need it. When the user's answer
+overturns one later, redo that part.
 
-1. **Find the related todos**: read `splates todo list`, leaving off `--open`,
-   since a todo another task has taken can still be affected by yours. Those
-   in your todos' lanes, those blocking or blocked by them, and those whose
-   subject names your files or feature are related. `splates todo show` each
-   one your work might touch.
-2. **Act on each one**, in this order of preference:
-   - **Claim it** when it is open and your change settles it, makes it moot,
-     or would with a little more work in the same files: `splates todo take
-     <id>` and add it to your Goal. Claim every one you can, since the next
-     agent would have to rebuild the context you have now, as long as the
-     task stays one coherent change: that is grooming, not growth.
-   - **Update it** when your change alters it without settling it (a path
-     moved, a step is done, the approach no longer fits), ticking off the
-     `- [ ]` steps you did.
-   - **Place it** when it is untriaged and belongs in a lane (see
-     [references/todos.md](references/todos.md)).
-   - **Coordinate** when another task has taken it and your change affects
-     it: never take it, read its Goal in `splates list --files`, and note it
-     in `SPLATES.md`.
-
-### A todo you add
-
-The `splates server` page shows each `splates todo add` in the conversation as
-a line naming the todo, which opens it, so your reply needs no heading or
-summary of it. Say more about it only what that line cannot, in your own words.
-That shrinks what you say, never the todo: its subject and detail stay as
-full as Todos asks, since whoever picks it up reads nothing else.
-
-## Other projects
-
-The other splates projects on this machine are yours to read: their code in
-their directories, and their tasks, todos and lanes with `splates
---project <slug> <command>` (`splates list`, `todo list`, `show`
-and the like). `splates projects` lists them, with what each lets this one do
-and what this one lets each do. What you may do in one is what it grants
-this project:
-
-- **read**: look only.
-- **todos**, every project's unless it grants otherwise: `splates --project
-  <slug> todo add` what it should do, written as any todo is (see Todos),
-  saying in its detail why your project needs it. Leave `--lane` off:
-  whoever orchestrates that project places it.
-- **tasks**: hand it a task, `splates --project <slug> add <task> --goal
-  "<...>" --agent <id> --model <m>`, and orchestrate it as
-  [references/lanes.md](references/lanes.md) says for a task you handed
-  out. Its directives name it `<slug>/<task>`; run each command on it with
-  `--project <slug>`: `show`, `tell`, `wait`, `remove`.
-
-You never take a task in another project yourself: you do not `add` one
-without `--agent`, `claim`, merge or escalate one there, and an agent you
-hand one to starts none of its own. A command that needs more than the
-project granted stops on `not_granted`; never `cd` there to get around it,
-which is checked the same way.
-
-Whenever work here needs another project, ask for what it takes rather
-than work around it: a grant, as a question under `## Blocked` naming the
-project, the reach, and what you would do with it; or, for a repository
-that is not a splates project yet, leave to `splates init` it, which makes it
-one any agent can reach. Run `splates projects grant <slug> <reach>` from that
-project's directory, or `splates init` there, only once the user says so in
-so many words, as in "let webappwiz hand out tasks here".
-
-## Creds
-
-When your work needs a secret only the user can get, such as an API token,
-request it rather than asking in chat or reading an environment variable,
-naming it as its environment variable would be. Say in `--purpose`, in a
-sentence, why your work needs it and what it will be used for, so the user
-knows what they are handing over before they go to get it; then give
-instructions for getting it in markdown: where to go, what to pick, what to
-paste.
-
-```sh
-splates creds request CLOUDFLARE_TUNNEL_TOKEN --device --purpose 'To add the DNS record that routes `dev.example.com` to the tunnel, through the Cloudflare API.' --instructions '1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token**.
-2. Add Zone · DNS · Edit, and pick your zone.
-3. Create it and paste it here.'
-```
-
-`--device` keeps it for every project on this machine, for the user's own
-account; leave it off for a cred of this project's alone. When the store
-already keeps it, `request` asks nothing; `--replace` asks again when the
-kept one does not work. The `splates server` page shows a "Requested" line in
-the conversation that opens the cred on its Creds page, with what it is for,
-your instructions and a field to paste it in; say nothing more of the
-request. The page's Creds item gets a yellow dot while any request is open, and its
-Creds page lists them too, with every cred kept, so a user outside the
-conversation finds it there. `splates creds wait <NAME>` until the user saves
-it, again on `timeout`, doing meanwhile what does not need it; it ends on
-`dismissed` when they turn it down, so carry on without it or ask why.
-
-You never see the value: it goes into the system's store (the macOS
-Keychain, Windows Credential Manager, a Linux secret service), and code
-reads it in-process through `webappwiz/creds`, never through the
-environment, argv or a file. `splates creds list` names what is requested and
-kept.
-
-## Remote access
-
-When the user asks to reach `splates server` from elsewhere, that is the Remote
-access setup area, from its `cloudflare-token` step through `tunnel`, `access`
-and `ports-host`: walk them through it as
-[references/setup.md](references/setup.md) says. Its `splates tunnel setup
-<host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
-Access application with an API token kept as the cred
-`SPLATES_CLOUDFLARE_API_TOKEN`, and saves them for the machine, so a bare `splates
-server` comes up tunneled. Without the token it requests it, with how to make
-it, and exits `requested`: say so and wait as for any cred (see Creds), then
-run it again. When the account has no Zero Trust organization, it asks for
-`--team <name>` to make one. Ask the user for the host, the emails and any
-team name rather than guessing them. By hand, or for a tunnel other than
-cloudflared, it is `splates server --tunnel <host> --access-team <team>
---access-aud <aud>`: it runs `cloudflared tunnel run` against the page and
-allows that host, and it refuses to start without both Access flags, since
-who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
-picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
-Access: that host then reaches only the todos.
-
-## Workers
-
-When the user asks to run agents on this Mac with more slots, or on another
-machine, that is the Workers setup area: `local-worker` (`splates worker add
---local <slots>`), `worker-access` (through a tunnel, whether the API token
-may mint a worker's Access service token, **Account · Access: Service Tokens ·
-Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
-for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --coordinator <url> --join <token>` on the other machine),
-`windows-worker` (the Windows command `splates worker add` prints, run in
-PowerShell as an administrator there: the worker in a WSL2 distro of its own,
-started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
-on in its BIOS and adapter, so splates wakes it when agents queue, before
-making a worker; `splates worker wake <id>` wakes one by hand). Workers
-in their own cloud account start with `pulumi-install` (Pulumi under
-`~/.splates/pulumi`) and `pulumi-state` (its state there, encrypted by the
-device cred `PULUMI_CONFIG_PASSPHRASE`, never shown or replaced), then
-`hetzner-token` (the cred `HCLOUD_TOKEN`), `hetzner-provider` (a task adding
-`workerProvider: new HetznerWorkerProvider()` to `splates.config.ts`) and
-`worker-snapshot` (builds the snapshot workers boot from); and, only when
-`splates.config.ts` names a `workerProvider`, `worker-budget` (what made
-workers may cost: `splates budget set <hour|day|month> <dollars>`; any set counts
-as the user having seen it). Walk them
-through it as [references/setup.md](references/setup.md) says. Each checks
-`GET /api/workers` of the `splates server` in `SPLATES_DEV`.
-
-When the user asks for an always-on coordinator, that is the Cloud
-coordinator setup area: `coordinator-box`, after `pulumi-state` and
-`hetzner-token`, makes it with `splates coordinator up` (a CPX21 in Hetzner's
-Ashburn with daily backups, SSH alone open, its key under
-`~/.splates/coordinator`); `splates coordinator status` prints its address and
-how to SSH in, and `splates coordinator remove` destroys it and its backups.
-It serves nothing until `splates coordinator move` moves the coordinator onto
-it, which needs `remote` set in every project's `splates.config.ts` and an SSH
-origin (the `coordinator-remotes` step): the box gives each project a deploy
-key, and until GitHub lets each push trunk the move exits `blocked`, printing
-each key and where to add it with write access; show the user those and run
-it again once they are added (`coordinator-keys`). `--dry-run` stops there.
-Run for real (`coordinator-move`), it checkpoints every agent and stops
-this machine's `splates server`, carries the records and creds over, starts
-the server on the box under systemd with the saved tunnel, and joins this
-machine as a worker kept up by a LaunchAgent, where each task carries on in
-its worktree; this machine's records go aside, kept. It touches the user's
-live server and tunnel: ask before running it for real, and run it from a
-terminal outside `splates server`, which it stops, or leave it to the step's
-Next on the page, which runs it apart from the server and follows it onto the
-box's host.
-
-A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
-implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:
-`ready()` throws, saying what to do, unless the tunnel can run, and
-`run({ host, url, log })` carries `host` to `url` and returns a resource
-whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.
-`--tunnel` runs it in place of cloudflared and still needs the Access flags;
-`--tunnel-name` is refused beside it. Write one only when asked, as a
-separate task from whatever else is under way, and read
-splates's `tunnel/provider.ts` first. A provider that is not ready is
-logged and skipped, so check the `splates server` log, not the page, to see
-whether it came up.
-
-## Asking as you go
-
-Do not save questions for escalation. Most calls the request does not
-settle (a name, a default, wording, one reading of an ambiguous ask) are
-yours: take the better pick, note it in a line under `## Notes` when whoever
-resumes the task would need it, and carry on, saying nothing of it to the
-user. Ask a question, under `## Blocked`, only when undoing the call takes
-more than reverting a commit (a migration, data written, a message sent,
-anything outside the repo), when a wrong guess would cost much rework even
-though it can be undone (a data shape many files will build on), or when it
-goes against something the user said before. The task cannot merge until it
-is answered, though the user can answer in chat while you work.
-
-Size each question by how far it reaches, never by how long it takes, and
-lead its line with the size in parentheses, after its number:
-
-- **small**: stays local and is cheap to redo: a name, a default, wording,
-  one component.
-- **medium**: shapes how a feature behaves or looks, or spans systems.
-- **large**: hard to undo or outward-facing: a data format, an API, a
-  migration, the architecture, what other projects or people see.
-
-The Stats page counts the questions at each size, so size every one, those
-a proposal asks included, wherever you write it.
-
-Build so calls stay cheap to undo, since that is what lets you make them
-without asking. Keep each choice in one place (a constant, a config value, a
-single component or module), and keep what uses it loosely coupled to it:
-callers go through a narrow surface (a function, a type, a module's exports)
-and never reach into how it works, so swapping in another implementation
-changes that one place and none of its callers. Before asking a question
-because a wrong guess would cost much rework, look for such a seam: when one
-would contain the call, build it and decide yourself instead. A seam is a
-boundary, not ceremony: no interface or abstract base for a single
-implementation, and no layer added only in case. When an answer overturns a
-choice, redo that part.
+Ask a question, under `## Blocked`, only when the call is hard to reverse,
+taking more than reverting a commit to undo (a migration, data written, a
+message sent, anything outside the repo), or when it goes against something
+the user said before. The task cannot merge until it is answered, though
+the user can answer in chat while you work.
 
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
@@ -480,17 +270,17 @@ crowd the choices.
 ```markdown
 ## Blocked
 
-- [x] 1. (large) Should the old upload endpoint stay for a release? → a
+- [x] 1. Should the old upload endpoint stay for a release? → a
   - (a) Keep it for one release, logging each call (chosen)
   - (b) Remove it now
-- [ ] 2. (small) What looks wrong in the header at 390px?
+- [ ] 2. What looks wrong in the header at 390px?
   ![header at 390px](/abs/path/shot.png)
-- [ ] 3. (large) How should existing sessions move to the new tokens?
+- [ ] 3. How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
   - (a) Migrate each session on its next request (chosen)
     Why: no one is signed out, and the old cookie still reads for a release.
   - (b) Sign everyone out once
-- [ ] 4. (medium) In what order should the settings pages land?
+- [ ] 4. In what order should the settings pages land?
   - a. Profile
   - b. Billing
   - c. Notifications
@@ -573,7 +363,7 @@ requested` under `## Notes` at once, so the request outlives your session.
 Escalate when questions are still open once everything else is done, or when
 you cannot go on without the user (access, a decision, a test only they can
 run). A secret, such as an API token, is a cred to request instead (see
-Creds).
+[references/creds.md](references/creds.md)).
 
 1. Leave something to look at, by **absolute path** (start from
    `splates path <task>`): for anything visual, a screenshot or recording you
@@ -617,10 +407,9 @@ one that is not. Whether the user looks first is yours to decide:
 
 - **Merge** work you verified yourself. This is the default, and the usual
   end of a small change.
-- **Ask for a review** when verification needs the user (external services,
-  destructive migrations, visual changes), when `## Notes` says `Review:
-  requested`, or, absent instructions, when the change is complex enough
-  that correctness needs a reader rather than a test. Leave something to
+- **Ask for a review** only when you cannot verify the change yourself
+  (external services, destructive migrations, how something looks), or when
+  `## Notes` says `Review: requested`. Leave something to
   look at (step 1 of Escalation), `splates escalate --review "<what to look
   at>"`, report it (see Reporting), and end your turn.
 
@@ -646,10 +435,9 @@ otherwise ask the user.
 
 ## Proposing
 
-When the user asks what you think, or a request leaves open a design that
-would be costly to build on a wrong guess, propose before you build, so the
-user can approve it or challenge what it rests on. A change one commit's
-revert would undo needs no proposal: make it.
+Propose only when the user asks what you think, so they can approve it or
+challenge what it rests on. Otherwise build: a design a revert would undo
+needs no proposal.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, lowercase after its first word; a blank
@@ -671,15 +459,14 @@ Fold proposals into the questions card, each call a question with a pick.
 - It already heads its questions with an escalation's report.
 - One card then asks everything, picked or not.
 
-1. (medium) Where should a proposal's calls come from?
+1. Where should a proposal's calls come from?
    - (a) The reply, so a proposal works outside a task too (chosen)
    - (b) `SPLATES.md`, so every proposal needs a task
-2. (small) What should its button say?
+2. What should its button say?
 ```
 
-In a task, write each call under `## Blocked` too, then `splates escalate` as
-Escalation says and end your turn, so the task shows as waiting on the user;
-the page draws the proposal as the escalation's card, so ask nothing else.
+In a task, write each call under `## Blocked` too, then end your turn,
+without escalating; ask nothing else beside it.
 
 The `splates server` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is
@@ -764,25 +551,10 @@ artifact list` and `splates artifact show <name>` read them back. It needs a
 conversation: `$SPLATES_CONVERSATION` from `splates server`, or
 `--conversation <id>` from outside it.
 
-Archiving a conversation deletes the bytes of its removed artifacts and
-earlier versions, keeping what its panel shows; each leaves a placeholder
-saying why it went.
-
-One file may be 50 MB, one conversation's artifacts 250 MB, and the project's
-2 GB, counting every version whose bytes are kept and, toward the last two,
-the files attached from conversations (`artifactFileCapacity`,
-`artifactConversationCapacity` and `artifactProjectCapacity` in
-`splates.config.ts`). Past the project's, `splates server` evicts the oldest bytes
-first: removed and earlier versions of any conversation, then what archived
-conversations show, then what live ones do. Past the file's or the
-conversation's, or the project's when even eviction would not make room,
-`add` stops on `too_large`, keeping nothing of that file: trim a recording
-rather than ask for more room.
-
 Most files you show are not artifacts: a screenshot that shows a question, an
 image in a report's card, a demo step's image. Each serves the moment it is
 shown in, so it stays inline: `splates attach` it and name it as
-`![what](/abs/path.png)`, as Asking as you go and Demos say.
+`![what](/abs/path.png)`, as Questions and Demos say.
 Make a file an artifact only when the user would look for it on its own,
 apart from the reply it came in.
 

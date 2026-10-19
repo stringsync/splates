@@ -205,7 +205,7 @@ export const probes: Probe[] = [
 	probe(
 		"local-choice",
 		"decisions-local",
-		"Asking as you go",
+		"Questions",
 		"Choose between three and five for a local retry-limit constant. This is a new decision, cheap to undo in one commit, with no data or external effects. Record your choice and its alternative; implementation continues in a later turn.",
 		[state("plan/notes", true), state("plan/blocked", []), ...noMerge],
 	),

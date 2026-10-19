@@ -206,7 +206,7 @@ function picks(period: Tally, before: Before): Advice {
 					: picksAmended / picksAsked >= DISAGREE
 						? "Agents pick right but miss details: what you add to their picks belongs in CLAUDE.md or memory."
 						: share <= AGREE
-							? "You almost always agree: let agents make these calls without asking, in the splates skill's Asking as you go."
+							? "You almost always agree: let agents make these calls without asking, in the splates skill's Questions."
 							: null,
 		short: needs(
 			ENOUGH - picksAsked,

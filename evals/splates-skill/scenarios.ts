@@ -21,11 +21,10 @@ export const SCENARIOS: readonly Scenario[] = [
 		sections: [
 			...CORE,
 			"Todos",
-			"A todo you add",
 			"SPLATES.md",
 			"Committing",
 			"Merge or review",
-			"Asking as you go",
+			"Questions",
 		],
 		checks: [
 			STARTS,
@@ -76,7 +75,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		turns: ["Add a cap on how many times an upload retries."],
 		sections: [
 			...CORE,
-			"Asking as you go",
+			"Questions",
 			"Keeping Blocked current",
 			"Escalation",
 			"SPLATES.md",
@@ -133,7 +132,6 @@ export const SCENARIOS: readonly Scenario[] = [
 			"Links",
 			"Lanes",
 			"Positions",
-			"A todo you add",
 		],
 		checks: [
 			{
@@ -214,7 +212,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			...CORE,
 			"Handing out part of your task",
 			"Committing",
-			"Asking as you go",
+			"Questions",
 		],
 		checks: [
 			STARTS,

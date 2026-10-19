@@ -47,7 +47,7 @@ mechanical part, and ask about that choice under `## Blocked`.
 those calls in the part's commit message, `splates wait <part>` for it to land,
 and read them in `git log`.
 
-Treat each call it lists as your own (see Asking as you go): a question
+Treat each call it lists as your own (see Questions in the skill): a question
 under your `## Blocked` when it needs the user, and redo the part when an
 answer overturns one. A subagent that only reads needs no part. When the
 user asks for the subagents' work to land on its own, give each one a task of
