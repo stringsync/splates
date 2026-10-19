@@ -338,22 +338,36 @@ function Interrupted(): JSX.Element {
  * context into a summary, between the work before, which it now remembers
  * only as that summary, and the work after.
  */
-export const CompactionUI = makeAssistantDataUI<{ compaction: Compaction }>({
+export const CompactionUI = makeAssistantDataUI<{
+	compaction: Compaction;
+	going?: boolean;
+}>({
 	name: "compaction",
-	render: ({ data }) => <CompactionLine compaction={data.compaction} />,
+	render: ({ data }) => (
+		<CompactionLine compaction={data.compaction} going={data.going ?? false} />
+	),
 });
 
 function CompactionLine({
 	compaction,
+	going,
 }: {
 	compaction: Compaction;
+	/** The turn goes on, so a compaction yet to finish is the agent at work. */
+	going: boolean;
 }): JSX.Element {
 	const { before, after, status, summary } = compaction;
 	const [open, setOpen] = useState(false);
 	const words = (
 		<>
 			<FoldVerticalIcon aria-hidden className="size-3.5" />
-			<span>
+			<span
+				className={cn(
+					going &&
+						status === "in_progress" &&
+						"shimmer motion-reduce:animate-none",
+				)}
+			>
 				{status === "failed"
 					? "Failed to compact context"
 					: status === "in_progress"

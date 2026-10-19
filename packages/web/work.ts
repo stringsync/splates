@@ -30,7 +30,7 @@ export interface Work {
 	until: string | null;
 	/** Still going, with nothing said since: its last thought is still being thought. */
 	running: boolean;
-	/** The turn's last row while it goes on, even with words after it, since its subagents can still be at work: it says Working, counting up once the agent has moved; once over, it adds up what it did. */
+	/** Whether the row says Working rather than how long it worked: the turn's last row while it goes on, even with words after it, but not one above a compaction. */
 	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
@@ -114,14 +114,32 @@ export function stretchesOf(
 	) {
 		ordered.push([]);
 	}
+	// A compaction cuts the work short: the row above it is over, and once
+	// the compaction is, a row below says Working until the agent moves.
+	if (
+		going &&
+		tail !== undefined &&
+		!Array.isArray(tail) &&
+		tail.type === "compaction" &&
+		tail.compaction.status !== "in_progress"
+	) {
+		ordered.push([]);
+	}
 	const lastWork = ordered.findLastIndex((run) => Array.isArray(run));
+	// While a compaction goes on, its line says the agent is at work, and no
+	// row above it does.
+	const compacting = (index: number) =>
+		ordered
+			.slice(index + 1)
+			.some((run) => !Array.isArray(run) && run.type === "compaction");
 	// Thoughts never show, so work with nothing else in it goes, but for the
 	// last row while it says Working or holds the plan.
 	const kept = ordered.filter(
 		(run, index) =>
 			!Array.isArray(run) ||
 			run.some((part) => part.type !== "thought") ||
-			(index === lastWork && (going || message.plan !== null)),
+			(index === lastWork &&
+				((going && !compacting(index)) || message.plan !== null)),
 	);
 	const works = kept.filter((run) => Array.isArray(run));
 	const end = kept.length - 1;
@@ -133,11 +151,13 @@ export function stretchesOf(
 		const previous = kept[index - 1];
 		const following = kept[index + 1];
 		const boundary =
-			following !== undefined &&
-			!Array.isArray(following) &&
-			following.type === "event"
-				? following.event.at
-				: null;
+			following === undefined || Array.isArray(following)
+				? null
+				: following.type === "event"
+					? following.event.at
+					: following.type === "compaction"
+						? following.compaction.at
+						: null;
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
 			(part.type === "tool" || part.type === "compaction") &&
@@ -163,11 +183,13 @@ export function stretchesOf(
 					run === works[0]
 						? began
 						: (startOf(run) ??
-							(previous !== undefined &&
-							!Array.isArray(previous) &&
-							previous.type === "event"
-								? previous.event.at
-								: null)),
+							(previous === undefined || Array.isArray(previous)
+								? null
+								: previous.type === "event"
+									? previous.event.at
+									: previous.type === "compaction"
+										? previous.compaction.until
+										: null)),
 				until:
 					index === end
 						? message.until
@@ -176,7 +198,12 @@ export function stretchesOf(
 							startOf(next ?? []) ??
 							message.until),
 				running: going && index === end,
-				working: going && run === final,
+				working:
+					going &&
+					run === final &&
+					!kept
+						.slice(index + 1)
+						.some((each) => !Array.isArray(each) && each.type === "compaction"),
 				going,
 				replied,
 			},

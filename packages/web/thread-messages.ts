@@ -263,7 +263,12 @@ export function like(
 	// Its work and the words it said along the way as one row, but for its
 	// word that it added a task, then the last thing it said. Once the turn is
 	// over, that is its reply, read for cards, even with tool calls after it.
-	const all = stretchesOf(message, began, !settled, now, events, waiting);
+	// A turn stopped or cut short is over, even before the server says so.
+	const going =
+		!settled &&
+		message.stopped === undefined &&
+		message.interrupted === undefined;
+	const all = stretchesOf(message, began, going, now, events, waiting);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,
@@ -271,7 +276,7 @@ export function like(
 		// Stamped with when it last moved, once it has stopped moving.
 		metadata: {
 			custom: {
-				at: settled ? (message.until ?? message.at) : null,
+				at: !going ? (message.until ?? message.at) : null,
 			},
 		},
 		content: [
@@ -286,7 +291,7 @@ export function like(
 										data: {
 											event: stretch.event,
 											also: stretch.also,
-											going: !settled,
+											going,
 										},
 									},
 								]
@@ -294,7 +299,7 @@ export function like(
 								? [
 										{
 											type: "data-compaction",
-											data: { compaction: stretch.compaction },
+											data: { compaction: stretch.compaction, going },
 										},
 									]
 								: stretch.type === "added"
@@ -306,7 +311,7 @@ export function like(
 													: [],
 										)
 									: at === reply
-										? replied(stretch.text, settled, {
+										? replied(stretch.text, !going, {
 												task,
 												began,
 												until: message.until,
