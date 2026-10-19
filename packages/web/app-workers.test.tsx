@@ -65,7 +65,7 @@ describe("App's workers", () => {
 
 		const box = view.getByRole("listitem", { name: "worker box" });
 		expect(box.textContent).toContain("linux");
-		expect(box.textContent).toContain("0/4");
+		expect(box.textContent).toContain("none in use");
 		expect(box.textContent).toContain("draining");
 		expect(box.textContent).toContain("update waiting");
 		expect(
@@ -98,27 +98,25 @@ describe("App's workers", () => {
 				}),
 			]),
 		);
-		const mac = within(view.getByRole("region", { name: "this mac" }));
+		const mac = within(view.getByRole("listitem", { name: "worker local" }));
 		expect(
 			mac
 				.getByRole("switch", { name: "Runs agents" })
 				.getAttribute("aria-checked"),
 		).toBe("true");
-		expect(mac.getByText("A worker")).toBeDefined();
 		expect(mac.getByText(/Updating: temporarily/)).toBeDefined();
 		expect(mac.getByRole("spinbutton").getAttribute("value")).toBe("7");
 	});
 
 	it("turns this Mac off as a worker at once, by removing its worker", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
-		const mac = view.getByRole("region", { name: "this mac" });
+		const mac = view.getByRole("listitem", { name: "worker local" });
 		testing.holdWrites();
 
 		await act(async () =>
 			fireEvent.click(within(mac).getByRole("switch", { name: "Runs agents" })),
 		);
 
-		expect(mac.textContent).toContain("Not a worker");
 		expect(mac.textContent).toContain("it only coordinates");
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/local",
@@ -137,7 +135,7 @@ describe("App's workers", () => {
 				}),
 			]),
 		);
-		const mac = view.getByRole("region", { name: "this mac" });
+		const mac = view.getByRole("listitem", { name: "worker local" });
 		testing.holdWrites();
 
 		await act(async () =>
@@ -150,14 +148,14 @@ describe("App's workers", () => {
 
 	it("turns this Mac back on as a worker at once, adding its worker back", async () => {
 		const view = await openWorkers(pool([]));
-		const mac = view.getByRole("region", { name: "this mac" });
+		const mac = view.getByRole("listitem", { name: "worker local" });
 		testing.holdWrites();
 
 		await act(async () =>
 			fireEvent.click(within(mac).getByRole("switch", { name: "Runs agents" })),
 		);
 
-		expect(mac.textContent).toContain("A worker");
+		expect(mac.textContent).toContain("Takes new agents");
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/workers/local",
 			method: "PUT",
@@ -168,7 +166,7 @@ describe("App's workers", () => {
 
 	it("goes back and says why when turning this Mac off is refused", async () => {
 		const view = await openWorkers(pool([worker("local", { kind: "local" })]));
-		const mac = view.getByRole("region", { name: "this mac" });
+		const mac = view.getByRole("listitem", { name: "worker local" });
 		testing.refuseWrites = { reason: "usage", message: "no such worker" };
 
 		await act(async () =>
@@ -180,7 +178,7 @@ describe("App's workers", () => {
 				"Not turned off: no such worker",
 			),
 		);
-		expect(mac.textContent).toContain("A worker");
+		expect(mac.textContent).toContain("Takes new agents");
 	});
 
 	it("sets this Mac's slots", async () => {
@@ -305,7 +303,7 @@ describe("App's workers", () => {
 		testing.reply = { token: "t0ken", expiresAt: Date.now() + 900_000 };
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Add a worker" })),
+			fireEvent.click(view.getByRole("button", { name: "Mint a join token" })),
 		);
 
 		await waitFor(() =>

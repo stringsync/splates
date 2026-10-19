@@ -9,9 +9,15 @@ import { cn } from "#web/lib/utils.ts";
 import { workerKeys } from "./api";
 import { localWorker, localWorkerOn } from "./local-worker";
 import { PHONE_HEADING } from "./phone-rows";
-import { Refusal, useRefusals } from "./refusal";
+import { useRefusals } from "./refusal";
 import { TopBar } from "./top-bar";
-import { SlotsField, WorkerCard } from "./worker-card";
+import {
+	Health,
+	WorkerCard,
+	type WorkerCardFrame,
+	WorkerName,
+	WorkerShell,
+} from "./worker-card";
 import { JoinToken } from "./worker-invite";
 import { behind, WorkerPoolView } from "./worker-pool";
 
@@ -43,8 +49,9 @@ export function WorkersPage({
 	// Each change says why it was refused on the worker it was for.
 	const attempt = (id: string, title: string, write: Promise<void>) =>
 		void write.catch((caught) => refuse(id, title, caught));
-	const slots = (id: string, slots: number) =>
+	const setSlots = (id: string, slots: number) =>
 		attempt(id, "Slots not changed", view.change(id, { slots }));
+	const frame: WorkerCardFrame = { tasks, onOpenTask, providers, onOpenKeys };
 	return (
 		<section aria-label="workers" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Workers" />
@@ -60,42 +67,61 @@ export function WorkersPage({
 			)}
 			{pool !== null && (
 				<>
-					<ThisMac
-						pool={pool}
-						refusal={refusals.get("this mac")}
-						onTurn={(on) =>
-							attempt(
-								"this mac",
-								on ? "Not turned on" : "Not turned off",
-								view.turnLocal(on),
-							)
-						}
-						onSlots={slots}
-					/>
 					<Updates pool={pool} />
-					<Pool
-						pool={pool}
-						tasks={tasks}
-						onOpenTask={onOpenTask}
-						providers={providers}
-						onOpenKeys={onOpenKeys}
-						refusals={refusals}
-						onDrain={(id, draining) =>
-							attempt(
-								id,
-								draining ? "Not drained" : "Not resumed",
-								view.change(id, { draining }),
-							)
-						}
-						onWake={(id) => attempt(id, "Not woken", view.wake(id))}
-						onSlots={slots}
-						onRemove={(worker, force) =>
-							attempt(worker.id, "Not removed", view.remove(worker, force))
-						}
-					/>
+					<div className="flex flex-col gap-3">
+						<Heading title="Pool">
+							Every worker agents run on, this Mac first.
+						</Heading>
+						<ul aria-label="pool" className="flex flex-col gap-4">
+							<ThisMac
+								pool={pool}
+								frame={frame}
+								refusal={refusals.get("local")}
+								onTurn={(on) =>
+									attempt(
+										"local",
+										on ? "Not turned on" : "Not turned off",
+										view.turnLocal(on),
+									)
+								}
+								onSlots={setSlots}
+							/>
+							{pool.workers
+								.filter((worker) => worker.kind !== "local")
+								.map((worker) => (
+									<WorkerCard
+										key={worker.id}
+										worker={worker}
+										updating={behind(pool).includes(worker)}
+										frame={frame}
+										refusal={refusals.get(worker.id)}
+										onDrain={(draining) =>
+											attempt(
+												worker.id,
+												draining ? "Not drained" : "Not resumed",
+												view.change(worker.id, { draining }),
+											)
+										}
+										onWake={() =>
+											attempt(worker.id, "Not woken", view.wake(worker.id))
+										}
+										onSlots={(slots) => setSlots(worker.id, slots)}
+										onRemove={(force) =>
+											attempt(
+												worker.id,
+												"Not removed",
+												view.remove(worker, force),
+											)
+										}
+									/>
+								))}
+						</ul>
+						<TurnedAway pool={pool} />
+					</div>
 					<div className="flex flex-col gap-3">
 						<Heading title="Add a worker">
-							A join token, single use and good for 15 minutes.
+							Join another machine with a token, single use and good for 15
+							minutes.
 						</Heading>
 						<JoinToken build={pool.build} />
 					</div>
@@ -145,7 +171,12 @@ function localState(local: WorkerListing | null, on: boolean): string {
 		return "Updating: temporarily takes no new agents; resumes when the update finishes.";
 	}
 	const { used, total } = local.slots;
-	const running = used === 1 ? "1 agent runs" : `${used} agents run`;
+	const running =
+		used === 0
+			? "none run"
+			: used === 1
+				? "1 agent runs"
+				: `${used} agents run`;
 	if (on) {
 		return total === null
 			? `Takes new agents; ${running} here now.`
@@ -156,14 +187,20 @@ function localState(local: WorkerListing | null, on: boolean): string {
 		: "Off: takes no new agents.";
 }
 
-/** This Mac as a worker: on or off, and how many agents it runs at once. */
+/**
+ * This Mac as a worker, first in the pool: a switch that turns it on and
+ * off where another worker has its actions, and its listing while it is
+ * one.
+ */
 function ThisMac({
 	pool,
+	frame,
 	refusal,
 	onTurn,
 	onSlots,
 }: {
 	pool: WorkerPool;
+	frame: WorkerCardFrame;
 	refusal: string | undefined;
 	onTurn: (on: boolean) => void;
 	onSlots: (id: string, slots: number) => void;
@@ -171,39 +208,36 @@ function ThisMac({
 	const local = localWorker(pool);
 	const on = localWorkerOn(pool);
 	return (
-		<div className="flex flex-col gap-3">
-			<Heading title="This Mac">
-				Runs agents, yours and those other agents start, beside any other
-				worker.
-			</Heading>
-			<section
-				aria-label="this mac"
-				className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 shadow-xs"
-			>
-				<div className="flex items-center gap-3">
+		<WorkerShell
+			label="worker local"
+			title={
+				local === null ? (
+					<span className="font-medium text-sm">This Mac</span>
+				) : (
+					<>
+						<WorkerName id={local.id} />
+						<span className="text-muted-foreground text-xs">this Mac</span>
+					</>
+				)
+			}
+			line={localState(local, on)}
+			badges={local === null ? undefined : <Health worker={local} />}
+			worker={local}
+			updating={local !== null && behind(pool).includes(local)}
+			frame={frame}
+			onSlots={(slots) => local !== null && onSlots(local.id, slots)}
+			refusal={refusal}
+			actions={
+				<span className="flex items-center gap-2 text-sm">
+					<span id="runs-agents">Runs agents</span>
 					<Switch
-						aria-label="Runs agents"
+						aria-labelledby="runs-agents"
 						checked={on}
 						onCheckedChange={(checked) => onTurn(checked)}
 					/>
-					<span className="flex min-w-0 flex-col">
-						<span className="font-medium text-sm">
-							{on ? "A worker" : "Not a worker"}
-						</span>
-						<span className="text-muted-foreground text-xs">
-							{localState(local, on)}
-						</span>
-					</span>
-				</div>
-				{local !== null && (
-					<SlotsField
-						worker={local}
-						onSet={(slots) => onSlots(local.id, slots)}
-					/>
-				)}
-				<Refusal refusal={refusal} />
-			</section>
-		</div>
+				</span>
+			}
+		/>
 	);
 }
 
@@ -258,64 +292,22 @@ function rolloutState(pool: WorkerPool, worker: WorkerListing): string {
 	return worker.slots.used > 0 ? `, with ${worker.slots.used} running` : "";
 }
 
-/** Every worker, with what can be done to each, and those turned away. */
-function Pool({
-	pool,
-	tasks,
-	onOpenTask,
-	providers,
-	onOpenKeys,
-	refusals,
-	onDrain,
-	onWake,
-	onSlots,
-	onRemove,
-}: {
-	pool: WorkerPool;
-	tasks: ReadonlySet<string>;
-	onOpenTask: (name: string) => void;
-	providers: ReadonlyMap<string, string>;
-	onOpenKeys: () => void;
-	refusals: ReadonlyMap<string, string>;
-	onDrain: (id: string, draining: boolean) => void;
-	onWake: (id: string) => void;
-	onSlots: (id: string, slots: number) => void;
-	onRemove: (worker: WorkerListing, force: boolean) => void;
-}): JSX.Element {
+/** The machines that asked to join and were refused, each with why. */
+function TurnedAway({ pool }: { pool: WorkerPool }): JSX.Element | null {
+	if (pool.refused.length === 0) {
+		return null;
+	}
 	return (
-		<div className="flex flex-col gap-3">
-			<Heading title="Pool">Every worker agents run on.</Heading>
-			<ul aria-label="pool" className="flex flex-col gap-4">
-				{pool.workers.map((worker) => (
-					<WorkerCard
-						key={worker.id}
-						worker={worker}
-						updating={behind(pool).includes(worker)}
-						tasks={tasks}
-						onOpenTask={onOpenTask}
-						providers={providers}
-						onOpenKeys={onOpenKeys}
-						refusal={refusals.get(worker.id)}
-						onDrain={(draining) => onDrain(worker.id, draining)}
-						onWake={() => onWake(worker.id)}
-						onSlots={(slots) => onSlots(worker.id, slots)}
-						onRemove={(force) => onRemove(worker, force)}
-					/>
-				))}
-			</ul>
-			{pool.refused.length > 0 && (
-				<ul aria-label="turned away" className="flex flex-col gap-1">
-					{pool.refused.map((refused) => (
-						<li
-							key={`${refused.id} ${refused.protocol}`}
-							className="text-muted-foreground text-xs"
-						>
-							Turned away <code className="font-mono">{refused.id}</code> (
-							{refused.protocol}): {refused.reason}
-						</li>
-					))}
-				</ul>
-			)}
-		</div>
+		<ul aria-label="turned away" className="flex flex-col gap-1">
+			{pool.refused.map((refused) => (
+				<li
+					key={`${refused.id} ${refused.protocol}`}
+					className="text-muted-foreground text-xs"
+				>
+					Turned away <code className="font-mono">{refused.id}</code> (
+					{refused.protocol}): {refused.reason}
+				</li>
+			))}
+		</ul>
 	);
 }

@@ -2,7 +2,7 @@ import {
 	joinCommand,
 	windowsJoinCommand,
 } from "@stringsync/splates-server/workers/browser";
-import { CopyIcon, PlusIcon } from "lucide-react";
+import { CopyIcon, TicketIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { inviteWorker } from "./api";
@@ -35,11 +35,11 @@ export function JoinToken({ build }: { build: string }): JSX.Element {
 						.finally(() => setMinting(false));
 				}}
 			>
-				<PlusIcon />
-				{invite === null ? "Add a worker" : "Another token"}
+				<TicketIcon />
+				{invite === null ? "Mint a join token" : "Mint another"}
 			</Button>
 			{invite !== null && (
-				<>
+				<div className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 shadow-xs">
 					<JoinCommand
 						label="join command"
 						platform="Linux or macOS"
@@ -54,7 +54,7 @@ export function JoinToken({ build }: { build: string }): JSX.Element {
 						Run one on the machine to join, by{" "}
 						{new Date(invite.expiresAt).toLocaleTimeString()}.
 					</span>
-				</>
+				</div>
 			)}
 			<Refusal refusal={refusals.get(null)} />
 		</div>
