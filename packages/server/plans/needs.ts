@@ -21,7 +21,10 @@ export type Need =
 			subject: string;
 			/** When it stopped, where that is known. */
 			since: string | null;
-			/** The task's open questions, none for a task-less conversation. */
+			/**
+			 * The task's open questions, else those the agent's last reply
+			 * asks; none for other waits of a task-less conversation.
+			 */
 			questions: Question[];
 			/** The agent handed out by this one it waits for, lifted onto it. */
 			via?: string;
@@ -86,8 +89,8 @@ export function needs({
 
 /**
  * Why an agent waits: a live ACP ask (a permission or a form), a review its
- * last reply asked for, open questions it ended its turn on (or for an
- * external agent, went quiet on), a failure, or for a task, no agent left on
+ * last reply asked for, open questions it ended its turn on, in its task's
+ * `## Blocked` or its last reply (or for an external agent, went quiet on), a failure, or for a task, no agent left on
  * it (see `orphaned`).
  */
 export type Why = "ask" | "review" | "questions" | "failed" | "orphaned";
@@ -206,7 +209,8 @@ export function need(
 		why: Why,
 		subject: string,
 		since: string | null = null,
-	): Need => ({ kind: "waiting", why, subject, since, questions: open });
+		questions: Question[] = open,
+	): Need => ({ kind: "waiting", why, subject, since, questions });
 
 	const ask = conversation?.ask ?? null;
 	if (ask !== null) {
@@ -247,8 +251,23 @@ export function need(
 	if (first !== undefined) {
 		return waiting("questions", first.text, ended);
 	}
+	const asked = askedIn(conversation);
+	const [lead] = asked;
+	if (lead !== undefined) {
+		return waiting("questions", lead.text, ended, asked);
+	}
 	const review = reviewIn(conversation);
 	return review !== null ? waiting("review", review, ended) : { kind: "idle" };
+}
+
+/**
+ * The questions the agent's last reply asks, when that reply is its last
+ * word, so none is answered yet, with or without a task behind them.
+ */
+function askedIn(conversation: ConversationState): Question[] {
+	return stretches(lastWords(conversation) ?? "").flatMap((stretch) =>
+		stretch.type === "questions" ? stretch.questions : [],
+	);
 }
 
 /**
@@ -256,19 +275,23 @@ export function need(
  * reply is its last word and holds one; null otherwise.
  */
 function reviewIn(conversation: ConversationState): string | null {
-	const last = conversation.messages.at(-1);
-	if (last?.role !== "agent") {
-		return null;
-	}
-	const text = last.parts
-		.flatMap((part) => (part.type === "text" ? [part.text] : []))
-		.join("\n\n");
-	for (const stretch of stretches(text)) {
+	for (const stretch of stretches(lastWords(conversation) ?? "")) {
 		if (stretch.type === "review") {
 			return stretch.review.summary || "Ready to merge";
 		}
 	}
 	return null;
+}
+
+/** The text of the conversation's last message, when the agent sent it. */
+function lastWords(conversation: ConversationState): string | null {
+	const last = conversation.messages.at(-1);
+	if (last?.role !== "agent") {
+		return null;
+	}
+	return last.parts
+		.flatMap((part) => (part.type === "text" ? [part.text] : []))
+		.join("\n\n");
 }
 
 /**

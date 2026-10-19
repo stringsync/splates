@@ -37,6 +37,24 @@ export async function openRow(
 	await act(async () => fireEvent.click(item));
 }
 
+/**
+ * From the sheet a phone's inbox opens a conversation waiting on you at, to
+ * its thread behind it.
+ */
+export async function toThread(view: ConversationsView): Promise<void> {
+	const sheet = await waitFor(() => view.getByRole("dialog"));
+	await act(async () =>
+		fireEvent.click(
+			within(sheet).getByRole("button", { name: "Conversation" }),
+		),
+	);
+	await waitFor(() => {
+		if (view.queryByRole("dialog") !== null) {
+			throw new Error("the sheet is still open");
+		}
+	});
+}
+
 /** Opens the new conversation screen with `agent`, from the sidebar. */
 export async function newWith(
 	view: ConversationsView,

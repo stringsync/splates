@@ -12,6 +12,7 @@ import {
 	Testing,
 	textIn,
 	todo,
+	toThread,
 	typeIn,
 	waitFor,
 	within,
@@ -126,6 +127,7 @@ describe("App's card answer boxes", () => {
 		testing.dictation?.dispose();
 		testing.dictation = new Dictation(microphone, async () => link);
 		const view = await testing.openConversations([asking]);
+		await toThread(view);
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>

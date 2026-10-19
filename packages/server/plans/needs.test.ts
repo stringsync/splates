@@ -101,6 +101,58 @@ describe("needs", () => {
 		});
 	});
 
+	it("waits on the questions its last reply asks, task or not, until a reply", () => {
+		const at = "2026-10-11T10:07:00.000Z";
+		const asking = talk({
+			task: null,
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{
+							type: "text",
+							text: "Where it stands.\n\n1. Which way?\n   - (a) Left (chosen)\n   - (b) Right\n2. How soon?\n",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
+
+		const waiting = need(null, asking);
+		expect(waiting).toMatchObject({
+			kind: "waiting",
+			why: "questions",
+			subject: "Which way?",
+			since: at,
+		});
+		expect(
+			waiting.kind === "waiting" &&
+				waiting.questions.map((asked) => asked.text),
+		).toEqual(["Which way?", "How soon?"]);
+		expect(need(task(), { ...asking, task: "alpha" })).toMatchObject({
+			kind: "waiting",
+			why: "questions",
+		});
+		// Answered: the reply starts its turn, then ends it.
+		expect(need(null, { ...asking, status: "running" })).toEqual({
+			kind: "working",
+			subject: null,
+		});
+		expect(
+			need(null, {
+				...asking,
+				messages: [
+					...asking.messages,
+					{ role: "user", parts: [], plan: null, at, until: at },
+				],
+			}),
+		).toEqual({ kind: "idle" });
+	});
+
 	it("says a failure, and otherwise what the agent works on next", () => {
 		expect(
 			need(null, talk({ task: null, status: "failed", error: "exited 1" })),

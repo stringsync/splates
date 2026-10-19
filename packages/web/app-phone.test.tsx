@@ -10,6 +10,7 @@ import {
 	resize,
 	Testing,
 	tool,
+	toThread,
 	waitFor,
 	within,
 } from "./testing";
@@ -490,6 +491,7 @@ describe("App on a phone", () => {
 				messages: [message("user", "fix the header"), message("agent", report)],
 			}),
 		]);
+		await toThread(view);
 
 		// In the thread, a line in place of the card.
 		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
@@ -588,6 +590,7 @@ describe("App on a phone", () => {
 					],
 				}),
 			]);
+			await toThread(view);
 			const bar = () =>
 				view.queryByRole("complementary", { name: "Waiting on you" });
 			await waitFor(() => expect(bar()).toBeTruthy());
@@ -629,6 +632,7 @@ describe("App on a phone", () => {
 					],
 				}),
 			]);
+			await toThread(view);
 			await act(async () =>
 				fireEvent.click(
 					await waitFor(() =>
@@ -673,6 +677,7 @@ describe("App on a phone", () => {
 				],
 			}),
 		]);
+		await toThread(view);
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
@@ -717,6 +722,7 @@ describe("App on a phone", () => {
 				],
 			}),
 		]);
+		await toThread(view);
 
 		await act(async () =>
 			fireEvent.click(
