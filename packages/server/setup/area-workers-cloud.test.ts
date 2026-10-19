@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
 import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
+import { FakeHetzner } from "../cloud/testing";
 import { FakeWorkerProvider } from "../workers/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -105,5 +106,55 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 			expect.stringMatching(/^snapshot linux /),
 		]);
 		expect(await machine.fs.read(`${HOME}/snapshots.json`)).toContain("snap-1");
+	});
+
+	it("forgets the cloud chosen and its token once undone, leaving the token to revoke and the config to edit", async () => {
+		await machine.device.set(HCLOUD_TOKEN, "token");
+		provider = new FakeWorkerProvider();
+		await setup().submit("cloud-choice", { cloud: "hetzner" });
+
+		const plan = await setup().undoPlan("workers");
+
+		expect(plan.steps.map((step) => step.id)).toEqual([
+			"cloud-provider",
+			"cloud-token",
+			"cloud-choice",
+		]);
+		expect(plan.steps[0]?.leaves[0]).toContain("`cloud` in this project's");
+		expect(plan.steps[1]?.leaves[0]).toContain("revoke it");
+		expect(plan.steps[2]?.removes).toEqual([
+			"The cloud provider chosen, kept in `~/.splates/cloud.json`",
+		]);
+		expect(plan.creds).toEqual([{ name: HCLOUD_TOKEN, keptFor: null }]);
+
+		await setup().undo("workers", null);
+		await setup().undo("workers", null);
+
+		expect(await new ChosenCloud(HOME, machine.fs).read()).toBeNull();
+		expect(await machine.device.get(HCLOUD_TOKEN)).toBeUndefined();
+	});
+
+	it("deletes the kept snapshot in the cloud and forgets it", async () => {
+		const hetzner = new FakeHetzner();
+		hetzner.images.set(7, { id: 7, labels: {} });
+		machine.fetch = hetzner.fetch;
+		await machine.device.set(HCLOUD_TOKEN, "token");
+		await machine.fs.write(
+			`${HOME}/snapshots.json`,
+			JSON.stringify({ linux: { id: "7", version: "1.0.0", builtAt: 0 } }),
+		);
+		const snapshot = WORKERS_AREA.steps.find(
+			(step) => step.id === "worker-snapshot",
+		);
+
+		expect(await snapshot?.undo?.removes(machine)).toEqual([
+			"The worker snapshot `7` in Hetzner Cloud, of splates 1.0.0",
+		]);
+		await snapshot?.undo?.run(machine);
+		await snapshot?.undo?.run(machine);
+
+		expect(hetzner.images.size).toBe(0);
+		expect(await snapshot?.check(machine)).toBe(false);
+		expect(await snapshot?.undo?.removes(machine)).toEqual([]);
 	});
 });

@@ -189,7 +189,7 @@ export const KEYRING_PASSWORD = "/root/splates-keyring";
 export const BOX_USER = "splates";
 
 /** What the box, its SSH key and its firewall are named. */
-const BOX_NAME = "splates-coordinator";
+export const BOX_NAME = "splates-coordinator";
 
 /** The tag the box carries, which is how splates finds it. */
 const BOX_TAG = "splates-coordinator";

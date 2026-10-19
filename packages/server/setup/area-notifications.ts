@@ -1,5 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import { forgetDevices } from "../push";
 import type { SetupArea, SetupStep } from "./setup";
 
 /** Pushes to this browser when an agent waits or finishes. */
@@ -18,6 +19,18 @@ function notificationsArea(): SetupArea {
 		optional: true,
 		after: [],
 		check: async ({ fs, home }) => (await pushDevices(fs, home)).length > 0,
+		// The keys stay, so a browser that subscribes again needs nothing new.
+		undo: {
+			removes: async ({ fs, home }) =>
+				(await pushDevices(fs, home)).map(
+					(device) =>
+						`The browser pushed through ${pushService(device.subscription?.endpoint)}, kept in \`${home}/push.json\``,
+				),
+			leaves: async () => [
+				"Each browser still lets this site notify it: turn that off under Notifications in its site settings.",
+			],
+			run: ({ fs, home }) => forgetDevices(fs, home),
+		},
 	};
 
 	const noticesStep: SetupStep = {
@@ -62,10 +75,20 @@ function notificationsArea(): SetupArea {
 const PUSH_DEVICES = z.object({
 	devices: z.array(
 		z.object({
+			subscription: z.object({ endpoint: z.string() }).optional(),
 			wants: z.object({ waiting: z.boolean(), finished: z.boolean() }),
 		}),
 	),
 });
+
+/** The host of the push service `endpoint` goes through, which tells browsers apart. */
+function pushService(endpoint: string | undefined): string {
+	try {
+		return new URL(endpoint ?? "").host;
+	} catch {
+		return "an unknown push service";
+	}
+}
 
 /** The devices `push.json` keeps, none when it is not there. */
 async function pushDevices(fs: Fs, home: string) {

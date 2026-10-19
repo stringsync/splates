@@ -10,11 +10,6 @@ import type { AgentPick } from "@stringsync/splates-server/models";
 import type { PortLink } from "@stringsync/splates-server/ports";
 import type { Wants } from "@stringsync/splates-server/push/browser";
 import type {
-	MoveProgress,
-	SetupProgress,
-	StepAnswers,
-} from "@stringsync/splates-server/setup";
-import type {
 	Landed,
 	PeriodId,
 	Stats,
@@ -422,63 +417,6 @@ export async function removeWorker(
 		`/api/workers/${encodeURIComponent(id)}${force ? "?force" : ""}`,
 		{ method: "DELETE" },
 	)) as { id: string; removed: boolean; running: string[] };
-}
-
-/** This machine's setup: every step checked, by area, and the one to do next. */
-export async function setup(): Promise<SetupProgress> {
-	const response = await fetch(scoped("/api/setup"));
-	if (!response.ok) {
-		throw new ApiError("error", `/api/setup: ${response.status}`);
-	}
-	return (await response.json()) as SetupProgress;
-}
-
-/**
- * Presses Next on setup step `step` with what its page answered, answering
- * the fresh progress once the step reads done; an `ApiError` whose message
- * is one line on what went wrong otherwise.
- */
-export async function nextSetupStep(
-	step: string,
-	answers: StepAnswers,
-): Promise<SetupProgress> {
-	return (await sendJson(
-		`/api/setup/${encodeURIComponent(step)}/next`,
-		"POST",
-		{ answers },
-	)) as SetupProgress;
-}
-
-/**
- * Starts moving the coordinator onto its box, which stops this server on its
- * way: answers where the move stands as it starts.
- */
-export async function startCoordinatorMove(): Promise<MoveProgress> {
-	return (await sendJson(
-		"/api/setup/coordinator/move",
-		"POST",
-		{},
-	)) as MoveProgress;
-}
-
-/**
- * Where the move stands as the server at this address says, which is the
- * box's once it has moved; throws while no server answers here.
- */
-export async function coordinatorMoveProgress(): Promise<MoveProgress> {
-	const response = await fetch("/api/setup/coordinator/move");
-	if (!response.ok) {
-		throw new ApiError(
-			"error",
-			`/api/setup/coordinator/move: ${response.status}`,
-		);
-	}
-	return (await response.json()) as MoveProgress;
-}
-
-/** Marks setup seen on this machine, so the page stops nudging towards it. */
-export async function seeSetup(): Promise<SetupProgress> {
-	return (await sendJson("/api/setup/seen", "PUT", {})) as SetupProgress;
 }
 
 /** The public key this device subscribes to the server's pushes with. */

@@ -2,25 +2,26 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { SNAPSHOT_FRESH, Snapshots, snapshotRecipe } from "./snapshot";
+import {
+	forgetSnapshot,
+	keptSnapshot,
+	SNAPSHOT_FRESH,
+	Snapshots,
+	snapshotRecipe,
+} from "./snapshot";
 import { FakeWorkerProvider } from "./testing";
 
 describe("the worker snapshot", () => {
 	let wall: FakeWallClock;
 	let provider: FakeWorkerProvider;
+	let opts: { path: string; fs: FakeFs };
 	let opened: (version: string) => Promise<Snapshots>;
 
 	beforeEach(() => {
-		const fs = new FakeFs();
 		wall = new FakeWallClock(0);
 		provider = new FakeWorkerProvider(undefined, wall);
-		opened = (version) =>
-			Snapshots.open(provider, {
-				version,
-				path: "/home/snapshots.json",
-				fs,
-				wall,
-			});
+		opts = { path: "/home/snapshots.json", fs: new FakeFs() };
+		opened = (version) => Snapshots.open(provider, { ...opts, version, wall });
 	});
 
 	it("installs bun, git, the browser and the version asked for, with no credentials", () => {
@@ -51,6 +52,27 @@ describe("the worker snapshot", () => {
 
 		expect(await server.current("linux")).toEqual(built);
 		expect(provider.getCalls()).toEqual(["snapshot linux 1.0.0"]);
+	});
+
+	it("forgets the one kept, so the next worker builds again", async () => {
+		const built = await (await opened("1.0.0")).current("linux");
+
+		expect(await forgetSnapshot("linux", opts)).toEqual(built);
+		expect(await forgetSnapshot("linux", opts)).toBeNull();
+		expect(await keptSnapshot("linux", opts)).toBeNull();
+	});
+
+	it("builds again once setup's undo has forgotten the one it boots from", async () => {
+		const snapshots = await opened("1.0.0");
+		await snapshots.current("linux");
+
+		await forgetSnapshot("linux", opts);
+		await snapshots.current("linux");
+
+		expect(provider.getCalls()).toEqual([
+			"snapshot linux 1.0.0",
+			"snapshot linux 1.0.0",
+		]);
 	});
 
 	it("builds again for a new version, or once it is a week old", async () => {

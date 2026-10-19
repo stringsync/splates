@@ -18,6 +18,7 @@ describe("OPENCODE_AREA", () => {
 	let ps: OpenCodeFixturePs;
 	let device: FakeSecretStore;
 	let setup: Setup;
+	let opencode: OpenCodeSetup;
 	let rosters: number;
 	const statuses = async (): Promise<Record<string, StepStatus>> =>
 		Object.fromEntries(
@@ -32,7 +33,7 @@ describe("OPENCODE_AREA", () => {
 		ps = new OpenCodeFixturePs();
 		device = new FakeSecretStore();
 		rosters = 0;
-		const opencode = new OpenCodeSetup({
+		opencode = new OpenCodeSetup({
 			fs,
 			ps,
 			home: HOME,
@@ -137,6 +138,67 @@ describe("OPENCODE_AREA", () => {
 			`${await fs.read(`${HOME}/agents.json`)} `,
 		);
 		expect((await statuses())["opencode-ready"]).toBe("ready");
+	});
+
+	it("undoes by taking OpenCode off the roster and forgetting the key, leaving the install and its login", async () => {
+		await device.set(OPENCODE_GO_KEY, "go-secret");
+		await setup.submit("opencode-models", MODELS);
+		await setup.submit("opencode-ready", {});
+
+		expect((await setup.undoPlan("opencode")).steps).toEqual([
+			{
+				id: "opencode-ready",
+				title: "Check OpenCode",
+				removes: [],
+				leaves: [],
+			},
+			{
+				id: "opencode-models",
+				title: "Choose your models",
+				removes: [
+					`OpenCode on the roster in \`${HOME}/agents.json\`, running opencode-go/Main and opencode-go/Small`,
+				],
+				leaves: [],
+			},
+			{
+				id: "opencode-connect",
+				title: "Paste your OpenCode Go API key",
+				removes: ["The OpenCode Go API key kept on this device"],
+				leaves: [
+					"OpenCode keeps its own copy of the key: run `opencode auth logout` and pick OpenCode Go to remove it.",
+					"The key still works: delete it in the [OpenCode Console](https://opencode.ai/auth) if you no longer want it.",
+				],
+			},
+			{
+				id: "opencode-install",
+				title: "Install OpenCode",
+				removes: [],
+				leaves: [
+					"OpenCode stays installed: run `npm uninstall --global @opencode/cli` to remove it.",
+				],
+			},
+		]);
+		await setup.undo("opencode", null);
+
+		expect(await statuses()).toEqual({
+			"opencode-install": "done",
+			"opencode-connect": "ready",
+			"opencode-models": "waiting",
+			"opencode-ready": "waiting",
+		});
+		expect(await device.get(OPENCODE_GO_KEY)).toBeUndefined();
+		const saved = JSON.parse(await fs.read(`${HOME}/agents.json`));
+		expect(
+			saved.agents.some((agent: { id: string }) => agent.id === "opencode"),
+		).toBe(false);
+		await OPENCODE_AREA.steps[2]?.undo?.run({
+			fs,
+			home: HOME,
+			device,
+			opencode,
+		});
+		expect(JSON.parse(await fs.read(`${HOME}/agents.json`))).toEqual(saved);
+		expect(ps.commands.map((each) => each.argv[0])).not.toContain("npm");
 	});
 
 	it("fails the check when a saved model is no longer listed", async () => {

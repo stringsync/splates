@@ -6,6 +6,7 @@ import {
 	ChevronRightIcon,
 	Loader2Icon,
 	RotateCwIcon,
+	Undo2Icon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -28,9 +29,12 @@ export const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
 export function SetupIndex({
 	areas,
 	onSelect,
+	onUndo,
 }: {
 	areas: readonly AreaProgress[];
 	onSelect: (id: string) => void;
+	/** Asks to undo an area with a step done. */
+	onUndo: (id: string) => void;
 }): JSX.Element {
 	return (
 		<nav
@@ -45,7 +49,7 @@ export function SetupIndex({
 					{group.map((area) => {
 						const done = area.done === area.steps.length;
 						return (
-							<li key={area.id}>
+							<li key={area.id} className="flex items-center">
 								<button
 									type="button"
 									className="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
@@ -63,6 +67,17 @@ export function SetupIndex({
 										/>
 									)}
 								</button>
+								{area.done > 0 && (
+									<Button
+										variant="ghost"
+										size="sm"
+										className="mr-2 text-muted-foreground"
+										aria-label={`Undo ${area.title}`}
+										onClick={() => onUndo(area.id)}
+									>
+										<Undo2Icon aria-hidden /> Undo
+									</Button>
+								)}
 							</li>
 						);
 					})}
@@ -238,10 +253,13 @@ export function CredField({
 export function JourneyDone({
 	title,
 	onLeave,
+	onUndo,
 	children,
 }: {
 	title: string;
 	onLeave: () => void;
+	/** Asks to undo it. */
+	onUndo: () => void;
 	/** What to do next, as "Start an OpenCode conversation". */
 	children?: ReactNode;
 }): JSX.Element {
@@ -255,6 +273,13 @@ export function JourneyDone({
 				{children}
 				<Button variant="outline" onClick={onLeave}>
 					Back to setup
+				</Button>
+				<Button
+					variant="ghost"
+					className="text-muted-foreground"
+					onClick={onUndo}
+				>
+					<Undo2Icon data-icon="inline-start" /> Undo {title}
 				</Button>
 			</div>
 		</div>

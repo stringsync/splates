@@ -52,6 +52,16 @@ its area.
 A required step (`optional: false`) can be skipped too, but say first what
 stops working without it, from `why`.
 
+When the user wants an area taken back out, its creds forgotten and what it
+made removed, that is its Undo on the Setup page, which the user presses: it
+asks first, listing what goes, and for a box or tunnel has its name typed.
+Never undo one yourself, by its routes or by hand, as with `splates server
+destroy`. `splates setup <area> --undo` prints what it would remove, the creds
+it forgets and keeps, and what only the user can remove after, such as the
+GitHub App itself or a token in a provider's dashboard: say that in a few
+lines and send them to the page. When it is `refused`, say why, from its
+reason.
+
 ## Remote access
 
 When the user asks to reach `splates server` from elsewhere, that is the Remote

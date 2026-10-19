@@ -5,7 +5,8 @@ import type {
 	StepProgress,
 } from "@stringsync/splates-server/setup";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { nextSetupStep, saveCred, setup } from "./api";
+import { saveCred } from "./api";
+import { nextSetupStep, setup } from "./setup-api";
 import type { NextState } from "./setup-form";
 
 /**

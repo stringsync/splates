@@ -8,8 +8,16 @@ import type {
 	WorkerLimit,
 	WorkerListing,
 } from "../workers";
+import { checked, listed } from "./checks";
+import {
+	type FieldProgress,
+	fieldsIn,
+	fieldsOf,
+	type StepField,
+} from "./fields";
 import type { OpenCodeSetup } from "./opencode";
 import { StepProblem } from "./step-problem";
+import { SetupUndo, type StepUndo, type UndoPlan } from "./undo";
 
 /**
  * Setting splates up on this machine: the roster's steps, which the user has
@@ -19,11 +27,13 @@ import { StepProblem } from "./step-problem";
 export class Setup {
 	readonly #areas: readonly SetupArea[];
 	readonly #machine: SetupMachine;
+	readonly #undo: SetupUndo;
 
 	constructor(machine: SetupMachine, areas: readonly SetupArea[]) {
 		checkRoster(areas);
 		this.#areas = areas;
 		this.#machine = machine;
+		this.#undo = new SetupUndo(machine, areas);
 	}
 
 	get #path(): string {
@@ -202,6 +212,20 @@ export class Setup {
 		}
 	}
 
+	/** What undoing area `id` would do, as `SetupUndo` plans it. */
+	undoPlan(id: string): Promise<UndoPlan> {
+		return this.#undo.plan(id);
+	}
+
+	/**
+	 * Undoes area `id`, `confirm` the name its plan asks typed, answering
+	 * the fresh progress; a `StepProblem` when it will not go.
+	 */
+	async undo(id: string, confirm: string | null): Promise<SetupProgress> {
+		await this.#undo.run(id, confirm);
+		return this.read();
+	}
+
 	async #skipped(): Promise<string[]> {
 		const raw = await this.#machine.fs.read(this.#path).catch(() => null);
 		if (raw === null) {
@@ -252,6 +276,23 @@ export interface SetupMachine {
 	workers?(): Promise<readonly SetupWorker[]>;
 	/** The worker budget of the `splates server`, for the steps that read it; none with no server to ask. */
 	workerBudget?: SetupWorkerBudget;
+	/**
+	 * Removes worker `id` from the pool, revoking its key, as `splates worker
+	 * remove` does; one with agents on it drains first. None with no server.
+	 */
+	removeWorker?(id: string): Promise<void>;
+	/**
+	 * Deletes every `provider` key a worker or type of made worker holds,
+	 * through the server's own roster, which sends the workers theirs again.
+	 * None with no server, when the roster file is all there is.
+	 */
+	removeWorkerKeys?(provider: string): Promise<void>;
+	/**
+	 * Deletes what `splates tunnel setup` and the slots made in Cloudflare and
+	 * forgets their saved files, as `splates tunnel remove` does. None outside
+	 * a project, whose creds it reads the API token through.
+	 */
+	removeTunnel?(): Promise<void>;
 }
 
 /** The worker budget as a step reads and sets it. */
@@ -259,6 +300,8 @@ export interface SetupWorkerBudget {
 	report(): Promise<Pick<WorkerBudgetReport, "standing" | "reviewed">>;
 	/** Sets `limit` to `dollars`; null gives it back to its default. */
 	set(limit: WorkerLimit, dollars: number | null): Promise<void>;
+	/** Gives every limit back to its default, and the budget back to unseen; none outside `splates server`. */
+	unreview?(): Promise<void>;
 }
 
 /** A worker as a step reads it, from `GET /api/workers`. */
@@ -324,73 +367,26 @@ export interface SetupStep {
 	/** A line on what `submit` runs, as "Installing OpenCode with npm…". */
 	readonly doing?: string;
 	/**
+	 * How to take the step back out, run when its area is undone; without
+	 * one, undoing only forgets its creds.
+	 */
+	readonly undo?: StepUndo;
+	/**
+	 * What the step needs to go on working, or to be undone, that others
+	 * share: creds, as the token a box is destroyed with, and `CLOUD_CHOICE`.
+	 * Undoing another area keeps each while this step is done, and undoing
+	 * this one forgets its creds.
+	 */
+	readonly uses?: readonly string[];
+	/**
 	 * What the page says when Next finds the step still not done, as "Sign
 	 * in on your phone, then press Next."
 	 */
 	readonly notDone?: string;
 }
 
-/**
- * One thing a step's page asks. `name` keys its answer, and for a cred is
- * the cred's own name, as `OPENAI_API_KEY`, which Next saves for the device
- * before it submits, so a step's `submit` reads it from `machine.device`.
- */
-export type StepField =
-	| {
-			kind: "cred";
-			name: string;
-			label: string;
-			help?: string;
-			/**
-			 * May be left unpasted, as a key with another way to the same end;
-			 * the step's check then says whether it is done.
-			 */
-			optional?: boolean;
-	  }
-	| {
-			kind: "text";
-			name: string;
-			label: string;
-			placeholder?: string;
-			/** May be left empty, as a team name only some accounts need. */
-			optional?: boolean;
-	  }
-	| { kind: "yes-no"; name: string; label: string }
-	| {
-			kind: "choice";
-			name: string;
-			label: string;
-			/** What may be picked, read each time the page reads setup. */
-			options(machine: SetupMachine): Promise<readonly StepOption[]>;
-	  };
-
-/** One choice a `choice` field lists. */
-export interface StepOption {
-	value: string;
-	label: string;
-}
-
 /** What the user answered on a step's page, by field name. */
 export type StepAnswers = Record<string, string | boolean>;
-
-/** A field as the page draws it: a choice's options listed, a cred saved or not. */
-export type FieldProgress =
-	| {
-			kind: "cred";
-			name: string;
-			label: string;
-			help: string | null;
-			saved: boolean;
-	  }
-	| {
-			kind: "text";
-			name: string;
-			label: string;
-			placeholder: string | null;
-			optional: boolean;
-	  }
-	| { kind: "yes-no"; name: string; label: string }
-	| { kind: "choice"; name: string; label: string; options: StepOption[] };
 
 /** A part of setup, such as remote access, and its steps in order. */
 export interface SetupArea {
@@ -459,79 +455,6 @@ const SKIPS = z.object({
 
 /** What the page says when Next finds a step not done and it says nothing. */
 const NOT_DONE = "This step is not done yet: do it, then press Next.";
-
-/** `step`'s fields as the page draws them. */
-async function fieldsOf(
-	step: SetupStep,
-	machine: SetupMachine,
-): Promise<FieldProgress[]> {
-	const fields: FieldProgress[] = [];
-	// Fields that will not read leave the page asking nothing; Next then checks.
-	for (const field of await fieldsIn(step, machine).catch(() => [])) {
-		switch (field.kind) {
-			case "cred": {
-				const { optional: _, ...rest } = field;
-				fields.push({
-					...rest,
-					help: field.help ?? null,
-					saved: (await machine.device.get(field.name)) !== undefined,
-				});
-				break;
-			}
-			case "text":
-				fields.push({
-					...field,
-					placeholder: field.placeholder ?? null,
-					optional: field.optional ?? false,
-				});
-				break;
-			case "yes-no":
-				fields.push(field);
-				break;
-			case "choice": {
-				const { options, ...rest } = field;
-				// A list that will not read leaves the field empty, so the rest
-				// of setup still reads; Next then says to pick one.
-				const listed = await options(machine).catch(() => []);
-				fields.push({ ...rest, options: [...listed] });
-				break;
-			}
-		}
-	}
-	return fields;
-}
-
-/** What `step`'s page asks on this machine. */
-async function fieldsIn(
-	step: SetupStep,
-	machine: SetupMachine,
-): Promise<readonly StepField[]> {
-	const { fields } = step;
-	return typeof fields === "function" ? fields(machine) : (fields ?? []);
-}
-
-/** Whether `step` is on the roster for this machine; a throw reading that hides it. */
-async function listed(
-	step: SetupStep,
-	machine: SetupMachine,
-): Promise<boolean> {
-	return (await step.shown?.(machine).catch(() => false)) ?? true;
-}
-
-/** A step's check, a throw turned into the problem it reports. */
-async function checked(
-	step: SetupStep,
-	machine: SetupMachine,
-): Promise<{ done: boolean; problem: string | null }> {
-	try {
-		return { done: await step.check(machine), problem: null };
-	} catch (error) {
-		return {
-			done: false,
-			problem: error instanceof Error ? error.message : String(error),
-		};
-	}
-}
 
 /**
  * Refuses a roster that names one id twice, or a step that waits on one not

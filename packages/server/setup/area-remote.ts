@@ -34,6 +34,15 @@ function remoteAccessArea(): SetupArea {
 			},
 		],
 		check: async ({ device }) => (await device.get(API_TOKEN)) !== undefined,
+		// The token goes with the area; Cloudflare keeps it until it is deleted there.
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				`The API token itself: delete it in [Cloudflare's API tokens](${TOKENS_PAGE}).`,
+				"The account's Zero Trust organization, which `splates tunnel setup` may have made, stays: it costs nothing on its own.",
+			],
+			run: async () => {},
+		},
 	};
 
 	const tunnelStep: SetupStep = {
@@ -45,6 +54,8 @@ function remoteAccessArea(): SetupArea {
 			"Run `splates tunnel setup <host> --email <emails>`, adding `--team <name>` when the account has no Zero Trust organization yet.",
 		optional: true,
 		after: [tokenStep],
+		// Removed with the API token, which workers' Access step asks for too.
+		uses: [API_TOKEN],
 		fields: [
 			{
 				kind: "text",
@@ -95,6 +106,29 @@ function remoteAccessArea(): SetupArea {
 			}
 		},
 		check: async (machine) => (await savedTunnel(machine)) !== null,
+		undo: {
+			removes: async (machine) => {
+				const host = (await savedTunnel(machine))?.host ?? "the host";
+				return [
+					`The tunnel to ${host}, and the DNS record routing ${host} to it`,
+					`The Access application in front of ${host}, and its policy`,
+					"The workers' Access policy and its service tokens: workers joined through the tunnel lose their access",
+					"Each slot's tunnel, and the Access application in front of every slot",
+				];
+			},
+			refused: async ({ removeTunnel }) =>
+				removeTunnel === undefined
+					? "Open Setup from a project to remove the tunnel: its API token is read through the project's creds."
+					: null,
+			// Its host is public, and another tunnel would need setting up again.
+			confirm: async (machine) => (await savedTunnel(machine))?.host ?? null,
+			run: async ({ removeTunnel }) => {
+				if (removeTunnel === undefined) {
+					throw new Error("No project to remove the tunnel from.");
+				}
+				await removeTunnel();
+			},
+		},
 	};
 
 	const accessStep: SetupStep = {
@@ -145,6 +179,23 @@ function remoteAccessArea(): SetupArea {
 		},
 		check: async ({ fs, home }) =>
 			(await new SavedPortsHost(`${home}/ports.json`, fs).read()) !== null,
+		undo: {
+			removes: async ({ fs, home }) => {
+				const base = await new SavedPortsHost(`${home}/ports.json`, fs).read();
+				return [
+					`The saved base host ${base}, which a running \`splates server\` serves until it restarts`,
+				];
+			},
+			leaves: async ({ fs, home }) => {
+				const base = await new SavedPortsHost(`${home}/ports.json`, fs).read();
+				return [
+					`The DNS and TLS routing \`*.${base}\` to \`splates server\`, which you made: remove it where you made it.`,
+				];
+			},
+			run: async ({ fs, home }) => {
+				await new SavedPortsHost(`${home}/ports.json`, fs).save(null);
+			},
+		},
 	};
 
 	return {

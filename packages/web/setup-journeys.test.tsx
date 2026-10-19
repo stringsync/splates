@@ -188,7 +188,8 @@ describe("Setup journeys", () => {
 		expect(testing.posted("/api/setup/opencode/disable")).toHaveLength(1);
 	});
 
-	it("lists areas as rows, marking those with every step done", () => {
+	it("lists areas as rows, marking those with every step done, and offers Undo on those with any", () => {
+		const undone: string[] = [];
 		const view = render(
 			<SetupIndex
 				areas={progress.areas.map((area) => ({
@@ -196,14 +197,24 @@ describe("Setup journeys", () => {
 					done: area.id === "claude" ? area.steps.length : 0,
 				}))}
 				onSelect={() => {}}
+				onUndo={(id) => undone.push(id)}
 			/>,
 		);
-		const rows = view.getAllByRole("button").map((row) => row.textContent);
+		const rows = view
+			.getAllByRole("button", { name: /^Set up/ })
+			.map((row) => row.textContent);
 		expect(rows.slice(0, 3)).toEqual([
 			"Set up OpenCode",
 			"Set up Claude Done",
 			"Set up Codex",
 		]);
+		expect(
+			view
+				.getAllByRole("button", { name: /^Undo/ })
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["Undo Claude"]);
+		fireEvent.click(view.getByRole("button", { name: "Undo Claude" }));
+		expect(undone).toEqual(["claude"]);
 	});
 
 	it("asks one question, with Next becoming Try again once it fails", () => {

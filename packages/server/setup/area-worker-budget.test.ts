@@ -25,6 +25,7 @@ describe("the worker budget step", () => {
 					reviewed: budget.reviewed,
 				}),
 				set: (limit, dollars) => budget.set(limit, dollars),
+				unreview: () => budget.unreview(),
 			},
 			project: {
 				root: "/repo",
@@ -86,5 +87,39 @@ describe("the worker budget step", () => {
 			}),
 		).rejects.toThrow("dollars");
 		expect(budget.reviewed).toBe(false);
+	});
+
+	it("gives the limits back to their defaults once undone, asking again", async () => {
+		await new Setup(machine, ROSTER).submit("worker-budget", {
+			hour: "1",
+			day: "",
+			month: "",
+		});
+
+		const plan = await new Setup(machine, ROSTER).undoPlan("workers");
+		expect(plan.steps.find((each) => each.id === "worker-budget")).toEqual({
+			id: "worker-budget",
+			title: "Choose what made workers may cost",
+			removes: [
+				"The limits chosen for made workers, back to their defaults (hour $0.25, day $5.00, month $75.00)",
+			],
+			leaves: [],
+		});
+		await new Setup(machine, ROSTER).undo("workers", null);
+		await new Setup(machine, ROSTER).undo("workers", null);
+
+		expect(budget.standing().map((each) => each.dollars)).toEqual([
+			0.25, 5, 75,
+		]);
+		expect((await step())?.status).toBe("ready");
+	});
+
+	it("refuses with no server to put the budget back", async () => {
+		delete machine.workerBudget?.unreview;
+		await budget.set("day", 8);
+
+		expect((await new Setup(machine, ROSTER).undoPlan("workers")).refused).toBe(
+			"No `splates server` to put the worker budget back: undo it from the Setup page it serves.",
+		);
 	});
 });

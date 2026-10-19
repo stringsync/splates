@@ -33,9 +33,7 @@ export class SetupRoutes {
 	 * message is the one line the page shows under its fields.
 	 */
 	readonly next = async (request: Request): Promise<Response> => {
-		const step = decodeURIComponent(
-			new URL(request.url).pathname.split("/")[3] ?? "",
-		);
+		const step = idOf(request);
 		const { answers = {} } = await body(request);
 		if (!isAnswers(answers)) {
 			fail(
@@ -57,6 +55,42 @@ export class SetupRoutes {
 			throw error;
 		}
 	};
+
+	/**
+	 * What undoing the area `/api/setup/:area/undo` names would do, for its
+	 * page to ask before it goes.
+	 */
+	readonly undoPlan = async (request: Request): Promise<Response> =>
+		Response.json(
+			await (await this.#setupFor(request)).undoPlan(idOf(request)),
+		);
+
+	/**
+	 * Undoes that area, `{ confirm }` the name its plan asks to be typed,
+	 * answering the fresh progress, or a 422 whose message the page shows.
+	 */
+	readonly undo = async (request: Request): Promise<Response> => {
+		const area = idOf(request);
+		const { confirm = null } = await body(request);
+		if (confirm !== null && typeof confirm !== "string") {
+			fail("usage", "send { confirm: string } or nothing", { area });
+		}
+		try {
+			return Response.json(
+				await (await this.#setupFor(request)).undo(area, confirm),
+			);
+		} catch (error) {
+			if (error instanceof StepProblem) {
+				return refuse(422, "undo", error.message);
+			}
+			throw error;
+		}
+	};
+}
+
+/** The area or step `/api/setup/:id/...` names, by its id. */
+function idOf(request: Request): string {
+	return decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? "");
 }
 
 function isAnswers(value: unknown): value is StepAnswers {

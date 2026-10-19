@@ -90,4 +90,56 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 		expect(saved.agents[0].id).toBe("codex");
 		expect(saved.agents[0].models).toHaveLength(1);
 	});
+
+	it("undoes the models by taking just this agent off the roster, leaving the CLI to the person", async () => {
+		const programs = {
+			...SIGNED_IN,
+			"codex --version": 0,
+			"codex login status": 0,
+		};
+		const setup = new Setup(machine(programs), [CLAUDE_AREA, CODEX_AREA]);
+		await setup.submit("claude-models", {
+			"claude-model-fable": false,
+			"claude-model-opus": true,
+			"claude-model-sonnet": false,
+			"claude-model-haiku": true,
+		});
+		await setup.submit("codex-models", {
+			"codex-model-gpt-6-astra": false,
+			"codex-model-gpt-6.1-sol": false,
+			"codex-model-gpt-6-luna": true,
+		});
+
+		expect((await setup.undoPlan("claude")).steps).toEqual([
+			{
+				id: "claude-models",
+				title: "Choose Claude models",
+				removes: [
+					`Claude on the roster in \`${HOME}/agents.json\`, running Opus 5.5, Haiku 5.5`,
+				],
+				leaves: [],
+			},
+			{
+				id: "claude-signin",
+				title: "Install and sign in to Claude",
+				removes: [],
+				leaves: [
+					"Claude stays signed in: run `claude auth logout` to sign out.",
+					"Claude stays installed: run `rm -f ~/.local/bin/claude && rm -rf ~/.local/share/claude` to remove it.",
+				],
+			},
+		]);
+		const progress = await setup.undo("claude", null);
+
+		expect(progress.areas[0]?.steps.map((step) => step.status)).toEqual([
+			"done",
+			"ready",
+		]);
+		const saved = JSON.parse(await fs.read(`${HOME}/agents.json`));
+		expect(saved.agents.map((agent: { id: string }) => agent.id)).toEqual([
+			"codex",
+		]);
+		await CLAUDE_AREA.steps[1]?.undo?.run(machine(programs));
+		expect(JSON.parse(await fs.read(`${HOME}/agents.json`))).toEqual(saved);
+	});
 });

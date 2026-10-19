@@ -16,6 +16,7 @@ import {
 	SetupIndex,
 	StepForm,
 } from "../setup-form";
+import { UndoDialog } from "../setup-undo";
 
 /** An area with `done` of `steps` steps done, for the index. */
 function area(id: string, title: string, done: number, steps: number) {
@@ -41,7 +42,7 @@ const agent = () => {};
 
 /** Each screen the design shows, by its `?screen=` name. */
 const SCREENS: Record<string, () => JSX.Element> = {
-	index: () => <SetupIndex areas={AREAS} onSelect={leave} />,
+	index: () => <SetupIndex areas={AREAS} onSelect={leave} onUndo={leave} />,
 	cred: () => (
 		<Form
 			title="Paste your OpenCode Go API key"
@@ -133,11 +134,25 @@ const SCREENS: Record<string, () => JSX.Element> = {
 		/>
 	),
 	done: () => (
-		<JourneyDone title="OpenCode" onLeave={leave}>
+		<JourneyDone title="OpenCode" onLeave={leave} onUndo={leave}>
 			<Button>Start an OpenCode conversation</Button>
 		</JourneyDone>
 	),
+	// The dev server answers each area's plan from its fixtures.
+	undo: () => <UndoScreen area="coordinator" />,
+	"undo-refused": () => <UndoScreen area="remote-access" />,
 };
+
+/** The index with the undo dialog open on `area`, reopened by its row's Undo. */
+function UndoScreen({ area }: { area: string }): JSX.Element {
+	const [open, setOpen] = useState<string | null>(area);
+	return (
+		<>
+			<SetupIndex areas={AREAS} onSelect={leave} onUndo={setOpen} />
+			<UndoDialog area={open} onClose={() => setOpen(null)} />
+		</>
+	);
+}
 
 function Form({
 	next: start = { kind: "ready" },

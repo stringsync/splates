@@ -161,6 +161,67 @@ describe("GITHUB_AREA", () => {
 			"The App may do more than push contents (administration)",
 		);
 	});
+
+	it("plans deleting the installation, and leaves the App, its rulesets and the remote to the person", async () => {
+		const plan = await new Setup(machine, [GITHUB_AREA]).undoPlan("github");
+
+		expect(plan.steps).toEqual([
+			{
+				id: "github-push",
+				title: "Turn pushing on",
+				removes: [],
+				leaves: [
+					"`remote` stays in `splates.config.ts`: land a change that takes it out to stop pushing.",
+				],
+			},
+			{
+				id: "github-ruleset",
+				title: "Keep the App to splates branches, and off tags",
+				removes: [],
+				leaves: [
+					"The ruleset `splates-tags`: `gh api -X DELETE repos/o/r/rulesets/0`, or in https://github.com/o/r/settings/rules.",
+					"The ruleset `splates`: `gh api -X DELETE repos/o/r/rulesets/100`, or in https://github.com/o/r/settings/rules.",
+				],
+			},
+			{
+				id: "github-install",
+				title: "Install the App on this repository",
+				removes: [
+					"The App's installation on o/r, and with it every repository it was installed on",
+				],
+				leaves: [],
+			},
+			{
+				id: "github-app",
+				title: "Make the splates GitHub App",
+				removes: [],
+				leaves: [
+					"The App itself: delete it at the foot of https://github.com/settings/apps/splates-o/advanced.",
+				],
+			},
+		]);
+		expect(plan.creds).toEqual([
+			{ name: APP_ID, keptFor: null },
+			{ name: APP_KEY, keptFor: null },
+		]);
+		expect(plan.refused).toBeNull();
+	});
+
+	it("deletes the installation with the App's creds still kept, then forgets them", async () => {
+		const install = GITHUB_AREA.steps.find(
+			(step) => step.id === "github-install",
+		);
+
+		await new Setup(machine, [GITHUB_AREA]).undo("github", null);
+
+		expect(github.installed).toBe(false);
+		expect(await machine.device.get(APP_KEY)).toBeUndefined();
+		await machine.device.set(APP_ID, "42");
+		await machine.device.set(APP_KEY, KEY);
+		await expect(install?.check(machine)).rejects.toThrow("Not installed");
+		// Again, with nothing left to delete.
+		await install?.undo?.run(machine);
+	});
 });
 
 /** The fake GitHub's answer to `method` on `url`. */
@@ -183,14 +244,24 @@ function answer(github: GitHub, url: string, method: string): Response {
 			expires_at: "2026-10-17T13:00:00Z",
 		});
 	}
+	if (method === "DELETE" && path === "/app/installations/7") {
+		if (!github.installed) {
+			return new Response("Not Found", { status: 404 });
+		}
+		github.installed = false;
+		return new Response(null, { status: 204 });
+	}
 	if (method === "GET" && path === "/repos/o/r/rulesets") {
-		return Response.json(
-			github.tagRulesets.map((each, id) => ({
+		return Response.json([
+			...github.tagRulesets.map((each, id) => ({
 				id,
+				name: "splates-tags",
 				target: "tag",
 				enforcement: each.enforcement,
 			})),
-		);
+			{ id: 100, name: "splates", target: "branch", enforcement: "active" },
+			{ id: 101, name: "theirs", target: "branch", enforcement: "active" },
+		]);
 	}
 	const ruleset = /^\/repos\/o\/r\/rulesets\/(\d+)$/.exec(path)?.[1];
 	if (method === "GET" && ruleset !== undefined) {

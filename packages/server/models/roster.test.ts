@@ -85,6 +85,30 @@ describe("Roster", () => {
 		expect(await deps.roster.agents()).toEqual(mine);
 	});
 
+	it("removes one agent, keeping the others, and leaves a roster without it alone", async () => {
+		await using deps = await setup();
+		await deps.roster.seed();
+
+		await deps.roster.remove("claude");
+		const left = await deps.fs.read(deps.roster.path);
+		await deps.roster.remove("claude");
+
+		expect((await deps.roster.agents()).map((agent) => agent.id)).toEqual([
+			"codex",
+		]);
+		expect(await deps.fs.read(deps.roster.path)).toBe(left);
+		await deps.roster.remove("codex");
+		expect(await deps.roster.agents()).toEqual([]);
+	});
+
+	it("removes nothing while there is no roster", async () => {
+		await using deps = await setup();
+
+		await deps.roster.remove("claude");
+
+		expect(await deps.fs.exists(deps.roster.path)).toBe(false);
+	});
+
 	it("keeps an optional OpenCode entry and editable provider-qualified models in roster order", async () => {
 		await using deps = await setup();
 		await deps.roster.seed();

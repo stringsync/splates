@@ -67,6 +67,11 @@ export class AutoPickStore {
 		return DEFAULT_RULES;
 	}
 
+	/** Deletes the file, so the defaults apply again; none there is fine. */
+	async remove(): Promise<void> {
+		await this.deps.fs.rm(this.path, { force: true });
+	}
+
 	private async write(rules: AutoPickRules): Promise<void> {
 		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
 			recursive: true,

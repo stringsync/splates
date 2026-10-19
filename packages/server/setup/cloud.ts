@@ -1,5 +1,28 @@
-import { ChosenCloud, CLOUDS, type CloudProvider } from "../cloud";
-import type { SetupMachine, SetupStep, StepField } from "./setup";
+import {
+	ChosenCloud,
+	CLOUDS,
+	type CloudProvider,
+	DIGITALOCEAN_TOKEN,
+	HCLOUD_TOKEN,
+} from "../cloud";
+import type { StepField } from "./fields";
+import type { SetupMachine, SetupStep } from "./setup";
+
+/**
+ * The cloud chosen, as a step names it among what it `uses`, so undoing
+ * one journey leaves the choice while another still makes machines there.
+ */
+export const CLOUD_CHOICE = "cloud.json";
+
+/**
+ * What a step that makes or reads machines in the chosen cloud `uses`: the
+ * choice, and whichever cloud's token is kept.
+ */
+export const CLOUD_USES: readonly string[] = [
+	CLOUD_CHOICE,
+	DIGITALOCEAN_TOKEN,
+	HCLOUD_TOKEN,
+];
 
 /** The cloud chosen on this machine, reading its token from the machine's device creds. */
 export function cloudOf(machine: SetupMachine): Promise<CloudProvider> {
@@ -40,6 +63,17 @@ export function cloudChoiceStep(id: string): SetupStep {
 			await new ChosenCloud(home, fs).choose(String(answers.cloud));
 		},
 		notDone: "No cloud provider is chosen yet: pick one, then press Next.",
+		undo: {
+			removes: async (_machine, kept) =>
+				kept?.has(CLOUD_CHOICE)
+					? []
+					: ["The cloud provider chosen, kept in `~/.splates/cloud.json`"],
+			run: async ({ home, fs }, kept) => {
+				if (!kept?.has(CLOUD_CHOICE)) {
+					await new ChosenCloud(home, fs).clear();
+				}
+			},
+		},
 	};
 }
 

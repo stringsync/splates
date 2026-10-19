@@ -1,5 +1,6 @@
 export type { BoxStanding, CoordinatorBoxOptions } from "./box";
 export {
+	BOX_NAME,
 	BOX_USER,
 	CoordinatorBox,
 	installScript,

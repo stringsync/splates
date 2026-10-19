@@ -73,6 +73,20 @@ describe("splates cli", () => {
 		).toBe(1);
 	});
 
+	it("prints what undoing an area would forget, and undoes nothing", async () => {
+		await env.secrets.device.set("OPENAI_API_KEY", "sk-test");
+
+		await splates.run(deps, ["setup", "dictation", "--undo", "--json"]);
+
+		const plan = JSON.parse(String(env.log.entries.at(-1)?.message));
+		expect(plan).toMatchObject({
+			area: "dictation",
+			creds: [{ name: "OPENAI_API_KEY", keptFor: null }],
+			refused: null,
+		});
+		expect(await env.secrets.device.get("OPENAI_API_KEY")).toBe("sk-test");
+	});
+
 	// scry-ignore simple-test-setup: the started task is what numbers the queued task after it, which this case checks.
 	it("edits the queued tasks added beside a started one", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);

@@ -1,11 +1,18 @@
+import type { StepOption } from "./fields";
 import type { OpenCodeSetup } from "./opencode";
-import type { SetupArea, SetupMachine, SetupStep, StepOption } from "./setup";
+import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
 /** The device cred OpenCode's Go key is kept as, beside OpenCode's own copy. */
 export const OPENCODE_GO_KEY = "OPENCODE_GO_API_KEY";
 
 /** Where the user gets a Go key and turns Use balance off. */
 const CONSOLE = "https://opencode.ai/auth";
+
+/** How the person takes out what splates installed with npm, which it leaves. */
+const UNINSTALL = "npm uninstall --global @opencode/cli";
+
+/** How the person signs OpenCode out of Go, which keeps its own copy of the key. */
+const LOGOUT = "opencode auth logout";
 
 /** OpenCode on an OpenCode Go account, beside the other agents. */
 export const OPENCODE_AREA: SetupArea = openCodeArea();
@@ -25,6 +32,14 @@ function openCodeArea(): SetupArea {
 			await native(machine).install();
 		},
 		doing: "Installing OpenCode with npm…",
+		// Other tools may run the global install, so only the person takes it out.
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				`OpenCode stays installed: run \`${UNINSTALL}\` to remove it.`,
+			],
+			run: async () => {},
+		},
 		notDone:
 			"npm installed OpenCode, but splates cannot find it on its PATH. Restart `splates server`, then press Next.",
 	};
@@ -57,6 +72,15 @@ function openCodeArea(): SetupArea {
 			await opencode.handshake();
 		},
 		doing: "Connecting OpenCode to Go…",
+		// The key kept for this device goes with the area's creds after this.
+		undo: {
+			removes: async () => ["The OpenCode Go API key kept on this device"],
+			leaves: async () => [
+				`OpenCode keeps its own copy of the key: run \`${LOGOUT}\` and pick OpenCode Go to remove it.`,
+				`The key still works: delete it in the [OpenCode Console](${CONSOLE}) if you no longer want it.`,
+			],
+			run: async () => {},
+		},
 		notDone: "OpenCode still lists no Go key. Paste it again, then press Next.",
 	};
 	const modelsStep: SetupStep = {
@@ -100,6 +124,21 @@ function openCodeArea(): SetupArea {
 			});
 		},
 		doing: "Saving your models…",
+		undo: {
+			removes: async (machine) => {
+				const recipe = await native(machine)
+					.models.recipes.stored()
+					.catch(() => null);
+				const models =
+					recipe === null
+						? ""
+						: `, running ${recipe.model} and ${recipe.auxiliary}`;
+				return [
+					`OpenCode on the roster in \`${machine.home}/agents.json\`${models}`,
+				];
+			},
+			run: (machine) => native(machine).disable(),
+		},
 	};
 	const readyStep: SetupStep = {
 		id: "opencode-ready",

@@ -7,7 +7,7 @@ import { type Needing, need } from "../plans";
 import type { Served } from "../server/shared";
 import { Testing } from "../testing";
 import type { Pushed } from "./push";
-import { Pushes } from "./push";
+import { forgetDevices, Pushes } from "./push";
 
 describe("Pushes", () => {
 	let deps: Testing;
@@ -147,6 +147,31 @@ describe("Pushes", () => {
 			await (await pushes.key(new Request("http://localhost"))).json(),
 		).toEqual(key);
 		expect(pusher.pushed).toHaveLength(1);
+	});
+
+	it("stops pushing to the devices forgotten in its file, keeping the keys", async () => {
+		await pushes.subscribe(
+			subscribing({
+				subscription: subscription("https://push.example/a"),
+				wants: WANTS,
+			}),
+		);
+		const key = await (
+			await pushes.key(new Request("http://localhost"))
+		).json();
+		await pushes.look();
+
+		await forgetDevices(deps.fs, deps.splatesHome);
+		await forgetDevices(deps.fs, deps.splatesHome);
+		rows = [row(finished)];
+		await pushes.look();
+
+		expect(pusher.pushed).toEqual([]);
+		const kept = JSON.parse(
+			await deps.fs.read(`${deps.splatesHome}/push.json`),
+		);
+		expect(kept.devices).toEqual([]);
+		expect(kept.keys.publicKey).toBe(key.publicKey);
 	});
 
 	it("refuses a body that is not a subscription", async () => {

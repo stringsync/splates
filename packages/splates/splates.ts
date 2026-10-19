@@ -449,15 +449,12 @@ splates
 		default: false,
 		description: "with a step: ask for it again",
 	})
-	.action(async (opts, ctx) => {
-		if (opts.step === "" && (opts.skip || opts.unskip)) {
-			fail("usage", "--skip and --unskip name a step", {});
-		}
-		if (opts.skip && opts.unskip) {
-			fail("usage", "--skip or --unskip, not both", { step: opts.step });
-		}
-		await setup(ctx, opts);
-	});
+	.option("undo", z.boolean(), {
+		default: false,
+		description:
+			"with an area's id in place of a step: print what undoing it would remove, the creds it forgets and keeps, and what only the user can remove; the Setup page's Undo does it, after the user confirms",
+	})
+	.action((opts, ctx) => setup(ctx, opts));
 
 splates
 	.command("path")

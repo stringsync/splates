@@ -13,6 +13,7 @@ import type { ServerChoice } from "@stringsync/splates-server/server";
 import type {
 	MoveProgress,
 	SetupProgress,
+	UndoPlan,
 } from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
 import type {
@@ -52,6 +53,9 @@ import { act, fireEvent, ProjectApp, render, waitFor } from "./testing-dom";
 
 export * from "./drivers";
 export * from "./fixtures";
+
+import { AGENTS, PUSH_KEY } from "./fixtures";
+
 export {
 	act,
 	cleanup,
@@ -206,6 +210,8 @@ export class Testing implements Resource {
 	workers: WorkerPool | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
+	/** What `GET /api/setup/:area/undo` reads, or null for it to fail. */
+	undoPlan: UndoPlan | null = null;
 	/** What `/api/auto-pick/rules` reads, or null for it to fail. */
 	autoPickRules: AutoPickRulesView | null = null;
 	/** What `/api/setup/coordinator/move` reads, or null for it to fail. */
@@ -297,6 +303,11 @@ export class Testing implements Resource {
 				return this.setup === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.setup);
+			}
+			if (route?.startsWith("/api/setup/") && route.endsWith("/undo")) {
+				return this.undoPlan === null
+					? new Response(null, { status: 500 })
+					: Response.json(this.undoPlan);
 			}
 			if (route === "/api/auto-pick/rules") {
 				return this.autoPickRules === null
@@ -610,12 +621,6 @@ export class Testing implements Resource {
 	}
 }
 
-// scry-ignore tests-own-their-state: the roster every conversation test opens with by default; a test about the agents passes its own to openConversations
-export const AGENTS: AgentChoice[] = [
-	{ id: "claude", name: "Claude", settings: [], limits: [] },
-	{ id: "codex", name: "Codex", settings: [], limits: [] },
-];
-
 /** The name the sidebar lists conversation `id` of `held` under. */
 function nameIn(held: ConversationState[], id: string): string {
 	const found = held.find((each) => each.id === id);
@@ -643,7 +648,3 @@ function fields(form: FormData): Record<string, unknown> {
 		...(files.length === 0 ? {} : { file: files }),
 	};
 }
-
-/** A server's public key, as `/api/push` hands it out. */
-export const PUSH_KEY =
-	"BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";

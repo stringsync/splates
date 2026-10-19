@@ -105,6 +105,19 @@ describe("WorkerBudget", () => {
 		expect(budget.standing()[2]).toMatchObject({ dollars: 75, set: false });
 	});
 
+	it("gives every limit back to its default and forgets it was chosen", async () => {
+		const budget = WorkerBudget.memory(clock());
+		await budget.set("day", 8);
+		await budget.raise("month", 10);
+
+		await budget.unreview();
+
+		expect(budget.reviewed).toBe(false);
+		expect(budget.standing().map((each) => each.dollars)).toEqual([
+			0.25, 5, 85,
+		]);
+	});
+
 	it("alerts each tier once per window, its highest alone", async () => {
 		const wall = clock();
 		const budget = WorkerBudget.memory(wall);

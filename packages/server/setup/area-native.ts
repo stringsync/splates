@@ -1,17 +1,6 @@
 import { DEFAULT_AGENTS, Roster } from "../models";
-import type {
-	SetupArea,
-	SetupMachine,
-	SetupStep,
-	StepAnswers,
-	StepField,
-} from "./setup";
-
-/** The agents in `agents.json`, none when it is not there, for it holds the defaults then. */
-async function _rosterAgents({ fs, home }: SetupMachine) {
-	const path = `${home}/agents.json`;
-	return (await fs.exists(path)) ? new Roster(path, { fs }).agents() : [];
-}
+import type { StepField } from "./fields";
+import type { SetupArea, SetupMachine, SetupStep, StepAnswers } from "./setup";
 
 /** The agents in `agents.json`, none when it is not there, for it holds the defaults then. */
 async function rosterAgents({ fs, home }: SetupMachine) {
@@ -22,17 +11,24 @@ async function rosterAgents({ fs, home }: SetupMachine) {
 /** How long a CLI gets to answer before it counts as not answering. */
 const PROBE_MS = 10_000;
 
-/** What each CLI is installed with, and asked whether it is signed in. */
+/**
+ * What each CLI is installed with, asked whether it is signed in, and
+ * signed out of and uninstalled with, which only the person does.
+ */
 const CLIS = {
 	claude: {
 		name: "Claude",
 		install: "curl -fsSL https://claude.ai/install.sh | bash",
 		signedIn: ["claude", "auth", "status"],
+		signOut: "claude auth logout",
+		uninstall: "rm -f ~/.local/bin/claude && rm -rf ~/.local/share/claude",
 	},
 	codex: {
 		name: "Codex",
 		install: "npm install --global @openai/codex",
 		signedIn: ["codex", "login", "status"],
+		signOut: "codex logout",
+		uninstall: "npm uninstall --global @openai/codex",
 	},
 };
 
@@ -45,7 +41,7 @@ export const CLAUDE_AREA: SetupArea = agentJourney("claude");
 export const CODEX_AREA: SetupArea = agentJourney("codex");
 
 function agentJourney(id: AgentId): SetupArea {
-	const { name, install } = CLIS[id];
+	const { name, install, signOut, uninstall } = CLIS[id];
 	const signIn: SetupStep = {
 		id: `${id}-signin`,
 		title: `Install and sign in to ${name}`,
@@ -70,6 +66,15 @@ function agentJourney(id: AgentId): SetupArea {
 					return;
 			}
 		},
+		// splates installed and signed in nothing, so it takes nothing out.
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				`${name} stays signed in: run \`${signOut}\` to sign out.`,
+				`${name} stays installed: run \`${uninstall}\` to remove it.`,
+			],
+			run: async () => {},
+		},
 	};
 	const models: SetupStep = {
 		id: `${id}-models`,
@@ -93,6 +98,19 @@ function agentJourney(id: AgentId): SetupArea {
 				throw new Error("Tick at least one model.");
 			}
 			await new Roster(`${home}/agents.json`, { fs }).choose(id, chosen);
+		},
+		undo: {
+			removes: async (machine) => {
+				const agent = (await rosterAgents(machine)).find(
+					(each) => each.id === id,
+				);
+				const models = (agent?.models ?? []).map((model) => model.name);
+				return [
+					`${name} on the roster in \`${machine.home}/agents.json\`${models.length === 0 ? "" : `, running ${models.join(", ")}`}`,
+				];
+			},
+			run: ({ fs, home }) =>
+				new Roster(`${home}/agents.json`, { fs }).remove(id),
 		},
 	};
 	return { id, title: name, steps: [signIn, models] };

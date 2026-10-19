@@ -10,8 +10,8 @@ import {
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
-import { setup } from "./api";
 import { UpdateDot } from "./release";
+import { setup } from "./setup-api";
 
 /** This machine's setup as the page last read it, and how to read it again. */
 export interface SetupState {

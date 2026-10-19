@@ -105,6 +105,7 @@ export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";
 export {
+	forgetSnapshot,
 	keptSnapshot,
 	SNAPSHOT_USER,
 	Snapshots,

@@ -104,6 +104,11 @@ export class ChosenCloud {
 		await this.#fs.rename(tmp, this.#path);
 	}
 
+	/** Forgets the choice, so setup asks again; silent when there is none. */
+	async clear(): Promise<void> {
+		await this.#fs.rm(this.#path, { force: true });
+	}
+
 	/** The chosen cloud, or Hetzner before one is chosen. */
 	async cloud(
 		opts: Omit<MachineCloudOptions, "choice"> = {},

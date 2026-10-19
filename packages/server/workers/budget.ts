@@ -214,6 +214,14 @@ export class WorkerBudget {
 		});
 	}
 
+	/**
+	 * Gives every limit back to its default and forgets that the user chose,
+	 * as undoing setup does; raises and spend stay.
+	 */
+	async unreview(): Promise<void> {
+		await this.change((kept) => ({ ...kept, limits: {}, reviewed: false }));
+	}
+
 	/** Adds `dollars` to `limit` for `span`, answering the raise. */
 	async raise(
 		limit: WorkerLimit,

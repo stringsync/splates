@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeFs } from "webappwiz/system/testing";
 import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
 import { FakeHetzner } from "../cloud/testing";
+import { KeygenPs } from "../coordinator/testing";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
 
@@ -74,16 +74,3 @@ describe("COORDINATOR_AREA's box step", () => {
 		expect(hetzner.requests).toEqual([]);
 	});
 });
-
-/** An ssh-keygen that writes its public key into a `FakeFs`. */
-class KeygenPs extends FakePs {
-	constructor(private readonly fs: FakeFs) {
-		super();
-	}
-
-	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
-		await super.spawnCapture(argv, opts);
-		await this.fs.write(`${argv.at(-1)}.pub`, "ssh-ed25519 AAAA\n");
-		return { exitCode: 0, stdout: "", stderr: "" };
-	}
-}

@@ -91,9 +91,10 @@ export class Snapshots {
 
 	/** The snapshot a worker on `platform` boots from now, built first when there is none fresh. */
 	async current(platform: Platform): Promise<Snapshot> {
-		if (!this.freshOn(platform)) {
-			// Setup may have built one since this was opened.
-			this.kept = { ...this.kept, ...(await readKept(this.opts)) };
+		// The file is the record: setup may have built one since this was
+		// opened, or undone one, deleting its image.
+		if (this.opts.path !== null) {
+			this.kept = await readKept(this.opts);
 		}
 		const kept = this.of(platform);
 		if (kept !== null && this.fresh(kept)) {
@@ -113,11 +114,6 @@ export class Snapshots {
 		);
 		this.building.set(platform, build);
 		return build;
-	}
-
-	private freshOn(platform: Platform): boolean {
-		const kept = this.of(platform);
-		return kept !== null && this.fresh(kept);
 	}
 
 	private fresh(snapshot: Snapshot): boolean {
@@ -153,6 +149,24 @@ export async function keptSnapshot(
 	opts: Pick<SnapshotsOptions, "path" | "fs">,
 ): Promise<Snapshot | null> {
 	return (await readKept(opts))[platform] ?? null;
+}
+
+/**
+ * Forgets the snapshot kept on `platform` at `opts.path`, answering it, so
+ * the next worker builds one again; null when none was kept.
+ */
+export async function forgetSnapshot(
+	platform: Platform,
+	opts: Pick<SnapshotsOptions, "path" | "fs">,
+): Promise<Snapshot | null> {
+	const kept = await readKept(opts);
+	const was = kept[platform] ?? null;
+	const { path, fs } = opts;
+	if (was !== null && path !== null && fs !== undefined) {
+		const { [platform]: _, ...rest } = kept;
+		await fs.write(path, `${JSON.stringify(rest)}\n`);
+	}
+	return was;
 }
 
 /** The record at `path`, empty when there is none or it is unreadable, so the next worker builds one again. */

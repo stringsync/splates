@@ -4,7 +4,7 @@ import {
 	WORKER_KEYS_FILE,
 	WorkerKeys,
 } from "../workers";
-import type { SetupStep } from "./setup";
+import type { SetupMachine, SetupStep } from "./setup";
 
 /**
  * The Workers area's steps giving workers beside this machine API keys,
@@ -29,10 +29,39 @@ function workerKeyStep(provider: KeyProvider): SetupStep {
 		agent: `Walk the user through the steps, then have them add the key on the Creds page themselves: never ask for the key in chat. \`splates worker list\` shows which workers hold one under \`keys\`.`,
 		optional: true,
 		after: [],
-		check: async ({ fs, home, device }) =>
-			(
-				await WorkerKeys.open(`${home}/${WORKER_KEYS_FILE}`, fs, device)
-			).all.some((each) => each.provider === provider.id),
+		check: async (machine) => (await keysOf(machine, provider)).length > 0,
 		notDone: `No worker holds a key from ${provider.name} yet: add one on the Creds page, then press Next.`,
+		undo: {
+			removes: async (machine) =>
+				(await keysOf(machine, provider)).map(
+					({ holder }) =>
+						`The ${provider.name} key ${"worker" in holder ? `worker \`${holder.worker}\`` : `every \`${holder.type}\` worker`} holds`,
+				),
+			leaves: async () => [
+				`Each key itself at [${provider.name}'s keys](${provider.keys}), still able to spend until you delete it there.`,
+			],
+			run: async (machine) => {
+				if (machine.removeWorkerKeys !== undefined) {
+					await machine.removeWorkerKeys(provider.id);
+					return;
+				}
+				const keys = await openKeys(machine);
+				for (const { holder } of keys.all) {
+					await keys.remove(holder, provider.id);
+				}
+			},
+		},
 	};
+}
+
+/** The roster of workers' keys, read afresh as `splates server` keeps it. */
+function openKeys({ fs, home, device }: SetupMachine): Promise<WorkerKeys> {
+	return WorkerKeys.open(`${home}/${WORKER_KEYS_FILE}`, fs, device);
+}
+
+/** The keys from `provider` workers hold. */
+async function keysOf(machine: SetupMachine, provider: KeyProvider) {
+	return (await openKeys(machine)).all.filter(
+		(each) => each.provider === provider.id,
+	);
 }

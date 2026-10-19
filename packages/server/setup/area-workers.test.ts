@@ -21,10 +21,12 @@ describe("WORKERS_AREA", () => {
 	let machine: SetupMachine;
 	let listed: SetupWorker[];
 	let status: number;
+	let removed: string[];
 
 	beforeEach(async () => {
 		listed = [];
 		status = 200;
+		removed = [];
 		machine = {
 			fs: new FakeFs(),
 			home: HOME,
@@ -42,6 +44,10 @@ describe("WORKERS_AREA", () => {
 					{ status },
 				);
 			}) as unknown as typeof fetch,
+			removeWorker: async (id) => {
+				removed.push(id);
+				listed = listed.filter((worker) => worker.id !== id);
+			},
 		};
 		await machine.fs.mkdir(HOME, { recursive: true });
 	});
@@ -54,6 +60,10 @@ describe("WORKERS_AREA", () => {
 		return Object.fromEntries(
 			(progress.areas[1]?.steps ?? []).map((step) => [step.id, step]),
 		);
+	}
+
+	function undoOf(id: string) {
+		return WORKERS_AREA.steps.find((step) => step.id === id)?.undo;
 	}
 
 	it("is done for this Mac once its worker is listed and takes agents", async () => {
@@ -100,6 +110,87 @@ describe("WORKERS_AREA", () => {
 		machine.workers = undefined;
 		expect((await steps())["local-worker"]?.problem).toContain(
 			"no `splates server`",
+		);
+	});
+
+	it("plans removing this Mac's worker and each machine joined, leaving their installs", async () => {
+		const pc = {
+			...LOCAL,
+			id: "pc",
+			kind: "registered" as const,
+			host: "wsl2",
+		};
+		listed = [
+			LOCAL,
+			{ ...LOCAL, id: "box", kind: "registered" },
+			{ ...pc, wokenAt: 1 },
+		];
+
+		const plan = await new Setup(machine, [
+			REMOTE_ACCESS_AREA,
+			WORKERS_AREA,
+		]).undoPlan("workers");
+
+		expect(
+			Object.fromEntries(plan.steps.map((step) => [step.id, step.removes])),
+		).toEqual({
+			"wake-on-lan": [],
+			"windows-worker": [
+				"The Windows worker `pc`, its key revoked, its agents running to their end first",
+			],
+			"remote-worker": [
+				"The worker `box`, its key revoked, its agents running to their end first",
+			],
+			"local-worker": [
+				"This Mac's worker, `local`, its agents running to their end first",
+			],
+		});
+		const leaves = plan.steps.find(
+			(step) => step.id === "windows-worker",
+		)?.leaves;
+		expect(leaves?.[0]).toContain(
+			"Unregister-ScheduledTask -TaskName 'splates worker'",
+		);
+		expect(leaves?.[0]).toContain("wsl --unregister splates");
+		expect(plan.refused).toBeNull();
+	});
+
+	it("removes each worker once, so every step reads not done", async () => {
+		const pc = {
+			...LOCAL,
+			id: "pc",
+			kind: "registered" as const,
+			host: "wsl2",
+		};
+		listed = [LOCAL, { ...LOCAL, id: "box", kind: "registered" }, pc];
+
+		await new Setup(machine, [REMOTE_ACCESS_AREA, WORKERS_AREA]).undo(
+			"workers",
+			null,
+		);
+		await undoOf("remote-worker")?.run(machine);
+
+		expect(removed).toEqual(["pc", "box", "local"]);
+		const read = await steps();
+		expect(read["local-worker"]?.status).toBe("ready");
+		expect(read["remote-worker"]?.status).toBe("ready");
+		expect(read["windows-worker"]?.status).toBe("ready");
+	});
+
+	it("passes over a worker being removed already", async () => {
+		listed = [{ ...LOCAL, id: "box", kind: "registered", removing: true }];
+
+		await undoOf("remote-worker")?.run(machine);
+
+		expect(removed).toEqual([]);
+	});
+
+	it("refuses with no server to remove workers from", async () => {
+		machine.removeWorker = undefined;
+		listed = [LOCAL];
+
+		expect(await undoOf("local-worker")?.refused?.(machine)).toContain(
+			"No `splates server` to remove workers from",
 		);
 	});
 

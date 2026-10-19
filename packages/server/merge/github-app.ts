@@ -83,6 +83,42 @@ export class GitHubApp {
 	}
 
 	/**
+	 * Deletes the App's installation on `repo`, with the App's JWT, which
+	 * takes it off every repository it was installed on with that one.
+	 * Whether there was one to delete.
+	 */
+	async uninstall(repo: GitHubRepo): Promise<boolean> {
+		let installation: { id: number };
+		try {
+			installation = Installation.parse(
+				await this.call("GET", `${repoPath(repo)}/installation`),
+			);
+		} catch (error) {
+			if (error instanceof GitHubRefused && error.status === 404) {
+				return false;
+			}
+			throw error;
+		}
+		await this.call("DELETE", `/app/installations/${installation.id}`);
+		return true;
+	}
+
+	/** `repo`'s rulesets, on branches and tags, read with one of the App's tokens. */
+	async rulesets(
+		repo: GitHubRepo,
+		token: InstallationToken,
+	): Promise<RulesetListing[]> {
+		return RulesetList.parse(
+			await this.call(
+				"GET",
+				`${repoPath(repo)}/rulesets?targets=branch,tag`,
+				undefined,
+				token.token,
+			),
+		);
+	}
+
+	/**
 	 * The type of each rule `repo`'s rulesets apply to `branch`, as `update`,
 	 * read with one of its tokens: whoever a ruleset lets bypass it, the
 	 * rule is listed.
@@ -208,7 +244,8 @@ export class GitHubApp {
 				`GitHub ${method} ${path}: ${response.status} ${said.slice(0, 200)}`.trim(),
 			);
 		}
-		return response.json();
+		// A DELETE answers 204, with no body to read.
+		return response.status === 204 ? null : response.json();
 	}
 }
 
@@ -252,6 +289,16 @@ export interface AppAbout {
 	slug: string;
 	/** Each permission it was given, as `contents: "write"`. */
 	permissions: Record<string, string>;
+	/** The account that owns it, whose settings keep it; none when GitHub leaves it out. */
+	owner?: { login: string; type: string } | null;
+}
+
+/** A ruleset as `rulesets` lists it. */
+export interface RulesetListing {
+	id: number;
+	name?: string;
+	target: string;
+	enforcement: string;
 }
 
 const Installation = z.object({ id: z.number() });
@@ -259,10 +306,16 @@ const Token = z.object({ token: z.string(), expires_at: z.string() });
 const About = z.object({
 	slug: z.string(),
 	permissions: z.record(z.string(), z.string()),
+	owner: z.object({ login: z.string(), type: z.string() }).nullish(),
 });
 const Rules = z.array(z.object({ type: z.string() }));
 const RulesetList = z.array(
-	z.object({ id: z.number(), target: z.string(), enforcement: z.string() }),
+	z.object({
+		id: z.number(),
+		name: z.string().optional(),
+		target: z.string(),
+		enforcement: z.string(),
+	}),
 );
 const Ruleset = z.object({
 	conditions: z

@@ -7,7 +7,7 @@ import { Dictations, transcriberFor } from "../dictate";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
 import { RESUME } from "../plans";
-import { claimedFirst, DevTaskPorts, portOwnersOf } from "../ports";
+import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, Picker } from "../projects";
 import { Pushes } from "../push";
 import { openRepository } from "../records";
@@ -22,7 +22,7 @@ import {
 } from "../setup";
 import { DevOutcomes } from "../stats";
 import { Terminals } from "../terminal";
-import { Access, startTunnel } from "../tunnel";
+import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
 	alertNotice,
 	DevWorkers,
@@ -445,6 +445,55 @@ export async function dev(
 									reviewed: budget.reviewed,
 								}),
 								set: (limit, amount) => budget.set(limit, amount),
+								unreview: () => budget.unreview(),
+							},
+				removeWorker: async (id) => {
+					const response = await workers.remove(
+						new Request(
+							`http://localhost/api/workers/${encodeURIComponent(id)}`,
+							{ method: "DELETE" },
+						),
+					);
+					if (!response.ok) {
+						throw new Error(`worker ${id} was not removed`);
+					}
+				},
+				removeWorkerKeys: async (provider) => {
+					const keys = workers.keys;
+					if (keys === null) {
+						return;
+					}
+					for (const { holder } of keys.all) {
+						await keys.remove(holder, provider);
+					}
+					await workers.delivery.resend();
+				},
+				removeTunnel:
+					project == null
+						? undefined
+						: async () => {
+								const { creds } =
+									opened.find((each) => each.git.root === project.root) ??
+									(await open(project.root));
+								const device = (deps.secrets ?? SYSTEM_STORES).device;
+								await tunnelRemove({
+									saved: new SavedTunnel(`${splatesHome(ps)}/tunnel.json`, {
+										fs,
+										store: device,
+									}),
+									slots: SLOT_POOL.map(
+										({ word }) =>
+											new SavedTunnel(
+												`${splatesHome(ps)}/slots/${word}/tunnel.json`,
+												{ fs, store: device },
+											),
+									),
+									creds,
+									task: null,
+									fs,
+									log,
+									fetch: deps.fetch,
+								});
 							},
 				project:
 					project == null
@@ -574,6 +623,10 @@ export async function dev(
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },
 					"/api/setup/:step/next": { POST: guarded(setup.next) },
+					"/api/setup/:area/undo": {
+						GET: guarded(setup.undoPlan),
+						POST: guarded(setup.undo),
+					},
 					"/api/auto-pick/rules": {
 						GET: guarded(autoPickRules.read),
 						PUT: guarded(autoPickRules.save),

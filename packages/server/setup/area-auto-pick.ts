@@ -5,6 +5,9 @@ import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 /** Jev's one key, which the judge step asks for. */
 const TYPESAFE_KEY = JUDGE_CREDS.jev[0];
 
+/** Where the person makes and revokes a TypeSafe key. */
+const TYPESAFE = "https://typesafe.ai";
+
 /**
  * Auto pick on this machine: a decision model to classify tasks, and the
  * person's rules from a task's kind and difficulty to an agent, model and
@@ -26,12 +29,36 @@ function autoPickArea(): SetupArea {
 				kind: "cred",
 				name: TYPESAFE_KEY,
 				label: "TypeSafe API key",
-				help: `Make one in [TypeSafe](https://typesafe.ai) under API keys. To use Clef instead, keep ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")} for this device on the Creds page and leave this empty.`,
+				help: `Make one in [TypeSafe](${TYPESAFE}) under API keys. To use Clef instead, keep ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")} for this device on the Creds page and leave this empty.`,
 				optional: true,
 			},
 		],
+		// Clef's, for the undo plan to list; scry's Workers AI keeps them.
+		uses: JUDGE_CREDS.clef,
 		check: async ({ device }) =>
 			(await judgeFrom(new Credentials([device]))) !== null,
+		// Each key goes with the area's creds; the providers' copies only the person revokes.
+		undo: {
+			removes: async ({ device }) =>
+				(await device.get(TYPESAFE_KEY)) === undefined
+					? []
+					: ["The TypeSafe API key kept on this device"],
+			leaves: async ({ device }) => {
+				const leaves: string[] = [];
+				if ((await device.get(TYPESAFE_KEY)) !== undefined) {
+					leaves.push(
+						`The key still works: revoke it in [TypeSafe](${TYPESAFE}) under API keys if you no longer want it.`,
+					);
+				}
+				if (await clefKept(device)) {
+					leaves.push(
+						`Auto pick still judges with Clef, on ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")}, kept for scry's Workers AI: forget them on the Creds page to stop it.`,
+					);
+				}
+				return leaves;
+			},
+			run: async () => {},
+		},
 		notDone: `Paste a TypeSafe API key, or keep ${JUDGE_CREDS.clef.join(" and ")} for this device, then press Next.`,
 	};
 
@@ -54,6 +81,13 @@ function autoPickArea(): SetupArea {
 			}
 		},
 		doing: "Saving your rules…",
+		undo: {
+			removes: async (machine) => [
+				`Your Auto pick rules in \`${rulesPath(machine)}\``,
+			],
+			run: (machine) =>
+				new AutoPickStore(rulesPath(machine), { fs: machine.fs }).remove(),
+		},
 	};
 
 	const tryStep: SetupStep = {
@@ -74,6 +108,16 @@ function autoPickArea(): SetupArea {
 		title: "Auto pick",
 		steps: [rulesStep, judgeStep, tryStep],
 	};
+}
+
+/** Whether every cred Clef needs is kept for this device. */
+async function clefKept(device: SetupMachine["device"]): Promise<boolean> {
+	for (const name of JUDGE_CREDS.clef) {
+		if ((await device.get(name)) === undefined) {
+			return false;
+		}
+	}
+	return true;
 }
 
 /** Where this machine keeps its rules. */

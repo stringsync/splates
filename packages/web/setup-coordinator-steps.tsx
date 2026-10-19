@@ -5,9 +5,9 @@ import { createContext, type JSX, useContext } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, sleep } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
-import { coordinatorMoveProgress, startCoordinatorMove } from "./api";
 import { copiedLabel, useCopy } from "./card";
 import { Markdown } from "./markdown";
+import { coordinatorMoveProgress, startCoordinatorMove } from "./setup-api";
 import type { BrowserSteps } from "./setup-journey";
 import type { StepBodies } from "./setup-steps";
 

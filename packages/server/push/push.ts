@@ -47,6 +47,9 @@ const KEPT = z.object({
 	devices: z.array(DEVICE),
 });
 
+/** The devices alone, read again whatever keys the file keeps. */
+const DEVICES = KEPT.pick({ devices: true });
+
 /** What `Pushes` reads each served project through. */
 export interface PushesDeps {
 	fs: Fs;
@@ -118,7 +121,7 @@ export class Pushes {
 		}
 		const device = parsed.data;
 		await this.keep([
-			...this.devices.filter(
+			...(await this.kept()).filter(
 				(each) => each.subscription.endpoint !== device.subscription.endpoint,
 			),
 			device,
@@ -158,7 +161,8 @@ export class Pushes {
 	}
 
 	private async lookOnce(): Promise<void> {
-		if (this.devices.length === 0) {
+		const devices = await this.kept();
+		if (devices.length === 0) {
 			return;
 		}
 		const slugs = new Map(
@@ -179,7 +183,7 @@ export class Pushes {
 				row.conversation !== null
 					? nameOf(row.conversation, lanes)
 					: (row.task?.task ?? "");
-			for (const device of this.devices) {
+			for (const device of devices) {
 				const seen = `${device.subscription.endpoint} ${project.root}`;
 				let notices = this.notices.get(seen);
 				if (notices === undefined) {
@@ -206,7 +210,7 @@ export class Pushes {
 	 * limit nearing or reached.
 	 */
 	async announce(notice: Omit<Pushed, "inFront">): Promise<void> {
-		for (const device of this.devices) {
+		for (const device of await this.kept()) {
 			await this.push(device, { ...notice, inFront: device.wants.inFront });
 		}
 	}
@@ -234,8 +238,26 @@ export class Pushes {
 			}
 		}
 		await this.keep(
-			this.devices.filter((each) => each.subscription.endpoint !== endpoint),
+			(await this.kept()).filter(
+				(each) => each.subscription.endpoint !== endpoint,
+			),
 		);
+	}
+
+	/**
+	 * The devices as the file keeps them now, since undoing setup's
+	 * notifications forgets them there; the last ones read when it will not
+	 * read.
+	 */
+	private async kept(): Promise<Device[]> {
+		try {
+			this.devices = DEVICES.parse(
+				JSON.parse(await this.deps.fs.read(this.file)),
+			).devices;
+		} catch {
+			// Kept as they were: the next write puts the file right.
+		}
+		return this.devices;
 	}
 
 	private async keep(devices: Device[]): Promise<void> {
@@ -245,6 +267,25 @@ export class Pushes {
 			JSON.stringify({ keys: this.keys, devices }, null, "\t"),
 		);
 	}
+}
+
+/**
+ * Forgets every device `push.json` under `home` keeps, keeping the keys
+ * their subscriptions were made with, so each browser subscribes again from
+ * the page. A running server's `Pushes` reads the file before each push, so
+ * it stops pushing to them too.
+ */
+export async function forgetDevices(fs: Fs, home: string): Promise<void> {
+	const file = `${home}/push.json`;
+	const raw = await fs.read(file).catch(() => null);
+	if (raw === null) {
+		return;
+	}
+	const kept = JSON.parse(raw);
+	if (!Array.isArray(kept?.devices) || kept.devices.length === 0) {
+		return;
+	}
+	await fs.write(file, JSON.stringify({ ...kept, devices: [] }, null, "\t"));
 }
 
 /** What the server pushes for a notice, as `Pushes` sends it. */

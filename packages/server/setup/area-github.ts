@@ -110,6 +110,14 @@ function githubArea(): SetupArea {
 		check: async ({ device }) =>
 			(await device.get(APP_ID)) !== undefined &&
 			(await device.get(APP_KEY)) !== undefined,
+		// Its creds go with the area; only the person can delete the App.
+		undo: {
+			removes: async () => [],
+			leaves: async (machine) => [
+				`The App itself: delete it at the foot of ${await appSettings(machine)}.`,
+			],
+			run: async () => {},
+		},
 	};
 
 	const installStep: SetupStep = {
@@ -136,6 +144,21 @@ function githubArea(): SetupArea {
 			throw new Error(
 				`Not installed on ${repo.owner}/${repo.name}: install it from https://github.com/apps/${slug}/installations/new`,
 			);
+		},
+		// Run before the App's creds go, which sign the JWT it deletes with.
+		undo: {
+			removes: async (machine) => {
+				const { owner, name } = await projectRepo(machine);
+				return [
+					`The App's installation on ${owner}/${name}, and with it every repository it was installed on`,
+				];
+			},
+			run: async (machine) => {
+				const app = await keptApp(machine);
+				if (app !== null) {
+					await app.uninstall(await projectRepo(machine));
+				}
+			},
 		},
 	};
 
@@ -171,6 +194,24 @@ function githubArea(): SetupArea {
 			}
 			return app.tagsRestricted(repo, PUSH_RULES, token);
 		},
+		// The App may read rulesets but not delete them.
+		undo: {
+			removes: async () => [],
+			leaves: async (machine) => {
+				const repo = await projectRepo(machine);
+				const path = `repos/${repo.owner}/${repo.name}/rulesets`;
+				const found = await keptRulesets(machine, repo).catch(() => []);
+				return found.length > 0
+					? found.map(
+							({ id, name }) =>
+								`The ruleset \`${name}\`: \`gh api -X DELETE ${path}/${id}\`, or in https://github.com/${repo.owner}/${repo.name}/settings/rules.`,
+						)
+					: [
+							`The rulesets keeping the App to \`${PUSHED_PREFIX}*\`: delete them in https://github.com/${repo.owner}/${repo.name}/settings/rules.`,
+						];
+			},
+			run: async () => {},
+		},
 	};
 
 	const pushStep: SetupStep = {
@@ -186,6 +227,13 @@ function githubArea(): SetupArea {
 		after: [rulesetStep],
 		check: async (machine) =>
 			(await requireProject(machine).config()).remote !== null,
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"`remote` stays in `splates.config.ts`: land a change that takes it out to stop pushing.",
+			],
+			run: async () => {},
+		},
 	};
 
 	return {
@@ -205,6 +253,38 @@ async function keptApp({
 	return id === undefined || key === undefined
 		? null
 		: new GitHubApp(id, key, { fetch });
+}
+
+/**
+ * Where the App kept on the device is deleted: its owner's settings page
+ * for it, or the account's list of Apps when GitHub will not say which.
+ */
+async function appSettings(machine: SetupMachine): Promise<string> {
+	const about = await (await keptApp(machine))?.about().catch(() => null);
+	if (about === null || about === undefined) {
+		return "https://github.com/settings/apps";
+	}
+	const owner =
+		about.owner?.type === "Organization"
+			? `organizations/${about.owner.login}/`
+			: "";
+	return `https://github.com/${owner}settings/apps/${about.slug}/advanced`;
+}
+
+/** The rulesets of `repo` named as this step makes them, read with the App's token. */
+async function keptRulesets(
+	machine: SetupMachine,
+	repo: GitHubRepo,
+): Promise<{ id: number; name: string }[]> {
+	const app = await keptApp(machine);
+	if (app === null) {
+		return [];
+	}
+	const names = new Set(RULESETS.map((each) => each.name));
+	const listed = await app.rulesets(repo, await app.token(repo));
+	return listed.flatMap(({ id, name }) =>
+		name !== undefined && names.has(name) ? [{ id, name }] : [],
+	);
 }
 
 /** The project setup is opened from, or a throw saying there is none. */

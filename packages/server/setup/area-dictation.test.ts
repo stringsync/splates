@@ -35,4 +35,29 @@ describe("DICTATION_AREA", () => {
 		});
 		await setup.submit("dictation", {});
 	});
+
+	it("undoes by forgetting the key, leaving its revoking to the person", async () => {
+		await machine.device.set(OPENAI_KEY, "key");
+		const setup = new Setup(machine, [DICTATION_AREA]);
+
+		expect(await setup.undoPlan("dictation")).toMatchObject({
+			steps: [
+				{
+					id: "dictation",
+					removes: ["The OpenAI API key kept on this device"],
+					leaves: [
+						"The key still works: revoke it at [API keys](https://platform.openai.com/api-keys) if you no longer want it.",
+					],
+				},
+			],
+			creds: [{ name: OPENAI_KEY, keptFor: null }],
+		});
+		await setup.undo("dictation", null);
+
+		expect(await machine.device.get(OPENAI_KEY)).toBeUndefined();
+		expect(await statuses(machine, DICTATION_AREA)).toEqual({
+			dictation: "ready",
+		});
+		await setup.undo("dictation", null);
+	});
 });

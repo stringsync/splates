@@ -65,16 +65,27 @@ export class Roster {
 		file.agents = entry
 			? file.agents.map((each) => (each === entry ? written : each))
 			: [...file.agents, written];
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
-			recursive: true,
-		});
-		// Through a temporary file, so a reader never sees half of it.
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, ...file }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.write(file);
+	}
+
+	/**
+	 * Takes `agent` off the roster, leaving every other entry as it is. A
+	 * roster that does not list it, or no roster at all, is left alone; one
+	 * left with no agents stays, empty, rather than going back to the defaults.
+	 */
+	async remove(agent: string): Promise<void> {
+		// Read first, so a roster that will not parse is reported, not overwritten.
+		await this.agents();
+		const raw = await this.deps.fs.read(this.path).catch(() => null);
+		if (raw === null) {
+			return;
+		}
+		const file: { format?: number; agents: RosterEntry[] } = JSON.parse(raw);
+		if (!file.agents.some((each) => each.id === agent)) {
+			return;
+		}
+		file.agents = file.agents.filter((each) => each.id !== agent);
+		await this.write(file);
 	}
 
 	/** Every agent on the roster, in its order; the defaults when there is none. */
@@ -123,6 +134,22 @@ export class Roster {
 			);
 		}
 		return agents;
+	}
+
+	private async write(file: {
+		format?: number;
+		agents: RosterEntry[];
+	}): Promise<void> {
+		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
+			recursive: true,
+		});
+		// Through a temporary file, so a reader never sees half of it.
+		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
+		await this.deps.fs.write(
+			tmp,
+			`${JSON.stringify({ format: FORMAT, ...file }, null, "\t")}\n`,
+		);
+		await this.deps.fs.rename(tmp, this.path);
 	}
 }
 

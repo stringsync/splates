@@ -22,6 +22,14 @@ function dictationArea(): SetupArea {
 			},
 		],
 		check: async ({ device }) => (await device.get(OPENAI_KEY)) !== undefined,
+		// The key goes with the area's creds; OpenAI's copy only the person revokes.
+		undo: {
+			removes: async () => ["The OpenAI API key kept on this device"],
+			leaves: async () => [
+				"The key still works: revoke it at [API keys](https://platform.openai.com/api-keys) if you no longer want it.",
+			],
+			run: async () => {},
+		},
 	};
 	return { id: "dictation", title: "Dictation", steps: [dictationStep] };
 }

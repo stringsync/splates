@@ -33,6 +33,7 @@ import { SetupJourney } from "./setup-journey";
 import { notifyBrowserSteps } from "./setup-notify-steps";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
+import { UndoDialog } from "./setup-undo";
 import { TopBar } from "./top-bar";
 
 /** Intentional setup: choose an area, then answer its steps a page at a time. */
@@ -53,6 +54,7 @@ export function SetupPage({
 }): JSX.Element {
 	const { progress } = useContext(SetupContext);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [undoing, setUndoing] = useState<string | null>(null);
 	const area = progress?.areas.find((area) => area.id === selected);
 	return (
 		<section aria-label="setup" className="flex min-w-0 flex-col gap-8">
@@ -67,10 +69,22 @@ export function SetupPage({
 						todos={todos}
 						onOpen={onOpen}
 						onLeave={() => setSelected(null)}
+						onUndo={() => setUndoing(area.id)}
 					/>
 				) : (
-					<SetupIndex areas={progress.areas} onSelect={setSelected} />
+					<SetupIndex
+						areas={progress.areas}
+						onSelect={setSelected}
+						onUndo={setUndoing}
+					/>
 				))}
+			<UndoDialog
+				area={undoing}
+				onClose={() => {
+					setUndoing(null);
+					setSelected(null);
+				}}
+			/>
 		</section>
 	);
 }
@@ -83,6 +97,7 @@ function Journey({
 	todos,
 	onOpen,
 	onLeave,
+	onUndo,
 }: {
 	area: AreaProgress;
 	settings?: Settings;
@@ -90,6 +105,7 @@ function Journey({
 	todos: readonly TaskRecord[];
 	onOpen: (id: string) => void;
 	onLeave: () => void;
+	onUndo: () => void;
 }): JSX.Element {
 	const { settle } = useContext(SetupContext);
 	const [move] = useState(() => new MoveWatch());
@@ -116,7 +132,7 @@ function Journey({
 	if (step === undefined) {
 		const End = JOURNEY_ENDS[area.id];
 		return (
-			<JourneyDone title={area.title} onLeave={onLeave}>
+			<JourneyDone title={area.title} onLeave={onLeave} onUndo={onUndo}>
 				{End !== undefined && (
 					<End feed={feed} onOpen={onOpen} onLeave={onLeave} />
 				)}

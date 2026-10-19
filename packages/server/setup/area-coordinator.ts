@@ -1,6 +1,7 @@
 import { MemoryLogger } from "webappwiz/log";
 import { FileLock } from "webappwiz/system";
 import {
+	BOX_NAME,
 	CoordinatorBox,
 	type CoordinatorMove,
 	type DeployKey,
@@ -14,6 +15,7 @@ import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
 	CLOUD_TOKEN_MISSING,
+	CLOUD_USES,
 	cloudChoiceStep,
 	cloudOf,
 	cloudTokenAccepted,
@@ -70,6 +72,8 @@ export function coordinatorArea(
 		after: [choiceStep],
 		// The page asks for the token here, so this journey never sends the user to another for it.
 		fields: cloudTokenFields,
+		// The box is destroyed with the token, in the cloud chosen.
+		uses: CLOUD_USES,
 		detail: async (machine) => {
 			const cloud = await cloudOf(machine);
 			return `In ${cloud.name}, it is ${cloud.defaults.box.about}.`;
@@ -89,6 +93,24 @@ export function coordinatorArea(
 		submit: async (machine) => {
 			await requireCloudToken(machine);
 			await (await box(machine)).up();
+		},
+		undo: {
+			removes: async (machine) => {
+				const { name } = await cloudOf(machine);
+				return [
+					`The ${name} server \`${BOX_NAME}\`, and with it every backup ${name} keeps of it`,
+					`The ${name} firewall \`${BOX_NAME}\``,
+					`The ${name} SSH key \`${BOX_NAME}\`, and its key pair here, \`~/.splates/coordinator/id_ed25519\``,
+				];
+			},
+			refused: movedRefusal,
+			confirm: async () => BOX_NAME,
+			run: async (machine) => {
+				const made = await box(machine);
+				await made.remove();
+				await machine.fs.rm(made.key, { force: true });
+				await machine.fs.rm(`${made.key}.pub`, { force: true });
+			},
 		},
 	};
 
@@ -113,6 +135,14 @@ export function coordinatorArea(
 		},
 		notDone:
 			"Not every project names an SSH remote yet: the step lists what is missing.",
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				'`remote: "origin"` in each project\'s `splates.config.ts`, and its SSH origin: harmless kept, or take them out in a task of that project.',
+			],
+			refused: movedRefusal,
+			run: async () => {},
+		},
 	};
 
 	const keysStep: SetupStep = {
@@ -135,6 +165,26 @@ export function coordinatorArea(
 		submit: async (machine) => {
 			dryRuns.set(machine.home, await deps.move(machine).run({ dryRun: true }));
 		},
+		undo: {
+			removes: async () => [],
+			leaves: async (machine) => {
+				const slugs = await deps
+					.projects(machine)
+					.then((projects) => projects.map((project) => project.slug))
+					.catch(() => []);
+				const where =
+					"in the repository's **Settings → Deploy keys** on GitHub";
+				return slugs.length === 0
+					? [`Each project's deploy key for the box ${where}.`]
+					: slugs.map(
+							(slug) => `\`${slug}\`'s deploy key for the box ${where}.`,
+						);
+			},
+			refused: movedRefusal,
+			run: async (machine) => {
+				dryRuns.delete(machine.home);
+			},
+		},
 		notDone:
 			"GitHub does not let each deploy key push yet: add each one below with Allow write access ticked, then press Next.",
 	};
@@ -151,6 +201,12 @@ export function coordinatorArea(
 		check: coordinatorMoved,
 		notDone:
 			"The server is not deployed yet: press Next to deploy it, or run `splates server deploy`.",
+		// Done only once moved, which refuses every undo.
+		undo: {
+			removes: async () => [],
+			refused: movedRefusal,
+			run: async () => {},
+		},
 	};
 
 	return {
@@ -158,6 +214,13 @@ export function coordinatorArea(
 		title: "Cloud server",
 		steps: [choiceStep, boxStep, remotesStep, keysStep, moveStep],
 	};
+}
+
+/** Why nothing of the Cloud server comes undone once the server has moved onto its box. */
+async function movedRefusal(machine: SetupMachine): Promise<string | null> {
+	return (await coordinatorMoved(machine))
+		? "splates server runs on its box now, holding the only live records; move it back first (task #385)."
+		: null;
 }
 
 /** What keeps each project on this machine from moving: its remote, as the move checks it. */

@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type {
-	SetupProgress,
-	StepProgress,
-} from "@stringsync/splates-server/setup";
+import { setupProgress } from "./setup-testing";
 import {
 	act,
 	cleanup,
@@ -55,7 +52,7 @@ describe("App's setup", () => {
 		testing.posted(path).map((post) => post.body);
 
 	it("has a tab in the nav, dotted while a required step is left", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		const view = await testing.open();
 
 		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
@@ -65,7 +62,7 @@ describe("App's setup", () => {
 	});
 
 	it("leaves the tab undotted once only optional steps are left", async () => {
-		testing.setup = progress({ agents: "done", required: false });
+		testing.setup = setupProgress({ agents: "done", required: false });
 		const view = await testing.open();
 
 		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
@@ -75,7 +72,7 @@ describe("App's setup", () => {
 	});
 
 	it("asks a journey's step as one page, its why and its field", async () => {
-		testing.setup = progress({ agents: "done", next: "dictation" });
+		testing.setup = setupProgress({ agents: "done", next: "dictation" });
 		const view = await openSetup("Dictation");
 
 		const current = await step(view, "Dictate prompts");
@@ -88,7 +85,7 @@ describe("App's setup", () => {
 	});
 
 	it("returns to the index from a journey without starting work", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		const view = await openSetup(null);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Set up Agents" })),
@@ -105,10 +102,10 @@ describe("App's setup", () => {
 	});
 
 	it("moves on once Next finds the step done", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		const view = await openSetup();
 		await step(view, "Choose the agents splates starts");
-		testing.reply = progress({ agents: "done", next: "dictation" });
+		testing.reply = setupProgress({ agents: "done", next: "dictation" });
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Finish" })),
@@ -119,7 +116,7 @@ describe("App's setup", () => {
 	});
 
 	it("starts an agent on the step, sent the setup directive", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		testing.talk = { agents: AGENTS, conversations: [] };
 		const view = await openSetup();
 		const current = await step(view, "Choose the agents splates starts");
@@ -144,7 +141,7 @@ describe("App's setup", () => {
 	});
 
 	it("opens from its tab in the sidebar", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		const view = await openSetup();
 
 		expect(location.hash).toBe("#setup");
@@ -152,7 +149,7 @@ describe("App's setup", () => {
 	});
 
 	it("opens from the phone menu", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		resize(390, 844);
 		const view = await testing.open();
 		await act(async () =>
@@ -166,7 +163,7 @@ describe("App's setup", () => {
 	});
 
 	it("opens from the link under Settings' notifications, not from a button for all of setup", async () => {
-		testing.setup = progress();
+		testing.setup = setupProgress();
 		const view = await testing.open();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More" })),
@@ -195,7 +192,7 @@ describe("App's setup", () => {
 	});
 
 	it("never nudges a fresh machine on desktop", async () => {
-		testing.setup = progress({ fresh: true });
+		testing.setup = setupProgress({ fresh: true });
 		const view = await testing.open();
 		expect(
 			view.queryByRole("complementary", { name: "set up splates" }),
@@ -206,7 +203,7 @@ describe("App's setup", () => {
 	});
 
 	it("never nudges a fresh machine in the phone menu", async () => {
-		testing.setup = progress({ fresh: true });
+		testing.setup = setupProgress({ fresh: true });
 		resize(390, 844);
 		const view = await testing.open();
 		await act(async () =>
@@ -220,76 +217,3 @@ describe("App's setup", () => {
 		expect(location.hash).not.toBe("#setup");
 	});
 });
-
-/** Two areas, agents required and dictation optional, as the server reads them. */
-function progress({
-	next = "agents",
-	required = true,
-	fresh = false,
-	agents = "ready",
-	dictation = "ready",
-}: {
-	next?: string | null;
-	required?: boolean;
-	fresh?: boolean;
-	agents?: StepProgress["status"];
-	dictation?: StepProgress["status"];
-} = {}): SetupProgress {
-	const agentsStep: StepProgress = {
-		id: "agents",
-		title: "Choose the agents splates starts",
-		why: "Only agents on the roster start.",
-		user: "Say which agents you have.",
-		agent: "Run `splates agents`.",
-		optional: false,
-		after: [],
-		status: agents,
-		problem: null,
-		cred: null,
-		fields: [],
-		doing: null,
-		detail: null,
-		data: null,
-	};
-	const dictationStep: StepProgress = {
-		id: "dictation",
-		title: "Dictate prompts",
-		why: "The mic transcribes on your key.",
-		user: "Paste an OpenAI key.",
-		agent: "Request the key.",
-		optional: true,
-		after: [],
-		status: dictation,
-		problem: null,
-		cred: "OPENAI_API_KEY",
-		fields: [
-			{
-				kind: "cred",
-				name: "OPENAI_API_KEY",
-				label: "OpenAI API key",
-				help: null,
-				saved: false,
-			},
-		],
-		doing: null,
-		detail: null,
-		data: null,
-	};
-	const area = (id: string, title: string, step: StepProgress) => ({
-		id,
-		title,
-		done: step.status === "done" ? 1 : 0,
-		skipped: step.status === "skipped" ? 1 : 0,
-		left: step.status === "ready" || step.status === "waiting" ? 1 : 0,
-		steps: [step],
-	});
-	return {
-		areas: [
-			area("agents", "Agents", agentsStep),
-			area("dictation", "Dictation", dictationStep),
-		],
-		next,
-		fresh,
-		required,
-	};
-}

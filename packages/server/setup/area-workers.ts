@@ -12,7 +12,9 @@ import {
 import {
 	DEFAULT_WORKER_LIMITS,
 	dollars,
+	forgetSnapshot,
 	keptSnapshot,
+	LOCAL_WORKER,
 	Snapshots,
 	WORKER_LIMITS,
 	type WorkerLimit,
@@ -21,18 +23,20 @@ import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
 import {
 	CLOUD_TOKEN_MISSING,
+	CLOUD_USES,
 	cloudChoiceStep,
 	cloudOf,
 	cloudTokenAccepted,
 	cloudTokenFields,
 	requireCloudToken,
 } from "./cloud";
+import type { StepField } from "./fields";
 import type {
 	SetupArea,
 	SetupMachine,
 	SetupStep,
+	SetupWorker,
 	SetupWorkerBudget,
-	StepField,
 } from "./setup";
 
 /** What each limit is asked as, in the order the budget lists them. */
@@ -70,6 +74,13 @@ function workersArea(): SetupArea {
 		},
 		notDone:
 			"This Mac is not taking agents yet: run `splates worker add --local <slots>`, then press Next.",
+		undo: {
+			removes: async () => [
+				`This Mac's worker, \`${LOCAL_WORKER}\`, its agents running to their end first`,
+			],
+			refused: noRemoving,
+			run: (machine) => removeWorkers(machine, (each) => each.kind === "local"),
+		},
 	};
 
 	const permissionStep: SetupStep = {
@@ -113,6 +124,13 @@ function workersArea(): SetupArea {
 		},
 		notDone:
 			"The API token cannot manage Access service tokens: replace it with one that holds Account · Access: Service Tokens · Edit, then press Next.",
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"The API token's **Access: Service Tokens · Edit** permission: take it off at [Cloudflare's API tokens](https://dash.cloudflare.com/profile/api-tokens) if nothing else needs it.",
+			],
+			run: async () => {},
+		},
 	};
 
 	const remoteStep: SetupStep = {
@@ -128,6 +146,22 @@ function workersArea(): SetupArea {
 			(await pool(machine)).some((worker) => worker.kind === "registered"),
 		notDone:
 			"No other machine has joined yet: run `splates worker run --join <token>` on it, then press Next.",
+		undo: {
+			removes: async (machine) =>
+				// Those in WSL2 the Windows step lists.
+				(await pool(machine))
+					.filter((worker) => worker.kind === "registered" && !wsl(worker))
+					.map(
+						(worker) =>
+							`The worker \`${worker.id}\`, its key revoked, its agents running to their end first`,
+					),
+			leaves: async () => [
+				"splates on each other machine: stop `splates worker run` there (Ctrl-C, or the service it runs under), then `bun remove -g @stringsync/splates` if you like; its key no longer works.",
+			],
+			refused: noRemoving,
+			run: (machine) =>
+				removeWorkers(machine, (each) => each.kind === "registered"),
+		},
 	};
 
 	const windowsStep: SetupStep = {
@@ -141,10 +175,28 @@ function workersArea(): SetupArea {
 		after: [],
 		check: async (machine) =>
 			(await pool(machine)).some(
-				(worker) => worker.kind === "registered" && worker.host === "wsl2",
+				(worker) => worker.kind === "registered" && wsl(worker),
 			),
 		notDone:
 			"No Windows machine has joined yet: run the Windows join command on it in PowerShell as an administrator, then press Next.",
+		undo: {
+			removes: async (machine) =>
+				(await pool(machine))
+					.filter((worker) => worker.kind === "registered" && wsl(worker))
+					.map(
+						(worker) =>
+							`The Windows worker \`${worker.id}\`, its key revoked, its agents running to their end first`,
+					),
+			leaves: async () => [
+				"On the Windows machine, in PowerShell as an administrator: the scheduled task that starts the worker at boot, `Unregister-ScheduledTask -TaskName 'splates worker'`, and its WSL2 distro, `wsl --unregister splates`, which deletes everything in it. `.wslconfig` keeps the memory it gave WSL2.",
+			],
+			refused: noRemoving,
+			run: (machine) =>
+				removeWorkers(
+					machine,
+					(each) => each.kind === "registered" && wsl(each),
+				),
+		},
 	};
 
 	const wakeStep: SetupStep = {
@@ -162,6 +214,13 @@ function workersArea(): SetupArea {
 			),
 		notDone:
 			"No Windows worker has been woken yet: put the PC to sleep, press Wake on its card on the Workers page, and press Next once it shows connected.",
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"Wake-on-LAN, on in the PC's BIOS or UEFI and its wired adapter's settings in Device Manager: harmless left on, or turn it off there.",
+			],
+			run: async () => {},
+		},
 	};
 
 	const budgetStep: SetupStep = {
@@ -216,6 +275,18 @@ function workersArea(): SetupArea {
 		check: async (machine) => (await budgetOf(machine).report()).reviewed,
 		notDone:
 			"The worker budget has not been looked at: choose its limits, then press Next.",
+		undo: {
+			removes: async () => [
+				`The limits chosen for made workers, back to their defaults (${WORKER_LIMITS.map((limit) => `${limit} ${dollars(DEFAULT_WORKER_LIMITS[limit])}`).join(", ")})`,
+			],
+			refused: async (machine) =>
+				machine.workerBudget?.unreview === undefined
+					? "No `splates server` to put the worker budget back: undo it from the Setup page it serves."
+					: null,
+			run: async (machine) => {
+				await budgetOf(machine).unreview?.();
+			},
+		},
 	};
 
 	const choiceStep = cloudChoiceStep("cloud-choice");
@@ -234,6 +305,13 @@ function workersArea(): SetupArea {
 		submit: requireCloudToken,
 		check: cloudTokenAccepted,
 		notDone: CLOUD_TOKEN_MISSING,
+		undo: {
+			removes: async () => [],
+			leaves: async (machine) => [
+				`The token itself in your ${(await cloudOf(machine)).name} account: revoke it in its console, once nothing else uses it.`,
+			],
+			run: async () => {},
+		},
 	};
 
 	const providerStep: SetupStep = {
@@ -251,6 +329,13 @@ function workersArea(): SetupArea {
 		after: [tokenStep],
 		check: async (machine) =>
 			(await requireProject(machine).config()).workerProvider !== null,
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"`cloud` in this project's `splates.config.ts`: take it out in a task and merge it, then restart `splates server`, or it makes cloud workers again once a token is pasted.",
+			],
+			run: async () => {},
+		},
 	};
 
 	const snapshotStep: SetupStep = {
@@ -262,6 +347,8 @@ function workersArea(): SetupArea {
 			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
 		optional: true,
 		after: [providerStep],
+		// Its image is deleted with the token, in the cloud chosen.
+		uses: CLOUD_USES,
 		doing: "Building the worker snapshot, about ten minutes…",
 		check: async ({ fs, home }) =>
 			(await keptSnapshot("linux", { path: snapshotsPath(home), fs })) !== null,
@@ -276,6 +363,27 @@ function workersArea(): SetupArea {
 				fs: machine.fs,
 			});
 			await snapshots.current("linux");
+		},
+		undo: {
+			removes: async (machine) => {
+				const kept = await keptSnapshot("linux", {
+					path: snapshotsPath(machine.home),
+					fs: machine.fs,
+				});
+				return kept === null
+					? []
+					: [
+							`The worker snapshot \`${kept.id}\` in ${(await cloudOf(machine)).name}, of splates ${kept.version}`,
+						];
+			},
+			run: async (machine) => {
+				const opts = { path: snapshotsPath(machine.home), fs: machine.fs };
+				const kept = await keptSnapshot("linux", opts);
+				if (kept !== null) {
+					await (await cloudOf(machine)).deleteSnapshot(kept.id);
+				}
+				await forgetSnapshot("linux", opts);
+			},
 		},
 	};
 
@@ -356,4 +464,31 @@ function workerPrices(cloud: CloudProvider): string {
 		? ", billed by the started hour"
 		: ", billed for the time it runs";
 	return `In ${cloud.name}, ${types}${billing}.`;
+}
+
+/** Why a worker cannot be removed from here: no `splates server` to remove it; null when one can. */
+async function noRemoving(machine: SetupMachine): Promise<string | null> {
+	return machine.removeWorker === undefined
+		? "No `splates server` to remove workers from: start one, or give --dev."
+		: null;
+}
+
+/** Removes each worker the pool lists that `which` picks, passing over one being removed already. */
+async function removeWorkers(
+	machine: SetupMachine,
+	which: (worker: SetupWorker) => boolean,
+): Promise<void> {
+	if (machine.removeWorker === undefined) {
+		throw new Error("no `splates server` to remove workers from");
+	}
+	for (const worker of await pool(machine)) {
+		if (which(worker) && !worker.removing) {
+			await machine.removeWorker(worker.id);
+		}
+	}
+}
+
+/** Whether `worker` runs in WSL2, as a Windows machine's does. */
+function wsl(worker: SetupWorker): boolean {
+	return worker.host === "wsl2";
 }

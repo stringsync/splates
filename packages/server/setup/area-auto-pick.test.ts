@@ -61,6 +61,64 @@ describe("AUTO_PICK_AREA", () => {
 		});
 	});
 
+	it("undoes by deleting the rules and forgetting Jev's key, last first", async () => {
+		await machine.device.set("TYPESAFE_API_KEY", "key");
+		await setup.submit("auto-pick-rules", {});
+
+		expect(await setup.undoPlan("auto-pick")).toMatchObject({
+			steps: [
+				{ id: "auto-pick-try", removes: [], leaves: [] },
+				{
+					id: "auto-pick-judge",
+					removes: ["The TypeSafe API key kept on this device"],
+					leaves: [
+						"The key still works: revoke it in [TypeSafe](https://typesafe.ai) under API keys if you no longer want it.",
+					],
+				},
+				{
+					id: "auto-pick-rules",
+					removes: [`Your Auto pick rules in \`${HOME}/auto-pick.json\``],
+					leaves: [],
+				},
+			],
+			creds: [{ name: "TYPESAFE_API_KEY", keptFor: null }],
+		});
+		await setup.undo("auto-pick", null);
+
+		expect(await machine.fs.exists(`${HOME}/auto-pick.json`)).toBe(false);
+		expect(await machine.device.get("TYPESAFE_API_KEY")).toBeUndefined();
+		expect(await statuses()).toEqual({
+			"auto-pick-judge": "ready",
+			"auto-pick-rules": "ready",
+			"auto-pick-try": "waiting",
+		});
+		await AUTO_PICK_AREA.steps[0]?.undo?.run(machine);
+	});
+
+	it("says Clef still judges once undone, its account kept for scry", async () => {
+		await machine.device.set("CLOUDFLARE_ACCOUNT_ID", "account");
+		await machine.device.set("CLOUDFLARE_API_TOKEN", "token");
+
+		const plan = await setup.undoPlan("auto-pick");
+		await setup.undo("auto-pick", null);
+
+		expect(plan.steps).toEqual([
+			{
+				id: "auto-pick-judge",
+				title: "Give Auto pick a decision model",
+				removes: [],
+				leaves: [
+					"Auto pick still judges with Clef, on `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, kept for scry's Workers AI: forget them on the Creds page to stop it.",
+				],
+			},
+		]);
+		expect(plan.creds).toEqual([
+			{ name: "CLOUDFLARE_ACCOUNT_ID", keptFor: "scry's Workers AI" },
+			{ name: "CLOUDFLARE_API_TOKEN", keptFor: "scry's Workers AI" },
+		]);
+		expect(await machine.device.get("CLOUDFLARE_API_TOKEN")).toBe("token");
+	});
+
 	it("leaves rules saved before as they are on Next", async () => {
 		const mine = { ...DEFAULT_RULES, threshold: 0.7 };
 		await machine.fs.write(`${HOME}/auto-pick.json`, JSON.stringify(mine));

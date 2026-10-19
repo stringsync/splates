@@ -1,5 +1,6 @@
 import { dirname } from "node:path";
 import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
+import { fail } from "@stringsync/splates-server/exit";
 import { splatesHome } from "@stringsync/splates-server/models";
 import { Projects } from "@stringsync/splates-server/projects";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -10,6 +11,7 @@ import {
 	type StepProgress,
 	type StepStatus,
 	setupProjectAt,
+	type UndoPlan,
 } from "@stringsync/splates-server/setup";
 import {
 	fetchWorkerBudget,
@@ -27,6 +29,8 @@ export interface SetupOptions {
 	json: boolean;
 	skip: boolean;
 	unskip: boolean;
+	/** Print what undoing the area `step` names would do. */
+	undo: boolean;
 }
 
 /**
@@ -37,8 +41,28 @@ export async function setup(
 	deps: SplatesDeps,
 	opts: SetupOptions,
 ): Promise<void> {
+	if (opts.step === "" && (opts.skip || opts.unskip || opts.undo)) {
+		fail("usage", "--skip and --unskip name a step, --undo an area", {});
+	}
+	if (opts.undo && (opts.skip || opts.unskip)) {
+		fail("usage", "--undo names an area, not a step to skip", {
+			area: opts.step,
+		});
+	}
+	if (opts.skip && opts.unskip) {
+		fail("usage", "--skip or --unskip, not both", { step: opts.step });
+	}
 	const machine = await setupOf(deps);
 	const { log } = deps;
+	if (opts.undo) {
+		const plan = await machine.undoPlan(opts.step);
+		if (opts.json) {
+			log.info(JSON.stringify(plan, null, 2));
+			return;
+		}
+		printUndo(log, plan);
+		return;
+	}
 	if (opts.step !== "") {
 		machine.step(opts.step);
 		if (opts.skip) {
@@ -169,4 +193,32 @@ function printStep(log: Logger, step: StepProgress): void {
 	if (step.problem !== null) {
 		log.info(`${color.red("problem:")} ${step.problem}`);
 	}
+}
+
+function printUndo(log: Logger, plan: UndoPlan): void {
+	log.info(`${color.bold(`Undo ${plan.title}`)}  ${color.dim(plan.area)}`);
+	if (plan.refused !== null) {
+		log.info(`${color.red("refused:")} ${plan.refused}`);
+		return;
+	}
+	for (const step of plan.steps) {
+		log.info(`  ${step.title}  ${color.dim(step.id)}`);
+		for (const line of step.removes) {
+			log.info(`    removes  ${line}`);
+		}
+		for (const line of step.leaves) {
+			log.info(`    leaves   ${line}`);
+		}
+	}
+	for (const cred of plan.creds) {
+		log.info(
+			cred.keptFor === null
+				? `  forgets ${cred.name}`
+				: `  keeps   ${cred.name}  ${color.dim(`${cred.keptFor} still uses it`)}`,
+		);
+	}
+	if (plan.confirm !== null) {
+		log.info(`  the page asks for ${plan.confirm} to be typed`);
+	}
+	log.info(color.dim("the Setup page's Undo does it, after the user confirms"));
 }

@@ -27,6 +27,17 @@ describe("ChosenCloud", () => {
 		expect(await new ChosenCloud(HOME, fs).read()).toBe("hetzner");
 	});
 
+	it("forgets the cloud chosen once cleared, and clears none twice", async () => {
+		const fs = new FakeFs();
+		const chosen = new ChosenCloud(HOME, fs);
+		await chosen.choose("hetzner");
+
+		await chosen.clear();
+		await chosen.clear();
+
+		expect(await chosen.read()).toBeNull();
+	});
+
 	it("forgets a cloud no longer offered", async () => {
 		const fs = new FakeFs();
 		await fs.mkdir(HOME, { recursive: true });
