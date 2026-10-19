@@ -220,7 +220,15 @@ export function Todos({
 					// Faded where more columns are scrolled out of view, so a column
 					// cut off at the edge reads as more to see, not as the end.
 					style={{ maskImage: fadeOf(edges) }}
-					className="-mx-4 -mt-1 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pt-1 pb-4"
+					// On a phone, a column fills the width and a swipe stops on the
+					// next one, as Trello's lists do; a drag lets go of the stops so
+					// its scrolling to an edge is not snapped back.
+					className={cn(
+						"-mx-4 -mt-1 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pt-1 pb-4",
+						dragging === null &&
+							draggingLane === null &&
+							"max-md:snap-mandatory",
+					)}
 				>
 					{!hidden.includes(null) && (
 						<Untriaged

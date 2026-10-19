@@ -72,7 +72,7 @@ export function AddLane({
 			ref={setNodeRef}
 			aria-label="new lane"
 			className={cn(
-				"w-72 shrink-0 snap-start rounded-xl transition-colors",
+				"w-72 shrink-0 snap-start max-md:w-full max-md:snap-always rounded-xl transition-colors",
 				dragging
 					? "border-2 border-dashed p-3"
 					: (open || naming) && "bg-muted/70 p-2 dark:bg-muted/30",
