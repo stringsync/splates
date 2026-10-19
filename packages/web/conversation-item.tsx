@@ -156,7 +156,7 @@ export function Item({
 				)}
 			>
 				{conversation.picking ? (
-					<AutoIcon className="size-3.5 shrink-0 text-foreground/70" />
+					<AutoIcon className="size-3.5 shrink-0" />
 				) : (
 					<RowIcon
 						conversation={conversation}
