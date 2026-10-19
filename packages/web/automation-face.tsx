@@ -1,16 +1,19 @@
 import type {
 	AutomationRow,
+	AutomationRun,
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
-import { ClockIcon, TerminalIcon, ZapIcon } from "lucide-react";
+import { ClockIcon, ListTodoIcon, TerminalIcon, ZapIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { Dispatching } from "./dispatching";
+import { ReferenceChip } from "./reference-chip";
 import { Stamp } from "./stamp";
+import { TaskIcon } from "./task-icon";
 
 /**
  * An automation's mark: a violet tile with a zap for one a task event sets
@@ -33,16 +36,29 @@ export function AutomationMark({
 	);
 }
 
+/** Opens a task a run was for: by its number while queued, or by its name. */
+export interface RunOpens {
+	todo: (id: number) => void;
+	task: (task: string) => void;
+}
+
 /**
  * What an automation is, beside its buttons: its mark, what sets it off,
- * who or what it runs, and its last runs. The groomer goes by its name.
+ * who or what it runs, and when it last ran. The groomer goes by its name.
  */
-export function AutomationFace({ row }: { row: AutomationRow }): JSX.Element {
+export function AutomationFace({
+	row,
+	opens,
+}: {
+	row: AutomationRow;
+	opens?: RunOpens | undefined;
+}): JSX.Element {
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
 	const groomer = row.id === GROOMER_AUTOMATION;
 	const when = adding ? "Adding…" : pending ? "Saving…" : row.when;
+	const last = row.runs.at(-1);
 	return (
 		<div className="flex min-w-0 flex-1 gap-3">
 			<AutomationMark trigger={row.trigger} />
@@ -68,27 +84,66 @@ export function AutomationFace({ row }: { row: AutomationRow }): JSX.Element {
 					</p>
 				)}
 				<Runs hook={row.hook} does={row.does} />
-				{row.runs.length > 0 && (
-					<ul
-						aria-label="last runs"
-						className="mt-1 flex flex-col gap-0.5 border-violet-500/20 border-l-2 pl-2 text-xs"
-					>
-						{row.runs.toReversed().map((run) => (
-							<li key={run.at} className="flex min-w-0 items-baseline gap-2">
-								<Stamp at={run.at} />
-								<span className="text-muted-foreground">{run.on}</span>
-								{run.error !== null && (
-									<span className="min-w-0 truncate text-destructive">
-										{run.error}
-									</span>
-								)}
-							</li>
-						))}
-					</ul>
-				)}
+				{last !== undefined && <LastRun run={last} opens={opens} />}
 			</div>
 		</div>
 	);
+}
+
+/**
+ * When an automation last ran, the task it ran for, by its name once one took
+ * it, each opening it given `opens`, and whether it failed, why on hover.
+ */
+function LastRun({
+	run,
+	opens,
+}: {
+	run: AutomationRun;
+	opens: RunOpens | undefined;
+}): JSX.Element {
+	const { todos, task } = ranFor(run.on);
+	return (
+		<div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
+			Last ran <Stamp at={run.at} />
+			{task === null &&
+				todos.map((id) => (
+					<ReferenceChip
+						key={id}
+						Icon={ListTodoIcon}
+						kind={`#${id}`}
+						name=""
+						title={`Task #${id}`}
+						open={opens && (() => opens.todo(id))}
+						inline
+					/>
+				))}
+			{task !== null && (
+				<ReferenceChip
+					Icon={TaskIcon}
+					kind=""
+					name={task}
+					title={task}
+					open={opens && (() => opens.task(task))}
+					inline
+				/>
+			)}
+			{run.error !== null && (
+				<span title={run.error} className="text-destructive">
+					Failed
+				</span>
+			)}
+		</div>
+	);
+}
+
+/** The tasks a run's `on` names: `task.created #3 fix-x` is #3 and fix-x; `schedule` none. */
+export function ranFor(on: string): { todos: number[]; task: string | null } {
+	const [, ...named] = on.split(" ");
+	const todos = named
+		.filter((each) => /^#\d+$/.test(each))
+		.map((each) => Number(each.slice(1)));
+	const task = named.find((each) => !each.startsWith("#")) ?? null;
+	return { todos, task };
 }
 
 /**

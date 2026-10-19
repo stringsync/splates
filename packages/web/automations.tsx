@@ -28,7 +28,7 @@ import {
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationDraft, type When } from "./automation-draft";
-import { AutomationFace } from "./automation-face";
+import { AutomationFace, type RunOpens } from "./automation-face";
 import { AutomationList } from "./automation-list";
 import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
@@ -46,12 +46,12 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
 
 /**
  * The Automations page: what runs on a task event or a schedule while
- * `splates server` runs, each with its last runs, to edit, pause or remove,
- * and a form to add one. The person's own come first; then those the project
+ * `splates server` runs, each with when it last ran and for what task, which
+ * `opens` opens, to edit, pause or remove, and a form to add one. The person's own come first; then those the project
  * checks in, which only `splates.config.ts` changes, and those splates
  * itself sets, as the groomer, whose agent is all that changes here.
  */
-export function AutomationsPage(): JSX.Element {
+export function AutomationsPage({ opens }: { opens: RunOpens }): JSX.Element {
 	const [list] = useState(() => new AutomationList());
 	useEffect(() => void list.read(), [list]);
 	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
@@ -85,6 +85,7 @@ export function AutomationsPage(): JSX.Element {
 						detail="Kept on this machine, never checked in, since an agent spends your tokens."
 						empty="None yet: add one below."
 						rows={own}
+						opens={opens}
 						onEdit={(row, trigger, hook) => list.edit(row, trigger, hook)}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRemove={(row) => void list.remove(row)}
@@ -94,12 +95,14 @@ export function AutomationsPage(): JSX.Element {
 							title="Checked in"
 							detail="The `on` commands in splates.config.ts, which run for everyone on this project."
 							rows={checkedIn}
+							opens={opens}
 						/>
 					)}
 					<Group
 						title="Built in"
 						detail="Set by splates, which keeps what sets each off and what it is told. Removing the groomer turns it off, retiring its conversation."
 						rows={builtIn}
+						opens={opens}
 						onGroom={(pick) => list.groom(pick)}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRemove={(row) => void list.remove(row)}
@@ -121,6 +124,7 @@ function Group({
 	detail,
 	empty,
 	rows,
+	opens,
 	onEdit,
 	onGroom,
 	onPause,
@@ -131,6 +135,7 @@ function Group({
 	detail: string;
 	empty?: string;
 	rows: AutomationRow[];
+	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
@@ -151,6 +156,7 @@ function Group({
 						<Card
 							key={row.id || "adding"}
 							row={row}
+							opens={opens}
 							onEdit={onEdit}
 							onGroom={onGroom}
 							onPause={onPause}
@@ -172,18 +178,20 @@ type Edit = (
 ) => Promise<boolean>;
 
 /**
- * One automation: what sets it off, what it runs, its last runs, and its
+ * One automation: what sets it off, what it runs, when it last ran, and its
  * buttons; or, while it is being edited, the form that edits it, which for
  * the groomer picks only its agent.
  */
 function Card({
 	row,
+	opens,
 	onEdit,
 	onGroom,
 	onPause,
 	onRemove,
 }: {
 	row: AutomationRow;
+	opens: RunOpens;
 	onEdit?: Edit;
 	onGroom?: Groom;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
@@ -239,7 +247,7 @@ function Card({
 				(paused || pending) && "opacity-60",
 			)}
 		>
-			<AutomationFace row={row} />
+			<AutomationFace row={row} opens={opens} />
 			{!pending &&
 				(onEdit !== undefined ||
 					(groomer !== null && onGroom !== undefined)) && (

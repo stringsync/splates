@@ -212,19 +212,23 @@ export function App({
 		conversations: available ? conversations : NO_CONVERSATIONS,
 		lanes: snapshot?.laneNames ?? NO_LANES,
 	};
+	// A todo opens on the board, or as the task that took it.
+	const openTodo = (id: number) => {
+		const task = takenTask(searched.todos, tasks, id);
+		if (task === null) {
+			go("todos");
+			todoView.open(id);
+		} else {
+			openTask(task);
+		}
+	};
 	const pick = (found: Found) => {
 		if (found.kind === "task") {
 			openTask(found.task);
 		} else if (found.kind === "conversation") {
 			go("conversations", found.conversation);
 		} else if (found.kind === "todo") {
-			const task = takenTask(searched.todos, tasks, found.todo);
-			if (task === null) {
-				go("todos");
-				todoView.open(found.todo);
-			} else {
-				openTask(task);
-			}
+			openTodo(found.todo);
 		}
 	};
 	const name = useProjectName(snapshot?.repo);
@@ -319,7 +323,9 @@ export function App({
 							onOpenKeys={() => go("creds")}
 						/>
 					),
-					automations: <AutomationsPage />,
+					automations: (
+						<AutomationsPage opens={{ todo: openTodo, task: openTask }} />
+					),
 					setup: (
 						<SetupPage
 							settings={settings}

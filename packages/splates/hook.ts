@@ -24,7 +24,7 @@ import { assigneeIn } from "./flags";
 
 /** `splates hook`, which the root cli mounts beside `splates queue`. */
 export const splatesHook = cli<SplatesDeps>("hook").description(
-	`automations: what runs on a task event (${TASK_EVENTS.join(", ")}), as \`splates server\` sees the journal take it, or on a schedule it keeps: an agent told of it; or a shell command. Kept for you in this project's .git/splates, never checked in, since an agent hook spends your tokens; splates.config.ts's \`on\` holds the shell commands a project checks in. None set, nothing runs. The page's Automations tab lists them with their last runs`,
+	`automations: what runs on a task event (${TASK_EVENTS.join(", ")}), as \`splates server\` sees the journal take it, or on a schedule it keeps: an agent told of it; or a shell command. Kept for you in this project's .git/splates, never checked in, since an agent hook spends your tokens; splates.config.ts's \`on\` holds the shell commands a project checks in. None set, nothing runs. The page's Automations tab lists them with when each last ran and for what task`,
 );
 
 splatesHook
