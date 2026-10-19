@@ -16,8 +16,14 @@ import {
 	type SeenLaneTodos,
 } from "../board";
 import type { Conversation, Conversations, Message } from "../conversations";
-import { HEARTBEAT_IDLE, lanesOf, startedLanes } from "../conversations";
 import {
+	HEARTBEAT_IDLE,
+	lanesOf,
+	SERVER_TOLD,
+	startedLanes,
+} from "../conversations";
+import {
+	CARRY_ON,
 	directive,
 	HEARTBEAT,
 	idleReference,
@@ -26,6 +32,7 @@ import {
 	type Stretch,
 	stoppedReference,
 	stretches,
+	todoAddedReference,
 	todoDoneReference,
 	todoOpenReference,
 	UNTRIAGED,
@@ -62,11 +69,19 @@ const SETTLE = Duration.secs(1);
  * turn it takes before then puts the next one off again. A lane's
  * orchestrator gets none: its agents talk to the person themselves.
  *
+ * The agent of a task a running lane started answers to the lane rather
+ * than its orchestrator: quiet, it is told `CARRY_ON` by `splates server`
+ * itself, once, and quiet again with nothing said to it since, its todo is
+ * marked stuck and only then is its orchestrator, if any, told
+ * `[SPLATES IDLE <task>]`. At work again, it is stuck no longer.
+ *
  * A lane's orchestrator is told `[SPLATES TODO DONE #N]` as a todo in a lane
  * it works leaves the list, and `[SPLATES TODO OPEN #N]` as one comes back
  * open, however that came about, so the todos drive the lane rather than its
- * agents reporting back. What changed while `splates server` was down is told
- * once it is back.
+ * agents reporting back. A running lane starts its todos itself, so its
+ * orchestrator hears neither, only `[SPLATES TODO ADDED #N]` as a todo comes
+ * into it, to plan it in. What changed while `splates server` was down is
+ * told once it is back.
  *
  * A lane's orchestrator whose lanes are all done, however their last todos
  * landed, that sits idle on a Working or Waiting report, as though they were
@@ -99,6 +114,7 @@ export class HandedOut implements Resource {
 		private readonly lanes: () => Promise<LaneRecord[]>,
 		private readonly todos: () => Promise<TodoState[]>,
 		private readonly seen: SeenLaneTodos,
+		private readonly stuck: StuckTodos,
 		private readonly log: Logger,
 		private readonly timer: Timer,
 		private readonly clock: WallClock,
@@ -135,6 +151,7 @@ export class HandedOut implements Resource {
 		lanes,
 		todos,
 		seen,
+		stuck,
 		log,
 		timer = new SystemTimer(),
 		clock = new SystemWallClock(),
@@ -152,6 +169,8 @@ export class HandedOut implements Resource {
 		todos: () => Promise<TodoState[]>;
 		/** The lane todos as last seen, kept past a restart. */
 		seen: SeenLaneTodos;
+		/** Where a todo is marked stuck. */
+		stuck: StuckTodos;
 		log: Logger;
 		timer?: Timer;
 		clock?: WallClock;
@@ -163,6 +182,7 @@ export class HandedOut implements Resource {
 			lanes,
 			todos,
 			seen,
+			stuck,
 			log,
 			timer,
 			clock,
@@ -267,9 +287,11 @@ export class HandedOut implements Resource {
 				for (const conversation of all) {
 					if (this.#works(conversation, change)) {
 						await conversation.prompt(
-							change.change === "done"
-								? todoDoneReference(change.todo)
-								: todoOpenReference(change.todo),
+							change.change === "added"
+								? todoAddedReference(change.todo)
+								: change.change === "done"
+									? todoDoneReference(change.todo)
+									: todoOpenReference(change.todo),
 						);
 					}
 				}
@@ -376,11 +398,17 @@ export class HandedOut implements Resource {
 		const { state } = conversation;
 		const task = state.task ?? state.lastTask;
 		const by = state.handedBy ?? state.startedBy;
-		if (by === null || state.archived || task === null) {
+		if (state.archived || task === null) {
+			return;
+		}
+		// One handed on with `--relay` answers to whoever handed it on, never
+		// to the lane.
+		const todo = state.handedBy === null ? await this.#laneTodo(task) : null;
+		if (by === null && todo === null) {
 			return;
 		}
 		const worktree = await this.service.find(task);
-		const found = await this.everywhere.find(by);
+		const found = by === null ? undefined : await this.everywhere.find(by);
 		const caller = found?.conversation;
 		const working = state.status === "running" || state.status === "starting";
 		if (worktree.gone) {
@@ -394,6 +422,9 @@ export class HandedOut implements Resource {
 		if (state.status !== "stopped") {
 			this.#readBack.delete(state.id);
 		}
+		if (working && todo?.stuck !== undefined) {
+			await this.stuck.markStuck(todo.id, null);
+		}
 		const quiet =
 			state.status === "failed" ||
 			// Stopped by a checkpoint, it waits on the resume instead; one
@@ -406,11 +437,25 @@ export class HandedOut implements Resource {
 			!quiet ||
 			worktree.state?.status === "escalated" ||
 			// One the person took in hand waits on them, not on its orchestrator.
-			(state.handedBy === null && inHand(state)) ||
-			found === undefined ||
-			caller === undefined ||
-			caller.state.archived
+			(state.handedBy === null && inHand(state))
 		) {
+			return;
+		}
+		if (todo !== null) {
+			if (!nudged(state, this.#readBack.has(state.id))) {
+				await conversation.prompt(CARRY_ON, [], undefined, {
+					told: SERVER_TOLD,
+				});
+				return;
+			}
+			if (todo.stuck === undefined) {
+				await this.stuck.markStuck(
+					todo.id,
+					new Date(this.clock.now()).toISOString(),
+				);
+			}
+		}
+		if (found === undefined || caller === undefined || caller.state.archived) {
 			return;
 		}
 		const named = await this.everywhere.taskNamed(
@@ -423,6 +468,38 @@ export class HandedOut implements Resource {
 		}
 		await caller.prompt(idleReference(named));
 	}
+
+	/** The todo `task` holds in a running lane, or null for none. */
+	async #laneTodo(task: string): Promise<TodoState | null> {
+		const todo = (await this.todos()).find((each) => each.takenBy === task);
+		if (todo === undefined || todo.lane === null) {
+			return null;
+		}
+		const lane = (await this.lanes()).find((each) => each.id === todo.lane);
+		return lane?.running === undefined ? null : todo;
+	}
+}
+
+/** The todos, as far as marking one stuck goes: `Todos` on disk. */
+export interface StuckTodos {
+	/** Marks todo `id` stuck since `at`, or not stuck for null. */
+	markStuck(id: number, at: string | null): Promise<void>;
+}
+
+/**
+ * Whether the agent of a running lane's task was told `CARRY_ON` and has
+ * been quiet since with nothing more said to it: stuck. One a restart
+ * stopped, `stopped` here, did not stop of itself, so it is told again.
+ */
+function nudged(state: Conversation["state"], stopped: boolean): boolean {
+	const said = state.messages.findLast((message) => message.role === "user");
+	return (
+		!stopped &&
+		said?.told === SERVER_TOLD &&
+		said.parts.some(
+			(part) => part.type === "text" && part.text.trim() === CARRY_ON,
+		)
+	);
 }
 
 /**

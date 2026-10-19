@@ -94,6 +94,23 @@ export function todoOpenReference(id: number): string {
 }
 
 /**
+ * What tells a lane's orchestrator that todo `id` came into a running lane
+ * it works, added there or moved in, so it plans it in.
+ */
+export function todoAddedReference(id: number): string {
+	return `[SPLATES TODO ADDED #${id}]`;
+}
+
+/**
+ * What `splates server` tells the agent of a running lane's task that ended
+ * a turn with its task still under way, once, before its todo is marked
+ * stuck: what a lane's orchestrator told it with `splates tell` before the
+ * lanes ran on their own.
+ */
+export const CARRY_ON =
+	"Your task is still under way and nothing waits on the user: carry on as the splates skill says, ending in `splates escalate`, `splates merge` or `splates remove`.";
+
+/**
  * What tells a lane's orchestrator that every lane it works is done, however
  * the last todo landed, so it ends on its Finished report.
  */
@@ -101,11 +118,11 @@ export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
- * tasks out: a report, idle, stopped, a todo done or open, heartbeat or
+ * tasks out: a report, idle, stopped, a todo done, open or added, heartbeat or
  * lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
+	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
 		text.trim(),
 	);
 }

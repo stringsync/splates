@@ -43,6 +43,7 @@ asks you to read it as Reference files says.
 | `[SPLATES REPORT <task>]` | A task you handed on with `--relay`, or to another project, stopped: escalated, merged or removed | [handoff.md](references/handoff.md); for another project's, [lanes.md](references/lanes.md) |
 | `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate left the list: merged or removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
+| `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate | [lanes.md](references/lanes.md) |
 | `[SPLATES IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[SPLATES STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
 | `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |

@@ -59,6 +59,7 @@ export async function serveProject(
 			lanes: () => project.todos.lanes(),
 			todos: () => project.todos.stored(),
 			seen: new SeenLaneTodos(fs, `${splatesDir}/lane-todos.json`),
+			stuck: project.todos,
 			log,
 		});
 		laneRunner = LaneRunner.watch({

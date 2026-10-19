@@ -273,6 +273,21 @@ export class Todos {
 	}
 
 	/**
+	 * Marks todo `id` stuck since `at`, or not stuck for null, as `splates
+	 * server` finds its agent; a todo gone meanwhile is left gone.
+	 */
+	async markStuck(id: number, at: string | null): Promise<void> {
+		await this.locked(async () => {
+			const state = await this.read(this.path(id));
+			if (state === null || (state.stuck ?? null) === at) {
+				return;
+			}
+			const { stuck: _, ...rest } = state;
+			await this.save(at === null ? rest : { ...rest, stuck: at });
+		});
+	}
+
+	/**
 	 * @internal Rewrites one todo as it stands on disk now, under the lock, so
 	 * a change to its words or who has it never undoes a move made meanwhile.
 	 */
@@ -358,8 +373,9 @@ export class Todos {
 				fail("exists", `todo ${id} is on the list already`, { todo: id });
 			}
 			const lanes = await this.laneFiles.records(stored);
+			const { stuck: _, ...kept } = state;
 			const restored = await this.save({
-				...state,
+				...kept,
 				takenBy: null,
 				lane: lanes.some((lane) => lane.id === state.lane) ? state.lane : null,
 				blockedBy: state.blockedBy.filter((before) =>

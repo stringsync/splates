@@ -192,6 +192,13 @@ export type Taking = "start" | "steer" | "queue";
 export const IDLE_STOP = Duration.mins(30);
 
 /**
+ * The `told` of a message `splates server` said itself, as to the agent of a
+ * running lane's task: compare a message's `told` to it to name the server
+ * rather than another conversation.
+ */
+export const SERVER_TOLD = "splates";
+
+/**
  * How long the conversation that handed tasks out sits idle, with an agent it
  * handed one to at work, before splates asks it to check on them.
  */
@@ -231,7 +238,10 @@ export interface Message {
 	interrupted?: string;
 	/** Said while the agent worked, and taken into the turn it was running. */
 	steered?: true;
-	/** The conversation that said it with `splates tell`, for one the person did not say. */
+	/**
+	 * The conversation that said it with `splates tell`, or `SERVER_TOLD`
+	 * for `splates server`, for one the person did not say.
+	 */
 	told?: string;
 	/** Said into the mic rather than typed. */
 	dictated?: true;

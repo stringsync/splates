@@ -8,6 +8,7 @@ import {
 	type TextMessagePartComponent,
 	useAuiState,
 } from "@assistant-ui/react";
+import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
 	leadingDirectives,
 	MERGE,
@@ -232,7 +233,9 @@ export const UserMessage: FC = () => {
 					{told !== null && (
 						<span data-slot="aui_user-message-told">
 							from{" "}
-							{teller === undefined ? (
+							{told === SERVER_TOLD ? (
+								"splates server"
+							) : teller === undefined ? (
 								"another conversation"
 							) : (
 								<a

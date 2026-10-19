@@ -106,6 +106,12 @@ released it or was removed. Go back to step 1 of Handing out for its lane,
 which hands it out again once it can go; `splates todo show N` says what the
 last task learned.
 
+A running lane, one `splates lane run` set going, starts its todos itself,
+so neither of those comes for it. `[SPLATES TODO ADDED #N]` comes instead,
+as todo N comes into it: read `splates todo show N`, and link what it
+needs or what needs it (see [todos.md](todos.md)), so the lane starts it in
+its turn.
+
 A task that escalates wakes you for nothing: it waits on the user, who
 answers it in its own conversation, and what needs it waits too.
 
@@ -114,6 +120,11 @@ agent reports instead: `[SPLATES REPORT <slug>/<task>]` means it stopped,
 escalated, merged or removed. Read `splates --project <slug> show <task>`,
 once per stop, and when it is gone, go back to step 1 of Handing out as for
 a todo done.
+
+In a running lane, splates tells an agent that goes idle to carry on
+itself, once; `[SPLATES IDLE <task>]` comes only once it stops again, its
+todo marked stuck on the board, so skip straight to asking the user what
+becomes of it, as below.
 
 `[SPLATES IDLE <task>]` means the agent you handed `<task>` out to ended a
 turn, failed, or was stopped by a restart, without escalating, merging or

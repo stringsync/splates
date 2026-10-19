@@ -32,6 +32,11 @@ export interface TodoState {
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
 	origin?: TodoOrigin;
+	/**
+	 * Since when its task, in a running lane, has sat idle though told to
+	 * carry on, as its card shows; absent while it is not stuck.
+	 */
+	stuck?: string;
 }
 
 /**
@@ -106,13 +111,14 @@ export class Todo {
 					{ todo: this.id, takenBy: state.takenBy },
 				);
 			}
-			return { ...state, takenBy: task };
+			const { stuck: _, ...rest } = state;
+			return { ...(state.takenBy === task ? state : rest), takenBy: task };
 		});
 	}
 
 	/** Puts it back on the list, as when the task that took it is removed. */
 	release(): Promise<Todo> {
-		return this.todos.revise(this.id, (state) => ({
+		return this.todos.revise(this.id, ({ stuck: _, ...state }) => ({
 			...state,
 			takenBy: null,
 		}));

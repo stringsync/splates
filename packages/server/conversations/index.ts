@@ -77,6 +77,7 @@ export {
 	HEARTBEAT_IDLE,
 	IDLE_STOP,
 	listed,
+	SERVER_TOLD,
 	unused,
 } from "./state";
 export type { ConversationsHeard } from "./stream";

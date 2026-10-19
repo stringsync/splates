@@ -43,6 +43,7 @@ export {
 export {
 	APPROVE,
 	AUTO,
+	CARRY_ON,
 	CHECKPOINT,
 	DEFER,
 	DICTATED,
@@ -63,6 +64,7 @@ export {
 	setupReference,
 	stoppedReference,
 	taskReference,
+	todoAddedReference,
 	todoDoneReference,
 	todoOpenReference,
 	todoReference,

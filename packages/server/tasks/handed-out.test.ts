@@ -8,7 +8,9 @@ import {
 	type Conversation,
 	Conversations,
 	HEARTBEAT_IDLE,
+	SERVER_TOLD,
 } from "../conversations";
+import { CARRY_ON } from "../plans";
 import { Everywhere } from "../projects";
 import { Testing } from "../testing";
 import { add } from "./add";
@@ -36,6 +38,19 @@ describe("HandedOut", () => {
 		}
 	};
 
+	/** Marks a todo on `list` stuck, as the board does on disk. */
+	const stuck = {
+		markStuck: async (id: number, at: string | null) => {
+			list = list.map((each) => {
+				if (each.id !== id) {
+					return each;
+				}
+				const { stuck: _, ...rest } = each;
+				return at === null ? rest : { ...rest, stuck: at };
+			});
+		},
+	};
+
 	const open = () =>
 		new Conversations(`${deps.splatesDir}/conversations`, [AGENT], {
 			launch: agent.launch,
@@ -48,6 +63,7 @@ describe("HandedOut", () => {
 			lanes: async () => board,
 			todos: async () => list,
 			seen: new SeenLaneTodos(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+			stuck,
 			log: deps.log,
 			timer,
 			clock,
@@ -156,6 +172,7 @@ describe("HandedOut", () => {
 				lanes: async () => board,
 				todos: async () => list,
 				seen: new SeenLaneTodos(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+				stuck,
 				log: deps.log,
 				timer,
 				clock,
@@ -580,5 +597,85 @@ describe("HandedOut", () => {
 		await until(() => said.length === 2);
 
 		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO DONE #2]"]);
+	});
+
+	/** Lane 1 set running, by the person; alpha holds its todo 2. */
+	const running = () => {
+		board = [{ id: 1, name: "Stats", running: { by: null } }];
+		list = [todo(2, "alpha")];
+	};
+
+	it("tells the agent of a running lane's task to carry on itself, and its orchestrator only once it stops again", async () => {
+		running();
+		const { working } = await startedOut();
+		await watch().sweep();
+		await until(() => said.length === 3);
+
+		expect(said).toEqual([
+			"[SPLATES TASK alpha]",
+			CARRY_ON,
+			"[SPLATES IDLE alpha]",
+		]);
+		expect(
+			working.state.messages.findLast((message) => message.role === "user")
+				?.told,
+		).toBe(SERVER_TOLD);
+		expect(list[0]?.stuck).toBe(new Date(clock.now()).toISOString());
+	});
+
+	it("marks the todo of a running lane the person set going stuck, telling no one", async () => {
+		running();
+		const working = await conversations.start("fake", {
+			task: "alpha",
+			cwd: (await deps.service.find("alpha")).path,
+		});
+		await until(() => working.state.status === "idle");
+		await working.prompt("[SPLATES TASK alpha]", [], undefined, {
+			told: SERVER_TOLD,
+		});
+		await until(() => said.length === 1 && working.state.status === "idle");
+		await watch().sweep();
+		await until(() => list[0]?.stuck !== undefined);
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[SPLATES TASK alpha]", CARRY_ON]);
+	});
+
+	it("leaves a running lane's agent the person took in hand to them", async () => {
+		running();
+		const { working } = await startedOut();
+		await working.prompt("Try the other layout.");
+		await until(() => said.length === 2 && working.state.status === "idle");
+		await watch().sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[SPLATES TASK alpha]", "Try the other layout."]);
+		expect(list[0]?.stuck).toBeUndefined();
+	});
+
+	it("marks a stuck todo no longer stuck once its agent is at work again", async () => {
+		running();
+		list = [{ ...todo(2, "alpha"), stuck: "2026-10-16T00:00:00Z" }];
+		const { watched } = await atWork("startedBy");
+		await watched.sweep();
+
+		expect(list[0]?.stuck).toBeUndefined();
+	});
+
+	it("tells an orchestrator of a running lane of a todo come into it, not of one done or open", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: running\n\n#### The lane runs.",
+		);
+		board = [{ id: 1, name: "Stats", running: { by: null } }];
+		list = [todo(2, "beta"), todo(3, "gamma")];
+		const watched = watch();
+		await watched.sweep();
+		list = [todo(3, null), todo(4, null)];
+		await watched.sweep();
+		await until(() => said.length === 2);
+		await watched.sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO ADDED #4]"]);
 	});
 });

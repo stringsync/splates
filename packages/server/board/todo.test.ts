@@ -419,6 +419,21 @@ describe.concurrent("todo", () => {
 		expect(out).toContain("next todo 2: dark tooltips on charts");
 	});
 
+	it("marks one stuck, and clears it as its task lets it go", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "write docs", null);
+		await (await deps.todos.find(1)).take("alpha");
+
+		await deps.todos.markStuck(1, "2026-10-18T00:00:00Z");
+		expect((await deps.todos.find(1)).state.stuck).toBe(
+			"2026-10-18T00:00:00Z",
+		);
+		await (await deps.todos.find(1)).release();
+
+		expect((await deps.todos.find(1)).state.stuck).toBeUndefined();
+		await deps.todos.markStuck(9, null);
+	});
+
 	it("puts a removed task's todo back on the list", async () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "support dark mode", null);

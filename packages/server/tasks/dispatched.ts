@@ -1,5 +1,5 @@
 import type { Logger } from "webappwiz/log";
-import type { Conversations } from "../conversations";
+import { type Conversations, SERVER_TOLD } from "../conversations";
 import { effortSettings, modelOption } from "../models";
 import { handoffReference, taskReference } from "../plans";
 import type { WorktreeService } from "./worktree-service";
@@ -64,8 +64,8 @@ export async function startDispatched({
 					.join("\n\n"),
 				[],
 				undefined,
-				// Said by whoever handed it out, not by the person.
-				worktree.caller === null ? {} : { told: worktree.caller },
+				// Said by whoever handed it out, or by splates itself, not the person.
+				{ told: worktree.caller ?? SERVER_TOLD },
 			);
 			// Told once the session is open, so its settings are known by now.
 			if (

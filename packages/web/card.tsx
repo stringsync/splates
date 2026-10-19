@@ -5,6 +5,7 @@ import type { TodoState } from "@stringsync/splates-server/board";
 import { blockerLabel } from "@stringsync/splates-server/board/browser";
 import { todoReference } from "@stringsync/splates-server/plans/browser";
 import {
+	CircleAlertIcon,
 	ClockIcon,
 	GripVerticalIcon,
 	HourglassIcon,
@@ -128,6 +129,11 @@ export function Card({
 					)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
+					{todo.stuck !== undefined && todo.takenBy !== null && (
+						<Badge Icon={CircleAlertIcon} label="stuck">
+							<span className="text-warning">stuck</span>
+						</Badge>
+					)}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}

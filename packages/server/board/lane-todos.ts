@@ -6,17 +6,28 @@ import type { TodoState } from "./todo";
 export interface LaneTodo {
 	id: number;
 	/** Its lane, by number and name, the name kept for once the lane ends. */
-	lane: { id: number; name: string };
+	lane: LaneSeen;
 	/** Whether a task has taken it. */
 	taken: boolean;
+}
+
+/** A lane as its todos were seen in it. */
+export interface LaneSeen {
+	id: number;
+	name: string;
+	/** Set while it ran, its todos started by `splates server`. */
+	running?: true;
 }
 
 /** What became of a todo in a lane since it was last seen. */
 export interface LaneTodoChange {
 	todo: number;
-	lane: { id: number; name: string };
-	/** `done` once it left the list, merged or removed; `open` once its task let it go. */
-	change: "done" | "open";
+	lane: LaneSeen;
+	/**
+	 * `done` once it left the list, merged or removed; `open` once its task
+	 * let it go; `added` once it came into a running lane.
+	 */
+	change: "done" | "open" | "added";
 }
 
 /** The todos in a lane, out of every todo and the lanes on the board. */
@@ -28,7 +39,11 @@ export function laneTodos(todos: TodoState[], lanes: LaneRecord[]): LaneTodo[] {
 			: [
 					{
 						id: todo.id,
-						lane: { id: lane.id, name: lane.name },
+						lane: {
+							id: lane.id,
+							name: lane.name,
+							...(lane.running === undefined ? {} : { running: true as const }),
+						},
 						taken: todo.takenBy !== null,
 					},
 				];
@@ -37,23 +52,34 @@ export function laneTodos(todos: TodoState[], lanes: LaneRecord[]): LaneTodo[] {
 
 /**
  * What became of each todo in `before` by `now`: done for one gone from the
- * list, open for one taken then and not now. One that moved lanes, or came
- * into one, is neither.
+ * list, open for one taken then and not now, added for one in a running
+ * lane now that was not in it then. A running lane starts its todos itself,
+ * so none of its own is done or open; one that moved between lanes that do
+ * not run is none of them.
  */
 export function laneChanges(
 	before: LaneTodo[],
 	now: LaneTodo[],
 	all: TodoState[],
 ): LaneTodoChange[] {
-	return before.flatMap((was): LaneTodoChange[] => {
+	const gone = before.flatMap((was): LaneTodoChange[] => {
 		if (!all.some((todo) => todo.id === was.id)) {
-			return [{ todo: was.id, lane: was.lane, change: "done" }];
+			return was.lane.running
+				? []
+				: [{ todo: was.id, lane: was.lane, change: "done" }];
 		}
 		const is = now.find((each) => each.id === was.id);
-		return was.taken && is !== undefined && !is.taken
+		return was.taken && is !== undefined && !is.taken && !is.lane.running
 			? [{ todo: is.id, lane: is.lane, change: "open" }]
 			: [];
 	});
+	const added = now.flatMap((is): LaneTodoChange[] =>
+		is.lane.running &&
+		!before.some((was) => was.id === is.id && was.lane.id === is.lane.id)
+			? [{ todo: is.id, lane: is.lane, change: "added" }]
+			: [],
+	);
+	return [...gone, ...added];
 }
 
 /**
