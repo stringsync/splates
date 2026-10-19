@@ -16,7 +16,6 @@ import {
 	InputGroupAddon,
 	InputGroupTextarea,
 } from "#web/components/ui/input-group.tsx";
-import { Tabs, TabsList } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
@@ -33,7 +32,13 @@ import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
-import { Section, SectionTab, TONES, type Tone } from "./task-sections";
+import {
+	Section,
+	SectionTab,
+	SectionTabs,
+	TONES,
+	type Tone,
+} from "./task-sections";
 import { TodoEditor } from "./todo-editor";
 import { stageLabel, stageOf } from "./todo-queue";
 
@@ -141,19 +146,16 @@ export function Edit({
 					</span>
 				</p>
 			</DialogHeader>
-			<Tabs
+			<SectionTabs
 				value={tab}
-				onValueChange={(value: string) => setTab(value)}
-				className="-mx-4 min-h-0 gap-0"
+				onValueChange={setTab}
+				tabs={
+					<>
+						<SectionTab value="overview">Overview</SectionTab>
+						<SectionTab value="details">Details</SectionTab>
+					</>
+				}
 			>
-				<TabsList
-					variant="line"
-					aria-label="sections"
-					className="h-9! w-full justify-start gap-3 rounded-none border-b px-4 py-0 max-md:h-11!"
-				>
-					<SectionTab value="overview">Overview</SectionTab>
-					<SectionTab value="details">Details</SectionTab>
-				</TabsList>
 				<Section value="overview" keepMounted>
 					<div className="flex min-w-0 flex-col gap-3">
 						{restored && (
@@ -206,7 +208,7 @@ export function Edit({
 					</Links>
 					<Refusal refusal={refusal} />
 				</Section>
-			</Tabs>
+			</SectionTabs>
 			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button
 					variant={confirming ? "destructive" : "ghost"}

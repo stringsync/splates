@@ -1,5 +1,10 @@
 import type { JSX, ReactNode } from "react";
-import { TabsContent, TabsTrigger } from "#web/components/ui/tabs.tsx";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "#web/components/ui/tabs.tsx";
 
 /*
  * The shape every task's dialog takes, whether opened from the task list or
@@ -19,6 +24,39 @@ export const TASK_DIALOG =
  */
 export const PHONE_SHEET =
 	"max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:-translate-y-0 max-md:rounded-b-none max-md:data-closed:slide-out-to-bottom max-md:data-open:slide-in-from-bottom max-md:data-closed:zoom-out-100 max-md:data-open:zoom-in-100 max-md:[&_[data-slot=dialog-footer]]:pb-[max(1rem,env(safe-area-inset-bottom))]";
+
+/**
+ * A task dialog's tabs under its header: `tabs`, each a `SectionTab`, in a
+ * line, and `children`, a `Section` for each.
+ */
+export function SectionTabs({
+	value,
+	onValueChange,
+	tabs,
+	children,
+}: {
+	value: string;
+	onValueChange: (value: string) => void;
+	tabs: ReactNode;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<Tabs
+			value={value}
+			onValueChange={(next: string) => onValueChange(next)}
+			className="-mx-4 min-h-0 gap-0"
+		>
+			<TabsList
+				variant="line"
+				aria-label="sections"
+				className="h-9! w-full justify-start gap-3 rounded-none border-b px-4 py-0 max-md:h-11!"
+			>
+				{tabs}
+			</TabsList>
+			{children}
+		</Tabs>
+	);
+}
 
 /** A tab of a task's dialog, as the board's todo dialog has too. */
 export function SectionTab({
@@ -71,3 +109,24 @@ export const TONES: Record<Tone, string> = {
 	failed: "bg-destructive/10 text-destructive",
 	quiet: "bg-muted text-muted-foreground",
 };
+
+/** What splates knows of a task beside its SPLATES.md, a row each, its Details tab. */
+export function FactList({
+	facts,
+}: {
+	facts: [string, ReactNode][];
+}): JSX.Element {
+	return (
+		<dl
+			aria-label="about the task"
+			className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs"
+		>
+			{facts.map(([name, fact]) => (
+				<div key={name} className="contents">
+					<dt className="text-muted-foreground">{name}</dt>
+					<dd className="min-w-0 tabular-nums">{fact}</dd>
+				</div>
+			))}
+		</dl>
+	);
+}

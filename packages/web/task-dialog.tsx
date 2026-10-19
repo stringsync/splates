@@ -21,21 +21,21 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
-import { Tabs, TabsList } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Dispatching } from "./dispatching";
 import { Held, SubagentComposer } from "./handed-out";
 import { Markdown } from "./markdown";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
-import { DemoButtons } from "./task-demo";
 import { TaskIcon } from "./task-icon";
-import { type PlanParts, planParts, stepsIn } from "./task-plan-parts";
-import { TaskPorts } from "./task-ports";
+import { Overview } from "./task-overview";
+import { planParts } from "./task-plan-parts";
 import {
+	FactList,
 	PHONE_SHEET,
 	Section,
 	SectionTab,
+	SectionTabs,
 	TASK_DIALOG,
 	TONES,
 	type Tone,
@@ -67,20 +67,17 @@ export function Task({ task }: { task: Details }): JSX.Element {
 			className={cn(TASK_DIALOG, PHONE_SHEET)}
 		>
 			<Header task={task} retry={retry.note} />
-			<Tabs
+			<SectionTabs
 				value={tab}
-				onValueChange={(value: Tab) => setTab(value)}
-				className="-mx-4 min-h-0 gap-0"
+				onValueChange={(value) => setTab(value as Tab)}
+				tabs={
+					<>
+						<SectionTab value="overview">Overview</SectionTab>
+						{plan.notes !== "" && <SectionTab value="notes">Notes</SectionTab>}
+						<SectionTab value="details">Details</SectionTab>
+					</>
+				}
 			>
-				<TabsList
-					variant="line"
-					aria-label="sections"
-					className="h-9! w-full justify-start gap-3 rounded-none border-b px-4 py-0 max-md:h-11!"
-				>
-					<SectionTab value="overview">Overview</SectionTab>
-					{plan.notes !== "" && <SectionTab value="notes">Notes</SectionTab>}
-					<SectionTab value="details">Details</SectionTab>
-				</TabsList>
 				<Section value="overview">
 					{caller !== null && context !== null && (
 						<div className="mb-4">
@@ -91,7 +88,13 @@ export function Task({ task }: { task: Details }): JSX.Element {
 							/>
 						</div>
 					)}
-					<Overview task={task} plan={plan} />
+					<Overview
+						task={task.task}
+						conversation={task.takenBy}
+						plan={task.plan === null ? null : plan}
+						none="No SPLATES.md: whoever picks this up starts from the diff."
+						ports
+					/>
 				</Section>
 				<Section value="notes">
 					<Markdown text={plan.notes} />
@@ -111,7 +114,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						)}
 					</div>
 				</Section>
-			</Tabs>
+			</SectionTabs>
 			<DialogFooter className="sm:justify-between">
 				<ActionBar task={task} retry={retry.action} />
 			</DialogFooter>
@@ -250,71 +253,6 @@ function standingOf(task: Details, need: Need): Standing {
 }
 
 /**
- * What the task is for and how far it has got: its Goal, its steps with how
- * many are done, and the ports it serves, to open what it runs.
- */
-function Overview({
-	task,
-	plan,
-}: {
-	task: Details;
-	plan: PlanParts;
-}): JSX.Element {
-	const steps = stepsIn(plan.steps);
-	return (
-		<div className="flex min-w-0 flex-col gap-4 text-sm">
-			{task.plan === null ? (
-				<p className="text-muted-foreground">
-					No SPLATES.md: whoever picks this up starts from the diff.
-				</p>
-			) : plan.goal === "" && plan.steps === "" ? (
-				<p className="text-muted-foreground">Its SPLATES.md has no Goal yet.</p>
-			) : (
-				<>
-					{plan.goal !== "" && (
-						<section aria-label="goal" className="flex flex-col gap-1">
-							<SectionHeading>Goal</SectionHeading>
-							<Markdown text={plan.goal} />
-						</section>
-					)}
-					{plan.verification !== "" && (
-						<section aria-label="verification" className="flex flex-col gap-1">
-							<SectionHeading>Verification</SectionHeading>
-							<Markdown text={plan.verification} />
-						</section>
-					)}
-					{plan.demo !== "" && (
-						<DemoButtons task={task.task} conversation={task.takenBy} />
-					)}
-					{plan.steps !== "" && (
-						<section aria-label="steps" className="flex flex-col gap-1">
-							<SectionHeading>
-								Steps
-								{steps.total > 0 && (
-									<span className="font-normal tabular-nums">
-										{steps.done} of {steps.total}
-									</span>
-								)}
-							</SectionHeading>
-							<Markdown text={plan.steps} />
-						</section>
-					)}
-				</>
-			)}
-			<TaskPorts task={task.task} />
-		</div>
-	);
-}
-
-function SectionHeading({ children }: { children: ReactNode }): JSX.Element {
-	return (
-		<h3 className="flex items-baseline gap-2 font-medium text-muted-foreground text-xs">
-			{children}
-		</h3>
-	);
-}
-
-/**
  * What splates knows of a task that its SPLATES.md does not say, a row each,
  * with how its SPLATES.md departs from the shape the skill asks for.
  */
@@ -380,17 +318,5 @@ function Facts({
 			</ul>,
 		]);
 	}
-	return (
-		<dl
-			aria-label="about the task"
-			className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs"
-		>
-			{facts.map(([name, fact]) => (
-				<div key={name} className="contents">
-					<dt className="text-muted-foreground">{name}</dt>
-					<dd className="min-w-0 tabular-nums">{fact}</dd>
-				</div>
-			))}
-		</dl>
-	);
+	return <FactList facts={facts} />;
 }

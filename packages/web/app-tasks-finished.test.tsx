@@ -65,10 +65,19 @@ describe("App's finished tasks", () => {
 			fireEvent.click(within(list).getByRole("button", { name: /alpha/ })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
+		// Its plan in the tabs a live task's dialog has.
 		await waitFor(() => {
-			expect(dialog.textContent).toContain("kept the old flag");
+			expect(dialog.textContent).toContain("ship alpha");
 		});
-		expect(dialog.textContent).toContain("Merged onto main as abc1234");
+		expect(within(dialog).getByText("Merged")).toBeTruthy();
+		expect(dialog.textContent).toContain("onto main as abc1234");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Notes" })),
+		);
+		expect(dialog.textContent).toContain("kept the old flag");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
 		expect(dialog.textContent).toContain("#7 Ship alpha");
 	});
 
@@ -92,7 +101,8 @@ describe("App's finished tasks", () => {
 		);
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(dialog.textContent).toContain("Removed as superseded");
+		expect(within(dialog).getByText("Removed")).toBeTruthy();
+		expect(dialog.textContent).toContain("as superseded");
 	});
 });
 

@@ -8,7 +8,14 @@ import {
 	CircleCheckIcon,
 	CircleSlashIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -24,9 +31,20 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { ApiError, scoped } from "./api";
 import { useFolded } from "./folded";
-import { HEADING } from "./markdown";
+import { Markdown } from "./markdown";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
-import { TaskPlan } from "./task-demo";
+import { TaskIcon } from "./task-icon";
+import { Overview } from "./task-overview";
+import { planParts } from "./task-plan-parts";
+import {
+	FactList,
+	PHONE_SHEET,
+	Section,
+	SectionTab,
+	SectionTabs,
+	TASK_DIALOG,
+	TONES,
+} from "./task-sections";
 
 /** Where the Tasks page keeps whether Finished is open. */
 const FOLDED = "splates.tasks.finished";
@@ -164,8 +182,9 @@ function FinishedRow({
 }
 
 /**
- * One finished task, all of it: the plan it ended on, then how it ended and
- * the queued tasks it took up.
+ * One finished task in the dialog every task opens in: how it ended in the
+ * header, the plan it ended on split into tabs as a live task's is, and on
+ * Details its facts and the queued tasks it took up.
  */
 function FinishedDialog({
 	opened,
@@ -177,6 +196,7 @@ function FinishedDialog({
 }): JSX.Element {
 	const [read, setRead] = useState<FinishedPlan | null>(null);
 	const [failed, setFailed] = useState(false);
+	const [tab, setTab] = useState("overview");
 	useEffect(() => {
 		let current = true;
 		finishedTask(opened).then(
@@ -188,53 +208,128 @@ function FinishedDialog({
 		};
 	}, [opened]);
 	const task = read ?? listed;
+	const plan = useMemo(
+		() => (read === null || read.plan === "" ? null : planParts(read.plan)),
+		[read],
+	);
+	// Focus lands on the dialog, not its first tab, as a live task's does.
+	const dialog = useRef<HTMLDivElement>(null);
 	return (
-		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-xl">
-			<DialogHeader>
-				<DialogTitle className="min-w-0 break-words">
-					{task?.task ?? opened}
+		<DialogContent
+			ref={dialog}
+			initialFocus={dialog}
+			className={cn(TASK_DIALOG, PHONE_SHEET)}
+		>
+			<DialogHeader className="gap-1.5">
+				<DialogTitle className="flex items-center gap-2 pr-8">
+					<TaskIcon aria-hidden className="size-4 shrink-0" />
+					<span className="min-w-0 break-words">{task?.task ?? opened}</span>
 				</DialogTitle>
-				<DialogDescription>
-					{task === null ? "" : endedAs(task)}
+				<DialogDescription className="flex min-w-0 items-baseline gap-2 text-foreground">
+					{task !== null && (
+						<>
+							<span
+								className={cn(
+									"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
+									TONES[task.ended === "merged" ? "ready" : "quiet"],
+								)}
+							>
+								{task.ended === "merged" ? "Merged" : "Removed"}
+							</span>
+							<span className="min-w-0 text-sm">{endedHow(task)}</span>
+						</>
+					)}
 				</DialogDescription>
 			</DialogHeader>
-			<div className="-mx-4 flex min-w-0 flex-col gap-4 overflow-y-auto px-4 text-sm">
-				{failed ? (
-					<p className="text-muted-foreground">Couldn’t read this task.</p>
-				) : read === null ? null : read.plan === "" ? (
-					<p className="text-muted-foreground">It ended with no SPLATES.md.</p>
-				) : (
-					<TaskPlan
-						task={read.task}
-						conversation={read.conversation}
-						plan={read.plan}
-					/>
-				)}
-				{read !== null && read.took.length > 0 && (
-					<section aria-label="queued tasks it took" className="flex flex-col">
-						<h2 className={HEADING}>Took</h2>
-						<ul className="flex flex-col gap-0.5 text-muted-foreground text-xs">
-							{read.took.map((each) => (
-								<li key={each.id}>
-									#{each.id} {each.subject}
-								</li>
-							))}
-						</ul>
-					</section>
-				)}
-			</div>
+			<SectionTabs
+				value={tab}
+				onValueChange={setTab}
+				tabs={
+					<>
+						<SectionTab value="overview">Overview</SectionTab>
+						{plan !== null && plan.notes !== "" && (
+							<SectionTab value="notes">Notes</SectionTab>
+						)}
+						<SectionTab value="details">Details</SectionTab>
+					</>
+				}
+			>
+				<Section value="overview">
+					{failed ? (
+						<p className="text-muted-foreground text-sm">
+							Couldn’t read this task.
+						</p>
+					) : read === null ? null : (
+						<Overview
+							task={read.task}
+							conversation={read.conversation}
+							plan={plan}
+							none="It ended with no SPLATES.md."
+						/>
+					)}
+				</Section>
+				<Section value="notes">
+					<Markdown text={plan?.notes ?? ""} />
+				</Section>
+				<Section value="details">
+					{task !== null && <FactList facts={factsOf(read ?? task)} />}
+				</Section>
+			</SectionTabs>
 		</DialogContent>
 	);
 }
 
+/** What a finished task's Details list: where and how it ended, and what it took. */
+function factsOf(task: FinishedTask): [string, ReactNode][] {
+	const facts: [string, ReactNode][] = [
+		["Ended", task.ended === "merged" ? "Merged" : "Removed"],
+		["Base", task.base],
+	];
+	if (task.commit !== null) {
+		facts.push([
+			"Commit",
+			<span key="commit" className="select-all">
+				{task.commit}
+			</span>,
+		]);
+	}
+	if (task.reason !== null) {
+		facts.push(["Reason", task.reason]);
+	}
+	facts.push(["Started", `${age(task.startedAt)} ago`]);
+	facts.push(["Finished", `${age(task.endedAt)} ago`]);
+	if (task.took.length > 0) {
+		facts.push([
+			"Took",
+			<ul
+				key="took"
+				aria-label="queued tasks it took"
+				className="flex flex-col gap-0.5"
+			>
+				{task.took.map((each) => (
+					<li key={each.id}>
+						#{each.id} {each.subject}
+					</li>
+				))}
+			</ul>,
+		]);
+	}
+	return facts;
+}
+
 /** How `task` ended, in words: where it merged, or why it was removed. */
 function endedAs(task: FinishedTask): string {
+	return `${task.ended === "merged" ? "Merged" : "Removed"} ${endedHow(task)}`;
+}
+
+/** `endedAs` but its first word, for beside a label that says it. */
+function endedHow(task: FinishedTask): string {
 	const when = `${age(task.endedAt)} ago`;
 	if (task.ended === "merged") {
 		const commit = task.commit === null ? "" : ` as ${task.commit}`;
-		return `Merged onto ${task.base}${commit}, ${when}`;
+		return `onto ${task.base}${commit}, ${when}`;
 	}
-	return `Removed${task.reason === null ? "" : ` as ${task.reason}`}, ${when}`;
+	return `${task.reason === null ? "" : `as ${task.reason}, `}${when}`;
 }
 
 /** Every task that merged or was removed in this project, newest first. */
