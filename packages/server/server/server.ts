@@ -653,9 +653,6 @@ export async function dev(
 						GET: talk(scoped((project) => project.listConversations)),
 						POST: talk(scoped((project) => project.startConversation)),
 					},
-					"/api/conversations/auto": {
-						POST: talk(scoped((project) => project.startAutoConversation)),
-					},
 					"/api/conversations/sessions": {
 						GET: talk(scoped((project) => project.listSessions)),
 						POST: talk(scoped((project) => project.bringSession)),
@@ -678,9 +675,6 @@ export async function dev(
 					"/api/conversations/:id/artifacts/:name/:version": {
 						GET: talk(owned((project) => project.conversationArtifact)),
 						DELETE: talk(owned((project) => project.deleteArtifactVersion)),
-					},
-					"/api/conversations/:id/tell": {
-						POST: talk(owned((project) => project.tellConversation)),
 					},
 					"/api/conversations/:id/artifacts": {
 						POST: talk(owned((project) => project.addArtifact)),

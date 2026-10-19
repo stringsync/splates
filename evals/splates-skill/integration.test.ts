@@ -71,16 +71,17 @@ it("reconciles every discovered case with the versioned coverage inventory and s
 	);
 });
 
-it("executes the discovered CLI suite without models and retains its deliberate capture gap", async () => {
+it("executes the discovered CLI suite without models, passing on state despite its capture gap", async () => {
 	const exitCode = process.exitCode;
 	try {
+		process.exitCode = 0;
 		const log = new MemoryLogger();
 		await fastCli(
 			["fast", "--kind", "cli", "--directory", directory, "--parallel", "2"],
 			log,
 		);
 		const runs = await storedRuns(directory);
-		expect(runs).toHaveLength(11);
+		expect(runs).toHaveLength(10);
 		expect(new Set(runs.map((run) => run.agent))).toEqual(new Set(["cli"]));
 		expect(new Set(runs.map((run) => run.run.usage.tokens))).toEqual(
 			new Set([0]),
@@ -91,36 +92,22 @@ it("executes the discovered CLI suite without models and retains its deliberate 
 		expect(runs.flatMap((run) => run.run.evidence.complete)).not.toContain(
 			"events",
 		);
-		const unexpected = runs.filter(
-			(run) =>
-				run.result.status !== "pass" &&
-				!(
-					run.probe.id === "delegation/cli-no-dev-tell" &&
-					run.result.status === "uncovered"
-				),
-		);
-		expect(
-			unexpected.map((run) => ({
-				probe: run.probe.id,
-				result: run.result,
-				evidence: run.run.evidence,
-			})),
-		).toEqual([]);
 		expect(
 			runs
 				.filter((run) => run.result.status !== "pass")
-				.map((run) => [run.probe.id, run.result.status]),
-		).toEqual([["delegation/cli-no-dev-tell", "uncovered"]]);
-		expect(process.exitCode).toBe(1);
-		await fastCli(
-			["fast", "--kind", "cli", "--failed", "--directory", directory],
-			log,
-		);
-		const reruns = await storedRuns(directory);
-		expect(reruns).toHaveLength(12);
-		expect(
-			reruns.filter((run) => run.probe.id === "delegation/cli-no-dev-tell"),
-		).toHaveLength(2);
+				.map((run) => ({
+					probe: run.probe.id,
+					result: run.result,
+					evidence: run.run.evidence,
+				})),
+		).toEqual([]);
+		expect(process.exitCode).toBe(0);
+		await expect(
+			fastCli(
+				["fast", "--kind", "cli", "--failed", "--directory", directory],
+				log,
+			),
+		).rejects.toThrow("No compatible non-passing probes");
 		const report = new MemoryLogger();
 		await fastCli(
 			["report", "--kind", "agent", "--directory", directory],
@@ -161,7 +148,7 @@ it("rejects every registered agent probe without launching even with unmetered o
 			allowUnmetered: true,
 		},
 	);
-	expect(runs).toHaveLength(48);
+	expect(runs).toHaveLength(41);
 	expect(new Set(runs.map((run) => run.result.status))).toEqual(
 		new Set(["unsupported"]),
 	);

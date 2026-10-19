@@ -32,11 +32,6 @@ export interface Facts {
 	claim: {
 		/** Whether the task was escalated, so the claim ends a wait on the user. */
 		escalated: boolean;
-		/**
-		 * Whether the agent claiming is the one the task was handed to with
-		 * `splates handoff`, taking it over.
-		 */
-		tookOver: boolean;
 		/** What its `SPLATES.md` says done means, as markdown, or "" for nothing yet. */
 		goal: string;
 	};
@@ -88,6 +83,7 @@ export interface Facts {
 		 */
 		questions: Question[];
 	};
+	/** A task handed to another agent, from before agents stopped handing tasks on. */
 	handoff: {
 		/** The roster agent it went to, by its id. */
 		agent: string;
@@ -255,7 +251,7 @@ export type Action = keyof Facts;
 // gains one adds it here too.
 export const FACTS = {
 	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
-	claim: ["escalated", "tookOver", "goal"],
+	claim: ["escalated", "goal"],
 	tell: ["to"],
 	wait: ["until", "began"],
 	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],

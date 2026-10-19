@@ -11,7 +11,7 @@ import { z } from "zod";
 /** `splates projects`, which the root cli mounts after `splates lane`. */
 export const splatesProjects = cli<SplatesDeps>("projects")
 	.description(
-		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks and lanes; add tasks to their untriaged lane with `queue`, as every project may until granted otherwise; or hand their `tasks` to agents and orchestrate them. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
+		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks and lanes; add tasks to their untriaged lane with `queue`, as every project may until granted otherwise; or run their queue, lanes and hooks with `tasks`. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
 	)
 	.fallback("list");
 

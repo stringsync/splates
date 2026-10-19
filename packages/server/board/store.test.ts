@@ -12,12 +12,12 @@ async function stored(deps: Testing, id: number): Promise<unknown> {
 }
 
 describe.concurrent("TaskStore", () => {
-	it("starts a task under the lowest queued task it takes up, the rest held by it", async () => {
+	it("starts a task under the queued task it takes up", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await taskAdd(deps, "dark charts too", null);
 
-		await add(deps, "dark", { tasks: [2, 1] });
+		await add(deps, "dark", { tasks: [1] });
 
 		expect((await deps.service.find("dark")).state?.id).toBe(1);
 		expect(await stored(deps, 1)).toMatchObject({
@@ -29,12 +29,7 @@ describe.concurrent("TaskStore", () => {
 			startedFrom: "backlog",
 			status: "working",
 		});
-		expect(await stored(deps, 2)).toMatchObject({
-			takenBy: "dark",
-			stage: "backlog",
-		});
-		expect(await stored(deps, 2)).not.toHaveProperty("status");
-		expect(await stored(deps, 2)).not.toHaveProperty("task");
+		expect(await stored(deps, 2)).toMatchObject({ takenBy: null });
 		expect((await deps.tasks.all()).map((task) => task.id)).toEqual([1, 2]);
 	});
 

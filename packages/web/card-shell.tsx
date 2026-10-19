@@ -4,7 +4,6 @@ import {
 	CircleSlashIcon,
 	GitBranchIcon,
 	GitMergeIcon,
-	HandshakeIcon,
 	HourglassIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
@@ -37,7 +36,6 @@ export function CardShell({
 	tone = "neutral",
 	task,
 	base = null,
-	to = null,
 	aside,
 	folded = false,
 	ringed = true,
@@ -50,8 +48,6 @@ export function CardShell({
 	task?: string;
 	/** Where the task merges, shown after it. */
 	base?: string | null;
-	/** The agent the task was handed off to, shown after it. */
-	to?: string | null;
 	/** At the header's end. */
 	aside?: ReactNode;
 	/** Whether it starts closed, opened by its header: once it is answered. */
@@ -77,7 +73,6 @@ export function CardShell({
 			tone={tone}
 			task={task}
 			base={base}
-			to={to}
 			aside={aside}
 			folded={folded}
 			ruled={children !== undefined}
@@ -156,7 +151,6 @@ export const ENDINGS: Record<
 		tone: "warning",
 	},
 	working: { title: "Working", Icon: HourglassIcon, tone: "neutral" },
-	handed: { title: "Handed off", Icon: HandshakeIcon, tone: "info" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
@@ -189,7 +183,6 @@ function Header({
 	tone,
 	task,
 	base,
-	to,
 	aside,
 	folded,
 	ruled,
@@ -199,7 +192,6 @@ function Header({
 	tone: Tone;
 	task: string | undefined;
 	base: string | null;
-	to: string | null;
 	aside: ReactNode;
 	folded: boolean;
 	/** Whether a body follows, set apart by a rule while it shows. */
@@ -236,7 +228,6 @@ function Header({
 							/>
 						</>
 					)}
-					{to !== null && <span>to {to}</span>}
 				</span>
 			)}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}

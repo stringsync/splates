@@ -34,13 +34,9 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 	return lastReport(conversation)?.ending ?? null;
 }
 
-/**
- * Whether the conversation's work is done, as `reportedAs` reads it: its task
- * merged, or handed off to another agent.
- */
+/** Whether the conversation's work is done, as `reportedAs` reads it: its task merged. */
 export function reportsDone(conversation: ConversationState): boolean {
-	const reported = reportedAs(conversation);
-	return reported === "merged" || reported === "handed";
+	return reportedAs(conversation) === "merged";
 }
 
 /** Whether a report `reported` leaves the person to act: its task escalated. */

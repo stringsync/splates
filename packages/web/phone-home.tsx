@@ -16,9 +16,8 @@ import {
 import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon, AgentMark } from "./agent-icons";
-import { AUTO_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import { AUTO, NEW } from "./conversation-address";
+import { NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
 import {
 	ProjectLine,
@@ -57,7 +56,7 @@ export function PhoneHome({
 	/** Back to the inbox. */
 	onBack: () => void;
 }): JSX.Element {
-	const { agents, agent, task, auto, onOpen } = starting;
+	const { agents, agent, task, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const section = useRef<HTMLElement>(null);
@@ -67,7 +66,7 @@ export function PhoneHome({
 			composerIn(section.current)?.focus();
 		}
 	}, []);
-	const name = auto ? AUTO_NAME : agentName(agents, agent);
+	const name = agentName(agents, agent);
 	return (
 		<section
 			ref={section}
@@ -98,13 +97,6 @@ export function PhoneHome({
 							<ChevronDownIcon className="size-4 text-muted-foreground" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="start" className="w-48">
-							<DropdownMenuItem
-								className="h-11"
-								onClick={() => onOpen(`${NEW}/${AUTO}`)}
-							>
-								<AutoIcon />
-								{AUTO_NAME}
-							</DropdownMenuItem>
 							{agents.map((each) => (
 								<DropdownMenuItem
 									key={each.id}
@@ -139,15 +131,7 @@ export function PhoneHome({
 								references={references}
 								welcome={
 									<div className="fade-in animate-in fill-mode-both flex flex-col items-center gap-3 px-6 text-center duration-200">
-										{auto ? (
-											<AutoIcon className="size-10" />
-										) : (
-											<AgentMark
-												agent={agent}
-												name={name}
-												className="size-10"
-											/>
-										)}
+										<AgentMark agent={agent} name={name} className="size-10" />
 										<p className="font-medium text-2xl tracking-tight">
 											What should we work on?
 										</p>

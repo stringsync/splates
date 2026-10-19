@@ -226,34 +226,18 @@ describe("add", () => {
 		expect((await deps.service.find("alpha")).gone).toBe(true);
 	});
 
-	it("refuses to hand the task to an agent from one another agent started, before making anything", async () => {
+	it("refuses to hand the task to an agent from an agent, before making anything", async () => {
 		deps.proc.env.SPLATES_CONVERSATION = "c2";
-		deps.proc.env.SPLATES_STARTED_BY = "c1";
 
 		await expect(
 			add(deps, "alpha", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
-		).toBail("usage", { message: ["started by conversation c1", "--agent"] });
+		).toBail("usage", {
+			message: ["an agent starts no agents", "splates task add"],
+			data: { task: "alpha", caller: "c2" },
+		});
 		expect((await deps.service.find("alpha")).gone).toBe(true);
 		await add(deps, "alpha");
 		expect((await deps.service.find("alpha")).caller).toBe("c2");
-	});
-
-	it("refuses to hand a part to an agent, before making anything", async () => {
-		await add(deps, "alpha");
-
-		await expect(
-			add(deps, "beta", {
-				base: "task/alpha",
-				dispatch: { agent: "fake" },
-				agents: [ROSTERED],
-			}),
-		).toBail("usage", {
-			message: ["a part of alpha", "subagents", "--agent"],
-			data: { task: "beta", base: "task/alpha" },
-		});
-		expect((await deps.service.find("beta")).gone).toBe(true);
-		await add(deps, "beta", { base: "task/alpha" });
-		expect((await deps.service.find("beta")).base).toBe("task/alpha");
 	});
 
 	it("names the trunk and the config when the trunk is not a branch", async () => {

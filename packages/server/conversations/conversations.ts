@@ -24,7 +24,7 @@ import type { Limits, Offered } from "../models";
 import { installedVersion } from "../server/shared";
 import type { Adherence, Outcomes } from "../stats";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
-import { Conversation, type Picked } from "./conversation";
+import { Conversation } from "./conversation";
 import type {
 	ConversationDeps,
 	ConversationSlots,
@@ -220,8 +220,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			settings,
 			model,
 			assigned,
-			auto,
-			picking,
 			startedBy,
 		}: {
 			task: string | null;
@@ -235,13 +233,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model?: string;
 			/** Whether a queued task or `splates add --agent` assigned the agent and model. */
 			assigned?: boolean;
-			/** Whether Auto picked the agent and model. */
-			auto?: boolean;
-			/**
-			 * What Auto picks, once it has, to open on in place of `agent`,
-			 * `model` and `settings`, which it starts on meanwhile.
-			 */
-			picking?: Promise<Picked<string>>;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
 		},
@@ -262,11 +253,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				settings,
 				model,
 				assigned,
-				auto,
-				picking: picking?.then((picked) => ({
-					...picked,
-					agent: this.agentOf(picked.agent),
-				})),
 				startedBy,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},

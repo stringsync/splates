@@ -1,12 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	directive,
-	handoffToReference,
-	leadingDirectives,
-	MERGE,
-} from "./prompts";
+import { directive, leadingDirectives, MERGE } from "./prompts";
 
-describe("leadingDirectives", () => {
+describe("directives", () => {
 	it("splits the directives a text starts with from the rest", () => {
 		expect(
 			leadingDirectives(
@@ -22,19 +17,6 @@ describe("leadingDirectives", () => {
 		});
 	});
 
-	it("reads a handoff the page asks for, naming its agent and any model", () => {
-		const asked = handoffToReference({ agent: "codex", model: "gpt-5.5" });
-
-		expect(asked).toBe("[SPLATES HANDOFF TO codex gpt-5.5]");
-		expect(leadingDirectives(`${asked} for the styles`)).toEqual({
-			directives: [asked],
-			rest: "for the styles",
-		});
-		expect(handoffToReference({ agent: "claude" })).toBe(
-			"[SPLATES HANDOFF TO claude]",
-		);
-	});
-
 	it("finds none in a text that starts with anything else, or one half typed", () => {
 		const texts = [
 			"see [SPLATES TASK #12]",
@@ -47,9 +29,7 @@ describe("leadingDirectives", () => {
 			texts.map((text) => ({ directives: [], rest: text })),
 		);
 	});
-});
 
-describe("directive", () => {
 	it("reads arbor's directive as splates's", () => {
 		expect(directive(" [ARBOR MERGE] ")).toBe(MERGE);
 	});

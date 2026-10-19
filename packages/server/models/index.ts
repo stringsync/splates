@@ -1,6 +1,3 @@
-export type { Judge, Judgment } from "./auto-pick";
-export { judgeFrom, QUESTIONS, tierFor } from "./auto-pick";
-export { AutoRoutes } from "./auto-routes";
 export { codexLimits, isCodex } from "./codex-limits";
 export { effortSettings, effortsOf, pickEffort, thinkingOf } from "./effort";
 export { Limits } from "./limits";

@@ -394,8 +394,7 @@ export interface TaskState {
 	updatedAt: string;
 	escalations?: Escalation[];
 	/**
-	 * The agent `splates add --agent` or `splates handoff` handed the task to, for
-	 * `splates server` to start.
+	 * The agent `splates server` handed the task to, for it to start.
 	 */
 	dispatch?: Dispatched;
 	/**
@@ -412,7 +411,7 @@ export interface TaskState {
 }
 
 /**
- * Who `splates add --agent` or `splates handoff` handed a task to. `splates server` starts the agent in
+ * The agent `splates server` handed a task to, as its queue starts each. `splates server` starts the agent in
  * the task's tree and writes down the conversation it started, so it starts
  * once.
  */
@@ -433,11 +432,6 @@ export interface Dispatched {
 	// Recorded from the start, so the task reads as handed over rather than
 	// an external agent's.
 	pending?: true;
-	/**
-	 * Set when the agent at work on the task handed it on with `splates
-	 * handoff`, so the one started is told `[SPLATES HANDOFF <task>]`.
-	 */
-	handoff?: true;
 }
 
 /**

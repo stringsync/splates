@@ -23,13 +23,10 @@ export function Mark({
 	hosting = false,
 	subagent = false,
 	starting = false,
-	picking = false,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
 	starting?: boolean;
-	/** Auto has yet to pick its agent, which opens once it has. */
-	picking?: boolean;
 	reported?: Ending | null;
 	unread?: boolean;
 	/** Whether an agent it handed a task to is at work. */
@@ -38,9 +35,7 @@ export function Mark({
 	subagent?: boolean;
 }): JSX.Element {
 	if (starting) {
-		const waiting = picking
-			? "Auto is picking the agent"
-			: "Waiting for agent to start";
+		const waiting = "Waiting for agent to start";
 		return (
 			<span
 				role="status"

@@ -1,17 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
-import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { AGENT, FakeAgent } from "../agents/testing";
 import { type Conversation, Conversations } from "../conversations";
-import { add } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
 import { json } from "./testing";
 
-describe("dev conversations a lane's orchestrator started", () => {
+describe("dev conversations a lane's orchestrator started, from before agents stopped starting agents", () => {
 	let deps: Testing;
 	let agent: FakeAgent;
 	let conversations: Conversations;
-	let said: string[];
 	let server: Awaited<ReturnType<typeof dev>>;
 	let orchestrator: Conversation;
 	let started: Conversation;
@@ -25,11 +23,7 @@ describe("dev conversations a lane's orchestrator started", () => {
 	beforeEach(async () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
-		said = [];
-		agent.turn = async (_, __, text) => {
-			said.push(text);
-			return "end_turn";
-		};
+		agent.turn = async () => "end_turn";
 		conversations = new Conversations(
 			`${deps.splatesDir}/conversations`,
 			[AGENT],
@@ -62,72 +56,11 @@ describe("dev conversations a lane's orchestrator started", () => {
 	const write = (id: string, path: string, method: string, body: object) =>
 		json(server.port, `/api/conversations/${id}/${path}`, method, body);
 
-	it("starts the agent it hands a queued task to answering to the person, it the starter", async () => {
-		deps.proc.env.SPLATES_CONVERSATION = orchestrator.id;
-		await add(deps, "alpha", {
-			dispatch: { agent: "fake" },
-			agents: [ROSTERED],
-		});
-		await until(() => said.includes("[SPLATES TASK alpha]"));
-		const [alpha] = (await conversations.list()).filter(
-			(each) => each.state.task === "alpha",
-		);
-
-		expect(alpha?.state).toMatchObject({
-			startedBy: orchestrator.id,
-			messages: [{ told: orchestrator.id }],
-		});
-		expect(agent.launched.at(-1)?.env).toMatchObject({
-			SPLATES_STARTED_BY: orchestrator.id,
-		});
-	});
-
 	it("takes the page's writes, as the person's to talk to", async () => {
 		const named = await write(started.id, "name", "PUT", { name: "mine" });
 
 		expect(named.status).toBe(200);
 		expect(started.state.name).toBe("mine");
-	});
-
-	it("takes words from the orchestrator that started it, and no one else", async () => {
-		const stranger = await write(started.id, "tell", "POST", {
-			from: "someone",
-			text: "drop it",
-		});
-		const told = await write(started.id, "tell", "POST", {
-			from: orchestrator.id,
-			text: "Carry on.",
-		});
-		await until(() => said.length === 1);
-
-		expect((await stranger.json()).reason).toBe("usage");
-		expect(told.status).toBe(200);
-		expect(said).toEqual(["Carry on."]);
-	});
-
-	// scry-ignore simple-test-setup: only this test holds a turn open, to stop it
-	it("stops its turn first when told to stop, for a change of plans", async () => {
-		const held = Promise.withResolvers<void>();
-		// The first turn waits on `held`; the one after it, on nothing.
-		const gates = [held.promise];
-		agent.turn = async (_, __, text) => {
-			said.push(text);
-			await gates.shift();
-			return "end_turn";
-		};
-		void started.prompt("Build the table.");
-		await until(() => started.state.status === "running");
-		const told = await write(started.id, "tell", "POST", {
-			from: orchestrator.id,
-			text: "Stop: the lane changed.",
-			stop: true,
-		});
-		held.resolve();
-		await until(() => said.length === 2 && started.state.status === "idle");
-
-		expect(told.status).toBe(200);
-		expect(said).toEqual(["Build the table.", "Stop: the lane changed."]);
-		expect(agent.cancelled).toBe(1);
 	});
 
 	it("goes with the orchestrator when it is archived, and comes back with it", async () => {

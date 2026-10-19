@@ -70,8 +70,10 @@ describe.concurrent("task links and lanes", () => {
 		await seed(deps.tasks, sound2score());
 
 		await taskRemove(deps, 187);
-		await add(deps, "gate", { tasks: [191, 177] });
+		await add(deps, "gate", { tasks: [191] });
 		await land(deps, "gate");
+		await add(deps, "check", { tasks: [177] });
+		await land(deps, "check");
 
 		const all = (await deps.tasks.all()).map((task) => task.state);
 		const ids = new Set(all.map((task) => task.id));
@@ -82,7 +84,7 @@ describe.concurrent("task links and lanes", () => {
 		expect((await deps.tasks.find(186)).blockedBy).toEqual([]);
 	});
 
-	it("takes a task before what blocks it lands, warning, unless taken together", async () => {
+	it("takes a task before what blocks it lands, warning", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
 
@@ -92,11 +94,10 @@ describe.concurrent("task links and lanes", () => {
 			"task 191 is blocked by task 187 (lane 1, open), which has yet to merge",
 		);
 		expect(deps.out()).toContain("splates task wait 187");
-		await add(deps, "both", { tasks: [177, 196] });
+		await add(deps, "check", { tasks: [177] });
 		expect(deps.out()).toContain(
 			"task 177 is blocked by task 191 (lane 1, taken by early)",
 		);
-		expect(deps.out()).not.toContain("task 196 is blocked");
 	});
 
 	it("shows what blocks a task, what it blocks, and what it mentions", async () => {
@@ -205,7 +206,7 @@ describe.concurrent("task links and lanes", () => {
 	it("lists lanes and shows one step by step, saying what blocks it", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
-		await add(deps, "decoder", { tasks: [200, 209] });
+		await add(deps, "decoder", { tasks: [200] });
 		deps.ps.cd(deps.root);
 		deps.log.clear();
 
@@ -214,12 +215,14 @@ describe.concurrent("task links and lanes", () => {
 
 		const out = color.strip(deps.out());
 		expect(out).toMatch(
-			/2\s+Audio, uploads and pricing\s+200,209,186,208,189\s+decoder\s+186\s+#177 in Licensing/,
+			/2\s+Audio, uploads and pricing\s+200,209,186,208,189\s+decoder\s+209\n/,
 		);
 		expect(out).toContain(
 			"3. #186 Show the license tier on the account page  (blocked by #177 in Licensing)",
 		);
-		expect(out).toContain("next: `splates queue add 186 208 189` queues them");
+		expect(out).toContain(
+			"next: `splates queue add 209 186 208 189` queues them",
+		);
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 

@@ -113,16 +113,6 @@ export interface ConversationState {
 	 */
 	assigned: boolean;
 	/**
-	 * Started on what Auto picked, from the New menu's Auto item, so the next
-	 * new conversation can start on Auto too.
-	 */
-	auto: boolean;
-	/**
-	 * Auto is still picking its agent: it shows the agent it falls back on
-	 * until the pick lands, and opens none before.
-	 */
-	picking: boolean;
-	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -530,8 +520,6 @@ export function blank(
 		startedBy,
 		skill: null,
 		assigned,
-		auto: false,
-		picking: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

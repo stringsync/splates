@@ -112,10 +112,7 @@ const LINES: {
 				},
 	claim: (event) =>
 		event.reason === null
-			? {
-					words: [event.tookOver ? "Took over" : "Claimed", task(event)],
-					at: event.at,
-				}
+			? { words: ["Claimed", task(event)], at: event.at }
 			: {
 					mark: "failed",
 					words: ["Claim failed", task(event)],

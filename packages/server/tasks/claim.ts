@@ -24,7 +24,7 @@ export async function claim(
 		branches: TaskBranches;
 	},
 	task: string,
-): Promise<{ escalated: boolean; tookOver: boolean; goal: string }> {
+): Promise<{ escalated: boolean; goal: string }> {
 	let found = await service.find(task);
 
 	if (found.gone) {
@@ -113,16 +113,9 @@ export async function claim(
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
 	log.info(lines.join("\n"));
-	// The agent `splates handoff` handed the task to, in the conversation `splates
-	// dev` started for it, as against the one that handed it on or an outsider.
-	const { dispatch } = found.state ?? {};
-	const tookOver =
-		dispatch?.handoff === true &&
-		dispatch.conversation !== undefined &&
-		service.ps.env("SPLATES_CONVERSATION") === dispatch.conversation;
 	// What the page shows as the task the conversation is now on.
 	const plan = (await new Plans(fs).read(worktree.path)) ?? "";
-	return { escalated, tookOver, goal: goalOf(plan) };
+	return { escalated, goal: goalOf(plan) };
 }
 
 /** Refuses a task another agent holds the lease on. */

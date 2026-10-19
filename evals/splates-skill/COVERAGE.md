@@ -31,12 +31,11 @@ AGENTS.md remains unchanged; lane 17 tracks the next comparison work.
 
 ## Registered probes
 
-72 cases: 11 local CLI cases and 61 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+51 cases: 10 local CLI cases and 41 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
-all eleven CLI cases together: ten pass; `delegation/cli-no-dev-tell` remains
-uncovered because nested command capture is incomplete. Its separate assertion
-test verifies the actual refusal. An all-unsupported agent run is not a useful
+all ten CLI cases together: all pass on observed state, though nested command
+capture is incomplete. An all-unsupported agent run is not a useful
 quick eval and must not be presented as validated adherence.
 
 Each aspect document defines the actual evidence and limitations for these ids:
@@ -62,21 +61,13 @@ the broader proposed coverage in the requirements map.
 | `decisions/review-follow-up` | 1 | decisions-review | agent |
 | `decisions/cli-review-ready` | 1 | decisions-review | cli |
 | `decisions/cli-review-blocked` | 1 | decisions-review | cli |
-| `delegation/handoff-checkpoint` | 1 | delegation-handoff | agent |
 | `delegation/part-base` | 1 | delegation-parts | agent |
 | `delegation/part-return` | 1 | delegation-parts | agent |
 | `delegation/part-decisions` | 1 | delegation-parts | agent |
-| `delegation/takeover` | 1 | delegation-handoff | agent |
-| `delegation/cli-no-dev-tell` | 1 | delegation-no-dev | cli |
-| `delegation/auto-question` | 1 | delegation-auto | agent |
-| `delegation/auto-fits` | 1 | delegation-auto | agent |
-| `delegation/auto-hand-up` | 1 | delegation-auto | agent |
-| `delegation/auto-hand-down` | 1 | delegation-auto | agent |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
 | `discovery/queue` | 1 | discovery-queue | agent |
 | `discovery/parts` | 1 | discovery-parts | agent |
-| `discovery/handoff` | 1 | discovery-handoff | agent |
 | `discovery/checkpoint` | 1 | discovery-checkpoint | agent |
 | `discovery/setup` | 1 | discovery-setup | agent |
 | `discovery/nested` | 1 | discovery-nested | agent |
@@ -150,9 +141,6 @@ selected real integration, never a prerequisite for this audit.
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
 | queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
-| delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT payloads; agent records handoff context and claims takeover | Stand-ins do not prove transport, restart or delegated model execution |
-| delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
-| delegation-no-dev / `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
 | continuity-report / Reporting, Questions | #357; common checks | Parsed task outcome and questions/choices, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |

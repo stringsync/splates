@@ -12,16 +12,14 @@ this project:
   <slug> task add` what it should do, written as any task is (see Queueing tasks in the skill),
   saying in its detail why your project needs it. Leave `--lane` off:
   that project's user places it.
-- **tasks**: hand it a task, `splates --project <slug> add <task> --goal
-  "<...>" --agent <id> --model <m>`, and follow it with `splates --project
-  <slug> wait <task>`. Its directives name it `<slug>/<task>`; run each command on it with
-  `--project <slug>`: `show`, `tell`, `wait`, `remove`.
+- **tasks**: also run its queue: `splates --project <slug>` with `task
+  update`, `task remove`, `lane` and `queue`.
 
-You never take a task in another project yourself: you do not `add` one
-without `--agent`, `claim`, merge or escalate one there, and an agent you
-hand one to starts none of its own. A command that needs more than the
-project granted stops on `not_granted`; never `cd` there to get around it,
-which is checked the same way.
+You never start or take a task in another project yourself: you do not
+`add`, `claim`, merge or escalate one there. Queue it, and that project's
+queue starts it. A command that needs more than the project granted stops
+on `not_granted`; never `cd` there to get around it, which is checked the
+same way.
 
 Whenever work here needs another project, ask for what it takes rather
 than work around it: a grant, as a question under `## Blocked` naming the
@@ -29,4 +27,4 @@ project, the reach, and what you would do with it; or, for a repository
 that is not a splates project yet, leave to `splates init` it, which makes it
 one any agent can reach. Run `splates projects grant <slug> <reach>` from that
 project's directory, or `splates init` there, only once the user says so in
-so many words, as in "let webappwiz hand out tasks here".
+so many words, as in "let webappwiz run the queue here".

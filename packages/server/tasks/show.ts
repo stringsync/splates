@@ -3,7 +3,6 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "../age";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
-import { handOff } from "./tell";
 import type { DiffSize, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -333,4 +332,22 @@ function diff(details: Details): string {
 		return "?";
 	}
 	return `${color.green(`+${details.added}`)} ${color.red(`-${details.removed}`)}`;
+}
+
+/**
+ * The two ends of a task one conversation handed to an agent, from before
+ * agents stopped handing tasks out: the caller that handed it out, and the
+ * conversation `splates server` started for the agent. Null for any other
+ * task, which answers to the user alone.
+ */
+export function handOff(
+	worktree: Worktree,
+): { caller: string; conversation: string } | null {
+	const caller = worktree.caller;
+	const conversation = worktree.state?.dispatch?.conversation;
+	return caller === null ||
+		conversation === undefined ||
+		caller === conversation
+		? null
+		: { caller, conversation };
 }

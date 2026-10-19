@@ -48,32 +48,6 @@ export function terminalOf(open: string | null): string | null {
 		: id;
 }
 
-/**
- * In place of an agent after `NEW`, as `new/auto`: the screen that starts a
- * conversation on whatever Auto picks for its first prompt.
- */
-export const AUTO = "auto";
-
-/** Whether `open` starts a conversation on what Auto picks. */
-export function autoIn(open: string | null): boolean {
-	return (
-		open?.startsWith(`${NEW}/`) === true &&
-		pathOf(open)
-			.slice(NEW.length + 1)
-			.split("/")[0] === AUTO
-	);
-}
-
-/**
- * Whether a new conversation started as the last was starts on Auto: the
- * newest the person started, rather than a todo assigned, was Auto's.
- */
-export function autoLast(conversations: ConversationState[]): boolean {
-	return (
-		conversations.find((each) => !each.assigned || each.auto)?.auto === true
-	);
-}
-
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);

@@ -22,9 +22,7 @@ import { Dialog } from "#web/components/ui/dialog.tsx";
 import { Board } from "./board";
 import {
 	ARCHIVED,
-	AUTO,
 	agentFor,
-	autoIn,
 	modelFor,
 	NEW,
 	startsOne,
@@ -176,12 +174,11 @@ export function Conversations({
 		agent: agentFor(open, agents, conversations),
 		task: taskFor(open),
 		model: modelFor(open),
-		auto: autoIn(open),
 		conversations,
 		refuseIn: refuse,
 		onOpen,
 	};
-	const startKey = `${starting.auto ? AUTO : starting.agent}/${starting.task}/${starting.model}`;
+	const startKey = `${starting.agent}/${starting.task}/${starting.model}`;
 
 	return (
 		<Board value={board}>

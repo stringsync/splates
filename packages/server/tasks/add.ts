@@ -17,8 +17,8 @@ export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
 	/**
-	 * The queued tasks this task takes up: their words seed the plan's Goal, and
-	 * nobody else can take them while the task lives.
+	 * The queued task this task starts, as a list of one: its words seed the
+	 * plan's Goal, and nobody else can take it while the task lives.
 	 */
 	tasks?: number[];
 	/**
@@ -32,17 +32,14 @@ export interface AddOptions {
 	 */
 	onTree?: () => Promise<void>;
 	/**
-	 * The agent to hand the task to, which `splates server` starts in its tree once
-	 * the tree is ready; its id must be one of `agents`. Never for a part,
-	 * which goes to the harness's own subagents.
+	 * The agent `splates server`'s queue hands the task to, which it starts in
+	 * the task's tree once the tree is ready; its id must be one of `agents`.
+	 * Never from an agent, which starts no agents.
 	 */
 	dispatch?: Dispatched;
 	/** The roster's agents, which `dispatch` must name one of, and its model. */
 	agents?: RosterAgent[];
-	/**
-	 * Added from another project, as `splates --project` does: the task goes
-	 * to an agent of its own, so `dispatch` is a must.
-	 */
+	/** Added from another project, as `splates --project` does, which is refused. */
 	away?: boolean;
 }
 
@@ -75,11 +72,18 @@ export async function add(
 		away = false,
 	}: AddOptions = {},
 ): Promise<void> {
-	if (away && dispatch === undefined) {
+	if (away) {
 		fail(
 			"not_granted",
-			"a task in another project goes to an agent of its own: add it with --agent, and orchestrate it from here",
+			"a task in another project is that project's to start: queue it there with `splates --project <slug> task add`",
 			{ task },
+		);
+	}
+	if (ids.length > 1) {
+		fail(
+			"usage",
+			`a task starts one queued task: start #${ids[0]} alone, and fold any other that asks the same into it by \`splates task remove\` and its words in the Goal`,
+			{ task, tasks: ids },
 		);
 	}
 	if (!NAME.test(task)) {
@@ -89,25 +93,16 @@ export async function add(
 			{ task },
 		);
 	}
-	// An agent another one started hands nothing to agents of its own, so
-	// they never multiply: it does the work itself, or with its harness's
-	// subagents, which start none either.
-	const handedBy = service.ps.env("SPLATES_STARTED_BY");
-	if (dispatch !== undefined && handedBy !== undefined) {
+	// Agents start no agents, so they never multiply: work goes to the queue,
+	// whose worker starts it. The server starts its tasks with neither set.
+	const asking =
+		service.ps.env("SPLATES_CONVERSATION") ??
+		service.ps.env("SPLATES_STARTED_BY");
+	if (dispatch !== undefined && asking !== undefined) {
 		fail(
 			"usage",
-			`this agent was started by conversation ${handedBy}, and an agent another started cannot start one: drop --agent and do the work yourself`,
-			{ task, caller: handedBy },
-		);
-	}
-	// Only the server starts agents: a part is the harness's own subagent's,
-	// working on the task's branch.
-	const parent = service.taskFor(base);
-	if (dispatch !== undefined && parent !== null) {
-		fail(
-			"usage",
-			`${task} would be a part of ${parent}, and parts go to your harness's own subagents: drop --agent and hand it to one`,
-			{ task, base },
+			"an agent starts no agents: queue the work with `splates task add`, and a worker starts it, or do it yourself",
+			{ task, caller: asking },
 		);
 	}
 	const handOff =

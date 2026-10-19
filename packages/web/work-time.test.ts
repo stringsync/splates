@@ -60,7 +60,6 @@ describe("permission wait timing", () => {
 					reason: null,
 					conversation: "c1",
 					escalated: false,
-					tookOver: false,
 					goal: "Do the work.",
 				},
 			],

@@ -1,5 +1,5 @@
 import type { LaneRecord } from "../board";
-import { AUTO, leadingDirectives, UNTRIAGED } from "../plans";
+import { leadingDirectives, UNTRIAGED } from "../plans";
 import type { ConversationState } from "./state";
 
 /**
@@ -103,7 +103,8 @@ export function lanesOf(conversation: ConversationState): string[] {
 
 /**
  * The first line the person said in a conversation, or null before they say
- * any, past the `AUTO` the page leads an Auto start's first prompt with.
+ * any, past the `[SPLATES AUTO]` an Auto start led its first prompt with
+ * before Auto went.
  */
 export function openingOf(conversation: ConversationState): string | null {
 	for (const message of conversation.messages) {
@@ -123,8 +124,8 @@ export function openingOf(conversation: ConversationState): string | null {
 	return null;
 }
 
-/** `text` past the `AUTO` it leads with, if it does. */
+/** `text` past the `[SPLATES AUTO]` it leads with, if it does. */
 function withoutAuto(text: string): string {
 	const { directives, rest } = leadingDirectives(text);
-	return directives[0] === AUTO ? rest : text;
+	return directives[0] === "[SPLATES AUTO]" ? rest : text;
 }

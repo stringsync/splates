@@ -85,10 +85,11 @@ describe("splates across projects", () => {
 	});
 
 	it("refuses what the other project has not granted, until it does", async () => {
-		await onThere("add", "beta", "--goal", "Do it.", "--agent", "claude");
+		await onThere("task", "add", "Export the parser");
+		await onThere("task", "remove", "1");
 		expect(here.out()).toContain('"reason":"not_granted"');
 		expect(here.out()).toContain(`splates projects grant ${hereSlug} tasks`);
-		expect((await there.service.find("beta")).gone).toBe(true);
+		expect(await there.tasks.all()).toHaveLength(1);
 
 		// The person, in the other project's main tree.
 		here.ps.cd(there.root);
@@ -96,16 +97,17 @@ describe("splates across projects", () => {
 		expect(await here.projects.reach(here.root, there.root)).toBe("tasks");
 
 		here.ps.cd(here.root);
-		await onThere("add", "beta", "--goal", "Do it.", "--agent", "claude");
-		expect((await there.service.find("beta")).gone).toBe(false);
+		await onThere("task", "remove", "1");
+		expect(await there.tasks.all()).toEqual([]);
 	});
 
-	it("hands a task in another project to an agent, never taking it", async () => {
+	it("starts no task in another project, granted or not, so it is queued there", async () => {
 		await here.projects.grant(there.root, here.root, "tasks");
 
-		await onThere("add", "beta", "--goal", "Do it.");
+		await onThere("add", "beta", "--goal", "Do it.", "--agent", "claude");
 
-		expect(here.out()).toContain("--agent");
+		expect(here.out()).toContain('"reason":"not_granted"');
+		expect(here.out()).toContain("task add");
 		expect((await there.service.find("beta")).gone).toBe(true);
 	});
 

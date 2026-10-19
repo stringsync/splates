@@ -26,16 +26,13 @@ import {
 	DEFAULT_TIMEOUT,
 	escalate,
 	follow,
-	handoff,
 	list,
 	path,
 	REMOVE_REASONS,
 	recordRetry,
 	remove,
-	reportToCaller,
 	serveProject,
 	show,
-	tell,
 	untilAfter,
 	wait,
 } from "@stringsync/splates-server/tasks";
@@ -152,7 +149,7 @@ splates
 	.option("task", z.string(), {
 		default: "",
 		description:
-			"start these queued tasks by number, comma separated, the first as this one and the rest taken up by it: their words become the plan's Goal, merging removes them, and removing it puts them back in the queue",
+			"start this queued task by number: its words become the plan's Goal, merging removes it, and removing this task puts it back where it was",
 	})
 	.option("goal", z.string(), {
 		default: "",
@@ -162,7 +159,7 @@ splates
 	.option("agent", z.string(), {
 		default: "",
 		description:
-			"hand the task to an agent on the roster (`splates agents`), which `splates server` starts in the worktree, told to claim it; the conversation you run this from stays where it is. Never for a part (--base task/<task>), which goes to your harness's own subagents",
+			"how `splates server`'s queue hands the task to an agent on the roster (`splates agents`), which it starts in the worktree; refused from an agent, which starts no agents and queues work with `splates task add` instead",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -274,8 +271,6 @@ splates
 	})
 	.action(async (opts, ctx) => {
 		const task = await here(ctx);
-		// Read before the merge discards the record that names its caller.
-		const landing = task === null ? null : await ctx.service.find(task);
 		// Filled by `merge` as it learns each; a refusal keeps what it had.
 		const facts: Partial<Facts["merge"]> = {};
 		await ctx.journal.record(
@@ -293,9 +288,6 @@ splates
 				),
 			);
 			await follow(ctx, null, { from: task });
-		}
-		if (landing !== null) {
-			await reportToCaller(ctx, landing);
 		}
 	});
 
@@ -315,7 +307,6 @@ splates
 			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk)",
 	})
 	.action(async (opts, ctx) => {
-		const removing = await ctx.service.find(opts.task);
 		await ctx.journal.record(
 			"remove",
 			opts.task,
@@ -323,7 +314,6 @@ splates
 			({ released }) => ({ why: opts.reason ?? null, released }),
 		);
 		await follow(ctx, null, { from: opts.task });
-		await reportToCaller(ctx, removing);
 	});
 
 splates
@@ -511,84 +501,6 @@ splates
 				}),
 			(facts) => facts,
 		);
-		if (task !== null) {
-			await reportToCaller(ctx, await ctx.service.find(task));
-		}
-	});
-
-splates
-	.command("tell")
-	.use(repository({ needs: "tasks" }))
-	.description(
-		"say something in the conversation of the agent a task was handed to with `splates add --agent` as the user would: how an orchestrator wakes an agent that sits idle, stops it for a change of plans, or passes on what its lane taught it; only the conversation that handed the task out may",
-	)
-	.arg("task", z.string(), { description: "task name" })
-	.arg("text", z.string(), { description: "what to say, as markdown" })
-	.option("stop", z.boolean(), {
-		default: false,
-		description:
-			"stop the turn the agent is running first, as the user's Stop does, then say text: for a change of plans",
-	})
-	.action((opts, ctx) =>
-		ctx.journal.record(
-			"tell",
-			opts.task,
-			() => tell(ctx, opts.task, opts.text, { stop: opts.stop }),
-			(to) => ({ to }),
-		),
-	);
-
-splates
-	.command("handoff")
-	.use(repository({ needs: "own" }))
-	.description(
-		"hand the task you are at work on to another agent on the roster (`splates agents`), which `splates server` starts in its worktree, told `[SPLATES HANDOFF <task>]` to claim it and carry on from its SPLATES.md; it answers to the user as you did, and this conversation leaves the task, though a lane's orchestrator that started you goes on hearing of it; refused for a task another conversation is at work on",
-	)
-	.arg("task", z.string(), { description: "task name" })
-	.option("agent", z.string(), {
-		description: "the agent on the roster to hand it to",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description:
-			"the model it works on, by its id or name on the roster (default: the agent's own)",
-	})
-	.option("effort", z.string(), {
-		default: "",
-		description:
-			"the thinking level it works at, one the agent offers (default: the agent's own)",
-	})
-	.option("prompt", z.string(), {
-		default: "",
-		description:
-			"what to tell the agent beyond taking the task over, such as why it is handed on",
-	})
-	.action(async (opts, ctx) => {
-		const agents = await seeded(rosterOf(ctx));
-		const effort = await effortIn(ctx, opts.agent, opts.effort, {
-			task: opts.task,
-		});
-		await ctx.journal.record(
-			"handoff",
-			opts.task,
-			() =>
-				handoff(
-					ctx,
-					opts.task,
-					{
-						agent: opts.agent,
-						...(opts.model === "" ? {} : { model: opts.model }),
-						...effort,
-						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
-					},
-					agents,
-				),
-			(picked) => ({
-				agent: picked.agent,
-				model: picked.model ?? null,
-			}),
-		);
-		await follow(ctx, null, { from: opts.task });
 	});
 
 splates

@@ -32,13 +32,9 @@ asks you to read it as Reference files says.
 | `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then groom it as [queue.md](references/queue.md) says under Grooming a task you start |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
-| `[SPLATES HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[SPLATES TASK <task>]` |
-| `[SPLATES AUTO]` | Auto picked you for the request after it from its words alone: do it if it fits you, or hand it to the model it fits | [handoff.md](references/handoff.md), Sizing an Auto pick |
-| `[SPLATES HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
-| `[SPLATES REPORT <task>]` | A task you handed to another project stopped: escalated, merged or removed | [projects.md](references/projects.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
@@ -53,9 +49,6 @@ which remembers none of it.
 
 - Before `splates add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
-- Before `splates handoff`, or when the task gives you a reason to hand it to
-  another model: [references/handoff.md](references/handoff.md), handing a
-  task to another agent or taking one over.
 - Before `splates lane add`, or `splates task add`, `splates task update` or
   `splates lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/queue.md](references/queue.md), linking, placing and ordering
@@ -88,10 +81,7 @@ which remembers none of it.
    what you are doing, say in one line what you will do next, without the
    task's name or Goal, which that line already shows.
 2. **Plan.** Once you know what done means, fill in `SPLATES.md` before
-   touching code (see SPLATES.md below). Keep the task yourself unless it gives you
-   a reason another model should take it: work that has failed you, or a
-   long, fully planned, mechanical rest (see
-   [references/handoff.md](references/handoff.md)).
+   touching code (see SPLATES.md below).
 3. **Check for overlap.** Read `splates list --files`: each task's Goal and
    the files it has changed so far. Some overlap is normal: work alongside,
    accept the rebase, and note it in `SPLATES.md`. Only when conflicts would be hard to resolve, `splates wait
@@ -137,7 +127,7 @@ which remembers none of it.
    choose between `splates retry` and a remove and redo.
 
 **Clean up every task you start.** A task ends in a merge or a remove, never
-left behind, unless you hand it off, when it is the other agent's to end; one escalated and waiting on the user is not done, so leave it
+left behind; one escalated and waiting on the user is not done, so leave it
 for `splates claim`. When investigating shows there is nothing to change, the
 work is moot, or it is better redone against current trunk, `splates task
 remove` each queued task it took that is done or moot, `splates task update` the rest
@@ -566,10 +556,6 @@ One sentence on what the task set out to do.
 When the task made an artifact, a merge report names it in a `- ` line,
 `- Artifact: <name>`, rather than inlining it: the page lists it already, and
 the report stays a glance.
-
-A handoff makes no report: the `splates server` page shows it as splates's own line,
-and the agent it went to as that line's hover. Say where the task stands in
-its `### Handoff`, then end your turn.
 
 An escalation or a review can need more than that before the user can
 answer or merge: what you found, how it works, what it costs. Say it in

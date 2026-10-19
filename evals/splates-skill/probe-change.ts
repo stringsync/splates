@@ -125,7 +125,6 @@ const smoke: Record<string, string> = {
 	"SKILL.md": "discovery/implicit",
 	"references/queue.md": "orchestration/defer",
 	"references/parts.md": "delegation/part-base",
-	"references/handoff.md": "delegation/takeover",
 	"references/checkpoint.md": "continuity/checkpoint",
 	"references/setup.md": "discovery/setup",
 };

@@ -9,7 +9,6 @@ export { EDITORS, ZED } from "./editors";
 export { escalate } from "./escalate";
 export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, serveProject } from "./follow";
-export { handoff } from "./handoff";
 export { LeaseBeat } from "./lease-beat";
 export { list } from "./list";
 export { path } from "./path";
@@ -21,7 +20,6 @@ export type { Details } from "./show";
 export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";
 export { fingerprint, snapshot, tasksOf } from "./snapshot";
-export { reportToCaller, tell } from "./tell";
 export { DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
 export type {
 	DiffSize,

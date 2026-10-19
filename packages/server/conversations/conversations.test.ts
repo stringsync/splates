@@ -172,7 +172,6 @@ describe("Conversations", () => {
 			cwd: "/shop",
 			model: "small",
 			assigned: true,
-			auto: true,
 		});
 		await until(assigned, "idle");
 		expect(await currents()).toContainEqual(["model", "big"]);
@@ -194,11 +193,8 @@ describe("Conversations", () => {
 				launch: agent.launch,
 			},
 		);
-		expect((await later.find(assigned.id)).state).toMatchObject({
-			assigned: true,
-			auto: true,
-		});
-		expect((await later.find(picked.id)).state.auto).toBe(false);
+		expect((await later.find(assigned.id)).state.assigned).toBe(true);
+		expect((await later.find(picked.id)).state.assigned).toBe(false);
 		await later.disposeAsync();
 	});
 

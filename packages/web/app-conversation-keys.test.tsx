@@ -307,47 +307,6 @@ describe("App's sidebar keys", () => {
 		expect((await item("Claude")).textContent).not.toContain("⌥⌘N");
 	});
 
-	it("starts on Auto with ⌥⌘N, shown beside Auto, when the last start was Auto's", async () => {
-		const view = await testing.openConversations(
-			newestFirst([
-				conversation({
-					id: "c0",
-					agent: "claude",
-					title: "Assigned",
-					assigned: true,
-				}),
-				conversation({
-					id: "c1",
-					agent: "codex",
-					title: "Latest",
-					assigned: true,
-					auto: true,
-				}),
-				conversation({ id: "c2", title: "Earlier" }),
-			]),
-			null,
-		);
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
-		);
-		const item = (name: string) =>
-			waitFor(() => view.getByRole("menuitem", { name: new RegExp(name) }));
-		expect((await item("Auto")).textContent).toContain("⌥⌘N");
-		expect((await item("Codex")).textContent).not.toContain("⌥⌘N");
-		expect((await item("Claude")).textContent).not.toContain("⌥⌘N");
-		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
-
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyN",
-			}),
-		);
-		expect(location.hash).toBe("#conversations/new/auto");
-	});
-
 	it("focuses the composer of the agent picked from New, the one shown too", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Latest" })],

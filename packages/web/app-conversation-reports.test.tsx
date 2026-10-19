@@ -67,31 +67,57 @@ describe("App's report cards", () => {
 		expect(view.textContent).not.toContain("## ✅");
 	});
 
-	it("shows a handoff as a card naming the agent it went to, and offers to archive it", async () => {
+	it("shows a working report as a card, offering no archive while it works", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				messages: [
 					message(
 						"agent",
 						[
-							"## 🤝 Handed off header to Codex: you asked for GPT-5.5",
+							"## ⏳ Working header: on Claude Sonnet 5.5",
 							"",
-							"The parser is done; the styles are next.",
+							"Every step is planned, so a cheaper model takes it.",
 						].join("\n"),
 					),
 				],
 			}),
 		]);
 
-		const handed = await waitFor(() =>
-			view.getByRole("region", { name: "handed header" }),
+		const working = await waitFor(() =>
+			view.getByRole("region", { name: "working header" }),
 		);
-		expect(handed.textContent).toContain("Handed off");
-		expect(handed.textContent).toContain("to Codex");
-		expect(handed.textContent).toContain("you asked for GPT-5.5");
-		expect(handed.textContent).toContain("the styles are next");
-		const bar = view.getByRole("region", { name: "archive" });
-		expect(bar.textContent).toContain("header");
+		expect(working.textContent).toContain("Working");
+		expect(working.textContent).toContain("on Claude Sonnet 5.5");
+		expect(working.textContent).toContain("a cheaper model takes it");
+		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
+	});
+
+	it("shows an old ask to hand off as a line naming the agent and model", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					messages: [message("user", "[SPLATES HANDOFF TO codex gpt-5.5]")],
+				}),
+			],
+			"c1",
+			{},
+			[
+				{
+					id: "codex",
+					name: "Codex",
+					models: [{ id: "gpt-5.5", name: "GPT-5.5" }],
+					settings: [],
+					limits: [],
+				},
+			],
+		);
+
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toContain("Hand off toCodex · GPT-5.5");
 	});
 
 	it("shows an old lane orchestrator's finished report as the words it wrote, with no card or archive offer", async () => {

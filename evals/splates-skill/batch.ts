@@ -174,7 +174,6 @@ export class Batch {
 				turns,
 				end: await fixture.end(),
 			});
-			await fixture.disposeAsync();
 			stored = await this.results.run(key);
 			log.info(
 				timedOut

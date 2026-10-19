@@ -3,7 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent, heard, ROSTERED, say } from "../agents/testing";
 import { dev } from "../server";
 import { eventually, json, readUntil, serving } from "../server/testing";
-import { add, handoff } from "../tasks";
+import { add } from "../tasks";
 import { Testing } from "../testing";
 import { Conversations } from "./conversations";
 import type { ConversationState } from "./state";
@@ -119,22 +119,6 @@ describe("dev conversations", () => {
 		await Bun.sleep(200);
 
 		expect(agent.launched).toHaveLength(1);
-	});
-
-	it("starts the agent a task is handed off to, told to take it over, answering to nobody else", async () => {
-		deps.proc.env.SPLATES_CONVERSATION = "c1";
-
-		await handoff(deps, "alpha", { agent: "fake", prompt: "The styles." }, [
-			ROSTERED,
-		]);
-		await eventually(async () => said.length === 1, 2_000);
-		const alpha = await deps.service.find("alpha");
-		const [started] = await conversations.list();
-
-		expect(said).toEqual(["[SPLATES HANDOFF alpha]\n\nThe styles."]);
-		expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
-		expect(started?.state).toMatchObject({ task: "alpha", startedBy: null });
-		expect(alpha.state?.dispatch?.conversation).toBe(started?.id);
 	});
 
 	it("lists the sessions in a task's tree", async () => {

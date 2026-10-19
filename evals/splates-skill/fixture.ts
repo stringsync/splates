@@ -2,7 +2,6 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EndState } from "@stringsync/splates-server/stats";
 import { $, type ShellExpression } from "bun";
-import type { AsyncResource } from "webappwiz/disposable";
 import type { ProcessEntry, Ps } from "webappwiz/system";
 import { Duration, SystemTimer, timeouts } from "webappwiz/time";
 import type { Scenario } from "./scenario";
@@ -13,11 +12,9 @@ import type { Scenario } from "./scenario";
  * queued tasks seeded. Every `splates` it runs, and every one its agent runs, is this
  * checkout's, with its own `SPLATES_HOME`, so nothing reaches the user's.
  */
-export class Fixture implements AsyncResource {
+export class Fixture {
 	readonly repo: string;
 	private readonly env: Record<string, string | undefined>;
-	/** The stand-in for `splates server`, for a scenario run as one it started. */
-	private dev: ReturnType<typeof Bun.serve> | null = null;
 
 	constructor(
 		/** Emptied, then holds the repository, its splates home and the `splates` on its PATH. */
@@ -74,30 +71,9 @@ export class Fixture implements AsyncResource {
 				`the fixture seeded ${queued.length} queued tasks, not ${QUEUED.length}`,
 			);
 		}
-		if (scenario.dev === true) {
-			this.startDev();
-		}
 		if (scenario.setup !== undefined) {
 			await sh`sh -c ${scenario.setup}`;
 		}
-	}
-
-	/**
-	 * Runs everything from here on as `splates server` would run an agent it
-	 * started, as conversation `orch`: `splates tell` and the reports that
-	 * `merge`, `remove` and `escalate` send its caller reach a stand-in that
-	 * takes them all, since no agent here is started to hear them.
-	 */
-	private startDev(): void {
-		this.dev = Bun.serve({ port: 0, fetch: () => Response.json({}) });
-		this.env.SPLATES_DEV = this.dev.url.origin;
-		this.env.SPLATES_CONVERSATION = DEV_CONVERSATION;
-	}
-
-	/** Stops the stand-in for `splates server`, if one runs. */
-	async disposeAsync(): Promise<void> {
-		await this.dev?.stop(true);
-		this.dev = null;
 	}
 
 	/**
@@ -296,9 +272,6 @@ it("returns once the server accepts", async () => {
 });
 `,
 };
-
-/** The conversation a scenario run as `splates server`'s agent is, as its tasks' caller. */
-export const DEV_CONVERSATION = "orch";
 
 /** The commits on main before the agent starts. */
 export const SEEDED = 2;

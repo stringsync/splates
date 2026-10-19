@@ -134,20 +134,18 @@ export interface Proposal {
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title them. */
-export type Ending = "merged" | "removed" | "escalated" | "handed" | "working";
+export type Ending = "merged" | "removed" | "escalated" | "working";
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
- * <task>: <why>`, `## ⚠️ Escalated <task>: <what it needs>`, `## 🤝 Handed
- * off <task> to <agent>: <why>`, or `## ⏳ Working <task>: on <agent>`.
+ * <task>: <why>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
+ * Working <task>: on <agent>`.
  */
 export interface TaskReport {
 	ending: Ending;
 	task: string;
 	/** Where it merged; null for the others. */
 	base: string | null;
-	/** The agent it was handed off to; null for the others. */
-	to: string | null;
 	/** What the title says after its colon, if anything. */
 	reason: string | null;
 	/** What changed, and anything else said before what follows, as markdown. */
@@ -178,7 +176,6 @@ const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-const HANDED = /^## 🤝 Handed off (\S+) to (.+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
@@ -213,13 +210,11 @@ function keptAt(
 	const merged = MERGED.exec(line);
 	const ended = ENDED.exec(line);
 	const workingTask = WORKING_TASK.exec(line);
-	const handed = HANDED.exec(line);
 	const proposed = PROPOSAL.exec(line);
 	if (
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
-		handed === null &&
 		proposed === null
 	) {
 		return null;
@@ -252,7 +247,6 @@ function keptAt(
 					ending: "merged",
 					task: merged[1] as string,
 					base: merged[2] as string,
-					to: null,
 					reason: null,
 					body,
 					source,
@@ -262,30 +256,18 @@ function keptAt(
 						ending: "working",
 						task: workingTask[1] as string,
 						base: null,
-						to: null,
 						reason: workingTask[2] || null,
 						body,
 						source,
 					}
-				: handed !== null
-					? {
-							ending: "handed",
-							task: handed[1] as string,
-							base: null,
-							to: handed[2] as string,
-							reason: handed[3] || null,
-							body,
-							source,
-						}
-					: {
-							ending: ended?.[1] === undefined ? "escalated" : "removed",
-							task: ended?.[2] as string,
-							base: null,
-							to: null,
-							reason: ended?.[3] || null,
-							body,
-							source,
-						};
+				: {
+						ending: ended?.[1] === undefined ? "escalated" : "removed",
+						task: ended?.[2] as string,
+						base: null,
+						reason: ended?.[3] || null,
+						body,
+						source,
+					};
 	return { stretch: { type: "report", report }, end };
 }
 

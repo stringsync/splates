@@ -12,12 +12,6 @@ export interface Scenario {
 	turns: string[];
 	/** Shell run in the repository after the queued tasks are seeded. */
 	setup?: string;
-	/**
-	 * Whether the agent runs as one `splates server` started, so `splates add
-	 * --agent` hands a queued task to an agent the page would start, and `splates
-	 * tell` reaches it; setup runs as that agent too.
-	 */
-	dev?: boolean;
 	/** Headings of the skill sections it exercises, wherever they live; a change to one runs it. */
 	sections: string[];
 	checks: EvalCheck[];

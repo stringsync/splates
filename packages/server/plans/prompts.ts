@@ -1,5 +1,3 @@
-import type { AgentPick } from "../models";
-
 /** What a chat with an agent takes to mean task `id`. */
 export function taskNumberReference(id: number): string {
 	return `[SPLATES TASK #${id}]`;
@@ -10,14 +8,6 @@ export function taskNumberReference(id: number): string {
  * number would: `[SPLATES LANE untriaged]`, `splates lane show untriaged`.
  */
 export const UNTRIAGED = "untriaged";
-
-/**
- * What a chat with an agent takes to mean "work down lane `id`", or, for
- * null, "place the untriaged tasks in lanes, then work those down".
- */
-export function laneReference(id: number | null): string {
-	return `[SPLATES LANE ${id ?? UNTRIAGED}]`;
-}
 
 /**
  * What opens the conversation a hook starts on task event `name`, about the
@@ -44,36 +34,6 @@ export function taskReference(task: string): string {
 export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;
 }
-
-/**
- * What a chat with an agent takes to mean "the agent at work on `task` handed
- * it to you: claim it and carry on from where its `SPLATES.md` says it stands".
- */
-export function handoffReference(task: string): string {
-	return `[SPLATES HANDOFF ${task}]`;
-}
-
-/**
- * What asks the agent in a conversation to hand its task off to `pick`'s
- * agent, on its model when it names one, as the page's Hand off action sends.
- */
-export function handoffToReference(pick: AgentPick): string {
-	return `[SPLATES HANDOFF TO ${pick.agent}${pick.model === undefined ? "" : ` ${pick.model}`}]`;
-}
-
-/**
- * What tells the conversation that handed `task` out that it stopped:
- * escalated, merged or removed, which `splates show` says.
- */
-export function reportReference(task: string): string {
-	return `[SPLATES REPORT ${task}]`;
-}
-
-/**
- * What tells a lane's orchestrator that every lane it works is done, however
- * the last task landed, so it ends on its Finished report.
- */
-export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
@@ -126,13 +86,6 @@ export const APPROVE = "[SPLATES APPROVE]";
  * what it means.
  */
 export const DEFER = "[SPLATES DEFER]";
-
-/**
- * What leads the first prompt of a conversation the New menu's Auto started,
- * telling the agent it was picked for that prompt as a probe, which may hand
- * the work on once it has read the code: the splates skill says what it means.
- */
-export const AUTO = "[SPLATES AUTO]";
 
 /**
  * What the agent alone is told of a message the person dictated: the page

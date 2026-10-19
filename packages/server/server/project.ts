@@ -27,7 +27,7 @@ import {
 	type TaskEventName,
 } from "../hooks";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
-import { type AgentPick, AutoRoutes, Roster, splatesHome } from "../models";
+import { type AgentPick, Roster, splatesHome } from "../models";
 import { eventReference, type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -181,7 +181,6 @@ export async function serveProject(
 		...new BoardRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
-		...new AutoRoutes(project, conversations),
 		...talks,
 		root: service.git.root,
 		format,
@@ -437,7 +436,6 @@ export interface Served extends AsyncResource {
 	showConversation: Handler;
 	refreshLimits: Handler;
 	startConversation: Handler;
-	startAutoConversation: Handler;
 	listSessions: Handler;
 	bringSession: Handler;
 	/**
@@ -451,7 +449,6 @@ export interface Served extends AsyncResource {
 	) => Promise<Promise<void>[]>;
 	moveConversation: Handler;
 	promptConversation: Handler;
-	tellConversation: Handler;
 	addArtifact: Handler;
 	removeArtifact: Handler;
 	deleteArtifactVersion: Handler;

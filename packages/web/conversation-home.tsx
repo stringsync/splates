@@ -8,7 +8,6 @@ import type {
 	Setting,
 } from "@stringsync/splates-server/conversations";
 import { modelOption } from "@stringsync/splates-server/models/browser";
-import { AUTO } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { type JSX, type ReactNode, useContext, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -18,15 +17,10 @@ import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import { WIDE } from "./app-nav";
-import { AutoBrand } from "./auto-brand";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
-import { AUTO as AUTO_ADDRESS, NEW, settingsFor } from "./conversation-address";
-import {
-	promptConversation,
-	startAutoConversation,
-	startConversation,
-} from "./conversation-api";
+import { NEW, settingsFor } from "./conversation-address";
+import { promptConversation, startConversation } from "./conversation-api";
 import {
 	type AgentChoice,
 	agentName,
@@ -73,11 +67,6 @@ export interface Starting {
 	task: string | null;
 	/** The model it starts on, by its id on the roster; null for as picked. */
 	model: string | null;
-	/**
-	 * Whether Auto picks the agent, model and thinking level from the first
-	 * prompt, in place of `agent` and its settings.
-	 */
-	auto: boolean;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
@@ -100,7 +89,6 @@ export function useNewConversation({
 	agent,
 	task,
 	model,
-	auto,
 	conversations,
 	refuseIn,
 	onOpen,
@@ -144,22 +132,16 @@ export function useNewConversation({
 				...Object.fromEntries(offered.map((each) => [each.id, current(each)])),
 				...picks,
 			};
-			// The agent alone is told Auto picked it, as the prompt's directive.
-			const prompt = auto
-				? `${AUTO} ${noted(text, files)}`
-				: noted(text, files);
-			const state = await (auto
-				? startAutoConversation(task, text)
-				: startConversation(
-						agent,
-						task,
-						settings,
-						// Keep explicit requests even when the cached catalog no longer offers them.
-						// A manual replacement wins; the server validates the exact identity.
-						requested,
-						// Asked for by a todo's agent, so no pick of the person's.
-						model !== null,
-					)
+			const prompt = noted(text, files);
+			const state = await startConversation(
+				agent,
+				task,
+				settings,
+				// Keep explicit requests even when the cached catalog no longer offers them.
+				// A manual replacement wins; the server validates the exact identity.
+				requested,
+				// Asked for by a todo's agent, so no pick of the person's.
+				model !== null,
 			).catch((error: unknown) => {
 				void slide(() => setStarting(false));
 				restore.current(text, files);
@@ -217,23 +199,20 @@ export function useNewConversation({
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
-	const controls = auto ? (
-		<span className="px-1.5 text-[11px] text-muted-foreground">
-			Auto picks the agent, model and effort from your first message
-		</span>
-	) : offered.length > 0 ? (
-		<SettingControls
-			settings={offered}
-			current={current}
-			onChange={(setting, value) =>
-				setPicks((picks) => ({ ...picks, [setting.id]: value }))
-			}
-		/>
-	) : (
-		<span className="px-1.5 text-[11px] text-muted-foreground">
-			Settings appear once {agentName(agents, agent)} starts
-		</span>
-	);
+	const controls =
+		offered.length > 0 ? (
+			<SettingControls
+				settings={offered}
+				current={current}
+				onChange={(setting, value) =>
+					setPicks((picks) => ({ ...picks, [setting.id]: value }))
+				}
+			/>
+		) : (
+			<span className="px-1.5 text-[11px] text-muted-foreground">
+				Settings appear once {agentName(agents, agent)} starts
+			</span>
+		);
 	// Picked, the page shows that project's own screen to start one, what was
 	// typed carried there; its trees are its own, so none of this one's task.
 	const project = (
@@ -243,7 +222,7 @@ export function useNewConversation({
 			bar
 			servers={false}
 			className="mx-0"
-			hash={`#conversations/${NEW}/${auto ? AUTO_ADDRESS : agent}`}
+			hash={`#conversations/${NEW}/${agent}`}
 			onPick={(each) => {
 				drafts.move(draft, newDraft(each.slug));
 				rememberProject(each);
@@ -269,7 +248,7 @@ export function useNewConversation({
  * pick back up, none whose task merged.
  */
 export function Home(starting: Starting): JSX.Element {
-	const { tasks, agents, agent, task, auto, conversations, onOpen } = starting;
+	const { tasks, agents, agent, task, conversations, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const listed = conversations.filter((each) => !each.archived);
@@ -307,11 +286,7 @@ export function Home(starting: Starting): JSX.Element {
 							welcome={
 								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
 									<span>Start a conversation with</span>
-									{auto ? (
-										<AutoBrand />
-									) : (
-										<AgentBrand agent={agent} name={agentName(agents, agent)} />
-									)}
+									<AgentBrand agent={agent} name={agentName(agents, agent)} />
 									{task !== null && (
 										<span>
 											in <span className="font-mono text-xl">{task}</span>
@@ -321,11 +296,7 @@ export function Home(starting: Starting): JSX.Element {
 							}
 							below={
 								<>
-									{!auto && (
-										<PlanLimits
-											limits={limitsOf(agents, conversations, agent)}
-										/>
-									)}
+									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
 									{recent.length > 0 && (
 										<section
 											aria-label="recent conversations"

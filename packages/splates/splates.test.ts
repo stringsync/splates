@@ -197,19 +197,7 @@ describe("splates cli", () => {
 		});
 	});
 
-	it("logs the agent a handoff went to, and whether it answers back", async () => {
-		env.proc.env.SPLATES_CONVERSATION = "c1";
-		await splates.run(deps, ["add", "alpha", "--goal", "Style it."]);
-		await splates.run(deps, ["handoff", "alpha", "--agent", "nobody"]);
-
-		expect((await env.journal.tail(1))[0]).toMatchObject({
-			action: "handoff",
-			task: "alpha",
-			reason: "usage",
-		});
-	});
-
-	it("lists the thinking levels an agent offers, hands out a task at one, and refuses any other", async () => {
+	it("lists the thinking levels an agent offers, starts a task on one, and refuses any other", async () => {
 		await env.fs.write(
 			join(env.splatesHome, "offered.json"),
 			JSON.stringify({
@@ -235,7 +223,6 @@ describe("splates cli", () => {
 		await splates.run(deps, ["agents"]);
 		expect(env.out()).toContain("THINKING  default, low, high");
 
-		env.proc.env.SPLATES_CONVERSATION = "c1";
 		await splates.run(deps, [
 			"add",
 			"alpha",
@@ -249,10 +236,11 @@ describe("splates cli", () => {
 		expect(env.proc.lastExit()).toBe(1);
 		expect(env.out()).toContain("use one of default, low, high");
 
-		await splates.run(deps, ["add", "alpha", "--goal", "Style it."]);
 		await splates.run(deps, [
-			"handoff",
+			"add",
 			"alpha",
+			"--goal",
+			"Style it.",
 			"--agent",
 			"claude",
 			"--effort",

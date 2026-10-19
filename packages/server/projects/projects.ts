@@ -324,7 +324,7 @@ export class Projects {
 /**
  * What an agent working in one project may do in another through splates,
  * each including those before it: read its tasks and lanes; queue tasks
- * in its untriaged lane; or hand its tasks to agents and orchestrate them.
+ * in its untriaged lane; or run its queue, lanes and hooks.
  * Grants stop splates commands, not file edits.
  */
 export const REACHES = ["read", "queue", "tasks"] as const;

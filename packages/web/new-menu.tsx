@@ -11,15 +11,8 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { AUTO_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import {
-	AUTO,
-	agentFor,
-	autoLast,
-	NEW,
-	startsOne,
-} from "./conversation-address";
+import { agentFor, NEW, startsOne } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -33,11 +26,9 @@ import type { Terminals } from "./terminals";
 
 /**
  * New, atop the sidebar, boxed so it stands out from the tabs under it: a menu
- * of the agents to start a conversation with, Auto first, which picks one
- * for the first prompt, and a terminal. ⌥⌘N (Ctrl+Alt+N
+ * of the agents to start a conversation with, and a terminal. ⌥⌘N (Ctrl+Alt+N
  * off a Mac), as the settings bind it, starts one as the last was started,
- * on Auto when that was, and shows beside New while ⌥⌘ is held; ⌥` opens
- * another terminal.
+ * and shows beside New while ⌥⌘ is held; ⌥` opens another terminal.
  */
 export function NewMenu({
 	feed,
@@ -60,12 +51,10 @@ export function NewMenu({
 	const picked = useRef(false);
 	const touch = useTouch();
 	const held = useHeld();
-	// With the agent, model, and settings the last one started with, or on
-	// Auto when it started there.
-	const auto = autoLast(conversations);
-	// In the project the last one started in, which may be another's page.
+	// In the project the last one started in, which may be another's page,
+	// with the agent, model, and settings the last one started with.
 	const openNew = useOpenNew(onOpen);
-	useShortcut("shortcuts.new", () => openNew(auto ? `${NEW}/${AUTO}` : NEW));
+	useShortcut("shortcuts.new", () => openNew(NEW));
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
 	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));
@@ -112,18 +101,6 @@ export function NewMenu({
 					return (section === null ? null : composerIn(section)) ?? true;
 				}}
 			>
-				<DropdownMenuItem
-					onClick={() => {
-						picked.current = true;
-						openNew(`${NEW}/${AUTO}`);
-					}}
-				>
-					<AutoIcon />
-					{AUTO_NAME}
-					{newShortcut !== null && auto && (
-						<Kbd className="ml-auto">{newShortcut}</Kbd>
-					)}
-				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem
 						key={each.id}
@@ -135,7 +112,6 @@ export function NewMenu({
 						<AgentIcon agent={each.id} name={each.name} />
 						{each.name}
 						{newShortcut !== null &&
-							!auto &&
 							each.id === agentFor(NEW, agents, conversations) && (
 								<Kbd className="ml-auto">{newShortcut}</Kbd>
 							)}

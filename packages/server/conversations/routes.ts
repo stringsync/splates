@@ -417,29 +417,6 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
-	/**
-	 * Says `text` in a conversation as the person would, as `splates tell`
-	 * does: how a lane's orchestrator wakes or stops one it started. With
-	 * `stop`, the running turn stops first.
-	 */
-	readonly tellConversation = async (request: Request): Promise<Response> => {
-		const conversation = await this.conversationAt(request);
-		const { from, text, stop } = await body(request);
-		const by = conversation.state.startedBy;
-		if (by === null || by !== from) {
-			fail(
-				"usage",
-				`conversation ${conversation.id} is told only by the one that handed it its task`,
-				{ conversation: conversation.id },
-			);
-		}
-		await conversation.prompt(String(text ?? ""), [], undefined, {
-			told: String(from),
-			stop: stop === true,
-		});
-		return Response.json(conversation.state);
-	};
-
 	// The agent's own `splates artifact add` and `remove`, and the person's delete
 	// of one version's bytes, which `remove` leaves kept.
 	readonly addArtifact = async (request: Request): Promise<Response> =>

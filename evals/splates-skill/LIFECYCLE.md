@@ -79,11 +79,9 @@ channels. No adapter is allowed to drop those gaps to manufacture a pass.
 - **#340 queued tasks/orchestration:** owns intake semantics, taken-queued refusal,
   grooming/releasing partial queued tasks, lane dependencies, dispatch and no-dev lane
   orchestration. `requested-task` only bridges a single queued task into a started task.
-- **#356 delegation/handoffs:** owns child base selection (including nondefault
-  bases), briefs, handoff ownership, child-before-parent merges, and
-  no-dev delegation boundaries. These single-task cases have no child agents.
-  Real code behind #356 includes `handoff.ts` (handoff
-  ownership) and `web/parts.ts` (part state).
+- **#356 delegation/parts:** owns child base selection (including nondefault
+  bases), briefs and child-before-parent merges. These single-task cases have
+  no child agents. Real code behind #356 includes `web/parts.ts` (part state).
   #356 is a task number, not an existing splates system.
 - **#355 decisions:** owns approval/review choices. `verify-land` explicitly has
   no review request; `recover-budget` follows an unambiguous CLI refusal.

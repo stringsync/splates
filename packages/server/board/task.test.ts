@@ -346,22 +346,6 @@ describe.concurrent("task", () => {
 		await expect(add(deps, "missing", { tasks: [9] })).toBail("not_found");
 	});
 
-	it("takes up several tasks at once, naming each in the Goal", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "support dark mode", null);
-		await taskAdd(deps, "dark charts too", "beta");
-
-		await add(deps, "dark", { tasks: [1, 2] });
-
-		const worktree = (await deps.service.find("dark")).path;
-		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
-			"## Goal\n\nTask 1: support dark mode\n\nTask 2: dark charts too",
-		);
-		expect((await deps.tasks.takenBy("dark")).map((task) => task.id)).toEqual([
-			1, 2,
-		]);
-	});
-
 	it("puts a removed task's queued task back on the list", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);

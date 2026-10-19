@@ -215,7 +215,6 @@ export function statusOf(
 			removed: "Removed",
 			escalated: "Escalated",
 			working: "Working",
-			handed: `Handed off to ${report.to ?? "another agent"}`,
 		}[report.ending];
 		return {
 			text: report.reason === null ? how : `${how} · ${report.reason}`,

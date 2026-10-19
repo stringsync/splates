@@ -16,15 +16,11 @@ export {
 export { goalLine, questions } from "./plan";
 export {
 	APPROVE,
-	AUTO,
 	CHECKPOINT,
 	DEFER,
 	DIRECTIVES,
 	directive,
-	handoffToReference,
 	isUpdate,
-	LANES_DONE,
-	laneReference,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,

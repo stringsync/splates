@@ -68,7 +68,7 @@ describe("App's splates events", () => {
 		);
 	});
 
-	it("draws a handoff as a line, and the claim that takes it over as another", async () => {
+	it("draws an old handoff as a line, naming the agent it went to on hover", async () => {
 		const thread = await opened(turn(["Over to you."]), [
 			{
 				id: "h",
@@ -80,19 +80,13 @@ describe("App's splates events", () => {
 				agent: "codex",
 				model: "gpt-5.5",
 			},
-			claim("alpha", 3, { tookOver: true }),
 		]);
 
-		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "splates" });
-			expect(found).toHaveLength(2);
-			return found;
-		});
-		expect(lines.map((line) => line.textContent)).toEqual([
-			"Handed offalpha",
-			"Took overalpha",
-		]);
-		expect(within(lines[0] as HTMLElement).getByTitle(/codex \(gpt-5\.5\)/));
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toBe("Handed offalpha");
+		expect(within(line).getByTitle(/codex \(gpt-5\.5\)/));
 	});
 
 	it("draws a todo or todos taken, released or removed as one chip, and nothing when refused", async () => {
@@ -353,9 +347,9 @@ function update(id: number, secs: number, subject: string): Event {
 function claim(
 	task: string,
 	secs: number,
-	opts: { reason?: string; tookOver?: boolean } = {},
+	opts: { reason?: string } = {},
 ): Event {
-	const { reason, tookOver = false } = opts;
+	const { reason } = opts;
 	return reason === undefined
 		? {
 				id: task,
@@ -365,7 +359,6 @@ function claim(
 				reason: null,
 				conversation: "c1",
 				escalated: false,
-				tookOver,
 				goal: "",
 			}
 		: {

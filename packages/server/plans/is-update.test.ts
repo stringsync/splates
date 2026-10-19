@@ -1,16 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import {
-	isUpdate,
-	MERGE,
-	reportReference,
-	taskNumberReference,
-} from "./prompts";
+import { isUpdate, MERGE, taskNumberReference } from "./prompts";
 
 describe("isUpdate", () => {
 	it("knows splates's own updates", () => {
 		expect(
 			[
-				reportReference("header"),
+				"[SPLATES REPORT header]",
 				"[SPLATES IDLE header]",
 				"[SPLATES GROOM #12]",
 				"[SPLATES TODO DONE #12]",
@@ -23,7 +18,7 @@ describe("isUpdate", () => {
 			[
 				MERGE,
 				taskNumberReference(12),
-				`${reportReference("header")} and the footer`,
+				"[SPLATES REPORT header] and the footer",
 				"> **Which pages need it?**\n\n- (a) Tasks",
 			].map(isUpdate),
 		).toEqual([false, false, false, false]);

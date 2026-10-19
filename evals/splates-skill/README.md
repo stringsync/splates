@@ -2,11 +2,11 @@
 
 Focused probes use deterministic assertions without an LLM judge. Read
 [RUNNER.md](RUNNER.md) for commands and guarantees, [COVERAGE.md](COVERAGE.md)
-for all 76 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
+for all 51 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
 
-Today `fast --kind cli` runs eleven local CLI contracts: ten pass and delegation's
-incomplete nested capture remains explicitly uncovered. The native CLI can evaluate partial state/reply evidence for broad shell profiles;
-complete tool/read evidence for the 65 agent probes remains unavailable. Synthetic tests establish
+Today `fast --kind cli` runs ten local CLI contracts, all passing on observed state
+though nested command capture remains incomplete. The native CLI can evaluate partial state/reply evidence for broad shell profiles;
+complete tool/read evidence for the 41 agent probes remains unavailable. Synthetic tests establish
 assertion behavior, not measured model adherence.
 
 The model CLI requires a changed Splates skill/reference snapshot against an

@@ -88,7 +88,6 @@ export function ReportCard({
 				tone={tone}
 				task={report.task}
 				base={report.base}
-				to={report.to}
 				aside={
 					<ReportAside
 						timing={report.ending === "working" ? timing : undefined}

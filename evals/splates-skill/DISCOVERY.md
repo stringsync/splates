@@ -1,7 +1,7 @@
 # Discovery and disclosure probes (#367)
 
 `discovery.probes.ts` is automatically discovered by the focused runner. All
-16 probe definitions are version 1, aspect `discovery`, seed
+15 probe definitions are version 1, aspect `discovery`, seed
 `discovery/repository@1`; requirement ids are `discovery-<suffix>`.
 These are assertion contracts and explicit capability gaps, **not measured
 agent adherence**. The dedicated free fixtures exercise the assertion boundary;
@@ -15,7 +15,6 @@ no paid agent runs were performed.
 | explicit | Same, explicitly invoked skill | Paired input changes only explicit `$splates` invocation | Native activation, not injected full instructions |
 | queue | Reference files / references/queue.md | Exact reference read before canonical task-add witness | #340 owns intake/orchestration and valid argv variation |
 | parts | Reference files / references/parts.md | Exact reference read before child-add witness | #356 owns delegation, active parent setup and dispatch |
-| handoff | HANDOFF TO / references/handoff.md | Exact reference read before handoff witness | #356 owns handoff setup, transport and argv normalization |
 | checkpoint | CHECKPOINT / references/checkpoint.md | Exact reference read before task SPLATES.md write | #357 owns active-task setup, plan content, final reply and actual resume |
 | setup | SETUP / references/setup.md | Exact reference read before agents inspection witness | Setup workflow and external integrations |
 | nested | Applicable instructions from nested cwd | Registered uncovered scenario | No adapter-selected initial cwd; root fixture is not a nested-cwd run |

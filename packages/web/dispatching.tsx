@@ -152,21 +152,17 @@ function spins(need: { kind: string }): boolean {
 
 /**
  * The items that say which agent, and model, should work a todo:
- * any agent, or one on the roster, on its own model or one it lists. For a
- * menu of its own or a submenu of another.
+ * any agent, or one on the roster, on its own model or one it lists.
  */
-export function AssigneeItems({
+function AssigneeItems({
 	assignee,
 	onPick,
 	label,
-	anyone = true,
 }: {
 	assignee: AgentPick | null;
 	onPick: (pick: AgentPick | null) => void;
 	/** What the items are for, above them. */
 	label?: string;
-	/** Whether "Any agent" is among them, for a todo that can wait for one. */
-	anyone?: boolean;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	if (context === null) {
@@ -187,14 +183,12 @@ export function AssigneeItems({
 	return (
 		<DropdownMenuGroup>
 			{label !== undefined && <DropdownMenuLabel>{label}</DropdownMenuLabel>}
-			{anyone && (
-				<DropdownMenuCheckboxItem
-					checked={is(null)}
-					onCheckedChange={() => onPick(null)}
-				>
-					Any agent
-				</DropdownMenuCheckboxItem>
-			)}
+			<DropdownMenuCheckboxItem
+				checked={is(null)}
+				onCheckedChange={() => onPick(null)}
+			>
+				Any agent
+			</DropdownMenuCheckboxItem>
 			{dispatch.agents.map((each) =>
 				(each.models ?? []).length === 0 ? (
 					<DropdownMenuCheckboxItem

@@ -65,7 +65,6 @@ export function EscalationCard({
 		ending: "escalated",
 		task,
 		base: null,
-		to: null,
 		reason: event.about,
 		body: report?.body ?? "",
 		source: report?.source ?? `## ⚠️ Escalated ${task}: ${event.about}`,

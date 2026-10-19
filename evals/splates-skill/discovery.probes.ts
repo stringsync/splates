@@ -151,12 +151,6 @@ const probes: Probe[] = [
 			["add", "child", "--base", "task/message"],
 		],
 		[
-			"handoff",
-			"[SPLATES HANDOFF TO codex gpt-6-astra]",
-			"handoff.md",
-			["handoff", "message", "--agent", "codex", "--model", "gpt-6-astra"],
-		],
-		[
 			"checkpoint",
 			"[SPLATES CHECKPOINT]",
 			"checkpoint.md",

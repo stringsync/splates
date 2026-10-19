@@ -182,7 +182,7 @@ an adapter can observe it; current event kinds do not represent that reply.
 Similarly, parsed fields across different reports do not establish one coherent
 report, and final state does not prove the order of operations.
 
-Six modules now register 76 probes (11 CLI, 65 agent); see the exact versioned
+Six modules now register 51 probes (10 CLI, 41 agent); see the exact versioned
 inventory in `COVERAGE.md`. Every registered agent probe declares tools, so
 **none is executable with generic ACP today**. An all-unsupported run is not a
 useful quick eval. `--allow-unmetered` does not repair tool capture. The free
@@ -204,12 +204,9 @@ splates dev eval report --directory /tmp/splates-cli-results
 splates dev eval fast --kind cli --failed --directory /tmp/splates-cli-results
 ```
 
-The eleven-case CLI suite tests actual local lifecycle outcomes, review gates,
-task linking and no-dev refusal. Ten cases pass in free integration tests;
-`delegation/cli-no-dev-tell` reports `uncovered`, so the full command exits 1.
-The dedicated delegation test verifies refusal independently, but incomplete
-nested events cannot prove its forbidden-action assertion. `--failed` retains
-and reruns that uncovered case; it does not magically resolve the gap. Select
+The ten-case CLI suite tests actual local lifecycle outcomes, review gates and
+task linking. All ten pass in free integration tests on observed state, though
+nested events stay incomplete, so `--failed` finds nothing to rerun. Select
 `lifecycle/cli-merged` for a narrow passing local smoke check. CLI zero token/cost
 usage is meaningful; it says nothing about model speed or adherence.
 

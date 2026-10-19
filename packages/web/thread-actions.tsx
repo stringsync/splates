@@ -1,18 +1,13 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { paused } from "@stringsync/splates-server/conversations/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import {
-	DEFER,
-	handoffToReference,
-	RESUME,
-} from "@stringsync/splates-server/plans/browser";
+import { DEFER, RESUME } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
 	ClockIcon,
 	FileDiffIcon,
-	HandshakeIcon,
 	Loader2Icon,
 	PauseIcon,
 	PlayIcon,
@@ -31,7 +26,7 @@ import {
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
 import { promptFor } from "./dispatch";
-import { AssigneeItems, Dispatching } from "./dispatching";
+import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
@@ -41,10 +36,9 @@ import { ToggleTerminal } from "./terminal";
 /**
  * What a conversation's thread offers beside it: reviewing its task's
  * changes, its terminal, pausing its agent at a checkpoint and resuming it,
- * deferring what the person last asked, handing its
- * task off to another agent, showing
- * its messages' timestamps, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
- * a Mac) does too; and starting a new conversation with its agent.
+ * deferring what the person last asked, showing its messages' timestamps,
+ * and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) does too; and
+ * starting a new conversation with its agent.
  */
 export function useThreadActions(
 	conversation: ConversationState,
@@ -89,29 +83,6 @@ export function useThreadActions(
 				]
 			: []),
 		...pauseActions(conversation, refused),
-		...(dispatching !== null && conversation.task !== null && !archived
-			? [
-					{
-						label: "Hand off…",
-						icon: <HandshakeIcon />,
-						run: null,
-						menu: (
-							<AssigneeItems
-								assignee={null}
-								anyone={false}
-								label="Hand off to"
-								onPick={(pick) => {
-									if (pick !== null) {
-										void promptConversation(id, handoffToReference(pick)).catch(
-											(error: unknown) => refused("Not handed off", error),
-										);
-									}
-								}}
-							/>
-						),
-					},
-				]
-			: []),
 		{
 			label: stamps.shown ? "Hide timestamps" : "Show timestamps",
 			icon: <ClockIcon />,

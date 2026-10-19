@@ -6,7 +6,7 @@ import { validate } from "./runner";
 
 it("registers unique valid discovery probes with gaps retained", () => {
 	expect(() => validate(discovery.probes)).not.toThrow();
-	expect(discovery.probes).toHaveLength(16);
+	expect(discovery.probes).toHaveLength(15);
 	expect(
 		discovery.probes.every(
 			(probe) =>
@@ -108,9 +108,9 @@ it("keeps missing capture and termination failures separate from noncompliance",
 	).toEqual(["unsupported", "infrastructure-error", "bound"]);
 });
 
-it("requires exact reference reads before actions across all five reference contracts", () => {
-	expect(discovery.probes.slice(2, 7).map(referenceVerdicts)).toEqual(
-		Array.from({ length: 5 }, () => [
+it("requires exact reference reads before actions across all four reference contracts", () => {
+	expect(discovery.probes.slice(2, 6).map(referenceVerdicts)).toEqual(
+		Array.from({ length: 4 }, () => [
 			"uncovered",
 			"fail",
 			"fail",

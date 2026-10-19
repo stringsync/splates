@@ -212,8 +212,12 @@ one is deleted.
    `agentsPerLane`, the orchestrator directives and reports, `lanes.md`, the
    lane eval scenarios and probes, and the page's lane plan card and Start
    lane controls. Old orchestrator conversations still read, their reports
-   as plain words. Next, agents stop starting agents (handoff, `add --agent`
-   from an agent, `tell`, Auto), then parts. The slot queue of
+   as plain words. Next, agents stop starting agents: `splates handoff`,
+   `tell` and Auto go, `add --agent` is the queue's alone, refused from an
+   agent, and the `tasks` grant no longer hands a task to another project,
+   so work across projects is queued there. Old handoff and Auto
+   conversations still read, their reports and directives as plain words.
+   Then parts. The slot queue of
    `workers/scheduler.ts` (`splates worker queue`) stays for now: it still
    drives provisioning and wake-on-LAN, so it goes once the task queue does
    that.
