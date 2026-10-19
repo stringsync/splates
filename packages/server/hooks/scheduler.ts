@@ -57,8 +57,12 @@ export class Scheduler implements Resource {
 			}
 			let due: number;
 			try {
-				const last = runs[automation.id]?.scheduledAt ?? automation.createdAt;
-				due = scheduleOf(trigger).nextAfter(Date.parse(last));
+				// An edited schedule counts from the edit, not a run on the old one.
+				const last = Math.max(
+					Date.parse(runs[automation.id]?.scheduledAt ?? automation.createdAt),
+					Date.parse(automation.editedAt ?? automation.createdAt),
+				);
+				due = scheduleOf(trigger).nextAfter(last);
 			} catch (error) {
 				this.deps.log.error(
 					`automation ${automation.id} has a schedule that will not read: ${String(error)}`,

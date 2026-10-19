@@ -30,6 +30,17 @@ export async function addAutomation(
 	return rows(await sendJson("/api/automations", "POST", { trigger, hook }));
 }
 
+/** Sets what the person's automation `id` runs on and runs, answering with every automation. */
+export async function editAutomation(
+	id: string,
+	trigger: Trigger,
+	hook: Hook,
+): Promise<AutomationRow[]> {
+	return rows(
+		await sendJson(`/api/automations/${id}`, "PUT", { trigger, hook }),
+	);
+}
+
 /** Takes away the person's automation `id`. */
 export async function removeAutomation(id: string): Promise<AutomationRow[]> {
 	return rows(await send(`/api/automations/${id}`, { method: "DELETE" }));

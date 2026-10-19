@@ -9,7 +9,7 @@ import {
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
 import { useReactive } from "@webappwiz/react";
-import { PauseIcon, PlayIcon, XIcon } from "lucide-react";
+import { PauseIcon, PencilIcon, PlayIcon, XIcon } from "lucide-react";
 import {
 	type FormEvent,
 	type JSX,
@@ -39,8 +39,8 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
 
 /**
  * The Automations page: what runs on a task event or a schedule while
- * `splates server` runs, each with its last runs, to pause or remove, and a
- * form to add one. The person's own come first; then those the project
+ * `splates server` runs, each with its last runs, to edit, pause or remove,
+ * and a form to add one. The person's own come first; then those the project
  * checks in, and those splates itself sets, which only `splates.config.ts`
  * or Setup change.
  */
@@ -77,6 +77,7 @@ export function AutomationsPage(): JSX.Element {
 						detail="Kept on this machine, never checked in, since an agent spends your tokens."
 						empty="None yet: add one below."
 						rows={own}
+						onEdit={(row, trigger, hook) => list.edit(row, trigger, hook)}
 						onPause={(row, paused) => void list.pause(row, paused)}
 						onRemove={(row) => void list.remove(row)}
 					/>
@@ -109,6 +110,7 @@ function Group({
 	detail,
 	empty,
 	rows,
+	onEdit,
 	onPause,
 	onRemove,
 }: {
@@ -116,6 +118,7 @@ function Group({
 	detail: string;
 	empty?: string;
 	rows: AutomationRow[];
+	onEdit?: Edit;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
@@ -133,6 +136,7 @@ function Group({
 						<Card
 							key={row.id || "adding"}
 							row={row}
+							onEdit={onEdit}
 							onPause={onPause}
 							onRemove={onRemove}
 						/>
@@ -143,24 +147,56 @@ function Group({
 	);
 }
 
-/** One automation: what sets it off, what it runs, its last runs, and its buttons. */
+/** Saves `row` as setting off on `trigger` and running `hook`; says whether it took. */
+type Edit = (
+	row: AutomationRow,
+	trigger: Trigger,
+	hook: Hook,
+) => Promise<boolean>;
+
+/**
+ * One automation: what sets it off, what it runs, its last runs, and its
+ * buttons; or, while it is being edited, the form that edits it.
+ */
 function Card({
 	row,
+	onEdit,
 	onPause,
 	onRemove,
 }: {
 	row: AutomationRow;
+	onEdit?: Edit;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
+	const [editing, setEditing] = useState<AutomationDraft | null>(null);
 	const adding = row.id === "";
+	// Blank until the server labels what was added or saved.
+	const pending = row.when === "";
 	const paused = row.paused === true;
+	if (editing !== null && onEdit !== undefined) {
+		return (
+			<li aria-label={`automation ${row.id}`}>
+				<AutomationForm
+					draft={editing}
+					title={`Edit automation ${row.id}`}
+					submit="Save"
+					onSubmit={(trigger, hook) => {
+						// Shown saved at once; a refusal is said above the list.
+						setEditing(null);
+						void onEdit(row, trigger, hook);
+					}}
+					onCancel={() => setEditing(null)}
+				/>
+			</li>
+		);
+	}
 	return (
 		<li
 			aria-label={`automation ${row.id || "being added"}`}
 			className={cn(
 				"flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-xs",
-				(paused || adding) && "opacity-60",
+				(paused || pending) && "opacity-60",
 			)}
 		>
 			<div className="flex items-start gap-2">
@@ -171,13 +207,25 @@ function Card({
 								{row.id}.
 							</span>
 						)}
-						<span className="font-medium">{adding ? "Adding…" : row.when}</span>
+						<span className="font-medium">
+							{adding ? "Adding…" : pending ? "Saving…" : row.when}
+						</span>
 						{paused && <Badge variant="secondary">Paused</Badge>}
 					</div>
 					<p className="break-words text-muted-foreground text-sm">
 						{row.does}
 					</p>
 				</div>
+				{!pending && onEdit !== undefined && (
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						aria-label="Edit"
+						onClick={() => setEditing(AutomationDraft.of(row))}
+					>
+						<PencilIcon />
+					</Button>
+				)}
 				{!adding && onPause !== undefined && (
 					<Button
 						size="icon-sm"
@@ -218,41 +266,65 @@ function Card({
 	);
 }
 
-/** The form that adds an automation: its trigger, then what it runs. */
+/** The form that adds an automation, clearing what was typed once it is added. */
 function AddForm({
 	onAdd,
 }: {
 	onAdd: (trigger: Trigger, hook: Hook) => Promise<boolean>;
 }): JSX.Element {
-	const lanes = useContext(Lanes);
 	const [draft] = useState(() => new AutomationDraft());
+	return (
+		<AutomationForm
+			draft={draft}
+			title="Add an automation"
+			submit="Add"
+			onSubmit={(trigger, hook) =>
+				void onAdd(trigger, hook).then((added) => {
+					if (added) {
+						draft.added();
+					}
+				})
+			}
+		/>
+	);
+}
+
+/** The form that adds or edits an automation: its trigger, then what it runs. */
+function AutomationForm({
+	draft,
+	title,
+	submit,
+	onSubmit,
+	onCancel,
+}: {
+	draft: AutomationDraft;
+	title: string;
+	submit: string;
+	onSubmit: (trigger: Trigger, hook: Hook) => void;
+	onCancel?: () => void;
+}): JSX.Element {
+	const lanes = useContext(Lanes);
 	const { when, event, stage, lane, schedule, kind, pick, prompt, command } =
 		useReactive(draft, (draft) => draft.fields, ["changed"]);
 	const { refusal, refuse } = useRefusal();
-	const submit = (form: FormEvent) => {
+	const submitted = (form: FormEvent) => {
 		form.preventDefault();
 		let made: ReturnType<AutomationDraft["made"]>;
 		try {
 			made = draft.made();
 		} catch (error) {
-			refuse("Not added", error);
+			refuse(`Not ${submit === "Add" ? "added" : "saved"}`, error);
 			return;
 		}
-		void onAdd(made.trigger, made.hook).then((added) => {
-			if (added) {
-				draft.added();
-			}
-		});
+		onSubmit(made.trigger, made.hook);
 	};
 	return (
 		<form
-			aria-label="add an automation"
-			onSubmit={submit}
+			aria-label={title.toLowerCase()}
+			onSubmit={submitted}
 			className="flex flex-col gap-3 rounded-xl border p-3"
 		>
-			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
-				Add an automation
-			</h2>
+			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
 			<div className="flex flex-wrap items-center gap-2">
 				<NativeSelect
 					aria-label="When"
@@ -281,11 +353,14 @@ function AddForm({
 						<NativeSelect
 							aria-label="Stage"
 							value={stage}
-							onChange={(change) =>
-								draft.set("stage", change.target.value as TaskStage | "")
-							}
+							onChange={(change) => draft.set("stage", change.target.value)}
 						>
 							<NativeSelectOption value="">In any stage</NativeSelectOption>
+							{stage.includes(",") && (
+								<NativeSelectOption value={stage}>
+									In {stage.split(",").join(" or ")}
+								</NativeSelectOption>
+							)}
 							{STAGES.map((each) => (
 								<NativeSelectOption key={each} value={each}>
 									In {each}
@@ -298,6 +373,11 @@ function AddForm({
 							onChange={(change) => draft.set("lane", change.target.value)}
 						>
 							<NativeSelectOption value="">In any lane</NativeSelectOption>
+							{lane.includes(",") && (
+								<NativeSelectOption value={lane}>
+									In lane {lane.split(",").join(" or ")}
+								</NativeSelectOption>
+							)}
 							{lanes.map((each) => (
 								<NativeSelectOption key={each.id} value={String(each.id)}>
 									{each.id} {each.name}
@@ -352,9 +432,16 @@ function AddForm({
 				/>
 			)}
 			<Refusal refusal={refusal} />
-			<Button type="submit" size="sm" className="self-start">
-				Add
-			</Button>
+			<div className="flex gap-2">
+				<Button type="submit" size="sm">
+					{submit}
+				</Button>
+				{onCancel !== undefined && (
+					<Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+						Cancel
+					</Button>
+				)}
+			</div>
 		</form>
 	);
 }

@@ -79,6 +79,23 @@ describe("Scheduler", () => {
 		expect(ran).toEqual(["tidy"]);
 	});
 
+	it("counts an edited schedule from the edit, not from a run on the old one", async () => {
+		await runs.scheduled("1", automations[0]?.createdAt ?? "");
+		automations = automations.map((each) => ({
+			...each,
+			trigger: { every: "2h" },
+			editedAt: new Date(Date.UTC(2026, 9, 19, 10, 30)).toISOString(),
+		}));
+		clock.advance(Duration.hrs(2));
+
+		const running = await start();
+		expect(ran).toEqual([]);
+
+		clock.advance(Duration.hrs(1));
+		await running.look();
+		expect(ran).toEqual(["tidy"]);
+	});
+
 	it("runs nothing paused", async () => {
 		automations = automations.map((each) => ({ ...each, paused: true }));
 		clock.advance(Duration.hrs(5));

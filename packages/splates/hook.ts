@@ -4,10 +4,12 @@ import {
 	type Hook,
 	HookStore,
 	hookAdd,
+	hookEdit,
 	hookGroomer,
 	hookList,
 	hookPause,
 	hookRemove,
+	lanesNamed,
 	stagesNamed,
 	TASK_EVENTS,
 	type TaskEventName,
@@ -97,6 +99,73 @@ splatesHook
 			hook = { kind: "agent", prompt: opts.prompt, ...pick };
 		}
 		await hookAdd({ hooks: storeOf(ctx), log: ctx.log }, triggerOf(opts), hook);
+	});
+
+splatesHook
+	.command("edit")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"change one of your automations, by its number in `splates hook list`, keeping its number, its pause and its last runs. Each flag changes only what it names, as `splates hook add` takes it: `--event`, `--every` or `--cron` sets what sets it off anew, `--stage` or `--lane` alone narrows its event again (`any` for no narrowing), `--prompt` or `--agent` changes what an agent is told or which agent, and `--run` makes it a shell command. The groomer changes through `splates hook groomer`",
+	)
+	.arg("id", z.string(), { description: "its number in `splates hook list`" })
+	.option("event", z.string(), {
+		default: "",
+		description:
+			"a task event to run on, as task.created, in place of what sets it off now",
+	})
+	.option("stage", z.string(), {
+		default: "",
+		description:
+			"only for tasks in these stages, comma separated, or `any`: backlog, ready, queued, running",
+	})
+	.option("lane", z.string(), {
+		default: "",
+		description:
+			"only for tasks in these lanes, by number, comma separated, or `any`",
+	})
+	.option("every", z.string(), {
+		default: "",
+		description: "run every so often, as 30m, 2h or 1d",
+	})
+	.option("cron", z.string(), {
+		default: "",
+		description:
+			'run on a five-field cron line, in this machine\'s time, as "0 9 * * 1-5"',
+	})
+	.option("agent", z.string(), {
+		default: "",
+		description: "the agent to run, as `splates agents` names it",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "its model, with --agent (default: the agent's own)",
+	})
+	.option("effort", z.string(), {
+		default: "",
+		description: "its thinking level, with --agent (default: the agent's own)",
+	})
+	.option("prompt", z.string(), {
+		default: "",
+		description: "what the agent is told after the event",
+	})
+	.option("run", z.string(), {
+		default: "",
+		description: "a shell command to run in place of an agent",
+	})
+	.action(async (opts, ctx) => {
+		const { id, agent, model, effort, ...change } = opts;
+		const pick = await assigneeIn(ctx, agent, model, effort);
+		if (pick === null) {
+			fail(
+				"usage",
+				"an agent automation needs an agent: name one, or --run",
+				{},
+			);
+		}
+		await hookEdit({ hooks: storeOf(ctx), log: ctx.log }, id, {
+			...change,
+			...(pick === undefined ? {} : { pick }),
+		});
 	});
 
 splatesHook
@@ -191,13 +260,7 @@ function triggerOf(opts: TriggerOptions): Trigger {
 		filter.stages = stagesNamed(commaList(opts.stage));
 	}
 	if (opts.lane !== "") {
-		const lanes = commaList(opts.lane).map(Number);
-		if (lanes.some((lane) => !Number.isInteger(lane) || lane <= 0)) {
-			fail("usage", `'${opts.lane}' is no list of lane numbers`, {
-				lane: opts.lane,
-			});
-		}
-		filter.lanes = lanes;
+		filter.lanes = lanesNamed(opts.lane);
 	}
 	const event = opts.event as TaskEventName;
 	return Object.keys(filter).length === 0 ? { event } : { event, filter };

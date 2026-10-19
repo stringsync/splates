@@ -33,6 +33,32 @@ describe("AutomationDraft", () => {
 		});
 	});
 
+	it("holds what an automation sets off and runs, to make it again", () => {
+		const made = {
+			trigger: {
+				event: "task.done" as const,
+				filter: { stages: ["ready" as const, "queued" as const], lanes: [2] },
+			},
+			hook: {
+				kind: "agent" as const,
+				prompt: "wrap up",
+				agent: "claude",
+				model: "sonnet",
+			},
+		};
+		const draft = AutomationDraft.of({ id: "1", createdAt: "", ...made });
+		expect(draft.fields).toMatchObject({ stage: "ready,queued", lane: "2" });
+		expect(draft.made()).toEqual(made);
+
+		const tidy = {
+			trigger: { cron: "0 9 * * *" },
+			hook: { kind: "run" as const, command: "tidy" },
+		};
+		expect(
+			AutomationDraft.of({ id: "2", createdAt: "", ...tidy }).made(),
+		).toEqual(tidy);
+	});
+
 	it("asks for an agent before it makes an agent hook", () => {
 		expect(() => new AutomationDraft().made()).toThrow("pick the agent");
 	});

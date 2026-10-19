@@ -424,6 +424,7 @@ export interface Served extends AsyncResource {
 	resumeBudget: Handler;
 	listAutomations: Handler;
 	addAutomation: Handler;
+	editAutomation: Handler;
 	removeAutomation: Handler;
 	pauseAutomation: Handler;
 	resumeAutomation: Handler;

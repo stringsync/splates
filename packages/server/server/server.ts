@@ -667,6 +667,7 @@ export async function dev(
 						POST: talk(scoped((project) => project.addAutomation)),
 					},
 					"/api/automations/:id": {
+						PUT: talk(scoped((project) => project.editAutomation)),
 						DELETE: talk(scoped((project) => project.removeAutomation)),
 					},
 					"/api/automations/:id/pause": {

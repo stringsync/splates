@@ -1,6 +1,14 @@
 import { color, type Logger } from "webappwiz/log";
+import { fail } from "../exit";
 import { type AgentPick, pickLabel } from "../models";
-import type { Automation, Hook, HookStore, Trigger } from "./store";
+import { changed, type HookChange } from "./edit";
+import {
+	type Automation,
+	GROOMER_AUTOMATION,
+	type Hook,
+	type HookStore,
+	type Trigger,
+} from "./store";
 
 /** What the hook commands work with. */
 export interface HookDeps {
@@ -33,6 +41,27 @@ export async function hookAdd(
 ): Promise<void> {
 	const added = await hooks.add(trigger, hook);
 	log.info(`${color.green("hooked")} ${described(added)}`);
+}
+
+/** Makes `change` to the person's automation numbered `id`, then says what it set. */
+export async function hookEdit(
+	{ hooks, log }: HookDeps,
+	id: string,
+	change: HookChange,
+): Promise<void> {
+	const was = (await hooks.read()).find((each) => each.id === id);
+	if (was === undefined || was.source !== undefined) {
+		fail(
+			"usage",
+			id === GROOMER_AUTOMATION
+				? "the groomer changes through `splates hook groomer --agent`"
+				: `no automation ${id}: \`splates hook list\` numbers yours`,
+			{ id },
+		);
+	}
+	const { trigger, hook } = changed(was, change);
+	const edited = await hooks.edit(id, trigger, hook);
+	log.info(`${color.green("edited")} ${described(edited)}`);
 }
 
 /** Takes away the automation numbered `id`, or every one on the event `id` names. */

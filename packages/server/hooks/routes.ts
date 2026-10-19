@@ -40,7 +40,7 @@ export class AutomationRoutes {
 		runs: RunStore,
 		/** Every automation, the project's checked-in ones too. */
 		all: () => Promise<Automation[]>,
-		/** Told once one is added, removed, paused or resumed here. */
+		/** Told once one is added, edited, removed, paused or resumed here. */
 		changed: () => void = () => {},
 	) {
 		this.#store = store;
@@ -54,6 +54,13 @@ export class AutomationRoutes {
 	readonly addAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook } = await body(request);
 		await this.#store.add(triggerIn(trigger), hookIn(hook));
+		this.#changed();
+		return this.#list();
+	};
+
+	readonly editAutomation = async (request: Request): Promise<Response> => {
+		const { trigger, hook } = await body(request);
+		await this.#store.edit(idIn(request), triggerIn(trigger), hookIn(hook));
 		this.#changed();
 		return this.#list();
 	};

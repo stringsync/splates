@@ -1,21 +1,25 @@
 import type { TaskStage } from "@stringsync/splates-server/board";
-import type { Hook, Trigger } from "@stringsync/splates-server/hooks";
+import type {
+	Automation,
+	Hook,
+	Trigger,
+} from "@stringsync/splates-server/hooks";
 import type { TaskEventName } from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 
 export type AutomationDraftEvents = { changed: undefined };
 
-/** What sets a new automation off, as the form picks it. */
+/** What sets an automation off, as the form picks it. */
 export type When = "event" | "every" | "cron";
 
-/** The fields of the form that adds an automation, as typed so far. */
+/** The fields of the form that adds or edits an automation, as typed so far. */
 export interface DraftFields {
 	when: When;
 	event: TaskEventName;
-	/** The stage it narrows the event to, or "" for any. */
-	stage: TaskStage | "";
-	/** The lane it narrows the event to, by number, or "" for any. */
+	/** The stages it narrows the event to, comma separated, or "" for any. */
+	stage: string;
+	/** The lanes it narrows the event to, by number, comma separated, or "" for any. */
 	lane: string;
 	/** The interval or cron line, for a schedule. */
 	schedule: string;
@@ -26,8 +30,9 @@ export interface DraftFields {
 }
 
 /**
- * The automation the Automations page's form is putting together: what sets
- * it off, then what it runs, made into the trigger and hook the server takes.
+ * The automation the Automations page's form is putting together, anew or
+ * from one it edits: what sets it off, then what it runs, made into the
+ * trigger and hook the server takes.
  */
 export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 	private readonly dispatcher = new Dispatcher<AutomationDraftEvents>();
@@ -45,6 +50,35 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 		command: "",
 	};
 
+	/** A draft holding what `automation` sets off and runs, to edit it. */
+	static of({ trigger, hook }: Automation): AutomationDraft {
+		const draft = new AutomationDraft();
+		const fields = { ...draft.fields };
+		if ("event" in trigger) {
+			fields.when = "event";
+			fields.event = trigger.event;
+			fields.stage = trigger.filter?.stages?.join(",") ?? "";
+			fields.lane = trigger.filter?.lanes?.join(",") ?? "";
+		} else if ("every" in trigger) {
+			fields.when = "every";
+			fields.schedule = trigger.every;
+		} else {
+			fields.when = "cron";
+			fields.schedule = trigger.cron;
+		}
+		if (hook.kind === "run") {
+			fields.kind = "run";
+			fields.command = hook.command;
+		} else if (hook.kind === "agent") {
+			const { kind, prompt, ...pick } = hook;
+			fields.kind = kind;
+			fields.prompt = prompt;
+			fields.pick = pick;
+		}
+		draft.fields = fields;
+		return draft;
+	}
+
 	set<K extends keyof DraftFields>(field: K, value: DraftFields[K]): void {
 		this.fields = { ...this.fields, [field]: value };
 		this.dispatcher.dispatch("changed");
@@ -58,8 +92,8 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			throw new Error("pick the agent to run");
 		}
 		const filter = {
-			...(stage === "" ? {} : { stages: [stage] }),
-			...(lane === "" ? {} : { lanes: [Number(lane)] }),
+			...(stage === "" ? {} : { stages: stage.split(",") as TaskStage[] }),
+			...(lane === "" ? {} : { lanes: lane.split(",").map(Number) }),
 		};
 		const trigger: Trigger =
 			when === "event"

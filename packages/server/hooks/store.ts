@@ -1,5 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import type { TaskStage } from "../board";
+import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { TASK_EVENTS, type TaskEventName } from "./events";
@@ -42,6 +43,8 @@ export interface Automation {
 	paused?: boolean;
 	/** When it was set, which a schedule counts its first run from. */
 	createdAt: string;
+	/** When its trigger last changed, which a schedule counts from in place of an earlier run. */
+	editedAt?: string;
 	/** Where it comes from: the person, by default; the project's config, or splates itself. */
 	source?: "config" | "builtin";
 }
@@ -150,6 +153,42 @@ export class HookStore {
 		return set;
 	}
 
+	/**
+	 * Sets what sets the person's automation `id` off and what it runs, keeping
+	 * its number, its pause and its runs; refuses one there is none of. A
+	 * changed trigger is stamped, so its schedule counts from now.
+	 */
+	async edit(id: string, trigger: Trigger, hook: Hook): Promise<Automation> {
+		checked(trigger);
+		let found: Automation | undefined;
+		await this.change((automations) =>
+			automations.map((each) => {
+				if (each.id !== id || each.source !== undefined) {
+					return each;
+				}
+				const retriggered =
+					JSON.stringify(each.trigger) !== JSON.stringify(trigger);
+				found = {
+					...each,
+					trigger,
+					hook,
+					...(retriggered ? { editedAt: new Date().toISOString() } : {}),
+				};
+				return found;
+			}),
+		);
+		if (found === undefined) {
+			fail(
+				"usage",
+				`no automation ${id}: \`splates hook list\` numbers yours`,
+				{
+					id,
+				},
+			);
+		}
+		return found;
+	}
+
 	/** Pauses the automation numbered `id`, or lets it run again. */
 	async pause(id: string, paused: boolean): Promise<Automation> {
 		let found: Automation | undefined;
@@ -225,6 +264,15 @@ export function stagesNamed(names: readonly string[]): TaskStage[] {
 		}
 	}
 	return names as TaskStage[];
+}
+
+/** `text` as lane numbers, comma separated, refusing what is none. */
+export function lanesNamed(text: string): number[] {
+	const lanes = commaList(text).map(Number);
+	if (lanes.some((lane) => !Number.isInteger(lane) || lane <= 0)) {
+		fail("usage", `'${text}' is no list of lane numbers`, { lane: text });
+	}
+	return lanes;
 }
 
 /** Refuses `trigger` when its event is none or its schedule will not read. */

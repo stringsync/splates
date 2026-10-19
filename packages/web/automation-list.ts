@@ -6,6 +6,7 @@ import type {
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
 	addAutomation,
+	editAutomation,
 	pauseAutomation,
 	automations as readAutomations,
 	removeAutomation,
@@ -18,6 +19,7 @@ export type AutomationListEvents = { changed: undefined };
 export interface AutomationsApi {
 	read: () => Promise<AutomationRow[]>;
 	add: (trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
+	edit: (id: string, trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
 	remove: (id: string) => Promise<AutomationRow[]>;
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
 }
@@ -25,6 +27,7 @@ export interface AutomationsApi {
 const API: AutomationsApi = {
 	read: readAutomations,
 	add: addAutomation,
+	edit: editAutomation,
 	remove: removeAutomation,
 	pause: pauseAutomation,
 };
@@ -45,7 +48,7 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 
 	constructor(private readonly api: AutomationsApi = API) {}
 
-	/** The person's own, which they pause and remove here. */
+	/** The person's own, which they edit, pause and remove here. */
 	get own(): AutomationRow[] {
 		return this.rows?.filter((each) => each.source === undefined) ?? [];
 	}
@@ -102,6 +105,20 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 				},
 			],
 			() => this.api.add(trigger, hook),
+		);
+	}
+
+	/** Edits one, shown as being saved until the server says what it now is. */
+	edit(row: AutomationRow, trigger: Trigger, hook: Hook): Promise<boolean> {
+		return this.#change(
+			"Not saved",
+			(rows) =>
+				rows.map((each) =>
+					each.id === row.id
+						? { ...each, trigger, hook, when: "", does: "" }
+						: each,
+				),
+			() => this.api.edit(row.id, trigger, hook),
 		);
 	}
 

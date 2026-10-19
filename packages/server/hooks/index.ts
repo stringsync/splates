@@ -2,6 +2,7 @@ export type { HookDeps } from "./commands";
 export {
 	described,
 	hookAdd,
+	hookEdit,
 	hookGroomer,
 	hookLabel,
 	hookList,
@@ -9,6 +10,7 @@ export {
 	hookRemove,
 	triggerLabel,
 } from "./commands";
+export type { HookChange } from "./edit";
 export type { TaskEvent, TaskEventName } from "./events";
 export { TASK_EVENTS, taskEventsOf } from "./events";
 export type { AutomationRow } from "./routes";
@@ -26,5 +28,6 @@ export {
 	GROOMER_AUTOMATION,
 	GROOMER_TRIGGER,
 	HookStore,
+	lanesNamed,
 	stagesNamed,
 } from "./store";

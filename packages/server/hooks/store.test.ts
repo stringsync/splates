@@ -62,6 +62,49 @@ describe("HookStore", () => {
 		expect((await hooks.read())[0]).not.toHaveProperty("paused");
 	});
 
+	it("edits one in place, keeping its number and pause, and stamps a changed trigger", async () => {
+		const hooks = new HookStore("/hooks.json", new FakeFs());
+		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
+		await hooks.pause("1", true);
+
+		await hooks.edit("1", { every: "1h" }, { kind: "run", command: "sweep" });
+		expect((await hooks.read())[0]).toMatchObject({
+			id: "1",
+			hook: { command: "sweep" },
+			paused: true,
+		});
+		expect((await hooks.read())[0]).not.toHaveProperty("editedAt");
+
+		await hooks.edit(
+			"1",
+			{ event: "task.done" },
+			{ kind: "agent", prompt: "wrap up", agent: "claude" },
+		);
+		expect((await hooks.read())[0]).toMatchObject({
+			id: "1",
+			trigger: { event: "task.done" },
+			hook: { kind: "agent", prompt: "wrap up" },
+			editedAt: expect.any(String),
+		});
+	});
+
+	it("refuses to edit the groomer, one that is none, or to a trigger that will not read", async () => {
+		const hooks = new HookStore("/hooks.json", new FakeFs());
+		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
+		await hooks.groomer({ agent: "claude" });
+		const run = { kind: "run", command: "x" } as const;
+
+		await expect(hooks.edit("groomer", { every: "1h" }, run)).rejects.toThrow(
+			"no automation groomer",
+		);
+		await expect(hooks.edit("7", { every: "1h" }, run)).rejects.toThrow(
+			"no automation 7",
+		);
+		await expect(hooks.edit("1", { every: "soon" }, run)).rejects.toThrow(
+			"no interval",
+		);
+	});
+
 	it("reads a file of each event's hooks as automations numbered in event order", async () => {
 		const fs = new FakeFs();
 		await fs.write(

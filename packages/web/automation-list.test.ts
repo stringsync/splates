@@ -32,6 +32,19 @@ describe("AutomationList", () => {
 		expect(list.own.map(({ id }) => id)).toEqual(["1", "2"]);
 	});
 
+	it("shows an edit being saved, then what the server says it now is", async () => {
+		const { api, settle } = held([TIDY]);
+		const list = new AutomationList(api);
+		await list.read();
+
+		const editing = list.edit(TIDY, { every: "2h" }, TIDY.hook);
+		expect(list.own[0]).toMatchObject({ trigger: { every: "2h" }, when: "" });
+		settle();
+		expect(await editing).toBe(true);
+
+		expect(list.own[0]).toMatchObject({ id: "1", when: "every 2h" });
+	});
+
 	it("says a refusal and goes back to what stands", async () => {
 		const { api, settle } = held([TIDY]);
 		const list = new AutomationList(api);
@@ -66,6 +79,7 @@ function held(rows: AutomationRow[]) {
 	const api: AutomationsApi = {
 		read: async () => rows,
 		add: () => write([...rows, { ...TIDY, id: "2" }]),
+		edit: (_, trigger) => write([{ ...TIDY, trigger, when: "every 2h" }]),
 		remove: () => write([]),
 		pause: () => write([{ ...TIDY, paused: true }]),
 	};
