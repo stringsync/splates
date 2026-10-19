@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TodoState } from "@stringsync/splates-server/board";
 import { laneReference } from "@stringsync/splates-server/plans/browser";
-import { CheckIcon, CopyIcon, PauseIcon, PlayIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -14,9 +14,9 @@ import {
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
-import { renameLane, runLane } from "./api";
+import { renameLane } from "./api";
 import { Board, still } from "./board";
-import { laneRenamed, laneRunning } from "./board-expectations";
+import { laneRenamed } from "./board-expectations";
 import { Card, copiedLabel, useCopy } from "./card";
 import { Dispatching, OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
@@ -104,14 +104,11 @@ export function Lane({
 	lane,
 	lanes,
 	staleness,
-	capacity,
 }: {
 	lane: LaneState;
 	/** Every lane, so this one can join another or move past it. */
 	lanes: LaneState[];
 	staleness: number;
-	/** How many agents a running lane may have out at once. */
-	capacity: number;
 }): JSX.Element {
 	const { openTask, refusedLanes, todos } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
@@ -170,7 +167,6 @@ export function Lane({
 						onRename={() => setRenaming(true)}
 					/>
 				</div>
-				<RunLane lane={lane} capacity={capacity} />
 				{lane.agents.length > 0
 					? lane.agents.map((agent) => {
 							const on = lane.todos
@@ -241,56 +237,6 @@ function StartLane({ id }: { id: number | null }): JSX.Element {
 			)}
 			<span aria-live="polite">{copiedLabel(copied, "Start lane")}</span>
 		</Button>
-	);
-}
-
-/**
- * Sets the lane running, or pauses it, at once: a running lane has
- * `splates server` start its todos itself, and says how many of its agents
- * are out against the most it may have.
- */
-function RunLane({
-	lane,
-	capacity,
-}: {
-	lane: LaneState;
-	capacity: number;
-}): JSX.Element {
-	const { refuseLane } = useContext(Board);
-	const expect = useExpectSnapshot();
-	const Icon = lane.running ? PauseIcon : PlayIcon;
-	return (
-		<span className="flex items-center gap-1.5">
-			<Button
-				size="xs"
-				variant="outline"
-				className="w-fit bg-transparent pointer-coarse:h-10 pointer-coarse:px-3"
-				aria-pressed={lane.running}
-				title={
-					lane.running
-						? "Stop starting more todos; the tasks out carry on"
-						: "Start each todo nothing blocks as its own task"
-				}
-				onClick={() => {
-					const running = !lane.running;
-					void expect(
-						laneRunning(lane.id, running),
-						runLane(lane.id, running),
-					).catch((error: unknown) =>
-						refuseLane(lane.id, running ? "Not running" : "Not paused", error),
-					);
-				}}
-				{...still}
-			>
-				<Icon data-icon="inline-start" />
-				{lane.running ? "Pause" : "Run"}
-			</Button>
-			{lane.running && (
-				<span className="text-muted-foreground text-xs tabular-nums">
-					{lane.agents.length} of {capacity} agents
-				</span>
-			)}
-		</span>
 	);
 }
 
