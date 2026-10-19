@@ -35,6 +35,14 @@ describe("permission wait timing", () => {
 		row.until = at(120);
 		expect(liveWorkingSpan(row, 121_000)).toBe("2m 1s");
 	});
+	it("counts a row opened after the agent's last update from its start", () => {
+		const row = work();
+		row.waits = [];
+		row.at = at(20);
+		row.until = at(10);
+		expect(liveWorkingSpan(row, 35_000)).toBe("15s");
+		expect(liveWorkingSpan(row, 120_000)).toBe("30s");
+	});
 	it("still excludes permission waits while activity is stale", () => {
 		const row = work(at(40));
 		expect(liveWorkingSpan(row, 300_000)).toBe("20s");

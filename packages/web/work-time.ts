@@ -22,7 +22,12 @@ export function workingSpan(work: Work, now: string | number): string {
 
 /** Elapsed live work, frozen after thirty seconds without an agent update. */
 export function liveWorkingSpan(work: Work, now: number): string {
-	const latest = Date.parse(work.until ?? "");
+	// A row opened by splates's own line can start after the agent's last
+	// update, so it counts from its start rather than clamp to 0s.
+	const latest = Math.max(
+		Date.parse(work.until ?? ""),
+		Date.parse(work.at ?? ""),
+	);
 	return workingSpan(
 		work,
 		Number.isFinite(latest)
