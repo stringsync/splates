@@ -110,7 +110,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: made itself and noted under `## Notes` when one commit's revert would undo it, a close call included, a question under `## Blocked` when undoing it reaches past the repo's code or a wrong guess would cost much rework",
+			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: a question under `## Blocked`, with a `(chosen)` pick, when the user's answer would change what gets built, as the cap's number and what happens at it would, when undoing it reaches past the repo's code, or when a wrong guess would cost much rework; made itself and noted under `## Notes` only when the user would not care to weigh in",
 		],
 	},
 	LANE,

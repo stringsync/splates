@@ -17,8 +17,8 @@ A task is groomed once, by the agent that starts it, before any work on it:
    would change files another task changes, never for priority. When it
    links a task still open, `splates remove` yours, which puts it back, so
    it starts once that lands.
-3. **Ask only what is hard to reverse**, under `## Blocked`, as Questions in
-   `SKILL.md` says; make every other call yourself.
+3. **Ask what the user's answer would change**, under `## Blocked`, as
+   Questions in `SKILL.md` says; make every other call yourself.
 
 ## One that already asks it
 

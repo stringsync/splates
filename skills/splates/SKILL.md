@@ -111,9 +111,9 @@ which remembers none of it.
    so the task stays one coherent change; the conversation shows what you
    queued (see Queueing tasks). A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
-   itself for each test that failed its gate. Make every call a revert would
-   undo yourself; only one that is hard to reverse needs the user (see
-   Questions), bringing `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
+   itself for each test that failed its gate. Ask the user each call their
+   answer would change, and make the rest yourself (see Questions), bringing
+   `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
    [references/parts.md](references/parts.md): it works in a part of your
    task. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
@@ -227,17 +227,25 @@ so in your report.
 
 ## Questions
 
-Make every call a revert would undo yourself: a name, a default, wording, a
-design, one reading of an ambiguous ask. Take the better pick and carry on,
-saying nothing of it to the user; write it in a line under `## Notes` only
-when whoever resumes the task would need it. When the user's answer
-overturns one later, redo that part.
+Ask the user whenever their answer would change what you build: one reading
+of an ambiguous ask, a behavior or design they will see, a default they may
+want another way, a call a wrong guess would cost much rework to undo, one
+hard to reverse (a migration, data written, a message sent, anything outside
+the repo), or one that goes against something the user said before. Asking
+is cheap, so when in doubt, ask: the `splates server` page shows your
+questions as a card with your pick already chosen, so the user answers with
+a tap, and you carry on with that pick meanwhile rather than wait.
 
-Ask a question, under `## Blocked`, only when the call is hard to reverse,
-taking more than reverting a commit to undo (a migration, data written, a
-message sent, anything outside the repo), or when it goes against something
-the user said before. The task cannot merge until it is answered, though
-the user can answer in chat while you work.
+Make the rest yourself, the calls the user would not care to weigh in on: a
+name only the code reads, a helper's shape, a log line. Take the better pick
+and carry on, saying nothing of it to the user; write it in a line under
+`## Notes` only when whoever resumes the task would need it.
+
+Ask in the format below and nowhere else: a numbered question under `##
+Blocked`, then in your reply as Reporting says, never a question tucked into
+prose or put through your harness's own question tool. The task cannot merge
+until it is answered, though the user can answer in chat while you work.
+When an answer overturns a pick you built on, redo that part.
 
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
@@ -418,8 +426,8 @@ otherwise ask the user.
 ## Proposing
 
 Propose only when the user asks what you think, so they can approve it or
-challenge what it rests on. Otherwise build: a design a revert would undo
-needs no proposal.
+challenge what it rests on. Otherwise build, asking each call the user's
+answer would change as a question (see Questions) rather than a proposal.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, lowercase after its first word; a blank
