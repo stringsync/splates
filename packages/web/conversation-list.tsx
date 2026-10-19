@@ -29,7 +29,7 @@ import { useShortcut } from "./hooks/use-shortcut";
 import { byLane, inOrder } from "./lane-groups";
 import { LaneRows } from "./lane-rows";
 import { useBeneath } from "./list-beneath";
-import { TerminalRow } from "./list-rows";
+import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { laneUrl, newConversationUrl } from "./new-conversation-project";
 import { nest } from "./parts";
@@ -110,10 +110,17 @@ export function ConversationList({
 	const rows = rowsOf(tasks, conversations);
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const hosting = hostsAtWork(nested);
-	// What it lists of them, without the feed of every project.
+	// What it lists of them, without the feed of every project: its
+	// persistent agents kept atop, apart, as a folder keeps them.
 	const listed = shownIn(nested);
+	const keptHere = listed.filter(
+		(tree) => tree.row.conversation?.persistent !== undefined,
+	);
 	const taken = lanesTaken(todos);
-	const groupsHere = byLane(listed, taken);
+	const groupsHere = byLane(
+		listed.filter((tree) => !keptHere.includes(tree)),
+		taken,
+	);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -137,7 +144,10 @@ export function ConversationList({
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
 		grouped === null
-			? flatten(inOrder(groupsHere)).map((row) => ({ folder: null, row }))
+			? flatten([...keptHere, ...inOrder(groupsHere)]).map((row) => ({
+					folder: null,
+					row,
+				}))
 			: [
 					...grouped.folders
 						.filter((folder) => !folded.has(folderKey(folder)))
@@ -344,13 +354,28 @@ export function ConversationList({
 							agentOf: (each) => agentName(agents, each.agent),
 						}}
 					>
-						<LaneRows
-							label="conversation list"
-							groups={groupsHere}
-							beneath={beneath}
-							render={(row, nested) => renderHere(row, nested)}
-							onLane={onLane}
-						/>
+						<div className="flex flex-col">
+							{keptHere.length > 0 && (
+								<Rows
+									label="persistent agents"
+									rows={keptHere}
+									render={(row, nested) => renderHere(row, nested)}
+									beneath={beneath}
+								/>
+							)}
+							{keptHere.length > 0 && groupsHere.length > 0 && (
+								<hr className="mx-3 my-1 border-foreground/10" />
+							)}
+							{groupsHere.length > 0 && (
+								<LaneRows
+									label="conversation list"
+									groups={groupsHere}
+									beneath={beneath}
+									render={(row, nested) => renderHere(row, nested)}
+									onLane={onLane}
+								/>
+							)}
+						</div>
 					</Placing>
 				)
 			)}

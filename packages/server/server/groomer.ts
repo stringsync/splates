@@ -33,7 +33,7 @@ export class Groomer implements Resource {
 	#draining: Promise<void> | null = null;
 	#again = false;
 	/** What the groomer runs as, the latest a wake gave; null while it is off. */
-	#pick: AgentPick | null = null;
+	#pick: AgentPick | "paused" | null = null;
 	/** The run's conversation, while a run is on. */
 	#running: Conversation | null = null;
 	/** The groomer's conversations outside a run that started a turn since, by id. */
@@ -55,11 +55,12 @@ export class Groomer implements Resource {
 	}
 
 	/**
-	 * Grooms the backlog as `pick`, or, for null, as when the groomer is off
-	 * or paused, retires its conversation once it is idle. Settles once the
-	 * backlog holds nothing more to claim.
+	 * Grooms the backlog as `pick`; `"paused"`, puts its run away resting
+	 * once it is idle, so its row stays; null, as when the groomer is off,
+	 * retires its conversation, row and all. Settles once the backlog holds
+	 * nothing more to claim.
 	 */
-	wake(pick: AgentPick | null): Promise<void> {
+	wake(pick: AgentPick | "paused" | null): Promise<void> {
 		this.#pick = pick;
 		if (this.#draining !== null) {
 			this.#again = true;
@@ -70,7 +71,11 @@ export class Groomer implements Resource {
 				do {
 					this.#again = false;
 					const now = this.#pick;
-					await (now === null ? this.#retire() : this.#drain(now));
+					await (now === null
+						? this.#retire()
+						: now === "paused"
+							? this.#pause()
+							: this.#drain(now));
 				} while (this.#again);
 			} catch (error) {
 				this.deps.log.error(`the groomer stopped: ${String(error)}`);
@@ -84,8 +89,9 @@ export class Groomer implements Resource {
 	async #drain(pick: AgentPick): Promise<void> {
 		let conversation: Conversation | null = null;
 		try {
-			// Turned off meanwhile, it stops after the turn it was on.
-			while (this.#pick !== null) {
+			await this.#hold();
+			// Turned off or paused meanwhile, it stops after the turn it was on.
+			while (this.#pick !== null && this.#pick !== "paused") {
 				const backlog = (await this.deps.tasks()).filter(
 					(task) =>
 						task.state.stage === "backlog" &&
@@ -159,6 +165,29 @@ export class Groomer implements Resource {
 		for (const each of all) {
 			await this.#settled(each);
 			await each.archive();
+		}
+	}
+
+	/**
+	 * Puts each run the groomer has open away resting once no turn of theirs
+	 * runs, so the newest holds its row while it is paused.
+	 */
+	async #pause(): Promise<void> {
+		for (const each of await this.#open()) {
+			await this.#settled(each);
+			await this.#rest(each);
+		}
+		await this.#hold();
+	}
+
+	/**
+	 * Has the newest run hold the groomer's row, once one ran, while it is on
+	 * or paused: put away resting, should turning it off have retired it.
+	 */
+	async #hold(): Promise<void> {
+		const newest = await this.deps.conversations.persistent(GROOMER_ROLE);
+		if (newest?.state.archived === true && newest.state.resting !== true) {
+			await newest.archive(undefined, { rest: true });
 		}
 	}
 

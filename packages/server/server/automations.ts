@@ -112,18 +112,19 @@ export class Automations implements Resource {
 
 	/**
 	 * Wakes the groomer as its automation now stands: on, it grooms the
-	 * backlog; off or paused, it retires its conversation.
+	 * backlog; paused, it puts its run away, keeping its row; off, it retires
+	 * its conversation.
 	 */
 	async groomed(): Promise<void> {
 		const groomer = (await this.all()).find(
 			({ id }) => id === GROOMER_AUTOMATION,
 		);
 		await this.#groomer?.wake(
-			groomer === undefined ||
-				groomer.paused === true ||
-				groomer.hook.kind !== "groom"
+			groomer === undefined || groomer.hook.kind !== "groom"
 				? null
-				: pickOf(groomer.hook),
+				: groomer.paused === true
+					? "paused"
+					: pickOf(groomer.hook),
 		);
 	}
 

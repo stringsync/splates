@@ -129,4 +129,27 @@ describe("Groomer", () => {
 		expect(next?.id).not.toBe(kept?.id);
 		expect(next?.state).toMatchObject({ archived: true, resting: true });
 	});
+
+	it("keeps its newest run resting while paused, so its row stays, even one turning it off retired", async () => {
+		await taskAdd(deps, "rough", null);
+		await groomer.wake({ agent: "fake" });
+		const kept = await conversations.persistent(GROOMER_ROLE);
+
+		await groomer.wake("paused");
+		expect(kept?.state).toMatchObject({ archived: true, resting: true });
+
+		await groomer.wake(null);
+		await groomer.wake("paused");
+		expect(kept?.state).toMatchObject({ archived: true, resting: true });
+		expect(told).toEqual(["[SPLATES GROOM #1]"]);
+	});
+
+	it("grooms nothing while paused", async () => {
+		await taskAdd(deps, "rough", null);
+
+		await groomer.wake("paused");
+
+		expect(told).toEqual([]);
+		expect(await conversations.persistent(GROOMER_ROLE)).toBeNull();
+	});
 });

@@ -46,6 +46,35 @@ describe("App's conversation list", () => {
 		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
 	});
 
+	it("keeps a persistent agent atop the list, apart by a rule, before the feed of every project comes", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "g1",
+					title: "Groomer",
+					persistent: "groomer",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		const kept = within(nav).getByRole("list", { name: "persistent agents" });
+		expect(within(kept).getByText("Groomer")).toBeTruthy();
+		expect(kept.nextElementSibling?.tagName).toBe("HR");
+		expect(
+			within(
+				within(nav).getByRole("list", { name: "conversation list" }),
+			).queryByText("Groomer"),
+		).toBeNull();
+	});
+
 	it("lists conversations at work newest first, each by name with its task on hover, and archived ones apart", async () => {
 		const view = await testing.openConversations(
 			[
