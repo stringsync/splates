@@ -142,9 +142,10 @@ export interface ThreadActions {
 
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
- * stopped, and Defer under it; while it checkpoints for it, a row saying so
- * in their place; once the person's last word paused it, Resume, under a
- * row saying it waits on the worker budget when a hard stop asked it.
+ * stopped; once the person's last word paused it, Resume, under a row saying
+ * it waits on the worker budget when a hard stop asked it; and Defer under
+ * them, whether or not the agent is working. While a checkpoint is asked of
+ * it, which Defer would stop, a row saying it pauses in their place.
  */
 function pauseActions(
 	conversation: ConversationState,
@@ -160,9 +161,19 @@ function pauseActions(
 			},
 		];
 	}
-	if (archived) {
+	if (archived || checkpoint === "asked") {
 		return [];
 	}
+	const defer: Action = {
+		label: "Defer",
+		icon: <ClockIcon />,
+		// Sent now, stopping any turn, so the agent saves its work on the
+		// request rather than finishing it first.
+		run: () =>
+			void promptConversation(id, DEFER)
+				.then(() => sendQueuedNow(id))
+				.catch((error: unknown) => refused("Not deferred", error)),
+	};
 	if (status !== "running") {
 		// Carried on once the budget allows; Resume carries it on now.
 		const waits: Action[] =
@@ -187,11 +198,12 @@ function pauseActions(
 								refused("Not resumed", error),
 							),
 					},
+					defer,
 				]
-			: [];
+			: [defer];
 	}
 	if (checkpoint !== null) {
-		return [];
+		return [defer];
 	}
 	return [
 		{
@@ -202,15 +214,6 @@ function pauseActions(
 					refused("Not paused", error),
 				),
 		},
-		{
-			label: "Defer",
-			icon: <ClockIcon />,
-			// Sent now, stopping the turn, so the agent saves its work on the
-			// request rather than finishing it first.
-			run: () =>
-				void promptConversation(id, DEFER)
-					.then(() => sendQueuedNow(id))
-					.catch((error: unknown) => refused("Not deferred", error)),
-		},
+		defer,
 	];
 }

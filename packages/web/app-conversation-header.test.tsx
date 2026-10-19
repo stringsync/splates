@@ -145,7 +145,7 @@ describe("App's conversation header", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["Terminal⌃`", "Show timestamps", "Archive⌥⌘⌫"]);
+		).toEqual(["Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
 	});
 
 	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {
@@ -236,6 +236,52 @@ describe("App's conversation header", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
 		]);
+	});
+
+	it("offers Defer whether or not the agent is working, though not while it checkpoints", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				messages: [message("user", "Fix the login form")],
+			}),
+		]);
+		const actions = () => view.getByRole("navigation", { name: "actions" });
+		const defer = () =>
+			within(actions()).queryByRole("button", { name: "Defer" });
+
+		await act(async () => fireEvent.click(defer() as HTMLElement));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
+		]);
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "stopped",
+				checkpoint: "done",
+				messages: [
+					message("user", "Fix the login form"),
+					message("user", "[SPLATES CHECKPOINT]"),
+					message("agent", "Checkpointed."),
+				],
+			}),
+		);
+		expect(
+			within(actions()).getByRole("button", { name: "Resume" }),
+		).toBeTruthy();
+		expect(defer()).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "running",
+				checkpoint: "asked",
+			}),
+		);
+		expect(defer()).toBeNull();
 	});
 
 	it("resumes an agent from the actions card once the person's last word paused it", async () => {
