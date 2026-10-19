@@ -40,6 +40,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	open = openIn(location.hash);
 	/** The task open on the Tasks page, or null. */
 	task = taskIn(location.hash);
+	/** The lane the board was opened on, by id, or null. */
+	lane = laneIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
 	/** The window's scroll to put back once the entry returned to is drawn. */
@@ -73,6 +75,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.page = next;
 		this.open = conversation;
 		this.task = null;
+		this.lane = null;
 		this.cred = null;
 		this.move(
 			next === "todos"
@@ -97,6 +100,16 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.move(name === null ? "#tasks" : `#tasks/${name}`);
 	}
 
+	/** Opens the board on lane `id`, scrolled to its column. */
+	openLane(id: number): void {
+		this.page = "todos";
+		this.open = null;
+		this.task = null;
+		this.cred = null;
+		this.lane = id;
+		this.move(laneAddress(id));
+	}
+
 	/** Sets the Creds page on cred `name`, or on none for null. */
 	openCred(name: string | null): void {
 		this.page = "creds";
@@ -118,6 +131,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.page = pageIn(location.hash);
 		this.open = openIn(location.hash);
 		this.task = taskIn(location.hash);
+		this.lane = laneIn(location.hash);
 		this.cred = credIn(location.hash);
 		this.scroll = entry()?.scroll ?? 0;
 		this.dispatcher.dispatch("changed");
@@ -182,6 +196,9 @@ function pageIn(hash: string): Page {
 		return "tasks";
 	}
 
+	if (laneIn(hash) !== null) {
+		return "todos";
+	}
 	if (hash === "#stats") {
 		return "stats";
 	}
@@ -220,6 +237,17 @@ function taskIn(hash: string): string | null {
 function openIn(hash: string): string | null {
 	const open = conversationIn(hash);
 	return open?.startsWith(TASK) ? null : open;
+}
+
+/** The lane `#lanes/<id>` opens the board on, or null. */
+function laneIn(hash: string): number | null {
+	const [, lane] = hash.match(/^#lanes\/(\d+)$/) ?? [];
+	return lane === undefined ? null : Number(lane);
+}
+
+/** The address of the board opened on lane `id`. */
+export function laneAddress(id: number): string {
+	return `#lanes/${id}`;
 }
 
 /** The cred `#creds/<name>` sets the Creds page on, or null. */

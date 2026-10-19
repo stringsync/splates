@@ -67,6 +67,7 @@ describe("EverywhereFeed", () => {
 		trunk: "main",
 		tasks: [],
 		laneNames: [],
+		lanesTaken: {},
 		conversations: [],
 		...overrides,
 	});

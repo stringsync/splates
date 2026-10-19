@@ -22,7 +22,7 @@ import { TaskIcon } from "./task-icon";
 /**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), `#stats`,
+ * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`,
  * `#creds`, `#budget`, `#workers`, `#automations`, `#setup`, or the board.
  */
 export type Page =
@@ -68,12 +68,13 @@ export const PAGES: {
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, cred } = useReactive(
+	const { page, open, task, lane, cred } = useReactive(
 		address,
-		({ page, open, task, cred }) => ({
+		({ page, open, task, lane, cred }) => ({
 			page,
 			open,
 			task,
+			lane,
 			cred,
 		}),
 		["changed"],
@@ -88,9 +89,11 @@ export function usePageRoute(): PageRoute {
 		page,
 		open,
 		task,
+		lane,
 		cred,
 		go: (next, conversation, how) => address.go(next, conversation, how),
 		openTask: (name) => address.openTask(name),
+		openLane: (id) => address.openLane(id),
 	};
 }
 
@@ -156,6 +159,10 @@ export interface PageRoute {
 	go: (next: Page, conversation?: string | null, how?: Move) => void;
 	/** Opens task `name` on the Tasks page, or closes the one open for null. */
 	openTask: (name: string | null) => void;
+	/** The lane the board was opened on, by id, or null. */
+	lane: number | null;
+	/** Opens the board on lane `id`, scrolled to its column. */
+	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
 }

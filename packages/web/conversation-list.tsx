@@ -1,3 +1,7 @@
+import {
+	lanesTaken,
+	type TaskRecord,
+} from "@stringsync/splates-server/board/browser";
 import type { Needing } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
@@ -22,10 +26,12 @@ import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
+import { byLane, inOrder } from "./lane-groups";
+import { LaneRows } from "./lane-rows";
 import { useBeneath } from "./list-beneath";
-import { Rows, TerminalRow } from "./list-rows";
+import { TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
-import { newConversationUrl } from "./new-conversation-project";
+import { laneUrl, newConversationUrl } from "./new-conversation-project";
 import { nest } from "./parts";
 import { FolderList, ForeignItem, type RenderRow } from "./project-folder-list";
 import {
@@ -50,7 +56,9 @@ const DIGITS = 10;
  * state; each one's mark says whether it works or waits on you. Under a
  * conversation, muted as a subagent is, sit its terminal while its shell is
  * up and each command its agent left running, each opening in the pane
- * beside the page.
+ * beside the page. The conversations at work on one lane's tasks sit
+ * together under the lane's title, where the newest of them would, and the
+ * title opens the lane on the board.
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
  * the rows shown, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or
@@ -69,9 +77,11 @@ export function ConversationList({
 	terminals,
 	drafts,
 	tasks,
+	todos,
 	here,
 	open,
 	onOpen,
+	onLane,
 }: {
 	feed: ConversationFeed;
 	/** The page's shells, the main tree's among them. */
@@ -79,11 +89,15 @@ export function ConversationList({
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	tasks: Details[];
+	/** The page's project's queued tasks, to read which lane each task at work is on. */
+	todos: TaskRecord[];
 	/** The project the page shows, as its snapshot has it. */
 	here: { root: string; repo: string; trunk: string | null };
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
+	/** Opens the page's project's board on lane `id`. */
+	onLane: (id: number) => void;
 }): JSX.Element {
 	const { agents, conversations } = useReactive(
 		feed,
@@ -98,6 +112,8 @@ export function ConversationList({
 	const hosting = hostsAtWork(nested);
 	// What it lists of them, without the feed of every project.
 	const listed = shownIn(nested);
+	const taken = lanesTaken(todos);
+	const groupsHere = byLane(listed, taken);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -116,20 +132,23 @@ export function ConversationList({
 		: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
+	const groupsOf = (folder: Folder) =>
+		byLane(folder.inPlace.listed, folder.lanesTaken ?? taken);
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
 		grouped === null
-			? flatten(listed).map((row) => ({ folder: null, row }))
+			? flatten(inOrder(groupsHere)).map((row) => ({ folder: null, row }))
 			: [
 					...grouped.folders
 						.filter((folder) => !folded.has(folderKey(folder)))
 						.flatMap((folder) =>
-							flatten([...folder.inPlace.kept, ...folder.inPlace.listed]).map(
-								(row) => ({
-									folder,
-									row,
-								}),
-							),
+							flatten([
+								...folder.inPlace.kept,
+								...inOrder(groupsOf(folder)),
+							]).map((row) => ({
+								folder,
+								row,
+							})),
 						),
 				];
 	const shownEntries = entries.slice(0, DIGITS);
@@ -308,6 +327,12 @@ export function ConversationList({
 						}
 						render={renderRow}
 						beneath={beneathOf}
+						groupsOf={groupsOf}
+						onLane={(folder, lane) =>
+							folder.here || folder.project === null
+								? onLane(lane)
+								: navigation.show(laneUrl(folder.project, lane))
+						}
 					/>
 				</Placing>
 			) : (
@@ -319,11 +344,12 @@ export function ConversationList({
 							agentOf: (each) => agentName(agents, each.agent),
 						}}
 					>
-						<Rows
+						<LaneRows
 							label="conversation list"
-							rows={listed}
+							groups={groupsHere}
 							beneath={beneath}
 							render={(row, nested) => renderHere(row, nested)}
+							onLane={onLane}
 						/>
 					</Placing>
 				)

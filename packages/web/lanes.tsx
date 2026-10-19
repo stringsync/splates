@@ -98,11 +98,14 @@ export function Lane({
 	lane,
 	lanes,
 	staleness,
+	opened = false,
 }: {
 	lane: LaneState;
 	/** Every lane, so this one can join another or move past it. */
 	lanes: LaneState[];
 	staleness: number;
+	/** The board was opened on it, from its title in the sidebar: ringed. */
+	opened?: boolean;
 }): JSX.Element {
 	const { openTask, refusedLanes, todos } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
@@ -121,11 +124,15 @@ export function Lane({
 	return (
 		<Column
 			label={lane.name}
+			lane={lane.id}
 			drop={setNodeRef}
 			lit={lit}
 			style={{ transform: CSS.Translate.toString(transform), transition }}
 			// The slot it leaves while it is in hand, where it will land.
-			className={cn(isDragging && "bg-muted ring-1 ring-border *:invisible")}
+			className={cn(
+				opened && "ring-1 ring-primary/40",
+				isDragging && "bg-muted ring-1 ring-border *:invisible",
+			)}
 		>
 			{/* A mouse drags the lane from its header once it moves a few pixels
 			    and a finger after a short press, so a tap still renames it; a

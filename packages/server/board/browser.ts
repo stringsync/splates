@@ -5,6 +5,7 @@ export {
 	followers,
 	isReady,
 	lanes,
+	lanesTaken,
 	MENTION,
 	named,
 } from "./lanes";

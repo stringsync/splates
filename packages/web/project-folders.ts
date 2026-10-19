@@ -36,7 +36,7 @@ export function foldersOf(
 ): Folders {
 	const listed = projects.map((project) =>
 		project.root === here.root
-			? folder(project.project, here, null, true)
+			? folder(project.project, here, null, null, true)
 			: folder(
 					project.project,
 					{
@@ -49,11 +49,12 @@ export function foldersOf(
 						),
 					},
 					project.laneNames,
+					project.lanesTaken,
 					false,
 				),
 	);
 	if (!listed.some((each) => each.here)) {
-		listed.push(folder(null, here, null, true));
+		listed.push(folder(null, here, null, null, true));
 	}
 	const folders = listed
 		.filter((each) => each.here || each.trees.length > 0)
@@ -81,6 +82,11 @@ export interface Folder {
 	trunk: string | null;
 	/** Its lanes, to name an orchestrator after; null for the page's own, whose snapshot has them. */
 	laneNames: readonly LaneRecord[] | null;
+	/**
+	 * The lane each of its tasks at work on a lane is on, by task name; null
+	 * for the page's own, whose snapshot has its queued tasks.
+	 */
+	lanesTaken: Readonly<Record<string, number>> | null;
 	tasks: Details[];
 	conversations: ConversationState[];
 	/** Each with the agents it handed out, those waiting on you among them. */
@@ -188,6 +194,7 @@ function folder(
 	project: string | null,
 	{ repo, trunk, tasks, conversations }: Here,
 	laneNames: readonly LaneRecord[] | null,
+	lanesTaken: Readonly<Record<string, number>> | null,
 	here: boolean,
 ): Folder {
 	const trees = nest(rowsOf(tasks, conversations), (host, part) =>
@@ -204,6 +211,7 @@ function folder(
 		here,
 		trunk,
 		laneNames,
+		lanesTaken,
 		tasks,
 		conversations,
 		trees: shown(trees),

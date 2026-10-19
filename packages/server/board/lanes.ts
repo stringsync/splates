@@ -64,6 +64,22 @@ export interface Blocker {
 	takenBy: string | null;
 }
 
+/**
+ * The lane of each queued task some started task has taken, by the started
+ * task's name: which lane each agent at work is on.
+ */
+export function lanesTaken(
+	todos: readonly TaskRecord[],
+): Record<string, number> {
+	const taken: Record<string, number> = {};
+	for (const todo of todos) {
+		if (todo.takenBy !== null && todo.lane !== null) {
+			taken[todo.takenBy] = todo.lane;
+		}
+	}
+	return taken;
+}
+
 /** `records`, and after them a record for each lane a task is in that they lack. */
 export function named(
 	tasks: TaskRecord[],

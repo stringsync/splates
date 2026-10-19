@@ -145,6 +145,7 @@ describe("App on a phone", () => {
 				trunk: "main",
 				tasks: [],
 				laneNames: [],
+				lanesTaken: {},
 				conversations: [
 					conversation({ id: "z1", title: "Stripes", status: "running" }),
 					conversation({ id: "z2", title: "Zebra broke", status: "failed" }),

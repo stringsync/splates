@@ -37,7 +37,6 @@ export function Rows({
 	/** `<li>`s ahead of the rows. */
 	children?: ReactNode;
 }): JSX.Element {
-	const nameOf = useNameOf();
 	return (
 		<ul
 			aria-label={label}
@@ -47,26 +46,48 @@ export function Rows({
 			)}
 		>
 			{children}
-			{rows.map(({ row, parts }) => {
-				const under = beneath(row);
-				return (
-					<li key={keyOfRow(row)}>
-						{render(row, nested)}
-						{(under.length > 0 || parts.length > 0) && (
-							<Rows
-								label={`parts of ${lastTaskOfRow(row) ?? (row.conversation === null ? "" : nameOf(row.conversation))}`}
-								rows={parts}
-								render={render}
-								beneath={beneath}
-								nested
-							>
-								{under}
-							</Rows>
-						)}
-					</li>
-				);
-			})}
+			{rows.map((tree) => (
+				<RowItem
+					key={keyOfRow(tree.row)}
+					tree={tree}
+					render={render}
+					beneath={beneath}
+					nested={nested}
+				/>
+			))}
 		</ul>
+	);
+}
+
+/** One row of `Rows`, as an `<li>`, with its parts listed under it. */
+export function RowItem({
+	tree: { row, parts },
+	render,
+	beneath = () => [],
+	nested = false,
+}: {
+	tree: Nested<Needing>;
+	render: (row: Needing, nested: boolean) => ReactNode;
+	beneath?: (row: Needing) => ReactNode[];
+	nested?: boolean;
+}): JSX.Element {
+	const nameOf = useNameOf();
+	const under = beneath(row);
+	return (
+		<li>
+			{render(row, nested)}
+			{(under.length > 0 || parts.length > 0) && (
+				<Rows
+					label={`parts of ${lastTaskOfRow(row) ?? (row.conversation === null ? "" : nameOf(row.conversation))}`}
+					rows={parts}
+					render={render}
+					beneath={beneath}
+					nested
+				>
+					{under}
+				</Rows>
+			)}
+		</li>
 	);
 }
 

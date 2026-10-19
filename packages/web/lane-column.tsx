@@ -15,6 +15,7 @@ import { Sortable } from "./card";
  */
 export function Column({
 	label,
+	lane,
 	drop,
 	lit,
 	style,
@@ -22,6 +23,8 @@ export function Column({
 	children,
 }: {
 	label: string;
+	/** The lane it shows, by id, for the board to find it by; none for the untriaged. */
+	lane?: number;
 	/** Where the column takes a dropped card. */
 	drop: Ref<HTMLElement>;
 	/** A card is over it. */
@@ -34,6 +37,7 @@ export function Column({
 		<section
 			ref={drop}
 			aria-label={label}
+			data-lane={lane}
 			style={style}
 			className={cn(
 				"flex max-h-full w-72 shrink-0 snap-start flex-col gap-1.5 rounded-xl bg-muted/40 p-2 transition-colors dark:bg-muted/20",

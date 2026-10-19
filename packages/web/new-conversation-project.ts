@@ -6,6 +6,7 @@
 import { createContext, useContext } from "react";
 import { NEW } from "./conversation-address";
 import { NavigationContext } from "./navigation";
+import { laneAddress } from "./page-address";
 import { listProjects } from "./project-api";
 import { shownProject } from "./project-places";
 
@@ -87,6 +88,14 @@ export function newConversationUrl(slug: string, open: string = NEW): string {
 	const url = new URL(location.href);
 	url.searchParams.set("project", slug);
 	url.hash = `#conversations/${open}`;
+	return url.toString();
+}
+
+/** The address of project `slug`'s board, opened on lane `id`. */
+export function laneUrl(slug: string, id: number): string {
+	const url = new URL(location.href);
+	url.searchParams.set("project", slug);
+	url.hash = laneAddress(id);
 	return url.toString();
 }
 

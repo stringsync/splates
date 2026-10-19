@@ -1,6 +1,6 @@
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { LaneRecord } from "../board";
+import { type LaneRecord, lanesTaken } from "../board";
 import { type ConversationState, listed } from "../conversations";
 import type { Served } from "../server/shared";
 import {
@@ -44,6 +44,8 @@ export interface EverywhereBoard {
 	tasks: Details[];
 	/** Every lane there has been, to name an orchestrator after. */
 	laneNames: LaneRecord[];
+	/** The lane each of its tasks at work on a lane is on, by task name, as `lanesTaken` reads it. */
+	lanesTaken: Record<string, number>;
 }
 
 /**
@@ -211,7 +213,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 	): Promise<EverywhereBoard | null> {
 		try {
 			await project.format.check();
-			const { repo, trunk, tasks, laneNames } = await project.current();
+			const { repo, trunk, tasks, laneNames, todos } = await project.current();
 			return {
 				project: await this.slugOf(root),
 				repo,
@@ -219,6 +221,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				trunk,
 				tasks,
 				laneNames,
+				lanesTaken: lanesTaken(todos),
 			};
 		} catch (error) {
 			this.home.log.error(`${root} left out of every project's feed: ${error}`);

@@ -200,7 +200,8 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, go, openTask, cred } = usePageRoute();
+	const { page, open, task, lane, go, openTask, openLane, cred } =
+		usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
 	const [todoView] = useState(() => new TodoView(localStorage));
@@ -277,7 +278,14 @@ export function App({
 		snapshot === null
 			? null
 			: {
-					todos: <Todos snapshot={snapshot} drafts={drafts} view={todoView} />,
+					todos: (
+						<Todos
+							snapshot={snapshot}
+							drafts={drafts}
+							view={todoView}
+							lane={lane}
+						/>
+					),
 					tasks: <Tasks project={snapshot} open={task} onOpen={openTask} />,
 					stats: <StatsPage report={report} />,
 					creds: (
@@ -409,6 +417,7 @@ export function App({
 																					page={page}
 																					open={open}
 																					go={go}
+																					openLane={openLane}
 																					name={name}
 																					bodies={bodies}
 																					opening={opening}

@@ -35,6 +35,7 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
+	onLane,
 	talk,
 	terminals,
 	drafts,
@@ -49,6 +50,8 @@ export function AppNav({
 	onOpen: (id: string | null) => void;
 	/** Goes to another page. */
 	onPage: (page: Page) => void;
+	/** Opens the board on lane `id`. */
+	onLane: (id: number) => void;
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
@@ -127,6 +130,7 @@ export function AppNav({
 							terminals={terminals}
 							drafts={drafts}
 							tasks={snapshot.tasks}
+							todos={snapshot.todos}
 							here={{
 								root: snapshot.root,
 								repo: snapshot.repo,
@@ -134,6 +138,7 @@ export function AppNav({
 							}}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
+							onLane={onLane}
 						/>
 					</div>
 				)}

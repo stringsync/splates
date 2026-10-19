@@ -26,6 +26,7 @@ function listed(
 		trunk: "main",
 		tasks,
 		laneNames: [],
+		lanesTaken: {},
 		conversations: [],
 	};
 }

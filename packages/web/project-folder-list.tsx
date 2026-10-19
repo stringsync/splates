@@ -11,6 +11,8 @@ import { cn } from "#web/lib/utils.ts";
 import { AutomationTag, RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { placeholding } from "./conversation-rows";
+import type { LaneGroup } from "./lane-groups";
+import { LaneRows } from "./lane-rows";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { type Folder, folderKey } from "./project-folders";
@@ -25,7 +27,8 @@ export type RenderRow = (
 
 /**
  * A folder per project, by name, its persistent agents kept atop it, set
- * apart by a rule, then its agents at work, then the rest, those waiting on
+ * apart by a rule, then its agents at work, then the rest, those on one
+ * lane's tasks together under its title, those waiting on
  * you left in place, their marks turned yellow. Each folds away, as this browser
  * keeps it, showing a dot while folded with an agent of its waiting, and its
  * "+" starts a conversation in it. Quiet: a name, a dot, and its rows.
@@ -37,6 +40,8 @@ export function FolderList({
 	onNew,
 	render,
 	beneath,
+	groupsOf,
+	onLane,
 }: {
 	folders: Folder[];
 	folded: ReadonlySet<string>;
@@ -44,6 +49,10 @@ export function FolderList({
 	onNew: (folder: Folder) => void;
 	render: RenderRow;
 	beneath: (folder: Folder, row: Needing) => ReactNode[];
+	/** The folder's listed rows, those at work on one lane gathered together. */
+	groupsOf: (folder: Folder) => LaneGroup[];
+	/** Opens lane `lane` of the folder's project on its board. */
+	onLane: (folder: Folder, lane: number) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2">
@@ -100,11 +109,12 @@ export function FolderList({
 							)}
 							{rows.length > 0 && (
 								<InLanes folder={folder}>
-									<Rows
+									<LaneRows
 										label={`${folder.name} conversations`}
-										rows={rows}
+										groups={groupsOf(folder)}
 										render={(row, nested) => render(folder, row, nested)}
 										beneath={(row) => beneath(folder, row)}
+										onLane={(lane) => onLane(folder, lane)}
 									/>
 								</InLanes>
 							)}

@@ -16,6 +16,7 @@ export {
 	isReady,
 	lane,
 	lanes,
+	lanesTaken,
 	MENTION,
 	named,
 } from "./lanes";

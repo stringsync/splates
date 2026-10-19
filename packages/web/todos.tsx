@@ -40,11 +40,14 @@ export function Todos({
 	snapshot,
 	drafts,
 	view,
+	lane = null,
 }: {
 	snapshot: Snapshot;
 	drafts: Drafts;
 	/** The page's, so ⌘K can open a todo. */
 	view: TodoView;
+	/** The lane the board was opened on, shown and scrolled to, or null. */
+	lane?: number | null;
 }): JSX.Element {
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
@@ -150,6 +153,28 @@ export function Todos({
 				Number.parseFloat(getComputedStyle(board).scrollPaddingLeft || "0");
 		}
 	}, [shown, untriaged, hidden]);
+	// Opened on a lane: shown if hidden, then scrolled to, once each time.
+	const revealed = useRef<number | null>(null);
+	useEffect(() => {
+		if (lane === null) {
+			revealed.current = null;
+			return;
+		}
+		if (revealed.current === lane) {
+			return;
+		}
+		if (hidden.includes(lane)) {
+			view.hide(hidden.filter((each) => each !== lane));
+			return;
+		}
+		const column = scroller.current?.querySelector(
+			`section[data-lane="${lane}"]`,
+		);
+		if (column) {
+			revealed.current = lane;
+			column.scrollIntoView({ block: "nearest", inline: "start" });
+		}
+	}, [lane, hidden, view]);
 	return (
 		<BoardContext value={context}>
 			<BoardDrag
@@ -198,12 +223,13 @@ export function Todos({
 						items={shown.map((lane) => columnId(lane.id))}
 						strategy={horizontalListSortingStrategy}
 					>
-						{shown.map((lane) => (
+						{shown.map((each) => (
 							<Lane
-								key={lane.id}
-								lane={lane}
+								key={each.id}
+								lane={each}
 								lanes={lanes}
 								staleness={snapshot.taskStalenessMs}
+								opened={each.id === lane}
 							/>
 						))}
 					</SortableContext>

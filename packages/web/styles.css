@@ -107,6 +107,7 @@
 @source "./expecting.tsx";
 @source "./reparent.tsx";
 @source "./list-rows.tsx";
+@source "./lane-rows.tsx";
 @source "./list-beneath.tsx";
 @source "./mark.tsx";
 @source "./demo-cards.tsx";
