@@ -5,8 +5,10 @@ import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 import { StepProblem } from "./step-problem";
 
 /**
- * Taking a setup area back out: each done step's undo, last first, then the
- * creds they saved, but for one a step still done elsewhere uses.
+ * Taking a setup area back out: the undo of each step done or started, last
+ * first, then the creds they saved, but for one a step still done elsewhere
+ * uses. A step not done is started when it left a cred of its own saved, as
+ * a journey left partway does.
  */
 export class SetupUndo {
 	readonly #areas: readonly SetupArea[];
@@ -18,7 +20,7 @@ export class SetupUndo {
 	}
 
 	/**
-	 * What undoing area `id` would do: each done step it undoes, last first,
+	 * What undoing area `id` would do: each step it undoes, last first,
 	 * with what that removes and what only the person can; the creds it
 	 * forgets and those it keeps for a step still using them; the name to
 	 * type when it destroys something costly; and why it cannot, if it cannot.
@@ -26,8 +28,9 @@ export class SetupUndo {
 	async plan(id: string): Promise<UndoPlan> {
 		const area = this.#area(id);
 		const machine = this.#machine;
-		const undone = await this.#undone(area);
-		const keeps = await this.#keeps(undone);
+		const done = await this.#done();
+		const undone = await this.#undone(area, done);
+		const keeps = await this.#keeps(undone, done);
 		const kept = keptOf(keeps);
 		const steps: StepUndoPlan[] = [];
 		const refusals: string[] = [];
@@ -42,11 +45,12 @@ export class SetupUndo {
 			steps.push({
 				id: step.id,
 				title: step.title,
+				done: done.has(step),
 				removes: [...((await undo?.removes(machine, kept)) ?? [])],
 				leaves: [...((await undo?.leaves?.(machine)) ?? [])],
 			});
 		}
-		const needing = await this.#needing(area, undone);
+		const needing = this.#needing(area, undone, done);
 		if (needing !== null) {
 			refusals.unshift(needing);
 		}
@@ -61,7 +65,7 @@ export class SetupUndo {
 	}
 
 	/**
-	 * Undoes area `id`: runs each done step's undo, last first, then forgets
+	 * Undoes area `id`: runs each of its steps' undo, last first, then forgets
 	 * the creds `undoPlan` says it forgets. Throws a `StepProblem` when the
 	 * plan refuses, `confirm` is not the name it asks for, or a step's undo
 	 * fails, which leaves the rest as they were, so undoing again goes on
@@ -76,8 +80,9 @@ export class SetupUndo {
 			throw new StepProblem(`Type ${plan.confirm} to undo ${plan.title}.`);
 		}
 		const area = this.#area(id);
-		const undone = await this.#undone(area);
-		const kept = keptOf(await this.#keeps(undone));
+		const done = await this.#done();
+		const undone = await this.#undone(area, done);
+		const kept = keptOf(await this.#keeps(undone, done));
 		for (const step of undone) {
 			try {
 				await step.undo?.run(this.#machine, kept);
@@ -104,36 +109,82 @@ export class SetupUndo {
 		return area;
 	}
 
-	/** `area`'s steps on the roster here that read done, last first. */
-	async #undone(area: SetupArea): Promise<SetupStep[]> {
-		const done: SetupStep[] = [];
-		for (const step of area.steps) {
+	/**
+	 * Whether area `id` has anything to undo, given the steps `done` across
+	 * every area, as `Setup.read` has them.
+	 */
+	async undoable(id: string, done: ReadonlySet<SetupStep>): Promise<boolean> {
+		return (await this.#undone(this.#area(id), done)).length > 0;
+	}
+
+	/** Every step on the roster here that reads done. */
+	async #done(): Promise<Set<SetupStep>> {
+		const done = new Set<SetupStep>();
+		for (const step of this.#areas.flatMap((area) => area.steps)) {
 			if (
 				(await listed(step, this.#machine)) &&
 				(await checked(step, this.#machine)).done
 			) {
-				done.push(step);
+				done.add(step);
 			}
 		}
-		return done.reverse();
+		return done;
+	}
+
+	/** `area`'s steps on the roster here that are done or started, last first. */
+	async #undone(
+		area: SetupArea,
+		done: ReadonlySet<SetupStep>,
+	): Promise<SetupStep[]> {
+		const undone: SetupStep[] = [];
+		for (const step of area.steps) {
+			if (
+				done.has(step) ||
+				((await listed(step, this.#machine)) &&
+					(await this.#started(step, area, done)))
+			) {
+				undone.push(step);
+			}
+		}
+		return undone.reverse();
+	}
+
+	/**
+	 * Whether `step`, not done, left a cred saved that is its own: one no
+	 * done step outside `area` uses, nor anything outside setup. A cloud
+	 * token the other cloud journey saved and uses starts nothing here.
+	 */
+	async #started(
+		step: SetupStep,
+		area: SetupArea,
+		done: ReadonlySet<SetupStep>,
+	): Promise<boolean> {
+		const fields = await fieldsIn(step, this.#machine).catch(() => []);
+		for (const field of fields) {
+			if (
+				field.kind === "cred" &&
+				(await this.#machine.device.get(field.name)) !== undefined &&
+				this.#keptFor(field.name, done, area.steps) === null
+			) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Why a done step of another area stops `undone` going, or null. */
-	async #needing(
+	#needing(
 		area: SetupArea,
 		undone: readonly SetupStep[],
-	): Promise<string | null> {
+		done: ReadonlySet<SetupStep>,
+	): string | null {
 		for (const other of this.#areas) {
 			if (other === area) {
 				continue;
 			}
 			for (const step of other.steps) {
 				const needs = step.after.find((each) => undone.includes(each));
-				if (
-					needs !== undefined &&
-					(await listed(step, this.#machine)) &&
-					(await checked(step, this.#machine)).done
-				) {
+				if (needs !== undefined && done.has(step)) {
 					return `Undo ${other.title} first: its "${step.title}" needs "${needs.title}".`;
 				}
 			}
@@ -150,32 +201,27 @@ export class SetupUndo {
 	 */
 	async #keeps(
 		undone: readonly SetupStep[],
+		done: ReadonlySet<SetupStep>,
 	): Promise<Map<string, string | null>> {
 		const machine = this.#machine;
 		const names = new Set(
 			(await Promise.all(undone.map((step) => sharedOf(step, machine)))).flat(),
 		);
-		const others = this.#areas
-			.flatMap((each) => each.steps)
-			.filter((step) => !undone.includes(step));
-		const keeps = new Map<string, string | null>();
-		for (const name of names) {
-			let keptFor: string | null = OUTSIDE[name] ?? null;
-			for (const step of others) {
-				if (keptFor !== null) {
-					break;
-				}
-				if (
-					(step.uses ?? []).includes(name) &&
-					(await listed(step, machine)) &&
-					(await checked(step, machine)).done
-				) {
-					keptFor = step.title;
-				}
-			}
-			keeps.set(name, keptFor);
-		}
-		return keeps;
+		return new Map(
+			[...names].map((name) => [name, this.#keptFor(name, done, undone)]),
+		);
+	}
+
+	/** What keeps `name`: something outside setup, or a done step not in `besides` that uses it. */
+	#keptFor(
+		name: string,
+		done: ReadonlySet<SetupStep>,
+		besides: readonly SetupStep[],
+	): string | null {
+		const user = [...done].find(
+			(step) => !besides.includes(step) && (step.uses ?? []).includes(name),
+		);
+		return OUTSIDE[name] ?? user?.title ?? null;
 	}
 
 	/** Those of `keeps` the device keeps as creds. */
@@ -191,8 +237,9 @@ export class SetupUndo {
 }
 
 /**
- * Taking a done step back out. Its `run` passes over what is gone already,
- * so undoing again after a failure finishes the job.
+ * Taking a step back out, done or started. Its `run` passes over what is
+ * gone already, or never made, so undoing again after a failure, or a step
+ * left partway, finishes the job.
  */
 export interface StepUndo {
 	/**
@@ -221,7 +268,7 @@ export interface StepUndo {
 export interface UndoPlan {
 	area: string;
 	title: string;
-	/** Each done step it undoes, last first. */
+	/** Each step it undoes, done or started, last first. */
 	steps: StepUndoPlan[];
 	creds: UndoCred[];
 	/** The name to type to go ahead, or null for none. */
@@ -233,6 +280,8 @@ export interface UndoPlan {
 export interface StepUndoPlan {
 	id: string;
 	title: string;
+	/** Whether it is done, not just started. */
+	done: boolean;
 	removes: string[];
 	leaves: string[];
 }

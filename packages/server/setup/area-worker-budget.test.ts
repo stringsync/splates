@@ -100,6 +100,7 @@ describe("the worker budget step", () => {
 		expect(plan.steps.find((each) => each.id === "worker-budget")).toEqual({
 			id: "worker-budget",
 			title: "Choose what made workers may cost",
+			done: true,
 			removes: [
 				"The limits chosen for made workers, back to their defaults (hour $0.25, day $5.00, month $75.00)",
 			],

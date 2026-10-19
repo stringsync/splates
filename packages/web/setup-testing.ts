@@ -10,12 +10,15 @@ export function setupProgress({
 	fresh = false,
 	agents = "ready",
 	dictation = "ready",
+	started = [],
 }: {
 	next?: string | null;
 	required?: boolean;
 	fresh?: boolean;
 	agents?: StepProgress["status"];
 	dictation?: StepProgress["status"];
+	/** Areas left partway, a step not done but its cred saved, so Undo shows. */
+	started?: string[];
 } = {}): SetupProgress {
 	const agentsStep: StepProgress = {
 		id: "agents",
@@ -63,6 +66,7 @@ export function setupProgress({
 		done: step.status === "done" ? 1 : 0,
 		skipped: step.status === "skipped" ? 1 : 0,
 		left: step.status === "ready" || step.status === "waiting" ? 1 : 0,
+		undoable: step.status === "done" || started.includes(id),
 		steps: [step],
 	});
 	return {

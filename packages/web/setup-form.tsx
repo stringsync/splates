@@ -33,7 +33,7 @@ export function SetupIndex({
 }: {
 	areas: readonly AreaProgress[];
 	onSelect: (id: string) => void;
-	/** Asks to undo an area with a step done. */
+	/** Asks to undo an area with a step done or started. */
 	onUndo: (id: string) => void;
 }): JSX.Element {
 	return (
@@ -67,7 +67,7 @@ export function SetupIndex({
 										/>
 									)}
 								</button>
-								{area.done > 0 && (
+								{area.undoable && (
 									<Button
 										variant="ghost"
 										size="sm"
@@ -108,8 +108,9 @@ export type NextState =
  * One page of a journey, as a plain web form: the question, one line on why,
  * its fields, then Next, which does what the step needs. Beside Next, "2 of
  * 4"; the last page's says Finish, and a failed one's Try again. The only
- * other ways out are a quiet link back to the index and one to hand the step
- * to an agent.
+ * other ways out are a quiet link back to the index, one to hand the step
+ * to an agent, and, once a step is done or started, the index's Undo, so a
+ * journey left partway can be taken back out from where it stands.
  */
 export function StepForm({
 	title,
@@ -120,6 +121,8 @@ export function StepForm({
 	onNext,
 	onAgent,
 	onLeave,
+	undo,
+	onUndo,
 	children,
 }: {
 	title: string;
@@ -133,18 +136,35 @@ export function StepForm({
 	/** Starts a conversation on the step; null when no agent can be started. */
 	onAgent: (() => void) | null;
 	onLeave: () => void;
+	/** The title of the journey's area, to undo, or null while it has nothing to undo. */
+	undo: string | null;
+	onUndo?: () => void;
 	children?: ReactNode;
 }): JSX.Element {
 	const working = next.kind === "working";
 	return (
 		<div className="mx-auto flex w-full max-w-lg flex-col gap-6">
-			<Button
-				variant="link"
-				className="h-auto self-start p-0 text-muted-foreground"
-				onClick={onLeave}
-			>
-				<ChevronLeftIcon data-icon="inline-start" /> Setup
-			</Button>
+			<div className="flex items-center justify-between gap-4">
+				<Button
+					variant="link"
+					className="h-auto p-0 text-muted-foreground"
+					onClick={onLeave}
+				>
+					<ChevronLeftIcon data-icon="inline-start" /> Setup
+				</Button>
+				{undo !== null && (
+					<Button
+						variant="ghost"
+						size="sm"
+						className="text-muted-foreground"
+						aria-label={`Undo ${undo}`}
+						disabled={working}
+						onClick={onUndo}
+					>
+						<Undo2Icon aria-hidden /> Undo
+					</Button>
+				)}
+			</div>
 			<form
 				aria-label={title}
 				className="flex flex-col gap-8"

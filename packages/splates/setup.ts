@@ -202,7 +202,8 @@ function printUndo(log: Logger, plan: UndoPlan): void {
 		return;
 	}
 	for (const step of plan.steps) {
-		log.info(`  ${step.title}  ${color.dim(step.id)}`);
+		const started = step.done ? "" : `  ${color.yellow("started")}`;
+		log.info(`  ${step.title}  ${color.dim(step.id)}${started}`);
 		for (const line of step.removes) {
 			log.info(`    removes  ${line}`);
 		}

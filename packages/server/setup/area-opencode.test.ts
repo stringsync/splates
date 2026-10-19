@@ -149,12 +149,14 @@ describe("OPENCODE_AREA", () => {
 			{
 				id: "opencode-ready",
 				title: "Check OpenCode",
+				done: true,
 				removes: [],
 				leaves: [],
 			},
 			{
 				id: "opencode-models",
 				title: "Choose your models",
+				done: true,
 				removes: [
 					`OpenCode on the roster in \`${HOME}/agents.json\`, running opencode-go/Main and opencode-go/Small`,
 				],
@@ -163,6 +165,7 @@ describe("OPENCODE_AREA", () => {
 			{
 				id: "opencode-connect",
 				title: "Paste your OpenCode Go API key",
+				done: true,
 				removes: ["The OpenCode Go API key kept on this device"],
 				leaves: [
 					"OpenCode keeps its own copy of the key: run `opencode auth logout` and pick OpenCode Go to remove it.",
@@ -172,6 +175,7 @@ describe("OPENCODE_AREA", () => {
 			{
 				id: "opencode-install",
 				title: "Install OpenCode",
+				done: true,
 				removes: [],
 				leaves: [
 					"OpenCode stays installed: run `npm uninstall --global @opencode/cli` to remove it.",

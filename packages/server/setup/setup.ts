@@ -166,8 +166,17 @@ export class Setup {
 				left: steps.filter(
 					(step) => step.status === "ready" || step.status === "waiting",
 				).length,
+				undoable: false,
 				steps,
 			});
+		}
+		const done = new Set(
+			[...statuses].flatMap(([step, status]) =>
+				status === "done" ? [step] : [],
+			),
+		);
+		for (const area of areas) {
+			area.undoable = await this.#undo.undoable(area.id, done);
 		}
 		const all = areas.flatMap((area) => area.steps);
 		const ready = all.filter((step) => step.status === "ready");
@@ -432,6 +441,8 @@ export interface AreaProgress {
 	skipped: number;
 	/** Steps neither done nor skipped. */
 	left: number;
+	/** Whether a step is done or started, so Undo has something to take out. */
+	undoable: boolean;
 	steps: StepProgress[];
 }
 

@@ -92,12 +92,14 @@ describe("Setup's undo", () => {
 				{
 					id: "tunnel",
 					title: "Set up tunnel",
+					done: true,
 					removes: ["tunnel's thing"],
 					leaves: [],
 				},
 				{
 					id: "token",
 					title: "Set up token",
+					done: true,
 					removes: ["token's thing"],
 					leaves: [],
 				},
@@ -273,9 +275,49 @@ describe("Setup's undo", () => {
 		await setup.undo("dictation", null);
 
 		expect(plan.steps).toEqual([
-			{ id: "key", title: "Set up key", removes: [], leaves: [] },
+			{ id: "key", title: "Set up key", done: true, removes: [], leaves: [] },
 		]);
 		expect(await device.get("KEY")).toBeUndefined();
+	});
+
+	it("undoes a journey left partway, its started step's cred and all", async () => {
+		const token = step("token", { cred: "TOKEN" });
+		const tunnel = step("tunnel", { after: [token], cred: "TUNNEL" });
+		const workers = step("workers");
+		done.add("token");
+		await device.set("TOKEN", "t").then(() => device.set("TUNNEL", "u"));
+		const setup = new Setup(machine, [
+			{ id: "remote", title: "Remote", steps: [token, tunnel, workers] },
+		]);
+
+		expect((await setup.read()).areas[0]?.undoable).toBe(true);
+		const plan = await setup.undoPlan("remote");
+		await setup.undo("remote", null);
+
+		expect(plan.steps.map(({ id, done }) => ({ id, done }))).toEqual([
+			{ id: "tunnel", done: false },
+			{ id: "token", done: true },
+		]);
+		expect(ran).toEqual(["tunnel", "token"]);
+		expect(await device.get("TUNNEL")).toBeUndefined();
+		expect((await setup.read()).areas[0]?.undoable).toBe(false);
+	});
+
+	it("finds nothing started by a cred another area's done step uses", async () => {
+		const box = step("box", { cred: "TOKEN" });
+		const snapshot = step("snapshot", { cred: "TOKEN", uses: ["TOKEN"] });
+		done.add("snapshot");
+		await device.set("TOKEN", "t");
+		const setup = new Setup(machine, [
+			{ id: "cloud", title: "Cloud server", steps: [box] },
+			{ id: "workers", title: "Workers", steps: [snapshot] },
+		]);
+
+		expect((await setup.read()).areas.map((area) => area.undoable)).toEqual([
+			false,
+			true,
+		]);
+		expect((await setup.undoPlan("cloud")).steps).toEqual([]);
 	});
 
 	it("refuses an area not on the roster", async () => {

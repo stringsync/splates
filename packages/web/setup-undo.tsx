@@ -28,7 +28,8 @@ export function UndoDialog({
 }: {
 	/** The area to undo, or null while the dialog is shut. */
 	area: string | null;
-	onClose: () => void;
+	/** Shuts it, `undone` once the area was undone, not cancelled. */
+	onClose: (undone: boolean) => void;
 }): JSX.Element {
 	const { settle } = useContext(SetupContext);
 	const undoing = useMemo(
@@ -41,12 +42,14 @@ export function UndoDialog({
 			open={area !== null}
 			onOpenChange={(open) => {
 				if (!open && undoing?.state.kind !== "working") {
-					onClose();
+					onClose(undoing?.state.kind === "done");
 				}
 			}}
 		>
 			<DialogContent className="max-h-[85dvh] overflow-y-auto">
-				{undoing !== null && <UndoBody undoing={undoing} onClose={onClose} />}
+				{undoing !== null && (
+					<UndoBody undoing={undoing} onClose={() => onClose(true)} />
+				)}
 			</DialogContent>
 		</Dialog>
 	);
@@ -99,7 +102,15 @@ function UndoBody({
 					{plan.steps.map((step) =>
 						step.removes.length === 0 ? null : (
 							<div key={step.id}>
-								<h3 className="font-medium">{step.title}</h3>
+								<h3 className="font-medium">
+									{step.title}
+									{!step.done && (
+										<span className="font-normal text-muted-foreground">
+											{" "}
+											· not finished
+										</span>
+									)}
+								</h3>
 								<ul className="list-disc pl-5 text-muted-foreground">
 									{step.removes.map((line) => (
 										<li key={line}>

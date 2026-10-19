@@ -54,6 +54,7 @@ describe("App's setup undo", () => {
 			{
 				id: "agents",
 				title: "Choose the agents splates starts",
+				done: true,
 				removes: ["Claude's models in `~/.splates/agents.json`"],
 				leaves: ["Sign Claude out with `claude auth logout`"],
 			},
@@ -153,5 +154,41 @@ describe("App's setup undo", () => {
 		expect(
 			within(dialog).queryByRole("button", { name: "Undo Agents" }),
 		).toBeNull();
+	});
+
+	it("undoes a journey left partway from its page, staying there on Cancel", async () => {
+		testing.setup = setupProgress({ started: ["dictation"] });
+		testing.undoPlan = plan({
+			area: "dictation",
+			title: "Dictation",
+			steps: [
+				{
+					id: "dictation",
+					title: "Paste an OpenAI key",
+					done: false,
+					removes: ["The OpenAI API key kept on this device"],
+					leaves: [],
+				},
+			],
+			creds: [{ name: "OPENAI_API_KEY", keptFor: null }],
+		});
+		const view = await openSetup("Dictation");
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Undo Dictation" }),
+				),
+			),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await waitFor(() => expect(dialog.textContent).toContain("not finished"));
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
+		);
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(view.getByRole("button", { name: "Undo Dictation" })).toBeTruthy();
+		expect(testing.posts).toEqual([]);
 	});
 });

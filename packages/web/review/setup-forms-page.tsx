@@ -26,6 +26,7 @@ function area(id: string, title: string, done: number, steps: number) {
 		done,
 		skipped: 0,
 		left: steps - done,
+		undoable: done > 0,
 		steps: Array.from({ length: steps }, () => ({})),
 	} as unknown as AreaProgress;
 }
@@ -177,6 +178,8 @@ function Form({
 			}}
 			onAgent={agent}
 			onLeave={leave}
+			undo="OpenCode"
+			onUndo={leave}
 		/>
 	);
 }

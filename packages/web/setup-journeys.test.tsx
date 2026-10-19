@@ -188,13 +188,14 @@ describe("Setup journeys", () => {
 		expect(testing.posted("/api/setup/opencode/disable")).toHaveLength(1);
 	});
 
-	it("lists areas as rows, marking those with every step done, and offers Undo on those with any", () => {
+	it("lists areas as rows, marking those with every step done, and offers Undo on those with any done or started", () => {
 		const undone: string[] = [];
 		const view = render(
 			<SetupIndex
 				areas={progress.areas.map((area) => ({
 					...area,
 					done: area.id === "claude" ? area.steps.length : 0,
+					undoable: area.id === "claude" || area.id === "codex",
 				}))}
 				onSelect={() => {}}
 				onUndo={(id) => undone.push(id)}
@@ -212,7 +213,7 @@ describe("Setup journeys", () => {
 			view
 				.getAllByRole("button", { name: /^Undo/ })
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["Undo Claude"]);
+		).toEqual(["Undo Claude", "Undo Codex"]);
 		fireEvent.click(view.getByRole("button", { name: "Undo Claude" }));
 		expect(undone).toEqual(["claude"]);
 	});
@@ -221,6 +222,7 @@ describe("Setup journeys", () => {
 		let nexts = 0;
 		const view = render(
 			<StepForm
+				undo={null}
 				title="Install OpenCode"
 				at={2}
 				of={4}

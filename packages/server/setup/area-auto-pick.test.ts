@@ -106,6 +106,7 @@ describe("AUTO_PICK_AREA", () => {
 			{
 				id: "auto-pick-judge",
 				title: "Give Auto pick a decision model",
+				done: true,
 				removes: [],
 				leaves: [
 					"Auto pick still judges with Clef, on `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, kept for scry's Workers AI: forget them on the Creds page to stop it.",

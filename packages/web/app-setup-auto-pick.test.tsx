@@ -298,6 +298,7 @@ function progress({
 				done: steps.filter((step) => step.status === "done").length,
 				skipped: 0,
 				left: steps.filter((step) => step.status !== "done").length,
+				undoable: steps.some((step) => step.status === "done"),
 				steps,
 			},
 		],

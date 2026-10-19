@@ -80,9 +80,11 @@ export function SetupPage({
 				))}
 			<UndoDialog
 				area={undoing}
-				onClose={() => {
+				onClose={(undone) => {
 					setUndoing(null);
-					setSelected(null);
+					if (undone) {
+						setSelected(null);
+					}
 				}}
 			/>
 		</section>
@@ -176,6 +178,8 @@ function Journey({
 					onNext={(form) => void journey.press(new FormData(form))}
 					onAgent={onAgent}
 					onLeave={onLeave}
+					undo={area.undoable ? area.title : null}
+					onUndo={onUndo}
 				>
 					{Body !== undefined ? (
 						<Body

@@ -64,12 +64,14 @@ describe("NOTIFICATIONS_AREA", () => {
 			{
 				id: "notifications-notices",
 				title: "Choose what you are notified of",
+				done: true,
 				removes: [],
 				leaves: [],
 			},
 			{
 				id: "notifications-device",
 				title: "Turn notifications on in this browser",
+				done: true,
 				removes: [
 					`The browser pushed through fcm.googleapis.com, kept in \`${HOME}/push.json\``,
 					`The browser pushed through web.push.apple.com, kept in \`${HOME}/push.json\``,

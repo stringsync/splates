@@ -55,6 +55,9 @@ stops working without it, from `why`.
 When the user wants an area taken back out, its creds forgotten and what it
 made removed, that is its Undo on the Setup page, which the user presses: it
 asks first, listing what goes, and for a box or tunnel has its name typed.
+An area left partway has it too, on the index and on each of its pages, and
+it takes out steps started but not finished, those whose cred is saved,
+marked `started`.
 Never undo one yourself, by its routes or by hand, as with `splates server
 destroy`. `splates setup <area> --undo` prints what it would remove, the creds
 it forgets and keeps, and what only the user can remove after, such as the

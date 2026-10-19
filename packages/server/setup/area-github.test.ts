@@ -169,6 +169,7 @@ describe("GITHUB_AREA", () => {
 			{
 				id: "github-push",
 				title: "Turn pushing on",
+				done: true,
 				removes: [],
 				leaves: [
 					"`remote` stays in `splates.config.ts`: land a change that takes it out to stop pushing.",
@@ -177,6 +178,7 @@ describe("GITHUB_AREA", () => {
 			{
 				id: "github-ruleset",
 				title: "Keep the App to splates branches, and off tags",
+				done: true,
 				removes: [],
 				leaves: [
 					"The ruleset `splates-tags`: `gh api -X DELETE repos/o/r/rulesets/0`, or in https://github.com/o/r/settings/rules.",
@@ -186,6 +188,7 @@ describe("GITHUB_AREA", () => {
 			{
 				id: "github-install",
 				title: "Install the App on this repository",
+				done: true,
 				removes: [
 					"The App's installation on o/r, and with it every repository it was installed on",
 				],
@@ -194,6 +197,7 @@ describe("GITHUB_AREA", () => {
 			{
 				id: "github-app",
 				title: "Make the splates GitHub App",
+				done: true,
 				removes: [],
 				leaves: [
 					"The App itself: delete it at the foot of https://github.com/settings/apps/splates-o/advanced.",

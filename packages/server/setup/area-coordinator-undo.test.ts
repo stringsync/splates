@@ -68,6 +68,7 @@ describe("undoing COORDINATOR_AREA", () => {
 			{
 				id: "coordinator-keys",
 				title: "Let the box push each project",
+				done: true,
 				removes: [],
 				leaves: [
 					"`app`'s deploy key for the box in the repository's **Settings → Deploy keys** on GitHub.",
@@ -76,12 +77,14 @@ describe("undoing COORDINATOR_AREA", () => {
 			{
 				id: "coordinator-remotes",
 				title: "Name each project's remote",
+				done: true,
 				removes: [],
 				leaves: [expect.stringContaining('`remote: "origin"`')],
 			},
 			{
 				id: "coordinator-box",
 				title: "Make the server's box",
+				done: true,
 				removes: [
 					"The Hetzner Cloud server `splates-coordinator`, and with it every backup Hetzner Cloud keeps of it",
 					"The Hetzner Cloud firewall `splates-coordinator`",
@@ -92,6 +95,7 @@ describe("undoing COORDINATOR_AREA", () => {
 			{
 				id: "coordinator-cloud",
 				title: "Choose a cloud provider",
+				done: true,
 				removes: ["The cloud provider chosen, kept in `~/.splates/cloud.json`"],
 				leaves: [],
 			},

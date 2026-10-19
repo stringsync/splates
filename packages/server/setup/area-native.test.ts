@@ -114,6 +114,7 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			{
 				id: "claude-models",
 				title: "Choose Claude models",
+				done: true,
 				removes: [
 					`Claude on the roster in \`${HOME}/agents.json\`, running Opus 5.5, Haiku 5.5`,
 				],
@@ -122,6 +123,7 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			{
 				id: "claude-signin",
 				title: "Install and sign in to Claude",
+				done: true,
 				removes: [],
 				leaves: [
 					"Claude stays signed in: run `claude auth logout` to sign out.",
