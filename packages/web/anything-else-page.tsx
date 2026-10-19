@@ -6,9 +6,9 @@ import type { Files } from "./files";
 import { Markdown } from "./markdown";
 
 /**
- * The last screen of a questions card shown a question a screen, as on a
- * phone: "Anything else" to write, over each question answered or not, a tap
- * from going back to change it.
+ * The screen a questions card shown a question a screen, as on a phone,
+ * opens from its last question when asked: "Anything else" to write, over
+ * each question answered or not, a tap from going back to change it.
  */
 export function AnythingElsePage({
 	questions,

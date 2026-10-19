@@ -20,6 +20,7 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	CopyIcon,
+	PlusIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
 import { type JSX, useLayoutEffect, useRef, useState } from "react";
@@ -82,8 +83,9 @@ export function QuestionCards({
 	copy?: boolean;
 	/**
 	 * Whether it shows one question a screen, as a phone's form does, with
-	 * "Anything else" and Send on a last screen of their own, rather than all
-	 * of them down the card. Only while it can be answered.
+	 * Send on the last and a button there that opens "Anything else" on a
+	 * screen of its own, rather than all of them down the card. Only while it
+	 * can be answered.
 	 */
 	paged?: boolean;
 	/** Once the reply is sent from it, or copied. */
@@ -203,9 +205,12 @@ export function QuestionCards({
 	// Answered, every question shows, as on any other card.
 	const paging = paged && live;
 	// The screen shown when paging, over a footer pinned to the sheet's foot:
-	// a question's index, or `end` for "Anything else" and Send.
+	// a question's index, or `end` for "Anything else", which the last
+	// question opens only when asked.
 	const [page, setPage] = useState(0);
 	const end = questions.length;
+	// From the last question, or "Anything else", the footer sends.
+	const sending = page >= end - 1;
 	// Whether the page turned to takes the focus, and raises the keyboard
 	// even on a touch screen, as when Enter turned it from a field; null when
 	// the focus stays where it is, as on the button that turned it.
@@ -225,7 +230,12 @@ export function QuestionCards({
 	const next = (number: string) => {
 		if (paging) {
 			const at = questions.findIndex((asked) => asked.number === number);
-			turn(at + 1, { typing: raises(document.activeElement) });
+			if (at + 1 < end) {
+				turn(at + 1, { typing: raises(document.activeElement) });
+			} else if (document.activeElement instanceof HTMLElement) {
+				// The last one goes on to Send: the keyboard drops to show it.
+				document.activeElement.blur();
+			}
 			return;
 		}
 		const all = stops();
@@ -344,6 +354,30 @@ export function QuestionCards({
 						)}
 					</ol>
 				)}
+				{paging && page === end - 1 && (
+					<div className="px-5 pb-5">
+						<button
+							type="button"
+							onClick={() => turn(end)}
+							className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-dashed px-4 py-2 text-left text-muted-foreground active:bg-muted"
+						>
+							{written.more.trim() === "" ? (
+								<PlusIcon className="size-4 shrink-0" />
+							) : null}
+							<span className="min-w-0 flex-1 truncate text-sm">
+								{written.more.trim() === "" ? (
+									"Anything else?"
+								) : (
+									<>
+										<span className="text-foreground">Anything else:</span>{" "}
+										{written.more.trim()}
+									</>
+								)}
+							</span>
+							<ChevronRightIcon className="size-4 shrink-0" />
+						</button>
+					</div>
+				)}
 				{paging && page === end && (
 					<AnythingElsePage
 						questions={questions}
@@ -371,7 +405,7 @@ export function QuestionCards({
 									Back
 								</Button>
 							)}
-							{page < end ? (
+							{!sending ? (
 								<Button
 									className="h-11 flex-1 text-base"
 									onClick={() => turn(page + 1)}
