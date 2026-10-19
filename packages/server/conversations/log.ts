@@ -36,7 +36,7 @@ const SAVE_EVERY = Duration.ms(500);
 
 // Raise it with any change to the entries, their `seq`s or the frame
 // numbering that a log of the last format would be misread by.
-/** The format `ConversationLog` writes: a live log in another reads back stopped, never resumed. */
+/** The log format this version reads: a conversation left running under another is stopped on restart, not resumed. */
 export const LOG_FORMAT = 1;
 
 /** What a `ConversationLog` says of its saves. */
@@ -235,11 +235,17 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				applyArtifact(state.artifacts, entry.change);
 			} else if (entry.kind === "turn") {
 				replayed.running = entry.running;
+				// A new turn puts the last one's failure behind it.
+				if (entry.running) {
+					state.error = null;
+				}
 				if (!entry.running) {
 					finishObservation(state, entry.at ?? null);
 					prompt = null;
 				}
 			} else if (entry.kind === "launched") {
+				// A process started again puts the last one's failure behind it.
+				state.error = null;
 				launched = entry;
 			} else if (entry.kind === "request") {
 				// A new process numbers its frames from the start: the seqs
@@ -406,7 +412,7 @@ export interface Replayed {
 /** What a log read back live says of the process to take back. */
 export interface Live {
 	handle: ProcessHandle;
-	/** The last frame the log holds, past which the worker's replay carries on. */
+	/** The last frame the log holds, for the worker to replay on from. */
 	held: number;
 	/** The highest request id this side sent, past which the next stream numbers its own. */
 	lastId: number;
