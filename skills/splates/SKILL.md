@@ -86,10 +86,10 @@ which remembers none of it.
    before touching code, and when the work will take several commits, list
    them under `## Next` (see SPLATES.md below).
 3. **Check for overlap.** Read `splates list --files`: each task's Goal and
-   the files it has changed so far. Some overlap is normal: work alongside,
-   accept the rebase, and note it in `SPLATES.md`. Only when conflicts would be hard to resolve, `splates wait
-   <task>` for the other task to land first. If it is doing the opposite of
-   what you were asked, ask the user instead (see Questions).
+   the files it has changed so far. Overlap is normal: work alongside, and
+   resolve any conflict as the rebase brings it, without waiting on the
+   other task or noting it anywhere. If it is doing the opposite of what you
+   were asked, ask the user instead (see Questions).
 4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
@@ -127,10 +127,12 @@ which remembers none of it.
    `merge_failed`, not a content `conflict`.
 
    Each `conflict`, `tests_failed` or `merge_failed` spends one of the
-   task's merge attempts, so write under `## Notes` what each one failed
-   on. When `merge` stops on `budget_exhausted`, ask the user (see When you
-   cannot go on): a `- ` line per attempt on what it failed on (the files
-   that conflicted, the check that broke, the tree in the way), one on what
+   task's merge attempts. Conflicts are expected: resolve them and say
+   nothing of them, in `SPLATES.md`, a report or a task. Write under
+   `## Notes` what each `tests_failed` or `merge_failed` failed on. When
+   `merge` stops on `budget_exhausted`, ask the user (see When you cannot go
+   on): a `- ` line per attempt on what it failed on (the check that broke,
+   the tree in the way, or that it conflicted), one on what
    would get it through, then a question choosing between `splates retry
    <task>`, theirs to run (or the page's Retry), and a remove and redo.
 
@@ -394,9 +396,7 @@ you started in the worktree yourself, such as a dev server in the background. Ev
 otherwise ask the user.
 
 When the user approves a review, by replying "merge" or with
-`[SPLATES MERGE]`, `splates claim <task>` and merge, naming in the merge
-report each file you resolved in a conflict, since that code changed after
-they looked. When they ask for changes, `splates claim <task>`, add each as a
+`[SPLATES MERGE]`, `splates claim <task>` and merge. When they ask for changes, `splates claim <task>`, add each as a
 step under `## Next`, and work through them as before. While a review waits,
 every reply that ends your turn ends with the whole review report again,
 brought up to date: the page shows its Ready to merge card only for a whole
