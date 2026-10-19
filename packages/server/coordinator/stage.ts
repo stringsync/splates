@@ -6,7 +6,7 @@ import { type MovedProject, rewriteRoots } from "./paths";
 /**
  * What moves from splates's home: what the coordinator keeps, not what this
  * machine does for itself (dev slots, heavy jobs, locks, the local worker's
- * socket) or what is built for its platform (Pulumi's binary and plugins).
+ * socket).
  */
 export const MOVED_HOME = [
 	"projects.json",
@@ -26,7 +26,6 @@ export const MOVED_HOME = [
 	"worker-keys.json",
 	"snapshots.json",
 	"worker-budget.json",
-	"pulumi/state",
 ];
 
 /** A project as `stage` lays out its records. */
@@ -46,13 +45,8 @@ export async function stage(opts: StageOptions): Promise<void> {
 	const { fs, home, projects, staging, worker } = opts;
 	for (const name of MOVED_HOME) {
 		if (await fs.exists(`${home}/${name}`)) {
-			await copyTree(
-				fs,
-				`${home}/${name}`,
-				`${staging}/home/${name}`,
-				(text) =>
-					// Pulumi's state is its own: no project's root is in it.
-					name.startsWith("pulumi/") ? text : rewriteRoots(text, projects),
+			await copyTree(fs, `${home}/${name}`, `${staging}/home/${name}`, (text) =>
+				rewriteRoots(text, projects),
 			);
 		}
 	}

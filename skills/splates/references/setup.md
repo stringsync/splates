@@ -87,10 +87,8 @@ PowerShell as an administrator there: the worker in a WSL2 distro of its own,
 started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
 on in its BIOS and adapter, so splates wakes it when agents queue, before
 making a worker; `splates worker wake <id>` wakes one by hand). Workers
-in their own cloud account start with `pulumi-install` (Pulumi under
-`~/.splates/pulumi`) and `pulumi-state` (its state there, encrypted by the
-device cred `PULUMI_CONFIG_PASSPHRASE`, never shown or replaced), then
-`hetzner-token` (the cred `HCLOUD_TOKEN`), `hetzner-provider` (a task adding
+in their own cloud account start with `hetzner-token` (the cred
+`HCLOUD_TOKEN`), `hetzner-provider` (a task adding
 `workerProvider: new HetznerWorkerProvider()` to `splates.config.ts`) and
 `worker-snapshot` (builds the snapshot workers boot from); and, only when
 `splates.config.ts` names a `workerProvider`, `worker-budget` (what made
@@ -100,8 +98,7 @@ through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
 When the user asks for an always-on coordinator, that is the Cloud
-coordinator setup area: `coordinator-box`, after `pulumi-state` and
-`hetzner-token`, makes it with `splates coordinator up` (a CPX21 in Hetzner's
+coordinator setup area: `coordinator-box`, after `hetzner-token`, makes it with `splates coordinator up` (a CPX21 in Hetzner's
 Ashburn with daily backups, SSH alone open, its key under
 `~/.splates/coordinator`); `splates coordinator status` prints its address and
 how to SSH in, and `splates coordinator remove` destroys it and its backups.

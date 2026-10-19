@@ -47,6 +47,7 @@ export {
 	HetznerWorkerProvider,
 	type HetznerWorkerProviderOptions,
 } from "./hetzner";
+export type { FirewallRule, HetznerServer, NewServer } from "./hetzner-api";
 export { HCLOUD_TOKEN, HetznerApi } from "./hetzner-api";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
 export {
@@ -75,16 +76,6 @@ export type {
 } from "./provider";
 export type { Provisioned } from "./provisioning";
 export { WorkerProvisioning } from "./provisioning";
-export type { PulumiPaths } from "./pulumi";
-export {
-	newPulumiPassphrase,
-	PULUMI_PASSPHRASE,
-	PULUMI_VERSION,
-	Pulumi,
-	pulumiEnv,
-	pulumiInstallCommand,
-	pulumiPaths,
-} from "./pulumi";
 export type { QueueListing } from "./queue";
 export { listQueue, moveQueued, queueListing } from "./queue";
 export { WorkerRecords } from "./records";

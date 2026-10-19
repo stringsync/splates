@@ -1,24 +1,17 @@
 import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import { z } from "zod";
+import { type Duration, sleep } from "webappwiz/time";
 import { splatesHome } from "../models";
-import {
-	HCLOUD_TOKEN,
-	PULUMI_VERSION,
-	Pulumi,
-	pulumiInstallCommand,
-	pulumiPaths,
-} from "../workers";
+import { type FirewallRule, HCLOUD_TOKEN, HetznerApi } from "../workers";
 
 /**
  * The coordinator's always-on box in the user's own Hetzner Cloud account,
- * made through Pulumi as the workers are: the Hetzner token and Pulumi's
- * state and passphrase the Cloud workers setup readied, one stack in the
- * file backend on this machine. The box has splates installed and serves
+ * made through its API as the workers are, with the Hetzner token the Cloud
+ * workers setup keeps: a server labelled `splates-coordinator`, and the SSH
+ * key and firewall of that name. The box has splates installed and serves
  * nothing until `CoordinatorMove` moves the coordinator onto it.
  */
 export class CoordinatorBox {
-	private readonly pulumi: Pulumi;
 	private readonly ps: Ps;
 	private readonly fs: Fs;
 	private readonly store: SecretStore;
@@ -30,127 +23,101 @@ export class CoordinatorBox {
 		this.fs = opts.fs ?? new NodeFs();
 		this.store = opts.store ?? SystemSecretStore.device();
 		const home = opts.home ?? splatesHome(this.ps);
-		this.pulumi = new Pulumi({
-			ps: this.ps,
-			fs: this.fs,
-			home,
-			store: this.store,
-		});
 		this.key = `${home}/coordinator/id_ed25519`;
 	}
 
 	/**
-	 * Makes the box, or brings it to its program: its type, location and
-	 * install script. Hetzner rebuilds nothing for a new script, which runs
-	 * only on a box's first boot.
+	 * Makes the box, or puts right what is not so already: its key, its
+	 * firewall's rules, its backups and its protection. An existing box keeps
+	 * its type, location and install script, which runs only on first boot.
 	 */
 	async up(): Promise<BoxStanding> {
-		const env = await this.env();
-		const dir = await this.dir();
-		await this.select(dir);
-		const set = (key: string, value: string) =>
-			this.pulumi.run(dir, ["config", "set", key, value, "--stack", STACK]);
-		await set("serverType", this.opts.serverType ?? BOX_TYPE);
-		await set("location", this.opts.location ?? BOX_LOCATION);
-		await set("publicKey", await this.publicKey());
-		await set("protect", "true");
-		await set("userData", installScript(this.opts.version));
-		await this.pulumi.run(dir, upArgs(), { env });
+		const api = await this.api();
+		const publicKey = await this.publicKey();
+		let key = await api.sshKey(BOX_NAME);
+		if (key !== null && key.publicKey.trim() !== publicKey) {
+			await api.deleteSshKey(key.id);
+			key = null;
+		}
+		const keyId = key?.id ?? (await api.createSshKey(BOX_NAME, publicKey));
+		let firewall = await api.firewall(BOX_NAME);
+		if (firewall === null) {
+			firewall = await api.createFirewall(BOX_NAME, BOX_RULES);
+		} else {
+			await api.setFirewallRules(firewall, BOX_RULES);
+		}
+		const server =
+			(await api.servers(BOX_LABEL))[0] ??
+			(await api.createServer({
+				name: BOX_NAME,
+				type: this.opts.serverType ?? BOX_TYPE,
+				image: BOX_IMAGE,
+				location: this.opts.location ?? BOX_LOCATION,
+				userData: installScript(this.opts.version),
+				labels: { [BOX_LABEL]: "coordinator" },
+				sshKeys: [keyId],
+				firewalls: [firewall],
+			}));
+		if (!server.backups) {
+			await api.enableBackups(server.id);
+		}
+		if (!(server.protected.delete && server.protected.rebuild)) {
+			await api.protect(server.id, { delete: true, rebuild: true });
+		}
 		const standing = await this.status();
 		if (standing === null) {
 			throw new Error(
-				"Pulumi made the coordinator's box but did not say its address",
+				"Hetzner made the coordinator's box but did not say its address",
 			);
 		}
 		return standing;
 	}
 
-	/** The box as its stack last left it, or null when there is none. */
+	/** The box as Hetzner has it, or null when there is none. */
 	async status(): Promise<BoxStanding | null> {
-		const dir = await this.dir();
-		if (!(await this.made(dir))) {
-			return null;
-		}
-		const outputs = Outputs.parse(
-			JSON.parse(
-				await this.pulumi.run(dir, [
-					"stack",
-					"output",
-					"--json",
-					"--stack",
-					STACK,
-				]),
-			),
-		);
-		if (outputs.ipv4 === undefined || outputs.serverId === undefined) {
+		const [server] = await (await this.api()).servers(BOX_LABEL);
+		if (server === undefined || server.ipv4 === null) {
 			return null;
 		}
 		return {
-			ipv4: outputs.ipv4,
-			serverId: outputs.serverId,
-			serverType: outputs.serverType ?? BOX_TYPE,
-			location: outputs.location ?? BOX_LOCATION,
+			ipv4: server.ipv4,
+			serverId: server.id,
+			serverType: server.type,
+			location: server.location,
 			key: this.key,
 		};
 	}
 
 	/**
-	 * Destroys the box, its backups with it, and forgets its stack: first
-	 * lifting the delete protection that keeps a stray `destroy` off it.
+	 * Destroys the box, its backups with it, then its firewall and key: first
+	 * lifting the delete protection that keeps a stray delete off it.
 	 */
 	async remove(): Promise<void> {
-		const dir = await this.dir();
-		if (!(await this.made(dir))) {
-			return;
+		const api = await this.api();
+		for (const server of await api.servers(BOX_LABEL)) {
+			if (server.protected.delete || server.protected.rebuild) {
+				await api.protect(server.id, { delete: false, rebuild: false });
+			}
+			await api.deleteServer(server.id);
 		}
-		const env = await this.env();
-		await this.pulumi.run(dir, [
-			"config",
-			"set",
-			"protect",
-			"false",
-			"--stack",
-			STACK,
-		]);
-		await this.pulumi.run(dir, upArgs(), { env });
-		await this.pulumi.run(
-			dir,
-			["destroy", "--yes", "--skip-preview", "--stack", STACK],
-			{ env },
-		);
-		await this.pulumi.run(dir, ["stack", "rm", "--yes", STACK]);
+		const firewall = await api.firewall(BOX_NAME);
+		if (firewall !== null) {
+			await api.deleteFirewall(firewall);
+		}
+		const key = await api.sshKey(BOX_NAME);
+		if (key !== null) {
+			await api.deleteSshKey(key.id);
+		}
 	}
 
-	private dir(): Promise<string> {
-		return this.pulumi.program(BOX_PROJECT, BOX_PROGRAM);
-	}
-
-	private async env(): Promise<Record<string, string>> {
+	private async api(): Promise<HetznerApi> {
 		const token = await this.store.get(HCLOUD_TOKEN);
 		if (token === undefined) {
 			throw new Error(
 				`no Hetzner Cloud API token: do the setup step \`hetzner-token\`, which keeps it as ${HCLOUD_TOKEN}`,
 			);
 		}
-		return { [HCLOUD_TOKEN]: token };
-	}
-
-	private async select(dir: string): Promise<void> {
-		await this.pulumi.run(dir, [
-			"stack",
-			"select",
-			"--create",
-			"--secrets-provider",
-			"passphrase",
-			STACK,
-		]);
-	}
-
-	private async made(dir: string): Promise<boolean> {
-		const listed = StackList.parse(
-			JSON.parse(await this.pulumi.run(dir, ["stack", "ls", "--json"])),
-		);
-		return listed.some((stack) => stack.name === STACK);
+		return new HetznerApi(token, this.opts.fetch, this.opts.wait ?? sleep);
 	}
 
 	/** Its SSH public key, making the pair first when there is none. */
@@ -192,13 +159,16 @@ export interface CoordinatorBoxOptions {
 	location?: string;
 	ps?: Ps;
 	fs?: Fs;
-	/** splates's home, where Pulumi and the box's SSH key are. */
+	/** splates's home, where the box's SSH key is. */
 	home?: string;
-	/** Where `HCLOUD_TOKEN` and Pulumi's passphrase are kept: the device's creds. */
+	/** Where `HCLOUD_TOKEN` is kept: the device's creds. */
 	store?: SecretStore;
+	fetch?: typeof globalThis.fetch;
+	/** How it waits between looks at a Hetzner action. */
+	wait?: (duration: Duration) => Promise<void>;
 }
 
-/** The box as its stack says it stands. */
+/** The box as Hetzner says it stands. */
 export interface BoxStanding {
 	ipv4: string;
 	serverId: string;
@@ -220,103 +190,31 @@ export const BOX_LOCATION = "ash";
 /** The image the box runs. */
 const BOX_IMAGE = "ubuntu-24.04";
 
-/** The hcloud Pulumi provider, pinned with the workers'. */
-const HCLOUD_VERSION = "1.43.1";
-
 /** The password that unlocks the box's keyring, readable by root alone. */
 export const KEYRING_PASSWORD = "/root/splates-keyring";
 
 /** The user splates runs as on the box, as on a worker. */
 export const BOX_USER = "splates";
 
-/** The Pulumi project the box's stack is in. */
-export const BOX_PROJECT = "splates-coordinator";
-const STACK = "coordinator";
+/** What the box, its SSH key and its firewall are named. */
+const BOX_NAME = "splates-coordinator";
 
-const Outputs = z.object({
-	ipv4: z.string().optional(),
-	serverId: z.string().optional(),
-	serverType: z.string().optional(),
-	location: z.string().optional(),
-});
+/** The label the box carries, which is how splates finds it. */
+const BOX_LABEL = "splates-coordinator";
 
-const StackList = z.array(z.object({ name: z.string() }));
-
-/** A Pulumi YAML interpolation of `name`, as `${server.id}`. */
-function ref(name: string): string {
-	return `\${${name}}`;
-}
-
-function upArgs(): string[] {
-	return ["up", "--yes", "--skip-preview", "--stack", STACK];
-}
-
-/**
- * The box's program: one server with Hetzner's daily backups, protected
- * from deletion and rebuilds, reached by SSH alone. Nothing in it is any one
- * operator's: what differs goes in its stack's config.
- */
-const BOX_PROGRAM = {
-	config: {
-		serverType: { type: "string" },
-		location: { type: "string" },
-		publicKey: { type: "string" },
-		protect: { type: "boolean" },
-		userData: { type: "string" },
+/** The box's firewall: SSH in, and nothing else. */
+const BOX_RULES: FirewallRule[] = [
+	{
+		direction: "in",
+		protocol: "tcp",
+		port: "22",
+		sourceIps: ["0.0.0.0/0", "::/0"],
 	},
-	resources: {
-		key: {
-			type: "hcloud:SshKey",
-			properties: {
-				name: "splates-coordinator",
-				publicKey: ref("publicKey"),
-			},
-			options: { version: HCLOUD_VERSION },
-		},
-		firewall: {
-			type: "hcloud:Firewall",
-			properties: {
-				name: "splates-coordinator",
-				rules: [
-					{
-						direction: "in",
-						protocol: "tcp",
-						port: "22",
-						sourceIps: ["0.0.0.0/0", "::/0"],
-					},
-				],
-			},
-			options: { version: HCLOUD_VERSION },
-		},
-		server: {
-			type: "hcloud:Server",
-			properties: {
-				name: "splates-coordinator",
-				serverType: ref("serverType"),
-				image: BOX_IMAGE,
-				location: ref("location"),
-				backups: true,
-				deleteProtection: ref("protect"),
-				rebuildProtection: ref("protect"),
-				sshKeys: [ref("key.id")],
-				firewallIds: [ref("firewall.id")],
-				userData: ref("userData"),
-				labels: { "splates-coordinator": ref("pulumi.stack") },
-			},
-			options: { version: HCLOUD_VERSION, ignoreChanges: ["userData"] },
-		},
-	},
-	outputs: {
-		ipv4: ref("server.ipv4Address"),
-		serverId: ref("server.id"),
-		serverType: ref("server.serverType"),
-		location: ref("server.location"),
-	},
-};
+];
 
 /**
  * The box's first-boot script: git, bun and splates `version` for
- * `BOX_USER`; Pulumi, for the workers the coordinator makes; cloudflared, which carries the saved tunnel to the
+ * `BOX_USER`; cloudflared, which carries the saved tunnel to the
  * coordinator once it runs here; and GNOME Keyring, the Secret Service
  * `Bun.secrets` keeps creds in on Linux, with the password that unlocks it
  * at boot made now, readable by root alone, for the service to be handed.
@@ -338,19 +236,8 @@ export function installScript(version: string): string {
 		`id ${BOX_USER} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ${BOX_USER}`,
 		as("curl -fsSL https://bun.sh/install | bash"),
 		as(`${bun}/bun add -g @stringsync/splates@${version}`),
-		as(boxPulumiInstall()),
 		"apt-get clean",
 		"rm -rf /var/lib/apt/lists/*",
 		"",
 	].join("\n");
-}
-
-/**
- * The command, for `BOX_USER`, that installs Pulumi under its `~/.splates`
- * unless the right version is there: the move does not carry the Mac's
- * build, so the box has its own.
- */
-export function boxPulumiInstall(): string {
-	const { root, bin } = pulumiPaths(`/home/${BOX_USER}/.splates`);
-	return `${bin} version 2>/dev/null | grep -q "${PULUMI_VERSION}" || ( ${pulumiInstallCommand(root)} )`;
 }

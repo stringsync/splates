@@ -16,7 +16,7 @@ import { z } from "zod";
 
 /** `splates coordinator`, which the root cli mounts after `splates budget`. */
 export const splatesCoordinator = cli<SplatesDeps>("coordinator").description(
-	"the always-on box in your own Hetzner Cloud account that `splates server` moves onto, made through Pulumi with the token and state the Cloud workers setup readied: a CPX21 in Ashburn with Hetzner's daily backups, reached by SSH alone",
+	"the always-on box in your own Hetzner Cloud account that `splates server` moves onto, made through Hetzner's API with the token the Cloud workers setup keeps: a CPX21 in Ashburn with Hetzner's daily backups, reached by SSH alone",
 );
 
 splatesCoordinator
@@ -32,7 +32,7 @@ splatesCoordinator
 
 splatesCoordinator
 	.command("status")
-	.description("print the coordinator's box as its Pulumi stack has it")
+	.description("print the coordinator's box as Hetzner has it")
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action(async (opts, ctx) => {
 		const standing = await box(ctx).status();

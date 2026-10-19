@@ -66,8 +66,8 @@ export interface ProvisionedMachine {
 }
 
 /**
- * WorkerProvider is the seam onto whatever makes worker machines: a Pulumi
- * stack in the user's own cloud account, or anything else a repo's
+ * WorkerProvider is the seam onto whatever makes worker machines: a cloud
+ * API in the user's own account, or anything else a repo's
  * `splates.config.ts` names as `workerProvider`:
  *
  * ```ts

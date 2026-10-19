@@ -2,42 +2,43 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN, PULUMI_PASSPHRASE, pulumiPaths } from "../workers";
+import { HCLOUD_TOKEN } from "../workers";
+import { FakeHetzner } from "../workers/testing";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
 
 const HOME = "/home/.splates";
-const PATHS = pulumiPaths(HOME);
 const UNIT = "/etc/systemd/system/splates-coordinator.service";
 
 describe("COORDINATOR_AREA's box step", () => {
 	const step = COORDINATOR_AREA.steps[0];
 	let fs: FakeFs;
-	let ps: BoxPs;
+	let hetzner: FakeHetzner;
 	let machine: SetupMachine;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		ps = new BoxPs(fs);
+		hetzner = new FakeHetzner();
 		const device = new FakeSecretStore();
-		machine = { fs, ps, home: HOME, device };
-		await fs.write(PATHS.bin, "");
-		await device.set(PULUMI_PASSPHRASE, "pass");
+		machine = {
+			fs,
+			ps: new KeygenPs(fs),
+			home: HOME,
+			device,
+			fetch: hetzner.fetch,
+		};
 		await device.set(HCLOUD_TOKEN, "token");
 	});
 
-	it("comes after the Pulumi state and Hetzner token steps", () => {
-		expect(step?.after.map((each) => each.id)).toEqual([
-			"pulumi-state",
-			"hetzner-token",
-		]);
+	it("comes after the Hetzner token step", () => {
+		expect(step?.after.map((each) => each.id)).toEqual(["hetzner-token"]);
 	});
 
-	it("is not done before Pulumi is installed, without asking it", async () => {
-		await fs.rm(PATHS.bin);
+	it("is not done without a Hetzner token, without asking Hetzner", async () => {
+		await machine.device.delete(HCLOUD_TOKEN);
 
 		expect(await step?.check(machine)).toBe(false);
-		expect(ps.made).toBe(false);
+		expect(hetzner.requests).toEqual([]);
 	});
 
 	it("is done once its submit made the box", async () => {
@@ -48,36 +49,23 @@ describe("COORDINATOR_AREA's box step", () => {
 		expect(await step?.check(machine)).toBe(true);
 	});
 
-	it("is done once moved, on the box where no Pulumi made it", async () => {
-		await fs.rm(PATHS.bin);
+	it("is done once moved, on the box where none was made", async () => {
 		await fs.write(UNIT, "");
 
 		expect(await step?.check(machine)).toBe(true);
-		expect(ps.made).toBe(false);
+		expect(hetzner.requests).toEqual([]);
 	});
 });
 
-/** A Pulumi whose one stack exists once `up` ran, and an ssh-keygen. */
-class BoxPs extends FakePs {
-	made = false;
-
+/** An ssh-keygen that writes its public key into a `FakeFs`. */
+class KeygenPs extends FakePs {
 	constructor(private readonly fs: FakeFs) {
 		super();
 	}
 
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
-		const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
-		const [bin, ...args] = argv;
-		if (bin === "ssh-keygen") {
-			await this.fs.write(`${args.at(-1)}.pub`, "ssh-ed25519 AAAA\n");
-		} else if (bin === PATHS.bin && args[0] === "up") {
-			this.made = true;
-		} else if (args[0] === "stack" && args[1] === "ls") {
-			return ok(JSON.stringify(this.made ? [{ name: "coordinator" }] : []));
-		} else if (args[0] === "stack" && args[1] === "output") {
-			return ok(JSON.stringify({ ipv4: "203.0.113.7", serverId: "42" }));
-		}
-		return ok();
+		await this.fs.write(`${argv.at(-1)}.pub`, "ssh-ed25519 AAAA\n");
+		return { exitCode: 0, stdout: "", stderr: "" };
 	}
 }

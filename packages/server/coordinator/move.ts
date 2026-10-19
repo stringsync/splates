@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { SecretStores } from "../creds";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
-import { BOX_PROJECT, type BoxStanding } from "./box";
+import type { BoxStanding } from "./box";
 import { MovedCreds } from "./creds";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
 import {
@@ -20,7 +20,7 @@ import {
 	upgradeScript,
 } from "./scripts";
 import { BoxShell } from "./ssh";
-import { copyTree, MOVED_HOME, stage } from "./stage";
+import { MOVED_HOME, stage } from "./stage";
 
 /**
  * Moves the coordinator onto its box: checks what it needs, readies the
@@ -289,7 +289,6 @@ export class CoordinatorMove {
 				await fs.rename(`${home}/${name}`, to);
 			}
 		}
-		await this.keepBoxStack(aside);
 		for (const repo of repos) {
 			const records = `${repo.root}/.git/splates`;
 			if (await fs.exists(records)) {
@@ -300,28 +299,6 @@ export class CoordinatorMove {
 			}
 		}
 		return aside;
-	}
-
-	/**
-	 * Puts the box's own Pulumi stack back in this machine's state, from the
-	 * state just put aside, so `splates coordinator status|remove` still find
-	 * it here. Workers the box makes are the box's: their stacks stay aside.
-	 */
-	private async keepBoxStack(aside: string): Promise<void> {
-		const { fs, home } = this.opts;
-		const from = `${aside}/pulumi/state/.pulumi`;
-		const to = `${home}/pulumi/state/.pulumi`;
-		await fs.mkdir(to, { recursive: true });
-		for (const path of [
-			"meta.yaml",
-			`stacks/${BOX_PROJECT}`,
-			`backups/${BOX_PROJECT}`,
-			`history/${BOX_PROJECT}`,
-		]) {
-			if (await fs.exists(`${from}/${path}`)) {
-				await copyTree(fs, `${from}/${path}`, `${to}/${path}`, (text) => text);
-			}
-		}
 	}
 
 	private async answers(url: string): Promise<boolean> {

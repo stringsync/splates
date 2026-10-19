@@ -1,74 +1,35 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FakeHetzner } from "./fake-hetzner";
 import { HetznerWorkerProvider } from "./hetzner";
 import { HCLOUD_TOKEN } from "./hetzner-api";
-import { PULUMI_PASSPHRASE, pulumiPaths } from "./pulumi";
-
-const HOME = "/home/.splates";
-const PATHS = pulumiPaths(HOME);
 
 describe("HetznerWorkerProvider", () => {
-	let ps: PulumiPs;
-	let fs: FakeFs;
+	let hetzner: FakeHetzner;
 	let store: FakeSecretStore;
-	/** Type names orderable, by location. */
-	let stock: Record<string, string[]>;
-	let status: string;
 	let stuck: boolean;
 	let provider: HetznerWorkerProvider;
 
 	beforeEach(async () => {
-		fs = new FakeFs();
-		ps = new PulumiPs(fs);
+		hetzner = new FakeHetzner();
+		hetzner.actionsRun = true;
+		hetzner.stock = {
+			nbg1: ["cpx62", "cpx22"],
+			fsn1: ["cpx62", "cx53", "cpx22"],
+		};
 		store = new FakeSecretStore();
-		await store.set(PULUMI_PASSPHRASE, "pass");
 		await store.set(HCLOUD_TOKEN, "token");
-		stock = { nbg1: ["cpx62", "cpx22"], fsn1: ["cpx62", "cx53", "cpx22"] };
-		status = "running";
 		stuck = false;
-		const ids = ["cx53", "cpx62", "cx23", "cpx22"];
-		const fetch = (async (url: string, init?: RequestInit) => {
-			expect(new Headers(init?.headers).get("Authorization")).toBe(
-				"Bearer token",
-			);
-			const { pathname } = new URL(url);
-			if (pathname === "/v1/server_types") {
-				return Response.json({
-					server_types: ids.map((name, id) => ({ id, name })),
-				});
-			}
-			if (pathname === "/v1/datacenters") {
-				return Response.json({
-					datacenters: Object.entries(stock).map(([name, types]) => ({
-						location: { name },
-						server_types: { available: types.map((type) => ids.indexOf(type)) },
-					})),
-				});
-			}
-			if (pathname === "/v1/servers/42") {
-				return Response.json({ server: { status } });
-			}
-			return Response.json({
-				servers: [
-					{
-						name: "cpx62-aaaaaa",
-						server_type: { name: "cpx62" },
-						labels: { "splates-worker": "cpx62-aaaaaa" },
-					},
-				],
-			});
-		}) as unknown as typeof globalThis.fetch;
 		provider = new HetznerWorkerProvider({
-			ps,
-			fs,
-			home: HOME,
 			store,
-			fetch,
+			fetch: hetzner.fetch,
 			wall: { now: () => 1000 },
 			wait: async () => {
-				status = stuck ? status : "off";
+				if (!stuck) {
+					for (const builder of hetzner.labelled("splates-snapshot-builder")) {
+						builder.status = "off";
+					}
+				}
 			},
 		});
 	});
@@ -79,13 +40,13 @@ describe("HetznerWorkerProvider", () => {
 			"cpx62",
 		]);
 
-		stock.fsn1 = ["cpx62"];
+		hetzner.stock.fsn1 = ["cpx62"];
 		expect((await provider.types()).map((type) => type.name)).toEqual([
 			"cpx62",
 		]);
 	});
 
-	it("makes a worker in its own stack, in the first location with stock, its boot passed as a secret on stdin", async () => {
+	it("makes a worker labelled with its id, in the first location with stock, its boot in its user data", async () => {
 		const made = await provider.create({
 			id: "cx53-abc123",
 			type: "cx53",
@@ -94,65 +55,64 @@ describe("HetznerWorkerProvider", () => {
 		});
 
 		expect(made).toEqual({ id: "cx53-abc123", type: "cx53" });
-		expect(ps.commands()).toEqual([
-			"stack select --create --secrets-provider passphrase cx53-abc123",
-			"config set serverType cx53 --stack cx53-abc123",
-			"config set image 77 --stack cx53-abc123",
-			"config set location fsn1 --stack cx53-abc123",
-			"config set --secret userData --stack cx53-abc123",
-			"up --yes --skip-preview --stack cx53-abc123",
-		]);
-		const secret = ps.runs[4] as Run;
-		expect(secret.stdin).toContain(
+		const [server] = hetzner.labelled("splates-worker=cx53-abc123");
+		expect(server).toMatchObject({
+			name: "cx53-abc123",
+			server_type: { name: "cx53" },
+			image: "77",
+			datacenter: { location: { name: "fsn1" } },
+		});
+		expect(server?.user_data).toContain(
 			'ExecStart="splates" "worker" "run" "--join" "secret-token"',
 		);
-		expect(ps.commands().join("\n")).not.toContain("secret-token");
-		expect(ps.runs[5]?.env).toMatchObject({
-			HCLOUD_TOKEN: "token",
-			PULUMI_CONFIG_PASSPHRASE: "pass",
-			PULUMI_BACKEND_URL: `file://${PATHS.state}`,
-		});
-		expect(
-			await fs.read(`${PATHS.root}/projects/splates-worker/Pulumi.yaml`),
-		).toContain('"hcloud:Server"');
 	});
 
-	it("refuses a type no location can make, and destroys what a failed up left", async () => {
-		stock = { nbg1: ["cpx62"] };
+	it("makes a worker once, however often it is asked", async () => {
+		const spec = { id: "w", type: "cpx62", snapshot: "1", boot: [] };
+		await provider.create(spec);
+		await provider.create(spec);
+
+		expect(hetzner.labelled("splates-worker")).toHaveLength(1);
+	});
+
+	it("refuses a type no location can make, and says why Hetzner refused one", async () => {
+		hetzner.stock = { nbg1: ["cpx62"] };
 		await expect(
 			provider.create({ id: "w", type: "cx53", snapshot: "1", boot: [] }),
 		).rejects.toThrow("Hetzner cannot make a cx53 in nbg1, fsn1, hel1");
 
-		ps.failUp = true;
+		hetzner.refuseCreate = "server limit reached";
 		await expect(
 			provider.create({ id: "w", type: "cpx62", snapshot: "1", boot: [] }),
-		).rejects.toThrow("pulumi up failed: error: server limit");
-		expect(ps.commands().slice(-3)).toEqual([
-			"stack ls --json",
-			"destroy --yes --skip-preview --stack w",
-			"stack rm --yes w",
-		]);
-		expect(ps.stacks.has("w")).toBe(false);
+		).rejects.toThrow("server limit reached");
+		expect(hetzner.servers.size).toBe(0);
 	});
 
-	it("destroys nothing for a worker it has no stack of", async () => {
+	it("destroys a worker's server, and nothing for a worker it never made", async () => {
+		await provider.create({ id: "w", type: "cpx62", snapshot: "1", boot: [] });
+		await provider.create({ id: "v", type: "cpx62", snapshot: "1", boot: [] });
+
+		await provider.destroy("w");
 		await provider.destroy("gone");
 
-		expect(ps.commands()).toEqual(["stack ls --json"]);
+		expect(await provider.list()).toEqual([{ id: "v", type: "cpx62" }]);
 	});
 
 	it("lists the servers labelled as its workers", async () => {
+		await provider.create({
+			id: "cpx62-aaaaaa",
+			type: "cpx62",
+			snapshot: "1",
+			boot: [],
+		});
+
 		expect(await provider.list()).toEqual([
 			{ id: "cpx62-aaaaaa", type: "cpx62" },
 		]);
 	});
 
-	it("builds a snapshot on a small builder, makes it once the recipe powers it off, then lets the builder and the last snapshot go", async () => {
-		ps.outputs = {
-			builderId: "42",
-			snapshotId: "77",
-			kept: { name: "snapshot_1", serverId: 7, version: "1.0.0" },
-		};
+	it("builds a snapshot on a small builder once the recipe powers it off, then lets the builder and the last snapshot go", async () => {
+		hetzner.images.set(7, { id: 7, labels: { "splates-snapshot": "linux" } });
 
 		const snapshot = await provider.snapshot({
 			platform: "linux",
@@ -160,31 +120,55 @@ describe("HetznerWorkerProvider", () => {
 			script: "#!/bin/sh\necho recipe\n",
 		});
 
-		const [building, imaging, done] = ps.ups;
-		expect(ps.ups).toHaveLength(3);
-		expect(Object.keys(building ?? {})).toEqual(["builder", "snapshot_1"]);
-		expect(Object.keys(imaging ?? {})).toEqual(["builder", "snapshot_1000"]);
-		expect(Object.keys(done ?? {})).toEqual(["snapshot_1000"]);
-		expect(done?.snapshot_1000).toMatchObject({
-			properties: { serverId: 42 },
+		const builder = hetzner.requests.find(
+			(each) => each.method === "POST" && each.path === "/servers",
+		);
+		expect(builder?.body).toMatchObject({
+			server_type: "cpx22",
+			image: "ubuntu-24.04",
 		});
-		expect(JSON.stringify(building)).toContain("cpx22");
-		expect(JSON.stringify(building)).toContain("echo recipe");
-		expect(snapshot).toEqual({ id: "77", version: "1.2.3", builtAt: 1000 });
+		expect(String(builder?.body?.user_data)).toContain("echo recipe");
+		const imaged = hetzner.requests.find((each) =>
+			each.path.endsWith("/actions/create_image"),
+		);
+		expect(imaged?.body).toMatchObject({
+			type: "snapshot",
+			description: "splates 1.2.3 worker",
+		});
+		expect(hetzner.servers.size).toBe(0);
+		expect([...hetzner.images.keys()].map(String)).toEqual([snapshot.id]);
+		expect(snapshot).toMatchObject({ version: "1.2.3", builtAt: 1000 });
 	});
 
 	it("lets the builder go, keeping the last snapshot, when the recipe never finishes", async () => {
 		stuck = true;
-		ps.outputs = {
-			builderId: "42",
-			kept: { name: "snapshot_1", serverId: 7, version: "1.0.0" },
-		};
+		hetzner.images.set(7, { id: 7, labels: { "splates-snapshot": "linux" } });
 
 		await expect(
 			provider.snapshot({ platform: "linux", version: "1.2.3", script: "" }),
 		).rejects.toThrow("did not finish within 40 minutes");
 
-		expect(Object.keys(ps.ups.at(-1) ?? {})).toEqual(["snapshot_1"]);
+		expect(hetzner.servers.size).toBe(0);
+		expect([...hetzner.images.keys()]).toEqual([7]);
+	});
+
+	it("clears a builder a build that died left, before building again", async () => {
+		await hetzner.fetch("https://api.hetzner.cloud/v1/servers", {
+			method: "POST",
+			headers: { Authorization: "Bearer token" },
+			body: JSON.stringify({
+				name: "linux-snapshot-builder",
+				labels: { "splates-snapshot-builder": "linux" },
+			}),
+		});
+
+		await provider.snapshot({
+			platform: "linux",
+			version: "1.2.3",
+			script: "",
+		});
+
+		expect(hetzner.servers.size).toBe(0);
 	});
 
 	it("names the setup step when it has no token", async () => {
@@ -195,56 +179,3 @@ describe("HetznerWorkerProvider", () => {
 		);
 	});
 });
-
-interface Run {
-	args: string[];
-	env: Record<string, string>;
-	stdin: string;
-}
-
-/**
- * A `pulumi` that remembers its stacks, answers each stack's outputs as the
- * test sets them, and keeps the program each `up` ran.
- */
-class PulumiPs extends FakePs {
-	readonly runs: Run[] = [];
-	/** Each `up`'s program's resources, by name. */
-	readonly ups: Record<string, unknown>[] = [];
-	readonly stacks = new Set<string>();
-	outputs: Record<string, unknown> = {};
-	failUp = false;
-
-	constructor(private readonly fs: FakeFs) {
-		super();
-	}
-
-	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
-		await super.spawnCapture(argv, opts);
-		const [bin, ...args] = argv;
-		expect(bin).toBe(PATHS.bin);
-		this.runs.push({ args, env: opts?.env ?? {}, stdin: opts?.stdin ?? "" });
-		const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
-		const stack = args.at(-1) ?? "";
-		if (args[0] === "stack" && args[1] === "select") {
-			this.stacks.add(stack);
-		} else if (args[0] === "stack" && args[1] === "rm") {
-			this.stacks.delete(stack);
-		} else if (args[0] === "stack" && args[1] === "ls") {
-			return ok(JSON.stringify([...this.stacks].map((name) => ({ name }))));
-		} else if (args[0] === "stack" && args[1] === "output") {
-			return ok(JSON.stringify(this.outputs));
-		} else if (args[0] === "up") {
-			const program = await this.fs.read(`${opts?.cwd}/Pulumi.yaml`);
-			this.ups.push(JSON.parse(program).resources);
-			if (this.failUp) {
-				return { exitCode: 255, stdout: "", stderr: "error: server limit\n" };
-			}
-		}
-		return ok();
-	}
-
-	/** The commands run, each as its words. */
-	commands(): string[] {
-		return this.runs.map((run) => run.args.join(" "));
-	}
-}

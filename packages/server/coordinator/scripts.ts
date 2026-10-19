@@ -1,4 +1,4 @@
-import { BOX_USER, boxPulumiInstall, KEYRING_PASSWORD } from "./box";
+import { BOX_USER, KEYRING_PASSWORD } from "./box";
 import type { MovedProject } from "./paths";
 
 /** The unit that keeps `splates server` running on the box. */
@@ -40,15 +40,14 @@ function keyOf(project: BoxProject): string {
 }
 
 /**
- * Brings the box's splates to `version`, and installs Pulumi there if it
- * is not, after waiting out its first boot, which installs bun.
+ * Brings the box's splates to `version`, after waiting out its first boot,
+ * which installs bun.
  */
 export function upgradeScript(version: string): string {
 	return [
 		"set -eu",
 		"cloud-init status --wait >/dev/null || true",
 		asUser(`${HOME}/.bun/bin/bun add -g @stringsync/splates@${version}`),
-		asUser(boxPulumiInstall()),
 		"",
 	].join("\n");
 }

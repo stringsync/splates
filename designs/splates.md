@@ -31,14 +31,14 @@ here is built for it now; the work only avoids closing it off.
 What holds now:
 
 - **All code is public**: the CLI, the page, the coordinator, the worker
-  protocol, `worker run`, every `WorkerProvider`, the Pulumi programs.
-- **Self-hosting is the product**: home workers, your own Pulumi stack,
+  protocol, `worker run`, every `WorkerProvider`.
+- **Self-hosting is the product**: home workers, your own cloud account,
   your own coordinator, all documented and none hobbled, as arbor already
   works fully without the `arbor dev` harness.
 - **Seams that keep the option**: `WorkerProvider` assumes nothing of where
-  the cloud credentials live or where Pulumi runs (#288), so a provider
-  could call a remote API instead; the Pulumi programs hold nothing only one
-  operator runs (#289, #295); public code never depends on anything private.
+  the cloud credentials live or where the cloud is called from (#288), so a
+  provider could call a remote API instead; the providers hold nothing only
+  one operator runs (#289, #295); public code never depends on anything private.
 - **The right to relicense**: the LLC holds every copyright, kept by a CLA
   before outside contributions (#310).
 
@@ -48,7 +48,7 @@ What it would look like, if the user chooses to sell (not planned):
   stringsync from spinningplates.tech; "Add cloud workers" on the Workers
   page signs in and machines appear, as Zed's editor signs in to its own
   servers, with self-hosting beside it.
-- Only operations would be private: API keys, Pulumi state, billing
+- Only operations would be private: API keys, billing
   credentials and deploy config, in a secret store, never a repo. Prices
   and margins would live with the business, not in this repo.
 

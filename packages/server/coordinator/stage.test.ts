@@ -30,8 +30,6 @@ describe("stage", () => {
 		await fs.write(`${HOME}/projects.lock`, "1");
 		await fs.write(`${HOME}/slots.json`, "{}");
 		await fs.write(`${HOME}/push.json`, '{"vapid":"keys"}');
-		await fs.write(`${HOME}/pulumi/state/stack.json`, `{"root":"${ROOT}"}`);
-		await fs.write(`${HOME}/pulumi/bin/pulumi`, "darwin binary");
 		const records = `${ROOT}/.git/splates`;
 		await fs.write(`${records}/format`, "3");
 		await fs.write(`${records}/todos.lock`, "1");
@@ -73,11 +71,9 @@ describe("stage", () => {
 		expect(await read("home/push.json")).toEqual({ vapid: "keys" });
 	});
 
-	it("leaves out locks, dev slots and Pulumi's binary, and Pulumi's state as it is", async () => {
+	it("leaves out locks and dev slots", async () => {
 		expect(await fs.exists(`${STAGING}/home/projects.lock`)).toBe(false);
 		expect(await fs.exists(`${STAGING}/home/slots.json`)).toBe(false);
-		expect(await fs.exists(`${STAGING}/home/pulumi/bin`)).toBe(false);
-		expect(await read("home/pulumi/state/stack.json")).toEqual({ root: ROOT });
 		expect(await fs.exists(`${STAGING}/projects/splates/todos.lock`)).toBe(
 			false,
 		);

@@ -11,7 +11,7 @@ import {
 import { SYSTEM_STORES } from "../creds";
 import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
-import { PULUMI_PASSPHRASE, pulumiPaths } from "../workers";
+import { HCLOUD_TOKEN } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
 import { coordinatorMoved } from "./coordinator-move";
@@ -62,17 +62,18 @@ export function coordinatorArea(
 		id: "coordinator-box",
 		title: "Make the coordinator's box",
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a CPX21 in Hetzner's Ashburn, Virginia, with Hetzner's daily backups, reached by SSH alone; it serves nothing until the coordinator moves onto it.",
-		user: "Next makes it in your Hetzner account, through the token and Pulumi state the Workers area readied: about $38 a month, its backups 20% more.",
+		user: "Next makes it in your Hetzner account, with the token the Workers area keeps: about $38 a month, its backups 20% more.",
 		agent:
 			"Press Next on the page, or run `splates coordinator up`, which makes the box and prints its address and how to SSH in; run again, it changes only what is not so already.",
 		optional: true,
-		after: [workerStep("pulumi-state"), workerStep("hetzner-token")],
+		after: [workerStep("hetzner-token")],
 		doing: "Making the coordinator's box, a few minutes…",
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
-			if (!(await pulumiReady(machine))) {
+			// Without a token there is no box to ask Hetzner about.
+			if ((await machine.device.get(HCLOUD_TOKEN)) === undefined) {
 				return false;
 			}
 			return (await box(machine).status()) !== null;
@@ -195,18 +196,6 @@ async function machineProjects(
 	return moving;
 }
 
-/** Whether Pulumi is installed and has its passphrase, short of which no box was made. */
-async function pulumiReady({
-	fs,
-	home,
-	device,
-}: SetupMachine): Promise<boolean> {
-	return (
-		(await fs.exists(pulumiPaths(home).bin)) &&
-		(await device.get(PULUMI_PASSPHRASE)) !== undefined
-	);
-}
-
 function box(machine: SetupMachine): CoordinatorBox {
 	return new CoordinatorBox({
 		version: RUNNING,
@@ -214,6 +203,7 @@ function box(machine: SetupMachine): CoordinatorBox {
 		fs: machine.fs,
 		home: machine.home,
 		store: machine.device,
+		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
 	});
 }
 

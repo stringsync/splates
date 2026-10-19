@@ -2,106 +2,118 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN, PULUMI_PASSPHRASE, pulumiPaths } from "../workers";
+import { HCLOUD_TOKEN } from "../workers";
+import { FakeHetzner } from "../workers/testing";
 import { CoordinatorBox, installScript } from "./index";
 
 const HOME = "/home/.splates";
-const PATHS = pulumiPaths(HOME);
 const KEY = `${HOME}/coordinator/id_ed25519`;
 
 describe("CoordinatorBox", () => {
 	let fs: FakeFs;
-	let ps: BoxPs;
+	let ps: KeygenPs;
+	let hetzner: FakeHetzner;
 	let store: FakeSecretStore;
 	let box: CoordinatorBox;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		ps = new BoxPs(fs);
+		ps = new KeygenPs(fs);
+		hetzner = new FakeHetzner();
 		store = new FakeSecretStore();
-		await store.set(PULUMI_PASSPHRASE, "pass");
 		await store.set(HCLOUD_TOKEN, "token");
-		box = new CoordinatorBox({ version: "1.2.3", ps, fs, home: HOME, store });
+		box = new CoordinatorBox({
+			version: "1.2.3",
+			ps,
+			fs,
+			home: HOME,
+			store,
+			fetch: hetzner.fetch,
+			wait: async () => {},
+		});
 	});
+
+	function server() {
+		const [only, ...more] = hetzner.labelled("splates-coordinator");
+		expect(more).toEqual([]);
+		return only;
+	}
 
 	it("makes one protected, backed-up box in Ashburn reached by its own key", async () => {
 		const standing = await box.up();
 
+		const made = server();
 		expect(standing).toEqual({
-			ipv4: "203.0.113.7",
-			serverId: "42",
+			ipv4: made?.public_net.ipv4?.ip ?? "",
+			serverId: String(made?.id),
 			serverType: "cpx21",
 			location: "ash",
 			key: KEY,
 		});
-		const server = (await ps.program()).resources.server.properties;
-		expect(server.backups).toBe(true);
-		expect(server.deleteProtection).toContain("protect");
-		expect(server.rebuildProtection).toContain("protect");
-		expect(ps.config).toMatchObject({
-			serverType: "cpx21",
-			location: "ash",
-			publicKey: "ssh-ed25519 AAAA splates-coordinator",
-			protect: "true",
-		});
-		expect(ps.config.userData).toContain("@stringsync/splates@1.2.3");
-		const up = ps.runs.find((run) => run.args[0] === "up");
-		expect(up?.env[HCLOUD_TOKEN]).toBe("token");
+		expect(made?.backup_window).not.toBeNull();
+		expect(made?.protection).toEqual({ delete: true, rebuild: true });
+		expect(made?.user_data).toContain("@stringsync/splates@1.2.3");
+		const [key] = hetzner.sshKeys.values();
+		expect(key?.public_key).toBe("ssh-ed25519 AAAA splates-coordinator");
+		expect(made?.ssh_keys).toEqual([key?.id ?? 0]);
 	});
 
 	it("opens SSH alone", async () => {
 		await box.up();
 
-		const rules = (await ps.program()).resources.firewall.properties.rules;
-		expect(rules).toEqual([
+		const [firewall] = hetzner.firewalls.values();
+		expect(server()?.firewalls).toEqual([{ firewall: firewall?.id ?? 0 }]);
+		expect(firewall?.rules).toEqual([
 			{
 				direction: "in",
 				protocol: "tcp",
 				port: "22",
-				sourceIps: ["0.0.0.0/0", "::/0"],
+				source_ips: ["0.0.0.0/0", "::/0"],
 			},
 		]);
 	});
 
-	it("keeps its key across ups", async () => {
+	it("makes one box and one key across ups, putting its firewall's rules back", async () => {
 		await box.up();
+		const [firewall] = hetzner.firewalls.values();
+		await hetzner.fetch(
+			`https://api.hetzner.cloud/v1/firewalls/${firewall?.id}/actions/set_rules`,
+			{
+				method: "POST",
+				headers: { Authorization: "Bearer token" },
+				body: JSON.stringify({ rules: [] }),
+			},
+		);
+
 		await box.up();
 
 		expect(ps.keygens).toBe(1);
-	});
-
-	it("never replaces the box for a newer install script", async () => {
-		await box.up();
-
-		expect((await ps.program()).resources.server.options.ignoreChanges).toEqual(
-			["userData"],
-		);
+		expect(hetzner.sshKeys.size).toBe(1);
+		expect(server()).toBeDefined();
+		expect(firewall?.rules).toHaveLength(1);
 	});
 
 	it("says there is no box before one is made", async () => {
 		expect(await box.status()).toBeNull();
 	});
 
-	it("lifts its protection before destroying it, then forgets its stack", async () => {
+	it("lifts its protection before destroying it, then its firewall and key", async () => {
 		await box.up();
-		ps.runs.length = 0;
 
 		await box.remove();
 
-		expect(ps.commands()).toEqual([
-			"stack ls --json",
-			"config set protect false --stack coordinator",
-			"up --yes --skip-preview --stack coordinator",
-			"destroy --yes --skip-preview --stack coordinator",
-			"stack rm --yes coordinator",
-		]);
+		expect(hetzner.servers.size).toBe(0);
+		expect(hetzner.firewalls.size).toBe(0);
+		expect(hetzner.sshKeys.size).toBe(0);
 		expect(await box.status()).toBeNull();
 	});
 
 	it("does nothing to remove when there is no box", async () => {
 		await box.remove();
 
-		expect(ps.commands()).toEqual(["stack ls --json"]);
+		expect(hetzner.calls().filter((call) => !call.startsWith("GET"))).toEqual(
+			[],
+		);
 	});
 
 	it("installs splates on the box for its own user, and cloudflared, with no credentials", () => {
@@ -117,6 +129,7 @@ describe("CoordinatorBox", () => {
 			"test -s /root/splates-keyring || (umask 077 && head -c 32 /dev/urandom | base64 > /root/splates-keyring)",
 		);
 	});
+
 	it("asks for the Hetzner token's setup step without one", async () => {
 		await store.delete(HCLOUD_TOKEN);
 
@@ -124,18 +137,9 @@ describe("CoordinatorBox", () => {
 	});
 });
 
-interface Run {
-	args: string[];
-	env: Record<string, string>;
-}
-
-/** A Pulumi CLI and ssh-keygen that remember what they were asked, against a `FakeFs`. */
-class BoxPs extends FakePs {
-	readonly runs: Run[] = [];
-	readonly stacks = new Set<string>();
-	readonly config: Record<string, string> = {};
+/** An ssh-keygen that writes its public key into a `FakeFs`, counting its runs. */
+class KeygenPs extends FakePs {
 	keygens = 0;
-	private dir = "";
 
 	constructor(private readonly fs: FakeFs) {
 		super();
@@ -143,60 +147,13 @@ class BoxPs extends FakePs {
 
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
-		const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
-		const [bin, ...args] = argv;
-		if (bin === "ssh-keygen") {
-			this.keygens++;
-			const at = args.indexOf("-f");
-			await this.fs.write(
-				`${args[at + 1]}.pub`,
-				"ssh-ed25519 AAAA splates-coordinator\n",
-			);
-			return ok();
-		}
-		expect(bin).toBe(PATHS.bin);
-		this.dir = opts?.cwd ?? "";
-		this.runs.push({ args, env: opts?.env ?? {} });
-		const stack = args.at(-1) ?? "";
-		if (args[0] === "stack" && args[1] === "select") {
-			this.stacks.add(stack);
-		} else if (args[0] === "stack" && args[1] === "rm") {
-			this.stacks.delete(stack);
-		} else if (args[0] === "stack" && args[1] === "ls") {
-			return ok(JSON.stringify([...this.stacks].map((name) => ({ name }))));
-		} else if (args[0] === "stack" && args[1] === "output") {
-			return ok(
-				JSON.stringify({
-					ipv4: "203.0.113.7",
-					serverId: "42",
-					serverType: this.config.serverType,
-					location: this.config.location,
-				}),
-			);
-		} else if (args[0] === "config" && args[1] === "set") {
-			const key = args[2] ?? "";
-			this.config[key] = args[3] ?? "";
-		}
-		return ok();
+		expect(argv[0]).toBe("ssh-keygen");
+		this.keygens++;
+		const at = argv.indexOf("-f");
+		await this.fs.write(
+			`${argv[at + 1]}.pub`,
+			"ssh-ed25519 AAAA splates-coordinator\n",
+		);
+		return { exitCode: 0, stdout: "", stderr: "" };
 	}
-
-	/** The program Pulumi was last run against. */
-	async program(): Promise<BoxProgram> {
-		return JSON.parse(await this.fs.read(`${this.dir}/Pulumi.yaml`));
-	}
-
-	/** The commands run, each as its words. */
-	commands(): string[] {
-		return this.runs.map((run) => run.args.join(" "));
-	}
-}
-
-interface BoxProgram {
-	resources: {
-		server: {
-			properties: Record<string, unknown>;
-			options: { ignoreChanges?: string[] };
-		};
-		firewall: { properties: { rules: unknown[] } };
-	};
 }
