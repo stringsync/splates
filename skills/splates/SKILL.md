@@ -242,8 +242,10 @@ and carry on, saying nothing of it to the user; write it in a line under
 `## Notes` only when whoever resumes the task would need it.
 
 Ask in the format below and nowhere else: a numbered question under `##
-Blocked`, then in your reply as Reporting says, never a question tucked into
-prose or put through your harness's own question tool. The task cannot merge
+Blocked`, then in your reply as Reporting says, a lone question numbered
+`1.` too, so the page shows its question card. Never tuck a question into
+prose or put it through your harness's own question tool, which the page
+cannot show as a card. The task cannot merge
 until it is answered, though the user can answer in chat while you work.
 When an answer overturns a pick you built on, redo that part.
 
@@ -691,12 +693,15 @@ want before merging, such as how it works, goes in sections between the
 checks and the last line: the `splates server` page folds it away as its details,
 below the checks.
 
-Number questions the same way wherever you ask them: a mid-task reply, a
-merge report, or a message outside any task. The user answers by number, so
-two or more questions always go in a list numbered from 1, never a bulleted
-one, never several in one item, and never one tucked into a sentence. Each
-item's line ends at its `?`, as under `## Blocked`, so the page can show it
-as a question.
+Ask every question to the user in this format, wherever you ask it: a
+mid-task reply, a merge report, a quick clarification before any task, or a
+message outside any task. The `splates server` page shows a question as its
+question card, with choices to tap and a box to answer in, only when it is
+an item of a list numbered from 1 at the margin, outside code blocks, so
+ask even a lone question as `1. ...?`. Never put one in a bulleted list,
+several in one item, or one tucked into a sentence: those show as plain
+text the user must answer by typing. Each item's line ends at its `?`, as
+under `## Blocked`, its body and choices indented under it.
 
 ## SPLATES.md
 
