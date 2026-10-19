@@ -5,6 +5,7 @@ import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
+import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
@@ -189,6 +190,11 @@ export function PhoneApp({
 					available={available}
 					waiting={waiting}
 					archived={conversations.filter((each) => each.archived).length}
+					orphans={
+						available && snapshot !== null
+							? orphanCount(snapshot.tasks, conversations)
+							: 0
+					}
 					snapshot={snapshot}
 					onGo={go}
 				/>

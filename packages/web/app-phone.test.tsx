@@ -196,7 +196,11 @@ describe("App on a phone", () => {
 	// scry-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
 	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {
 		const left = details({ task: "delta", takenBy: "c9" });
-		const quiet = details({ task: "gamma", activeAt: hoursAgo(2) });
+		const quiet = details({
+			task: "gamma",
+			lease: "held",
+			activeAt: hoursAgo(2),
+		});
 		const view = await testing.openConversations(
 			[conversation({ id: "c9", task: "delta", archived: true })],
 			null,
@@ -207,7 +211,7 @@ describe("App on a phone", () => {
 		const group = (name: string) =>
 			within(inbox).getByRole("region", { name }).textContent;
 		expect(group("Needs you")).toContain(
-			"Abandoned · Its conversation was archived",
+			"Orphaned · Its conversation was archived",
 		);
 		expect(group("Working")).toContain("gamma2hNo sign since 2h");
 	});

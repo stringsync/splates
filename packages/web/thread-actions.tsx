@@ -11,7 +11,9 @@ import {
 	Loader2Icon,
 	PauseIcon,
 	PlayIcon,
+	RotateCwIcon,
 	SquareTerminalIcon,
+	UserRoundPlusIcon,
 	WalletIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
@@ -22,12 +24,14 @@ import { NEW } from "./conversation-address";
 import {
 	pauseConversation,
 	promptConversation,
+	restartConversation,
 	sendQueuedNow,
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
+import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
 import { useStamps } from "./stamp";
@@ -36,6 +40,7 @@ import { ToggleTerminal } from "./terminal";
 /**
  * What a conversation's thread offers beside it: reviewing its task's
  * changes, its terminal, pausing its agent at a checkpoint and resuming it,
+ * restarting its agent on its task or handing the task to a new one,
  * deferring what the person last asked, showing its messages' timestamps,
  * and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) does too; and
  * starting a new conversation with its agent.
@@ -83,6 +88,26 @@ export function useThreadActions(
 				]
 			: []),
 		...pauseActions(conversation, refused),
+		...(dispatching !== null && conversation.task !== null && !archived
+			? [
+					{
+						label: "Restart agent",
+						icon: <RotateCwIcon />,
+						run: () =>
+							void restartConversation(id).catch((error: unknown) =>
+								refused("Not restarted", error),
+							),
+					},
+					{
+						label: "Hand to a new agent",
+						icon: <UserRoundPlusIcon />,
+						run: null,
+						menu: (
+							<HandOffItems conversation={conversation} refused={refused} />
+						),
+					},
+				]
+			: []),
 		{
 			label: stamps.shown ? "Hide timestamps" : "Show timestamps",
 			icon: <ClockIcon />,

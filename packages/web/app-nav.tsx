@@ -12,6 +12,7 @@ import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
 import { NewMenu } from "./new-menu";
 import { NextWaiting } from "./next-waiting";
+import { OrphansDot, orphanCount } from "./orphans";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
@@ -61,6 +62,15 @@ export function AppNav({
 	// Creds counts nothing: a dot says a request waits on the person.
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
+	const { conversations } = useReactive(
+		talk,
+		(talk) => ({ conversations: talk.conversations }),
+		["changed"],
+	);
+	const orphans =
+		available && snapshot !== null
+			? orphanCount(snapshot.tasks, conversations)
+			: 0;
 	return (
 		<>
 			{/* Below the row of bars, where its head floats. Hidden, it stays
@@ -87,6 +97,9 @@ export function AppNav({
 								<span role="img" aria-label="creds requested">
 									<UpdateDot ring="ring-sidebar" />
 								</span>
+							)}
+							{value === "tasks" && orphans > 0 && (
+								<OrphansDot ring="ring-sidebar" />
 							)}
 						</span>
 						<span className="flex-1 text-left">{label}</span>

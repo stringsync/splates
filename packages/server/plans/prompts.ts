@@ -41,6 +41,17 @@ export function demoReference(task: string, point: DemoPoint): string {
 	return `[SPLATES DEMO ${task} ${point}]`;
 }
 
+/**
+ * What a chat with an agent takes to mean "claim `task` and carry on with
+ * it" from an agent that stopped on it without handing it over, whose last
+ * turns are at `transcript`.
+ */
+export function handOffReference(task: string, transcript: string): string {
+	return `${taskReference(task)}
+
+The agent before you on this task stopped without handing it over, so its SPLATES.md may be behind. What it said and did last is in ${transcript}: read its end before going on.`;
+}
+
 /** What a chat with an agent takes to mean "walk the user through setup step `step`". */
 export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;

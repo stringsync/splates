@@ -128,6 +128,25 @@ export async function pauseConversation(id: string): Promise<void> {
 	await send(`/api/conversations/${id}/pause`, {});
 }
 
+/**
+ * Starts the agent of conversation `id` again in a new session on its task,
+ * told to claim it, for one stuck or dead there.
+ */
+export async function restartConversation(id: string): Promise<void> {
+	await send(`/api/conversations/${id}/restart`, {});
+}
+
+/**
+ * Takes conversation `id` off its task, its agent stopped, and answers the
+ * prompt that has the next agent claim the task.
+ */
+export async function handOffConversation(id: string): Promise<string> {
+	const { prompt } = (await send(`/api/conversations/${id}/hand-off`, {})) as {
+		prompt: string;
+	};
+	return prompt;
+}
+
 /** Stops command `background` the agent in conversation `id` left running. */
 export async function stopBackground(
 	id: string,

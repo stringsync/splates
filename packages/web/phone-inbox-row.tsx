@@ -185,8 +185,8 @@ export function statusOf(
 					? "Ready to merge"
 					: need.why === "failed"
 						? "Failed"
-						: need.why === "abandoned"
-							? "Abandoned"
+						: need.why === "orphaned"
+							? "Orphaned"
 							: open > 0
 								? `${open} ${open === 1 ? "question" : "questions"}`
 								: "Questions";

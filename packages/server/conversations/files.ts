@@ -9,6 +9,7 @@ import type { ProjectRoster } from "./host";
 import { textOf } from "./messages";
 import { conversationReference } from "./reference";
 import type { Message, Sent, Upload } from "./state";
+import { transcriptOf } from "./transcript";
 
 /**
  * The files the person sent in a conversation, kept beside its log in a
@@ -140,6 +141,17 @@ export class ConversationFiles {
 			...links,
 			...(text === "" ? [] : [{ type: "text" as const, text }]),
 		];
+	}
+
+	/**
+	 * Writes the end of `messages` beside the log for the agent that takes its
+	 * task on next, and answers where (see `transcriptOf`).
+	 */
+	async keepTranscript(messages: Message[]): Promise<string> {
+		await this.fs.mkdir(this.dir);
+		const path = `${this.dir}/transcript.md`;
+		await this.fs.write(path, `${transcriptOf(messages)}\n`);
+		return path;
 	}
 
 	/** Deletes every file kept, for good. */

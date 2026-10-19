@@ -1,7 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import type { Details } from "../tasks";
-import { ASKED_QUIET, need, needs, QUIET_AFTER, quietSince } from "./needs";
+import {
+	ASKED_QUIET,
+	need,
+	needs,
+	orphaned,
+	QUIET_AFTER,
+	quietSince,
+} from "./needs";
 import { STUB_STEPS } from "./plan";
 
 describe("needs", () => {
@@ -206,6 +213,7 @@ describe("needs", () => {
 					task({
 						plan: PLAN,
 						takenBy: "c1",
+						lease: "stale",
 						activeAt: "2026-10-11T10:30:00.000Z",
 					}),
 				],
@@ -215,26 +223,36 @@ describe("needs", () => {
 
 		expect(of([talk({ archived: true })])).toMatchObject({
 			kind: "waiting",
-			why: "abandoned",
+			why: "orphaned",
 			subject: "Its conversation was archived",
 			since: "2026-10-11T10:30:00.000Z",
 			questions: [{ number: "2" }, { number: "3" }],
 		});
 		expect(of([])).toMatchObject({
-			why: "abandoned",
+			why: "orphaned",
 			subject: "Its conversation is gone",
 		});
 		// Listed on another task, it may have a subagent on this one.
 		expect(of([talk({ task: "beta" })])).toMatchObject({ kind: "assuming" });
 	});
 
-	it("takes an agent outside the page to be at work, whatever conversation took the task before", () => {
+	it("takes an agent outside the page holding the lease to be at work, whatever conversation took the task before", () => {
 		expect(
 			needs({
 				tasks: [task({ takenBy: null })],
 				conversations: [talk({ archived: true })],
 			})[0]?.need.kind,
 		).toBe("working");
+	});
+
+	it("waits on you for a task no conversation took, once nothing holds its lease", () => {
+		expect(
+			needs({ tasks: [task({ lease: "stale" })], conversations: [] })[0]?.need,
+		).toMatchObject({
+			kind: "waiting",
+			why: "orphaned",
+			subject: "No conversation here is on it",
+		});
 	});
 
 	it("says an external agent's task is quiet once nothing has moved in it for a while", () => {
@@ -267,6 +285,43 @@ describe("needs", () => {
 		expect(
 			needs({ tasks: [task({ dispatched: true })], conversations: [] }),
 		).toEqual([]);
+	});
+
+	const stale = (overrides: Partial<Details> = {}) =>
+		task({ lease: "stale", ...overrides });
+
+	it("finds a task whose every conversation failed", () => {
+		expect(
+			orphaned(stale(), [
+				talk({ status: "failed" }),
+				talk({ id: "c2", status: "failed" }),
+			]),
+		).toMatchObject({ subject: "Its agent failed" });
+		expect(
+			orphaned(stale(), [
+				talk({ status: "failed" }),
+				talk({ id: "c2", status: "stopped" }),
+			]),
+		).toBeNull();
+	});
+
+	it("leaves a task whose conversation stopped idle, which resumes on its next prompt", () => {
+		expect(orphaned(stale(), [talk({ status: "stopped" })])).toBeNull();
+	});
+
+	it("leaves a task an agent outside the page holds, one queued for an agent, and one done", () => {
+		expect(orphaned(task({ lease: "held" }), [])).toBeNull();
+		expect(orphaned(stale({ dispatched: true }), [])).toBeNull();
+		expect(orphaned(stale({ status: "merged" }), [])).toBeNull();
+	});
+
+	it("leaves a task a listed conversation's subagent added", () => {
+		expect(
+			orphaned(stale({ caller: "c1" }), [talk({ task: "beta" })]),
+		).toBeNull();
+		expect(orphaned(stale({ caller: "c1" }), [])).toMatchObject({
+			subject: "No conversation here is on it",
+		});
 	});
 });
 

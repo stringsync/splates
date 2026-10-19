@@ -158,13 +158,14 @@ export function TaskView({
 			{by !== null && <ReadOnlyBanner by={by} phone={onBack !== null} />}
 			<div className="relative min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
-					{need.kind === "waiting" && need.why === "abandoned" ? (
+					{need.kind === "waiting" && need.why === "orphaned" ? (
 						<Alert>
 							<UnplugIcon className="text-muted-foreground" />
-							<AlertTitle>Abandoned</AlertTitle>
+							<AlertTitle>Orphaned</AlertTitle>
 							<AlertDescription>
-								{need.subject}, so no agent is left on it. Take it up in a new
-								conversation, which picks up from its SPLATES.md, or remove it.
+								{need.subject}, so no agent is left on it. Hand it to an agent,
+								which picks up from its SPLATES.md, or remove it. An agent still
+								on it outside the page can be brought in below.
 							</AlertDescription>
 							<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
 						</Alert>
@@ -255,7 +256,7 @@ export class ExternalReplies {
 	private answers(task: string, need: Need, kept: "copied" | "seen"): boolean {
 		const open = openQuestions(need);
 		// With no agent left to paste it to, it waits on you all the same.
-		if (need.kind === "waiting" && need.why === "abandoned") {
+		if (need.kind === "waiting" && need.why === "orphaned") {
 			return false;
 		}
 		return (

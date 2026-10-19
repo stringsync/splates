@@ -309,8 +309,8 @@ export function External({
 			)}
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
-			) : need.kind === "waiting" && need.why === "abandoned" ? (
-				<Abandoned />
+			) : need.kind === "waiting" && need.why === "orphaned" ? (
+				<Orphaned />
 			) : quiet !== null ? (
 				<Quiet since={quiet} />
 			) : working ? (
@@ -344,14 +344,14 @@ function Copied(): JSX.Element {
 
 /**
  * What a list shows of a task no agent is left on, in place of its alert: it
- * waits on you to take it up or remove it, whatever its questions.
+ * waits on you to hand it to an agent or remove it, whatever its questions.
  */
-function Abandoned(): JSX.Element {
+export function Orphaned(): JSX.Element {
 	return (
 		<span
 			role="status"
-			aria-label="abandoned"
-			title="Abandoned: no agent is left on it"
+			aria-label="orphaned"
+			title="Orphaned: no agent is left on it"
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
 			<UnplugIcon className="size-3.5 text-foreground/60" />

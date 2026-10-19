@@ -62,9 +62,14 @@ Cap upload retries
 			{
 				tasks: [
 					details({ task: "alpha" }),
-					details({ task: "beta", createdAt: "2026-10-11T09:58:00.000Z" }),
+					details({
+						task: "beta",
+						lease: "held",
+						createdAt: "2026-10-11T09:58:00.000Z",
+					}),
 					details({
 						task: "gamma",
+						lease: "held",
 						activeAt: "2026-10-11T10:00:00.000Z",
 						plan: PLAN,
 					}),
@@ -124,7 +129,7 @@ Cap upload retries
 		expect(dialog.textContent).toContain("Cap upload retries");
 	});
 
-	it("tells a task its conversation left, and one gone quiet, from an agent at work elsewhere, and offers to take up or remove the one left", async () => {
+	it("tells a task its conversation left, and one gone quiet, from an agent at work elsewhere, and offers to hand to an agent or remove the one left", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
@@ -134,10 +139,15 @@ Cap upload retries
 			{
 				tasks: [
 					details({ task: "alpha" }),
-					details({ task: "beta", activeAt: new Date().toISOString() }),
+					details({
+						task: "beta",
+						lease: "held",
+						activeAt: new Date().toISOString(),
+					}),
 					details({ task: "delta", takenBy: "c9" }),
 					details({
 						task: "gamma",
+						lease: "held",
 						activeAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
 					}),
 				],
@@ -147,20 +157,20 @@ Cap upload retries
 		expect(sidebar(view)).toEqual([
 			["alpha", null],
 			["beta", "working elsewhere"],
-			["delta", "abandoned"],
+			["delta", "orphaned"],
 			["gamma", "no sign since 2h"],
 		]);
 		await openRow(view, "delta");
 		const alone = view.getByRole("region", { name: "delta" });
 		expect(alone.textContent).toContain(
-			"AbandonedIts conversation was archived, so no agent is left on it.",
+			"OrphanedIts conversation was archived, so no agent is left on it.",
 		);
 		const actions = within(alone).getByRole("toolbar", { name: "actions" });
 		expect(
 			within(actions)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Take up", "Remove"]);
+		).toEqual(["Hand to an agent", "Remove"]);
 	});
 
 	// scry-ignore simple-test-setup: it reopens the page with its own plan each time, which no other test does
@@ -168,6 +178,7 @@ Cap upload retries
 		const gamma = (plan: string) =>
 			details({
 				task: "gamma",
+				lease: "held",
 				activeAt: "2026-10-11T10:00:00.000Z",
 				plan,
 			});
@@ -255,7 +266,7 @@ Cap upload retries
 			},
 		];
 		const view = await testing.openConversations([], null, {
-			tasks: [details({ task: "beta" })],
+			tasks: [details({ task: "beta", lease: "held" })],
 		});
 		await act(async () =>
 			fireEvent.click(
@@ -306,7 +317,7 @@ Cap upload retries
 
 	it("says when no session in a task's tree can be brought in", async () => {
 		const view = await testing.openConversations([], null, {
-			tasks: [details({ task: "beta" })],
+			tasks: [details({ task: "beta", lease: "held" })],
 		});
 		await act(async () =>
 			fireEvent.click(

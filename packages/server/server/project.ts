@@ -490,6 +490,8 @@ export interface Served extends AsyncResource {
 	answerConversation: Handler;
 	cancelConversation: Handler;
 	pauseConversation: Handler;
+	restartConversation: Handler;
+	handOffConversation: Handler;
 	stopBackground: Handler;
 	backgroundOutput: Handler;
 	unqueueConversation: Handler;

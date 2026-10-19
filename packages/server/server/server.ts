@@ -702,6 +702,12 @@ export async function dev(
 					"/api/conversations/:id/pause": {
 						POST: talk(owned((project) => project.pauseConversation)),
 					},
+					"/api/conversations/:id/restart": {
+						POST: talk(owned((project) => project.restartConversation)),
+					},
+					"/api/conversations/:id/hand-off": {
+						POST: talk(owned((project) => project.handOffConversation)),
+					},
 					"/api/conversations/:id/background/:background": {
 						GET: talk(owned((project) => project.backgroundOutput)),
 					},

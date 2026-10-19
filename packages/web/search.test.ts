@@ -91,7 +91,7 @@ describe("search", () => {
 	it("lists what wants the person first when nothing is typed", () => {
 		const of = searched({
 			tasks: [
-				details({ task: "newer", createdAt: "2026-02-01" }),
+				details({ task: "newer", createdAt: "2026-02-01", lease: "held" }),
 				details({
 					task: "stuck",
 					createdAt: "2026-01-01",

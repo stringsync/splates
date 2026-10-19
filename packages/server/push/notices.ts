@@ -63,11 +63,12 @@ export class Notices {
 				return [];
 			}
 			const need = row.need;
-			// A task left by archiving its conversation was the person's own doing.
+			// An orphaned task was mostly the person's own doing, archiving its
+			// conversation, and an agent failing says so on its own row.
 			if (
 				need.kind === "waiting" &&
 				was.kind !== "waiting" &&
-				need.why !== "abandoned"
+				need.why !== "orphaned"
 			) {
 				return wants.waiting
 					? [{ row, title: titleOf(row, name), body: wanted(row, need) }]
@@ -149,8 +150,8 @@ function wanted(
 			return said("Failed", need.subject);
 		case "questions":
 			return said("Asks", need.subject);
-		case "abandoned":
-			return said("Abandoned", need.subject);
+		case "orphaned":
+			return said("Orphaned", need.subject);
 	}
 }
 

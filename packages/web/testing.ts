@@ -539,8 +539,9 @@ export class Testing implements Resource {
 		agents: AgentChoice[] = AGENTS,
 	) {
 		this.talk = { agents, conversations: held };
+		// Held by an agent outside the page, so it is not orphaned.
 		const view = await this.open({
-			tasks: [details({ task: "alpha" })],
+			tasks: [details({ task: "alpha", lease: "held" })],
 			...overrides,
 		});
 		// A phone opens on its inbox; beside a sidebar, go to Conversations.

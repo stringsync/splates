@@ -8,7 +8,7 @@ import { AgentConnection, fold, heard } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
-import { RECONNECT, taskReference } from "../plans";
+import { handOffReference, RECONNECT, taskReference } from "../plans";
 import type { Grant, WorkerMachine } from "../workers";
 import { answerWords } from "./answered";
 import { put } from "./archive";
@@ -35,6 +35,7 @@ import {
 	IDLE_STOP,
 	type Limit,
 	type QueueSpot,
+	SERVER_TOLD,
 	type Upload,
 } from "./state";
 import { ConversationTurns, type PromptOptions } from "./turns";
@@ -696,6 +697,54 @@ export class Conversation
 		if (busy && carry !== null) {
 			await this.turns.prompt(carry);
 		}
+	}
+
+	/**
+	 * Starts its agent again in a new session on its task, for one stuck or
+	 * dead there: the old session ends, and the new one is told to claim the
+	 * task, with what the old one said last kept for it to read.
+	 */
+	async restart(): Promise<void> {
+		const task = this.onTask("restart");
+		const transcript = await this.files.keepTranscript(this.state.messages);
+		await this.stop();
+		this.connection.forgetSession();
+		await this.prompt(handOffReference(task, transcript), [], undefined, {
+			told: SERVER_TOLD,
+		});
+	}
+
+	/**
+	 * Lets go of its task for another agent to take on: stops its agent and
+	 * moves it to the main tree, where it resumes if prompted again, and
+	 * answers the prompt that has the next agent claim the task, with what
+	 * this one said last kept for it to read.
+	 */
+	async handOff(): Promise<string> {
+		const task = this.onTask("hand off");
+		const { root } = this.deps;
+		if (root === null) {
+			fail("usage", `conversation ${this.id} has no main tree to move to`, {
+				conversation: this.id,
+			});
+		}
+		const transcript = await this.files.keepTranscript(this.state.messages);
+		await this.stop();
+		this.move(null, root);
+		return handOffReference(task, transcript);
+	}
+
+	/** Its task, for `doing` that needs one; refused when it is in none. */
+	private onTask(doing: string): string {
+		const { task, archived } = this.state;
+		if (task === null || archived) {
+			fail(
+				"usage",
+				`conversation ${this.id} is in no task: only one on a task can ${doing}`,
+				{ conversation: this.id },
+			);
+		}
+		return task;
 	}
 
 	/**

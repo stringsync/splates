@@ -5,6 +5,7 @@ import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
+import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
@@ -25,6 +26,7 @@ export function Drawer({
 	available,
 	waiting,
 	archived,
+	orphans,
 	snapshot,
 	onGo,
 }: {
@@ -41,6 +43,8 @@ export function Drawer({
 	waiting: number;
 	/** How many conversations are archived. */
 	archived: number;
+	/** How many tasks no agent is left on. */
+	orphans: number;
 	snapshot: Snapshot | null;
 	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
@@ -88,6 +92,9 @@ export function Drawer({
 											<span role="img" aria-label="creds requested">
 												<UpdateDot ring="ring-sidebar" />
 											</span>
+										)}
+										{value === "tasks" && orphans > 0 && (
+											<OrphansDot ring="ring-sidebar" />
 										)}
 									</span>
 								}

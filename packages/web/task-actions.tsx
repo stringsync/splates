@@ -1,3 +1,4 @@
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Question } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
@@ -37,7 +38,8 @@ import { ReviewChanges } from "./changes";
 import { TASK } from "./conversation-address";
 import { Dispatching, OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
-import { Refusal } from "./refusal";
+import { HandOffMenu, RestartButton } from "./hand-off";
+import { Refusal, useRefusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { StartItems, StartMenu } from "./start-menu";
 import { arriveAt } from "./task-view";
@@ -108,6 +110,14 @@ export function ActionBar({
 		context?.dispatch.on(task.task).some((row) => row.conversation !== null) ??
 		false;
 	const starts = context !== null && !chatting;
+	// Every agent on it failed: start one again, or hand it to another.
+	const failed =
+		chatting && context?.dispatch.orphaned(task.task)
+			? (context.dispatch.on(task.task)[0]?.conversation ?? null)
+			: null;
+	const revive = failed !== null && (
+		<Revive conversation={failed} wide={!wide} />
+	);
 	if (wide) {
 		return (
 			<div
@@ -118,6 +128,7 @@ export function ActionBar({
 				<div className="flex flex-wrap items-center gap-1.5">
 					{chatting && <OnIt task={task.task} variant="chips" />}
 					{starts && <Start task={task.task} />}
+					{revive}
 				</div>
 				<div className="flex flex-wrap items-center gap-1.5">
 					{[remove.action, retry, changes].map(
@@ -146,6 +157,7 @@ export function ActionBar({
 		>
 			{/* A row of its own, so it names whose spinner it is. */}
 			{chatting && <OnIt task={task.task} variant="rows" className="-mx-2" />}
+			{revive}
 			{count <= 2 || lead === undefined ? (
 				<div className="flex gap-2 [&>*]:flex-1">
 					<ActionButton action={remove.action} outline />
@@ -216,7 +228,7 @@ export function TakeUpOrRemove({
 		>
 			<StartMenu
 				assignment={{ kind: "task", task: task.task }}
-				label="Take up"
+				label="Hand to an agent"
 				size="sm"
 				className={touchSplit}
 			/>
@@ -230,6 +242,39 @@ export function TakeUpOrRemove({
 			/>
 			{remove.asking}
 		</div>
+	);
+}
+
+/**
+ * What to do with a task whose agent failed: restart it in the same
+ * conversation, or hand the task to a new one.
+ */
+function Revive({
+	conversation,
+	wide,
+}: {
+	conversation: ConversationState;
+	/** Whether each fills half its row, as on a phone. */
+	wide: boolean;
+}): JSX.Element {
+	const { refusal, refuse } = useRefusal();
+	const half = wide ? "flex-1 justify-center" : undefined;
+	return (
+		<>
+			<div className={cn("flex flex-wrap gap-1.5", wide && "gap-2")}>
+				<RestartButton
+					conversation={conversation}
+					refused={refuse}
+					className={half}
+				/>
+				<HandOffMenu
+					conversation={conversation}
+					refused={refuse}
+					className={half}
+				/>
+			</div>
+			<Refusal refusal={refusal} className="w-full" />
+		</>
 	);
 }
 

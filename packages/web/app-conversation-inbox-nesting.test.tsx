@@ -26,6 +26,7 @@ describe("A phone's inbox, nesting agents", () => {
 		testing.dispose();
 	});
 
+	// scry-ignore simple-test-setup: each test builds its own tree of conversations and tasks, which is what it tests
 	it("nests a part's conversations under the task it was handed out from, in a phone's inbox and the sidebar", async () => {
 		const held = [
 			conversation({
@@ -115,7 +116,7 @@ describe("A phone's inbox, nesting agents", () => {
 					details({ task: "split-a", caller: "c1" }),
 					details({ task: "split-b", caller: "c1" }),
 					details({ task: "split-c", caller: "c1" }),
-					details({ task: "loose" }),
+					details({ task: "loose", lease: "held" }),
 				],
 			},
 		);

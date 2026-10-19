@@ -7,6 +7,7 @@ import {
 import {
 	type Needing,
 	needs,
+	orphaned,
 	taskNumberReference,
 	taskReference,
 } from "@stringsync/splates-server/plans/browser";
@@ -77,6 +78,14 @@ export class Dispatch {
 		);
 	}
 
+	/** Whether no agent is left on `task`, as `orphaned` says. */
+	orphaned(task: string): boolean {
+		const details = this.task(task);
+		return (
+			details !== undefined && orphaned(details, this.conversations) !== null
+		);
+	}
+
 	/** `task`'s details, while it is still there. */
 	task(task: string): Details | undefined {
 		return this.tasks.find((each) => each.task === task);
@@ -117,9 +126,20 @@ export class Dispatch {
 	 * that does, the prompt in its composer; when the prompt is refused, it
 	 * stays in the conversation's thread as unsent.
 	 */
-	async begin(pick: AgentPick, assignment: Assignment): Promise<string> {
+	begin(pick: AgentPick, assignment: Assignment): Promise<string> {
 		const task = assignment.kind === "task" ? assignment.task : null;
-		const text = promptFor(assignment);
+		return this.beginWith(pick, task, promptFor(assignment));
+	}
+
+	/**
+	 * Starts a conversation with `pick` as `begin` does, in `task`'s tree or
+	 * the main tree for null, and sends it `text`.
+	 */
+	async beginWith(
+		pick: AgentPick,
+		task: string | null,
+		text: string,
+	): Promise<string> {
 		const left = settingsFor(pick.agent, this.agents, this.conversations);
 		const started = await startConversation(
 			pick.agent,
@@ -132,7 +152,8 @@ export class Dispatch {
 			true,
 		).catch(() => null);
 		if (started === null) {
-			return this.start(pick.agent, assignment, pick.model);
+			this.compose(newDraft(this.project, task), text);
+			return newAddress(pick.agent, task, pick.model ?? null);
 		}
 		this.feed.put(started);
 		const sending = this.feed.send(started.id, text);

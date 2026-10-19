@@ -46,6 +46,7 @@ import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { FinishedTasks } from "./finished-tasks";
 import { useFolded } from "./folded";
 import { useNow } from "./hooks/use-now";
+import { Orphaned } from "./list-rows";
 import { Mark } from "./mark";
 import { HEADING, Markdown } from "./markdown";
 import { NavigationContext } from "./navigation";
@@ -348,7 +349,10 @@ function TaskRows({
 						)}
 						{/* Only marks, since the row is a button: its dialog opens them. */}
 						{needing === null ? (
-							<OnIt task={task.task} variant="marks" />
+							<>
+								<OrphanedMark task={task.task} />
+								<OnIt task={task.task} variant="marks" />
+							</>
 						) : (
 							<ElsewhereMarks rows={needing} task={task.task} />
 						)}
@@ -366,6 +370,12 @@ function TaskRows({
 			))}
 		</ul>
 	);
+}
+
+/** A mark on a row of this project's `task` when no agent is left on it. */
+function OrphanedMark({ task }: { task: string }): JSX.Element | null {
+	const context = useContext(Dispatching);
+	return context?.dispatch.orphaned(task) ? <Orphaned /> : null;
 }
 
 /** The marks `OnIt` draws, for the conversations on another project's `task`. */

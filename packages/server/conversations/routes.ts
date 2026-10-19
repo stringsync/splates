@@ -297,6 +297,30 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	/**
+	 * Starts a conversation's agent again in a new session on its task,
+	 * answering once it is told to claim the task.
+	 */
+	readonly restartConversation = async (
+		request: Request,
+	): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		await conversation.restart();
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * Takes a conversation off its task, its agent stopped, for another to
+	 * take on, answering with the prompt that has the next one claim it.
+	 */
+	readonly handOffConversation = async (
+		request: Request,
+	): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const prompt = await conversation.handOff();
+		return Response.json({ state: conversation.state, prompt });
+	};
+
 	/** What a background command prints, as it prints it, until it ends. */
 	readonly backgroundOutput = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);

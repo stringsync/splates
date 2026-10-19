@@ -19,6 +19,7 @@ export {
 	needOfExternal,
 	needs,
 	openedBy,
+	orphaned,
 	quietSince,
 	TASK,
 } from "./needs";
@@ -46,6 +47,7 @@ export {
 	DIRECTIVES,
 	directive,
 	eventReference,
+	handOffReference,
 	isUpdate,
 	leadingDirectives,
 	MERGE,

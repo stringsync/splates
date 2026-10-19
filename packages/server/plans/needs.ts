@@ -88,9 +88,9 @@ export function needs({
  * Why an agent waits: a live ACP ask (a permission or a form), a review its
  * last reply asked for, open questions it ended its turn on (or for an
  * external agent, went quiet on), a failure, or for a task, no agent left on
- * it (see `abandoned`).
+ * it (see `orphaned`).
  */
-export type Why = "ask" | "review" | "questions" | "failed" | "abandoned";
+export type Why = "ask" | "review" | "questions" | "failed" | "orphaned";
 
 const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
 
@@ -131,13 +131,13 @@ export function needOfExternal(
 	now: number = Date.now(),
 ): Need {
 	const asked = need(task, null, now);
-	const left = abandoned(task, conversations);
+	const left = orphaned(task, conversations);
 	if (left === null) {
 		return asked;
 	}
 	return {
 		kind: "waiting",
-		why: "abandoned",
+		why: "orphaned",
 		subject: left.subject,
 		since: left.since,
 		questions: "questions" in asked ? asked.questions : [],
@@ -145,19 +145,36 @@ export function needOfExternal(
 }
 
 /**
- * Whether no agent is left on an external task, for certain: the page
- * conversation whose agent last took it is archived, or gone with the oldest
- * archived ones, and no agent outside the page has taken it since. What it
- * says of it, and since when; null while an agent may yet be on it. A
- * conversation listed on another task may still have a subagent on this
- * one, so only going quiet tells of it.
+ * Whether no agent the page runs is left on a live task: none is on it,
+ * the one whose agent last took it is archived or gone, or every one on it
+ * failed. What it says of it, and since when; null while an agent may yet
+ * be on it: one on it that has not failed, an agent outside the page holding
+ * its lease now, or one a listed conversation started, which answers to it
+ * (see `answersTo`). A conversation listed on another task may have a
+ * subagent on this one, so it is not orphaned either.
  */
-export function abandoned(
+export function orphaned(
 	task: Details,
-	conversations: ConversationState[],
+	conversations: readonly ConversationState[],
 ): { subject: string; since: string | null } | null {
-	if (task.takenBy === null) {
+	if (!isLive(task) || task.dispatched || task.lease === "held") {
 		return null;
+	}
+	const listed = conversations.filter((each) => !each.archived);
+	const on = listed.filter((each) => each.task === task.task);
+	if (on.length > 0) {
+		return on.every((each) => each.status === "failed")
+			? { subject: "Its agent failed", since: task.activeAt }
+			: null;
+	}
+	if (answersTo({ conversation: null, task }, conversations) !== null) {
+		return null;
+	}
+	if (task.takenBy === null) {
+		return {
+			subject: "No conversation here is on it",
+			since: task.activeAt,
+		};
 	}
 	const by = conversations.find((each) => each.id === task.takenBy);
 	if (by === undefined) {
