@@ -102,6 +102,16 @@ export function stretchesOf(
 	}
 	const replied = going && said?.type === "text" ? (said.at ?? null) : null;
 	const ordered = folded(placed(pieces, events));
+	// Keep live work below an event even before the agent sends another part.
+	const tail = ordered.at(-1);
+	if (
+		going &&
+		tail !== undefined &&
+		!Array.isArray(tail) &&
+		tail.type === "event"
+	) {
+		ordered.push([]);
+	}
 	const lastWork = ordered.findLastIndex((run) => Array.isArray(run));
 	// Thoughts never show, so work with nothing else in it goes, but for the
 	// last row while it says Working or holds the plan.
@@ -112,15 +122,20 @@ export function stretchesOf(
 			(index === lastWork && (going || message.plan !== null)),
 	);
 	const works = kept.filter((run) => Array.isArray(run));
-	// The last stretch but for events, which leave the work before them as it was.
-	const end = kept.findLastIndex(
-		(run) => Array.isArray(run) || run.type !== "event",
-	);
+	const end = kept.length - 1;
 	const final = works.at(-1);
 	return kept.map((run, index): Stretch => {
 		if (!Array.isArray(run)) {
 			return run;
 		}
+		const previous = kept[index - 1];
+		const following = kept[index + 1];
+		const boundary =
+			following !== undefined &&
+			!Array.isArray(following) &&
+			following.type === "event"
+				? following.event.at
+				: null;
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
 			(part.type === "tool" || part.type === "compaction") &&
@@ -141,11 +156,22 @@ export function stretchesOf(
 					...(waiting === null ? [] : [{ from: waiting, to: null }]),
 				],
 				plan: run === final ? message.plan : null,
-				at: run === works[0] ? began : startOf(run),
+				at:
+					run === works[0]
+						? began
+						: (startOf(run) ??
+							(previous !== undefined &&
+							!Array.isArray(previous) &&
+							previous.type === "event"
+								? previous.event.at
+								: null)),
 				until:
 					index === end
 						? message.until
-						: (ended.sort().at(-1) ?? startOf(next ?? []) ?? message.until),
+						: (boundary ??
+							ended.sort().at(-1) ??
+							startOf(next ?? []) ??
+							message.until),
 				running: going && index === end,
 				working: going && run === final,
 				going,

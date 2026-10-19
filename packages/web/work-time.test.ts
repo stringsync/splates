@@ -39,6 +39,47 @@ describe("permission wait timing", () => {
 		const row = work(at(40));
 		expect(liveWorkingSpan(row, 300_000)).toBe("20s");
 	});
+	it("starts fresh live work after a trailing claim event", () => {
+		const stretches = stretchesOf(
+			{
+				role: "agent",
+				at: at(0),
+				until: at(10),
+				plan: null,
+				parts: [tool({ at: at(0), until: at(5) })],
+			},
+			at(0),
+			true,
+			Infinity,
+			[
+				{
+					id: "claim",
+					at: at(8),
+					action: "claim",
+					task: "alpha",
+					reason: null,
+					conversation: "c1",
+					escalated: false,
+					tookOver: false,
+					goal: "Do the work.",
+				},
+			],
+		);
+		expect(stretches.map((stretch) => stretch.type)).toEqual([
+			"work",
+			"event",
+			"work",
+		]);
+		const rows = stretches.flatMap((stretch) =>
+			stretch.type === "work" ? [stretch.work] : [],
+		);
+		expect(rows[0]?.working).toBe(false);
+		expect(rows[0]?.running).toBe(false);
+		expect(rows[0]?.until).toBe(at(8));
+		expect(rows[1]?.working).toBe(true);
+		expect(rows[1]?.at).toBe(at(8));
+		expect(rows[1]?.parts).toEqual([]);
+	});
 });
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();
