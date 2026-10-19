@@ -26,7 +26,13 @@ describe("StatsPage", () => {
 		const busy = { ...tally, merged: 6, questionRounds: 6 };
 		const stats: Stats = {
 			buckets: [
-				{ start: "2026-10-14T00:00:00.000Z", ...busy, decidedByYou: 3 },
+				{
+					start: "2026-10-14T00:00:00.000Z",
+					...busy,
+					decidedByYou: 3,
+					costed: 2,
+					cost: 3,
+				},
 				{ start: "2026-10-14T06:00:00.000Z", ...busy, decidedByYou: 1 },
 				{ start: "2026-10-14T12:00:00.000Z", ...busy, questionRounds: 3 },
 			],
@@ -55,6 +61,10 @@ describe("StatsPage", () => {
 		).toBeTruthy();
 		expect(page.queryByRole("cell", { name: "Opus 5.5" })).toBeNull();
 		expect(page.getByText(/18 tasks ended in the last 7 days/)).toBeTruthy();
+		// What a task cost leads, without unfolding anything.
+		const cost = page.getByRole("region", { name: "Cost per task" });
+		expect(cost.textContent).toContain("$1.50");
+		expect(cost.textContent).toContain("Over 2 tasks in the last 7 days");
 		// The person's calls show without unfolding anything.
 		const decisions = page.getByRole("region", { name: "Decisions" });
 		expect(decisions.textContent).toContain("4 in the last 7 days");

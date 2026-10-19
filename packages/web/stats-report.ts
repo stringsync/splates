@@ -6,6 +6,7 @@ import {
 	type WorkedFrom,
 } from "@stringsync/splates-server/stats/browser";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { type CostRates, costRates } from "./cost-rates";
 import { type DecisionRates, decisionRates } from "./decision-rates";
 import {
 	type Advice,
@@ -192,6 +193,11 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 			previous: this.stats?.previous ?? null,
 			span: this.period.span ?? this.period.label,
 		});
+	}
+
+	/** What a task cost, over the period and bar by bar; null until loaded. */
+	get cost(): CostRates | null {
+		return this.stats === null ? null : costRates(this.stats, this.buckets);
 	}
 
 	/** How many calls the person made against how many agents took off them; null until loaded. */

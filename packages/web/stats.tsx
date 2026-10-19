@@ -20,6 +20,7 @@ import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
 import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
+import { CostPerTask } from "./stats-cost";
 import { Decisions } from "./stats-decisions";
 import { projectFilter } from "./stats-project-filter";
 import {
@@ -47,6 +48,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		ended,
 		lead,
 		rest,
+		cost,
 		decisions,
 		models,
 		devices,
@@ -63,6 +65,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			ended: report.ended,
 			lead: report.lead,
 			rest: report.rest,
+			cost: report.cost,
 			decisions: report.decisions,
 			models: report.models,
 			devices: report.devices,
@@ -120,6 +123,14 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				</p>
 			) : (
 				<>
+					{/* The north star: the same work done for less. */}
+					{cost !== null && (
+						<CostPerTask
+							rates={cost}
+							period={period}
+							weekly={period.id === "all"}
+						/>
+					)}
 					<section aria-label="act on" className="flex flex-col gap-2">
 						<h3 className="font-medium text-xs">Act on</h3>
 						{lead.length === 0 ? (
@@ -132,7 +143,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							))
 						)}
 					</section>
-					{/* Whether agents are taking calls off the person, the page's goal. */}
+					{/* Whether agents are taking calls off the person. */}
 					{decisions !== null && (
 						<Decisions
 							rates={decisions}
