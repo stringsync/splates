@@ -4,6 +4,7 @@ import {
 	type Hook,
 	HookStore,
 	hookAdd,
+	hookGroomer,
 	hookList,
 	hookPause,
 	hookRemove,
@@ -128,6 +129,40 @@ splatesHook
 	.action((opts, ctx) =>
 		hookPause({ hooks: storeOf(ctx), log: ctx.log }, opts.id, false),
 	);
+
+splatesHook
+	.command("groomer")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"turn on the project's groomer, built-in automation `groomer`, as Setup's Grooming step does: on each task deferred to the backlog, and the backlog as `splates server` starts, one persistent conversation organizes each task in order and marks it ready, never doing it. `--off` turns it off, retiring its conversation",
+	)
+	.option("agent", z.string(), {
+		default: "",
+		description: "the agent it runs as, as `splates agents` names it",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "its model (default: the agent's own)",
+	})
+	.option("effort", z.string(), {
+		default: "",
+		description: "its thinking level (default: the agent's own)",
+	})
+	.option("off", z.boolean(), {
+		default: false,
+		description: "turn it off",
+	})
+	.action(async (opts, ctx) => {
+		const pick = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
+		if (opts.off === (pick != null)) {
+			fail(
+				"usage",
+				"say how it runs with --agent, or turn it off with --off",
+				{},
+			);
+		}
+		await hookGroomer({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null);
+	});
 
 /** What sets the automation `splates hook add` adds off, refusing two triggers or none. */
 function triggerOf(opts: TriggerOptions): Trigger {

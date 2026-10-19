@@ -2,6 +2,7 @@ export type { HookDeps } from "./commands";
 export {
 	described,
 	hookAdd,
+	hookGroomer,
 	hookLabel,
 	hookList,
 	hookPause,
@@ -19,4 +20,11 @@ export { RunStore } from "./runs";
 export type { SchedulerDeps } from "./scheduler";
 export { Scheduler } from "./scheduler";
 export type { Automation, Hook, Hooks, TaskFilter, Trigger } from "./store";
-export { eventNamed, fromHooks, HookStore, stagesNamed } from "./store";
+export {
+	eventNamed,
+	fromHooks,
+	GROOMER_AUTOMATION,
+	GROOMER_TRIGGER,
+	HookStore,
+	stagesNamed,
+} from "./store";

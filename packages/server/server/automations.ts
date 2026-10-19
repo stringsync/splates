@@ -6,6 +6,7 @@ import {
 	type FireDeps,
 	type Fired,
 	fromHooks,
+	GROOMER_AUTOMATION,
 	type Hook,
 	HookRunner,
 	HookStore,
@@ -13,9 +14,10 @@ import {
 	Scheduler,
 	type TaskEventName,
 } from "../hooks";
-import { effortSettings } from "../models";
+import { type AgentPick, effortSettings } from "../models";
 import { eventReference, scheduleReference } from "../plans";
 import type { Journal } from "../records";
+import { Groomer } from "./groomer";
 import type { Project } from "./project";
 
 /**
@@ -30,6 +32,8 @@ export class Automations implements Resource {
 	readonly #runs: RunStore;
 	#runner: HookRunner | null = null;
 	#scheduler: Scheduler | null = null;
+	#groomer: Groomer | null = null;
+	#watching: Resource | null = null;
 
 	constructor(project: Project) {
 		this.#project = project;
@@ -38,7 +42,12 @@ export class Automations implements Resource {
 			`${project.splatesDir}/hooks-runs.json`,
 			project.fs,
 		);
-		this.routes = new AutomationRoutes(this.#store, this.#runs, this.all);
+		this.routes = new AutomationRoutes(
+			this.#store,
+			this.#runs,
+			this.all,
+			() => void this.groomed(),
+		);
 	}
 
 	/** Every automation: the person's, and the shell hooks the project checks in run after them. */
@@ -57,7 +66,13 @@ export class Automations implements Resource {
 
 	/** Starts running them, catching up on what came while the server was down. */
 	async start(conversations: Conversations, journal: Journal): Promise<void> {
-		const { fs, splatesDir, tasks } = this.#project;
+		const { fs, splatesDir, tasks, service, log } = this.#project;
+		this.#groomer = new Groomer({
+			tasks: () => tasks.all(),
+			conversations,
+			root: service.git.root,
+			log,
+		});
 		const fireDeps = this.#fireDeps(conversations);
 		this.#runner = await HookRunner.follow({
 			...fireDeps,
@@ -78,9 +93,42 @@ export class Automations implements Resource {
 			automations: this.all,
 			clock: { now: () => Date.now() },
 		});
+		// Turned on or off from the command line, as `splates hook groomer`.
+		try {
+			this.#watching = fs.watch(splatesDir, (changed) => {
+				if (changed.endsWith("hooks.json")) {
+					void this.groomed();
+				}
+			});
+		} catch (error) {
+			log.error(
+				`splates server cannot watch ${splatesDir}, so the groomer turns on or off from the command line only as it starts: ${String(error)}`,
+			);
+		}
+		// Hooks run at least once, and none while the server was down: the
+		// backlog as it stands is what the groomer grooms.
+		void this.groomed();
+	}
+
+	/**
+	 * Wakes the groomer as its automation now stands: on, it grooms the
+	 * backlog; off or paused, it retires its conversation.
+	 */
+	async groomed(): Promise<void> {
+		const groomer = (await this.all()).find(
+			({ id }) => id === GROOMER_AUTOMATION,
+		);
+		await this.#groomer?.wake(
+			groomer === undefined ||
+				groomer.paused === true ||
+				groomer.hook.kind !== "groom"
+				? null
+				: pickOf(groomer.hook),
+		);
 	}
 
 	dispose(): void {
+		this.#watching?.dispose();
 		this.#runner?.dispose();
 		this.#scheduler?.dispose();
 	}
@@ -123,6 +171,11 @@ export class Automations implements Resource {
 							log.error(`a hook's agent could not start: ${String(error)}`),
 						);
 				},
+				// Not awaited: the groomer works down the backlog turn by turn,
+				// while the hooks after it run.
+				groom: async (hook) => {
+					void this.#groomer?.wake(pickOf(hook));
+				},
 			},
 		};
 	}
@@ -145,4 +198,13 @@ function referenceOf(fired: Fired): string {
 	return "event" in fired
 		? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
 		: scheduleReference(fired.schedule);
+}
+
+/** The agent, model and thinking level a groom hook runs its groomer as. */
+function pickOf({ agent, model, effort }: AgentPick): AgentPick {
+	return {
+		agent,
+		...(model === undefined ? {} : { model }),
+		...(effort === undefined ? {} : { effort }),
+	};
 }

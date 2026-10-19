@@ -162,6 +162,13 @@ export interface ConversationState {
 	 * commands.
 	 */
 	summary?: true;
+	/**
+	 * The role of a persistent agent, as `"groomer"`: one conversation per
+	 * project that splates keeps for that role and tells of each automation
+	 * that wakes it, rather than starting one per run, so its history is the
+	 * role's log. Absent for an ordinary conversation.
+	 */
+	persistent?: string;
 }
 
 /**

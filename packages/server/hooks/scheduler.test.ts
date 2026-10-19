@@ -28,6 +28,9 @@ describe("Scheduler", () => {
 				agent: async (hook) => {
 					ran.push(hook.prompt);
 				},
+				groom: async () => {
+					ran.push("groom");
+				},
 			},
 			log: new MemoryLogger(),
 			timer,

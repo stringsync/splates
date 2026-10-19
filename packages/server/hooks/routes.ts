@@ -5,6 +5,7 @@ import type { TaskEventName } from "./events";
 import type { AutomationRun, RunStore } from "./runs";
 import {
 	type Automation,
+	GROOMER_AUTOMATION,
 	type Hook,
 	type HookStore,
 	stagesNamed,
@@ -32,16 +33,20 @@ export class AutomationRoutes {
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
 	readonly #all: () => Promise<Automation[]>;
+	readonly #changed: () => void;
 
 	constructor(
 		store: HookStore,
 		runs: RunStore,
 		/** Every automation, the project's checked-in ones too. */
 		all: () => Promise<Automation[]>,
+		/** Told once one is added, removed, paused or resumed here. */
+		changed: () => void = () => {},
 	) {
 		this.#store = store;
 		this.#runs = runs;
 		this.#all = all;
+		this.#changed = changed;
 	}
 
 	readonly listAutomations = (): Promise<Response> => this.#list();
@@ -49,21 +54,25 @@ export class AutomationRoutes {
 	readonly addAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook } = await body(request);
 		await this.#store.add(triggerIn(trigger), hookIn(hook));
+		this.#changed();
 		return this.#list();
 	};
 
 	readonly removeAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.remove(idIn(request));
+		this.#changed();
 		return this.#list();
 	};
 
 	readonly pauseAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.pause(idIn(request), true);
+		this.#changed();
 		return this.#list();
 	};
 
 	readonly resumeAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.pause(idIn(request), false);
+		this.#changed();
 		return this.#list();
 	};
 
@@ -79,10 +88,10 @@ export class AutomationRoutes {
 	}
 }
 
-/** The person's automation `/api/automations/<id>/...` names. */
+/** The person's automation `/api/automations/<id>/...` names, or the groomer. */
 function idIn(request: Request): string {
 	const id = new URL(request.url).pathname.split("/")[3] ?? "";
-	if (!/^\d+$/.test(id)) {
+	if (!/^\d+$/.test(id) && id !== GROOMER_AUTOMATION) {
 		fail("usage", `no automation ${id}: only one of yours changes here`, {
 			id,
 		});

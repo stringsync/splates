@@ -368,6 +368,31 @@ describe.concurrent("task", () => {
 		expect(deps.out()).toContain("groomed:   yes");
 	});
 
+	it("is claimed for one groomer at a time, until a take or grooming ends the claim", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "rough", null);
+		await taskAdd(deps, "taken", null);
+		await taskAdd(deps, "groomed", null, { ready: true });
+		await add(deps, "work", { tasks: [2] });
+		const claim = async (id: number, by: string) =>
+			(await deps.tasks.find(id)).groom(by);
+
+		expect(await claim(1, "groomer-a")).toBe(true);
+		expect(await claim(1, "groomer-a")).toBe(false);
+		expect(await claim(2, "groomer-a")).toBe(false);
+		expect(await claim(3, "groomer-a")).toBe(false);
+		// A groomer since retired gives way to the one on now.
+		expect(await claim(1, "groomer-b")).toBe(true);
+		expect((await deps.tasks.find(1)).state.grooming).toBe("groomer-b");
+
+		await (await deps.tasks.find(1)).take("person");
+		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
+		await (await deps.tasks.find(1)).release();
+		await claim(1, "groomer-b");
+		await taskUpdate(deps, 1, { ready: true });
+		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
+	});
+
 	it("puts a removed task's queued task back on the list", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);

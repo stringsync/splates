@@ -123,6 +123,9 @@ export async function taskShow(
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.
 		`  groomed:   ${task.state.groomed ? "yes" : "no, groom it before work on it"}`,
+		...(task.state.grooming === undefined
+			? []
+			: [`  grooming:  the groomer has it, until it is groomed or taken`]),
 		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,
 		`  taken by:  ${task.takenBy ?? "nobody yet"}`,
 		...(task.state.assignee === undefined

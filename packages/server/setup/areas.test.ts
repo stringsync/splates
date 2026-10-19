@@ -36,6 +36,7 @@ describe("SETUP_AREAS", () => {
 			"notifications",
 			"dictation",
 			"github",
+			"grooming",
 			"claude",
 			"codex",
 		]);

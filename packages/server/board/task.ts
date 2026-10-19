@@ -30,12 +30,10 @@ export interface TaskRecord {
 	lane: number | null;
 	/** How far it has come: groomed, queued, running, or none of them yet. */
 	stage: TaskStage;
-	/**
-	 * Whether it was groomed, once `ready`: kept while it is queued and
-	 * running, so one let go goes back to ready, and its agent knows not to
-	 * groom it again. Absent for one never groomed.
-	 */
+	/** Whether it was groomed, kept once queued and running, so one let go goes back to ready. */
 	groomed?: true;
+	/** The groomer conversation that claimed it, in the backlog untaken; absent for none. */
+	grooming?: string;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
@@ -127,6 +125,29 @@ export class Task {
 			}
 			return { ...state, takenBy: task };
 		});
+	}
+
+	/**
+	 * Claims it for groomer conversation `by` to groom, saying whether `by`
+	 * now has it: false for one taken, out of the backlog, or `by`'s already,
+	 * which had its turn on it. Taking it or marking it ready ends the claim.
+	 */
+	async groom(by: string): Promise<boolean> {
+		// One compare-and-set under the store's lock; a claim by another
+		// conversation, a groomer since retired, gives way.
+		let claimed = false;
+		await this.tasks.revise(this.id, (state) => {
+			if (
+				state.takenBy !== null ||
+				state.stage !== "backlog" ||
+				state.grooming === by
+			) {
+				return state;
+			}
+			claimed = true;
+			return { ...state, grooming: by };
+		});
+		return claimed;
 	}
 
 	/** Puts it back on the list, as when the task that took it is removed. */
@@ -247,16 +268,21 @@ export function unqueued(state: TaskRecord): TaskRecord {
  * agent or not, which it stays once it moves on.
  */
 export function staged(state: TaskRecord, running: boolean): TaskRecord {
-	const { groomed: _, ...rest } = state;
+	const { groomed: _, grooming, ...rest } = state;
+	const stage = running
+		? "running"
+		: state.stage === "running"
+			? unqueued(state).stage
+			: state.stage;
 	return {
 		...rest,
-		stage: running
-			? "running"
-			: state.stage === "running"
-				? unqueued(state).stage
-				: state.stage,
+		stage,
 		...(state.groomed || state.stage === "ready"
 			? { groomed: true as const }
+			: {}),
+		// A groomer's claim lasts only while the task waits in the backlog untaken.
+		...(grooming !== undefined && stage === "backlog" && state.takenBy === null
+			? { grooming }
 			: {}),
 	};
 }

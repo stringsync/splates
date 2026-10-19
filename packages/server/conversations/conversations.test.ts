@@ -120,6 +120,28 @@ describe("Conversations", () => {
 		expect(agent.opened).toEqual([ASK_IN_SPLATES]);
 	});
 
+	// scry-ignore simple-test-setup: starting, archiving and reading the logs back in a second Conversations is the persistence exercised here.
+	it("finds a persistent agent's conversation by its role, past a restart and an archive", async () => {
+		const groomer = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			persistent: "groomer",
+		});
+		await shop.start("fake", { task: null, cwd: "/shop" });
+		await until(groomer, "idle");
+		await groomer.archive();
+		await shop.disposeAsync();
+
+		const later = project("/shop/.git/splates/conversations");
+		const found = await later.persistent("groomer");
+		expect(found?.id).toBe(groomer.id);
+		expect(found?.state).toMatchObject({
+			persistent: "groomer",
+			archived: true,
+		});
+		expect(await later.persistent("planner")).toBeNull();
+	});
+
 	// scry-ignore simple-test-setup: opening, choosing, and restarting are the persistence behavior exercised here; shared services are in beforeEach.
 	it("remembers what an agent's sessions offer for every project, as last left", async () => {
 		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });

@@ -90,8 +90,10 @@ export function AutomationsPage(): JSX.Element {
 					{builtIn.length > 0 && (
 						<Group
 							title="Built in"
-							detail="Set by splates, from Setup."
+							detail="Set by splates, from Setup. Removing the groomer turns it off, retiring its conversation; Setup turns it on again."
 							rows={builtIn}
+							onPause={(row, paused) => void list.pause(row, paused)}
+							onRemove={(row) => void list.remove(row)}
 						/>
 					)}
 				</>

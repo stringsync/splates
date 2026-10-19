@@ -1,4 +1,5 @@
 import { tasksNamed } from "@stringsync/splates-server/board";
+import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import {
 	queueAdd,
 	queueList,
@@ -35,6 +36,7 @@ splatesQueue
 		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
+		await refuseGroomer(ctx.service, "queue add");
 		await ctx.journal.record(
 			"queue add",
 			await here(ctx),

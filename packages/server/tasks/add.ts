@@ -147,21 +147,34 @@ export async function add(
 		refuseTaken(found);
 	}
 
-	// Looked up before anything is created, so a queued task that is gone or taken
-	// refuses the whole add instead of leaving a tree behind.
+	// Taken before anything is created, so a queued task that is gone, or
+	// taken by another add racing this one, refuses the whole add instead of
+	// leaving a tree behind. Taken before the record is first written, which
+	// starts the task under the lowest number among them.
 	const taken: Task[] = [];
 	const blocked: string[] = [];
-	for (const id of new Set(ids)) {
-		const each = await queue.find(id);
-		if (each.takenBy) {
-			await each.take(task); // refuses, naming the task that has it
+	const tookNow: Task[] = [];
+	try {
+		for (const id of new Set(ids)) {
+			const each = await queue.find(id);
+			const had = each.takenBy === task;
+			// Refuses, naming the task that has it.
+			const took = await each.take(task);
+			if (!had) {
+				tookNow.push(took);
+			}
+			// Asked of it as it was, since a task it takes blocks none of it.
+			blocked.push(...blockedWarning(each, await each.blockers(task, ids)));
+			taken.push(took);
 		}
-		blocked.push(...blockedWarning(each, await each.blockers(task, ids)));
-		taken.push(each);
+	} catch (error) {
+		await letGo(tookNow);
+		throw error;
 	}
 
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
+		await letGo(tookNow);
 		// Another add of this name got its branch in first, after we looked.
 		const raced = await service.find(task);
 		if (!raced.gone) {
@@ -181,11 +194,6 @@ export async function add(
 	}
 
 	await onTree?.();
-	// Taken before the record is first written, which starts the task under
-	// the lowest number among them.
-	for (const each of taken) {
-		await each.take(task);
-	}
 	// An agent `splates server` started has its conversation in its env: the page
 	// nests the task under it, as for a subagent's task landing on trunk.
 	const caller = service.ps.env("SPLATES_CONVERSATION");
@@ -304,4 +312,11 @@ function PLAN(task: string, goal: string | null): string {
 		writer.text(goal);
 	}
 	return writer.toString();
+}
+
+/** Puts back on the list the queued tasks an add took and then gave up on. */
+async function letGo(tasks: readonly Task[]): Promise<void> {
+	for (const each of tasks) {
+		await each.release();
+	}
 }

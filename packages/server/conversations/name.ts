@@ -72,11 +72,17 @@ export function namedForTask(conversation: ConversationState): boolean {
 /** What the project's groomer goes by. */
 const GROOMER = "Groomer";
 
+/** The persistent agent's role the project's groomer is kept for. */
+export const GROOMER_ROLE = "groomer";
+
 /**
- * Whether a conversation opened on `[SPLATES GROOM #N]`, as the one
- * `splates server` starts to groom the tasks agents add.
+ * Whether a conversation is the project's groomer: kept for its role, or,
+ * from before persistent agents, opened on `[SPLATES GROOM #N]`.
  */
 export function grooms(conversation: ConversationState): boolean {
+	if (conversation.persistent !== undefined) {
+		return conversation.persistent === GROOMER_ROLE;
+	}
 	const first = conversation.messages
 		.find((message) => message.role === "user")
 		?.parts.find((part) => part.type === "text");

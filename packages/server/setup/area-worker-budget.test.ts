@@ -34,6 +34,8 @@ describe("the worker budget step", () => {
 					workerProvider: new FakeWorkerProvider(),
 				}),
 				remoteUrl: async () => null,
+				groomer: async () => null,
+				setGroomer: async () => {},
 			},
 		};
 	});
@@ -52,6 +54,8 @@ describe("the worker budget step", () => {
 				workerProvider: null,
 			}),
 			remoteUrl: async () => null,
+			groomer: async () => null,
+			setGroomer: async () => {},
 		};
 		expect(await step()).toBeUndefined();
 	});

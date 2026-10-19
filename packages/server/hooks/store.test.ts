@@ -29,6 +29,29 @@ describe("HookStore", () => {
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["3", "4"]);
 	});
 
+	it("turns the groomer on and off as built-in automation groomer, keeping its pause", async () => {
+		const hooks = new HookStore("/hooks.json", new FakeFs());
+		await hooks.add({ event: "task.created" }, { kind: "run", command: "x" });
+
+		await hooks.groomer({ agent: "claude", model: "sonnet" });
+		await hooks.pause("groomer", true);
+		await hooks.groomer({ agent: "codex" });
+		expect((await hooks.read()).at(-1)).toMatchObject({
+			id: "groomer",
+			source: "builtin",
+			trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+			hook: { kind: "groom", agent: "codex" },
+			paused: true,
+		});
+
+		// Its event's hooks go without it; numbering skips it.
+		await hooks.remove("task.created");
+		await hooks.add({ every: "1h" }, { kind: "run", command: "y" });
+		expect((await hooks.read()).map(({ id }) => id)).toEqual(["groomer", "1"]);
+		await hooks.groomer(null);
+		expect((await hooks.read()).map(({ id }) => id)).toEqual(["1"]);
+	});
+
 	it("pauses one and lets it run again", async () => {
 		const hooks = new HookStore("/hooks.json", new FakeFs());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });

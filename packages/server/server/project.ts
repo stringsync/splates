@@ -162,6 +162,7 @@ export async function serveProject(
 			return new Response(null, { status: 204 });
 		},
 		root: service.git.root,
+		groomed: () => automations.groomed(),
 		format,
 		conversations,
 		land: (request) => project.trunk.land(request),
@@ -355,6 +356,8 @@ export type Handler = (request: Request) => Promise<Response>;
 /** One project as the server holds it: what each of its routes does. */
 export interface Served extends AsyncResource {
 	root: string;
+	/** Wakes the groomer as its automation now stands, as once Setup turns it on or off. */
+	groomed: () => Promise<void>;
 	format: Format;
 	conversations: Conversations | null;
 	/** Runs a worker's call on its records, as `POST /api/state` asks. */

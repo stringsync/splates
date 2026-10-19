@@ -10,7 +10,9 @@ main tree. A code change it turns up, such as a check that is wrong, goes in
 a task of its own, as Workflow says. The GitHub pushing area's steps after
 `github-app` check the repository of the project setup is opened from: run
 `splates setup` in its main tree, and make its last step's change to
-`splates.config.ts` in a task, as the step says.
+`splates.config.ts` in a task, as the step says. The Grooming area's
+`groomer` step is the project's too: run its `splates hook groomer` in that
+project's main tree.
 
 1. **Read the step first.** `splates setup <step> --json`, before you run or
    change anything else, prints its `title`, its `why`, the one thing the

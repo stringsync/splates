@@ -15,6 +15,8 @@ export type Fired = { event: TaskEvent } | { schedule: string };
 export interface HookActions {
 	run(command: string, fired: Fired): Promise<void>;
 	agent(hook: Extract<Hook, { kind: "agent" }>, fired: Fired): Promise<void>;
+	/** Wakes the project's groomer, which the state, not `fired`, tells what to groom. */
+	groom(hook: Extract<Hook, { kind: "groom" }>): Promise<void>;
 }
 
 /** Runs `automation`'s hook for `fired`, keeping the run, and logging a failure rather than throwing it. */
@@ -31,6 +33,8 @@ export async function fire(
 			await actions.run(hook.command, fired);
 		} else if (hook.kind === "agent") {
 			await actions.agent(hook, fired);
+		} else if (hook.kind === "groom") {
+			await actions.groom(hook);
 		}
 	} catch (error) {
 		run.error = String(error);

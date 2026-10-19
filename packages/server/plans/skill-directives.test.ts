@@ -6,6 +6,7 @@ import {
 	DEFER,
 	demoReference,
 	eventReference,
+	groomReference,
 	MERGE,
 	RECONNECT,
 	RESUME,
@@ -31,6 +32,7 @@ describe("the splates skill's Directives table", () => {
 				RECONNECT,
 				eventReference("<event>", [0], "<task>").replace("0", "N"),
 				scheduleReference("<n>"),
+				groomReference(0).replace("0", "N"),
 			].toSorted(),
 		);
 	});

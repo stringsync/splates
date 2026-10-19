@@ -111,6 +111,36 @@ describe("add", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: the queued task is the input these adds race and roll back over; the other tests take none.
+	it("leaves no worktree behind when another add takes its queued task first", async () => {
+		const queued = await deps.tasks.add("Retry on 413", null);
+		const results = await Promise.allSettled([
+			add(deps, "alpha", { tasks: [queued.id] }),
+			add(deps, "beta", { tasks: [queued.id] }),
+		]);
+
+		const won = results.findIndex((result) => result.status === "fulfilled");
+		expect(
+			results.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(1);
+		const loser = won === 0 ? "beta" : "alpha";
+		expect((await deps.service.find(loser)).exists).toBe(false);
+		expect((await deps.tasks.find(queued.id)).takenBy).toBe(
+			won === 0 ? "alpha" : "beta",
+		);
+	});
+
+	// scry-ignore simple-test-setup: the queued task is the input the failed add must put back; the other tests take none.
+	it("puts its queued tasks back when the worktree cannot be made", async () => {
+		const queued = await deps.tasks.add("Retry on 413", null);
+
+		await expect(
+			add(deps, "alpha", { tasks: [queued.id], base: "no-such-branch" }),
+		).rejects.toThrow();
+
+		expect((await deps.tasks.find(queued.id)).takenBy).toBeNull();
+	});
+
 	it("rejects names that are not legal branch or directory names", async () => {
 		const names = ["Alpha", "a b", "feature/x", "-alpha", ""];
 

@@ -126,6 +126,9 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		state.skill = start.skill ?? null;
 		state.capped = start.capped ?? false;
 		state.queued = start.queued ?? null;
+		if (start.persistent !== undefined) {
+			state.persistent = start.persistent;
+		}
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -460,6 +463,8 @@ type Said =
 			capped?: boolean;
 			/** The queued task it was held for; missing for one held for none. */
 			queued?: number;
+			/** The persistent agent's role it was started for; missing for an ordinary one. */
+			persistent?: string;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }

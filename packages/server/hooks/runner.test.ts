@@ -7,7 +7,7 @@ import { Testing } from "../testing";
 import type { TaskEvent } from "./events";
 import { type Fired, HookRunner } from "./runner";
 import { RunStore } from "./runs";
-import type { Automation } from "./store";
+import { type Automation, GROOMER_TRIGGER } from "./store";
 
 describe("HookRunner", () => {
 	let deps: Testing;
@@ -48,6 +48,9 @@ describe("HookRunner", () => {
 				},
 				agent: async (hook, fired) => {
 					ran.push(`${hook.agent}: ${hook.prompt} ${said(fired)}`);
+				},
+				groom: async (hook) => {
+					ran.push(`groom with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -167,6 +170,33 @@ describe("HookRunner", () => {
 		await look(following);
 
 		expect(ran).toEqual(["queued task.queued #2"]);
+	});
+
+	it("wakes the groomer for a task added to the backlog, not one added ready", async () => {
+		automations = [
+			automation("groomer", GROOMER_TRIGGER, {
+				kind: "groom",
+				agent: "claude",
+			}),
+		];
+		const following = await follow();
+		await add("Rough");
+		await deps.journal.record(
+			"task add",
+			null,
+			() => taskAdd(deps, "Groomed", null, { ready: true }),
+			(task) => ({
+				number: task.id,
+				subject: task.subject,
+				lane: null,
+				position: task.position,
+				ready: true,
+			}),
+		);
+
+		await look(following);
+
+		expect(ran).toEqual(["groom with claude"]);
 	});
 
 	it("runs nothing paused, and keeps each run with what it failed on", async () => {

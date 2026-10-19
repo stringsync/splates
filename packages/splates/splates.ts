@@ -3,6 +3,7 @@
 import { agents } from "@stringsync/splates-server/agents";
 import { attach } from "@stringsync/splates-server/artifacts";
 import { commaList } from "@stringsync/splates-server/comma-list";
+import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { exits, fail } from "@stringsync/splates-server/exit";
 import { DEFAULT_COUNT, log as showLog } from "@stringsync/splates-server/log";
 import { merge } from "@stringsync/splates-server/merge";
@@ -181,6 +182,7 @@ splates
 			"with --agent: the conversation `splates server`'s queue held for the queued task, which takes the task rather than a new one",
 	})
 	.action(async (opts, ctx) => {
+		await refuseGroomer(ctx.service, "add");
 		if (
 			opts.agent === "" &&
 			(opts.model !== "" ||
@@ -278,6 +280,7 @@ splates
 			"squash the task's commits into one with this message before landing, saying what the base gains",
 	})
 	.action(async (opts, ctx) => {
+		await refuseGroomer(ctx.service, "merge");
 		const task = await here(ctx);
 		// Filled by `merge` as it learns each; a refusal keeps what it had.
 		const facts: Partial<Facts["merge"]> = {};

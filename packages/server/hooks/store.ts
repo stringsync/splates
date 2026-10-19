@@ -11,7 +11,9 @@ import { scheduleOf } from "./schedule";
  */
 export type Hook =
 	| ({ kind: "agent"; prompt: string } & AgentPick)
-	| { kind: "run"; command: string };
+	| { kind: "run"; command: string }
+	/** The project's groomer, told to groom the backlog, as built-in automation `groomer` runs. */
+	| ({ kind: "groom" } & AgentPick);
 
 /** Which tasks an event hook fires for; a field left out matches any. */
 export interface TaskFilter {
@@ -105,9 +107,12 @@ export class HookStore {
 		const event = (TASK_EVENTS as readonly string[]).includes(id);
 		let gone: Automation[] = [];
 		await this.change((automations) => {
+			// The groomer goes only by its own name, never with its event's.
 			gone = automations.filter((each) =>
 				event
-					? "event" in each.trigger && each.trigger.event === id
+					? "event" in each.trigger &&
+						each.trigger.event === id &&
+						each.source !== "builtin"
 					: each.id === id,
 			);
 			return automations.filter((each) => !gone.includes(each));
@@ -118,6 +123,31 @@ export class HookStore {
 			});
 		}
 		return gone;
+	}
+
+	/**
+	 * Turns the groomer on, running as `pick`, or off for null: built-in
+	 * automation `groomer`, which keeps its pause through a change of pick.
+	 */
+	async groomer(pick: AgentPick | null): Promise<Automation | null> {
+		let set: Automation | null = null;
+		await this.change((automations) => {
+			const was = automations.find(({ id }) => id === GROOMER_AUTOMATION);
+			const rest = automations.filter((each) => each !== was);
+			if (pick === null) {
+				return rest;
+			}
+			set = {
+				id: GROOMER_AUTOMATION,
+				trigger: GROOMER_TRIGGER,
+				hook: { kind: "groom", ...pick },
+				createdAt: was?.createdAt ?? new Date().toISOString(),
+				source: "builtin",
+				...(was?.paused === true ? { paused: true } : {}),
+			};
+			return [...rest, set];
+		});
+		return set;
 	}
 
 	/** Pauses the automation numbered `id`, or lets it run again. */
@@ -206,3 +236,12 @@ function checked(trigger: Trigger): void {
 		scheduleOf(trigger);
 	}
 }
+
+/** The built-in automation the groomer runs as, once Setup turns it on. */
+export const GROOMER_AUTOMATION = "groomer";
+
+/** What wakes the groomer: a task added to the backlog, rough. */
+export const GROOMER_TRIGGER: Trigger = {
+	event: "task.created",
+	filter: { stages: ["backlog"] },
+};

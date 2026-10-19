@@ -14,6 +14,7 @@ cannot run these tool-capable cases and must report unsupported.
 | Id | Audit requirement | Seed and checked decision |
 | --- | --- | --- |
 | taken-queued | queue-groom | Real task owns queued task; inspect without stealing or duplicate dispatch |
+| groom-duplicate | queue-groomer | Backlog task repeats a ready one; groomer inspects it and removes it as folded, never starting or queueing it |
 | defer | queue-defer | Additional deferred request; exact saved detail/assignment, no read of named project file |
 | cli-link | queue-intake | Free actual CLI links two queued tasks; exact observed persisted board |
 

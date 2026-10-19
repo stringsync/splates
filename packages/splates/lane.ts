@@ -7,6 +7,7 @@ import {
 	laneUpdated,
 	recordLaneRemove,
 } from "@stringsync/splates-server/board";
+import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { UNTRIAGED } from "@stringsync/splates-server/plans";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -98,6 +99,7 @@ splatesLane
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
+		await refuseGroomer(ctx.service, "lane queue");
 		const change = { queued: true };
 		await ctx.journal.record(
 			"lane update",

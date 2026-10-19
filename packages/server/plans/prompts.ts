@@ -33,6 +33,14 @@ export function scheduleReference(automation: string): string {
 	return `[SPLATES SCHEDULE ${automation}]`;
 }
 
+/**
+ * What tells the project's groomer to groom backlog task `id`, which
+ * `splates server` claimed for it: the splates skill says what it means.
+ */
+export function groomReference(id: number): string {
+	return `[SPLATES GROOM #${id}]`;
+}
+
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;

@@ -151,6 +151,18 @@ const probes: Probe[] = [
 		],
 	),
 	agent(
+		"groom-duplicate",
+		"queue-groomer",
+		"[SPLATES GROOM #3]",
+		[...board, ["task", "defer", "Base again", "Change base.ts, as Base asks"]],
+		[
+			required("inspect-groomed", ["task", "show", "3"]),
+			required("fold-duplicate", ["task", "remove", "3"]),
+			forbidden("no-start", ["add", "work-3", "--task", "3"]),
+			forbidden("no-queue", ["queue", "add", "3"]),
+		],
+	),
+	agent(
 		"defer",
 		"queue-defer",
 		"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and assign fake; leave it untriaged.",

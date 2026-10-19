@@ -1,5 +1,5 @@
 import { color, type Logger } from "webappwiz/log";
-import { pickLabel } from "../models";
+import { type AgentPick, pickLabel } from "../models";
 import type { Automation, Hook, HookStore, Trigger } from "./store";
 
 /** What the hook commands work with. */
@@ -50,6 +50,19 @@ export async function hookRemove(
 	);
 }
 
+/** Turns the groomer on as `pick`, or off for null, then says so. */
+export async function hookGroomer(
+	{ hooks, log }: HookDeps,
+	pick: AgentPick | null,
+): Promise<void> {
+	const set = await hooks.groomer(pick);
+	log.info(
+		set === null
+			? `${color.green("groomer off")}: \`splates server\` retires its conversation`
+			: `${color.green("groomer on")} ${described(set)}`,
+	);
+}
+
 /** Pauses the automation numbered `id`, or lets it run again. */
 export async function hookPause(
 	{ hooks, log }: HookDeps,
@@ -92,5 +105,7 @@ export function hookLabel(hook: Hook): string {
 			return `tell ${pickLabel(hook)}: ${hook.prompt}`;
 		case "run":
 			return `run \`${hook.command}\``;
+		case "groom":
+			return `groom the backlog with ${pickLabel(hook)}`;
 	}
 }

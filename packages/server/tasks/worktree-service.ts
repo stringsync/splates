@@ -101,6 +101,28 @@ export class WorktreeService {
 		return id !== undefined && (await this.holds(id)) ? id : undefined;
 	}
 
+	/**
+	 * The persistent agent's role of the conversation `conversation()` names,
+	 * as `"groomer"`, read from its log's first entry, which says what it
+	 * was started for; undefined for an ordinary one, or none.
+	 */
+	async callerRole(): Promise<string | undefined> {
+		const id = await this.conversation();
+		if (id === undefined) {
+			return undefined;
+		}
+		const text = await this.fs.read(this.conversationLog(id)).catch(() => "");
+		try {
+			const start = JSON.parse(text.slice(0, text.indexOf("\n"))) as {
+				kind?: string;
+				persistent?: string;
+			};
+			return start.kind === "start" ? start.persistent : undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
 	/** Where the log of the conversation `id` is kept. */
 	conversationLog(id: string): string {
 		return `${this.conversationsDir}/${id}.jsonl`;

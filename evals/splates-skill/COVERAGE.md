@@ -90,6 +90,7 @@ the broader proposed coverage in the requirements map.
 | `lifecycle/cli-removed` | 1 | lifecycle-land | cli |
 | `orchestration/taken-queued` | 1 | queue-groom | agent |
 | `orchestration/defer` | 1 | queue-defer | agent |
+| `orchestration/groom-duplicate` | 1 | queue-groomer | agent |
 | `orchestration/cli-link` | 1 | queue-intake | cli |
 
 ## Evidence and implementation status
@@ -132,6 +133,7 @@ selected real integration, never a prerequisite for this audit.
 | decisions-review / Merge or review, Demos, Reporting | #355; `review-again` | CLI MERGE payload; agent review request retained, review repeated after follow-up, checks/demo structure and no premature merge | Visual correctness and external verification remain manual/optional |
 | queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
+| queue-groomer / GROOM directive, `references/groom.md` | #290 | Groomer shows the backlog task it is told of, folds a duplicate into the open task that asks it and removes it, and never starts or queues a task | Seed an exact duplicate; whether a split or a lane is wise remains subjective |
 | queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |

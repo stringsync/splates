@@ -311,6 +311,7 @@ export class Conversation
 			skill = null,
 			queued,
 			title = null,
+			persistent,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
@@ -331,6 +332,9 @@ export class Conversation
 		state.capped = capped;
 		state.queued = queued ?? null;
 		state.title = title;
+		if (persistent !== undefined) {
+			state.persistent = persistent;
+		}
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -346,6 +350,7 @@ export class Conversation
 			...(capped ? { capped } : {}),
 			...(skill === null ? {} : { skill }),
 			...(queued === undefined ? {} : { queued }),
+			...(persistent === undefined ? {} : { persistent }),
 		});
 		if (title !== null) {
 			const update: acp.SessionUpdate = {
@@ -1261,6 +1266,8 @@ interface Opening {
 	queued?: number;
 	/** What to call it until its agent names it. */
 	title?: string | null;
+	/** The persistent agent's role it is started for, as `"groomer"`. */
+	persistent?: string;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

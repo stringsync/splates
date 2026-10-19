@@ -47,6 +47,7 @@ export {
 	DIRECTIVES,
 	directive,
 	eventReference,
+	groomReference,
 	handOffReference,
 	isUpdate,
 	leadingDirectives,

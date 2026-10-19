@@ -197,6 +197,16 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		);
 	}
 
+	/**
+	 * The conversation kept for persistent agent `role`, archived or not, or
+	 * null before one started: the newest, should there be more.
+	 */
+	async persistent(role: string): Promise<Conversation | null> {
+		return (
+			(await this.list()).find(({ state }) => state.persistent === role) ?? null
+		);
+	}
+
 	async find(id: string): Promise<Conversation> {
 		await this.load();
 		const found = this.known.get(id);
@@ -225,6 +235,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			capped,
 			queued,
 			title,
+			persistent,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -245,6 +256,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			queued?: number;
 			/** What to call it until its agent names it. */
 			title?: string;
+			/** The persistent agent's role it is started for, as `"groomer"`. */
+			persistent?: string;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
@@ -267,6 +280,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				capped,
 				queued,
 				title,
+				persistent,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,
@@ -505,7 +519,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	private async trim(): Promise<void> {
 		const archived = [...this.known.values()]
-			.filter((each) => each.state.archived)
+			// A persistent agent's is its role's log, kept to carry on in.
+			.filter(
+				(each) => each.state.archived && each.state.persistent === undefined,
+			)
 			.sort((one, other) =>
 				(other.archivedSince ?? "").localeCompare(one.archivedSince ?? ""),
 			);

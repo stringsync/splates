@@ -35,6 +35,7 @@ asks you to read it as Reference files says.
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
+| `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo, at `before`, `after` or `main`, from its task dialog | Demos, Running a demo |
@@ -56,7 +57,7 @@ which remembers none of it.
   queued tasks.
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a cloud server, a tunnel of their
-  own, notifications, dictation): [references/setup.md](references/setup.md),
+  own, notifications, dictation, the groomer): [references/setup.md](references/setup.md),
   one step at a time.
 - When your work needs a secret only the user can get, such as an API token:
   [references/creds.md](references/creds.md).

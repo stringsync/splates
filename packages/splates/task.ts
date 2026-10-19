@@ -9,6 +9,7 @@ import {
 	taskUpdate,
 } from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
+import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -231,6 +232,11 @@ splatesTask
 			"mark it groomed, moving it from the backlog to ready: no task already asks it, and what blocks it is linked",
 	})
 	.action(async (opts, ctx) => {
+		await refuseGroomer(
+			ctx.service,
+			"task update",
+			await ctx.tasks.find(opts.id),
+		);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		await recordUpdate(ctx.journal, ctx.tasks, opts.id, () =>
 			taskUpdate(ctx, opts.id, {
@@ -255,14 +261,19 @@ splatesTask
 		"drop a queued task that was done some other way or no longer applies",
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
-	.action((opts, ctx) =>
-		ctx.journal.record(
+	.action(async (opts, ctx) => {
+		await refuseGroomer(
+			ctx.service,
+			"task remove",
+			await ctx.tasks.find(opts.id),
+		);
+		await ctx.journal.record(
 			"task remove",
 			null,
 			() => taskRemove(ctx, opts.id),
 			(removed) => ({ tasks: tasksNamed([removed]) }),
-		),
-	);
+		);
+	});
 
 splatesTask
 	.command("wait")
