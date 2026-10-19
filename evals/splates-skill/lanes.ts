@@ -264,10 +264,11 @@ export const SAME_FILES: Scenario = {
 
 /** Task #1 handed out as retry-413 to an agent `splates server` started, which has yet to land it. */
 const HANDED = `splates add retry-413 --task 1 --agent claude --model sonnet --prompt 'Stop retrying on a 413.' >/dev/null && bun -e '
-const path = ".git/splates/tasks/1.json";
-const state = await Bun.file(path).json();
+const path = ".git/splates/tasks/1.md";
+const [, fields, body] = /^---\\n([\\s\\S]*?)\\n---\\n([\\s\\S]*)$/.exec(await Bun.file(path).text());
+const state = JSON.parse(fields);
 const { pending, ...dispatch } = state.dispatch;
-await Bun.write(path, JSON.stringify({ ...state, dispatch: { ...dispatch, conversation: "agent-413" } }, null, "\\t"));
+await Bun.write(path, "---\\n" + JSON.stringify({ ...state, dispatch: { ...dispatch, conversation: "agent-413" } }, null, "\\t") + "\\n---\\n" + body);
 '`;
 
 /** Lane 1 planned and running, with #1 and #3 each naming a model. */

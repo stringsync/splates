@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
+import { decodeTask, encodeTask, TASK_FILE } from "../board";
 import { WorkerRecords } from "../workers";
 import { type MovedProject, rewriteRoots } from "./paths";
 
@@ -86,14 +87,12 @@ async function placeOn(
 		return;
 	}
 	for (const name of await fs.readdir(tasks)) {
-		if (!name.endsWith(".json")) {
+		if (!TASK_FILE.test(name)) {
 			continue;
 		}
 		const path = `${tasks}/${name}`;
-		let record: Record<string, unknown>;
-		try {
-			record = JSON.parse(await fs.read(path));
-		} catch {
+		const record = decodeTask(await fs.read(path));
+		if (record === null) {
 			continue; // as the service reads it: a record still, if unreadable
 		}
 		// A queued task has no tree to place.
@@ -104,10 +103,7 @@ async function placeOn(
 			typeof record.worktree === "string"
 				? record.worktree
 				: resolve(worktreeRoot, record.task);
-		await fs.write(
-			path,
-			`${JSON.stringify({ ...record, worktree, machine: worker }, null, "\t")}\n`,
-		);
+		await fs.write(path, encodeTask({ ...record, worktree, machine: worker }));
 	}
 }
 

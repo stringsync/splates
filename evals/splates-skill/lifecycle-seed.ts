@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { encodeTask } from "@stringsync/splates-server/board";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Json } from "./probe";
 import { command, seedFile, seedRepository, taskRecord } from "./probe-sandbox";
@@ -121,7 +122,7 @@ export const lifecycleSeed: Seed = {
 			}
 			await writeFile(
 				found.path,
-				JSON.stringify({ ...found.record, mergeAttempts: 3 }),
+				encodeTask({ ...found.record, mergeAttempts: 3 }),
 			);
 		}
 		// Agent recovery starts AFTER the real failed CLI response, not after a fabricated transcript.

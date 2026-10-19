@@ -127,6 +127,7 @@ export class StartedRecords {
 			files: [],
 			blockedBy: [],
 			lane: null,
+			stage: "backlog",
 			status: "working",
 			listed: false,
 		};

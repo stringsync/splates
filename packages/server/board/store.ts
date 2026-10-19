@@ -1,6 +1,7 @@
 import type { Fs, Lock } from "webappwiz/system";
 import type { TaskState } from "../tasks";
 import type { TaskRecord } from "./task";
+import { decodeTask, encodeTask, TASK_FILE } from "./task-file";
 
 /**
  * Where a task stands: `queued` until it is started, then its started
@@ -18,7 +19,7 @@ export type Started = Omit<TaskState, "id" | "status" | "createdAt"> & {
 };
 
 /**
- * One task as `tasks/<N>.json` holds it: what the list shows of it, its
+ * One task as `tasks/<N>.md` holds it: what the list shows of it, its
  * status, and once started, what `Started` adds.
  */
 export type StoredTask = TaskRecord &
@@ -53,7 +54,7 @@ export function queuedOf(record: StoredTask): TaskRecord & { tags?: string[] } {
 }
 
 /**
- * Every task in the repo, queued or started, one JSON file each under
+ * Every task in the repo, queued or started, one markdown file each under
  * `.git/splates/tasks`, numbered. The list of tasks and the worktrees of
  * started ones each read and write their own fields of a record, under one
  * lock, so neither undoes what the other wrote.
@@ -70,7 +71,7 @@ export class TaskStore {
 	) {}
 
 	path(id: number): string {
-		return `${this.dir}/${id}.json`;
+		return `${this.dir}/${id}.md`;
 	}
 
 	/** Runs `run` holding the lock every write goes through. */
@@ -93,7 +94,7 @@ export class TaskStore {
 	async all(): Promise<StoredTask[]> {
 		const entries = await this.fs.readdir(this.dir).catch(() => []);
 		const records: StoredTask[] = [];
-		for (const entry of entries.filter((each) => /^\d+\.json$/.test(each))) {
+		for (const entry of entries.filter((each) => TASK_FILE.test(each))) {
 			const raw = await this.fs.read(`${this.dir}/${entry}`).catch(() => null);
 			const record = raw === null ? null : parse(raw);
 			if (record !== null) {
@@ -132,7 +133,7 @@ export class TaskStore {
 		await this.fs.mkdir(this.dir);
 		const path = this.path(record.id);
 		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(tmp, `${JSON.stringify(record, null, "\t")}\n`);
+		await this.fs.write(tmp, encodeTask(record));
 		await this.fs.rename(tmp, path);
 		if (record.task !== undefined) {
 			this.numbers.set(record.task, record.id);
@@ -159,12 +160,7 @@ export class TaskStore {
 }
 
 function parse(raw: string): StoredTask | null {
-	try {
-		const record = JSON.parse(raw) as StoredTask;
-		return typeof record.id === "number" ? record : null;
-	} catch {
-		return null;
-	}
+	return decodeTask(raw) as StoredTask | null;
 }
 
 /** Every field `Started` adds, so each view of a record takes only its own. */

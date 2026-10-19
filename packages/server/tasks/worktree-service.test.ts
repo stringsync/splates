@@ -55,11 +55,11 @@ describe("WorktreeService", () => {
 
 		await (await worktrees.find("alpha")).save();
 
-		const path = `${SPLATES_DIR}/tasks/1.json`;
+		const path = `${SPLATES_DIR}/tasks/1.md`;
 		const writes = fs.ops.filter((op) => op.includes(path));
 		expect(writes).toEqual([
-			expect.stringMatching(/^write .*\/1\.json\.[\w-]+\.tmp$/),
-			expect.stringMatching(/^rename .*\.tmp -> .*\/1\.json$/),
+			expect.stringMatching(/^write .*\/1\.md\.[\w-]+\.tmp$/),
+			expect.stringMatching(/^rename .*\.tmp -> .*\/1\.md$/),
 		]);
 		expect((await worktrees.find("alpha")).state).toMatchObject({
 			task: "alpha",
@@ -92,7 +92,7 @@ describe("WorktreeService", () => {
 			fs: fs,
 			ps: ps,
 		});
-		await fs.write(`${SPLATES_DIR}/tasks/1.json`, "{not json");
+		await fs.write(`${SPLATES_DIR}/tasks/1.md`, "---\n{not json\n---\n");
 
 		expect(await worktrees.list()).toEqual([]);
 		expect((await worktrees.find("missing")).status).toBe("absent");

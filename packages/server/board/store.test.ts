@@ -3,14 +3,13 @@ import { merge } from "../merge";
 import { add, remove } from "../tasks";
 import { Testing } from "../testing";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
+import { decodeTask } from "./task-file";
 import { taskRelease } from "./task-take";
 
 /** Task `id` as its record holds it. */
 async function stored(deps: Testing, id: number): Promise<unknown> {
-	return JSON.parse(
-		await deps.fs
-			.read(`${deps.splatesDir}/tasks/${id}.json`)
-			.catch(() => "null"),
+	return decodeTask(
+		await deps.fs.read(`${deps.splatesDir}/tasks/${id}.md`).catch(() => ""),
 	);
 }
 

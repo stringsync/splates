@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { encodeTask } from "../board";
 import { RUNNING } from "./release";
 import { UPDATING, update } from "./update";
 
@@ -53,10 +54,10 @@ describe("update", () => {
 	});
 
 	it("moves queued tasks saved with tags into a lane a tag", async () => {
-		await fs.mkdir("/repo/.git/splates/todos", { recursive: true });
+		await fs.mkdir("/repo/.git/splates/tasks", { recursive: true });
 		await fs.write(
-			"/repo/.git/splates/todos/1.json",
-			JSON.stringify({
+			"/repo/.git/splates/tasks/1.md",
+			encodeTask({
 				id: 1,
 				subject: "retry uploads",
 				text: "",

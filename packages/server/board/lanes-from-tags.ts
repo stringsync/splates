@@ -26,10 +26,7 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	if (git === null) {
 		return;
 	}
-	// Records not yet moved into the task store keep their todos apart.
-	const dir = (await fs.exists(`${git}/splates/todos`))
-		? `${git}/splates/todos`
-		: `${git}/splates/tasks`;
+	const dir = `${git}/splates/tasks`;
 	if (!(await fs.exists(dir))) {
 		return;
 	}

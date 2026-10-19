@@ -118,6 +118,7 @@ export async function taskShow(
 	const lines = [
 		`${color.bold(`task ${task.id}`)} ${task.subject}`,
 		`  position:  ${task.position}`,
+		`  stage:     ${task.state.stage}`,
 		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,
 		`  taken by:  ${task.takenBy ?? "nobody yet"}`,
 		...(task.state.assignee === undefined

@@ -203,6 +203,7 @@ export function todoAdded(adding: Adding, known: ReadonlySet<number>) {
 			files: [],
 			blockedBy: [],
 			lane: adding.lane,
+			stage: "backlog",
 		};
 		const at =
 			adding.position === undefined

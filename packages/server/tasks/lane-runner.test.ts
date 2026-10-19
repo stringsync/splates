@@ -244,6 +244,7 @@ function queued(overrides: Partial<TaskRecord>): TaskRecord {
 		files: [],
 		blockedBy: [],
 		lane: 1,
+		stage: "ready",
 		assignee: { agent: "claude", model: "sonnet" },
 		...overrides,
 	};

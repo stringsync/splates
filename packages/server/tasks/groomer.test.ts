@@ -35,6 +35,7 @@ describe("Groomer", () => {
 		files: [],
 		blockedBy: [],
 		lane: null,
+		stage: "backlog",
 		...more,
 	});
 

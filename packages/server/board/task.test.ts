@@ -7,6 +7,7 @@ import { Testing } from "../testing";
 import { isReady } from "./lanes";
 import type { TaskRecord } from "./task";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
+import { decodeTask, encodeTask } from "./task-file";
 import { taskList, taskShow } from "./task-list";
 import { taskRelease, taskTake } from "./task-take";
 
@@ -123,7 +124,7 @@ describe.concurrent("task", () => {
 		]);
 		// Written down, not only counted again on reading.
 		expect(
-			JSON.parse(await deps.fs.read(`${deps.tasks.dir}/1.json`)),
+			decodeTask(await deps.fs.read(`${deps.tasks.dir}/1.md`)),
 		).toMatchObject({ position: 3 });
 		// Taking one leaves it where it is.
 		await (await deps.tasks.find(3)).take("alpha");
@@ -216,7 +217,7 @@ describe.concurrent("task", () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "old one", null);
 		const { files: _, ...older } = (await deps.tasks.find(1)).state;
-		await deps.fs.write(`${deps.tasks.dir}/1.json`, JSON.stringify(older));
+		await deps.fs.write(`${deps.tasks.dir}/1.md`, encodeTask(older));
 
 		expect((await deps.tasks.find(1)).state.files).toEqual([]);
 	});
@@ -236,8 +237,8 @@ describe.concurrent("task", () => {
 		const tag = async (id: number, tags: string[]) => {
 			const state = states.find((each) => each.id === id);
 			await deps.fs.write(
-				`${deps.tasks.dir}/${id}.json`,
-				JSON.stringify({ ...state, tags }),
+				`${deps.tasks.dir}/${id}.md`,
+				encodeTask({ ...state, tags }),
 			);
 		};
 		// An empty list, as every task had, is no tag at all.
@@ -270,7 +271,7 @@ describe.concurrent("task", () => {
 			[1, 1],
 		]);
 		expect(
-			JSON.parse(await deps.fs.read(`${deps.tasks.dir}/2.json`)),
+			decodeTask(await deps.fs.read(`${deps.tasks.dir}/2.md`)),
 		).not.toHaveProperty("tags");
 		expect(await deps.tasks.moveTagsToLanes()).toEqual([]);
 	});
@@ -285,8 +286,8 @@ describe.concurrent("task", () => {
 			...older
 		} = (await deps.tasks.find(1)).state;
 		await deps.fs.write(
-			`${deps.tasks.dir}/1.json`,
-			JSON.stringify({ ...older, text: "older\n\nwith more to say" }),
+			`${deps.tasks.dir}/1.md`,
+			encodeTask({ ...older, text: "older\n\nwith more to say" }),
 		);
 
 		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([

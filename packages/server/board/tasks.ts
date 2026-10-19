@@ -12,7 +12,7 @@ import {
 } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
 import { assigned, Task, type TaskNew, type TaskRecord, wording } from "./task";
-import { parseTaskFile } from "./task-file";
+import { parseTaskFile, TASK_FILE } from "./task-file";
 import { TaskLanes } from "./task-lanes";
 
 /**
@@ -95,6 +95,7 @@ export class Tasks {
 				files: await this.attachments(id).store(files),
 				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
 				lane: null,
+				stage: "backlog",
 				...(origin === undefined ? {} : { origin }),
 			};
 			const task = await this.save(
@@ -323,12 +324,20 @@ export class Tasks {
 	async save(state: TaskRecord): Promise<Task> {
 		const stored = await this.store.read(state.id);
 		const started = stored === null ? null : startedOf(stored);
-		await this.store.write({
+		const saved: TaskRecord = {
 			...state,
+			// Naming its model is grooming's last call, so it makes a task ready.
+			stage:
+				state.stage === "ready" || state.assignee !== undefined
+					? "ready"
+					: "backlog",
+		};
+		await this.store.write({
+			...saved,
 			...started,
 			status: started === null ? "queued" : (stored?.status ?? "queued"),
 		});
-		return new Task(this, state);
+		return new Task(this, saved);
 	}
 
 	/**
@@ -515,7 +524,7 @@ export class Tasks {
 	async stored(tagged: number[] = []): Promise<TaskRecord[]> {
 		const entries = await this.fs.readdir(this.dir).catch(() => []);
 		const states: TaskRecord[] = [];
-		for (const entry of entries.filter((entry) => /^\d+\.json$/.test(entry))) {
+		for (const entry of entries.filter((entry) => TASK_FILE.test(entry))) {
 			const state = await this.read(`${this.dir}/${entry}`, tagged);
 			if (state) {
 				states.push(state);
@@ -563,7 +572,7 @@ export class Tasks {
 	}
 
 	private path(id: number): string {
-		return `${this.dir}/${id}.json`;
+		return `${this.dir}/${id}.md`;
 	}
 
 	/**

@@ -428,6 +428,7 @@ describe("HandedOut", () => {
 		files: [],
 		blockedBy: [],
 		lane,
+		stage: "backlog",
 	});
 
 	it("tells an orchestrator once as a queued task in its lane leaves the list", async () => {

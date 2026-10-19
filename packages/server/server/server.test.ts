@@ -17,7 +17,7 @@ describe("dev", () => {
 	it("refuses every request once a newer splates has moved the records on", async () => {
 		await serving(deps, async (snapshot, port) => {
 			expect((await snapshot()).tasks).toEqual([]);
-			await deps.fs.write(`${deps.splatesDir}/format`, "3\n");
+			await deps.fs.write(`${deps.splatesDir}/format`, "4\n");
 
 			const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
 

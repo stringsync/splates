@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { decodeTask } from "@stringsync/splates-server/board";
 import type { Event } from "./probe";
 import { launchIsolated } from "./probe-adapters";
 import type { RunContext } from "./runner";
@@ -136,10 +137,10 @@ export async function taskRecord(
 ): Promise<{ path: string; record: Record<string, any> } | null> {
 	const directory = join(repository, ".git/splates/tasks");
 	for (const name of await readdir(directory).catch(() => [])) {
-		if (/^\d+\.json$/.test(name)) {
+		if (/^\d+\.md$/.test(name)) {
 			const path = join(directory, name);
-			const record = JSON.parse(await readFile(path, "utf8"));
-			if (record.task === slug) {
+			const record = decodeTask(await readFile(path, "utf8"));
+			if (record?.task === slug) {
 				return { path, record };
 			}
 		}

@@ -2,13 +2,14 @@ import { describe, expect, it } from "bun:test";
 import { dirname } from "node:path";
 import { Testing } from "../testing";
 import { BACKUP, ONE_TASK_STORE } from "./one-task-store";
+import { TASK_FILES } from "./task-files";
 
 describe("ONE_TASK_STORE", () => {
 	it("makes each todo a queued task under its number, its files beside it", async () => {
 		await using deps = await Testing.open();
 		const old = await formatOne(deps);
 
-		await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
+		await toFormatThree(deps);
 
 		const [first, second] = await deps.tasks.all();
 		expect(first?.state).toMatchObject({
@@ -47,7 +48,7 @@ describe("ONE_TASK_STORE", () => {
 		await using deps = await Testing.open();
 		await formatOne(deps);
 
-		await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
+		await toFormatThree(deps);
 
 		const alpha = await deps.service.find("alpha");
 		expect(alpha.state).toMatchObject({
@@ -86,7 +87,7 @@ describe("ONE_TASK_STORE", () => {
 	it("finds nothing to move in a repository with no records yet", async () => {
 		await using deps = await Testing.open();
 
-		await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
+		await toFormatThree(deps);
 
 		expect(await deps.tasks.all()).toEqual([]);
 		expect(await deps.service.list()).toEqual([]);
@@ -171,4 +172,10 @@ async function formatOne(deps: Testing): Promise<{ todo3: string }> {
 	await fs.write(`${dir}/lane-todos.json`, "[]\n");
 	await fs.write(`${dir}/groomed-todos/3`, "");
 	return { todo3 };
+}
+
+/** Runs this step, then the one after it, so today's code can read what it wrote. */
+async function toFormatThree(deps: Testing): Promise<void> {
+	await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
+	await TASK_FILES.run(deps.splatesDir, deps.fs);
 }

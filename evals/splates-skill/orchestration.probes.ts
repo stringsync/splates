@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { decodeTask } from "@stringsync/splates-server/board";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Json, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
@@ -36,11 +37,11 @@ const seed: Seed = {
 		}
 		const queued = await Promise.all(
 			files
-				.filter((file) => /^\d+\.json$/.test(file))
+				.filter((file) => /^\d+\.md$/.test(file))
 				.map(async (file) => {
-					const record = JSON.parse(
+					const record = decodeTask(
 						await readFile(join(directory, file), "utf8"),
-					);
+					) as unknown as QueuedRecord;
 					return {
 						id: record.id,
 						subject: record.subject,
@@ -436,3 +437,13 @@ export default {
 	probes: [...probes, cli],
 	seeds: [seed],
 } satisfies ProbeModule;
+
+/** What `observe` reads of a queued task's record. */
+interface QueuedRecord {
+	id: number;
+	subject: string;
+	text: string;
+	lane?: number | null;
+	blockedBy: number[];
+	assignee?: { agent: string; model?: string };
+}

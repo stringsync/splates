@@ -175,10 +175,12 @@ Each phase lands on trunk on its own, and splates keeps working after each,
 since splates is built with splates. The new path is built before the old
 one is deleted.
 
-1. **Model.** FORMAT 3: each task becomes `tasks/<N>.md` as above, lanes
-   lose their running state, and tasks gain `stage` and `model`. Existing queued tasks
-   become `ready` when they have a lane and a model, and `backlog`
-   otherwise; started ones become `running`. Behaviour is unchanged.
+1. **Model.** FORMAT 3: each task becomes `tasks/<N>.md`, its fields as
+   front matter and its text as the body, and a queued task gains its
+   `stage`: `ready` once its model is named (`assignee`, the Model above),
+   as grooming does last, else `backlog`. Started tasks keep their `status`, which stands for `running`
+   until phase 2 folds it into `stage`. Lanes keep their running state until
+   phase 4 deletes the lane runner. Behaviour is otherwise unchanged.
 2. **Queue and workers.** The worked-out queue, `splates queue`, and workers
    that take from it. Lanes still run beside it.
 3. **Events and hooks.** Events from the journal, hook config, the groomer

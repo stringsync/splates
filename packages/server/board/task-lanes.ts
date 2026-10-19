@@ -2,7 +2,7 @@ import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
 import { aptName, type LaneRecord, type LaneRun, named, settle } from "./lanes";
 import type { TaskRecord } from "./task";
-import { parseTaskFile } from "./task-file";
+import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
 /**
@@ -155,7 +155,7 @@ export class TaskLanes {
 		return this.tasks.locked(async () => {
 			const entries = await this.fs.readdir(this.tasks.dir).catch(() => []);
 			const parsed: { state: TaskRecord; tags: string[] }[] = [];
-			for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
+			for (const entry of entries.filter((entry) => TASK_FILE.test(entry))) {
 				const raw = await this.fs
 					.read(`${this.tasks.dir}/${entry}`)
 					.catch(() => "");

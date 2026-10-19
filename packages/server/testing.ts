@@ -296,7 +296,7 @@ export class Testing implements AsyncDisposable {
 	/** Where the record of started task `task` is, under its number. */
 	async recordOf(task: string): Promise<string> {
 		const { state } = await this.service.find(task);
-		return join(this.splatesDir, "tasks", `${state?.id}.json`);
+		return join(this.splatesDir, "tasks", `${state?.id}.md`);
 	}
 
 	/** Everything logged so far, one line each, without colour. */

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { ROSTERED } from "../agents/testing";
+import { decodeTask } from "../board";
 import { Testing } from "../testing";
 import { add } from "./add";
 
@@ -165,7 +166,7 @@ describe("add", () => {
 	});
 
 	it("hands the task to an agent pending while its hook readies the tree", async () => {
-		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "1.json")} > record.json`;
+		deps.config.postCheckout = `cat ${join(deps.root, ".git", "splates", "tasks", "1.md")} > record.md`;
 
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },
@@ -178,8 +179,8 @@ describe("add", () => {
 			model: "small",
 			prompt: "Do the part.",
 		});
-		const during = JSON.parse(
-			await deps.fs.read(join(found.path, "record.json")),
+		const during = decodeTask(
+			await deps.fs.read(join(found.path, "record.md")),
 		) as { dispatch?: unknown };
 		expect(during.dispatch).toEqual({
 			agent: "fake",

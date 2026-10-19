@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
+import { decodeTask, encodeTask } from "../board";
 import { movedProjects } from "./paths";
 import { stage } from "./stage";
 
@@ -36,12 +37,13 @@ describe("stage", () => {
 		await fs.write(`${records}/merge.lock/holder.json`, "{}");
 		await fs.write(`${records}/conversations/c1.jsonl`, `{"cwd":"${ROOT}"}\n`);
 		await fs.write(
-			`${records}/tasks/fix.json`,
-			JSON.stringify({ task: "fix", branch: "task/fix" }),
+			`${records}/tasks/1.md`,
+			encodeTask({ id: 1, task: "fix", branch: "task/fix" }),
 		);
 		await fs.write(
-			`${records}/tasks/far.json`,
-			JSON.stringify({
+			`${records}/tasks/2.md`,
+			encodeTask({
+				id: 2,
 				task: "far",
 				machine: "hetzner-1",
 				worktree: "/home/splates/.splates/worker/projects/splates/far",
@@ -93,14 +95,16 @@ describe("stage", () => {
 	});
 
 	it("puts each task worked here on this machine's worker, in its worktree", async () => {
-		expect(await read("projects/splates/tasks/fix.json")).toEqual({
+		const task = async (id: number) =>
+			decodeTask(await fs.read(`${STAGING}/projects/splates/tasks/${id}.md`));
+		expect(await task(1)).toEqual({
+			id: 1,
 			task: "fix",
 			branch: "task/fix",
 			worktree: `${WORKTREES}/fix`,
 			machine: "macbook",
+			text: "",
 		});
-		expect((await read("projects/splates/tasks/far.json")).machine).toBe(
-			"hetzner-1",
-		);
+		expect((await task(2))?.machine).toBe("hetzner-1");
 	});
 });

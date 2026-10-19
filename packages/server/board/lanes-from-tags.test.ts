@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { lanesFromTags } from "./lanes-from-tags";
+import { decodeTask, encodeTask } from "./task-file";
 
 describe("lanesFromTags", () => {
 	let fs: FakeFs;
 	let log: MemoryLogger;
 
 	const tagged = (id: number, tags: string[]) =>
-		JSON.stringify({
+		encodeTask({
 			id,
 			subject: `task ${id}`,
 			text: "",
@@ -24,9 +25,9 @@ describe("lanesFromTags", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		log = new MemoryLogger();
-		await fs.mkdir("/repo/.git/splates/todos");
-		await fs.write("/repo/.git/splates/todos/1.json", tagged(1, ["uploads"]));
-		await fs.write("/repo/.git/splates/todos/2.json", tagged(2, []));
+		await fs.mkdir("/repo/.git/splates/tasks");
+		await fs.write("/repo/.git/splates/tasks/1.md", tagged(1, ["uploads"]));
+		await fs.write("/repo/.git/splates/tasks/2.md", tagged(2, []));
 	});
 
 	it("finds the tasks from a worktree, through its .git file", async () => {
@@ -39,7 +40,7 @@ describe("lanesFromTags", () => {
 
 		expect(said()).toEqual(["moved #1 into lane 1 Uploads, from their tag"]);
 		expect(
-			JSON.parse(await fs.read("/repo/.git/splates/todos/2.json")).lane,
+			decodeTask(await fs.read("/repo/.git/splates/tasks/2.md"))?.lane,
 		).toBeUndefined();
 	});
 

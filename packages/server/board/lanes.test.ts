@@ -3,29 +3,6 @@ import { SOUND2SCORE_LANES, sound2score } from "./example";
 import { cycle, lane, lanes, mentioned, misordered, settle } from "./lanes";
 import type { TaskRecord } from "./task";
 
-function task(overrides: Partial<TaskRecord>): TaskRecord {
-	return {
-		id: 1,
-		subject: "a task",
-		text: "",
-		position: 1,
-		from: null,
-		createdAt: new Date().toISOString(),
-		takenBy: null,
-		files: [],
-		blockedBy: [],
-		lane: null,
-		...overrides,
-	};
-}
-
-/** Each lane's task ids, top first. */
-function shape(tasks: TaskRecord[]): number[][] {
-	return lanes(tasks, SOUND2SCORE_LANES).map((found) =>
-		found.todos.map((each) => each.id),
-	);
-}
-
 describe("lanes", () => {
 	it("draws the sound2score lanes as they were run", () => {
 		const tasks = sound2score();
@@ -97,3 +74,27 @@ describe("lanes", () => {
 		).toEqual([187, 191]);
 	});
 });
+
+function task(overrides: Partial<TaskRecord>): TaskRecord {
+	return {
+		id: 1,
+		subject: "a task",
+		text: "",
+		position: 1,
+		from: null,
+		createdAt: new Date().toISOString(),
+		takenBy: null,
+		files: [],
+		blockedBy: [],
+		lane: null,
+		stage: "backlog",
+		...overrides,
+	};
+}
+
+/** Each lane's task ids, top first. */
+function shape(tasks: TaskRecord[]): number[][] {
+	return lanes(tasks, SOUND2SCORE_LANES).map((found) =>
+		found.todos.map((each) => each.id),
+	);
+}

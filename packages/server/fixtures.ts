@@ -65,6 +65,7 @@ export function todo(overrides: Partial<TaskRecord> = {}): TaskRecord {
 		files: [],
 		blockedBy: [],
 		lane: null,
+		stage: "backlog",
 		...overrides,
 	};
 }
