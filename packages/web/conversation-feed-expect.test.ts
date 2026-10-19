@@ -89,6 +89,27 @@ describe("ConversationFeed's expect", () => {
 		expect(feed.conversations[0]?.name).toBe("Login (trimmed)");
 	});
 
+	it("keeps an expected change past a listing that began before its write landed", async () => {
+		const archive = write();
+		let answer = (_listing: Response) => {};
+		globalThis.fetch = (async (_path: string, init?: RequestInit) =>
+			init?.method === "POST"
+				? new Response(null)
+				: new Promise<Response>((resolve) => {
+						answer = resolve;
+					})) as unknown as typeof fetch;
+
+		const listing = feed.refreshLimits();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const shown = feed.expect("c1", { archived: true }, archive.done);
+		archive.land();
+		await shown;
+		// The listing was asked for before the write landed, so it may predate it.
+		answer(Response.json({ agents: [], conversations: [conversation({})] }));
+		await listing;
+		expect(feed.conversations[0]?.archived).toBe(true);
+	});
+
 	it("takes back a refused change and rejects with why", async () => {
 		const archive = write();
 

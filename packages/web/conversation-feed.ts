@@ -86,6 +86,8 @@ export class ConversationFeed
 	 */
 	private changes = 0;
 	private readonly changedAt = new Map<string, number>();
+	/** How many listings have started, so a listing knows which writes it follows. */
+	private reads = 0;
 	/** The conversations `whole` is reading, by id. */
 	private readonly reading = new Set<string>();
 	private stream: LiveStream | null = null;
@@ -127,7 +129,7 @@ export class ConversationFeed
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
 	put(state: ConversationState): void {
-		this.settle(state.id, this.changes);
+		this.settle(state.id);
 		this.changedAt.set(state.id, this.changes++);
 		const at = this.recorded.findIndex((each) => each.id === state.id);
 		this.show(
@@ -188,7 +190,7 @@ export class ConversationFeed
 				typeof expectation === "function"
 					? expectation
 					: (state) => ({ ...state, ...expectation }),
-			landed: null,
+			landedRead: null,
 		};
 		this.expected.set(id, [...(this.expected.get(id) ?? []), expected]);
 		this.show(this.recorded);
@@ -198,7 +200,7 @@ export class ConversationFeed
 			this.unexpect(id, expected);
 			throw error;
 		}
-		expected.landed = this.changes;
+		expected.landedRead = this.reads;
 		const held = this.recorded.find((each) => each.id === id);
 		if (held === undefined || holds(held, expected.patch)) {
 			this.unexpect(id, expected);
@@ -219,13 +221,15 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Gives up the changes whose writes landed before `since`, the count at
-	 * which a copy of conversation `id` the server sent was asked for: that copy
-	 * holds them, or the server made them otherwise.
+	 * Gives up the changes whose writes landed before a copy of conversation
+	 * `id` the server sent was asked for: that copy holds them, or the server
+	 * made them otherwise. A streamed copy follows every write that has landed;
+	 * a listing follows those that landed before it began, `read` being its
+	 * count, since one begun earlier may predate them.
 	 */
-	private settle(id: string, since: number): void {
+	private settle(id: string, read: number = Infinity): void {
 		const left = (this.expected.get(id) ?? []).filter(
-			(each) => each.landed === null || each.landed > since,
+			(each) => each.landedRead === null || each.landedRead > read,
 		);
 		if (left.length === 0) {
 			this.expected.delete(id);
@@ -474,6 +478,7 @@ export class ConversationFeed
 	/** Reads every conversation afresh; false when they are off. */
 	private async list(): Promise<boolean> {
 		const since = this.changes;
+		const read = this.reads++;
 		const response = await fetch(scoped("/api/conversations")).catch(
 			() => null,
 		);
@@ -494,7 +499,7 @@ export class ConversationFeed
 		const listed = new Set(conversations.map((each) => each.id));
 		for (const id of listed) {
 			if (!moved(id)) {
-				this.settle(id, since);
+				this.settle(id, read);
 			}
 		}
 		this.show([
@@ -568,8 +573,8 @@ export const SEEN = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 /** A change `expect` shows: how, and when its write landed. */
 interface Expected {
 	patch: (state: ConversationState) => ConversationState;
-	/** `changes` as its write landed; null while it is on its way. */
-	landed: number | null;
+	/** `reads` as its write landed; null while it is on its way. */
+	landedRead: number | null;
 }
 
 /** Whether `state` already holds what `patch` would change of it. */
