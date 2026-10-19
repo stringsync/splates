@@ -324,10 +324,7 @@ export function QuestionCards({
 					</div>
 				)}
 				{demo !== null && (!paging || page === 0) && (
-					<DemoSection
-						demo={demo}
-						kept={draft === null ? null : `${draft}:demo`}
-					/>
+					<DemoSection demo={demo} />
 				)}
 				{paging && page < end && questions.length > 1 && (
 					<p className="px-5 pt-5 font-medium text-muted-foreground text-sm tabular-nums">

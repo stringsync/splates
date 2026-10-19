@@ -185,7 +185,7 @@ describe("App's review panel and demo cards", () => {
 		"   It lands where you drop it.",
 	];
 
-	it("shows a demo as steps to tick off, where it runs a click away", async () => {
+	it("shows a demo as steps to follow, where it runs a click away", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Demo",
@@ -200,15 +200,9 @@ describe("App's review panel and demo cards", () => {
 			within(card).getByRole("link", { name: "Open" }).getAttribute("href"),
 		).toBe("http://localhost:4310");
 		expect(card.textContent).toContain("It lands where you drop it.");
-		expect(card.textContent).toContain("0 of 2 tried");
-		const first = within(card).getByRole("checkbox", {
-			name: "Step 1 tried",
-		}) as HTMLInputElement;
-
-		await act(async () => fireEvent.click(first));
-
-		expect(first.checked).toBe(true);
-		expect(card.textContent).toContain("1 of 2 tried");
+		expect(card.textContent).toContain("It lands where you drop it.");
+		expect(within(card).queryByRole("checkbox")).toBeNull();
+		expect(card.textContent).not.toContain("tried");
 	});
 
 	// scry-ignore simple-test-setup: it opens a conversation of its own, which no other test shares

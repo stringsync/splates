@@ -435,7 +435,7 @@ feels, a test only they can run); a merged task gets no demo. A demo is a `### ð
 where to open it, then the steps, numbered from 1. Each step's line is one
 thing to do; indented under it, one line on what they should see, and a
 screenshot or recording when it helps. The `splates server` page shows a demo
-as a checklist they tick off as they go.
+as a card of its steps, with a button that opens where it runs.
 
 A demo tells the story of how the goal was reached: the steps the user takes
 to see it working, in the order that shows it, each with what they should

@@ -104,11 +104,7 @@ export function ReviewPanel({
 			<div className="divide-y">
 				{review.summary !== "" && <CardBody text={review.summary} />}
 				{review.demo !== null && (
-					<DemoSection
-						demo={review.demo}
-						kept={draft === null ? null : `${draft}:demo`}
-						className="last:border-b-0"
-					/>
+					<DemoSection demo={review.demo} className="last:border-b-0" />
 				)}
 				{review.checks.length + review.failed.length > 0 && (
 					<Checks passed={review.checks} failed={review.failed} />
