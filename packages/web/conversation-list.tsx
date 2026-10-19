@@ -134,7 +134,7 @@ export function ConversationList({
 					...grouped.folders
 						.filter((folder) => !folded.has(folderKey(folder)))
 						.flatMap((folder) =>
-							flatten([...folder.working, ...folder.recent]).map((row) => ({
+							flatten(folder.listed).map((row) => ({
 								folder,
 								row,
 							})),

@@ -28,13 +28,7 @@ import {
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
-import {
-	flatten,
-	hostsAtWork,
-	isHostOf,
-	rowsOf,
-	waitsOnYou,
-} from "./conversation-rows";
+import { hostsAtWork, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
@@ -50,6 +44,7 @@ import {
 	type Folder,
 	folderKey,
 	foldersOf,
+	groupsOf,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
 import { arriveAt, useCopiedReplies } from "./task-view";
@@ -124,18 +119,10 @@ export function Inbox({
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
 	const trees = nest(rows, (host, part) => isHostOf(tasks, host, part));
-	const waiting = trees.filter((tree) =>
-		flatten([tree]).some((row) => waitsOnYou(row, drafts, conversations)),
-	);
-	const working = trees.filter(
-		(tree) =>
-			!waiting.includes(tree) &&
-			flatten([tree]).some(
-				(row) => row.need.kind === "working" || row.need.kind === "assuming",
-			),
-	);
-	const rest = trees.filter(
-		(tree) => !waiting.includes(tree) && !working.includes(tree),
+	const { waiting, pinned, working, recent } = groupsOf(
+		trees,
+		drafts,
+		conversations,
 	);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
@@ -242,8 +229,9 @@ export function Inbox({
 						{grouped === null ? (
 							[
 								["Needs you", waiting],
+								["Pinned", pinned],
 								["Working", working],
-								["Recent", rest],
+								["Recent", recent],
 							].map(([title, group]) => (
 								<Group
 									key={String(title)}
@@ -419,7 +407,7 @@ function FolderSection({
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
-	const items = [...folder.working, ...folder.recent].map((tree) => ({
+	const items = folder.listed.map((tree) => ({
 		tree,
 		folder,
 	}));

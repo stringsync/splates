@@ -33,6 +33,12 @@ describe("App's pinning conversations", () => {
 					title: "New",
 					createdAt: "2026-10-11T10:02:00.000Z",
 				}),
+				conversation({
+					id: "c3",
+					title: "Runs",
+					status: "running",
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
 			],
 			null,
 			{ tasks: [] },
@@ -56,14 +62,14 @@ describe("App's pinning conversations", () => {
 		return view.getByRole("dialog", { name });
 	}
 
-	it("lists pinned conversations first", () => {
+	it("lists pinned conversations first, above those at work", () => {
 		expect(
 			within(inbox)
 				.getAllByRole("listitem")
 				.map((item) =>
-					["Old", "New"].find((name) => within(item).queryByText(name)),
+					["Old", "New", "Runs"].find((name) => within(item).queryByText(name)),
 				),
-		).toEqual(["Old", "New"]);
+		).toEqual(["Old", "Runs", "New"]);
 	});
 
 	it("offers Pin then Archive at the end of the menu", async () => {

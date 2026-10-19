@@ -135,6 +135,36 @@ describe("App's agents, in a folder per project", () => {
 		expect(there.hash).toBe("#conversations/z1");
 	});
 
+	it("lists a folder's pinned agents first, above those at work", async () => {
+		testing.everywhere = [
+			listed("zebra", "/code/zebra", [
+				conversation({
+					id: "z1",
+					title: "Stripes",
+					status: "running",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "z3",
+					title: "Mane",
+					pinned: true,
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+			]),
+		];
+		const { view } = await inbox();
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const zebra = await waitFor(() =>
+			within(nav).getByRole("region", { name: "zebra" }),
+		);
+
+		expect(
+			within(zebra)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Mane", "Stripes"]);
+	});
+
 	it("starts a conversation in a folder's project from its +", async () => {
 		const { nav } = await inbox();
 

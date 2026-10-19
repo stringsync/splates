@@ -82,7 +82,7 @@ export function FolderList({
 			{folders.map((folder) => {
 				const key = folderKey(folder);
 				const open = !folded.has(key);
-				const rows = [...folder.working, ...folder.recent];
+				const rows = folder.listed;
 				return (
 					<Collapsible
 						key={key}
