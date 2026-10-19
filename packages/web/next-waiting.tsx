@@ -20,13 +20,14 @@ import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import { foldersOf } from "./project-folders";
 import { arriveAt, useCopiedReplies } from "./task-view";
+import { WaitingLine } from "./waiting-line";
 
 /**
  * The sidebar's Inbox, its first page, counting the agents waiting on you,
- * in every project when the feed of every project is to be had. ⌥⌘M
- * (Ctrl+Alt+M off a Mac) opens the next one waiting here, then another
- * project's, on its page, or else the next merged, then unread, one here,
- * lighting the line when there is none.
+ * in every project when the feed of every project is to be had, and under it
+ * a line saying so, which opens the next as ⌥⌘M (Ctrl+Alt+M off a Mac) does:
+ * the next one waiting here, then another project's, on its page, or else the
+ * next merged, then unread, one here, lighting the line when there is none.
  */
 export function InboxEntry({
 	feed,
@@ -116,17 +117,20 @@ export function InboxEntry({
 	};
 	useShortcut("shortcuts.waiting", () => next.current());
 
+	const waiting =
+		rows.filter((row) => waitsOnYou(row, drafts, conversations)).length +
+		elsewhere;
+
 	return (
-		<InboxLine
-			current={inbox}
-			waiting={
-				rows.filter((row) => waitsOnYou(row, drafts, conversations)).length +
-				elsewhere
-			}
-			nudges={nudges}
-			hint={held ? waitingKey : null}
-			onOpen={onInbox}
-		/>
+		<>
+			<InboxLine current={inbox} waiting={waiting} onOpen={onInbox} />
+			<WaitingLine
+				waiting={waiting}
+				nudges={nudges}
+				hint={held ? waitingKey : null}
+				onNext={() => next.current()}
+			/>
+		</>
 	);
 }
 

@@ -66,6 +66,10 @@ Cap upload retries
 	const inboxOf = (view: ConversationsView) =>
 		view.getByRole("button", { name: /^Inbox/ });
 
+	/** The line under the Inbox that opens the next agent waiting. */
+	const lineOf = (view: ConversationsView) =>
+		view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ });
+
 	/** What the Inbox counts, as it says it. */
 	const waiting = (view: ConversationsView) =>
 		within(inboxOf(view)).getByRole("status").getAttribute("aria-label");
@@ -199,7 +203,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("counts the agents waiting on you on the Inbox, which opens the inbox, and blinks it when ⌥⌘M finds none", async () => {
+	it("counts the agents waiting on you on the Inbox, which opens the inbox, and on the line under it, which opens the next as ⌥⌘M does and blinks when it finds none", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "Runs", status: "running" }),
@@ -207,17 +211,19 @@ Cap upload retries
 			]),
 			"c1",
 		);
-		// The first of the pages.
-		expect(inboxOf(view).nextElementSibling?.textContent).toContain("Todos");
+		// The first of the pages, the line under it.
+		expect(inboxOf(view).nextElementSibling).toBe(lineOf(view));
+		expect(lineOf(view).nextElementSibling?.textContent).toContain("Todos");
 		expect(waiting(view)).toBe("1 waiting on you");
+		expect(lineOf(view).textContent).toBe("1 waiting on you");
 
 		await act(async () => fireEvent.click(inboxOf(view)));
 		expect(location.hash).toBe("#conversations");
 		expect(inboxOf(view).getAttribute("aria-current")).toBe("page");
 		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
-		await pressNext();
+		await act(async () => fireEvent.click(lineOf(view)));
 		expect(location.hash).toBe("#conversations/c2");
-		expect(inboxOf(view).hasAttribute("data-lit")).toBe(false);
+		expect(lineOf(view).hasAttribute("data-lit")).toBe(false);
 
 		view.unmount();
 		const quiet = await testing.openConversations(
@@ -225,9 +231,10 @@ Cap upload retries
 			"c1",
 		);
 		expect(waiting(quiet)).toBe("Nothing waiting on you");
+		expect(lineOf(quiet).textContent).toBe("Nothing waiting on you");
 		await pressNext();
 		expect(location.hash).toBe("#conversations/c1");
-		expect(inboxOf(quiet).hasAttribute("data-lit")).toBe(true);
+		expect(lineOf(quiet).hasAttribute("data-lit")).toBe(true);
 	});
 
 	it("opens merged conversations with ⌥⌘M once none but the open one waits on you", async () => {
