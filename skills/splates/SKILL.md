@@ -539,8 +539,12 @@ page turns into its card: the emoji, the outcome and the bare task name,
 then the base for a merge, or otherwise, after a colon, what it waits on or
 why it went. Under it, say briefly what changed for the user, and anything
 they must act on or would be caught out without (a restart to pick it up, an
-answer you did not follow as given). Leave out what the page, the diff or
-`SPLATES.md` already says. A `##` or `###` heading ends the card, so keep any
+answer you did not follow as given). Keep it to what they would read at a
+glance: a line on the change as they will meet it, then at most a few short
+points on what matters most, never a tour of every change. Leave out how you
+built it (files, functions, tests, the steps you took) and anything the
+page, the diff or `SPLATES.md` already says: the task dialog shows the rest
+to whoever wants it. A `##` or `###` heading ends the card, so keep any
 heading inside it to `####`.
 
 A merge or remove report ends the task, so it asks nothing and offers
