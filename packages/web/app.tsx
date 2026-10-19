@@ -292,7 +292,17 @@ export function App({
 							lane={lane}
 						/>
 					),
-					tasks: <Tasks project={snapshot} open={task} onOpen={openTask} />,
+					tasks: (
+						<Tasks
+							project={snapshot}
+							open={task}
+							onOpen={openTask}
+							onOpenTodo={(id) => {
+								go("todos");
+								todoView.open(id);
+							}}
+						/>
+					),
 					stats: <StatsPage report={report} />,
 					creds: (
 						<CredsPage

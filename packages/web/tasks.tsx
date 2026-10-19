@@ -27,24 +27,29 @@ import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { TaskIcon } from "./task-icon";
+import { TaskQueue } from "./task-queue";
 import { TopBar } from "./top-bar";
 
 /**
  * Every project's tasks, a line each, grouped by project: its name and the
  * marks of the conversations on it. Where the task stands in splates (its
  * status, its plan) waits behind a tap; another project's opens on that
- * project's page, where everything in its dialog is that project's.
+ * project's page, where everything in its dialog is that project's. The
+ * queue follows them.
  */
 export function Tasks({
 	project,
 	open,
 	onOpen,
+	onOpenTodo,
 }: {
 	/** This project, as its snapshot has it, to find among every project the feed lists. */
 	project: Here;
 	/** The task whose dialog is open, by name, so it follows the task as the page reads it again. */
 	open: string | null;
 	onOpen: (task: string | null) => void;
+	/** Opens queued task `id` on the board. */
+	onOpenTodo: (id: number) => void;
 }): JSX.Element {
 	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
@@ -67,6 +72,7 @@ export function Tasks({
 			) : (
 				<ProjectGroups groups={groups} onOpen={onOpen} />
 			)}
+			<TaskQueue todos={project.todos} onOpen={onOpenTodo} />
 			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
 			<Dialog
 				open={opened !== null}
@@ -83,7 +89,7 @@ export function Tasks({
 }
 
 /** What the Tasks page reads of this project's snapshot. */
-type Here = Pick<Snapshot, "tasks" | "root" | "repo">;
+type Here = Pick<Snapshot, "tasks" | "todos" | "root" | "repo">;
 
 /** One project's tasks on the Tasks page. */
 interface Group {
