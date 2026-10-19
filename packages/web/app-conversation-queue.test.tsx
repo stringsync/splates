@@ -62,6 +62,8 @@ describe("App's composer queue", () => {
 		expect(label.className).toContain("shimmer");
 		expect(label.className).toContain("motion-reduce:animate-none");
 		expect(label.getAttribute("role")).toBe("status");
+		const row = label.closest('[data-slot="queued"]');
+		expect(row?.querySelector(".lucide-hourglass")).toBeTruthy();
 		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
 		expect(within(thread).queryByText(/^Working/)).toBeNull();
 
@@ -91,6 +93,8 @@ describe("App's composer queue", () => {
 		expect(within(thread).getByText("Queued for 20s").className).not.toContain(
 			"shimmer",
 		);
+		expect(row?.querySelector(".lucide-hourglass")).toBeNull();
+		expect(row?.querySelector(".lucide-check")).toBeTruthy();
 		expect(within(thread).getByText(/^Working/)).toBeTruthy();
 		expect(
 			within(thread)

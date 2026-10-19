@@ -3,6 +3,7 @@ import {
 	type ThreadMessageLike,
 } from "@assistant-ui/react";
 import type { Message } from "@stringsync/splates-server/conversations";
+import { CheckIcon, HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
@@ -56,11 +57,20 @@ function QueuedTime({
 }): JSX.Element {
 	const now = useNow(until === null);
 	return (
-		<div data-slot="queued" className="my-2 text-sm">
+		<div
+			data-slot="queued"
+			// Its icon sits where the work row's chevron does, below it.
+			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
+		>
+			{until === null ? (
+				<HourglassIcon aria-hidden className="size-3.5 shrink-0" />
+			) : (
+				<CheckIcon aria-hidden className="size-3.5 shrink-0" />
+			)}
 			<span
 				role={until === null ? "status" : undefined}
 				className={cn(
-					"text-muted-foreground font-sans text-sm",
+					"min-w-0 truncate font-sans",
 					until === null && "shimmer motion-reduce:animate-none",
 				)}
 			>
