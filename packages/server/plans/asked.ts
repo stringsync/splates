@@ -153,8 +153,7 @@ export type Report = TaskReport | LanesReport;
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
  * <task>: <why>`, `## ⚠️ Escalated <task>: <what it needs>`, `## 🤝 Handed
- * off <task> to <agent>: <why>`, or `## ⏳ Working <task>: on <agent>`, for a
- * task its agent handed on and relays for, as a lane's orchestrator does.
+ * off <task> to <agent>: <why>`, or `## ⏳ Working <task>: on <agent>`.
  */
 export interface TaskReport {
 	ending: Exclude<Ending, "finished" | "waiting">;

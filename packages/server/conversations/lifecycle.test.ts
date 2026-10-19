@@ -61,25 +61,6 @@ describe("Conversation lifecycle", () => {
 		return conversation;
 	};
 
-	it("tells an agent working a task another conversation added which one did", async () => {
-		const own = await conversations.start("fake", {
-			task: "login",
-			cwd: "/repo-splates/login",
-		});
-		await until(own, "idle");
-		const handed = await conversations.start("fake", {
-			task: "signup",
-			cwd: "/repo-splates/signup",
-			caller: own.id,
-		});
-		await until(handed, "idle");
-
-		expect(agent.launched.map(({ env }) => env.SPLATES_CALLER)).toEqual([
-			undefined,
-			own.id,
-		]);
-	});
-
 	it("takes a prompt while still starting, and says it once the session is open", async () => {
 		agent.turn = async (client, sessionId) => {
 			await client.sessionUpdate({ sessionId, update: say("Hi.") });

@@ -171,7 +171,6 @@ export class Testing implements AsyncDisposable {
 		// Nor does it wait on, or pass through, a heavy-job slot of the machine's.
 		const {
 			SPLATES_CONVERSATION,
-			SPLATES_CALLER,
 			SPLATES_STARTED_BY,
 			SPLATES_DEV,
 			SPLATES_PROJECT,

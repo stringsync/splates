@@ -104,7 +104,6 @@ describe("App's conversation thread", () => {
 				conversation({
 					id: "c1",
 					title: "Read the note",
-					handedBy: "orch",
 					messages: [
 						{ ...message("user", "merge it"), told: "orch" },
 						{ ...message("user", "thanks") },
@@ -506,36 +505,6 @@ describe("App's conversation thread", () => {
 
 		expect(
 			view.container.ownerDocument.querySelector('[data-slot="idle-banner"]'),
-		).toBeNull();
-	});
-
-	it("counts down to an orchestrator's next heartbeat once it is five minutes out", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				heartbeat: new Date(Date.now() + 4 * 60_000 + 30_000).toISOString(),
-			}),
-		]);
-
-		expect(
-			view.container.ownerDocument.querySelector(
-				'[data-slot="heartbeat-banner"]',
-			)?.textContent,
-		).toBe(
-			"Heartbeat in 4:30. It checks on its agents then, unless it speaks first.",
-		);
-	});
-
-	it("shows no heartbeat more than five minutes out", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				heartbeat: new Date(Date.now() + 9 * 60_000).toISOString(),
-			}),
-		]);
-
-		expect(
-			view.container.ownerDocument.querySelector(
-				'[data-slot="heartbeat-banner"]',
-			),
 		).toBeNull();
 	});
 

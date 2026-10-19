@@ -442,7 +442,7 @@ function todo(event: Updated): Named {
 /** Who a handoff went to, for its chip's hover. */
 function handedTo(event: EventOf<"handoff"> & { reason: null }): string {
 	const model = event.model === null ? "" : ` (${event.model})`;
-	return `handed to ${event.agent}${model}${event.relay ? ", reporting back to the one that handed it on" : ""}`;
+	return `handed to ${event.agent}${model}`;
 }
 
 /** What an update changed, in words, or undefined when nothing moved. */

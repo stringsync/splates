@@ -96,22 +96,9 @@ export async function tell(
 }
 
 /**
- * Whether the agent at work on `worktree` answers to the conversation that
- * handed it on, as after `splates handoff --relay`; a handoff recorded before
- * `relay` was kept always did.
- */
-function relays(worktree: Worktree): boolean {
-	const dispatch = worktree.state?.dispatch;
-	return (
-		dispatch?.relay === true ||
-		(dispatch?.handoff === true && dispatch.relay === undefined)
-	);
-}
-
-/**
  * Tells the conversation that handed `worktree` out that the task stopped,
  * escalated, merged or removed, with `[SPLATES REPORT <task>]`, when its agent
- * answers to that conversation, or that conversation is another project's. Run before the record
+ * that conversation is another project's. Run before the record
  * goes, by the command that stops it. Outside `splates server`, or for a task
  * nobody handed out, it says nothing; a server that cannot be reached is
  * worth a line, never a failure, since the command has done its work.
@@ -145,7 +132,7 @@ export async function reportToCaller(
 	const here = await service.holds(ends.caller);
 	// A lane's orchestrator here hears of its todos from `splates server` instead;
 	// one of another project's page has no todo here to hear of.
-	if (here && !relays(worktree)) {
+	if (here) {
 		return;
 	}
 	try {

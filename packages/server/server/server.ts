@@ -682,9 +682,6 @@ export async function dev(
 					"/api/conversations/:id/artifacts/:name": {
 						DELETE: talk(owned((project) => project.removeArtifact)),
 					},
-					"/api/conversations/:id/terminate": {
-						POST: talk(owned((project) => project.terminateConversation)),
-					},
 					"/api/conversations/:id/answer": {
 						POST: talk(owned((project) => project.answerConversation)),
 					},

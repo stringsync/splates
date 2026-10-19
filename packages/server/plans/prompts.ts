@@ -62,14 +62,6 @@ export function reportReference(task: string): string {
 }
 
 /**
- * What tells the conversation that handed `task` out that the person
- * terminated its agent, leaving the task as it stood.
- */
-export function stoppedReference(task: string): string {
-	return `[SPLATES STOPPED ${task}]`;
-}
-
-/**
  * What tells the conversation that handed `task` out that its agent's turn
  * ended, or failed, with the task still under way and not escalated, so it
  * waits on nothing that will come.
@@ -77,13 +69,6 @@ export function stoppedReference(task: string): string {
 export function idleReference(task: string): string {
 	return `[SPLATES IDLE ${task}]`;
 }
-
-/**
- * What asks the conversation that handed tasks out, idle `HEARTBEAT_IDLE` while
- * an agent it handed one to is at work, to check on each and say where its
- * lanes stand.
- */
-export const HEARTBEAT = "[SPLATES HEARTBEAT]";
 
 /**
  * What tells a lane's orchestrator that todo `id`, in a lane it works, left
@@ -126,11 +111,11 @@ export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
- * tasks out, or the groomer: a report, idle, stopped, a todo done, open,
- * added or to groom, heartbeat or lanes done, never the person's word.
+ * tasks out, or the groomer: a report, idle, a todo done, open,
+ * added or to groom, or lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|HEARTBEAT|LANES DONE)\]$/.test(
+	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|LANES DONE)\]$/.test(
 		text.trim(),
 	);
 }

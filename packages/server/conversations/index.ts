@@ -75,7 +75,6 @@ export {
 	blank,
 	DEVICES,
 	FROM_HEADER,
-	HEARTBEAT_IDLE,
 	IDLE_STOP,
 	listed,
 	SERVER_TOLD,

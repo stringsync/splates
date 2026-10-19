@@ -3,7 +3,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	HEARTBEAT,
 	handoffReference,
 	handoffToReference,
 	reportReference,
@@ -104,10 +103,9 @@ it("checks production directive formatting separately from delivery or agent rea
 		"[SPLATES HANDOFF TO fake]",
 	);
 	expect(reportReference("child")).toBe("[SPLATES REPORT child]");
-	expect(HEARTBEAT).toBe("[SPLATES HEARTBEAT]");
 });
 
-it("executes actual isolated no-dev relay refusal without starting an agent", async () => {
+it("executes actual isolated no-dev tell refusal without starting an agent", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "delegation-probes-"));
 	try {
 		const results = await runProbes(
@@ -133,7 +131,7 @@ it("executes actual isolated no-dev relay refusal without starting an agent", as
 			(event) => event.actor === "cli",
 		);
 		expect(event?.exitCode).toBe(1);
-		expect(JSON.stringify(event?.payload)).toContain("--relay needs");
+		expect(JSON.stringify(event?.payload)).toContain("only an agent");
 		expect(result?.result.status).toBe("uncovered");
 		expect(result?.run.evidence.complete).not.toContain("events");
 	} finally {
@@ -265,7 +263,7 @@ it("observes what an Auto probe kept or handed on, from the real task records", 
 			(run) => run.probe.id === "delegation/auto-hand-up",
 		);
 		expect(handUp?.run.evidence.state["auto/handoffs"]).toEqual([
-			{ agent: "fake", model: "large", effort: "high", relay: false },
+			{ agent: "fake", model: "large", effort: "high" },
 		]);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
@@ -282,7 +280,7 @@ const evidence = (state: Evidence["state"]): Evidence => ({
 const find = (id: string) =>
 	module.probes.find((probe) => probe.id === `delegation/${id}`) as Probe;
 const handed = (model: string, effort: string | null = null) => [
-	{ agent: "fake", model, effort, relay: false },
+	{ agent: "fake", model, effort },
 ];
 
 it("fails an Auto probe that hands on what fits, or picks the wrong weight or level", () => {
@@ -302,17 +300,6 @@ it("fails an Auto probe that hands on what fits, or picks the wrong weight or le
 		assess(
 			find("auto-hand-up"),
 			evidence({ "auto/tasks": 1, "auto/handoffs": handed("small") }),
-		).status,
-	).toBe("fail");
-	expect(
-		assess(
-			find("auto-hand-up"),
-			evidence({
-				"auto/tasks": 1,
-				"auto/handoffs": [
-					{ agent: "fake", model: "large", effort: "high", relay: true },
-				],
-			}),
 		).status,
 	).toBe("fail");
 	expect(

@@ -206,7 +206,7 @@ splates dev eval fast --kind cli --failed --directory /tmp/splates-cli-results
 
 The eleven-case CLI suite tests actual local lifecycle outcomes, review gates,
 todo linking and no-dev refusal. Ten cases pass in free integration tests;
-`delegation/cli-no-dev-relay` reports `uncovered`, so the full command exits 1.
+`delegation/cli-no-dev-tell` reports `uncovered`, so the full command exits 1.
 The dedicated delegation test verifies refusal independently, but incomplete
 nested events cannot prove its forbidden-action assertion. `--failed` retains
 and reruns that uncovered case; it does not magically resolve the gap. Select

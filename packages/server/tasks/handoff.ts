@@ -12,11 +12,7 @@ import type { WorktreeService } from "./worktree-service";
  * the task's caller goes, so nobody else tells it anything or hears from it,
  * but for a lane's orchestrator that started the old one, which goes on
  * hearing when it stops.
- * With `relay`, for an agent that hands on work it judged another model fits
- * better, the new agent answers to this conversation instead, as to a lane's
- * orchestrator: it reports back here, and is told what the person says.
- * Only the conversation working the task hands it off; one that answers to an
- * orchestrator escalates instead, for the orchestrator to decide.
+ * Only the conversation working the task hands it off.
  */
 export async function handoff(
 	{
@@ -25,18 +21,9 @@ export async function handoff(
 		branches,
 	}: { service: WorktreeService; log: Logger; branches: TaskBranches },
 	task: string,
-	to: Omit<Dispatched, "conversation" | "pending" | "handoff" | "relay">,
+	to: Omit<Dispatched, "conversation" | "pending" | "handoff">,
 	agents: RosterAgent[],
-	{ relay = false }: { relay?: boolean } = {},
 ): Promise<AgentPick> {
-	const handedBy = service.ps.env("SPLATES_CALLER");
-	if (handedBy !== undefined) {
-		fail(
-			"usage",
-			`this agent answers to conversation ${handedBy}, which hands its tasks out: escalate, saying which agent should take '${task}' over`,
-			{ task, caller: handedBy },
-		);
-	}
 	const found = await service.find(task);
 	if (found.state === null || !found.exists) {
 		fail(
@@ -56,20 +43,12 @@ export async function handoff(
 			{ task, conversation: working },
 		);
 	}
-	// Nothing reports back to a conversation `splates server` does not run.
-	if (relay && here === undefined) {
-		fail(
-			"usage",
-			"--relay needs `splates server`, which starts the agent and carries its reports back: work the task yourself, or hand it to a subagent of your own harness",
-			{ task },
-		);
-	}
 	const picked = { ...to, ...pickAgent(agents, to.agent, to.model, { task }) };
 	await found.save({
 		// A lane's orchestrator that started this one goes on hearing of the
 		// task, from the agent it goes to.
-		caller: relay ? here : service.ps.env("SPLATES_STARTED_BY"),
-		dispatch: { ...picked, handoff: true, relay },
+		caller: service.ps.env("SPLATES_STARTED_BY"),
+		dispatch: { ...picked, handoff: true },
 		// The tree is the new agent's, which may claim it from another host.
 		lease: null,
 	});
@@ -79,9 +58,7 @@ export async function handoff(
 			`${color.green("handed off")} ${task}`,
 			...(pushed === null ? [] : [pushed]),
 			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`splates server\` starts in the worktree`,
-			relay
-				? `  next:     say "## ⏳ Working ${task}: on <agent>" and end your turn: it reports back to you`
-				: "  next:     end your turn: the task is the new agent's now, and the page shows the handoff",
+			"  next:     end your turn: the task is the new agent's now, and the page shows the handoff",
 		].join("\n"),
 	);
 	return picked;

@@ -312,7 +312,6 @@ export class Conversation
 			log: path,
 			assigned = false,
 			auto = false,
-			handedBy = null,
 			startedBy = null,
 			skill = null,
 		}: Opening,
@@ -329,7 +328,6 @@ export class Conversation
 			base,
 			caller,
 			assigned,
-			handedBy,
 			startedBy,
 		);
 		state.skill = skill;
@@ -346,7 +344,6 @@ export class Conversation
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(auto ? { auto } : {}),
-			...(handedBy === null ? {} : { handedBy }),
 			...(startedBy === null ? {} : { startedBy }),
 			...(skill === null ? {} : { skill }),
 		});
@@ -595,13 +592,9 @@ export class Conversation
 	}
 
 	/**
-	 * Takes its agent off the worker it ran on, whose slot went with it, and
-	 * places it again, as a forced remove does, or a drain that replaces
-	 * the worker: in a new session, since the old one stays on that worker,
-	 * told `[SPLATES TASK <task>]` to claim its task from the checkpoint it
-	 * last pushed. One at work carries on at once; one idle hears it before
-	 * the person's next words; one in no task has nothing pushed to carry
-	 * on from, and stays stopped.
+	 * Moves its agent to a new worker once the one it ran on is gone, as a
+	 * forced remove or a drain does, so the task carries on from its last
+	 * checkpoint. One in no task stays stopped.
 	 */
 	async requeue(): Promise<void> {
 		const { status, task, checkpoint } = this.state;
@@ -611,6 +604,10 @@ export class Conversation
 			checkpoint === "asked" ||
 			// Its process ended first, cut short, as a worker hanging up ends it.
 			this.reconnecting !== null;
+		// In a new session, since the old one stays on the old worker, told
+		// `[SPLATES TASK <task>]` to claim its task from the checkpoint it last
+		// pushed: one at work carries on at once, one idle hears it before the
+		// person's next words.
 		const carry = task === null ? null : taskReference(task);
 		// Said before the person can say anything once it has stopped.
 		this.carry = busy ? null : carry;
@@ -1144,7 +1141,7 @@ export class Conversation
 
 /** Whether another agent started it, handing it its task, rather than the person. */
 function spawned(state: ConversationState): boolean {
-	return state.handedBy !== null || state.startedBy !== null;
+	return state.startedBy !== null;
 }
 
 /** What a conversation is opened with, started afresh or brought in. */
@@ -1162,8 +1159,6 @@ interface Opening {
 	assigned?: boolean;
 	/** Started on what Auto picked. */
 	auto?: boolean;
-	/** The conversation that handed it its task, which it answers to. */
-	handedBy?: string | null;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */
 	startedBy?: string | null;
 	/** The project's splates skill version as it starts; null when it has none. */

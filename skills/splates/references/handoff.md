@@ -6,11 +6,8 @@ another model family, or sends `[SPLATES HANDOFF TO <agent> <model>]` from the
 to `--agent` and `--model`, hand the whole task over rather than a part: the
 other agent takes over your tree, your branch and your `SPLATES.md`, and
 answers to the user as you did. Only the agent at work on a task hands it
-off. When another agent handed you yours with `--relay`, so you answer to
-it, `splates handoff` refuses: escalate instead, naming the agent you would
-hand it to, since the task is that one's to place. A lane's orchestrator
-that handed you yours goes on hearing of the task from the agent it goes
-to.
+off. A lane's orchestrator that handed you yours goes on hearing of the
+task from the agent it goes to.
 
 1. Commit each step you finished, and check it off under `## Next`.
 2. Bring `SPLATES.md` up to date as for a checkpoint, then write a `###
@@ -61,83 +58,18 @@ it. When you are unsure, keep it. A conversation Auto started is the
 exception, since its pick never saw the code: see Sizing an Auto pick.
 
 Keep the task when the user named your model for it, or asked you to do it
-yourself. An agent that answers to another escalates instead, as above.
-
-You stay the one the user talks to: the other agent answers to you.
+yourself.
 
 1. Do steps 1 and 2 of Handing off your task, the `### Handoff` stating
    the reason: what failed or what is left, with the steps or files that
    show it.
-2. `splates handoff <task> --relay --agent <id> --model <m>`, the cheapest
-   model that fits, with `--effort` as Picking a thinking level says. `splates server` starts it in your tree, and moves this
-   conversation back to the main tree. Outside `splates server`, `--relay`
-   refuses: keep the task, or hand it to a subagent of your own harness on
-   that model, told to `splates claim <task>` and work it as the skill says,
-   reporting to you, and `splates wait <task>` on it in place of its reports.
-3. End your turn on a working report: `## ⏳ Working <task>`, after a colon
-   the agent and model it went to as `splates agents` names them, then one
-   sentence stating the reason, so the user can judge it and tell you to
-   take it back.
-
-```markdown
-## ⏳ Working <task>: on Claude Sonnet 5.5
-
-Forty files still need the same rename, each listed under `## Next`, so a cheaper model takes them.
-```
-
-From then on, splates wakes you whenever it stops, and you carry its
-questions up to the user and their answers down:
-
-- `[SPLATES REPORT <task>]`: read `splates show <task>`. When it is gone, read
-  in `git log` what landed and end on the report the task would have ended
-  on, `## ✅ Merged <task> onto <base>` or `## 🛑 Removed <task>: <why>`.
-  When it escalated, relay its questions or its review (see Relaying
-  below), under a `## ⚠️ Escalated <task>: <what it needs>` or a Ready to
-  merge card.
-- `[SPLATES IDLE <task>]`: it stopped without a word to you. When its
-  `SPLATES.md` has open questions under `## Blocked`, relay them; when it
-  has none, `splates tell <task>` it to carry on as the splates skill says,
-  ending in `splates escalate`, `splates merge` or `splates remove`. The second
-  time it comes back idle with nothing changed, ask the user whether to
-  take it back.
-- `[SPLATES STOPPED <task>]`: the user terminated its agent. Ask what becomes
-  of it, with "take it back" as a choice: once the user picks it, `splates
-  claim <task>` and carry on yourself.
-- `[SPLATES HEARTBEAT]`: you have sat idle ten minutes while it works, so the
-  user has heard nothing for that long. Read `splates show <task>`, act on it
-  as for `[SPLATES IDLE <task>]` when it has not moved, and end on a fresh
-  working report.
-- When the user asks for the task back while its agent works, ask them to
-  terminate that agent from its conversation, then claim it on the
-  `[SPLATES STOPPED <task>]` that follows.
-
-### Relaying
-
-The user talks to you, never to the agent: the `splates server` page offers no
-composer on its conversation, only a line pointing to yours, and its
-permission asks show above your composer. So you carry its questions up
-and the answers down, with `splates tell <task> '<text>'`, which says
-`<text>` in its conversation as the user would.
-
-1. Read `splates show <task>`: its open questions under `## Blocked`, or, for
-   a review, its `### Review` under `## Notes`.
-2. Answer each question that what you know of the task, the user's earlier
-   answers, or a look at the code settle, as the user would from the page:
-   its line quoted in bold, then the choice picked (see Keeping Blocked
-   current), and a line saying you answered it and why. Never answer one
-   that is a close call or goes against what the user said.
-3. Ask the user the rest, each open question in a numbered list exactly as
-   the agent wrote it, with its choices and screenshots. A review you relay
-   as a Ready to merge card of its own, the agent's `### Review` as it
-   wrote it.
-4. The user's answers reach you as messages. `splates tell` the task the
-   quotes and words that answer its questions, as they came. "Merge" or `[SPLATES MERGE]` on a
-   review you relayed goes down as `[SPLATES MERGE]`; changes asked for go
-   down as they came. Questions they left open are asked again first in
-   your next report.
-
-Never ask the user to go to the agent's conversation, or to send you on:
-whatever they say to you is yours to pass down.
+2. `splates handoff <task> --agent <id> --model <m>`, the cheapest model
+   that fits, with `--effort` as Picking a thinking level says. `splates
+   server` starts it in your tree, and moves this conversation back to the
+   main tree. The agent answers to the user, who talks to it directly.
+3. End your turn on one line saying who it went to and why, such as
+   `Handed to Sonnet 5.5: forty files need the same rename.`, so the user
+   can judge it.
 
 ## Picking a thinking level
 
@@ -183,13 +115,8 @@ judgment is the reason the section above asks for.
 4. To hand it on, read `splates agents`, pick the cheapest model whose
    strengths cover the work, and do steps 1 and 2 of Handing off your task,
    the `### Handoff` holding everything you learned. Then `splates handoff
-   <task> --agent <id> --model <m> --effort <level>`, without `--relay`:
-   the person picked Auto, not you, so the agent it goes to answers to them.
-   Auto picked a level from the words alone, so pick one again from what
+   <task> --agent <id> --model <m> --effort <level>`. Auto picked a level from the words alone, so pick one again from what
    you found, as Picking a thinking level says.
 5. End your turn on one line saying who it went to and why, such as
    `Handed to Sonnet 5.5: one constant to rename across 30 files.`, so
    the person, who never asked for a handoff, sees why Auto's pick moved.
-
-When `$SPLATES_CALLER` is set, `splates handoff` refuses: escalate instead,
-naming the model the work fits, as above.

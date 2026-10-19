@@ -79,7 +79,6 @@ describe("App's splates events", () => {
 				conversation: "c1",
 				agent: "codex",
 				model: "gpt-5.5",
-				relay: false,
 			},
 			claim("alpha", 3, { tookOver: true }),
 		]);

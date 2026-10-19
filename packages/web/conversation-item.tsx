@@ -43,7 +43,6 @@ import {
 } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
-import { useHandedOutBy } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
@@ -101,13 +100,11 @@ export function Item({
 	const { id, archived } = conversation;
 	const { refusal, refuse } = useRowRefusal(id);
 	const expect = useExpect();
-	const { file, confirm, files } = useArchive(conversation, refuse);
-	// One that answers to another is that one's to rename and archive.
-	const handedOut = useHandedOutBy(conversation) !== null;
+	const { file, confirm } = useArchive(conversation, refuse);
 	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
-	const pins = files && !archived && !nested;
+	const pins = !archived && !nested;
 	const pinned = pins && conversation.pinned;
 	const Pin = pinned ? PinOffIcon : PinIcon;
 	const pin = pinned ? "Unpin" : "Pin";
@@ -140,7 +137,7 @@ export function Item({
 				data-row
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
-				onDoubleClick={() => setRenaming(!handedOut)}
+				onDoubleClick={() => setRenaming(true)}
 				title={where ? undefined : (conversation.task ?? undefined)}
 				// Room for the buttons only while they show, and for a mark while
 				// there is one.
@@ -152,7 +149,8 @@ export function Item({
 						? "pr-20"
 						: need.kind === "idle" &&
 								!hosting &&
-								(handedOut || (reported === null && !conversation.unread)) &&
+								reported === null &&
+								!conversation.unread &&
 								hint === null
 							? "pr-3"
 							: "pr-6",
@@ -176,9 +174,7 @@ export function Item({
 				<span
 					className={cn(
 						"min-w-0 flex-1 truncate text-sm",
-						// One that answers to another is not yours to address.
-						(unnamed(conversation) || handedOut) &&
-							"text-muted-foreground italic",
+						unnamed(conversation) && "text-muted-foreground italic",
 					)}
 				>
 					{nameOf(conversation)}
@@ -227,7 +223,6 @@ export function Item({
 						reported={reported}
 						unread={conversation.unread}
 						hosting={hosting}
-						subagent={handedOut}
 					/>
 				)}
 			</span>
@@ -265,12 +260,10 @@ export function Item({
 							{copied.state === "copied" ? <CheckIcon /> : <LinkIcon />}
 							<span aria-live="polite">{copiedLabel(copied, "Copy link")}</span>
 						</DropdownMenuItem>
-						{!handedOut && (
-							<DropdownMenuItem onClick={() => setRenaming(true)}>
-								<PencilIcon />
-								Rename
-							</DropdownMenuItem>
-						)}
+						<DropdownMenuItem onClick={() => setRenaming(true)}>
+							<PencilIcon />
+							Rename
+						</DropdownMenuItem>
 						{/* The one open would be read again at once. */}
 						{!current && !conversation.unread && !archived && (
 							<DropdownMenuItem
@@ -290,14 +283,12 @@ export function Item({
 								Move under…
 							</DropdownMenuItem>
 						)}
-						{files && (
-							<DropdownMenuItem
-								onClick={() => file(archived ? undefined : onLeft)}
-							>
-								<Put />
-								{put}
-							</DropdownMenuItem>
-						)}
+						<DropdownMenuItem
+							onClick={() => file(archived ? undefined : onLeft)}
+						>
+							<Put />
+							{put}
+						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
 				{pins && (
@@ -318,16 +309,14 @@ export function Item({
 						<Pin />
 					</Button>
 				)}
-				{files && (
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={`${put} ${nameOf(conversation)}`}
-						onClick={() => file(archived ? undefined : onLeft)}
-					>
-						<Put />
-					</Button>
-				)}
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					aria-label={`${put} ${nameOf(conversation)}`}
+					onClick={() => file(archived ? undefined : onLeft)}
+				>
+					<Put />
+				</Button>
 			</span>
 			<Refusal refusal={refusal} className="w-full px-3 pb-1.5" />
 		</div>

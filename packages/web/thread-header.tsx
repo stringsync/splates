@@ -14,7 +14,6 @@ import { cn } from "#web/lib/utils.ts";
 import type { Action } from "./actions";
 import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
-import { useHandedOutBy } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { TakeUp, TakeUpItems } from "./take-up";
 import { TaskLine } from "./task-view";
@@ -57,8 +56,6 @@ export function ThreadHeader({
 	onBack: (() => void) | null;
 }): ReactNode {
 	const [renaming, setRenaming] = useState(false);
-	// One that answers to another is that one's to rename and set to work.
-	const handedOut = useHandedOutBy(conversation) !== null;
 	const nameOf = useNameOf();
 	const key = useShortcutLabel("shortcuts.widgets");
 	const phone = onBack !== null;
@@ -82,9 +79,9 @@ export function ThreadHeader({
 					// A shortcut: the menu in the sidebar renames too. A long name,
 					// such as a question it was named after, ends in an ellipsis.
 					<h2
-						onDoubleClick={() => setRenaming(!handedOut && !phone)}
+						onDoubleClick={() => setRenaming(!phone)}
 						title={
-							handedOut || phone
+							phone
 								? nameOf(conversation)
 								: `${nameOf(conversation)}\nDouble-click to rename`
 						}
@@ -152,9 +149,8 @@ function Where({
 	onTake: (text: string) => void;
 	onDetails: () => void;
 }): JSX.Element {
-	const handedOut = useHandedOutBy(conversation) !== null;
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
-	return conversation.task === null && !conversation.archived && !handedOut ? (
+	return conversation.task === null && !conversation.archived ? (
 		<TakeUp trunk={trunk} tasks={free} onTake={onTake} />
 	) : (
 		<TaskLine branch={branch} task={task} onDetails={onDetails} />
@@ -181,8 +177,7 @@ export function useWhereAction({
 	onTake: (text: string) => void;
 	onDetails: () => void;
 }): Action | null {
-	const handedOut = useHandedOutBy(conversation) !== null;
-	if (conversation.task === null && !conversation.archived && !handedOut) {
+	if (conversation.task === null && !conversation.archived) {
 		return {
 			label: trunk,
 			icon: <GitBranchIcon />,

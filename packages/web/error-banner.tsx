@@ -1,9 +1,7 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { CircleAlertIcon } from "lucide-react";
 import { type JSX, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { useNameOf } from "./conversation-names";
 
 /**
  * Under a conversation's header once its agent or its last turn failed,
@@ -13,18 +11,12 @@ import { useNameOf } from "./conversation-names";
 export function ErrorBanner({
 	conversation,
 	error,
-	handedBy,
 	phone,
-	onOpen,
 }: {
 	conversation: ConversationState;
 	error: string;
-	/** The conversation it reports to, the only one that can carry it on. */
-	handedBy: ConversationState | null;
 	phone: boolean;
-	onOpen: (id: string) => void;
 }): JSX.Element {
-	const nameOf = useNameOf();
 	const [whole, setWhole] = useState(false);
 	const stopped = conversation.status === "failed";
 	return (
@@ -42,25 +34,9 @@ export function ErrorBanner({
 						{stopped ? "The agent stopped." : "The last turn failed."}
 					</span>{" "}
 					<span className="text-muted-foreground">
-						{handedBy === null ? (
-							stopped ? (
-								"Send a message to start it again."
-							) : (
-								"Send a message to try again."
-							)
-						) : (
-							<>
-								Ask{" "}
-								<Button
-									variant="link"
-									className="h-auto p-0 font-medium"
-									onClick={() => onOpen(handedBy.id)}
-								>
-									{nameOf(handedBy)}
-								</Button>{" "}
-								to carry on.
-							</>
-						)}
+						{stopped
+							? "Send a message to start it again."
+							: "Send a message to try again."}
 					</span>
 				</p>
 				<button

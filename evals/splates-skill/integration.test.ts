@@ -95,7 +95,7 @@ it("executes the discovered CLI suite without models and retains its deliberate 
 			(run) =>
 				run.result.status !== "pass" &&
 				!(
-					run.probe.id === "delegation/cli-no-dev-relay" &&
+					run.probe.id === "delegation/cli-no-dev-tell" &&
 					run.result.status === "uncovered"
 				),
 		);
@@ -110,7 +110,7 @@ it("executes the discovered CLI suite without models and retains its deliberate 
 			runs
 				.filter((run) => run.result.status !== "pass")
 				.map((run) => [run.probe.id, run.result.status]),
-		).toEqual([["delegation/cli-no-dev-relay", "uncovered"]]);
+		).toEqual([["delegation/cli-no-dev-tell", "uncovered"]]);
 		expect(process.exitCode).toBe(1);
 		await fastCli(
 			["fast", "--kind", "cli", "--failed", "--directory", directory],
@@ -119,7 +119,7 @@ it("executes the discovered CLI suite without models and retains its deliberate 
 		const reruns = await storedRuns(directory);
 		expect(reruns).toHaveLength(12);
 		expect(
-			reruns.filter((run) => run.probe.id === "delegation/cli-no-dev-relay"),
+			reruns.filter((run) => run.probe.id === "delegation/cli-no-dev-tell"),
 		).toHaveLength(2);
 		const report = new MemoryLogger();
 		await fastCli(
@@ -161,7 +161,7 @@ it("rejects every registered agent probe without launching even with unmetered o
 			allowUnmetered: true,
 		},
 	);
-	expect(runs).toHaveLength(64);
+	expect(runs).toHaveLength(60);
 	expect(new Set(runs.map((run) => run.result.status))).toEqual(
 		new Set(["unsupported"]),
 	);

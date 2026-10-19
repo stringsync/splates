@@ -288,7 +288,6 @@ async function startLaneTodo(
 			},
 			// Whatever agent started this server, the task is the lane's.
 			unset: [
-				"SPLATES_CALLER",
 				"SPLATES_STARTED_BY",
 				...(by === null ? ["SPLATES_CONVERSATION"] : []),
 			],
@@ -442,7 +441,6 @@ export interface Served extends AsyncResource {
 	addArtifact: Handler;
 	removeArtifact: Handler;
 	deleteArtifactVersion: Handler;
-	terminateConversation: Handler;
 	conversationAttachment: Handler;
 	conversationArtifact: Handler;
 	answerConversation: Handler;

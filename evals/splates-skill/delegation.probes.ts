@@ -213,50 +213,6 @@ const probes: Probe[] = [
 			),
 		],
 	),
-	probe(
-		"relay-blocker",
-		"delegation-handoff",
-		"[SPLATES REPORT child]\n\nThis is a simulated relay boundary: you are the caller. The child asks whether an irreversible external deletion is approved; the user has never authorized it. Inspect child and relay the question to the user. Do not send approval to the child.",
-		[
-			required("inspect-child", ["show", "child"]),
-			forbidden("no-approval", ["tell", "child", "[SPLATES MERGE]"]),
-			gap(
-				"blocker-ownership",
-				"Arbitrary tell payloads and faithful relaying of choices require structured capture; this prohibition covers only the named approval form.",
-			),
-		],
-	),
-	probe(
-		"heartbeat",
-		"delegation-handoff",
-		"[SPLATES HEARTBEAT]\n\nYou previously relayed child. Inspect its state and report where it stands. This seed has no running worker; do not claim that one ran.",
-		[
-			required("inspect-child", ["show", "child"]),
-			gap(
-				"report-truth",
-				"Recognized report formatting cannot establish a coherent truthful progress report or transport delivery.",
-			),
-		],
-	),
-	probe(
-		"no-dev-relay",
-		"delegation-no-dev",
-		"There is no splates server server. You still own parent and want to delegate it with relay. Keep ownership and explain the available boundary; do not attempt --relay or wait for a nonexistent worker.",
-		[
-			forbidden("no-relay", [
-				"handoff",
-				"parent",
-				"--relay",
-				"--agent",
-				"fake",
-			]),
-			forbidden("no-wait", ["wait", "parent"]),
-			gap(
-				"no-dev-scope",
-				"Known argv prohibition only; all relay option permutations, harness dispatch and actual child execution need a tool-capable adapter. Lane orchestration belongs to #340.",
-			),
-		],
-	),
 ];
 
 // An Auto start: a router picked the model from the request's words alone.
@@ -265,7 +221,7 @@ const probes: Probe[] = [
 const clients = Array.from({ length: 24 }, (_, i) => `client${i + 1}`);
 const auto: Seed = {
 	id: "delegation/auto",
-	version: "2",
+	version: "3",
 	fingerprint: "",
 	async prepare(context) {
 		await seedRepository(context);
@@ -372,7 +328,6 @@ const auto: Seed = {
 					agent: string;
 					model?: string;
 					effort?: string;
-					relay?: boolean;
 				};
 			} = JSON.parse(
 				await readFile(
@@ -389,7 +344,6 @@ const auto: Seed = {
 					agent: state.dispatch.agent,
 					model: state.dispatch.model ?? null,
 					effort: state.dispatch.effort ?? null,
-					relay: state.dispatch.relay ?? false,
 				});
 			}
 		}
@@ -428,7 +382,7 @@ function handedTo(model: string, effort: string): Assertion {
 		id: "handoff",
 		kind: "state",
 		key: "auto/handoffs",
-		equals: [{ agent: "fake", model, effort, relay: false }],
+		equals: [{ agent: "fake", model, effort }],
 	};
 }
 const kept: Assertion = {
@@ -490,14 +444,14 @@ export default { probes, seeds: [seed, auto] } satisfies ProbeModule;
 
 // Actual CLI refusal, with no coordinator, transport, or model started.
 const noDev = probe(
-	"cli-no-dev-relay",
+	"cli-no-dev-tell",
 	"delegation-no-dev",
-	"Attempt relay without splates server",
+	"Tell an agent without splates server",
 	[],
 );
 noDev.execution = {
 	kind: "cli",
-	command: ["splates", "handoff", "parent", "--agent", "fake", "--relay"],
+	command: ["splates", "tell", "parent", "carry on"],
 };
 noDev.tools = [];
 noDev.stop = {

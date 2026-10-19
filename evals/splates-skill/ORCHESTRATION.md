@@ -24,7 +24,6 @@ cannot run these tool-capable cases and must report unsupported.
 | todo-open | lanes-events | Reopened todo in a paused lane; inspect, leave paused, no dispatch |
 | todo-done | lanes-events | Predecessor removed in a paused lane; inspect, leave paused, no dispatch |
 | report | lanes-events | Stopped-task notification; inspect task (disposition intentionally uncovered) |
-| stopped | lanes-events | User-stopped worker input; inspect, no unrequested moot removal |
 | lanes-done | lanes-events | Empty board; inspect lanes/tasks, parsed finished ending and observed empty todo board |
 | pivot | lanes-events | Seeded task/todo; stop before removal, remove task before dropping todo |
 | defer | todos-defer | Additional deferred request; exact saved detail/assignment, no read of named project file |
@@ -51,7 +50,7 @@ fail observation. Setup acts are fixture events, never agent events.
 `orchestration.test.ts` tests schema validation, positive synthetic witnesses,
 missing/incomplete evidence, reversed order, and failed forbidden attempts.
 It separately checks production directive constructors and parsing for LANE,
-REPORT, IDLE, STOPPED, TODO DONE/OPEN, LANES DONE and DEFER. These are payload
+REPORT, IDLE, TODO DONE/OPEN, LANES DONE and DEFER. These are payload
 format checks, **not a claim that a live dev server delivered a directive**.
 The actual `cli-link` invocation checks persisted state and retains the CLI
 adapter's incomplete events channel. These layers do not prove agent adherence.
@@ -80,8 +79,8 @@ or a coherent report across multiple parsed stretches.
   continuation), full grooming/release quality and arbitrary model
   choice need additional instrumented cases; the additional-request defer
   fixture does not stand in for them.
-- #367 owns skill discovery and reference reads. #356 owns actual delegation,
-  relay and no-dev fallback boundaries. These tests stop at orchestration
+- #367 owns skill discovery and reference reads. #356 owns actual delegation
+  and no-dev fallback boundaries. These tests stop at orchestration
   decisions; optional legacy `lane-no-dev`/lane E2E must retain actual worker
   execution and landing, separately selected and explicitly authorized.
 - Preserve per-repetition unsupported/error/bound results and compatible identity

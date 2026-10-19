@@ -222,7 +222,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned,
 			auto,
 			picking,
-			handedBy,
 			startedBy,
 		}: {
 			task: string | null;
@@ -243,8 +242,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			 * `model` and `settings`, which it starts on meanwhile.
 			 */
 			picking?: Promise<Picked<string>>;
-			/** The conversation that handed it its task, which it answers to. */
-			handedBy?: string | null;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
 		},
@@ -270,7 +267,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 					...picked,
 					agent: this.agentOf(picked.agent),
 				})),
-				handedBy,
 				startedBy,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},

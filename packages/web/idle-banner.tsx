@@ -1,27 +1,14 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { IDLE_STOP } from "@stringsync/splates-server/conversations/browser";
 import { MoonIcon } from "lucide-react";
 import type { JSX } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { useNameOf } from "./conversation-names";
 
 /**
  * Under a conversation's header while splates has its agent stopped for sitting
  * idle, across the pane's padding to its edges: why its process is gone, so
  * the person does not take it for a crash, and what wakes it.
  */
-export function IdleBanner({
-	handedBy,
-	phone,
-	onOpen,
-}: {
-	/** The conversation it reports to, whose word wakes it. */
-	handedBy: ConversationState | null;
-	phone: boolean;
-	onOpen: (id: string) => void;
-}): JSX.Element {
-	const nameOf = useNameOf();
+export function IdleBanner({ phone }: { phone: boolean }): JSX.Element {
 	return (
 		<p
 			role="status"
@@ -36,21 +23,7 @@ export function IdleBanner({
 				<span className="font-medium text-foreground">
 					Stopped after {IDLE_STOP.mins} minutes idle.
 				</span>{" "}
-				{handedBy === null ? (
-					"Sending a message starts it again where it left off."
-				) : (
-					<>
-						It starts again where it left off when{" "}
-						<Button
-							variant="link"
-							className="h-auto p-0 font-medium"
-							onClick={() => onOpen(handedBy.id)}
-						>
-							{nameOf(handedBy)}
-						</Button>{" "}
-						tells it something.
-					</>
-				)}
+				Sending a message starts it again where it left off.
 			</span>
 		</p>
 	);

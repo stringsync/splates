@@ -15,7 +15,7 @@ import { reparentConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { flatten } from "./conversation-rows";
 import { useExpect } from "./expecting";
-import { Held, useHandedOutBy } from "./handed-out";
+import { Held } from "./handed-out";
 import type { Nested } from "./parts";
 import type { Refuse } from "./refusal";
 
@@ -65,12 +65,10 @@ export function placesOf(trees: Nested<Needing>[]): Map<string, Places> {
 }
 
 /**
- * `conversation`'s places in the list around it; null where it has none, as
- * for a subagent, which stays under the one it answers to.
+ * `conversation`'s places in the list around it; null where it has none.
  */
 export function usePlaces(conversation: ConversationState): Places | null {
-	const places = useContext(Placing).places.get(conversation.id) ?? null;
-	return useHandedOutBy(conversation) === null ? places : null;
+	return useContext(Placing).places.get(conversation.id) ?? null;
 }
 
 /**

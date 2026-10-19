@@ -93,8 +93,6 @@ export interface Facts {
 		agent: string;
 		/** Its model, by the id the roster gives it, or null for the agent's own. */
 		model: string | null;
-		/** Whether the agent answers to the conversation that handed it on. */
-		relay: boolean;
 	};
 	attach: {
 		/** The paths it stored, in the order given. */
@@ -261,7 +259,7 @@ export const FACTS = {
 	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
-	handoff: ["agent", "model", "relay"],
+	handoff: ["agent", "model"],
 	attach: ["stored", "removed"],
 	"artifact add": ["name", "version", "bytes"],
 	"artifact remove": ["name", "version"],

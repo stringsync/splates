@@ -53,6 +53,12 @@ describe("dev conversations", () => {
 		await deps.disposeAsync();
 	});
 
+	/** A conversation started through the page, with no task. */
+	const opened = async () => {
+		const id = await start(port, null);
+		return { id, conversation: await conversations.find(id) };
+	};
+
 	it("says they are off unless asked for", async () => {
 		await serving(deps, async (_, port) => {
 			const response = await get(port, `/api/conversations`);
@@ -127,7 +133,7 @@ describe("dev conversations", () => {
 
 		expect(said).toEqual(["[SPLATES HANDOFF alpha]\n\nThe styles."]);
 		expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
-		expect(started?.state).toMatchObject({ task: "alpha", handedBy: null });
+		expect(started?.state).toMatchObject({ task: "alpha", startedBy: null });
 		expect(alpha.state?.dispatch?.conversation).toBe(started?.id);
 	});
 
@@ -259,8 +265,7 @@ describe("dev conversations", () => {
 			await client.sessionUpdate({ sessionId, update: say("Done.") });
 			return "end_turn";
 		};
-		const id = await start(port, null);
-		const conversation = await conversations.find(id);
+		const { id, conversation } = await opened();
 		await conversation.prompt("go");
 		// The turn ends when the agent says so, not when its last words have
 		// been taken in: archive once the reply is in the conversation.
@@ -282,8 +287,7 @@ describe("dev conversations", () => {
 	});
 
 	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {
-		const id = await start(port, null);
-		const conversation = await conversations.find(id);
+		const { id, conversation } = await opened();
 		const encoder = new TextEncoder();
 		await conversation.artifacts.add({
 			name: "page.html",
@@ -323,8 +327,7 @@ describe("dev conversations", () => {
 	}, 15_000);
 
 	it("deletes one version's bytes on a DELETE of that version, keeping the artifact listed", async () => {
-		const id = await start(port, null);
-		const conversation = await conversations.find(id);
+		const { id, conversation } = await opened();
 		const add = (text: string) =>
 			conversation.artifacts.add({
 				name: "page.html",

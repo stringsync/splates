@@ -80,10 +80,10 @@ channels. No adapter is allowed to drop those gaps to manufacture a pass.
   grooming/releasing partial todos, lane dependencies, dispatch and no-dev lane
   orchestration. `requested-todo` only bridges a single open todo into a task.
 - **#356 delegation/handoffs:** owns child base selection (including nondefault
-  bases), briefs, handoff/relay ownership, child-before-parent merges, and
+  bases), briefs, handoff ownership, child-before-parent merges, and
   no-dev delegation boundaries. These single-task cases have no child agents.
-  Real code behind #356 includes `handoff.ts` (handoff/relay
-  ownership and dev requirement) and `web/parts.ts` (part state).
+  Real code behind #356 includes `handoff.ts` (handoff
+  ownership) and `web/parts.ts` (part state).
   #356 is a todo id, not an existing splates system.
 - **#355 decisions:** owns approval/review choices. `verify-land` explicitly has
   no review request; `recover-budget` follows an unambiguous CLI refusal.

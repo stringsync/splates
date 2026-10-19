@@ -40,15 +40,13 @@ asks you to read it as Reference files says.
 | `[SPLATES DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | [todos.md](references/todos.md), Deferring |
 | `[SPLATES LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[SPLATES LANE N]` | Plan lane N as its orchestrator, then set it running | [lanes.md](references/lanes.md) |
-| `[SPLATES REPORT <task>]` | A task you handed on with `--relay`, or to another project, stopped: escalated, merged or removed | [handoff.md](references/handoff.md); for another project's, [lanes.md](references/lanes.md) |
+| `[SPLATES REPORT <task>]` | A task you handed to another project stopped: escalated, merged or removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate, paused by the user, left the list: merged or removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate, paused by the user, is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
 | `[SPLATES GROOM #N]` | An agent added todo N from its task: as the project's groomer, check, place, link and name its model | [groom.md](references/groom.md) |
-| `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
-| `[SPLATES STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
+| `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md) |
 | `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
-| `[SPLATES HEARTBEAT]` | Check on the task you handed on with `--relay` and say where it stands | [handoff.md](references/handoff.md) |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -350,9 +348,7 @@ asked again. Check an item off only when its answer is one you can act on;
 anything else stays open and leads your next report. A reply about something
 you did is an instruction. When the user defers or skips a question, check it
 off and carry on without it (for a defer, `splates todo add` it first). Only
-the user answers questions, yours or another agent's, but for the answers
-of an agent that handed its task on with `--relay` (see
-[references/handoff.md](references/handoff.md)).
+the user answers questions, yours or another agent's.
 
 A message `splates tell` says in your conversation for the lane's
 orchestrator that handed you your task, to carry on or to change course,
@@ -381,22 +377,6 @@ run). A secret, such as an API token, is a cred to request instead (see
 Never ask whether the work is ready to merge among other questions, or as a
 question at all: once they are answered and the work is done, merge or ask
 for a review (see Merge or review).
-
-### Answering to the agent that handed you the task
-
-When an agent handed its task on to you with `splates handoff --relay`
-(`$SPLATES_CALLER` is set), you report to it, not to the user, who cannot
-write in your conversation: every message after your first comes through
-it, answers and `[SPLATES MERGE]` included. Work as above, but write for it,
-since it reads your `SPLATES.md`, not your replies:
-
-- every question under `## Blocked`, as always, before you escalate;
-- for a review, the review report itself, its sentence, demo and `Checks:`
-  line, under `## Notes` as a `### Review` of its own, before `splates
-  escalate --review`;
-- an answer it gives itself, saying so, goes after `→` as any answer does.
-
-`splates escalate`, `splates merge` and `splates remove` tell it you stopped.
 
 A lane's orchestrator that handed you a todo (`$SPLATES_STARTED_BY` is set)
 is not one you report to: you answer to the user, as for any task, and

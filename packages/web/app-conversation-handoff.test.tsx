@@ -33,15 +33,17 @@ describe("App's Hand off action", () => {
 		testing.dispose();
 	});
 
-	it("asks the agent on a task to hand it off to the agent and model picked", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: "alpha" })],
-			"c1",
-			{},
-			AGENTS,
-		);
+	const openActions = async (open: ReturnType<typeof conversation>) => {
+		const view = await testing.openConversations([open], "c1", {}, AGENTS);
 		const actions = await waitFor(() =>
 			view.getByRole("navigation", { name: "actions" }),
+		);
+		return { view, actions };
+	};
+
+	it("asks the agent on a task to hand it off to the agent and model picked", async () => {
+		const { view, actions } = await openActions(
+			conversation({ id: "c1", task: "alpha" }),
 		);
 
 		await act(async () =>
@@ -73,30 +75,8 @@ describe("App's Hand off action", () => {
 	});
 
 	it("offers no handoff in a conversation with no task", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: null })],
-			"c1",
-			{},
-			AGENTS,
-		);
-		const actions = await waitFor(() =>
-			view.getByRole("navigation", { name: "actions" }),
-		);
-
-		expect(
-			within(actions).queryByRole("button", { name: "Hand off…" }),
-		).toBeNull();
-	});
-
-	it("offers no handoff for a task an orchestrator handed out", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: "alpha", handedBy: "c3" })],
-			"c1",
-			{},
-			AGENTS,
-		);
-		const actions = await waitFor(() =>
-			view.getByRole("navigation", { name: "actions" }),
+		const { actions } = await openActions(
+			conversation({ id: "c1", task: null }),
 		);
 
 		expect(

@@ -13,14 +13,11 @@ started. The fake roster is disabled. `preMerge: true` is a check stand-in.
 | part-decisions | delegation-parts | Claim parent; retain raw SPLATES.md for decision propagation inspection |
 | takeover | delegation-handoff | Successful claim of existing child |
 | handoff-checkpoint | delegation-handoff | Roster before named handoff; checkpoint adequacy remains uncovered |
-| relay-blocker | delegation-handoff | Inspect child; forbid named merge approval; exact blocker relay remains uncovered |
-| heartbeat | delegation-handoff | Inspect child; report truth and delivery remain uncovered |
-| no-dev-relay | delegation-no-dev | Forbid named relay/wait forms without dev |
-| cli-no-dev-relay | delegation-no-dev | Actual local CLI refusal, independently checked by free test |
+| cli-no-dev-tell | delegation-no-dev | Actual local CLI refusal, independently checked by free test |
 | auto-question | delegation-auto | No task started for a question |
 | auto-fits | delegation-auto | One task, nothing handed on |
-| auto-hand-up | delegation-auto | One task handed to `fake large` at `high` effort, without relay; Handoff context and reason line remain gaps |
-| auto-hand-down | delegation-auto | One task handed to `fake small` at `low` effort, without relay; spelled-out Next remains a gap |
+| auto-hand-up | delegation-auto | One task handed to `fake large` at `high` effort; Handoff context and reason line remain gaps |
+| auto-hand-down | delegation-auto | One task handed to `fake small` at `low` effort; spelled-out Next remains a gap |
 
 The `auto-` cases use `delegation/auto@1`: no tasks, a roster of one disabled
 agent with a cheap and a strong model, and code whose size differs from what
@@ -38,7 +35,7 @@ status so failed attempts count. A successful required command does not prove
 that its accompanying brief or report was correct. Synthetic positive,
 negative and incomplete-channel fixtures test the assertions only.
 
-The dedicated tests call production HANDOFF, HANDOFF TO, REPORT and HEARTBEAT
+The dedicated tests call production HANDOFF, HANDOFF TO, and REPORT
 formatters. This verifies emitted string construction, not coordinator delivery.
 Actual delivery remains covered separately by the production handoff,
 dev-conversation, tell and handed-out tests; no synthetic directive is emitted
@@ -57,7 +54,7 @@ compliance. Raw parent SPLATES.md is observed, not inferred from a reply.
 True parent commit -> child check/merge -> parent squash/merge, transport,
 restart and child model execution remain optional E2E work. No paid runs were
 performed. #367 owns progressive reference reads; #340 owns lanes and dispatch;
-this module owns the delegation boundary and absent-dev relay restriction.
+this module owns the delegation boundary and absent-dev tell restriction.
 
 Free verification: `bun test evals/splates-skill/delegation.probes.test.ts`,
 `splates dev fix`, and `splates dev test`.

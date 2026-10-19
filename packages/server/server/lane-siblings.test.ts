@@ -74,14 +74,12 @@ describe("dev conversations a lane's orchestrator started", () => {
 		);
 
 		expect(alpha?.state).toMatchObject({
-			handedBy: null,
 			startedBy: orchestrator.id,
 			messages: [{ told: orchestrator.id }],
 		});
 		expect(agent.launched.at(-1)?.env).toMatchObject({
 			SPLATES_STARTED_BY: orchestrator.id,
 		});
-		expect(agent.launched.at(-1)?.env).not.toHaveProperty("SPLATES_CALLER");
 	});
 
 	it("takes the page's writes, as the person's to talk to", async () => {

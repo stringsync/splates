@@ -121,7 +121,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.base,
 			start.caller,
 			start.assigned,
-			start.handedBy ?? null,
 			start.startedBy ?? null,
 		);
 		state.skill = start.skill ?? null;
@@ -441,8 +440,6 @@ type Said =
 			assigned?: boolean;
 			/** Started on what Auto picked; missing for one it did not. */
 			auto?: boolean;
-			/** Who handed it its task; missing for one nobody did. */
-			handedBy?: string;
 			/** The lane orchestrator that handed it its task; missing for one nobody did. */
 			startedBy?: string;
 			/** The project's splates skill version; missing when it had none, or before it was kept. */

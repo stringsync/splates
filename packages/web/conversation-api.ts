@@ -143,14 +143,6 @@ export async function pauseConversation(id: string): Promise<void> {
 	await send(`/api/conversations/${id}/pause`, {});
 }
 
-/**
- * Stops the agent of conversation `id`, one another handed its task to,
- * telling that one so it decides what becomes of the task.
- */
-export async function terminateConversation(id: string): Promise<void> {
-	await send(`/api/conversations/${id}/terminate`, {});
-}
-
 /** Stops command `background` the agent in conversation `id` left running. */
 export async function stopBackground(
 	id: string,

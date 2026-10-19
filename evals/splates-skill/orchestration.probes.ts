@@ -149,12 +149,11 @@ function agent(
 		input: {
 			kind: input.startsWith("[SPLATES") ? "directive" : "message",
 			text: `${input}\n\nFixture boundary: fake is a disabled worker; do not execute workers. Use task names work-1/work-2 and dispatch prompt 'Use the todo detail.' for these fixtures. Stop at the first decision/report boundary, without implementing the todos.`,
-			origin:
-				/^\[SPLATES (IDLE|REPORT|STOPPED|TODO (DONE|OPEN|ADDED)|LANES DONE)/.test(
-					input,
-				)
-					? "cli"
-					: "user",
+			origin: /^\[SPLATES (IDLE|REPORT|TODO (DONE|OPEN|ADDED)|LANES DONE)/.test(
+				input,
+			)
+				? "cli"
+				: "user",
 		},
 		tools: ["splates", "read", "write"],
 		evidence: ["events"],
@@ -304,21 +303,6 @@ const probes: Probe[] = [
 		"[SPLATES REPORT work-1]\nYou orchestrate Widgets. Inspect the stopped task before deciding what can proceed.",
 		[...board, ["add", "work-1", "--todo", "1"]],
 		[required("inspect-report", ["show", "work-1"])],
-	),
-	agent(
-		"stopped",
-		"lanes-events",
-		"[SPLATES STOPPED work-1]\nYou orchestrate Widgets. The user stopped its worker. Inspect the task; leave its disposition to the user.",
-		[...board, ["add", "work-1", "--todo", "1"]],
-		[
-			required("inspect-stopped", ["show", "work-1"]),
-			forbidden("no-unrequested-removal", [
-				"remove",
-				"work-1",
-				"--reason",
-				"moot",
-			]),
-		],
 	),
 	agent(
 		"lanes-done",

@@ -163,78 +163,6 @@ describe("needs", () => {
 		expect(listed[2]?.conversation).toBeNull();
 	});
 
-	it("waits on the conversation that handed a task out, not on its agent", () => {
-		const listed = needs({
-			tasks: [
-				task({ task: "asking" }),
-				task({ task: "escalated", status: "escalated", escalation: "look" }),
-			],
-			conversations: [
-				talk({ id: "orch", task: null, status: "idle" }),
-				talk({
-					id: "asking",
-					task: "asking",
-					handedBy: "orch",
-					ask: {
-						type: "permission",
-						id: "t1",
-						title: "rm -rf build",
-						options: [],
-						at: "2026-10-11T10:05:00.000Z",
-					},
-				}),
-				talk({
-					id: "escalated",
-					task: "escalated",
-					status: "idle",
-					handedBy: "orch",
-				}),
-			],
-		});
-
-		expect(
-			listed.map((each) => [each.conversation?.id, each.need.kind]),
-		).toEqual([
-			["orch", "waiting"],
-			["asking", "working"],
-			["escalated", "idle"],
-		]);
-		expect(listed[0]?.need).toMatchObject({
-			why: "ask",
-			subject: "rm -rf build",
-		});
-	});
-
-	it("waits on an idle orchestrator for its agent's escalation, and has it assuming while it works on", () => {
-		const of = (status: ConversationState["status"]) =>
-			needs({
-				tasks: [task({ plan: PLAN, status: "escalated", escalation: "look" })],
-				conversations: [
-					talk({ id: "orch", task: null, status }),
-					talk({ id: "agent", status: "idle", handedBy: "orch" }),
-				],
-			});
-
-		expect(
-			of("idle").map((each) => [each.conversation?.id, each.need.kind]),
-		).toEqual([
-			["orch", "waiting"],
-			["agent", "idle"],
-		]);
-		const running = of("running");
-		expect(
-			running.map((each) => [each.conversation?.id, each.need.kind]),
-		).toEqual([
-			["orch", "assuming"],
-			["agent", "idle"],
-		]);
-		expect(running[0]?.need).toMatchObject({
-			subject: "Does the header wrap?",
-			questions: [{ number: "2" }, { number: "3" }],
-			via: "alpha",
-		});
-	});
-
 	it("waits on the conversation whose agent added an external agent's task, naming it", () => {
 		const of = (archived: boolean) =>
 			needs({
@@ -409,7 +337,6 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		error: null,
 		stoppedIdle: null,
 		queue: null,
-		heartbeat: null,
 		messages: [],
 		events: [],
 		ask: null,
@@ -421,7 +348,6 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		archivedWith: null,
 		pinned: false,
 		parent: null,
-		handedBy: null,
 		startedBy: null,
 		skill: null,
 		assigned: false,

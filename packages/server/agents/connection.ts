@@ -200,11 +200,10 @@ export class AgentConnection {
 			}
 			// The agent's `splates` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
-			// working a task another conversation added also finds that one, so
-			// its `splates add --agent` refuses: agents start agents one level deep.
-			// One a lane's orchestrator started finds it as the one that started
-			// it, not one it reports to: it answers to the person.
-			const { id, lastCaller, startedBy } = host.state;
+			// started by a lane's orchestrator finds it as the one that started
+			// it, so its `splates add --agent` refuses: agents start agents one
+			// level deep.
+			const { id, startedBy } = host.state;
 			// And its project by name, which a worker with no records of its
 			// own names to the coordinator for them.
 			const { root, projects } = this.deps;
@@ -218,11 +217,7 @@ export class AgentConnection {
 			host.log.heard(0);
 			process = (launch ?? this.deps.launcher.launch)(agent.argv, cwd, {
 				SPLATES_CONVERSATION: id,
-				...(startedBy !== null
-					? { SPLATES_STARTED_BY: startedBy }
-					: lastCaller === null || lastCaller === id
-						? {}
-						: { SPLATES_CALLER: lastCaller }),
+				...(startedBy === null ? {} : { SPLATES_STARTED_BY: startedBy }),
 				...(this.deps.url === null ? {} : { SPLATES_DEV: this.deps.url }),
 				...(slug === undefined ? {} : { SPLATES_PROJECT: slug }),
 			});

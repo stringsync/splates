@@ -525,7 +525,7 @@ splates
 	.command("tell")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"say something in the conversation of the agent a task was handed to with `splates add --agent` or `splates handoff --relay`, as the user would: how an orchestrator wakes an agent that sits idle, stops it for a change of plans, or passes on what its lane taught it, and how a relaying agent passes on the user's answers; only the conversation that handed the task out may",
+		"say something in the conversation of the agent a task was handed to with `splates add --agent` as the user would: how an orchestrator wakes an agent that sits idle, stops it for a change of plans, or passes on what its lane taught it; only the conversation that handed the task out may",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.arg("text", z.string(), { description: "what to say, as markdown" })
@@ -547,7 +547,7 @@ splates
 	.command("handoff")
 	.use(repository({ needs: "own" }))
 	.description(
-		"hand the task you are at work on to another agent on the roster (`splates agents`), which `splates server` starts in its worktree, told `[SPLATES HANDOFF <task>]` to claim it and carry on from its SPLATES.md; it answers to the user as you did, or with --relay to you, and this conversation leaves the task, though a lane's orchestrator that started you goes on hearing of it; refused to an agent that answers to another conversation, and for a task another conversation is at work on",
+		"hand the task you are at work on to another agent on the roster (`splates agents`), which `splates server` starts in its worktree, told `[SPLATES HANDOFF <task>]` to claim it and carry on from its SPLATES.md; it answers to the user as you did, and this conversation leaves the task, though a lane's orchestrator that started you goes on hearing of it; refused for a task another conversation is at work on",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("agent", z.string(), {
@@ -568,11 +568,6 @@ splates
 		description:
 			"what to tell the agent beyond taking the task over, such as why it is handed on",
 	})
-	.option("relay", z.boolean(), {
-		default: false,
-		description:
-			"for work you judged another model fits better: the agent answers to you rather than the user, reporting back with `[SPLATES REPORT <task>]` and told what the user says with `splates tell`; needs `splates server`",
-	})
 	.action(async (opts, ctx) => {
 		const agents = await seeded(rosterOf(ctx));
 		const effort = await effortIn(ctx, opts.agent, opts.effort, {
@@ -592,12 +587,10 @@ splates
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					},
 					agents,
-					{ relay: opts.relay },
 				),
 			(picked) => ({
 				agent: picked.agent,
 				model: picked.model ?? null,
-				relay: opts.relay,
 			}),
 		);
 		await follow(ctx, null, { from: opts.task });

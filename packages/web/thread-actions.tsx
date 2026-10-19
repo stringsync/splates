@@ -89,12 +89,7 @@ export function useThreadActions(
 				]
 			: []),
 		...pauseActions(conversation, refused),
-		// Its own task only: one an orchestrator handed it goes back through
-		// that conversation, which the page leaves the person no say in here.
-		...(dispatching !== null &&
-		conversation.task !== null &&
-		conversation.handedBy === null &&
-		!archived
+		...(dispatching !== null && conversation.task !== null && !archived
 			? [
 					{
 						label: "Hand off…",
@@ -122,23 +117,16 @@ export function useThreadActions(
 			icon: <ClockIcon />,
 			run: stamps.toggle,
 		},
-		...(archive.files
-			? [
-					{
-						label: archived ? "Unarchive" : "Archive",
-						icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-						detail:
-							archived || archiveKey === null ? undefined : (
-								<Kbd>{archiveKey}</Kbd>
-							),
-						run: () => archive.file(archived ? undefined : onLeft),
-					},
-				]
-			: []),
+		{
+			label: archived ? "Unarchive" : "Archive",
+			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
+			detail:
+				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
+			run: () => archive.file(archived ? undefined : onLeft),
+		},
 	];
-	// Already archived, or not the person's to archive, the key does nothing.
 	const fileByKey = () => {
-		if (!archived && archive.files) {
+		if (!archived) {
 			archive.file(onLeft);
 		}
 	};
@@ -176,7 +164,6 @@ export interface ThreadActions {
 	archive: {
 		file: (then?: () => void) => void;
 		confirm: JSX.Element;
-		files: boolean;
 	};
 	/** Drafts todo `id` in a new chat, with `assignee` selected when on the roster. */
 	startNew: (id: number, assignee: AgentPick | null) => void;
@@ -192,7 +179,7 @@ function pauseActions(
 	conversation: ConversationState,
 	refused: Refuse,
 ): Action[] {
-	const { id, status, checkpoint, pausing, handedBy, archived } = conversation;
+	const { id, status, checkpoint, pausing, archived } = conversation;
 	if (pausing && checkpoint === "asked") {
 		return [
 			{
@@ -202,7 +189,7 @@ function pauseActions(
 			},
 		];
 	}
-	if (handedBy !== null || archived) {
+	if (archived) {
 		return [];
 	}
 	if (status !== "running") {

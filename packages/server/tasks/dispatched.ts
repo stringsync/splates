@@ -41,12 +41,9 @@ export async function startDispatched({
 			model: dispatch.model,
 			settings: effortSettings(dispatch.effort, offered),
 			assigned: true,
-			// One handed on with `--relay` answers to whoever handed it on; one
-			// a lane's orchestrator handed out answers to the person, and that
-			// one only hears when it stops.
-			...((dispatch.relay ?? dispatch.handoff === true)
-				? { handedBy: worktree.caller }
-				: { startedBy: worktree.caller }),
+			// Answers to the person; the lane's orchestrator that started it
+			// only hears when it stops.
+			startedBy: worktree.caller,
 		});
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },

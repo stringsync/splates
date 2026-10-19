@@ -16,21 +16,14 @@ import {
 	type SeenLaneTodos,
 } from "../board";
 import type { Conversation, Conversations, Message } from "../conversations";
-import {
-	HEARTBEAT_IDLE,
-	lanesOf,
-	SERVER_TOLD,
-	startedLanes,
-} from "../conversations";
+import { lanesOf, SERVER_TOLD, startedLanes } from "../conversations";
 import {
 	CARRY_ON,
 	directive,
-	HEARTBEAT,
 	idleReference,
 	LANES_DONE,
 	reportReference,
 	type Stretch,
-	stoppedReference,
 	stretches,
 	todoAddedReference,
 	todoDoneReference,
@@ -52,22 +45,14 @@ const SETTLE = Duration.secs(1);
 // scry-ignore doc-comments-address-users: its TODO is the directive's name, not a note left in the code
 /**
  * Keeps the conversation that handed tasks out, a lane's orchestrator with
- * `splates add --agent` or a relaying agent with `splates handoff --relay`, up
- * to date on the agents it handed them to, so it never waits on one that
- * has gone quiet, a restart included. An agent that is not at work, with its
- * task still under way and not escalated, gets nothing more done unless that
- * one acts, so that one is told `[SPLATES IDLE <task>]`, unless it has heard of
- * the task since the agent last said anything, or, for one that answers to
- * the person, the person took it in hand. An agent that answers to the one
- * that handed it out is archived with that one once its task is gone, off the
- * list. Each is checked as its turn ends, once the conversations' changes
- * settle, as the project opens, and every `SWEEP`.
- *
- * A conversation idle `HEARTBEAT_IDLE` since its last turn, with an agent
- * that answers to it still at work, is told `[SPLATES HEARTBEAT]`, so it checks
- * on them rather than wait out a long task with no word to the person. Any
- * turn it takes before then puts the next one off again. A lane's
- * orchestrator gets none: its agents talk to the person themselves.
+ * `splates add --agent`, up to date on the agents it handed them to, so it
+ * never waits on one that has gone quiet, a restart included. An agent that
+ * is not at work, with its task still under way and not escalated, gets
+ * nothing more done unless that one acts, so that one is told
+ * `[SPLATES IDLE <task>]`, unless it has heard of the task since the agent
+ * last said anything, or the person took the agent in hand. Each is checked
+ * as its turn ends, once the conversations' changes settle, as the project
+ * opens, and every `SWEEP`.
  *
  * The agent of a task a running lane started answers to the lane rather
  * than its orchestrator: quiet, it is told `CARRY_ON` by `splates server`
@@ -89,7 +74,7 @@ const SETTLE = Duration.secs(1);
  * ends on its Finished report.
  *
  * A lane's orchestrator whose turn ends on its Finished report is archived,
- * with the agents it started or handed tasks to, as the page's Archive lane
+ * with the agents it started, as the page's Archive lane
  * button does, unless one of them still holds a task, which leaves the lane
  * to the person. Only as the turn ends, so a lane they bring back stays.
  */
@@ -104,8 +89,6 @@ export class HandedOut implements Resource {
 	readonly #disposer = new Disposer();
 	/** One check at a time, so no agent is told of twice. */
 	#checking = Promise.resolve();
-	/** Each conversation's next heartbeat, by its id. */
-	readonly #beats = new Map<string, Resource>();
 
 	private constructor(
 		private readonly service: WorktreeService,
@@ -116,7 +99,7 @@ export class HandedOut implements Resource {
 		private readonly seen: SeenLaneTodos,
 		private readonly stuck: StuckTodos,
 		private readonly log: Logger,
-		private readonly timer: Timer,
+		readonly timer: Timer,
 		private readonly clock: WallClock,
 	) {
 		const settled = new Debouncer(timer, SETTLE);
@@ -136,11 +119,6 @@ export class HandedOut implements Resource {
 			),
 		);
 		this.#disposer.use(timer.setInterval(() => this.sweep(), SWEEP));
-		this.#disposer.defer(() => {
-			for (const beat of this.#beats.values()) {
-				beat.dispose();
-			}
-		});
 	}
 
 	/** Watches `conversations`, checking each handed-out agent at once. */
@@ -212,11 +190,6 @@ export class HandedOut implements Resource {
 			for (const conversation of all) {
 				await this.#finish(conversation, lanes);
 			}
-			// The agents a conversation here handed tasks to may be in any project.
-			const anywhere = await this.#anywhere();
-			for (const conversation of all) {
-				this.#beat(conversation, anywhere);
-			}
 		});
 	}
 
@@ -237,41 +210,6 @@ export class HandedOut implements Resource {
 
 	async #anywhere(): Promise<Conversation[]> {
 		return (await this.everywhere.list()).map((each) => each.conversation);
-	}
-
-	/** Keeps `conversation`'s next heartbeat, as `all` stand, on its state and the timer. */
-	#beat(conversation: Conversation, all: Conversation[]): void {
-		const { id, heartbeat } = conversation.state;
-		const at = nextHeartbeat(conversation, all);
-		if (at === heartbeat && (at === null || this.#beats.has(id))) {
-			return;
-		}
-		this.#beats.get(id)?.dispose();
-		this.#beats.delete(id);
-		if (at !== heartbeat) {
-			conversation.set({ heartbeat: at });
-		}
-		if (at === null) {
-			return;
-		}
-		const wait = Duration.ms(Math.max(0, Date.parse(at) - this.clock.now()));
-		this.#beats.set(
-			id,
-			this.timer.setTimeout(
-				() =>
-					void this.#queue(async () => {
-						this.#beats.delete(id);
-						// Its agents may have stopped, or it spoke, since.
-						const now = nextHeartbeat(conversation, await this.#anywhere());
-						if (now === null || Date.parse(now) > this.clock.now()) {
-							return;
-						}
-						conversation.set({ heartbeat: null });
-						await conversation.prompt(HEARTBEAT);
-					}),
-				wait,
-			),
-		);
 	}
 
 	/**
@@ -381,11 +319,9 @@ export class HandedOut implements Resource {
 		) {
 			return;
 		}
-		// The agents it handed tasks to or started may be in other projects.
+		// The agents it started may be in other projects.
 		const theirs = (await this.#anywhere()).filter(
-			({ state: each }) =>
-				(each.handedBy === state.id || each.startedBy === state.id) &&
-				!each.archived,
+			({ state: each }) => each.startedBy === state.id && !each.archived,
 		);
 		if (theirs.some((each) => each.state.task !== null)) {
 			return;
@@ -397,13 +333,11 @@ export class HandedOut implements Resource {
 	async #check(conversation: Conversation): Promise<void> {
 		const { state } = conversation;
 		const task = state.task ?? state.lastTask;
-		const by = state.handedBy ?? state.startedBy;
+		const by = state.startedBy;
 		if (state.archived || task === null) {
 			return;
 		}
-		// One handed on with `--relay` answers to whoever handed it on, never
-		// to the lane.
-		const todo = state.handedBy === null ? await this.#laneTodo(task) : null;
+		const todo = await this.#laneTodo(task);
 		if (by === null && todo === null) {
 			return;
 		}
@@ -412,11 +346,7 @@ export class HandedOut implements Resource {
 		const caller = found?.conversation;
 		const working = state.status === "running" || state.status === "starting";
 		if (worktree.gone) {
-			// Its last turn has its report to finish. One that answers to the
-			// person is theirs to archive.
-			if (!working && state.handedBy !== null) {
-				await conversation.archive(caller?.id);
-			}
+			// Its last turn has its report to finish; the person archives it.
 			return;
 		}
 		if (state.status !== "stopped") {
@@ -437,7 +367,7 @@ export class HandedOut implements Resource {
 			!quiet ||
 			worktree.state?.status === "escalated" ||
 			// One the person took in hand waits on them, not on its orchestrator.
-			(state.handedBy === null && inHand(state))
+			inHand(state)
 		) {
 			return;
 		}
@@ -502,38 +432,6 @@ function nudged(state: Conversation["state"], stopped: boolean): boolean {
 	);
 }
 
-/**
- * When `caller` is next due a heartbeat: `HEARTBEAT_IDLE` after its last turn,
- * while it sits idle with an agent it handed a task to at work; null while
- * none is due.
- */
-function nextHeartbeat(
-	caller: Conversation,
-	all: Conversation[],
-): string | null {
-	const { state } = caller;
-	const last = state.messages.at(-1);
-	const since = last?.until ?? last?.at ?? null;
-	const working = all.some(
-		({ state: each }) =>
-			each.handedBy === state.id &&
-			!each.archived &&
-			each.task !== null &&
-			(each.status === "running" || each.status === "starting"),
-	);
-	if (
-		!working ||
-		since === null ||
-		state.status !== "idle" ||
-		state.archived ||
-		state.ask !== null ||
-		state.checkpoint !== null
-	) {
-		return null;
-	}
-	return new Date(Date.parse(since) + HEARTBEAT_IDLE.ms).toISOString();
-}
-
 /** Whether the last report `state`'s agent made on its lanes is its Finished one. */
 function finished(state: Conversation["state"]): boolean {
 	const last = state.messages
@@ -580,7 +478,7 @@ function onLanes(message: Message | undefined): boolean {
 
 /**
  * Whether `caller` was told of `task` since its agent last said anything:
- * that it stopped, went quiet, or was terminated.
+ * that it stopped or went quiet.
  */
 function heard(
 	caller: Conversation,
@@ -589,11 +487,7 @@ function heard(
 ): boolean {
 	const last = agent.state.messages.at(-1);
 	const since = last?.until ?? last?.at ?? "";
-	const told = [
-		reportReference(task),
-		idleReference(task),
-		stoppedReference(task),
-	];
+	const told = [reportReference(task), idleReference(task)];
 	return caller.state.messages.some(
 		(message) =>
 			message.role === "user" &&

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
 import type { LaneRecord, TodoState } from "../board";
@@ -7,7 +6,6 @@ import { SeenLaneTodos } from "../board";
 import {
 	type Conversation,
 	Conversations,
-	HEARTBEAT_IDLE,
 	SERVER_TOLD,
 } from "../conversations";
 import { CARRY_ON } from "../plans";
@@ -96,26 +94,6 @@ describe("HandedOut", () => {
 		await deps.disposeAsync();
 	});
 
-	/** An orchestrator, and an agent it handed alpha to that took one turn. */
-	const handedOut = async (): Promise<{
-		orchestrator: Conversation;
-		working: Conversation;
-	}> => {
-		const orchestrator = await conversations.start("fake", {
-			task: null,
-			cwd: deps.root,
-		});
-		const working = await conversations.start("fake", {
-			task: "alpha",
-			cwd: (await deps.service.find("alpha")).path,
-			handedBy: orchestrator.id,
-		});
-		await until(() => working.state.status === "idle");
-		await working.prompt("[SPLATES TASK alpha]");
-		await until(() => said.length === 1 && working.state.status === "idle");
-		return { orchestrator, working };
-	};
-
 	/** The conversations as the next run of `splates server` reads them back. */
 	const restart = async () => {
 		await conversations.disposeAsync();
@@ -123,7 +101,7 @@ describe("HandedOut", () => {
 	};
 
 	it("tells the one it answers to of an agent a restart stopped mid-task, once", async () => {
-		await handedOut();
+		await startedOut();
 		await restart();
 		const watched = watch();
 		await watched.sweep();
@@ -148,10 +126,12 @@ describe("HandedOut", () => {
 			const working = await conversations.start("fake", {
 				task: "alpha",
 				cwd: (await deps.service.find("alpha")).path,
-				handedBy: orchestrator.id,
+				startedBy: orchestrator.id,
 			});
 			await until(() => working.state.status === "idle");
-			await working.prompt("[SPLATES TASK alpha]");
+			await working.prompt("[SPLATES TASK alpha]", [], undefined, {
+				told: orchestrator.id,
+			});
 			await until(() => said.length === 1 && working.state.status === "idle");
 			watching = HandedOut.watch({
 				service: deps.service,
@@ -190,11 +170,11 @@ describe("HandedOut", () => {
 	});
 
 	it("tells it again once the agent has said more and gone quiet again", async () => {
-		const { working } = await handedOut();
+		const { orchestrator, working } = await startedOut();
 		const watched = watch();
 		await watched.sweep();
 		await until(() => said.length === 2);
-		await working.prompt("Carry on.");
+		await working.prompt("Carry on.", [], undefined, { told: orchestrator.id });
 		await until(() => said.length === 4);
 
 		expect(said).toEqual([
@@ -206,11 +186,11 @@ describe("HandedOut", () => {
 	});
 
 	it("tells it nothing of an agent stopped in this run, by a shutdown or the person", async () => {
-		const { working } = await handedOut();
+		const { orchestrator, working } = await startedOut();
 		const watched = watch();
 		await watched.sweep();
 		await until(() => said.length === 2);
-		await working.prompt("Carry on.");
+		await working.prompt("Carry on.", [], undefined, { told: orchestrator.id });
 		await until(() => said.length === 4);
 		await working.stop();
 		await watched.sweep();
@@ -219,28 +199,11 @@ describe("HandedOut", () => {
 		expect(said).toHaveLength(4);
 	});
 
-	it("archives an agent whose task went while splates server was down", async () => {
-		const { orchestrator, working } = await handedOut();
-		await restart();
-		await remove(deps, "alpha", { force: true });
-		await watch().sweep();
-		const read = await conversations.find(working.id);
-
-		expect(said).toEqual(["[SPLATES TASK alpha]"]);
-		expect(read.state).toMatchObject({
-			archived: true,
-			archivedWith: orchestrator.id,
-		});
-	});
-
 	/**
 	 * An orchestrator that took a turn, and an agent at work on alpha it
 	 * handed out, watched and swept once.
 	 */
-	const atWork = async (
-		/** How the agent stands to the orchestrator. */
-		as: "handedBy" | "startedBy" = "handedBy",
-	): Promise<{
+	const atWork = async (): Promise<{
 		orchestrator: Conversation;
 		working: Conversation;
 		watched: HandedOut;
@@ -265,7 +228,7 @@ describe("HandedOut", () => {
 		const working = await conversations.start("fake", {
 			task: "alpha",
 			cwd: (await deps.service.find("alpha")).path,
-			[as]: orchestrator.id,
+			startedBy: orchestrator.id,
 		});
 		await until(() => working.state.status === "idle");
 		void working.prompt("[SPLATES TASK alpha]");
@@ -275,69 +238,6 @@ describe("HandedOut", () => {
 		return { orchestrator, working, watched };
 	};
 
-	/** When the orchestrator's last turn ended, plus `HEARTBEAT_IDLE`. */
-	const due = (orchestrator: Conversation): string => {
-		const last = orchestrator.state.messages.at(-1);
-		return new Date(
-			Date.parse(last?.until ?? "") + HEARTBEAT_IDLE.ms,
-		).toISOString();
-	};
-
-	/** Fires the heartbeat's timeout, leaving the settling debounce be. */
-	const fire = () => {
-		for (const each of timer.timeouts.filter(
-			(entry) => entry.delay.ms > Duration.mins(1).ms,
-		)) {
-			if (!each.disposed) {
-				each.callback();
-			}
-		}
-	};
-
-	it("sends a heartbeat to an idle orchestrator to check on its agents once its last turn is HEARTBEAT_IDLE behind", async () => {
-		const { orchestrator } = await atWork();
-
-		expect(orchestrator.state.heartbeat).toBe(due(orchestrator));
-
-		clock.set(Date.parse(due(orchestrator)));
-		fire();
-		await until(() => said.includes("[SPLATES HEARTBEAT]"));
-
-		expect(said).toEqual([
-			"[SPLATES LANE 1]",
-			"[SPLATES TASK alpha]",
-			"[SPLATES HEARTBEAT]",
-		]);
-	});
-
-	it("puts the heartbeat off when the orchestrator takes a turn first", async () => {
-		const { orchestrator, watched } = await atWork();
-		const first = orchestrator.state.heartbeat;
-		await Bun.sleep(5);
-		await orchestrator.prompt("Where do the lanes stand?");
-		await until(() => orchestrator.state.status === "idle");
-		await watched.sweep();
-
-		expect(orchestrator.state.heartbeat).toBe(due(orchestrator));
-		expect(Date.parse(orchestrator.state.heartbeat ?? "")).toBeGreaterThan(
-			Date.parse(first ?? ""),
-		);
-
-		clock.set(Date.parse(first ?? ""));
-		fire();
-		await Bun.sleep(50);
-
-		expect(said).not.toContain("[SPLATES HEARTBEAT]");
-	});
-
-	it("has no heartbeat due once no agent it handed a task to is at work", async () => {
-		const { orchestrator, working, watched } = await atWork();
-		release();
-		await until(() => working.state.status === "idle");
-		await watched.sweep();
-
-		expect(orchestrator.state.heartbeat).toBeNull();
-	});
 	/** A lane's orchestrator, and an agent it started on alpha that took one turn. */
 	const startedOut = async (): Promise<{
 		orchestrator: Conversation;
@@ -384,12 +284,6 @@ describe("HandedOut", () => {
 		await watch().sweep();
 
 		expect((await conversations.find(working.id)).state.archived).toBe(false);
-	});
-
-	it("sends no heartbeat to a lane's orchestrator, whose agents talk to the person", async () => {
-		const { orchestrator } = await atWork("startedBy");
-
-		expect(orchestrator.state.heartbeat).toBeNull();
 	});
 
 	/**
@@ -656,7 +550,7 @@ describe("HandedOut", () => {
 	it("marks a stuck todo no longer stuck once its agent is at work again", async () => {
 		running();
 		list = [{ ...todo(2, "alpha"), stuck: "2026-10-16T00:00:00Z" }];
-		const { watched } = await atWork("startedBy");
+		const { watched } = await atWork();
 		await watched.sweep();
 
 		expect(list[0]?.stuck).toBeUndefined();

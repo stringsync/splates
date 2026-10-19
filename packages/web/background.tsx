@@ -23,7 +23,6 @@ import { cn } from "#web/lib/utils.ts";
 import { BackgroundOutput } from "./background-output";
 import { PANE_WIDTH } from "./changes";
 import { stopBackground } from "./conversation-api";
-import { useReadOnly } from "./handed-out";
 
 /**
  * Opens what a conversation's background command printed in the pane beside
@@ -157,8 +156,6 @@ export function BackgroundPane({
 		["changed"],
 	);
 	const [stopping, setStopping] = useState(false);
-	// One that answers to another leaves its commands to that one.
-	const readOnly = useReadOnly(conversation);
 	const [refused, setRefused] = useState<string | null>(null);
 	const running = background.state === "running";
 	useEffect(() => {
@@ -189,7 +186,7 @@ export function BackgroundPane({
 							? "Disconnected"
 							: SAID[background.state])}
 				</span>
-				{running && !readOnly && (
+				{running && (
 					<Button
 						size="sm"
 						variant="destructive"

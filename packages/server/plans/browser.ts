@@ -21,7 +21,6 @@ export {
 	DEFER,
 	DIRECTIVES,
 	directive,
-	HEARTBEAT,
 	handoffToReference,
 	isUpdate,
 	LANES_DONE,

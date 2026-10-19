@@ -101,7 +101,6 @@ function about(
 		case "HANDOFF":
 		case "REPORT":
 		case "IDLE":
-		case "STOPPED":
 			return {
 				kind: "Task",
 				name: argument,
@@ -152,11 +151,11 @@ const HANDOFF_TO = /^\[(?:SPLATES|ARBOR) HANDOFF TO (\S+)(?: (\S+))?\]$/;
 
 /**
  * A todo, lane, or task directive, a task handed off, or the report of a
- * task handed out, of its agent gone quiet, or of its agent terminated, which
- * a message of it alone shows as a card.
+ * task handed out, or of its agent gone quiet, which a message of it alone
+ * shows as a card.
  */
 const CARDED =
-	/^\[(?:SPLATES|ARBOR) (TODO|LANE|TASK|HANDOFF|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
+	/^\[(?:SPLATES|ARBOR) (TODO|LANE|TASK|HANDOFF|REPORT|IDLE) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /**
  * The directive that `text` holds and nothing else, when it is one a card
@@ -268,8 +267,6 @@ function wordsOf(
 		// The orchestrator's Working card that answers it says what came of the task.
 		case "REPORT":
 			return null;
-		case "STOPPED":
-			return ["Terminated", { kind: "task", task: argument }];
 		case "IDLE":
 			return ["Idle", { kind: "task", task: argument }];
 		case "TASK":

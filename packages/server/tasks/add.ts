@@ -97,8 +97,7 @@ export async function add(
 	// An agent another one started hands nothing to agents of its own, so
 	// they never multiply: it does the work itself, or with its harness's
 	// subagents, which start none either.
-	const handedBy =
-		service.ps.env("SPLATES_CALLER") ?? service.ps.env("SPLATES_STARTED_BY");
+	const handedBy = service.ps.env("SPLATES_STARTED_BY");
 	if (dispatch !== undefined && handedBy !== undefined) {
 		fail(
 			"usage",

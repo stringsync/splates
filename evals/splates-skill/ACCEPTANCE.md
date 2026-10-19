@@ -11,7 +11,7 @@ are part of this audit.
 
 The registry has **76 probes: 11 CLI and 65 agent**, across six modules.
 `integration.test.ts` reconciles every inventory row and executes the local CLI
-suite: ten pass and `delegation/cli-no-dev-relay` deliberately remains uncovered.
+suite: ten pass and `delegation/cli-no-dev-tell` deliberately remains uncovered.
 Those results establish local CLI behavior, not agent adherence.
 
 `native-integration.test.ts` already executes the unchanged registered

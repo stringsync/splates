@@ -229,23 +229,7 @@ describe("stretches", () => {
 		});
 	});
 
-	it("reads the skill's working report on a task handed on, naming the agent after the colon", async () => {
-		const example = await skillExample("## ⏳ Working <task>");
-
-		expect(stretches(example)).toEqual([
-			{
-				type: "report",
-				report: {
-					ending: "working",
-					task: "<task>",
-					base: null,
-					to: null,
-					reason: "on Claude Sonnet 5.5",
-					body: "Forty files still need the same rename, each listed under `## Next`, so a cheaper model takes them.",
-					source: example,
-				},
-			},
-		]);
+	it("reads a working report, naming the task", () => {
 		expect(stretches("## ⏳ Working lanes-fix\n\nOut.")[0]).toMatchObject({
 			report: { ending: "working", task: "lanes-fix", reason: null },
 		});

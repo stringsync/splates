@@ -227,7 +227,7 @@ describe("add", () => {
 
 	it("refuses to hand the task to an agent from one another agent started, before making anything", async () => {
 		deps.proc.env.SPLATES_CONVERSATION = "c2";
-		deps.proc.env.SPLATES_CALLER = "c1";
+		deps.proc.env.SPLATES_STARTED_BY = "c1";
 
 		await expect(
 			add(deps, "alpha", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),

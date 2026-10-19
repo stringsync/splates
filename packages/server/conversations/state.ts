@@ -63,11 +63,6 @@ export interface ConversationState {
 	stoppedIdle: string | null;
 	/** Where its agent waits for a slot on a worker; null once it has one, or wants none. */
 	queue: QueueSpot | null;
-	/**
-	 * When splates next asks it, idle with an agent it handed a task to at
-	 * work, to check on its agents; null while none is due.
-	 */
-	heartbeat: string | null;
 	messages: Message[];
 	/**
 	 * What splates did at its agent's word, oldest first, read from the journal
@@ -98,13 +93,6 @@ export interface ConversationState {
 	 * they do, while it nests by its task.
 	 */
 	parent: { id: string | null } | null;
-	/**
-	 * The conversation that handed it its task with `splates add --agent`, which
-	 * it answers to in place of the person: the page writes nothing to it but
-	 * an answer to what its agent asks permission for, and its terminating.
-	 * Set when it starts, and kept once the task is gone.
-	 */
-	handedBy: string | null;
 	/**
 	 * The lane orchestrator that handed it its task with `splates add --agent`:
 	 * it answers to the person, as any conversation does, and that one only
@@ -197,12 +185,6 @@ export const IDLE_STOP = Duration.mins(30);
  * rather than another conversation.
  */
 export const SERVER_TOLD = "splates";
-
-/**
- * How long the conversation that handed tasks out sits idle, with an agent it
- * handed one to at work, before splates asks it to check on them.
- */
-export const HEARTBEAT_IDLE = Duration.mins(10);
 
 /**
  * Where a checkpoint stands: asked of the agent, done once its turn ends,
@@ -519,7 +501,6 @@ export function blank(
 	base: string | null = null,
 	caller: string | null = null,
 	assigned = false,
-	handedBy: string | null = null,
 	startedBy: string | null = null,
 ): ConversationState {
 	return {
@@ -535,7 +516,6 @@ export function blank(
 		error: null,
 		stoppedIdle: null,
 		queue: null,
-		heartbeat: null,
 		messages: [],
 		events: [],
 		ask: null,
@@ -547,7 +527,6 @@ export function blank(
 		archivedWith: null,
 		pinned: false,
 		parent: null,
-		handedBy,
 		startedBy,
 		skill: null,
 		assigned,

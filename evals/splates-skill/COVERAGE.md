@@ -31,10 +31,10 @@ AGENTS.md remains unchanged; lane 17 tracks the next comparison work.
 
 ## Registered probes
 
-76 cases: 11 local CLI cases and 65 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+72 cases: 11 local CLI cases and 61 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
-all eleven CLI cases together: ten pass; `delegation/cli-no-dev-relay` remains
+all eleven CLI cases together: ten pass; `delegation/cli-no-dev-tell` remains
 uncovered because nested command capture is incomplete. Its separate assertion
 test verifies the actual refusal. An all-unsupported agent run is not a useful
 quick eval and must not be presented as validated adherence.
@@ -67,10 +67,7 @@ the broader proposed coverage in the requirements map.
 | `delegation/part-return` | 1 | delegation-parts | agent |
 | `delegation/part-decisions` | 1 | delegation-parts | agent |
 | `delegation/takeover` | 1 | delegation-handoff | agent |
-| `delegation/relay-blocker` | 1 | delegation-handoff | agent |
-| `delegation/heartbeat` | 1 | delegation-handoff | agent |
-| `delegation/no-dev-relay` | 1 | delegation-no-dev | agent |
-| `delegation/cli-no-dev-relay` | 1 | delegation-no-dev | cli |
+| `delegation/cli-no-dev-tell` | 1 | delegation-no-dev | cli |
 | `delegation/auto-question` | 1 | delegation-auto | agent |
 | `delegation/auto-fits` | 1 | delegation-auto | agent |
 | `delegation/auto-hand-up` | 1 | delegation-auto | agent |
@@ -118,7 +115,6 @@ the broader proposed coverage in the requirements map.
 | `orchestration/todo-open` | 2 | lanes-events | agent |
 | `orchestration/todo-done` | 2 | lanes-events | agent |
 | `orchestration/report` | 1 | lanes-events | agent |
-| `orchestration/stopped` | 1 | lanes-events | agent |
 | `orchestration/lanes-done` | 1 | lanes-events | agent |
 | `orchestration/pivot` | 1 | lanes-events | agent |
 | `orchestration/defer` | 1 | todos-defer | agent |
@@ -166,10 +162,10 @@ selected real integration, never a prerequisite for this audit.
 | todos-groom / Todos | #340 | Agent lists related/taken todos, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
 | todos-defer / DEFER directive | #340; `defer` | Agent creates todo with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | lanes-dispatch / Working the untriaged lane, `references/lanes.md` | #340; `lane`, `lane-parallel`, `lane-same-files`, `untriaged` | CLI LANE payload; agent places triage first, links dependencies and shared files, names models and sets the lane running, handing out nothing itself | Fake workers test orchestration only; actual concurrent work/merge stays optional E2E |
-| lanes-events / `references/lanes.md` | #340; `lane-added`, `lane-idle`, `lane-pivot` | CLI REPORT, TODO ADDED/DONE/OPEN, IDLE, STOPPED, LANES DONE payloads; agent planning/stop/pivot state and order | Seed one transition; do not require full worker journeys |
+| lanes-events / `references/lanes.md` | #340; `lane-added`, `lane-idle`, `lane-pivot` | CLI REPORT, TODO ADDED/DONE/OPEN, IDLE, LANES DONE payloads; agent planning/stop/pivot state and order | Seed one transition; do not require full worker journeys |
 | delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
-| delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT/HEARTBEAT payloads; agent records handoff context, claims takeover, respects relay reporting ownership | Stand-ins do not prove transport, restart or delegated model execution |
-| delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff`, no `--relay` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
+| delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT payloads; agent records handoff context and claims takeover | Stand-ins do not prove transport, restart or delegated model execution |
+| delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
 | delegation-no-dev / `references/lanes.md`, `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
@@ -249,7 +245,7 @@ against them and continue calling them held-out.
 | Lifecycle | Fresh task and successful add | Existing task directive, failed add, read hidden in another tool, correction after early read |
 | Decisions | One reversible local choice | Existing numbered blockers, partial answer, review follow-up, approval with changed choice |
 | Todos/lanes | Two independent todos | Same files, dependency chain, taken todo, reopened todo, pivot with active worker |
-| Delegation | Child on default parent | Explicit nondefault base, relayed blocker, stopped child, absent dev server |
+| Delegation | Child on default parent | Explicit nondefault base, absent dev server |
 | Continuity | Clean checkpoint/resume | Mutation completed before disconnect, partial mutation, true mid-turn UPDATE, incomplete trace |
 | Cross-cutting | Canonical successful command | Alternate executable path, argv quoting, failed forbidden attempt, mixed output, token capability absent |
 

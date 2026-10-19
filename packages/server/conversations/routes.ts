@@ -5,7 +5,6 @@ import {
 	removeNamed,
 } from "../artifacts";
 import { fail } from "../exit";
-import { directive, RESUME, stoppedReference } from "../plans";
 import { Everywhere } from "../projects";
 import type { Project } from "../server/shared";
 import {
@@ -15,7 +14,6 @@ import {
 	refuse,
 	uploads,
 } from "../server/shared";
-import type { Conversation } from "./conversation";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
@@ -219,7 +217,6 @@ export class ConversationRoutes {
 	// `FROM_HEADER` names the layout they were said on.
 	readonly promptConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const form = await request.formData();
 		const files: Upload[] = (await uploads(form)).map(
 			({ name, mimeType, bytes }) => ({ title: name, mimeType, bytes }),
@@ -232,9 +229,6 @@ export class ConversationRoutes {
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
 		});
-		if (directive(text) === RESUME) {
-			await this.#anywhere().resumeHandedOut(conversation.id);
-		}
 		return Response.json(conversation.state);
 	};
 
@@ -278,7 +272,6 @@ export class ConversationRoutes {
 
 	readonly cancelConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		await conversation.cancel();
 		return Response.json(conversation.state);
 	};
@@ -290,7 +283,6 @@ export class ConversationRoutes {
 	 */
 	readonly pauseConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { task, status } = conversation.state;
 		if (status !== "running" && status !== "starting") {
 			fail(
@@ -323,7 +315,6 @@ export class ConversationRoutes {
 
 	readonly stopBackground = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { background } = await body(request);
 		await conversation.stopBackground(String(background ?? ""));
 		return Response.json(conversation.state);
@@ -333,21 +324,18 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { index } = await body(request);
 		return Response.json(conversation.unqueue(Number(index ?? -1)));
 	};
 
 	readonly sendQueuedNow = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		await conversation.sendNow();
 		return Response.json(conversation.state);
 	};
 
 	readonly chooseSetting = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { id, value } = await body(request);
 		await conversation.choose(String(id ?? ""), String(value ?? ""));
 		return Response.json(conversation.state);
@@ -355,7 +343,6 @@ export class ConversationRoutes {
 
 	readonly renameConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { name } = await body(request);
 		await conversation.rename(String(name ?? ""));
 		return Response.json(conversation.state);
@@ -370,7 +357,6 @@ export class ConversationRoutes {
 
 	readonly pinConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { pinned } = await body(request);
 		await conversation.pin(pinned === true);
 		return Response.json(conversation.state);
@@ -381,7 +367,6 @@ export class ConversationRoutes {
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		// A subagent stays under the one it answers to.
-		await this.#refuseHandedOut(conversation);
 		const { parent } = await body(request);
 		if (parent !== null && typeof parent !== "string") {
 			fail("usage", "parent is a conversation's id, or null for the top", {
@@ -403,7 +388,6 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		await this.#refuseHandedOut(conversation);
 		const { archived } = await body(request);
 		// The agents it handed tasks to or started may be in other projects.
 		const all = (await this.#anywhere().list()).map(
@@ -418,16 +402,13 @@ export class ConversationRoutes {
 					.map((each) => each.unarchive()),
 			);
 		} else {
-			// The agents it handed tasks to answer to it alone, and those a lane's
-			// orchestrator started work its lanes: they go with it, stopped
-			// mid-work if they were at it, as the page confirmed.
+			// The agents a lane's orchestrator started work its lanes: they go
+			// with it, stopped mid-work if they were at it, as the page confirmed.
 			await Promise.all(
 				all
 					.filter(
 						(each) =>
-							(each.state.handedBy === conversation.id ||
-								each.state.startedBy === conversation.id) &&
-							!each.state.archived,
+							each.state.startedBy === conversation.id && !each.state.archived,
 					)
 					.map((each) => each.archive(conversation.id)),
 			);
@@ -437,15 +418,14 @@ export class ConversationRoutes {
 	};
 
 	/**
-	 * Says `text` in a conversation as the person would, for the conversation
-	 * that handed it its task, as `splates tell` does: the one way in to one
-	 * that answers to it, and how a lane's orchestrator wakes or stops one it
-	 * started. With `stop`, the running turn stops first.
+	 * Says `text` in a conversation as the person would, as `splates tell`
+	 * does: how a lane's orchestrator wakes or stops one it started. With
+	 * `stop`, the running turn stops first.
 	 */
 	readonly tellConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { from, text, stop } = await body(request);
-		const by = conversation.state.handedBy ?? conversation.state.startedBy;
+		const by = conversation.state.startedBy;
 		if (by === null || by !== from) {
 			fail(
 				"usage",
@@ -472,64 +452,6 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> =>
 		deleteVersion(request, await this.conversationAt(request));
-
-	/**
-	 * The person's way out of a handed-out agent: stops its turn and its
-	 * process, and tells the conversation that handed it out, which decides
-	 * what becomes of the task. Its next word from that one resumes it.
-	 */
-	readonly terminateConversation = async (
-		request: Request,
-	): Promise<Response> => {
-		const conversation = await this.conversationAt(request);
-		const { handedBy, task, lastTask } = conversation.state;
-		if (handedBy === null) {
-			fail(
-				"usage",
-				`conversation ${conversation.id} was handed nothing: stop its turn instead`,
-				{ conversation: conversation.id },
-			);
-		}
-		if (conversation.state.status === "running") {
-			await conversation.cancel();
-		}
-		await conversation.stop();
-		const found = await this.#anywhere().find(handedBy);
-		// An archived one took this one with it, and is told nothing.
-		if (found !== undefined && !found.conversation.state.archived) {
-			const stopped = task ?? lastTask;
-			await found.conversation.prompt(
-				stoppedReference(
-					stopped === null
-						? conversation.id
-						: await this.#anywhere().taskNamed(
-								stopped,
-								this.#project.service.git.root,
-								found.root,
-							),
-				),
-			);
-		}
-		return Response.json(conversation.state);
-	};
-
-	/**
-	 * Refuses the page a write to a conversation another handed its task to,
-	 * while that one is there to answer to: the person talks to that one.
-	 */
-	async #refuseHandedOut(conversation: Conversation): Promise<void> {
-		const { handedBy } = conversation.state;
-		if (handedBy === null) {
-			return;
-		}
-		if ((await this.#anywhere().find(handedBy)) !== undefined) {
-			fail(
-				"blocked",
-				`conversation ${conversation.id} answers to conversation ${handedBy}: talk to it there`,
-				{ conversation: conversation.id, handedBy },
-			);
-		}
-	}
 
 	readonly conversationEvents = async (): Promise<Response> => {
 		this.held();

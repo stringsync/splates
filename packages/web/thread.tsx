@@ -44,14 +44,6 @@ import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
 import { EventUI, lineOf } from "./event-lines";
-import {
-	AgentAsk,
-	HandedOut,
-	ReadOnlyBanner,
-	useHandedOutBy,
-	useHandedTo,
-} from "./handed-out";
-import { HeartbeatBanner } from "./heartbeat-banner";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { PlanSource, StartedByCard } from "./lane-plan";
@@ -172,12 +164,7 @@ function Conversation({
 		[unsent, retry, editUnsent],
 	);
 	const section = useRef<HTMLElement>(null);
-	// The conversation it answers to, which the person talks to in its place.
-	const handedBy = useHandedOutBy(conversation);
-	const agentAsks = useHandedTo(conversation).filter(
-		(each) => each.ask !== null && !each.archived,
-	);
-	const reply = useReply(id, drafts, handedBy === null ? send : null);
+	const reply = useReply(id, drafts, send);
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
@@ -217,9 +204,9 @@ function Conversation({
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// What the conversation's last word reports, to offer archiving it when
-	// the task is over, or the lanes it worked are; never to one handed out.
+	// the task is over, or the lanes it worked are.
 	const { offer, barred } = useArchiveOffer(
-		archived || handedBy !== null ? null : ended(conversation),
+		archived ? null : ended(conversation),
 		() => archive.file(onLeft),
 	);
 	const widgets = useWidgets(section);
@@ -282,9 +269,6 @@ function Conversation({
 				onBack={onBack}
 			/>
 			{archived && <ArchivedBanner phone={onBack !== null} />}
-			{handedBy !== null && (
-				<ReadOnlyBanner by={handedBy} phone={onBack !== null} />
-			)}
 			{archive.confirm}
 			{task !== null && (
 				<Dialog open={details} onOpenChange={setDetails}>
@@ -295,18 +279,12 @@ function Conversation({
 				<ErrorBanner
 					conversation={conversation}
 					error={conversation.error}
-					handedBy={handedBy}
 					phone={onBack !== null}
-					onOpen={onOpen}
 				/>
 			)}
 			{conversation.status === "stopped" &&
 				conversation.stoppedIdle !== null && (
-					<IdleBanner
-						handedBy={handedBy}
-						phone={onBack !== null}
-						onOpen={onOpen}
-					/>
+					<IdleBanner phone={onBack !== null} />
 				)}
 			{conversation.queue !== null && (
 				<QueueBanner
@@ -314,9 +292,6 @@ function Conversation({
 					spot={conversation.queue}
 					phone={onBack !== null}
 				/>
-			)}
-			{conversation.heartbeat !== null && (
-				<HeartbeatBanner at={conversation.heartbeat} phone={onBack !== null} />
 			)}
 			<PlanSource value={{ conversation, tasks, onOpen }}>
 				<PhoneSheets conversation={id} on={onBack !== null}>
@@ -346,10 +321,7 @@ function Conversation({
 											<InterruptedUI />
 											<ArchiveOfferProvider value={offer}>
 												<StartNewContext value={startNew}>
-													{/* Its cards read-only: only its orchestrator replies to it. */}
-													<ReplyContext
-														value={handedBy === null ? reply : null}
-													>
+													<ReplyContext value={reply}>
 														<NamedContext value={named}>
 															<ThreadView
 																openAt={openAt}
@@ -358,15 +330,6 @@ function Conversation({
 																mentions={mentions ?? undefined}
 																references={references}
 																commands={commands ?? undefined}
-																composer={
-																	handedBy === null ? undefined : (
-																		<HandedOut
-																			conversation={conversation}
-																			by={handedBy}
-																			onOpen={onOpen}
-																		/>
-																	)
-																}
 																placeholder={
 																	archived
 																		? "Send a message to unarchive and continue"
@@ -406,39 +369,23 @@ function Conversation({
 																					conversation={id}
 																					messages={queued}
 																					pending={feed.unrecorded(id)}
-																					edits={
-																						handedBy === null
-																							? {
-																									onEdit: (index) =>
-																										void edit(index),
-																									onDiscard: (index) =>
-																										void discard(index),
-																									onSendNow: () =>
-																										void sendNow(),
-																								}
-																							: null
-																					}
+																					edits={{
+																						onEdit: (index) => void edit(index),
+																						onDiscard: (index) =>
+																							void discard(index),
+																						onSendNow: () => void sendNow(),
+																					}}
 																				/>
 																			)}
-																		{/* Its agents' asks, which only the person answers. */}
-																		{agentAsks.map((agent) => (
-																			<AgentAsk
-																				key={agent.id}
+																		{conversation.ask !== null && (
+																			<AskPanel
+																				key={conversation.ask.id}
 																				drafts={drafts}
-																				conversation={agent}
+																				conversation={conversation}
+																				agent={agent}
+																				ask={conversation.ask}
 																			/>
-																		))}
-																		{/* Answered where it answers to, beside that one's. */}
-																		{conversation.ask !== null &&
-																			handedBy === null && (
-																				<AskPanel
-																					key={conversation.ask.id}
-																					drafts={drafts}
-																					conversation={conversation}
-																					agent={agent}
-																					ask={conversation.ask}
-																				/>
-																			)}
+																		)}
 																	</>
 																}
 															/>

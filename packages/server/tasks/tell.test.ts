@@ -25,15 +25,13 @@ describe("tell", () => {
 		sent = [];
 		status = 200;
 		await add(deps, "alpha");
-		// As `splates server` leaves a task conversation `orch` handed on with
-		// `--relay` once it started the agent in conversation `agent`.
+		// As `splates server` leaves a task conversation `orch` handed out with
+		// `--agent` once it started the agent in conversation `agent`.
 		await (await deps.service.find("alpha")).save({
 			caller: "orch",
 			dispatch: {
 				agent: "fake",
 				conversation: "agent",
-				handoff: true,
-				relay: true,
 			},
 		});
 	});
@@ -93,22 +91,6 @@ describe("tell", () => {
 		await expect(tell({ ...deps, send }, "alpha", "merge")).toBail("usage", {
 			message: "SPLATES_DEV is not set",
 		});
-	});
-
-	it("reports a task stopping to the conversation that handed it out", async () => {
-		runAs("agent");
-		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
-		await deps.fs.write(`${deps.splatesDir}/conversations/orch.jsonl`, "");
-
-		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
-
-		expect(sent).toEqual([
-			{
-				url: "http://localhost:4270/api/conversations/orch/prompt",
-				origin: "http://localhost:4270",
-				text: "[SPLATES REPORT alpha]",
-			},
-		]);
 	});
 
 	it("names the task by its project to a caller of another project's page", async () => {

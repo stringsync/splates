@@ -35,7 +35,6 @@ export class Fixture implements AsyncResource {
 			// Left set, these would tie the run to the conversation that started it.
 			SPLATES_CONVERSATION: undefined,
 			SPLATES_DEV: undefined,
-			SPLATES_CALLER: undefined,
 			CLAUDECODE: undefined,
 		};
 	}

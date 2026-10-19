@@ -28,7 +28,6 @@ import { useArchive } from "./conversation-archive";
 import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useExpect } from "./expecting";
-import { useHandedOutBy } from "./handed-out";
 import { Swipeable } from "./phone-swipe";
 import type { Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
@@ -124,8 +123,8 @@ export function Filed({
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const press = useLongPress(() => setMenu(true));
-	const { file, asks, confirm, files } = useArchive(conversation, refuse);
-	const archivable = files && !conversation.archived;
+	const { file, asks, confirm } = useArchive(conversation, refuse);
+	const archivable = !conversation.archived;
 	return (
 		<>
 			{confirm}
@@ -170,7 +169,6 @@ function RowMenu({
 	const [renaming, setRenaming] = useState(false);
 	const [value, setValue] = useState("");
 	const box = useRef<HTMLInputElement>(null);
-	const handedOut = useHandedOutBy(conversation) !== null;
 	const places = usePlaces(conversation);
 	const [moving, setMoving] = useState(false);
 	const expect = useExpect();
@@ -254,11 +252,9 @@ function RowMenu({
 							</form>
 						) : (
 							<>
-								{!handedOut && (
-									<Action icon={<PencilIcon />} onClick={rename}>
-										Rename
-									</Action>
-								)}
+								<Action icon={<PencilIcon />} onClick={rename}>
+									Rename
+								</Action>
 								{!conversation.unread && !archived && (
 									<Action
 										icon={<CircleDotIcon />}

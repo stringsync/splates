@@ -16,7 +16,7 @@ import { archiveConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { Dispatching } from "./dispatching";
 import { useExpect } from "./expecting";
-import { Held, useHandedOutBy } from "./handed-out";
+import { Held } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { ShellRunning, ShowTerminal } from "./terminal";
@@ -43,11 +43,6 @@ export function useArchive(
 	/** Whether `file` would ask first, were it called now. */
 	asks: () => boolean;
 	confirm: JSX.Element;
-	/**
-	 * Whether the person may archive it or bring it back: not one that answers
-	 * to another, which goes and comes back with that one.
-	 */
-	files: boolean;
 } {
 	const [asking, setAsking] = useState(false);
 	// Held while `confirm` asks.
@@ -66,17 +61,13 @@ export function useArchive(
 			? undefined
 			: dispatching?.dispatch.task(conversation.task);
 	const task = !archived && taken?.takenBy === id ? taken : null;
-	const files = useHandedOutBy(conversation) === null;
-	// The agents it handed tasks to or started go with it, any at work stopped.
+	// The agents it started go with it, any at work stopped.
 	const held = useContext(Held);
-	const along = held.filter(
-		(each) => (each.handedBy === id || each.startedBy === id) && !each.archived,
-	);
+	const along = held.filter((each) => each.startedBy === id && !each.archived);
 	// One it started is done once it stopped working and its task is gone,
-	// merged or removed; one it handed a task to answers to it, so always asks.
+	// merged or removed.
 	const live = along.filter(
 		(each) =>
-			each.handedBy === id ||
 			each.status === "starting" ||
 			each.status === "running" ||
 			(each.task !== null &&
@@ -118,9 +109,6 @@ export function useArchive(
 	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
 		failure.current = failed;
-		if (!files) {
-			return;
-		}
 		if (asks()) {
 			setAsking(true);
 		} else {
@@ -199,5 +187,5 @@ export function useArchive(
 			</DialogContent>
 		</Dialog>
 	);
-	return { file, asks, confirm, files };
+	return { file, asks, confirm };
 }

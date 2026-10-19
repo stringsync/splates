@@ -329,20 +329,17 @@ export function answeredThrough(
 }
 
 /**
- * The conversation an agent answers to, rather than to the person, while the
- * page holds it: the one that handed its conversation the task, or for an
- * external agent, such as a subagent its harness started, the listed one
- * whose agent added its task.
+ * The conversation an external agent, such as a subagent its harness
+ * started, answers to rather than the person, while the page holds it: the
+ * listed one whose agent added its task. A conversation of its own answers
+ * to the person.
  */
 export function answersTo(
 	{ conversation, task }: Pick<Needing, "conversation" | "task">,
 	conversations: readonly ConversationState[],
 ): ConversationState | null {
 	if (conversation !== null) {
-		const by = conversation.handedBy;
-		return by === null
-			? null
-			: (conversations.find((each) => each.id === by) ?? null);
+		return null;
 	}
 	const caller = task?.caller ?? null;
 	return caller === null

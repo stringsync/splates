@@ -42,26 +42,4 @@ describe("dev conversations' parent", () => {
 		expect(await top.json()).toMatchObject({ id, parent: { id: null } });
 		expect(under.status).toBe(400);
 	});
-
-	it("keeps a subagent under the one it answers to", async () => {
-		const host = await conversations.start("fake", {
-			task: null,
-			cwd: deps.root,
-		});
-		const subagent = await conversations.start("fake", {
-			task: null,
-			cwd: deps.root,
-			handedBy: host.id,
-		});
-
-		const moved = await json(
-			server.port,
-			`/api/conversations/${subagent.id}/parent`,
-			"PUT",
-			{ parent: null },
-		);
-
-		expect(await moved.json()).toMatchObject({ reason: "blocked" });
-		expect(subagent.state.parent).toBeNull();
-	});
 });
