@@ -111,7 +111,10 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 				render={
 					// A tap in the box that misses its controls still lands in the
 					// editor, as a textarea's padding would: on a phone the line
-					// being typed on is a small part of the box.
+					// being typed on is a small part of the box. The controls sit
+					// beside the input while it keeps 20rem, and take a line of their
+					// own below it once they would crowd it: on a shared line the
+					// input's grow dwarfs theirs.
 					// biome-ignore lint/a11y/noStaticElementInteractions: a pointer convenience; the editor itself takes the keyboard
 					// biome-ignore lint/a11y/useKeyWithClickEvents: as above
 					<div
@@ -121,7 +124,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							}
 						}}
 						data-slot="aui_composer-shell"
-						className="border-foreground/10 focus-within:border-foreground/25 data-[dragging=true]:border-ring flex w-full cursor-text [view-transition-name:composer] flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]"
+						className="border-foreground/10 focus-within:border-foreground/25 data-[dragging=true]:border-ring flex w-full cursor-text [view-transition-name:composer] flex-wrap items-end [&>.dictation-notice]:basis-full rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]"
 					/>
 				}
 			>
@@ -129,7 +132,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					<FileNames value={names}>
 						<LexicalComposerInput
 							placeholder={placeholder}
-							className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 text-base leading-6 [&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:py-2 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
+							className="aui-composer-input caret-primary relative max-h-48 min-h-10 min-w-0 flex-[999_1_20rem] pointer-coarse:max-h-32 bg-transparent px-2.5 text-base leading-6 [&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:py-2 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
 							autoFocus={autoFocus}
 							submitMode={touch ? "none" : "enter"}
 							aria-label="Message input"
@@ -148,8 +151,8 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 						</LexicalComposerInput>
 					</FileNames>
 				</ForgetAttachment>
-				<DictationNotice />
 				<ComposerAction />
+				<DictationNotice />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
 	);
@@ -322,7 +325,7 @@ const ComposerAction: FC = () => {
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
-		<div className="aui-composer-action-wrapper relative flex items-center justify-between gap-2">
+		<div className="aui-composer-action-wrapper relative flex min-h-10 flex-[1_0_auto] items-center justify-between gap-2">
 			<div
 				className={cn(
 					"flex min-w-0 items-center gap-0 overflow-hidden",
