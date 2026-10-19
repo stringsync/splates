@@ -343,7 +343,7 @@ export function Home({
 									<span>Start a conversation with</span>
 									{auto ? (
 										<span className="flex items-center gap-2">
-											<AutoIcon className="size-[1em]" />
+											<AutoIcon colored className="size-[1em]" />
 											{AUTO_PICK_NAME}
 										</span>
 									) : (

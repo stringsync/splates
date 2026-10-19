@@ -91,7 +91,7 @@ export function PhoneHome({
 								welcome={
 									<div className="fade-in animate-in fill-mode-both flex flex-col items-center gap-3 px-6 text-center duration-200">
 										{auto ? (
-											<AutoIcon className="size-10" />
+											<AutoIcon colored className="size-10" />
 										) : (
 											<AgentMark
 												agent={agent}
