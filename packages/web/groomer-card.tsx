@@ -4,6 +4,7 @@ import { type FormEvent, type JSX, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AUTOMATION_TINT, AutomationMark } from "./automation-face";
 import { AssigneeMenu } from "./dispatching";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
@@ -43,9 +44,10 @@ export function GroomerOff({ onGroom }: { onGroom: Groom }): JSX.Element {
 	return (
 		<li
 			aria-label="groomer"
-			className="flex items-start gap-2 rounded-xl border border-dashed p-3"
+			className="flex items-start gap-3 rounded-xl border border-violet-500/30 border-dashed p-3"
 		>
-			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+			<AutomationMark trigger={null} />
+			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex flex-wrap items-center gap-2 text-sm">
 					<span className="font-medium">Groomer</span>
 					<Badge variant="secondary">Off</Badge>
@@ -91,9 +93,15 @@ export function GroomerForm({
 		<form
 			aria-label={title.toLowerCase()}
 			onSubmit={submitted}
-			className="flex flex-col gap-3 rounded-xl border p-3"
+			className={cn(
+				"flex flex-col gap-3 rounded-xl border p-3",
+				AUTOMATION_TINT,
+			)}
 		>
-			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			<div className="flex items-center gap-3">
+				<AutomationMark trigger={null} />
+				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			</div>
 			<p className="text-muted-foreground text-sm">
 				It grooms each task deferred rough to the backlog, one at a time, in a
 				conversation of its own, as the agent picked here.

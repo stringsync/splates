@@ -19,7 +19,6 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import {
@@ -29,6 +28,7 @@ import {
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationDraft, type When } from "./automation-draft";
+import { AUTOMATION_TINT, AutomationFace } from "./automation-face";
 import { AutomationList } from "./automation-list";
 import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
@@ -40,7 +40,6 @@ import {
 } from "./groomer-card";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
-import { Stamp } from "./stamp";
 import { TopBar } from "./top-bar";
 
 const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
@@ -236,78 +235,45 @@ function Card({
 		<li
 			aria-label={`automation ${row.id || "being added"}`}
 			className={cn(
-				"flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-xs",
+				"flex items-start gap-2 rounded-xl border bg-card p-3 shadow-xs",
+				groomer !== null && AUTOMATION_TINT,
 				(paused || pending) && "opacity-60",
 			)}
 		>
-			<div className="flex items-start gap-2">
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<div className="flex flex-wrap items-center gap-2 text-sm">
-						{!adding && (
-							<span className="text-muted-foreground tabular-nums">
-								{row.id}.
-							</span>
-						)}
-						<span className="font-medium">
-							{adding ? "Adding…" : pending ? "Saving…" : row.when}
-						</span>
-						{paused && <Badge variant="secondary">Paused</Badge>}
-					</div>
-					<p className="break-words text-muted-foreground text-sm">
-						{row.does}
-					</p>
-				</div>
-				{!pending &&
-					(onEdit !== undefined ||
-						(groomer !== null && onGroom !== undefined)) && (
-						<Button
-							size="icon-sm"
-							variant="ghost"
-							aria-label="Edit"
-							onClick={() =>
-								groomer
-									? setGrooming(true)
-									: setEditing(AutomationDraft.of(row))
-							}
-						>
-							<PencilIcon />
-						</Button>
-					)}
-				{!adding && onPause !== undefined && (
+			<AutomationFace row={row} />
+			{!pending &&
+				(onEdit !== undefined ||
+					(groomer !== null && onGroom !== undefined)) && (
 					<Button
 						size="icon-sm"
 						variant="ghost"
-						aria-label={paused ? "Resume" : "Pause"}
-						onClick={() => onPause(row, !paused)}
+						aria-label="Edit"
+						onClick={() =>
+							groomer ? setGrooming(true) : setEditing(AutomationDraft.of(row))
+						}
 					>
-						{paused ? <PlayIcon /> : <PauseIcon />}
+						<PencilIcon />
 					</Button>
 				)}
-				{!adding && onRemove !== undefined && (
-					<Button
-						size="icon-sm"
-						variant="ghost"
-						aria-label="Remove"
-						onClick={() => onRemove(row)}
-					>
-						<XIcon />
-					</Button>
-				)}
-			</div>
-			{row.runs.length > 0 && (
-				<ul aria-label="last runs" className="flex flex-col gap-0.5 text-xs">
-					{row.runs.toReversed().map((run) => (
-						<li key={run.at} className="flex min-w-0 items-baseline gap-2">
-							<Stamp at={run.at} />
-							<span className="text-muted-foreground">{run.on}</span>
-							{run.error !== null && (
-								<span className="min-w-0 truncate text-destructive">
-									{run.error}
-								</span>
-							)}
-						</li>
-					))}
-				</ul>
+			{!adding && onPause !== undefined && (
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label={paused ? "Resume" : "Pause"}
+					onClick={() => onPause(row, !paused)}
+				>
+					{paused ? <PlayIcon /> : <PauseIcon />}
+				</Button>
+			)}
+			{!adding && onRemove !== undefined && (
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label="Remove"
+					onClick={() => onRemove(row)}
+				>
+					<XIcon />
+				</Button>
 			)}
 		</li>
 	);
