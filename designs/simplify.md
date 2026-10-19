@@ -26,10 +26,11 @@ A task is a number and a `SPLATES.md`, from the moment it is created until it
 ends. There is no todo: a task that nobody has started is just a task in an
 early stage.
 
-- **Stage**: `backlog → ready → queued → running → done | dropped`. Each
-  stage is set by one thing, as the table below says.
-- **Depends on**: the numbers of the tasks that must be `done` before this
-  one can run. This replaces `blockedBy`. It never expresses priority.
+- **Stage**: `backlog → ready → queued → running`. Each stage is set by
+  one thing, as the table below says. A task that merges or is removed
+  leaves `tasks/`: no record of an ended task is kept as a stage.
+- **Depends on**: the numbers of the tasks that must merge before this one
+  can run. This replaces `blockedBy`. It never expresses priority.
   Whether a task is blocked is worked out from it, and is not a stage.
 - **Lane**: at most one, for people to group work. A lane has a name and
   a place on the board and nothing else: it neither runs
@@ -44,14 +45,12 @@ early stage.
 | `ready` | Groomed: no duplicate, dependencies linked, lane and model chosen, hard-to-reverse questions asked | The groomer hook, or the agent that runs it when no groomer is set up |
 | `queued` | In the queue, waiting for a worker | You, from `backlog` or `ready` (queueing is always manual) |
 | `running` | An agent is working it in a worktree | A worker taking it, or `splates add`/`claim` from a session you started |
-| `done` | Merged | `splates merge` |
-| `dropped` | Removed, with a reason (`nothing`, `moot`, `superseded`, `redo`, `duplicate`) | `splates remove`, the groomer folding a duplicate, you |
 
 With no groomer set up, a task can be queued straight from `backlog`. The
 agent that takes it grooms it first, as its first step, moving it to
 `ready`: it checks for a duplicate, links dependencies, and asks any
 hard-to-reverse question under `## Blocked`. When grooming links a
-dependency that is not `done`, the task goes back to `queued` and the agent
+dependency that has not merged, the task goes back to `queued` and the agent
 ends, so the queue holds it until that dependency lands.
 
 One task is one unit of work. An agent no longer "takes up" several queued
@@ -78,9 +77,9 @@ after every task it depends on, and otherwise in the order you set
 reorders itself whenever a task is queued, updated, linked or finished;
 there is no reshuffle step to get wrong.
 
-A worker takes the first task in it whose dependencies are all `done`. A
+A worker takes the first task in it whose dependencies have all merged. A
 task whose dependency is not queued (still in `backlog`, say) waits, and the
-page says which task it waits on. A dependency that is dropped leaves the
+page says which task it waits on. A dependency that is removed leaves the
 task needing you, as a lost blocker does today.
 
 The queue replaces `LaneRunner.startable()`. `splates queue` is its command
@@ -99,8 +98,8 @@ the next task from the queue, makes its worktree, and starts a conversation
 on the task's model with `[SPLATES TASK #N]`. One worker runs many
 conversations at once, one per slot.
 
-A task keeps its slot from when a worker takes it until it is `done` or
-`dropped`, including while it waits on you. A task waiting on you often
+A task keeps its slot from when a worker takes it until it merges or is
+removed, including while it waits on you. A task waiting on you often
 has a demo server running on its worker for you to try, so freeing its
 slot would let the worker start more agents than it has room for, and the
 task would have to resume on that same machine. While reviews wait, the
@@ -187,9 +186,10 @@ one is deleted.
    FORMAT 4 then folds `status` into `stage`: a started task is `running`,
    the stage it left kept as `startedFrom`, which ending its start without a
    merge puts it back in, and only a running task keeps a `status` (working,
-   merging, escalated). `done` and `dropped`, and the body growing into the
-   task's `SPLATES.md`, are still to come: a merged or removed task still
-   leaves `tasks/`, its last plan kept in `finished/`.
+   merging, escalated). There are no `done` or `dropped` stages: a merged or
+   removed task leaves `tasks/`, as before, its last plan kept in
+   `finished/`. The body growing into the task's `SPLATES.md` is still to
+   come.
 2. **Queue and workers.** The worked-out queue (`queue/`), `splates queue`,
    and `QueueRunner`, which `splates server` runs to start the next task
    whenever a worker has a slot free, on the model the task names or the
