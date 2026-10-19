@@ -239,6 +239,11 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "launched") {
 				launched = entry;
 			} else if (entry.kind === "request") {
+				// A new process numbers its frames from the start: the seqs
+				// before its first request were another's.
+				if (entry.method === "initialize") {
+					seq = 0;
+				}
 				requests.push({ id: entry.id, method: entry.method });
 				if (entry.method === "session/prompt") {
 					prompt = entry.id;

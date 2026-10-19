@@ -169,6 +169,38 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		expect(kinds.filter((kind) => kind === "launched")).toHaveLength(1);
 	});
 
+	it("takes back a process started after another, from its own frames, not the first's", async () => {
+		const turn = agent.turn;
+		// The first process runs its frames' seqs up past the second's.
+		agent.turn = async (client, sessionId) => {
+			await Promise.all(
+				Array.from({ length: 20 }, () =>
+					client.sessionUpdate({ sessionId, update: say(".") }),
+				),
+			);
+			return "end_turn";
+		};
+		const before = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await until(before, "idle");
+		await before.prompt("one");
+		await until(before, "idle");
+		await before.stop();
+		agent.turn = turn;
+		await before.prompt("two");
+		await eventually(() => words(before).includes("Hi."));
+		await settle();
+
+		const [after] = await restart();
+		goOn();
+		await until(after as Conversation, "idle");
+
+		expect(agent.launched).toHaveLength(2);
+		expect(words(after as Conversation).at(-1)).toBe("Hi. Bye.");
+	});
+
 	it("keeps a requested provider-qualified model and absent steering across worker reattachment", async () => {
 		const model = "opencode-go/fixture";
 		agent.options = [
