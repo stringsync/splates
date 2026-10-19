@@ -52,11 +52,12 @@ export const WORKER_ACCESS_ID = "SPLATES_WORKER_ACCESS_ID";
 export const WORKER_ACCESS_SECRET = "SPLATES_WORKER_ACCESS_SECRET";
 
 /**
- * Set in the environment of the worker `splates server` runs beside itself to
- * its supervisor's pid, so the worker ends once that process is gone, as when
- * it was killed outright, rather than serve on under the id `local` beside the
- * next server's worker.
+ * The environment variable that ends a worker with the process that started
+ * it. Set it to that process's pid on the worker `splates server` runs beside
+ * itself, and the worker ends once the pid is gone.
  */
+// A server killed outright would otherwise leave its worker serving on under
+// the id `local` beside the next server's.
 export const SUPERVISOR = "SPLATES_WORKER_SUPERVISOR";
 
 /** How often a supervised worker looks for its supervisor. */
@@ -122,9 +123,10 @@ export interface WorkerRunOptions {
 }
 
 /**
- * Set for a worker another `splates worker run` keeps running: told to
- * update, it hands the build over in `updateFile` and exits `UPDATE_EXIT`,
- * and the one keeping it starts it again on that build.
+ * The environment variable that marks a worker another `splates worker run`
+ * keeps running. Set it on the worker you keep; told to update, that worker
+ * then hands the build over in `updateFile` and exits `UPDATE_EXIT`, for you
+ * to start again on that build.
  */
 // So each update starts one worker in place of the last, never nesting.
 export const WORKER_KEPT = "SPLATES_WORKER_KEPT";
@@ -275,7 +277,7 @@ export async function workerJoin(
 	) {
 		fail(
 			"usage",
-			"give the coordinator's URL with --coordinator and a token from `splates worker add` there with --join",
+			"give the server's URL with --server and a token from `splates worker add` there with --join",
 		);
 	}
 	await workerCreds(opts.id || opts.ps.hostname, { ...opts, slots: 0 });
@@ -394,7 +396,7 @@ function dialer(
 		if (opts.join) {
 			fail(
 				"usage",
-				"--join is for a coordinator on another machine: give its URL with --coordinator",
+				"--join is for a server on another machine: give its URL with --server",
 			);
 		}
 		const path =

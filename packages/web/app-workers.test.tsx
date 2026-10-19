@@ -312,7 +312,7 @@ describe("App's workers", () => {
 			expect(
 				view.getByRole("region", { name: "join command" }).textContent,
 			).toContain(
-				`splates worker run --coordinator ${location.origin} --join t0ken`,
+				`splates worker run --server ${location.origin} --join t0ken`,
 			),
 		);
 		expect(

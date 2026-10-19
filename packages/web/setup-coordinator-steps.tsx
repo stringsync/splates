@@ -61,14 +61,14 @@ export class MoveWatch implements Eventful<MoveWatchEvents> {
 			if (read.exitCode !== null && read.exitCode !== 0) {
 				this.set({ kind: "failed", log: read.log });
 				throw new Error(
-					"The move stopped before this server did, so nothing here changed: what it said is below.",
+					"The deploy stopped before this server did, so nothing here changed: what it said is below.",
 				);
 			}
 			this.set({ kind: "here", line: read.log.at(-1) ?? null });
 			for (;;) {
 				await sleep(pause);
 				if (this.stopped) {
-					throw new Error("The page stopped following the move.");
+					throw new Error("The page stopped following the deploy.");
 				}
 				const next = await coordinatorMoveProgress().catch(() => null);
 				if (next !== null) {
@@ -208,7 +208,7 @@ function MoveStatus({ state }: { state: MoveState }): JSX.Element | null {
 		case "here":
 			return (
 				<p role="status" className="text-muted-foreground text-sm">
-					{state.line ?? "Starting the move…"}
+					{state.line ?? "Starting the deploy…"}
 				</p>
 			);
 		case "away": {
@@ -217,13 +217,13 @@ function MoveStatus({ state }: { state: MoveState }): JSX.Element | null {
 			return (
 				<div role="status" className="flex flex-col gap-2 text-sm">
 					<p className="text-muted-foreground">
-						This machine's server has stopped, as the move asks. The records and
-						creds go to the box, and this page carries on once the box answers
-						here.
+						This machine's server has stopped, as the deploy asks. The records
+						and creds go to the box, and this page carries on once the box
+						answers here.
 					</p>
 					{elsewhere && box !== null && (
 						<p>
-							This page is on this Mac, so it cannot follow the move: open{" "}
+							This page is on this Mac, so it cannot follow the deploy: open{" "}
 							<a
 								href={box}
 								className="underline underline-offset-4"
@@ -238,7 +238,7 @@ function MoveStatus({ state }: { state: MoveState }): JSX.Element | null {
 					{state.long && (
 						<p className="text-destructive">
 							The box has not answered in ten minutes: read
-							~/.splates/coordinator/move.log on this Mac for what the move
+							~/.splates/coordinator/move.log on this Mac for what the deploy
 							said.
 						</p>
 					)}

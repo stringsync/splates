@@ -2,6 +2,7 @@ export type { CoordinatorKeys } from "./area-coordinator";
 export { SETUP_AREAS } from "./areas";
 export {
 	CoordinatorMoveRoutes,
+	coordinatorMoved,
 	type MoveProgress,
 } from "./coordinator-move";
 export { OpenCodeSetup } from "./opencode";

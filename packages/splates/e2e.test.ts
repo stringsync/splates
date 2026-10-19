@@ -60,13 +60,27 @@ describe.concurrent("splates", () => {
 		const { exitCode, stdout } = await cli.splates(
 			cli.env.root,
 			"server",
+			"run",
 			"--help",
 		);
 
 		expect(exitCode).toBe(0);
-		expect(stdout).toContain("Usage: splates server");
+		expect(stdout).toContain("Usage: splates server run");
 		expect(stdout).toContain("--port");
 		expect(stdout).toContain("--tunnel");
+	});
+
+	it("lists running the server first among its commands, as what it does bare", async () => {
+		await using cli = await setup();
+		const { exitCode, stdout } = await cli.splates(
+			cli.env.root,
+			"server",
+			"--help",
+		);
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toMatch(/run .*\(default\)/);
+		expect(stdout).toContain("deploy");
 	});
 
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {
@@ -262,6 +276,7 @@ describe.concurrent("splates", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: its killing preMerge and marker file are this test's alone, and older than this task
 	it("lands the tree on a retry when an agent is killed mid-merge", async () => {
 		await using cli = await setup();
 		const { env, splates, rows } = cli;

@@ -40,7 +40,7 @@ describe("CoordinatorMoveRoutes", () => {
 		expect(started.status).toBe(200);
 		const [call] = ps.getCalls();
 		expect(call).toContain(
-			"'/bin/bun' '/opt/splates/cli.ts' 'coordinator' 'move' '--dev' 'http://127.0.0.1:4310'",
+			"'/bin/bun' '/opt/splates/cli.ts' 'server' 'deploy' '--dev' 'http://127.0.0.1:4310'",
 		);
 		expect(ps.getCallDirs()).toEqual(["/code/app"]);
 	});

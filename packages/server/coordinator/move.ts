@@ -123,7 +123,7 @@ export class CoordinatorMove {
 		const box = await this.opts.box();
 		if (box === null) {
 			missing.push(
-				"no coordinator's box: make it with `splates coordinator up`",
+				"no coordinator's box: make it with `splates server deploy`",
 			);
 		}
 		const host = await this.opts.tunnelHost();
@@ -332,7 +332,7 @@ export interface CoordinatorMoveOptions {
 	stores: SecretStores;
 	/** The splates release the box runs, and the Mac's worker. */
 	version: string;
-	/** The box as `splates coordinator status` says it stands, or null for none. */
+	/** The box as `splates server status` says it stands, or null for none. */
 	box: () => Promise<BoxStanding | null>;
 	/** The host the saved tunnel carries, or null when none is saved. */
 	tunnelHost: () => Promise<string | null>;

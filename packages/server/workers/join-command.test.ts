@@ -4,7 +4,7 @@ import { joinCommand, windowsJoinCommand } from "./join-command";
 describe("join commands", () => {
 	it("runs a worker that spends the token", () => {
 		expect(joinCommand("https://splates.example.com", "splj_t")).toBe(
-			"splates worker run --coordinator https://splates.example.com --join splj_t",
+			"splates worker run --server https://splates.example.com --join splj_t",
 		);
 	});
 

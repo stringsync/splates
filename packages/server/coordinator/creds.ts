@@ -47,7 +47,7 @@ export class MovedCreds {
 }
 
 /**
- * `splates coordinator keep-creds`: keeps the creds the move sent, as JSON,
+ * `splates server keep-creds`: keeps the creds the move sent, as JSON,
  * in `stores`, answering how many.
  */
 export function keepCarriedCreds(opts: KeepCarriedOptions): Promise<number> {

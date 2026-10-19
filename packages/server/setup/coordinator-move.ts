@@ -60,12 +60,13 @@ export interface MoveProgress {
 const LOG_LINES = 20;
 
 /**
- * Starts `splates coordinator move` for the page, and says how it goes. The
- * move stops this server on its way, so it cannot run inside a request: it
- * runs on its own, past this server's exit and the terminal's signals,
- * writing to `moveFiles`, and the page watches it here until this server
- * goes, then watches for the box on the tunnel's host.
+ * The routes the Setup page deploys the server through: `start` runs
+ * `splates server deploy` on its own, and `progress` says how it goes, from
+ * `moveFiles`, until this server goes; the page then watches for the box on
+ * the tunnel's host.
  */
+// The deploy stops this server on its way, so it cannot run inside a
+// request: it runs past this server's exit and the terminal's signals.
 export class CoordinatorMoveRoutes {
 	constructor(private readonly opts: CoordinatorMoveRoutesOptions) {}
 
@@ -94,7 +95,7 @@ export class CoordinatorMoveRoutes {
 		for (const path of Object.values(files)) {
 			await fs.rm(path, { force: true });
 		}
-		const argv = [...ps.self, "coordinator", "move", "--dev", dev];
+		const argv = [...ps.self, "server", "deploy", "--dev", dev];
 		await ps.spawn(["sh", "-c", detached(argv, files)], {
 			cwd: ps.cwd(),
 			unset: [SERVING],

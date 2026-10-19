@@ -10,7 +10,7 @@ export const WINDOWS_INSTALLER =
 
 /** Joins a Linux or macOS machine with splates installed already. */
 export function joinCommand(coordinator: string, token: string): string {
-	return `splates worker run --coordinator ${coordinator} --join ${token}`;
+	return `splates worker run --server ${coordinator} --join ${token}`;
 }
 
 /**

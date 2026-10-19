@@ -15,18 +15,23 @@ import { z } from "zod";
 
 /** `splates worker`, which the root cli mounts after `splates slots`. */
 export const splatesWorker = cli<SplatesDeps>("worker").description(
-	"the machines that run tasks for `splates server`: each dials out to its coordinator and runs what it is given, agents, terminals and the git and process reads around them, on its own machine",
+	"the machines that run tasks for `splates server`: each dials out to it and runs what it is given, agents, terminals and the git and process reads around them, on its own machine",
 );
 
 splatesWorker
 	.command("run")
 	.description(
-		"run a worker on this machine until stopped: it dials the coordinator, by default the `splates server` on this machine through a socket in ~/.splates only you may open, and dials again whenever the link drops, while what it runs carries on; it stops reading a process's output while the coordinator is away too long, so nothing is lost. Once its agents have moved off it, a coordinator on another build has it restart on that build, through `bunx @stringsync/splates@<build>`, as it does when it refuses this worker for another protocol; one that says no build has it exit `outdated`",
+		"run a worker on this machine until stopped: it dials `splates server`, by default the one on this machine through a socket in ~/.splates only you may open, and dials again whenever the link drops, while what it runs carries on; it stops reading a process's output while the server is away too long, so nothing is lost. Once its agents have moved off it, a server on another build has it restart on that build, through `bunx @stringsync/splates@<build>`, as it does when it refuses this worker for another protocol; one that says no build has it exit `outdated`",
 	)
+	.option("server", z.string(), {
+		default: "",
+		description:
+			"the `splates server` to dial: its URL, whose /api/workers it opens, or unix:<path>; by default this machine's",
+	})
 	.option("coordinator", z.string(), {
 		default: "",
 		description:
-			"the coordinator to dial: a `splates server` URL, whose /api/workers it opens, or unix:<path>; by default this machine's",
+			"the old name for --server, still read for workers installed before it, and passed to a build older than it",
 	})
 	.option("slots", z.coerce.number().int().min(0), {
 		default: 0,
@@ -36,12 +41,12 @@ splatesWorker
 	.option("id", z.string(), {
 		default: "",
 		description:
-			"what the coordinator knows this worker by, kept across restarts so it picks up where it was; by default the machine's host name",
+			"what the server knows this worker by, kept across restarts so it picks up where it was; by default the machine's host name",
 	})
 	.option("join", z.string(), {
 		default: "",
 		description:
-			"a join token from `splates worker add` on the coordinator, spent to join it before dialing; the key it answers is kept in this machine's system store, or read from SPLATES_WORKER_KEY on one without",
+			"a join token from `splates worker add` on the server, spent to join it before dialing; the key it answers is kept in this machine's system store, or read from SPLATES_WORKER_KEY on one without",
 	})
 	.option("ephemeral", z.boolean(), {
 		default: false,
@@ -56,11 +61,11 @@ splatesWorker
 	.option("quiet", z.boolean(), {
 		default: false,
 		description:
-			"say only what went wrong, not each time it joins or loses its coordinator, as the worker `splates server` starts beside itself does",
+			"say only what went wrong, not each time it joins or loses its server, as the worker `splates server` starts beside itself does",
 	})
 	.action((opts, ctx) =>
 		workerRun({
-			coordinator: opts.coordinator,
+			coordinator: opts.server || opts.coordinator,
 			slots: opts.slots,
 			id: opts.id,
 			join: opts.join,
@@ -79,8 +84,13 @@ splatesWorker
 	.description(
 		"spend a join token from `splates worker add` and keep the key it answers, as `splates worker run --join` does, then exit, for an installer that leaves running the worker to a service",
 	)
+	.option("server", z.string(), {
+		default: "",
+		description: "the `splates server` to join: its URL",
+	})
 	.option("coordinator", z.string(), {
-		description: "the coordinator to join: its `splates server` URL",
+		default: "",
+		description: "the old name for --server",
 	})
 	.option("join", z.string(), {
 		description: "the join token `splates worker add` printed there",
@@ -88,7 +98,7 @@ splatesWorker
 	.option("id", z.string(), {
 		default: "",
 		description:
-			"what the coordinator knows this worker by; by default the machine's host name",
+			"what the server knows this worker by; by default the machine's host name",
 	})
 	.option("key-file", z.boolean(), {
 		default: false,
@@ -97,7 +107,7 @@ splatesWorker
 	})
 	.action((opts, ctx) =>
 		workerJoin({
-			coordinator: opts.coordinator,
+			coordinator: opts.server || opts.coordinator,
 			join: opts.join,
 			id: opts.id,
 			keyFile: opts["key-file"],

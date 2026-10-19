@@ -15,6 +15,8 @@ export class CoordinatorBox {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
 	private readonly store: SecretStore;
+	/** splates's home, under whose `coordinator` the box's SSH files are kept. */
+	readonly home: string;
 	/** Where its SSH key pair is kept: the private key, with `.pub` beside it. */
 	readonly key: string;
 
@@ -22,8 +24,8 @@ export class CoordinatorBox {
 		this.ps = opts.ps ?? new NodePs();
 		this.fs = opts.fs ?? new NodeFs();
 		this.store = opts.store ?? SystemSecretStore.device();
-		const home = opts.home ?? splatesHome(this.ps);
-		this.key = `${home}/coordinator/id_ed25519`;
+		this.home = opts.home ?? splatesHome(this.ps);
+		this.key = `${this.home}/coordinator/id_ed25519`;
 	}
 
 	/**

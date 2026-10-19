@@ -138,14 +138,14 @@ $slotsFlag = if ($Slots -gt 0) { " --slots $Slots" } else { '' }
 InDistro $User @"
 set -eu
 export HOME=/home/$User PATH=/home/$User/.bun/bin:`$PATH
-splates worker join --coordinator '$Coordinator' --join '$Join' --id '$Id' --key-file
+splates worker join --server '$Coordinator' --join '$Join' --id '$Id' --key-file
 mkdir -p `$HOME/.splates
 cat >`$HOME/.splates/run-worker.sh <<'EOF'
 #!/bin/sh
 # What the scheduled task "$Task" runs at boot, made by install-worker.ps1.
 export HOME=/home/$User PATH="/home/$User/.bun/bin:`$PATH"
 export SPLATES_HEAVY_JOBS=$HeavyJobs
-exec splates worker run --coordinator '$Coordinator' --id '$Id' --key-file$slotsFlag
+exec splates worker run --server '$Coordinator' --id '$Id' --key-file$slotsFlag
 EOF
 chmod +x `$HOME/.splates/run-worker.sh
 "@

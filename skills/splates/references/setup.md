@@ -81,7 +81,7 @@ machine, that is the Workers setup area: `local-worker` (`splates worker add
 may mint a worker's Access service token, **Account · Access: Service Tokens ·
 Edit**; `splates creds request SPLATES_CLOUDFLARE_API_TOKEN --device --replace`
 for one that may not) and `remote-worker` (`splates worker add`, then `splates
-worker run --coordinator <url> --join <token>` on the other machine),
+worker run --server <url> --join <token>` on the other machine),
 `windows-worker` (the Windows command `splates worker add` prints, run in
 PowerShell as an administrator there: the worker in a WSL2 distro of its own,
 started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
@@ -97,26 +97,27 @@ as the user having seen it). Walk them
 through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
-When the user asks for an always-on coordinator, that is the Cloud
-coordinator setup area: `coordinator-box`, after `hetzner-token`, makes it with `splates coordinator up` (a CPX21 in Hetzner's
+When the user asks for an always-on server, that is the Cloud server setup
+area, all of it `splates server deploy`: it makes the box when there is none
+(the `coordinator-box` step, after `hetzner-token`: a CPX21 in Hetzner's
 Ashburn with daily backups, SSH alone open, its key under
-`~/.splates/coordinator`); `splates coordinator status` prints its address and
-how to SSH in, and `splates coordinator remove` destroys it and its backups.
-It serves nothing until `splates coordinator move` moves the coordinator onto
-it, which needs `remote` set in every project's `splates.config.ts` and an SSH
-origin (the `coordinator-remotes` step): the box gives each project a deploy
-key, and until GitHub lets each push trunk the move exits `blocked`, printing
-each key and where to add it with write access; show the user those and run
-it again once they are added (`coordinator-keys`). `--dry-run` stops there.
-Run for real (`coordinator-move`), it checkpoints every agent and stops
-this machine's `splates server`, carries the records and creds over, starts
-the server on the box under systemd with the saved tunnel, and joins this
-machine as a worker kept up by a LaunchAgent, where each task carries on in
-its worktree; this machine's records go aside, kept. It touches the user's
+`~/.splates/coordinator`), then deploys the server onto it. That needs
+`remote` set in every project's `splates.config.ts` and an SSH origin (the
+`coordinator-remotes` step): the box gives each project a deploy key, and
+until GitHub lets each push trunk the deploy exits `blocked`, printing each
+key and where to add it with write access; show the user those and run it
+again once they are added (`coordinator-keys`). `--dry-run` stops there, the
+box ready. Run for real (`coordinator-move`), it checkpoints every agent and
+stops this machine's `splates server`, carries the records and creds over,
+starts the server on the box under systemd with the saved tunnel, and joins
+this machine as a worker kept up by a LaunchAgent, where each task carries on
+in its worktree; this machine's records go aside, kept. It touches the user's
 live server and tunnel: ask before running it for real, and run it from a
 terminal outside `splates server`, which it stops, or leave it to the step's
 Next on the page, which runs it apart from the server and follows it onto the
-box's host.
+box's host. `splates server status` says where the server runs and the box's
+address, `splates server ssh` opens a shell on the box, and `splates server
+destroy` destroys it and its backups.
 
 A tunnel of their own is a `tunnel` in the repo's `splates.config.ts`, an object
 implementing `TunnelProvider` from `@stringsync/splates-server/tunnel`:

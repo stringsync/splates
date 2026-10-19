@@ -68,7 +68,7 @@ which remembers none of it.
   [references/todos.md](references/todos.md), linking, placing and ordering
   todos.
 - When the user asks to set splates up on this machine, or any part of it
-  (agents, remote access, workers, a cloud coordinator, a tunnel of their
+  (agents, remote access, workers, a cloud server, a tunnel of their
   own, notifications, dictation): [references/setup.md](references/setup.md),
   one step at a time.
 - When your work needs a secret only the user can get, such as an API token:
@@ -421,7 +421,7 @@ stays out of the user's `splates server` project list. Start the server from you
 worktree, then `splates ports <task>` prints each port it listens on with two
 links: its remote one, `https://<task>-<port>.<base>` behind the user's
 Access, when `splates server --ports-host` saved a base, and its local one on
-your machine, which a worker whose coordinator runs elsewhere has only for its
+your machine, which a worker whose server runs elsewhere has only for its
 own ports. Give the user both, the remote one first, in
 the demo's line on where to open it; the task's dialog on the page lists
 them too. When `splates tunnel status`

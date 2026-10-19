@@ -3,7 +3,7 @@ import { shellQuoted } from "./scripts";
 
 /**
  * A root shell on the coordinator's box over SSH, signed in with the key
- * `splates coordinator up` made, trusting the box's host key the first time
+ * `splates server deploy` made, trusting the box's host key the first time
  * it is seen and holding it to that key after, in a file of splates's own.
  */
 export class BoxShell {
@@ -40,6 +40,16 @@ export class BoxShell {
 				`could not copy ${local} to the box: ${(ran.stderr || ran.stdout).trim()}`,
 			);
 		}
+	}
+
+	/** The `ssh` that logs in to the box as root, running `command` there, or a shell for none. */
+	login(command: string[] = []): string[] {
+		return [
+			...this.ssh("ssh"),
+			...(command.length === 0 ? ["-t"] : []),
+			`root@${this.opts.ipv4}`,
+			...command,
+		];
 	}
 
 	private ssh(command: "ssh" | "scp"): string[] {

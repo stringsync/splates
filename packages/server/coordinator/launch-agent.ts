@@ -41,7 +41,7 @@ export function workerAgentPlist(
 		`@stringsync/splates@${opts.version}`,
 		"worker",
 		"run",
-		"--coordinator",
+		"--server",
 		opts.coordinator,
 		"--key-file",
 	];

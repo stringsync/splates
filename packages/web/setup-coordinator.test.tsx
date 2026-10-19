@@ -26,7 +26,7 @@ const RUNNING: MoveProgress = {
 	host: "splates.example.com",
 };
 
-describe("Cloud coordinator journey", () => {
+describe("Cloud server journey", () => {
 	let testing: Testing;
 	let progress: SetupProgress;
 	beforeEach(async () => {
@@ -92,7 +92,7 @@ describe("Cloud coordinator journey", () => {
 
 	it("shows each deploy key a failed Next found, to copy and add on GitHub", async () => {
 		const view = open(with_(before));
-		await click(view, "Set up Cloud coordinator");
+		await click(view, "Set up Cloud server");
 		expect(view.getByRole("form", { name: "Let the box push each project" }));
 		expect(view.queryByRole("list", { name: "deploy keys" })).toBeNull();
 		testing.refuseWrites = {
@@ -116,10 +116,8 @@ describe("Cloud coordinator journey", () => {
 
 	it("starts the move on Next and says what it is doing", async () => {
 		const view = open(with_({ ...before, "coordinator-keys": "done" }));
-		await click(view, "Set up Cloud coordinator");
-		expect(
-			view.getByRole("form", { name: "Move the coordinator onto its box" }),
-		);
+		await click(view, "Set up Cloud server");
+		expect(view.getByRole("form", { name: "Deploy the server to its box" }));
 		testing.reply = RUNNING;
 		testing.coordinatorMove = RUNNING;
 

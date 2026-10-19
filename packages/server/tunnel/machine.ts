@@ -3,7 +3,7 @@ import type { Fs } from "webappwiz/system";
 import { SavedTunnel, type TunnelRecord } from "./saved";
 
 /**
- * What names a directory `splates coordinator move` puts this machine's
+ * What names a directory `splates server deploy` puts this machine's
  * records aside in, the tunnel's among them.
  */
 const ASIDE = "moved-";

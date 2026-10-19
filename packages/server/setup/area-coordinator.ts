@@ -23,7 +23,7 @@ export interface CoordinatorKeys extends Record<string, unknown> {
 	keys: DeployKey[];
 }
 
-/** What the Cloud coordinator area runs on beyond the machine. */
+/** What the Cloud server area runs on beyond the machine. */
 export interface CoordinatorAreaDeps {
 	/** The move of this machine's coordinator onto its box, which the keys step runs dry. */
 	move(machine: SetupMachine): Pick<CoordinatorMove, "run">;
@@ -60,11 +60,11 @@ export function coordinatorArea(
 
 	const boxStep: SetupStep = {
 		id: "coordinator-box",
-		title: "Make the coordinator's box",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a CPX21 in Hetzner's Ashburn, Virginia, with Hetzner's daily backups, reached by SSH alone; it serves nothing until the coordinator moves onto it.",
+		title: "Make the server's box",
+		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a CPX21 in Hetzner's Ashburn, Virginia, with Hetzner's daily backups, reached by SSH alone; it serves nothing until the server is deployed to it.",
 		user: "Next makes it in your Hetzner account, with the token the Workers area keeps: about $38 a month, its backups 20% more.",
 		agent:
-			"Press Next on the page, or run `splates coordinator up`, which makes the box and prints its address and how to SSH in; run again, it changes only what is not so already.",
+			"Press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
 		optional: true,
 		after: [workerStep("hetzner-token")],
 		doing: "Making the coordinator's box, a few minutes…",
@@ -89,7 +89,7 @@ export function coordinatorArea(
 		why: "The box keeps a clone of each project, and this Mac checks tasks out from it as a worker, both through the remote each project's `splates.config.ts` names, reached over SSH so the box's deploy key can push.",
 		user: 'Add `remote: "origin"` to each project\'s `splates.config.ts`, with an SSH origin such as `git@github.com:<owner>/<repo>.git`, then press Next.',
 		agent:
-			'For each project the step\'s detail lists, have a task in that project add `remote: "origin"` to its `splates.config.ts` and land it, and make its origin an SSH URL (`git remote set-url origin git@github.com:<owner>/<repo>.git`) if it is not. `splates coordinator move --dry-run` lists what is still missing.',
+			'For each project the step\'s detail lists, have a task in that project add `remote: "origin"` to its `splates.config.ts` and land it, and make its origin an SSH URL (`git remote set-url origin git@github.com:<owner>/<repo>.git`) if it is not. `splates server deploy --dry-run` lists what is still missing.',
 		optional: true,
 		after: [],
 		check: async (machine) =>
@@ -109,10 +109,10 @@ export function coordinatorArea(
 	const keysStep: SetupStep = {
 		id: "coordinator-keys",
 		title: "Let the box push each project",
-		why: "The box gives each project a deploy key of its own, which merges push trunk with once the coordinator runs there. GitHub lets a key push only once it is added to its repository with write access.",
+		why: "The box gives each project a deploy key of its own, which merges push trunk with once the server runs there. GitHub lets a key push only once it is added to its repository with write access.",
 		user: "Press Next to ready each project's clone on the box. Add each key it shows to its repository with **Allow write access** ticked, then press Next again.",
 		agent:
-			"Run `splates coordinator move --dry-run`, which brings the box's splates to this release, gives each project a clone there and a deploy key, and exits `blocked` printing each key that cannot push yet with where to add it. Show the user each key and link, to add with **Allow write access** ticked, and run it again until it says the box is ready.",
+			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, gives each project a clone there and a deploy key, and exits `blocked` printing each key that cannot push yet with where to add it. Show the user each key and link, to add with **Allow write access** ticked, and run it again until it says the box is ready.",
 		optional: true,
 		after: [boxStep, remotesStep, tunnelStep],
 		doing: "Readying each project's clone on the box, a minute or two…",
@@ -132,21 +132,21 @@ export function coordinatorArea(
 
 	const moveStep: SetupStep = {
 		id: "coordinator-move",
-		title: "Move the coordinator onto its box",
-		why: "The move asks every agent here to checkpoint and stops this machine's `splates server`, carries its records and creds to the box, and starts the server there for good on your tunnel's host. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
-		user: "Press Next to move. This page goes away while the move runs, a few minutes, and comes back served from the box.",
+		title: "Deploy the server to its box",
+		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records and creds to the box, and starts the server there for good on your tunnel's host. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
+		user: "Press Next to deploy. This page goes away while the deploy runs, a few minutes, and comes back served from the box.",
 		agent:
-			"Ask the user first: the move stops their `splates server` and every agent in it. Then run `splates coordinator move` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and move once it is fixed.",
+			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
 		optional: true,
 		after: [keysStep],
 		check: coordinatorMoved,
 		notDone:
-			"The coordinator has not moved yet: press Next to move it, or run `splates coordinator move`.",
+			"The server is not deployed yet: press Next to deploy it, or run `splates server deploy`.",
 	};
 
 	return {
 		id: "coordinator",
-		title: "Cloud coordinator",
+		title: "Cloud server",
 		steps: [boxStep, remotesStep, keysStep, moveStep],
 	};
 }

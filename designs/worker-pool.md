@@ -392,7 +392,7 @@ an SSH key splates makes and a firewall opening port 22 alone, both named
 backups and delete and rebuild protection; `up` makes what is missing and
 puts the rules, backups and protection right, but never resizes or moves a
 box already made;
-`splates coordinator up|status|remove` drive it. Its first boot installs
+`splates server deploy|status|destroy` drive it. Its first boot installs
 git, bun, cloudflared and splates for the user `splates`, and nothing more:
 what moves onto it, and how, comes after. Traffic keeps the tunnel: the
 saved one's cloudflared moves to the box, so no web port opens and the host,
@@ -404,7 +404,7 @@ Creds stay in `Bun.secrets` through GNOME Keyring run headless beside
 (settled 2026-10-18); every unattended store keeps its unlock secret on the
 box's disk, and the daily backups copy it.
 
-How the coordinator moves (built 2026-10-18, `splates coordinator move`,
+How the coordinator moves (built 2026-10-18, `splates server deploy`,
 `packages/server/coordinator/move.ts`). Over SSH as root with the box's key,
 it brings the box's splates to the release, then gives each project a clone
 under `/home/splates/projects/<name>` (the name also keys its project creds
@@ -421,7 +421,7 @@ each project's `.git/splates` as they are, but that each task worked in a
 worktree on the Mac is put on the Mac's worker, at that worktree, so agents
 carry on there in place, and conversations keep the paths of the worker
 that ran them. Creds, but the dev slots' tunnel tokens, go on stdin into
-`splates coordinator keep-creds` on the box, in a D-Bus session whose GNOME
+`splates server keep-creds` on the box, in a D-Bus session whose GNOME
 Keyring `/root/splates-keyring` unlocked, as the unit
 `splates-coordinator.service` runs `splates server` (`LoadCredential=`,
 `dbus-run-session`, `Restart=always`), its own worker off. It starts only

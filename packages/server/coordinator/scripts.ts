@@ -177,7 +177,7 @@ export function placeScript(projects: BoxProject[], cwd: string): string {
 }
 
 /**
- * Keeps the creds on stdin, as `splates coordinator keep-creds` reads them,
+ * Keeps the creds on stdin, as `splates server keep-creds` reads them,
  * in `BOX_USER`'s keyring, unlocked by a copy of its password only that user
  * may read while it runs.
  */
@@ -187,7 +187,7 @@ export function credsScript(): string {
 		"set -eu",
 		`install -o ${BOX_USER} -m 0400 ${KEYRING_PASSWORD} ${copy}`,
 		`trap 'rm -f ${copy}' EXIT`,
-		asUser(`${KEYRING_RUN} ${copy} ${SPLATES} coordinator keep-creds`),
+		asUser(`${KEYRING_RUN} ${copy} ${SPLATES} server keep-creds`),
 		"",
 	].join("\n");
 }

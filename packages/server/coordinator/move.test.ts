@@ -109,7 +109,7 @@ describe("CoordinatorMove", () => {
 
 		const refused = await move.run().catch((error: Error) => error.message);
 
-		expect(refused).toContain("splates coordinator up");
+		expect(refused).toContain("splates server deploy");
 		expect(refused).toContain("splates tunnel setup");
 		expect(refused).toContain(
 			`add \`remote: "origin"\` to ${ROOT}/splates.config.ts`,
