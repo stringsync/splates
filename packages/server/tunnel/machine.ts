@@ -1,5 +1,6 @@
 import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
+import { FsStorage } from "../storage";
 import { SavedTunnel, type TunnelRecord } from "./saved";
 
 /**
@@ -29,7 +30,7 @@ export async function machineTunnel({
 	store: SecretStore;
 }): Promise<TunnelRecord | null> {
 	const read = (dir: string) =>
-		new SavedTunnel(`${dir}/tunnel.json`, { fs, store }).read();
+		SavedTunnel.in(new FsStorage(dir, fs), store).read();
 	const own = await read(home);
 	if (own !== null) {
 		return own;

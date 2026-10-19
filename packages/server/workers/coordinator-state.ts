@@ -1,5 +1,5 @@
-import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import type { Document } from "../storage";
 import type { KeptShell } from "../terminal";
 import { WorkerProtocol } from "./protocol";
 
@@ -29,8 +29,7 @@ const Kept = z.object({
  */
 export class CoordinatorState {
 	private constructor(
-		readonly path: string,
-		private readonly fs: Fs,
+		private readonly document: Document<z.input<typeof Kept>>,
 		/** What this coordinator's worker sessions answer as, the same across restarts. */
 		readonly session: string,
 		/** The worker protocol the last run spoke; this run's on a fresh start. */
@@ -42,29 +41,29 @@ export class CoordinatorState {
 	) {}
 
 	/**
-	 * Reads what the last run kept at `path`, or starts afresh with a session
+	 * Reads what the last run kept in `document`, or starts afresh with a session
 	 * of its own, written there so the next run answers as the same.
 	 */
-	static async open(path: string, fs: Fs): Promise<CoordinatorState> {
-		const read = await fs.read(path).catch(() => null);
-		if (read !== null) {
-			try {
-				const kept = Kept.parse(JSON.parse(read));
+	static async open(
+		document: Document<z.input<typeof Kept>>,
+	): Promise<CoordinatorState> {
+		try {
+			const read = await document.read();
+			if (read !== null) {
+				const kept = Kept.parse(read);
 				return new CoordinatorState(
-					path,
-					fs,
+					document,
 					kept.session,
 					kept.protocol,
 					kept.roots,
 					kept.terminals,
 				);
-			} catch {
-				// Unreadable: a new session, which ends what the worker held.
 			}
+		} catch {
+			// Unreadable: a new session, which ends what the worker held.
 		}
 		const state = new CoordinatorState(
-			path,
-			fs,
+			document,
 			crypto.randomUUID(),
 			WorkerProtocol.version,
 			[],
@@ -76,15 +75,11 @@ export class CoordinatorState {
 
 	/** Keeps `roots` as the projects whose agents, and `terminals` as the shells, the next run takes back. */
 	async write(roots: string[], terminals: KeptShell[]): Promise<void> {
-		await this.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		await this.fs.write(
-			this.path,
-			`${JSON.stringify({
-				session: this.session,
-				protocol: WorkerProtocol.version,
-				roots,
-				terminals,
-			})}\n`,
-		);
+		await this.document.write({
+			session: this.session,
+			protocol: WorkerProtocol.version,
+			roots,
+			terminals,
+		});
 	}
 }

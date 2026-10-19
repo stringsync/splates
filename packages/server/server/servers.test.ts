@@ -4,6 +4,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { MACHINE_HOME, SLOT, Slots } from "../ports";
+import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
 import { devServers } from "./servers";
 
@@ -12,25 +13,29 @@ describe("devServers", () => {
 		const fs = new FakeFs();
 		const store = new FakeSecretStore();
 		const secrets = { device: store, project: async () => store };
-		const save = (path: string, host: string) =>
-			new SavedTunnel(path, { fs, store }).save({
+		const save = (dir: string, host: string) =>
+			SavedTunnel.in(new FsStorage(dir, fs), store).save({
 				host,
 				team: "team",
 				aud: "aud",
 				tunnel: "id",
 			});
-		await save("/home/.splates/tunnel.json", "splates.example.com");
-		const slots = new Slots("/home/.splates/slots.json", {
-			fs,
-			ps: new FakePs(),
-			lock: new MemoryLock(),
-		});
+		await save("/home/.splates", "splates.example.com");
+		const slots = new Slots(
+			new FsStorage("/home/.splates", fs).document("slots.json"),
+			{
+				home: "/home/.splates",
+				fs,
+				ps: new FakePs(),
+				lock: new MemoryLock(),
+			},
+		);
 		for (const tree of ["/trees/one", "/trees/two", "/trees/three"]) {
 			await fs.mkdir(tree, { recursive: true });
 			await slots.claim(tree);
 		}
-		await save("/home/.splates/slots/cat/tunnel.json", "cat.example.com");
-		await save("/home/.splates/slots/dog/tunnel.json", "dog.example.com");
+		await save("/home/.splates/slots/cat", "cat.example.com");
+		await save("/home/.splates/slots/dog", "dog.example.com");
 		return { fs, secrets };
 	};
 	const listed = async (env: Record<string, string>) => {

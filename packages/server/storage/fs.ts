@@ -1,4 +1,4 @@
-import { relative } from "node:path";
+import { dirname, relative } from "node:path";
 import { Dispatcher } from "webappwiz/events";
 import type { Logger } from "webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
@@ -45,13 +45,21 @@ export class FsStorage implements Storage {
 		fs,
 		ps,
 		log,
+		home = splatesHome(ps),
+		stalenessMs,
 	}: {
 		fs: Fs;
 		ps: Ps;
 		log: Logger;
+		/** The machine's home, `SPLATES_HOME` by default. */
+		home?: string;
+		/** After how long a lock counts as stale. */
+		stalenessMs?: number;
 	}): FsStorage {
-		return new FsStorage(splatesHome(ps), fs, {
-			locks: { at: (path) => new FileLock(path, { fs, ps, log }) },
+		return new FsStorage(home, fs, {
+			locks: {
+				at: (path) => new FileLock(path, { fs, ps, log, stalenessMs }),
+			},
 		});
 	}
 
@@ -85,7 +93,18 @@ export class FsStorage implements Storage {
 	}
 
 	lock(key: string): Lock {
-		return this.locks.at(this.path(key));
+		const path = this.path(key);
+		const lock = this.locks.at(path);
+		const { fs } = this;
+		// The lock sits beside what it guards, in a directory that may not be made yet.
+		return {
+			acquire: async () => {
+				await fs.mkdir(dirname(path));
+				await lock.acquire();
+			},
+			release: () => lock.release(),
+			releaseIfOurs: () => lock.releaseIfOurs(),
+		};
 	}
 
 	watch(key: string, opts: WatchOptions = {}): Watch {

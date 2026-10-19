@@ -6,6 +6,7 @@ import { eventually } from "../conversations/testing";
 import { type DevServer, dev } from "../server";
 import { RESTART } from "../server/shared";
 import { json } from "../server/testing";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import { CoordinatorState, DevWorkers, WorkerDaemon } from "../workers";
 import { WorkerSocketPair } from "../workers/testing";
@@ -65,8 +66,7 @@ describe("dev terminal kept by its key", () => {
 	/** Starts `splates server` as the next run of the one coordinator. */
 	const run = async () => {
 		const coordinator = await CoordinatorState.open(
-			`${deps.splatesHome}/coordinator.json`,
-			deps.fs,
+			new FsStorage(deps.splatesHome, deps.fs).document("coordinator.json"),
 		);
 		workers = new DevWorkers(deps.log, { session: coordinator.session });
 		return dev(deps, {

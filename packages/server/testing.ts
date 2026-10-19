@@ -72,6 +72,8 @@ export class Testing implements AsyncDisposable {
 	readonly splatesHome: string;
 	/** Kept in `splatesHome`, never the user's home. */
 	readonly projects: Projects;
+	/** Where the registry is kept on disk. */
+	readonly projectsPath: string;
 	/** How each task ended, kept in `splatesHome`. */
 	readonly outcomes: Outcomes;
 	readonly adherence: Adherence;
@@ -142,7 +144,9 @@ export class Testing implements AsyncDisposable {
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
-			workerBudget: join(this.splatesHome, "worker-budget.json"),
+			workerBudget: new FsStorage(this.splatesHome, this.fs).document(
+				"worker-budget.json",
+			),
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.heavy = HeavyJobs.under(this.splatesHome, {
@@ -189,14 +193,16 @@ export class Testing implements AsyncDisposable {
 			SPLATES_HOME: this.splatesHome,
 		};
 		this.slots = Slots.ofMachine(this);
-		this.projects = new Projects(join(this.splatesHome, "projects.json"), {
-			fs: this.fs,
-			lock: new FileLock(join(this.splatesHome, "projects.lock"), {
+		this.projectsPath = join(this.splatesHome, "projects.json");
+		this.projects = Projects.in(
+			FsStorage.ofMachine({
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,
+				home: this.splatesHome,
 			}),
-		});
+			this.fs,
+		);
 		this.creds = new Creds(
 			join(this.splatesDir, "creds.json"),
 			new FileLock(join(this.splatesDir, "creds.lock"), {

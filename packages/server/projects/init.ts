@@ -27,9 +27,11 @@ export async function init({
 }): Promise<void> {
 	await projectSkills(git.root, { fs, ps, log }).add(["splates"], RUNNING);
 	if (await projects.register(git.root)) {
-		log.info(`${color.green("registered")} ${git.root} in ${projects.path}`);
+		log.info(
+			`${color.green("registered")} ${git.root} in the project registry`,
+		);
 	} else {
-		log.info(`${git.root} is already registered in ${projects.path}`);
+		log.info(`${git.root} is already registered`);
 	}
 	log.info(
 		"commit what it wrote, skills-lock.json too, so every task's worktree has the skill, and `splates update` now and then to keep it current",
@@ -50,8 +52,8 @@ export async function forget({
 	log: Logger;
 }): Promise<void> {
 	if (await projects.forget(git.root)) {
-		log.info(`${color.green("forgot")} ${git.root} in ${projects.path}`);
+		log.info(`${color.green("forgot")} ${git.root} in the project registry`);
 		return;
 	}
-	log.info(`${git.root} is not registered in ${projects.path}`);
+	log.info(`${git.root} is not registered`);
 }

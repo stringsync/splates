@@ -4,6 +4,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
+import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel, tunnelSetup } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
 import {
@@ -108,7 +109,7 @@ async function setUp() {
 			team: "",
 			creds,
 			task: null,
-			saved: new SavedTunnel("/home/.splates/tunnel.json", { fs, store }),
+			saved: SavedTunnel.in(new FsStorage("/home/.splates", fs), store),
 			log: new MemoryLogger(),
 			fetch: cloudflare.fetch,
 		});

@@ -13,6 +13,7 @@ import { SLOT_POOL } from "@stringsync/splates-server/ports";
 import type { Repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { rosterOf, seeded } from "@stringsync/splates-server/server";
+import { FsStorage } from "@stringsync/splates-server/storage";
 import { SavedTunnel } from "@stringsync/splates-server/tunnel";
 import { z } from "zod";
 
@@ -84,7 +85,9 @@ export async function effortIn(
 
 /** The settings each agent offered when last started, from any project. */
 export function offeredOf({ ps, fs }: SplatesDeps): Offered {
-	return new Offered(`${splatesHome(ps)}/offered.json`, { fs });
+	return new Offered(
+		new FsStorage(splatesHome(ps), fs).document("offered.json"),
+	);
 }
 
 /** The tunnel each slot's home may have saved, for every word of the pool. */
@@ -93,12 +96,11 @@ export function slotTunnelsOf({
 	fs,
 	secrets = SYSTEM_STORES,
 }: SplatesDeps): SavedTunnel[] {
-	return SLOT_POOL.map(
-		({ word }) =>
-			new SavedTunnel(`${splatesHome(ps)}/slots/${word}/tunnel.json`, {
-				fs,
-				store: secrets.device,
-			}),
+	return SLOT_POOL.map(({ word }) =>
+		SavedTunnel.in(
+			new FsStorage(`${splatesHome(ps)}/slots/${word}`, fs),
+			secrets.device,
+		),
 	);
 }
 

@@ -1,3 +1,4 @@
+import { FsStorage } from "../storage";
 import {
 	KEY_PROVIDERS,
 	type KeyProvider,
@@ -56,7 +57,10 @@ function workerKeyStep(provider: KeyProvider): SetupStep {
 
 /** The roster of workers' keys, read afresh as `splates server` keeps it. */
 function openKeys({ fs, home, device }: SetupMachine): Promise<WorkerKeys> {
-	return WorkerKeys.open(`${home}/${WORKER_KEYS_FILE}`, fs, device);
+	return WorkerKeys.open(
+		new FsStorage(home, fs).document(WORKER_KEYS_FILE),
+		device,
+	);
 }
 
 /** The keys from `provider` workers hold. */

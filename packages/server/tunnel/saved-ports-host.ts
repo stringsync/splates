@@ -1,6 +1,6 @@
-import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
+import type { Document, Storage } from "../storage";
 
 /** The file's own format. */
 const FORMAT = 1;
@@ -18,20 +18,24 @@ const Saved = z.object({ format: z.number(), base: z.string() });
 export class SavedPortsHost {
 	constructor(
 		/** `~/.splates/ports.json`, or a test's own. */
-		readonly path: string,
-		private readonly fs: Fs,
+		private readonly file: Document<unknown>,
 	) {}
+
+	/** The ports host saved in `storage`. */
+	static in(storage: Storage): SavedPortsHost {
+		return new SavedPortsHost(storage.document("ports.json"));
+	}
 
 	/** The saved base, or null when none is, or its format is newer. */
 	async read(): Promise<string | null> {
-		const raw = await this.fs.read(this.path).catch(() => null);
+		const raw = await this.file.read();
 		if (raw === null) {
 			return null;
 		}
-		const parsed = Saved.safeParse(JSON.parse(raw));
+		const parsed = Saved.safeParse(raw);
 		if (!parsed.success) {
 			throw new Error(
-				`${this.path} is not a ports host splates saved: remove it, or run \`splates server --ports-host\` again`,
+				`${this.file.key} is not a ports host splates saved: remove it, or run \`splates server --ports-host\` again`,
 			);
 		}
 		return parsed.data.format > FORMAT ? null : parsed.data.base;
@@ -40,18 +44,10 @@ export class SavedPortsHost {
 	/** Keeps `base`, over what was there, or forgets it for null. */
 	async save(base: string | null): Promise<void> {
 		if (base === null) {
-			await this.fs.rm(this.path, { force: true });
+			await this.file.remove();
 			return;
 		}
-		await this.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
-			recursive: true,
-		});
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, base }, null, "\t")}\n`,
-		);
-		await this.fs.rename(tmp, this.path);
+		await this.file.write({ format: FORMAT, base });
 	}
 }
 

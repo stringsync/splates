@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";
+import { type Document, FsStorage } from "../storage";
 import type {
 	WorkerBudgetReport,
 	WorkerLimit,
@@ -36,8 +37,10 @@ export class Setup {
 		this.#undo = new SetupUndo(machine, areas);
 	}
 
-	get #path(): string {
-		return `${this.#machine.home}/setup.json`;
+	get #file(): Document<unknown> {
+		return new FsStorage(this.#machine.home, this.#machine.fs).document(
+			"setup.json",
+		);
 	}
 
 	/** The step `id` names, refusing one not on the roster. */
@@ -184,7 +187,7 @@ export class Setup {
 		return {
 			areas,
 			next: next?.id ?? null,
-			fresh: !(await this.#machine.fs.exists(this.#path)),
+			fresh: (await this.#file.read()) === null,
 			required: all.some(
 				(step) =>
 					!step.optional &&
@@ -216,7 +219,7 @@ export class Setup {
 	 * one towards it.
 	 */
 	async see(): Promise<void> {
-		if (!(await this.#machine.fs.exists(this.#path))) {
+		if ((await this.#file.read()) === null) {
 			await this.#save([]);
 		}
 	}
@@ -236,14 +239,14 @@ export class Setup {
 	}
 
 	async #skipped(): Promise<string[]> {
-		const raw = await this.#machine.fs.read(this.#path).catch(() => null);
+		const raw = await this.#file.read();
 		if (raw === null) {
 			return [];
 		}
-		const parsed = SKIPS.safeParse(JSON.parse(raw));
+		const parsed = SKIPS.safeParse(raw);
 		if (!parsed.success) {
 			throw new Error(
-				`${this.#path} is not what splates saved: remove it to ask every step again`,
+				`${this.#file.key} is not what splates saved: remove it to ask every step again`,
 			);
 		}
 		// A newer splates's: ask everything rather than misread it.
@@ -251,15 +254,7 @@ export class Setup {
 	}
 
 	async #save(skipped: string[]): Promise<void> {
-		const { fs, home } = this.#machine;
-		await fs.mkdir(home, { recursive: true });
-		// Through a temporary file, so a reader never sees half of it.
-		const tmp = `${this.#path}.${crypto.randomUUID()}.tmp`;
-		await fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, skipped }, null, "\t")}\n`,
-		);
-		await fs.rename(tmp, this.#path);
+		await this.#file.write({ format: FORMAT, skipped });
 	}
 }
 

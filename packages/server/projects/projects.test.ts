@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { FileLock } from "webappwiz/system";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import { Projects } from "./projects";
 
@@ -63,7 +64,7 @@ describe("Projects", () => {
 		await deps.fs.mkdir(`${other}/.git`);
 		await deps.fs.mkdir(deps.splatesHome);
 		await deps.fs.write(
-			deps.projects.path,
+			deps.projectsPath,
 			JSON.stringify({
 				format: 1,
 				projects: [
@@ -80,20 +81,25 @@ describe("Projects", () => {
 	it("keeps every repository when commands register at once", async () => {
 		await using deps = await Testing.open({ init: false });
 		const roots = ["a", "b", "c", "d"].map((name) => `${deps.root}-${name}`);
-		const registry = (path: string) =>
-			new Projects(path, {
-				fs: deps.fs,
-				lock: new FileLock(`${path}.lock`, {
-					fs: deps.fs,
-					ps: deps.ps,
-					log: deps.log,
-					pollMs: 5,
-				}),
+		const registry = () => {
+			const storage = new FsStorage(deps.splatesHome, deps.fs, {
+				locks: {
+					at: (path) =>
+						new FileLock(path, {
+							fs: deps.fs,
+							ps: deps.ps,
+							log: deps.log,
+							pollMs: 5,
+						}),
+				},
 			});
+			return new Projects(storage.document("projects.json"), {
+				fs: deps.fs,
+				lock: storage.lock("projects.lock"),
+			});
+		};
 
-		await Promise.all(
-			roots.map((root) => registry(deps.projects.path).register(root)),
-		);
+		await Promise.all(roots.map((root) => registry().register(root)));
 
 		expect(
 			(await deps.projects.list()).map((each) => each.root).sort(),
@@ -146,7 +152,7 @@ describe("Projects", () => {
 		expect(await deps.projects.reach("/c/api", "/a/web")).toBe("queue");
 
 		await deps.projects.grant("/c/api", "/a/web", "queue");
-		expect(await deps.fs.read(deps.projects.path)).not.toContain("grants");
+		expect(await deps.fs.read(deps.projectsPath)).not.toContain("grants");
 		expect(await deps.projects.grant("/nowhere", "/a/web", "read")).toBe(false);
 	});
 
@@ -155,9 +161,9 @@ describe("Projects", () => {
 		await deps.projects.register("/a/web");
 		await deps.projects.register("/c/api");
 		await deps.projects.grant("/c/api", "/a/web", "read");
-		const file = await deps.fs.read(deps.projects.path);
+		const file = await deps.fs.read(deps.projectsPath);
 		await deps.fs.write(
-			deps.projects.path,
+			deps.projectsPath,
 			file.replace('"/a/web": "read"', '"/a/web": "todos"'),
 		);
 
@@ -177,9 +183,9 @@ describe("Projects", () => {
 
 	it("refuses a registry a newer splates wrote", async () => {
 		await using deps = await Testing.open({ init: false });
-		await deps.fs.mkdir(deps.projects.path.replace(/\/[^/]+$/, ""));
+		await deps.fs.mkdir(deps.projectsPath.replace(/\/[^/]+$/, ""));
 		await deps.fs.write(
-			deps.projects.path,
+			deps.projectsPath,
 			JSON.stringify({ format: 2, projects: [] }),
 		);
 

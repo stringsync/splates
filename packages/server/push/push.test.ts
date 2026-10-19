@@ -5,6 +5,7 @@ import type { ConversationState } from "../conversations";
 import { conversation } from "../fixtures";
 import { type Needing, need } from "../plans";
 import type { Served } from "../server/shared";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import type { Pushed } from "./push";
 import { forgetDevices, Pushes } from "./push";
@@ -28,10 +29,11 @@ describe("Pushes", () => {
 		],
 	} as ConversationState;
 
+	const machine = () => new FsStorage(deps.splatesHome, deps.fs);
+
 	const start = () =>
 		Pushes.start({
-			fs: deps.fs,
-			ps: deps.ps,
+			storage: machine(),
 			log: deps.log,
 			projects: deps.projects,
 			served: new Map([
@@ -161,8 +163,8 @@ describe("Pushes", () => {
 		).json();
 		await pushes.look();
 
-		await forgetDevices(deps.fs, deps.splatesHome);
-		await forgetDevices(deps.fs, deps.splatesHome);
+		await forgetDevices(machine());
+		await forgetDevices(machine());
 		rows = [row(finished)];
 		await pushes.look();
 

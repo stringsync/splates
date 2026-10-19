@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { Limits } from "../models";
+import { FsStorage } from "../storage";
 import { Conversations } from "./index";
 
 describe("Conversations.refreshLimits", () => {
@@ -27,7 +28,9 @@ describe("Conversations.refreshLimits", () => {
 				fs: new FakeFs(),
 				timer: new FakeTimer(),
 				clock,
-				limits: new Limits("/home/.splates/limits.json", { fs: new FakeFs() }),
+				limits: new Limits(
+					new FsStorage("/home/.splates", new FakeFs()).document("limits.json"),
+				),
 				launch: new FakeAgent().launch,
 				readLimits: async (each) => {
 					asked.push(each.id);

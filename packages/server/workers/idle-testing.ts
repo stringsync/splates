@@ -17,7 +17,10 @@ export async function idleWorker(billing: "hour" | "second") {
 	]);
 	const made = new WorkerProvisioning({
 		provider,
-		snapshots: await Snapshots.open(provider, { version: "1.0.0", path: null }),
+		snapshots: await Snapshots.open(provider, {
+			version: "1.0.0",
+			document: null,
+		}),
 		records: WorkerRecords.memory(),
 		registry: new WorkerRegistry(new MemoryLogger()),
 		coordinator: () => "https://splates.example.com",

@@ -155,12 +155,9 @@ export async function serveDev(
 	// Read once: a roster edited while it serves applies from the restart.
 	const roster = await seeded(rosterOf(ctx));
 	// One for every project's conversations, so none overwrites another's.
-	const offered = new Offered(`${splatesHome(ctx.ps)}/offered.json`, {
-		fs: ctx.fs,
-	});
-	const limits = new Limits(`${splatesHome(ctx.ps)}/limits.json`, {
-		fs: ctx.fs,
-	});
+	const settingsStorage = FsStorage.ofMachine(ctx);
+	const offered = new Offered(settingsStorage.document("offered.json"));
+	const limits = new Limits(settingsStorage.document("limits.json"));
 	// Judged as each turn ends, for the Stats page, across projects like the
 	// outcomes it reads the merged commits from.
 	const machine = FsStorage.ofMachine(ctx);
@@ -186,13 +183,11 @@ export async function serveDev(
 	// this server by a session that outlives its restarts, so it keeps them
 	// running through one.
 	const coordinator = await CoordinatorState.open(
-		`${splatesHome(ctx.ps)}/coordinator.json`,
-		ctx.fs,
+		settingsStorage.document("coordinator.json"),
 	);
 	// The workers that joined, kept so a restart lets each back in.
 	const records = await WorkerRecords.open(
-		`${splatesHome(ctx.ps)}/workers.json`,
-		ctx.fs,
+		settingsStorage.document("workers.json"),
 	);
 	// Through a tunnel, each worker passes Access with a service token of its
 	// own, minted with the API token `splates tunnel setup` keeps.
@@ -200,8 +195,7 @@ export async function serveDev(
 	// Each worker's API keys, in the device's store, since workers serve
 	// every project.
 	const keys = await WorkerKeys.open(
-		`${splatesHome(ctx.ps)}/${WORKER_KEYS_FILE}`,
-		ctx.fs,
+		settingsStorage.document(WORKER_KEYS_FILE),
 		device,
 	);
 	// Made workers dial the page where the tunnel publishes it.
@@ -228,13 +222,11 @@ export async function serveDev(
 						provider,
 						snapshots: await Snapshots.open(provider, {
 							version: RUNNING,
-							path: `${splatesHome(ctx.ps)}/snapshots.json`,
-							fs: ctx.fs,
+							document: settingsStorage.document("snapshots.json"),
 						}),
 						coordinator: () => reached,
 						budget: await WorkerBudget.open(
-							`${splatesHome(ctx.ps)}/worker-budget.json`,
-							ctx.fs,
+							settingsStorage.document("worker-budget.json"),
 						),
 					},
 				}),

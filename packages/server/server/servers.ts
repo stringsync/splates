@@ -3,6 +3,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "../creds";
 import { splatesHome } from "../models";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "../ports";
+import { FsStorage } from "../storage";
 import { machineTunnel, SavedTunnel } from "../tunnel";
 
 /**
@@ -40,8 +41,8 @@ export async function devServers({
 }): Promise<ServerChoice[]> {
 	const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 	const here = ps.env(SLOT) ?? null;
-	const hostOf = (path: string) =>
-		new SavedTunnel(path, { fs, store: secrets.device })
+	const hostOf = (dir: string) =>
+		SavedTunnel.in(new FsStorage(dir, fs), secrets.device)
 			.read()
 			.then((record) => record?.host ?? null);
 	const servers: ServerChoice[] = [];
@@ -58,7 +59,7 @@ export async function devServers({
 	}
 	const slots = Slots.ofMachine({ fs, ps, log });
 	for (const { slot, tree } of await slots.list()) {
-		const host = await hostOf(`${slots.home(slot)}/tunnel.json`);
+		const host = await hostOf(slots.home(slot));
 		if (host !== null) {
 			servers.push({
 				slot,

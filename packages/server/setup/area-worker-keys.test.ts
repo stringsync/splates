@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { WORKER_KEYS_FILE, WorkerKeys } from "../workers";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
 import { Setup, type SetupMachine } from "./setup";
@@ -23,8 +24,7 @@ describe("WORKER_KEY_STEPS", () => {
 			"No worker holds a key from Anthropic yet",
 		);
 		const keys = await WorkerKeys.open(
-			`${HOME}/${WORKER_KEYS_FILE}`,
-			machine.fs,
+			new FsStorage(HOME, machine.fs).document(WORKER_KEYS_FILE),
 			machine.device,
 		);
 		await keys.add({ type: "small" }, "anthropic", "sk-ant");
@@ -40,8 +40,7 @@ describe("WORKER_KEY_STEPS", () => {
 
 	it("deletes each key of its provider once undone, leaving the others", async () => {
 		const keys = await WorkerKeys.open(
-			`${HOME}/${WORKER_KEYS_FILE}`,
-			machine.fs,
+			new FsStorage(HOME, machine.fs).document(WORKER_KEYS_FILE),
 			machine.device,
 		);
 		await keys.add({ type: "small" }, "anthropic", "sk-ant");
@@ -64,8 +63,7 @@ describe("WORKER_KEY_STEPS", () => {
 		expect(
 			(
 				await WorkerKeys.open(
-					`${HOME}/${WORKER_KEYS_FILE}`,
-					machine.fs,
+					new FsStorage(HOME, machine.fs).document(WORKER_KEYS_FILE),
 					machine.device,
 				)
 			).all.map((each) => each.provider),

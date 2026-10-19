@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
+import type { Document } from "../storage";
 import { joinToken, type ServiceToken } from "./access";
 
 /** How long a join token lets a machine join, once. */
@@ -37,33 +37,31 @@ export class WorkerRecords {
 	private writing: Promise<void> = Promise.resolve();
 
 	private constructor(
-		private readonly path: string | null,
-		private readonly fs: Fs | null,
+		private readonly document: Document<KeptFile> | null,
 		private readonly wall: WallClock,
 		private kept: KeptFile,
 	) {}
 
-	/** Reads what `path` keeps, or starts empty when it keeps nothing readable. */
+	/** Reads what `document` keeps, or starts empty when it keeps nothing readable. */
 	static async open(
-		path: string,
-		fs: Fs,
+		document: Document<KeptFile>,
 		wall: WallClock = new SystemWallClock(),
 	): Promise<WorkerRecords> {
-		const read = await fs.read(path).catch(() => null);
 		let kept: KeptFile = { workers: [], joins: [], local: true };
-		if (read !== null) {
-			try {
-				kept = Kept.parse(JSON.parse(read));
-			} catch {
-				// Unreadable: no worker joined, so each joins again.
+		try {
+			const read = await document.read();
+			if (read !== null) {
+				kept = Kept.parse(read);
 			}
+		} catch {
+			// Unreadable: no worker joined, so each joins again.
 		}
-		return new WorkerRecords(path, fs, wall, kept);
+		return new WorkerRecords(document, wall, kept);
 	}
 
 	/** Records kept in memory alone, for a coordinator that keeps nothing. */
 	static memory(wall: WallClock = new SystemWallClock()): WorkerRecords {
-		return new WorkerRecords(null, null, wall, {
+		return new WorkerRecords(null, wall, {
 			workers: [],
 			joins: [],
 			local: true,
@@ -223,18 +221,14 @@ export class WorkerRecords {
 
 	private change(next: (kept: KeptFile) => KeptFile): Promise<void> {
 		this.kept = next(this.kept);
-		const path = this.path;
-		const fs = this.fs;
-		if (path === null || fs === null) {
+		const document = this.document;
+		if (document === null) {
 			return Promise.resolve();
 		}
-		const text = `${JSON.stringify(this.kept)}\n`;
+		const kept = this.kept;
 		this.writing = this.writing
 			.catch(() => {})
-			.then(async () => {
-				await fs.mkdir(path.slice(0, path.lastIndexOf("/")));
-				await fs.write(path, text);
-			});
+			.then(() => document.write(kept));
 		return this.writing;
 	}
 }

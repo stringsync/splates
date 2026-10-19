@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
+import { type Document, FsStorage } from "../storage";
 import {
 	forgetSnapshot,
+	type KeptSnapshots,
 	keptSnapshot,
 	SNAPSHOT_FRESH,
 	Snapshots,
@@ -14,13 +16,15 @@ import { FakeWorkerProvider } from "./testing";
 describe("the worker snapshot", () => {
 	let wall: FakeWallClock;
 	let provider: FakeWorkerProvider;
-	let opts: { path: string; fs: FakeFs };
+	let opts: { document: Document<KeptSnapshots> };
 	let opened: (version: string) => Promise<Snapshots>;
 
 	beforeEach(() => {
 		wall = new FakeWallClock(0);
 		provider = new FakeWorkerProvider(undefined, wall);
-		opts = { path: "/home/snapshots.json", fs: new FakeFs() };
+		opts = {
+			document: new FsStorage("/home", new FakeFs()).document("snapshots.json"),
+		};
 		opened = (version) => Snapshots.open(provider, { ...opts, version, wall });
 	});
 

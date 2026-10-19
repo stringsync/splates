@@ -4,6 +4,7 @@ import { fail } from "../exit";
 import { effortSettings, Roster, splatesHome } from "../models";
 import { goalOf, Plans } from "../plans";
 import type { Project } from "../server/shared";
+import { FsStorage } from "../storage";
 import { DIFFICULTIES, KINDS, type TaskClass } from "./classes";
 import {
 	type AutoPickDecision,
@@ -128,9 +129,7 @@ export async function contextOf(
 		rules: await new AutoPickStore(`${home}/auto-pick.json`, {
 			fs: project.fs,
 		}).rules(),
-		agents: await new Roster(`${home}/agents.json`, {
-			fs: project.fs,
-		}).agents(),
+		agents: await Roster.in(new FsStorage(home, project.fs)).agents(),
 		runnable: conversations.agents.map((each) => each.id),
 		limits: await conversations.limits(),
 		offered: await conversations.settings(),

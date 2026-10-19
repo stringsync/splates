@@ -1,5 +1,5 @@
-import type { Fs } from "webappwiz/system";
 import { heard, type Limit } from "../conversations";
+import type { Document } from "../storage";
 
 /** The file's own format. */
 const FORMAT = 1;
@@ -19,8 +19,10 @@ export class Limits {
 
 	constructor(
 		/** `~/.splates/limits.json`, or a test's own. */
-		readonly path: string,
-		private readonly deps: { fs: Fs },
+		private readonly doc: Document<{
+			format?: number;
+			agents?: Record<string, Limit[]>;
+		}>,
 	) {}
 
 	/** Every agent's limits, by its id; none for one that never said. */
@@ -52,12 +54,8 @@ export class Limits {
 	}
 
 	private async read(): Promise<Record<string, Limit[]>> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
 		try {
-			const parsed = JSON.parse(raw ?? "{}") as {
-				format?: number;
-				agents?: Record<string, Limit[]>;
-			};
+			const parsed = (await this.doc.read()) ?? {};
 			// Only a cache: one it cannot read starts over rather than refusing.
 			this.newer = (parsed.format ?? FORMAT) > FORMAT;
 			return this.newer ? {} : (parsed.agents ?? {});
@@ -67,12 +65,6 @@ export class Limits {
 	}
 
 	private async write(agents: Record<string, Limit[]>): Promise<void> {
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, agents }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.doc.write({ format: FORMAT, agents });
 	}
 }

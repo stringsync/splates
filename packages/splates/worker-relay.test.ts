@@ -10,7 +10,8 @@ import { chmod } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type DevServer, dev } from "@stringsync/splates-server";
 import { printed } from "@stringsync/splates-server/agents/testing";
-import { relayFile } from "@stringsync/splates-server/records";
+import { relayDocument } from "@stringsync/splates-server/records";
+import { FsStorage } from "@stringsync/splates-server/storage";
 import { Testing } from "@stringsync/splates-server/testing";
 import type { RemoteWorker } from "@stringsync/splates-server/workers";
 import {
@@ -93,12 +94,12 @@ describe("WorkerRelay", () => {
 				fs: env.fs,
 				log,
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
-				relayAt: relayFile(home),
+				relay: relayDocument(new FsStorage(home, env.fs)),
 			},
 		);
 		void daemon.run();
 		worker = await joined;
-		relay = JSON.parse(await env.fs.read(relayFile(home))).url;
+		relay = JSON.parse(await env.fs.read(`${home}/relay.json`)).url;
 	});
 
 	afterEach(async () => {

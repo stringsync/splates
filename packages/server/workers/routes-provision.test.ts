@@ -16,7 +16,9 @@ import { DevWorkers, workerAuthorization } from "./routes";
 // Polls rather than sleeps a fixed while, which a loaded machine outlasts.
 async function until(done: () => boolean): Promise<void> {
 	const deadline = Date.now() + 5000;
-	while (!done() && Date.now() < deadline) await Bun.sleep(5);
+	while (!done() && Date.now() < deadline) {
+		await Bun.sleep(5);
+	}
 }
 
 describe("DevWorkers with a worker provider", () => {
@@ -39,7 +41,7 @@ describe("DevWorkers with a worker provider", () => {
 				provider,
 				snapshots: await Snapshots.open(provider, {
 					version: "1.0.0",
-					path: null,
+					document: null,
 				}),
 				coordinator: () => `http://127.0.0.1:${server.port}`,
 				// A rate cap the one small worker fills.

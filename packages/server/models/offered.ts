@@ -1,5 +1,5 @@
-import type { Fs } from "webappwiz/system";
 import type { Conversation, Setting } from "../conversations";
+import type { Document } from "../storage";
 
 /** The file's own format. */
 const FORMAT = 1;
@@ -19,8 +19,10 @@ export class Offered {
 
 	constructor(
 		/** `~/.splates/offered.json`, or a test's own. */
-		readonly path: string,
-		private readonly deps: { fs: Fs },
+		private readonly doc: Document<{
+			format?: number;
+			agents?: Record<string, Setting[]>;
+		}>,
 	) {}
 
 	/** Every agent's settings, by its id; none for one never started. */
@@ -117,12 +119,8 @@ export class Offered {
 	}
 
 	private async read(): Promise<Record<string, Setting[]>> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
 		try {
-			const parsed = JSON.parse(raw ?? "{}") as {
-				format?: number;
-				agents?: Record<string, Setting[]>;
-			};
+			const parsed = (await this.doc.read()) ?? {};
 			// Only a cache: one it cannot read starts over rather than refusing.
 			this.newer = (parsed.format ?? FORMAT) > FORMAT;
 			return this.newer ? {} : (parsed.agents ?? {});
@@ -132,12 +130,6 @@ export class Offered {
 	}
 
 	private async write(agents: Record<string, Setting[]>): Promise<void> {
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, agents }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.doc.write({ format: FORMAT, agents });
 	}
 }

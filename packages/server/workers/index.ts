@@ -23,6 +23,7 @@ export {
 	span,
 	WORKER_LIMITS,
 	WorkerBudget,
+	type WorkerBudgetFile,
 } from "./budget";
 export type { BudgetCommandOptions } from "./budget-command";
 export {
@@ -106,6 +107,7 @@ export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";
 export {
 	forgetSnapshot,
+	type KeptSnapshots,
 	keptSnapshot,
 	SNAPSHOT_USER,
 	Snapshots,

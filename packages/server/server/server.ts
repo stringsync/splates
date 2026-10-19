@@ -21,6 +21,7 @@ import {
 	setupProjectAt,
 } from "../setup";
 import { DevOutcomes } from "../stats";
+import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
@@ -302,6 +303,7 @@ export async function dev(
 			fs,
 			ps,
 			log,
+			storage: FsStorage.ofMachine({ fs, ps, log }),
 			projects,
 			served: { served, servedAt, projectNamed },
 			terminals,
@@ -336,8 +338,7 @@ export async function dev(
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({
-		fs,
-		ps,
+		storage: FsStorage.ofMachine({ fs, ps, log }),
 		log,
 		projects,
 		served,
@@ -403,9 +404,9 @@ export async function dev(
 			ps,
 			home: splatesHome(ps),
 			roster: async () => {
-				const agents = await new Roster(`${splatesHome(ps)}/agents.json`, {
-					fs,
-				}).agents();
+				const agents = await Roster.in(
+					new FsStorage(splatesHome(ps), fs),
+				).agents();
 				for (const opened of served.values()) {
 					const project = await opened.catch(() => null);
 					project?.conversations?.refreshRoster(agents);
@@ -477,16 +478,15 @@ export async function dev(
 									(await open(project.root));
 								const device = (deps.secrets ?? SYSTEM_STORES).device;
 								await tunnelRemove({
-									saved: new SavedTunnel(`${splatesHome(ps)}/tunnel.json`, {
-										fs,
-										store: device,
-									}),
-									slots: SLOT_POOL.map(
-										({ word }) =>
-											new SavedTunnel(
-												`${splatesHome(ps)}/slots/${word}/tunnel.json`,
-												{ fs, store: device },
-											),
+									saved: SavedTunnel.in(
+										new FsStorage(`${splatesHome(ps)}`, fs),
+										device,
+									),
+									slots: SLOT_POOL.map(({ word }) =>
+										SavedTunnel.in(
+											new FsStorage(`${splatesHome(ps)}/slots/${word}`, fs),
+											device,
+										),
 									),
 									creds,
 									task: null,

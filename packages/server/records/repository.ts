@@ -281,7 +281,7 @@ export async function openRepository(
 	const splatesDir = unmigrated(`${gitDir}/splates`, `${gitDir}/${LEGACY_DIR}`);
 	// The registry is the user's, shared by every repository on this machine:
 	// `SPLATES_HOME` moves it, as the tests do to keep theirs out of the user's.
-	const registry = splatesHome(ps);
+	const _registry = splatesHome(ps);
 	// A checkout with no records of its own is a worker's: they are the
 	// coordinator's, reached through the relay. Never for the server or
 	// `init`, which keep them here.
@@ -289,8 +289,10 @@ export async function openRepository(
 		migrates || creates || (await disk.exists(splatesDir))
 			? null
 			: await findRelay(
-					{ fs: disk, env: (name) => ps.env(name) },
-					registry,
+					{
+						machine: FsStorage.ofMachine({ fs: disk, ps, log }),
+						env: (name) => ps.env(name),
+					},
 					() => originOf(ps, dirname(gitDir)),
 				);
 	const fs =
@@ -378,7 +380,7 @@ export async function openRepository(
 		ps,
 		outcomes,
 		adherence: new Adherence(machine, null),
-		workerBudget: `${registry}/worker-budget.json`,
+		workerBudget: machine.document("worker-budget.json"),
 		leases: beats ?? undefined,
 		...(machines === undefined ? {} : { machines }),
 		// A remote worker clones each task, the local one keeps worktrees.

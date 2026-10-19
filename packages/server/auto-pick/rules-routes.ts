@@ -2,6 +2,7 @@ import type { Fs } from "webappwiz/system";
 import { Exit } from "../exit";
 import { effortsOf, Offered, Roster } from "../models";
 import { body } from "../server/shared";
+import { FsStorage } from "../storage";
 import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
 import { AutoPickStore } from "./store";
@@ -78,12 +79,9 @@ export class AutoPickRulesRoutes {
 			}
 			problem = error.message;
 		}
-		const offered = await new Offered(`${this.#home}/offered.json`, {
-			fs: this.#fs,
-		}).all();
-		const roster = await new Roster(`${this.#home}/agents.json`, {
-			fs: this.#fs,
-		}).agents();
+		const machine = new FsStorage(this.#home, this.#fs);
+		const offered = await new Offered(machine.document("offered.json")).all();
+		const roster = await Roster.in(machine).agents();
 		return {
 			rules,
 			problem,

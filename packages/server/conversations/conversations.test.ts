@@ -7,6 +7,7 @@ import { Limits, Offered } from "../models";
 import type { Outcome } from "../stats";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 
@@ -21,6 +22,7 @@ describe("Conversations", () => {
 	let clock: FakeWallClock;
 	let agent: FakeAgent;
 	let conversations: Conversations;
+	let machine: MemoryStorage;
 	let offered: Offered;
 	let limits: Limits;
 	let shop: Conversations;
@@ -39,8 +41,9 @@ describe("Conversations", () => {
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
-		offered = new Offered("/home/.splates/offered.json", { fs });
-		limits = new Limits("/home/.splates/limits.json", { fs });
+		machine = new MemoryStorage();
+		offered = new Offered(machine.document("offered.json"));
+		limits = new Limits(machine.document("limits.json"));
 		project = (dir: string) =>
 			new Conversations(dir, [AGENT], {
 				fs,
@@ -152,7 +155,7 @@ describe("Conversations", () => {
 
 		// Another project, and another process, as after a restart.
 		const blog = project("/blog/.git/splates/conversations");
-		const later = new Offered(offered.path, { fs });
+		const later = new Offered(machine.document("offered.json"));
 		expect(await blog.settings()).toEqual(await later.all());
 		const settings = (await later.all()).fake ?? [];
 		expect(settings.map((each) => [each.id, each.current])).toEqual([
@@ -287,7 +290,7 @@ describe("Conversations", () => {
 			(await offered.all()).fake?.find((each) => each.id === "model")?.current,
 		).toBe("big");
 		await shop.disposeAsync();
-		const later = new Offered(offered.path, { fs });
+		const later = new Offered(machine.document("offered.json"));
 		expect((await later.all()).fake).toEqual((await offered.all()).fake);
 	});
 
@@ -468,7 +471,7 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 
 		// Another project, and another process, as after a restart.
-		const later = new Limits(limits.path, { fs });
+		const later = new Limits(machine.document("limits.json"));
 		const blog = new Conversations(
 			"/blog/.git/splates/conversations",
 			[AGENT],

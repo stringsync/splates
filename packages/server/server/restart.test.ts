@@ -304,10 +304,7 @@ describe("dev restart", () => {
 		await eventually(() => exits.length !== 0, 5);
 		await server.disposeAsync();
 		// As when killed mid-checkpoint and started again by hand.
-		const { path } = deps.projects;
-		await deps.fs.rm(`${path.slice(0, path.lastIndexOf("/"))}/restart.json`, {
-			force: true,
-		});
+		await deps.fs.rm(`${deps.splatesHome}/restart.json`, { force: true });
 		server = await again();
 		const [conversation] = await converse(deps).list();
 		expect(conversation?.state.checkpoint).toBe("done");

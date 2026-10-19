@@ -1,6 +1,7 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { DEFAULT_AGENTS, Roster } from "../models";
+import { FsStorage } from "../storage";
 import { OpenCodeModelError } from "./opencode-model-error";
 import {
 	contentPrefix,
@@ -228,7 +229,7 @@ export class OpenCodeModels {
 	): Promise<string> {
 		// Validate using the existing roster contract, then edit the original JSON
 		// so unknown fields, other agents, ordering and custom descriptions survive.
-		await new Roster(`${this.deps.home}/agents.json`, this.deps).agents();
+		await Roster.in(new FsStorage(this.deps.home, this.deps.fs)).agents();
 		const value =
 			raw === null
 				? { format: 1, agents: structuredClone(DEFAULT_AGENTS) }

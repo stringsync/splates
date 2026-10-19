@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { asideOf, machineTunnel } from "./machine";
 import { SavedTunnel } from "./saved";
 
@@ -10,7 +11,7 @@ describe("machineTunnel", () => {
 		const fs = new FakeFs();
 		const store = new FakeSecretStore();
 		const save = (dir: string, host: string) =>
-			new SavedTunnel(`${dir}/tunnel.json`, { fs, store }).save({
+			SavedTunnel.in(new FsStorage(`${dir}`, fs), store).save({
 				host,
 				team: "team",
 				aud: "aud",

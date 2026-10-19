@@ -1,6 +1,6 @@
-import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
+import type { Document } from "../storage";
 import { reached } from "./budget-notice";
 import type { BudgetReason, HeldSlot } from "./scheduler";
 import { type SpendShare, splitSpend } from "./spend";
@@ -36,7 +36,7 @@ export const RAISE_FOR = Duration.days(1);
  * at once cost an hour, and limits on what they cost in a day and a month,
  * each warned of at 80% and 90% and holding at 100%. Spend is counted from
  * a ledger of each made worker's life at its type's list price, so every
- * figure is an estimate. Kept at `path`, so a restart forgets none of it.
+ * figure is an estimate. Kept in a document, so a restart forgets none of it.
  *
  * It is scry's budgets in dollars: the same windows, from the start of the
  * day or month in local time, and raises on top of a limit for a while.
@@ -48,33 +48,31 @@ export class WorkerBudget {
 	private writing: Promise<void> = Promise.resolve();
 
 	private constructor(
-		private readonly path: string | null,
-		private readonly fs: Fs | null,
+		private readonly document: Document<KeptFile> | null,
 		private readonly wall: WallClock,
 		private kept: KeptFile,
 	) {}
 
-	/** Reads what `path` keeps, or starts at the defaults when it keeps nothing readable. */
+	/** Reads what `document` keeps, or starts at the defaults when it keeps nothing readable. */
 	static async open(
-		path: string,
-		fs: Fs,
+		document: Document<KeptFile>,
 		wall: WallClock = new SystemWallClock(),
 	): Promise<WorkerBudget> {
-		const read = await fs.read(path).catch(() => null);
 		let kept = Kept.parse({});
-		if (read !== null) {
-			try {
-				kept = Kept.parse(JSON.parse(read));
-			} catch {
-				// Unreadable: the defaults hold, and no spend is known.
+		try {
+			const read = await document.read();
+			if (read !== null) {
+				kept = Kept.parse(read);
 			}
+		} catch {
+			// Unreadable: the defaults hold, and no spend is known.
 		}
-		return new WorkerBudget(path, fs, wall, kept);
+		return new WorkerBudget(document, wall, kept);
 	}
 
 	/** A budget kept in memory alone. */
 	static memory(wall: WallClock = new SystemWallClock()): WorkerBudget {
-		return new WorkerBudget(null, null, wall, Kept.parse({}));
+		return new WorkerBudget(null, wall, Kept.parse({}));
 	}
 
 	/** Where each limit stands now. */
@@ -470,13 +468,12 @@ export class WorkerBudget {
 
 	private async change(next: (kept: KeptFile) => KeptFile): Promise<void> {
 		this.kept = next(this.kept);
-		const path = this.path;
-		const fs = this.fs;
-		if (path === null || fs === null) {
+		const document = this.document;
+		if (document === null) {
 			return;
 		}
-		const text = `${JSON.stringify(this.kept, null, "\t")}\n`;
-		this.writing = this.writing.then(() => fs.write(path, text));
+		const kept = this.kept;
+		this.writing = this.writing.then(() => document.write(kept));
 		await this.writing;
 	}
 }
@@ -562,7 +559,9 @@ const Kept = z.object({
 		.default([]),
 });
 
-type KeptFile = z.infer<typeof Kept>;
+/** What the worker budget keeps in its document. */
+export type WorkerBudgetFile = z.infer<typeof Kept>;
+type KeptFile = WorkerBudgetFile;
 
 /** Where one limit stands. */
 export interface WorkerStanding {

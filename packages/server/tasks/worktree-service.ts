@@ -11,8 +11,8 @@ import { ranWith } from "../models";
 import { decisions, goalLine, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
-import { FsStorage, type Log, type Storage } from "../storage";
-import type { WorkerMachine } from "../workers";
+import { type Document, FsStorage, type Log, type Storage } from "../storage";
+import type { WorkerBudgetFile, WorkerMachine } from "../workers";
 import { WorkerBudget, workerGit } from "../workers";
 import { Finished } from "./finished";
 import type { LeaseBeat } from "./lease-beat";
@@ -56,7 +56,7 @@ export class WorktreeService {
 	private readonly storage: Storage;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
-	private readonly workerBudget: string | null;
+	private readonly workerBudget: Document<WorkerBudgetFile> | null;
 	private readonly leases: LeaseBeat | null;
 	private readonly worktrees: WorktreeCheckouts;
 	private readonly clones: { checkouts: Checkouts; machine: string } | null;
@@ -489,7 +489,7 @@ export class WorktreeService {
 		const workerSpend =
 			this.workerBudget === null
 				? null
-				: (await WorkerBudget.open(this.workerBudget, this.fs)).spentOn(
+				: (await WorkerBudget.open(this.workerBudget)).spentOn(
 						this.git.root,
 						task,
 						Date.parse(state.createdAt),
@@ -636,7 +636,7 @@ export interface WorktreeServiceOptions {
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
 	/** The worker budget's ledger, which an ending reads what made workers cost it from. */
-	workerBudget?: string;
+	workerBudget?: Document<WorkerBudgetFile>;
 	/**
 	 * What keeps the leases this process takes fresh while it runs, for a
 	 * command on a worker; none on the coordinator's machine, where a pid

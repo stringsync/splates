@@ -1,7 +1,9 @@
 import { MemoryLogger } from "webappwiz/log";
+import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import type { CloudProvider } from "../cloud";
 import { RUNNING } from "../server/shared";
+import { type Document, FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	CloudflareApi,
@@ -13,6 +15,7 @@ import {
 	DEFAULT_WORKER_LIMITS,
 	dollars,
 	forgetSnapshot,
+	type KeptSnapshots,
 	keptSnapshot,
 	LOCAL_WORKER,
 	Snapshots,
@@ -93,10 +96,10 @@ function workersArea(): SetupArea {
 		after: [tunnelStep],
 		check: async (machine) => {
 			const { fs, home, device } = machine;
-			const saved = await new SavedTunnel(`${home}/tunnel.json`, {
-				fs,
-				store: device,
-			}).read();
+			const saved = await SavedTunnel.in(
+				new FsStorage(`${home}`, fs),
+				device,
+			).read();
 			const token = await device.get(API_TOKEN);
 			if (saved === null || token === undefined) {
 				return false;
@@ -351,7 +354,8 @@ function workersArea(): SetupArea {
 		uses: CLOUD_USES,
 		doing: "Building the worker snapshot, about ten minutes…",
 		check: async ({ fs, home }) =>
-			(await keptSnapshot("linux", { path: snapshotsPath(home), fs })) !== null,
+			(await keptSnapshot("linux", { document: snapshotsOf(home, fs) })) !==
+			null,
 		submit: async (machine) => {
 			const { workerProvider } = await requireProject(machine).config();
 			if (workerProvider === null) {
@@ -359,16 +363,14 @@ function workersArea(): SetupArea {
 			}
 			const snapshots = await Snapshots.open(workerProvider, {
 				version: RUNNING,
-				path: snapshotsPath(machine.home),
-				fs: machine.fs,
+				document: snapshotsOf(machine.home, machine.fs),
 			});
 			await snapshots.current("linux");
 		},
 		undo: {
 			removes: async (machine) => {
 				const kept = await keptSnapshot("linux", {
-					path: snapshotsPath(machine.home),
-					fs: machine.fs,
+					document: snapshotsOf(machine.home, machine.fs),
 				});
 				return kept === null
 					? []
@@ -377,7 +379,7 @@ function workersArea(): SetupArea {
 						];
 			},
 			run: async (machine) => {
-				const opts = { path: snapshotsPath(machine.home), fs: machine.fs };
+				const opts = { document: snapshotsOf(machine.home, machine.fs) };
 				const kept = await keptSnapshot("linux", opts);
 				if (kept !== null) {
 					await (await cloudOf(machine)).deleteSnapshot(kept.id);
@@ -427,8 +429,8 @@ function budgetOf(machine: SetupMachine): SetupWorkerBudget {
 }
 
 /** Where `splates server` keeps the snapshot workers boot from, as `Snapshots` reads it. */
-function snapshotsPath(home: string): string {
-	return `${home}/snapshots.json`;
+function snapshotsOf(home: string, fs: Fs): Document<KeptSnapshots> {
+	return new FsStorage(home, fs).document<KeptSnapshots>("snapshots.json");
 }
 
 function requireProject({ project }: SetupMachine) {

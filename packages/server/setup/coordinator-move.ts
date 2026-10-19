@@ -3,6 +3,7 @@ import type { SecretStore } from "webappwiz/creds";
 import type { Fs, Ps } from "webappwiz/system";
 import { COORDINATOR_UNIT, shellQuoted, WORKER_AGENT } from "../coordinator";
 import { refuse, SERVING } from "../server/shared";
+import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
 
 /**
@@ -111,10 +112,7 @@ export class CoordinatorMoveRoutes {
 		const exit = await text(files.exit);
 		const pid = Number(await text(files.pid));
 		const log = (await text(files.log)) ?? "";
-		const saved = await new SavedTunnel(`${home}/tunnel.json`, {
-			fs,
-			store: device,
-		})
+		const saved = await SavedTunnel.in(new FsStorage(`${home}`, fs), device)
 			.read()
 			.catch(() => null);
 		return {

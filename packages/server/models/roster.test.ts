@@ -1,14 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { join } from "node:path";
 import { agents } from "../agents";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import { DEFAULT_AGENTS, pickAgent, Roster, traitsOf } from "./roster";
 
 async function setup() {
 	const deps = await Testing.open({ init: false });
-	const roster = new Roster(join(deps.splatesHome, "agents.json"), {
-		fs: deps.fs,
-	});
+	const roster = Roster.in(new FsStorage(deps.splatesHome, deps.fs));
 	return Object.assign(deps, { roster });
 }
 

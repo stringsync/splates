@@ -2,6 +2,7 @@ import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { PLAN_FILE } from "../plans";
+import { FsStorage } from "../storage";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
 import { LIVE_PID, Testing } from "../testing";
@@ -431,8 +432,7 @@ describe.concurrent("merge", () => {
 	it("keeps what made workers cost the task from the worker budget's ledger", async () => {
 		await using deps = await Testing.open();
 		const budget = await WorkerBudget.open(
-			join(deps.splatesHome, "worker-budget.json"),
-			deps.fs,
+			new FsStorage(deps.splatesHome, deps.fs).document("worker-budget.json"),
 		);
 		await budget.started("made", "small", 1);
 		await budget.ran([

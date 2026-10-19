@@ -1,6 +1,6 @@
 import type { SecretStore } from "webappwiz/creds";
-import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import type { Document, Storage } from "../storage";
 
 /** The file's own format. */
 const FORMAT = 1;
@@ -43,24 +43,38 @@ const Saved = z.object({
 export class SavedTunnel {
 	constructor(
 		/** `~/.splates/tunnel.json`, or a test's own. */
-		readonly path: string,
+		private readonly file: Document<unknown>,
 		private readonly deps: {
-			fs: Fs;
 			/** The device's store, which `splates tunnel setup` saves the token in. */
 			store: SecretStore;
 		},
 	) {}
 
+	/** The tunnel saved in `storage`, a machine's or a slot's. */
+	static in(storage: Storage, store: SecretStore): SavedTunnel {
+		return new SavedTunnel(storage.document("tunnel.json"), { store });
+	}
+
+	/** Where it is kept, as a key of the storage it is in. */
+	get key(): string {
+		return this.file.key;
+	}
+
+	/** Forgets what was saved; its token is a cred, left to the caller. */
+	forget(): Promise<void> {
+		return this.file.remove();
+	}
+
 	/** What was saved, or null when nothing was, or its format is newer. */
 	async read(): Promise<TunnelRecord | null> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
+		const raw = await this.file.read();
 		if (raw === null) {
 			return null;
 		}
-		const parsed = Saved.safeParse(JSON.parse(raw));
+		const parsed = Saved.safeParse(raw);
 		if (!parsed.success) {
 			throw new Error(
-				`${this.path} is not a tunnel splates saved: remove it, or run \`splates tunnel setup\` again`,
+				`${this.file.key} is not a tunnel splates saved: remove it, or run \`splates tunnel setup\` again`,
 			);
 		}
 		if (parsed.data.format > FORMAT) {
@@ -78,14 +92,6 @@ export class SavedTunnel {
 
 	/** Keeps `record` in the file, over what was there; its token is a cred. */
 	async save(record: TunnelRecord): Promise<void> {
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
-			recursive: true,
-		});
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, ...record }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.file.write({ format: FORMAT, ...record });
 	}
 }

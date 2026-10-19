@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { SERVER_PID, SLOT_POOL, Slots, slotOf } from "./slots";
 
 describe("Slots", () => {
@@ -14,12 +15,16 @@ describe("Slots", () => {
 		await fs.mkdir("/trees/one");
 		await fs.mkdir("/trees/two");
 		await fs.mkdir("/trees/three");
-		const slots = new Slots("/home/.splates/slots.json", {
-			fs,
-			ps,
-			lock: new MemoryLock(),
-			pool,
-		});
+		const slots = new Slots(
+			new FsStorage("/home/.splates", fs).document("slots.json"),
+			{
+				home: "/home/.splates",
+				fs,
+				ps,
+				lock: new MemoryLock(),
+				pool,
+			},
+		);
 		// Leaves a server running on `word`, as `splates server --slot` does, which
 		// a SIGTERM ends.
 		const serve = async (word: string, pid: number) => {

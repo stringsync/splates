@@ -1,9 +1,10 @@
 import { homedir } from "node:os";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { LEGACY_DIR, unmigrated } from "../config";
 import type { Agent } from "../conversations";
 import { fail } from "../exit";
+import { type Document, FsStorage, type Storage } from "../storage";
 
 /**
  * The agents splates can start, and the models each runs, kept in one file
@@ -13,26 +14,39 @@ import { fail } from "../exit";
 export class Roster {
 	constructor(
 		/** `~/.splates/agents.json`, or a test's own. */
-		readonly path: string,
-		private readonly deps: { fs: Fs },
+		private readonly doc: Document<unknown>,
+		/** Where the file is, as a message names it. */
+		readonly path: string = doc.key,
 	) {}
+
+	/** The roster kept in `agents.json` of `storage`, the machine's. */
+	static in(storage: Storage): Roster {
+		return new Roster(
+			storage.document("agents.json"),
+			storage instanceof FsStorage ? storage.path("agents.json") : undefined,
+		);
+	}
+
+	/** The file's JSON, null when there is none; a file not JSON is refused. */
+	private async load(): Promise<unknown> {
+		try {
+			return await this.doc.read();
+		} catch {
+			fail("usage", `${this.path} is not JSON: fix or delete it`, {
+				path: this.path,
+			});
+		}
+	}
 
 	/**
 	 * Writes the defaults when there is no roster yet, saying whether it did,
 	 * so the user has a file to edit rather than a list they cannot see.
 	 */
 	async seed(): Promise<boolean> {
-		if (await this.deps.fs.exists(this.path)) {
+		if ((await this.doc.read().catch(() => ({}))) !== null) {
 			return false;
 		}
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		// Through a temporary file, so a reader never sees half of it.
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, agents: DEFAULT_AGENTS }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.doc.write({ format: FORMAT, agents: DEFAULT_AGENTS });
 		return true;
 	}
 
@@ -51,9 +65,9 @@ export class Roster {
 		}
 		// Read first, so a roster that will not parse is reported, not overwritten.
 		await this.agents();
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
-		const file: { format?: number; agents: RosterEntry[] } =
-			raw === null ? { agents: [] } : JSON.parse(raw);
+		const file = ((await this.doc.read().catch(() => null)) ?? {
+			agents: [],
+		}) as { format?: number; agents: RosterEntry[] };
 		const entry = file.agents.find((each) => each.id === agent);
 		const own = entry?.models ?? [];
 		const listed = base.models.map((each) => each.id);
@@ -76,11 +90,13 @@ export class Roster {
 	async remove(agent: string): Promise<void> {
 		// Read first, so a roster that will not parse is reported, not overwritten.
 		await this.agents();
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
-		if (raw === null) {
+		const file = (await this.doc.read().catch(() => null)) as {
+			format?: number;
+			agents: RosterEntry[];
+		} | null;
+		if (file === null) {
 			return;
 		}
-		const file: { format?: number; agents: RosterEntry[] } = JSON.parse(raw);
 		if (!file.agents.some((each) => each.id === agent)) {
 			return;
 		}
@@ -90,17 +106,9 @@ export class Roster {
 
 	/** Every agent on the roster, in its order; the defaults when there is none. */
 	async agents(): Promise<RosterAgent[]> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
-		if (raw === null) {
+		const json = await this.load();
+		if (json === null) {
 			return DEFAULT_AGENTS;
-		}
-		let json: unknown;
-		try {
-			json = JSON.parse(raw);
-		} catch {
-			fail("usage", `${this.path} is not JSON: fix or delete it`, {
-				path: this.path,
-			});
 		}
 		const format = (json as { format?: unknown } | null)?.format;
 		if (typeof format === "number" && format > FORMAT) {
@@ -140,16 +148,7 @@ export class Roster {
 		format?: number;
 		agents: RosterEntry[];
 	}): Promise<void> {
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")), {
-			recursive: true,
-		});
-		// Through a temporary file, so a reader never sees half of it.
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, ...file }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.doc.write({ format: FORMAT, ...file });
 	}
 }
 

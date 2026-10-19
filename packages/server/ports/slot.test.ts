@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { stopLeftover } from "./slot";
 import { SERVER_PID, Slots, slotOf } from "./slots";
 
@@ -9,7 +10,12 @@ describe("stopLeftover", () => {
 	const slot = slotOf("fox") ?? { word: "fox", emoji: "🦊" };
 	const home = "/home/.splates/slots/fox";
 	const slotsOf = (fs: FakeFs, ps: FakePs) =>
-		new Slots("/home/.splates/slots.json", { fs, ps, lock: new MemoryLock() });
+		new Slots(new FsStorage("/home/.splates", fs).document("slots.json"), {
+			home: "/home/.splates",
+			fs,
+			ps,
+			lock: new MemoryLock(),
+		});
 	const left = async (pid: number) => {
 		const fs = new FakeFs();
 		const ps = new FakePs();

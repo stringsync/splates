@@ -1,16 +1,17 @@
 import { SYSTEM_STORES } from "../creds";
 import { Roster, type RosterAgent, splatesHome } from "../models";
+import { FsStorage } from "../storage";
 import { SavedPortsHost, SavedTunnel } from "../tunnel";
 import type { SplatesDeps } from "./runtime-deps";
 
 /** The roster saved for this machine. */
 export function rosterOf({ ps, fs }: SplatesDeps): Roster {
-	return new Roster(`${splatesHome(ps)}/agents.json`, { fs });
+	return Roster.in(new FsStorage(splatesHome(ps), fs));
 }
 
 /** The base host saved for task ports. */
 export function savedPortsHostOf({ ps, fs }: SplatesDeps): SavedPortsHost {
-	return new SavedPortsHost(`${splatesHome(ps)}/ports.json`, fs);
+	return SavedPortsHost.in(new FsStorage(`${splatesHome(ps)}`, fs));
 }
 
 /** The tunnel saved for this machine. */
@@ -19,10 +20,10 @@ export function savedTunnelOf({
 	fs,
 	secrets = SYSTEM_STORES,
 }: SplatesDeps): SavedTunnel {
-	return new SavedTunnel(`${splatesHome(ps)}/tunnel.json`, {
-		fs,
-		store: secrets.device,
-	});
+	return SavedTunnel.in(
+		new FsStorage(`${splatesHome(ps)}`, fs),
+		secrets.device,
+	);
 }
 
 /** Seeds default agents before reading the roster. */

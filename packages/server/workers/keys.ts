@@ -1,7 +1,7 @@
 import type { SecretStore } from "webappwiz/creds";
-import type { Fs } from "webappwiz/system";
 import { SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
+import type { Document } from "../storage";
 import type { SentKey, TaskKey } from "./task-keys";
 
 /** The provider `id` names; undefined for none. */
@@ -108,7 +108,7 @@ export interface KeyedWorker {
 /**
  * The coordinator's roster of workers' API keys: which provider's key each
  * worker, or type of worker a provider makes, holds. Each value lives in
- * `store`, the device's, under a name of its own; the roster at `path`
+ * `store`, the device's, under a name of its own; the roster in `document`
  * keeps only that name, so the file lets no one spend a key.
  */
 export class WorkerKeys {
@@ -117,29 +117,27 @@ export class WorkerKeys {
 
 	private constructor(
 		private readonly store: SecretStore,
-		private readonly path: string | null,
-		private readonly fs: Fs | null,
+		private readonly document: Document<{ keys: WorkerKey[] }> | null,
 		private readonly wall: WallClock,
 		private kept: WorkerKey[],
 	) {}
 
-	/** Reads the roster `path` keeps, or starts empty when it keeps nothing readable. */
+	/** Reads the roster `document` keeps, or starts empty when it keeps nothing readable. */
 	static async open(
-		path: string,
-		fs: Fs,
+		document: Document<{ keys: WorkerKey[] }>,
 		store: SecretStore,
 		wall: WallClock = new SystemWallClock(),
 	): Promise<WorkerKeys> {
-		const read = await fs.read(path).catch(() => null);
 		let kept: WorkerKey[] = [];
-		if (read !== null) {
-			try {
-				kept = Kept.parse(JSON.parse(read)).keys;
-			} catch {
-				// Unreadable: every key is added again.
+		try {
+			const read = await document.read();
+			if (read !== null) {
+				kept = Kept.parse(read).keys;
 			}
+		} catch {
+			// Unreadable: every key is added again.
 		}
-		return new WorkerKeys(store, path, fs, wall, kept);
+		return new WorkerKeys(store, document, wall, kept);
 	}
 
 	/** A roster kept in memory alone, its values in `store`. */
@@ -147,7 +145,7 @@ export class WorkerKeys {
 		store: SecretStore,
 		wall: WallClock = new SystemWallClock(),
 	): WorkerKeys {
-		return new WorkerKeys(store, null, null, wall, []);
+		return new WorkerKeys(store, null, wall, []);
 	}
 
 	get all(): WorkerKey[] {
@@ -286,18 +284,14 @@ export class WorkerKeys {
 
 	private change(next: (kept: WorkerKey[]) => WorkerKey[]): Promise<void> {
 		this.kept = next(this.kept);
-		const path = this.path;
-		const fs = this.fs;
-		if (path === null || fs === null) {
+		const document = this.document;
+		if (document === null) {
 			return Promise.resolve();
 		}
-		const text = `${JSON.stringify({ keys: this.kept })}\n`;
+		const keys = this.kept;
 		this.writing = this.writing
 			.catch(() => {})
-			.then(async () => {
-				await fs.mkdir(path.slice(0, path.lastIndexOf("/")));
-				await fs.write(path, text);
-			});
+			.then(() => document.write({ keys }));
 		return this.writing;
 	}
 }

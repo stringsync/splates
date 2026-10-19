@@ -1,9 +1,10 @@
 import type { Logger } from "webappwiz/log";
-import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
+import type { Fs, Lock, Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
 import { LEGACY_DIR } from "../config";
 import { splatesHome } from "../models";
+import { type Document, FsStorage, type Storage } from "../storage";
 
 /** The file in a slot's home that its server writes its pid to. */
 export const SERVER_PID = "server.pid";
@@ -23,6 +24,18 @@ const STOP_WAIT = Duration.secs(5);
 /** The file's own format. */
 const FORMAT = 1;
 
+/** What `Slots` works with besides its claims. */
+export interface SlotsDeps {
+	/** The machine's home, where each slot's home sits beside the claims. */
+	home: string;
+	fs: Fs;
+	/** Tells whether a slot's last server still runs. */
+	ps: Pick<Ps, "pid" | "alive" | "processes" | "spawnCapture">;
+	/** Held while claiming, so two trees starting together get a word each. */
+	lock: Lock;
+	pool?: readonly { word: string; emoji: string }[];
+}
+
 /**
  * Which tree holds which slot, kept in `~/.splates/slots.json` for every
  * checkout on this machine. A tree holds the same word every time, so its host
@@ -36,25 +49,26 @@ const FORMAT = 1;
  */
 export class Slots {
 	constructor(
-		/** `~/.splates/slots.json`, or a test's own. */
-		readonly path: string,
-		private readonly deps: {
-			fs: Fs;
-			/** Tells whether a slot's last server still runs. */
-			ps: Pick<Ps, "pid" | "alive" | "processes" | "spawnCapture">;
-			/** Held while claiming, so two trees starting together get a word each. */
-			lock: Lock;
-			pool?: readonly { word: string; emoji: string }[];
-		},
+		/** `slots.json` of the machine's storage, or a test's own. */
+		private readonly document: Document<SlotsFile>,
+		private readonly deps: SlotsDeps,
 	) {}
 
 	/** The machine's slots, read from inside a slot's server too. */
 	static ofMachine({ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger }): Slots {
 		const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
-		return new Slots(`${home}/slots.json`, {
+		return Slots.in(FsStorage.ofMachine({ fs, ps, log, home }), {
+			home,
 			fs,
 			ps,
-			lock: new FileLock(`${home}/slots.lock`, { fs, ps, log }),
+		});
+	}
+
+	/** The claims kept in `storage`, whose root is `home`. */
+	static in(storage: Storage, deps: Omit<SlotsDeps, "lock">): Slots {
+		return new Slots(storage.document("slots.json"), {
+			...deps,
+			lock: storage.lock("slots.lock"),
 		});
 	}
 
@@ -78,8 +92,7 @@ export class Slots {
 	 * holder, when every word is held.
 	 */
 	async claim(tree: string): Promise<Slot> {
-		const { fs, lock, pool = SLOT_POOL } = this.deps;
-		await fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
+		const { lock, pool = SLOT_POOL } = this.deps;
 		await lock.acquire();
 		try {
 			const claims = await this.read();
@@ -118,7 +131,7 @@ export class Slots {
 
 	/** The slot's home, its `SPLATES_HOME`: `~/.splates/slots/<word>`. */
 	home(slot: Slot): string {
-		return `${this.path.slice(0, this.path.lastIndexOf("/"))}/slots/${slot.word}`;
+		return `${this.deps.home}/slots/${slot.word}`;
 	}
 
 	/**
@@ -238,7 +251,7 @@ export class Slots {
 	 */
 	async prune(): Promise<Held[]> {
 		const { lock } = this.deps;
-		if (!(await this.deps.fs.exists(this.path))) {
+		if ((await this.document.read()) === null) {
 			return [];
 		}
 		await lock.acquire();
@@ -259,26 +272,27 @@ export class Slots {
 	}
 
 	private async read(): Promise<Record<string, string>> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
-		if (raw === null) {
+		const unreadable = new Error(
+			`${this.document.key} is not slots this splates reads: remove it to start over`,
+		);
+		let stored: unknown;
+		try {
+			stored = await this.document.read();
+		} catch {
+			throw unreadable;
+		}
+		if (stored === null) {
 			return {};
 		}
-		const parsed = Claims.safeParse(JSON.parse(raw));
+		const parsed = Claims.safeParse(stored);
 		if (!parsed.success || parsed.data.format > FORMAT) {
-			throw new Error(
-				`${this.path} is not slots this splates reads: remove it to start over`,
-			);
+			throw unreadable;
 		}
 		return parsed.data.claims;
 	}
 
 	private async write(claims: Record<string, string>): Promise<void> {
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, claims }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
+		await this.document.write({ format: FORMAT, claims });
 	}
 }
 
@@ -334,6 +348,9 @@ const Claims = z.object({
 	/** Each claimed word, and the tree that holds it. */
 	claims: z.record(z.string(), z.string()),
 });
+
+/** The claims' file as stored. */
+export type SlotsFile = z.infer<typeof Claims>;
 
 /** A claimed word, the tree that holds it, and its server while one runs. */
 export interface Held {

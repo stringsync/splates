@@ -6,16 +6,15 @@ import {
 	type VapidKeys,
 	WebPusher,
 } from "webappwiz/push";
-import type { Fs, Ps } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { nameOf } from "../conversations";
 import { fail } from "../exit";
-import { splatesHome } from "../models";
 import { type Needing, openedBy } from "../plans";
 import type { Projects } from "../projects";
 import type { Handler, Served } from "../server/shared";
 import { body } from "../server/shared";
+import type { Document, Storage } from "../storage";
 import { keyOf, Notices } from "./notices";
 
 /** How often the server looks for something worth pushing, while a device listens. */
@@ -47,13 +46,16 @@ const KEPT = z.object({
 	devices: z.array(DEVICE),
 });
 
+/** What `push.json` keeps. */
+type Kept = z.infer<typeof KEPT>;
+
 /** The devices alone, read again whatever keys the file keeps. */
 const DEVICES = KEPT.pick({ devices: true });
 
 /** What `Pushes` reads each served project through. */
 export interface PushesDeps {
-	fs: Fs;
-	ps: Ps;
+	/** The machine's storage, which keeps `push.json`. */
+	storage: Storage;
 	log: Logger;
 	projects: Projects;
 	/** By root, every project the server has opened. */
@@ -80,23 +82,22 @@ export class Pushes {
 	private looking: Promise<void> | null = null;
 
 	static async start(deps: PushesDeps): Promise<Pushes> {
-		const file = `${splatesHome(deps.ps)}/push.json`;
-		let kept: z.infer<typeof KEPT>;
+		const file = deps.storage.document<Kept>("push.json");
+		let kept: Kept;
 		try {
-			kept = KEPT.parse(JSON.parse(await deps.fs.read(file)));
+			kept = KEPT.parse(await file.read());
 		} catch {
 			// None yet, or unreadable: every subscription needs the keys it was
 			// made with, so new ones start over with none.
 			kept = { keys: await generateVapidKeys(), devices: [] };
-			await deps.fs.mkdir(splatesHome(deps.ps), { recursive: true });
-			await deps.fs.write(file, JSON.stringify(kept, null, "\t"));
+			await file.write(kept);
 		}
 		return new Pushes(deps, file, kept.keys, kept.devices);
 	}
 
 	private constructor(
 		private readonly deps: PushesDeps,
-		private readonly file: string,
+		private readonly file: Document<Kept>,
 		private readonly keys: VapidKeys,
 		private devices: Device[],
 	) {
@@ -251,9 +252,7 @@ export class Pushes {
 	 */
 	private async kept(): Promise<Device[]> {
 		try {
-			this.devices = DEVICES.parse(
-				JSON.parse(await this.deps.fs.read(this.file)),
-			).devices;
+			this.devices = DEVICES.parse(await this.file.read()).devices;
 		} catch {
 			// Kept as they were: the next write puts the file right.
 		}
@@ -262,10 +261,7 @@ export class Pushes {
 
 	private async keep(devices: Device[]): Promise<void> {
 		this.devices = devices;
-		await this.deps.fs.write(
-			this.file,
-			JSON.stringify({ keys: this.keys, devices }, null, "\t"),
-		);
+		await this.file.write({ keys: this.keys, devices });
 	}
 }
 
@@ -275,17 +271,13 @@ export class Pushes {
  * the page. A running server's `Pushes` reads the file before each push, so
  * it stops pushing to them too.
  */
-export async function forgetDevices(fs: Fs, home: string): Promise<void> {
-	const file = `${home}/push.json`;
-	const raw = await fs.read(file).catch(() => null);
-	if (raw === null) {
+export async function forgetDevices(storage: Storage): Promise<void> {
+	const file = storage.document<{ devices?: unknown[] }>("push.json");
+	const seen = await file.read();
+	if (!Array.isArray(seen?.devices) || seen.devices.length === 0) {
 		return;
 	}
-	const kept = JSON.parse(raw);
-	if (!Array.isArray(kept?.devices) || kept.devices.length === 0) {
-		return;
-	}
-	await fs.write(file, JSON.stringify({ ...kept, devices: [] }, null, "\t"));
+	await file.update((kept) => ({ ...kept, devices: [] }));
 }
 
 /** What the server pushes for a notice, as `Pushes` sends it. */

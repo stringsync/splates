@@ -68,7 +68,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 	try {
 		for (const slot of slots) {
 			await removeTunnel(cloudflare, slot.record, log);
-			await forget(opts.fs, creds, slot.saved, slot.record.token, log);
+			await forget(creds, slot.saved, slot.record.token, log);
 		}
 		if (machine !== null) {
 			const zone = await cloudflare.findZone(machine.host);
@@ -117,7 +117,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 				log.info(`${color.green("deleted")} Access policy ${name}`);
 			}
 			await removeTunnel(cloudflare, machine, log);
-			await forget(opts.fs, creds, saved, TUNNEL_TOKEN, log);
+			await forget(creds, saved, TUNNEL_TOKEN, log);
 		}
 	} catch (error) {
 		if (error instanceof Exit) {
@@ -185,13 +185,12 @@ async function gone(api: CloudflareApi, path: string): Promise<void> {
 
 /** Forgets a saved tunnel's file and the token kept for it. */
 async function forget(
-	fs: Fs,
 	creds: Creds,
 	saved: SavedTunnel,
 	token: string | undefined,
 	log: Logger,
 ): Promise<void> {
 	await creds.remove(token ?? TUNNEL_TOKEN, "device");
-	await fs.rm(saved.path, { force: true });
-	log.info(`forgot ${saved.path}`);
+	await saved.forget();
+	log.info(`forgot ${saved.key}`);
 }

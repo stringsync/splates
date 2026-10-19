@@ -1,6 +1,7 @@
 import { FileLock, type Fs, type Ps } from "webappwiz/system";
 import { z } from "zod";
 import { Roster } from "../models";
+import { FsStorage } from "../storage";
 import { OpenCodeModelError } from "./opencode-model-error";
 import type { OpenCodeSelection } from "./opencode-models";
 
@@ -19,9 +20,8 @@ export class OpenCodeRecipes {
 		if (raw === null) {
 			return null;
 		}
-		const agents = await new Roster(
-			`${this.deps.home}/agents.json`,
-			this.deps,
+		const agents = await Roster.in(
+			new FsStorage(this.deps.home, this.deps.fs),
 		).agents();
 		const agent = agents.find((entry) => entry.id === "opencode");
 		if (!agent) {

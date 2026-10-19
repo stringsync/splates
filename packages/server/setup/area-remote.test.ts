@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	SavedPortsHost,
@@ -29,10 +30,10 @@ describe("the access setup step", () => {
 			}) as unknown as typeof fetch,
 		};
 		await machine.fs.mkdir(HOME, { recursive: true });
-		await new SavedTunnel(`${HOME}/tunnel.json`, {
-			fs: machine.fs,
-			store: machine.device,
-		}).save({
+		await SavedTunnel.in(
+			new FsStorage(`${HOME}`, machine.fs),
+			machine.device,
+		).save({
 			host: "splates.example.com",
 			team: "crew",
 			aud: "a",
@@ -102,7 +103,7 @@ describe("the access setup step", () => {
 		);
 
 		expect(await step?.check(machine)).toBe(false);
-		await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).save(
+		await SavedPortsHost.in(new FsStorage(`${HOME}`, machine.fs)).save(
 			"ports.example.com",
 		);
 		expect(await step?.check(machine)).toBe(true);
@@ -126,7 +127,7 @@ describe("the access setup step", () => {
 		});
 
 		expect(
-			await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).read(),
+			await SavedPortsHost.in(new FsStorage(`${HOME}`, machine.fs)).read(),
 		).toBe("ports.example.com");
 		expect(progress.areas[0]?.left).toBe(0);
 	});

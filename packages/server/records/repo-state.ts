@@ -1,6 +1,7 @@
 import { isAbsolute, normalize } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { z } from "zod";
+import type { Document, Storage } from "../storage";
 
 /**
  * Runs `call` on the records under `root`, as the coordinator does for a
@@ -121,13 +122,15 @@ export interface WireStat {
 	mtimeMs: number;
 }
 
-/** Where a worker daemon says its relay listens, under `SPLATES_HOME`. */
-export function relayFile(home: string): string {
-	return `${home}/relay.json`;
-}
-
 /** What `relay.json` holds. */
 const RelayFile = z.object({ url: z.string(), worker: z.string().optional() });
+
+/** Where a worker daemon says its relay listens, in the machine's storage. */
+export function relayDocument(
+	machine: Storage,
+): Document<z.infer<typeof RelayFile>> {
+	return machine.document("relay.json");
+}
 
 /**
  * The coordinator a command on a worker reaches its project's records
@@ -137,11 +140,10 @@ const RelayFile = z.object({ url: z.string(), worker: z.string().optional() });
  * known, or no project can be named.
  */
 export async function findRelay(
-	deps: { fs: Fs; env: (name: string) => string | undefined },
-	home: string,
+	deps: { machine: Storage; env: (name: string) => string | undefined },
 	origin: () => Promise<string | null>,
 ): Promise<FoundRelay | null> {
-	const relay = await relayOf(deps, home);
+	const relay = await relayOf(deps);
 	if (relay === null) {
 		return null;
 	}
@@ -159,12 +161,17 @@ export async function findRelay(
  * this machine is: the `splates server` the agent's env names, else the
  * relay this machine's worker daemon keeps. Null when neither says.
  */
-export async function relayOf(
-	{ fs, env }: { fs: Fs; env: (name: string) => string | undefined },
-	home: string,
-): Promise<{ url: string; worker: string | null } | null> {
-	const read = await fs.read(relayFile(home)).catch(() => null);
-	const parsed = read === null ? null : RelayFile.safeParse(safeJson(read));
+export async function relayOf({
+	machine,
+	env,
+}: {
+	machine: Storage;
+	env: (name: string) => string | undefined;
+}): Promise<{ url: string; worker: string | null } | null> {
+	const read = await relayDocument(machine)
+		.read()
+		.catch(() => null);
+	const parsed = read === null ? null : RelayFile.safeParse(read);
 	const said = parsed?.success ? parsed.data : null;
 	const url = env("SPLATES_DEV") ?? said?.url;
 	if (url === undefined) {
@@ -182,14 +189,6 @@ export interface FoundRelay {
 	 * on; null when neither the env nor the daemon says.
 	 */
 	worker: string | null;
-}
-
-function safeJson(text: string): unknown {
-	try {
-		return JSON.parse(text);
-	} catch {
-		return null;
-	}
 }
 
 /**

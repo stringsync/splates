@@ -1,9 +1,9 @@
 import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
 import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
 import { PLAYWRIGHT_MCP } from "../agents";
 import { RUNNING } from "../server/shared";
+import type { Document } from "../storage";
 import type { Snapshot, SnapshotRecipe, WorkerProvider } from "./provider";
 import type { Platform } from "./scheduler";
 
@@ -62,9 +62,12 @@ const Kept = z.record(
 	z.object({ id: z.string(), version: z.string(), builtAt: z.number() }),
 );
 
+/** What the snapshot record holds, by platform. */
+export type KeptSnapshots = z.infer<typeof Kept>;
+
 /**
  * The snapshot provisioned workers boot from on each platform, kept at
- * `path` across restarts. One is built when a worker is first asked for,
+ * a document across restarts. One is built when a worker is first asked for,
  * and again once splates's version is not the one it installed or it is
  * `SNAPSHOT_FRESH` old, so a worker always boots ready and current.
  */
@@ -93,7 +96,7 @@ export class Snapshots {
 	async current(platform: Platform): Promise<Snapshot> {
 		// The file is the record: setup may have built one since this was
 		// opened, or undone one, deleting its image.
-		if (this.opts.path !== null) {
+		if (this.opts.document !== null) {
 			this.kept = await readKept(this.opts);
 		}
 		const kept = this.of(platform);
@@ -131,55 +134,46 @@ export class Snapshots {
 		}
 		const built = await this.provider.snapshot(recipe);
 		this.kept = { ...this.kept, [platform]: built };
-		const { path, fs } = this.opts;
-		if (path !== null && fs !== undefined) {
-			await fs.mkdir(path.slice(0, path.lastIndexOf("/")));
-			await fs.write(path, `${JSON.stringify(this.kept)}\n`);
-		}
+		await this.opts.document?.write(this.kept);
 		return built;
 	}
 }
 
 /**
- * The snapshot kept on `platform` at `opts.path`, fresh or not, without a
+ * The snapshot kept on `platform` in `opts.document`, fresh or not, without a
  * provider: null before the first, or when the record is unreadable.
  */
 export async function keptSnapshot(
 	platform: Platform,
-	opts: Pick<SnapshotsOptions, "path" | "fs">,
+	opts: Pick<SnapshotsOptions, "document">,
 ): Promise<Snapshot | null> {
 	return (await readKept(opts))[platform] ?? null;
 }
 
 /**
- * Forgets the snapshot kept on `platform` at `opts.path`, answering it, so
+ * Forgets the snapshot kept on `platform` in `opts.document`, answering it, so
  * the next worker builds one again; null when none was kept.
  */
 export async function forgetSnapshot(
 	platform: Platform,
-	opts: Pick<SnapshotsOptions, "path" | "fs">,
+	opts: Pick<SnapshotsOptions, "document">,
 ): Promise<Snapshot | null> {
 	const kept = await readKept(opts);
 	const was = kept[platform] ?? null;
-	const { path, fs } = opts;
-	if (was !== null && path !== null && fs !== undefined) {
+	if (was !== null && opts.document !== null) {
 		const { [platform]: _, ...rest } = kept;
-		await fs.write(path, `${JSON.stringify(rest)}\n`);
+		await opts.document.write(rest);
 	}
 	return was;
 }
 
-/** The record at `path`, empty when there is none or it is unreadable, so the next worker builds one again. */
+/** The record in `document`, empty when there is none or it is unreadable, so the next worker builds one again. */
 async function readKept({
-	path,
-	fs,
-}: Pick<SnapshotsOptions, "path" | "fs">): Promise<z.infer<typeof Kept>> {
-	const read =
-		path === null || fs === undefined
-			? null
-			: await fs.read(path).catch(() => null);
+	document,
+}: Pick<SnapshotsOptions, "document">): Promise<z.infer<typeof Kept>> {
 	try {
-		return read === null ? {} : Kept.parse(JSON.parse(read));
+		const read = document === null ? null : await document.read();
+		return read === null ? {} : Kept.parse(read);
 	} catch {
 		return {};
 	}
@@ -190,7 +184,6 @@ export interface SnapshotsOptions {
 	/** The splates version a snapshot installs: the coordinator's own. */
 	version: string;
 	/** Where the record is kept; null keeps it in memory alone. */
-	path: string | null;
-	fs?: Fs;
+	document: Document<z.infer<typeof Kept>> | null;
 	wall?: WallClock;
 }

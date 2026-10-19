@@ -1,4 +1,3 @@
-import { dirname } from "node:path";
 import type { MemorySecretStore } from "webappwiz/creds";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
@@ -12,6 +11,7 @@ import {
 } from "webappwiz/time";
 import type { SessionServers } from "../agents";
 import { RUNNING } from "../server/shared";
+import type { Document } from "../storage";
 import type { KeepAwake } from "./awake";
 import { AwakeWhileBusy } from "./awake-while-busy";
 import { SERVERS, WorkerCallHost } from "./call-host";
@@ -109,18 +109,12 @@ export class WorkerDaemon implements AsyncResource {
 	 * coordinator that says it.
 	 */
 	async run(): Promise<WorkerEnded> {
-		const { log, fs, relayAt = null } = this.opts;
+		const { log, relay = null } = this.opts;
 		const host = hostOf(this.opts.ps);
 		this.relay = WorkerRelay.listen(this.session);
-		if (relayAt !== null) {
-			await fs
-				.mkdir(dirname(relayAt))
-				.then(() =>
-					fs.write(
-						relayAt,
-						`${JSON.stringify({ url: this.relay?.url, worker: this.opts.id })}\n`,
-					),
-				)
+		if (relay !== null && this.relay !== null) {
+			await relay
+				.write({ url: this.relay.url, worker: this.opts.id })
 				.catch((error: unknown) =>
 					log.error(`cannot say where the relay listens: ${String(error)}`),
 				);
@@ -210,12 +204,11 @@ export class WorkerDaemon implements AsyncResource {
 		this.session.dispose();
 		if (this.relay !== null) {
 			this.relay.dispose();
-			const { fs, relayAt = null } = this.opts;
+			const { relay = null } = this.opts;
 			// Another daemon on this machine may have said its own since.
-			const said =
-				relayAt === null ? "" : await fs.read(relayAt).catch(() => "");
-			if (relayAt !== null && said.includes(this.relay.url)) {
-				await fs.rm(relayAt, { force: true }).catch(() => {});
+			const said = relay === null ? null : await relay.read().catch(() => null);
+			if (relay !== null && said?.url === this.relay.url) {
+				await relay.remove().catch(() => {});
 			}
 			this.relay = null;
 		}
@@ -352,7 +345,7 @@ export interface WorkerDaemonOptions {
 	 * machine, which has no env to find it in; null, the default, says it
 	 * nowhere.
 	 */
-	relayAt?: string | null;
+	relay?: Document<{ url: string; worker?: string }> | null;
 	/** The MCP servers it offers each agent session it runs; none by default. */
 	servers?: SessionServers | null;
 	/** Keeps the machine awake while it runs a process or terminal; none by default. */

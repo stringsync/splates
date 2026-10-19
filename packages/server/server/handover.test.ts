@@ -7,6 +7,7 @@ import { AGENT, FakeAgent, FakeAgentPs } from "../agents/testing";
 import type { Conversation } from "../conversations";
 import { Conversations } from "../conversations";
 import { eventually } from "../conversations/testing";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import {
 	CoordinatorState,
@@ -72,8 +73,7 @@ describe("dev restart with agents on the worker", () => {
 	async function run(): Promise<DevServer> {
 		opened.clear();
 		const coordinator = await CoordinatorState.open(
-			join(deps.splatesHome, "coordinator.json"),
-			deps.fs,
+			new FsStorage(deps.splatesHome, deps.fs).document("coordinator.json"),
 		);
 		workers = new DevWorkers(deps.log, { session: coordinator.session });
 		return dev(deps, {

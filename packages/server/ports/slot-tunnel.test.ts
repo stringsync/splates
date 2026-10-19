@@ -4,6 +4,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
+import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN, tunnelSetup } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
 import { slotToken, slotTunnelSetup } from "./slot-tunnel";
@@ -37,10 +38,10 @@ describe("slotTunnelSetup", () => {
 			tunnel: tunnel?.id ?? "",
 			token: "SPLATES_SLOT_FOX_TUNNEL_TOKEN",
 		});
-		const saved = new SavedTunnel("/home/.splates/slots/fox/tunnel.json", {
-			fs,
+		const saved = SavedTunnel.in(
+			new FsStorage("/home/.splates/slots/fox", fs),
 			store,
-		});
+		);
 		expect(await saved.read()).toEqual(fox);
 		expect(await saved.token()).toBe(`token-of-${tunnel?.id}`);
 		// The machine's own tunnel keeps its token.
@@ -83,10 +84,10 @@ async function account() {
 		{ fs },
 	);
 	const log = new MemoryLogger();
-	const machineTunnel = new SavedTunnel("/home/.splates/tunnel.json", {
-		fs,
+	const machineTunnel = SavedTunnel.in(
+		new FsStorage("/home/.splates", fs),
 		store,
-	});
+	);
 	await tunnelSetup({
 		host: "example.com",
 		email: "me@example.com",
@@ -104,10 +105,10 @@ async function account() {
 			slot: { word, emoji: "" },
 			machine,
 			creds,
-			saved: new SavedTunnel(`/home/.splates/slots/${word}/tunnel.json`, {
-				fs,
+			saved: SavedTunnel.in(
+				new FsStorage(`/home/.splates/slots/${word}`, fs),
 				store,
-			}),
+			),
 			log,
 			fetch: cloudflare.fetch,
 		});

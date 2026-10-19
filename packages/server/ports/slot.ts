@@ -1,11 +1,11 @@
 import { color, type Logger } from "webappwiz/log";
-import { FileLock } from "webappwiz/system";
 import { SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
 import type { SplatesDeps } from "../server/shared";
+import { FsStorage } from "../storage";
 import { machineTunnel, SavedTunnel } from "../tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
 import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
@@ -82,10 +82,7 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 	}
 	const home = slots.home(slot);
 	await stopLeftover(slots, slot, log);
-	const saved = new SavedTunnel(`${home}/tunnel.json`, {
-		fs,
-		store: secrets.device,
-	});
+	const saved = SavedTunnel.in(new FsStorage(`${home}`, fs), secrets.device);
 	let record = await saved.read();
 	if (record === null || (await saved.token()) === undefined) {
 		log.info(`setting up slot ${slot.word} ${slot.emoji}`);
@@ -98,10 +95,7 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 			fetch: ctx.fetch,
 		});
 	}
-	const projects = new Projects(`${home}/projects.json`, {
-		fs,
-		lock: new FileLock(`${home}/projects.lock`, { fs, ps, log }),
-	});
+	const projects = Projects.in(FsStorage.ofMachine({ fs, ps, log, home }), fs);
 	if ((await projects.list()).length === 0) {
 		await throwaway(ctx, home, projects);
 	}

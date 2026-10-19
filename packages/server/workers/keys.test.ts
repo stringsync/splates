@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { WorkerKeys } from "./keys";
 
 const PATH = "/home/.splates/worker-keys.json";
@@ -9,7 +10,10 @@ describe("WorkerKeys", () => {
 	it("keeps a worker's key in the store and only its name on the roster", async () => {
 		const store = new FakeSecretStore();
 		const fs = new FakeFs();
-		const keys = await WorkerKeys.open(PATH, fs, store);
+		const keys = await WorkerKeys.open(
+			new FsStorage("/home/.splates", fs).document("worker-keys.json"),
+			store,
+		);
 
 		const key = await keys.add({ worker: "home-pc" }, "anthropic", " sk-ant ");
 
@@ -17,7 +21,10 @@ describe("WorkerKeys", () => {
 		expect(store.values.get(key.cred)).toBe("sk-ant");
 		expect(await keys.value(key)).toBe("sk-ant");
 		expect(await fs.read(PATH)).not.toContain("sk-ant");
-		const again = await WorkerKeys.open(PATH, fs, store);
+		const again = await WorkerKeys.open(
+			new FsStorage("/home/.splates", fs).document("worker-keys.json"),
+			store,
+		);
 		expect(again.all).toEqual([key]);
 	});
 

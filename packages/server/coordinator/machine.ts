@@ -5,6 +5,7 @@ import { type SecretStores, SYSTEM_STORES } from "../creds";
 import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
+import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
 import { workerJoin } from "../workers";
 import { CoordinatorBox } from "./box";
@@ -37,12 +38,8 @@ export function machineMove(opts: MachineMoveOptions): CoordinatorMove {
 				store: stores.device,
 			}).status(),
 		tunnelHost: async () =>
-			(
-				await new SavedTunnel(`${home}/tunnel.json`, {
-					fs,
-					store: stores.device,
-				}).read()
-			)?.host ?? null,
+			(await SavedTunnel.in(new FsStorage(`${home}`, fs), stores.device).read())
+				?.host ?? null,
 		repos: async () => {
 			const listed = await Projects.ofMachine({ fs, ps, log }).list();
 			return Promise.all(

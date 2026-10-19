@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
@@ -34,10 +35,10 @@ describe("the tunnel setup step", () => {
 		await setup.submit("tunnel", { ...answers, team: "crew" });
 
 		expect(
-			await new SavedTunnel(`${HOME}/tunnel.json`, {
-				fs: machine.fs,
-				store: machine.device,
-			}).read(),
+			await SavedTunnel.in(
+				new FsStorage(`${HOME}`, machine.fs),
+				machine.device,
+			).read(),
 		).toMatchObject({ host: "splates.example.com", team: "crew" });
 		expect(await machine.device.get(TUNNEL_TOKEN)).toBeDefined();
 	});

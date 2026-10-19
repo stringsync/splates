@@ -95,7 +95,7 @@ export async function savedTunnelConfig(
 		}
 		const access = accessConfig(record.team, record.aud);
 		if (access === null) {
-			throw new Error(`${saved.path} names no Access application`);
+			throw new Error(`${saved.key} names no Access application`);
 		}
 		return {
 			access,

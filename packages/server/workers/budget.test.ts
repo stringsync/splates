@@ -2,7 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
-import { WorkerBudget } from "./budget";
+import { FsStorage } from "../storage";
+import { WorkerBudget, type WorkerBudgetFile } from "./budget";
+
+function budgetAt(fs: FakeFs) {
+	return new FsStorage("/home", fs).document<WorkerBudgetFile>("budget.json");
+}
 
 describe("WorkerBudget", () => {
 	it("holds made workers to $0.25/h, $5 a day and $75 a month by default", () => {
@@ -143,11 +148,11 @@ describe("WorkerBudget", () => {
 	it("keeps its limits, raises and ledger across a restart", async () => {
 		const fs = new FakeFs();
 		const wall = clock();
-		const first = await WorkerBudget.open("/budget.json", fs, wall);
+		const first = await WorkerBudget.open(budgetAt(fs), wall);
 		await first.set("day", 2);
 		await first.started("small-1", "small", 0.05);
 
-		const second = await WorkerBudget.open("/budget.json", fs, wall);
+		const second = await WorkerBudget.open(budgetAt(fs), wall);
 
 		expect(second.standing()[1]?.dollars).toBe(2);
 		expect(second.rate()).toBe(0.05);
@@ -156,12 +161,12 @@ describe("WorkerBudget", () => {
 	it("keeps the conversations a stop held across a restart, until released", async () => {
 		const fs = new FakeFs();
 		const wall = clock();
-		const first = await WorkerBudget.open("/budget.json", fs, wall);
+		const first = await WorkerBudget.open(budgetAt(fs), wall);
 		const one = { project: "/repo", conversation: "one" };
 		await first.hold([one]);
 		await first.hold([one, { project: "/repo", conversation: "two" }]);
 
-		const second = await WorkerBudget.open("/budget.json", fs, wall);
+		const second = await WorkerBudget.open(budgetAt(fs), wall);
 
 		expect(second.held.map((each) => each.conversation)).toEqual([
 			"one",
@@ -169,9 +174,7 @@ describe("WorkerBudget", () => {
 		]);
 		expect(await second.release()).toHaveLength(2);
 		expect(second.held).toEqual([]);
-		expect((await WorkerBudget.open("/budget.json", fs, wall)).held).toEqual(
-			[],
-		);
+		expect((await WorkerBudget.open(budgetAt(fs), wall)).held).toEqual([]);
 	});
 	it("splits made workers' spend by who held slots on them", async () => {
 		const wall = clock();
@@ -229,12 +232,12 @@ describe("WorkerBudget", () => {
 	it("keeps the runs across a restart", async () => {
 		const wall = clock();
 		const fs = new FakeFs();
-		const budget = await WorkerBudget.open("/budget.json", fs, wall);
+		const budget = await WorkerBudget.open(budgetAt(fs), wall);
 		await budget.started("made", "small", 1);
 		await budget.ran([held("one", "a", "made")]);
 		wall.advance(Duration.hrs(1));
 
-		const again = await WorkerBudget.open("/budget.json", fs, wall);
+		const again = await WorkerBudget.open(budgetAt(fs), wall);
 
 		expect(again.split("day")[0]).toMatchObject({ task: "a", dollars: 1 });
 	});

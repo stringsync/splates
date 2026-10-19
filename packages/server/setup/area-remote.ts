@@ -1,5 +1,6 @@
 import { Credentials } from "webappwiz/creds";
 import { MemoryLogger } from "webappwiz/log";
+import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	portsHostFlag,
@@ -97,7 +98,7 @@ function remoteAccessArea(): SetupArea {
 						},
 					},
 					task: null,
-					saved: new SavedTunnel(`${home}/tunnel.json`, { fs, store: device }),
+					saved: SavedTunnel.in(new FsStorage(`${home}`, fs), device),
 					log: new MemoryLogger(),
 					fetch: machine.fetch,
 				});
@@ -175,25 +176,29 @@ function remoteAccessArea(): SetupArea {
 			if (typeof base !== "string") {
 				throw new Error("Give a base host, such as ports.example.com.");
 			}
-			await new SavedPortsHost(`${home}/ports.json`, fs).save(base);
+			await SavedPortsHost.in(new FsStorage(`${home}`, fs)).save(base);
 		},
 		check: async ({ fs, home }) =>
-			(await new SavedPortsHost(`${home}/ports.json`, fs).read()) !== null,
+			(await SavedPortsHost.in(new FsStorage(`${home}`, fs)).read()) !== null,
 		undo: {
 			removes: async ({ fs, home }) => {
-				const base = await new SavedPortsHost(`${home}/ports.json`, fs).read();
+				const base = await SavedPortsHost.in(
+					new FsStorage(`${home}`, fs),
+				).read();
 				return [
 					`The saved base host ${base}, which a running \`splates server\` serves until it restarts`,
 				];
 			},
 			leaves: async ({ fs, home }) => {
-				const base = await new SavedPortsHost(`${home}/ports.json`, fs).read();
+				const base = await SavedPortsHost.in(
+					new FsStorage(`${home}`, fs),
+				).read();
 				return [
 					`The DNS and TLS routing \`*.${base}\` to \`splates server\`, which you made: remove it where you made it.`,
 				];
 			},
 			run: async ({ fs, home }) => {
-				await new SavedPortsHost(`${home}/ports.json`, fs).save(null);
+				await SavedPortsHost.in(new FsStorage(`${home}`, fs)).save(null);
 			},
 		},
 	};
@@ -211,7 +216,7 @@ async function savedTunnel({
 	home,
 	device,
 }: SetupMachine): Promise<TunnelRecord | null> {
-	const saved = new SavedTunnel(`${home}/tunnel.json`, { fs, store: device });
+	const saved = SavedTunnel.in(new FsStorage(`${home}`, fs), device);
 	const record = await saved.read();
 	return record !== null && (await saved.token()) !== undefined ? record : null;
 }

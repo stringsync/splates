@@ -5,6 +5,7 @@ import { taskAdd } from "../board";
 import { Conversations } from "../conversations";
 import { Offered } from "../models";
 import { queueAdd } from "../queue";
+import { FsStorage } from "../storage";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
@@ -31,9 +32,9 @@ describe("dev dispatched", () => {
 				],
 			},
 		];
-		const offered = new Offered(`${deps.splatesHome}/offered.json`, {
-			fs: deps.fs,
-		});
+		const offered = new Offered(
+			new FsStorage(deps.splatesHome, deps.fs).document("offered.json"),
+		);
 		await offered.remember("fake", [
 			{
 				id: "effort",

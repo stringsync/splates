@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { CloudflaredTunnelProvider } from "./cloudflared";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { savedTunnelConfig } from "./tunnel";
@@ -22,10 +23,10 @@ describe("savedTunnelConfig", () => {
 
 	beforeEach(() => {
 		store = new FakeSecretStore();
-		saved = new SavedTunnel("/home/.splates/tunnel.json", {
-			fs: new FakeFs(),
+		saved = SavedTunnel.in(
+			new FsStorage("/home/.splates", new FakeFs()),
 			store,
-		});
+		);
 	});
 
 	it("is null with nothing saved, and runs what was saved with its token", async () => {

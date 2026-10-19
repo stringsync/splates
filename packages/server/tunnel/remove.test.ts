@@ -5,6 +5,7 @@ import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { slotTunnelSetup } from "../ports";
+import { FsStorage } from "../storage";
 import { tunnelRemove } from "./remove";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { API_TOKEN, tunnelSetup } from "./setup";
@@ -12,7 +13,7 @@ import { FakeCloudflare } from "./testing";
 
 describe("tunnelRemove", () => {
 	it("deletes the machine's tunnel, route, application and policy, and forgets them", async () => {
-		const { cloudflare, store, fs, saved, remove } = await account();
+		const { cloudflare, store, saved, remove } = await account();
 
 		await remove();
 
@@ -21,16 +22,13 @@ describe("tunnelRemove", () => {
 		expect(cloudflare.apps).toEqual([]);
 		expect(cloudflare.policies).toEqual([]);
 		expect(await saved.read()).toBeNull();
-		expect(await fs.exists(saved.path)).toBe(false);
+		expect(await saved.read()).toBeNull();
 		expect(store.values.has(TUNNEL_TOKEN)).toBe(false);
 		expect(store.values.get(API_TOKEN)).toBe("api-token");
 	});
 
 	it("removes the slots' tunnels, routes, wildcard application and tokens too", async () => {
-		const { cloudflare, store, fs, slot, remove } = await account([
-			"fox",
-			"owl",
-		]);
+		const { cloudflare, store, slot, remove } = await account(["fox", "owl"]);
 
 		await remove();
 
@@ -38,7 +36,7 @@ describe("tunnelRemove", () => {
 		expect(cloudflare.records).toEqual([]);
 		expect(cloudflare.apps).toEqual([]);
 		expect(cloudflare.policies).toEqual([]);
-		expect(await fs.exists(slot("fox").path)).toBe(false);
+		expect(await slot("fox").read()).toBeNull();
 		expect([...store.values.keys()]).toEqual([API_TOKEN]);
 	});
 
@@ -124,7 +122,7 @@ async function account(words: string[] = []) {
 		{ fs },
 	);
 	const log = new MemoryLogger();
-	const saved = new SavedTunnel("/home/.splates/tunnel.json", { fs, store });
+	const saved = SavedTunnel.in(new FsStorage("/home/.splates", fs), store);
 	await tunnelSetup({
 		host: "splates.example.com",
 		email: "me@example.com",
@@ -138,7 +136,7 @@ async function account(words: string[] = []) {
 	});
 	const machine = (await saved.read()) ?? expect.unreachable();
 	const slot = (word: string) =>
-		new SavedTunnel(`/home/.splates/slots/${word}/tunnel.json`, { fs, store });
+		SavedTunnel.in(new FsStorage(`/home/.splates/slots/${word}`, fs), store);
 	for (const word of words) {
 		await slotTunnelSetup({
 			slot: { word, emoji: "" },

@@ -115,7 +115,7 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 		);
 	}
 	log.info(
-		`${color.green("saved")} ${host} in ${saved.path}, its token in the device's store: \`splates server\` now serves https://${host} to ${emails.join(", ")}`,
+		`${color.green("saved")} ${host} in ${saved.key}, its token in the device's store: \`splates server\` now serves https://${host} to ${emails.join(", ")}`,
 	);
 }
 

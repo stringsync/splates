@@ -2,9 +2,9 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
-import { splatesHome } from "../models";
 import { relayOf } from "../records";
 import { DEFAULT_PORT } from "../server/shared";
+import { FsStorage } from "../storage";
 import { table } from "../table";
 import { LOCAL_WORKER } from "../workers";
 
@@ -47,10 +47,10 @@ export interface PortsOptions {
  */
 export async function portsLs(opts: PortsOptions): Promise<void> {
 	const { log, fs, ps, send = fetch } = opts;
-	const relay = await relayOf(
-		{ fs, env: (name) => ps.env(name) },
-		splatesHome(ps),
-	);
+	const relay = await relayOf({
+		machine: FsStorage.ofMachine({ fs, ps, log }),
+		env: (name) => ps.env(name),
+	});
 	const url = opts.dev || relay?.url || `http://localhost:${DEFAULT_PORT}`;
 	const here = relay?.worker ?? null;
 	let response: Response;

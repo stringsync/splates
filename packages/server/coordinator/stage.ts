@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { decodeTask, encodeTask, TASK_FILE } from "../board";
+import { FsStorage } from "../storage";
 import { WorkerRecords } from "../workers";
 import { type MovedProject, rewriteRoots } from "./paths";
 
@@ -51,7 +52,9 @@ export async function stage(opts: StageOptions): Promise<void> {
 			);
 		}
 	}
-	const workers = await WorkerRecords.open(`${staging}/home/workers.json`, fs);
+	const workers = await WorkerRecords.open(
+		new FsStorage(`${staging}/home`, fs).document("workers.json"),
+	);
 	await workers.turnLocal(false);
 	for (const project of projects) {
 		const records = `${staging}/projects/${project.slug}`;

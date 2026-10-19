@@ -7,6 +7,7 @@ import { realName } from "../conversations";
 import { fail } from "../exit";
 import { RESUME } from "../plans";
 import type { Projects } from "../projects";
+import type { Document, Storage } from "../storage";
 import { tasksOf } from "../tasks";
 import type { Terminals } from "../terminal";
 import { type Held, heldBy } from "../terminal";
@@ -31,6 +32,8 @@ export interface RestartsHome {
 	fs: Fs;
 	ps: Ps;
 	log: Logger;
+	/** The machine's storage, where a restart says which projects to reopen. */
+	storage: Storage;
 	/** The registry of splates projects. */
 	projects: Projects;
 	served: ServedProjects;
@@ -80,7 +83,7 @@ export class Restarts {
 	 * projects whose agents it stopped, so the next run opens them at once
 	 * and resumes them.
 	 */
-	private readonly reopen: string;
+	private readonly reopen: Document<{ roots: string[] }>;
 	// Projects read for their tasks alone, by root: opened, never served, so
 	// listing them starts none of their agents.
 	private readonly peeked = new Map<string, Promise<Project>>();
@@ -90,8 +93,7 @@ export class Restarts {
 		private readonly versions: Versions,
 		private readonly opts: RestartsOptions,
 	) {
-		const { path } = home.projects;
-		this.reopen = `${path.slice(0, path.lastIndexOf("/"))}/restart.json`;
+		this.reopen = home.storage.document("restart.json");
 	}
 
 	/**
@@ -99,14 +101,14 @@ export class Restarts {
 	 * served, tells each agent done with the checkpoint to carry on.
 	 */
 	async reopenStopped(): Promise<void> {
-		const { fs, projects, served } = this.home;
-		const stopped = await fs.read(this.reopen).catch(() => null);
+		const { projects, served } = this.home;
+		const stopped = await this.reopen.read().catch(() => null);
 		if (stopped === null) {
 			this.began = true;
 			return;
 		}
-		await fs.rm(this.reopen, { force: true });
-		const roots = parseRestart(stopped);
+		await this.reopen.remove();
+		const roots = rootsOf(stopped);
 		this.restarted = "resuming";
 		this.began = true;
 		const registered = await projects.list();
@@ -432,7 +434,7 @@ export class Restarts {
 			shutdown = false,
 		}: { reopens?: boolean; shutdown?: boolean } = {},
 	): void {
-		const { fs, log, served, server } = this.home;
+		const { log, served, server } = this.home;
 		this.restarting = { resume: reopens, shutdown };
 		void Promise.all(asked).then(async () => {
 			if (this.restarting === null) {
@@ -452,7 +454,7 @@ export class Restarts {
 						roots.push(root);
 					}
 				}
-				await fs.write(this.reopen, `${JSON.stringify({ roots })}\n`);
+				await this.reopen.write({ roots });
 			}
 			const { release } = this.versions;
 			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
@@ -526,11 +528,6 @@ export class Restarts {
 }
 
 /** What `restart.json` says: the projects to open. */
-function parseRestart(raw: string): string[] {
-	try {
-		const parsed = JSON.parse(raw) as { roots?: unknown };
-		return Array.isArray(parsed.roots) ? parsed.roots.map(String) : [];
-	} catch {
-		return [];
-	}
+function rootsOf(parsed: { roots?: unknown }): string[] {
+	return Array.isArray(parsed.roots) ? parsed.roots.map(String) : [];
 }

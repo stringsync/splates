@@ -8,7 +8,7 @@ export type {
 } from "./repo-state";
 export {
 	answerState,
-	relayFile,
+	relayDocument,
 	relayOf,
 	StateRequest,
 	sameOrigin,

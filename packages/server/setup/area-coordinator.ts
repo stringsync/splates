@@ -1,5 +1,4 @@
 import { MemoryLogger } from "webappwiz/log";
-import { FileLock } from "webappwiz/system";
 import {
 	BOX_NAME,
 	CoordinatorBox,
@@ -12,6 +11,7 @@ import {
 import { SYSTEM_STORES } from "../creds";
 import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
+import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
 	CLOUD_TOKEN_MISSING,
@@ -243,14 +243,10 @@ async function machineProjects(
 	if (ps === undefined) {
 		throw new Error("setup cannot read the projects here");
 	}
-	const projects = await new Projects(`${home}/projects.json`, {
+	const projects = await Projects.in(
+		FsStorage.ofMachine({ fs, ps, log: new MemoryLogger(), home }),
 		fs,
-		lock: new FileLock(`${home}/projects.lock`, {
-			fs,
-			ps,
-			log: new MemoryLogger(),
-		}),
-	}).list();
+	).list();
 	const moving: MovingProject[] = [];
 	for (const { slug, root, gone } of projects) {
 		if (gone) {

@@ -39,7 +39,7 @@ describe("DevWorkers' API keys", () => {
 				provider,
 				snapshots: await Snapshots.open(provider, {
 					version: "1.0.0",
-					path: null,
+					document: null,
 				}),
 				coordinator: () => `http://127.0.0.1:${server.port}`,
 				budget: WorkerBudget.memory(),

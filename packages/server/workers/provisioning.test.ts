@@ -236,7 +236,10 @@ async function provisioning(
 	const access = new FakeWorkerAccess();
 	const made = new WorkerProvisioning({
 		provider,
-		snapshots: await Snapshots.open(provider, { version: "1.0.0", path: null }),
+		snapshots: await Snapshots.open(provider, {
+			version: "1.0.0",
+			document: null,
+		}),
 		records,
 		registry,
 		access,

@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
-import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
+import type { Fs, Lock, Ps } from "webappwiz/system";
 import { fail } from "../exit";
-import { splatesHome } from "../models";
+import { type Document, FsStorage, type Storage } from "../storage";
 
 /** The registry's own format, apart from each repository's records. */
 const FORMAT = 1;
@@ -30,19 +30,16 @@ export interface Project extends ProjectRecord {
 	gone: boolean;
 }
 
-/** The registry's file as written: its records, and the projects focused. */
-interface RegistryFile {
-	projects: ProjectRecord[];
-	/**
-	 * The roots `splates server`'s page picked, the last first, the first of them
-	 * what an address naming none shows, the next what it shows once that
-	 * one is forgotten.
-	 */
-	focused: string[];
+/** The registry's file as stored, whatever splates wrote it. */
+interface StoredRegistry {
+	format?: number;
+	projects?: ProjectRecord[];
+	focused?: string[] | string | null;
 }
 
 /** What `Projects` works with. */
 export interface ProjectsOptions {
+	/** Tells whether a project's repository is still there. */
 	fs: Fs;
 	/** Held while the file is rewritten, so two commands never drop each other's. */
 	lock: Lock;
@@ -68,21 +65,21 @@ export class Projects {
 		{ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger },
 		stalenessMs?: number,
 	): Projects {
-		const home = splatesHome(ps);
-		return new Projects(`${home}/projects.json`, {
+		return Projects.in(FsStorage.ofMachine({ fs, ps, log, stalenessMs }), fs);
+	}
+
+	/** The registry kept in `storage`, which is a machine's or a slot's home. */
+	static in(storage: Storage, fs: Fs, now?: () => Date): Projects {
+		return new Projects(storage.document("projects.json"), {
 			fs,
-			lock: new FileLock(`${home}/projects.lock`, {
-				fs,
-				ps,
-				log,
-				stalenessMs,
-			}),
+			lock: storage.lock("projects.lock"),
+			now,
 		});
 	}
 
 	constructor(
-		/** `~/.splates/projects.json`, or a test's own. */
-		readonly path: string,
+		/** `projects.json` of the machine's storage, or a test's own. */
+		private readonly document: Document<StoredRegistry>,
 		{ fs, lock, now = () => new Date() }: ProjectsOptions,
 	) {
 		this.fs = fs;
@@ -254,8 +251,6 @@ export class Projects {
 	private async change(
 		edit: (file: RegistryFile) => RegistryFile | null,
 	): Promise<boolean> {
-		// The lock lives beside the file, so its directory comes first.
-		await this.fs.mkdir(this.dir);
 		// Read under the lock: another command may have just written it.
 		await this.lock.acquire();
 		try {
@@ -270,35 +265,26 @@ export class Projects {
 		}
 	}
 
-	private get dir(): string {
-		return this.path.slice(0, this.path.lastIndexOf("/"));
-	}
-
 	private async read(): Promise<RegistryFile> {
-		const raw = await this.fs.read(this.path).catch(() => null);
-		if (raw === null) {
-			return { projects: [], focused: [] };
-		}
-		let parsed: {
-			format?: number;
-			projects?: ProjectRecord[];
-			focused?: string[] | string | null;
-		};
+		let parsed: StoredRegistry | null;
 		try {
-			parsed = JSON.parse(raw);
+			parsed = await this.document.read();
 		} catch {
-			fail("usage", `${this.path} is not JSON: fix or delete it`, {
-				path: this.path,
+			fail("usage", `${this.document.key} is not JSON: fix or delete it`, {
+				path: this.document.key,
 			});
+		}
+		if (parsed === null) {
+			return { projects: [], focused: [] };
 		}
 		if ((parsed.format ?? 1) > FORMAT) {
 			fail(
 				"outdated",
 				[
-					`${this.path} is in format ${parsed.format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
+					`${this.document.key} is in format ${parsed.format}, written by a newer splates; this one understands up to ${FORMAT}, so it leaves it alone.`,
 					"Run `bunx @stringsync/splates@latest` instead.",
 				].join("\n"),
-				{ path: this.path, format: parsed.format, understood: FORMAT },
+				{ path: this.document.key, format: parsed.format, understood: FORMAT },
 			);
 		}
 		return {
@@ -312,12 +298,7 @@ export class Projects {
 	}
 
 	private async write({ projects, focused }: RegistryFile): Promise<void> {
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, projects, focused }, null, "\t")}\n`,
-		);
-		await this.fs.rename(tmp, this.path);
+		await this.document.write({ format: FORMAT, projects, focused });
 	}
 }
 
@@ -372,3 +353,14 @@ const REACH_LINES: Record<Reach, string> = {
 	tasks:
 		"add tasks to its queue or hand its tasks to agents, never taking one yourself",
 };
+
+/** The registry's file as written: its records, and the projects focused. */
+interface RegistryFile {
+	projects: ProjectRecord[];
+	/**
+	 * The roots `splates server`'s page picked, the last first, the first of them
+	 * what an address naming none shows, the next what it shows once that
+	 * one is forgotten.
+	 */
+	focused: string[];
+}

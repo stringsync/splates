@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	SavedPortsHost,
@@ -25,17 +26,17 @@ describe("the tunnel setup step's undo", () => {
 			fetch: cloudflare.fetch,
 		};
 		await machine.fs.mkdir(HOME, { recursive: true });
-		await new SavedTunnel(`${HOME}/tunnel.json`, {
-			fs: machine.fs,
-			store: machine.device,
-		}).save({
+		await SavedTunnel.in(
+			new FsStorage(`${HOME}`, machine.fs),
+			machine.device,
+		).save({
 			host: "splates.example.com",
 			team: "crew",
 			aud: "a",
 			tunnel: "i",
 		});
 		await machine.device.set(TUNNEL_TOKEN, "token");
-		await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).save(
+		await SavedPortsHost.in(new FsStorage(`${HOME}`, machine.fs)).save(
 			"ports.example.com",
 		);
 		// What `splates tunnel remove` leaves: no saved tunnel, nor its token.
@@ -85,7 +86,7 @@ describe("the tunnel setup step's undo", () => {
 
 		expect(removed).toBe(1);
 		expect(
-			await new SavedPortsHost(`${HOME}/ports.json`, machine.fs).read(),
+			await SavedPortsHost.in(new FsStorage(`${HOME}`, machine.fs)).read(),
 		).toBeNull();
 		expect(await machine.device.get(API_TOKEN)).toBeUndefined();
 		expect(progress.areas[0]?.done).toBe(0);

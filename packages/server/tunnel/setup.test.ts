@@ -5,6 +5,7 @@ import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { Exit } from "../exit";
+import { FsStorage } from "../storage";
 import { SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { API_TOKEN, tunnelSetup } from "./setup";
 import { FakeCloudflare } from "./testing";
@@ -150,7 +151,7 @@ function machine() {
 		{ project: new FakeSecretStore(), device: store },
 		{ fs },
 	);
-	const saved = new SavedTunnel("/home/.splates/tunnel.json", { fs, store });
+	const saved = SavedTunnel.in(new FsStorage("/home/.splates", fs), store);
 	const setup = (
 		email = "me@example.com",
 		host = "splates.example.com",

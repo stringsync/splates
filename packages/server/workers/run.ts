@@ -15,8 +15,9 @@ import { z } from "zod";
 import { SharedBrowser } from "../agents";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
-import { relayFile } from "../records";
+import { relayDocument } from "../records";
 import { heavyJobsOfMachine } from "../server/shared";
+import { FsStorage } from "../storage";
 import { type AccessClient, accessHeaders, joinAccess } from "./access";
 import { keepAwakeOf } from "./awake";
 import { WorkerDaemon, type WorkerDialer, type WorkerEnded } from "./daemon";
@@ -184,7 +185,7 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 		ps,
 		fs: opts.fs,
 		log,
-		relayAt: relayFile(splatesHome(ps)),
+		relay: relayDocument(FsStorage.ofMachine({ fs: opts.fs, ps, log })),
 		servers: browser,
 		awake: keepAwakeOf(ps, log),
 		network: await networkOf(ps, log),

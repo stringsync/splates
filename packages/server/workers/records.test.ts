@@ -2,10 +2,15 @@ import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
+import { FsStorage } from "../storage";
 import { joinAccess } from "./access";
 import { JOIN_WITHIN, WorkerRecords } from "./records";
 
 const PATH = "/home/.splates/workers.json";
+
+function storage(fs: FakeFs): FsStorage {
+	return new FsStorage("/home/.splates", fs);
+}
 
 describe("WorkerRecords", () => {
 	it("lets a worker join with a token, once, and knows it by the key it is answered", async () => {
@@ -41,12 +46,16 @@ describe("WorkerRecords", () => {
 
 	it("keeps workers, settings and unspent tokens, never a key or token, across a reopen", async () => {
 		const fs = new FakeFs();
-		const records = await WorkerRecords.open(PATH, fs);
+		const records = await WorkerRecords.open(
+			storage(fs).document("workers.json"),
+		);
 		const key = await records.join((await records.invite()).token, "box");
 		await records.set("box", { slots: 3, draining: true });
 		const { token } = await records.invite();
 
-		const reopened = await WorkerRecords.open(PATH, fs);
+		const reopened = await WorkerRecords.open(
+			storage(fs).document("workers.json"),
+		);
 		const file = await fs.read(PATH);
 
 		expect(reopened.verify("box", key ?? "")).toBe(true);
@@ -58,14 +67,20 @@ describe("WorkerRecords", () => {
 
 	it("keeps this machine's own worker off across a reopen, until it is turned on", async () => {
 		const fs = new FakeFs();
-		const records = await WorkerRecords.open(PATH, fs);
+		const records = await WorkerRecords.open(
+			storage(fs).document("workers.json"),
+		);
 		expect(records.localOn).toBe(true);
 		await records.turnLocal(false);
 
-		const reopened = await WorkerRecords.open(PATH, fs);
+		const reopened = await WorkerRecords.open(
+			storage(fs).document("workers.json"),
+		);
 		expect(reopened.localOn).toBe(false);
 		await reopened.turnLocal(true);
-		expect((await WorkerRecords.open(PATH, fs)).localOn).toBe(true);
+		expect(
+			(await WorkerRecords.open(storage(fs).document("workers.json"))).localOn,
+		).toBe(true);
 	});
 
 	it("revokes a removed worker's key", async () => {

@@ -1,11 +1,12 @@
 import { DEFAULT_AGENTS, Roster } from "../models";
+import { FsStorage } from "../storage";
 import type { StepField } from "./fields";
 import type { SetupArea, SetupMachine, SetupStep, StepAnswers } from "./setup";
 
 /** The agents in `agents.json`, none when it is not there, for it holds the defaults then. */
 async function rosterAgents({ fs, home }: SetupMachine) {
-	const path = `${home}/agents.json`;
-	return (await fs.exists(path)) ? new Roster(path, { fs }).agents() : [];
+	const roster = Roster.in(new FsStorage(home, fs));
+	return (await fs.exists(`${home}/agents.json`)) ? roster.agents() : [];
 }
 
 /** How long a CLI gets to answer before it counts as not answering. */
@@ -97,7 +98,7 @@ function agentJourney(id: AgentId): SetupArea {
 			if (chosen.length === 0) {
 				throw new Error("Tick at least one model.");
 			}
-			await new Roster(`${home}/agents.json`, { fs }).choose(id, chosen);
+			await Roster.in(new FsStorage(home, fs)).choose(id, chosen);
 		},
 		undo: {
 			removes: async (machine) => {
@@ -109,8 +110,7 @@ function agentJourney(id: AgentId): SetupArea {
 					`${name} on the roster in \`${machine.home}/agents.json\`${models.length === 0 ? "" : `, running ${models.join(", ")}`}`,
 				];
 			},
-			run: ({ fs, home }) =>
-				new Roster(`${home}/agents.json`, { fs }).remove(id),
+			run: ({ fs, home }) => Roster.in(new FsStorage(home, fs)).remove(id),
 		},
 	};
 	return { id, title: name, steps: [signIn, models] };
