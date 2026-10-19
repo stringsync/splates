@@ -3,15 +3,13 @@ import type { Logger } from "webappwiz/log";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import type { LaneRecord, TaskRecord } from "../board";
 import type { AgentPick } from "../models";
+import { taskName } from "../queue";
 
 /**
  * How often the running lanes are checked again, for a queued task freed or a task
  * gone with no change seen, as from another tree.
  */
 export const LANE_SWEEP = Duration.mins(1);
-
-/** The longest task name `taskName` makes, so a long subject stays a name. */
-const NAME_LENGTH = 40;
 
 /** One queued task a running lane starts, as `LaneRunner` hands it to its `start`. */
 export interface LaneStart {
@@ -221,31 +219,6 @@ export function startable(
 			.slice(0, Math.max(0, capacity - out)),
 		unnamed: free.filter((queued) => queued.assignee === undefined),
 	};
-}
-
-/**
- * A task name for a queued task called `subject`: its words, lowercased and
- * dashed, cut at a word to `NAME_LENGTH`, and numbered past any in `taken`.
- */
-export function taskName(subject: string, taken: ReadonlySet<string>): string {
-	const words = subject
-		.toLowerCase()
-		.split(/[^a-z0-9]+/)
-		.filter(Boolean);
-	let base = "";
-	for (const word of words) {
-		const longer = base === "" ? word : `${base}-${word}`;
-		if (longer.length > NAME_LENGTH && base !== "") {
-			break;
-		}
-		base = longer.slice(0, NAME_LENGTH);
-	}
-	base ||= "task";
-	let name = base;
-	for (let count = 2; taken.has(name); count++) {
-		name = `${base}-${count}`;
-	}
-	return name;
 }
 
 /**

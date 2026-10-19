@@ -164,6 +164,8 @@ const LINES: {
 	"task take": (event) => todoLine("Took", event),
 	"task release": (event) => todoLine("Released", event),
 	"task remove": (event) => todoLine("Removed", event),
+	"queue add": (event) => todoLine("Queued", event),
+	"queue remove": (event) => todoLine("Unqueued", event),
 	"creds request": (event) =>
 		event.reason === null && event.asked
 			? {
@@ -206,7 +208,9 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 /** The line a command on todos draws, none when it was refused. */
 function todoLine(
 	verb: string,
-	event: EventOf<"task take" | "task release" | "task remove">,
+	event: EventOf<
+		"task take" | "task release" | "task remove" | "queue add" | "queue remove"
+	>,
 ): SplatesEventView | null {
 	return event.tasks === undefined
 		? null

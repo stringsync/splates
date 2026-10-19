@@ -87,6 +87,34 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return this.queue().find((each) => each.id === id) ?? null;
 	}
 
+	/**
+	 * How many more agents could start now without waiting: the free slots
+	 * of every worker up and taking work, less those already waiting for one.
+	 */
+	room(): number {
+		const used = new Map<string, number>();
+		for (const { worker, uncapped } of this.held()) {
+			if (!uncapped) {
+				used.set(worker, (used.get(worker) ?? 0) + 1);
+			}
+		}
+		const free = this.pool
+			.workers()
+			.filter(
+				(worker) =>
+					worker.awake && worker.checkouts && worker.draining !== true,
+			)
+			.reduce(
+				(sum, worker) =>
+					sum + Math.max(0, worker.slots - (used.get(worker.id) ?? 0)),
+				0,
+			);
+		const waiting = this.waiting.filter(
+			({ request }) => request.uncapped !== true,
+		).length;
+		return Math.max(0, free - waiting);
+	}
+
 	/** The agents holding slots, on whichever worker. */
 	held(): HeldSlot[] {
 		return [...this.holding.values()].map(({ held }) => held);

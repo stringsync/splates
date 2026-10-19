@@ -558,7 +558,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 
 	/**
 	 * `GET /api/queue`: every agent waiting for a slot, first in line first,
-	 * from every project, as `splates queue list` shows them.
+	 * from every project, as `splates worker queue list` shows them.
 	 */
 	readonly queue = async (): Promise<Response> =>
 		Response.json({ queue: queueListing(this.slots.scheduler.queue()) });

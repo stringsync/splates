@@ -12,6 +12,7 @@ import {
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
+import { splatesWaiting } from "./waiting";
 
 /** `splates worker`, which the root cli mounts after `splates slots`. */
 export const splatesWorker = cli<SplatesDeps>("worker").description(
@@ -272,3 +273,5 @@ splatesWorker
 			send: ctx.fetch,
 		}),
 	);
+
+splatesWorker.mount("queue", splatesWaiting);

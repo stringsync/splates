@@ -26,7 +26,7 @@ import { assigneeIn, here, laneIn, position, taskIds } from "./flags";
 
 /** `splates task`, the queue, which the root cli mounts after the commands for the task you work on. */
 export const splatesTask = cli<SplatesDeps>("task").description(
-	"the queue of numbered tasks: defer work for later instead of growing the task you are in, and `splates add <slug> --task <n>` starts one; `merge` recommends the next one when a task lands",
+	"the numbered tasks: defer work for later instead of growing the task you are in, and `splates add <slug> --task <n>` starts one; `merge` recommends the next one when a task lands. The person puts tasks in `splates queue`, for workers to start",
 );
 
 splatesTask

@@ -70,7 +70,7 @@ splatesServer
 	.option("worker-slots", z.coerce.number().int().min(1), {
 		default: LOCAL_SLOTS,
 		description:
-			"how many agents that other agents started (with `splates add --agent`, or a lane's orchestrator handing out tasks) this machine's worker runs at once; past them, each new or resumed one waits in the queue, first come, first served, which `splates queue` shows and reorders. An agent you start runs at once on any worker up, taking no slot. Read as the server starts its worker, which a restart from the page leaves running",
+			"how many agents that other agents started (with `splates add --agent`, or a lane's orchestrator handing out tasks) this machine's worker runs at once; past them, each new or resumed one waits in the queue, first come, first served, which `splates worker queue` shows and reorders. An agent you start runs at once on any worker up, taking no slot. Read as the server starts its worker, which a restart from the page leaves running",
 	})
 	.option("slot", z.boolean(), {
 		default: false,

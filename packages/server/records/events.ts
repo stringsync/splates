@@ -164,6 +164,8 @@ export interface Facts {
 	};
 	"task release": TasksFacts;
 	"task remove": TasksFacts;
+	"queue add": TasksFacts;
+	"queue remove": TasksFacts;
 	"lane add": {
 		/** The lane it started, by number. */
 		lane: number;
@@ -270,6 +272,8 @@ export const FACTS = {
 	"task wait": ["until", "began", "number", "subject"],
 	"task release": ["tasks"],
 	"task remove": ["tasks"],
+	"queue add": ["tasks"],
+	"queue remove": ["tasks"],
 	"lane add": ["lane", "name"],
 	"lane update": ["lane", "name", "changed"],
 	"lane remove": ["lane", "name", "tasks"],

@@ -57,6 +57,7 @@
 		"./projects": "./projects/index.ts",
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",
+		"./queue": "./queue/index.ts",
 		"./records": "./records/index.ts",
 		"./records/browser": "./records/browser.ts",
 		"./workers": "./workers/index.ts",

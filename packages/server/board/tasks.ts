@@ -326,11 +326,14 @@ export class Tasks {
 		const started = stored === null ? null : startedOf(stored);
 		const saved: TaskRecord = {
 			...state,
-			// Naming its model is grooming's last call, so it makes a task ready.
+			// Naming its model is grooming's last call, so it makes a task ready,
+			// and only the person takes one out of the queue.
 			stage:
-				state.stage === "ready" || state.assignee !== undefined
-					? "ready"
-					: "backlog",
+				state.stage === "queued"
+					? "queued"
+					: state.stage === "ready" || state.assignee !== undefined
+						? "ready"
+						: "backlog",
 		};
 		await this.store.write({
 			...saved,

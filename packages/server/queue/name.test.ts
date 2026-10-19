@@ -1,0 +1,22 @@
+import { describe, expect, it } from "bun:test";
+import { taskName } from "./name";
+
+const NAMES: ReadonlySet<string> = new Set();
+
+describe("taskName", () => {
+	it("names a task for its queued task's words, cut at a word, numbered past a name taken", () => {
+		expect(taskName("Upload retries forever on a 413", NAMES)).toBe(
+			"upload-retries-forever-on-a-413",
+		);
+		expect(
+			taskName(
+				"Server starts a running lane's unblocked queued tasks on its own, always",
+				NAMES,
+			),
+		).toBe("server-starts-a-running-lane-s-unblocked");
+		expect(taskName("Fix it", new Set(["fix-it", "fix-it-2"]))).toBe(
+			"fix-it-3",
+		);
+		expect(taskName("!!!", NAMES)).toBe("task");
+	});
+});

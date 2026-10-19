@@ -12,7 +12,7 @@ import { fail } from "../exit";
 import { table } from "../table";
 import type { QueueEntry } from "./scheduler";
 
-/** One agent waiting for a slot, as `GET /api/queue` and `splates queue list` give it. */
+/** One agent waiting for a slot, as `GET /api/queue` and `splates worker queue list` give it. */
 export interface QueueListing {
 	/** Its conversation's id. */
 	id: string;
@@ -46,7 +46,7 @@ const Listings = z.object({
 	),
 });
 
-/** What `splates queue` is run with. */
+/** What `splates worker queue` is run with. */
 export interface QueueOptions {
 	/** The `splates server` to ask; empty for the one this agent runs under. */
 	dev: string;
@@ -57,13 +57,13 @@ export interface QueueOptions {
 	wall?: WallClock;
 }
 
-/** `splates queue list`: the agents waiting for a slot on the running `splates server`. */
+/** `splates worker queue list`: the agents waiting for a slot on the running `splates server`. */
 export async function listQueue(opts: QueueOptions): Promise<void> {
 	print(await ask("/api/queue", opts), opts);
 }
 
 /**
- * `splates queue move`: puts the agent waiting for `which`, a task or a
+ * `splates worker queue move`: puts the agent waiting for `which`, a task or a
  * conversation's id, at `position` in the queue, from 1.
  */
 export async function moveQueued(

@@ -4,7 +4,7 @@ import { NodePs } from "webappwiz/system";
 import { listQueue, moveQueued } from "./queue";
 import { DevWorkers } from "./routes";
 
-describe("splates queue", () => {
+describe("splates worker queue", () => {
 	let workers: DevWorkers;
 	let server: Bun.Server<undefined>;
 	let url: string;

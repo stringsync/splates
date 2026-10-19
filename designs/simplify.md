@@ -83,9 +83,13 @@ task whose dependency is not queued (still in `backlog`, say) waits, and the
 page says which task it waits on. A dependency that is dropped leaves the
 task needing you, as a lost blocker does today.
 
-The queue replaces `LaneRunner.startable()` and the Scheduler's queue of
-slot requests. `splates queue` becomes its command (`list`, `add`, `remove`,
-`move`), and `splates slots` folds into `splates worker`.
+The queue replaces `LaneRunner.startable()`. `splates queue` is its command
+(`list`, `add`, `remove`, `move`); the agents waiting for a worker slot,
+which `splates queue` used to list, are `splates worker queue` now. The
+Scheduler keeps its line of slot requests, for agents started any other
+way, but the queue only starts as many tasks as the workers have room for
+(`Scheduler.room()`), so a queued task never waits for a slot with its
+worktree made.
 
 ## Workers (settled)
 
@@ -181,8 +185,12 @@ one is deleted.
    as grooming does last, else `backlog`. Started tasks keep their `status`, which stands for `running`
    until phase 2 folds it into `stage`. Lanes keep their running state until
    phase 4 deletes the lane runner. Behaviour is otherwise unchanged.
-2. **Queue and workers.** The worked-out queue, `splates queue`, and workers
-   that take from it. Lanes still run beside it.
+2. **Queue and workers.** The worked-out queue (`queue/`), `splates queue`,
+   and `QueueRunner`, which `splates server` runs to start the next task
+   whenever a worker has a slot free, on the model the task names or the
+   roster's first agent. Lanes still run beside it. Since the queue starts
+   tasks only into free slots, it never asks a provider for another worker;
+   that waits on a later change.
 3. **Events and hooks.** Events from the journal, hook config, the groomer
    as a hook, and its Setup step. Grooming by the agent that runs a task
    when no groomer is set up.

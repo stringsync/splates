@@ -9,7 +9,6 @@ import {
 	type LaneStart,
 	lanePrompt,
 	startable,
-	taskName,
 } from "./lane-runner";
 
 describe("LaneRunner", () => {
@@ -184,22 +183,6 @@ describe("LaneRunner", () => {
 		expect(ready(all)).toEqual([2]);
 	});
 
-	it("names a task for its queued task's words, cut at a word, numbered past a name taken", () => {
-		expect(taskName("Upload retries forever on a 413", NAMES)).toBe(
-			"upload-retries-forever-on-a-413",
-		);
-		expect(
-			taskName(
-				"Server starts a running lane's unblocked queued tasks on its own, always",
-				NAMES,
-			),
-		).toBe("server-starts-a-running-lane-s-unblocked");
-		expect(taskName("Fix it", new Set(["fix-it", "fix-it-2"]))).toBe(
-			"fix-it-3",
-		);
-		expect(taskName("!!!", NAMES)).toBe("task");
-	});
-
 	it("tells the agent its lane and what is out beside it", () => {
 		const out = queued({
 			id: 1,
@@ -230,7 +213,6 @@ describe("LaneRunner", () => {
 
 const RUNNING: LaneRecord = { id: 1, name: "Stats", running: { by: null } };
 const NONE: ReadonlySet<number> = new Set();
-const NAMES: ReadonlySet<string> = new Set();
 
 function queued(overrides: Partial<TaskRecord>): TaskRecord {
 	return {

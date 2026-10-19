@@ -28,7 +28,7 @@ export interface TaskRecord {
 	blockedBy: number[];
 	/** The lane it runs in, or null for none. */
 	lane: number | null;
-	/** How far it has come before starting: groomed (`ready`) or not yet (`backlog`). */
+	/** How far it has come before starting: groomed, queued, or neither yet. */
 	stage: TaskStage;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
@@ -378,6 +378,7 @@ export interface LandedBlocker extends GoneBlocker {
 /**
  * Where a task stands before it starts: `backlog` until grooming has looked
  * for a duplicate, linked what it depends on and named its model, then
- * `ready`.
+ * `ready`; `queued` once the person puts it in the queue, from either, for a
+ * worker to start.
  */
-export type TaskStage = "backlog" | "ready";
+export type TaskStage = "backlog" | "ready" | "queued";

@@ -153,6 +153,10 @@ export async function dev(
 			}) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
+		// Read once serving, after the workers are made below.
+		workerRoom: () => workers.slots.scheduler.room(),
+		onWorkerRoom: (listener) =>
+			workers.slots.scheduler.events.on("changed", listener),
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);

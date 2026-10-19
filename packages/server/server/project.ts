@@ -17,10 +17,11 @@ import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
-import { type AgentPick, AutoRoutes } from "../models";
+import { type AgentPick, AutoRoutes, Roster, splatesHome } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
+import { QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
@@ -56,6 +57,8 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let handedOut: HandedOut | null = null;
 	let laneRunner: LaneRunner | null = null;
+	let queueRunner: QueueRunner | null = null;
+	let unwatchRoom: (() => void) | null = null;
 	let groomer: Groomer | null = null;
 	let tasksWatch: Resource | null = null;
 	let events: Resource | null = null;
@@ -76,7 +79,7 @@ export async function serveProject(
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			capacity: project.config.agentsPerLane,
 			start: ({ task, queued, pick, prompt, by }) =>
-				startLaneTask(project, context.url, {
+				startQueuedTask(project, context.url, {
 					task,
 					number: queued.id,
 					pick,
@@ -85,6 +88,29 @@ export async function serveProject(
 				}),
 			log,
 		});
+		queueRunner = QueueRunner.watch({
+			queued: () => project.tasks.stored(),
+			tasks: async () => (await service.list()).map(({ task }) => task),
+			room: () => context.workerRoom(),
+			fallback: async () => {
+				const [first] = await new Roster(
+					`${splatesHome(project.ps)}/agents.json`,
+					{ fs },
+				).agents();
+				return { agent: first?.id ?? "claude" };
+			},
+			start: ({ task, queued, pick, prompt }) =>
+				startQueuedTask(project, context.url, {
+					task,
+					number: queued.id,
+					pick,
+					prompt,
+					by: null,
+				}),
+			log,
+		});
+		const queue = queueRunner;
+		unwatchRoom = context.onWorkerRoom(() => void queue.sweep());
 		groomer = Groomer.watch({
 			queued: () => project.tasks.stored(),
 			conversations,
@@ -103,8 +129,9 @@ export async function serveProject(
 		let starting = Promise.resolve();
 		const runner = laneRunner;
 		const handOff = (): void => {
-			// A task gone makes room in its lane.
+			// A task gone makes room in its lane, and moves the queue on.
 			void runner.sweep();
+			void queue.sweep();
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
 				.catch((error: unknown) => log.error(String(error)));
@@ -137,6 +164,7 @@ export async function serveProject(
 				tasksSettled.call(() => {
 					void watched.sweep();
 					void runner.sweep();
+					void queue.sweep();
 					void grooming.sweep();
 				}),
 			);
@@ -234,6 +262,8 @@ export async function serveProject(
 			tasksWatch?.dispose();
 			handedOut?.dispose();
 			laneRunner?.dispose();
+			queueRunner?.dispose();
+			unwatchRoom?.();
 			groomer?.dispose();
 			events?.dispose();
 			await talks.disposeAsync();
@@ -248,7 +278,7 @@ export async function serveProject(
  * agent as for any other. Its cap is the lane's, which `LaneRunner` keeps. Throws
  * with what `add` said on a refusal.
  */
-async function startLaneTask(
+async function startQueuedTask(
 	{ ps, service }: Project,
 	url: string | null,
 	{
@@ -285,7 +315,7 @@ async function startLaneTask(
 				...(by === null ? {} : { SPLATES_CONVERSATION: by }),
 				...(url === null ? {} : { SPLATES_DEV: url }),
 			},
-			// Whatever agent started this server, the task is the lane's.
+			// Whatever agent started this server, the task is the queue's or the lane's.
 			unset: [
 				"SPLATES_STARTED_BY",
 				...(by === null ? ["SPLATES_CONVERSATION"] : []),
@@ -350,6 +380,10 @@ export interface DevContext {
 	conversationsFor(project: Project): Conversations | null;
 	/** Every served project's conversations, where a caller of one may be. */
 	readonly everywhere: Everywhere;
+	/** How many more agents the workers could start now without waiting. */
+	workerRoom(): number;
+	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
+	onWorkerRoom(listener: () => void): () => void;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
 }

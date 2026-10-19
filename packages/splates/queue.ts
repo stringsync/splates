@@ -1,57 +1,74 @@
+import { tasksNamed } from "@stringsync/splates-server/board";
+import {
+	queueAdd,
+	queueList,
+	queueMove,
+	queueRemove,
+} from "@stringsync/splates-server/queue";
+import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
-import { listQueue, moveQueued } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
+import { here } from "./flags";
 
-const DEV = {
-	default: "",
-	description:
-		"the `splates server` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from SPLATES_DEV",
-};
-
-/** `splates queue`, which the root cli mounts beside `splates worker`. */
+/** `splates queue`, which the root cli mounts beside `splates task`. */
 export const splatesQueue = cli<SplatesDeps>("queue").description(
-	"the agents waiting for a slot on a worker of the running `splates server`: each one another agent started (with `splates add --agent`, or a lane's orchestrator handing out tasks), started or resumed while every worker it can run on is full, waits here, first come, first served, and starts once a slot frees, as when an agent left idle 30 minutes stops; none is ever failed for waiting. An agent you start waits only while no worker it can run on is up, as with this machine's own removed or none on the platform its project requires",
+	"the queue: the tasks a worker of `splates server` starts as soon as it has a slot free, each after every task it is blocked by, otherwise in the order you set. Only you queue a task, from the backlog or groomed; one that names no model runs on the roster's first agent",
 );
 
 splatesQueue
 	.command("list")
+	.use(repository({ needs: "read" }))
 	.description(
-		"list the agents waiting for a slot, first in line first: position, project, task, conversation, how long each has waited and why (no free slot, no worker up, or a platform no worker runs, as `needs macOS`)",
+		"the queue in the order workers start it, with each task's model and what it waits on: the open tasks it is blocked by, or those removed without merging",
 	)
-	.option("dev", z.string(), DEV)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) =>
-		listQueue({
-			dev: opts.dev,
-			json: opts.json,
-			log: ctx.log,
-			ps: ctx.ps,
-			send: ctx.fetch,
-		}),
-	);
+	.action((opts, ctx) => queueList(ctx, { json: opts.json }));
+
+splatesQueue
+	.command("add")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"queue tasks for a worker to start once nothing they are blocked by is open; refused for one already under way",
+	)
+	.rest("ids", z.coerce.number().int().positive(), {
+		description: "task numbers",
+	})
+	.action(async (opts, ctx) => {
+		await ctx.journal.record(
+			"queue add",
+			await here(ctx),
+			() => queueAdd(ctx, opts.ids),
+			(queued) => ({ tasks: tasksNamed(queued) }),
+		);
+	});
+
+splatesQueue
+	.command("remove")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"take tasks out of the queue, back to ready when they name a model, else the backlog; the tasks stay",
+	)
+	.rest("ids", z.coerce.number().int().positive(), {
+		description: "task numbers",
+	})
+	.action(async (opts, ctx) => {
+		await ctx.journal.record(
+			"queue remove",
+			await here(ctx),
+			() => queueRemove(ctx, opts.ids),
+			(removed) => ({ tasks: tasksNamed(removed) }),
+		);
+	});
 
 splatesQueue
 	.command("move")
+	.use(repository({ needs: "tasks" }))
 	.description(
-		"move an agent waiting for a slot to another place in line, from 1 for the next to start, then list the queue",
+		"move a queued task to another place in the queue, from 1 for the next to start; what it is blocked by still goes first. Then lists the queue",
 	)
-	.arg("which", z.string(), {
-		description: "the task it works, or its conversation's id",
+	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
+	.arg("position", z.coerce.number().int().positive(), {
+		description: "where in the queue to put it, from 1",
 	})
-	.arg("position", z.coerce.number().int(), {
-		description: "where in line to put it, from 1",
-	})
-	.option("dev", z.string(), DEV)
-	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) =>
-		moveQueued({
-			which: opts.which,
-			position: opts.position,
-			dev: opts.dev,
-			json: opts.json,
-			log: ctx.log,
-			ps: ctx.ps,
-			send: ctx.fetch,
-		}),
-	);
+	.action((opts, ctx) => queueMove(ctx, opts.id, opts.position));
