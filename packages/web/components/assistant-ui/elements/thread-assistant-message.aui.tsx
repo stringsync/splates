@@ -182,13 +182,17 @@ const WorkingIndicator: FC = () => {
 	if (labelled) {
 		return null;
 	}
+	// Laid out as the work row's line: its spacing, its size, and its words
+	// clear of where that row's chevron sits.
 	return (
-		<span
+		<div
 			data-slot="aui_assistant-message-indicator"
 			role="status"
-			className="text-muted-foreground shimmer font-sans text-sm motion-reduce:animate-none"
+			className="my-2 flex items-center pl-5 font-sans text-muted-foreground text-sm"
 		>
-			Working
-		</span>
+			<span className="min-w-0 truncate shimmer motion-reduce:animate-none">
+				Working
+			</span>
+		</div>
 	);
 };

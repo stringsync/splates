@@ -198,9 +198,9 @@ describe("App's conversation thread", () => {
 
 		const thread = view.getByRole("region", { name: "Read the note" });
 		await waitFor(() => expect(thread.textContent).toContain("It says"));
-		expect(within(thread).getByText("Working").getAttribute("role")).toBe(
-			"status",
-		);
+		expect(
+			within(thread).getByText("Working").closest('[role="status"]'),
+		).not.toBeNull();
 	});
 
 	it("copies what the person said from a button on their message, which says it copied", async () => {
