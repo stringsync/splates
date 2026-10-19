@@ -322,6 +322,22 @@ describe("App's attachments", () => {
 		);
 	});
 
+	it("counts an image kept as a file among the images, so naming it draws no other chip", async () => {
+		const { thread } = await openSent("see [Image 1]", [
+			{
+				type: "file",
+				name: "ab12.png",
+				title: "ab12.png",
+				mimeType: "image/png",
+			},
+		]);
+
+		await waitFor(() =>
+			within(thread).getByRole("button", { name: "Image 1" }),
+		);
+		expect(within(thread).queryByRole("button", { name: "File 1" })).toBeNull();
+	});
+
 	it("draws the other files a sent message names as chips that open them where they are kept", async () => {
 		const { view, thread } = await openSent("see [File 1]", [
 			{

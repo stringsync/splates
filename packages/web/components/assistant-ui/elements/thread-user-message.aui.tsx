@@ -36,6 +36,7 @@ import {
 	useOpenAt,
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import { SEEN } from "#web/conversation-feed.ts";
 import { useNameOf } from "#web/conversation-names.ts";
 import {
 	DirectiveChip,
@@ -322,7 +323,11 @@ export const UserMessage: FC = () => {
 		</MessagePrimitive.Root>
 	);
 };
-/** The files a message holds, where the page loads each from. */
+/**
+ * The files a message holds, where the page loads each from. An image kept as
+ * a file, for an agent that sees no images, still counts as an image, as the
+ * composer named it.
+ */
 const sentOf = (
 	attachments: readonly CompleteAttachment[] | undefined = [],
 ): Sent[] =>
@@ -333,7 +338,9 @@ const sentOf = (
 						{
 							src: part.type === "image" ? part.image : part.data,
 							name: attachment.name,
-							type: attachment.type,
+							type: SEEN.includes(attachment.contentType ?? "")
+								? "image"
+								: attachment.type,
 							contentType: attachment.contentType,
 						},
 					]
