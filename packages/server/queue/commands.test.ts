@@ -90,28 +90,4 @@ describe("queue commands", () => {
 		await queueMove(deps, 1, 9);
 		expect(await order()).toEqual([3, 4, 2, 1]);
 	});
-
-	it("queues ready tasks for auto-run, but not one the person took out", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "Groomed", null, { ready: true });
-		await taskAdd(deps, "Rough", null);
-		await taskAdd(deps, "Blocked", null, { ready: true });
-		await taskAdd(deps, "Held", null, { ready: true });
-		await taskUpdate(deps, 3, { blockedBy: [2] });
-		await queueAdd(deps, [4]);
-		await queueRemove(deps, [4]);
-
-		const queued = await deps.tasks.queueReady();
-
-		expect(queued.map((task) => task.id)).toEqual([1]);
-		expect((await deps.tasks.all()).map((task) => task.state.stage)).toEqual([
-			"queued",
-			"backlog",
-			"ready",
-			"ready",
-		]);
-		// Queued by hand again, it is no longer held.
-		await queueAdd(deps, [4]);
-		expect((await deps.tasks.find(4)).state.held).toBeUndefined();
-	});
 });

@@ -1,4 +1,3 @@
-export { AutoRunStore } from "./auto-run";
 export type { QueueDeps } from "./commands";
 export {
 	moveInQueue,

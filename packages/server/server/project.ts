@@ -20,11 +20,10 @@ import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import type { AgentPick } from "../models";
-import { splatesHome } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
-import { AutoRunStore, QueueRunner } from "../queue";
+import { QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
@@ -63,13 +62,6 @@ export async function serveProject(
 			queued: () => project.tasks.stored(),
 			lanes: async () => {
 				const queued = await project.tasks.queueFromLanes();
-				if (
-					await new AutoRunStore(`${splatesHome(project.ps)}/auto-run.json`, {
-						fs,
-					}).on()
-				) {
-					queued.push(...(await project.tasks.queueReady()));
-				}
 				if (queued.length > 0) {
 					await journal.record(
 						"queue add",

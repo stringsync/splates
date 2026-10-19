@@ -68,10 +68,7 @@ export async function queueAdd(
 	const queued: Task[] = [];
 	for (const task of found) {
 		queued.push(
-			await tasks.revise(task.id, ({ held: _, ...state }) => ({
-				...state,
-				stage: "queued",
-			})),
+			await tasks.revise(task.id, (state) => ({ ...state, stage: "queued" })),
 		);
 	}
 	// Queued again by hand, a queued lane counts it in once more.
@@ -108,13 +105,7 @@ export async function queueRemove(
 	}
 	const removed: Task[] = [];
 	for (const task of found) {
-		// Held in ready, so auto-run does not queue it straight back.
-		removed.push(
-			await tasks.revise(task.id, (state) => ({
-				...unqueued(state),
-				held: true,
-			})),
-		);
+		removed.push(await tasks.revise(task.id, unqueued));
 	}
 	// So a queued lane does not queue it straight back.
 	await tasks.skipInLanes(ids, true);

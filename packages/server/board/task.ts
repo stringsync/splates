@@ -33,8 +33,6 @@ export interface TaskRecord {
 	stage: TaskStage;
 	/** Whether it was groomed, kept once queued and running, so one let go goes back to ready. */
 	groomed?: true;
-	/** The person took it out of the queue, so auto-run leaves it in ready. */
-	held?: true;
 	/** The groomer conversation that claimed it, in the backlog untaken; absent for none. */
 	grooming?: string;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
@@ -47,8 +45,9 @@ export interface TaskRecord {
 	 */
 	blockersLanded?: LandedBlocker[];
 	/**
-	 * Tasks it was blocked by that were removed without merging. While any is
-	 * here nothing starts it on its own: the person decides, unlinking each.
+	 * Tasks it was blocked by that were removed without merging. While any
+	 * is here, nothing starts it on its own: whether it still makes sense is
+	 * the person's call, made by unlinking each. Absent for none.
 	 */
 	blockersLost?: GoneBlocker[];
 	/** Its last Auto pick, with what the judge said of its words; absent for none. */

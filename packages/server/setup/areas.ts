@@ -1,5 +1,4 @@
 import { AUTO_PICK_AREA } from "./area-auto-pick";
-import { AUTO_RUN_AREA } from "./area-auto-run";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import { DICTATION_AREA } from "./area-dictation";
 import { GITHUB_AREA } from "./area-github";
@@ -21,7 +20,6 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	COORDINATOR_AREA,
 	DICTATION_AREA,
 	AUTO_PICK_AREA,
-	AUTO_RUN_AREA,
 	GITHUB_AREA,
 	CLAUDE_AREA,
 	CODEX_AREA,
