@@ -41,6 +41,8 @@ export type Need =
 			kind: "working";
 			/** The next step under `## Next`, else the Goal's first line. */
 			subject: string | null;
+			/** Whether its task is landing, under `splates merge`. */
+			merging?: true;
 	  }
 	| { kind: "idle" };
 
@@ -195,6 +197,14 @@ export function orphaned(
  */
 export const ASKED_QUIET = Duration.mins(3);
 
+/** What an agent at work on `task` needs: nothing yet, while merging or not. */
+function working(task: Details | null): Need {
+	const subject = task?.plan ? doing(task.plan) : null;
+	return task?.status === "merging"
+		? { kind: "working", subject, merging: true }
+		: { kind: "working", subject };
+}
+
 /**
  * What one agent needs, from its conversation (null for an agent the page
  * does not run) and the task it is in (null for the main tree), at `now`.
@@ -237,14 +247,14 @@ export function need(
 		}
 		return first !== undefined
 			? { kind: "assuming", subject: first.text, questions: open }
-			: { kind: "working", subject: task?.plan ? doing(task.plan) : null };
+			: working(task);
 	}
 	const running =
 		conversation.status === "running" || conversation.status === "starting";
 	if (running) {
 		return first !== undefined
 			? { kind: "assuming", subject: first.text, questions: open }
-			: { kind: "working", subject: task?.plan ? doing(task.plan) : null };
+			: working(task);
 	}
 	const last = conversation.messages.at(-1);
 	const ended = last?.until ?? last?.at ?? null;

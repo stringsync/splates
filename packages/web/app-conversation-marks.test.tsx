@@ -91,6 +91,30 @@ Cap upload retries
 		]);
 	});
 
+	it("marks an agent whose task is landing as merging, on a green row", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Lands",
+					status: "running",
+				}),
+				conversation({ id: "c2", title: "Runs", status: "running" }),
+			]),
+			null,
+			{ tasks: [details({ task: "alpha", status: "merging" })] },
+		);
+
+		expect(rows(view)).toEqual([
+			["alpha", "merging"],
+			["Runs", "working"],
+		]);
+		const [lands, runs] = items(view);
+		expect(lands?.innerHTML).toContain("bg-success/15");
+		expect(runs?.innerHTML).not.toContain("bg-success/15");
+	});
+
 	it("marks an agent quiet long enough to be stuck, and stops its turn from its menu", async () => {
 		const quiet = {
 			...message("agent", "Looking."),

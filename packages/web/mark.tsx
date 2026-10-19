@@ -1,5 +1,5 @@
 import type { Ending, Need } from "@stringsync/splates-server/plans";
-import { HourglassIcon, Loader2Icon } from "lucide-react";
+import { GitMergeIcon, HourglassIcon, Loader2Icon } from "lucide-react";
 import type { JSX } from "react";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
@@ -10,6 +10,7 @@ import { type Quiet, quietTitle } from "./quiet";
  * for, a spinner while it or an agent it handed a task to works, assuming or
  * not, a blue dot when it answered and you have not looked since, and a
  * green or red dot once its task merged or was removed, over the blue one.
+ * While its task lands, the spinner gives way to a green merge icon.
  * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. A spinner gone quiet long enough that the agent
@@ -91,6 +92,18 @@ export function Mark({
 	if (need.kind === "idle" && !hosting) {
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
+	}
+	if (need.kind === "working" && need.merging) {
+		return (
+			<span
+				role="status"
+				aria-label="merging"
+				title="Merging"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<GitMergeIcon className="size-3.5 text-success" />
+			</span>
+		);
 	}
 	if (quiet !== null && need.kind !== "idle") {
 		return (

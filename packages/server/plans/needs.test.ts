@@ -27,6 +27,22 @@ describe("needs", () => {
 		});
 	});
 
+	it("says an agent at work is merging while its task lands", () => {
+		const running = talk({ status: "running" });
+
+		expect(need(task({ status: "merging" }), running)).toEqual({
+			kind: "working",
+			subject: null,
+			merging: true,
+		});
+		expect(need(task({ status: "merging" }), null)).toEqual({
+			kind: "working",
+			subject: null,
+			merging: true,
+		});
+		expect(need(task(), running)).toEqual({ kind: "working", subject: null });
+	});
+
 	it("waits on a review its last reply asks for, once its turn ends", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const reviewing = talk({

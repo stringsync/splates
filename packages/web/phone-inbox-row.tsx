@@ -70,6 +70,8 @@ export function Row({
 				"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
 				depth === 0 ? "min-h-16" : "min-h-14",
 				conversation !== null && placeholding(conversation) && "opacity-50",
+				// Green while its task lands, as the sidebar's row is.
+				need.kind === "working" && need.merging && "bg-success/15",
 			)}
 			// Under the name of the agent it answers to.
 			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
@@ -170,6 +172,12 @@ export function statusOf(
 	trunk: string | null,
 	quiet: Quiet | null = null,
 ): { text: string; urgent: boolean } {
+	if (need.kind === "working" && need.merging) {
+		return {
+			text: `Merging onto ${task?.base ?? trunk ?? "trunk"}`,
+			urgent: false,
+		};
+	}
 	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
 		return { text: quietText(quiet), urgent: true };
 	}

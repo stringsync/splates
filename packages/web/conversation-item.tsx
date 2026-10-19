@@ -49,9 +49,10 @@ import { useRowRefusal } from "./row-refusal";
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
  * needs you, its name muted for one that answers to another, and a pin while
- * pinned. Hovered or focused, it offers a menu, Move under… among it, Archive
- * (or Unarchive), Stop turn while its agent may be stuck, and Pin (or Unpin),
- * but for one nested under another, which moves with that one.
+ * pinned, all on green while its task lands. Hovered or focused, it offers a
+ * menu, Move under… among it, Archive (or Unarchive), Stop turn while its
+ * agent may be stuck, and Pin (or Unpin), but for one nested under another,
+ * which moves with that one.
  */
 export function Item({
 	conversation,
@@ -111,6 +112,9 @@ export function Item({
 			className={cn(
 				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
 				current && "bg-accent hover:bg-accent",
+				need.kind === "working" &&
+					need.merging &&
+					"bg-success/15 hover:bg-success/20",
 			)}
 		>
 			{renaming && (
