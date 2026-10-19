@@ -1,5 +1,4 @@
 import type { Added } from "@stringsync/splates-server/projects";
-import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";
@@ -142,8 +141,9 @@ export function NoProject({ message }: { message: string }): JSX.Element {
 }
 
 /**
- * What the page shows before a project's first snapshot: the server opens a
- * project on its first read, which takes seconds. Offline or outdated, the
+ * What the page shows before a project's first snapshot, under the splash
+ * (see splash.tsx): the server opens a project on its first read, which takes
+ * seconds, so only a screen reader is told so. Offline or outdated, the
  * header already says why nothing came; with no project to show, the page
  * asks for one.
  */
@@ -162,11 +162,7 @@ export function Opening({
 		return <NoProject message={missing} />;
 	}
 	return waiting ? (
-		<div
-			role="status"
-			className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-		>
-			<Loader2Icon className="size-4 animate-spin" />
+		<div role="status" className="sr-only">
 			Opening {name}
 		</div>
 	) : null;

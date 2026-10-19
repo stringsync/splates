@@ -9,6 +9,7 @@
    renders has to be listed: one that nobody lists comes out of the compiler as
    nothing at all. */
 @source "./app.tsx";
+@source "./splash.tsx";
 @source "./dictate-button.tsx";
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";

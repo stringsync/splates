@@ -60,6 +60,7 @@ import { SetupPage } from "./setup-page";
 import { SetupProvider } from "./setup-state";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
+import { Splash } from "./splash";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 import { Tasks } from "./tasks";
@@ -153,9 +154,10 @@ export function App({
 		},
 		[talk],
 	);
-	const { available, agents, conversations } = useReactive(
+	const { loading, available, agents, conversations } = useReactive(
 		talk,
 		(talk) => ({
+			loading: talk.loading,
 			available: talk.available,
 			agents: talk.agents,
 			conversations: talk.conversations,
@@ -337,13 +339,8 @@ export function App({
 						</TreesContext>
 					),
 				};
-	const opening = (
-		<Opening
-			missing={missing}
-			waiting={!offline && outdated === null}
-			name={name}
-		/>
-	);
+	const reachable = !offline && outdated === null;
+	const opening = <Opening missing={missing} waiting={reachable} name={name} />;
 	const header = (
 		<AppHeader
 			name={name}
@@ -488,6 +485,14 @@ export function App({
 																				open={setting}
 																				onOpenChange={setSetting}
 																				onSetup={() => go("setup")}
+																			/>
+																			{/* Until the project and its conversations are in, or the page has something else to say. */}
+																			<Splash
+																				shown={
+																					missing === null &&
+																					reachable &&
+																					(snapshot === null || loading)
+																				}
 																			/>
 																		</CheckpointProvider>
 																	</TooltipProvider>
