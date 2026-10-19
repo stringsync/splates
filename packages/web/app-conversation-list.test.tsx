@@ -78,7 +78,12 @@ describe("App's conversation list", () => {
 		expect(
 			within(nav).getByRole("button", { name: "Claude alpha" }).title,
 		).toBe("alpha");
-		expect(within(nav).getByRole("button", { name: /Archived/ })).toBeTruthy();
+		// Pinned at the sidebar's foot, under the list rather than in it.
+		expect(within(nav).queryByRole("button", { name: /Archived/ })).toBeNull();
+		expect(
+			within(view.getByRole("tablist")).getAllByRole("button").at(-1)
+				?.textContent,
+		).toMatch(/^Archived/);
 		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",

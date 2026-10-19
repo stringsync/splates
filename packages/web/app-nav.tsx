@@ -5,7 +5,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
-import { ConversationList } from "./conversation-list";
+import { ArchivedEntry, ConversationList } from "./conversation-list";
 import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
@@ -23,7 +23,7 @@ export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held, the Inbox first, the agents under them, atop them a line to the next waiting, and a handle to drag it wider,
+ * shortcut while ⌥⌘ is held, the Inbox first, the agents under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
  * unless it is hidden. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
@@ -114,7 +114,7 @@ export function AppNav({
 				))}
 				{/* Under their tab, so one is a click away from any page. */}
 				{available && snapshot !== null && (
-					<div className="-mx-3 mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t px-3 pt-4 pb-6">
+					<div className="-mx-3 mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t px-3 pt-4 pb-4">
 						<NextWaiting
 							feed={talk}
 							drafts={drafts}
@@ -137,6 +137,15 @@ export function AppNav({
 								repo: snapshot.repo,
 								trunk: snapshot.trunk,
 							}}
+							open={page === "conversations" ? open : null}
+							onOpen={onOpen}
+						/>
+					</div>
+				)}
+				{available && snapshot !== null && (
+					<div className="-mx-3 border-t px-3 py-2">
+						<ArchivedEntry
+							feed={talk}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>

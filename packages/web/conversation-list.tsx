@@ -51,10 +51,9 @@ const DIGITS = 10;
 
 /**
  * The sidebar's agents, all of them, after the main tree's own terminals,
- * oldest first, until each is closed, with the archived ones behind a link
- * at the bottom. Each row is named alone, with its task on hover. A conversation
- * follows its agent as it takes and lands tasks. A task whose agent runs
- * outside the page is a row of its own. Rows stay put as their agents change
+ * oldest first, until each is closed. Each row is named alone, with its
+ * task on hover. A conversation follows its agent as it takes and lands
+ * tasks. A task whose agent runs outside the page is a row of its own. Rows stay put as their agents change
  * state; each one's mark says whether it works or waits on you. Under a
  * conversation, muted as a subagent is, sit its terminal while its shell is
  * up and each command its agent left running, each opening in the pane
@@ -102,7 +101,6 @@ export function ConversationList({
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 
 	const rows = rowsOf(tasks, conversations);
-	const archived = conversations.filter((each) => each.archived).length;
 	useCopiedReplies(drafts);
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const hosting = hostsAtWork(nested);
@@ -142,7 +140,6 @@ export function ConversationList({
 							})),
 						),
 				];
-	// What ⌥⌘0 to ⌥⌘9 open: the rows that show.
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
 	const held = useHeld();
@@ -352,22 +349,46 @@ export function ConversationList({
 					</Placing>
 				)
 			)}
-			<button
-				type="button"
-				data-row
-				aria-current={open === ARCHIVED ? "page" : undefined}
-				onClick={() => onOpen(ARCHIVED)}
-				className={cn(
-					"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-					open === ARCHIVED && "bg-muted text-foreground",
-				)}
-			>
-				<ArchiveIcon className="size-3.5" />
-				<span className="flex-1">Archived</span>
-				{archived > 0 && <span className="tabular-nums">{archived}</span>}
-			</button>
 			{closing.confirm}
 		</nav>
+	);
+}
+
+/**
+ * The link to the archived conversations, with how many there are, pinned at
+ * the sidebar's foot under the list.
+ */
+export function ArchivedEntry({
+	feed,
+	open,
+	onOpen,
+}: {
+	feed: ConversationFeed;
+	/** The conversation shown, by id, or `ARCHIVED`. */
+	open: string | null;
+	onOpen: (id: string | null) => void;
+}): JSX.Element {
+	const { archived } = useReactive(
+		feed,
+		(feed) => ({
+			archived: feed.conversations.filter((each) => each.archived).length,
+		}),
+		["changed"],
+	);
+	return (
+		<button
+			type="button"
+			aria-current={open === ARCHIVED ? "page" : undefined}
+			onClick={() => onOpen(ARCHIVED)}
+			className={cn(
+				"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
+				open === ARCHIVED && "bg-muted text-foreground",
+			)}
+		>
+			<ArchiveIcon className="size-3.5" />
+			<span className="flex-1">Archived</span>
+			{archived > 0 && <span className="tabular-nums">{archived}</span>}
+		</button>
 	);
 }
 
