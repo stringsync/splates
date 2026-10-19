@@ -87,6 +87,10 @@ export function useThreadMessages(
 			(each) => !each.queued || starting,
 		);
 		const happened = turnsOf(said, conversation.events);
+		// An agent starting again may carry on the turn its last message holds.
+		const resumed = starting
+			? said.findLastIndex((each) => each.role === "agent")
+			: -1;
 		const liked = workingTimes(
 			said.map((message, index) =>
 				queuedReply(
@@ -104,6 +108,7 @@ export function useThreadMessages(
 							conversation.ask?.type === "permission"
 							? conversation.ask.at
 							: null,
+						said[index + 1]?.steered === true || index === resumed,
 					),
 					said[index - 1],
 				),
@@ -230,6 +235,8 @@ export function like(
 	/** What splates did at the agent's word in this turn, oldest first. */
 	events: readonly Event[] = [],
 	waiting: string | null = null,
+	/** Its turn went on past it, steered into or carried on by an agent coming back. */
+	cut = false,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -268,7 +275,15 @@ export function like(
 		!settled &&
 		message.stopped === undefined &&
 		message.interrupted === undefined;
-	const all = stretchesOf(message, began, going, now, events, waiting);
+	const all = stretchesOf(
+		message,
+		began,
+		going,
+		now,
+		events,
+		waiting,
+		cut || message.stopped !== undefined || message.interrupted !== undefined,
+	);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,

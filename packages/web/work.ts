@@ -62,17 +62,24 @@ export function stretchesOf(
 	/** What splates did at its word during it, oldest first. */
 	events: readonly Event[] = [],
 	waiting: string | null = null,
+	/**
+	 * The turn did not end on its own: stopped, cut short, steered into, or
+	 * carried on by an agent coming back.
+	 */
+	unended = false,
 ): Stretch[] {
 	const parts = spoken(message);
 	// While the turn goes on, words with work after them were on the way, and
 	// so are the latest until a moment has passed with nothing after them:
 	// an agent says what it will do next as it does it, and showing those
 	// words as its reply would only take them back as the next call starts.
-	// Once over, the last words are its reply, even with work after them.
+	// A turn that did not end on its own replies only with words nothing came
+	// after. Once over, the last words are its reply, even with work after them.
 	const spoke = parts.findLastIndex((part) => part.type === "text");
 	const due = going ? replyDue(message) : null;
 	const last =
-		going && (spoke !== parts.length - 1 || (due !== null && now < due))
+		((going || unended) && spoke !== parts.length - 1) ||
+		(going && due !== null && now < due)
 			? -1
 			: spoke;
 	const said = parts[last];
