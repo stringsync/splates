@@ -54,8 +54,6 @@ describe("GITHUB_AREA", () => {
 				root: "/repo",
 				config: async () => ({ trunk: "main", remote, workerProvider: null }),
 				remoteUrl: async (name) => (name === "origin" ? url : null),
-				groomer: async () => null,
-				setGroomer: async () => {},
 			},
 		};
 		await machine.device.set(APP_ID, "42");

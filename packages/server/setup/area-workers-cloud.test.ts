@@ -32,8 +32,6 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 					workerProvider: provider,
 				}),
 				remoteUrl: async () => null,
-				groomer: async () => null,
-				setGroomer: async () => {},
 			},
 		};
 		tokenStatus = 200;

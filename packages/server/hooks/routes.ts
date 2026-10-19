@@ -1,11 +1,12 @@
 import { fail } from "../exit";
+import type { AgentPick } from "../models";
 import { body } from "../server/shared";
 import { hookLabel, triggerLabel } from "./commands";
 import type { TaskEventName } from "./events";
+import { GROOMER_AUTOMATION } from "./groomer";
 import type { AutomationRun, RunStore } from "./runs";
 import {
 	type Automation,
-	GROOMER_AUTOMATION,
 	type Hook,
 	type HookStore,
 	stagesNamed,
@@ -58,9 +59,19 @@ export class AutomationRoutes {
 		return this.#list();
 	};
 
+	/**
+	 * Edits one of the person's automations or, named `groomer`, sets the
+	 * agent the groomer runs as, turning it on when it is off: its trigger
+	 * and its prompt are splates's own.
+	 */
 	readonly editAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook } = await body(request);
-		await this.#store.edit(idIn(request), triggerIn(trigger), hookIn(hook));
+		const id = idIn(request);
+		if (id === GROOMER_AUTOMATION) {
+			await this.#store.groomer(pickIn(hook));
+		} else {
+			await this.#store.edit(id, triggerIn(trigger), hookIn(hook));
+		}
 		this.#changed();
 		return this.#list();
 	};
@@ -133,6 +144,23 @@ function triggerIn(raw: unknown): Trigger {
 	return Object.keys(narrowed).length === 0
 		? { event }
 		: { event, filter: narrowed };
+}
+
+/** The agent a request sent the groomer to run as, refusing none. */
+function pickIn(raw: unknown): AgentPick {
+	const given = (raw ?? {}) as Record<string, unknown>;
+	if (typeof given.agent !== "string" || given.agent === "") {
+		fail("usage", "pick the agent the groomer runs as", {});
+	}
+	return {
+		agent: given.agent,
+		...(typeof given.model === "string" && given.model !== ""
+			? { model: given.model }
+			: {}),
+		...(typeof given.effort === "string" && given.effort !== ""
+			? { effort: given.effort }
+			: {}),
+	};
 }
 
 /** The hook a request sent, refusing one of the wrong shape. */

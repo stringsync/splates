@@ -203,7 +203,7 @@ splatesHook
 	.command("groomer")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"turn on the project's groomer, built-in automation `groomer`, as Setup's Grooming step does: on each task deferred to the backlog, and the backlog as `splates server` starts, one persistent conversation organizes each task in order and marks it ready, never doing it. `--off` turns it off, retiring its conversation",
+		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Automations page does: on each task deferred to the backlog, and the backlog as `splates server` starts, one persistent conversation organizes each task in order and marks it ready, never doing it. `--off` turns it off, retiring its conversation",
 	)
 	.option("agent", z.string(), {
 		default: "",

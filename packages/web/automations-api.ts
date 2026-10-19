@@ -3,6 +3,8 @@ import type {
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
+import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import { ApiError, scoped, send, sendJson } from "./api";
 
 /** Every automation set for this project, the checked-in ones too. */
@@ -38,6 +40,17 @@ export async function editAutomation(
 ): Promise<AutomationRow[]> {
 	return rows(
 		await sendJson(`/api/automations/${id}`, "PUT", { trigger, hook }),
+	);
+}
+
+/** Sets the agent the groomer runs as, turning it on when it is off. */
+export async function groomAutomation(
+	pick: AgentPick,
+): Promise<AutomationRow[]> {
+	return rows(
+		await sendJson(`/api/automations/${GROOMER_AUTOMATION}`, "PUT", {
+			hook: pick,
+		}),
 	);
 }
 

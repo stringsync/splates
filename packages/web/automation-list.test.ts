@@ -45,6 +45,28 @@ describe("AutomationList", () => {
 		expect(list.own[0]).toMatchObject({ id: "1", when: "every 2h" });
 	});
 
+	it("shows the groomer turned on at once, then edited, as the server says it stands", async () => {
+		const { api, settle } = held([TIDY]);
+		const list = new AutomationList(api);
+		await list.read();
+		expect(list.groomer).toBeNull();
+
+		const turning = list.groom({ agent: "claude" });
+		expect(list.builtIn).toMatchObject([
+			{ id: "groomer", hook: { kind: "groom", agent: "claude" }, when: "" },
+		]);
+		settle();
+		expect(await turning).toBe(true);
+		expect(list.groomer).toMatchObject({ when: "task.created in backlog" });
+
+		const editing = list.groom({ agent: "codex", model: "gpt-5" });
+		expect(list.builtIn).toMatchObject([
+			{ hook: { kind: "groom", agent: "codex", model: "gpt-5" }, when: "" },
+		]);
+		settle();
+		await editing;
+	});
+
 	it("says a refusal and goes back to what stands", async () => {
 		const { api, settle } = held([TIDY]);
 		const list = new AutomationList(api);
@@ -82,6 +104,19 @@ function held(rows: AutomationRow[]) {
 		edit: (_, trigger) => write([{ ...TIDY, trigger, when: "every 2h" }]),
 		remove: () => write([]),
 		pause: () => write([{ ...TIDY, paused: true }]),
+		groom: (pick) =>
+			write([
+				TIDY,
+				{
+					...TIDY,
+					id: "groomer",
+					trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+					hook: { kind: "groom", ...pick },
+					source: "builtin",
+					when: "task.created in backlog",
+					does: `groom the backlog with ${pick.agent}`,
+				},
+			]),
 	};
 	return { api, settle: (refused?: Error) => settle(refused) };
 }

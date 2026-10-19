@@ -5,6 +5,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
+	GROOMER_AUTOMATION,
 	TASK_EVENTS,
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
@@ -13,6 +14,7 @@ import { PauseIcon, PencilIcon, PlayIcon, XIcon } from "lucide-react";
 import {
 	type FormEvent,
 	type JSX,
+	type ReactNode,
 	useContext,
 	useEffect,
 	useState,
@@ -30,6 +32,12 @@ import { AutomationDraft, type When } from "./automation-draft";
 import { AutomationList } from "./automation-list";
 import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
+import {
+	type Groom,
+	GroomerForm,
+	GroomerOff,
+	groomerPick,
+} from "./groomer-card";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
 import { Stamp } from "./stamp";
@@ -41,13 +49,13 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
  * The Automations page: what runs on a task event or a schedule while
  * `splates server` runs, each with its last runs, to edit, pause or remove,
  * and a form to add one. The person's own come first; then those the project
- * checks in, and those splates itself sets, which only `splates.config.ts`
- * or Setup change.
+ * checks in, which only `splates.config.ts` changes, and those splates
+ * itself sets, as the groomer, whose agent is all that changes here.
  */
 export function AutomationsPage(): JSX.Element {
 	const [list] = useState(() => new AutomationList());
 	useEffect(() => void list.read(), [list]);
-	const { rows, refusal, own, checkedIn, builtIn } = useReactive(
+	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
 		list,
 		(list) => ({
 			rows: list.rows,
@@ -55,6 +63,7 @@ export function AutomationsPage(): JSX.Element {
 			own: list.own,
 			checkedIn: list.checkedIn,
 			builtIn: list.builtIn,
+			groomer: list.groomer,
 		}),
 		["changed"],
 	);
@@ -88,15 +97,18 @@ export function AutomationsPage(): JSX.Element {
 							rows={checkedIn}
 						/>
 					)}
-					{builtIn.length > 0 && (
-						<Group
-							title="Built in"
-							detail="Set by splates, from Setup. Removing the groomer turns it off, retiring its conversation; Setup turns it on again."
-							rows={builtIn}
-							onPause={(row, paused) => void list.pause(row, paused)}
-							onRemove={(row) => void list.remove(row)}
-						/>
-					)}
+					<Group
+						title="Built in"
+						detail="Set by splates, which keeps what sets each off and what it is told. Removing the groomer turns it off, retiring its conversation."
+						rows={builtIn}
+						onGroom={(pick) => list.groom(pick)}
+						onPause={(row, paused) => void list.pause(row, paused)}
+						onRemove={(row) => void list.remove(row)}
+					>
+						{groomer === null && (
+							<GroomerOff onGroom={(pick) => list.groom(pick)} />
+						)}
+					</Group>
 				</>
 			)}
 			<AddForm onAdd={(trigger, hook) => list.add(trigger, hook)} />
@@ -104,23 +116,27 @@ export function AutomationsPage(): JSX.Element {
 	);
 }
 
-/** A heading and the automations under it. */
+/** A heading and the automations under it, then any `children`. */
 function Group({
 	title,
 	detail,
 	empty,
 	rows,
 	onEdit,
+	onGroom,
 	onPause,
 	onRemove,
+	children,
 }: {
 	title: string;
 	detail: string;
 	empty?: string;
 	rows: AutomationRow[];
 	onEdit?: Edit;
+	onGroom?: Groom;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
+	children?: ReactNode;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
@@ -128,7 +144,7 @@ function Group({
 				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
 				<span className="text-muted-foreground text-xs">{detail}</span>
 			</header>
-			{rows.length === 0 ? (
+			{rows.length === 0 && children == null ? (
 				<p className="text-muted-foreground text-sm">{empty}</p>
 			) : (
 				<ul className="flex flex-col gap-3">
@@ -137,10 +153,12 @@ function Group({
 							key={row.id || "adding"}
 							row={row}
 							onEdit={onEdit}
+							onGroom={onGroom}
 							onPause={onPause}
 							onRemove={onRemove}
 						/>
 					))}
+					{children}
 				</ul>
 			)}
 		</div>
@@ -156,24 +174,47 @@ type Edit = (
 
 /**
  * One automation: what sets it off, what it runs, its last runs, and its
- * buttons; or, while it is being edited, the form that edits it.
+ * buttons; or, while it is being edited, the form that edits it, which for
+ * the groomer picks only its agent.
  */
 function Card({
 	row,
 	onEdit,
+	onGroom,
 	onPause,
 	onRemove,
 }: {
 	row: AutomationRow;
 	onEdit?: Edit;
+	onGroom?: Groom;
 	onPause?: (row: AutomationRow, paused: boolean) => void;
 	onRemove?: (row: AutomationRow) => void;
 }): JSX.Element {
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
+	const [grooming, setGrooming] = useState(false);
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
 	const paused = row.paused === true;
+	// The groomer's agent, all of it the page edits; null for any other.
+	const groomer = row.id === GROOMER_AUTOMATION ? groomerPick(row.hook) : null;
+	if (grooming && groomer !== null && onGroom !== undefined) {
+		return (
+			<li aria-label={`automation ${row.id}`}>
+				<GroomerForm
+					pick={groomer}
+					title="Edit the groomer"
+					submit="Save"
+					onSubmit={(picked) => {
+						// Shown saved at once; a refusal is said above the list.
+						setGrooming(false);
+						void onGroom(picked);
+					}}
+					onCancel={() => setGrooming(false)}
+				/>
+			</li>
+		);
+	}
 	if (editing !== null && onEdit !== undefined) {
 		return (
 			<li aria-label={`automation ${row.id}`}>
@@ -216,16 +257,22 @@ function Card({
 						{row.does}
 					</p>
 				</div>
-				{!pending && onEdit !== undefined && (
-					<Button
-						size="icon-sm"
-						variant="ghost"
-						aria-label="Edit"
-						onClick={() => setEditing(AutomationDraft.of(row))}
-					>
-						<PencilIcon />
-					</Button>
-				)}
+				{!pending &&
+					(onEdit !== undefined ||
+						(groomer !== null && onGroom !== undefined)) && (
+						<Button
+							size="icon-sm"
+							variant="ghost"
+							aria-label="Edit"
+							onClick={() =>
+								groomer
+									? setGrooming(true)
+									: setEditing(AutomationDraft.of(row))
+							}
+						>
+							<PencilIcon />
+						</Button>
+					)}
 				{!adding && onPause !== undefined && (
 					<Button
 						size="icon-sm"

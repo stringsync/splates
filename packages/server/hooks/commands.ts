@@ -2,13 +2,8 @@ import { color, type Logger } from "webappwiz/log";
 import { fail } from "../exit";
 import { type AgentPick, pickLabel } from "../models";
 import { changed, type HookChange } from "./edit";
-import {
-	type Automation,
-	GROOMER_AUTOMATION,
-	type Hook,
-	type HookStore,
-	type Trigger,
-} from "./store";
+import { GROOMER_AUTOMATION } from "./groomer";
+import type { Automation, Hook, HookStore, Trigger } from "./store";
 
 /** What the hook commands work with. */
 export interface HookDeps {

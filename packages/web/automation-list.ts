@@ -3,10 +3,16 @@ import type {
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
+import {
+	GROOMER_AUTOMATION,
+	GROOMER_TRIGGER,
+} from "@stringsync/splates-server/hooks/browser";
+import type { AgentPick } from "@stringsync/splates-server/models";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
 	addAutomation,
 	editAutomation,
+	groomAutomation,
 	pauseAutomation,
 	automations as readAutomations,
 	removeAutomation,
@@ -22,6 +28,7 @@ export interface AutomationsApi {
 	edit: (id: string, trigger: Trigger, hook: Hook) => Promise<AutomationRow[]>;
 	remove: (id: string) => Promise<AutomationRow[]>;
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
+	groom: (pick: AgentPick) => Promise<AutomationRow[]>;
 }
 
 const API: AutomationsApi = {
@@ -30,6 +37,7 @@ const API: AutomationsApi = {
 	edit: editAutomation,
 	remove: removeAutomation,
 	pause: pauseAutomation,
+	groom: groomAutomation,
 };
 
 /**
@@ -61,6 +69,11 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	/** Those splates itself sets, from Setup. */
 	get builtIn(): AutomationRow[] {
 		return this.rows?.filter((each) => each.source === "builtin") ?? [];
+	}
+
+	/** The groomer, or null while it is off. */
+	get groomer(): AutomationRow | null {
+		return this.rows?.find((each) => each.id === GROOMER_AUTOMATION) ?? null;
 	}
 
 	async read(): Promise<void> {
@@ -119,6 +132,38 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 						: each,
 				),
 			() => this.api.edit(row.id, trigger, hook),
+		);
+	}
+
+	/**
+	 * Sets the agent the groomer runs as, turning it on when it is off, shown
+	 * as being saved until the server says what it now is.
+	 */
+	groom(pick: AgentPick): Promise<boolean> {
+		const hook: Hook = { kind: "groom", ...pick };
+		return this.#change(
+			"Not saved",
+			(rows) =>
+				rows.some((each) => each.id === GROOMER_AUTOMATION)
+					? rows.map((each) =>
+							each.id === GROOMER_AUTOMATION
+								? { ...each, hook, when: "", does: "" }
+								: each,
+						)
+					: [
+							...rows,
+							{
+								id: GROOMER_AUTOMATION,
+								trigger: GROOMER_TRIGGER,
+								hook,
+								createdAt: new Date().toISOString(),
+								source: "builtin",
+								when: "",
+								does: "",
+								runs: [],
+							},
+						],
+			() => this.api.groom(pick),
 		);
 	}
 

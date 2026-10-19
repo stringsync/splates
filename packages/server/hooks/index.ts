@@ -13,6 +13,7 @@ export {
 export type { HookChange } from "./edit";
 export type { TaskEvent, TaskEventName } from "./events";
 export { TASK_EVENTS, taskEventsOf } from "./events";
+export { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 export type { AutomationRow } from "./routes";
 export { AutomationRoutes } from "./routes";
 export type { FireDeps, Fired, HookActions, HookRunnerDeps } from "./runner";
@@ -25,8 +26,6 @@ export type { Automation, Hook, Hooks, TaskFilter, Trigger } from "./store";
 export {
 	eventNamed,
 	fromHooks,
-	GROOMER_AUTOMATION,
-	GROOMER_TRIGGER,
 	HookStore,
 	lanesNamed,
 	stagesNamed,

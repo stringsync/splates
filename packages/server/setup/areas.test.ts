@@ -37,7 +37,6 @@ describe("SETUP_AREAS", () => {
 			"dictation",
 			"auto-pick",
 			"github",
-			"grooming",
 			"claude",
 			"codex",
 		]);

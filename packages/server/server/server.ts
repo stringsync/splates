@@ -449,12 +449,7 @@ export async function dev(
 				project:
 					project == null
 						? undefined
-						: setupProjectAt(project.root, { fs, ps }, () => {
-								void served
-									.get(project.root)
-									?.then((opened) => opened.groomed())
-									.catch((error: unknown) => log.error(String(error)));
-							}),
+						: setupProjectAt(project.root, { fs, ps }),
 			},
 			SETUP_AREAS,
 		);

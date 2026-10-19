@@ -3,7 +3,6 @@ import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import type { Config } from "../config";
 import { fail } from "../exit";
-import type { AgentPick } from "../models";
 import type {
 	WorkerBudgetReport,
 	WorkerLimit,
@@ -273,10 +272,6 @@ export interface SetupProject {
 	config(): Promise<Pick<Config, "trunk" | "remote" | "workerProvider">>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;
-	/** What its groomer runs as, or null while it is off. */
-	groomer(): Promise<AgentPick | null>;
-	/** Turns its groomer on as `pick`, or off for null, telling `splates server`. */
-	setGroomer(pick: AgentPick | null): Promise<void>;
 }
 
 /**

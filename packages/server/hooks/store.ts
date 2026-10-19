@@ -4,6 +4,7 @@ import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { TASK_EVENTS, type TaskEventName } from "./events";
+import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 import { scheduleOf } from "./schedule";
 
 /**
@@ -131,6 +132,7 @@ export class HookStore {
 	/**
 	 * Turns the groomer on, running as `pick`, or off for null: built-in
 	 * automation `groomer`, which keeps its pause through a change of pick.
+	 * Its trigger and what it is told are splates's own.
 	 */
 	async groomer(pick: AgentPick | null): Promise<Automation | null> {
 		let set: Automation | null = null;
@@ -284,12 +286,3 @@ function checked(trigger: Trigger): void {
 		scheduleOf(trigger);
 	}
 }
-
-/** The built-in automation the groomer runs as, once Setup turns it on. */
-export const GROOMER_AUTOMATION = "groomer";
-
-/** What wakes the groomer: a task added to the backlog, rough. */
-export const GROOMER_TRIGGER: Trigger = {
-	event: "task.created",
-	filter: { stages: ["backlog"] },
-};

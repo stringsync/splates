@@ -5,9 +5,10 @@ import { taskAdd } from "../board";
 import { queueAdd } from "../queue";
 import { Testing } from "../testing";
 import type { TaskEvent } from "./events";
+import { GROOMER_TRIGGER } from "./groomer";
 import { type Fired, HookRunner } from "./runner";
 import { RunStore } from "./runs";
-import { type Automation, GROOMER_TRIGGER } from "./store";
+import type { Automation } from "./store";
 
 describe("HookRunner", () => {
 	let deps: Testing;
