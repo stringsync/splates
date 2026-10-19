@@ -107,12 +107,18 @@ describe("App's moving a conversation under another", () => {
 	it("nests one where the person put it, over where its task would", async () => {
 		const view = await testing.openConversations(
 			[
-				conversation({ id: "c1", title: "Alpha", task: "alpha" }),
+				conversation({
+					id: "c1",
+					title: "Alpha",
+					task: "alpha",
+					createdAt: "2026-01-01T00:00:02.000Z",
+				}),
 				conversation({
 					id: "c2",
 					title: "Alpha API",
 					task: "alpha-api",
 					parent: { id: null },
+					createdAt: "2026-01-01T00:00:01.000Z",
 				}),
 				conversation({
 					id: "c3",
