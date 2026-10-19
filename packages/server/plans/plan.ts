@@ -40,17 +40,18 @@ export class Plans {
 }
 
 /**
- * The steps `splates add` once wrote under `## Next`, asking its agent to plan,
- * which plans of tasks started then may still hold and no one should read as
- * the work under way. A fresh plan now holds only its Goal.
+ * The steps `splates add` once wrote under `## Next`, asking its agent to
+ * plan: a plan that still holds them has no work under way.
  */
+// A fresh plan now holds only its Goal; plans of tasks started back then may
+// still hold these.
 export const STUB_STEPS = [
 	"list the steps here as `- [ ]` items",
 	"fill in Goal and list the steps here as `- [ ]` items",
 ];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Next", "Notes", "Blocked"];
+const SECTIONS = ["Goal", "Next", "Notes", "Verification", "Demo", "Blocked"];
 // Steps are for work of several commits: for one, the Goal says it all.
 const REQUIRED = ["Goal"];
 // A `Q` before the number is how plans were numbered once, and still reads.
@@ -71,6 +72,35 @@ export function goalLine(text: string): string | null {
 		.body.split("\n")
 		.find((line) => line.trim() !== "");
 	return line === undefined ? null : line.trim();
+}
+
+/**
+ * The `## <name>` section of an `SPLATES.md`, heading and all, apart from the
+ * rest of it: null for one it does not have. The task dialog shows
+ * `## Verification` on its own, above the rest.
+ */
+export function sectionApart(
+	text: string,
+	name: string,
+): { section: string | null; rest: string } {
+	const md = Markdown.parse(text);
+	const found = md.sections.find(
+		(each) =>
+			each.level === 2 && each.heading.toLowerCase() === name.toLowerCase(),
+	);
+	if (found === undefined) {
+		return { section: null, rest: text };
+	}
+	const lines = md.text.split("\n");
+	const next = md.sections.find(
+		(each) => each.line > found.line && each.level <= 2,
+	);
+	const start = found.line - 1;
+	const end = next === undefined ? lines.length : next.line - 1;
+	return {
+		section: lines.slice(start, end).join("\n").trim(),
+		rest: [...lines.slice(0, start), ...lines.slice(end)].join("\n"),
+	};
 }
 
 /**

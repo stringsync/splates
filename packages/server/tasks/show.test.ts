@@ -4,6 +4,7 @@ import { ROSTERED } from "../agents/testing";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { claim } from "./claim";
+import { remove } from "./remove";
 import { show } from "./show";
 
 describe("show", () => {
@@ -182,5 +183,62 @@ describe("show", () => {
 
 		expect(deps.out()).toContain("orphaned");
 		expect(deps.out()).not.toContain("no SPLATES.md");
+	});
+
+	it("falls back to the newest finished task of that name", async () => {
+		const finish = (endedAt: string, commit: string) =>
+			deps.service.finished.record({
+				id: 7,
+				task: "gone",
+				subject: "do it",
+				ended: "merged",
+				reason: null,
+				base: "main",
+				commit,
+				startedAt: "2026-10-01T00:00:00.000Z",
+				endedAt,
+				conversation: "c9",
+				took: [],
+				plan: `# gone\n\n## Demo\nlanded as ${commit}\n`,
+			});
+		await finish("2026-10-01T01:00:00.000Z", "old1234");
+		await finish("2026-10-02T01:00:00.000Z", "new5678");
+		deps.log.clear();
+
+		await show(deps, "gone");
+
+		expect(deps.out()).toContain("finished");
+		expect(deps.out()).toContain("new5678");
+		expect(deps.out()).toContain("c9");
+		expect(deps.out()).toContain("landed as new5678");
+		expect(deps.out()).not.toContain("old1234");
+
+		deps.log.clear();
+		await show(deps, "gone", { json: true });
+
+		expect(JSON.parse(deps.out())).toMatchObject({
+			task: "gone",
+			status: "finished",
+			ended: "merged",
+			base: "main",
+			commit: "new5678",
+			conversation: "c9",
+			plan: "# gone\n\n## Demo\nlanded as new5678",
+		});
+	});
+
+	it("shows a removed task once its tree is gone", async () => {
+		await add(deps, "alpha");
+		await remove(deps, "alpha", { reason: "moot" });
+		deps.log.clear();
+
+		await show(deps, "alpha", { json: true });
+
+		expect(JSON.parse(deps.out())).toMatchObject({
+			task: "alpha",
+			status: "finished",
+			ended: "removed",
+			reason: "moot",
+		});
 	});
 });

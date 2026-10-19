@@ -342,7 +342,7 @@ splates
 	.command("show")
 	.use(repository({ needs: "read" }))
 	.description(
-		"read one task without touching it: everything `list` shows for it, plus the SPLATES.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
+		"read one task without touching it: everything `list` shows for it, plus the SPLATES.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree; for a task no longer live, the newest finished one of that name: how it ended, its base, the commit it landed as, its conversation and the SPLATES.md it ended on",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })

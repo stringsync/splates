@@ -5,6 +5,8 @@ import {
 	thinkingOf,
 } from "@stringsync/splates-server/models/browser";
 import {
+	type DemoPoint,
+	demoReference,
 	type Needing,
 	needs,
 	orphaned,
@@ -12,8 +14,12 @@ import {
 	taskReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { newAddress, settingsFor } from "./conversation-address";
-import { promptConversation, startConversation } from "./conversation-api";
+import { agentFor, NEW, newAddress, settingsFor } from "./conversation-address";
+import {
+	archiveConversation,
+	promptConversation,
+	startConversation,
+} from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 
@@ -129,6 +135,44 @@ export class Dispatch {
 	begin(pick: AgentPick, assignment: Assignment): Promise<string> {
 		const task = assignment.kind === "task" ? assignment.task : null;
 		return this.beginWith(pick, task, promptFor(assignment));
+	}
+
+	/**
+	 * Asks for a demo of `task` at `point` in `conversation`, the one that
+	 * last worked it, or for null the newest in its tree, put back on the list first when archived; or, when it
+	 * is gone or there is none, in a new conversation in the main tree, where
+	 * the agent adds the demo's own task. Answers the conversation's address,
+	 * the request showing as sent at once; a refused one stays in the thread
+	 * as unsent. When no conversation starts, the address of the screen that
+	 * starts one, the request in its composer.
+	 */
+	async demo(
+		task: string,
+		conversation: string | null,
+		point: DemoPoint,
+	): Promise<string> {
+		const text = demoReference(task, point);
+		const found = this.conversations.find((each) =>
+			conversation === null ? each.task === task : each.id === conversation,
+		);
+		if (found === undefined) {
+			const agent = agentFor(NEW, this.agents, this.conversations);
+			return this.beginWith({ agent }, null, text);
+		}
+		const back = found.archived
+			? archiveConversation(found.id, false)
+			: Promise.resolve();
+		if (found.archived) {
+			void this.feed
+				.expect(found.id, { archived: false }, back)
+				.catch(() => {});
+		}
+		const sending = this.feed.send(found.id, text);
+		void back
+			.then(() => promptConversation(found.id, text, [], false, sending.id))
+			.then((state) => this.feed.answered(found.id, sending, state))
+			.catch((error: unknown) => this.feed.refused(found.id, sending, error));
+		return found.id;
 	}
 
 	/**

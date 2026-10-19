@@ -24,8 +24,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { ApiError, scoped } from "./api";
 import { useFolded } from "./folded";
-import { HEADING, Markdown } from "./markdown";
+import { HEADING } from "./markdown";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
+import { TaskPlan } from "./task-demo";
 
 /** Where the Tasks page keeps whether Finished is open. */
 const FOLDED = "splates.tasks.finished";
@@ -203,7 +204,11 @@ function FinishedDialog({
 				) : read === null ? null : read.plan === "" ? (
 					<p className="text-muted-foreground">It ended with no SPLATES.md.</p>
 				) : (
-					<Markdown text={read.plan.replace(/^\s*#\s[^\n]*/, "")} />
+					<TaskPlan
+						task={read.task}
+						conversation={read.conversation}
+						plan={read.plan}
+					/>
 				)}
 				{read !== null && read.took.length > 0 && (
 					<section aria-label="queued tasks it took" className="flex flex-col">

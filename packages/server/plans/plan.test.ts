@@ -38,7 +38,7 @@ describe("checkPlan", () => {
 	it("flags a ## Done left from before the git log kept steps done", () => {
 		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
 		expect(checkPlan(old, { task: "alpha" })).toEqual([
-			'unexpected section "## Done" (line 6): keep to Goal, Next, Notes, Blocked',
+			'unexpected section "## Done" (line 6): keep to Goal, Next, Notes, Verification, Demo, Blocked',
 		]);
 	});
 

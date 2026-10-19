@@ -34,6 +34,7 @@ import { Dispatching } from "./dispatching";
 import { Markdown } from "./markdown";
 import { QuestionCards } from "./question-cards";
 import { ActionBar, useRetry } from "./task-actions";
+import { DemoButtons } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { TaskPorts } from "./task-ports";
 
@@ -327,6 +328,15 @@ function Overview({
 							<Markdown text={plan.goal} />
 						</section>
 					)}
+					{plan.verification !== "" && (
+						<section aria-label="verification" className="flex flex-col gap-1">
+							<SectionHeading>Verification</SectionHeading>
+							<Markdown text={plan.verification} />
+						</section>
+					)}
+					{plan.demo !== "" && (
+						<DemoButtons task={task.task} conversation={task.takenBy} />
+					)}
 					{plan.steps !== "" && (
 						<section aria-label="steps" className="flex flex-col gap-1">
 							<SectionHeading>
@@ -471,6 +481,10 @@ interface PlanParts {
 	goal: string;
 	/** `## Next`, as markdown; "" when it has none. */
 	steps: string;
+	/** `## Verification`, what was checked and what it showed; "" when none. */
+	verification: string;
+	/** `## Demo`, how to set a demo up; "" when it says none. */
+	demo: string;
 	/** Every question under `## Blocked`, in order. */
 	asked: Question[];
 	/**
@@ -482,7 +496,14 @@ interface PlanParts {
 
 function planParts(plan: string | null): PlanParts {
 	if (plan === null) {
-		return { goal: "", steps: "", asked: [], notes: "" };
+		return {
+			goal: "",
+			steps: "",
+			verification: "",
+			demo: "",
+			asked: [],
+			notes: "",
+		};
 	}
 	const sections = Parsed.parse(plan).sections.filter(
 		(section) => section.level === 2,
@@ -491,7 +512,7 @@ function planParts(plan: string | null): PlanParts {
 		sections
 			.find((section) => section.heading.toLowerCase() === name)
 			?.body.trim() ?? "";
-	const known = ["goal", "next", "notes", "blocked"];
+	const known = ["goal", "next", "notes", "blocked", "verification", "demo"];
 	const others = sections.filter(
 		(section) => !known.includes(section.heading.toLowerCase()),
 	);
@@ -509,6 +530,8 @@ function planParts(plan: string | null): PlanParts {
 	return {
 		goal: named("goal"),
 		steps: named("next"),
+		verification: named("verification"),
+		demo: named("demo"),
 		asked: questions(plan),
 		notes,
 	};

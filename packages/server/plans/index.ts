@@ -35,6 +35,7 @@ export {
 	picks,
 	questions,
 	ready,
+	sectionApart,
 	unfinished,
 	whatIsLeft,
 } from "./plan";

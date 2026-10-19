@@ -3,6 +3,7 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "../age";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
+import type { FinishedPlan } from "./finished";
 import type { DiffSize, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -18,11 +19,22 @@ export async function show(
 ): Promise<void> {
 	const worktree = await service.find(task);
 	if (worktree.gone) {
-		fail(
-			"not_found",
-			`no task '${task}': run \`splates list\` to see what there is`,
-			{ task },
+		// A finished task's tree is gone, but its record still says what it
+		// did and where it landed, which a demo of it needs.
+		const finished = await finishedNamed(service, task);
+		if (finished === null) {
+			fail(
+				"not_found",
+				`no task '${task}': run \`splates list\` to see what there is`,
+				{ task },
+			);
+		}
+		log.info(
+			(opts.json ?? false)
+				? JSON.stringify({ status: "finished", ...finished }, null, "\t")
+				: finishedReport(finished),
 		);
+		return;
 	}
 	const details = await new TaskDetails({ fs }).get(worktree);
 
@@ -311,6 +323,38 @@ function report(details: Details): string {
 				`no ${PLAN_FILE}: whoever picks this up starts from the diff`,
 			),
 		);
+	}
+	return lines.join("\n");
+}
+
+/** The newest finished task named `task`, with its plan, or null for none. */
+async function finishedNamed(
+	service: WorktreeService,
+	task: string,
+): Promise<FinishedPlan | null> {
+	const newest = (await service.finished.list()).find(
+		(each) => each.task === task,
+	);
+	return newest === undefined ? null : service.finished.read(newest.key);
+}
+
+function finishedReport(finished: FinishedPlan): string {
+	const ended =
+		finished.ended === "removed" && finished.reason !== null
+			? `removed (${finished.reason})`
+			: finished.ended;
+	const lines = [
+		`${color.bold(finished.task)} finished`,
+		`  ended:        ${ended} ${finished.endedAt}`,
+		`  base:         ${finished.base}`,
+		`  commit:       ${finished.commit ?? "none"}`,
+		`  conversation: ${finished.conversation ?? "none"}`,
+		`  started:      ${finished.startedAt}`,
+	];
+	if (finished.plan.trim() !== "") {
+		lines.push("", color.bold(PLAN_FILE), finished.plan.trimEnd());
+	} else {
+		lines.push("", color.yellow(`no ${PLAN_FILE} was kept`));
 	}
 	return lines.join("\n");
 }

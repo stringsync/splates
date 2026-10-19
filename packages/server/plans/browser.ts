@@ -14,7 +14,7 @@ export {
 	quietSince,
 	TASK,
 } from "./needs";
-export { goalLine, questions } from "./plan";
+export { goalLine, questions, sectionApart } from "./plan";
 export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
