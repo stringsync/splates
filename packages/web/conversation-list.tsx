@@ -8,6 +8,8 @@ import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { AutoPickEntry } from "./auto-pick-entry";
+import { autoPickRuns } from "./auto-pick-runs";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
@@ -116,6 +118,7 @@ export function ConversationList({
 	const keptHere = listed.filter(
 		(tree) => tree.row.conversation?.persistent !== undefined,
 	);
+	const picked = autoPickRuns(tasks, todos).length > 0;
 	const taken = lanesTaken(todos);
 	const groupsHere = byLane(
 		listed.filter((tree) => !keptHere.includes(tree)),
@@ -330,6 +333,16 @@ export function ConversationList({
 						folders={grouped.folders}
 						folded={folded}
 						onFold={fold}
+						keptAfter={(folder) =>
+							folder.here && picked ? (
+								<AutoPickEntry
+									tasks={tasks}
+									todos={todos}
+									open={open}
+									onOpen={onOpen}
+								/>
+							) : null
+						}
 						onNew={(folder) =>
 							folder.here || folder.project === null
 								? onOpen(NEW)
@@ -345,39 +358,50 @@ export function ConversationList({
 						}
 					/>
 				</Placing>
+			) : /* None, and no list either: an empty one would still take a gap. */
+			listed.length === 0 ? (
+				<AutoPickEntry
+					tasks={tasks}
+					todos={todos}
+					open={open}
+					onOpen={onOpen}
+				/>
 			) : (
-				/* None, and no list either: an empty one would still take a gap. */
-				listed.length > 0 && (
-					<Placing
-						value={{
-							places: placesOf(nested),
-							agentOf: (each) => agentName(agents, each.agent),
-						}}
-					>
-						<div className="flex flex-col">
-							{keptHere.length > 0 && (
-								<Rows
-									label="persistent agents"
-									rows={keptHere}
-									render={(row, nested) => renderHere(row, nested)}
-									beneath={beneath}
-								/>
-							)}
-							{keptHere.length > 0 && groupsHere.length > 0 && (
-								<hr className="mx-3 my-1 border-foreground/10" />
-							)}
-							{groupsHere.length > 0 && (
-								<LaneRows
-									label="conversation list"
-									groups={groupsHere}
-									beneath={beneath}
-									render={(row, nested) => renderHere(row, nested)}
-									onLane={onLane}
-								/>
-							)}
-						</div>
-					</Placing>
-				)
+				<Placing
+					value={{
+						places: placesOf(nested),
+						agentOf: (each) => agentName(agents, each.agent),
+					}}
+				>
+					<div className="flex flex-col">
+						{keptHere.length > 0 && (
+							<Rows
+								label="persistent agents"
+								rows={keptHere}
+								render={(row, nested) => renderHere(row, nested)}
+								beneath={beneath}
+							/>
+						)}
+						<AutoPickEntry
+							tasks={tasks}
+							todos={todos}
+							open={open}
+							onOpen={onOpen}
+						/>
+						{(keptHere.length > 0 || picked) && groupsHere.length > 0 && (
+							<hr className="mx-3 my-1 border-foreground/10" />
+						)}
+						{groupsHere.length > 0 && (
+							<LaneRows
+								label="conversation list"
+								groups={groupsHere}
+								beneath={beneath}
+								render={(row, nested) => renderHere(row, nested)}
+								onLane={onLane}
+							/>
+						)}
+					</div>
+				</Placing>
 			)}
 			{closing.confirm}
 		</nav>

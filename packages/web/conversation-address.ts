@@ -153,3 +153,6 @@ export function modelFor(open: string | null): string | null {
 function pathOf(open: string): string {
 	return open.split("?")[0] ?? open;
 }
+
+/** What `#conversations/auto-pick` opens: what Auto pick decided for each task it started. */
+export const AUTO_PICK_PAGE = "auto-pick";

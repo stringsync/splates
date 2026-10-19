@@ -6,7 +6,7 @@ import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
-import { type JSX, type ReactNode, useContext } from "react";
+import { Fragment, type JSX, type ReactNode, useContext } from "react";
 import {
 	Empty,
 	EmptyDescription,
@@ -16,6 +16,7 @@ import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { arriveAt } from "./arrivals";
+import { AutoPickEntry } from "./auto-pick-entry";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import {
@@ -254,20 +255,30 @@ export function Inbox({
 								["Working", working],
 								["Recent", recent],
 							].map(([title, group]) => (
-								<Group
-									key={String(title)}
-									title={String(title)}
-									items={(group as Nested<Needing>[]).map((tree) => ({
-										tree,
-										folder: null,
-										hosting,
-									}))}
-									agents={agents}
-									urgent={title === "Needs you"}
-									lanes={title === "Needs you" ? undefined : lanesHere}
-									beneath={beneath}
-									onOpen={open}
-								/>
+								<Fragment key={String(title)}>
+									<Group
+										title={String(title)}
+										items={(group as Nested<Needing>[]).map((tree) => ({
+											tree,
+											folder: null,
+											hosting,
+										}))}
+										agents={agents}
+										urgent={title === "Needs you"}
+										lanes={title === "Needs you" ? undefined : lanesHere}
+										beneath={beneath}
+										onOpen={open}
+									/>
+									{title === "Pinned" && (
+										<AutoPickEntry
+											phone
+											tasks={tasks}
+											todos={todos}
+											open={null}
+											onOpen={onOpen}
+										/>
+									)}
+								</Fragment>
 							))
 						) : (
 							<>
@@ -279,6 +290,13 @@ export function Inbox({
 									named
 									beneath={beneath}
 									onOpen={open}
+								/>
+								<AutoPickEntry
+									phone
+									tasks={tasks}
+									todos={todos}
+									open={null}
+									onOpen={onOpen}
 								/>
 								{grouped.folders.map((folder) => (
 									<FolderSection

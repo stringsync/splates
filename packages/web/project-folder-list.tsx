@@ -38,6 +38,7 @@ export function FolderList({
 	folded,
 	onFold,
 	onNew,
+	keptAfter,
 	render,
 	beneath,
 	groupsOf,
@@ -47,6 +48,8 @@ export function FolderList({
 	folded: ReadonlySet<string>;
 	onFold: (key: string, open: boolean) => void;
 	onNew: (folder: Folder) => void;
+	/** What follows a folder's persistent agents, as Auto pick's row follows the groomer's; null for nothing. */
+	keptAfter?: (folder: Folder) => ReactNode;
 	render: RenderRow;
 	beneath: (folder: Folder, row: Needing) => ReactNode[];
 	/** The folder's listed rows, those at work on one lane gathered together. */
@@ -60,6 +63,7 @@ export function FolderList({
 				const key = folderKey(folder);
 				const open = !folded.has(key);
 				const { kept, listed: rows } = folder.inPlace;
+				const after = keptAfter?.(folder) ?? null;
 				return (
 					<Collapsible
 						key={key}
@@ -94,7 +98,7 @@ export function FolderList({
 							</button>
 						</div>
 						<CollapsibleContent>
-							{kept.length > 0 && (
+							{(kept.length > 0 || after !== null) && (
 								<InLanes folder={folder}>
 									<Rows
 										label={`${folder.name} persistent agents`}
@@ -102,6 +106,7 @@ export function FolderList({
 										render={(row, nested) => render(folder, row, nested)}
 										beneath={(row) => beneath(folder, row)}
 									/>
+									{after}
 									{rows.length > 0 && (
 										<hr className="mx-3 my-1 border-foreground/10" />
 									)}
