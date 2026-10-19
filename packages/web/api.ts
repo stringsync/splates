@@ -176,6 +176,11 @@ export async function renameLane(id: number, name: string): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { name });
 }
 
+/** Sets lane `id` running, or pauses it. */
+export async function runLane(id: number, running: boolean): Promise<void> {
+	await sendJson(`/api/lanes/${id}`, "PUT", { running });
+}
+
 /** Puts lane `id` at `position` among the lanes, 1 the first column. */
 export async function moveLane(id: number, position: number): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { position });

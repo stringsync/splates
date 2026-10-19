@@ -146,10 +146,11 @@ export class TodoRoutes {
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const id = laneAt(request);
-		const { name, position } = await body(request);
+		const { name, position, running } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
+			running: running === undefined ? undefined : running === true,
 		};
 		const lane = await journal.record(
 			"lane update",
@@ -163,7 +164,11 @@ export class TodoRoutes {
 					change.position === undefined
 						? undefined
 						: await todos.moveLane(id, change.position);
-				return order?.find((each) => each.id === id) ?? renamed;
+				const run =
+					change.running === undefined
+						? undefined
+						: await todos.runLane(id, change.running ? { by: null } : null);
+				return run ?? order?.find((each) => each.id === id) ?? renamed;
 			},
 			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
 		);

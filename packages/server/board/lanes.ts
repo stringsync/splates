@@ -32,6 +32,8 @@ export interface LaneState {
 	id: number;
 	name: string;
 	todos: TodoState[];
+	/** Whether `splates server` starts the lane's todos on its own, as `splates lane run` sets. */
+	running: boolean;
 	/** The tasks at work on its todos now, top first: who is on the lane. */
 	agents: string[];
 	/** The first todo no task has taken: what the lane's orchestrator hands out next. */
@@ -69,7 +71,10 @@ export function named(todos: TodoState[], records: LaneRecord[]): LaneRecord[] {
 }
 
 /** The lane `record` stands for, empty when no todo is in it. */
-export function lane(todos: TodoState[], { id, name }: LaneRecord): LaneState {
+export function lane(
+	todos: TodoState[],
+	{ id, name, running }: LaneRecord,
+): LaneState {
 	const steps = todos
 		.filter((todo) => todo.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -89,6 +94,7 @@ export function lane(todos: TodoState[], { id, name }: LaneRecord): LaneState {
 		id,
 		name,
 		todos: steps,
+		running: running !== undefined,
 		agents,
 		next,
 		blockers,

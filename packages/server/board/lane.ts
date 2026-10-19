@@ -269,6 +269,8 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
+	/** Whether it runs from now on. */
+	running?: boolean;
 }
 
 /** Calls a lane by another name, or moves it among the others. */
@@ -335,7 +337,7 @@ export async function laneRun(
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position }: LaneUpdateOptions,
+	{ name, position, running }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -343,6 +345,7 @@ export function laneUpdated(
 		changed: {
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
+			...(running === undefined ? {} : { running }),
 		},
 	};
 }

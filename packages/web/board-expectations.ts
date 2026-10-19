@@ -69,6 +69,20 @@ export function laneRenamed(id: number, name: string) {
 	});
 }
 
+/** Lane `id` running, or paused. */
+export function laneRunning(id: number, running: boolean) {
+	return (snapshot: Snapshot): Snapshot => ({
+		...snapshot,
+		lanes: snapshot.lanes.map((lane) => {
+			if (lane.id !== id) {
+				return lane;
+			}
+			const { running: _, ...rest } = lane;
+			return running ? { ...rest, running: { by: null } } : rest;
+		}),
+	});
+}
+
 /**
  * An empty lane called `name` after the others, under a number no lane has
  * until the server names it; none once the server's has a lane so called.

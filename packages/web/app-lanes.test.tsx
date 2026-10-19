@@ -231,6 +231,47 @@ describe("App's lanes", () => {
 		);
 	});
 
+	it("runs a lane from its header at once, counting its agents against the cap", async () => {
+		const view = await testing.open({
+			todos: [
+				todo({ id: 1, subject: "first", lane: 1, takenBy: "alpha" }),
+				todo({ id: 2, subject: "second", lane: 1 }),
+			],
+			lanes: [{ id: 1, name: "Licensing" }],
+		});
+		const lane = view.getByRole("region", { name: "Licensing" });
+		expect(within(lane).queryByText("1 of 3 agents")).toBeNull();
+
+		testing.holdWrites();
+		await act(async () =>
+			fireEvent.click(within(lane).getByRole("button", { name: "Run" })),
+		);
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/lanes/1",
+			method: "PUT",
+			body: JSON.stringify({ running: true }),
+		});
+		expect(within(lane).getByRole("button", { name: "Pause" })).toBeTruthy();
+		expect(within(lane).getByText("1 of 3 agents")).toBeTruthy();
+		testing.release();
+	});
+
+	it("pauses a running lane from its header", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "first", lane: 1 })],
+			lanes: [{ id: 1, name: "Licensing", running: { by: null } }],
+		});
+		const lane = view.getByRole("region", { name: "Licensing" });
+
+		testing.holdWrites();
+		await act(async () =>
+			fireEvent.click(within(lane).getByRole("button", { name: "Pause" })),
+		);
+		expect(testing.posts.at(-1)?.body).toBe(JSON.stringify({ running: false }));
+		expect(within(lane).getByRole("button", { name: "Run" })).toBeTruthy();
+		testing.release();
+	});
+
 	it("moves a lane left or right from its menu, showing it there at once", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

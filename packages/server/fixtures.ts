@@ -11,6 +11,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		todos: [],
 		lanes: [],
+		agentsPerLane: 3,
 		laneNames: [],
 		tasks: [],
 		creds: [],

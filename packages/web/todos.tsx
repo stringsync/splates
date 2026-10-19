@@ -206,6 +206,7 @@ export function Todos({
 								lane={lane}
 								lanes={lanes}
 								staleness={snapshot.todoStalenessMs}
+								capacity={snapshot.agentsPerLane}
 							/>
 						))}
 					</SortableContext>

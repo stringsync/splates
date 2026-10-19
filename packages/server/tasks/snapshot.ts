@@ -26,6 +26,8 @@ export interface Snapshot {
 	todos: TodoState[];
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
+	/** How many tasks a running lane may have out at once. */
+	agentsPerLane: number;
 	/**
 	 * The name of every lane there has been, those on the board first, to
 	 * name a lane's orchestrator after it once the lane is done.
@@ -90,6 +92,8 @@ export async function snapshot({
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
+		agentsPerLane:
+			service.config.agentsPerLane ?? service.config.agentsPerAgent,
 		laneNames: await todos.laneNames(),
 		tasks,
 		creds: await creds.requests(),
