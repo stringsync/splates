@@ -382,6 +382,15 @@ its creation, which its record keeps with the billing; `"second"` retires it at
 once. `WorkerProvisioning.look` decides, each minute; `DevWorkers` retires.
 Local and registered workers are never made, so never retired.
 
+Leftovers (built 2026-10-18). Every five minutes (`SWEEP_EVERY`)
+`WorkerProvisioning.reconcile` squares the records with the provider's
+`list`: a record whose machine is gone is forgotten, unless its machine is
+being asked for right now, and a machine no record knows is destroyed once
+seen so for `ORPHAN_AFTER` (10 minutes), since a record is written before
+its machine is asked for. Then `WorkerProvider.sweep`, where a provider has
+one, deletes what it leaves outside workers: for Hetzner, a snapshot builder
+over an hour old, which only a build that died leaves.
+
 The coordinator's box (built 2026-10-18, `packages/server/coordinator/box.ts`):
 a Hetzner CPX21 (3 vCPU / 4 GB, about $38 a month after the 15 June 2026
 prices) in Ashburn, Virginia, the nearest Hetzner location to New Jersey,

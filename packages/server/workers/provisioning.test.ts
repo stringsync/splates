@@ -4,7 +4,7 @@ import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
-import { WorkerProvisioning } from "./provisioning";
+import { ORPHAN_AFTER, WorkerProvisioning } from "./provisioning";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import { Scheduler } from "./scheduler";
@@ -123,7 +123,7 @@ describe("WorkerProvisioning", () => {
 		expect(registry.workers).toEqual([]);
 	});
 
-	it("forgets made workers whose machines are gone, and leaves machines it never made", async () => {
+	it("forgets made workers whose machines are gone, and leaves a machine it has no record of at first look", async () => {
 		const { provider, records, made } = await provisioning();
 		const kept = await made.provision();
 		const gone = await made.provision();
@@ -136,6 +136,48 @@ describe("WorkerProvisioning", () => {
 			id: "stranger",
 			type: "small",
 		});
+	});
+
+	it("destroys a machine it has no record of once seen so for ORPHAN_AFTER", async () => {
+		const { provider, made, wall } = await provisioning();
+		provider.adopt({ id: "left", type: "small" });
+
+		await made.reconcile();
+		wall.advance(Duration.mins(9));
+		await made.reconcile();
+		expect(await provider.list()).toEqual([{ id: "left", type: "small" }]);
+
+		wall.advance(ORPHAN_AFTER);
+		await made.reconcile();
+		expect(await provider.list()).toEqual([]);
+	});
+
+	it("never forgets a worker whose machine is still being asked for", async () => {
+		const provider = new FakeWorkerProvider([...TYPES]);
+		const { records, made } = await provisioning(provider);
+		const create = provider.create.bind(provider);
+		const forgotten: string[][] = [];
+		provider.create = async (spec) => {
+			forgotten.push(await made.reconcile());
+			return create(spec);
+		};
+
+		const worker = await made.provision();
+
+		expect(forgotten).toEqual([[]]);
+		expect(records.of(worker.id)).toBeDefined();
+	});
+
+	it("has the provider sweep what it left behind", async () => {
+		const provider = new FakeWorkerProvider([...TYPES]);
+		provider.leftovers.push("a builder");
+		const { made, log } = await provisioning(provider);
+
+		await made.reconcile();
+
+		expect(log.entries.map((entry) => entry.message)).toContainEqual(
+			expect.stringContaining("a builder"),
+		);
 	});
 
 	it("revokes the service token of a made worker whose machine is gone", async () => {
@@ -187,7 +229,9 @@ async function provisioning(
 	coordinator: string | null = "https://splates.example.com",
 	budget = WorkerBudget.memory(),
 ) {
+	const wall = new FakeWallClock();
 	const records = WorkerRecords.memory();
+	const log = new MemoryLogger();
 	const registry = new WorkerRegistry(new MemoryLogger());
 	const access = new FakeWorkerAccess();
 	const made = new WorkerProvisioning({
@@ -198,7 +242,8 @@ async function provisioning(
 		access,
 		coordinator: () => coordinator,
 		budget,
-		log: new MemoryLogger(),
+		log,
+		wall,
 	});
-	return { provider, records, registry, access, made, budget };
+	return { provider, records, registry, access, made, budget, log, wall };
 }

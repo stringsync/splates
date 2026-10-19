@@ -314,6 +314,8 @@ export interface HetznerServer {
 	protected: { delete: boolean; rebuild: boolean };
 	/** Whether Hetzner's daily backups are on. */
 	backups: boolean;
+	/** When it was made, epoch milliseconds. */
+	createdAt: number;
 }
 
 /** What `HetznerApi.createServer` makes. */
@@ -367,6 +369,7 @@ const ServerJson = z.object({
 	labels: z.record(z.string(), z.string()),
 	protection: z.object({ delete: z.boolean(), rebuild: z.boolean() }),
 	backup_window: z.string().nullable(),
+	created: z.string(),
 });
 
 const Action = z.object({
@@ -413,6 +416,7 @@ function serverOf(json: z.infer<typeof ServerJson>): HetznerServer {
 		labels: json.labels,
 		protected: json.protection,
 		backups: json.backup_window !== null,
+		createdAt: Date.parse(json.created),
 	};
 }
 

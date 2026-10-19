@@ -28,6 +28,17 @@ export const PROVISION_BACKOFF = Duration.mins(5);
 /** How often the budget is looked at again as time passes, for its alerts and hard stop. */
 export const BUDGET_EVERY = Duration.mins(1);
 
+/** How often the provider is squared with the records, for machines lost or left behind. */
+export const SWEEP_EVERY = Duration.mins(5);
+
+/**
+ * How long a machine no record knows is seen before it is destroyed: a
+ * worker's record is written before its machine is asked for, so such a
+ * machine is one a failed or interrupted provision left, but a second look
+ * keeps a slow listing from costing a worker.
+ */
+export const ORPHAN_AFTER = Duration.mins(10);
+
 /** How long a made worker may be idle before it is destroyed, unless its provider says otherwise. */
 export const DEFAULT_IDLE_AFTER = Duration.mins(15);
 
@@ -80,6 +91,11 @@ export class WorkerProvisioning
 	private failedAt: number | null = null;
 	private readonly wall: WallClock;
 	private tick: Resource | null = null;
+	private sweeping: Resource | null = null;
+	/** The workers whose machine is being asked for now, which the provider may not list yet. */
+	private readonly creating = new Set<string>();
+	/** When each machine no record knows was first seen, by id. */
+	private readonly unknownSince = new Map<string, number>();
 	private offering: RaiseOffer | null = null;
 	private scheduler: Scheduler | null = null;
 	/** When each made worker was first seen idle, by id; absent while it is busy. */
@@ -153,6 +169,7 @@ export class WorkerProvisioning
 			(await this.opts.access?.mint()) ?? null,
 		);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
+		this.creating.add(id);
 		try {
 			await provider.create({
 				id,
@@ -179,6 +196,8 @@ export class WorkerProvisioning
 			await records.remove(id);
 			await this.opts.budget.ended(id);
 			throw error;
+		} finally {
+			this.creating.delete(id);
 		}
 		this.opts.log.info(
 			`provisioned ${id}, a ${type.name} at $${type.dollarsPerHour.toFixed(2)}/hour`,
@@ -196,8 +215,10 @@ export class WorkerProvisioning
 
 	/**
 	 * Squares the records with what the provider says exists: a made worker
-	 * whose machine is gone is forgotten; a machine no record knows is left
-	 * be and logged, since splates destroys only what it made.
+	 * whose machine is gone is forgotten, and a machine no record knows,
+	 * seen so for `ORPHAN_AFTER`, is destroyed, as one a failed or
+	 * interrupted provision left; then the provider sweeps what it leaves
+	 * outside its machines. Answers the workers forgotten.
 	 */
 	async reconcile(): Promise<string[]> {
 		const { provider, records, registry, log } = this.opts;
@@ -205,7 +226,11 @@ export class WorkerProvisioning
 		const exists = new Set(machines.map((machine) => machine.id));
 		const gone: string[] = [];
 		for (const record of records.all) {
-			if (record.provisioned !== null && !exists.has(record.id)) {
+			if (
+				record.provisioned !== null &&
+				!exists.has(record.id) &&
+				!this.creating.has(record.id)
+			) {
 				await records.remove(record.id);
 				await this.opts.budget.ended(record.id);
 				if (record.access !== null) {
@@ -221,12 +246,31 @@ export class WorkerProvisioning
 				gone.push(record.id);
 			}
 		}
+		const now = this.wall.now();
+		const unknown = new Set<string>();
 		for (const machine of machines) {
-			if (records.of(machine.id) === undefined) {
-				log.error(
-					`the worker provider has a machine ${machine.id} that splates does not know: destroy it by hand if it is not yours`,
-				);
+			if (records.of(machine.id) !== undefined) {
+				continue;
 			}
+			unknown.add(machine.id);
+			const since = this.unknownSince.get(machine.id);
+			if (since === undefined) {
+				this.unknownSince.set(machine.id, now);
+				log.info(
+					`the worker provider has a machine ${machine.id} that splates has no record of: destroying it if it is still so in ${ORPHAN_AFTER.mins} minutes`,
+				);
+			} else if (now - since >= ORPHAN_AFTER.ms) {
+				await provider.destroy(machine.id);
+				log.info(`destroyed ${machine.id}, a machine left without a record`);
+			}
+		}
+		for (const id of this.unknownSince.keys()) {
+			if (!unknown.has(id)) {
+				this.unknownSince.delete(id);
+			}
+		}
+		for (const swept of (await provider.sweep?.()) ?? []) {
+			log.info(`the worker provider deleted ${swept}, left behind`);
 		}
 		return gone;
 	}
@@ -249,9 +293,20 @@ export class WorkerProvisioning
 			this.track(scheduler);
 			void this.fill(scheduler);
 		});
-		this.tick = (this.opts.timer ?? new SystemTimer()).setInterval(
+		const timer = this.opts.timer ?? new SystemTimer();
+		this.tick = timer.setInterval(
 			() => void this.look(scheduler),
 			BUDGET_EVERY,
+		);
+		this.sweeping?.dispose();
+		this.sweeping = timer.setInterval(
+			() =>
+				void this.reconcile().catch((error: unknown) => {
+					this.opts.log.error(
+						`made workers could not be squared with the provider: ${String(error)}`,
+					);
+				}),
+			SWEEP_EVERY,
 		);
 	}
 
@@ -453,6 +508,8 @@ export class WorkerProvisioning
 		this.watching = null;
 		this.tick?.dispose();
 		this.tick = null;
+		this.sweeping?.dispose();
+		this.sweeping = null;
 	}
 }
 

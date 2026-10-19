@@ -17,6 +17,8 @@ export class FakeWorkerProvider implements WorkerProvider {
 	private readonly calls: string[] = [];
 	private readonly machines = new Map<string, ProvisionedMachine>();
 	readonly specs: WorkerSpec[] = [];
+	/** What its next `sweep` says it deleted. */
+	readonly leftovers: string[] = [];
 	private built = 0;
 
 	constructor(
@@ -61,6 +63,10 @@ export class FakeWorkerProvider implements WorkerProvider {
 
 	async list(): Promise<ProvisionedMachine[]> {
 		return [...this.machines.values()];
+	}
+
+	async sweep(): Promise<string[]> {
+		return this.leftovers.splice(0);
 	}
 
 	/** Makes a machine as though an earlier run had, without a call. */

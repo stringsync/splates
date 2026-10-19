@@ -143,6 +143,19 @@ export class HetznerWorkerProvider implements WorkerProvider {
 		}));
 	}
 
+	/** Deletes each snapshot builder older than any build runs, which a build that died left. */
+	async sweep(): Promise<string[]> {
+		const api = await this.api();
+		const swept: string[] = [];
+		for (const builder of await api.servers(BUILDER_LABEL)) {
+			if (this.wall.now() - builder.createdAt > STALE_BUILDER.ms) {
+				await api.deleteServer(builder.id);
+				swept.push(`the snapshot builder ${builder.name}`);
+			}
+		}
+		return swept;
+	}
+
 	/** The first of its locations where `type` can be ordered, or null. */
 	private where(
 		orderable: Map<string, Set<string>>,
@@ -223,6 +236,9 @@ const SNAPSHOT_LABEL = "splates-snapshot";
 /** How often, and how long, a snapshot's build is watched for its recipe to finish. */
 const BUILD_POLL = Duration.secs(15);
 const BUILD_LIMIT = Duration.mins(40);
+
+/** How old a builder is past any build, its recipe's limit and the imaging after. */
+const STALE_BUILDER = Duration.hrs(1);
 
 /** What a `HetznerWorkerProvider` runs on; the real ones by default. */
 export interface HetznerWorkerProviderOptions {

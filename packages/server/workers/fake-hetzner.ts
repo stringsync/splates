@@ -9,6 +9,8 @@ export interface FakeServer {
 	labels: Record<string, string>;
 	protection: { delete: boolean; rebuild: boolean };
 	backup_window: string | null;
+	/** When it was made, as Hetzner writes it. */
+	created: string;
 	image: string;
 	user_data: string;
 	ssh_keys: number[];
@@ -70,6 +72,30 @@ export class FakeHetzner {
 		this.requests.push({ method, path, query: searchParams, body });
 		return this.answer(method, path.split("/").slice(1), searchParams, body);
 	}) as unknown as typeof globalThis.fetch;
+
+	/** Puts a server in place as though it had been made, with `fields` over a running one's. */
+	put(fields: Partial<FakeServer>): FakeServer {
+		const id = this.next++;
+		const server: FakeServer = {
+			id,
+			name: `server-${id}`,
+			status: "running",
+			server_type: { name: "cpx22" },
+			datacenter: { location: { name: "nbg1" } },
+			public_net: { ipv4: { ip: `203.0.113.${id % 256}` } },
+			labels: {},
+			protection: { delete: false, rebuild: false },
+			backup_window: null,
+			created: new Date().toISOString(),
+			image: "ubuntu-24.04",
+			user_data: "",
+			ssh_keys: [],
+			firewalls: [],
+			...fields,
+		};
+		this.servers.set(id, server);
+		return server;
+	}
 
 	/** Each request as `METHOD /path`. */
 	calls(): string[] {
@@ -216,6 +242,7 @@ export class FakeHetzner {
 			labels: (body.labels as Record<string, string>) ?? {},
 			protection: { delete: false, rebuild: false },
 			backup_window: null,
+			created: new Date().toISOString(),
 			image: String(body.image),
 			user_data: String(body.user_data ?? ""),
 			ssh_keys: (body.ssh_keys as number[]) ?? [],

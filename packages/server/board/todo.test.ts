@@ -425,9 +425,7 @@ describe.concurrent("todo", () => {
 		await (await deps.todos.find(1)).take("alpha");
 
 		await deps.todos.markStuck(1, "2026-10-18T00:00:00Z");
-		expect((await deps.todos.find(1)).state.stuck).toBe(
-			"2026-10-18T00:00:00Z",
-		);
+		expect((await deps.todos.find(1)).state.stuck).toBe("2026-10-18T00:00:00Z");
 		await (await deps.todos.find(1)).release();
 
 		expect((await deps.todos.find(1)).state.stuck).toBeUndefined();

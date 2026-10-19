@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
+import { Duration } from "webappwiz/time";
 import { FakeHetzner } from "./fake-hetzner";
 import { HetznerWorkerProvider } from "./hetzner";
 import { HCLOUD_TOKEN } from "./hetzner-api";
@@ -8,6 +9,7 @@ describe("HetznerWorkerProvider", () => {
 	let hetzner: FakeHetzner;
 	let store: FakeSecretStore;
 	let stuck: boolean;
+	let now: number;
 	let provider: HetznerWorkerProvider;
 
 	beforeEach(async () => {
@@ -20,10 +22,11 @@ describe("HetznerWorkerProvider", () => {
 		store = new FakeSecretStore();
 		await store.set(HCLOUD_TOKEN, "token");
 		stuck = false;
+		now = 1000;
 		provider = new HetznerWorkerProvider({
 			store,
 			fetch: hetzner.fetch,
-			wall: { now: () => 1000 },
+			wall: { now: () => now },
 			wait: async () => {
 				if (!stuck) {
 					for (const builder of hetzner.labelled("splates-snapshot-builder")) {
@@ -153,13 +156,9 @@ describe("HetznerWorkerProvider", () => {
 	});
 
 	it("clears a builder a build that died left, before building again", async () => {
-		await hetzner.fetch("https://api.hetzner.cloud/v1/servers", {
-			method: "POST",
-			headers: { Authorization: "Bearer token" },
-			body: JSON.stringify({
-				name: "linux-snapshot-builder",
-				labels: { "splates-snapshot-builder": "linux" },
-			}),
+		hetzner.put({
+			name: "linux-snapshot-builder",
+			labels: { "splates-snapshot-builder": "linux" },
 		});
 
 		await provider.snapshot({
@@ -169,6 +168,22 @@ describe("HetznerWorkerProvider", () => {
 		});
 
 		expect(hetzner.servers.size).toBe(0);
+	});
+
+	it("sweeps a snapshot builder only once it is older than any build", async () => {
+		const labels = { "splates-snapshot-builder": "linux" };
+		hetzner.put({ name: "old", labels, created: new Date(0).toISOString() });
+		hetzner.put({
+			name: "young",
+			labels,
+			created: new Date(Duration.mins(170).ms).toISOString(),
+		});
+		now = Duration.hrs(3).ms;
+
+		expect(await provider.sweep()).toEqual(["the snapshot builder old"]);
+		expect([...hetzner.servers.values()].map((server) => server.name)).toEqual([
+			"young",
+		]);
 	});
 
 	it("names the setup step when it has no token", async () => {

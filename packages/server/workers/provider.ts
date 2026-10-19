@@ -100,4 +100,10 @@ export interface WorkerProvider {
 	destroy(id: string): Promise<void>;
 	/** Every machine it made for splates that still exists. */
 	list(): Promise<ProvisionedMachine[]>;
+	/**
+	 * Deletes what it left behind besides workers' machines, such as a
+	 * snapshot's builder a build that died kept running, answering a name
+	 * for each; asked every few minutes.
+	 */
+	sweep?(): Promise<string[]>;
 }
