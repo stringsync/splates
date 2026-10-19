@@ -29,7 +29,7 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, or `splates task take N` from a task under way |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, or `splates task take N` from a task under way, then groom it as [queue.md](references/queue.md) says under Grooming a task you start |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[SPLATES TASK <task>]` |
@@ -44,7 +44,7 @@ asks you to read it as Reference files says.
 | `[SPLATES TASK DONE #N]` | A task in a lane you orchestrate, paused by the user, left the queue: merged or removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TASK OPEN #N]` | A task in a lane you orchestrate, paused by the user, is open again: the task that took it let it go or was removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TASK ADDED #N]` | A task came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
-| `[SPLATES GROOM #N]` | An agent queued task N from its own: as the project's groomer, check, place, link and name its model | [groom.md](references/groom.md) |
+| `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md) |
 | `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last task landed | [lanes.md](references/lanes.md) |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
@@ -188,9 +188,8 @@ for the lane reports):
 When something outside your Goal comes up, queue it as a task and move on:
 its subject and what you know, once you have checked no task already asks
 it (see [references/queue.md](references/queue.md)). Leave placing it, linking it
-and picking its model to the groomer `splates server` starts for each task
-queued from a task, unless the user names a
-lane, a position or what blocks it, or the model it takes is
+and picking its model to whoever starts it, who grooms it first, unless the
+user names a lane, a position or what blocks it, or the model it takes is
 plain, as for a change spelled out step by step.
 
 Write a task's subject short enough to scan. Put the why, the where, the

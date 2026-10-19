@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	groomReference,
 	idleReference,
 	isUpdate,
 	MERGE,
@@ -14,7 +13,7 @@ describe("isUpdate", () => {
 			[
 				reportReference("header"),
 				idleReference("header"),
-				groomReference(12),
+				"[SPLATES GROOM #12]",
 				"[SPLATES TODO DONE #12]",
 			].map(isUpdate),
 		).toEqual([true, true, true, true]);

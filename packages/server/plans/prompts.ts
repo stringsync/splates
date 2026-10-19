@@ -20,11 +20,19 @@ export function laneReference(id: number | null): string {
 }
 
 /**
- * What tells the project's groomer that task `id` was queued from a started task, for
- * it to check, place, link and name the model of, as `Groomer` sends.
+ * What opens the conversation a hook starts on task event `name`, about the
+ * queued tasks `numbers` and the started `task`, before the hook's prompt.
  */
-export function groomReference(id: number): string {
-	return `[SPLATES GROOM #${id}]`;
+export function eventReference(
+	name: string,
+	numbers: readonly number[],
+	task: string | null,
+): string {
+	const about = [
+		...numbers.map((id) => `#${id}`),
+		...(task === null ? [] : [task]),
+	];
+	return `[SPLATES EVENT ${[name, ...about].join(" ")}]`;
 }
 
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */

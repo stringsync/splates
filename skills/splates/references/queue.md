@@ -3,9 +3,22 @@
 An agent that adds a task checks that none already asks it, then only adds it:
 it leaves the task untriaged, unless
 the user names a lane, a position or what blocks it. Placing, linking and
-ordering are for the user, the orchestrator of a lane, or the groomer
-`splates server` starts for each task added from a task (see
-[groom.md](groom.md)).
+ordering are for the user, the orchestrator of a lane, or the agent that
+starts the task, which grooms it first (see Grooming a task you start).
+
+## Grooming a task you start
+
+A task is groomed once, by the agent that starts it, before any work on it:
+
+1. **One that already asks it.** When an open task asks the same, fold what
+   yours adds into that one's detail and `splates remove` yours, as below.
+2. **Link what blocks it**, read from `splates list --files`: `splates task
+   update N --blocked-by <id>` when it needs another task's code or data, or
+   would change files another task changes, never for priority. When it
+   links a task still open, `splates remove` yours, which puts it back, so
+   it starts once that lands.
+3. **Ask only what is hard to reverse**, under `## Blocked`, as Questions in
+   `SKILL.md` says; make every other call yourself.
 
 ## One that already asks it
 

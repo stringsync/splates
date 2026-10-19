@@ -193,7 +193,14 @@ one is deleted.
    that waits on a later change.
 3. **Events and hooks.** Events from the journal, hook config, the groomer
    as a hook, and its Setup step. Grooming by the agent that runs a task
-   when no groomer is set up.
+   when no groomer is set up. `HookRunner` follows the journal from a cursor
+   in `.git/splates/hooks-seen.json`, starting from now the first time, so
+   no hook runs for the past. The person's hooks live in
+   `.git/splates/hooks.json` (`splates hook`). The groomer is off for now:
+   agents write their own tasks, and the agent that starts one grooms it
+   first, as the queue's prompt and `references/queue.md` say. Bringing a
+   groomer back, as a `task.created` hook set from Setup, is a task of its
+   own.
 4. **Delete.** Everything under What goes, and `SKILL.md` and the evals
    rewritten for the new model.
 5. **Web.** The board shows lanes of tasks by stage, beside a queue view;

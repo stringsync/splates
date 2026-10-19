@@ -82,6 +82,16 @@ describe("QueueRunner", () => {
 		).toEqual([{ task: "totals-first", number: 2, pick: { agent: "claude" } }]);
 	});
 
+	it("asks the agent to groom the task before working it", async () => {
+		await taskAdd(deps, "Raw", null);
+		await queueAdd(deps, [1]);
+
+		await runner.sweep();
+		await settled();
+
+		expect(started[0]?.prompt).toContain("Groom it first");
+	});
+
 	it("starts only as many as the workers have room for", async () => {
 		await taskAdd(deps, "One", null);
 		await taskAdd(deps, "Two", null);

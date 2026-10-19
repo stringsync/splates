@@ -48,7 +48,7 @@ export {
 	DICTATED,
 	DIRECTIVES,
 	directive,
-	groomReference,
+	eventReference,
 	handoffReference,
 	handoffToReference,
 	idleReference,

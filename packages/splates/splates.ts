@@ -46,6 +46,7 @@ import { splatesArtifact } from "./artifact";
 import { splatesBudget } from "./budget";
 import { splatesCreds } from "./creds";
 import { effortIn, here, offeredOf, taskIds } from "./flags";
+import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
@@ -647,4 +648,5 @@ splates
 	.mount("slots", splatesSlots)
 	.mount("worker", splatesWorker)
 	.mount("queue", splatesQueue)
+	.mount("hook", splatesHook)
 	.mount("budget", splatesBudget);

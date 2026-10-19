@@ -5,7 +5,7 @@ import {
 	AUTO,
 	CHECKPOINT,
 	DEFER,
-	groomReference,
+	eventReference,
 	handoffReference,
 	handoffToReference,
 	idleReference,
@@ -42,12 +42,12 @@ describe("the splates skill's Directives table", () => {
 				taskDoneReference(0).replace("0", "N"),
 				taskOpenReference(0).replace("0", "N"),
 				taskAddedReference(0).replace("0", "N"),
-				groomReference(0).replace("0", "N"),
 				LANES_DONE,
 				CHECKPOINT,
 				RESUME,
 				RECONNECT,
 				AUTO,
+				eventReference("<event>", [0], "<task>").replace("0", "N"),
 			].toSorted(),
 		);
 	});

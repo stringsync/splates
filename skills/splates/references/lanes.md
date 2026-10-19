@@ -2,8 +2,9 @@
 
 A lane is a named, ordered queue of tasks that build on each other, landed
 top first, each in a worktree of its own, as many at once as their code allows. Lanes are the columns of the `splates server`
-board; a task in none is untriaged. The groomer places the tasks agents
-add (see [groom.md](groom.md)), and the user rearranges them. Each has a
+board; a task in none is untriaged. The user places tasks and
+rearranges them; the agent that starts one grooms it first (see
+[queue.md](queue.md)). Each has a
 number, which commands and the prompt use, and a name, which says what its
 tasks are for: `splates lane show N` prints them.
 

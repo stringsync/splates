@@ -1,3 +1,4 @@
+import type { TaskEventName } from "../hooks";
 import type { TunnelProvider } from "../tunnel";
 import type { WorkerProvider } from "../workers";
 
@@ -38,6 +39,15 @@ export interface Config {
 	 * --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"` does.
 	 */
 	preMerge: string | null;
+	/**
+	 * Commands run on task events, via `sh -c` in the main tree, with the
+	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
+	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:
+	 * `{ "task.done": "./notify-team" }`. Checked in, so shell commands only;
+	 * an agent hook spends its person's tokens, so each person sets their own
+	 * from the Setup page or `splates hook add`.
+	 */
+	on: Partial<Record<TaskEventName, string>>;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/**

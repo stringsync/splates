@@ -12,13 +12,23 @@ import type {
 	Conversations,
 	ConversationsHeard,
 } from "../conversations";
-import { ConversationRoutes, JournalEvents } from "../conversations";
+import {
+	ConversationRoutes,
+	JournalEvents,
+	SERVER_TOLD,
+} from "../conversations";
 import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
+import {
+	HookRunner,
+	HookStore,
+	type Hooks,
+	type TaskEventName,
+} from "../hooks";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import { type AgentPick, AutoRoutes, Roster, splatesHome } from "../models";
-import { type Needing, needs } from "../plans";
+import { eventReference, type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QueueRunner } from "../queue";
@@ -26,14 +36,7 @@ import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
-import {
-	Groomer,
-	HandedOut,
-	LaneRunner,
-	SeenGroomed,
-	startDispatched,
-	TaskRoutes,
-} from "../tasks";
+import { HandedOut, LaneRunner, startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER } from "../workers";
 import type { Assets } from "./assets";
 import { ProjectWatch, SETTLE } from "./project-watch";
@@ -59,7 +62,7 @@ export async function serveProject(
 	let laneRunner: LaneRunner | null = null;
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
-	let groomer: Groomer | null = null;
+	let hookRunner: HookRunner | null = null;
 	let tasksWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
@@ -111,18 +114,62 @@ export async function serveProject(
 		});
 		const queue = queueRunner;
 		unwatchRoom = context.onWorkerRoom(() => void queue.sweep());
-		groomer = Groomer.watch({
-			queued: () => project.tasks.stored(),
-			conversations,
-			root: service.git.root,
-			seen: new SeenGroomed(fs, `${splatesDir}/groomed-tasks`),
-			log,
-		});
+		const hookStore = new HookStore(`${splatesDir}/hooks.json`, fs);
 		events = await JournalEvents.follow({
 			journal,
 			conversations,
 			fs,
 			splatesDir,
+			log,
+		});
+		const root = service.git.root;
+		hookRunner = await HookRunner.follow({
+			journal,
+			fs,
+			splatesDir,
+			hooks: async () =>
+				withCheckedIn(await hookStore.read(), project.config.on),
+			seen: `${splatesDir}/hooks-seen.json`,
+			actions: {
+				run: async (command, event) => {
+					const { exitCode, stderr } = await project.ps.spawnCapture(
+						["sh", "-c", command],
+						{
+							cwd: root,
+							env: {
+								SPLATES_EVENT: event.name,
+								SPLATES_TASKS: event.numbers.join(","),
+								SPLATES_TASK: event.task ?? "",
+							},
+						},
+					);
+					if (exitCode !== 0) {
+						throw new Error(
+							stderr.trim() || `\`${command}\` exited ${exitCode}`,
+						);
+					}
+				},
+				agent: async (hook, event) => {
+					const conversation = await conversations.start(hook.agent, {
+						task: null,
+						cwd: root,
+						model: hook.model,
+						assigned: true,
+					});
+					void conversation
+						.prompt(
+							`${eventReference(event.name, event.numbers, event.task)}\n\n${hook.prompt}`,
+							[],
+							undefined,
+							{
+								told: SERVER_TOLD,
+							},
+						)
+						.catch((error: unknown) =>
+							log.error(`a hook's agent could not start: ${String(error)}`),
+						);
+				},
+			},
 			log,
 		});
 		conversations.url = context.url;
@@ -154,10 +201,9 @@ export async function serveProject(
 		}
 		handOff();
 		// A task merged or let go from any tree tells its lane's orchestrator
-		// at once, not at the next sweep, and one added goes to the groomer.
+		// at once, not at the next sweep.
 		const tasksSettled = new Debouncer(new SystemTimer(), SETTLE);
 		const watched = handedOut;
-		const grooming = groomer;
 		try {
 			await fs.mkdir(`${splatesDir}/tasks`);
 			const watching = fs.watch(`${splatesDir}/tasks`, () =>
@@ -165,7 +211,6 @@ export async function serveProject(
 					void watched.sweep();
 					void runner.sweep();
 					void queue.sweep();
-					void grooming.sweep();
 				}),
 			);
 			tasksWatch = {
@@ -264,7 +309,7 @@ export async function serveProject(
 			laneRunner?.dispose();
 			queueRunner?.dispose();
 			unwatchRoom?.();
-			groomer?.dispose();
+			hookRunner?.dispose();
 			events?.dispose();
 			await talks.disposeAsync();
 		},
@@ -527,3 +572,16 @@ const READS = new Set<StateCall["op"]>([
 	"stat",
 	"isSymlink",
 ]);
+
+/** The person's hooks, with the shell commands the project checks in run after them. */
+function withCheckedIn(
+	hooks: Hooks,
+	on: Partial<Record<TaskEventName, string>>,
+): Hooks {
+	const all: Hooks = { ...hooks };
+	for (const [event, command] of Object.entries(on)) {
+		const name = event as TaskEventName;
+		all[name] = [...(all[name] ?? []), { kind: "run", command }];
+	}
+	return all;
+}
