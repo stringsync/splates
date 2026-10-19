@@ -302,6 +302,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		worktree: "/tmp/alpha",
 		lease: "held",
 		ahead: 1,
+		unmerged: true,
 		added: 1,
 		removed: 0,
 		age: "3m",

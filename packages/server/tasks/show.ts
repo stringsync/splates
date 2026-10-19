@@ -48,6 +48,12 @@ export interface Details {
 	worktree: string;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
+	/**
+	 * Whether removing it would lose work: commits its base does not have, or
+	 * changes not yet committed besides its SPLATES.md. A branch reset behind
+	 * its base has none.
+	 */
+	unmerged: boolean;
 	added: number | null;
 	removed: number | null;
 	age: string | null;
@@ -140,6 +146,10 @@ export class TaskDetails {
 			worktree: worktree.path,
 			lease: worktree.leaseStatus,
 			ahead,
+			unmerged:
+				// Unknown counts as unmerged, so nothing is discarded unasked.
+				(ahead === null ? worktree.hasBranch : ahead > 0) ||
+				uncommitted.some((path) => path !== PLAN_FILE),
 			added: stat?.added ?? null,
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
@@ -269,10 +279,13 @@ function gitKey(worktree: Worktree): string {
 /**
  * The path a `git status --porcelain` line names, the new one for a rename.
  * One git quotes keeps its escapes, so it stats as missing and counts for
- * nothing.
+ * nothing. The first line may have lost its leading space to the trim git's
+ * output gets, leaving one status column where there were two.
  */
 function pathOf(line: string): string {
-	const path = line.slice(3).split(" -> ").at(-1) ?? "";
+	const path =
+		(line[2] === " " ? line.slice(3) : line.slice(2)).split(" -> ").at(-1) ??
+		"";
 	return path.startsWith('"') ? path.slice(1, -1) : path;
 }
 

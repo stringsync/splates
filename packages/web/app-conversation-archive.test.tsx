@@ -138,7 +138,7 @@ describe("App's archiving conversations", () => {
 		]);
 	});
 
-	it("asks before archiving the conversation that last took its task, and removes the task before archiving it", async () => {
+	it("asks before archiving the conversation that last took a task with unmerged changes, and removes the task before archiving it", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
 			null,
@@ -149,7 +149,7 @@ describe("App's archiving conversations", () => {
 		await archive();
 		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
 		expect(dialog.textContent).toContain(
-			"Archiving removes its task, alpha: its 2 commits not on main",
+			"alpha has unmerged changes. Archiving removes it, discarding its 2 commits not on main",
 		);
 		expect(dialog.textContent).not.toContain("terminal");
 		await act(async () =>
@@ -166,6 +166,78 @@ describe("App's archiving conversations", () => {
 				),
 			),
 		);
+		await waitFor(() =>
+			expect(testing.posts.map(({ method, path }) => [method, path])).toEqual([
+				["DELETE", "/api/tasks/alpha"],
+				["PUT", "/api/conversations/c1/archived"],
+			]),
+		);
+	});
+
+	it("asks before archiving a task with only uncommitted changes, saying so", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			null,
+			{ tasks: [details({ task: "alpha", takenBy: "c1", ahead: 0 })] },
+		);
+
+		await archiveInList(view, "alpha");
+
+		expect(
+			view.getByRole("dialog", { name: "Archive alpha?" }).textContent,
+		).toContain("alpha has uncommitted changes.");
+		expect(testing.posts).toEqual([]);
+	});
+
+	it("archives without asking, removing its task, when the task has nothing unmerged", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha", takenBy: "c1", ahead: 0, unmerged: false }),
+				],
+			},
+		);
+
+		await archiveInList(view, "alpha");
+
+		expect(view.queryByRole("dialog")).toBeNull();
+		await waitFor(() =>
+			expect(testing.posts.map(({ method, path }) => [method, path])).toEqual([
+				["DELETE", "/api/tasks/alpha"],
+				["PUT", "/api/conversations/c1/archived"],
+			]),
+		);
+	});
+
+	it("says the task it removes has nothing unmerged when it asks for its running agent", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "running" })],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha", takenBy: "c1", ahead: 0, unmerged: false }),
+				],
+			},
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive alpha" }),
+			),
+		);
+		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
+		expect(dialog.textContent).toContain("still running");
+		expect(dialog.textContent).toContain(
+			"Archiving removes its task, alpha, which has nothing unmerged.",
+		);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+		);
+
 		await waitFor(() =>
 			expect(testing.posts.map(({ method, path }) => [method, path])).toEqual([
 				["DELETE", "/api/tasks/alpha"],

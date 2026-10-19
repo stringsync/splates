@@ -25,10 +25,10 @@ import { ShellRunning, ShowTerminal } from "./terminal";
  * Archives `conversation`, or brings it back, at once, then runs `then`. Archiving
  * removes its task too, as `splates remove` does, while the task is still there
  * and this conversation last took it, and takes along the agents it handed
- * tasks to or started. While its agent works, its shell is up, it would remove
- * its task, or an agent it takes along is not done, `file` asks first in
- * `confirm`, since archiving stops or discards them; render `confirm` beside
- * whatever calls `file`.
+ * tasks to or started. While its agent works, its shell is up, the task it
+ * would remove has unmerged changes, or an agent it takes along is not done,
+ * `file` asks first in `confirm`, since archiving stops or discards them;
+ * render `confirm` beside whatever calls `file`.
  */
 export function useArchive(
 	conversation: ConversationState,
@@ -105,7 +105,7 @@ export function useArchive(
 	// asked as it is clicked, since the shell comes and goes without a render here.
 	const asks = () =>
 		!archived &&
-		(task !== null || working || live.length > 0 || shellRunning(id));
+		(task?.unmerged === true || working || live.length > 0 || shellRunning(id));
 	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
 		failure.current = failed;
@@ -124,10 +124,13 @@ export function useArchive(
 					<DialogTitle>Archive {nameOf(conversation)}?</DialogTitle>
 					{task !== null && (
 						<DialogDescription>
-							Archiving removes its task, {task.task}:{" "}
-							{task.ahead !== null && task.ahead > 0
-								? `its ${task.ahead} commit${task.ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
-								: "its worktree, branch and uncommitted changes are discarded."}
+							{!task.unmerged
+								? `Archiving removes its task, ${task.task}, which has nothing unmerged.`
+								: task.ahead !== null && task.ahead > 0
+									? `${task.task} has unmerged changes. Archiving removes it, discarding its ${task.ahead} commit${task.ahead === 1 ? "" : "s"} not on ${task.base} and any uncommitted changes.`
+									: task.ahead === 0
+										? `${task.task} has uncommitted changes. Archiving removes it, discarding them.`
+										: `${task.task} may have unmerged changes. Archiving removes it, discarding its worktree, branch and any uncommitted changes.`}
 						</DialogDescription>
 					)}
 					{(working || live.length > 0 || shell) && (

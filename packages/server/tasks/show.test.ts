@@ -114,6 +114,40 @@ describe("show", () => {
 		expect(JSON.parse(deps.out()).activeAt).toBe(later.toISOString());
 	});
 
+	it("has unmerged changes only with commits its base lacks or edits besides its SPLATES.md", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		const unmerged = async () => {
+			deps.log.clear();
+			await show(deps, "alpha", { json: true });
+			return JSON.parse(deps.out()).unmerged;
+		};
+		await deps.fs.write(`${alpha}/SPLATES.md`, "# alpha\n");
+		expect(await unmerged()).toBe(false);
+
+		await deps.fs.write(`${alpha}/README.md`, "edited\n");
+		expect(await unmerged()).toBe(true);
+		await deps.gitCli(alpha, "checkout", "README.md");
+		await deps.fs.write(`${alpha}/notes.md`, "half done\n");
+		expect(await unmerged()).toBe(true);
+		await deps.fs.rm(`${alpha}/notes.md`);
+
+		await deps.commit(alpha, "feature.ts", "x\n", "feature");
+		expect(await unmerged()).toBe(true);
+	});
+
+	it("has no unmerged changes once its branch is reset behind its base", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.commit(deps.root, "later.md", "later\n", "later");
+		await deps.gitCli(alpha, "reset", "--hard", "main~1");
+		deps.log.clear();
+
+		await show(deps, "alpha", { json: true });
+
+		expect(JSON.parse(deps.out())).toMatchObject({ ahead: 0, unmerged: false });
+	});
+
 	it("says a task is handed to an agent until its conversation starts", async () => {
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },

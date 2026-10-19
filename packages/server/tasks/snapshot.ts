@@ -142,6 +142,7 @@ export function fingerprint({
 			task.task,
 			task.status,
 			task.ahead,
+			task.unmerged,
 			task.added,
 			task.removed,
 			task.plan,
