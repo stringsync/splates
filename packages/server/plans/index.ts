@@ -37,6 +37,7 @@ export {
 	unfinished,
 	whatIsLeft,
 } from "./plan";
+export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
 	CHECKPOINT,

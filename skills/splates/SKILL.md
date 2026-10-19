@@ -36,6 +36,7 @@ asks you to read it as Reference files says.
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
+| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo, at `before`, `after` or `main`, from its task dialog | Demos, Running a demo |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -347,8 +348,8 @@ A task ready to merge has every step under `## Next` and every question under
 `## Blocked` checked; `splates merge` refuses one that is not, and a review
 is sent only for one that is. Whether the user looks first is yours to decide:
 
-- **Merge** work you verified yourself. This is the default, and the usual
-  end of a small change.
+- **Merge** work you verified yourself, its evidence under `## Verification`
+  (see SPLATES.md). This is the default, and the usual end of a small change.
 - **Ask for a review**, with a demo (see Demos), when the change is invasive
   (it reworks how something the user relies on works, or touches much of the
   project) and above all when it is hard or impossible to reverse (a
@@ -427,18 +428,15 @@ in and propose again.
 
 ## Demos
 
-Show the user what you built rather than describing it whenever they are to
-try something before it lands (a review, a question on how something looks or
-feels, a test only they can run); a merged task gets no demo. A demo is a `### 🎬 Demo: <what it shows>` heading, a line on
-where to open it, then the steps, numbered from 1. Each step's line is one
-thing to do; indented under it, one line on what they should see, and a
-screenshot or recording when it helps. The `splates server` page shows a demo
-as a card of its steps, with a button that opens where it runs.
-
-A demo tells the story of how the goal was reached: the steps the user takes
-to see it working, in the order that shows it, each with what they should
-see. Screenshots are optional: add one only where a step's result is hard to
-put in words. Say nothing in it that the report around it already says.
+The norm is evidence, not a demo: the user reads what you verified under
+`## Verification` in the task dialog, and starts a demo from there only when
+they want one. Start one yourself only when the user must see something to
+answer a question, or to judge a review (see Merge or review). A demo is a
+`### 🎬 Demo: <what it shows>` heading, a line on where to open it, then the
+steps, numbered from 1. Each step's line is one thing to do; indented under
+it, one line on what they should see, and a screenshot or recording only
+where words fall short. The `splates server` page shows a demo as a card of
+its steps, with a button that opens where it runs.
 
 ```markdown
 ### 🎬 Demo: dragging a card on a phone
@@ -455,6 +453,31 @@ Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
 Give one demo per message: right before the questions it is for, or inside a review before its last line. The steps
 are the demo's only numbered list: never number steps elsewhere in a report,
 where they would read as questions.
+
+### Running a demo
+
+`[SPLATES DEMO <task> <point>]` asks you to show `<task>`, open or finished,
+at one point: `before` its change, `after` it, or on `main` as it is now.
+It comes to the conversation that last worked the task, so you may hold its
+context already; otherwise read it all with `splates show <task>`, which
+prints a finished task's facts and the `SPLATES.md` it ended on too.
+
+1. `splates add demo-<task>-<point> --goal "Demo <task> at <point>"`, with
+   `--base task/<task>` for `after` while the task is open, so the demo runs
+   in a worktree of its own that nothing landing on main moves.
+2. Move it to the point: for a finished task, `git reset --hard <commit>^`
+   for `before` and `git reset --hard <commit>` for `after`, `<commit>` the
+   one it landed as. `main`, and `before` while the task is open, stay where
+   `splates add` put them. This reset is yours to run: a demo task never
+   merges.
+3. Set it up as the task's `## Demo` says, on throwaway data, and start it
+   where the user can open it (see Merge or review on servers and links).
+4. Say in a line what they should see at this point, then give the demo's
+   steps, and talk it through. A fix it turns up is work for the task, while
+   it is open, or for a new task, never for the demo's.
+
+The demo stays up until the user archives the conversation, which removes
+the demo task and stops its server and agent.
 
 ## Artifacts
 
@@ -591,6 +614,16 @@ One or two lines on what done means.
 
 Decisions, dead ends, and how to verify.
 
+## Verification
+
+What you checked and what it showed: each check run, and a screenshot or
+recording you `splates attach`ed where the change is something to see.
+
+## Demo
+
+How to set up a demo of the change, in words, and what the user should see
+before the change, after it, and on main.
+
 ## Blocked
 
 - [ ] questions the user must answer before the task merges
@@ -602,6 +635,14 @@ Goal; for a change of one commit, leave out `## Next`, since the Goal says
 it all, and the page shows the Goal as what you are doing. Keep the rest current as you
 go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
 the shape. It is excluded from git: never mention it in a commit message.
+
+The page's task dialog shows `## Verification`, for an open task and once it
+has finished, so fill it in before you merge: it is the evidence the user
+reads instead of a demo. Write `## Demo` for any change the user can see or
+try, and leave it out otherwise. Keep it to what an agent needs to set the
+demo up later against the code of the day (what to run, the throwaway data
+to make, where to open it) and what each point shows, never a script to keep
+in step with the code.
 
 ## Committing
 

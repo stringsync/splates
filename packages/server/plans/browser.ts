@@ -14,11 +14,13 @@ export {
 	TASK,
 } from "./needs";
 export { goalLine, questions } from "./plan";
+export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
 	DIRECTIVES,
+	demoReference,
 	directive,
 	isUpdate,
 	leadingDirectives,

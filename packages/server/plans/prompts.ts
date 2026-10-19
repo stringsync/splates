@@ -30,6 +30,17 @@ export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;
 }
 
+/** Where a demo shows a task: just before its change, with it, or on main now. */
+export type DemoPoint = "before" | "after" | "main";
+
+/**
+ * What asks an agent to set up a demo of `task` at `point`, as the task
+ * dialog's Demo buttons send: the splates skill says what it means.
+ */
+export function demoReference(task: string, point: DemoPoint): string {
+	return `[SPLATES DEMO ${task} ${point}]`;
+}
+
 /** What a chat with an agent takes to mean "walk the user through setup step `step`". */
 export function setupReference(step: string): string {
 	return `[SPLATES SETUP ${step}]`;
