@@ -75,11 +75,12 @@ describe("App's Auto pick setup", () => {
 		expect(
 			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
 		).toBe("lookup");
-		expect(
-			(within(rules).getByLabelText("rule 1 pick 1 model") as HTMLSelectElement)
-				.value,
-		).toBe("haiku");
-		expect(view.getByRole("status").textContent).toBe("Saved");
+		expect(within(rules).getByLabelText("rule 1 pick 1").textContent).toContain(
+			"1ClaudeHaiku · low",
+		);
+		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
+			"Saved",
+		);
 	});
 
 	it("saves what was edited, shown saved at once", async () => {
@@ -89,14 +90,20 @@ describe("App's Auto pick setup", () => {
 
 		await choose(within(rules).getByLabelText("rule 1 kind"), "bugfix");
 		await choose(within(rules).getByLabelText("rule 1 difficulty"), "hard");
-		await choose(within(rules).getByLabelText("rule 1 pick 1 model"), "opus");
-		await choose(within(rules).getByLabelText("rule 1 pick 1 thinking"), "max");
 		await press(
-			within(rules).getByRole("button", { name: "Add a pick to rule 1" }),
+			within(rules).getByRole("button", { name: "Edit rule 1 pick 1" }),
 		);
-		await choose(within(rules).getByLabelText("rule 1 pick 2 agent"), "codex");
+		await choose(await view.findByLabelText("rule 1 pick 1 model"), "opus");
+		await choose(view.getByLabelText("rule 1 pick 1 thinking"), "max");
+		await press(
+			within(rules).getByRole("button", { name: "Add an agent to rule 1" }),
+		);
+		await press(await view.findByRole("menuitem", { name: "Astra" }));
+		await press(
+			within(rules).getByRole("button", { name: "Edit rule 1 pick 2" }),
+		);
 		await choose(
-			within(rules).getByLabelText("rule 1 pick 2 thinking"),
+			await view.findByLabelText("rule 1 pick 2 thinking"),
 			"medium",
 		);
 		await act(async () =>
@@ -104,7 +111,9 @@ describe("App's Auto pick setup", () => {
 				target: { value: "70" },
 			}),
 		);
-		expect(view.getByRole("status").textContent).toBe("Unsaved changes");
+		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
+			"Unsaved changes",
+		);
 		const edited: AutoPickRules = {
 			format: 1,
 			threshold: 0.7,
@@ -114,7 +123,7 @@ describe("App's Auto pick setup", () => {
 					difficulty: "hard",
 					picks: [
 						{ agent: "claude", model: "opus", effort: "max" },
-						{ agent: "codex", effort: "medium" },
+						{ agent: "codex", model: "gpt-6-astra", effort: "medium" },
 					],
 				},
 				RULES.rules[1] as AutoPickRules["rules"][number],
@@ -125,7 +134,9 @@ describe("App's Auto pick setup", () => {
 		await press(view.getByRole("button", { name: "Save rules" }));
 
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
-		expect(view.getByRole("status").textContent).toBe("Saved");
+		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
+			"Saved",
+		);
 	});
 
 	it("keeps the last rule as any kind and any difficulty, in place", async () => {
@@ -173,7 +184,9 @@ describe("App's Auto pick setup", () => {
 				"Not saved: not Auto pick rules: the file moved",
 			),
 		);
-		expect(view.getByRole("status").textContent).toBe("Unsaved changes");
+		expect(view.getByText(/^(Saved|Unsaved changes)$/).textContent).toBe(
+			"Unsaved changes",
+		);
 		expect(
 			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
 		).toBe("design");

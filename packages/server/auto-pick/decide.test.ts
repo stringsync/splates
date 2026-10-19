@@ -9,12 +9,12 @@ import type { AutoPickRules } from "./rules";
 describe("decide", () => {
 	it("takes the first rule matching the likeliest kind and difficulty, saying why", () => {
 		expect(decide({ ...BASE, classification: MECHANICAL_LIGHT })).toEqual({
-			pick: { agent: "claude", model: "haiku", effort: "low" },
+			pick: { agent: "codex", model: "gpt-6-luna", effort: "low" },
 			rule: 1,
 			kind: "mechanical",
 			difficulty: "easy",
 			reasons: [
-				"Haiku 5.5, low effort",
+				"6 Luna, low effort",
 				"judged: Mechanical 72%, Easy 64%",
 				"rule 2: Mechanical, Easy",
 			],
@@ -200,6 +200,15 @@ describe("decide", () => {
 		});
 		expect(
 			decide({ ...BASE, offered, classification: MECHANICAL_LIGHT }).pick,
+		).toEqual({ agent: "codex", model: "gpt-6-luna", effort: "low" });
+	});
+
+	it("falls back to Claude for mechanical work when Codex's plan is spent", () => {
+		const limits = {
+			codex: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
+		};
+		expect(
+			decide({ ...BASE, limits, classification: MECHANICAL_LIGHT }).pick,
 		).toEqual({ agent: "claude", model: "haiku", effort: "low" });
 	});
 });

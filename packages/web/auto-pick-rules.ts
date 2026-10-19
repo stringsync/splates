@@ -145,61 +145,81 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		}));
 	}
 
-	/** Adds a pick at the end of rule `index`'s, on the roster's first agent. */
-	addPick(index: number): void {
-		const agent = this.agents[0]?.id;
-		if (agent !== undefined) {
-			this.editRule(
-				index,
-				(rule) => ({ ...rule, picks: [...rule.picks, { agent }] }),
-				true,
-			);
-		}
+	/** Whether rule `index` already names `agent` on `model`, apart from its pick `except`. */
+	has(
+		index: number,
+		agent: string,
+		model: string | undefined,
+		except?: number,
+	): boolean {
+		return (this.draft.rules[index]?.picks ?? []).some(
+			(each, at) =>
+				at !== except && each.agent === agent && each.model === model,
+		);
 	}
 
-	removePick(index: number, pick: number): void {
+	/**
+	 * Adds `agent` on `model`, or its default model, at the end of rule
+	 * `index`'s picks, at the thinking level the rule's others take where the
+	 * agent offers it. Does nothing when the rule names it already.
+	 */
+	addPick(index: number, agent: string, model: string | undefined): void {
+		if (this.has(index, agent, model)) {
+			return;
+		}
+		const offered = this.efforts(agent);
+		const effort = this.draft.rules[index]?.picks.find(
+			(each) => each.effort !== undefined && offered.includes(each.effort),
+		)?.effort;
+		const pick: AgentPick = { agent };
+		if (model !== undefined) {
+			pick.model = model;
+		}
+		if (effort !== undefined) {
+			pick.effort = effort;
+		}
 		this.editRule(
 			index,
-			(rule) => ({ ...rule, picks: rule.picks.filter((_, at) => at !== pick) }),
+			(rule) => ({ ...rule, picks: [...rule.picks, pick] }),
 			true,
 		);
 	}
 
-	movePick(index: number, pick: number, by: -1 | 1): void {
+	/** Removes pick `pick` of rule `index`, never its last. */
+	removePick(index: number, pick: number): void {
+		this.editRule(
+			index,
+			(rule) =>
+				rule.picks.length < 2
+					? rule
+					: { ...rule, picks: rule.picks.filter((_, at) => at !== pick) },
+			true,
+		);
+	}
+
+	/** Moves pick `from` of rule `index` to place `to`. */
+	movePick(index: number, from: number, to: number): void {
 		this.editRule(
 			index,
 			(rule) => {
-				const to = pick + by;
-				return to < 0 || to >= rule.picks.length
-					? rule
-					: { ...rule, picks: swapped(rule.picks, pick, to) };
+				const moved = rule.picks[from];
+				if (moved === undefined || from === to || to < 0) {
+					return rule;
+				}
+				const picks = rule.picks.filter((_, at) => at !== from);
+				picks.splice(to, 0, moved);
+				return { ...rule, picks };
 			},
 			true,
 		);
 	}
 
-	/**
-	 * Names `agent` on a pick, keeping its model and thinking level only
-	 * where the new agent offers them, and the agent's default otherwise.
-	 */
-	setAgent(index: number, pick: number, agent: string): void {
-		this.editPick(index, pick, (was) => {
-			const next: AgentPick = { agent };
-			if (was.model !== undefined && this.models(agent).includes(was.model)) {
-				next.model = was.model;
-			}
-			if (
-				was.effort !== undefined &&
-				this.efforts(agent).includes(was.effort)
-			) {
-				next.effort = was.effort;
-			}
-			return next;
-		});
-	}
-
 	/** Sets a pick's model; undefined for the agent's default. */
 	setModel(index: number, pick: number, model: string | undefined): void {
+		const agent = this.draft.rules[index]?.picks[pick]?.agent;
+		if (agent === undefined || this.has(index, agent, model, pick)) {
+			return;
+		}
 		this.editPick(index, pick, ({ model: _, ...rest }) =>
 			model === undefined ? rest : { ...rest, model },
 		);

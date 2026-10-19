@@ -25,6 +25,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
+import { PickChips } from "./auto-pick-pick-chips";
 import type { RulesEditor } from "./auto-pick-rules";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -254,150 +255,7 @@ function RuleRow({
 					</>
 				)}
 			</div>
-			<ol aria-label={`${name} picks`} className="flex flex-col gap-2 pl-7">
-				{picks.map((pick, at) => (
-					<PickRow
-						// biome-ignore lint/suspicious/noArrayIndexKey: a pick is its place on the rule
-						key={at}
-						editor={editor}
-						rule={index}
-						index={at}
-						pick={pick}
-						count={picks.length}
-					/>
-				))}
-			</ol>
-			<Button
-				type="button"
-				variant="link"
-				size="sm"
-				className="h-auto self-start p-0 pl-7 text-muted-foreground"
-				onClick={() => editor.addPick(index)}
-			>
-				<PlusIcon data-icon="inline-start" /> Add a pick to {name}
-			</Button>
-		</li>
-	);
-}
-
-/** One pick of a rule: its agent, model and thinking level, each with the agent's default. */
-function PickRow({
-	editor,
-	rule,
-	index,
-	pick,
-	count,
-}: {
-	editor: RulesEditor;
-	rule: number;
-	index: number;
-	pick: AgentPick;
-	count: number;
-}): JSX.Element {
-	const name = `rule ${rule + 1} pick ${index + 1}`;
-	const agent = editor.agents.find((each) => each.id === pick.agent);
-	const models = agent?.models ?? [];
-	const efforts = editor.efforts(pick.agent);
-	return (
-		<li
-			aria-label={name}
-			className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-center gap-2"
-		>
-			<NativeSelect
-				size="sm"
-				className="w-full"
-				aria-label={`${name} agent`}
-				value={pick.agent}
-				onChange={(event) =>
-					editor.setAgent(rule, index, event.currentTarget.value)
-				}
-			>
-				{agent === undefined && (
-					<NativeSelectOption value={pick.agent}>
-						{pick.agent} (not on the roster)
-					</NativeSelectOption>
-				)}
-				{editor.agents.map((each) => (
-					<NativeSelectOption key={each.id} value={each.id}>
-						{each.name}
-					</NativeSelectOption>
-				))}
-			</NativeSelect>
-			<NativeSelect
-				size="sm"
-				className="w-full"
-				aria-label={`${name} model`}
-				value={pick.model ?? ""}
-				onChange={(event) =>
-					editor.setModel(rule, index, event.currentTarget.value || undefined)
-				}
-			>
-				<NativeSelectOption value="">Default model</NativeSelectOption>
-				{pick.model !== undefined &&
-					!models.some((each) => each.id === pick.model) && (
-						<NativeSelectOption value={pick.model}>
-							{pick.model}
-						</NativeSelectOption>
-					)}
-				{models.map((each) => (
-					<NativeSelectOption key={each.id} value={each.id}>
-						{each.name}
-					</NativeSelectOption>
-				))}
-			</NativeSelect>
-			<NativeSelect
-				size="sm"
-				className="w-full"
-				aria-label={`${name} thinking`}
-				value={pick.effort ?? ""}
-				onChange={(event) =>
-					editor.setEffort(rule, index, event.currentTarget.value || undefined)
-				}
-			>
-				<NativeSelectOption value="">Default thinking</NativeSelectOption>
-				{pick.effort !== undefined && !efforts.includes(pick.effort) && (
-					<NativeSelectOption value={pick.effort}>
-						{pick.effort}
-					</NativeSelectOption>
-				)}
-				{efforts.map((each) => (
-					<NativeSelectOption key={each} value={each}>
-						{each}
-					</NativeSelectOption>
-				))}
-			</NativeSelect>
-			<span className="flex">
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					aria-label={`Move ${name} up`}
-					disabled={index === 0}
-					onClick={() => editor.movePick(rule, index, -1)}
-				>
-					<ArrowUpIcon />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					aria-label={`Move ${name} down`}
-					disabled={index === count - 1}
-					onClick={() => editor.movePick(rule, index, 1)}
-				>
-					<ArrowDownIcon />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					aria-label={`Remove ${name}`}
-					disabled={count === 1}
-					onClick={() => editor.removePick(rule, index)}
-				>
-					<XIcon />
-				</Button>
-			</span>
+			<PickChips editor={editor} rule={index} picks={picks} />
 		</li>
 	);
 }

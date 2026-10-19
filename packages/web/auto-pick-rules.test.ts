@@ -7,19 +7,37 @@ import { DEFAULT_RULES } from "@stringsync/splates-server/auto-pick/browser";
 import { RulesEditor, type RulesStore } from "./auto-pick-rules";
 
 describe("RulesEditor", () => {
-	it("drops a model and thinking level the new agent does not offer, keeping one it does", async () => {
+	it("adds a pick at the thinking level the rule's others take, once", async () => {
 		const editor = new RulesEditor(new FakeRulesStore());
 		await editor.load();
 
-		editor.setAgent(0, 0, "codex");
+		editor.addPick(0, "codex", undefined);
+		editor.addPick(0, "codex", undefined);
+		editor.addPick(0, "claude", "opus");
 
-		// Codex has not said which levels it takes, so the usual three stand in.
-		expect(editor.draft.rules[0]?.picks).toEqual([{ agent: "codex" }]);
-		editor.setEffort(0, 0, "high");
-		editor.setAgent(0, 0, "claude");
+		// Codex has not said which levels it takes, so the usual three stand in
+		// and `max` is not among them.
 		expect(editor.draft.rules[0]?.picks).toEqual([
-			{ agent: "claude", effort: "high" },
+			{ agent: "claude", model: "opus", effort: "max" },
+			{ agent: "codex" },
 		]);
+		expect(editor.has(0, "codex", undefined)).toBe(true);
+	});
+
+	it("moves a pick to a place, and refuses a model another pick names", async () => {
+		const editor = new RulesEditor(new FakeRulesStore());
+		await editor.load();
+		editor.addPick(0, "codex", undefined);
+		editor.addPick(0, "claude", undefined);
+
+		editor.movePick(0, 2, 0);
+		expect(editor.draft.rules[0]?.picks.map((each) => each.model)).toEqual([
+			undefined,
+			"opus",
+			undefined,
+		]);
+		editor.setModel(0, 0, "opus");
+		expect(editor.draft.rules[0]?.picks[0]?.model).toBeUndefined();
 	});
 
 	it("never changes the last rule's matchers or removes it", async () => {
@@ -37,8 +55,10 @@ describe("RulesEditor", () => {
 		const store = new FakeRulesStore();
 		const editor = new RulesEditor(store);
 		await editor.load();
-
-		editor.removePick(0, 0);
+		editor.draft = {
+			...editor.draft,
+			rules: [{ kind: "*", difficulty: "*", picks: [] }],
+		};
 
 		expect(editor.problem).toBe(
 			"rules.0.picks: a rule picks at least one agent",
@@ -47,6 +67,15 @@ describe("RulesEditor", () => {
 			"rules.0.picks: a rule picks at least one agent",
 		);
 		expect(store.saved).toEqual([]);
+	});
+
+	it("never removes a rule's last pick", async () => {
+		const editor = new RulesEditor(new FakeRulesStore());
+		await editor.load();
+
+		editor.removePick(0, 0);
+
+		expect(editor.draft).toEqual(VIEW.rules);
 	});
 
 	it("shows a reset at once, and puts the rules back when it is refused", async () => {

@@ -89,7 +89,24 @@ const PICK = z.object({
 const RULE = z.object({
 	kind: z.enum([ANY, ...KIND_IDS]),
 	difficulty: z.enum([ANY, ...DIFFICULTY_IDS]),
-	picks: z.array(PICK).min(1, "a rule picks at least one agent"),
+	picks: z
+		.array(PICK)
+		.min(1, "a rule picks at least one agent")
+		.superRefine((picks, ctx) => {
+			const at = picks.findIndex(
+				(pick, index) =>
+					picks.findIndex(
+						(each) => each.agent === pick.agent && each.model === pick.model,
+					) !== index,
+			);
+			if (at >= 0) {
+				ctx.addIssue({
+					code: "custom",
+					path: [at],
+					message: "a rule names the same agent and model once",
+				});
+			}
+		}),
 });
 
 /** What `auto-pick.json` holds, its last rule `* *`. */
