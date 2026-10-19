@@ -5,7 +5,6 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
-	laneReference,
 	MERGE,
 	RECONNECT,
 	RESUME,
@@ -32,7 +31,7 @@ import { Board } from "./board";
 import type { Tone } from "./card-shell";
 import { Lanes } from "./conversation-names";
 import { Held } from "./handed-out";
-import { LaneIcon, TaskIcon } from "./task-icon";
+import { TaskIcon } from "./task-icon";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
@@ -56,7 +55,6 @@ export interface References {
 const CATEGORIES = [
 	{ id: "directive", label: "Directives", icon: TreePineIcon },
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
-	{ id: "lane", label: "Lanes", icon: LaneIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
@@ -64,7 +62,7 @@ const CATEGORIES = [
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
 /**
- * The board's todos and lanes, `tasks`, the other splates
+ * The board's todos, `tasks`, the other splates
  * `projects` on this machine, the directives, and `actions` for `#` in the
  * composer, the conversation's actions run in place.
  */
@@ -73,7 +71,7 @@ export function useReferences(
 	actions: readonly Action[] = [],
 	projects: readonly ProjectRef[] = [],
 ): References {
-	const { todos, lanes } = useContext(Board);
+	const { todos } = useContext(Board);
 	const conversations = useContext(Held);
 	const namedLanes = useContext(Lanes);
 	return useMemo(() => {
@@ -93,22 +91,6 @@ export function useReferences(
 				description: `#${todo.id}`,
 				metadata: { directive: taskNumberReference(todo.id) },
 			})),
-			lane: [
-				{
-					id: laneReference(null),
-					type: "lane",
-					label: "Untriaged",
-					description: "todos in no lane",
-					metadata: { directive: laneReference(null) },
-				},
-				...lanes.map((lane) => ({
-					id: laneReference(lane.id),
-					type: "lane",
-					label: lane.name,
-					description: `lane ${lane.id}`,
-					metadata: { directive: laneReference(lane.id) },
-				})),
-			],
 			task: tasks.map((task) => ({
 				id: taskReference(task.task),
 				type: "task",
@@ -173,11 +155,11 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [todos, lanes, tasks, actions, projects, conversations, namedLanes]);
+	}, [todos, tasks, actions, projects, conversations, namedLanes]);
 }
 
 /**
- * The directives that are about no todo, lane, or task, as the composer offers
+ * The directives that are about no todo or task, as the composer offers
  * them and a message of one alone shows as its card.
  */
 export const BARE_DIRECTIVES = [

@@ -5,7 +5,6 @@ import {
 	thinkingOf,
 } from "@stringsync/splates-server/models/browser";
 import {
-	laneReference,
 	type Needing,
 	needs,
 	taskNumberReference,
@@ -17,11 +16,9 @@ import { promptConversation, startConversation } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 
-/** What a todo, a lane or a task is, to put an agent to work on it. */
+/** What a todo or a task is, to put an agent to work on it. */
 export type Assignment =
 	| { kind: "todo"; id: number }
-	/** A lane by its number, or null for the untriaged todos. */
-	| { kind: "lane"; id: number | null }
 	| { kind: "task"; task: string };
 
 /**
@@ -177,8 +174,6 @@ export function promptFor(assignment: Assignment): string {
 	switch (assignment.kind) {
 		case "todo":
 			return taskNumberReference(assignment.id);
-		case "lane":
-			return laneReference(assignment.id);
 		case "task":
 			return taskReference(assignment.task);
 	}

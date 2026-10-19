@@ -69,7 +69,6 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		on: {},
 		leaseStalenessMs: 90_000,
-		agentsPerLane: 15,
 		mergeRetryCount: 3,
 		removedCapacity: 50,
 		logCapacity: 1000,

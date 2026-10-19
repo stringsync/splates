@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	idleReference,
 	isUpdate,
 	MERGE,
 	reportReference,
@@ -12,7 +11,7 @@ describe("isUpdate", () => {
 		expect(
 			[
 				reportReference("header"),
-				idleReference("header"),
+				"[SPLATES IDLE header]",
 				"[SPLATES GROOM #12]",
 				"[SPLATES TODO DONE #12]",
 			].map(isUpdate),

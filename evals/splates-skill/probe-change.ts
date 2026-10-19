@@ -123,8 +123,7 @@ export async function instructionFiles(
 
 const smoke: Record<string, string> = {
 	"SKILL.md": "discovery/implicit",
-	"references/queue.md": "orchestration/dependency",
-	"references/lanes.md": "orchestration/independent",
+	"references/queue.md": "orchestration/defer",
 	"references/parts.md": "delegation/part-base",
 	"references/handoff.md": "delegation/takeover",
 	"references/checkpoint.md": "continuity/checkpoint",

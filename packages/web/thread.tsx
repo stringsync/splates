@@ -1,6 +1,6 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Report } from "@stringsync/splates-server/plans";
+import type { TaskReport } from "@stringsync/splates-server/plans";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { ArchiveIcon } from "lucide-react";
@@ -46,7 +46,6 @@ import { bleed, ErrorBanner } from "./error-banner";
 import { EventUI, lineOf } from "./event-lines";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
-import { PlanSource, StartedByCard } from "./lane-plan";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
@@ -54,7 +53,7 @@ import { Queued, useQueueEdits } from "./queued";
 import { QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
 import { Refusal } from "./refusal";
-import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
+import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
@@ -204,7 +203,7 @@ function Conversation({
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// What the conversation's last word reports, to offer archiving it when
-	// the task is over, or the lanes it worked are.
+	// the task is over.
 	const { offer, barred } = useArchiveOffer(
 		archived ? null : ended(conversation),
 		() => archive.file(onLeft),
@@ -293,151 +292,143 @@ function Conversation({
 					phone={onBack !== null}
 				/>
 			)}
-			<PlanSource value={{ conversation, tasks, onOpen }}>
-				<PhoneSheets conversation={id} on={onBack !== null}>
-					<TaskRegistry>
-						{(version) => (
-							<div
-								className="relative min-h-0 flex-1"
-								style={{
-									["--thread-inset-end" as string]:
-										widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-								}}
-							>
-								<AssistantRuntimeProvider runtime={runtime}>
-									<Composing.Provider value={runtime.thread.composer}>
-										<UnsentContext.Provider value={unsentActions}>
-											<QuestionsUI />
-											<ReviewUI />
-											<ReportUI />
-											<StartUI />
-											<TodoUI />
-											<DemoUI />
-											<WorkUI />
-											<QueuedUI />
-											<EventUI />
-											<StoppedUI />
-											<CompactionUI />
-											<InterruptedUI />
-											<ArchiveOfferProvider value={offer}>
-												<StartNewContext value={startNew}>
-													<ReplyContext value={reply}>
-														<NamedContext value={named}>
-															<ThreadView
-																openAt={openAt}
-																autoFocus={!asking || typed}
-																stopping={stopping}
-																mentions={mentions ?? undefined}
-																references={references}
-																commands={commands ?? undefined}
-																placeholder={
-																	archived
-																		? "Send a message to unarchive and continue"
-																		: undefined
-																}
-																controls={
-																	!archived && (
-																		<>
-																			<ContextMeter
-																				usage={conversation.usage}
-																				compactions={compactionsIn(
-																					conversation.messages,
-																				)}
-																			/>
-																			<SettingControls
-																				settings={settings}
-																				current={(setting) => setting.current}
-																				onChange={choose}
-																			/>
-																		</>
-																	)
-																}
-																above={
+			<PhoneSheets conversation={id} on={onBack !== null}>
+				<TaskRegistry>
+					{(version) => (
+						<div
+							className="relative min-h-0 flex-1"
+							style={{
+								["--thread-inset-end" as string]:
+									widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+							}}
+						>
+							<AssistantRuntimeProvider runtime={runtime}>
+								<Composing.Provider value={runtime.thread.composer}>
+									<UnsentContext.Provider value={unsentActions}>
+										<QuestionsUI />
+										<ReviewUI />
+										<ReportUI />
+										<TodoUI />
+										<DemoUI />
+										<WorkUI />
+										<QueuedUI />
+										<EventUI />
+										<StoppedUI />
+										<CompactionUI />
+										<InterruptedUI />
+										<ArchiveOfferProvider value={offer}>
+											<StartNewContext value={startNew}>
+												<ReplyContext value={reply}>
+													<NamedContext value={named}>
+														<ThreadView
+															openAt={openAt}
+															autoFocus={!asking || typed}
+															stopping={stopping}
+															mentions={mentions ?? undefined}
+															references={references}
+															commands={commands ?? undefined}
+															placeholder={
+																archived
+																	? "Send a message to unarchive and continue"
+																	: undefined
+															}
+															controls={
+																!archived && (
 																	<>
-																		<NeedsYouBar />
-
-																		<Refusal
-																			refusal={refusal}
-																			className="px-2"
-																		/>
-																		{offer !== null && barred && (
-																			<ArchiveBar offer={offer} />
-																		)}
-																		{queued.length > 0 &&
-																			conversation.status !== "starting" && (
-																				<Queued
-																					conversation={id}
-																					messages={queued}
-																					pending={feed.unrecorded(id)}
-																					edits={{
-																						onEdit: (index) => void edit(index),
-																						onDiscard: (index) =>
-																							void discard(index),
-																						onSendNow: () => void sendNow(),
-																					}}
-																				/>
+																		<ContextMeter
+																			usage={conversation.usage}
+																			compactions={compactionsIn(
+																				conversation.messages,
 																			)}
-																		{conversation.ask !== null && (
-																			<AskPanel
-																				key={conversation.ask.id}
-																				drafts={drafts}
-																				conversation={conversation}
-																				agent={agent}
-																				ask={conversation.ask}
+																		/>
+																		<SettingControls
+																			settings={settings}
+																			current={(setting) => setting.current}
+																			onChange={choose}
+																		/>
+																	</>
+																)
+															}
+															above={
+																<>
+																	<NeedsYouBar />
+
+																	<Refusal refusal={refusal} className="px-2" />
+																	{offer !== null && barred && (
+																		<ArchiveBar offer={offer} />
+																	)}
+																	{queued.length > 0 &&
+																		conversation.status !== "starting" && (
+																			<Queued
+																				conversation={id}
+																				messages={queued}
+																				pending={feed.unrecorded(id)}
+																				edits={{
+																					onEdit: (index) => void edit(index),
+																					onDiscard: (index) =>
+																						void discard(index),
+																					onSendNow: () => void sendNow(),
+																				}}
 																			/>
 																		)}
-																	</>
-																}
-															/>
-														</NamedContext>
-													</ReplyContext>
-												</StartNewContext>
-											</ArchiveOfferProvider>
-										</UnsentContext.Provider>
-									</Composing.Provider>
-								</AssistantRuntimeProvider>
-								<Widgets
-									phone={onBack !== null}
-									roomy={widgets.roomy}
-									open={widgets.open}
-									onClose={widgets.close}
-									actions={
-										onBack !== null && where !== null
-											? [where, ...actions]
-											: actions
-									}
-								>
-									<BackgroundCard
-										conversation={id}
-										background={conversation.background}
-									/>
-									<StartedByCard conversation={conversation} onOpen={onOpen} />
-									<ArtifactsCard
-										conversation={id}
-										artifacts={conversation.artifacts}
-									/>
-									<CurrentTask version={version} />
-								</Widgets>
-							</div>
-						)}
-					</TaskRegistry>
-				</PhoneSheets>
-			</PlanSource>
+																	{conversation.ask !== null && (
+																		<AskPanel
+																			key={conversation.ask.id}
+																			drafts={drafts}
+																			conversation={conversation}
+																			agent={agent}
+																			ask={conversation.ask}
+																		/>
+																	)}
+																</>
+															}
+														/>
+													</NamedContext>
+												</ReplyContext>
+											</StartNewContext>
+										</ArchiveOfferProvider>
+									</UnsentContext.Provider>
+								</Composing.Provider>
+							</AssistantRuntimeProvider>
+							<Widgets
+								phone={onBack !== null}
+								roomy={widgets.roomy}
+								open={widgets.open}
+								onClose={widgets.close}
+								actions={
+									onBack !== null && where !== null
+										? [where, ...actions]
+										: actions
+								}
+							>
+								<BackgroundCard
+									conversation={id}
+									background={conversation.background}
+								/>
+								<ArtifactsCard
+									conversation={id}
+									artifacts={conversation.artifacts}
+								/>
+								<CurrentTask version={version} />
+							</Widgets>
+						</div>
+					)}
+				</TaskRegistry>
+			</PhoneSheets>
 		</section>
 	);
 }
 
 /**
  * The report that is the conversation's last word when it says the task is
- * over, or the lanes are, and nothing splates shows in the thread came after
- * it, such as another task taken up: null otherwise.
+ * over, and nothing splates shows in the thread came after it, such as
+ * another task taken up: null otherwise.
  */
-function ended(conversation: ConversationState): Report | null {
+function ended(conversation: ConversationState): TaskReport | null {
 	const report = lastReport(conversation);
 	if (
 		report === null ||
 		report.ending === "escalated" ||
-		report.ending === "waiting" ||
 		report.ending === "working"
 	) {
 		return null;

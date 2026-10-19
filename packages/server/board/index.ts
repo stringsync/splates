@@ -1,16 +1,14 @@
+export { blockedWarning } from "./blocked-warning";
 export {
 	laneAdd,
 	laneList,
 	laneRemove,
-	laneRun,
 	laneShow,
 	laneUpdate,
 	laneUpdated,
 	recordLaneRemove,
 } from "./lane";
-export type { LaneTaskChange } from "./lane-tasks";
-export { laneChanges, laneTasks, SeenLaneTasks } from "./lane-tasks";
-export type { LaneRecord, LaneRun, LaneState } from "./lanes";
+export type { LaneRecord, LaneState } from "./lanes";
 export {
 	blockerLabel,
 	cycle,
@@ -36,5 +34,4 @@ export { recordUpdate, tasksNamed, wording } from "./task";
 export { addedFacts, taskAdd, taskRemove, taskUpdate } from "./task-edit";
 export { decodeTask, encodeTask, TASK_FILE } from "./task-file";
 export { taskList, taskShow } from "./task-list";
-export { blockedWarning, taskRelease, taskTake } from "./task-take";
 export { Tasks } from "./tasks";

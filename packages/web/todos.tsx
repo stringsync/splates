@@ -16,7 +16,6 @@ import { Dialog, DialogContent } from "#web/components/ui/dialog.tsx";
 import { AddLane } from "./add-lane";
 import { Board as BoardContext } from "./board";
 import { BoardDrag } from "./board-drag";
-import { useStartLanes } from "./dispatching";
 import type { Drafts } from "./drafts";
 import { fadeOf, useEdges } from "./hooks/use-edges";
 import { columnId, Lane, Untriaged } from "./lanes";
@@ -30,9 +29,9 @@ import { TopBar } from "./top-bar";
 
 /**
  * Work deferred for later as a board, a Trello lite: the untriaged todos
- * first, where new ones land, then a column for each lane, a queue an
- * orchestrator works, then a way to add another. Picking one up takes an agent (`splates
- * add <task> --todo <id>`), and `merge` recommends the highest open one, so
+ * first, where new ones land, then a column for each lane, a named group
+ * of them, then a way to add another. Picking one up takes an agent
+ * (`splates add <task> --todo <id>`), and `merge` recommends the highest open one, so
  * the order is the priority: drag a card up or down, or into a lane, or tap
  * one to reword, link, place or remove it. A lane moves by its header, as a
  * Trello list does.
@@ -178,7 +177,6 @@ export function Todos({
 				<TodosBar
 					lanes={lanes}
 					untriaged={kept.filter((todo) => todo.lane === null).length}
-					open={all.some((todo) => todo.lane === null && todo.takenBy === null)}
 					hidden={hidden}
 					view={view}
 				/>
@@ -274,26 +272,19 @@ export function TodoDialog({
 	);
 }
 
-/**
- * The board's bar: which lanes it shows, and starting an orchestrator on
- * those with no agent. Under the board's context, which starting reads.
- */
+/** The board's bar: which lanes it shows. */
 function TodosBar({
 	lanes,
 	untriaged,
-	open,
 	hidden,
 	view,
 }: {
 	lanes: LaneState[];
 	/** How many todos shown are in no lane. */
 	untriaged: number;
-	/** Whether a todo in no lane is open, for an orchestrator to place. */
-	open: boolean;
 	hidden: (number | null)[];
 	view: TodoView;
 }): JSX.Element {
-	const start = useStartLanes({ lanes, untriaged: open });
 	return (
 		<TopBar
 			title="Todos"
@@ -305,7 +296,6 @@ function TodosBar({
 					onToggle: (lane) => view.toggleLane(lane),
 					onHide: (lanes) => view.hide(lanes),
 				}),
-				...(start === null ? [] : [start]),
 			]}
 		/>
 	);

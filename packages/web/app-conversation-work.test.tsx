@@ -263,7 +263,7 @@ describe("App's work row", () => {
 		const viewport = thread.querySelector(
 			'[data-slot="aui_thread-viewport"]',
 		) as HTMLElement;
-		// Both lines scrolled up out of sight, the handed-out add the lower.
+		// happy-dom lays nothing out, so the heights stand in for both lines scrolled up out of sight.
 		const lines = notes.map((note) =>
 			Object.defineProperty(note.parentElement as HTMLElement, "offsetHeight", {
 				value: 40,
@@ -296,96 +296,6 @@ describe("App's work row", () => {
 		} finally {
 			placed.mockRestore();
 		}
-	});
-
-	it("shows the lanes an orchestrator started beside the thread while its card is scrolled up out of sight, until its finished report comes up", async () => {
-		const thread = await opened(
-			turn([
-				tool({ id: "x1", command: "splates lane show 20" }),
-				"## 🌱 Started lanes Stats, Licensing\n\nMake the Stats page say what to act on.",
-				tool({ id: "x2", command: "splates wait stats-action-oriented" }),
-				"## 🏁 Finished lanes Stats, Licensing\n\nBoth landed.",
-			]),
-		);
-		const started = await waitFor(() =>
-			within(thread).getByRole("region", {
-				name: "started Stats, Licensing",
-			}),
-		);
-		expect(within(started).getByTitle("Stats").textContent).toContain("Lane");
-		const finished = within(thread).getByRole("region", {
-			name: "finished Stats, Licensing",
-		});
-		const viewport = thread.querySelector(
-			'[data-slot="aui_thread-viewport"]',
-		) as HTMLElement;
-		const card = started.parentElement as HTMLElement;
-		const report = finished.parentElement as HTMLElement;
-		Object.defineProperty(card, "offsetHeight", { value: 120 });
-		let cardTop = -500;
-		let reportTop = 2000;
-		const rect = HTMLElement.prototype.getBoundingClientRect;
-		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
-		const placed = spyOn(
-			HTMLElement.prototype,
-			"getBoundingClientRect",
-		).mockImplementation(function (this: HTMLElement) {
-			return this === viewport
-				? new DOMRect(0, 0, 600, 800)
-				: this === card
-					? new DOMRect(0, cardTop, 600, 120)
-					: this === report
-						? new DOMRect(0, reportTop, 600, 120)
-						: rect.call(this);
-		});
-		const current = () =>
-			within(document.body).queryByRole("region", {
-				name: "current Stats, Licensing",
-				hidden: true,
-			});
-		const shown = () => current()?.parentElement?.getAttribute("aria-hidden");
-		const scroll = () => act(async () => fireEvent.scroll(viewport));
-		try {
-			await scroll();
-			await waitFor(() => expect(shown()).toBe("false"));
-			expect(current()?.textContent).toContain(
-				"Make the Stats page say what to act on.",
-			);
-
-			// Over once the finished report comes into view.
-			reportTop = 400;
-			await scroll();
-			await waitFor(() => expect(shown()).toBe("true"));
-
-			// Back in sight, the card says it in the thread again.
-			reportTop = 2000;
-			cardTop = 200;
-			await scroll();
-			await waitFor(() => expect(shown()).toBe("true"));
-		} finally {
-			placed.mockRestore();
-		}
-	});
-
-	it("keeps words along the way that say lanes were started folded in while they are still being written", async () => {
-		const thread = await opened(
-			turn(
-				[
-					tool({ id: "x1", command: "splates lane show 20" }),
-					"## 🌱 Started lanes Stats\n\nMake the Stats",
-				],
-				{ status: "running" },
-			),
-		);
-
-		await waitFor(() =>
-			expect(
-				within(thread).getAllByRole("list", { name: "timeline" }),
-			).toHaveLength(1),
-		);
-		expect(
-			within(thread).queryByRole("region", { name: "started Stats" }),
-		).toBeNull();
 	});
 
 	it("shows the last thing the agent said in the thread, even with tool calls after it", async () => {

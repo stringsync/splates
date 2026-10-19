@@ -11,11 +11,10 @@ this project:
 - **queue**, every project's unless it grants otherwise: `splates --project
   <slug> task add` what it should do, written as any task is (see Queueing tasks in the skill),
   saying in its detail why your project needs it. Leave `--lane` off:
-  whoever orchestrates that project places it.
+  that project's user places it.
 - **tasks**: hand it a task, `splates --project <slug> add <task> --goal
-  "<...>" --agent <id> --model <m>`, and follow it as
-  [lanes.md](lanes.md) says for a task you handed
-  to another project. Its directives name it `<slug>/<task>`; run each command on it with
+  "<...>" --agent <id> --model <m>`, and follow it with `splates --project
+  <slug> wait <task>`. Its directives name it `<slug>/<task>`; run each command on it with
   `--project <slug>`: `show`, `tell`, `wait`, `remove`.
 
 You never take a task in another project yourself: you do not `add` one

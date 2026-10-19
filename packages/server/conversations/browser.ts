@@ -15,7 +15,6 @@ export {
 	nameOf,
 	openingOf,
 	realName,
-	startedLanes,
 } from "./name";
 export { conversationReference } from "./reference";
 export {

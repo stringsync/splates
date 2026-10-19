@@ -1,4 +1,4 @@
-import type { Report } from "@stringsync/splates-server/plans";
+import type { TaskReport } from "@stringsync/splates-server/plans";
 import { ArchiveIcon } from "lucide-react";
 import {
 	createContext,
@@ -21,7 +21,7 @@ import { ENDINGS, TONES } from "./card-shell";
  * the card's button is out of sight.
  */
 interface ArchiveOffer {
-	report: Report;
+	report: TaskReport;
 	archive: () => void;
 	/** Says whether the card's button is in sight in the thread. */
 	sight: (seen: boolean) => void;
@@ -39,7 +39,7 @@ const IN_VIEW = 0.5;
  * offers it: the card's own button stands in for the bar while in sight.
  */
 export function useArchiveOffer(
-	report: Report | null,
+	report: TaskReport | null,
 	archive: () => void,
 ): { offer: ArchiveOffer | null; barred: boolean } {
 	const [seen, setSeen] = useState(false);
@@ -52,7 +52,7 @@ export function useArchiveOffer(
 }
 
 /** Whether `report`'s card offers to archive the conversation. */
-export function useArchivable(report: Report): boolean {
+export function useArchivable(report: TaskReport): boolean {
 	const offer = useContext(ArchiveOfferContext);
 	return offer !== null && offer.report.source === report.source;
 }
@@ -64,7 +64,7 @@ export function useArchivable(report: Report): boolean {
 export function CardArchive({
 	report,
 }: {
-	report: Report;
+	report: TaskReport;
 }): JSX.Element | null {
 	const offer = useContext(ArchiveOfferContext);
 	const button = useRef<HTMLButtonElement>(null);
@@ -128,10 +128,7 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 		>
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">
-				{title}{" "}
-				<span className="font-mono text-xs">
-					{"lanes" in report ? report.lanes.join(", ") : report.task}
-				</span>
+				{title} <span className="font-mono text-xs">{report.task}</span>
 			</span>
 			<Button
 				size="sm"

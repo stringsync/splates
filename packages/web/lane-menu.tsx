@@ -1,10 +1,7 @@
 import type { LaneState } from "@stringsync/splates-server/board";
-import { laneReference } from "@stringsync/splates-server/plans/browser";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
-	CheckIcon,
-	CopyIcon,
 	MergeIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
@@ -25,10 +22,9 @@ import { cn } from "#web/lib/utils.ts";
 import { dropLane, joinLanes } from "./api";
 import { Board, still, touchItems } from "./board";
 import { laneDropped, lanesJoined } from "./board-expectations";
-import { copiedLabel, useCopy } from "./card";
 import { useExpectSnapshot } from "./expecting";
 
-/** What can be done to a whole lane: start it, rename it, move it, fold it into another, or remove it. */
+/** What can be done to a whole lane: rename it, move it, fold it into another, or remove it. */
 export function LaneMenu({
 	lane,
 	lanes,
@@ -40,7 +36,6 @@ export function LaneMenu({
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
-	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
 	return (
@@ -59,16 +54,6 @@ export function LaneMenu({
 				<MoreHorizontalIcon />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className={cn("w-64", touchItems)}>
-				<DropdownMenuItem
-					closeOnClick={false}
-					title={copied.state === "failed" ? copied.error : undefined}
-					onClick={() => copy(laneReference(lane.id))}
-				>
-					{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
-					<span aria-live="polite">
-						{copiedLabel(copied, `Copy ${laneReference(lane.id)}`)}
-					</span>
-				</DropdownMenuItem>
 				<DropdownMenuItem onClick={onRename}>
 					<PencilIcon />
 					Rename

@@ -1,9 +1,7 @@
-import type { Ending, Report } from "@stringsync/splates-server/plans";
+import type { TaskReport } from "@stringsync/splates-server/plans";
 import {
 	ChevronRightIcon,
-	CirclePauseIcon,
 	CircleSlashIcon,
-	FlagIcon,
 	GitBranchIcon,
 	GitMergeIcon,
 	HandshakeIcon,
@@ -20,7 +18,6 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { Markdown } from "./markdown";
 import { ReferenceChip, TaskChip } from "./reference-chip";
-import { LaneIcon } from "./task-icon";
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what
@@ -39,7 +36,6 @@ export function CardShell({
 	title,
 	tone = "neutral",
 	task,
-	lanes = [],
 	base = null,
 	to = null,
 	aside,
@@ -52,8 +48,6 @@ export function CardShell({
 	title: string;
 	tone?: Tone;
 	task?: string;
-	/** The lanes it is about, by name, in place of a task. */
-	lanes?: string[];
 	/** Where the task merges, shown after it. */
 	base?: string | null;
 	/** The agent the task was handed off to, shown after it. */
@@ -82,7 +76,6 @@ export function CardShell({
 			title={title}
 			tone={tone}
 			task={task}
-			lanes={lanes}
 			base={base}
 			to={to}
 			aside={aside}
@@ -152,7 +145,7 @@ export const TONES: Record<
 
 /** How each ending shows: on its report card, and beside its conversation. */
 export const ENDINGS: Record<
-	Ending,
+	TaskReport["ending"],
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
 	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
@@ -162,14 +155,12 @@ export const ENDINGS: Record<
 		Icon: TriangleAlertIcon,
 		tone: "warning",
 	},
-	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
-	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
 	working: { title: "Working", Icon: HourglassIcon, tone: "neutral" },
 	handed: { title: "Handed off", Icon: HandshakeIcon, tone: "info" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
-export function reportText(report: Report): string {
+export function reportText(report: TaskReport): string {
 	return [report.reason, report.body]
 		.filter((each) => each !== null && each !== "")
 		.join("\n\n");
@@ -197,7 +188,6 @@ function Header({
 	title,
 	tone,
 	task,
-	lanes,
 	base,
 	to,
 	aside,
@@ -208,7 +198,6 @@ function Header({
 	title: string;
 	tone: Tone;
 	task: string | undefined;
-	lanes: string[];
 	base: string | null;
 	to: string | null;
 	aside: ReactNode;
@@ -248,20 +237,6 @@ function Header({
 						</>
 					)}
 					{to !== null && <span>to {to}</span>}
-				</span>
-			)}
-			{lanes.length > 0 && (
-				<span className="flex min-w-0 flex-wrap items-center gap-1.5 @max-md:order-last @max-md:basis-full">
-					{lanes.map((lane) => (
-						<ReferenceChip
-							key={lane}
-							Icon={LaneIcon}
-							kind="Lane"
-							name={lane}
-							title={lane}
-							inline
-						/>
-					))}
 				</span>
 			)}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}

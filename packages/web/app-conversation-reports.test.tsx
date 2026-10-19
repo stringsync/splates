@@ -94,7 +94,7 @@ describe("App's report cards", () => {
 		expect(bar.textContent).toContain("header");
 	});
 
-	it("shows a lane orchestrator's finished report as a card naming each lane, and offers to archive it", async () => {
+	it("shows an old lane orchestrator's finished report as the words it wrote, with no card or archive offer", async () => {
 		await testing.openConversations([
 			conversation({
 				title: "Lanes",
@@ -105,8 +105,6 @@ describe("App's report cards", () => {
 							"## 🏁 Finished lanes Stats, Licensing",
 							"",
 							"Both lanes landed.",
-							"",
-							"- Stats: #155 merged.",
 						].join("\n"),
 					),
 				],
@@ -114,16 +112,13 @@ describe("App's report cards", () => {
 		]);
 		const view = document.body;
 
-		const finished = await waitFor(() =>
-			within(view).getByRole("region", { name: "finished Stats, Licensing" }),
+		await waitFor(() =>
+			expect(view.textContent).toContain("Both lanes landed."),
 		);
-		expect(finished.textContent).toContain("Finished");
-		expect(within(finished).getByTitle("Stats").textContent).toContain("Lane");
-		expect(within(finished).getByTitle("Licensing")).toBeTruthy();
-		expect(finished.textContent).toContain("Both lanes landed.");
 		expect(
-			within(view).getByRole("region", { name: "archive" }).textContent,
-		).toContain("Finished Stats, Licensing");
+			within(view).queryByRole("region", { name: "finished Stats, Licensing" }),
+		).toBeNull();
+		expect(within(view).queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
 	/** Records each element scrolled into view while `run` runs, in `scrolled`. */

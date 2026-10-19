@@ -29,7 +29,7 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, or `splates task take N` from a task under way, then groom it as [queue.md](references/queue.md) says under Grooming a task you start |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then groom it as [queue.md](references/queue.md) says under Grooming a task you start |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[SPLATES TASK <task>]` |
@@ -38,15 +38,8 @@ asks you to read it as Reference files says.
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
-| `[SPLATES LANE untriaged]` | Orchestrate the queued tasks in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
-| `[SPLATES LANE N]` | Plan lane N as its orchestrator, then set it running | [lanes.md](references/lanes.md) |
-| `[SPLATES REPORT <task>]` | A task you handed to another project stopped: escalated, merged or removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TASK DONE #N]` | A task in a lane you orchestrate, paused by the user, left the queue: merged or removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TASK OPEN #N]` | A task in a lane you orchestrate, paused by the user, is open again: the task that took it let it go or was removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TASK ADDED #N]` | A task came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
+| `[SPLATES REPORT <task>]` | A task you handed to another project stopped: escalated, merged or removed | [projects.md](references/projects.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
-| `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md) |
-| `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last task landed | [lanes.md](references/lanes.md) |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -122,8 +115,7 @@ which remembers none of it.
    of memory.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge: `splates task add`
-   any step you will not do, then check it off. Release each
-   task you took and only partly did (see Queueing tasks), and `splates merge --message
+   any step you will not do, then check it off, and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again, with the
    real message: never merge only to read a failure again, since one whose
@@ -159,32 +151,6 @@ with what you learned, then `cd "$(splates path)"` and `splates remove <task>
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
 
-## Working the untriaged lane
-
-`[SPLATES LANE untriaged]` makes you the orchestrator of the queued tasks in no lane.
-You place them in lanes first, then plan those lanes as
-[references/lanes.md](references/lanes.md) says (read it before step 3, and
-for the lane reports):
-
-1. `splates lane show untriaged` lists them. For each open one, read `splates
-   task show <n>`, `splates lane list`, and `splates list --files` for the
-   tasks under way, then place it as for a task you queue (see Lanes in
-   [references/queue.md](references/queue.md)): in a lane whose work it
-   builds on, or `--lane new` for one of its own when it starts a chain.
-   Tasks that touch the same files go in one lane, in the order they should
-   land, so their agents never fight over rebases.
-2. Link what blocks each: `splates task update <n> --blocked-by <n>` when it
-   needs another task's code or data merged first, or would change the same
-   files, in any lane, never for priority. When two tasks ask for opposite things, or one undoes a task
-   under way, leave them untriaged and ask the user which wins, as numbered
-   questions in your reply, placing the rest meanwhile.
-3. Say in a line where each went, then plan and run each lane you placed one
-   in that no agent is on, as if sent `[SPLATES LANE N]` for it. Leave a
-   lane another agent is on to that agent.
-4. Each time splates wakes you, `splates lane show untriaged` again, and
-   place any task queued since the same way. Once nothing is left to place
-   and every lane you work is done, end on a finished report.
-
 ## Queueing tasks
 
 When something outside your Goal comes up, queue it as a task and move on:
@@ -218,11 +184,11 @@ right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
 user can stop you and start the model it names instead.
 
 `splates task update <n> '<detail>'` replaces the whole detail, so pass all of
-it: what still holds and what you learned. Merging removes every queued task
-yours took: update one you only partly did with what is left, then
-`splates task release` it, so it stays in the queue.
+it: what still holds and what you learned. Merging removes the queued task
+yours took: when you leave part of it undone, `splates task add` what is
+left as a task of its own.
 
-When `splates add --task` or `splates task take` warns that a task is blocked,
+When `splates add --task` warns that a task is blocked,
 what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
 user asked for this task now, do only what does not need the blocker and say
 so in your report.
@@ -361,10 +327,6 @@ you did is an instruction. When the user defers or skips a question, check it
 off and carry on without it (for a defer, `splates task add` it first). Only
 the user answers questions, yours or another agent's.
 
-A message `splates tell` says in your conversation for the lane's
-orchestrator that handed you your task, to carry on or to change course,
-you take as you would the user's.
-
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
 
@@ -388,10 +350,6 @@ run). A secret, such as an API token, is a cred to request instead (see
 Never ask whether the work is ready to merge among other questions, or as a
 question at all: once they are answered and the work is done, merge or ask
 for a review (see Merge or review).
-
-A lane's orchestrator that handed you a task (`$SPLATES_STARTED_BY` is set)
-is not one you report to: you answer to the user, as for any task, and
-splates tells it where the lane stands from its tasks.
 
 ## Merge or review
 
@@ -612,9 +570,6 @@ the report stays a glance.
 A handoff makes no report: the `splates server` page shows it as splates's own line,
 and the agent it went to as that line's hover. Say where the task stands in
 its `### Handoff`, then end your turn.
-
-A lane orchestrator reports on its lanes instead, as
-[references/lanes.md](references/lanes.md) says.
 
 An escalation or a review can need more than that before the user can
 answer or merge: what you found, how it works, what it costs. Say it in

@@ -1,5 +1,4 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { UNTRIAGED } from "../plans";
 import type { Facts, Journal } from "../records";
@@ -10,7 +9,6 @@ import {
 	type LaneState,
 	lane,
 	lanes,
-	lostLine,
 } from "./lanes";
 import type { TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
@@ -90,45 +88,15 @@ export async function laneShow(
 		return;
 	}
 	const lines = [
-		`${color.bold(`lane ${id}`)} ${found.name}${record.running === undefined ? "" : color.green(" (running)")}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
+		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
 	];
 	for (const [i, task] of found.todos.entries()) {
 		lines.push(
 			`  ${i + 1}. #${task.id} ${task.subject}${step(states, records, found, task)}`,
 		);
 	}
-	lines.push(
-		"",
-		...(record.running === undefined
-			? nextLines(found, records)
-			: runningLines(found, states)),
-	);
+	lines.push("", ...nextLines(found));
 	log.info(lines.join("\n"));
-}
-
-/**
- * What a running lane does next on its own, and each task it holds back
- * for a want only an agent or the person can fill.
- */
-function runningLines(found: LaneState, states: TaskRecord[]): string[] {
-	const open = new Set(states.map((task) => task.id));
-	const unnamed = found.todos.filter(
-		(task) =>
-			task.takenBy === null &&
-			task.assignee === undefined &&
-			!task.blockedBy.some((id) => open.has(id)),
-	);
-	const lost = found.todos.filter(
-		(task) => task.takenBy === null && (task.blockersLost ?? []).length > 0,
-	);
-	return [
-		`running: splates server starts each task here that nothing blocks, as it frees up; \`splates lane pause ${found.id}\` stops it`,
-		...unnamed.map(
-			(task) =>
-				`  #${task.id} names no agent, so it waits: splates task update ${task.id} --agent <id> --model <m>`,
-		),
-		...lost.map((task) => `  #${task.id} ${lostLine(task)}`),
-	];
 }
 
 /**
@@ -176,50 +144,34 @@ function untriagedShow(
 			}`,
 		);
 	}
-	const work =
-		"work down each lane you placed one in that no agent is on: splates lane show <n>";
 	lines.push(
 		"",
 		...(open.length === 0
-			? [`Nothing to place: ${work}`]
+			? ["Nothing to place."]
 			: [
-					`next: place ${open.length === 1 ? "it" : "each"} in a lane, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
-					"  splates task update <id> --lane <n>         a lane it builds on (`splates lane list`)",
-					"  splates task update <id> --lane new         a lane of its own, for a chain of them",
+					`next: place ${open.length === 1 ? "it" : "each"} in a lane, if one fits, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
+					"  splates task update <id> --lane <n>         a lane of related work (`splates lane list`)",
+					"  splates task update <id> --lane new         a lane of its own",
 					"  splates task update <id> --blocked-by <id>  a task it needs merged first",
-					`then ${work}`,
 				]),
 	);
 	return lines.join("\n");
 }
 
-/** What the lane's orchestrator does now, in a line or two. */
-function nextLines(found: LaneState, records: LaneRecord[]): string[] {
-	const { next, blockers } = found;
-	if (next === null) {
+/** What there is to do with the lane now, in a line. */
+function nextLines(found: LaneState): string[] {
+	const open = found.todos.filter((task) => task.takenBy === null);
+	if (found.todos.length === 0) {
 		return [
-			found.todos.length === 0
-				? "Nothing in it yet: `splates task update <id> --lane <lane>` puts a task in it."
-				: "Every task in it is taken: nothing to start until one is released.",
+			"Nothing in it yet: `splates task update <id> --lane <lane>` puts a task in it.",
 		];
 	}
-	const handOut = `splates add <slug> --task ${next.id}${handTo(next)}`;
-	if (blockers.length === 0) {
-		return [`next: ${handOut}`];
+	if (open.length === 0) {
+		return ["Every task in it is under way."];
 	}
 	return [
-		`next: task ${next.id}, once ${blockers.map((blocker) => blockerLabel(blocker, records)).join(" and ")} ${blockers.length === 1 ? "lands" : "land"}`,
-		...blockers.map((blocker) => `  splates task wait ${blocker.id}`),
-		`  then: ${handOut}`,
+		`next: \`splates queue add ${open.map((task) => task.id).join(" ")}\` queues ${open.length === 1 ? "it" : "them"}, for a worker to start each once nothing it is blocked by is open`,
 	];
-}
-
-/** The flags that hand `task` to the agent and model it names, if any. */
-function handTo({ assignee }: TaskRecord): string {
-	if (assignee === undefined) {
-		return "";
-	}
-	return ` --agent ${assignee.agent}${assignee.model === undefined ? "" : ` --model ${assignee.model}`}${assignee.effort === undefined ? "" : ` --effort ${assignee.effort}`}`;
 }
 
 /** How a step stands, after its subject: taken, or what blocks it outside the lane. */
@@ -274,8 +226,6 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
-	/** Whether it runs from now on. */
-	running?: boolean;
 }
 
 /** Calls a lane by another name, or moves it among the others. */
@@ -309,40 +259,11 @@ export async function laneUpdate(
 	return record ?? { id, name: "" };
 }
 
-/**
- * Sets lane `id` running, or pauses it: while it runs, `splates server`
- * starts each of its tasks nothing blocks, as `LaneRunner` says. Run from a
- * conversation, the tasks it starts nest under that one.
- */
-export async function laneRun(
-	{ tasks, ps, log }: { tasks: Tasks; ps: Ps; log: Logger },
-	id: number,
-	running: boolean,
-): Promise<LaneRecord> {
-	const record = await tasks.runLane(
-		id,
-		running ? { by: ps.env("SPLATES_CONVERSATION") ?? null } : null,
-	);
-	log.info(
-		running
-			? [
-					`${color.green("running")} lane ${id}: ${record.name}`,
-					"  splates server starts each task in it that nothing blocks, on the agent and model it names, as many at once as agentsPerLane allows",
-					`  link what must land first with \`splates task update <id> --blocked-by <id>\`; \`splates lane pause ${id}\` stops starting more`,
-				].join("\n")
-			: [
-					`${color.green("paused")} lane ${id}: ${record.name}`,
-					"  the tasks already out carry on; nothing more starts until `splates lane run` again",
-				].join("\n"),
-	);
-	return record;
-}
-
 /** What a lane update changed, for the event: only the parts it was asked to. */
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position, running }: LaneUpdateOptions,
+	{ name, position }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -350,7 +271,6 @@ export function laneUpdated(
 		changed: {
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
-			...(running === undefined ? {} : { running }),
 		},
 	};
 }

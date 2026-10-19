@@ -2,7 +2,6 @@ import {
 	laneAdd,
 	laneList,
 	laneRemove,
-	laneRun,
 	laneShow,
 	laneUpdate,
 	laneUpdated,
@@ -17,7 +16,7 @@ import { position } from "./flags";
 
 /** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named runs of queued tasks, landed top first; `[SPLATES LANE <n>]` from `splates server` starts an orchestrator on one, handing out each task nothing holds back to an agent on the model it names, or doing it itself. A task in no lane is untriaged, and `[SPLATES LANE untriaged]` starts one that places those in lanes first",
+	"lanes: named groups of tasks, for you to see related work together on the board; a lane runs and orders nothing. A task in no lane is untriaged",
 );
 
 splatesLane
@@ -88,39 +87,6 @@ splatesLane
 			(record) => laneUpdated(opts.lane, record, change),
 		);
 	});
-
-for (const [verb, running, description] of [
-	[
-		"run",
-		true,
-		"set a lane running: `splates server` starts each of its queued tasks that nothing blocks (`--blocked-by` an open task) as a started task of its own, on the agent and model the task names, as many at once as agentsPerLane in splates.config.ts allows, and starts the next as each lands; run from a conversation, they nest under it",
-	],
-	[
-		"pause",
-		false,
-		"stop a running lane starting more tasks; the tasks already out carry on",
-	],
-] as const) {
-	splatesLane
-		.command(verb)
-		.use(repository({ needs: "tasks" }))
-		.description(description)
-		.arg("lane", z.coerce.number().int().positive(), {
-			description: "lane number",
-		})
-		.action(async (opts, ctx) => {
-			await ctx.journal.record(
-				"lane update",
-				null,
-				() => laneRun(ctx, opts.lane, running),
-				(record) => ({
-					lane: opts.lane,
-					name: record.name,
-					changed: { running },
-				}),
-			);
-		});
-}
 
 splatesLane
 	.command("remove")

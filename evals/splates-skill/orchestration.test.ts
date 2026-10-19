@@ -67,7 +67,7 @@ function witness(probe: Probe): Evidence {
 		events: ordered,
 		state,
 		reply:
-			"## 🏁 Finished lanes Widgets\n\nThe widget work is done.\n\n1. What should become of work-1?",
+			"## 🏁 Finished\n\nThe widget work is done.\n\n1. What should become of work-1?",
 		complete: ["events", "state", "reply"],
 		termination: "stop",
 	};
@@ -150,26 +150,8 @@ for (const probe of module.probes.filter(
 }
 
 it("checks production directive payload/format constructors separately from agent responses", () => {
-	const emitted = [
-		prompts.laneReference(1),
-		prompts.laneReference(null),
-		prompts.reportReference("work-1"),
-		prompts.idleReference("work-1"),
-		prompts.taskDoneReference(1),
-		prompts.taskOpenReference(1),
-		prompts.LANES_DONE,
-		prompts.DEFER,
-	];
-	expect(emitted).toEqual([
-		"[SPLATES LANE 1]",
-		"[SPLATES LANE untriaged]",
-		"[SPLATES REPORT work-1]",
-		"[SPLATES IDLE work-1]",
-		"[SPLATES TASK DONE #1]",
-		"[SPLATES TASK OPEN #1]",
-		"[SPLATES LANES DONE]",
-		"[SPLATES DEFER]",
-	]);
+	const emitted = [prompts.reportReference("work-1"), prompts.DEFER];
+	expect(emitted).toEqual(["[SPLATES REPORT work-1]", "[SPLATES DEFER]"]);
 	expect(
 		emitted.map((text) => prompts.leadingDirectives(`${text}\nDetail`)),
 	).toEqual(emitted.map((text) => ({ directives: [text], rest: "Detail" })));

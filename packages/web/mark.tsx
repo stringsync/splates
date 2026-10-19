@@ -7,12 +7,9 @@ import { Dot } from "./dot";
 /**
  * What a list shows of an agent: a yellow dot when it waits on you, whatever
  * for, a spinner while it or an agent it handed a task to works, assuming or
- * not, as a lane orchestrator's agents do, a blue dot when it answered
- * and you have not looked since, and a green or red dot once its task merged
- * or was removed, over the blue one. Anything else, idle and read, shows an
- * empty space. A lane orchestrator done with its lanes shows green, as
- * a merge does, and one whose lanes wait on an escalated task yellow, as the
- * escalation does. A report in its last word decides the mark over a wait it
+ * not, a blue dot when it answered and you have not looked since, and a
+ * green or red dot once its task merged or was removed, over the blue one.
+ * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. Each sits centered in a box of one size, so
  * marks line up down a list whichever kind they are. A subagent shows only
@@ -66,7 +63,7 @@ export function Mark({
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
-	if ((reported === "merged" || reported === "finished") && shows) {
+	if (reported === "merged" && shows) {
 		return <Dot role="img" aria-label={reported} color="bg-success" />;
 	}
 	if (reported === "removed" && shows) {

@@ -9,7 +9,6 @@ import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { lanes } from "./lanes";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { taskList, taskShow } from "./task-list";
-import { taskTake } from "./task-take";
 
 /** Each lane's task ids, top first, as stored. */
 async function shape(deps: Testing): Promise<number[][]> {
@@ -98,12 +97,6 @@ describe.concurrent("task links and lanes", () => {
 			"task 177 is blocked by task 191 (lane 1, taken by early)",
 		);
 		expect(deps.out()).not.toContain("task 196 is blocked");
-		await add(deps, "editor", { tasks: [207] });
-		deps.ps.cd((await deps.service.find("editor")).path);
-		await taskTake(deps, [186], "editor");
-		expect(deps.out()).toContain(
-			"task 186 is blocked by task 177 (lane 1, taken by both)",
-		);
 	});
 
 	it("shows what blocks a task, what it blocks, and what it mentions", async () => {
@@ -226,8 +219,7 @@ describe.concurrent("task links and lanes", () => {
 		expect(out).toContain(
 			"3. #186 Show the license tier on the account page  (blocked by #177 in Licensing)",
 		);
-		expect(out).toContain("next: task 186, once #177 in Licensing lands");
-		expect(out).toContain("splates task wait 177");
+		expect(out).toContain("next: `splates queue add 186 208 189` queues them");
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 
@@ -252,7 +244,7 @@ describe.concurrent("task links and lanes", () => {
 			"1. #201 Rename the export menu  (blocked by #177 in Licensing)",
 		);
 		expect(out).toContain(
-			"next: place each in a lane, linking what blocks each:",
+			"next: place each in a lane, if one fits, linking what blocks each:",
 		);
 		expect(out).toContain("splates task update <id> --lane new");
 
@@ -260,9 +252,7 @@ describe.concurrent("task links and lanes", () => {
 		await taskUpdate(deps, 201, { lane: 3 });
 		deps.log.clear();
 		await laneShow(deps, null);
-		expect(color.strip(deps.out())).toContain(
-			"Nothing to place: work down each lane you placed one in that no agent is on",
-		);
+		expect(color.strip(deps.out())).toContain("Nothing to place.");
 	});
 
 	it("goes on down the lane after a merge, waiting on another lane when it must", async () => {
@@ -400,20 +390,6 @@ describe.concurrent("task links and lanes", () => {
 		});
 		await taskUpdate(deps, 1, { assignee: null });
 		expect((await deps.tasks.find(1)).state.assignee).toBeUndefined();
-	});
-
-	it("hands the next task out to the agent, model and thinking level it names", async () => {
-		await using deps = await Testing.open();
-		await laneAdd(deps, "Licensing");
-		await taskAdd(deps, "first", null, {
-			lane: 1,
-			assignee: { agent: "claude", model: "sonnet", effort: "high" },
-		});
-		deps.log.clear();
-		await laneShow(deps, 1);
-		expect(color.strip(deps.out())).toContain(
-			"next: splates add <slug> --task 1 --agent claude --model sonnet --effort high",
-		);
 	});
 
 	it("drops the agent a lane was once assigned, since lanes have none", async () => {

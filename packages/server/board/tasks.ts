@@ -3,13 +3,7 @@ import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
-import {
-	cycle,
-	type LaneRecord,
-	type LaneRun,
-	misordered,
-	settle,
-} from "./lanes";
+import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
 import { assigned, Task, type TaskNew, type TaskRecord, wording } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
@@ -271,11 +265,6 @@ export class Tasks {
 		return this.laneFiles.moveLane(id, position);
 	}
 
-	/** Sets lane `id` running, by `running.by`, or pauses it for null. */
-	runLane(id: number, running: LaneRun | null): Promise<LaneRecord> {
-		return this.laneFiles.runLane(id, running);
-	}
-
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	dropLane(id: number): Promise<void> {
 		return this.laneFiles.dropLane(id);
@@ -289,21 +278,6 @@ export class Tasks {
 	/** Moves tasks saved while splates kept tags into lanes, one lane a tag. */
 	moveTagsToLanes(): Promise<{ lane: LaneRecord; tasks: number[] }[]> {
 		return this.laneFiles.moveTagsToLanes();
-	}
-
-	/**
-	 * Marks task `id` stuck since `at`, or not stuck for null, as `splates
-	 * server` finds its agent; a task gone meanwhile is left gone.
-	 */
-	async markStuck(id: number, at: string | null): Promise<void> {
-		await this.locked(async () => {
-			const state = await this.read(this.path(id));
-			if (state === null || (state.stuck ?? null) === at) {
-				return;
-			}
-			const { stuck: _, ...rest } = state;
-			await this.save(at === null ? rest : { ...rest, stuck: at });
-		});
 	}
 
 	/**
@@ -435,9 +409,8 @@ export class Tasks {
 				fail("exists", `task ${id} is on the list already`, { number: id });
 			}
 			const lanes = await this.laneFiles.records(stored);
-			const { stuck: _, ...kept } = state;
 			const restored = await this.save({
-				...kept,
+				...state,
 				takenBy: null,
 				lane: lanes.some((lane) => lane.id === state.lane) ? state.lane : null,
 				blockedBy: state.blockedBy.filter((before) =>

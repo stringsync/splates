@@ -35,19 +35,13 @@ import {
 	renameConversation,
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
-import {
-	leadsLanes,
-	reportedAs,
-	unnamed,
-	useNameOf,
-} from "./conversation-names";
+import { reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
 import { Mark } from "./mark";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
-import { LaneIcon } from "./task-icon";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
@@ -163,12 +157,6 @@ export function Item({
 						agent={conversation.agent}
 						name={agent}
 						className="size-3.5 text-foreground/70"
-					/>
-				)}
-				{leadsLanes(conversation) && (
-					<LaneIcon
-						aria-label="Lane"
-						className="size-3.5 shrink-0 text-muted-foreground"
 					/>
 				)}
 				<span

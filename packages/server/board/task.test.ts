@@ -9,7 +9,6 @@ import type { TaskRecord } from "./task";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { decodeTask, encodeTask } from "./task-file";
 import { taskList, taskShow } from "./task-list";
-import { taskRelease, taskTake } from "./task-take";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -314,7 +313,7 @@ describe.concurrent("task", () => {
 		expect(
 			JSON.parse(deps.out()).map(({ subject }: TaskRecord) => subject),
 		).toEqual(["free"]);
-		await taskTake(deps, [2], "busy");
+		await add(deps, "idle", { tasks: [2] });
 		deps.log.clear();
 		await taskList(deps, { open: true });
 		expect(deps.out()).toContain("no open tasks");
@@ -361,80 +360,6 @@ describe.concurrent("task", () => {
 		expect((await deps.tasks.takenBy("dark")).map((task) => task.id)).toEqual([
 			1, 2,
 		]);
-	});
-
-	it("takes queued tasks for a task already under way, all or none", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "support dark mode", null);
-		await taskAdd(deps, "dark charts too", null);
-		await taskAdd(deps, "someone else's", null);
-		await add(deps, "other", { tasks: [3] });
-
-		await taskTake(deps, [1, 2, 1], "dark");
-
-		expect((await deps.tasks.takenBy("dark")).map((task) => task.id)).toEqual([
-			1, 2,
-		]);
-		expect(color.strip(deps.out())).toContain("took task 2: dark charts too");
-		await taskRelease(deps, [2], "dark");
-		await expect(taskTake(deps, [2, 3], "dark")).toBail("exists", {
-			message: "already taken by 'other'",
-		});
-		// Refused as a whole: 2 was not taken on the way.
-		expect((await deps.tasks.find(2)).takenBy).toBeNull();
-		await expect(taskTake(deps, [9], "dark")).toBail("not_found");
-		await expect(taskTake(deps, [2], null)).toBail("usage");
-		await expect(taskTake(deps, [], "dark")).toBail("usage");
-	});
-
-	it("releases only the tasks its own task took, from a worktree", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { tasks: [1] });
-
-		await expect(taskRelease(deps, [1], "other")).toBail("exists", {
-			message: "taken by 'dark'",
-		});
-		await taskRelease(deps, [1], "dark");
-		expect((await deps.tasks.find(1)).takenBy).toBeNull();
-
-		await taskTake(deps, [1], "dark");
-		// From the main tree, anyone's.
-		await taskRelease(deps, [1], null);
-		expect((await deps.tasks.find(1)).takenBy).toBeNull();
-	});
-
-	it("leaves a released task on the list when the task that had it lands", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "support dark mode", null);
-		await taskAdd(deps, "dark charts too", null);
-		await add(deps, "dark", { tasks: [1, 2] });
-		const worktree = (await deps.service.find("dark")).path;
-		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
-		await taskUpdate(deps, 2, { subject: "dark tooltips on charts" });
-		await taskRelease(deps, [2], "dark");
-		deps.log.clear();
-
-		await deps.finish(worktree);
-		await merge(deps, worktree);
-
-		await expect(deps.tasks.find(1)).toBail("not_found");
-		const out = color.strip(deps.out());
-		expect(out).toContain("done task 1: support dark mode");
-		expect(out).toContain("next task 2: dark tooltips on charts");
-	});
-
-	it("marks one stuck, and clears it as its task lets it go", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "write docs", null);
-		await (await deps.tasks.find(1)).take("alpha");
-
-		await deps.tasks.markStuck(1, "2026-10-18T00:00:00Z");
-		expect((await deps.tasks.find(1)).state.stuck).toBe("2026-10-18T00:00:00Z");
-		await (await deps.tasks.find(1)).release();
-
-		expect((await deps.tasks.find(1)).state.stuck).toBeUndefined();
-		await deps.tasks.markStuck(9, null);
 	});
 
 	it("puts a removed task's queued task back on the list", async () => {

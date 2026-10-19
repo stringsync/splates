@@ -18,5 +18,4 @@ where you are and start nothing new:
 
 `[SPLATES RESUME]`, sent after a checkpoint, means carry on: read `SPLATES.md`
 again and go on from where `## Notes` says you stopped. With no task, carry on
-with what you were asked; a lane orchestrator reads `splates lane show` for each
-lane again first, since its tasks may have moved on without it.
+with what you were asked.

@@ -76,9 +76,9 @@ describe("Dispatch", () => {
 		expect([
 			dispatch.start("codex", { kind: "todo", id: 12 }),
 			dispatch.start("claude", { kind: "task", task: "alpha" }),
-			dispatch.link("c1", { kind: "lane", id: 2 }),
-			// Twice composes it once.
-			dispatch.link("c1", { kind: "lane", id: 2 }),
+			dispatch.link("c1", { kind: "todo", id: 2 }),
+			// A double click links twice; the draft must not be composed twice.
+			dispatch.link("c1", { kind: "todo", id: 2 }),
 		]).toEqual(["new/codex", "new/claude/alpha", "c1", "c1"]);
 		expect([
 			drafts.read(newDraft("shop")),
@@ -87,7 +87,7 @@ describe("Dispatch", () => {
 		]).toEqual([
 			"[SPLATES TASK #12]",
 			promptFor({ kind: "task", task: "alpha" }),
-			"[SPLATES LANE 2]\n\nand keep it small",
+			"[SPLATES TASK #2]\n\nand keep it small",
 		]);
 	});
 

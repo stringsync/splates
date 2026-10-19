@@ -1,5 +1,5 @@
 import type { LaneRecord } from "../board";
-import { AUTO, leadingDirectives, stretches, UNTRIAGED } from "../plans";
+import { AUTO, leadingDirectives, UNTRIAGED } from "../plans";
 import type { ConversationState } from "./state";
 
 /**
@@ -99,21 +99,6 @@ export function lanesOf(conversation: ConversationState): string[] {
 				return lane === undefined ? [] : [lane];
 			})
 		: [];
-}
-
-/** The lanes each Started card `conversation`'s agent said names. */
-export function startedLanes(conversation: ConversationState): string[] {
-	return conversation.messages.flatMap((message) =>
-		message.role !== "agent"
-			? []
-			: message.parts.flatMap((part) =>
-					part.type !== "text"
-						? []
-						: stretches(part.text).flatMap((each) =>
-								each.type === "start" ? each.start.lanes : [],
-							),
-				),
-	);
 }
 
 /**

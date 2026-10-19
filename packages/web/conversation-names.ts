@@ -1,15 +1,13 @@
 import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
-	grooms,
-	lanesOf,
 	nameOf,
 	realName,
 } from "@stringsync/splates-server/conversations/browser";
 import {
 	type Ending,
-	type Report,
 	stretches,
+	type TaskReport,
 } from "@stringsync/splates-server/plans/browser";
 import { createContext, use } from "react";
 
@@ -20,15 +18,6 @@ export const Lanes = createContext<readonly LaneRecord[]>([]);
 export function useNameOf(): (conversation: ConversationState) => string {
 	const lanes = use(Lanes);
 	return (conversation) => nameOf(conversation, lanes);
-}
-
-/**
- * Whether the conversation orchestrates lanes, or grooms the todos that go
- * in them, which a row in the sidebar or the inbox marks with `LaneIcon` so
- * it stands apart from the tasks.
- */
-export function leadsLanes(conversation: ConversationState): boolean {
-	return lanesOf(conversation).length > 0 || grooms(conversation);
 }
 
 /** Whether `nameOf` is a stand-in, shown muted until a real name comes. */
@@ -47,26 +36,20 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 
 /**
  * Whether the conversation's work is done, as `reportedAs` reads it: its task
- * merged, or handed off to another agent, or the lanes it orchestrated are
- * finished.
+ * merged, or handed off to another agent.
  */
 export function reportsDone(conversation: ConversationState): boolean {
 	const reported = reportedAs(conversation);
-	return (
-		reported === "merged" || reported === "handed" || reported === "finished"
-	);
+	return reported === "merged" || reported === "handed";
 }
 
-/**
- * Whether a report `reported` leaves the person to act: its task escalated,
- * or the lanes it orchestrates wait on a task that did.
- */
+/** Whether a report `reported` leaves the person to act: its task escalated. */
 export function waitsOn(reported: Ending | null): boolean {
-	return reported === "escalated" || reported === "waiting";
+	return reported === "escalated";
 }
 
 /** The report that is the conversation's last word, as for `reportedAs`. */
-export function lastReport(conversation: ConversationState): Report | null {
+export function lastReport(conversation: ConversationState): TaskReport | null {
 	const last = conversation.messages.at(-1);
 	if (last === undefined || last.role !== "agent") {
 		return null;

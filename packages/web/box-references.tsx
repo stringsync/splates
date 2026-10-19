@@ -12,7 +12,6 @@ import type { References } from "./references";
  */
 const POINTED_AT = new Set([
 	"todo",
-	"lane",
 	"task",
 	"system",
 	"project",

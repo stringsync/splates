@@ -73,7 +73,7 @@ it("plans a targeted reference smoke without consulting targets or metering serv
 	);
 	const output = log.entries.map((entry) => entry.message).join("\n");
 	expect(output).toContain(
-		"Selected: orchestration/dependency; reps 1; parallel 1; aggregate admission limits 4000 tokens / USD 0.100000",
+		"Selected: orchestration/defer; reps 1; parallel 1; aggregate admission limits 4000 tokens / USD 0.100000",
 	);
 	expect(output).toContain("Plan only");
 });
@@ -167,7 +167,7 @@ it("selects at most two mapped default smoke cases and refuses unmapped expansio
 			"references/queue.md",
 			"references/parts.md",
 		]).map((probe) => probe.id),
-	).toEqual(["discovery/implicit", "orchestration/dependency"]);
+	).toEqual(["discovery/implicit", "orchestration/defer"]);
 	expect(() => smokeProbes(module.probes, ["references/new.md"])).toThrow(
 		"explicit relevant --probe",
 	);

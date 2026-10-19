@@ -374,7 +374,6 @@ describe("App's card answer boxes", () => {
 				.map((option) => option.textContent),
 		).toEqual([
 			"Retry the upload on a 413#12",
-			"Untriagedtodos in no lane",
 			"alphaworking",
 			`${asking.title}${asking.id}`,
 		]);

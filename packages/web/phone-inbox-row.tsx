@@ -8,12 +8,7 @@ import { ClipboardCheckIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import {
-	lastReport,
-	leadsLanes,
-	unnamed,
-	useNameOf,
-} from "./conversation-names";
+import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { copiedFor, seenFor } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import type { Drafts } from "./drafts";
@@ -22,7 +17,7 @@ import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
-import { LaneIcon, TaskIcon } from "./task-icon";
+import { TaskIcon } from "./task-icon";
 import { unanswered } from "./unanswered";
 
 /**
@@ -112,12 +107,6 @@ export function Row({
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span className="flex items-baseline gap-2">
-					{conversation !== null && leadsLanes(conversation) && (
-						<LaneIcon
-							aria-label="Lane"
-							className="size-3.5 shrink-0 self-center text-muted-foreground"
-						/>
-					)}
 					<span
 						className={cn(
 							"min-w-0 flex-1 truncate font-medium text-[15px]",
@@ -222,13 +211,11 @@ export function statusOf(
 	const report = conversation === null ? null : lastReport(conversation);
 	if (report !== null) {
 		const how = {
-			merged: `Merged onto ${("base" in report ? report.base : null) ?? "main"}`,
+			merged: `Merged onto ${report.base ?? "main"}`,
 			removed: "Removed",
 			escalated: "Escalated",
-			finished: "Lanes finished",
-			waiting: "Lanes waiting",
-			working: "lanes" in report ? "Lanes working" : "Working",
-			handed: `Handed off to ${("to" in report ? report.to : null) ?? "another agent"}`,
+			working: "Working",
+			handed: `Handed off to ${report.to ?? "another agent"}`,
 		}[report.ending];
 		return {
 			text: report.reason === null ? how : `${how} · ${report.reason}`,

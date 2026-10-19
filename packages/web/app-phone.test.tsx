@@ -182,23 +182,7 @@ describe("App on a phone", () => {
 		).toBeTruthy();
 	});
 
-	it("marks a lane's orchestrator as a lane in its inbox", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					messages: [message("user", "[SPLATES LANE 4]")],
-				}),
-			],
-			null,
-			{ tasks: [], laneNames: [{ id: 4, name: "Stats" }] },
-		);
-
-		const inbox = view.getByRole("region", { name: "inbox" });
-		expect(within(inbox).getByText("Stats")).toBeTruthy();
-		expect(within(inbox).getByLabelText("Lane")).toBeTruthy();
-	});
-
+	// scry-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
 	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {
 		const left = details({ task: "delta", takenBy: "c9" });
 		const quiet = details({ task: "gamma", activeAt: hoursAgo(2) });

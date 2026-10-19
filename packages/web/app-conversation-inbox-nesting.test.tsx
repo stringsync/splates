@@ -199,64 +199,6 @@ describe("A phone's inbox, nesting agents", () => {
 			false,
 		]);
 	});
-
-	// scry-ignore simple-test-setup: the orchestrator and its lanes are what it checks, and no other test opens with them
-	it("names a lane's orchestrator after its lanes, and the groomer so, marked as a lane, over a task it took and the agent's title", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					task: null,
-					title: "Splates Lane 22",
-					messages: [message("user", "[SPLATES LANE 22]")],
-					createdAt: "2026-10-11T10:03:00.000Z",
-				}),
-				conversation({
-					id: "c2",
-					task: "add-line",
-					lastTask: "add-line",
-					messages: [message("user", "[SPLATES LANE 20]\n[SPLATES LANE 9]")],
-					createdAt: "2026-10-11T10:02:00.000Z",
-				}),
-				conversation({
-					id: "c3",
-					task: null,
-					messages: [message("user", "[SPLATES LANE untriaged]")],
-					createdAt: "2026-10-11T10:01:00.000Z",
-				}),
-				conversation({
-					id: "c4",
-					task: null,
-					title: "Splates Groom 7",
-					messages: [message("user", "[SPLATES GROOM #7]")],
-					createdAt: "2026-10-11T10:00:30.000Z",
-				}),
-			],
-			null,
-			{
-				laneNames: [
-					{ id: 22, name: "Cloudflare Access" },
-					{ id: 20, name: "Stats" },
-				],
-			},
-		);
-		const items = within(
-			view.getByRole("region", { name: "inbox" }),
-		).getAllByRole("listitem");
-		const names = items.map(nameIn);
-
-		expect(names.map((name) => name.textContent)).toEqual([
-			"alpha",
-			"Cloudflare Access",
-			"Stats, Lane 9",
-			"Untriaged",
-			"Groomer",
-		]);
-		expect(
-			items.map((item) => within(item).queryByLabelText("Lane") !== null),
-		).toEqual([false, true, true, true, true]);
-		expect(names.some((name) => name.classList.contains("italic"))).toBe(false);
-	});
 });
 
 /** The inbox's agents, each with those it handed out after it, by name. */

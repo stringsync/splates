@@ -101,7 +101,6 @@ export class Testing implements AsyncDisposable {
 			on: {},
 			leaseStalenessMs: 90_000,
 			removedCapacity: 50,
-			agentsPerLane: 15,
 			mergeRetryCount: 2,
 			logCapacity: 200,
 			taskStalenessMs: 30 * 24 * 60 * 60 * 1000,

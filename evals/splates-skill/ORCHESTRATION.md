@@ -1,7 +1,7 @@
 # Orchestration probes (#340)
 
 `orchestration.probes.ts` is a side-effect-free default `ProbeModule`, discovered
-by the focused runner. Every seed is version 1; the lane cases rewritten when lanes came to run on their own are version 2, the rest 1. This is an implemented
+by the focused runner. Every seed and case is version 1. The lane cases went when lanes stopped running and orchestrators went. This is an implemented
 assertion suite, **not measured model adherence**. No paid evaluation was run.
 
 ## Cases and boundaries
@@ -13,28 +13,12 @@ cannot run these tool-capable cases and must report unsupported.
 
 | Id | Audit requirement | Seed and checked decision |
 | --- | --- | --- |
-| independent | lanes-dispatch | Two independent lane queued tasks; lane inspection before `lane run`, no false link, no dispatch |
-| dependency | lanes-dispatch | Explicit dependency; `lane run` required, dispatch forbidden |
-| implicit-dependency | lanes-dispatch | Detail explicitly needs predecessor's code; link before `lane run`, no dispatch |
-| shared-files | lanes-dispatch | Explicit incompatible rewrites of one file; link before `lane run`, no dispatch |
-| triage | lanes-dispatch | Two untriaged queued tasks and existing lane; place both, link dependency, place before `lane run` |
 | taken-queued | queue-groom | Real task owns queued task; inspect without stealing or duplicate dispatch |
-| added | lanes-events | Task added to a running lane on the same file; inspect, link, no dispatch |
-| idle | lanes-events | Real task in a running lane, idle after splates's own nudge; inspect, numbered question, no claim |
-| task-open | lanes-events | Reopened task in a paused lane; inspect, leave paused, no dispatch |
-| task-done | lanes-events | Predecessor removed in a paused lane; inspect, leave paused, no dispatch |
-| report | lanes-events | Stopped-task notification; inspect task (disposition intentionally uncovered) |
-| lanes-done | lanes-events | Empty board; inspect lanes/tasks, parsed finished ending and observed empty queue |
-| pivot | lanes-events | Seeded started and queued task; stop before removal, remove the started task before dropping the queued one |
 | defer | queue-defer | Additional deferred request; exact saved detail/assignment, no read of named project file |
 | cli-link | queue-intake | Free actual CLI links two queued tasks; exact observed persisted board |
 
 The task seeds represent state at a notification boundary. They do not run
-workers or simulate a real mid-turn interruption. `task-open` seeds the reopened
-state directly. `idle` supplies splates's earlier nudge in the input, not a
-second live turn. `shared-files` uses explicit incompatible task details, not an
-observed active worker's diff. The `report` seed requires inspection only and
-does not assert a stopped status that the seed never established.
+workers or simulate a real mid-turn interruption.
 
 ## Evidence and free checks
 
@@ -49,8 +33,8 @@ fail observation. Setup acts are fixture events, never agent events.
 
 `orchestration.test.ts` tests schema validation, positive synthetic witnesses,
 missing/incomplete evidence, reversed order, and failed forbidden attempts.
-It separately checks production directive constructors and parsing for LANE,
-REPORT, IDLE, TASK DONE/OPEN, LANES DONE and DEFER. These are payload
+It separately checks production directive constructors and parsing for
+REPORT and DEFER. These are payload
 format checks, **not a claim that a live dev server delivered a directive**.
 The actual `cli-link` invocation checks persisted state and retains the CLI
 adapter's incomplete events channel. These layers do not prove agent adherence.

@@ -2,8 +2,6 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
-import { laneReference } from "@stringsync/splates-server/plans/browser";
-import { CheckIcon, CopyIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -11,19 +9,17 @@ import {
 	useContext,
 	useState,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
 import { renameLane } from "./api";
 import { Board, still } from "./board";
 import { laneRenamed } from "./board-expectations";
-import { Card, copiedLabel, useCopy } from "./card";
-import { Dispatching, OnIt } from "./dispatching";
+import { Card } from "./card";
+import { OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu } from "./lane-menu";
 import { Refusal } from "./refusal";
-import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
@@ -61,7 +57,6 @@ export function Untriaged({
 	staleness: number;
 }): JSX.Element {
 	const board = useContext(Board);
-	const open = todos.some((todo) => todo.takenBy === null);
 	const { setNodeRef, isOver, active } = useDroppable({
 		id: columnId(null),
 	});
@@ -75,7 +70,6 @@ export function Untriaged({
 					</span>
 				</h3>
 				<p className="text-muted-foreground text-xs">Not in a lane yet.</p>
-				{open && <StartLane id={null} />}
 				<Refusal refusal={board.refusedLanes.get(null)} />
 			</header>
 			<Cards
@@ -96,8 +90,8 @@ export function Untriaged({
 }
 
 /**
- * One lane: an agent's queue, top first. The header says who is on it, or
- * offers the prompt that starts one, and moves the lane: dragged by it, the
+ * One lane: a named group of todos, top first. The header says who is on
+ * them, and moves the lane: dragged by it, the
  * lane takes the place of the one it is let go on, as a Trello list does.
  */
 export function Lane({
@@ -167,30 +161,28 @@ export function Lane({
 						onRename={() => setRenaming(true)}
 					/>
 				</div>
-				{lane.agents.length > 0
-					? lane.agents.map((agent) => {
-							const on = lane.todos
-								.filter((todo) => todo.takenBy === agent)
-								.map((todo) => `#${todo.id}`)
-								.join(", ");
-							return (
-								<span key={agent} className="flex min-w-0 items-center gap-1.5">
-									<button
-										type="button"
-										onClick={() => openTask(agent)}
-										{...still}
-										className="inline-flex min-w-0 pointer-coarse:min-h-10 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-									>
-										<TaskIcon aria-hidden className="size-3" />
-										<span className="truncate">
-											{agent} on {on}
-										</span>
-									</button>
-									<OnIt task={agent} />
+				{lane.agents.map((agent) => {
+					const on = lane.todos
+						.filter((todo) => todo.takenBy === agent)
+						.map((todo) => `#${todo.id}`)
+						.join(", ");
+					return (
+						<span key={agent} className="flex min-w-0 items-center gap-1.5">
+							<button
+								type="button"
+								onClick={() => openTask(agent)}
+								{...still}
+								className="inline-flex min-w-0 pointer-coarse:min-h-10 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+							>
+								<TaskIcon aria-hidden className="size-3" />
+								<span className="truncate">
+									{agent} on {on}
 								</span>
-							);
-						})
-					: lane.next !== null && <StartLane id={lane.id} />}
+							</button>
+							<OnIt task={agent} />
+						</span>
+					);
+				})}
 				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards
@@ -202,41 +194,6 @@ export function Lane({
 			/>
 			<AddTodo lane={lane.id} />
 		</Column>
-	);
-}
-
-/**
- * While no agent is on lane `id`, puts one on it with `[SPLATES LANE <n>]`,
- * which starts at the top and works down: in a conversation, or, while the
- * page holds none, copied to paste into an agent's chat. For null, the
- * Untriaged column, `[SPLATES LANE untriaged]`, which places its todos in
- * lanes and then works those down.
- */
-function StartLane({ id }: { id: number | null }): JSX.Element {
-	const { copied, copy } = useCopy();
-	const reference = laneReference(id);
-	if (useContext(Dispatching) !== null) {
-		return <StartMenu assignment={{ kind: "lane", id }} label="Start lane" />;
-	}
-	return (
-		<Button
-			size="xs"
-			variant="outline"
-			className="w-fit bg-transparent pointer-coarse:h-10 pointer-coarse:px-3"
-			onClick={() => copy(reference)}
-			title={
-				copied.state === "failed"
-					? copied.error
-					: `No agent is on it yet. Copies ${reference} to paste into an agent's chat`
-			}
-		>
-			{copied.state === "copied" ? (
-				<CheckIcon data-icon="inline-start" />
-			) : (
-				<CopyIcon data-icon="inline-start" />
-			)}
-			<span aria-live="polite">{copiedLabel(copied, "Start lane")}</span>
-		</Button>
 	);
 }
 

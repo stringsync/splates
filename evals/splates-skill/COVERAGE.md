@@ -104,19 +104,7 @@ the broader proposed coverage in the requirements map.
 | `lifecycle/cli-budget_exhausted` | 1 | lifecycle-recovery | cli |
 | `lifecycle/cli-escalated` | 1 | lifecycle-land | cli |
 | `lifecycle/cli-removed` | 1 | lifecycle-land | cli |
-| `orchestration/independent` | 2 | lanes-dispatch | agent |
-| `orchestration/dependency` | 2 | lanes-dispatch | agent |
-| `orchestration/implicit-dependency` | 2 | lanes-dispatch | agent |
-| `orchestration/shared-files` | 2 | lanes-dispatch | agent |
-| `orchestration/triage` | 2 | lanes-dispatch | agent |
 | `orchestration/taken-queued` | 1 | queue-groom | agent |
-| `orchestration/added` | 2 | lanes-events | agent |
-| `orchestration/idle` | 2 | lanes-events | agent |
-| `orchestration/task-open` | 2 | lanes-events | agent |
-| `orchestration/task-done` | 2 | lanes-events | agent |
-| `orchestration/report` | 1 | lanes-events | agent |
-| `orchestration/lanes-done` | 1 | lanes-events | agent |
-| `orchestration/pivot` | 1 | lanes-events | agent |
 | `orchestration/defer` | 1 | queue-defer | agent |
 | `orchestration/cli-link` | 1 | queue-intake | cli |
 
@@ -127,7 +115,7 @@ the broader proposed coverage in the requirements map.
 | Deterministic contract | `probe.ts`, `probe.test.ts` | Exact matching, strict ordering, observed state, parsed reply fields, explicit gaps and termination categories on synthetic evidence | Actual execution, trustworthy instrumentation, bounded runners or model behavior |
 | Audit regressions | `probe-audit.test.ts` | Failed/unfinished forbidden attempts, argv scope, repeated order violations, channel completeness, status precedence, report claim separation | Executed CLI or agent conformance; fixtures are synthetic |
 | Existing free checks | `checks.test.ts`, `skill-checks.test.ts` and production parser tests | Existing check/parser behavior on their fixtures | New focused probe coverage or proof that an agent obeys a directive |
-| Legacy scenarios | `scenarios.ts`, `lanes.ts`, `resumed.ts` | Existing selectable scenario definitions and checks | A new baseline; no runs were performed for this audit |
+| Legacy scenarios | `scenarios.ts`, `resumed.ts` | Existing selectable scenario definitions and checks | A new baseline; no runs were performed for this audit |
 | Runner and adapters | `runner.test.ts`, `probe-cli.test.ts`, `integration.test.ts` | Free stand-ins verify selection, isolation, bounds, cancellation, comparison identity and reporting | Generic ACP tool instrumentation remains unsupported |
 | Six aspect suites | Registered inventory above and dedicated aspect tests | Actual local CLI boundaries and synthetic positive/negative assertion contracts | No measured model adherence, live worker/notification transport or complete tool capture |
 
@@ -161,12 +149,10 @@ selected real integration, never a prerequisite for this audit.
 | queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
 | queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
-| lanes-dispatch / Working the untriaged lane, `references/lanes.md` | #340; `lane`, `lane-parallel`, `lane-same-files`, `untriaged` | CLI LANE payload; agent places triage first, links dependencies and shared files, names models and sets the lane running, handing out nothing itself | Fake workers test orchestration only; actual concurrent work/merge stays optional E2E |
-| lanes-events / `references/lanes.md` | #340; `lane-added`, `lane-idle`, `lane-pivot` | CLI REPORT, TASK ADDED/DONE/OPEN, IDLE, LANES DONE payloads; agent planning/stop/pivot state and order | Seed one transition; do not require full worker journeys |
 | delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
 | delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT payloads; agent records handoff context and claims takeover | Stand-ins do not prove transport, restart or delegated model execution |
 | delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
-| delegation-no-dev / `references/lanes.md`, `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
+| delegation-no-dev / `references/parts.md` | #356 with #340; `lane-no-dev` | Seed absent dev server; observe allowed dispatch and explicit boundary result | Real no-dev child execution and landing retained as optional E2E |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
 | continuity-report / Reporting, Questions | #357; common checks | Parsed task outcome and questions/choices, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |

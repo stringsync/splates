@@ -153,17 +153,16 @@ describe("App's controls that put agents to work", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("puts a conversation already going on a lane, its reference held as a chip ahead of its draft", async () => {
+	it("puts a conversation already going on a task, its reference held as a chip ahead of its draft", async () => {
 		localStorage.setItem("splates.draft.c2", "then stop");
-		const view = await board(
-			[conversation({ id: "c2", title: "Tidy the docs" })],
-			{
-				todos: [todo({ id: 3, subject: "Fix the upload", lane: 1 })],
-			},
-		);
-		const lane = view.getByRole("region", { name: "Uploads" });
+		const view = await board([
+			conversation({ id: "c2", title: "Tidy the docs" }),
+		]);
+		const dialog = await taskDialog(view);
 		await act(async () =>
-			fireEvent.click(within(lane).getByRole("button", { name: "Start lane" })),
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Start a conversation" }),
+			),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -181,8 +180,8 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		expect(location.hash).toBe("#conversations/c2");
-		expect(chips(view)).toEqual(["[SPLATES LANE 1]"]);
-		expect(composer(view)).toBe("[SPLATES LANE 1]\n\nthen stop");
+		expect(chips(view)).toEqual(["[SPLATES TASK alpha]"]);
+		expect(composer(view)).toBe("[SPLATES TASK alpha]\n\nthen stop");
 	});
 
 	it("lists a task's conversations in its dialog, in place of starting another", async () => {
@@ -222,82 +221,6 @@ describe("App's controls that put agents to work", () => {
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
 				{ text: "[SPLATES TASK alpha]" },
-			]),
-		);
-	});
-
-	it("starts one orchestrator on the lanes ticked with no agent on them, sent them all at once", async () => {
-		const view = await board([], {
-			todos: [
-				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
-				todo({ id: 5, subject: "Sign in", lane: 2 }),
-				todo({ id: 6, subject: "Bill", lane: 3, takenBy: "alpha" }),
-			],
-			lanes: [
-				{ id: 1, name: "Uploads" },
-				{ id: 2, name: "Accounts" },
-				{ id: 3, name: "Billing" },
-			],
-		});
-		testing.reply = conversation({ id: "c7", status: "starting" });
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
-		);
-		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
-		expect(ticks.map((each) => each.textContent)).toEqual([
-			"Uploads",
-			"Accounts",
-		]);
-		expect(
-			view
-				.getByRole("menuitem", { name: /Claude/ })
-				.hasAttribute("data-disabled"),
-		).toBe(true);
-
-		await act(async () => fireEvent.click(ticks[0] as HTMLElement));
-		await act(async () => fireEvent.click(ticks[1] as HTMLElement));
-		await act(async () =>
-			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
-		);
-
-		expect(posted("/api/conversations")).toEqual([
-			{ agent: "codex", task: null, settings: {} },
-		]);
-		await waitFor(() =>
-			expect(posted("/api/conversations/c7/prompt")).toEqual([
-				{ text: "[SPLATES LANE 1]\n[SPLATES LANE 2]" },
-			]),
-		);
-		expect(location.hash).not.toContain("conversations");
-	});
-
-	it("offers Untriaged first among the lanes to start while a todo in no lane is open", async () => {
-		const view = await board([], {
-			todos: [
-				todo({ id: 2, subject: "Retry the upload" }),
-				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
-			],
-			lanes: [{ id: 1, name: "Uploads" }],
-		});
-		testing.reply = conversation({ id: "c7", status: "starting" });
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
-		);
-		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
-		expect(ticks.map((each) => each.textContent)).toEqual([
-			"Untriaged",
-			"Uploads",
-		]);
-
-		await act(async () => fireEvent.click(ticks[0] as HTMLElement));
-		await act(async () => fireEvent.click(ticks[1] as HTMLElement));
-		await act(async () =>
-			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
-		);
-
-		await waitFor(() =>
-			expect(posted("/api/conversations/c7/prompt")).toEqual([
-				{ text: "[SPLATES LANE untriaged]\n[SPLATES LANE 1]" },
 			]),
 		);
 	});

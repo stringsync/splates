@@ -161,7 +161,7 @@ it("rejects every registered agent probe without launching even with unmetered o
 			allowUnmetered: true,
 		},
 	);
-	expect(runs).toHaveLength(60);
+	expect(runs).toHaveLength(48);
 	expect(new Set(runs.map((run) => run.result.status))).toEqual(
 		new Set(["unsupported"]),
 	);

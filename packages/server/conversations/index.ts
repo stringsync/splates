@@ -37,7 +37,6 @@ export {
 	nameOf,
 	openingOf,
 	realName,
-	startedLanes,
 } from "./name";
 export type { ConversationsOptions } from "./options";
 export { conversationReference } from "./reference";

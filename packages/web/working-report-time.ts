@@ -1,6 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import type { Message } from "@stringsync/splates-server/conversations";
-import type { Report } from "@stringsync/splates-server/plans";
+import type { TaskReport } from "@stringsync/splates-server/plans";
 
 export interface ReportTiming {
 	at: string;
@@ -25,7 +25,7 @@ export function workingTimes(
 				if (part.type !== "data-report") {
 					return part;
 				}
-				const { report } = part.data as { report: Report };
+				const { report } = part.data as { report: TaskReport };
 				if (report.ending !== "working") {
 					return part;
 				}

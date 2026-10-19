@@ -6,7 +6,6 @@ import type {
 	Step,
 	Tool,
 } from "@stringsync/splates-server/conversations";
-import { stretches } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { Duration } from "webappwiz/time";
 import { workingSpan } from "./work-time";
@@ -37,13 +36,11 @@ export interface Work {
 }
 
 /**
- * A stretch of an agent's turn: words it said, the words along the way that
- * say it added a task or requested a cred, something splates did at its word,
- * or the work around them.
+ * A stretch of an agent's turn: words it said, something splates did at its
+ * word, or the work around them.
  */
 export type Stretch =
 	| { type: "said"; text: string }
-	| { type: "added"; text: string }
 	/** `also` is the events folded into it: a run of one action that reads as one line. */
 	| { type: "event"; event: Event; also?: Event[] }
 	/** The agent folded its context into a summary, between the work before and after. */
@@ -92,7 +89,7 @@ export function stretchesOf(
 		(after.length === 0 && message.plan !== null) ||
 		(going && last === -1)
 	) {
-		pieces.push(...cut(before, parts));
+		pieces.push(...cut(before));
 	}
 	if (said?.type === "text") {
 		pieces.push({ type: "said", text: said.text });
@@ -317,10 +314,10 @@ function endOf(parts: Part[]): string | null {
 }
 
 /**
- * Cut out task/credential cards and compaction markers; intermediate prose
- * stays inside the work timeline. Words still being written stay in too.
+ * Cut out compaction markers; intermediate prose stays inside the work
+ * timeline.
  */
-function cut(run: Part[], parts: Part[]): Piece[] {
+function cut(run: Part[]): Piece[] {
 	const pieces: Piece[] = [];
 	let from = 0;
 	run.forEach((part, at) => {
@@ -330,35 +327,13 @@ function cut(run: Part[], parts: Part[]): Piece[] {
 			}
 			pieces.push({ type: "compaction", compaction: part });
 			from = at + 1;
-			return;
 		}
-		if (part.type !== "text" || part === parts.at(-1) || !adds(part.text)) {
-			return;
-		}
-		if (at > from) {
-			pieces.push(run.slice(from, at));
-		}
-		pieces.push({ type: "added", text: part.text });
-		from = at + 1;
 	});
 	// Kept even empty when nothing was cut, for the row that says Working.
 	if (from < run.length || pieces.length === 0) {
 		pieces.push(run.slice(from));
 	}
 	return pieces;
-}
-
-/**
- * Whether `text` says a task was added or a cred requested, which an agent
- * says before working on or waiting, and says nothing else a card would.
- */
-function adds(text: string): boolean {
-	const found = stretches(text);
-	const along = (each: (typeof found)[number]) => each.type === "start";
-	return (
-		found.some(along) &&
-		found.every((each) => along(each) || each.type === "text")
-	);
 }
 
 /** How long the latest words go without anything after them to show as the reply. */

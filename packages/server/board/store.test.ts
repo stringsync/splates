@@ -1,10 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { merge } from "../merge";
 import { add, remove } from "../tasks";
 import { Testing } from "../testing";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { decodeTask } from "./task-file";
-import { taskRelease } from "./task-take";
 
 /** Task `id` as its record holds it. */
 async function stored(deps: Testing, id: number): Promise<unknown> {
@@ -77,24 +75,6 @@ describe.concurrent("TaskStore", () => {
 		expect(record).not.toHaveProperty("task");
 		expect(record).not.toHaveProperty("status");
 		expect(record).not.toHaveProperty("lease");
-	});
-
-	it("leaves the queued task a task started under queued when released before it lands", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { tasks: [1] });
-		const worktree = (await deps.service.find("dark")).path;
-		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
-		await taskRelease(deps, [1], "dark");
-
-		await deps.finish(worktree);
-		await merge(deps, worktree);
-
-		expect(await stored(deps, 1)).toMatchObject({
-			takenBy: null,
-			stage: "backlog",
-		});
-		expect((await deps.service.find("dark")).gone).toBeTrue();
 	});
 
 	it("keeps a task going when the queued task it started under is removed", async () => {

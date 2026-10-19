@@ -64,74 +64,6 @@ describe("App's lanes", () => {
 		).toHaveLength(0);
 	});
 
-	it("offers the lane's prompt above its first todo while no agent is on it", async () => {
-		const copied: string[] = [];
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async (text: string) => void copied.push(text) },
-		});
-		const view = await testing.open({
-			todos: sound2score().map((each) =>
-				each.id === 207 ? { ...each, takenBy: "panes" } : each,
-			),
-			lanes: SOUND2SCORE_LANES,
-		});
-
-		// Licensing and the second lane have nobody; the editor has an agent.
-		expect(view.getAllByRole("button", { name: "Start lane" })).toHaveLength(2);
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("region", { name: "Audio, uploads and pricing" }),
-				).getByRole("button", { name: "Start lane" }),
-			),
-		);
-
-		expect(copied).toEqual(["[SPLATES LANE 2]"]);
-		// The button says so in place.
-		expect(
-			within(
-				view.getByRole("region", { name: "Audio, uploads and pricing" }),
-			).getByRole("button", { name: "Copied" }),
-		).toBeTruthy();
-	});
-
-	it("offers the untriaged lane's prompt while one of its todos is open", async () => {
-		const copied: string[] = [];
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async (text: string) => void copied.push(text) },
-		});
-		const view = await testing.open({
-			todos: [
-				todo({ id: 4, subject: "Retry the upload" }),
-				todo({ id: 5, subject: "Sign in", takenBy: "auth" }),
-			],
-		});
-		const untriaged = view.getByRole("region", { name: "Untriaged" });
-
-		await act(async () =>
-			fireEvent.click(
-				within(untriaged).getByRole("button", { name: "Start lane" }),
-			),
-		);
-
-		expect(copied).toEqual(["[SPLATES LANE untriaged]"]);
-	});
-
-	it("offers no untriaged prompt once every todo in no lane is taken", async () => {
-		const view = await testing.open({
-			todos: [todo({ id: 5, subject: "Sign in", takenBy: "auth" })],
-		});
-
-		expect(
-			within(view.getByRole("region", { name: "Untriaged" })).queryByRole(
-				"button",
-				{ name: "Start lane" },
-			),
-		).toBeNull();
-	});
-
 	it("unblocks with one tap in the dialog, sending what is left", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
@@ -274,6 +206,7 @@ describe("App's lanes", () => {
 		expect(left.getAttribute("aria-disabled")).toBe("true");
 	});
 
+	// scry-ignore simple-test-setup: each test here opens its own board; this one only lost a neighbour.
 	it("asks for a new lane's name in place when one is picked in the dialog", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

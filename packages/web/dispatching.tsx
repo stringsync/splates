@@ -1,16 +1,13 @@
-import type { LaneState } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { thinkingOf } from "@stringsync/splates-server/models/browser";
-import { laneReference } from "@stringsync/splates-server/plans/browser";
 import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
-import { createContext, type JSX, useContext, useState } from "react";
+import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuGroup,
-	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuSub,
@@ -20,13 +17,11 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { Board, still, touchArea, touchItems } from "./board";
-import { promptConversation, startConversation } from "./conversation-api";
+import { still, touchArea, touchItems } from "./board";
 import { reportedAs, useNameOf } from "./conversation-names";
 import type { Dispatch } from "./dispatch";
 import { Mark } from "./mark";
 import { QueueMark } from "./slot-queue";
-import type { BarAction } from "./top-bar";
 
 /**
  * The main tree's branch, which names it where a conversation's place is
@@ -153,100 +148,6 @@ export function OnIt({
 /** Whether a conversation shows as a spinner: its agent is at work. */
 function spins(need: { kind: string }): boolean {
 	return need.kind === "working" || need.kind === "assuming";
-}
-
-/**
- * Puts one orchestrator on several lanes at once, from the board's bar: the
- * lanes ticked among those with a todo next and no agent, and Untriaged while
- * it holds an open todo, in a new conversation with the agent picked, sent
- * `[SPLATES LANE <n>]` for each straight away, since the prompt says only that.
- * Each lane that does not start says so on its header. An action of the
- * board's bar, or null while no lane is idle.
- */
-export function useStartLanes({
-	lanes,
-	untriaged,
-}: {
-	lanes: LaneState[];
-	/** Whether a todo in no lane is open, for an orchestrator to place. */
-	untriaged: boolean;
-}): BarAction | null {
-	const context = useContext(Dispatching);
-	const { refuseLane } = useContext(Board);
-	const [picked, setPicked] = useState<(number | null)[]>([]);
-	const idle: { id: number | null; name: string; ready: boolean }[] = [
-		...(untriaged ? [{ id: null, name: "Untriaged", ready: true }] : []),
-		...lanes.filter((lane) => lane.agents.length === 0 && lane.next !== null),
-	];
-	if (context === null || idle.length === 0) {
-		return null;
-	}
-	const { dispatch } = context;
-	const chosen = idle.filter((lane) => picked.includes(lane.id));
-	const start = (agent: string): void => {
-		setPicked([]);
-		void startConversation(agent, null)
-			.then(({ id }) =>
-				promptConversation(
-					id,
-					chosen.map((lane) => laneReference(lane.id)).join("\n"),
-				),
-			)
-			.catch((error: unknown) => {
-				for (const lane of chosen) {
-					refuseLane(lane.id, "Not started", error);
-				}
-			});
-	};
-	return {
-		label: "Start lanes",
-		icon: <PlayIcon />,
-		menuClassName: cn("w-64", touchItems),
-		menu: (
-			<>
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>Lanes with no agent</DropdownMenuLabel>
-					{idle.map((lane) => (
-						<DropdownMenuCheckboxItem
-							key={lane.id ?? "untriaged"}
-							closeOnClick={false}
-							checked={picked.includes(lane.id)}
-							onCheckedChange={(checked) =>
-								setPicked((was) =>
-									checked
-										? [...was, lane.id]
-										: was.filter((each) => each !== lane.id),
-								)
-							}
-						>
-							<span className="min-w-0 flex-1 truncate">{lane.name}</span>
-							{!lane.ready && (
-								<span className="text-muted-foreground text-xs">waits</span>
-							)}
-						</DropdownMenuCheckboxItem>
-					))}
-				</DropdownMenuGroup>
-				<DropdownMenuSeparator />
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>
-						{chosen.length === 0
-							? "Tick the lanes to start"
-							: `Start ${chosen.length === 1 ? "1 lane" : `${chosen.length} lanes`} with`}
-					</DropdownMenuLabel>
-					{dispatch.agents.map((each) => (
-						<DropdownMenuItem
-							key={each.id}
-							disabled={chosen.length === 0}
-							onClick={() => start(each.id)}
-						>
-							<AgentIcon agent={each.id} name={each.name} />
-							{each.name}
-						</DropdownMenuItem>
-					))}
-				</DropdownMenuGroup>
-			</>
-		),
-	};
 }
 
 /**

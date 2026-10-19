@@ -6,7 +6,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { LaneRecord } from "../board";
-import { BoardRoutes, SeenLaneTasks } from "../board";
+import { BoardRoutes } from "../board";
 import type {
 	ConversationState,
 	Conversations,
@@ -36,7 +36,7 @@ import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
-import { HandedOut, LaneRunner, startDispatched, TaskRoutes } from "../tasks";
+import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER } from "../workers";
 import type { Assets } from "./assets";
 import { ProjectWatch, SETTLE } from "./project-watch";
@@ -58,39 +58,11 @@ export async function serveProject(
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
-	let handedOut: HandedOut | null = null;
-	let laneRunner: LaneRunner | null = null;
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
 	let hookRunner: HookRunner | null = null;
-	let tasksWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
-		handedOut = HandedOut.watch({
-			service,
-			conversations,
-			everywhere: context.everywhere,
-			lanes: () => project.tasks.lanes(),
-			queued: () => project.tasks.stored(),
-			seen: new SeenLaneTasks(fs, `${splatesDir}/lane-tasks.json`),
-			stuck: project.tasks,
-			log,
-		});
-		laneRunner = LaneRunner.watch({
-			lanes: () => project.tasks.lanes(),
-			queued: () => project.tasks.stored(),
-			tasks: async () => (await service.list()).map(({ task }) => task),
-			capacity: project.config.agentsPerLane,
-			start: ({ task, queued, pick, prompt, by }) =>
-				startQueuedTask(project, context.url, {
-					task,
-					number: queued.id,
-					pick,
-					prompt,
-					by,
-				}),
-			log,
-		});
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
 			tasks: async () => (await service.list()).map(({ task }) => task),
@@ -108,7 +80,6 @@ export async function serveProject(
 					number: queued.id,
 					pick,
 					prompt,
-					by: null,
 				}),
 			log,
 		});
@@ -174,10 +145,8 @@ export async function serveProject(
 		});
 		conversations.url = context.url;
 		let starting = Promise.resolve();
-		const runner = laneRunner;
 		const handOff = (): void => {
-			// A task gone makes room in its lane, and moves the queue on.
-			void runner.sweep();
+			// A task gone moves the queue on.
 			void queue.sweep();
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
@@ -200,30 +169,6 @@ export async function serveProject(
 			);
 		}
 		handOff();
-		// A task merged or let go from any tree tells its lane's orchestrator
-		// at once, not at the next sweep.
-		const tasksSettled = new Debouncer(new SystemTimer(), SETTLE);
-		const watched = handedOut;
-		try {
-			await fs.mkdir(`${splatesDir}/tasks`);
-			const watching = fs.watch(`${splatesDir}/tasks`, () =>
-				tasksSettled.call(() => {
-					void watched.sweep();
-					void runner.sweep();
-					void queue.sweep();
-				}),
-			);
-			tasksWatch = {
-				dispose: () => {
-					watching.dispose();
-					tasksSettled.cancel();
-				},
-			};
-		} catch (error) {
-			log.error(
-				`splates server cannot watch ${service.git.root}'s tasks, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
-			);
-		}
 	}
 
 	const talks = new ConversationRoutes(
@@ -304,9 +249,6 @@ export async function serveProject(
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
-			tasksWatch?.dispose();
-			handedOut?.dispose();
-			laneRunner?.dispose();
 			queueRunner?.dispose();
 			unwatchRoom?.();
 			hookRunner?.dispose();
@@ -331,13 +273,11 @@ async function startQueuedTask(
 		number,
 		pick,
 		prompt,
-		by,
 	}: {
 		task: string;
 		number: number;
 		pick: AgentPick;
 		prompt: string;
-		by: string | null;
 	},
 ): Promise<void> {
 	const { exitCode, stderr } = await ps.spawnCapture(
@@ -356,15 +296,9 @@ async function startQueuedTask(
 		],
 		{
 			cwd: service.git.root,
-			env: {
-				...(by === null ? {} : { SPLATES_CONVERSATION: by }),
-				...(url === null ? {} : { SPLATES_DEV: url }),
-			},
-			// Whatever agent started this server, the task is the queue's or the lane's.
-			unset: [
-				"SPLATES_STARTED_BY",
-				...(by === null ? ["SPLATES_CONVERSATION"] : []),
-			],
+			env: url === null ? {} : { SPLATES_DEV: url },
+			// Whatever agent started this server, the task is the queue's.
+			unset: ["SPLATES_STARTED_BY", "SPLATES_CONVERSATION"],
 		},
 	);
 	if (exitCode !== 0) {

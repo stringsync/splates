@@ -63,7 +63,7 @@ describe("App's composer references", () => {
 			within(categories)
 				.getAllByRole("option")
 				.map((option) => option.textContent),
-		).toEqual(["Directives", "Todos", "Lanes", "Tasks"]);
+		).toEqual(["Directives", "Todos", "Tasks"]);
 		await act(async () =>
 			fireEvent.click(
 				within(categories).getByRole("option", { name: /Todos/ }),
@@ -112,7 +112,7 @@ describe("App's composer references", () => {
 			within(view.getByRole("listbox", { name: "references" }))
 				.getAllByRole("option")
 				.map((option) => option.textContent),
-		).toEqual(["Directives", "Todos", "Lanes", "Tasks"]);
+		).toEqual(["Directives", "Todos", "Tasks"]);
 		expect(textIn(box)).toBe("#");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
@@ -196,14 +196,13 @@ describe("App's composer references", () => {
 			within(found)
 				.getAllByRole("option")
 				.map((option) => option.textContent),
-		).toEqual(["Retry the upload on a 413#12", "Uploadslane 3"]);
-		await act(async () => fireEvent.keyDown(box, { key: "ArrowDown" }));
+		).toEqual(["Retry the upload on a 413#12"]);
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
-			expect(within(box).getByTitle("[SPLATES LANE 3]")).toBeTruthy(),
+			expect(within(box).getByTitle("[SPLATES TASK #12]")).toBeTruthy(),
 		);
-		expect(textIn(box)).toBe("see [SPLATES LANE 3] ");
+		expect(textIn(box)).toBe("see [SPLATES TASK #12] ");
 	});
 
 	it("writes a project picked after a #, and sends it as typed", async () => {

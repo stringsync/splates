@@ -1,10 +1,7 @@
 export type {
 	Ending,
-	LanesStart,
 	Proposal,
-	Report,
 	Review,
-	Start,
 	Stretch,
 	TaskReport,
 	TodoProposal,
@@ -42,7 +39,6 @@ export {
 export {
 	APPROVE,
 	AUTO,
-	CARRY_ON,
 	CHECKPOINT,
 	DEFER,
 	DICTATED,
@@ -51,7 +47,6 @@ export {
 	eventReference,
 	handoffReference,
 	handoffToReference,
-	idleReference,
 	isUpdate,
 	LANES_DONE,
 	laneReference,
@@ -61,10 +56,7 @@ export {
 	RESUME,
 	reportReference,
 	setupReference,
-	taskAddedReference,
-	taskDoneReference,
 	taskNumberReference,
-	taskOpenReference,
 	taskReference,
 	UNTRIAGED,
 } from "./prompts";

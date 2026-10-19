@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
-import { aptName, type LaneRecord, type LaneRun, named, settle } from "./lanes";
+import { aptName, type LaneRecord, named, settle } from "./lanes";
 import type { TaskRecord } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
@@ -93,23 +93,6 @@ export class TaskLanes {
 			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
 			await this.writeLanes(order);
 			return order;
-		});
-	}
-
-	/**
-	 * Sets lane `id` running, started by conversation `by`, or the person for
-	 * null; or, for `running` null, pauses it.
-	 */
-	async runLane(id: number, running: LaneRun | null): Promise<LaneRecord> {
-		return this.tasks.locked(async () => {
-			const records = await this.records(await this.tasks.stored());
-			lacking(records, id);
-			const { name } = records.find((record) => record.id === id) as LaneRecord;
-			const set = running === null ? { id, name } : { id, name, running };
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? set : record)),
-			);
-			return set;
 		});
 	}
 
@@ -312,13 +295,7 @@ export class TaskLanes {
 						(each) =>
 							Number.isInteger(each?.id) && typeof each?.name === "string",
 					)
-					.map(({ id, name, running }) =>
-						running !== null &&
-						typeof running === "object" &&
-						(running.by === null || typeof running.by === "string")
-							? { id, name, running: { by: running.by } }
-							: { id, name },
-					);
+					.map(({ id, name }) => ({ id, name }));
 			}
 		} catch {}
 		return [];

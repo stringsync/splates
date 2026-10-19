@@ -207,7 +207,16 @@ one is deleted.
    groomer back, as a `task.created` hook set from Setup, is a task of its
    own.
 4. **Delete.** Everything under What goes, and `SKILL.md` and the evals
-   rewritten for the new model.
+   rewritten for the new model. Landed in steps. First, lanes stop running: `LaneRunner`,
+   `HandedOut`, `lane run`/`pause`, `task take`/`release`, stuck marks,
+   `agentsPerLane`, the orchestrator directives and reports, `lanes.md`, the
+   lane eval scenarios and probes, and the page's lane plan card and Start
+   lane controls. Old orchestrator conversations still read, their reports
+   as plain words. Next, agents stop starting agents (handoff, `add --agent`
+   from an agent, `tell`, Auto), then parts. The slot queue of
+   `workers/scheduler.ts` (`splates worker queue`) stays for now: it still
+   drives provisioning and wake-on-LAN, so it goes once the task queue does
+   that.
 5. **Web.** The board shows lanes of tasks by stage, beside a queue view;
    "todo" becomes "task".
 

@@ -35,11 +35,6 @@ export interface TaskRecord {
 	/** The other project it was added from; absent for one added here. */
 	origin?: TaskOrigin;
 	/**
-	 * Since when its task, in a running lane, has sat idle though told to
-	 * carry on, as its card shows; absent while it is not stuck.
-	 */
-	stuck?: string;
-	/**
 	 * Tasks it was blocked by that merged, and the commit each landed as, so
 	 * whoever starts it can read what it builds on; absent for none.
 	 */
@@ -124,14 +119,13 @@ export class Task {
 					{ number: this.id, takenBy: state.takenBy },
 				);
 			}
-			const { stuck: _, ...rest } = state;
-			return { ...(state.takenBy === task ? state : rest), takenBy: task };
+			return { ...state, takenBy: task };
 		});
 	}
 
 	/** Puts it back on the list, as when the task that took it is removed. */
 	release(): Promise<Task> {
-		return this.tasks.revise(this.id, ({ stuck: _, ...state }) => ({
+		return this.tasks.revise(this.id, (state) => ({
 			...state,
 			takenBy: null,
 		}));

@@ -50,11 +50,6 @@ export interface Config {
 	on: Partial<Record<TaskEventName, string>>;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
-	/**
-	 * How many tasks a running lane may have out at once, each started by
-	 * `splates server` for a queued task nothing blocks.
-	 */
-	agentsPerLane: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**

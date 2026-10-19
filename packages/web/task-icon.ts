@@ -6,5 +6,5 @@ import { ClipboardListIcon, ColumnsIcon } from "lucide-react";
  */
 export const TaskIcon = ClipboardListIcon;
 
-/** What stands for a lane, and for the conversation orchestrating it. */
+/** What stands for a lane. */
 export const LaneIcon = ColumnsIcon;

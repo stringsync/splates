@@ -1,4 +1,4 @@
-export type { Ending, Report, Review, Stretch, TaskReport } from "./asked";
+export type { Ending, Review, Stretch, TaskReport } from "./asked";
 export { stretches } from "./asked";
 export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";

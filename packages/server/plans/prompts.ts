@@ -70,48 +70,6 @@ export function reportReference(task: string): string {
 }
 
 /**
- * What tells the conversation that handed `task` out that its agent's turn
- * ended, or failed, with the task still under way and not escalated, so it
- * waits on nothing that will come.
- */
-export function idleReference(task: string): string {
-	return `[SPLATES IDLE ${task}]`;
-}
-
-/**
- * What tells a lane's orchestrator that task `id`, in a lane it works, left
- * the queue: merged, or removed.
- */
-export function taskDoneReference(id: number): string {
-	return `[SPLATES TASK DONE #${id}]`;
-}
-
-/**
- * What tells a lane's orchestrator that task `id`, in a lane it works, is
- * queued again: the task that took it released it or was removed.
- */
-export function taskOpenReference(id: number): string {
-	return `[SPLATES TASK OPEN #${id}]`;
-}
-
-/**
- * What tells a lane's orchestrator that task `id` came into a running lane
- * it works, added there or moved in, so it plans it in.
- */
-export function taskAddedReference(id: number): string {
-	return `[SPLATES TASK ADDED #${id}]`;
-}
-
-/**
- * What `splates server` tells the agent of a running lane's task that ended
- * a turn with its task still under way, once, before its task is marked
- * stuck: what a lane's orchestrator told it with `splates tell` before the
- * lanes ran on their own.
- */
-export const CARRY_ON =
-	"Your task is still under way and nothing waits on the user: carry on as the splates skill says, ending in `splates escalate`, `splates merge` or `splates remove`.";
-
-/**
  * What tells a lane's orchestrator that every lane it works is done, however
  * the last task landed, so it ends on its Finished report.
  */
@@ -119,8 +77,9 @@ export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
- * tasks out, or the groomer: a report, idle, a task done, open,
- * added or to groom, or lanes done, never the person's word.
+ * tasks out: a report, or, in a conversation from before lanes stopped
+ * running, idle, a task done, open, added or to groom, or lanes done; never
+ * the person's word.
  */
 export function isUpdate(text: string): boolean {
 	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|LANES DONE)\]$/.test(

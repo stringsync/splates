@@ -1,15 +1,5 @@
 import { STARTS } from "./checks";
 import { SEEDED } from "./fixture";
-import {
-	ADDED,
-	IDLE,
-	LANE,
-	NO_DEV,
-	PARALLEL,
-	PIVOT_LANE,
-	SAME_FILES,
-	UNTRIAGED,
-} from "./lanes";
 import { lastSaid, openQuestions, splatesRuns, turnsOf } from "./reading";
 import { CHECKPOINT } from "./resumed";
 import { CORE, type Scenario } from "./scenario";
@@ -113,13 +103,6 @@ export const SCENARIOS: readonly Scenario[] = [
 			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: a question under `## Blocked`, with a `(chosen)` pick, when the user's answer would change what gets built, as the cap's number and what happens at it would, when undoing it reaches past the repo's code, or when a wrong guess would cost much rework; made itself and noted under `## Notes` only when the user would not care to weigh in",
 		],
 	},
-	LANE,
-	PARALLEL,
-	SAME_FILES,
-	ADDED,
-	IDLE,
-	PIVOT_LANE,
-	NO_DEV,
 	{
 		id: "defer",
 		turns: [
@@ -318,7 +301,6 @@ splates escalate --review "the message a too-big upload shows"`,
 		],
 		rubric: [],
 	},
-	UNTRIAGED,
 ];
 
 /** A task's heading in a reply, as one proposed. */

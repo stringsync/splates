@@ -1,4 +1,4 @@
-import type { Ending, Report, Start } from "@stringsync/splates-server/plans";
+import type { Ending, TaskReport } from "@stringsync/splates-server/plans";
 import {
 	createContext,
 	type JSX,
@@ -13,13 +13,12 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { CardShell, toCardTop } from "./card-shell";
 import { Markdown } from "./markdown";
-import { LaneIcon, TaskIcon } from "./task-icon";
+import { TaskIcon } from "./task-icon";
 
 /**
- * The task the thread is on at the point it is scrolled to, or the lanes it
- * orchestrates, as a card in the panel beside it: the last Added, Claimed or Started
- * card scrolled up out of sight, while no report that its task merged or was
- * removed, or that its lanes finished, has come up since. It fades in as
+ * The task the thread is on at the point it is scrolled to, as a card in the
+ * panel beside it: the last Added or Claimed card scrolled up out of sight,
+ * while no report that its task merged or was removed has come up since. It fades in as
  * the card goes behind the person's message stuck atop its turn, and out as
  * the card comes back into view or the task ends, so it never says what the
  * thread on screen already does.
@@ -74,7 +73,7 @@ export function CurrentTask({
 	if (card === null || start === undefined) {
 		return null;
 	}
-	const named = "lanes" in start ? start.lanes.join(", ") : start.task;
+	const named = start.task;
 	return (
 		<div
 			aria-hidden={current === null}
@@ -89,7 +88,7 @@ export function CurrentTask({
 				label={`current ${named}`}
 				// Its name as the title, plain: the header line above the thread
 				// already offers the task's details.
-				Icon={"lanes" in start ? LaneIcon : TaskIcon}
+				Icon={TaskIcon}
 				title={named}
 				ringed={false}
 			>
@@ -97,11 +96,7 @@ export function CurrentTask({
 					// Back to where the task was taken up; its chip opens the task.
 					<button
 						type="button"
-						title={
-							"lanes" in start
-								? "Show where they were started"
-								: "Show where it was taken up"
-						}
+						title="Show where it was taken up"
 						onClick={() => toCardTop(card, "smooth")}
 						className="block w-full text-start transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
 					>
@@ -120,15 +115,20 @@ export function CurrentTask({
 	);
 }
 
+/** A task the conversation took up, and what done means for it, as markdown. */
+export interface Start {
+	task: string;
+	goal: string;
+}
+
 /**
- * What a conversation's thread holds that says which task it is on, or which
- * lanes: its Added, Claimed and Started cards, each by its element, the reports that
- * end a task, by its name, or the lanes, as null, and the viewport they
- * scroll in.
+ * What a conversation's thread holds that says which task it is on: its
+ * Added and Claimed cards, each by its element, the reports that end a task,
+ * by its name, and the viewport they scroll in.
  */
 interface Registry {
 	starts: Map<HTMLElement, Start>;
-	ends: Map<HTMLElement, string | null>;
+	ends: Map<HTMLElement, string>;
 	viewport: RefObject<HTMLElement | null> | null;
 	changed: () => void;
 }
@@ -181,27 +181,19 @@ export function useTaskViewport(viewport: RefObject<HTMLElement | null>): void {
 	}, [registry, viewport]);
 }
 
-/** Gives an Added, Claimed or Started card's element to the registry, as its ref. */
+/** Gives an Added or Claimed card's element to the registry, as its ref. */
 export function useStartCard(
 	start: Start,
 ): (element: HTMLElement | null) => void {
 	return useRegistered((registry) => registry.starts, start);
 }
 
-/**
- * Gives a report card's element to the registry, if it ends its task, or the
- * lanes the conversation orchestrates.
- */
+/** Gives a report card's element to the registry, if it ends its task. */
 export function useEndCard(
-	report: Report,
+	report: TaskReport,
 ): ((element: HTMLElement | null) => void) | undefined {
-	const ref = useRegistered(
-		(registry) => registry.ends,
-		"lanes" in report ? null : report.task,
-	);
-	return report.ending === "finished" || OVER.has(report.ending)
-		? ref
-		: undefined;
+	const ref = useRegistered((registry) => registry.ends, report.task);
+	return OVER.has(report.ending) ? ref : undefined;
 }
 
 function useRegistered<T>(
@@ -227,9 +219,9 @@ function useRegistered<T>(
 }
 
 /**
- * The Added, Claimed or Started card of the task or lanes the thread is on where
- * `scroller` stands: the lowest one gone out of sight above, unless a report
- * that its task is over, or its lanes finished, has since come into view.
+ * The Added or Claimed card of the task the thread is on where `scroller`
+ * stands: the lowest one gone out of sight above, unless a report that its
+ * task is over has since come into view.
  */
 function currentCard(
 	registry: Registry,
@@ -248,9 +240,7 @@ function currentCard(
 	if (found === null) {
 		return null;
 	}
-	const start = registry.starts.get(found);
-	// Lanes end on a finished report, registered as null.
-	const task = start === undefined || "lanes" in start ? null : start.task;
+	const task = registry.starts.get(found)?.task;
 	for (const [end, ended] of registry.ends) {
 		const at = end.getBoundingClientRect().top;
 		if (end.isConnected && ended === task && at > lowest && at < bottom) {

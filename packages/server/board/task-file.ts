@@ -65,8 +65,13 @@ export function parseTaskFile(
 	// One saved before tasks took files has none, rather than no list; one
 	// saved before they had subjects has its first line as one; one saved
 	// before they had positions has 0 until `all` places it; and one saved
-	// before links and lanes is blocked by nothing, in none.
-	const { tags = [], ...state } = queuedOf(stored) as Omit<
+	// before links and lanes is blocked by nothing, in none. One a running
+	// lane once marked stuck drops the mark, which nothing sets now.
+	const {
+		tags = [],
+		stuck: _,
+		...state
+	} = queuedOf(stored) as Omit<
 		TaskRecord,
 		"files" | "subject" | "position" | "blockedBy" | "lane" | "stage"
 	> & {
@@ -77,6 +82,7 @@ export function parseTaskFile(
 		blockedBy?: number[];
 		lane?: number | null;
 		stage?: TaskStage;
+		stuck?: string;
 	};
 	return {
 		state: {

@@ -3,11 +3,9 @@ import {
 	recordUpdate,
 	taskAdd,
 	taskList,
-	taskRelease,
 	taskRemove,
 	taskShow,
 	tasksNamed,
-	taskTake,
 	taskUpdate,
 } from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
@@ -217,44 +215,6 @@ splatesTask
 				lane: laneIn(opts.lane),
 				assignee,
 			}),
-		);
-	});
-
-splatesTask
-	.command("take")
-	.use(repository({ needs: "own" }))
-	.description(
-		"take up queued tasks for the task whose worktree you are in, as when they turn out to be part of its work: merging removes them, removing it puts them back",
-	)
-	.rest("ids", z.coerce.number().int().positive(), {
-		description: "task numbers",
-	})
-	.action(async (opts, ctx) => {
-		const task = await here(ctx);
-		await ctx.journal.record(
-			"task take",
-			task,
-			() => taskTake(ctx, opts.ids, task),
-			(taken) => ({ tasks: tasksNamed(taken) }),
-		);
-	});
-
-splatesTask
-	.command("release")
-	.use(repository({ needs: "own" }))
-	.description(
-		"put taken tasks back in the queue, as when a task lands without finishing them: `splates task update` the leftover first; from a worktree, only its own task's",
-	)
-	.rest("ids", z.coerce.number().int().positive(), {
-		description: "task numbers",
-	})
-	.action(async (opts, ctx) => {
-		const task = await here(ctx);
-		await ctx.journal.record(
-			"task release",
-			task,
-			() => taskRelease(ctx, opts.ids, task),
-			(released) => ({ tasks: tasksNamed(released) }),
 		);
 	});
 

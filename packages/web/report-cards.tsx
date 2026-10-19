@@ -1,13 +1,8 @@
-import {
-	makeAssistantDataUI,
-	type ThreadMessage,
-	useAuiState,
-} from "@assistant-ui/react";
+import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type {
-	LanesStart,
-	Report,
+	TaskReport,
 	TodoProposal,
 } from "@stringsync/splates-server/plans";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
@@ -23,7 +18,6 @@ import {
 	MessageSquarePlusIcon,
 	PaperclipIcon,
 	PlayIcon,
-	SproutIcon,
 } from "lucide-react";
 import {
 	createContext,
@@ -41,8 +35,7 @@ import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
-import { useEndCard, useStartCard } from "./current-task";
-import { PlanBoard } from "./lane-plan";
+import { useEndCard } from "./current-task";
 import { Markdown } from "./markdown";
 import { MergedStats } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
@@ -56,7 +49,7 @@ import type { ReportTiming } from "./working-report-time";
  * reads the same however the task has moved on since.
  */
 export const ReportUI = makeAssistantDataUI<{
-	report: Report;
+	report: TaskReport;
 	timing?: ReportTiming;
 }>({
 	name: "report",
@@ -65,37 +58,11 @@ export const ReportUI = makeAssistantDataUI<{
 	),
 });
 
-/**
- * Renders a `data-start` part: the lanes the agent started to orchestrate and
- * what they add up to, as it said when it began, whether that ends its turn
- * or comes along the way. A task it added is splates's own line instead.
- */
-export const StartUI = makeAssistantDataUI<{ start: LanesStart }>({
-	name: "start",
-	render: ({ data }) => <StartCard start={data.start} />,
-});
-
-export function StartCard({ start }: { start: LanesStart }): JSX.Element {
-	// Its lanes show beside the thread once it scrolls up out of sight.
-	return (
-		<div ref={useStartCard(start)}>
-			<CardShell
-				label={`started ${start.lanes.join(", ")}`}
-				title="Started"
-				lanes={start.lanes}
-				Icon={SproutIcon}
-			>
-				{start.goal === "" ? undefined : <CardBody text={start.goal} />}
-			</CardShell>
-		</div>
-	);
-}
-
 export function ReportCard({
 	report,
 	timing,
 }: {
-	report: Report;
+	report: TaskReport;
 	timing?: ReportTiming;
 }): JSX.Element {
 	const { Icon, tone } = ENDINGS[report.ending];
@@ -105,17 +72,7 @@ export function ReportCard({
 		report.ending === "working" && timing?.until != null
 			? "Worked"
 			: ENDINGS[report.ending].title;
-	// A lane orchestrator's Working card says what changed; the plan, live,
-	// takes the place of its lines on each lane in the latest one only, the
-	// others folded to what changed, since only the latest is current. Its
-	// latest Finished card keeps its lines, on what came of each todo, and
-	// shows how many landed, and when, under them.
-	const planned = report.ending === "working" && "lanes" in report;
-	const latest = useLatestOnLanes(report);
-	const finished = report.ending === "finished" && latest;
-	const text = planned
-		? reportText({ ...report, body: leadOf(report.body) })
-		: reportText(report);
+	const text = reportText(report);
 	// Shows the markdown the agent wrote in place of the card's body, until
 	// toggled back; never kept, so the card opens rendered.
 	const [showing, setShowing] = useState(false);
@@ -125,13 +82,13 @@ export function ReportCard({
 	return (
 		<div ref={ended}>
 			<CardShell
-				label={`${report.ending} ${"lanes" in report ? report.lanes.join(", ") : report.task}`}
+				label={`${report.ending} ${report.task}`}
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				{...("lanes" in report
-					? { lanes: report.lanes }
-					: { task: report.task, base: report.base, to: report.to })}
+				task={report.task}
+				base={report.base}
+				to={report.to}
 				aside={
 					<ReportAside
 						timing={report.ending === "working" ? timing : undefined}
@@ -145,14 +102,7 @@ export function ReportCard({
 						<Source text={report.source} />
 						<CardArchive report={report} />
 					</>
-				) : planned ? (
-					<>
-						{text !== "" && (
-							<CardBody text={text} lead={report.reason !== null} />
-						)}
-						{latest && <PlanBoard />}
-					</>
-				) : text === "" && report.ending !== "merged" && !finished ? (
+				) : text === "" && report.ending !== "merged" ? (
 					archivable ? (
 						<CardArchive report={report} />
 					) : undefined
@@ -163,55 +113,13 @@ export function ReportCard({
 								<CardBody text={text} lead={report.reason !== null} />
 							</Folded>
 						)}
-						{report.ending === "merged" && "task" in report && (
-							<MergedStats task={report.task} />
-						)}
-						{finished && <PlanBoard reported />}
+						{report.ending === "merged" && <MergedStats task={report.task} />}
 						<CardArchive report={report} />
 					</>
 				)}
 			</CardShell>
 		</div>
 	);
-}
-
-/**
- * Whether `report` is the last report on lanes in its thread: no later one in
- * its message, nor in any message after it.
- */
-function useLatestOnLanes(report: Report): boolean {
-	return useAuiState((state) => {
-		if (!("lanes" in report)) {
-			return false;
-		}
-		const { messages } = state.thread;
-		const own = messages[state.message.index];
-		return (
-			own !== undefined &&
-			onLanes(own).at(-1)?.source === report.source &&
-			messages
-				.slice(state.message.index + 1)
-				.every((each) => onLanes(each).length === 0)
-		);
-	});
-}
-
-/** The reports on lanes in `message`, in order. */
-function onLanes(message: ThreadMessage): Report[] {
-	return message.content.flatMap((part) =>
-		part.type === "data" &&
-		part.name === "report" &&
-		"lanes" in (part.data as { report: Report }).report
-			? [(part.data as { report: Report }).report]
-			: [],
-	);
-}
-
-/** What a report on lanes says before its lines on each lane. */
-function leadOf(body: string): string {
-	const lines = body.split("\n");
-	const at = lines.findIndex((line) => line.startsWith("- "));
-	return (at === -1 ? lines : lines.slice(0, at)).join("\n").trim();
 }
 
 /**

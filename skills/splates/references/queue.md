@@ -3,7 +3,7 @@
 An agent that adds a task checks that none already asks it, then only adds it:
 it leaves the task untriaged, unless
 the user names a lane, a position or what blocks it. Placing, linking and
-ordering are for the user, the orchestrator of a lane, or the agent that
+ordering are for the user, or the agent that
 starts the task, which grooms it first (see Grooming a task you start).
 
 ## Grooming a task you start
@@ -69,12 +69,11 @@ priority, which is the position's job.
 
 ## Lanes
 
-A lane is a queue of tasks that build on each other, landed top first by an
-orchestrator (see [references/lanes.md](lanes.md)) that sets it running, which
-starts every task nothing holds back at once: link a task `--blocked-by` the
-one above it whenever it needs that one's code or changes its files, even in
-the same lane. A lane has no model
-of its own: each task names its own. Placing a task, read `splates lane
+A lane is a named group of related tasks, for the user to see them together
+on the board. It runs and orders nothing: the queue starts tasks, and links
+alone say what must land first, so link a task `--blocked-by` another
+whenever it needs that one's code or changes its files, even in the same
+lane. A lane has no model of its own: each task names its own. Placing a task, read `splates lane
 list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,
@@ -82,8 +81,7 @@ list`, then:
 - **A new lane** when it starts a chain that more tasks will follow:
   `splates lane add '<name>'`, named for what the chain adds up to, then
   `--lane <n>`.
-- **Untriaged** otherwise, the default, for the user or an orchestrator of
-  the untriaged lane to place.
+- **Untriaged** otherwise, the default, for the user to place.
 
 `splates task update <id> --lane <n>` moves one that exists.
 

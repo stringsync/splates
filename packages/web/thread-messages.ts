@@ -5,7 +5,6 @@ import type {
 	Part,
 } from "@stringsync/splates-server/conversations";
 import {
-	type Report,
 	type Review,
 	type Stretch,
 	stretches,
@@ -189,7 +188,8 @@ export function useThreadMessages(
 					(part.type === "data-event" &&
 						isEscalation((part.data as { event: Event }).event)) ||
 					(part.type === "data-report" &&
-						(part.data as { report: Report }).report.ending === "escalated"),
+						(part.data as { report: TaskReport }).report.ending ===
+							"escalated"),
 			));
 	return { running, writing, queued, messages, openAt, asking };
 }
@@ -302,21 +302,13 @@ export function like(
 											data: { compaction: stretch.compaction, going },
 										},
 									]
-								: stretch.type === "added"
-									? stretches(stretch.text).flatMap((each): LikePart[] =>
-											each.type === "start"
-												? [{ type: "data-start", data: { start: each.start } }]
-												: each.type === "text"
-													? [{ type: "text", text: each.text }]
-													: [],
-										)
-									: at === reply
-										? replied(stretch.text, !going, {
-												task,
-												began,
-												until: message.until,
-											})
-										: [{ type: "text", text: stretch.text }],
+								: at === reply
+									? replied(stretch.text, !going, {
+											task,
+											began,
+											until: message.until,
+										})
+									: [{ type: "text", text: stretch.text }],
 				),
 			),
 			...(message.stopped === undefined
@@ -366,12 +358,8 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 			return true;
 		}
 		if (part.type === "data-report") {
-			const { report } = part.data as { report: Report };
-			if (
-				report.ending === "escalated" &&
-				"task" in report &&
-				report.task === event.task
-			) {
+			const { report } = part.data as { report: TaskReport };
+			if (report.ending === "escalated" && report.task === event.task) {
 				written.report = report;
 				return false;
 			}
@@ -538,8 +526,6 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 								} satisfies QuestionsData,
 							},
 						];
-			case "start":
-				return [{ type: "data-start", data: { start: stretch.start } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
 					asking?.type === "questions"
@@ -555,12 +541,10 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
 					each.type === "todo" ? [each.todo] : [],
 				);
-				// Those right after a task ended, or lanes finished, are what to
-				// take up next.
+				// Those right after a task ended are what to take up next.
 				const next =
 					before?.type === "report" &&
 					before.report.ending !== "escalated" &&
-					before.report.ending !== "waiting" &&
 					before.report.ending !== "working";
 				return [{ type: "data-todo", data: { todos, turn, next } }];
 			}

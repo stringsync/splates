@@ -235,108 +235,20 @@ describe("stretches", () => {
 		});
 	});
 
-	it("reads the skill's finished lanes report, naming each lane", async () => {
-		const example = await skillExample("## 🏁 Finished lanes");
-
-		expect(stretches(example)).toEqual([
-			{
-				type: "report",
-				report: {
-					ending: "finished",
-					lanes: ["Stats", "Licensing"],
-					reason: null,
-					body: expect.stringContaining("- Stats: #155 merged"),
-					source: example,
-				},
-			},
-		]);
-		expect(stretches("## 🏁 Finished lane Stats\n\nIt leads.")[0]).toEqual({
-			type: "report",
-			report: {
-				ending: "finished",
-				lanes: ["Stats"],
-				reason: null,
-				body: "It leads.",
-				source: "## 🏁 Finished lane Stats\n\nIt leads.",
-			},
-		});
-	});
-
-	it("reads the skill's working lanes report, naming each lane and the tasks out", async () => {
-		const example = await skillExample("## ⏳ Working lanes");
-
-		expect(stretches(example)).toEqual([
-			{
-				type: "report",
-				report: {
-					ending: "working",
-					lanes: ["Stats", "Licensing"],
-					reason: "on stats-breakdowns-clear, licensing-renew",
-					body: expect.stringContaining("- Stats: #160 waits on #155"),
-					source: example,
-				},
-			},
-		]);
-	});
-
-	it("reads a waiting lanes report, as the skill once had them, naming each lane and what they wait on, then the questions it relays", () => {
+	it("leaves a lanes report from before lanes stopped running as words, still reading the questions after it", () => {
 		const example = [
 			"## ⏸️ Waiting lanes Stats: on stats-breakdowns-clear",
 			"",
 			"Answer stats-breakdowns-clear's question on the breakdown tables.",
-			"",
-			"- Stats: waits on stats-breakdowns-clear, escalated on what reads wrong.",
 			"",
 			"1. Which breakdown should lead the table?",
 			"   - (a) By project (chosen)",
 			"   - (b) By agent",
 		].join("\n");
 
-		expect(stretches(example)).toEqual([
-			{
-				type: "report",
-				report: {
-					ending: "waiting",
-					lanes: ["Stats"],
-					reason: "on stats-breakdowns-clear",
-					body: expect.stringContaining(
-						"- Stats: waits on stats-breakdowns-clear",
-					),
-					source: example.slice(0, example.indexOf("\n\n1. ")),
-				},
-			},
-			{
-				type: "questions",
-				questions: [
-					expect.objectContaining({
-						text: "Which breakdown should lead the table?",
-					}),
-				],
-			},
-		]);
-		expect(stretches("## ⏸ Waiting lane Stats\n\nIt waits.")[0]).toEqual({
-			type: "report",
-			report: {
-				ending: "waiting",
-				lanes: ["Stats"],
-				reason: null,
-				body: "It waits.",
-				source: "## ⏸ Waiting lane Stats\n\nIt waits.",
-			},
-		});
-	});
-
-	it("reads the skill's word that an orchestrator started lanes, what they add up to under it", async () => {
-		const example = await skillExample("## 🌱 Started lanes");
-
-		expect(stretches(example)).toEqual([
-			{
-				type: "start",
-				start: {
-					lanes: ["Stats", "Licensing"],
-					goal: "Make the Stats page say what to act on, then renew licenses on their own.",
-				},
-			},
+		expect(stretches(example).map((each) => each.type)).toEqual([
+			"text",
+			"questions",
 		]);
 	});
 

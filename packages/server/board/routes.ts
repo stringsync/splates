@@ -151,11 +151,10 @@ export class BoardRoutes {
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		const { name, position, running } = await body(request);
+		const { name, position } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
-			running: running === undefined ? undefined : running === true,
 		};
 		const lane = await journal.record(
 			"lane update",
@@ -169,11 +168,7 @@ export class BoardRoutes {
 					change.position === undefined
 						? undefined
 						: await tasks.moveLane(id, change.position);
-				const run =
-					change.running === undefined
-						? undefined
-						: await tasks.runLane(id, change.running ? { by: null } : null);
-				return run ?? order?.find((each) => each.id === id) ?? renamed;
+				return order?.find((each) => each.id === id) ?? renamed;
 			},
 			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
 		);

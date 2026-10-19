@@ -23,8 +23,6 @@ export interface Blocker {
 export interface LaneRecord {
 	id: number;
 	name: string;
-	/** Set while it runs, its tasks started by `splates server`: see `LaneRunner`. */
-	running?: LaneRun;
 }
 
 /** A queue of tasks that build on each other, worked top first. */
@@ -32,8 +30,6 @@ export interface LaneState {
 	id: number;
 	name: string;
 	todos: TaskRecord[];
-	/** Whether `splates server` starts the lane's tasks on its own, as `splates lane run` sets. */
-	running: boolean;
 	/** The started tasks at work on its queued ones now, top first: who is on the lane. */
 	agents: string[];
 	/** The first task no started task has taken: what the lane's orchestrator hands out next. */
@@ -74,10 +70,7 @@ export function named(
 }
 
 /** The lane `record` stands for, empty when no task is in it. */
-export function lane(
-	tasks: TaskRecord[],
-	{ id, name, running }: LaneRecord,
-): LaneState {
+export function lane(tasks: TaskRecord[], { id, name }: LaneRecord): LaneState {
 	const steps = tasks
 		.filter((task) => task.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -97,7 +90,6 @@ export function lane(
 		id,
 		name,
 		todos: steps,
-		running: running !== undefined,
 		agents,
 		next,
 		blockers,
@@ -251,15 +243,6 @@ export function mentioned(text: string): number[] {
 
 /** `#` and a number, standing on its own. */
 export const MENTION = /(?<![\w/#&])#(\d+)\b/g;
-
-/** Who set a lane running. */
-export interface LaneRun {
-	/**
-	 * The conversation that ran `splates lane run`, which the tasks it starts
-	 * nest under; null for the person.
-	 */
-	by: string | null;
-}
 
 /**
  * Why `task` waits on the person, its blockers removed without merging,
