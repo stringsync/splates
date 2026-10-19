@@ -111,7 +111,9 @@ which remembers none of it.
    of memory.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge: `splates task add`
-   any step you will not do, then check it off, and `splates merge --message
+   any step you will not do, then check it off, `splates task add` or
+   `defer` each follow-up you would otherwise offer or ask about once it
+   lands (see Reporting), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again, with the
    real message: never merge only to read a failure again, since one whose
@@ -540,6 +542,13 @@ they must act on or would be caught out without (a restart to pick it up, an
 answer you did not follow as given). Leave out what the page, the diff or
 `SPLATES.md` already says. A `##` or `###` heading ends the card, so keep any
 heading inside it to `####`.
+
+A merge or remove report ends the task, so it asks nothing and offers
+nothing: no question, no "Want me to ...?", no list of next steps for the
+user to pick from. Each thing you would ask or offer there is a task: queue
+it with `splates task add`, or `defer` it when you know too little to groom
+it, before you merge or remove, so it waits in the queue rather than on the
+user's reply. The conversation already shows each one you queued.
 
 ```markdown
 ## ✅ Merged <task> onto <base>
