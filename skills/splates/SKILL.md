@@ -349,17 +349,18 @@ A task ready to merge has every step under `## Next` and every question under
 `## Blocked` checked; `splates merge` and `splates escalate --review` both refuse
 one that is not. Whether the user looks first is yours to decide:
 
-- **Merge** work you verified yourself. This is the default, and the usual
-  end of a small change.
-- **Ask for a review** only when you cannot verify the change yourself
-  (external services, destructive migrations, how something looks), or when
-  `## Notes` says `Review: requested`. Leave something to
+- **Merge** work you verified yourself, then show it in a demo (see Demos).
+  This is the default, even for a change the user will want to see: they
+  ask for a fix once it lands.
+- **Ask for a review** only when something needs the user to check it before
+  it lands and you cannot (external services, destructive migrations), or
+  when `## Notes` says `Review: requested`. Leave something to
   look at (step 1 of Escalation), `splates escalate --review "<what to look
   at>"`, report it (see Reporting), and end your turn.
 
-When the user has to see a change to judge it, make that cheap: run it for
-them where they can open it (a dev server on throwaway data that shows each
-case, never their own), and give them a demo (see Demos). Run splates in a
+When the user has to try a change before it lands, make that cheap: run it
+for them where they can open it (a dev server on throwaway data that shows
+each case, never their own), and give them a demo (see Demos). Run splates in a
 throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
 stays out of the user's `splates server` project list. Start the server from your
 worktree, then `splates ports <task>` prints each port it listens on with two
@@ -377,6 +378,15 @@ its server. Every other slot is another task's: never kill its server or edit
 `splates slots prune`, which frees only those no task holds any more, and
 otherwise ask the user.
 
+When the user approves a review, by replying "merge" or with
+`[SPLATES MERGE]`, `splates claim <task>` and merge, naming in the merge
+report each file you resolved in a conflict, since that code changed after
+they looked. When they ask for changes, `splates claim <task>`, add each as a
+step under `## Next`, and work through them as before. While a review waits,
+every reply that ends your turn ends with the whole review report again,
+brought up to date: the page shows its Ready to merge card only for a whole
+report.
+
 ## Proposing
 
 Propose only when the user asks what you think, so they can approve it or
@@ -384,24 +394,15 @@ challenge what it rests on. Otherwise build, asking each call the user's
 answer would change as a question (see Questions) rather than a proposal.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
-few words on what you would build, lowercase after its first word; a blank
-line; one plain sentence, under 25 words, on what you recommend; then a
-`####` section for each reason the user needs, its line stating one point in
-a sentence, then three `- ` lines, one fact each, with no paragraphs. It
-ends with each call it rests on that the user has not settled, as a list of
-questions numbered from 1: a call you have a clear pick for marks that
-choice `(chosen)`, and one you have none for marks none.
+few words on what you would build, then what you recommend and why, briefly.
+It ends with each call it rests on that the user has not settled, as
+questions numbered from 1 (see Questions).
 
 ```markdown
 ## 💡 Proposed a card for proposals
 
-Fold proposals into the questions card, each call a question with a pick.
-
-#### A proposal's calls are questions with a pick.
-
-- The questions card already tags a `(chosen)` choice.
-- It already heads its questions with an escalation's report.
-- One card then asks everything, picked or not.
+Fold proposals into the questions card, each call a question with a pick:
+that card already tags a `(chosen)` choice, so one card asks everything.
 
 1. Where should a proposal's calls come from?
    - (a) The reply, so a proposal works outside a task too (chosen)
@@ -425,13 +426,24 @@ in and propose again.
 
 ## Demos
 
-Whenever the user is to try something (a review, a question on how something
-looks or feels, a test only they can run), show it as a demo rather than
-describing it: a `### 🎬 Demo: <what it shows>` heading, a line on where to
-open it, then the steps, numbered from 1. Each step's line is one thing to
-do; indented under it, one line on what they should see, and a screenshot or
-recording when it helps. The `splates server` page shows a demo as a checklist
-they tick off as they go.
+Show the user what you built rather than describing it: after a merge of
+anything they can see or try, and whenever they are to try something before
+it lands (a review, a question on how something looks or feels, a test only
+they can run). A demo is a `### 🎬 Demo: <what it shows>` heading, a line on
+where to open it, then the steps, numbered from 1. Each step's line is one
+thing to do; indented under it, one line on what they should see, and a
+screenshot or recording when it helps. The `splates server` page shows a demo
+as a checklist they tick off as they go.
+
+A merge stops your worktree's server, so a demo after one points at where
+the change now lives (the user's own app once they pick it up, or what
+`splates server` serves after a restart) and shows each step's result in a
+screenshot or recording you took from your worktree before merging. With
+nothing to try, as for a change only seen, a demo can be its screenshots
+alone, a step each. Keep it to the few shots that show the change. Attached
+files stay with the conversation and go when it is deleted, so a demo needs
+no cleanup; put it after the merge report's title and sentence, never as an
+artifact.
 
 ```markdown
 ### 🎬 Demo: dragging a card on a phone
@@ -445,22 +457,10 @@ Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
    ![dropped in Doing](/abs/path/drop.png)
 ```
 
-Give one demo per message, right before the questions it is for, or inside a
-review before its last line. The steps are the demo's only numbered list:
-never number steps elsewhere in a report, where they would read as questions.
-
-When the user approves, by replying "merge" or with `[SPLATES MERGE]`,
-`splates claim <task>` and merge. When that merge
-stops on a conflict, name each file you resolved in the merge report, since
-that code changed after the user looked. When they ask for
-changes, `splates claim <task>`, add each as a step under `## Next`, and work
-through them as before.
-
-While a review waits on the user, every reply that ends your turn ends with
-the whole review report again, brought up to date, never its last line
-alone: after you answer a question about it, after the changes they asked
-for, or after anything else they say in between. The `splates server` page shows
-the Ready to merge card, which the user merges from, only for a whole report.
+Give one demo per message: after a merge report's sentence, right before
+the questions it is for, or inside a review before its last line. The steps
+are the demo's only numbered list: never number steps elsewhere in a report,
+where they would read as questions.
 
 ## Artifacts
 
@@ -504,149 +504,87 @@ apart from the reply it came in.
 
 ## Reporting
 
-The user reads a report at a glance, so it holds only what they need to act
-on. However a task ends, say so in one block: a `##` title, a blank line, and
-one plain sentence, under 25 words, on what changed for the user. The title is
-the emoji, the outcome, and the bare task name, then the base for a merge, or
-otherwise, after a colon, what it waits on or why it went, led by what it
-needs from the user (a review, a decision, access, a test only they can run).
-Keep the title to about eight words, lowercase after the colon, with no ending
-punctuation.
-
-The sentence names the one change the user will notice, not each part of it:
-status codes, errors thrown and the rest are the diff's. Then stop, but for
-a `- ` line, at most three, on anything the user must act on or would be
-caught out without: a restart to pick the change up, a file resolved in a
-conflict after their review, a queued task gone stale. Leave out what the page, the
-diff, or `SPLATES.md` already says: that tests pass (but for a review's
-checks), that nothing is merged yet, the files touched, how you did it, and
-the calls you made yourself.
-
-Count the sentence's words before you send it, and at 25 or more, cut it
-rather than split it in two. Not this body, which lists the parts, says the
-tests pass, and says it is not merged:
-
-```markdown
-Uploads no longer retry forever on a 413. They now tell the user the file is too big and fail; `bun test` passes. It is not merged yet: it waits on your answer below.
-```
-
-But this, one sentence at 15 words:
-
-```markdown
-An upload the server refuses as too big now stops and tells the user why.
-```
-
-When the user has answered questions since your last report, add a `- `
-line for each answer you did not follow as given, or that changed more than
-it named, saying what you did instead and why. Answers followed as given need
-no line.
+However a task ends, say so under a `##` title, which the `splates server`
+page turns into its card: the emoji, the outcome and the bare task name,
+then the base for a merge, or otherwise, after a colon, what it waits on or
+why it went. Under it, say briefly what changed for the user, and anything
+they must act on or would be caught out without (a restart to pick it up, an
+answer you did not follow as given). Leave out what the page, the diff or
+`SPLATES.md` already says. A `##` or `###` heading ends the card, so keep any
+heading inside it to `####`.
 
 ```markdown
 ## ✅ Merged <task> onto <base>
 
-One sentence on what changed.
+A card on a phone now drags only after a long press, so a short one scrolls.
 
-- Restart `splates server` to see it.
+Restart `splates server` to pick it up.
+
+### 🎬 Demo: dragging a card on a phone
+
+Open the task board at 390px wide.
+
+1. Press and hold a card, then drag it to another lane.
+   It lands where you drop it.
+   ![dropped in Doing](/abs/path/drop.png)
 ```
 
 ```markdown
 ## 🛑 Removed <task>: superseded by a fix on main
 
-One sentence on what the task set out to do.
+The task set out to stop uploads retrying a 413.
 ```
 
-When the task made an artifact, a merge report names it in a `- ` line,
-`- Artifact: <name>`, rather than inlining it: the page lists it already, and
-the report stays a glance.
+A merge report ends with its demo (see Demos), and names any artifact the
+task made as `Artifact: <name>` rather than inlining it.
 
-An escalation or a review can need more than that before the user can
-answer or merge: what you found, how it works, what it costs. Say it in
-sections, so every card reads the same: a `####` line stating one point in a
-sentence, then `- ` lines with its details, one fact each, and no paragraphs.
-Give a section only to a point the user needs; most reports need none. Keep
-to `####`: a `##` or `###` heading would end the card.
+An escalation ends with every open question, those left open from earlier
+reports first, as a list numbered from 1 whatever their numbers in
+`SPLATES.md`, after the demo they ask about, if any. Each item carries what
+is needed to answer it: its subject, at most one line of body, the choices
+exactly as in `SPLATES.md` (so a reply of `2. b` names one) with their `Why:`
+lines, and each screenshot under the question or choice it shows.
 
 ```markdown
-## ⚠️ Escalated <task>: needs two calls on the task board
+## ⚠️ Escalated <task>: needs a call on stale tasks
 
-One sentence on what changed.
+The board can now mark a stale task, once you pick how.
 
-#### A card drags on a phone only after a long press.
-
-- A short press still scrolls the lane.
-- The long press is half a second, as on the home screen.
-
-### 🎬 Demo: dragging a card on a phone
-
-Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
-
-1. Press and hold a card, then drag it to another lane.
-   It lands where you drop it.
-
-1. What feels off when dragging a card on a phone?
-2. How should a stale task be shown?
-   - (a) A muted card
+1. How should a stale task be shown?
+   - (a) A muted card (chosen)
      ![muted card](/abs/path/muted.png)
    - (b) A "stale" badge
      ![stale badge](/abs/path/badge.png)
 ```
 
-An escalation ends with every open question, those left open from earlier
-reports first, as a list numbered from 1 whatever their numbers in
-`SPLATES.md`, after the demo they ask about, if any. Ask every question you need
-answered there, never in prose. The user answers from the report, so each
-item carries what is needed to answer it: its subject, at most one line of
-body under it, the choices exactly as in `SPLATES.md` (so a reply of `2. b`
-names one), each with its `Why:` line, which the page hides and the one line
-of body leaves out, and each screenshot or file by absolute path, under the question
-or choice it shows as in `SPLATES.md`. Inline a screenshot as
-`![what](/abs/path.png)` when the `splates server` page or your harness shows
-images in chat; otherwise link it as `[what](/abs/path.png)`. Leave an item
-bare when its subject says it all.
+A review asks no numbered question. After what changed comes the demo of
+what to check, then a `Checks:` line naming each check you ran that passed,
+in backticks, and a `Failed:` line for any that failed for a reason outside
+the task, then this last line exactly, which the page needs to show its
+Merge button:
 
 ```markdown
 ## 🔍 Ready to merge <task> onto <base>
 
-One sentence on what changed.
+Old upload links now redirect to the new storage, after a migration that moves every stored file.
 
-### 🎬 Demo: moving tasks between lanes
+### 🎬 Demo: an old upload link
 
-Open http://localhost:4310 (a demo repo, nothing of yours).
+Open http://localhost:4310 (a copy of staging's uploads, nothing of yours).
 
-1. Drag a task to another lane.
-   It lands where you drop it.
-2. Reload.
-   It stays there.
-   ![the board after a drag](/abs/path/board.png)
+1. Open `/u/old-link`.
+   The file downloads from the new storage.
 
 Checks: `bun run typecheck`, `bun test`
-
-#### A drop saves the task's lane and position in one write.
-
-- A reload never shows it half moved.
-- A drop on its own spot writes nothing.
 
 Reply "merge", or say what to change.
 ```
 
-A review asks no numbered question: after its sentence comes the demo of
-what to check, then a `Checks:` line naming each check you ran that passed,
-as the project's instructions name them, each in backticks, and under it,
-when one failed for a reason outside the task, a `Failed:` line naming each
-that failed the same way, then that last line exactly, so every review reads the same. Anything more the user may
-want before merging, such as how it works, goes in sections between the
-checks and the last line: the `splates server` page folds it away as its details,
-below the checks.
-
-Ask every question to the user in this format, wherever you ask it: a
-mid-task reply, a merge report, a quick clarification before any task, or a
-message outside any task. The `splates server` page shows a question as its
-question card, with choices to tap and a box to answer in, only when it is
-an item of a list numbered from 1 at the margin, outside code blocks, so
-ask even a lone question as `1. ...?`. Never put one in a bulleted list,
-several in one item, or one tucked into a sentence: those show as plain
-text the user must answer by typing. Each item's line ends at its `?`, as
-under `## Blocked`, its body and choices indented under it.
+Ask every question to the user as an item of a list numbered from 1 at the
+margin, outside code blocks, wherever you ask it, even a lone one as
+`1. ...?`: only then does the page show it as a card with choices to tap.
+Each item's line ends at its `?`, as under `## Blocked`, its body and choices
+indented under it.
 
 ## SPLATES.md
 

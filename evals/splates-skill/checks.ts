@@ -4,7 +4,7 @@ import {
 	type Verdict,
 } from "@stringsync/splates-server/stats";
 import type { EndRepo } from "./fixture";
-import { lastSaid, openQuestions, turnsOf } from "./reading";
+import { lastSaid, openQuestions } from "./reading";
 import type { RunLog } from "./transcript";
 
 /** A rule a program can decide over one eval run; no verdicts where it does not apply. */
@@ -56,20 +56,6 @@ export const COMMON: readonly EvalCheck[] = [
 				},
 			];
 		},
-	},
-	{
-		id: "report-body",
-		rule: "Puts one sentence under 25 words and at most three bullets under a task report's title",
-		judge: ({ log }) =>
-			turnsOf(log.transcript.beats).flatMap((turn) => {
-				const report = lastSaid(turn);
-				const title = report
-					.split("\n")
-					.findIndex((line) => TASK_REPORT.test(line));
-				return title === -1
-					? []
-					: [reportBody(report.split("\n").slice(title + 1))];
-			}),
 	},
 	{
 		id: "questions-in-report",
@@ -137,43 +123,7 @@ export const STARTS: EvalCheck = {
 };
 
 /** The title of a report on how a task ended, which `report-title` judges the form of. */
-const TASK_REPORT =
-	/^## (✅ Merged|🛑 Removed|⚠️? ?Escalated|🔍 Ready to merge) /u;
-
 const NUMBERED = /^\s*\d+\.\s/;
-
-/** The most words the sentence under a report's title may have. */
-const MAX_WORDS = 24;
-
-/** The most `- ` lines a report may add after its sentence. */
-const MAX_BULLETS = 3;
-
-function reportBody(lines: string[]): Verdict {
-	const body = lines.join("\n").trim().split("\n");
-	const blank = body.findIndex((line) => line.trim() === "");
-	const sentence = body.slice(0, blank === -1 ? undefined : blank).join(" ");
-	const plain = sentence
-		.replace(/`[^`]*`/g, "code")
-		.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
-	const sentences = plain
-		.split(/[.!?](?=\s|$)/)
-		.filter((each) => each.trim() !== "").length;
-	const words = plain.split(/\s+/).filter(Boolean).length;
-	// The bullets come before any task, demo, question or checks line.
-	const rest = body.slice(blank === -1 ? body.length : blank);
-	const stop = rest.findIndex(
-		(line) =>
-			/^#{2,3} /.test(line) || NUMBERED.test(line) || /^Checks:/.test(line),
-	);
-	const bullets = rest
-		.slice(0, stop === -1 ? undefined : stop)
-		.filter((line) => /^- /.test(line)).length;
-	const ok = sentences === 1 && words <= MAX_WORDS && bullets <= MAX_BULLETS;
-	return {
-		ok,
-		why: `${sentences} sentence${sentences === 1 ? "" : "s"}, ${words} words, ${bullets} bullets`,
-	};
-}
 
 /** Whether a tool call reads a file of the project rather than the skill. */
 function readsProject(tool: {

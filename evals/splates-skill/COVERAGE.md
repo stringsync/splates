@@ -196,8 +196,7 @@ missing state, empty assertions and non-stop results.
   responsibilities. Handcrafted valid-looking events cannot prove instrumentation.
 
 Legacy `checks.ts` STARTS and skill-first checks infer some actions/reads from
-shell strings or tool names. `report-body` checks selected textual form, and
-questions-in-report uses string inclusion. Retain their existing purpose, but
+shell strings or tool names, and questions-in-report uses string inclusion. Retain their existing purpose, but
 do not reuse their verdicts as trusted focused execution evidence. Existing
 E2E grades, including any LLM grades, are not comparable to focused assertions.
 

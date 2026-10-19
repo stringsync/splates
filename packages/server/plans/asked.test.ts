@@ -8,39 +8,20 @@ describe("stretches", () => {
 
 		const found = stretches(example);
 
-		expect(found.map((each) => each.type)).toEqual([
-			"report",
-			"demo",
-			"questions",
-		]);
+		expect(found.map((each) => each.type)).toEqual(["report", "questions"]);
 		expect(found[0]).toEqual({
 			type: "report",
 			report: {
 				ending: "escalated",
 				task: "<task>",
 				base: null,
-				reason: "needs two calls on the task board",
-				body: "One sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
+				reason: "needs a call on stale tasks",
+				body: "The board can now mark a stale task, once you pick how.",
 				source:
-					"## ⚠️ Escalated <task>: needs two calls on the task board\n\nOne sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
+					"## ⚠️ Escalated <task>: needs a call on stale tasks\n\nThe board can now mark a stale task, once you pick how.",
 			},
 		});
-		expect(found[1]).toEqual({
-			type: "demo",
-			demo: {
-				title: "dragging a card on a phone",
-				intro:
-					"Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).",
-				steps: [
-					{
-						number: "1",
-						action: "Press and hold a card, then drag it to another lane.",
-						expect: "It lands where you drop it.",
-					},
-				],
-			},
-		});
-		const questions = found[2]?.type === "questions" ? found[2].questions : [];
+		const questions = found[1]?.type === "questions" ? found[1].questions : [];
 		expect(
 			questions.map(({ number, text, body, choices, pick }) => ({
 				number,
@@ -52,13 +33,6 @@ describe("stretches", () => {
 		).toEqual([
 			{
 				number: "1",
-				text: "What feels off when dragging a card on a phone?",
-				body: "",
-				choices: [],
-				pick: null,
-			},
-			{
-				number: "2",
 				text: "How should a stale task be shown?",
 				body: "",
 				choices: [
@@ -67,7 +41,7 @@ describe("stretches", () => {
 						text: "A muted card",
 						body: "![muted card](/abs/path/muted.png)",
 						why: "",
-						chosen: false,
+						chosen: true,
 					},
 					{
 						key: "b",
@@ -91,29 +65,23 @@ describe("stretches", () => {
 				review: {
 					task: "<task>",
 					base: "<base>",
-					summary: "One sentence on what changed.",
+					summary:
+						"Old upload links now redirect to the new storage, after a migration that moves every stored file.",
 					demo: {
-						title: "moving tasks between lanes",
+						title: "an old upload link",
 						intro:
-							"Open http://localhost:4310 (a demo repo, nothing of yours).",
+							"Open http://localhost:4310 (a copy of staging's uploads, nothing of yours).",
 						steps: [
 							{
 								number: "1",
-								action: "Drag a task to another lane.",
-								expect: "It lands where you drop it.",
-							},
-							{
-								number: "2",
-								action: "Reload.",
-								expect:
-									"It stays there.\n![the board after a drag](/abs/path/board.png)",
+								action: "Open `/u/old-link`.",
+								expect: "The file downloads from the new storage.",
 							},
 						],
 					},
 					checks: ["bun run typecheck", "bun test"],
 					failed: [],
-					details:
-						"#### A drop saves the task's lane and position in one write.\n\n- A reload never shows it half moved.\n- A drop on its own spot writes nothing.",
+					details: "",
 				},
 			},
 		]);
@@ -133,7 +101,7 @@ describe("stretches", () => {
 				type: "proposal",
 				proposal: {
 					subject: "a card for proposals",
-					body: "Fold proposals into the questions card, each call a question with a pick.\n\n#### A proposal's calls are questions with a pick.\n\n- The questions card already tags a `(chosen)` choice.\n- It already heads its questions with an escalation's report.\n- One card then asks everything, picked or not.",
+					body: "Fold proposals into the questions card, each call a question with a pick:\nthat card already tags a `(chosen)` choice, so one card asks everything.",
 				},
 			},
 			{
@@ -157,11 +125,14 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads the skill's merge and remove reports", async () => {
+	it("reads the skill's merge report with its demo, and its remove report", async () => {
 		const merged = await skillExample("## ✅ Merged");
 		const removed = await skillExample("## 🛑 Removed");
 
-		expect(stretches(merged).map((each) => each.type)).toEqual(["report"]);
+		expect(stretches(merged).map((each) => each.type)).toEqual([
+			"report",
+			"demo",
+		]);
 		expect(stretches(merged)[0]).toEqual({
 			type: "report",
 			report: {
@@ -169,9 +140,9 @@ describe("stretches", () => {
 				task: "<task>",
 				base: "<base>",
 				reason: null,
-				body: "One sentence on what changed.\n\n- Restart `splates server` to see it.",
+				body: "A card on a phone now drags only after a long press, so a short one scrolls.\n\nRestart `splates server` to pick it up.",
 				source:
-					"## ✅ Merged <task> onto <base>\n\nOne sentence on what changed.\n\n- Restart `splates server` to see it.",
+					"## ✅ Merged <task> onto <base>\n\nA card on a phone now drags only after a long press, so a short one scrolls.\n\nRestart `splates server` to pick it up.",
 			},
 		});
 		expect(stretches(removed)[0]).toEqual({
@@ -181,9 +152,9 @@ describe("stretches", () => {
 				task: "<task>",
 				base: null,
 				reason: "superseded by a fix on main",
-				body: "One sentence on what the task set out to do.",
+				body: "The task set out to stop uploads retrying a 413.",
 				source:
-					"## 🛑 Removed <task>: superseded by a fix on main\n\nOne sentence on what the task set out to do.",
+					"## 🛑 Removed <task>: superseded by a fix on main\n\nThe task set out to stop uploads retrying a 413.",
 			},
 		});
 	});
