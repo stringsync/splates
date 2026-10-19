@@ -77,6 +77,9 @@ describe("App's lanes", () => {
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByText("Step 4 of 6 in Licensing")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
 		expect(within(dialog).getByText("Blocked by")).toBeTruthy();
 		expect(within(dialog).getByText("Blocking")).toBeTruthy();
 		await act(async () =>
@@ -309,6 +312,9 @@ describe("App's lanes", () => {
 			),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("combobox", { name: "lane" })),
 		);

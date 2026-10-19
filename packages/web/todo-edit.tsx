@@ -1,4 +1,6 @@
+import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
+import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -12,9 +14,10 @@ import {
 import {
 	InputGroup,
 	InputGroupAddon,
-	InputGroupInput,
 	InputGroupTextarea,
 } from "#web/components/ui/input-group.tsx";
+import { Tabs, TabsList } from "#web/components/ui/tabs.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
 import { assigned } from "./board-expectations";
@@ -24,17 +27,21 @@ import { AssigneeMenu, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
 import { useExpectSnapshot } from "./expecting";
 import { Dropped, FileList } from "./files";
-import { Links } from "./links";
+import { Links, Property } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
-import { StartAssigned, StartAuto } from "./start-menu";
+import { StartMenu } from "./start-menu";
+import { TaskIcon } from "./task-icon";
+import { Section, SectionTab, TONES, type Tone } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
-import { QueueToggle, StageBadge } from "./todo-queue";
+import { stageLabel, stageOf } from "./todo-queue";
 
 /**
- * One todo opened: its words and files to change, where it sits on the board
- * and what it waits on, between its subject and detail, and a way to drop it.
+ * One todo opened, in the task dialog's shape: its subject to reword as the
+ * title, where it stands and sits on the board under it, its detail and files
+ * on Overview, its agent and links on Details, and in the footer a way to
+ * drop it, start it, or save what changed.
  */
 export function Edit({
 	todo,
@@ -63,6 +70,7 @@ export function Edit({
 		}),
 		["changed"],
 	);
+	const [tab, setTab] = useState("overview");
 	// Its step in its lane says more than its place in the whole list. An
 	// untriaged todo is in no sequence, so it says only that.
 	const steps = board.todos.filter((other) => other.lane === todo.lane);
@@ -84,82 +92,121 @@ export function Edit({
 		onDone();
 		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
+	const stage = stageOf(todo);
 	return (
 		<>
-			<DialogHeader>
-				<DialogTitle className="flex items-center gap-2">
-					Task {todo.id}
-					<span className="font-normal text-muted-foreground text-xs">
-						<CopyLink id={todo.id} />
+			<DialogHeader className="gap-1.5">
+				<DialogTitle className="flex items-center gap-2 pr-8">
+					<TaskIcon aria-hidden className="size-4 shrink-0" />
+					<span className="sr-only">Task {todo.id}:</span>
+					<span className="min-w-0 flex-1">
+						<MentionAnchor mentions={mentions}>
+							<input
+								ref={mentions.ref}
+								aria-label="subject"
+								value={mentions.value}
+								onChange={mentions.onChange}
+								onSelect={mentions.onSelect}
+								onClick={mentions.onClick}
+								onKeyDown={mentions.onKeyDown}
+								onPaste={(event) => editor.files.paste(event)}
+								className="-mx-1.5 w-[calc(100%+0.75rem)] rounded-md bg-transparent px-1.5 py-0.5 font-[inherit] outline-none transition-colors hover:bg-muted/50 focus-visible:bg-transparent focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-10"
+							/>
+						</MentionAnchor>
 					</span>
-					<StageBadge todo={todo} />
 				</DialogTitle>
-				<DialogDescription>
-					{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
-				</DialogDescription>
+				<div className="flex min-w-0 items-baseline gap-2">
+					<span
+						className={cn(
+							"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
+							TONES[STAGE_TONES[stage]],
+						)}
+					>
+						{stageLabel(
+							todo,
+							todo.stage === "queued" ? queueOrder(board.todos) : [],
+						)}
+					</span>
+					<DialogDescription className="min-w-0 text-foreground text-sm">
+						{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
+					</DialogDescription>
+				</div>
+				<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
+					<CopyLink id={todo.id} />
+					<span>
+						{" · "}
+						added {age(todo.createdAt)} ago
+						{todo.files.length > 0 &&
+							` · ${todo.files.length} file${todo.files.length === 1 ? "" : "s"}`}
+					</span>
+				</p>
 			</DialogHeader>
-			<div className="flex min-w-0 flex-col gap-3">
-				{restored && (
-					<p className="flex items-center gap-2 text-muted-foreground text-xs">
-						Unsaved changes kept from before
-						<Button
-							size="xs"
-							variant="ghost"
-							onClick={() => editor.discard()}
-							className="pointer-coarse:h-10 pointer-coarse:px-3"
-						>
-							Discard
-						</Button>
-					</p>
-				)}
-				<MentionAnchor mentions={mentions}>
-					<InputGroup className="pointer-coarse:h-10">
-						<InputGroupInput
-							ref={mentions.ref}
-							aria-label="subject"
-							value={mentions.value}
-							onChange={mentions.onChange}
-							onSelect={mentions.onSelect}
-							onClick={mentions.onClick}
-							onKeyDown={mentions.onKeyDown}
-							onPaste={(event) => editor.files.paste(event)}
-						/>
-					</InputGroup>
-				</MentionAnchor>
-				{todo.takenBy === null ? (
-					<div className="flex flex-wrap items-center gap-1">
-						<AssigneeMenu
-							assignee={todo.assignee ?? null}
-							onPick={(pick) =>
-								void expect(
-									assigned(todo.id, pick),
-									assignTodo(todo.id, pick),
-								).catch((error: unknown) => refuse("Not assigned", error))
-							}
-						/>
-						<StartAssigned
-							assignment={{ kind: "todo", id: todo.id }}
-							assignee={todo.assignee ?? null}
-							onStart={onDone}
-						/>
-						<StartAuto
-							assignment={{ kind: "todo", id: todo.id }}
-							onStart={onDone}
-						/>
-						<QueueToggle todo={todo} refuse={refuse} />
+			<Tabs
+				value={tab}
+				onValueChange={(value: string) => setTab(value)}
+				className="-mx-4 min-h-0 gap-0"
+			>
+				<TabsList
+					variant="line"
+					aria-label="sections"
+					className="h-9! w-full justify-start gap-3 rounded-none border-b px-4 py-0 max-md:h-11!"
+				>
+					<SectionTab value="overview">Overview</SectionTab>
+					<SectionTab value="details">Details</SectionTab>
+				</TabsList>
+				<Section value="overview" keepMounted>
+					<div className="flex min-w-0 flex-col gap-3">
+						{restored && (
+							<p className="flex items-center gap-2 text-muted-foreground text-xs">
+								Unsaved changes kept from before
+								<Button
+									size="xs"
+									variant="ghost"
+									onClick={() => editor.discard()}
+									className="pointer-coarse:h-10 pointer-coarse:px-3"
+								>
+									Discard
+								</Button>
+							</p>
+						)}
+						{/* An agent at work, or the conversation held for it once queued. */}
+						{todo.takenBy !== null ? (
+							<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
+						) : (
+							todo.stage === "queued" && (
+								<OnIt
+									task={null}
+									queued={todo.id}
+									variant="rows"
+									className="-mx-2"
+								/>
+							)
+						)}
+						<Detail editor={editor} />
+						<FileList files={editor.files} />
+						<Dropped names={dropped} />
 					</div>
-				) : (
-					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
-				)}
-				{todo.takenBy === null && todo.stage === "queued" && (
-					<OnIt task={null} queued={todo.id} variant="rows" className="-mx-2" />
-				)}
-				<Links todo={todo} />
-				<Detail editor={editor} />
-				<FileList files={editor.files} />
-				<Dropped names={dropped} />
-				<Refusal refusal={refusal} className="text-right" />
-			</div>
+				</Section>
+				<Section value="details">
+					<Links todo={todo}>
+						{todo.takenBy === null && (
+							<Property title="Agent">
+								<AssigneeMenu
+									assignee={todo.assignee ?? null}
+									onPick={(pick) =>
+										void expect(
+											assigned(todo.id, pick),
+											assignTodo(todo.id, pick),
+										).catch((error: unknown) => refuse("Not assigned", error))
+									}
+									className="-ml-2"
+								/>
+							</Property>
+						)}
+					</Links>
+					<Refusal refusal={refusal} />
+				</Section>
+			</Tabs>
 			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button
 					variant={confirming ? "destructive" : "ghost"}
@@ -170,17 +217,35 @@ export function Edit({
 					<Trash2Icon data-icon="inline-start" />
 					{confirming ? "Remove for good" : "Remove"}
 				</Button>
-				<Button
-					disabled={!changed || busy}
-					onClick={() => settle(editor.save(expect), "Not saved")}
-					className="pointer-coarse:h-10 pointer-coarse:px-4"
-				>
-					Save
-				</Button>
+				<div className="flex gap-2">
+					{todo.takenBy === null && (
+						<StartMenu
+							assignment={{ kind: "todo", id: todo.id }}
+							assignee={todo.assignee ?? null}
+							size="sm"
+							onStart={onDone}
+						/>
+					)}
+					<Button
+						disabled={!changed || busy}
+						onClick={() => settle(editor.save(expect), "Not saved")}
+						className="pointer-coarse:h-10 pointer-coarse:px-4"
+					>
+						Save
+					</Button>
+				</div>
 			</DialogFooter>
 		</>
 	);
 }
+
+/** How each stage reads, in the task dialog's tones. */
+const STAGE_TONES: Record<ReturnType<typeof stageOf>, Tone> = {
+	running: "working",
+	queued: "working",
+	ready: "ready",
+	backlog: "quiet",
+};
 
 /**
  * A todo's detail, read as it renders, the way a Trello card opens; a click

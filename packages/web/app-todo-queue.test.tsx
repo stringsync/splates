@@ -98,33 +98,36 @@ describe("App's queue", () => {
 		expect(header?.textContent).not.toContain("ready");
 	});
 
-	it("queues and unqueues from the dialog, showing it at the click", async () => {
+	it("queues and unqueues from the card, its dialog saying so at the click", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],
 		});
 		testing.holdWrites();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
-		);
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Queue" })),
+			fireEvent.click(view.getByRole("button", { name: "Queue #1" })),
 		);
 
 		expect(testing.posted("/api/todos/1/queued")).toEqual([
 			{ method: "PUT", body: { queued: true } },
 		]);
-		expect(dialog.textContent).toContain("Queued · 1");
 		expect(
 			view.getByRole("img", {
 				name: "Queued, 1 in line for an agent",
 				hidden: true,
 			}),
 		).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain("Queued · 1");
+		// The card queues it; its dialog only says where it stands.
+		expect(within(dialog).queryByRole("button", { name: /queue/i })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Unqueue" })),
+			// On the card behind the dialog, which shows the change at once.
+			fireEvent.click(view.getByLabelText("Unqueue #1")),
 		);
 
 		expect(testing.posted("/api/todos/1/queued").at(-1)).toEqual({

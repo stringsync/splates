@@ -3,7 +3,6 @@ import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { queueTodo } from "./api";
 import { Board, still, touchArea } from "./board";
@@ -22,7 +21,10 @@ export function stageOf(todo: TaskRecord): Stage {
 }
 
 /** Where a waiting `todo` stands as a word, and its place in `queue` when queued. */
-function stageLabel(todo: TaskRecord, queue: readonly TaskRecord[]): string {
+export function stageLabel(
+	todo: TaskRecord,
+	queue: readonly TaskRecord[],
+): string {
 	const stage = stageOf(todo);
 	const word = `${stage[0]?.toUpperCase()}${stage.slice(1)}`;
 	const place = queue.findIndex((each) => each.id === todo.id);
@@ -112,40 +114,17 @@ export function StageCounts({
 }
 
 /**
- * The board's queue write, shown at once and refused on the todo's card,
- * or by `refuse` where the control that made it says so itself.
- */
-export function useQueueing(refuse?: (title: string, error: unknown) => void): {
-	/** Queues `todo`, or takes it out of the queue. */
-	setQueued: (todo: TaskRecord, queue: boolean) => void;
-} {
-	const { refuseTodo } = useContext(Board);
-	const expect = useExpectSnapshot();
-	const refused = (id: number, title: string) => (error: unknown) =>
-		refuse ? refuse(title, error) : refuseTodo(id, title, error);
-	return {
-		setQueued: (todo, queue) =>
-			void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
-				refused(todo.id, queue ? "Not queued" : "Not unqueued"),
-			),
-	};
-}
-
-/**
- * Queue for a waiting todo, Unqueue for a queued one; nothing for one under
- * way, which is past the queue.
+ * Queue for a waiting todo, Unqueue for a queued one, as plain text on its
+ * card's line; nothing for one under way, which is past the queue. A refusal
+ * is said on the card.
  */
 export function QueueToggle({
 	todo,
-	quiet = false,
-	refuse,
 }: {
 	todo: TaskRecord;
-	/** A card's: plain text on its line rather than a button. */
-	quiet?: boolean;
-	refuse?: (title: string, error: unknown) => void;
 }): JSX.Element | null {
-	const { setQueued } = useQueueing(refuse);
+	const { refuseTodo } = useContext(Board);
+	const expect = useExpectSnapshot();
 	const stage = stageOf(todo);
 	if (stage === "running") {
 		return null;
@@ -153,34 +132,26 @@ export function QueueToggle({
 	const queue = stage !== "queued";
 	const Icon = queue ? ListPlusIcon : ListXIcon;
 	const label = queue ? "Queue" : "Unqueue";
-	if (quiet) {
-		return (
-			<button
-				type="button"
-				aria-label={`${label} #${todo.id}`}
-				onClick={() => setQueued(todo, queue)}
-				{...still}
-				// Brought out by hover, as the grip is, so every card's line
-				// stays quiet; always there on a touch screen.
-				className={cn(
-					"relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
-					touchArea,
-				)}
-			>
-				<Icon aria-hidden className="size-3" />
-				{label}
-			</button>
-		);
-	}
 	return (
-		<Button
-			size="xs"
-			variant="outline"
-			onClick={() => setQueued(todo, queue)}
-			className="w-fit bg-transparent pointer-coarse:h-10 pointer-coarse:px-3"
+		<button
+			type="button"
+			aria-label={`${label} #${todo.id}`}
+			onClick={() =>
+				void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
+					(error: unknown) =>
+						refuseTodo(todo.id, queue ? "Not queued" : "Not unqueued", error),
+				)
+			}
+			{...still}
+			// Brought out by hover, as the grip is, so every card's line
+			// stays quiet; always there on a touch screen.
+			className={cn(
+				"relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
+				touchArea,
+			)}
 		>
-			<Icon data-icon="inline-start" />
+			<Icon aria-hidden className="size-3" />
 			{label}
-		</Button>
+		</button>
 	);
 }

@@ -18,7 +18,7 @@ import {
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Duration } from "webappwiz/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
-import { Board } from "./board";
+import { Board, takenTask } from "./board";
 import {
 	ARCHIVED,
 	agentFor,
@@ -129,7 +129,14 @@ export function Conversations({
 			linked: true,
 			todos,
 			lanes: named(todos, lanes),
-			open: setOpenedTodo,
+			open: (id: number) => {
+				const task = takenTask(todos, tasks, id);
+				if (task === null) {
+					setOpenedTodo(id);
+				} else {
+					setOpenedTask(task);
+				}
+			},
 			openTask: setOpenedTask,
 			openTodos: onTodos,
 			tasks: tasks.map((each) => each.task),

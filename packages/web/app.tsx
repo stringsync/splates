@@ -18,6 +18,7 @@ import { useWide } from "./app-nav";
 import { AutoRestart } from "./auto-restart";
 import { AutomationsPage } from "./automations";
 import { WatchBackground } from "./background";
+import { takenTask } from "./board";
 import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
@@ -217,8 +218,13 @@ export function App({
 		} else if (found.kind === "conversation") {
 			go("conversations", found.conversation);
 		} else if (found.kind === "todo") {
-			go("todos");
-			todoView.open(found.todo);
+			const task = takenTask(searched.todos, tasks, found.todo);
+			if (task === null) {
+				go("todos");
+				todoView.open(found.todo);
+			} else {
+				openTask(task);
+			}
 		}
 	};
 	const name = useProjectName(snapshot?.repo);

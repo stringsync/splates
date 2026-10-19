@@ -358,8 +358,13 @@ describe("App's todo cards", () => {
 		// Starting it in a new conversation leaves the dialog behind.
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
+		);
+		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: /^Start with Codex/ }),
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: /Codex.*assigned/ }),
+				),
 			),
 		);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));

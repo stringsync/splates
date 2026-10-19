@@ -13,8 +13,9 @@ import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Dialog, DialogContent } from "#web/components/ui/dialog.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { AddLane } from "./add-lane";
-import { Board as BoardContext } from "./board";
+import { Board as BoardContext, takenTask } from "./board";
 import { BoardDrag } from "./board-drag";
 import type { Drafts } from "./drafts";
 import { fadeOf, useEdges } from "./hooks/use-edges";
@@ -22,6 +23,7 @@ import { columnId, Lane, Untriaged } from "./lanes";
 import { useRefusals } from "./refusal";
 import { shownLanes } from "./shown-lanes";
 import { Task } from "./task-dialog";
+import { PHONE_SHEET, TASK_DIALOG } from "./task-sections";
 import { TodoBoard } from "./todo-board";
 import { Edit } from "./todo-edit";
 import type { TodoView } from "./todo-view";
@@ -98,7 +100,14 @@ export function Todos({
 			linked: true,
 			todos: all,
 			lanes: records,
-			open: (id: number) => view.open(id),
+			open: (id: number) => {
+				const task = takenTask(all, snapshot.tasks, id);
+				if (task === null) {
+					view.open(id);
+				} else {
+					view.openTask(snapshot, task);
+				}
+			},
 			openTask: (name: string) => view.openTask(snapshot, name),
 			openTodos: (ids: readonly number[]) => view.filter(ids),
 			tasks: snapshot.tasks.map((each) => each.task),
@@ -288,7 +297,11 @@ export function TodoDialog({
 					// keyboard down until a field is tapped. Its close button takes
 					// a finger on a touch screen.
 					initialFocus={popup}
-					className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl pointer-coarse:[&>[data-slot=dialog-close]]:top-1 pointer-coarse:[&>[data-slot=dialog-close]]:right-1 pointer-coarse:[&>[data-slot=dialog-close]]:size-10"
+					className={cn(
+						TASK_DIALOG,
+						PHONE_SHEET,
+						"pointer-coarse:[&>[data-slot=dialog-close]]:top-1 pointer-coarse:[&>[data-slot=dialog-close]]:right-1 pointer-coarse:[&>[data-slot=dialog-close]]:size-10",
+					)}
 				>
 					{/* Keyed, so another todo starts on its own words. */}
 					<Edit key={todo.id} todo={todo} onDone={onClose} />

@@ -95,3 +95,19 @@ export const lineCard = `${lineCardHeight} min-h-(--line-card) py-1.5 pr-1.5 poi
  */
 export const touchArea =
 	"pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3";
+
+/**
+ * The task todo `id` opens as, once an agent took it: the same dialog the
+ * task list opens. Null while no agent has it, or the page no longer knows
+ * the task, as one merged a moment ago, so the todo's own dialog opens.
+ */
+export function takenTask(
+	todos: readonly TaskRecord[],
+	tasks: readonly { task: string }[],
+	id: number,
+): string | null {
+	const taken = todos.find((todo) => todo.id === id)?.takenBy ?? null;
+	return taken !== null && tasks.some((each) => each.task === taken)
+		? taken
+		: null;
+}

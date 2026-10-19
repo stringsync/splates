@@ -21,12 +21,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "#web/components/ui/tabs.tsx";
+import { Tabs, TabsList } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Dispatching } from "./dispatching";
 import { Held, SubagentComposer } from "./handed-out";
@@ -37,6 +32,14 @@ import { DemoButtons } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { type PlanParts, planParts, stepsIn } from "./task-plan-parts";
 import { TaskPorts } from "./task-ports";
+import {
+	PHONE_SHEET,
+	Section,
+	SectionTab,
+	TASK_DIALOG,
+	TONES,
+	type Tone,
+} from "./task-sections";
 import { Sessions } from "./task-sessions";
 
 /**
@@ -119,58 +122,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 type Tab = "overview" | "notes" | "details";
 
 /**
- * A steady height on a wide screen, so moving between tabs keeps the footer
- * where it is.
- */
-const TASK_DIALOG =
-	"max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] gap-3 sm:h-[min(34rem,85dvh)] sm:max-w-2xl";
-
-/**
- * The dialog on a phone: a sheet up from the bottom edge, within a thumb's
- * reach, its footer clear of the home indicator.
- */
-const PHONE_SHEET =
-	"max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:-translate-y-0 max-md:rounded-b-none max-md:data-closed:slide-out-to-bottom max-md:data-open:slide-in-from-bottom max-md:data-closed:zoom-out-100 max-md:data-open:zoom-in-100 max-md:[&_[data-slot=dialog-footer]]:pb-[max(1rem,env(safe-area-inset-bottom))]";
-
-function SectionTab({
-	value,
-	children,
-}: {
-	value: Tab;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<TabsTrigger
-			value={value}
-			className="flex-none px-0 text-xs group-data-horizontal/tabs:after:bottom-[-1.5px]"
-		>
-			{children}
-		</TabsTrigger>
-	);
-}
-
-function Section({
-	value,
-	keepMounted = false,
-	children,
-}: {
-	value: Tab;
-	/** Whether it keeps its state while another tab shows, as what is written in a card. */
-	keepMounted?: boolean;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<TabsContent
-			value={value}
-			keepMounted={keepMounted}
-			className="min-h-0 overflow-y-auto px-4 pt-3 pb-1 data-[hidden]:hidden"
-		>
-			{children}
-		</TabsContent>
-	);
-}
-
-/**
  * The task's name, where it stands and why, and the line of facts a glance
  * wants: its branch, how much it holds, how long it has run.
  */
@@ -228,16 +179,6 @@ function Header({
 		</DialogHeader>
 	);
 }
-
-type Tone = "waiting" | "ready" | "working" | "failed" | "quiet";
-
-const TONES: Record<Tone, string> = {
-	waiting: "bg-warning/15 text-warning",
-	ready: "bg-success/15 text-success",
-	working: "bg-primary/10 text-primary",
-	failed: "bg-destructive/10 text-destructive",
-	quiet: "bg-muted text-muted-foreground",
-};
 
 /** A task's standing: a word for it, and what it is about, when anything says. */
 interface Standing {

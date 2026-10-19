@@ -175,50 +175,6 @@ export function StartAssigned({
 }
 
 /**
- * Starts `assignment` on what Auto pick decides in one tap, as `StartItems`'
- * Auto pick item does: a sparkle button for beside `StartAssigned`, opening
- * the conversation at once while the server's judge decides its agent.
- */
-export function StartAuto({
-	assignment,
-	onStart,
-}: {
-	assignment: Assignment;
-	/** Called as it opens its conversation, as to close a dialog. */
-	onStart?: () => void;
-}): JSX.Element | null {
-	const context = useContext(Dispatching);
-	// Started once: a second tap before the conversation opens would start
-	// another.
-	const [starting, setStarting] = useState(false);
-	if (context === null) {
-		return null;
-	}
-	const start = (): void => {
-		setStarting(true);
-		onStart?.();
-		void context.dispatch
-			.auto(assignment)
-			.then(context.open)
-			.finally(() => setStarting(false));
-	};
-	return (
-		<Button
-			size="icon-xs"
-			variant="outline"
-			aria-label={`Start with ${AUTO_PICK_NAME}`}
-			title={`Start with ${AUTO_PICK_NAME}: the agent your rules give this task`}
-			disabled={starting}
-			onClick={start}
-			className="bg-transparent pointer-coarse:size-10"
-			{...still}
-		>
-			<AutoIcon />
-		</Button>
-	);
-}
-
-/**
  * What `StartMenu` offers, for a menu of its own or one with more in it: the
  * assignee, Auto pick, which starts the agent the person's rules give the
  * task, and each agent for a new conversation, then the conversations

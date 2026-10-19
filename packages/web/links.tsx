@@ -47,7 +47,14 @@ import { Refusal, useRefusal } from "./refusal";
  * picked, and each link comes off with its own ×, so undoing one is as quick
  * as making it.
  */
-export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
+export function Links({
+	todo,
+	children,
+}: {
+	todo: TaskRecord;
+	/** Rows of its own to lead with, each a `Property`. */
+	children?: ReactNode;
+}): JSX.Element {
 	const { todos } = useContext(Board);
 	const blockers = todos.filter((other) => todo.blockedBy.includes(other.id));
 	const lost = todo.blockersLost ?? [];
@@ -65,6 +72,7 @@ export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
 		expect(linked(id, blockedBy), linkTodo(id, blockedBy));
 	return (
 		<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1">
+			{children}
 			<Property title="Lane">
 				<LanePicker todo={todo} attempt={lane.attempt} />
 				<Refusal refusal={lane.refusal} className="w-full" />
@@ -137,7 +145,7 @@ export function Links({ todo }: { todo: TaskRecord }): JSX.Element {
 }
 
 /** One property's name, muted, and its value beside it. */
-function Property({
+export function Property({
 	title,
 	Icon,
 	children,

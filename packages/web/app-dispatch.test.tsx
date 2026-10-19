@@ -107,18 +107,36 @@ describe("App's controls that put agents to work", () => {
 	const posted = (path: string) =>
 		testing.posted(path).map((post) => post.body);
 
-	it("offers a todo's play button only once an agent is assigned", async () => {
+	it("offers one Start menu in a todo's dialog, and no row of buttons", async () => {
 		const view = await board([]);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 
-		const play = within(dialog).getByRole("button", { name: "Start" });
-		expect((play as HTMLButtonElement).disabled).toBe(true);
-		expect(play.title).toBe("Pick an agent to start");
-		// One plain button: no menu of agents to start with.
-		expect(play.getAttribute("aria-haspopup")).toBeNull();
+		const start = within(dialog).getByRole("button", { name: "Start" });
+		expect(start.getAttribute("aria-haspopup")).toBe("menu");
+		expect(
+			within(dialog).queryByRole("button", { name: /^Start with/ }),
+		).toBeNull();
+		expect(within(dialog).queryByRole("button", { name: "Queue" })).toBeNull();
+		// Its agent is one of its details, not in the way of its words.
+		expect(
+			within(dialog).queryByRole("button", { name: "Assignee" }),
+		).toBeNull();
+	});
+
+	it("opens a taken todo as its task, the dialog the task list opens", async () => {
+		const view = await board([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Retry on 413" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+
+		expect(within(dialog).getByRole("heading").textContent).toBe("alpha");
+		expect(
+			within(dialog).queryByRole("textbox", { name: "subject" }),
+		).toBeNull();
 	});
 
 	it("shows only a spinner, not its agent's logo, on a taken todo whose agent works", async () => {
@@ -291,17 +309,18 @@ describe("App's controls that put agents to work", () => {
 			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
 		expect(
 			within(dialog).getByRole("button", { name: "Assignee" }).textContent,
 		).toContain("Claude · Haiku");
 
 		testing.reply = conversation({ id: "c9", status: "starting" });
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", {
-					name: "Start with Claude · Haiku",
-				}),
-			),
+		await choose(
+			view,
+			within(dialog).getByRole("button", { name: "Start" }),
+			/Claude · Haiku\s*assigned/,
 		);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
@@ -383,6 +402,9 @@ describe("App's controls that put agents to work", () => {
 			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
 
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Assignee" })),

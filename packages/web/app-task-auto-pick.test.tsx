@@ -96,7 +96,7 @@ describe("App's Auto pick", () => {
 		);
 	});
 
-	it("starts a queued task on Auto pick from its dialog in one tap, closing the dialog", async () => {
+	it("starts a queued task on Auto pick from its dialog's Start menu, closing the dialog", async () => {
 		testing.talk = { agents: AGENTS, conversations: [] };
 		const view = await testing.open({
 			todos: [todo({ id: 3, subject: "Fix the upload", lane: 1 })],
@@ -113,8 +113,11 @@ describe("App's Auto pick", () => {
 		});
 
 		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
+		);
+		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Start with Auto pick" }),
+				await waitFor(() => view.getByRole("menuitem", { name: "Auto pick" })),
 			),
 		);
 

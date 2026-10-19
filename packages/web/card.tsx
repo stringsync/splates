@@ -145,7 +145,7 @@ export function Card({
 								quiet
 							/>
 						)}
-					<QueueToggle todo={todo} quiet />
+					<QueueToggle todo={todo} />
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
 					{held && <OnIt task={null} queued={todo.id} spinning={false} />}
