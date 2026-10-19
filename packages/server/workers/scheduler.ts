@@ -18,6 +18,13 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 	private readonly last = new Map<string, string>();
 	/** Why no worker is made for the queue, as a budget limit says; null when none holds it. */
 	private withheld: BudgetReason | null = null;
+	/**
+	 * Each project's queued tasks that could start but find no slot free, by
+	 * its main tree: in line behind the agents waiting, so a worker is woken
+	 * or made for them, though never placed, since the task queue starts each
+	 * once there is room.
+	 */
+	private readonly wanted = new Map<string, Wanted[]>();
 	/** The workers last seen draining, so each new drain is told once. */
 	private drained = new Set<string>();
 
@@ -67,10 +74,52 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		return this.grant(request, worker);
 	}
 
-	/** Those waiting for a slot, first in line first. */
+	/**
+	 * Sets the queued tasks of `project` that wait for a slot, as `wanted`
+	 * says, each keeping when it first did.
+	 */
+	want(project: string, requests: SlotRequest[]): void {
+		const was = this.wanted.get(project) ?? [];
+		if (
+			requests.length === was.length &&
+			requests.every(
+				(request, at) =>
+					JSON.stringify(request) === JSON.stringify(was[at]?.request),
+			)
+		) {
+			return;
+		}
+		const now = this.clock.now();
+		const since = new Map(was.map((each) => [each.request.id, each.since]));
+		if (requests.length === 0) {
+			this.wanted.delete(project);
+		} else {
+			this.wanted.set(
+				project,
+				requests.map((request) => ({
+					request,
+					since: since.get(request.id) ?? now,
+				})),
+			);
+		}
+		this.changed();
+	}
+
+	/**
+	 * Those waiting for a slot, first in line first: the agents, then the
+	 * queued tasks waiting to start one.
+	 */
 	queue(): QueueEntry[] {
 		const workers = this.pool.workers();
-		return this.waiting.map(({ request, since }, at) => ({
+		const line: { request: SlotRequest; since: number; queued?: true }[] = [
+			...this.waiting.map(({ request, since }) => ({ request, since })),
+			...[...this.wanted.values()].flat().map(({ request, since }) => ({
+				request,
+				since,
+				queued: true as const,
+			})),
+		];
+		return line.map(({ request, since, queued }, at) => ({
 			id: request.id,
 			project: request.project,
 			task: request.task,
@@ -79,6 +128,7 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 			position: at + 1,
 			since,
 			reason: reasonFor(request, workers, this.withheld),
+			...(queued === undefined ? {} : { queued }),
 		}));
 	}
 
@@ -435,6 +485,11 @@ export interface QueueEntry {
 	/** When it joined the queue, epoch milliseconds. */
 	since: number;
 	reason: QueueReason;
+	/**
+	 * A queued task, waiting to start its agent, rather than an agent: the
+	 * task queue orders it, so it is not moved here.
+	 */
+	queued?: true;
 }
 
 /** One agent holding a slot. */
@@ -471,6 +526,12 @@ export type SchedulerEvents = { changed: undefined; drain: string };
 interface Holding {
 	held: HeldSlot;
 	losing: AbortController;
+}
+
+/** A queued task waiting to start an agent, and since when. */
+interface Wanted {
+	request: SlotRequest;
+	since: number;
 }
 
 interface Waiting {

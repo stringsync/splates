@@ -271,7 +271,7 @@ export function QueueBadge({
 									{entry.reason}
 								</span>
 							</span>
-							{entry.position > 1 && (
+							{entry.position > 1 && entry.queued !== true && (
 								<Button
 									variant="ghost"
 									size="icon"

@@ -37,7 +37,7 @@ import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
-import { LOCAL_WORKER } from "../workers";
+import { LOCAL_WORKER, type SlotRequest } from "../workers";
 import type { Assets } from "./assets";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import type { Behind, Release } from "./release";
@@ -67,6 +67,17 @@ export async function serveProject(
 			queued: () => project.tasks.stored(),
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			room: () => context.workerRoom(),
+			want: (waiting) =>
+				context.wantWorkers(
+					service.git.root,
+					waiting.map(({ queued, pick }) => ({
+						id: `#${queued.id}`,
+						project: service.git.root,
+						task: `#${queued.id} ${queued.subject}`,
+						platform: service.config.platform,
+						agent: pick.agent,
+					})),
+				),
 			fallback: async () => {
 				const [first] = await new Roster(
 					`${splatesHome(project.ps)}/agents.json`,
@@ -259,10 +270,9 @@ export async function serveProject(
 }
 
 /**
- * Adds the task a running lane starts for queued task `number`, as `splates
- * add --task --agent` would from the conversation that set the lane running,
- * run as this splates so it is the same one: `splates server` then starts its
- * agent as for any other. Its cap is the lane's, which `LaneRunner` keeps. Throws
+ * Adds the task the queue starts for queued task `number`, as `splates add
+ * --task --agent` would, run as this splates so it is the same one:
+ * `splates server` then starts its agent, holding a worker's slot. Throws
  * with what `add` said on a refusal.
  */
 async function startQueuedTask(
@@ -363,6 +373,8 @@ export interface DevContext {
 	workerRoom(): number;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
+	/** Sets the slots the queued tasks of the project at `root` wait for. */
+	wantWorkers(root: string, requests: SlotRequest[]): void;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
 }

@@ -66,6 +66,21 @@ describe("DevWorkers with a worker provider", () => {
 		await daemon.disposeAsync();
 	});
 
+	it("makes a worker for a queued task that finds no room, which then has room for it", async () => {
+		workers.slots.scheduler.want("/repo", [request("#3")]);
+		await Bun.sleep(10);
+		const [spec] = provider.specs;
+		const daemon = await booted(server, workers, spec?.boot ?? []);
+		void daemon.run();
+		await Bun.sleep(10);
+
+		expect(provider.getCalls()).toContain(
+			`create ${spec?.id ?? ""} small snap-1`,
+		);
+		expect(workers.slots.scheduler.room()).toBeGreaterThan(0);
+		await daemon.disposeAsync();
+	});
+
 	it("makes no more than the rate cap allows, and the queue says so", async () => {
 		void workers.slots.scheduler.take(request("one")).catch(() => {});
 		await Bun.sleep(10);

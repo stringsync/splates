@@ -103,7 +103,12 @@ export type {
 	PoolWorker,
 	QueueEntry,
 } from "./scheduler";
-export { PLATFORMS, platformOf, Scheduler } from "./scheduler";
+export {
+	PLATFORMS,
+	platformOf,
+	Scheduler,
+	type SlotRequest,
+} from "./scheduler";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";

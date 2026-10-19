@@ -88,7 +88,11 @@ which `splates queue` used to list, are `splates worker queue` now. The
 Scheduler keeps its line of slot requests, for agents started any other
 way, but the queue only starts as many tasks as the workers have room for
 (`Scheduler.room()`), so a queued task never waits for a slot with its
-worktree made.
+worktree made. Each agent the queue or a hook starts holds a slot; the
+person's own take none. The queued tasks that could start but find no
+room stand in the Scheduler's line behind its agents (`Scheduler.want`),
+so a worker is woken or made for them as for any agent waiting, though
+none is placed from there: the queue starts each once there is room.
 
 ## Workers (settled)
 
@@ -162,9 +166,9 @@ the question is answered.
 
 - **Server**: `tasks/lane-runner.ts`, `tasks/handed-out.ts`,
   `tasks/handoff.ts`, `tasks/dispatched.ts`, the lane parts of `board/`, the
-  orchestrator prompts in `plans/prompts.ts`, the Scheduler's own queue.
+  orchestrator prompts in `plans/prompts.ts`.
 - **CLI**: `splates lane run` and `pause`, `splates handoff`, `add --agent`,
-  `task take`/`release`, `splates slots`.
+  `task take`/`release`.
 - **Skill**: `references/lanes.md`, `handoff.md`, `parts.md`, most of
   `queue.md`, and the directives `LANE`, `HANDOFF`, `AUTO`, `REPORT`,
   `TASK DONE`, `TASK OPEN`, `TASK ADDED`, `IDLE`, `LANES DONE`. `GROOM`
@@ -220,10 +224,11 @@ one is deleted.
    Then parts: an agent's `add --base task/<its task>` is refused, and a
    harness subagent works in its parent's tree and commits there. A person
    can still base a task on any branch, and parts open before still land
-   on their parent's branch, nested under it on the page. The slot queue of
-   `workers/scheduler.ts` (`splates worker queue`) stays for now: it still
-   drives provisioning and wake-on-LAN, so it goes once the task queue does
-   that.
+   on their parent's branch, nested under it on the page. Last, the slot
+   queue: the Scheduler's line stays for the agents waiting on a worker,
+   since the person's still can, and the queued tasks with no room join it,
+   so the task queue drives provisioning and wake-on-LAN. `splates slots`
+   names `--slot` ports, nothing of the queue, so it stays.
 5. **Web.** The board shows lanes of tasks by stage, beside a queue view;
    "todo" becomes "task".
 

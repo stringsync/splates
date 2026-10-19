@@ -23,6 +23,12 @@ export interface QueueStart {
 	prompt: string;
 }
 
+/** A queued task that could start but finds no slot, and who would work it. */
+export interface QueueWaiting {
+	queued: TaskRecord;
+	pick: AgentPick;
+}
+
 /**
  * Adds the task for `start`, handed to its agent, which `splates server`
  * starts as for any `splates add --agent`. Throws when the add is refused.
@@ -83,18 +89,27 @@ export class QueueRunner implements Resource {
 				this.#refused.delete(id);
 			}
 		}
-		const room = this.deps.room() - this.#starting.size;
-		if (room <= 0) {
+		const startable = queueOrder(all).filter(
+			(queued) =>
+				!this.#starting.has(queued.id) &&
+				!this.#refused.has(queued.id) &&
+				canStart(queued, all),
+		);
+		const room = Math.max(0, this.deps.room() - this.#starting.size);
+		const next = startable.slice(0, room);
+		if (startable.length === 0) {
+			this.deps.want([]);
 			return;
 		}
-		const next = queueOrder(all)
-			.filter(
-				(queued) =>
-					!this.#starting.has(queued.id) &&
-					!this.#refused.has(queued.id) &&
-					canStart(queued, all),
-			)
-			.slice(0, room);
+		const fallback = await this.deps.fallback();
+		// The rest wait for a slot, standing in the workers' line so one is
+		// woken or made for them.
+		this.deps.want(
+			startable.slice(room).map((queued) => ({
+				queued,
+				pick: queued.assignee ?? fallback,
+			})),
+		);
 		if (next.length === 0) {
 			return;
 		}
@@ -107,7 +122,7 @@ export class QueueRunner implements Resource {
 			starts.push({
 				queued,
 				task,
-				pick: queued.assignee ?? (await this.deps.fallback()),
+				pick: queued.assignee ?? fallback,
 				prompt: queuePrompt(queued),
 			});
 		}
@@ -145,6 +160,11 @@ export interface QueueRunnerDeps {
 	tasks: () => Promise<string[]>;
 	/** How many more agents the workers could start now without waiting. */
 	room: () => number;
+	/**
+	 * The queued tasks that could start but find no room, in queue order, to
+	 * wait in the workers' line: each sweep says them all, none when none.
+	 */
+	want: (waiting: QueueWaiting[]) => void;
 	/** Who works a queued task that names no model: the roster's first agent. */
 	fallback: () => Promise<AgentPick>;
 	start: QueueStarter;

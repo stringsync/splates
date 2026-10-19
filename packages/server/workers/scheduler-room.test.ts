@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { type PoolWorker, Scheduler, type SlotRequest } from "./scheduler";
 
-describe("Scheduler.room", () => {
+describe("Scheduler room", () => {
 	it("counts the free slots of workers taking work, less those waiting", async () => {
 		const workers = [
 			worker("local", { slots: 2 }),
@@ -23,6 +24,42 @@ describe("Scheduler.room", () => {
 		void scheduler.take(request("d"));
 		await Bun.sleep(0);
 		expect(scheduler.room()).toBe(0);
+	});
+
+	it("lines up the queued tasks that find no room behind the agents waiting, placing none", async () => {
+		const workers = [worker("local")];
+		const clock = new FakeWallClock(1_000);
+		const scheduler = new Scheduler({ workers: () => workers }, clock);
+		let changes = 0;
+		scheduler.events.on("changed", () => {
+			changes += 1;
+		});
+		await scheduler.take(request("a"));
+		void scheduler.take(request("b"));
+		await Bun.sleep(0);
+		changes = 0;
+
+		scheduler.want("/repo", [request("#3"), request("#4")]);
+		clock.advance(Duration.mins(1));
+		scheduler.want("/repo", [request("#3"), request("#4")]);
+		scheduler.want("/repo", [request("#4")]);
+
+		expect(changes).toBe(2);
+		expect(scheduler.queue()).toEqual([
+			expect.objectContaining({ id: "b", position: 1 }),
+			expect.objectContaining({
+				id: "#4",
+				position: 2,
+				since: 1_000,
+				reason: "no free slot",
+				queued: true,
+			}),
+		]);
+		expect(scheduler.queue()[0]).not.toHaveProperty("queued");
+		expect(scheduler.room()).toBe(0);
+
+		scheduler.want("/repo", []);
+		expect(scheduler.queue().map(({ id }) => id)).toEqual(["b"]);
 	});
 });
 
