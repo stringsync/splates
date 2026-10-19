@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
-import { aptName, type LaneRecord, named, settle } from "./lanes";
+import { aptName, isReady, type LaneRecord, named, settle } from "./lanes";
 import type { TaskRecord } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
@@ -93,6 +93,122 @@ export class TaskLanes {
 			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
 			await this.writeLanes(order);
 			return order;
+		});
+	}
+
+	/**
+	 * Queues lane `id` whole, or stops: queued, each of its tasks is queued
+	 * once nothing blocks it (`queueFromLanes`); stopped, each it holds that
+	 * is queued and not yet started goes back to the backlog, so nothing more
+	 * of it starts. Gives back the lane, and the tasks stopping took out.
+	 */
+	async queueLane(
+		id: number,
+		queued: boolean,
+	): Promise<{ lane: LaneRecord; unqueued: TaskRecord[] }> {
+		return this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
+			const records = await this.records(states);
+			lacking(records, id);
+			const {
+				queued: _,
+				skip: __,
+				...rest
+			} = records.find((record) => record.id === id) as LaneRecord;
+			const changed: LaneRecord = queued ? { ...rest, queued: true } : rest;
+			const unqueued: TaskRecord[] = [];
+			if (!queued) {
+				for (const state of states) {
+					if (
+						state.lane === id &&
+						state.stage === "queued" &&
+						state.takenBy === null
+					) {
+						unqueued.push(
+							(await this.tasks.save({ ...state, stage: "backlog" })).state,
+						);
+					}
+				}
+			}
+			await this.writeLanes(
+				records.map((record) => (record.id === id ? changed : record)),
+			);
+			return { lane: changed, unqueued };
+		});
+	}
+
+	/**
+	 * Notes tasks `ids` as taken out of the queue by the person, `skip`, so
+	 * the queued lane each is in leaves it out, or as queued again by them.
+	 */
+	async skipInLanes(ids: number[], skip: boolean): Promise<void> {
+		await this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
+			const records = await this.records(states);
+			let changed = false;
+			const next = records.map((record) => {
+				const mine = states
+					.filter((state) => state.lane === record.id && ids.includes(state.id))
+					.map((state) => state.id);
+				if (record.queued !== true || mine.length === 0) {
+					return record;
+				}
+				const kept = (record.skip ?? []).filter((id) => !mine.includes(id));
+				const skipping = skip ? [...kept, ...mine] : kept;
+				changed = true;
+				const { skip: _, ...rest } = record;
+				return skipping.length === 0 ? rest : { ...rest, skip: skipping };
+			});
+			if (changed) {
+				await this.writeLanes(next);
+			}
+		});
+	}
+
+	/**
+	 * Queues each task of a queued lane that can start now: nobody has it,
+	 * nothing blocks it, and the person has not taken it out of the queue.
+	 * A queued lane no task is left in is queued no more. Gives back the
+	 * tasks it queued.
+	 */
+	async queueFromLanes(): Promise<TaskRecord[]> {
+		return this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
+			const records = await this.records(states);
+			const queued: TaskRecord[] = [];
+			let ended = false;
+			const next = records.map((record) => {
+				if (record.queued !== true) {
+					return record;
+				}
+				if (!states.some((state) => state.lane === record.id)) {
+					ended = true;
+					const { queued: _, skip: __, ...rest } = record;
+					return rest;
+				}
+				return record;
+			});
+			for (const record of records) {
+				if (record.queued !== true) {
+					continue;
+				}
+				for (const state of states) {
+					if (
+						state.lane === record.id &&
+						state.stage !== "queued" &&
+						isReady(state) &&
+						!(record.skip ?? []).includes(state.id)
+					) {
+						queued.push(
+							(await this.tasks.save({ ...state, stage: "queued" })).state,
+						);
+					}
+				}
+			}
+			if (ended) {
+				await this.writeLanes(next);
+			}
+			return queued;
 		});
 	}
 
@@ -295,7 +411,14 @@ export class TaskLanes {
 						(each) =>
 							Number.isInteger(each?.id) && typeof each?.name === "string",
 					)
-					.map(({ id, name }) => ({ id, name }));
+					.map(({ id, name, queued, skip }) => ({
+						id,
+						name,
+						...(queued === true ? { queued: true as const } : {}),
+						...(queued === true && Array.isArray(skip)
+							? { skip: skip.filter(Number.isInteger) }
+							: {}),
+					}));
 			}
 		} catch {}
 		return [];

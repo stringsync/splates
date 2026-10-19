@@ -6,16 +6,6 @@ import type { TaskRecord } from "./task";
  * `splates server` page draw the same lanes from the same list.
  */
 
-/** A task that has to merge first, and where it stands now. */
-export interface Blocker {
-	id: number;
-	subject: string;
-	/** The lane it is in, or null when it is in none. */
-	lane: number | null;
-	/** The task working on it, or null while nobody has it. */
-	takenBy: string | null;
-}
-
 /**
  * A lane as stored: its number, never handed out again once it is gone, and
  * what it is called. Lanes are kept in the order the board shows them.
@@ -23,6 +13,16 @@ export interface Blocker {
 export interface LaneRecord {
 	id: number;
 	name: string;
+	/**
+	 * Whether the person queued the whole lane: each of its tasks is queued
+	 * as soon as nothing blocks it, until the lane is empty. Absent for no.
+	 */
+	queued?: true;
+	/**
+	 * The tasks the person took out of the queue while the lane was queued,
+	 * which it leaves out until they are queued again.
+	 */
+	skip?: number[];
 }
 
 /** A queue of tasks that build on each other, worked top first. */
@@ -41,6 +41,8 @@ export interface LaneState {
 	blockers: Blocker[];
 	/** `next` can be taken now: nothing blocking it is left but in this lane's hands. */
 	ready: boolean;
+	/** Whether the person queued the whole lane, as `LaneRecord.queued`. */
+	queued: boolean;
 }
 
 /**
@@ -50,6 +52,16 @@ export interface LaneState {
  */
 export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
 	return named(tasks, records).map((record) => lane(tasks, record));
+}
+
+/** A task that has to merge first, and where it stands now. */
+export interface Blocker {
+	id: number;
+	subject: string;
+	/** The lane it is in, or null when it is in none. */
+	lane: number | null;
+	/** The task working on it, or null while nobody has it. */
+	takenBy: string | null;
 }
 
 /** `records`, and after them a record for each lane a task is in that they lack. */
@@ -70,7 +82,10 @@ export function named(
 }
 
 /** The lane `record` stands for, empty when no task is in it. */
-export function lane(tasks: TaskRecord[], { id, name }: LaneRecord): LaneState {
+export function lane(
+	tasks: TaskRecord[],
+	{ id, name, queued }: LaneRecord,
+): LaneState {
 	const steps = tasks
 		.filter((task) => task.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -94,6 +109,7 @@ export function lane(tasks: TaskRecord[], { id, name }: LaneRecord): LaneState {
 		next,
 		blockers,
 		ready: next !== null && blockersOf(tasks, next).length === 0,
+		queued: queued === true,
 	};
 }
 

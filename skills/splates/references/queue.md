@@ -70,7 +70,7 @@ priority, which is the position's job.
 ## Lanes
 
 A lane is a named group of related tasks, for the user to see them together
-on the board. It runs and orders nothing: the queue starts tasks, and links
+on the board. It orders nothing: the queue starts tasks, and links
 alone say what must land first, so link a task `--blocked-by` another
 whenever it needs that one's code or changes its files, even in the same
 lane. A lane has no model of its own: each task names its own. Placing a task, read `splates lane
@@ -84,6 +84,13 @@ list`, then:
 - **Untriaged** otherwise, the default, for the user to place.
 
 `splates task update <id> --lane <n>` moves one that exists.
+
+Only when the user asks to work a whole lane, `splates lane queue <n>`
+queues it whole: each of its tasks is queued as soon as nothing blocks it,
+those added later too, until the lane is empty. A task the user takes out
+with `splates queue remove` stays out until queued again. `splates lane
+unqueue <n>` stops it, taking out of the queue each of its tasks yet to
+start. Untriaged cannot be queued whole.
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
-import { taskAdd, taskUpdate } from "../board";
+import { laneAdd, laneUpdate, taskAdd, taskUpdate } from "../board";
 import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
 import { queueAdd, queueRemove } from "./commands";
@@ -49,6 +49,7 @@ describe("QueueRunner", () => {
 		};
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
+			lanes: () => deps.tasks.queueFromLanes(),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			room: () => room,
 			want: (each) => {
@@ -101,6 +102,19 @@ describe("QueueRunner", () => {
 				pick,
 			})),
 		).toEqual([{ task: "totals-first", number: 2, pick: { agent: "claude" } }]);
+	});
+
+	it("starts the tasks of a lane queued whole as nothing blocks them", async () => {
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "Store licenses", null, { lane: 1 });
+		await taskAdd(deps, "Check them", null, { lane: 1, blockedBy: [1] });
+		await laneUpdate(deps, 1, { queued: true });
+
+		await runner.sweep();
+		await settled();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+		expect((await deps.tasks.find(2)).state.stage).toBe("backlog");
 	});
 
 	it("asks the agent to groom the task before working it", async () => {

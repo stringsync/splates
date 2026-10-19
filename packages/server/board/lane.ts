@@ -88,7 +88,7 @@ export async function laneShow(
 		return;
 	}
 	const lines = [
-		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
+		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}${found.queued ? ", queued whole" : ""}`,
 	];
 	for (const [i, task] of found.todos.entries()) {
 		lines.push(
@@ -169,8 +169,13 @@ function nextLines(found: LaneState): string[] {
 	if (open.length === 0) {
 		return ["Every task in it is under way."];
 	}
+	if (found.queued) {
+		return [
+			"Queued whole: each of its tasks is queued as soon as nothing blocks it, until it is empty.",
+		];
+	}
 	return [
-		`next: \`splates queue add ${open.map((task) => task.id).join(" ")}\` queues ${open.length === 1 ? "it" : "them"}, for a worker to start each once nothing it is blocked by is open`,
+		`next: \`splates queue add ${open.map((task) => task.id).join(" ")}\` queues ${open.length === 1 ? "it" : "them"}, for a worker to start each once nothing it is blocked by is open, or \`splates lane queue ${found.id}\` the lane whole, each task as nothing blocks it`,
 	];
 }
 
@@ -202,6 +207,7 @@ function laneJson(found: LaneState) {
 		agents: found.agents,
 		next: found.next?.id ?? null,
 		ready: found.ready,
+		queued: found.queued,
 		blockers: found.blockers,
 	};
 }
@@ -226,29 +232,41 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
+	/**
+	 * Whether it is queued whole: each of its tasks queued once nothing
+	 * blocks it, until it is empty; false unqueues those yet to start.
+	 */
+	queued?: boolean;
 }
 
-/** Calls a lane by another name, or moves it among the others. */
+/** Calls a lane by another name, moves it among the others, or queues it whole. */
 export async function laneUpdate(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ name, position }: LaneUpdateOptions = {},
+	{ name, position, queued }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
-	if (name === undefined && position === undefined) {
+	if (name === undefined && position === undefined && queued === undefined) {
 		fail(
 			"usage",
 			"nothing to change: pass `--name <name>` or `--position <n>`",
 			{ lane: id },
 		);
 	}
-	const renamed =
-		name === undefined ? undefined : await tasks.renameLane(id, name);
-	const order =
-		position === undefined ? undefined : await tasks.moveLane(id, position);
-	const record = order?.find((each) => each.id === id) ?? renamed;
+	const { record, order, unqueued } = await tasks.changeLane(id, {
+		name,
+		position,
+		queued,
+	});
 	log.info(
 		[
 			`${color.green("updated")} lane ${id}: ${record?.name}`,
+			...(queued === undefined
+				? []
+				: [
+						queued
+							? "  queued whole: each of its tasks is queued once nothing blocks it, until it is empty"
+							: `  no longer queued whole${unqueued.length === 0 ? "" : `: unqueued ${unqueued.map((task) => `#${task.id}`).join(", ")}`}`,
+					]),
 			...(order === undefined
 				? []
 				: [
@@ -263,7 +281,7 @@ export async function laneUpdate(
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position }: LaneUpdateOptions,
+	{ name, position, queued }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -271,6 +289,7 @@ export function laneUpdated(
 		changed: {
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
+			...(queued === undefined ? {} : { queued }),
 		},
 	};
 }

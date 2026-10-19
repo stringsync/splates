@@ -48,8 +48,9 @@ comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
-- Before `splates lane add`, or `splates task add`, `splates task update` or
-  `splates lane update` with `--lane`, `--position` or `--blocked-by`:
+- Before `splates lane add`, `splates lane queue` or `unqueue`, or `splates
+  task add`, `splates task update` or `splates lane update` with `--lane`,
+  `--position` or `--blocked-by`:
   [references/queue.md](references/queue.md), linking, placing and ordering
   queued tasks.
 - When the user asks to set splates up on this machine, or any part of it

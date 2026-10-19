@@ -2,6 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
+import { ListPlusIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -159,6 +160,15 @@ export function Lane({
 				</div>
 				{/* A line of its own, so a long name keeps its room. */}
 				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
+				{lane.queued && (
+					<span
+						className="flex items-center gap-1 text-muted-foreground text-xs"
+						title="Each task is queued as soon as nothing blocks it, until the lane is empty"
+					>
+						<ListPlusIcon aria-hidden className="size-3" />
+						Queued lane
+					</span>
+				)}
 				{lane.agents.map((agent) => {
 					const on = lane.todos
 						.filter((todo) => todo.takenBy === agent)

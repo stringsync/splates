@@ -3,6 +3,7 @@ import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
+import type { LaneUpdateOptions } from "./lane";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
 import { assigned, Task, type TaskNew, type TaskRecord, wording } from "./task";
@@ -263,6 +264,51 @@ export class Tasks {
 	/** Puts lane `id` at `position` among the lanes, 1 the first column. */
 	moveLane(id: number, position: number): Promise<LaneRecord[]> {
 		return this.laneFiles.moveLane(id, position);
+	}
+
+	/**
+	 * Makes each change asked of lane `id`: a new name, a new place among
+	 * the lanes, queued whole or not. Gives back the lane after, the lanes in
+	 * order when it moved, and the tasks unqueued when it stopped being
+	 * queued whole.
+	 */
+	async changeLane(
+		id: number,
+		{ name, position, queued }: LaneUpdateOptions,
+	): Promise<{
+		record: LaneRecord | undefined;
+		order: LaneRecord[] | undefined;
+		unqueued: TaskRecord[];
+	}> {
+		const renamed =
+			name === undefined ? undefined : await this.renameLane(id, name);
+		const order =
+			position === undefined ? undefined : await this.moveLane(id, position);
+		const toggled =
+			queued === undefined ? undefined : await this.queueLane(id, queued);
+		return {
+			record: toggled?.lane ?? order?.find((each) => each.id === id) ?? renamed,
+			order,
+			unqueued: toggled?.unqueued ?? [],
+		};
+	}
+
+	/** Queues lane `id` whole, or stops, unqueueing what it has yet to start. */
+	queueLane(
+		id: number,
+		queued: boolean,
+	): Promise<{ lane: LaneRecord; unqueued: TaskRecord[] }> {
+		return this.laneFiles.queueLane(id, queued);
+	}
+
+	/** Notes tasks `ids` as taken out of the queue by the person, or put back. */
+	skipInLanes(ids: number[], skip: boolean): Promise<void> {
+		return this.laneFiles.skipInLanes(ids, skip);
+	}
+
+	/** Queues each task of a queued lane that can start now; gives them back. */
+	queueFromLanes(): Promise<TaskRecord[]> {
+		return this.laneFiles.queueFromLanes();
 	}
 
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */

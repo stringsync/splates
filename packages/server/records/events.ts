@@ -1,10 +1,7 @@
 import type { Question } from "../plans";
 import type { FailedTest, RemoveReason } from "../tasks";
 
-/**
- * An escalation that went through, from before `splates escalate` was
- * retired, which old conversations still show as a card.
- */
+/** An escalation that went through, which an old conversation shows as a card. */
 export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;
 
 /** Whether `event` is an escalation that went through. */
@@ -71,7 +68,7 @@ export interface Facts {
 		/** The tasks it put back on the list, by number and subject. */
 		released: { id: number; subject: string }[];
 	};
-	/** From before `splates escalate` was retired: old journals still hold it. */
+	/** An escalation in an old journal, to show as its card. */
 	escalate: {
 		/** Why it needs the person, or for a review, what to look at. */
 		about: string;
@@ -85,7 +82,7 @@ export interface Facts {
 		 */
 		questions: Question[];
 	};
-	/** A task handed to another agent, from before agents stopped handing tasks on. */
+	/** A task handed to another agent, as old journals hold it. */
 	handoff: {
 		/** The roster agent it went to, by its id. */
 		agent: string;
@@ -183,6 +180,8 @@ export interface Facts {
 			position?: number;
 			/** Whether it runs from now on, its tasks started by `splates server`. */
 			running?: boolean;
+			/** Whether it is queued whole from now on, each task queued once nothing blocks it. */
+			queued?: boolean;
 		};
 	};
 	"lane remove": {

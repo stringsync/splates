@@ -148,29 +148,20 @@ export class BoardRoutes {
 		return Response.json(lane);
 	};
 
-	// A new name, a new place among the lanes, or both.
+	// A new name, a new place among the lanes, queued whole or not, or more than one.
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		const { name, position } = await body(request);
+		const { name, position, queued } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
+			queued: queued === undefined ? undefined : queued === true,
 		};
 		const lane = await journal.record(
 			"lane update",
 			null,
-			async () => {
-				const renamed =
-					change.name === undefined
-						? undefined
-						: await tasks.renameLane(id, change.name);
-				const order =
-					change.position === undefined
-						? undefined
-						: await tasks.moveLane(id, change.position);
-				return order?.find((each) => each.id === id) ?? renamed;
-			},
+			async () => (await tasks.changeLane(id, change)).record,
 			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
 		);
 		this.#watch.tick();

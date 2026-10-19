@@ -1,4 +1,5 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
+import { isReady } from "@stringsync/splates-server/board/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 
@@ -124,6 +125,34 @@ export function lanesJoined(from: number, into: number) {
 			lanes: snapshot.lanes.filter((lane) => lane.id !== from),
 		};
 	};
+}
+
+/**
+ * Lane `id` queued whole, each of its todos nothing blocks queued with it,
+ * or no longer, each of its queued todos no agent has back in the backlog.
+ */
+export function laneQueued(id: number, queued: boolean) {
+	return (snapshot: Snapshot): Snapshot => ({
+		...snapshot,
+		todos: snapshot.todos.map((todo) =>
+			todo.lane !== id
+				? todo
+				: queued
+					? todo.stage !== "queued" && isReady(todo)
+						? { ...todo, stage: "queued" }
+						: todo
+					: todo.stage === "queued" && todo.takenBy === null
+						? { ...todo, stage: "backlog" }
+						: todo,
+		),
+		lanes: snapshot.lanes.map((lane) => {
+			if (lane.id !== id) {
+				return lane;
+			}
+			const { queued: _, skip: __, ...rest } = lane;
+			return queued ? { ...rest, queued: true as const } : rest;
+		}),
+	});
 }
 
 /** Lane `id` gone, its todos back in none. */

@@ -2,6 +2,8 @@ import type { LaneState } from "@stringsync/splates-server/board";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	ListPlusIcon,
+	ListXIcon,
 	MergeIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
@@ -19,12 +21,15 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { dropLane, joinLanes } from "./api";
+import { dropLane, joinLanes, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
-import { laneDropped, lanesJoined } from "./board-expectations";
+import { laneDropped, laneQueued, lanesJoined } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 
-/** What can be done to a whole lane: rename it, move it, fold it into another, or remove it. */
+/**
+ * What can be done to a whole lane: rename it, queue it whole, move it, fold
+ * it into another, or remove it.
+ */
 export function LaneMenu({
 	lane,
 	lanes,
@@ -57,6 +62,23 @@ export function LaneMenu({
 				<DropdownMenuItem onClick={onRename}>
 					<PencilIcon />
 					Rename
+				</DropdownMenuItem>
+				<DropdownMenuItem
+					onClick={() =>
+						void expect(
+							laneQueued(lane.id, !lane.queued),
+							queueLane(lane.id, !lane.queued),
+						).catch((error: unknown) =>
+							refuseLane(
+								lane.id,
+								lane.queued ? "Lane not unqueued" : "Lane not queued",
+								error,
+							),
+						)
+					}
+				>
+					{lane.queued ? <ListXIcon /> : <ListPlusIcon />}
+					{lane.queued ? "Stop queueing lane" : "Queue lane"}
 				</DropdownMenuItem>
 				{others.length > 0 && (
 					<>

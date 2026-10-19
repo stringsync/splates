@@ -16,7 +16,7 @@ import { position } from "./flags";
 
 /** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named groups of tasks, for you to see related work together on the board; a lane runs and orders nothing. A task in no lane is untriaged",
+	"lanes: named groups of tasks, for you to see related work together on the board; a lane orders nothing, but you can queue one whole with `splates lane queue`. A task in no lane is untriaged",
 );
 
 splatesLane
@@ -80,6 +80,44 @@ splatesLane
 	})
 	.action(async (opts, ctx) => {
 		const change = { name: opts.name, position: opts.position };
+		await ctx.journal.record(
+			"lane update",
+			null,
+			() => laneUpdate(ctx, opts.lane, change),
+			(record) => laneUpdated(opts.lane, record, change),
+		);
+	});
+
+splatesLane
+	.command("queue")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"queue a lane whole: each of its tasks is queued as soon as nothing blocks it, now and as tasks land, until the lane is empty; a task you take out with `splates queue remove` stays out until you queue it again. Untriaged cannot be queued whole",
+	)
+	.arg("lane", z.coerce.number().int().positive(), {
+		description: "lane number",
+	})
+	.action(async (opts, ctx) => {
+		const change = { queued: true };
+		await ctx.journal.record(
+			"lane update",
+			null,
+			() => laneUpdate(ctx, opts.lane, change),
+			(record) => laneUpdated(opts.lane, record, change),
+		);
+	});
+
+splatesLane
+	.command("unqueue")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"stop queueing a lane whole, taking out of the queue each of its tasks that has yet to start; those under way go on",
+	)
+	.arg("lane", z.coerce.number().int().positive(), {
+		description: "lane number",
+	})
+	.action(async (opts, ctx) => {
+		const change = { queued: false };
 		await ctx.journal.record(
 			"lane update",
 			null,

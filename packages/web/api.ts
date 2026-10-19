@@ -194,6 +194,14 @@ export async function moveLane(id: number, position: number): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { position });
 }
 
+/**
+ * Queues lane `id` whole, each of its todos as nothing blocks it, or stops,
+ * unqueueing those yet to start.
+ */
+export async function queueLane(id: number, queued: boolean): Promise<void> {
+	await sendJson(`/api/lanes/${id}`, "PUT", { queued });
+}
+
 /** Removes lane `id`, putting its todos back with the untriaged ones. */
 export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });

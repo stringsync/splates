@@ -67,6 +67,19 @@ export async function serveProject(
 	if (conversations !== null) {
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
+			lanes: async () => {
+				const queued = await project.tasks.queueFromLanes();
+				if (queued.length > 0) {
+					await journal.record(
+						"queue add",
+						null,
+						async () => queued,
+						(tasks) => ({
+							tasks: tasks.map(({ id, subject }) => ({ id, subject })),
+						}),
+					);
+				}
+			},
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			room: () => context.workerRoom(),
 			want: (waiting) =>

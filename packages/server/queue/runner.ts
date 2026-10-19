@@ -45,6 +45,9 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
  * that names none. As many go at once as there is room, so none waits for a
  * slot with its worktree made.
  *
+ * A lane the person queued whole has each of its tasks queued as soon as
+ * nothing blocks it, first thing in each check, until no task is left in it.
+ *
  * Checked as tasks change, as workers' slots free, and every `QUEUE_SWEEP`.
  * A queued task whose start was refused is not tried again until it changes,
  * the person asks (`retry`), or the server restarts, so a broken one never
@@ -102,6 +105,7 @@ export class QueueRunner implements Resource {
 	}
 
 	async #check(): Promise<void> {
+		await this.deps.lanes?.();
 		const all = await this.deps.queued();
 		for (const [id, { was }] of this.#refused) {
 			const now = all.find((queued) => queued.id === id);
@@ -298,6 +302,11 @@ function refusal(error: unknown): string {
 export interface QueueRunnerDeps {
 	/** Every task on the list, queued or not. */
 	queued: () => Promise<TaskRecord[]>;
+	/**
+	 * Queues each task of a lane queued whole that can start now, before
+	 * each check reads the list; absent, no lane is queued whole.
+	 */
+	lanes?: () => Promise<unknown>;
 	/** The name of every task out, so a new one takes another. */
 	tasks: () => Promise<string[]>;
 	/** How many more agents the workers could start now without waiting. */

@@ -71,6 +71,8 @@ export async function queueAdd(
 			await tasks.revise(task.id, (state) => ({ ...state, stage: "queued" })),
 		);
 	}
+	// Queued again by hand, a queued lane counts it in once more.
+	await tasks.skipInLanes(ids, false);
 	log.info(
 		queued
 			.map(
@@ -83,7 +85,8 @@ export async function queueAdd(
 
 /**
  * Takes tasks `ids` out of the queue, back to `ready` when a model is named
- * for them, else `backlog`. Refuses one not in it.
+ * for them, else `backlog`, and out of their lane's when it is queued whole,
+ * until they are queued again. Refuses one not in it.
  */
 export async function queueRemove(
 	{ tasks, log }: QueueDeps,
@@ -106,6 +109,8 @@ export async function queueRemove(
 			await tasks.revise(task.id, (state) => ({ ...state, stage: "backlog" })),
 		);
 	}
+	// So a queued lane does not queue it straight back.
+	await tasks.skipInLanes(ids, true);
 	log.info(
 		removed
 			.map(
