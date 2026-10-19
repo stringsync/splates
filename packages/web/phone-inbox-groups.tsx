@@ -1,6 +1,6 @@
 import type { Needing } from "@stringsync/splates-server/plans";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
-import { Fragment, type JSX, type ReactNode } from "react";
+import { Fragment, type JSX, type ReactNode, use } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -9,7 +9,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { openedBy } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
+import { Lanes } from "./conversation-names";
 import { hostsAtWork } from "./conversation-rows";
+import { byLane } from "./lane-groups";
 import type { Nested } from "./parts";
 import { Row } from "./phone-inbox-row";
 import { InLanes } from "./project-folder-list";
@@ -27,6 +29,16 @@ export interface Item {
 }
 
 /**
+ * How to gather a list's rows at work on one lane's tasks under the lane's
+ * title: each task's lane, as `lanesTaken` reads the queue, and what the
+ * title does.
+ */
+export interface LaneGrouping {
+	taken: Readonly<Record<string, number>>;
+	onLane: (lane: number) => void;
+}
+
+/**
  * A heading and its rows, each agent's subagents under it, and what
  * `beneath` puts under each, or nothing when it has none. The count is of the
  * agents at the top. `named` has each row say which project it is in.
@@ -37,6 +49,7 @@ export function Group({
 	agents,
 	urgent = false,
 	named = false,
+	lanes,
 	beneath,
 	onOpen,
 }: {
@@ -45,6 +58,8 @@ export function Group({
 	items: Item[];
 	urgent?: boolean;
 	named?: boolean;
+	/** Gathers the rows at work on a lane's tasks under its title; none without it. */
+	lanes?: LaneGrouping;
 	/** The rows under an agent's, a level deeper than `depth`, its own. */
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
@@ -66,6 +81,7 @@ export function Group({
 				items={items}
 				agents={agents}
 				named={named}
+				lanes={lanes}
 				beneath={beneath}
 				onOpen={onOpen}
 			/>
@@ -76,7 +92,8 @@ export function Group({
 /**
  * A project's folder: its name, a dot while folded with an agent of its
  * waiting, and a + to start a conversation in it, then its persistent
- * agents, set apart by a rule, then its agents at work and the rest. Another project's rows have no menu.
+ * agents, set apart by a rule, then its agents at work and the rest, those
+ * on one lane's tasks under the lane's title. Another project's rows have no menu.
  */
 export function FolderSection({
 	folder,
@@ -84,6 +101,7 @@ export function FolderSection({
 	onFold,
 	onNew,
 	agents,
+	lanes,
 	beneath,
 	onOpen,
 }: {
@@ -93,6 +111,7 @@ export function FolderSection({
 	/** Null while no conversation can start. */
 	onNew: (() => void) | null;
 	agents: AgentChoice[];
+	lanes: LaneGrouping;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): JSX.Element {
@@ -154,6 +173,7 @@ export function FolderSection({
 						items={items}
 						agents={agents}
 						named={false}
+						lanes={lanes}
 						beneath={folder.here ? beneath : () => []}
 						onOpen={onOpen}
 					/>
@@ -163,17 +183,22 @@ export function FolderSection({
 	);
 }
 
-/** The rows of `items`, each tree's subagents under it. */
+/**
+ * The rows of `items`, each tree's subagents under it, those at work on one
+ * lane's tasks together under the lane's title when `lanes` is given.
+ */
 function Lines({
 	items,
 	agents,
 	named,
+	lanes,
 	beneath,
 	onOpen,
 }: {
 	items: Item[];
 	agents: AgentChoice[];
 	named: boolean;
+	lanes?: LaneGrouping;
 	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing, folder: Folder | null) => void;
 }): ReactNode {
@@ -191,41 +216,90 @@ function Lines({
 			{ row, depth },
 			...lines(parts, depth + 1),
 		]);
+	const line = ({ tree, folder }: Item) => (
+		<InFolder
+			key={`${folder?.project ?? ""} ${openedBy(tree.row)}`}
+			folder={folder}
+		>
+			<ul>
+				{lines([tree], 0).map(({ row, depth }) => (
+					<Fragment key={openedBy(row)}>
+						<li>
+							<Row
+								row={row}
+								depth={depth}
+								agent={
+									row.conversation === null
+										? null
+										: agentName(agents, row.conversation.agent)
+								}
+								hosting={
+									row.conversation !== null && hosting.has(row.conversation.id)
+								}
+								project={named && folder !== null ? folder.name : null}
+								foreign={folder !== null && !folder.here}
+								onOpen={() => onOpen(row, folder)}
+							/>
+						</li>
+						{folder === null || folder.here ? beneath(row, depth + 1) : []}
+					</Fragment>
+				))}
+			</ul>
+		</InFolder>
+	);
+	if (lanes === undefined) {
+		return items.map(line);
+	}
+	const itemOf = new Map(items.map((item) => [item.tree, item]));
+	return byLane(
+		items.map((item) => item.tree),
+		lanes.taken,
+	).map(({ lane, trees }) => {
+		const gathered = trees.flatMap((tree) => itemOf.get(tree) ?? []);
+		if (lane === null) {
+			return gathered.map(line);
+		}
+		const folder = gathered[0]?.folder ?? null;
+		return (
+			<InFolder key={`${folder?.project ?? ""} lane:${lane}`} folder={folder}>
+				<LaneBlock lane={lane} onLane={lanes.onLane}>
+					{gathered.map(line)}
+				</LaneBlock>
+			</InFolder>
+		);
+	});
+}
+
+/**
+ * The rows at work on lane `lane`'s tasks under its title, which opens the
+ * lane on the board, named as the `Lanes` around it name it.
+ */
+function LaneBlock({
+	lane,
+	onLane,
+	children,
+}: {
+	lane: number;
+	onLane: (lane: number) => void;
+	children: ReactNode;
+}): JSX.Element {
+	const name =
+		use(Lanes).find((each) => each.id === lane)?.name ?? `Lane ${lane}`;
 	return (
-		<>
-			{items.map(({ tree, folder }) => (
-				<InFolder
-					key={`${folder?.project ?? ""} ${openedBy(tree.row)}`}
-					folder={folder}
-				>
-					<ul>
-						{lines([tree], 0).map(({ row, depth }) => (
-							<Fragment key={openedBy(row)}>
-								<li>
-									<Row
-										row={row}
-										depth={depth}
-										agent={
-											row.conversation === null
-												? null
-												: agentName(agents, row.conversation.agent)
-										}
-										hosting={
-											row.conversation !== null &&
-											hosting.has(row.conversation.id)
-										}
-										project={named && folder !== null ? folder.name : null}
-										foreign={folder !== null && !folder.here}
-										onOpen={() => onOpen(row, folder)}
-									/>
-								</li>
-								{folder === null || folder.here ? beneath(row, depth + 1) : []}
-							</Fragment>
-						))}
-					</ul>
-				</InFolder>
-			))}
-		</>
+		<section
+			aria-label={`${name} lane`}
+			className="my-1 ml-2 border-primary/50 border-l-2"
+		>
+			<button
+				type="button"
+				onClick={() => onLane(lane)}
+				title={`Open ${name} on the board`}
+				className="flex min-h-9 w-full min-w-0 items-center px-3 text-left font-medium text-foreground/80 text-xs active:bg-muted"
+			>
+				<span className="min-w-0 truncate">{name}</span>
+			</button>
+			{children}
+		</section>
 	);
 }
 

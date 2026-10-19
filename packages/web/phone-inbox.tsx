@@ -1,3 +1,7 @@
+import {
+	lanesTaken,
+	type TaskRecord,
+} from "@stringsync/splates-server/board/browser";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
@@ -26,7 +30,11 @@ import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
 import { NavigationContext } from "./navigation";
-import { newConversationUrl, useOpenNew } from "./new-conversation-project";
+import {
+	laneUrl,
+	newConversationUrl,
+	useOpenNew,
+} from "./new-conversation-project";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { FolderSection, Group } from "./phone-inbox-groups";
@@ -47,7 +55,9 @@ import { BarButton, TopBar } from "./top-bar";
  * on you come first, then those at work, then the rest, newest first in each,
  * each row a finger's height saying what it waits on. The agents one handed
  * out, its subagents and parts, sit under it, in its group, since they answer
- * to it rather than to you. A tap on one waiting goes straight to what it
+ * to it rather than to you. Those at work on one lane's tasks sit together
+ * under the lane's title, as in the sidebar, which opens the lane on the
+ * board. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
  * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen, like the composer
  * along the bottom, starts a new conversation. Under each conversation, as in
@@ -72,17 +82,21 @@ export function Inbox({
 	drafts,
 	terminals,
 	tasks,
+	todos,
 	here,
 	status,
 	loading,
 	onMenu,
 	onOpen,
+	onLane,
 }: {
 	feed: ConversationFeed;
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
+	/** The page's project's queued tasks, to read which lane each task at work is on. */
+	todos: TaskRecord[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
 	here: { root: string; repo: string; trunk: string | null } | null;
 	/** Whether the server is offline or outdated, shown in the header. */
@@ -92,6 +106,8 @@ export function Inbox({
 	/** Opens the phone's drawer; null beside a sidebar. */
 	onMenu: (() => void) | null;
 	onOpen: (id: string) => void;
+	/** Opens the page's project's board on lane `id`. */
+	onLane: (id: number) => void;
 }): JSX.Element {
 	const { agents, conversations, pending, available } = useReactive(
 		feed,
@@ -149,6 +165,15 @@ export function Inbox({
 		}
 		onOpen(openedBy(row));
 	};
+	const taken = lanesTaken(todos);
+	const lanesHere = { taken, onLane };
+	const lanesOf = (folder: Folder) => ({
+		taken: folder.lanesTaken ?? taken,
+		onLane: (lane: number) =>
+			folder.here || folder.project === null
+				? onLane(lane)
+				: navigation.show(laneUrl(folder.project, lane)),
+	});
 	const startIn = (folder: Folder) => {
 		if (folder.here || folder.project === null) {
 			onOpen(NEW);
@@ -239,6 +264,7 @@ export function Inbox({
 									}))}
 									agents={agents}
 									urgent={title === "Needs you"}
+									lanes={title === "Needs you" ? undefined : lanesHere}
 									beneath={beneath}
 									onOpen={open}
 								/>
@@ -262,6 +288,7 @@ export function Inbox({
 										onFold={(open) => fold(folderKey(folder), open)}
 										onNew={available ? () => startIn(folder) : null}
 										agents={agents}
+										lanes={lanesOf(folder)}
 										beneath={beneath}
 										onOpen={open}
 									/>

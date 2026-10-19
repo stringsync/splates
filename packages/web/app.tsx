@@ -457,6 +457,7 @@ export function App({
 																					page={page}
 																					open={open}
 																					go={go}
+																					openLane={openLane}
 																					header={header}
 																					offline={offline}
 																					body={
