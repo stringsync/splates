@@ -335,7 +335,7 @@ function ActionItem({ action }: { action: Action }): JSX.Element {
  * Removes the task as `splates remove` does, asking first while an agent works
  * on it (a conversation here mid-turn, which stops and carries on in the main
  * tree, or an external agent holding its lease, which the page cannot stop) or
- * while it has commits its base lacks, which go with its branch: the action,
+ * while it has commits its base lacks or uncommitted changes, which go with its branch: the action,
  * and the dialog that asks, with what went wrong under it.
  */
 function useRemove(task: Details): { action: Action; asking: ReactNode } {
@@ -368,7 +368,9 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 			disabled: removing,
 			destructive: true,
 			run: () =>
-				working > 0 || external || ahead > 0 ? setAsking(true) : go(),
+				working > 0 || external || ahead > 0 || task.unmerged
+					? setAsking(true)
+					: go(),
 		},
 		asking: (
 			<>
@@ -385,7 +387,11 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 										: ""}
 								{ahead > 0
 									? `Its ${ahead} commit${ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
-									: "Its worktree, branch and uncommitted changes are discarded."}
+									: task.ahead === 0 && task.unmerged
+										? "It has uncommitted changes, which are discarded with its worktree and branch."
+										: task.unmerged
+											? "It may have unmerged changes, which are discarded with its worktree, branch and any uncommitted changes."
+											: "Its worktree, branch and uncommitted changes are discarded."}
 							</DialogDescription>
 						</DialogHeader>
 						<DialogFooter>

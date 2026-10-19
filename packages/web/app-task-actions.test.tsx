@@ -94,7 +94,9 @@ describe("App's task dialog on a phone", () => {
 	});
 
 	it("hides a removed task at once, and brings it back saying why when refused", async () => {
-		const { view } = await openTask(details({ task: "alpha", ahead: 0 }));
+		const { view } = await openTask(
+			details({ task: "alpha", ahead: 0, unmerged: false }),
+		);
 		testing.holdWrites();
 
 		await act(async () =>

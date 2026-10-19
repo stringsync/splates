@@ -257,7 +257,7 @@ see the header
 			conversations: [conversation({ id: "c1", task: "beta", status: "idle" })],
 		};
 		const view = await testing.openTasks({
-			tasks: [{ ...asking, ahead: 0 }],
+			tasks: [{ ...asking, ahead: 0, unmerged: false }],
 		});
 		const dialog = await openBeta(view);
 
@@ -269,6 +269,25 @@ see the header
 			]),
 		);
 		expect(view.queryByRole("heading", { name: "Remove beta?" })).toBeNull();
+	});
+
+	it("asks before removing a task with only uncommitted changes", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [conversation({ id: "c1", task: "beta", status: "idle" })],
+		};
+		const view = await testing.openTasks({
+			tasks: [{ ...asking, ahead: 0, unmerged: true }],
+		});
+		const dialog = await openBeta(view);
+
+		await chooseRemove(view, dialog);
+
+		await view.findByRole("heading", { name: "Remove beta?" });
+		expect(testing.posts).toEqual([]);
+		expect(
+			view.getByText(/It has uncommitted changes, which are discarded/),
+		).toBeTruthy();
 	});
 
 	it("asks before removing a task an agent here works on, and removes it only once told to", async () => {
