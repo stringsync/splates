@@ -39,12 +39,12 @@ asks you to read it as Reference files says.
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | [todos.md](references/todos.md), Deferring |
 | `[SPLATES LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
-| `[SPLATES LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
+| `[SPLATES LANE N]` | Plan lane N as its orchestrator, then set it running | [lanes.md](references/lanes.md) |
 | `[SPLATES REPORT <task>]` | A task you handed on with `--relay`, or to another project, stopped: escalated, merged or removed | [handoff.md](references/handoff.md); for another project's, [lanes.md](references/lanes.md) |
-| `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate left the list: merged or removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate | [lanes.md](references/lanes.md) |
-| `[SPLATES IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
+| `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate, paused by the user, left the list: merged or removed | [lanes.md](references/lanes.md) |
+| `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate, paused by the user, is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
+| `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
+| `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[SPLATES STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
 | `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
 | `[SPLATES HEARTBEAT]` | Check on the task you handed on with `--relay` and say where it stands | [handoff.md](references/handoff.md) |
@@ -161,9 +161,9 @@ never its lease: `stale` is normal for one mid-edit.
 ## Working the untriaged lane
 
 `[SPLATES LANE untriaged]` makes you the orchestrator of the todos in no lane.
-You place them in lanes first, then work those lanes as
+You place them in lanes first, then plan those lanes as
 [references/lanes.md](references/lanes.md) says (read it before step 3, and
-for Relaying and the lane reports):
+for the lane reports):
 
 1. `splates lane show untriaged` lists them. For each open one, read `splates
    todo show <id>`, `splates lane list`, and `splates list --files` for the
@@ -173,16 +173,16 @@ for Relaying and the lane reports):
    Todos that touch the same files go in one lane, in the order they should
    land, so their agents never fight over rebases.
 2. Link what blocks each: `splates todo update <id> --blocked-by <id>` when it
-   needs another todo's code or data merged first, in any lane, never for
-   priority. When two todos ask for opposite things, or one undoes a task
+   needs another todo's code or data merged first, or would change the same
+   files, in any lane, never for priority. When two todos ask for opposite things, or one undoes a task
    under way, leave them untriaged and ask the user which wins, as numbered
    questions in your reply, placing the rest meanwhile.
-3. Say in a line where each went, then work down each lane you placed one in
-   that no agent is on, as if sent `[SPLATES LANE N]` for it. Leave a lane
-   another agent is on to that agent.
-4. Each time you go back to step 1 of a lane, `splates lane show untriaged`
-   again, and place any todo added since the same way. Once nothing is left
-   to place and every lane you work is done, end on a finished report.
+3. Say in a line where each went, then plan and run each lane you placed one
+   in that no agent is on, as if sent `[SPLATES LANE N]` for it. Leave a
+   lane another agent is on to that agent.
+4. Each time splates wakes you, `splates lane show untriaged` again, and
+   place any todo added since the same way. Once nothing is left to place
+   and every lane you work is done, end on a finished report.
 
 ## Todos
 

@@ -13,9 +13,9 @@ this project:
   saying in its detail why your project needs it. Leave `--lane` off:
   whoever orchestrates that project places it.
 - **tasks**: hand it a task, `splates --project <slug> add <task> --goal
-  "<...>" --agent <id> --model <m>`, and orchestrate it as
+  "<...>" --agent <id> --model <m>`, and follow it as
   [lanes.md](lanes.md) says for a task you handed
-  out. Its directives name it `<slug>/<task>`; run each command on it with
+  to another project. Its directives name it `<slug>/<task>`; run each command on it with
   `--project <slug>`: `show`, `tell`, `wait`, `remove`.
 
 You never take a task in another project yourself: you do not `add` one

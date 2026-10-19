@@ -1,12 +1,12 @@
 import { STARTS } from "./checks";
 import { SEEDED } from "./fixture";
 import {
+	ADDED,
 	IDLE,
 	LANE,
 	NO_DEV,
 	PARALLEL,
 	PIVOT_LANE,
-	REPORT,
 	SAME_FILES,
 	UNTRIAGED,
 } from "./lanes";
@@ -116,7 +116,7 @@ export const SCENARIOS: readonly Scenario[] = [
 	LANE,
 	PARALLEL,
 	SAME_FILES,
-	REPORT,
+	ADDED,
 	IDLE,
 	PIVOT_LANE,
 	NO_DEV,

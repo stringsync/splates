@@ -8,19 +8,21 @@ number, which commands and the prompt use, and a name, which says what its
 todos are for: `splates lane show N` prints them.
 
 `[SPLATES LANE N]`, copied from the `splates server` page, makes you lane N's
-orchestrator, and your job is to burn it down: every todo in it landed, as
-soon as the order of their code allows. You do none of its todos yourself:
-you hand each to an agent of its own, every one that can go at once, on the
-model it names, and keep them moving. Each agent is the user's, not yours:
-it works its todo as a task of its own (see Workflow), answers to the user,
-asks them its questions, and merges itself. You never relay for it, and it
-never reports to you. What you do is see the plan through: what can run in
-parallel, what blocks what, and which tasks out would conflict. Each lane
-you are sent adds more to it. The lane is splates's, not the prompt's, so
-read it from splates each time.
+orchestrator, and your job is to plan it: `splates server` runs it. You do none
+of its todos and hand none out yourself. You make the lane say what can go
+at once and what must wait, name the model each todo goes to, set it
+running with `splates lane run N`, and end your turn. From then on `splates
+server` starts each todo that no open todo blocks, as a task of its own on
+the agent and model it names, as many at once as `agentsPerLane` in
+`splates.config.ts` allows, and the next as each lands. Each agent is the
+user's, not yours: it works its todo as a task of its own (see Workflow),
+answers to the user, asks them its questions, and merges itself. You never
+relay for it, and it never reports to you. Each lane you are sent adds more
+to plan. The lane is splates's, not the prompt's, so read it from splates
+each time.
 
-Once you have first read the lanes you were sent, before handing anything
-out, say so in a message of its own, which the `splates server` page shows as a
+Once you have first read the lanes you were sent, before setting any
+running, say so in a message of its own, which the `splates server` page shows as a
 card, and beside the thread until your finished report: a `## 🌱 Started lanes` title with the
 lanes' names as the board shows them, a blank line, and one or two lines on
 what they add up to. A lane you are sent later gets a Started card of its
@@ -38,113 +40,93 @@ stands, and those landed. So you change the plan by changing the lanes:
 `splates todo update <id> --position <n>`, `--blocked-by <id>` or `--lane
 <n>` (see [references/todos.md](todos.md)), never by writing it out.
 
-## Handing out
+## Planning a lane
 
-A lane can also run on its own: `splates lane run N` has `splates server`
-start each of its todos that no open todo blocks, on the agent and model it
-names, as many at once as `agentsPerLane` allows, and the next as each lands;
-`splates lane pause N` stops it. Its order alone holds nothing back, so link
-every todo that needs another's code, or would change the same files, with
-`--blocked-by` first. `splates lane show N` says it is running and which
-todos name no agent. Hand out nothing yourself in a running lane: link,
-name models, and let it go.
+A running lane holds back only what is linked: its order alone holds
+nothing back, so a todo no open todo blocks starts at once, beside
+everything else that can. The plan is the links, and you make them before
+the lane runs.
 
-1. `splates lane show N` prints the steps and who is on each. When it says the
-   lane is done or gone, done by your agents or by ones you never started,
-   say so in your next report. Once every lane you work is, end on a
-   finished report (see Reporting on lanes), so the `splates server` page shows
-   you as done.
-2. Check each todo a task has taken, with `splates show <task>`, as for
-   `[SPLATES IDLE <task>]` below: an agent that sits idle with nothing
-   waiting on the user gets told to carry on. Do this when you start and
-   when you resume; after that, splates tells you of each change.
-3. Hand out every todo no task has taken that can go now. One has to wait
-   when `splates todo show` links it `--blocked-by` an open todo, in any lane,
-   when its detail says it needs the code of one still out, or when it
-   would change the same files as a task out (`splates list --files`), which
-   would cost both a hard rebase. A lane's todos build on each other, so
-   read each one's detail for what it needs, not only its links. When you
-   find such a need that no link says, link it, so the plan shows it.
-4. To hand one out, `splates todo show <id>` names its agent, model and any
-   thinking level; when it names none, pick one as for a todo you add (see
-   Todos). Then
-   `splates add <task> --todo <id> --agent <a> --model <m> --prompt
-   '<what>'`, with `--effort <level>` when the todo names one, where `<what>` holds
-   what the todo's detail does not and the lane taught you: names chosen,
-   files moved, answers the user gave, what the tasks out beside it are
-   changing. `splates server` starts the agent, nested under you on the page.
-   When `add` stops on `agents_full`, you have as many agents out as
-   `agentsPerAgent` in `splates.config.ts` allows one agent: hand out nothing
-   more, and
-   say in your working report what waits for room, since each todo that
-   lands frees one. Pass `--over-capacity` only when the user asked, in so
-   many words, for more agents at once than that; a lane's size or urgency
-   is never their consent.
-5. Once nothing more can go out, end your turn on a working report (see
-   Reporting on lanes). Never wait, sleep or poll for your agents: splates
-   wakes you with a directive whenever a todo in your lanes is done or open
-   again, and only then do you act.
+1. `splates lane show N` prints the steps, who is on each, whether it runs,
+   and which todos name no agent. When it says the lane is done or gone,
+   done by agents of the lane or by ones it never started, say so in your
+   next report. Once every lane you work is, end on a finished report (see
+   Reporting on lanes), so the `splates server` page shows you as done.
+2. Read each open todo with `splates todo show <id>`, and `splates list
+   --files` for the tasks under way. Link a todo `--blocked-by` another,
+   in any lane, whenever it must wait for it:
+   - **A real order:** it needs the other's code or data, whether a link,
+     its detail or what it changes says so. A lane's todos build on each
+     other, so read each one's detail for what it needs, not only its links.
+   - **The same files:** it would change files the other changes, or a task
+     out changes, which would cost both a hard rebase. Link the later one
+     in the lane's order by the earlier, and one that waits on a task out
+     by the todo that task took.
 
-A task you handed out in another project comes back named `<slug>/<task>`:
-run each command below on it as `splates --project <slug> <command> <task>`.
+   Never link for priority, which is the position's job. When two todos ask
+   for opposite things, ask the user which wins, as numbered questions in
+   your report, and link the one waiting on the answer by the other
+   meanwhile.
+3. Name the agent and model of each todo that names none, picked as for a
+   todo you add (see Todos): `splates todo update <id> --agent <a> --model
+   <m>`, with `--effort <level>` when it needs a thinking level other than
+   the agent's own. The lane starts no todo that names no agent.
+4. Add to a todo's detail what it does not say and the lane taught you:
+   names chosen, files moved, answers the user gave, what the tasks out
+   beside it are changing. `splates todo update <id> '<detail>'` replaces
+   the whole detail, so pass all of it.
+5. `splates lane run N`, unless it already runs. A task out already is
+   left to its agent: splates tells it to carry on should it sit idle.
+6. End your turn on a working report (see Reporting on lanes). Never wait,
+   sleep or poll for the lane's agents, and never hand one of its todos
+   out yourself, even when it waits on room: each that lands frees one,
+   and splates wakes you only for what needs you.
 
 ## What wakes you
 
-Your agents never report to you: splates watches the todos in your lanes and
-tells you what became of each, however it came about, by your agent, another
-conversation or an external one. Each arrives as a message from the user
-would, once per change.
+The lane's agents never report to you, and what lands needs nothing from
+you: the lane starts what it held back. splates wakes you, as a message
+from the user would, once per change, only for what needs a plan.
 
-`[SPLATES TODO DONE #N]` means todo N left the list: its task merged, or it
-was removed. Read in `git log` what landed, then go back to step 1 of
-Handing out for its lane: what it held back may go out now, and what landed
-may change what the rest need, which you pass on in their `--prompt`, or to
-one out with `splates tell`.
-
-`[SPLATES TODO OPEN #N]` means todo N is open again: the task that took it
-released it or was removed. Go back to step 1 of Handing out for its lane,
-which hands it out again once it can go; `splates todo show N` says what the
-last task learned.
-
-A running lane, one `splates lane run` set going, starts its todos itself,
-so neither of those comes for it. `[SPLATES TODO ADDED #N]` comes instead,
-as todo N comes into it: read `splates todo show N`, and link what it
-needs or what needs it (see [todos.md](todos.md)), so the lane starts it in
-its turn.
-
-A task that escalates wakes you for nothing: it waits on the user, who
-answers it in its own conversation, and what needs it waits too.
-
-A task you handed to another project holds no todo in your lanes, so its
-agent reports instead: `[SPLATES REPORT <slug>/<task>]` means it stopped,
-escalated, merged or removed. Read `splates --project <slug> show <task>`,
-once per stop, and when it is gone, go back to step 1 of Handing out as for
-a todo done.
+`[SPLATES TODO ADDED #N]` means todo N came into a running lane you work,
+added there or moved in. Read `splates todo show N`, then plan it as steps
+2 to 4 of Planning a lane say: link what it needs and what needs it, and
+name its model, so the lane starts it in its turn.
 
 In a running lane, splates tells an agent that goes idle to carry on
-itself, once; `[SPLATES IDLE <task>]` comes only once it stops again, its
-todo marked stuck on the board, so skip straight to asking the user what
-becomes of it, as below.
-
-`[SPLATES IDLE <task>]` means the agent you handed `<task>` out to ended a
-turn, failed, or was stopped by a restart, without escalating, merging or
-removing it, and the user has not taken it in hand since: nothing more will
-come unless you act. Read `splates show <task>`. When it is gone, treat it as
-a report of its landing or removal. Otherwise `splates tell <task>` it to
-carry on as the splates skill says, ending in `splates escalate`, `splates merge`
-or `splates remove`, which wakes it. The second time a task comes back idle
-with nothing changed, stop telling it, and ask the user in your next report
-what becomes of it:
+itself, once. `[SPLATES IDLE <task>]` comes only once it stops again, its
+todo marked stuck on the board, without escalating, merging or removing
+its task, and the user has not taken it in hand since. Read `splates show
+<task>`. When it is gone, it landed or was removed: nothing more to do.
+Otherwise, when its agent stopped on something the plan can fix, such as
+work a todo out beside it has yet to land, fix the links and `splates
+tell` it what changed. Failing that, ask the user in your next report what
+becomes of it:
 
 ```markdown
 1. What should become of <task>, which keeps stopping on <what>?
-   - (a) Hand it to another model: remove the task and hand its todo out again (chosen)
+   - (a) Hand it to another model: remove the task and name another on its todo (chosen)
    - (b) Leave it for you to take up in its conversation
    - (c) Remove the task and leave its todo for later
 ```
 
+A task that escalates wakes you for nothing: it waits on the user, who
+answers it in its own conversation, and what it blocks waits too.
+
+`[SPLATES TODO DONE #N]` and `[SPLATES TODO OPEN #N]` come only for a lane
+that does not run, which the user paused: todo N left the list, or its task
+let it go. Read `splates lane show N`, and while it still does not run,
+leave it as they left it, starting nothing, and say in your next report
+that it is paused.
+
+A task you handed to another project holds no todo in your lanes, so its
+agent reports instead: `[SPLATES REPORT <slug>/<task>]` means it stopped,
+escalated, merged or removed. Read `splates --project <slug> show <task>`,
+once per stop, running each command on it as `splates --project <slug>
+<command> <task>`; when it is gone, link nothing to it any more.
+
 `[SPLATES LANES DONE]` means no lane you work is left on the board: its
-last todo landed, by your agent, another conversation or an external one,
+last todo landed, by an agent of the lane, another conversation or an external one,
 while your last report still said it was under way. Read `splates lane list`
 and `splates list` to be sure, then end on your finished report (see Reporting
 on lanes), so the page shows you as done.
@@ -159,32 +141,39 @@ The user may tell you to change course on a lane or several: drop a todo,
 take another approach, undo what landed. You know the body of work, so act
 on it with what fits:
 
+- `splates lane pause N` stops a lane starting more while you change its
+  plan, and `splates lane run N` sets it going again once its links say
+  what is next.
 - `splates tell <task> --stop '<what changed>'` stops an agent's turn and
   tells it the new plan, as the user would.
 - `splates remove <task> --reason <why>`, run once its agent is stopped,
-  drops a task, putting its todo back; `splates todo remove <id>` drops the
-  todo too.
-- Work that already merged comes back out with a revert: hand it out as a
-  task of its own, as for any todo, or, when it reverts cleanly, revert it
-  yourself in a task you add with no `--agent`.
+  drops a task, putting its todo back, which a running lane starts again;
+  `splates todo remove <id>` drops the todo too.
+- Work that already merged comes back out with a revert: add it as a todo
+  in the lane, planned as any other.
 
 Then update the lanes so the plan says what is next, and end on a working
 report.
 
-`splates server` starts the agents you name, and sets `$SPLATES_CONVERSATION` in
-yours; without it, nothing will start one. Hand each todo to a subagent of
-your own harness on the model it names instead, told to `splates claim
-<task>` and work it as the skill says, or, when your harness cannot run
-that model, work it yourself, saying so as for any todo that names another
-model. A subagent of your harness answers to you, so its questions come
-back to you: ask the user them in your report, and send their answers back
-in a message to it. Nothing wakes you for it, so `splates wait <task>` on it
-in place of its report, and stop it once its task is gone.
+## Without splates server
 
-Before a finished report, read `splates list` for any task you handed out
+`splates server` runs a lane and starts the agents a todo names, and sets
+`$SPLATES_CONVERSATION` in yours; without it, nothing will start one, and
+`splates lane run` sets going nothing. Plan the lane as above, then land it
+through subagents of your own harness: hand each todo no open todo blocks
+to one, on the model it names, with `splates add <task> --todo <id>` and no
+`--agent`, told to `splates claim <task>` and work it as the skill says.
+When your harness cannot run that model, work it yourself, saying so as
+for any todo that names another model. A subagent of your harness answers
+to you, so its questions come back to you: ask the user them in your
+report, and send their answers back in a message to it. Nothing wakes you
+for it, so `splates wait <task>` on it in place of its report, stop it once
+its task is gone, and hand out what that landing unblocked.
+
+Before a finished report, read `splates list` for any task of your lanes
 still there, and see it to its end, or ask the user what becomes of it.
 
-Never hand out a todo from a lane you were not sent.
+Never plan or run a lane you were not sent.
 
 ## Reporting on lanes
 
@@ -192,15 +181,15 @@ A lane orchestrator reports on its lanes in the reply that ends each turn:
 the user reads its agents' own questions in their conversations, so this
 says only where the plan stands.
 
-Whenever it ends a turn with a task it handed out still at work or waiting
-on the user, it ends on a working report: `## ⏳ Working lanes`, the names
-of the lanes it works, and after a colon, the tasks out, then a `####`
+Whenever it ends a turn with a lane it works not yet done, it ends on a
+working report: `## ⏳ Working lanes`, the names of the lanes it works,
+and after a colon, the tasks out, once the lane has started any, then a `####`
 line, one sentence on what landed since its last report and what lands
 next, and a `- ` line per lane on what it waits on, naming any task that
 waits on the user. The page shows each todo beside it, so say only what the
-plan does not: why something waits, a conflict you held back, a change of
-course. Say nothing before it in the turn, neither what landed nor what
-went out.
+plan does not: why something waits, a conflict you held back, a lane the
+user paused, a change of course. Say nothing before it in the turn, neither
+what landed nor what went out.
 
 The models it picks, the lanes it names and the links it adds show on the
 board, so the report says none of them. Its own questions, such as what becomes of a task that keeps stopping, end it, as
@@ -209,7 +198,7 @@ an escalation ends with them.
 ```markdown
 ## ⏳ Working lanes Stats, Licensing: on stats-breakdowns-clear, licensing-renew
 
-#### #154 merged as stats-totals-first, so the breakdown tables went out.
+#### #154 merged as stats-totals-first, so the lane started the breakdown tables.
 
 - Stats: #160 waits on #155, out as stats-breakdowns-clear, which waits on you.
 - Licensing: #172 out as licensing-renew; #173 holds back, as it renames the same files.

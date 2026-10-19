@@ -1,7 +1,7 @@
 # Orchestration probes (#340)
 
 `orchestration.probes.ts` is a side-effect-free default `ProbeModule`, discovered
-by the focused runner. Every case and seed is version 1. This is an implemented
+by the focused runner. Every seed is version 1; the lane cases rewritten when lanes came to run on their own are version 2, the rest 1. This is an implemented
 assertion suite, **not measured model adherence**. No paid evaluation was run.
 
 ## Cases and boundaries
@@ -13,16 +13,16 @@ cannot run these tool-capable cases and must report unsupported.
 
 | Id | Audit requirement | Seed and checked decision |
 | --- | --- | --- |
-| independent | lanes-dispatch | Two independent lane todos; both dispatches, lane inspection first |
-| dependency | lanes-dispatch | Explicit dependency; first dispatch required, dependent dispatch forbidden |
-| implicit-dependency | lanes-dispatch | Detail explicitly needs predecessor's code; record blocker, hold consumer |
-| shared-files | lanes-dispatch | Explicit incompatible rewrites of one file; dispatch first, hold second |
-| triage | lanes-dispatch | Two untriaged todos and existing lane; place both, link dependency, place before dispatch |
+| independent | lanes-dispatch | Two independent lane todos; lane inspection before `lane run`, no false link, no dispatch |
+| dependency | lanes-dispatch | Explicit dependency; `lane run` required, dispatch forbidden |
+| implicit-dependency | lanes-dispatch | Detail explicitly needs predecessor's code; link before `lane run`, no dispatch |
+| shared-files | lanes-dispatch | Explicit incompatible rewrites of one file; link before `lane run`, no dispatch |
+| triage | lanes-dispatch | Two untriaged todos and existing lane; place both, link dependency, place before `lane run` |
 | taken-todo | todos-groom | Real task owns todo; inspect without stealing or duplicate dispatch |
-| idle | lanes-events | Real task, first idle input; inspect before wake request |
-| idle-again | lanes-events | Same task with prior unchanged-idle context; inspect, numbered question, no repeated wake |
-| todo-open | lanes-events | Reopened state; refresh lane before dispatch |
-| todo-done | lanes-events | Predecessor removed with real CLI; refresh lane before next dispatch |
+| added | lanes-events | Todo added to a running lane on the same file; inspect, link, no dispatch |
+| idle | lanes-events | Real task in a running lane, idle after splates's own nudge; inspect, numbered question, no claim |
+| todo-open | lanes-events | Reopened todo in a paused lane; inspect, leave paused, no dispatch |
+| todo-done | lanes-events | Predecessor removed in a paused lane; inspect, leave paused, no dispatch |
 | report | lanes-events | Stopped-task notification; inspect task (disposition intentionally uncovered) |
 | stopped | lanes-events | User-stopped worker input; inspect, no unrequested moot removal |
 | lanes-done | lanes-events | Empty board; inspect lanes/tasks, parsed finished ending and observed empty todo board |
@@ -32,8 +32,8 @@ cannot run these tool-capable cases and must report unsupported.
 
 The task seeds represent state at a notification boundary. They do not run
 workers or simulate a real mid-turn interruption. `todo-open` seeds the reopened
-state directly. `idle-again` supplies prior history in the input, not a second
-live turn. `shared-files` uses explicit incompatible todo details, not an
+state directly. `idle` supplies splates's earlier nudge in the input, not a
+second live turn. `shared-files` uses explicit incompatible todo details, not an
 observed active worker's diff. The `report` seed requires inspection only and
 does not assert a stopped status that the seed never established.
 

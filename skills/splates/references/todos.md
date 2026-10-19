@@ -52,9 +52,10 @@ priority, which is the position's job.
 ## Lanes
 
 A lane is a queue of todos that build on each other, landed top first by an
-orchestrator (see [references/lanes.md](lanes.md)), which hands out several at
-once when nothing holds them back: link a todo `--blocked-by` the one above it
-whenever it needs that one's code, even in the same lane. A lane has no model
+orchestrator (see [references/lanes.md](lanes.md)) that sets it running, which
+starts every todo nothing holds back at once: link a todo `--blocked-by` the
+one above it whenever it needs that one's code or changes its files, even in
+the same lane. A lane has no model
 of its own: each todo names its own. Placing a todo, read `splates lane
 list`, then:
 

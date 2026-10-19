@@ -112,8 +112,20 @@ const gap: Assertion = {
 	id: "capture-gap",
 	kind: "uncovered",
 	reason:
-		"Requires complete native command/read/write capture. Exact argv checks cover only the declared forms; generic ACP is unsupported. Worker dispatch is a disabled stand-in, not actual delegated execution or adherence.",
+		"Requires complete native command/read/write capture. Exact argv checks cover only the declared forms; generic ACP is unsupported. A running lane starts no disabled worker, so no probe observes a lane starting its todos.",
 };
+/** The cases rewritten when lanes came to run on their own, at version 2. */
+const PLANNED = new Set([
+	"independent",
+	"dependency",
+	"implicit-dependency",
+	"shared-files",
+	"triage",
+	"added",
+	"idle",
+	"todo-open",
+	"todo-done",
+]);
 function agent(
 	id: string,
 	requirement: string,
@@ -124,7 +136,7 @@ function agent(
 	return {
 		schema: 1,
 		id: `orchestration/${id}`,
-		version: "1",
+		version: PLANNED.has(id) ? "2" : "1",
 		aspect: "orchestration",
 		requirement: {
 			id: requirement,
@@ -138,7 +150,7 @@ function agent(
 			kind: input.startsWith("[SPLATES") ? "directive" : "message",
 			text: `${input}\n\nFixture boundary: fake is a disabled worker; do not execute workers. Use task names work-1/work-2 and dispatch prompt 'Use the todo detail.' for these fixtures. Stop at the first decision/report boundary, without implementing the todos.`,
 			origin:
-				/^\[SPLATES (IDLE|REPORT|STOPPED|TODO (DONE|OPEN)|LANES DONE)/.test(
+				/^\[SPLATES (IDLE|REPORT|STOPPED|TODO (DONE|OPEN|ADDED)|LANES DONE)/.test(
 					input,
 				)
 					? "cli"
@@ -152,21 +164,22 @@ function agent(
 		execution: { kind: "agent", skill: ".agents/skills/splates/SKILL.md" },
 	};
 }
+const run = ["lane", "run", "1"];
+const link = ["todo", "update", "2", "--blocked-by", "1"];
 const probes: Probe[] = [
 	agent("independent", "lanes-dispatch", "[SPLATES LANE 1]", board, [
-		required("dispatch-base", dispatch(1)),
-		required("dispatch-other", dispatch(2)),
-		before("inspect-before-dispatch", ["lane", "show", "1"], dispatch(1)),
+		required("run-lane", run),
+		before("inspect-before-run", ["lane", "show", "1"], run),
+		forbidden("no-false-link", link),
+		forbidden("no-dispatch-base", dispatch(1)),
+		forbidden("no-dispatch-other", dispatch(2)),
 	]),
 	agent(
 		"dependency",
 		"lanes-dispatch",
 		"[SPLATES LANE 1]",
-		[...board, ["todo", "update", "2", "--blocked-by", "1"]],
-		[
-			required("dispatch-base", dispatch(1)),
-			forbidden("hold-dependent", dispatch(2)),
-		],
+		[...board, link],
+		[required("run-lane", run), forbidden("no-dispatch-base", dispatch(1))],
 	),
 	agent(
 		"implicit-dependency",
@@ -183,8 +196,9 @@ const probes: Probe[] = [
 			),
 		],
 		[
-			required("link-dependency", ["todo", "update", "2", "--blocked-by", "1"]),
-			forbidden("hold-consumer", dispatch(2)),
+			required("link-dependency", link),
+			before("link-before-run", link, run),
+			forbidden("no-dispatch-consumer", dispatch(2)),
 		],
 	),
 	agent(
@@ -202,8 +216,9 @@ const probes: Probe[] = [
 			),
 		],
 		[
-			required("dispatch-first", dispatch(1)),
-			forbidden("hold-conflicting", dispatch(2)),
+			required("link-shared-files", link),
+			before("link-before-run", link, run),
+			forbidden("no-dispatch-first", dispatch(1)),
 		],
 	),
 	agent(
@@ -214,12 +229,8 @@ const probes: Probe[] = [
 		[
 			required("place-base", ["todo", "update", "1", "--lane", "1"]),
 			required("place-other", ["todo", "update", "2", "--lane", "1"]),
-			required("link", ["todo", "update", "2", "--blocked-by", "1"]),
-			before(
-				"triage-before-dispatch",
-				["todo", "update", "2", "--lane", "1"],
-				dispatch(1),
-			),
+			required("link", link),
+			before("triage-before-run", ["todo", "update", "2", "--lane", "1"], run),
 		],
 	),
 	agent(
@@ -234,23 +245,25 @@ const probes: Probe[] = [
 		],
 	),
 	agent(
-		"idle",
+		"added",
 		"lanes-events",
-		"[SPLATES IDLE work-1]\nThis is its first idle notification. Resume it with the message 'Continue to merge, remove or escalate.'",
-		[...board, ["add", "work-1", "--todo", "1"]],
+		"[SPLATES TODO ADDED #3]\nYou orchestrate Widgets, which runs. Todo 3 rewrites base.ts as Base does.",
 		[
-			before(
-				"inspect-before-wake",
-				["show", "work-1"],
-				["tell", "work-1", "Continue to merge, remove or escalate."],
-			),
+			...board,
+			run,
+			todo("Rewrite base", "Rewrite base.ts again.", "--lane", "1"),
+		],
+		[
+			required("inspect-added", ["todo", "show", "3"]),
+			required("link-added", ["todo", "update", "3", "--blocked-by", "1"]),
+			forbidden("no-dispatch-added", dispatch(3)),
 		],
 	),
 	agent(
-		"idle-again",
+		"idle",
 		"lanes-events",
-		"[SPLATES IDLE work-1]\nThis is the second unchanged idle notification after you already told it to continue. Ask the user what becomes of it; do not wake it again.",
-		[...board, ["add", "work-1", "--todo", "1"]],
+		"[SPLATES IDLE work-1]\nsplates already told it to carry on once, and nothing in the plan holds it back. Ask the user what becomes of it; do not wake it again.",
+		[...board, run, ["add", "work-1", "--todo", "1"]],
 		[
 			required("inspect-idle", ["show", "work-1"]),
 			{
@@ -260,26 +273,30 @@ const probes: Probe[] = [
 				field: ["questions", "0", "number"],
 				equals: "1",
 			},
-			forbidden("no-repeat-wake", [
-				"tell",
-				"work-1",
-				"Continue to merge, remove or escalate.",
-			]),
+			forbidden("no-claim", ["claim", "work-1"]),
 		],
 	),
 	agent(
 		"todo-open",
 		"lanes-events",
-		"[SPLATES TODO OPEN #1]\nYou orchestrate Widgets. Re-read the lane and hand out the ready work.",
+		"[SPLATES TODO OPEN #1]\nYou orchestrate Widgets, which the user paused.",
 		board,
-		[before("refresh-before-dispatch", ["lane", "show", "1"], dispatch(1))],
+		[
+			required("inspect-lane", ["lane", "show", "1"]),
+			forbidden("leave-paused", run),
+			forbidden("no-dispatch", dispatch(1)),
+		],
 	),
 	agent(
 		"todo-done",
 		"lanes-events",
-		"[SPLATES TODO DONE #1]\nYou orchestrate Widgets; Base was removed as moot. Refresh the lane before dispatching Other.",
+		"[SPLATES TODO DONE #1]\nYou orchestrate Widgets, which the user paused; Base was removed as moot.",
 		[...board, ["todo", "remove", "1"]],
-		[before("refresh-before-dispatch", ["lane", "show", "1"], dispatch(2))],
+		[
+			required("inspect-lane", ["lane", "show", "1"]),
+			forbidden("leave-paused", run),
+			forbidden("no-dispatch", dispatch(2)),
+		],
 	),
 	agent(
 		"report",
