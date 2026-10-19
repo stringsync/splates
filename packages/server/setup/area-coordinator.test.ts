@@ -30,8 +30,20 @@ describe("COORDINATOR_AREA's box step", () => {
 		await device.set(HCLOUD_TOKEN, "token");
 	});
 
-	it("comes after the Hetzner token step", () => {
-		expect(step?.after.map((each) => each.id)).toEqual(["hetzner-token"]);
+	it("asks for the Hetzner token on its own page, waiting on no other journey", () => {
+		expect(step?.after).toEqual([]);
+		expect(step?.fields?.map((field) => [field.kind, field.name])).toEqual([
+			["cred", HCLOUD_TOKEN],
+		]);
+	});
+
+	it("makes no box with a token Hetzner refuses", async () => {
+		await machine.device.set(HCLOUD_TOKEN, "wrong");
+
+		await expect(step?.submit?.(machine, {})).rejects.toThrow(
+			"Hetzner does not take that token",
+		);
+		expect(await step?.check(machine)).toBe(false);
 	});
 
 	it("is not done without a Hetzner token, without asking Hetzner", async () => {

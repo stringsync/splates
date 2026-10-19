@@ -90,6 +90,16 @@ describe("Cloud server journey", () => {
 		"coordinator-remotes": "done",
 	};
 
+	it("opens on the box's page asking for the Hetzner token by name", async () => {
+		const view = open(progress);
+		await click(view, "Set up Cloud server");
+
+		expect(view.getByRole("form", { name: "Make the server's box" }));
+		expect(
+			view.getByLabelText("Hetzner Cloud API token").getAttribute("name"),
+		).toBe("HCLOUD_TOKEN");
+	});
+
 	it("shows each deploy key a failed Next found, to copy and add on GitHub", async () => {
 		const view = open(with_(before));
 		await click(view, "Set up Cloud server");

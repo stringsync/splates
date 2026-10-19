@@ -13,7 +13,11 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { HCLOUD_TOKEN } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
-import { WORKERS_AREA } from "./area-workers";
+import {
+	HETZNER_TOKEN_FIELD,
+	HETZNER_TOKEN_REFUSED,
+	hetznerTokenAccepted,
+} from "./area-workers";
 import { coordinatorMoved } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
@@ -44,13 +48,6 @@ export const COORDINATOR_AREA: SetupArea = coordinatorArea();
 export function coordinatorArea(
 	deps: CoordinatorAreaDeps = { move: defaultMove, projects: machineProjects },
 ): SetupArea {
-	const workerStep = (id: string): SetupStep => {
-		const step = WORKERS_AREA.steps.find((each) => each.id === id);
-		if (step === undefined) {
-			throw new Error(`no setup step ${id} in the Workers area`);
-		}
-		return step;
-	};
 	const tunnelStep = REMOTE_ACCESS_AREA.steps.find(
 		(step) => step.id === "tunnel",
 	) as SetupStep;
@@ -62,23 +59,28 @@ export function coordinatorArea(
 		id: "coordinator-box",
 		title: "Make the server's box",
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a CPX21 in Hetzner's Ashburn, Virginia, with Hetzner's daily backups, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Next makes it in your Hetzner account, with the token the Workers area keeps: about $38 a month, its backups 20% more.",
-		agent:
-			"Press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
+		user: "Paste a Hetzner Cloud API token, or leave the one saved, and Next makes the box in that account: about $38 a month, its backups 20% more.",
+		agent: `Without the cred \`${HCLOUD_TOKEN}\`, request it with \`splates creds request ${HCLOUD_TOKEN} --device\` and \`splates creds wait ${HCLOUD_TOKEN}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
 		optional: true,
-		after: [workerStep("hetzner-token")],
+		after: [],
+		// The page asks for the token here, so this journey never sends the user to another for it.
+		fields: [HETZNER_TOKEN_FIELD],
 		doing: "Making the coordinator's box, a few minutes…",
+		notDone: HETZNER_TOKEN_REFUSED,
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
-			// Without a token there is no box to ask Hetzner about.
-			if ((await machine.device.get(HCLOUD_TOKEN)) === undefined) {
+			// Without a token Hetzner takes there is no box to ask it about.
+			if (!(await hetznerTokenAccepted(machine))) {
 				return false;
 			}
 			return (await box(machine).status()) !== null;
 		},
 		submit: async (machine) => {
+			if (!(await hetznerTokenAccepted(machine))) {
+				throw new Error(HETZNER_TOKEN_REFUSED);
+			}
 			await box(machine).up();
 		},
 	};

@@ -35,14 +35,30 @@ const LIMIT_FIELDS: readonly StepField[] = [
 	field("month", "Most made workers may cost in a month, dollars"),
 ];
 
-function field(limit: WorkerLimit, label: string): StepField {
-	return {
-		kind: "text",
-		name: limit,
-		label,
-		placeholder: String(DEFAULT_WORKER_LIMITS[limit]),
-		optional: true,
-	};
+/**
+ * The Hetzner token as a page asks for it, pasted there and saved for the
+ * device: the token step's, and any step that needs it beside its own work.
+ */
+export const HETZNER_TOKEN_FIELD: StepField = {
+	kind: "cred",
+	name: HCLOUD_TOKEN,
+	label: "Hetzner Cloud API token",
+	help: "In the [Hetzner Console](https://console.hetzner.com/projects), open a project for splates (or make one), then **Security › API tokens › Generate API token** with **Read & Write**, and paste it.",
+};
+
+/** Why a step that needs the Hetzner token is not done, when Hetzner refuses it. */
+export const HETZNER_TOKEN_REFUSED =
+	"Hetzner does not take that token: generate a Read & Write one and paste it again.";
+
+/** Whether the device keeps a Hetzner token that Hetzner takes. */
+export async function hetznerTokenAccepted(
+	machine: SetupMachine,
+): Promise<boolean> {
+	const token = await machine.device.get(HCLOUD_TOKEN);
+	return (
+		token !== undefined &&
+		(await new HetznerApi(token, machine.fetch).accepted())
+	);
 }
 
 /**
@@ -229,23 +245,9 @@ function workersArea(): SetupArea {
 		agent: `Request it with \`splates creds request ${HCLOUD_TOKEN} --device\`, with how to get it, and \`splates creds wait ${HCLOUD_TOKEN}\`. Never ask for it in chat.`,
 		optional: true,
 		after: [],
-		fields: [
-			{
-				kind: "cred",
-				name: HCLOUD_TOKEN,
-				label: "Hetzner Cloud API token",
-				help: "In the [Hetzner Console](https://console.hetzner.com/projects), open a project for splates (or make one), then **Security › API tokens › Generate API token** with **Read & Write**, and paste it.",
-			},
-		],
-		check: async (machine) => {
-			const token = await machine.device.get(HCLOUD_TOKEN);
-			return (
-				token !== undefined &&
-				(await new HetznerApi(token, machine.fetch).accepted())
-			);
-		},
-		notDone:
-			"Hetzner does not take that token: generate a Read & Write one and paste it again.",
+		fields: [HETZNER_TOKEN_FIELD],
+		check: hetznerTokenAccepted,
+		notDone: HETZNER_TOKEN_REFUSED,
 	};
 
 	const providerStep: SetupStep = {
@@ -339,4 +341,14 @@ function requireProject({ project }: SetupMachine) {
 		);
 	}
 	return project;
+}
+
+function field(limit: WorkerLimit, label: string): StepField {
+	return {
+		kind: "text",
+		name: limit,
+		label,
+		placeholder: String(DEFAULT_WORKER_LIMITS[limit]),
+		optional: true,
+	};
 }
