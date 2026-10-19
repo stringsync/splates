@@ -21,7 +21,7 @@ import {
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
-import { useOpenNew } from "./new-conversation-project";
+import { lastStartedAuto, useOpenNew } from "./new-conversation-project";
 import type { Terminals } from "./terminals";
 
 /**
@@ -52,7 +52,9 @@ export function NewMenu({
 	// In the project the last one started in, which may be another's page,
 	// with the agent, model, and settings the last one started with.
 	const openNew = useOpenNew(onOpen);
-	useShortcut("shortcuts.new", () => openNew(NEW));
+	useShortcut("shortcuts.new", () =>
+		openNew(lastStartedAuto() ? autoAddress(null) : NEW),
+	);
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
 	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));

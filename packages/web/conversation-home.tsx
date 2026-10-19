@@ -57,7 +57,11 @@ import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
-import { rememberProject, rememberShown } from "./new-conversation-project";
+import {
+	rememberAuto,
+	rememberProject,
+	rememberShown,
+} from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { limitsOf, PlanLimits } from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";
@@ -176,6 +180,7 @@ export function useNewConversation({
 			});
 			feed.put(state);
 			drafts.started(draft);
+			rememberAuto(auto);
 			if (root !== null) {
 				rememberShown(root);
 			}
