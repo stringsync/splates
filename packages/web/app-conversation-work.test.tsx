@@ -37,7 +37,7 @@ describe("App's work row", () => {
 			(row) => (row.querySelector("summary") ?? row).textContent,
 		);
 
-	it("folds each run of calls into a line, the words between them in the thread and its thoughts nowhere", async () => {
+	it("folds intermediate words and calls into one closed row, leaving the final reply in the thread", async () => {
 		const thread = await opened(
 			turn([
 				{ type: "thought", text: "Which tests?", at: second(1) },
@@ -69,17 +69,22 @@ describe("App's work row", () => {
 		);
 
 		await waitFor(() =>
-			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(2),
+			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1),
 		);
-		const [before, after] = within(thread).getAllByRole("list", {
-			name: "timeline",
-		}) as [HTMLElement, HTMLElement];
-		expect((before.closest("details") as HTMLDetailsElement).open).toBe(false);
-		expect(lines(before)).toEqual(["Reada.ts", "Failed to runbun test28s"]);
-		expect(lines(after)).toEqual(["Editeda.ts", "Ranbun test29s"]);
-		expect(thread.textContent).toMatch(
-			/Let me run them\..*Worked.*One fails: fixing it\..*Worked.*All tests pass\./,
+		const timeline = within(thread).getByRole("list", { name: "timeline" });
+		expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
+			false,
 		);
+		expect(lines(timeline)).toEqual([
+			"Let me run them.",
+			"Reada.ts",
+			"Failed to runbun test28s",
+			"One fails: fixing it.",
+			"Editeda.ts",
+			"Ranbun test29s",
+		]);
+		expect(timeline.textContent).not.toContain("All tests pass.");
+		expect(thread.textContent).toContain("All tests pass.");
 		expect(thread.textContent).not.toContain("Which tests?");
 		expect(thread.textContent).not.toContain("The parser.");
 		expect(thread.textContent).not.toContain("Thought");
@@ -400,11 +405,11 @@ describe("App's work row", () => {
 			name: "timeline",
 		});
 		expect(timelines.map((each) => each.textContent)).toEqual([
-			"Reada.ts",
+			"Let me look.Reada.ts",
 			expect.stringContaining("bun test"),
 		]);
 		expect(thread.textContent).toMatch(
-			/Let me look\..*Worked.*No, I'm not waiting on you\..*Worked/,
+			/Worked.*Let me look\..*No, I'm not waiting on you\..*Worked/,
 		);
 	});
 

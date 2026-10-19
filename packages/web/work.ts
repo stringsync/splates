@@ -12,7 +12,7 @@ import { Duration } from "webappwiz/time";
 import { workingSpan } from "./work-time";
 
 /**
- * A run of what an agent did between the words it says: its tool calls, and
+ * A run of what an agent did between the words it says: its tool calls, intermediate words, and
  * its thoughts, which the page never shows, folded into one row.
  */
 export interface Work {
@@ -54,8 +54,7 @@ export type Stretch =
 type Piece = Part[] | Exclude<Stretch, { type: "work" }>;
 
 /**
- * The agent's turn as rows of work, each folded, with the words it said
- * along the way between them, then the last thing it said, and, once the
+ * The agent's turn as rows of work, each folded, with intermediate words folded inside them, then the last thing it said, and, once the
  * turn is over, a row for any work after that.
  */
 export function stretchesOf(
@@ -265,10 +264,8 @@ function endOf(parts: Part[]): string | null {
 }
 
 /**
- * `run` cut at the words in it, so each shows between the work before and
- * after it rather than folded in: as a card when it says the agent added a
- * task or requested a cred, otherwise as words in the thread. Words still
- * being written, the last of the turn's `parts`, stay in.
+ * Cut out task/credential cards and compaction markers; intermediate prose
+ * stays inside the work timeline. Words still being written stay in too.
  */
 function cut(run: Part[], parts: Part[]): Piece[] {
 	const pieces: Piece[] = [];
@@ -282,13 +279,13 @@ function cut(run: Part[], parts: Part[]): Piece[] {
 			from = at + 1;
 			return;
 		}
-		if (part.type !== "text" || part === parts.at(-1)) {
+		if (part.type !== "text" || part === parts.at(-1) || !adds(part.text)) {
 			return;
 		}
 		if (at > from) {
 			pieces.push(run.slice(from, at));
 		}
-		pieces.push({ type: adds(part.text) ? "added" : "said", text: part.text });
+		pieces.push({ type: "added", text: part.text });
 		from = at + 1;
 	});
 	// Kept even empty when nothing was cut, for the row that says Working.
