@@ -12,10 +12,11 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { removeTask } from "./api";
+import { taskRemoved } from "./board-expectations";
 import { archiveConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { Dispatching } from "./dispatching";
-import { useExpect } from "./expecting";
+import { useExpect, useExpectSnapshot } from "./expecting";
 import { Held } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
@@ -53,6 +54,7 @@ export function useArchive(
 	const dispatching = useContext(Dispatching);
 	const nameOf = useNameOf();
 	const expect = useExpect();
+	const expectSnapshot = useExpectSnapshot();
 	const { id, archived } = conversation;
 	const row = useRowRefusal(id);
 	// One handed on to another agent is that agent's to remove.
@@ -84,6 +86,11 @@ export function useArchive(
 						refused = "Not removed";
 						throw error;
 					});
+		// Gone from the board at once too, or the task, still live while its
+		// worktree goes, shows as an abandoned external agent in its place.
+		if (task !== null) {
+			void expectSnapshot(taskRemoved(task.task), removed).catch(() => {});
+		}
 		const write = removed.then(() => archiveConversation(id, !archived));
 		// What the server files along with it, as it goes or comes back.
 		const others = archived

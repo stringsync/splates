@@ -138,12 +138,9 @@ describe("App's list actions on a conversation, shown before the server says so"
 			),
 		);
 
-		// Only its task is left, its conversation gone, until the removal lands.
-		expect(
-			within(inbox)
-				.getAllByText("alpha")
-				.map((each) => each.closest("li")?.textContent),
-		).toEqual([expect.stringContaining("Its conversation was archived")]);
+		// Its task goes with it, rather than standing in as an abandoned
+		// external agent until the removal lands.
+		expect(within(inbox).queryAllByText("alpha")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
 		await act(async () => testing.release());
 		await waitFor(() =>
