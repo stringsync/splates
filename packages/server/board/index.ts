@@ -23,7 +23,7 @@ export {
 } from "./lanes";
 export { lanesFromTags } from "./lanes-from-tags";
 export { BoardRoutes } from "./routes";
-export type { Started, StoredTask, TaskStatus } from "./store";
+export type { Started, StoredTask } from "./store";
 export { queuedOf, startedOf, TaskStore } from "./store";
 export type {
 	GoneBlocker,

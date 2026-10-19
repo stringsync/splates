@@ -1,13 +1,7 @@
 import type { Fs, Lock } from "webappwiz/system";
 import type { TaskState } from "../tasks";
-import type { TaskRecord } from "./task";
+import type { TaskRecord, WaitingStage } from "./task";
 import { decodeTask, encodeTask, TASK_FILE } from "./task-file";
-
-/**
- * Where a task stands: `queued` until it is started, then its started
- * record's own status.
- */
-export type TaskStatus = "queued" | TaskState["status"];
 
 /**
  * What a task gains once started: its branch, tree, lease and the rest, as
@@ -16,15 +10,18 @@ export type TaskStatus = "queued" | TaskState["status"];
  */
 export type Started = Omit<TaskState, "id" | "status" | "createdAt"> & {
 	startedAt: string;
+	/** The stage it was in before it started, which ending its start puts it back in. */
+	startedFrom: WaitingStage;
 };
 
 /**
- * One task as `tasks/<N>.md` holds it: what the list shows of it, its
- * status, and once started, what `Started` adds.
+ * One task as `tasks/<N>.md` holds it: what the list shows of it, and once
+ * started, what `Started` adds and how its work stands.
  */
 export type StoredTask = TaskRecord &
 	Partial<Started> & {
-		status: TaskStatus;
+		/** How its work stands while it runs; absent before it starts. */
+		status?: TaskState["status"];
 		/**
 		 * False for a task started without ever being queued, which the list
 		 * leaves out; absent for one on it.
@@ -176,6 +173,7 @@ const STARTED = {
 	gateFailures: true,
 	retries: true,
 	startedAt: true,
+	startedFrom: true,
 	updatedAt: true,
 	escalations: true,
 	dispatch: true,

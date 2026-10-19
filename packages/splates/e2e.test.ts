@@ -350,7 +350,7 @@ describe.concurrent("splates", () => {
 		];
 		expect(registered.exitCode).toBe(0);
 		expect(registered.stdout).toContain(`registered ${env.root}`);
-		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("3\n");
+		expect(await env.fs.read(join(env.splatesDir, "format"))).toBe("4\n");
 		expect(again.stdout).toContain(`${env.root} is already registered`);
 		expect(
 			(await splates(env.root, "add", "alpha", "--goal", "land it")).exitCode,
@@ -397,9 +397,9 @@ describe.concurrent("splates", () => {
 		const format = join(env.splatesDir, "format");
 
 		expect((await splates(env.root, "list")).exitCode).toBe(0);
-		expect(await env.fs.read(format)).toBe("3\n");
+		expect(await env.fs.read(format)).toBe("4\n");
 
-		await env.fs.write(format, "4\n");
+		await env.fs.write(format, "5\n");
 		const refused = await splates(
 			env.root,
 			"add",

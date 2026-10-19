@@ -88,7 +88,7 @@ export function parseTaskFile(
 			files: state.files ?? [],
 			blockedBy: state.blockedBy ?? [],
 			lane: state.lane ?? null,
-			stage: stageOf(state),
+			stage: stored.task === undefined ? stageOf(state) : "running",
 		},
 		tags,
 		listed: stored.listed !== false,

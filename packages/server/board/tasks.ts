@@ -329,16 +329,18 @@ export class Tasks {
 			// Naming its model is grooming's last call, so it makes a task ready,
 			// and only the person takes one out of the queue.
 			stage:
-				state.stage === "queued"
-					? "queued"
-					: state.stage === "ready" || state.assignee !== undefined
-						? "ready"
-						: "backlog",
+				started !== null
+					? "running"
+					: state.stage === "queued"
+						? "queued"
+						: state.stage === "ready" || state.assignee !== undefined
+							? "ready"
+							: "backlog",
 		};
 		await this.store.write({
 			...saved,
 			...started,
-			status: started === null ? "queued" : (stored?.status ?? "queued"),
+			...(started === null ? {} : { status: stored?.status ?? "working" }),
 		});
 		return new Task(this, saved);
 	}

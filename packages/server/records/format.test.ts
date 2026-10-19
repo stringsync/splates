@@ -27,7 +27,7 @@ describe("Format", () => {
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("1\n");
 
 		await deps.format.create();
-		expect(FORMAT).toBe(3);
+		expect(FORMAT).toBe(4);
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("1\n");
 	});
 

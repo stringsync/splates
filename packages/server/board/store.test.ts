@@ -27,12 +27,15 @@ describe.concurrent("TaskStore", () => {
 			subject: "support dark mode",
 			takenBy: "dark",
 			task: "dark",
+			stage: "running",
+			startedFrom: "backlog",
 			status: "working",
 		});
 		expect(await stored(deps, 2)).toMatchObject({
 			takenBy: "dark",
-			status: "queued",
+			stage: "backlog",
 		});
+		expect(await stored(deps, 2)).not.toHaveProperty("status");
 		expect(await stored(deps, 2)).not.toHaveProperty("task");
 		expect((await deps.tasks.all()).map((task) => task.id)).toEqual([1, 2]);
 	});
@@ -69,9 +72,10 @@ describe.concurrent("TaskStore", () => {
 			subject: "support dark mode",
 			lane: 1,
 			takenBy: null,
-			status: "queued",
+			stage: "backlog",
 		});
 		expect(record).not.toHaveProperty("task");
+		expect(record).not.toHaveProperty("status");
 		expect(record).not.toHaveProperty("lease");
 	});
 
@@ -88,7 +92,7 @@ describe.concurrent("TaskStore", () => {
 
 		expect(await stored(deps, 1)).toMatchObject({
 			takenBy: null,
-			status: "queued",
+			stage: "backlog",
 		});
 		expect((await deps.service.find("dark")).gone).toBeTrue();
 	});

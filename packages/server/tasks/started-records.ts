@@ -64,7 +64,11 @@ export class StartedRecords {
 				...queuedOf(record),
 				...(record.listed === false ? { listed: false } : {}),
 				...started,
+				stage: "running",
 				startedAt: createdAt,
+				startedFrom:
+					record.startedFrom ??
+					(record.stage === "running" ? "backlog" : record.stage),
 				status,
 			});
 		});
@@ -89,7 +93,10 @@ export class StartedRecords {
 					this.fs,
 				).clear();
 			} else {
-				await this.store.write({ ...queuedOf(record), status: "queued" });
+				await this.store.write({
+					...queuedOf(record),
+					stage: record.startedFrom ?? "backlog",
+				});
 			}
 		});
 	}
@@ -152,7 +159,6 @@ export class StartedRecords {
 			blockedBy: [],
 			lane: null,
 			stage: "backlog",
-			status: "working",
 			listed: false,
 		};
 	}
@@ -166,7 +172,7 @@ function stateOf(record: StoredTask): TaskState {
 	return {
 		...started,
 		id: record.id,
-		status: record.status === "queued" ? "working" : record.status,
+		status: record.status ?? "working",
 		createdAt: startedAt,
 	};
 }

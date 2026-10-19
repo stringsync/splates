@@ -182,9 +182,14 @@ one is deleted.
 1. **Model.** FORMAT 3: each task becomes `tasks/<N>.md`, its fields as
    front matter and its text as the body, and a queued task gains its
    `stage`: `ready` once its model is named (`assignee`, the Model above),
-   as grooming does last, else `backlog`. Started tasks keep their `status`, which stands for `running`
-   until phase 2 folds it into `stage`. Lanes keep their running state until
-   phase 4 deletes the lane runner. Behaviour is otherwise unchanged.
+   as grooming does last, else `backlog`. Lanes keep their running state
+   until phase 4 deletes the lane runner. Behaviour is otherwise unchanged.
+   FORMAT 4 then folds `status` into `stage`: a started task is `running`,
+   the stage it left kept as `startedFrom`, which ending its start without a
+   merge puts it back in, and only a running task keeps a `status` (working,
+   merging, escalated). `done` and `dropped`, and the body growing into the
+   task's `SPLATES.md`, are still to come: a merged or removed task still
+   leaves `tasks/`, its last plan kept in `finished/`.
 2. **Queue and workers.** The worked-out queue (`queue/`), `splates queue`,
    and `QueueRunner`, which `splates server` runs to start the next task
    whenever a worker has a slot free, on the model the task names or the
