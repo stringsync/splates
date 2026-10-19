@@ -13,6 +13,12 @@ import {
 } from "./index";
 import { DevWorkers, workerAuthorization } from "./routes";
 
+// Polls rather than sleeps a fixed while, which a loaded machine outlasts.
+async function until(done: () => boolean): Promise<void> {
+	const deadline = Date.now() + 5000;
+	while (!done() && Date.now() < deadline) await Bun.sleep(5);
+}
+
 describe("DevWorkers with a worker provider", () => {
 	let provider: FakeWorkerProvider;
 	let workers: DevWorkers;
@@ -68,11 +74,11 @@ describe("DevWorkers with a worker provider", () => {
 
 	it("makes a worker for a queued task that finds no room, which then has room for it", async () => {
 		workers.slots.scheduler.want("/repo", [request("#3")]);
-		await Bun.sleep(10);
+		await until(() => provider.specs.length > 0);
 		const [spec] = provider.specs;
 		const daemon = await booted(server, workers, spec?.boot ?? []);
 		void daemon.run();
-		await Bun.sleep(10);
+		await until(() => workers.slots.scheduler.room() > 0);
 
 		expect(provider.getCalls()).toContain(
 			`create ${spec?.id ?? ""} small snap-1`,
