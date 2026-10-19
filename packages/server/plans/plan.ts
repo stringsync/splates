@@ -40,19 +40,19 @@ export class Plans {
 }
 
 /**
- * The one step under `## Next` a fresh task's `SPLATES.md` starts with, asking
- * its agent to plan, which no one should read as the work under way. Its Goal
- * is already written, from `--goal` or the queued task it took.
+ * The steps `splates add` once wrote under `## Next`, asking its agent to plan,
+ * which plans of tasks started then may still hold and no one should read as
+ * the work under way. A fresh plan now holds only its Goal.
  */
-export const STUB_STEP = "list the steps here as `- [ ]` items";
-
-/** The stub step plans written before the Goal was required still hold. */
-export const OLD_STUB_STEP =
-	"fill in Goal and list the steps here as `- [ ]` items";
+export const STUB_STEPS = [
+	"list the steps here as `- [ ]` items",
+	"fill in Goal and list the steps here as `- [ ]` items",
+];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Next", "Notes", "Blocked"];
-const REQUIRED = ["Goal", "Next"];
+// Steps are for work of several commits: for one, the Goal says it all.
+const REQUIRED = ["Goal"];
 // A `Q` before the number is how plans were numbered once, and still reads.
 const QUESTION = /^[ \t]*- \[[ xX]\] [Qq]?\d+\./m;
 

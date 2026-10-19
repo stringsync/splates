@@ -2,13 +2,7 @@ import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../tasks";
-import {
-	goalLine,
-	OLD_STUB_STEP,
-	type Question,
-	questions,
-	STUB_STEP,
-} from "./plan";
+import { goalLine, type Question, questions, STUB_STEPS } from "./plan";
 
 /**
  * What an agent needs from the person, by how much it costs to leave it:
@@ -375,7 +369,7 @@ function doing(plan: string): string | null {
 	return nextStep(plan) ?? goalLine(plan);
 }
 
-/** The first unchecked item under `## Next`, as written, but for the stub's. */
+/** The first unchecked item under `## Next`, as written, but for a stub's. */
 function nextStep(plan: string): string | null {
 	const md = Markdown.parse(plan);
 	if (!md.has("Next")) {
@@ -383,11 +377,7 @@ function nextStep(plan: string): string | null {
 	}
 	for (const [, step] of md.section("Next").body.matchAll(STEPS)) {
 		const trimmed = step?.trim();
-		if (
-			trimmed !== undefined &&
-			trimmed !== STUB_STEP &&
-			trimmed !== OLD_STUB_STEP
-		) {
+		if (trimmed !== undefined && !STUB_STEPS.includes(trimmed)) {
 			return trimmed;
 		}
 	}

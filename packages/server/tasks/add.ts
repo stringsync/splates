@@ -6,7 +6,7 @@ import { blockedWarning } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
-import { PLAN_FILE, Plans, STUB_STEP } from "../plans";
+import { PLAN_FILE, Plans } from "../plans";
 import type { Shell } from "../terminal";
 import type { Dispatched, Worktree } from "./worktree";
 import { taskOf, type WorktreeService } from "./worktree-service";
@@ -294,14 +294,14 @@ function goal(queued: Task[]): string {
 		.join("\n\n");
 }
 
-/** The plan a fresh task starts with. `## Goal` is the Goal it was given and
- * the queued tasks it takes up; `splates add` refuses a task with neither, so
+/** The plan a fresh task starts with: `## Goal`, the Goal it was given and
+ * the queued tasks it takes up. `splates add` refuses a task with neither, so
  * only a caller that skips the CLI leaves it empty, which `splates show` nags
- * about. */
+ * about. Its agent adds `## Next` when the work takes several commits. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
 	if (goal !== null) {
 		writer.text(goal);
 	}
-	return writer.heading(2, "Next").checklist(STUB_STEP).toString();
+	return writer.toString();
 }

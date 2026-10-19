@@ -50,7 +50,7 @@ describe("show", () => {
 		await show(deps, "alpha");
 
 		expect(deps.out()).toContain('should be "# alpha"');
-		expect(deps.out()).toContain("no ## Next section");
+		expect(deps.out()).not.toContain("## Next");
 	});
 
 	it("says the SPLATES.md is missing rather than staying silent", async () => {

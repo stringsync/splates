@@ -32,7 +32,6 @@ export {
 	picks,
 	questions,
 	ready,
-	STUB_STEP,
 	unfinished,
 	whatIsLeft,
 } from "./plan";

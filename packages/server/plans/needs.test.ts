@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import type { Details } from "../tasks";
 import { need, needs, QUIET_AFTER, quietSince } from "./needs";
-import { OLD_STUB_STEP, STUB_STEP } from "./plan";
+import { STUB_STEPS } from "./plan";
 
 describe("needs", () => {
 	it("waits on a live ask before anything in the plan", () => {
@@ -124,8 +124,9 @@ describe("needs", () => {
 		});
 	});
 
-	it("says the Goal until the plan has a step of its own, never the stub's", () => {
-		const stub = `# alpha\n\n## Goal\n\nship it\n\n## Next\n\n- [ ] ${STUB_STEP}\n`;
+	it("says the Goal until the plan has a step of its own, never a stub's", () => {
+		const [stubStep = "", oldStubStep = ""] = STUB_STEPS;
+		const stub = `# alpha\n\n## Goal\n\nship it\n\n## Next\n\n- [ ] ${stubStep}\n`;
 		expect(need(task({ plan: stub }), talk())).toEqual({
 			kind: "working",
 			subject: "ship it",
@@ -138,7 +139,7 @@ describe("needs", () => {
 			subject: null,
 		});
 		expect(
-			need(task({ plan: stub.replace(STUB_STEP, OLD_STUB_STEP) }), talk()),
+			need(task({ plan: stub.replace(stubStep, oldStubStep) }), talk()),
 		).toEqual({ kind: "working", subject: "ship it" });
 	});
 

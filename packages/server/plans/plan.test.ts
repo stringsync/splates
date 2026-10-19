@@ -25,9 +25,9 @@ describe("checkPlan", () => {
 		).toEqual(['title is "# Alpha work", should be "# alpha"']);
 	});
 
-	it("names the required sections that are missing", () => {
+	it("names the required sections that are missing, which steps are not", () => {
 		const problems = checkPlan("# alpha\n", { task: "alpha" });
-		expect(problems).toEqual(["no ## Goal section", "no ## Next section"]);
+		expect(problems).toEqual(["no ## Goal section"]);
 	});
 
 	it("takes a Next with nothing left as a finished task", () => {

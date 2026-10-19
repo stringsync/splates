@@ -78,14 +78,15 @@ which remembers none of it.
    nothing about adding it. When your harness asks right after for a word on
    what you are doing, say in one line what you will do next, without the
    task's name or Goal, which that line already shows.
-2. **Plan.** Once you know what done means, fill in `SPLATES.md` before
-   touching code (see SPLATES.md below).
+2. **Plan.** Once you know what done means, sharpen the Goal in `SPLATES.md`
+   before touching code, and when the work will take several commits, list
+   them under `## Next` (see SPLATES.md below).
 3. **Check for overlap.** Read `splates list --files`: each task's Goal and
    the files it has changed so far. Some overlap is normal: work alongside,
    accept the rebase, and note it in `SPLATES.md`. Only when conflicts would be hard to resolve, `splates wait
    <task>` for the other task to land first. If it is doing the opposite of
    what you were asked, escalate instead.
-4. **Work.** Commit each step with git as you go, and check it off under
+4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `splates task add` it from your worktree and move on,
@@ -662,8 +663,8 @@ One or two lines on what done means.
 
 ## Next
 
-- [ ] every step you can foresee, roughly one commit each, checked off as
-  it lands
+- [ ] only for work of several commits: every step you can foresee,
+  roughly one commit each, checked off as it lands
 
 ## Notes
 
@@ -675,7 +676,9 @@ Decisions, dead ends, and how to verify.
 ````
 
 The Goal's first line is what other agents see of your task in `splates list
---files`, so make it say what you are changing. Keep the rest current as you
+--files`, so make it say what you are changing. `splates add` writes the
+Goal; for a change of one commit, leave out `## Next`, since the Goal says
+it all, and the page shows the Goal as what you are doing. Keep the rest current as you
 go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
 the shape. It is excluded from git: never mention it in a commit message.
 
