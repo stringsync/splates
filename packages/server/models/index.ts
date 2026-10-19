@@ -1,7 +1,7 @@
 export { codexLimits, isCodex } from "./codex-limits";
 export { effortSettings, effortsOf, pickEffort, thinkingOf } from "./effort";
 export { Limits } from "./limits";
-export { modelOption, ranWith } from "./models";
+export { modelOption, ranWith, renamedModelOption } from "./models";
 export { Offered } from "./offered";
 export type { ObservedTurn, OpenCodeUsage } from "./opencode-usage";
 export {

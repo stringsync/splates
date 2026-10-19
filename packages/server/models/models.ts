@@ -33,6 +33,24 @@ export function modelOption(
 }
 
 /**
+ * Where the model `before` offered as `model` is among `settings`, found by
+ * its name; null when `before` did not offer it or `settings` has no model
+ * of that name. A resumed session can offer a model under another value:
+ * Claude's offers its `fable` as `claude-fable-5-1` once resumed on it.
+ */
+export function renamedModelOption(
+	before: Setting[],
+	settings: Setting[],
+	model: string,
+): { setting: string; value: string } | null {
+	const was = before
+		.filter((each) => each.category === "model" || each.id === "model")
+		.flatMap((each) => each.options)
+		.find((each) => each.value === model);
+	return was === undefined ? null : modelOption(settings, was.name);
+}
+
+/**
  * The model `settings` has picked, by its name, `Opus 5.5`; for a default,
  * the model its description says it stands for. Null when none is offered.
  */

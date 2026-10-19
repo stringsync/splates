@@ -12,7 +12,7 @@ import type {
 } from "../conversations";
 import { type Live, LOG_FORMAT, said } from "../conversations";
 import { fail } from "../exit";
-import { modelOption, safeOpenCodeUpdate } from "../models";
+import { modelOption, renamedModelOption, safeOpenCodeUpdate } from "../models";
 import {
 	ASYNC_TASK_STOP,
 	ASYNC_TASK_UPDATE,
@@ -320,11 +320,11 @@ export class AgentConnection {
 			const asked =
 				this.model === null
 					? null
-					: modelOption(
+					: (modelOption(
 							host.state.settings,
 							this.model,
 							agent.id === "opencode",
-						);
+						) ?? renamedModelOption(previous, host.state.settings, this.model));
 			if (this.model !== null && asked === null) {
 				throw new Error(
 					`Requested model '${this.model}' is not offered by ${agent.name}; no prompt was sent.`,

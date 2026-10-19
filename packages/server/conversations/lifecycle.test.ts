@@ -364,6 +364,42 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.state.status).not.toBe("stopped");
 	});
 
+	it("resumes on the model it asked for when the agent offers it under another value", async () => {
+		// As Claude's adapter offers `fable`, named Fable 5.1, as
+		// `claude-fable-5-1` once resumed on it.
+		const offering = (value: string) => {
+			agent.options = agent.options.map((option) =>
+				option.id === "model" && option.type === "select"
+					? {
+							...option,
+							options: [
+								{ value: "big", name: "Big" },
+								{ value, name: "Small 2" },
+							],
+						}
+					: option,
+			);
+		};
+		offering("small");
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+			model: "small",
+		});
+		await until(conversation, "idle");
+		await conversation.archive();
+		offering("small-2");
+
+		await conversation.prompt("again");
+		await until(conversation, "idle");
+
+		expect(agent.resumed).toEqual(["s1"]);
+		expect(conversation.state.error).toBeNull();
+		expect(
+			conversation.state.settings.find((each) => each.id === "model")?.current,
+		).toBe("small-2");
+	});
+
 	it("archives until unarchived, even across a reread", async () => {
 		const conversation = await started();
 
