@@ -22,7 +22,7 @@ import type {
 	Hold,
 	Placement,
 } from "./host";
-import { ConversationLog, type Live } from "./log";
+import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
 import {
 	type Answer,
@@ -118,11 +118,12 @@ export class Conversation
 			sessionCwd = dir,
 		}: From = {},
 	) {
-		this.files = new ConversationFiles(log.path, deps.fs, {
-			projects: deps.projects,
-			home: deps.root,
-		});
-		this.artifacts = new Artifacts(log.path, {
+		this.files = new ConversationFiles(
+			deps.storage.collection(state.id),
+			`${deps.dir}/${state.id}`,
+			{ projects: deps.projects, home: deps.root },
+		);
+		this.artifacts = new Artifacts(`${deps.dir}/${state.id}.jsonl`, {
 			fs: deps.fs,
 			ids: deps.ids,
 			limits: deps.artifacts,
@@ -154,16 +155,16 @@ export class Conversation
 	}
 
 	/**
-	 * A conversation as its log at `path` left it: stopped, whatever it was
+	 * A conversation as its log at `key` left it: stopped, whatever it was
 	 * doing, unless its agent still runs on a worker, which the launcher
 	 * takes back, and the conversation carries on where the log leaves off.
 	 */
 	static async read(
-		path: string,
+		key: string,
 		agents: Agent[],
 		deps: ConversationDeps,
 	): Promise<Conversation | null> {
-		const log = new ConversationLog(path, deps.fs, deps.timer);
+		const log = new ConversationLog(deps.storage.log<Entry>(key), deps.timer);
 		const replayed = await log.replay();
 		if (replayed === null) {
 			return null;
@@ -319,7 +320,6 @@ export class Conversation
 			base = null,
 			caller = null,
 			cwd,
-			log: path,
 			assigned = false,
 			startedBy = null,
 			capped = false,
@@ -331,7 +331,10 @@ export class Conversation
 		deps: ConversationDeps,
 		from: From,
 	): Conversation {
-		const log = new ConversationLog(path, deps.fs, deps.timer);
+		const log = new ConversationLog(
+			deps.storage.log<Entry>(`${id}.jsonl`),
+			deps.timer,
+		);
 		const createdAt = new Date(deps.clock.now()).toISOString();
 		const state = blank(
 			id,
@@ -962,6 +965,11 @@ export class Conversation
 		await this.stop();
 		await this.log.remove();
 		await this.files.remove();
+		// Its artifacts too, kept in a directory beside its log off storage.
+		await this.deps.fs.rm(`${this.deps.dir}/${this.id}`, {
+			recursive: true,
+			force: true,
+		});
 	}
 
 	dispose(): void {
@@ -1306,7 +1314,6 @@ interface Opening {
 	/** The conversation whose agent added `task`. */
 	caller?: string | null;
 	cwd: string;
-	log: string;
 	/** Started on what a queued task or `splates add --agent` assigned. */
 	assigned?: boolean;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */

@@ -10,18 +10,14 @@ async function caller(
 	id: string,
 	persistent?: string,
 ): Promise<void> {
-	await deps.fs.mkdir(`${deps.splatesDir}/conversations`, { recursive: true });
-	await deps.fs.write(
-		deps.service.conversationLog(id),
-		`${JSON.stringify({
-			kind: "start",
-			id,
-			agent: "fake",
-			task: null,
-			createdAt: "2026-10-19T00:00:00.000Z",
-			...(persistent === undefined ? {} : { persistent }),
-		})}\n`,
-	);
+	await deps.service.conversationLog(id).append({
+		kind: "start",
+		id,
+		agent: "fake",
+		task: null,
+		createdAt: "2026-10-19T00:00:00.000Z",
+		...(persistent === undefined ? {} : { persistent }),
+	});
 	deps.proc.env.SPLATES_CONVERSATION = id;
 }
 

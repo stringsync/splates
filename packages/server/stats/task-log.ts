@@ -1,4 +1,3 @@
-import type { Fs } from "webappwiz/system";
 import { agentTurn, fold, tally } from "../agents";
 import { LEGACY_PLAN_FILE } from "../config";
 import type { Entry } from "../conversations";
@@ -9,6 +8,7 @@ import {
 	type Usage,
 } from "../conversations";
 import { PLAN_FILE, stretches } from "../plans";
+import type { Log } from "../storage";
 
 /** What a task's turns used, apart from the rest of its conversation's. */
 export interface TaskUsage {
@@ -46,26 +46,17 @@ export interface TaskLog {
 }
 
 /**
- * Reads the conversation logged at `log` from `since` to `until`: a
+ * Reads the conversation logged in `log` from `since` to `until`: a
  * conversation can outlive the task, or come to it already under way. Null
  * when there is no such log. Read raw rather than replayed, since the agent
  * merging is still writing it.
  */
 export async function taskLog(
-	log: string,
-	fs: Fs,
+	log: Log<Entry>,
 	since: string,
 	until: string,
 ): Promise<TaskLog | null> {
-	const entries = (await fs.read(log).catch(() => ""))
-		.split("\n")
-		.flatMap((line) => {
-			try {
-				return line ? [JSON.parse(line) as Entry] : [];
-			} catch {
-				return [];
-			}
-		});
+	const entries = await log.replay();
 	const start = entries[0];
 	if (start?.kind !== "start") {
 		return null;

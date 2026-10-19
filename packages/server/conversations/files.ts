@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Fs } from "webappwiz/system";
 import { DICTATED } from "../plans";
 import { projectLine } from "../projects";
+import type { Collection } from "../storage";
 import type { ProjectRoster } from "./host";
 import { textOf } from "./messages";
 import { conversationReference } from "./reference";
@@ -13,17 +13,19 @@ import { transcriptOf } from "./transcript";
 
 /**
  * The files the person sent in a conversation, kept beside its log in a
- * directory named for it, and how what they said goes to the agent.
+ * collection named for it, and how what they said goes to the agent.
  */
 export class ConversationFiles {
-	/** Where the files are kept. */
-	private readonly dir: string;
 	private readonly projects: ProjectRoster | null;
 	private readonly home: string | null;
 
 	constructor(
-		log: string,
-		private readonly fs: Fs,
+		private readonly files: Collection,
+		/**
+		 * Where an agent on this machine opens what `files` holds, as the
+		 * directory it is kept in beside the conversations' logs.
+		 */
+		private readonly dir: string,
 		{
 			projects = null,
 			home = null,
@@ -34,7 +36,6 @@ export class ConversationFiles {
 			home?: string | null;
 		} = {},
 	) {
-		this.dir = resolve(log.replace(/\.jsonl$/, ""));
 		this.projects = projects;
 		this.home = home;
 	}
@@ -49,13 +50,12 @@ export class ConversationFiles {
 		if (files.length === 0) {
 			return [];
 		}
-		await this.fs.mkdir(this.dir);
 		return Promise.all(
 			files.map(async ({ title, mimeType, bytes }): Promise<Sent> => {
 				const hash = createHash("sha256").update(bytes).digest("hex");
 				const seen = sees && mimeType in IMAGE_TYPES;
 				const name = `${hash.slice(0, 16)}.${seen ? IMAGE_TYPES[mimeType] : extensionOf(title)}`;
-				await this.fs.writeBytes(`${this.dir}/${name}`, bytes);
+				await this.files.writeBytes(name, bytes);
 				return seen
 					? { type: "image", name, mimeType }
 					: { type: "file", name, title, mimeType };
@@ -77,9 +77,7 @@ export class ConversationFiles {
 		if (part === undefined) {
 			return null;
 		}
-		const bytes = await this.fs
-			.readBytes(`${this.dir}/${name}`)
-			.catch(() => null);
+		const bytes = await this.files.readBytes(name).catch(() => null);
 		return bytes === null ? null : { bytes, mimeType: part.mimeType };
 	}
 
@@ -109,9 +107,7 @@ export class ConversationFiles {
 					async (part): Promise<acp.ContentBlock> => ({
 						type: "image",
 						mimeType: part.mimeType,
-						data: Buffer.from(
-							await this.fs.readBytes(`${this.dir}/${part.name}`),
-						).toString("base64"),
+						data: Buffer.from(await this.bytesOf(part.name)).toString("base64"),
 					}),
 				),
 		);
@@ -148,15 +144,22 @@ export class ConversationFiles {
 	 * task on next, and answers where (see `transcriptOf`).
 	 */
 	async keepTranscript(messages: Message[]): Promise<string> {
-		await this.fs.mkdir(this.dir);
-		const path = `${this.dir}/transcript.md`;
-		await this.fs.write(path, `${transcriptOf(messages)}\n`);
-		return path;
+		await this.files.write("transcript.md", `${transcriptOf(messages)}\n`);
+		return `${this.dir}/transcript.md`;
 	}
 
 	/** Deletes every file kept, for good. */
 	async remove(): Promise<void> {
-		await this.fs.rm(this.dir, { recursive: true, force: true });
+		await this.files.clear();
+	}
+
+	/** The bytes kept under `name`, throwing when there are none. */
+	private async bytesOf(name: string): Promise<Uint8Array> {
+		const bytes = await this.files.readBytes(name);
+		if (bytes === null) {
+			throw new Error(`no file ${name} in ${this.files.key}`);
+		}
+		return bytes;
 	}
 
 	/** Adds project locations and conversation log references for the agent. */

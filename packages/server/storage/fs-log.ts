@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { readIfThere } from "./atomic";
 import { entriesOf, logLines } from "./json";
@@ -9,6 +10,11 @@ import type { Schema } from "./schema";
  * were rotated in a directory of their own, as the journal keeps them.
  */
 export class FsLog<T> implements Log<T> {
+	/** Whether the file's directory is known to be there. */
+	private made = false;
+	/** Whether the file last read back ended mid-line, as a crash mid-append leaves it. */
+	private torn = false;
+
 	constructor(
 		readonly key: string,
 		readonly path: string,
@@ -18,15 +24,28 @@ export class FsLog<T> implements Log<T> {
 		private readonly schema?: Schema<T>,
 	) {}
 
+	exists(): Promise<boolean> {
+		return this.fs.exists(this.path);
+	}
+
 	async append(...entries: T[]): Promise<void> {
 		if (entries.length === 0) {
 			return;
 		}
-		await this.fs.append(this.path, logLines(entries));
+		if (!this.made) {
+			await this.fs.mkdir(dirname(this.path));
+			this.made = true;
+		}
+		// A line cut short stays apart from the next, rather than taking it too.
+		const lines = logLines(entries);
+		await this.fs.append(this.path, this.torn ? `\n${lines}` : lines);
+		this.torn = false;
 	}
 
-	replay(): Promise<T[]> {
-		return this.entries(this.path);
+	async replay(): Promise<T[]> {
+		const raw = await this.read(this.path);
+		this.torn = raw !== "" && !raw.endsWith("\n");
+		return entriesOf(raw, this.schema);
 	}
 
 	async rotate(): Promise<Segment | null> {
@@ -45,6 +64,7 @@ export class FsLog<T> implements Log<T> {
 			}
 			return null;
 		}
+		this.torn = false;
 		return segment;
 	}
 
@@ -59,8 +79,8 @@ export class FsLog<T> implements Log<T> {
 			.map((name) => ({ name, at: Number.parseInt(name, 10) }));
 	}
 
-	replaySegment(segment: Segment): Promise<T[]> {
-		return this.entries(this.at(segment));
+	async replaySegment(segment: Segment): Promise<T[]> {
+		return entriesOf(await this.read(this.at(segment)), this.schema);
 	}
 
 	dropSegment(segment: Segment): Promise<void> {
@@ -76,8 +96,9 @@ export class FsLog<T> implements Log<T> {
 		return `${this.segmentsDir}/${segment.name}`;
 	}
 
-	private async entries(path: string): Promise<T[]> {
-		const raw = await readIfThere(this.fs, path, (path) => this.fs.read(path));
-		return entriesOf(raw ?? "", this.schema);
+	private async read(path: string): Promise<string> {
+		return (
+			(await readIfThere(this.fs, path, (path) => this.fs.read(path))) ?? ""
+		);
 	}
 }

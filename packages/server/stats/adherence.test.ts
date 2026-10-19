@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import type { ConversationState } from "../conversations";
 import { conversation, message, tool } from "../fixtures";
+import { FsStorage } from "../storage";
 import { Adherence, condense } from "./adherence";
 import { type Outcome, Outcomes } from "./outcomes";
 
@@ -14,8 +15,8 @@ describe("Adherence", () => {
 
 	beforeEach(() => {
 		fs = new FakeFs();
-		outcomes = new Outcomes("/home/.splates/outcomes.jsonl", fs);
-		adherence = new Adherence("/home/.splates/adherence.jsonl", fs, outcomes);
+		outcomes = new Outcomes(new FsStorage("/home/.splates", fs));
+		adherence = new Adherence(new FsStorage("/home/.splates", fs), outcomes);
 	});
 
 	const landed = (overrides: Partial<Outcome>): Outcome => ({

@@ -1,5 +1,5 @@
-import type { Fs } from "webappwiz/system";
 import type { ConversationState } from "../conversations";
+import type { Log, Storage } from "../storage";
 import type { Outcomes } from "./outcomes";
 import {
 	type Beat,
@@ -19,13 +19,16 @@ export class Adherence {
 	/** The scores last written for each conversation, so a turn that changes none writes nothing. */
 	private readonly written = new Map<string, string>();
 
+	readonly log: Log<Judged>;
+
 	constructor(
-		/** `~/.splates/adherence.jsonl`, or a test's own. */
-		readonly path: string,
-		private readonly fs: Fs,
+		/** The machine's storage, or a test's own. */
+		storage: Storage,
 		/** Where the commits a conversation merged are kept; null to judge without them. */
 		private readonly outcomes: Outcomes | null,
-	) {}
+	) {
+		this.log = storage.log("adherence.jsonl");
+	}
 
 	/** Judges `state` as it stands, and keeps the result when it changed. */
 	async judge(
@@ -61,21 +64,14 @@ export class Adherence {
 		};
 		// Appending, rather than rewriting, keeps two servers judging at once
 		// from dropping each other's line.
-		await this.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		await this.fs.append(this.path, `${JSON.stringify(line)}\n`);
+		await this.log.append(line);
 	}
 
 	/** Each conversation's checks as last judged. */
 	async list(): Promise<Judged[]> {
-		const raw = await this.fs.read(this.path).catch(() => "");
 		const last = new Map<string, Judged>();
-		for (const line of raw.split("\n").filter(Boolean)) {
-			try {
-				const judged = JSON.parse(line) as Judged;
-				last.set(judged.conversation, judged);
-			} catch {
-				// A torn line loses one judging, not the whole history.
-			}
+		for (const judged of await this.log.replay()) {
+			last.set(judged.conversation, judged);
 		}
 		return [...last.values()];
 	}

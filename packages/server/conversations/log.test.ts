@@ -1,26 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
+import { FsStorage } from "../storage";
 import { ConversationLog, type Entry } from "./log";
-
-const PATH = "/repo/.git/splates/conversations/1.jsonl";
-
-/** `entries` read back from a log of them, after the conversation's start. */
-async function replay(...entries: Entry[]) {
-	const fs = new FakeFs();
-	const start: Entry = {
-		kind: "start",
-		id: "1",
-		agent: "fake",
-		task: null,
-		createdAt: "2026-10-19T00:00:00.000Z",
-	};
-	await fs.write(
-		PATH,
-		[start, ...entries].map((each) => `${JSON.stringify(each)}\n`).join(""),
-	);
-	return new ConversationLog(PATH, fs, new FakeTimer()).replay();
-}
 
 describe("ConversationLog", () => {
 	it("reads back a failed process's error while nothing has run since", async () => {
@@ -40,4 +22,44 @@ describe("ConversationLog", () => {
 		expect(replayed?.state.error).toBeNull();
 		expect(replayed?.state.status).toBe("stopped");
 	});
+
+	it("keeps what it writes after a line a crash cut short", async () => {
+		const fs = new FakeFs();
+		await fs.write(PATH, `${JSON.stringify(START)}\n{"kind":"rena`);
+		const log = logOn(fs);
+		await log.replay();
+
+		log.write({ kind: "rename", name: "Fixed" });
+		await log.flush();
+
+		expect((await logOn(fs).replay())?.state.name).toBe("Fixed");
+	});
 });
+
+const PATH = "/repo/.git/splates/conversations/1.jsonl";
+
+const START: Entry = {
+	kind: "start",
+	id: "1",
+	agent: "fake",
+	task: null,
+	createdAt: "2026-10-19T00:00:00.000Z",
+};
+
+/** The log at `PATH`, as `splates server` opens it. */
+function logOn(fs: FakeFs): ConversationLog {
+	return new ConversationLog(
+		new FsStorage("/repo/.git/splates/conversations", fs).log("1.jsonl"),
+		new FakeTimer(),
+	);
+}
+
+/** `entries` read back from a log of them, after the conversation's start. */
+async function replay(...entries: Entry[]) {
+	const fs = new FakeFs();
+	await fs.write(
+		PATH,
+		[START, ...entries].map((each) => `${JSON.stringify(each)}\n`).join(""),
+	);
+	return logOn(fs).replay();
+}

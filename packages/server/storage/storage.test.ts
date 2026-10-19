@@ -88,6 +88,17 @@ describe.each([
 			expect(await log.replay()).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
 		});
 
+		it("exists once appended to, and no longer once rotated", async () => {
+			const log = (await open()).log<number>("log.jsonl");
+			expect(await log.exists()).toBe(false);
+
+			await log.append(1);
+			expect(await log.exists()).toBe(true);
+
+			await rotated(log);
+			expect(await log.exists()).toBe(false);
+		});
+
 		it("leaves out the entries its schema refuses", async () => {
 			const storage = await open();
 			await storage.log("log.jsonl").append({ n: 1 }, "torn", { n: 2 });

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
 import { fold, tally } from "../agents";
 import { blank, ConversationLog } from "../conversations";
 import { taskLog } from "../stats";
+import { MemoryStorage } from "../storage/testing";
 import {
 	finishObservation,
 	type ObservedTurn,
@@ -133,8 +133,10 @@ describe("OpenCode usage observations", () => {
 
 	// scry-ignore simple-test-setup: the old log on disk is this test's own input.
 	it("keeps old logs readable without inventing dispatch times or zero token observations", async () => {
-		const fs = new FakeFs();
-		const log = new ConversationLog("/old", fs, new FakeTimer());
+		const log = new ConversationLog(
+			new MemoryStorage().log("old.jsonl"),
+			new FakeTimer(),
+		);
 		log.write({
 			kind: "start",
 			id: "old",
@@ -177,9 +179,10 @@ describe("OpenCode usage observations", () => {
 
 	// scry-ignore simple-test-setup: the replayed observations are this test's own inputs.
 	it("replays observations once, retaining model snapshots and missing usage in later turns", async () => {
-		const fs = new FakeFs();
-		const timer = new FakeTimer();
-		const log = new ConversationLog("/log", fs, timer);
+		const log = new ConversationLog(
+			new MemoryStorage().log("log.jsonl"),
+			new FakeTimer(),
+		);
 		log.write({
 			kind: "start",
 			id: "c",
@@ -222,6 +225,6 @@ describe("OpenCode usage observations", () => {
 			),
 		).toEqual([12, null]);
 		expect(first?.model).toBe("opencode-go/test");
-		expect((await taskLog("/log", fs, AT, END))?.usage).toBeUndefined();
+		expect((await taskLog(log.log, AT, END))?.usage).toBeUndefined();
 	});
 });

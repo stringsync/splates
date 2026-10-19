@@ -7,11 +7,17 @@ import type { Schema } from "./schema";
  */
 export interface Log<T> {
 	readonly key: string;
+	/**
+	 * Whether anything was appended since the log was made, last rotated or
+	 * removed, without reading it.
+	 */
+	exists(): Promise<boolean>;
 	/** Adds `entries` at the end, in one write. */
 	append(...entries: T[]): Promise<void>;
 	/**
 	 * The entries since the last rotation, oldest first. A torn or unreadable
-	 * entry is left out, so it loses one entry rather than the log.
+	 * entry is left out, so it loses one entry rather than the log, and the
+	 * next append keeps clear of it.
 	 */
 	replay(): Promise<T[]>;
 	/**

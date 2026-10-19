@@ -70,10 +70,7 @@ describe("log", () => {
 
 	it("moves a full log aside and still reads back across both", async () => {
 		// Room for two, so the second event rotates the file.
-		const journal = new Journal(join(deps.splatesDir, "log.jsonl"), 2, {
-			fs: deps.fs,
-			ps: deps.ps,
-		});
+		const journal = new Journal(deps.storage, 2, { ps: deps.ps });
 		await journal.record("retry", "a", async () => {}, { attempts: 0 });
 		await journal.record("retry", "b", async () => {}, { attempts: 0 });
 		await journal.record("retry", "c", async () => {}, { attempts: 0 });

@@ -214,11 +214,14 @@ async function conversationHome(
 		return null;
 	}
 	for (const each of await projects.list()) {
-		if (
-			await fs.exists(
-				`${unmigrated(`${each.root}/.git/splates`, `${each.root}/.git/${LEGACY_DIR}`)}/conversations/${id}.jsonl`,
-			)
-		) {
+		const records = new FsStorage(
+			unmigrated(
+				`${each.root}/.git/splates`,
+				`${each.root}/.git/${LEGACY_DIR}`,
+			),
+			fs,
+		);
+		if (await records.log(`conversations/${id}.jsonl`).exists()) {
 			return each.root;
 		}
 	}
@@ -349,7 +352,10 @@ export async function openRepository(
 	// which only `splates init` writes this one into, and how each task ended.
 	const beats =
 		relay === null ? null : new LeaseBeat(timer, config.leaseStalenessMs);
-	const outcomes = new Outcomes(`${registry}/outcomes.jsonl`, fs);
+	// The one place a project's storage is picked, and the machine's.
+	const storage = new FsStorage(splatesDir, fs, { locks: { at: lockAt } });
+	const machine = FsStorage.ofMachine({ fs, ps, log });
+	const outcomes = new Outcomes(machine);
 	// On a worker, the coordinator mints each token its git signs in with.
 	const relayed =
 		relay === null
@@ -368,9 +374,10 @@ export async function openRepository(
 	const service = new WorktreeService(git, config, splatesDir, {
 		store,
 		fs,
+		storage,
 		ps,
 		outcomes,
-		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
+		adherence: new Adherence(machine, null),
 		workerBudget: `${registry}/worker-budget.json`,
 		leases: beats ?? undefined,
 		...(machines === undefined ? {} : { machines }),
@@ -407,9 +414,8 @@ export async function openRepository(
 
 	return {
 		fs,
-		// The one place a project's storage is picked, and the machine's.
-		storage: new FsStorage(splatesDir, fs, { locks: { at: lockAt } }),
-		machine: FsStorage.ofMachine({ fs, ps, log }),
+		storage,
+		machine,
 		beats,
 		projects,
 		branches:
@@ -436,10 +442,7 @@ export async function openRepository(
 				? new CoordinatorLanding({ git, fs, config, lease: mergeLease })
 				: new RelayLanding(relay.url, relay.project),
 		shell: new Shell({ ps }),
-		journal: new Journal(`${splatesDir}/log.jsonl`, config.logCapacity, {
-			fs,
-			ps,
-		}),
+		journal: new Journal(storage, config.logCapacity, { ps }),
 		tasks: new Tasks(store, { fs }),
 	};
 }

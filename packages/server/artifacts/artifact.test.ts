@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { join } from "node:path";
 import { conversationOf } from "../conversations";
 import { Testing } from "../testing";
 import {
@@ -15,12 +14,13 @@ describe("artifact", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		const log = deps.service.conversationLog(ID);
-		await deps.fs.mkdir(join(log, ".."));
-		await deps.fs.write(
-			log,
-			`${JSON.stringify({ kind: "start", id: ID, agent: "fake", task: null, createdAt: "2026-10-16T10:00:00Z" })}\n`,
-		);
+		await deps.service.conversationLog(ID).append({
+			kind: "start",
+			id: ID,
+			agent: "fake",
+			task: null,
+			createdAt: "2026-10-16T10:00:00Z",
+		});
 	});
 
 	afterEach(() => deps.disposeAsync());

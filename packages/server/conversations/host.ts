@@ -5,6 +5,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits, ArtifactRoom } from "../artifacts";
 import type { Reach } from "../projects";
+import type { Storage } from "../storage";
 import type { Grant, WorkerMachine } from "../workers";
 import type { ConversationLog } from "./log";
 import type { ConversationState, QueueSpot } from "./state";
@@ -50,6 +51,16 @@ export type ConversationEvents = { changed: undefined; chosen: string };
 /** What every conversation in a repo is made with. */
 export interface ConversationDeps {
 	fs: Fs;
+	/**
+	 * Where every conversation of the repo is kept: its log as `<id>.jsonl`,
+	 * the files the person sent in it as the collection `<id>`.
+	 */
+	storage: Storage;
+	/**
+	 * Where those sit on this machine, for an agent to open: its artifacts,
+	 * which are not on storage yet, among them.
+	 */
+	dir: string;
 	/** What names the files artifacts are kept in. */
 	ids: IdProvider;
 	/** How many bytes of artifacts it may keep (`artifacts.ts`). */

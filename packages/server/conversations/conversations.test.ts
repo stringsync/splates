@@ -6,6 +6,7 @@ import { AGENT, FakeAgent } from "../agents/testing";
 import { Limits, Offered } from "../models";
 import type { Outcome } from "../stats";
 import { Adherence, Outcomes } from "../stats";
+import { FsStorage } from "../storage";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 
@@ -368,7 +369,7 @@ describe("Conversations", () => {
 	});
 
 	it("judges how a conversation follows the skill as each turn ends", async () => {
-		const adherence = new Adherence("/home/.splates/adherence.jsonl", fs, null);
+		const adherence = new Adherence(new FsStorage("/home/.splates", fs), null);
 		const shop = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],
@@ -395,7 +396,7 @@ describe("Conversations", () => {
 	});
 
 	it("credits a task merged mid-turn with that turn's usage once it ends", async () => {
-		const outcomes = new Outcomes("/home/.splates/outcomes.jsonl", fs);
+		const outcomes = new Outcomes(new FsStorage("/home/.splates", fs));
 		const shop = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],

@@ -14,6 +14,7 @@ import { PlanStore } from "../plans";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
 import { Adherence, Outcomes } from "../stats";
+import { FsStorage } from "../storage";
 import {
 	API_TOKEN,
 	accessConfig,
@@ -162,15 +163,9 @@ export async function serveDev(
 	});
 	// Judged as each turn ends, for the Stats page, across projects like the
 	// outcomes it reads the merged commits from.
-	const outcomes = new Outcomes(
-		`${splatesHome(ctx.ps)}/outcomes.jsonl`,
-		ctx.fs,
-	);
-	const adherence = new Adherence(
-		`${splatesHome(ctx.ps)}/adherence.jsonl`,
-		ctx.fs,
-		outcomes,
-	);
+	const machine = FsStorage.ofMachine(ctx);
+	const outcomes = new Outcomes(machine);
+	const adherence = new Adherence(machine, outcomes);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.
 	const starting = StartLock.ofMachine(ctx);

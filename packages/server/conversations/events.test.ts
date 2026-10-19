@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { AGENT, FakeAgent } from "../agents/testing";
+import { Journal } from "../records";
+import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import type { Conversation } from "./conversation";
 import { Conversations } from "./conversations";
@@ -40,10 +42,12 @@ describe("conversation events", () => {
 				opts,
 			);
 		following = await JournalEvents.follow({
-			journal: deps.journal,
+			journal: new Journal(
+				new FsStorage(deps.splatesDir, fs),
+				deps.config.logCapacity,
+				{ ps: deps.ps },
+			),
 			conversations,
-			fs,
-			splatesDir: deps.splatesDir,
 			log: deps.log,
 		});
 		for (let i = 0; i < 500 && heard === 0; i++) {

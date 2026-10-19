@@ -1,6 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Fs } from "webappwiz/system";
 import { Duration, Throttler, type Timer } from "webappwiz/time";
 import type { Flag, ProcessHandle } from "../agents";
 import {
@@ -15,6 +14,7 @@ import {
 } from "../agents";
 import { type ArtifactChange, applyArtifact } from "../artifacts";
 import { finishObservation, type ObservedTurn } from "../models";
+import type { Log } from "../storage";
 import { delivered, said, sent, takeBack } from "./messages";
 import {
 	type Ask,
@@ -43,41 +43,40 @@ export const LOG_FORMAT = 1;
 
 /** What a `ConversationLog` says of its saves. */
 export interface ConversationLogEvents extends Record<string, unknown> {
-	/** A save reached the file: `savedThrough` may have moved. */
+	/** A save reached the log: `savedThrough` may have moved. */
 	saved: undefined;
 }
 
 /**
- * A conversation's log, one JSON line per entry: `write` each entry as it
- * happens, and `replay` the file to read the conversation back.
+ * A conversation's log, an entry each: `write` each entry as it happens,
+ * and `replay` the log to read the conversation back.
  */
 export class ConversationLog implements Eventful<ConversationLogEvents> {
 	// Appended a little behind what happens, so an agent streaming chunks does
 	// not write a line each. Each entry carries the seq of the agent's frame
 	// being handled as it was written, so a coordinator started again knows
 	// where its process's replay carries on from, and acks the worker only for
-	// what the file holds.
+	// what the log holds.
 	private readonly dispatcher = new Dispatcher<ConversationLogEvents>();
 	readonly events = this.dispatcher.events;
-	/** The lines not yet appended to the file, each with its seq. */
-	private readonly unsaved: { line: string; seq: number }[] = [];
+	/** The entries not yet appended to the log, each with its seq. */
+	private readonly unsaved: { entry: Entry; seq: number }[] = [];
 	private saving: Promise<void> = Promise.resolve();
 	private readonly saves: Throttler;
 	/** The seq of the agent's frame being handled; 0 before the first. */
 	private seq = 0;
-	/** The seq of the last entry the file holds. */
+	/** The seq of the last entry the log holds. */
 	private lastSaved = 0;
 
 	constructor(
-		readonly path: string,
-		private readonly fs: Fs,
+		readonly log: Log<Entry>,
 		timer: Timer,
 	) {
 		this.saves = new Throttler(timer, SAVE_EVERY);
 	}
 
 	/**
-	 * The highest seq every entry at or under which the file holds: the seq
+	 * The highest seq every entry at or under which the log holds: the seq
 	 * before the first unsaved entry, or the last saved one with none unsaved.
 	 */
 	get savedThrough(): number {
@@ -98,22 +97,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	 * that does not start one.
 	 */
 	async replay(): Promise<Replayed | null> {
-		const text = await this.fs.read(this.path);
-		const lines = text.split("\n").filter(Boolean);
-		const entries = lines.flatMap((line) => {
-			try {
-				return [JSON.parse(line) as Entry];
-			} catch {
-				return [];
-			}
-		});
+		const entries = await this.log.replay();
 		const start = entries[0];
 		if (start?.kind !== "start") {
 			return null;
-		}
-		// A line cut short, as by a crash mid-save, stays apart from the next.
-		if (text !== "" && !text.endsWith("\n")) {
-			this.unsaved.push({ line: "\n", seq: 0 });
 		}
 		const state = blank(
 			start.id,
@@ -364,13 +351,12 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 	write(entry: Entry): void {
 		const { seq } = this;
 		const stamped = seq === 0 ? entry : { ...entry, seq };
-		this.unsaved.push({ line: `${JSON.stringify(stamped)}\n`, seq });
+		this.unsaved.push({ entry: stamped, seq });
 		this.saves.call(() => {
 			const taken = this.unsaved.splice(0);
-			const lines = taken.map((each) => each.line).join("");
 			const last = taken.at(-1)?.seq ?? this.lastSaved;
 			this.saving = this.saving
-				.then(() => this.fs.append(this.path, lines))
+				.then(() => this.log.append(...taken.map((each) => each.entry)))
 				.then(() => {
 					this.lastSaved = Math.max(this.lastSaved, last);
 					this.dispatcher.dispatch("saved");
@@ -379,16 +365,16 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		});
 	}
 
-	/** Settles once everything written so far is in the file. */
+	/** Settles once everything written so far is in the log. */
 	async flush(): Promise<void> {
 		this.saves.flush();
 		await this.saving;
 	}
 
-	/** Deletes the file, once the last save has reached it. */
+	/** Deletes the log, once the last save has reached it. */
 	async remove(): Promise<void> {
 		await this.saving;
-		await this.fs.rm(this.path, { force: true });
+		await this.log.remove();
 	}
 }
 

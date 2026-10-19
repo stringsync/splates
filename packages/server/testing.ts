@@ -20,6 +20,7 @@ import { Format, Journal } from "./records";
 import { assets } from "./server";
 import { HEAVY_HELD } from "./server/shared";
 import { Adherence, Outcomes } from "./stats";
+import { FsStorage } from "./storage";
 import { WorktreeService } from "./tasks";
 import { Shell } from "./terminal";
 
@@ -59,6 +60,10 @@ export class Testing implements AsyncDisposable {
 	/** The heavy-job slots the commands under test take, never the machine's, so a test never waits on a real job. */
 	readonly heavy: HeavyJobs;
 	readonly journal: Journal;
+	/** The project's storage, under `splatesDir`. */
+	readonly storage: FsStorage;
+	/** The machine's storage, under `splatesHome`. */
+	readonly machine: FsStorage;
 	readonly lockPath: string;
 	readonly lock: FileLock;
 	readonly tasks: Tasks;
@@ -117,15 +122,10 @@ export class Testing implements AsyncDisposable {
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = join(base, "home", ".splates");
-		this.outcomes = new Outcomes(
-			join(this.splatesHome, "outcomes.jsonl"),
-			this.fs,
-		);
-		this.adherence = new Adherence(
-			join(this.splatesHome, "adherence.jsonl"),
-			this.fs,
-			null,
-		);
+		this.storage = new FsStorage(this.splatesDir, this.fs);
+		this.machine = new FsStorage(this.splatesHome, this.fs);
+		this.outcomes = new Outcomes(this.machine);
+		this.adherence = new Adherence(this.machine, null);
 		const store = new TaskStore(
 			join(this.splatesDir, "tasks"),
 			new FileLock(join(this.splatesDir, "tasks.lock"), {
@@ -138,6 +138,7 @@ export class Testing implements AsyncDisposable {
 		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
 			store,
 			fs: this.fs,
+			storage: this.storage,
 			ps: this.ps,
 			outcomes: this.outcomes,
 			adherence: this.adherence,
@@ -151,11 +152,9 @@ export class Testing implements AsyncDisposable {
 			cap: 2,
 			held: HEAVY_HELD,
 		});
-		this.journal = new Journal(
-			join(this.splatesDir, "log.jsonl"),
-			this.config.logCapacity,
-			{ fs: this.fs, ps: this.ps },
-		);
+		this.journal = new Journal(this.storage, this.config.logCapacity, {
+			ps: this.ps,
+		});
 		this.lockPath = join(this.splatesDir, "merge.lock");
 		this.lock = new FileLock(this.lockPath, {
 			fs: this.fs,

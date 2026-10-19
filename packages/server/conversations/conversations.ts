@@ -23,6 +23,7 @@ import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
 import { installedVersion } from "../server/shared";
 import type { Adherence, Outcomes } from "../stats";
+import { FsStorage, type Storage } from "../storage";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { Conversation, type Picked } from "./conversation";
 import type {
@@ -52,6 +53,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	private readonly known = new Map<string, Conversation>();
 	private readonly fs: Fs;
+	/** Where the conversations are kept, each log `<id>.jsonl` in it. */
+	private readonly storage: Storage;
 	private readonly ids: IdProvider;
 	private readonly launcher: Launcher;
 	private readonly slots: ConversationSlots | undefined;
@@ -93,6 +96,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		opts: ConversationsOptions = {},
 	) {
 		this.fs = opts.fs ?? new NodeFs();
+		this.storage = opts.storage ?? new FsStorage(dir, this.fs);
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
 		this.slots = opts.slots;
@@ -133,6 +137,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				return conversations.url;
 			},
 			fs: this.fs,
+			storage: this.storage,
+			dir: this.dir,
 			ids: this.ids,
 			artifacts: this.artifacts,
 			room: this.room,
@@ -268,7 +274,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
 		await this.load();
-		await this.fs.mkdir(this.dir);
 		const id = this.ids.next();
 		const conversation = await Conversation.start(
 			{
@@ -278,7 +283,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				base,
 				caller,
 				cwd,
-				log: `${this.dir}/${id}.jsonl`,
 				settings,
 				model,
 				assigned,
@@ -378,7 +382,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				{ conversation: holding.id },
 			);
 		}
-		await this.fs.mkdir(this.dir);
 		const id = this.ids.next();
 		const conversation = await Conversation.bring(
 			{
@@ -390,7 +393,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				base,
 				caller,
 				cwd,
-				log: `${this.dir}/${id}.jsonl`,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,
@@ -479,7 +481,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 						.then(() =>
 							outcomes.creditTurn(
 								conversation.id,
-								`${this.dir}/${conversation.id}.jsonl`,
+								this.storage.log(`${conversation.id}.jsonl`),
 								since,
 								until,
 							),
@@ -559,15 +561,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	private async read(): Promise<void> {
-		const names = (await this.fs.exists(this.dir))
-			? await this.fs.readdir(this.dir)
-			: [];
+		// Each log is one of the names kept at the top, beside a collection
+		// of its files.
+		const names = await this.storage.collection("").list();
 		for (const name of names.filter((each) => each.endsWith(".jsonl"))) {
-			const read = await Conversation.read(
-				`${this.dir}/${name}`,
-				this.agents,
-				this.deps,
-			);
+			const read = await Conversation.read(name, this.agents, this.deps);
 			if (read !== null && !this.known.has(read.id)) {
 				this.track(read);
 			}

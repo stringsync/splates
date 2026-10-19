@@ -5,11 +5,14 @@ import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
 import type { Limits, Offered } from "../models";
 import type { Adherence, Outcomes } from "../stats";
+import type { Storage } from "../storage";
 import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts, ProjectRoster } from "./host";
 import type { Limit } from "./state";
 export interface ConversationsOptions {
 	fs?: Fs;
+	/** Where the conversations are kept; the files in `dir`, on `fs`, by default. */
+	storage?: Storage;
 	/** How many bytes of artifacts each may keep; `ARTIFACT_LIMITS` by default. */
 	artifacts?: ArtifactLimits;
 	ids?: IdProvider;

@@ -28,6 +28,26 @@ describe("FsStorage", () => {
 		expect(await fs.readdir("/repo/.git/splates/log")).toEqual([segment?.name]);
 	});
 
+	it("keeps a line torn by a crash apart from the next appended", async () => {
+		const fs = new FakeFs();
+		await fs.write("/repo/.git/splates/log.jsonl", '{"n":1}\n{"n":');
+		const log = new FsStorage("/repo/.git/splates", fs).log("log.jsonl");
+
+		expect(await log.replay()).toEqual([{ n: 1 }]);
+		await log.append({ n: 2 });
+
+		expect(await log.replay()).toEqual([{ n: 1 }, { n: 2 }]);
+	});
+
+	it("makes the directory a log is kept in", async () => {
+		const fs = new FakeFs();
+		const log = new FsStorage("/home/s", fs).log("conversations/a.jsonl");
+
+		await log.append({ n: 1 });
+
+		expect(await fs.read("/home/s/conversations/a.jsonl")).toBe('{"n":1}\n');
+	});
+
 	it("leaves no file behind of a write in flight", async () => {
 		const fs = new FakeFs();
 		const tasks = new FsStorage("/repo/.git/splates", fs).collection("tasks");

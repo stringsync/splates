@@ -103,8 +103,6 @@ export async function serveProject(
 		events = await JournalEvents.follow({
 			journal,
 			conversations,
-			fs,
-			splatesDir,
 			log,
 		});
 		await automations.start(conversations, journal);

@@ -1,6 +1,6 @@
-import type { Fs } from "webappwiz/system";
-import type { Device } from "../conversations";
+import type { Device, Entry } from "../conversations";
 import type { Decision } from "../plans";
+import type { Log, Storage } from "../storage";
 import type { DiffSize, MergeFailure, RemoveReason } from "../tasks";
 import type { Finding } from "./findings";
 import { type TaskUsage, taskLog } from "./task-log";
@@ -11,31 +11,31 @@ import { type TaskUsage, taskLog } from "./task-log";
  * trimmed: a trend needs months of it, and a line per task stays small.
  */
 export class Outcomes {
-	constructor(
-		/** `~/.splates/outcomes.jsonl`, or a test's own. */
-		readonly path: string,
-		private readonly fs: Fs,
-	) {}
-
+	readonly log: Log<Outcome>;
 	/**
-	 * Beside `path`, the usage of the turns tasks ended in, which `splates
-	 * merge` writes its line too early to see. Apart from `path`, so splates
+	 * Beside `log`, the usage of the turns tasks ended in, which `splates
+	 * merge` writes its line too early to see. Apart from `log`, so splates
 	 * versions that read only that never mistake one for a task.
 	 */
-	get turnsPath(): string {
-		return `${this.dir}/outcome-usage.jsonl`;
+	readonly turns: Log<TurnUsage>;
+
+	constructor(
+		/** The machine's storage, or a test's own. */
+		storage: Storage,
+	) {
+		this.log = storage.log("outcomes.jsonl");
+		this.turns = storage.log("outcome-usage.jsonl");
 	}
 
 	async record(outcome: Outcome): Promise<void> {
 		// Appending, rather than rewriting, keeps two agents ending tasks at once
 		// from dropping each other's line.
-		await this.fs.mkdir(this.dir);
-		await this.fs.append(this.path, `${JSON.stringify(outcome)}\n`);
+		await this.log.append(outcome);
 	}
 
 	async list(): Promise<Outcome[]> {
-		const turns = await lines<TurnUsage>(this.fs, this.turnsPath);
-		return (await lines<Outcome>(this.fs, this.path)).map((outcome) =>
+		const turns = await this.turns.replay();
+		return (await this.log.replay()).map((outcome) =>
 			known(
 				turns
 					.filter(
@@ -50,18 +50,18 @@ export class Outcomes {
 	}
 
 	/**
-	 * Credits the task that `conversation`, logged at `log`, ended last in
+	 * Credits the task that `conversation`, logged in `log`, ended last in
 	 * its turn from `since` to `until` with what the rest of that turn used,
 	 * once the turn has ended and said it. Several ended in one turn: the
 	 * last one's is what the turn finished on.
 	 */
 	async creditTurn(
 		conversation: string,
-		log: string,
+		log: Log<Entry>,
 		since: string,
 		until: string,
 	): Promise<void> {
-		const ended = (await lines<Outcome>(this.fs, this.path)).findLast(
+		const ended = (await this.log.replay()).findLast(
 			(each) =>
 				each.conversation === conversation &&
 				each.usage !== undefined &&
@@ -71,7 +71,7 @@ export class Outcomes {
 		if (ended?.usage === undefined) {
 			return;
 		}
-		const whole = await taskLog(log, this.fs, ended.startedAt, until);
+		const whole = await taskLog(log, ended.startedAt, until);
 		if (whole?.usage === undefined) {
 			return;
 		}
@@ -85,12 +85,7 @@ export class Outcomes {
 			endedAt: ended.endedAt,
 			usage,
 		};
-		await this.fs.mkdir(this.dir);
-		await this.fs.append(this.turnsPath, `${JSON.stringify(turn)}\n`);
-	}
-
-	private get dir(): string {
-		return this.path.slice(0, this.path.lastIndexOf("/"));
+		await this.turns.append(turn);
 	}
 }
 
@@ -98,26 +93,11 @@ export class Outcomes {
  * What the rest of the turn a task ended in used, a line of
  * `~/.splates/outcome-usage.jsonl`, naming its outcome by when it ended.
  */
-interface TurnUsage {
+export interface TurnUsage {
 	project: string;
 	task: string;
 	endedAt: string;
 	usage: TaskUsage;
-}
-
-/** Each JSON line of the file at `path`; a torn one loses that line alone. */
-async function lines<T>(fs: Fs, path: string): Promise<T[]> {
-	const raw = await fs.read(path).catch(() => "");
-	return raw
-		.split("\n")
-		.filter(Boolean)
-		.flatMap((line) => {
-			try {
-				return [JSON.parse(line) as T];
-			} catch {
-				return [];
-			}
-		});
 }
 
 /** `outcome` with `turn`'s usage added to its own. */
@@ -222,7 +202,7 @@ export interface Outcome {
 	promptsFrom?: Partial<Record<Device, number>>;
 	/**
 	 * What its own turns used, not the rest of its conversation's, the turn it
-	 * ended in added from `turnsPath` once `splates server` saw it end. Absent from
+	 * ended in added from `turns` once `splates server` saw it end. Absent from
 	 * older lines, for a task with no conversation log to read, and, as read,
 	 * for one with no tokens out, which never kept the turns that did its work.
 	 */
@@ -257,25 +237,19 @@ export interface WorkerSpend {
 
 /**
  * How many prompts the person said from each layout in the conversation
- * logged at `log`, from `since` to `until`: a conversation can outlive the
+ * logged in `log`, from `since` to `until`: a conversation can outlive the
  * task, or come to it already under way.
  */
 export async function promptsFrom(
-	log: string,
-	fs: Fs,
+	log: Log<Entry>,
 	since: string,
 	until: string,
 ): Promise<Partial<Record<Device, number>>> {
 	const counts: Partial<Record<Device, number>> = {};
-	const raw = await fs.read(log).catch(() => "");
-	// Each line is written with its kind first, so only prompts are parsed.
-	for (const line of raw.split("\n")) {
-		if (!line.startsWith('{"kind":"prompt"')) {
-			continue;
-		}
-		const entry = parsed(line);
+	for (const entry of await log.replay()) {
 		if (
-			entry?.from !== undefined &&
+			entry.kind === "prompt" &&
+			entry.from !== undefined &&
 			entry.at !== undefined &&
 			entry.at >= since &&
 			entry.at <= until
@@ -284,12 +258,4 @@ export async function promptsFrom(
 		}
 	}
 	return counts;
-}
-
-function parsed(line: string): { from?: Device; at?: string } | null {
-	try {
-		return JSON.parse(line);
-	} catch {
-		return null;
-	}
 }

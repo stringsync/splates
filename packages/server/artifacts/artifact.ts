@@ -112,19 +112,15 @@ async function read(deps: ArtifactDeps, id: string): Promise<Artifact[]> {
 	return replayed?.state.artifacts ?? [];
 }
 
-function logOf({ service, fs }: ArtifactDeps, id: string): ConversationLog {
-	return new ConversationLog(
-		service.conversationLog(id),
-		fs,
-		new SystemTimer(),
-	);
+function logOf({ service }: ArtifactDeps, id: string): ConversationLog {
+	return new ConversationLog(service.conversationLog(id), new SystemTimer());
 }
 
 /** The store over conversation `id`'s log, for a process that is not `splates server`. */
 async function open(deps: ArtifactDeps, id: string): Promise<Artifacts> {
 	const log = logOf(deps, id);
 	const held = (await log.replay())?.state.artifacts ?? [];
-	return new Artifacts(log.path, {
+	return new Artifacts(deps.service.conversationPath(id), {
 		fs: deps.fs,
 		now: () => new Date().toISOString(),
 		limits: artifactLimits(deps.service.config),

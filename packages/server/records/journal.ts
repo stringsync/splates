@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
-import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { NodePs, type Ps } from "webappwiz/system";
 import { Exit } from "../exit";
+import type { Log, Storage, Watch } from "../storage";
 import {
 	type Action,
 	type Event,
@@ -14,9 +14,8 @@ import {
 /** How long a log file is kept once it fills, so a live conversation can still show the events in it. */
 export const LOG_KEPT_MS = 90 * 24 * 60 * 60 * 1000;
 
-/** What a `Journal` is stored through; the real filesystem and process by default. */
+/** What a `Journal` runs with beyond its storage; the real process by default. */
 export interface JournalOptions {
-	fs?: Fs;
 	ps?: Ps;
 	/**
 	 * The conversation each event is logged in, for what `splates server`
@@ -30,35 +29,41 @@ export interface JournalOptions {
  * `merge` and `remove` take the record with them, so this is the only thing
  * that remembers a task existed at all.
  *
- * Each event is appended, never rewritten, so two agents writing at once both
- * keep theirs. Once the file holds `capacity` events it is moved into the
- * `log` directory beside it, under a name that sorts by when, and a fresh one
- * starts; moved files go once they are `LOG_KEPT_MS` old.
+ * Each event is appended to `log.jsonl`, never rewritten, so two agents
+ * writing at once both keep theirs. Once it holds `capacity` events it is
+ * rotated into a segment in `log`, and a fresh one starts; segments go once
+ * they are `LOG_KEPT_MS` old.
  */
 export class Journal {
-	private readonly fs: Fs;
+	private readonly log: Log<Event>;
 	private readonly ps: Ps;
-	private readonly archive: string;
 	private readonly conversation: string | undefined;
 
 	constructor(
-		private readonly path: string,
+		/** The project's storage, which the journal is kept at the top of. */
+		private readonly storage: Storage,
 		private readonly capacity: number,
 		opts: JournalOptions = {},
 	) {
-		this.fs = opts.fs ?? new NodeFs();
+		this.log = storage.log("log.jsonl", { segments: "log" });
 		this.ps = opts.ps ?? new NodePs();
-		this.archive = join(dirname(path), "log");
 		this.conversation = opts.conversation;
 	}
 
 	/** This journal, logging each event in `conversation`. */
 	in(conversation: string): Journal {
-		return new Journal(this.path, this.capacity, {
-			fs: this.fs,
+		return new Journal(this.storage, this.capacity, {
 			ps: this.ps,
 			conversation,
 		});
+	}
+
+	/**
+	 * Tells of each change where the journal is kept, its own among them,
+	 * until disposed; throws when the storage cannot watch it.
+	 */
+	watch(): Watch {
+		return this.storage.watch("");
 	}
 
 	async record<A extends Action, T>(
@@ -108,13 +113,13 @@ export class Journal {
 		if (count <= 0) {
 			return [];
 		}
-		let events = await this.read(this.path);
+		let events = current(await this.log.replay());
 		// Newest first, reading back only as far as `count` needs.
-		for (const file of (await this.archived()).reverse()) {
+		for (const segment of (await this.log.segments()).reverse()) {
 			if (events.length >= count) {
 				break;
 			}
-			events = [...(await this.read(join(this.archive, file))), ...events];
+			events = [...current(await this.log.replaySegment(segment)), ...events];
 		}
 		return events.slice(-count);
 	}
@@ -125,11 +130,11 @@ export class Journal {
 	 * fills twice over.
 	 */
 	async recent(): Promise<Event[]> {
-		const last = (await this.archived()).at(-1);
-		return [
-			...(last === undefined ? [] : await this.read(join(this.archive, last))),
-			...(await this.read(this.path)),
-		];
+		const last = (await this.log.segments()).at(-1);
+		return current([
+			...(last === undefined ? [] : await this.log.replaySegment(last)),
+			...(await this.log.replay()),
+		]);
 	}
 
 	private async append(
@@ -148,61 +153,32 @@ export class Journal {
 				this.conversation ?? this.ps.env("SPLATES_CONVERSATION") ?? null,
 			...facts,
 		};
-		await this.fs.append(this.path, `${JSON.stringify(event)}\n`);
-		if ((await this.parsed(this.path)).length >= this.capacity) {
+		await this.log.append(event as Event);
+		if ((await this.log.replay()).length >= this.capacity) {
 			await this.rotate();
 		}
 		return event.id;
 	}
 
-	/**
-	 * Moves the full file aside. Two writers rotating at once is harmless: the
-	 * second either finds nothing to move or moves the few events written since,
-	 * under a name of its own.
-	 */
+	/** Moves the full log aside, and drops what was moved aside long ago. */
 	private async rotate(): Promise<void> {
-		await this.fs.mkdir(this.archive);
+		await this.log.rotate();
 		const now = Date.now();
-		await this.fs
-			.rename(this.path, join(this.archive, `${now}-${randomUUID()}.jsonl`))
-			.catch(() => {});
-		for (const file of await this.archived()) {
-			if (now - Number.parseInt(file, 10) > LOG_KEPT_MS) {
-				await this.fs.rm(join(this.archive, file)).catch(() => {});
+		for (const segment of await this.log.segments()) {
+			if (now - segment.at > LOG_KEPT_MS) {
+				await this.log.dropSegment(segment).catch(() => {});
 			}
 		}
 	}
+}
 
-	/** The moved files, oldest first. */
-	private async archived(): Promise<string[]> {
-		const files = await this.fs.readdir(this.archive).catch(() => []);
-		return files.filter((file) => file.endsWith(".jsonl")).sort();
-	}
-
-	/**
-	 * The events in `path` that carry every fact their action records now:
-	 * one that went through before its action recorded them is left out,
-	 * since a reader trusts an event's facts as its type gives them.
-	 */
-	private async read(path: string): Promise<Event[]> {
-		return (await this.parsed(path)).filter(isCurrent);
-	}
-
-	/** Every event in `path`, whatever facts it carries. */
-	private async parsed(path: string): Promise<Event[]> {
-		const raw = await this.fs.read(path).catch(() => "");
-		return raw
-			.split("\n")
-			.filter(Boolean)
-			.flatMap((line) => {
-				try {
-					// A torn line loses one event, not the whole log.
-					return [renamed(JSON.parse(line) as Event)];
-				} catch {
-					return [];
-				}
-			});
-	}
+/**
+ * The events in `events` that carry every fact their action records now:
+ * one that went through before its action recorded them is left out, since
+ * a reader trusts an event's facts as its type gives them.
+ */
+function current(events: Event[]): Event[] {
+	return events.map(renamed).filter(isCurrent);
 }
 
 function ofOutcome<T>(

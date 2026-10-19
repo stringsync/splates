@@ -3,6 +3,7 @@ import { type Fs, MemoryLock, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Attachments, folderBytes } from "../artifacts";
 import { TaskStore } from "../board";
 import type { Config } from "../config";
+import type { Entry } from "../conversations";
 import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Checkouts } from "../merge";
@@ -10,6 +11,7 @@ import { ranWith } from "../models";
 import { decisions, goalLine, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
+import { FsStorage, type Log, type Storage } from "../storage";
 import type { WorkerMachine } from "../workers";
 import { WorkerBudget, workerGit } from "../workers";
 import { Finished } from "./finished";
@@ -51,6 +53,7 @@ export class WorktreeService {
 	/** Every task that merged or was removed here, newest kept, to look back on. */
 	readonly finished: Finished;
 	private readonly fs: Fs;
+	private readonly storage: Storage;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
 	private readonly workerBudget: string | null;
@@ -69,6 +72,7 @@ export class WorktreeService {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
+		this.storage = opts.storage ?? new FsStorage(splatesDir, this.fs);
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.workerBudget = opts.workerBudget ?? null;
@@ -111,26 +115,26 @@ export class WorktreeService {
 		if (id === undefined) {
 			return undefined;
 		}
-		const text = await this.fs.read(this.conversationLog(id)).catch(() => "");
-		try {
-			const start = JSON.parse(text.slice(0, text.indexOf("\n"))) as {
-				kind?: string;
-				persistent?: string;
-			};
-			return start.kind === "start" ? start.persistent : undefined;
-		} catch {
-			return undefined;
-		}
+		const [start] = await this.conversationLog(id).replay();
+		return start?.kind === "start" ? start.persistent : undefined;
 	}
 
-	/** Where the log of the conversation `id` is kept. */
-	conversationLog(id: string): string {
+	/** The log of the conversation `id`. */
+	conversationLog(id: string): Log<Entry> {
+		return this.storage.log(`conversations/${id}.jsonl`);
+	}
+
+	/**
+	 * Where the log of conversation `id` sits on this machine, which its
+	 * artifacts, not on storage yet, are kept beside.
+	 */
+	conversationPath(id: string): string {
 		return `${this.conversationsDir}/${id}.jsonl`;
 	}
 
 	/** Whether the `splates server` conversation `id` is one of this repo's. */
 	holds(id: string): Promise<boolean> {
-		return this.fs.exists(`${this.conversationsDir}/${id}.jsonl`);
+		return this.conversationLog(id).exists();
 	}
 
 	/** Keeps `task`'s lease fresh while this process runs, once it has taken it. */
@@ -472,14 +476,10 @@ export class WorktreeService {
 		// What the conversation ran is what did the work; the handover only
 		// says what was asked for, and is all an unstarted one has.
 		const log =
-			conversation === null
-				? null
-				: `${this.conversationsDir}/${conversation}.jsonl`;
-		const ran = log === null ? null : await ranWith(log, this.fs);
+			conversation === null ? null : this.conversationLog(conversation);
+		const ran = log === null ? null : await ranWith(log);
 		const worked =
-			log === null
-				? null
-				: await taskLog(log, this.fs, state.createdAt, endedAt);
+			log === null ? null : await taskLog(log, state.createdAt, endedAt);
 		const judged =
 			conversation === null || this.adherence === null
 				? null
@@ -531,9 +531,7 @@ export class WorktreeService {
 			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
 			...(opts.commits === undefined ? {} : { commits: opts.commits }),
 			promptsFrom:
-				log === null
-					? {}
-					: await promptsFrom(log, this.fs, state.createdAt, endedAt),
+				log === null ? {} : await promptsFrom(log, state.createdAt, endedAt),
 			...(worked === null
 				? {}
 				: { usage: worked.usage, workedMs: worked.workedMs }),
@@ -630,6 +628,8 @@ interface Reach {
 /** What a `WorktreeService` works through; the real ones by default. */
 export interface WorktreeServiceOptions {
 	fs?: Fs;
+	/** The project's storage; the files under `splatesDir`, on `fs`, by default. */
+	storage?: Storage;
 	ps?: Ps;
 	/** Where each task's ending is written down; none, and nothing is. */
 	outcomes?: Outcomes;

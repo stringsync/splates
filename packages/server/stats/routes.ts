@@ -2,6 +2,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
 import type { Handler } from "../server/shared";
+import { FsStorage } from "../storage";
 import { Adherence } from "./adherence";
 import { landed } from "./landed";
 import { Outcomes } from "./outcomes";
@@ -18,10 +19,9 @@ export class DevOutcomes {
 	readonly adherence: Adherence;
 
 	constructor({ fs, ps }: { fs: Fs; ps: Ps }) {
-		this.outcomes = new Outcomes(`${splatesHome(ps)}/outcomes.jsonl`, fs);
+		this.outcomes = new Outcomes(new FsStorage(splatesHome(ps), fs));
 		this.adherence = new Adherence(
-			`${splatesHome(ps)}/adherence.jsonl`,
-			fs,
+			new FsStorage(splatesHome(ps), fs),
 			this.outcomes,
 		);
 	}

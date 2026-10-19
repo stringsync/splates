@@ -301,7 +301,7 @@ describe.concurrent("outcomes", () => {
 		const line = (task: string, output: number) =>
 			`${JSON.stringify({ task, usage: { input: 5, cached: 0, output, cost: null } })}\n`;
 		await deps.fs.write(
-			deps.outcomes.path,
+			join(deps.splatesHome, "outcomes.jsonl"),
 			line("alpha", 0) + line("beta", 12),
 		);
 
@@ -337,7 +337,7 @@ describe.concurrent("outcomes", () => {
 			{ kind: "usage", usage: { inputTokens: 40, outputTokens: 7 } },
 		]);
 
-		const log = join(deps.splatesDir, "conversations", "c1.jsonl");
+		const log = deps.service.conversationLog("c1");
 		await deps.outcomes.creditTurn("c1", log, at(0), ended);
 		await deps.outcomes.creditTurn("c2", log, at(0), ended);
 
@@ -349,10 +349,14 @@ describe.concurrent("outcomes", () => {
 			cost: { amount: 1.25, currency: "USD" },
 		});
 		expect(
-			(await deps.fs.read(deps.outcomes.path)).trim().split("\n"),
+			(await deps.fs.read(join(deps.splatesHome, "outcomes.jsonl")))
+				.trim()
+				.split("\n"),
 		).toHaveLength(1);
 		expect(
-			(await deps.fs.read(deps.outcomes.turnsPath)).trim().split("\n"),
+			(await deps.fs.read(join(deps.splatesHome, "outcome-usage.jsonl")))
+				.trim()
+				.split("\n"),
 		).toHaveLength(1);
 	});
 });

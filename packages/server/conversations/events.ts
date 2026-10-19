@@ -1,6 +1,5 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
 import type { Event, Journal } from "../records";
 import type { Conversations } from "./conversations";
@@ -29,32 +28,30 @@ export class JournalEvents implements Resource {
 
 	/**
 	 * Hands each conversation in `conversations` its events, then follows
-	 * `splatesDir`, where the journal writes, for more.
+	 * the journal for more.
 	 */
 	static async follow({
 		journal,
 		conversations,
-		fs,
-		splatesDir,
 		log,
 		timer = new SystemTimer(),
 	}: {
 		journal: Journal;
 		conversations: Conversations;
-		fs: Fs;
-		splatesDir: string;
 		log: Logger;
 		timer?: Timer;
 	}): Promise<JournalEvents> {
 		const following = new JournalEvents(journal, conversations, log, timer);
 		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER));
 		try {
-			following.#watching = fs.watch(splatesDir, () => following.changed());
+			const watching = journal.watch();
+			watching.events.on("changed", () => void following.changed());
+			following.#watching = watching;
 			// Anything logged between the read above and the watch starting.
 			await following.changed();
 		} catch (error) {
 			log.error(
-				`splates server cannot watch ${splatesDir}, so splates's events show in a conversation only once the server restarts: ${String(error)}`,
+				`splates server cannot watch its journal, so splates's events show in a conversation only once the server restarts: ${String(error)}`,
 			);
 		}
 		return following;

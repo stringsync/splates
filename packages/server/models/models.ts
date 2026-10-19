@@ -1,5 +1,5 @@
-import type { Fs } from "webappwiz/system";
-import type { Setting } from "../conversations";
+import type { Entry, Setting } from "../conversations";
+import type { Log } from "../storage";
 
 /**
  * Where `model` is among `settings`: the model setting's id, and the value
@@ -70,37 +70,20 @@ export function pickedModel(settings: Setting[]): string | null {
 }
 
 /**
- * The agent the conversation logged at `log` runs, and the model it last had
+ * The agent the conversation logged in `log` runs, and the model it last had
  * picked; null when there is no such log.
  */
 export async function ranWith(
-	log: string,
-	fs: Fs,
+	log: Log<Entry>,
 ): Promise<{ agent: string; model: string | null } | null> {
-	// Only inspect identity/settings entries: conversation logs can be megabytes.
-	const lines = (await fs.read(log).catch(() => "")).split("\n");
-	const start = parsed(lines[0]);
-	if (start?.kind !== "start" || typeof start.agent !== "string") {
+	const entries = await log.replay();
+	const start = entries[0];
+	if (start?.kind !== "start") {
 		return null;
 	}
-	// Each line is written with its kind first, so the settings are found
-	// without parsing every update the agent sent.
-	const settings = parsed(
-		lines.findLast((line) => line.startsWith('{"kind":"settings"')),
-	)?.settings;
+	const settings = entries.findLast((entry) => entry.kind === "settings");
 	return {
 		agent: start.agent,
-		model: Array.isArray(settings) ? pickedModel(settings) : null,
+		model: settings === undefined ? null : pickedModel(settings.settings),
 	};
-}
-
-/** A log line, as far as `ranWith` needs it; null for one that will not parse. */
-function parsed(
-	line: string | undefined,
-): { kind?: string; agent?: unknown; settings?: Setting[] } | null {
-	try {
-		return line ? JSON.parse(line) : null;
-	} catch {
-		return null;
-	}
 }

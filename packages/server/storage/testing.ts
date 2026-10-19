@@ -70,6 +70,7 @@ export class MemoryStorage implements Storage {
 				.map((name) => ({ name, at: Number.parseInt(name, 10) }));
 		return {
 			key,
+			exists: async () => this.text(at) !== null,
 			append: async (...entries) => {
 				if (entries.length > 0) {
 					this.set(at, (this.text(at) ?? "") + logLines(entries));
