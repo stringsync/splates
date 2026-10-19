@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import type { SpawnOptions } from "webappwiz/system";
-import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../cloud";
+import { FakeFs } from "webappwiz/system/testing";
+import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
 import { FakeHetzner } from "../cloud/testing";
 import { CoordinatorBox, installScript } from "./index";
+import { KeygenPs } from "./testing";
 
 const HOME = "/home/.splates";
 const KEY = `${HOME}/coordinator/id_ed25519`;
@@ -22,6 +22,7 @@ describe("CoordinatorBox", () => {
 		hetzner = new FakeHetzner();
 		store = new FakeSecretStore();
 		await store.set(HCLOUD_TOKEN, "token");
+		await new ChosenCloud(HOME, fs).choose("hetzner");
 		box = new CoordinatorBox({
 			version: "1.2.3",
 			ps,
@@ -136,24 +137,3 @@ describe("CoordinatorBox", () => {
 		await expect(box.up()).rejects.toThrow("cloud-token");
 	});
 });
-
-/** An ssh-keygen that writes its public key into a `FakeFs`, counting its runs. */
-class KeygenPs extends FakePs {
-	keygens = 0;
-
-	constructor(private readonly fs: FakeFs) {
-		super();
-	}
-
-	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
-		await super.spawnCapture(argv, opts);
-		expect(argv[0]).toBe("ssh-keygen");
-		this.keygens++;
-		const at = argv.indexOf("-f");
-		await this.fs.write(
-			`${argv[at + 1]}.pub`,
-			"ssh-ed25519 AAAA splates-coordinator\n",
-		);
-		return { exitCode: 0, stdout: "", stderr: "" };
-	}
-}

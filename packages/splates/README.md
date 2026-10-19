@@ -244,13 +244,15 @@ cloud account to make them in as `splates.config.ts`'s `cloud`, in the repo
 `splates server` starts in:
 
 ```ts
-import { HetznerCloud } from "@stringsync/splates-server/cloud";
+import { DigitalOceanCloud } from "@stringsync/splates-server/cloud";
 import type { ConfigFile } from "@stringsync/splates-server/config";
 
-export default { cloud: new HetznerCloud() } satisfies ConfigFile;
+export default { cloud: new DigitalOceanCloud() } satisfies ConfigFile;
 ```
 
-Hetzner Cloud is the only one so far. Another is a class that implements
+`DigitalOceanCloud` and `HetznerCloud` come with splates; setup's Choose a
+cloud provider step picks which one this machine's token and coordinator's
+box are for. Another is a class that implements
 `CloudProvider` from `@stringsync/splates-server/cloud`: making, listing and
 deleting tagged machines, snapshots, SSH keys and firewalls through the
 cloud's API, with its machine types and prices. splates makes both the

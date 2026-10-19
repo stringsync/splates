@@ -31,8 +31,11 @@ describe("Cloud server journey", () => {
 	let progress: SetupProgress;
 	beforeEach(async () => {
 		testing = new Testing();
+		const fs = new FakeFs();
+		await fs.mkdir("/fixture", { recursive: true });
+		await fs.write("/fixture/cloud.json", '{"format":1,"cloud":"hetzner"}');
 		progress = await new Setup(
-			{ fs: new FakeFs(), home: "/fixture", device: new FakeSecretStore() },
+			{ fs, home: "/fixture", device: new FakeSecretStore() },
 			SETUP_AREAS,
 		).read();
 	});
@@ -86,11 +89,20 @@ describe("Cloud server journey", () => {
 	const click = (view: ReturnType<typeof open>, name: string) =>
 		act(async () => fireEvent.click(view.getByRole("button", { name })));
 	const before: Record<string, StepStatus> = {
+		"coordinator-cloud": "done",
 		"coordinator-box": "done",
 		"coordinator-remotes": "done",
 	};
 
-	it("opens on the box's page asking for the Hetzner token by name", async () => {
+	it("opens on choosing a cloud provider, offering each", async () => {
+		const view = open(with_({ "coordinator-cloud": "ready" }));
+		await click(view, "Set up Cloud server");
+
+		expect(view.getByRole("form", { name: "Choose a cloud provider" }));
+		expect(view.getByText("Hetzner Cloud")).toBeTruthy();
+	});
+
+	it("asks for the chosen cloud's token by name on the box's page", async () => {
 		const view = open(progress);
 		await click(view, "Set up Cloud server");
 

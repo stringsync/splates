@@ -1,4 +1,3 @@
-import { machineCloud } from "@stringsync/splates-server/cloud";
 import {
 	BoxShell,
 	type BoxStanding,
@@ -26,7 +25,7 @@ import { z } from "zod";
  */
 export const splatesServer = cli<SplatesDeps>("server")
 	.description(
-		`the splates server: run it on this machine, or deploy it to an always-on box in your own ${machineCloud().name} account, ${machineCloud().defaults.box.about}, reached by SSH alone and made through its API with the token the setup keeps`,
+		"the splates server: run it on this machine, or deploy it to an always-on box in your own account with the cloud provider chosen in setup, reached by SSH alone and made through its API with the token the setup keeps",
 	)
 	.fallback("run");
 

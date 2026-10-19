@@ -1,11 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
-import {
-	ChosenCloud,
-	CLOUDS,
-	type CloudProvider,
-	machineCloud,
-} from "../cloud";
+import type { CloudProvider } from "../cloud";
 import { RUNNING } from "../server/shared";
 import {
 	API_TOKEN,
@@ -24,12 +19,19 @@ import {
 } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKER_KEY_STEPS } from "./area-worker-keys";
+import {
+	CLOUD_TOKEN_MISSING,
+	cloudChoiceStep,
+	cloudOf,
+	cloudTokenAccepted,
+	cloudTokenFields,
+	requireCloudToken,
+} from "./cloud";
 import type {
 	SetupArea,
 	SetupMachine,
 	SetupStep,
 	SetupWorkerBudget,
-	StepAnswers,
 	StepField,
 } from "./setup";
 
@@ -39,83 +41,6 @@ const LIMIT_FIELDS: readonly StepField[] = [
 	field("day", "Most made workers may cost in a day, dollars"),
 	field("month", "Most made workers may cost in a month, dollars"),
 ];
-
-/**
- * The cloud this machine's setup words its steps for: the first offered,
- * while only one is. `cloudOf` is the one they ask, the one chosen.
- */
-const CLOUD = machineCloud();
-
-/** The cloud chosen on this machine, reading its token from the machine's device creds. */
-export function cloudOf(machine: SetupMachine): Promise<CloudProvider> {
-	return new ChosenCloud(machine.home, machine.fs).cloud({
-		store: machine.device,
-		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
-	});
-}
-
-/**
- * The cloud provider as a page asks for it: the choice step's, and the
- * coordinator's box step's, which asks it on its own page.
- */
-export const CLOUD_CHOICE_FIELD: StepField = {
-	kind: "choice",
-	name: "cloud",
-	label: "Cloud provider",
-	options: async () =>
-		CLOUDS.map((each) => ({ value: each.id, label: each.name })),
-};
-
-/** Keeps the cloud provider picked in `answers`, when a page asked for it. */
-export async function chooseCloud(
-	{ home, fs }: SetupMachine,
-	answers: StepAnswers,
-): Promise<void> {
-	if (typeof answers.cloud === "string") {
-		await new ChosenCloud(home, fs).choose(answers.cloud);
-	}
-}
-
-/**
- * Choosing the cloud provider splates makes machines in, the cloud workers
- * and the server's box alike, before either asks for its token.
- */
-export const CLOUD_CHOICE_STEP: SetupStep = {
-	id: "cloud-choice",
-	title: "Choose a cloud provider",
-	why: `Cloud workers and the server's always-on box are machines splates makes in your own account with a cloud provider, through its API, and only while you want them. ${CLOUDS.length === 1 ? `${CLOUDS[0].name} is the only one so far.` : `It offers ${CLOUDS.map((each) => each.name).join(", ")}.`}`,
-	user: "Pick the cloud provider to make machines in, then press Next.",
-	agent:
-		"Have the user pick on the page and press Next, which keeps the choice in `~/.splates/cloud.json`; the steps after it ask for that provider's token.",
-	optional: true,
-	after: [],
-	fields: [CLOUD_CHOICE_FIELD],
-	check: async ({ home, fs }) =>
-		(await new ChosenCloud(home, fs).read()) !== null,
-	submit: chooseCloud,
-	notDone: "No cloud provider is chosen yet: pick one, then press Next.",
-};
-
-/**
- * The cloud's token as a page asks for it, pasted there and saved for the
- * device: the token step's, and any step that needs it beside its own work.
- */
-export const CLOUD_TOKEN_FIELD: StepField = {
-	kind: "cred",
-	name: CLOUD.token.cred,
-	label: CLOUD.token.label,
-	help: CLOUD.token.help,
-};
-
-/** Why a step that needs the cloud's token is not done, when the cloud refuses it. */
-export const CLOUD_TOKEN_REFUSED = CLOUD.token.refused;
-
-/** Whether the device keeps a token the machine's cloud takes. */
-export async function cloudTokenAccepted(
-	machine: SetupMachine,
-): Promise<boolean> {
-	return (await cloudOf(machine)).accepted();
-}
 
 /**
  * Running agents on this Mac, on other machines, and on machines splates
@@ -293,25 +218,33 @@ function workersArea(): SetupArea {
 			"The worker budget has not been looked at: choose its limits, then press Next.",
 	};
 
+	const choiceStep = cloudChoiceStep("cloud-choice");
+
 	const tokenStep: SetupStep = {
 		id: "cloud-token",
-		title: `Paste a ${CLOUD.token.label}`,
-		why: `Cloud workers are ${CLOUD.name} machines in your own account, made only while agents wait for a slot: ${workerPrices()}.`,
-		user: `Make an API token in your ${CLOUD.name} account and paste it.`,
-		agent: `Request it with \`splates creds request ${CLOUD.token.cred} --device\`, with how to get it, and \`splates creds wait ${CLOUD.token.cred}\`. Never ask for it in chat.`,
+		title: "Paste your cloud provider's API token",
+		why: "Cloud workers are machines in your own account with the cloud provider you chose, made only while agents wait for a slot.",
+		user: "Make an API token in your cloud provider's account and paste it.",
+		agent:
+			"Request the cred the step names with `splates creds request <cred> --device`, with how to get it, and `splates creds wait <cred>`. Never ask for it in chat.",
 		optional: true,
-		after: [CLOUD_CHOICE_STEP],
-		fields: [CLOUD_TOKEN_FIELD],
+		after: [choiceStep],
+		fields: cloudTokenFields,
+		detail: async (machine) => workerPrices(await cloudOf(machine)),
+		submit: requireCloudToken,
 		check: cloudTokenAccepted,
-		notDone: CLOUD_TOKEN_REFUSED,
+		notDone: CLOUD_TOKEN_MISSING,
 	};
 
 	const providerStep: SetupStep = {
 		id: "cloud-provider",
 		title: "Turn cloud workers on",
 		why: "A project makes cloud workers once its `splates.config.ts` names its `cloud`, up to `provisionedWorkers` at once (2 by default), and only for work its agents hand out.",
-		user: `Add \`cloud: ${CLOUD.configSource}\` to this project's \`splates.config.ts\` and merge it, as a task, then restart \`splates server\` and press Next.`,
-		agent: `In a task of its own, add \`cloud: ${CLOUD.configSource}\`, imported from \`@stringsync/splates-server/cloud\`, to \`splates.config.ts\` and merge it; then have the user restart \`splates server\`, and run \`splates setup cloud-provider\`.`,
+		user: "Add the `cloud` the step shows to this project's `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next.",
+		agent:
+			"In a task of its own, add the `cloud` the step's detail shows, imported from `@stringsync/splates-server/cloud`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup cloud-provider`.",
+		detail: async (machine) =>
+			`Add \`cloud: ${(await cloudOf(machine)).configSource}\`.`,
 		notDone:
 			"`splates.config.ts` names no `cloud` yet: add it, merge it, then press Next.",
 		optional: true,
@@ -324,7 +257,7 @@ function workersArea(): SetupArea {
 		id: "worker-snapshot",
 		title: "Build the worker snapshot",
 		why: "Workers boot from a snapshot with splates already installed, so one is ready to work within a minute. splates rebuilds it when it updates or after a week.",
-		user: `Next builds it on a small ${CLOUD.name} machine, about ten minutes and a few cents, then keeps it for about $0.10 a month.`,
+		user: "Next builds it on a small machine in your cloud account, about ten minutes and a few cents, then keeps it for about $0.10 a month.",
 		agent:
 			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
 		optional: true,
@@ -356,7 +289,7 @@ function workersArea(): SetupArea {
 			windowsStep,
 			wakeStep,
 			...WORKER_KEY_STEPS,
-			CLOUD_CHOICE_STEP,
+			choiceStep,
 			tokenStep,
 			providerStep,
 			budgetStep,
@@ -409,17 +342,18 @@ function field(limit: WorkerLimit, label: string): StepField {
 	};
 }
 
-/** What the machine's cloud's worker types cost, for the token step's why. */
-function workerPrices(): string {
-	return CLOUD.defaults.workerTypes
+/** What `cloud`'s worker types cost, for the token step's detail. */
+function workerPrices(cloud: CloudProvider): string {
+	const types = cloud.defaults.workerTypes
 		.map(
 			(type) =>
 				`a ${type.name} runs ${type.slots} agents for about ${dollars(type.dollarsPerHour)} an hour`,
 		)
-		.join(", ")
-		.concat(
-			CLOUD.defaults.workerTypes.some((type) => type.billing === "hour")
-				? ", billed by the started hour"
-				: "",
-		);
+		.join(", ");
+	const billing = cloud.defaults.workerTypes.some(
+		(type) => type.billing === "hour",
+	)
+		? ", billed by the started hour"
+		: ", billed for the time it runs";
+	return `In ${cloud.name}, ${types}${billing}.`;
 }

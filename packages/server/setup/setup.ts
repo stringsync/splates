@@ -58,7 +58,7 @@ export class Setup {
 				throw new StepProblem(`Do "${before.title}" first.`);
 			}
 		}
-		for (const field of step.fields ?? []) {
+		for (const field of await fieldsIn(step, this.#machine)) {
 			const answer = answers[field.name];
 			if (field.kind === "yes-no") {
 				if (typeof answer !== "boolean") {
@@ -138,7 +138,9 @@ export class Setup {
 					status,
 					problem,
 					cred:
-						step.fields?.find((field) => field.kind === "cred")?.name ?? null,
+						(await fieldsIn(step, this.#machine).catch(() => [])).find(
+							(field) => field.kind === "cred",
+						)?.name ?? null,
 					fields: await fieldsOf(step, this.#machine),
 					doing: step.doing ?? null,
 					detail:
@@ -305,10 +307,13 @@ export interface SetupStep {
 	 */
 	data?(machine: SetupMachine): Promise<StepData | null>;
 	/**
-	 * What its page asks, in order; none when the user does the step
+	 * What its page asks, in order, or how to read it on this machine, as
+	 * the token of the cloud chosen; none when the user does the step
 	 * outside the page, as signing in on a phone, and Next only checks.
 	 */
-	readonly fields?: readonly StepField[];
+	readonly fields?:
+		| readonly StepField[]
+		| ((machine: SetupMachine) => Promise<readonly StepField[]>);
 	/**
 	 * Does what the step needs once the user presses Next, each cred field
 	 * already saved for the device: runs an install, writes the roster. Throws an
@@ -461,7 +466,8 @@ async function fieldsOf(
 	machine: SetupMachine,
 ): Promise<FieldProgress[]> {
 	const fields: FieldProgress[] = [];
-	for (const field of step.fields ?? []) {
+	// Fields that will not read leave the page asking nothing; Next then checks.
+	for (const field of await fieldsIn(step, machine).catch(() => [])) {
 		switch (field.kind) {
 			case "cred": {
 				const { optional: _, ...rest } = field;
@@ -493,6 +499,15 @@ async function fieldsOf(
 		}
 	}
 	return fields;
+}
+
+/** What `step`'s page asks on this machine. */
+async function fieldsIn(
+	step: SetupStep,
+	machine: SetupMachine,
+): Promise<readonly StepField[]> {
+	const { fields } = step;
+	return typeof fields === "function" ? fields(machine) : (fields ?? []);
 }
 
 /** Whether `step` is on the roster for this machine; a throw reading that hides it. */

@@ -1,3 +1,7 @@
+export type { DigitalOceanCloudOptions } from "./digitalocean";
+export { DIGITALOCEAN_DEFAULTS, DigitalOceanCloud } from "./digitalocean";
+export type { DigitalOceanDroplet, NewDroplet } from "./digitalocean-api";
+export { DIGITALOCEAN_TOKEN, DigitalOceanApi } from "./digitalocean-api";
 export type { HetznerCloudOptions } from "./hetzner";
 export { HETZNER_DEFAULTS, HetznerCloud } from "./hetzner";
 export type { HetznerServer, NewServer } from "./hetzner-api";

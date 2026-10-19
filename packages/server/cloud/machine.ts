@@ -2,6 +2,7 @@ import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import { z } from "zod";
+import { DigitalOceanCloud } from "./digitalocean";
 import { HetznerCloud } from "./hetzner";
 import type { CloudProvider } from "./provider";
 
@@ -14,8 +15,13 @@ export interface CloudChoice {
 	make(opts: MachineCloudOptions): CloudProvider;
 }
 
-/** Every cloud setup offers, the first the one taken before any is chosen. */
-export const CLOUDS: readonly [CloudChoice, ...CloudChoice[]] = [
+/** Every cloud setup offers, in the order it lists them. */
+export const CLOUDS: readonly CloudChoice[] = [
+	{
+		id: "digitalocean",
+		name: "DigitalOcean",
+		make: (opts) => new DigitalOceanCloud(opts),
+	},
 	{
 		id: "hetzner",
 		name: "Hetzner Cloud",
@@ -27,16 +33,26 @@ export const CLOUDS: readonly [CloudChoice, ...CloudChoice[]] = [
  * The cloud this machine makes the coordinator's box in, and whose token
  * its setup asks for: the one place outside a project's `splates.config.ts`
  * that picks a cloud. `opts.choice` names it, as `ChosenCloud` reads it;
- * none, or one no longer offered, takes the first of `CLOUDS`.
+ * none, or one no longer offered, takes Hetzner, where every box was made
+ * before setup asked which cloud to use.
  */
 export function machineCloud(opts: MachineCloudOptions = {}): CloudProvider {
 	const { choice, ...rest } = opts;
-	return (CLOUDS.find((each) => each.id === choice) ?? CLOUDS[0]).make(rest);
+	const cloud =
+		CLOUDS.find((each) => each.id === choice) ??
+		CLOUDS.find((each) => each.id === BEFORE_CHOOSING);
+	if (cloud === undefined) {
+		throw new Error(`splates offers no cloud '${BEFORE_CHOOSING}'`);
+	}
+	return cloud.make(rest);
 }
+
+/** The cloud taken before one is chosen. */
+const BEFORE_CHOOSING = "hetzner";
 
 /** What `machineCloud` runs on; the real ones by default. */
 export interface MachineCloudOptions {
-	/** The id of the cloud to make, from `CLOUDS`; the first by default. */
+	/** The id of the cloud to make, from `CLOUDS`; Hetzner by default. */
 	choice?: string;
 	/** Where the cloud's token is kept: the device's creds. */
 	store?: SecretStore;
@@ -88,7 +104,7 @@ export class ChosenCloud {
 		await this.#fs.rename(tmp, this.#path);
 	}
 
-	/** The chosen cloud, or the first of `CLOUDS` before one is chosen. */
+	/** The chosen cloud, or Hetzner before one is chosen. */
 	async cloud(
 		opts: Omit<MachineCloudOptions, "choice"> = {},
 	): Promise<CloudProvider> {

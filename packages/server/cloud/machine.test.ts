@@ -6,7 +6,7 @@ import { ChosenCloud } from "./index";
 const HOME = "/home/.splates";
 
 describe("ChosenCloud", () => {
-	it("takes the first cloud offered until one is chosen", async () => {
+	it("takes Hetzner, where boxes were made before setup asked, until one is chosen", async () => {
 		const chosen = new ChosenCloud(HOME, new FakeFs());
 
 		expect(await chosen.read()).toBeNull();

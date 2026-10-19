@@ -11,7 +11,9 @@ const HOME = "/home/.splates";
 const UNIT = "/etc/systemd/system/splates-coordinator.service";
 
 describe("COORDINATOR_AREA's box step", () => {
-	const step = COORDINATOR_AREA.steps[0];
+	const step = COORDINATOR_AREA.steps.find(
+		(each) => each.id === "coordinator-box",
+	);
 	let fs: FakeFs;
 	let hetzner: FakeHetzner;
 	let machine: SetupMachine;
@@ -28,20 +30,16 @@ describe("COORDINATOR_AREA's box step", () => {
 			fetch: hetzner.fetch,
 		};
 		await device.set(HCLOUD_TOKEN, "token");
+		await new ChosenCloud(HOME, fs).choose("hetzner");
 	});
 
-	it("asks for the cloud provider and its token on its own page, waiting on no other journey", () => {
-		expect(step?.after).toEqual([]);
-		expect(step?.fields?.map((field) => [field.kind, field.name])).toEqual([
-			["choice", "cloud"],
+	it("asks for the chosen cloud's token on its own page, after this journey's own choice of cloud", async () => {
+		expect(step?.after.map((each) => each.id)).toEqual(["coordinator-cloud"]);
+		const fields =
+			typeof step?.fields === "function" ? await step.fields(machine) : [];
+		expect(fields.map((field) => [field.kind, field.name])).toEqual([
 			["cred", HCLOUD_TOKEN],
 		]);
-	});
-
-	it("keeps the cloud provider picked on its page", async () => {
-		await step?.submit?.(machine, { cloud: "hetzner" });
-
-		expect(await new ChosenCloud(HOME, fs).read()).toBe("hetzner");
 	});
 
 	it("makes no box with a token Hetzner refuses", async () => {

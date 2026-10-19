@@ -54,7 +54,10 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 				kind: "choice",
 				name: "cloud",
 				label: "Cloud provider",
-				options: [{ value: "hetzner", label: "Hetzner Cloud" }],
+				options: [
+					{ value: "digitalocean", label: "DigitalOcean" },
+					{ value: "hetzner", label: "Hetzner Cloud" },
+				],
 			},
 		]);
 		await expect(
@@ -88,6 +91,7 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 	});
 
 	it("turns cloud workers on once the project names a provider, then builds the snapshot through it", async () => {
+		await new ChosenCloud(HOME, machine.fs).choose("hetzner");
 		await machine.device.set(HCLOUD_TOKEN, "token");
 		await expect(setup().submit("cloud-provider", {})).rejects.toThrow(
 			"names no `cloud` yet",

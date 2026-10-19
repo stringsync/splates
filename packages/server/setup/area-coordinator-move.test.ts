@@ -45,6 +45,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 	it("lists the steps after the box in the order they are done", () => {
 		expect(Object.keys(steps)).toEqual([
+			"coordinator-cloud",
 			"coordinator-box",
 			"coordinator-remotes",
 			"coordinator-keys",

@@ -1,6 +1,5 @@
 import { MemoryLogger } from "webappwiz/log";
 import { FileLock } from "webappwiz/system";
-import { machineCloud } from "../cloud";
 import {
 	CoordinatorBox,
 	type CoordinatorMove,
@@ -14,13 +13,13 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
-	CLOUD_CHOICE_FIELD,
-	CLOUD_TOKEN_FIELD,
-	CLOUD_TOKEN_REFUSED,
-	chooseCloud,
+	CLOUD_TOKEN_MISSING,
+	cloudChoiceStep,
 	cloudOf,
 	cloudTokenAccepted,
-} from "./area-workers";
+	cloudTokenFields,
+	requireCloudToken,
+} from "./cloud";
 import { coordinatorMoved } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
@@ -41,9 +40,6 @@ export interface CoordinatorAreaDeps {
 /** A project as the move checks its remote. */
 export type MovingProject = Parameters<typeof remoteProblem>[0];
 
-/** The box the machine's cloud makes, as its step says it. */
-const BOX = machineCloud().defaults.box;
-
 export const COORDINATOR_AREA: SetupArea = coordinatorArea();
 
 /**
@@ -61,18 +57,25 @@ export function coordinatorArea(
 	// box's splates up and pushes to GitHub, too slow for each read of setup.
 	const dryRuns = new Map<string, Moved>();
 
+	const choiceStep = cloudChoiceStep("coordinator-cloud");
+
 	const boxStep: SetupStep = {
 		id: "coordinator-box",
 		title: "Make the server's box",
-		why: `An always-on box keeps the page, the queue and merging up while this machine sleeps. It is ${BOX.about}, reached by SSH alone; it serves nothing until the server is deployed to it.`,
-		user: `Pick the cloud provider and paste a ${CLOUD_TOKEN_FIELD.label}, or leave the one saved, and Next makes the box in that account.`,
-		agent: `Have the user pick the cloud provider on the page, which keeps it in \`~/.splates/cloud.json\` (the \`cloud-choice\` step of Workers asks the same). Without the cred \`${CLOUD_TOKEN_FIELD.name}\`, request it with \`splates creds request ${CLOUD_TOKEN_FIELD.name} --device\` and \`splates creds wait ${CLOUD_TOKEN_FIELD.name}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
+		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small machine in your account with the cloud provider you chose, reached by SSH alone; it serves nothing until the server is deployed to it.",
+		user: "Paste your cloud provider's API token, or leave the one saved, and Next makes the box in that account.",
+		agent:
+			"Without the cred the step names, request it with `splates creds request <cred> --device` and `splates creds wait <cred>`, never in chat. Then press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
 		optional: true,
-		after: [],
-		// The page asks for the provider and its token here, so this journey never sends the user to another for them.
-		fields: [CLOUD_CHOICE_FIELD, CLOUD_TOKEN_FIELD],
+		after: [choiceStep],
+		// The page asks for the token here, so this journey never sends the user to another for it.
+		fields: cloudTokenFields,
+		detail: async (machine) => {
+			const cloud = await cloudOf(machine);
+			return `In ${cloud.name}, it is ${cloud.defaults.box.about}.`;
+		},
 		doing: "Making the coordinator's box, a few minutes…",
-		notDone: CLOUD_TOKEN_REFUSED,
+		notDone: CLOUD_TOKEN_MISSING,
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
@@ -83,11 +86,8 @@ export function coordinatorArea(
 			}
 			return (await (await box(machine)).status()) !== null;
 		},
-		submit: async (machine, answers) => {
-			await chooseCloud(machine, answers);
-			if (!(await cloudTokenAccepted(machine))) {
-				throw new Error(CLOUD_TOKEN_REFUSED);
-			}
+		submit: async (machine) => {
+			await requireCloudToken(machine);
 			await (await box(machine)).up();
 		},
 	};
@@ -156,7 +156,7 @@ export function coordinatorArea(
 	return {
 		id: "coordinator",
 		title: "Cloud server",
-		steps: [boxStep, remotesStep, keysStep, moveStep],
+		steps: [choiceStep, boxStep, remotesStep, keysStep, moveStep],
 	};
 }
 
