@@ -54,6 +54,7 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
+	let starting = Promise.resolve();
 	const automations = new Automations(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
@@ -108,7 +109,6 @@ export async function serveProject(
 		});
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
-		let starting = Promise.resolve();
 		const handOff = (): void => {
 			// A task gone moves the queue on.
 			void queue.sweep();
@@ -227,6 +227,9 @@ export async function serveProject(
 			unwatchRoom?.();
 			automations.dispose();
 			events?.dispose();
+			// A run mid-start has launched an agent it has yet to record, which a
+			// server starting next would launch again.
+			await starting;
 			await talks.disposeAsync();
 		},
 	};
