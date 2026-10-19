@@ -127,13 +127,26 @@ export async function queueMove(
 	id: number,
 	position: number,
 ): Promise<void> {
+	await moveInQueue(deps.tasks, id, position);
+	await queueList(deps);
+}
+
+/**
+ * Moves queued task `id` to `position` in the queue, from 1, as
+ * `queueMove` does, saying nothing.
+ */
+export async function moveInQueue(
+	tasks: Tasks,
+	id: number,
+	position: number,
+): Promise<void> {
 	if (!Number.isInteger(position) || position <= 0) {
 		fail("usage", `'${position}' is not a position: 1 is the next to start`, {
 			number: id,
 			position,
 		});
 	}
-	const all = (await deps.tasks.all()).map((task) => task.state);
+	const all = (await tasks.all()).map((task) => task.state);
 	const task = all.find((each) => each.id === id);
 	if (task?.stage !== "queued" || task.takenBy !== null) {
 		fail("not_found", `task ${id} is not waiting in the queue`, { number: id });
@@ -141,11 +154,10 @@ export async function queueMove(
 	const order = queueOrder(all).filter((each) => each.id !== id);
 	const at = order[position - 1];
 	const last = order.at(-1);
-	await deps.tasks.move(
-		id,
-		at === undefined ? (last?.position ?? 0) + 1 : at.position,
-	);
-	await queueList(deps);
+	const target = at === undefined ? (last?.position ?? 0) + 1 : at.position;
+	// Moving down, the task leaves its place first, so every one between
+	// moves up one: what was at `target` is then one higher.
+	await tasks.move(id, task.position < target ? target - 1 : target);
 }
 
 /** What `task` waits on among `all`, as the queue lists it. */

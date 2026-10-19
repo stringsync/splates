@@ -66,4 +66,25 @@ describe("queue commands", () => {
 			3, 1, 2,
 		]);
 	});
+
+	it("moves a task down the queue to the place asked", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "One", null);
+		await taskAdd(deps, "Two", null);
+		await taskAdd(deps, "Three", null);
+		await taskAdd(deps, "Four", null);
+		await queueAdd(deps, [1, 2, 3, 4]);
+		const order = async () => {
+			deps.log.clear();
+			await queueList(deps, { json: true });
+			return JSON.parse(deps.out()).map(({ id }: { id: number }) => id);
+		};
+
+		await queueMove(deps, 1, 2);
+		expect(await order()).toEqual([2, 1, 3, 4]);
+		await queueMove(deps, 2, 4);
+		expect(await order()).toEqual([1, 3, 4, 2]);
+		await queueMove(deps, 1, 9);
+		expect(await order()).toEqual([3, 4, 2, 1]);
+	});
 });

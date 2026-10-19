@@ -64,6 +64,56 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("queues a task, moves it up the queue, and takes it out again", async () => {
+		await deps.tasks.add("first", null);
+		await deps.tasks.add("second", null);
+
+		await serving(deps, async (snapshot, port) => {
+			const put = (path: string, body: object) =>
+				fetch(`http://127.0.0.1:${port}${path}`, {
+					method: "PUT",
+					headers: {
+						origin: `http://127.0.0.1:${port}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				});
+			const stages = async () =>
+				(await snapshot()).todos.map(({ id, stage }) => [id, stage]);
+
+			expect((await put("/api/todos/1/queued", { queued: true })).status).toBe(
+				200,
+			);
+			expect((await put("/api/todos/2/queued", { queued: true })).status).toBe(
+				200,
+			);
+			expect(await stages()).toEqual([
+				[1, "queued"],
+				[2, "queued"],
+			]);
+			expect((await deps.journal.tail(1))[0]).toMatchObject({
+				action: "queue add",
+			});
+
+			expect(
+				(await put("/api/todos/2/queue-position", { position: 1 })).status,
+			).toBe(200);
+			expect((await snapshot()).todos.map(({ id }) => id)).toEqual([2, 1]);
+
+			expect((await put("/api/todos/2/queued", { queued: false })).status).toBe(
+				200,
+			);
+			expect(await stages()).toEqual([
+				[2, "backlog"],
+				[1, "queued"],
+			]);
+			expect(
+				(await put("/api/todos/2/queue-position", { position: 1 })).status,
+			).toBe(404);
+			expect((await put("/api/todos/1/queued", {})).status).toBe(400);
+		});
+	});
+
 	it("links tasks and arranges lanes, refusing a loop", async () => {
 		await deps.tasks.add("first", null);
 		await deps.tasks.add("second", null, { blockedBy: [1] });

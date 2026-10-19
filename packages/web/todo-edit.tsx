@@ -30,6 +30,7 @@ import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
 import { TodoEditor } from "./todo-editor";
+import { QueueToggle, StageBadge } from "./todo-queue";
 
 /**
  * One todo opened: its words and files to change, where it sits on the board
@@ -91,6 +92,7 @@ export function Edit({
 					<span className="font-normal text-muted-foreground text-xs">
 						<CopyLink id={todo.id} />
 					</span>
+					<StageBadge todo={todo} />
 				</DialogTitle>
 				<DialogDescription>
 					{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
@@ -140,6 +142,7 @@ export function Edit({
 							assignee={todo.assignee ?? null}
 							onStart={onDone}
 						/>
+						<QueueToggle todo={todo} refuse={refuse} />
 					</div>
 				) : (
 					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />

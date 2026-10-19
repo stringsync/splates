@@ -21,6 +21,7 @@ import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu } from "./lane-menu";
 import { Refusal } from "./refusal";
 import { TaskIcon } from "./task-icon";
+import { StageCounts } from "./todo-queue";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
 export function columnId(lane: number | null | "new"): string {
@@ -65,9 +66,7 @@ export function Untriaged({
 			<header className="flex flex-col gap-1 px-1 pt-1">
 				<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
 					Untriaged
-					<span className="font-normal text-muted-foreground text-xs tabular-nums">
-						{todos.length}
-					</span>
+					<StageCounts todos={todos} />
 				</h3>
 				<p className="text-muted-foreground text-xs">Not in a lane yet.</p>
 				<Refusal refusal={board.refusedLanes.get(null)} />
@@ -150,9 +149,6 @@ export function Lane({
 							>
 								{lane.name}
 							</button>
-							<span className="ml-1.5 font-normal text-muted-foreground text-xs tabular-nums">
-								{lane.todos.length}
-							</span>
 						</h3>
 					)}
 					<LaneMenu
@@ -161,6 +157,8 @@ export function Lane({
 						onRename={() => setRenaming(true)}
 					/>
 				</div>
+				{/* A line of its own, so a long name keeps its room. */}
+				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
 				{lane.agents.map((agent) => {
 					const on = lane.todos
 						.filter((todo) => todo.takenBy === agent)
@@ -259,10 +257,10 @@ export function LiftedLane({
 		>
 			<h3 className="flex items-baseline gap-1.5 px-1 pt-1 font-medium text-sm">
 				{lane.name}
-				<span className="font-normal text-muted-foreground text-xs tabular-nums">
-					{lane.todos.length}
-				</span>
 			</h3>
+			{lane.todos.length > 0 && (
+				<StageCounts todos={lane.todos} className="px-1" />
+			)}
 			<ol className="flex flex-col gap-1.5">
 				{lane.todos.map((todo, i) => (
 					<li key={todo.id}>

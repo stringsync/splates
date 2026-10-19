@@ -35,6 +35,7 @@ import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
 import { TaskIcon } from "./task-icon";
+import { QueueToggle, StageBadge } from "./todo-queue";
 
 export interface CardProps {
 	todo: TaskRecord;
@@ -113,6 +114,7 @@ export function Card({
 				{/* One quiet line of what there is to know, in plain text. */}
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 					<CopyLink id={todo.id} />
+					<StageBadge todo={todo} />
 					{blockers.length > 0 && <Blocked by={blockers} />}
 					{(todo.blockersLost ?? []).length > 0 && (
 						<Badge Icon={CircleAlertIcon} label="a blocker was removed">
@@ -135,6 +137,7 @@ export function Card({
 								quiet
 							/>
 						)}
+					<QueueToggle todo={todo} quiet />
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
 					{stale && (

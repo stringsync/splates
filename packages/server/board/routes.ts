@@ -1,6 +1,7 @@
 import type { ConversationRoutes } from "../conversations";
 import { fail } from "../exit";
 import { type AgentPick, modelsOf, pickAgent, pickEffort } from "../models";
+import { moveInQueue, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { laneUpdated, recordLaneRemove } from "./lane";
@@ -187,6 +188,39 @@ export class BoardRoutes {
 		);
 		this.#watch.tick();
 		return Response.json(task.state);
+	};
+
+	/**
+	 * Puts the task in the queue, `{queued: true}`, or takes it out, as
+	 * `splates queue add` and `remove` do.
+	 */
+	readonly queueQueued = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
+		const { queued } = (await request.json()) as { queued?: unknown };
+		if (typeof queued !== "boolean") {
+			fail("usage", "say whether to queue it, as `queued: true` or `false`");
+		}
+		const deps = { tasks: this.#project.tasks, log: this.#project.log };
+		const [task] = await this.#project.journal.record(
+			queued ? "queue add" : "queue remove",
+			null,
+			() => (queued ? queueAdd : queueRemove)(deps, [found.id]),
+			(changed) => ({ tasks: tasksNamed(changed) }),
+		);
+		this.#watch.tick();
+		return Response.json(task?.state ?? found.state);
+	};
+
+	/** Moves a queued task to `{position}` in the queue, from 1 for the next to start. */
+	readonly moveInQueue = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
+		const { position } = (await request.json()) as { position?: unknown };
+		if (typeof position !== "number") {
+			fail("usage", "say where in the queue, as `position`, from 1");
+		}
+		await moveInQueue(this.#project.tasks, found.id, position);
+		this.#watch.tick();
+		return Response.json((await this.#project.tasks.find(found.id)).state);
 	};
 
 	readonly dropLane = async (request: Request): Promise<Response> => {

@@ -429,6 +429,8 @@ export interface Served extends AsyncResource {
 	linkQueued: Handler;
 	arrangeQueued: Handler;
 	assignQueued: Handler;
+	queueQueued: Handler;
+	moveInQueue: Handler;
 	joinLane: Handler;
 	addLane: Handler;
 	updateLane: Handler;

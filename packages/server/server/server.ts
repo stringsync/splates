@@ -620,6 +620,12 @@ export async function dev(
 					"/api/todos/:id/assignee": {
 						PUT: scoped((project) => project.assignQueued),
 					},
+					"/api/todos/:id/queued": {
+						PUT: scoped((project) => project.queueQueued),
+					},
+					"/api/todos/:id/queue-position": {
+						PUT: scoped((project) => project.moveInQueue),
+					},
 					"/api/lanes/:id/join": {
 						POST: scoped((project) => project.joinLane),
 					},

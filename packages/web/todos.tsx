@@ -24,6 +24,7 @@ import { shownLanes } from "./shown-lanes";
 import { Task } from "./tasks";
 import { TodoBoard } from "./todo-board";
 import { Edit } from "./todo-edit";
+import { QueueColumn } from "./todo-queue";
 import type { TodoView } from "./todo-view";
 import { TopBar } from "./top-bar";
 
@@ -188,6 +189,7 @@ export function Todos({
 					style={{ maskImage: fadeOf(edges) }}
 					className="-mx-4 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4"
 				>
+					<QueueColumn all={all} only={only} />
 					{!hidden.includes(null) && (
 						<Untriaged
 							todos={kept.filter((todo) => todo.lane === null)}
