@@ -47,9 +47,8 @@ export const STUB_STEP =
 	"fill in Goal and list the steps here as `- [ ]` items";
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
+const SECTIONS = ["Goal", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
-const UNCHECKED = /^[ \t]*- \[ \]/m;
 // A `Q` before the number is how plans were numbered once, and still reads.
 const QUESTION = /^[ \t]*- \[[ xX]\] [Qq]?\d+\./m;
 
@@ -93,8 +92,8 @@ export interface Question {
 	/** The item's own line, without its checkbox, number, size or reply. */
 	text: string;
 	/**
-	 * How far the call reaches, from the `(large)` that leads its line, one of
-	 * `SIZES` as the skill writes it; null when it has none.
+	 * The `(large)` that led its line in plans from when the skill sized
+	 * questions, which outcomes still keep; null when it has none.
 	 */
 	size: string | null;
 	/**
@@ -160,14 +159,9 @@ const CHOICE =
 const CHOSEN = /[ \t]*\(chosen\)$/i;
 
 /**
- * How far a call reaches, smallest first, as the skill defines each: small
- * stays local and is cheap to redo, medium shapes a feature or spans
- * systems, large is hard to undo or outward-facing. The one place the scheme
- * lives: outcomes keep each call's size as the word it was written with, so
- * a word dropped from here still reads back from older outcomes.
+ * The `(large)` that leads an item's line in a plan from when the skill sized
+ * questions: any one lowercase word, read off so the question reads the same.
  */
-export const SIZES = ["small", "medium", "large"] as const;
-/** The `(large)` that leads an item's line: any one lowercase word. */
 const SIZE = /^\(([a-z]+)\)[ \t]+/;
 
 /** `text` without the size that leads it, and that size, or null. */
@@ -557,10 +551,6 @@ export function checkPlan(
 	}
 	if (section("Goal") === "") {
 		problems.push("## Goal is empty: say in a line or two what done means");
-	}
-	const done = section("Done");
-	if (done !== null && UNCHECKED.test(done)) {
-		problems.push("## Done has a `- [ ]` item: it belongs under ## Next");
 	}
 	const blocked = section("Blocked");
 	// A review asks only to approve merging, which needs no question.

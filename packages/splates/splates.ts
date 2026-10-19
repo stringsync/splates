@@ -274,7 +274,12 @@ splates
 	.description(
 		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it in whichever worktree has it checked out, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
-	.action(async (_opts, ctx) => {
+	.option("message", z.string(), {
+		default: "",
+		description:
+			"squash the task's commits into one with this message before landing, saying what the base gains",
+	})
+	.action(async (opts, ctx) => {
 		const task = await here(ctx);
 		// Read before the merge discards the record that names its caller.
 		const landing = task === null ? null : await ctx.service.find(task);
@@ -283,7 +288,7 @@ splates
 		await ctx.journal.record(
 			"merge",
 			task,
-			() => merge(ctx, ctx.ps.cwd(), facts),
+			() => merge(ctx, ctx.ps.cwd(), facts, { message: opts.message }),
 			facts as Facts["merge"],
 		);
 		if (task !== null) {

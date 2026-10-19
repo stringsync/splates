@@ -270,7 +270,7 @@ export const SCENARIOS: readonly Scenario[] = [
 
 Stop retrying an upload the server refused as too big (413), and tell the user why.
 
-## Done
+## Next
 
 - [x] stop retrying on 413
 - [x] tell the user the file is too big

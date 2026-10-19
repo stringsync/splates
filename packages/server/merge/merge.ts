@@ -70,6 +70,12 @@ export async function merge(
 	// Filled in as it learns each, so a refusal keeps what it learned before it
 	// stopped, which the journal reads once `merge` has returned or thrown.
 	facts: Partial<Facts["merge"]> = {},
+	{
+		message = "",
+	}: {
+		/** When given, the task's commits are squashed into one with this message first. */
+		message?: string;
+	} = {},
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd);
 	const task = service.taskFor(branch);
@@ -143,7 +149,7 @@ export async function merge(
 	if (!ready(left)) {
 		fail(
 			"blocked",
-			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and move it to ## Done, or \`splates todo add\` it and drop it; then merge again`,
+			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and check it off, or \`splates todo add\` it and drop it; then merge again`,
 			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
@@ -154,6 +160,16 @@ export async function merge(
 			`'${task}' runs on a worker, which lands on ${base} only through the central remote: set \`remote\` in splates.config.ts. No merge attempt was spent.`,
 			{ task },
 		);
+	}
+	if (message !== "") {
+		const squashed = await git.squash(worktree.path, base, message);
+		if (squashed !== null && squashed.code !== 0) {
+			fail(
+				"blocked",
+				`could not squash '${task}' into one commit: ${squashed.stderr || squashed.stdout}\nIts commits are as they were. No merge attempt was spent.`,
+				{ task },
+			);
+		}
 	}
 	worktree = await worktree.take();
 

@@ -13,8 +13,6 @@ const basePlan = `# decision
 
 Exercise one isolated decision; no external services are available.
 
-## Done
-
 ## Next
 
 - [x] Prepare the local fixture

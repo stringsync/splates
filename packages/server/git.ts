@@ -456,6 +456,35 @@ export class Git {
 			: added;
 	}
 
+	/**
+	 * Folds every commit the branch at `cwd` has that `base` lacks into one,
+	 * `message`, running the repo's commit hooks as any commit does. Null when
+	 * it has none to fold; on a failed commit, the branch is put back as it was.
+	 */
+	async squash(
+		cwd: string,
+		base: string,
+		message: string,
+	): Promise<GitResult | null> {
+		const fork = await this.run(cwd, "merge-base", base, "HEAD");
+		if (fork.code !== 0) {
+			return fork;
+		}
+		const head = await this.head(cwd);
+		if (fork.stdout === head) {
+			return null;
+		}
+		const reset = await this.run(cwd, "reset", "--soft", fork.stdout);
+		if (reset.code !== 0) {
+			return reset;
+		}
+		const committed = await this.run(cwd, "commit", "--quiet", "-m", message);
+		if (committed.code !== 0) {
+			await this.run(cwd, "reset", "--soft", head);
+		}
+		return committed;
+	}
+
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	async remoteUrl(remote: string): Promise<string | null> {
 		const { code, stdout } = await this.run(

@@ -6,10 +6,8 @@ const GOOD = `# alpha
 ## Goal
 Teach show to check the plan.
 
-## Done
-- [x] wrote the checker
-
 ## Next
+- [x] wrote the checker
 - [ ] wire it up
 
 ## Notes
@@ -37,12 +35,10 @@ describe("checkPlan", () => {
 		expect(checkPlan(finished, { task: "alpha" })).toEqual([]);
 	});
 
-	it("catches work parked under Done that is not done", () => {
-		const problems = checkPlan(GOOD.replace("- [x] wrote", "- [ ] wrote"), {
-			task: "alpha",
-		});
-		expect(problems).toEqual([
-			"## Done has a `- [ ]` item: it belongs under ## Next",
+	it("flags a ## Done left from before the git log kept steps done", () => {
+		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
+		expect(checkPlan(old, { task: "alpha" })).toEqual([
+			'unexpected section "## Done" (line 6): keep to Goal, Next, Notes, Blocked',
 		]);
 	});
 

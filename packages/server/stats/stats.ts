@@ -1,4 +1,4 @@
-import { decided, madeByYou, SIZES } from "../plans";
+import { madeByYou } from "../plans";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
@@ -31,12 +31,6 @@ export interface Stats {
 	devices: ({ device: WorkedFrom | null } & Tally)[];
 	/** By the main tree each task in the period was in, the most first. */
 	projects: ({ project: string } & Tally)[];
-	/**
-	 * How many calls the person made in the period, by size: `SIZES` in order, then any
-	 * other word an older scheme used, then null for those with none, which
-	 * holds every call from before sizes were kept.
-	 */
-	sizes: SizeTally[];
 	/** When the first outcome was written, the start of what there is to show. */
 	since: string | null;
 	/**
@@ -101,20 +95,6 @@ export interface Tally {
 	failedBy: Record<MergeFailure, number>;
 	/** Removed tasks by why; `unsaid` for one removed without `--reason`, or before it was kept. */
 	removedFor: Record<RemoveReason | "unsaid", number>;
-}
-
-/** How many calls of one size the person made. */
-export interface SizeTally extends Decided {
-	size: string | null;
-	/** The same, bar by bar, in the order of `Stats.buckets`. */
-	buckets: Decided[];
-	/** The same over the as long a span before, as `Stats.previous`; null for all time. */
-	previous: Decided | null;
-}
-
-/** How many calls the person made. */
-export interface Decided {
-	decidedByYou: number;
 }
 
 /** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
@@ -243,9 +223,6 @@ export function summarize(
 		projects: grouped(everyInPeriod, (each) => each.project).map(
 			([project, tally]) => ({ project, ...tally }),
 		),
-		sizes: sizeTallies(inPeriod, earlier, length, (each) =>
-			Math.round((floor(Date.parse(each.endedAt)) - first) / bucket),
-		),
 		since,
 		skill: rates(judged),
 		baselines: baselines(outcomes, now),
@@ -312,60 +289,6 @@ function tally(outcomes: Outcome[]): Tally {
 		failedBy,
 		removedFor,
 	};
-}
-
-/**
- * How many calls the person made in `outcomes`, by size, in the order `Stats.sizes`
- * gives, each over the period and in each of its `length` bars, `barOf`
- * saying which bar an outcome ended in, and over the span before it, from
- * `earlier`: a size from either gets a row.
- */
-function sizeTallies(
-	outcomes: Outcome[],
-	earlier: Outcome[] | null,
-	length: number,
-	barOf: (outcome: Outcome) => number,
-): SizeTally[] {
-	const none = (): Decided => ({ decidedByYou: 0 });
-	const bySize = new Map<string | null, SizeTally>();
-	const rowOf = (size: string | null): SizeTally => {
-		const row = bySize.get(size) ?? {
-			size,
-			...none(),
-			buckets: Array.from({ length }, none),
-			previous: earlier === null ? null : none(),
-		};
-		bySize.set(size, row);
-		return row;
-	};
-	for (const outcome of outcomes) {
-		const bar = barOf(outcome);
-		for (const [decision, count] of decided(outcome)) {
-			const row = rowOf(decision.size);
-			row.decidedByYou += count;
-			const inBar = row.buckets[bar];
-			if (inBar !== undefined) {
-				inBar.decidedByYou += count;
-			}
-		}
-	}
-	for (const outcome of earlier ?? []) {
-		for (const [decision, count] of decided(outcome)) {
-			const { previous } = rowOf(decision.size);
-			if (previous !== null) {
-				previous.decidedByYou += count;
-			}
-		}
-	}
-	const rank = (size: string | null): number => {
-		const at = SIZES.indexOf(size as (typeof SIZES)[number]);
-		return at !== -1 ? at : size === null ? SIZES.length + 1 : SIZES.length;
-	};
-	return [...bySize.values()].sort(
-		(one, other) =>
-			rank(one.size) - rank(other.size) ||
-			(one.size ?? "").localeCompare(other.size ?? ""),
-	);
 }
 
 /** Tallies added up, as for the bars of a period. */

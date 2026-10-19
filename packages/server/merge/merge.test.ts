@@ -52,6 +52,53 @@ describe.concurrent("merge", () => {
 		);
 	});
 
+	it("squashes the task's commits into one with --message", async () => {
+		await using deps = await Testing.open();
+
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(worktree, "beta.txt", "beta\n", "add beta");
+
+		await deps.finish(worktree);
+		await merge(deps, worktree, {}, { message: "Add alpha and beta" });
+
+		expect(
+			await deps.gitCli(
+				deps.root,
+				"log",
+				"--format=%s",
+				`${trunkBefore}..main`,
+			),
+		).toBe("Add alpha and beta");
+		expect(
+			await deps.gitCli(deps.root, "show", "--name-only", "--format=", "main"),
+		).toBe("alpha.txt\nbeta.txt");
+	});
+
+	it("keeps each commit without --message", async () => {
+		await using deps = await Testing.open();
+
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(worktree, "beta.txt", "beta\n", "add beta");
+
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		expect(
+			await deps.gitCli(
+				deps.root,
+				"rev-list",
+				"--count",
+				`${trunkBefore}..main`,
+			),
+		).toBe("2");
+	});
+
 	it("lands a --base task on its base branch and leaves trunk alone", async () => {
 		await using deps = await Testing.open();
 
@@ -435,7 +482,7 @@ describe.concurrent("merge", () => {
 		const plan = `${worktree}/${PLAN_FILE}`;
 		await deps.fs.write(
 			plan,
-			"# alpha\n\n## Done\n\n- [x] add alpha\n\n## Next\n\n- [ ] add beta\n",
+			"# alpha\n\n## Next\n\n- [x] add alpha\n- [ ] add beta\n",
 		);
 
 		await expect(merge(deps, worktree)).toBail("blocked", {
@@ -445,7 +492,7 @@ describe.concurrent("merge", () => {
 
 		await deps.fs.write(
 			plan,
-			"# alpha\n\n## Done\n\n- [x] add alpha\n\n## Next\n\n- [x] add beta\n",
+			"# alpha\n\n## Next\n\n- [x] add alpha\n- [x] add beta\n",
 		);
 		await merge(deps, worktree);
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(

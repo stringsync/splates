@@ -170,7 +170,6 @@ describe("StatsReport", () => {
 				models: [],
 				devices: [],
 				projects: [],
-				sizes: [],
 
 				since: null,
 				skill: [],
@@ -293,7 +292,6 @@ const stats: Stats = {
 		{ device: null, ...bar("", { merged: 1 }) },
 	],
 	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
-	sizes: [],
 
 	since: "2026-08-25T10:00:00.000Z",
 	skill: [],

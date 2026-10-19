@@ -17,12 +17,9 @@ const plan = `# continuity
 
 Write result.txt with exactly ready followed by a newline.
 
-## Done
-
-- [x] Established the required output.
-
 ## Next
 
+- [x] Established the required output.
 - [ ] Write result.txt.
 
 ## Notes
@@ -122,7 +119,7 @@ const seed: Seed = {
 					`${plan}\nOpen question: Which output label should follow ready?\n`,
 			"plan/sections":
 				notes !== null &&
-				["Done", "Next", "Notes", "Blocked"].every((heading) =>
+				["Next", "Notes", "Blocked"].every((heading) =>
 					notes.includes(`## ${heading}\n`),
 				),
 		};
@@ -209,7 +206,7 @@ const probes: Probe[] = [
 			state("sections-retained", "plan/sections", true),
 			gap(
 				"checkpoint-meaning",
-				"Section presence and changed notes do not prove accurate Done/Next, preserved open questions, one-line reply or no other new work; arbitrary mutations require broader capture.",
+				"Section presence and changed notes do not prove an accurate Next, preserved open questions, one-line reply or no other new work; arbitrary mutations require broader capture.",
 			),
 			steering,
 		],

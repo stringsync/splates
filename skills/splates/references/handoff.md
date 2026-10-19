@@ -12,7 +12,7 @@ hand it to, since the task is that one's to place. A lane's orchestrator
 that handed you yours goes on hearing of the task from the agent it goes
 to.
 
-1. Commit each step you finished, and move it to `## Done`.
+1. Commit each step you finished, and check it off under `## Next`.
 2. Bring `SPLATES.md` up to date as for a checkpoint, then write a `###
    Handoff` under `## Notes`: why you hand it on, where it stands, what to
    do next, and what you learned that the rest of `SPLATES.md` does not say.

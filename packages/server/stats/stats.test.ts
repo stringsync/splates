@@ -298,7 +298,7 @@ describe("summarize", () => {
 		expect(stats.projects[0]).toMatchObject({ workerCost: 0.75 });
 	});
 
-	it("counts each size's calls in scheme order, older outcomes as unsized", () => {
+	it("counts every call the person made, older outcomes too, in the bar its task ended in", () => {
 		const stats = summarize(
 			[
 				ended({
@@ -308,30 +308,22 @@ describe("summarize", () => {
 						{
 							number: "2",
 							text: "B?",
-							size: "small",
+							size: null,
 							ended: "kept",
 							...({ how: "assumed" } as object),
 						},
-						{ number: "3", text: "C?", size: "large", ended: "kept" },
-						{ number: "4", text: "D?", size: "tiny", ended: null },
+						{ number: "3", text: "C?", size: null, ended: "kept" },
+						{ number: "4", text: "D?", size: null, ended: null },
 					],
 				}),
-				// Written before decisions were kept: its counts read back unsized.
+				// Written before decisions were kept: every question put to them.
 				ended({ questionsAsked: 4, picksAsked: 2, picksAmended: 1 }),
 			],
 			{ now },
 		);
-		expect(stats.sizes).toMatchObject([
-			{ size: "large", decidedByYou: 2 },
-			{ size: "tiny", decidedByYou: 1 },
-			// Every question put to them, picked or not.
-			{ size: null, decidedByYou: 4 },
-		]);
-		// Each size's bars line up with the period's: its call sits in the bar
-		// the task ended in.
-		const bar = stats.buckets.findIndex((each) => each.decidedByYou > 0);
-		expect(stats.sizes[0]?.buckets).toHaveLength(stats.buckets.length);
-		expect(stats.sizes[0]?.buckets[bar]).toEqual({ decidedByYou: 2 });
+		expect(stats.buckets.filter((each) => each.decidedByYou > 0)).toHaveLength(
+			1,
+		);
 		expect(combine(stats.buckets)).toMatchObject({ decidedByYou: 7 });
 	});
 });

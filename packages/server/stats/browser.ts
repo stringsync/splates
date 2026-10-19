@@ -5,7 +5,6 @@ export { foundFacts } from "./finding-facts";
 export type { Landed } from "./landed";
 export type { Outcome } from "./outcomes";
 export type {
-	Decided,
 	PeriodId,
 	SkillVersion,
 	Stats,

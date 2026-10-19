@@ -105,8 +105,8 @@ which remembers none of it.
    accept the rebase, and note it in `SPLATES.md`. Only when conflicts would be hard to resolve, `splates wait
    <task>` for the other task to land first. If it is doing the opposite of
    what you were asked, escalate instead.
-4. **Work.** Commit each step with git as you go, and move it to `## Done`
-   as you commit it; splates never commits for you. When something outside
+4. **Work.** Commit each step with git as you go, and check it off under
+   `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `splates todo add` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
@@ -124,8 +124,8 @@ which remembers none of it.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge: `splates todo add`
    any step you will not do, then check it off. Release each
-   todo you only partly did (see Todos), squash to one commit (see
-   Committing), and `splates merge`, or ask for a review first (see Merge or
+   todo you only partly did (see Todos), and `splates merge --message
+   "<message>"` (see Committing), or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else.
@@ -722,13 +722,10 @@ small change, a full record for a long one.
 
 One or two lines on what done means.
 
-## Done
-
-- [x] finished steps: the only progress the task reports
-
 ## Next
 
-- [ ] every step you can foresee, roughly one commit each
+- [ ] every step you can foresee, roughly one commit each, checked off as
+  it lands
 
 ## Notes
 
@@ -741,7 +738,7 @@ Decisions, dead ends, and how to verify.
 
 The Goal's first line is what other agents see of your task in `splates list
 --files`, so make it say what you are changing. Keep the rest current as you
-go, not at the end: move steps to `## Done` as they land. Run `splates show <task>` after writing it to check
+go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
 the shape. It is excluded from git: never mention it in a commit message.
 
 ## Committing
@@ -750,12 +747,6 @@ Plain, human-style messages with **no attribution**: no `Co-authored-by:`,
 no "Generated with", no agent or model names, no `--author`. Wanting many
 more than 5 commits means the task wants splitting.
 
-Before `splates merge`, squash to one commit describing the net change, what
-the base gains, not the path you took:
-
-```sh
-git reset --soft "$(git merge-base <base> HEAD)" && git commit -m "<message>"
-```
-
-`<base>` is what `splates show <task>` prints: trunk unless the task was created
-with `--base`.
+`splates merge --message "<message>"` squashes the task to one commit before
+it lands: describe the net change, what the base gains, not the path you
+took.

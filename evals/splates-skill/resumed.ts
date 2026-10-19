@@ -22,12 +22,9 @@ const PLANNED = `splates add retry-413 --todo 1 && cat > "$(splates path retry-4
 
 Stop retrying an upload the server refused as too big (413), and tell the user why.
 
-## Done
-
-- [x] read src/upload.ts
-
 ## Next
 
+- [x] read src/upload.ts
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big
 - [ ] test both
@@ -109,6 +106,6 @@ export const CHECKPOINT: Scenario = {
 		},
 	],
 	rubric: [
-		"notes-say-where: in turn 2 the `## Notes` of SPLATES.md say what the agent was doing when stopped and what comes next, and `## Done` and `## Next` match where the work stands",
+		"notes-say-where: in turn 2 the `## Notes` of SPLATES.md say what the agent was doing when stopped and what comes next, and `## Next` is checked off as far as the work stands",
 	],
 };

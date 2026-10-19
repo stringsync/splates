@@ -4,51 +4,30 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
-import { cn } from "#web/lib/utils.ts";
 import type { Bar, DecisionRates, Rate } from "./decision-rates";
 import { type Axis, decimal, type Period } from "./stats-report";
 
 /**
  * How many calls the person made over the period: the rate and how it
- * moved, charted bar by bar, then by size.
+ * moved, charted bar by bar.
  */
 export function Decisions({
 	rates,
 	period,
 	weekly,
-	shown,
-	onToggle,
-	onAll,
 }: {
 	rates: DecisionRates;
 	period: Period;
 	/** Whether a bar is a week, so the newest is "This week" rather than "Now". */
 	weekly: boolean;
-	/** The sizes the chart and its rates count; null for all. */
-	shown: ReadonlySet<string | null> | null;
-	/** Adds a size to those counted, or takes it out. */
-	onToggle: (size: string | null) => void;
-	/** Counts every size again. */
-	onAll: () => void;
 }): JSX.Element {
-	const { unit, byYou, sizes } = rates;
+	const { unit, byYou } = rates;
 	return (
 		<section
 			aria-label="Decisions"
 			className="flex min-w-0 flex-col gap-4 text-foreground"
 		>
-			{/* The sizes sit by the title, where nothing above them moves as they change the figures. */}
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h3 className="font-medium text-xs">Decisions</h3>
-				{sizes.length > 1 && (
-					<SizeToggles
-						sizes={sizes}
-						shown={shown}
-						onToggle={onToggle}
-						onAll={onAll}
-					/>
-				)}
-			</div>
+			<h3 className="font-medium text-xs">Decisions</h3>
 			<figure
 				aria-label="Decisions over the period"
 				className="flex flex-col gap-3 rounded-lg border p-3"
@@ -71,66 +50,6 @@ export function Decisions({
 				/>
 			</figure>
 		</section>
-	);
-}
-
-/**
- * All, pressed until the person picks a size, then a button a size, pressed
- * while its decisions count: the chart and the rate follow.
- */
-function SizeToggles({
-	sizes,
-	shown,
-	onToggle,
-	onAll,
-}: {
-	sizes: DecisionRates["sizes"];
-	shown: ReadonlySet<string | null> | null;
-	onToggle: (size: string | null) => void;
-	onAll: () => void;
-}): JSX.Element {
-	return (
-		<div role="toolbar" aria-label="Sizes" className="flex flex-wrap gap-1.5">
-			<Toggle name="all" on={shown === null} onClick={onAll} />
-			{sizes.map((each) => (
-				<Toggle
-					key={each.size ?? "unsized"}
-					name={each.size ?? "unsized"}
-					on={shown?.has(each.size) ?? false}
-					title={`${each.byYou} by you`}
-					onClick={() => onToggle(each.size)}
-				/>
-			))}
-		</div>
-	);
-}
-
-function Toggle({
-	name,
-	on,
-	title,
-	onClick,
-}: {
-	name: string;
-	on: boolean;
-	title?: string;
-	onClick: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			aria-pressed={on}
-			title={title}
-			onClick={onClick}
-			className={cn(
-				"cursor-pointer rounded-full border px-2.5 py-0.5 text-xs capitalize outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:py-1.5",
-				on
-					? "border-transparent bg-secondary text-foreground"
-					: "text-muted-foreground hover:text-foreground",
-			)}
-		>
-			{name}
-		</button>
 	);
 }
 
@@ -170,7 +89,7 @@ function Side({
 					per {unit}
 				</span>
 			</span>
-			{/* Two lines held, so the chart stays put as the sizes change what it says. */}
+			{/* Two lines held, so the chart stays put as what it says changes. */}
 			<span className="min-h-[2lh] text-muted-foreground text-xs">
 				{rate.count}{" "}
 				{period.span === null ? "so far" : `in the last ${period.span}`}

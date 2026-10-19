@@ -35,7 +35,6 @@ export {
 	picks,
 	questions,
 	ready,
-	SIZES,
 	STUB_STEP,
 	unfinished,
 	whatIsLeft,

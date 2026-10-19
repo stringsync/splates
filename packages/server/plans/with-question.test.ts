@@ -31,10 +31,8 @@ const GOOD = `# alpha
 ## Goal
 Teach show to check the plan.
 
-## Done
-- [x] wrote the checker
-
 ## Next
+- [x] wrote the checker
 - [ ] wire it up
 
 ## Notes

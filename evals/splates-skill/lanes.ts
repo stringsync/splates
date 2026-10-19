@@ -215,7 +215,7 @@ export async function upload(
 	}
 }
 EOF
-printf '# retry-413\\n\\n## Goal\\n\\nStop retrying on a 413.\\n\\n## Done\\n\\n- [x] stop retrying on 413, telling the user the file is too big\\n' > SPLATES.md && git commit -qam 'Stop retrying an upload the server refused as too big' && splates claim retry-413 >/dev/null && splates merge >/dev/null`;
+printf '# retry-413\\n\\n## Goal\\n\\nStop retrying on a 413.\\n\\n## Next\\n\\n- [x] stop retrying on 413, telling the user the file is too big\\n' > SPLATES.md && git commit -qam 'Stop retrying an upload the server refused as too big' && splates claim retry-413 >/dev/null && splates merge >/dev/null`;
 
 /** Once #1's task merged, hands out #3, which it held back. */
 export const REPORT: Scenario = {

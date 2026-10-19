@@ -48,7 +48,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		lead,
 		rest,
 		decisions,
-		shown,
 		models,
 		devices,
 		projects,
@@ -65,7 +64,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			lead: report.lead,
 			rest: report.rest,
 			decisions: report.decisions,
-			shown: report.shown,
 			models: report.models,
 			devices: report.devices,
 			projects: report.projects,
@@ -140,9 +138,6 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							rates={decisions}
 							period={period}
 							weekly={period.id === "all"}
-							shown={shown}
-							onToggle={(size) => report.toggleSize(size)}
-							onAll={() => report.showAllSizes()}
 						/>
 					)}
 					<Collapsible

@@ -26,29 +26,14 @@ describe("StatsPage", () => {
 		const busy = { ...tally, merged: 6, questionRounds: 6 };
 		const stats: Stats = {
 			buckets: [
-				{ start: "2026-10-14T00:00:00.000Z", ...busy },
-				{ start: "2026-10-14T06:00:00.000Z", ...busy },
+				{ start: "2026-10-14T00:00:00.000Z", ...busy, decidedByYou: 3 },
+				{ start: "2026-10-14T06:00:00.000Z", ...busy, decidedByYou: 1 },
 				{ start: "2026-10-14T12:00:00.000Z", ...busy, questionRounds: 3 },
 			],
 			previous: { ...tally, merged: 10, questionRounds: 30 },
 			models: [{ model: "Opus 5.5", ...tally }],
 			devices: [],
 			projects: [{ project: "/repo", ...tally }],
-			sizes: [
-				{
-					size: "large",
-					decidedByYou: 3,
-					buckets: [{ decidedByYou: 3 }],
-					previous: null,
-				},
-				{
-					size: "small",
-					decidedByYou: 1,
-					buckets: [{ decidedByYou: 1 }],
-					previous: null,
-				},
-			],
-
 			since: "2026-09-28T10:00:00.000Z",
 			skill: [],
 			baselines: [],
@@ -73,31 +58,7 @@ describe("StatsPage", () => {
 		// The person's calls show without unfolding anything.
 		const decisions = page.getByRole("region", { name: "Decisions" });
 		expect(decisions.textContent).toContain("4 in the last 7 days");
-		const pressed = (name: string) =>
-			page.getByRole("button", { name }).getAttribute("aria-pressed");
-		expect(pressed("all")).toBe("true");
-		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "small" })),
-		);
-		expect([pressed("all"), pressed("small"), pressed("large")]).toEqual([
-			"false",
-			"true",
-			"false",
-		]);
-		expect(decisions.textContent).toContain("1 in the last 7 days");
-		expect(decisions.textContent).not.toContain("4 in the last 7 days");
-		// Another adds to it; taking out the last counts all again.
-		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "large" })),
-		);
-		expect(decisions.textContent).toContain("4 in the last 7 days");
-		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "small" })),
-		);
-		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "large" })),
-		);
-		expect(pressed("all")).toBe("true");
+		expect(page.queryByRole("toolbar", { name: "Sizes" })).toBeNull();
 
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
 
@@ -115,7 +76,6 @@ describe("StatsPage", () => {
 			models: [{ model: "Opus 5.5", ...tally }],
 			devices: [],
 			projects: [],
-			sizes: [],
 
 			since: "2026-10-12T10:00:00.000Z",
 			baselines: [],
@@ -183,7 +143,6 @@ describe("StatsPage", () => {
 			models: [{ model: "Opus 5.5", ...tally }],
 			devices: [],
 			projects: [{ project: "/repo", ...tally }],
-			sizes: [],
 
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
@@ -239,7 +198,6 @@ describe("StatsPage", () => {
 			models: [],
 			devices: [],
 			projects: [],
-			sizes: [],
 
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
@@ -272,7 +230,6 @@ describe("StatsPage", () => {
 			models: [],
 			devices: [],
 			projects: [],
-			sizes: [],
 
 			since: "2026-07-01T10:00:00.000Z",
 			skill: [],
@@ -295,7 +252,6 @@ describe("StatsPage", () => {
 			models: [],
 			devices: [],
 			projects: [],
-			sizes: [],
 
 			since: null,
 			skill: [],
@@ -316,7 +272,6 @@ describe("StatsPage", () => {
 			models: [],
 			devices: [],
 			projects: [],
-			sizes: [],
 
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
