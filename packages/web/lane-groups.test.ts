@@ -5,9 +5,13 @@ import { byLane, inOrder } from "./lane-groups";
 import type { Nested } from "./parts";
 import { conversation } from "./testing";
 
-const tree = (id: string, task: string | null): Nested<Needing> => ({
+const tree = (
+	id: string,
+	task: string | null,
+	pinned = false,
+): Nested<Needing> => ({
 	row: {
-		conversation: conversation({ id, task }),
+		conversation: conversation({ id, task, pinned }),
 		task: null,
 		need: { kind: "idle" },
 	},
@@ -32,12 +36,12 @@ describe("byLane", () => {
 		expect(
 			groups.map((group) => ({ lane: group.lane, trees: ids(group.trees) })),
 		).toEqual([
-			{ lane: null, trees: ["a"] },
 			{ lane: 1, trees: ["b", "e"] },
-			{ lane: null, trees: ["c"] },
 			{ lane: 2, trees: ["d"] },
+			{ lane: null, trees: ["a"] },
+			{ lane: null, trees: ["c"] },
 		]);
-		expect(ids(inOrder(groups))).toEqual(["a", "b", "e", "c", "d"]);
+		expect(ids(inOrder(groups))).toEqual(["b", "e", "d", "a", "c"]);
 	});
 
 	it("leaves every tree on its own with no lane taken", () => {
@@ -46,5 +50,19 @@ describe("byLane", () => {
 				(group) => group.lane,
 			),
 		).toEqual([null, null]);
+	});
+
+	it("puts the pinned trees on no lane first, then the lanes, then the rest", () => {
+		const groups = byLane(
+			[
+				tree("p", null, true),
+				tree("q", "lane-one", true),
+				tree("a", null),
+				tree("b", "lane-one"),
+				tree("c", "lane-two"),
+			],
+			{ "lane-one": 1, "lane-two": 2 },
+		);
+		expect(ids(inOrder(groups))).toEqual(["p", "q", "b", "c", "a"]);
 	});
 });

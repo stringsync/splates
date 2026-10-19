@@ -12,7 +12,9 @@ export interface LaneGroup {
 
 /**
  * `trees` with those whose conversation is at work on a lane's task gathered
- * under that lane, where the first of them was, the rest kept in their order.
+ * under that lane, ordered by the first of them. The lanes come after the
+ * pinned trees on no lane and before the rest, which keep their order. A
+ * pinned tree on a lane stays in it, ahead of the others as `trees` has it.
  * `lanesTaken` names each task's lane, as `lanesTaken` reads the queue.
  */
 export function byLane(
@@ -37,7 +39,14 @@ export function byLane(
 			group.trees.push(tree);
 		}
 	}
-	return groups;
+	const loose = (group: LaneGroup) => group.lane === null;
+	const pinned = (group: LaneGroup) =>
+		group.trees[0]?.row.conversation?.pinned === true;
+	return [
+		...groups.filter((group) => loose(group) && pinned(group)),
+		...groups.filter((group) => !loose(group)),
+		...groups.filter((group) => loose(group) && !pinned(group)),
+	];
 }
 
 /** The trees of `groups`, in the order the list shows them. */
