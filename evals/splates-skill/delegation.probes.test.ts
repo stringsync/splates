@@ -247,11 +247,20 @@ it("observes what an Auto probe kept or handed on, from the real task records", 
 		);
 		expect(results).toHaveLength(4);
 		expect(
-			results.map(({ probe, result }) => ({
-				probe: probe.id,
-				failed: result.verdicts.filter((verdict) => verdict.status === "fail"),
-			})),
-		).toEqual(Object.keys(sized).map((probe) => ({ probe, failed: [] })));
+			results
+				.map(({ probe, result }) => ({
+					probe: probe.id,
+					failed: result.verdicts.filter(
+						(verdict) => verdict.status === "fail",
+					),
+				}))
+				// Probes run in parallel, so they finish in no fixed order.
+				.sort((left, right) => left.probe.localeCompare(right.probe)),
+		).toEqual(
+			Object.keys(sized)
+				.sort()
+				.map((probe) => ({ probe, failed: [] })),
+		);
 		const handUp = results.find(
 			(run) => run.probe.id === "delegation/auto-hand-up",
 		);
