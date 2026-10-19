@@ -30,16 +30,16 @@ export class TaskRoutes {
 		this.#watch = watch;
 	}
 
-	// Only a file a queued or started task holds, so the page, and whoever a tunnel
-	// lets reach it, can read nothing on this machine that was not put there
-	// on purpose.
+	// Only a file a queued or started task holds, or one kept with a finished
+	// task's plan, so the page, and whoever a tunnel lets reach it, can read
+	// nothing on this machine that was not put there on purpose.
 	readonly file = async (request: Request): Promise<Response> => {
 		const { tasks: queue, service, fs } = this.#project;
 		const params = new URL(request.url).searchParams;
 		const path = movedPath(params.get("path") ?? "");
 		const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
 		const bytes =
-			queue.owns(path) || service.owns(path)
+			queue.owns(path) || service.owns(path) || service.finished.owns(path)
 				? await fs.readBytes(path).catch(() => null)
 				: null;
 		if (bytes === null) {

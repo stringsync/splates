@@ -24,8 +24,9 @@ export interface AttachOptions {
  * the screenshots and recordings an agent takes never land in a commit.
  * An agent in a conversation has them kept with it, so a merged task's
  * report card still shows them; any other agent's go when the task merges or
- * is removed. Prints where each was stored, which is the path a question
- * names.
+ * is removed. Either way, those its final `SPLATES.md` shows are copied to
+ * keep with its finished record. Prints where each was stored, which is the
+ * path a question names.
  */
 export async function attach(
 	deps: {
@@ -135,7 +136,7 @@ export async function attach(
 				? []
 				: [
 						"",
-						`Name each in a question by the path above, as ![what](<path>). ${conversation === undefined ? "They go when the task merges or is removed." : "They stay with the conversation."}`,
+						`Name each in a question by the path above, as ![what](<path>). ${conversation === undefined ? "They go when the task merges or is removed, but a copy of each its SPLATES.md shows stays with its finished record." : "They stay with the conversation."}`,
 					]),
 		].join("\n"),
 	);

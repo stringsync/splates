@@ -3,6 +3,7 @@ import { serving } from "../server/testing";
 import { Testing } from "../testing";
 import { add } from "./add";
 import type { FileDiff } from "./diff";
+import { remove } from "./remove";
 
 describe("dev tasks", () => {
 	let deps: Testing;
@@ -107,6 +108,33 @@ describe("dev tasks", () => {
 			expect((await file(shot)).status).toBe(200);
 			expect((await file(`${dir}/c1.jsonl`)).status).toBe(404);
 			expect((await file(`${dir}/c1/artifacts/a.png`)).status).toBe(404);
+		});
+	});
+
+	it("serves a file kept with a finished task, but not its record", async () => {
+		await add(deps, "alpha");
+		const [shot = ""] = await deps.service
+			.attached("c1", "alpha")
+			.store([{ name: "shot.png", bytes: new Uint8Array([7]) }]);
+		await deps.fs.write(
+			`${(await deps.service.find("alpha")).path}/SPLATES.md`,
+			`![shot](${shot})`,
+		);
+		await remove(deps, "alpha");
+		const kept = `${deps.splatesDir}/finished/${(await deps.service.finished.list())[0]?.key}`;
+
+		await serving(deps, async (_snapshot, port) => {
+			const file = (path: string) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
+				);
+
+			const served = await file(`${kept}/${shot.split("/").at(-1)}`);
+			expect(new Uint8Array(await served.arrayBuffer())).toEqual(
+				new Uint8Array([7]),
+			);
+			expect((await file(`${kept}.md`)).status).toBe(404);
+			expect((await file(`${kept}/../../config.json`)).status).toBe(404);
 		});
 	});
 

@@ -267,7 +267,9 @@ as a video. Only attached files show there, so never point a question at a
 file anywhere else. Attached from a conversation (`splates server` gives its agents
 one; an agent outside it passes `--conversation <id>`), a file stays with it
 past the task, so the question still shows it when the user scrolls back;
-attached outside one, it goes when the task does. Such a file is no artifact
+attached outside one, it goes when the task does. Either way, one the
+`SPLATES.md` it ends on shows is copied to keep with the finished task, so
+its record goes on showing it. Such a file is no artifact
 (see Artifacts): it serves the question it is in.
 
 Put each screenshot in the question it is for, under what it shows: under the

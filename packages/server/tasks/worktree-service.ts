@@ -317,25 +317,29 @@ export class WorktreeService {
 		if (removed.code !== 0) {
 			return removed;
 		}
+		if (record !== null && worktree.state) {
+			await this.finished.record(
+				{
+					id: record.id,
+					task: worktree.task,
+					subject: goalLine(plan) ?? (record.subject || worktree.task),
+					ended,
+					reason: ended === "removed" ? (opts.reason ?? null) : null,
+					base: worktree.base,
+					commit: opts.commit ?? null,
+					startedAt: worktree.state.createdAt,
+					endedAt: new Date().toISOString(),
+					conversation:
+						opts.conversation ?? worktree.state.dispatch?.conversation ?? null,
+					took: record.took,
+					plan,
+				},
+				// Copied before the task's own folder goes with its record.
+				(path) => this.owns(path),
+			);
+		}
 		await this.records.end(worktree.task);
 		await this.rememberRemoved(worktree.task);
-		if (record !== null && worktree.state) {
-			await this.finished.record({
-				id: record.id,
-				task: worktree.task,
-				subject: goalLine(plan) ?? (record.subject || worktree.task),
-				ended,
-				reason: ended === "removed" ? (opts.reason ?? null) : null,
-				base: worktree.base,
-				commit: opts.commit ?? null,
-				startedAt: worktree.state.createdAt,
-				endedAt: new Date().toISOString(),
-				conversation:
-					opts.conversation ?? worktree.state.dispatch?.conversation ?? null,
-				took: record.took,
-				plan,
-			});
-		}
 		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
 	}

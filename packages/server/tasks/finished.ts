@@ -1,5 +1,7 @@
+import { basename, relative, resolve, sep } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { decodeTask, encodeTask } from "../board";
+import { movedPath } from "../config";
 import type { RemoveReason } from "./worktree";
 
 /** A task that merged or was removed, as `Finished` keeps it to look back on. */
@@ -34,7 +36,9 @@ export interface FinishedPlan extends FinishedTask {
  * Every task that has finished in a repo, newest kept, in
  * `.git/splates/finished/<key>.md`: its facts as front matter and the
  * `SPLATES.md` it ended on as the body, so the page can show what it did
- * once its tree and record are gone.
+ * once its tree and record are gone. The attached files that plan shows are
+ * copied into `.git/splates/finished/<key>/` and the plan pointed at them,
+ * so its screenshots outlive the conversation or task that held them.
  */
 export class Finished {
 	constructor(
@@ -44,10 +48,18 @@ export class Finished {
 		private readonly capacity: number,
 	) {}
 
-	async record(finished: Omit<FinishedPlan, "key">): Promise<void> {
+	/**
+	 * Keeps `finished`, with a copy of each file its plan names that
+	 * `attached` says is one a task held, the plan rewritten to name the copy.
+	 */
+	async record(
+		finished: Omit<FinishedPlan, "key">,
+		attached: (path: string) => boolean = () => false,
+	): Promise<void> {
 		const key = `${finished.id}-${Date.parse(finished.endedAt) || 0}`;
-		const { plan, ...facts } = finished;
+		const { plan: ended, ...facts } = finished;
 		await this.fs.mkdir(this.dir);
+		const plan = await this.keep(key, ended, attached);
 		await this.fs.write(
 			this.path(key),
 			encodeTask({ ...facts, key, text: plan }),
@@ -55,7 +67,65 @@ export class Finished {
 		const listed = await this.list();
 		for (const old of listed.slice(this.capacity)) {
 			await this.fs.rm(this.path(old.key), { force: true });
+			await this.fs.rm(this.filesDir(old.key), {
+				recursive: true,
+				force: true,
+			});
 		}
+	}
+
+	/**
+	 * Whether `path` is a file kept with a finished task, one level inside
+	 * its `<key>/`, and not a way out of here.
+	 */
+	owns(path: string): boolean {
+		const parts = relative(this.dir, resolve(path)).split(sep);
+		return (
+			parts.length === 2 &&
+			KEY.test(parts[0] ?? "") &&
+			parts[1] !== ".." &&
+			parts[1] !== ""
+		);
+	}
+
+	/**
+	 * `plan` naming copies, kept under `key`, of the attached files it named,
+	 * which go on to show once their conversation or task is gone. A file
+	 * that can no longer be read is left named as it was.
+	 */
+	private async keep(
+		key: string,
+		plan: string,
+		attached: (path: string) => boolean,
+	): Promise<string> {
+		const kept = new Map<string, string>();
+		const taken = new Set<string>();
+		for (const named of new Set(plan.match(PATH) ?? [])) {
+			const path = movedPath(named);
+			if (!attached(path)) {
+				continue;
+			}
+			const bytes = await this.fs.readBytes(path).catch(() => null);
+			if (bytes === null) {
+				continue;
+			}
+			let name = basename(path);
+			for (let copies = 2; taken.has(name); copies++) {
+				name = `${copies}-${basename(path)}`;
+			}
+			taken.add(name);
+			const copy = `${this.filesDir(key)}/${name}`;
+			await this.fs.mkdir(this.filesDir(key));
+			await this.fs.writeBytes(copy, bytes);
+			kept.set(named, copy);
+		}
+		return kept.size === 0
+			? plan
+			: plan.replace(PATH, (named) => kept.get(named) ?? named);
+	}
+
+	private filesDir(key: string): string {
+		return `${this.dir}/${key}`;
 	}
 
 	/** Every one kept, the latest to finish first, without its plan. */
@@ -97,4 +167,10 @@ export class Finished {
 }
 
 const KEY = /^\d+-\d+$/;
+/**
+ * An absolute path as a plan names one, in `![what](/path)`, `(<\/path>)` or
+ * running text; attached files' names hold no spaces, and a sentence's
+ * closing stop is left off.
+ */
+const PATH = /\/[^\s()<>[\]"'`]*[^\s()<>[\]"'`.,;:!?]/g;
 const KEY_FILE = /^\d+-\d+\.md$/;

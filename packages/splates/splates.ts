@@ -482,7 +482,7 @@ splates
 	.command("attach")
 	.use(repository({ needs: "own" }))
 	.description(
-		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/splates, which the `splates server` page shows inline; from a conversation (its $SPLATES_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds. A file the user will come back for on its own is an artifact instead (`splates artifact add`)",
+		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/splates, which the `splates server` page shows inline; from a conversation (its $SPLATES_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed; those the task's final SPLATES.md shows are copied to keep with its finished record. A task holds at most attachmentCapacity bytes; with no files, lists what it holds. A file the user will come back for on its own is an artifact instead (`splates artifact add`)",
 	)
 	.arg("files", z.string(), {
 		default: "",
