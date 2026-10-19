@@ -55,7 +55,7 @@ export function SetupIndex({
 							>
 								<button
 									type="button"
-									className="absolute inset-0 flex cursor-pointer items-center gap-3 px-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+									className={`absolute inset-0 flex cursor-pointer items-center gap-3 pl-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50 ${area.undoable ? "pr-28" : "pr-4"}`}
 									onClick={() => onSelect(area.id)}
 								>
 									<span className="flex-1">Set up {area.title}</span>
