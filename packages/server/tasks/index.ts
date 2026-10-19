@@ -7,6 +7,7 @@ export { startDispatched } from "./dispatched";
 export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
 export { escalate } from "./escalate";
+export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, serveProject } from "./follow";
 export { HandedOut } from "./handed-out";
 export { handoff } from "./handoff";

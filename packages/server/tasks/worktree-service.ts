@@ -7,11 +7,12 @@ import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Checkouts } from "../merge";
 import { ranWith } from "../models";
-import { decisions, Plans, picks } from "../plans";
+import { decisions, goalLine, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import type { WorkerMachine } from "../workers";
 import { WorkerBudget, workerGit } from "../workers";
+import { Finished } from "./finished";
 import type { LeaseBeat } from "./lease-beat";
 import { StartedRecords } from "./started-records";
 import {
@@ -46,6 +47,9 @@ export class WorktreeService {
 	private readonly records: StartedRecords;
 	private readonly removedDir: string;
 	private readonly conversationsDir: string;
+	private readonly plansDir: string;
+	/** Every task that merged or was removed here, newest kept, to look back on. */
+	readonly finished: Finished;
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
@@ -79,6 +83,8 @@ export class WorktreeService {
 		);
 		this.removedDir = `${splatesDir}/removed`;
 		this.conversationsDir = `${splatesDir}/conversations`;
+		this.plansDir = `${splatesDir}/plans`;
+		this.finished = new Finished(`${splatesDir}/finished`, this.fs);
 	}
 
 	/**
@@ -297,6 +303,8 @@ export class WorktreeService {
 	): Promise<GitResult> {
 		// What the outcome reads off the tree and branch, before they go.
 		const ending = await this.ending(worktree, opts);
+		const plan = await this.finalPlan(worktree);
+		const record = await this.records.ending(worktree.task);
 		const removed = await this.reach(
 			worktree.machine,
 			worktree.path,
@@ -307,6 +315,23 @@ export class WorktreeService {
 		}
 		await this.records.end(worktree.task);
 		await this.rememberRemoved(worktree.task);
+		if (record !== null && worktree.state) {
+			await this.finished.record({
+				id: record.id,
+				task: worktree.task,
+				subject: goalLine(plan) ?? (record.subject || worktree.task),
+				ended,
+				reason: ended === "removed" ? (opts.reason ?? null) : null,
+				base: worktree.base,
+				commit: opts.commit ?? null,
+				startedAt: worktree.state.createdAt,
+				endedAt: new Date().toISOString(),
+				conversation:
+					opts.conversation ?? worktree.state.dispatch?.conversation ?? null,
+				took: record.took,
+				plan,
+			});
+		}
 		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
 	}
@@ -374,6 +399,23 @@ export class WorktreeService {
 				: "",
 			size: size ?? (worktree.hasBranch ? await worktree.size() : null) ?? null,
 		};
+	}
+
+	/**
+	 * The `SPLATES.md` a task ends on: its tree's, or the copy kept in repo
+	 * state for a tree on a worker; "" for none.
+	 */
+	private async finalPlan(worktree: Worktree): Promise<string> {
+		const own = worktree.exists
+			? await new Plans(this.fs).read(worktree.path)
+			: null;
+		return (
+			own ??
+			(await this.fs
+				.read(`${this.plansDir}/${worktree.task}.md`)
+				.catch(() => "")) ??
+			""
+		);
 	}
 
 	private async recordOutcome(

@@ -177,6 +177,29 @@ describe.concurrent("merge", () => {
 		expect(await deps.service.list()).toEqual([]);
 	});
 
+	it("keeps the landed task, its commit and plan, among the finished", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha", { goal: "land alpha" });
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const [finished] = await deps.service.finished.list();
+		const head = await deps.gitCli(deps.root, "rev-parse", "--short", "main");
+		expect(finished).toMatchObject({
+			task: "alpha",
+			subject: "land alpha",
+			ended: "merged",
+			base: "main",
+			commit: head.trim(),
+		});
+		const read = await deps.service.finished.read(finished?.key ?? "");
+		expect(read?.plan).toContain("## Goal\n\nland alpha");
+	});
+
 	it("refuses to run with uncommitted changes, before taking the lock", async () => {
 		await using deps = await Testing.open();
 

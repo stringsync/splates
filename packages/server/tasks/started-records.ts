@@ -20,6 +20,30 @@ export class StartedRecords {
 		return record === null ? null : stateOf(record);
 	}
 
+	/**
+	 * What the record of started task `task` says of it as it ends: its
+	 * number, what it was queued as, and the queued tasks it took up; null
+	 * for one with no record.
+	 */
+	async ending(task: string): Promise<{
+		id: number;
+		subject: string;
+		took: { id: number; subject: string }[];
+	} | null> {
+		const record = await this.store.find(task);
+		if (record === null) {
+			return null;
+		}
+		const took = (await this.store.all())
+			.filter((each) => each.listed !== false && each.takenBy === task)
+			.map(({ id, subject }) => ({ id, subject }));
+		return {
+			id: record.id,
+			subject: record.listed === false ? "" : record.subject,
+			took,
+		};
+	}
+
 	/** Every started task. */
 	async all(): Promise<TaskState[]> {
 		return (await this.store.started()).map(stateOf);

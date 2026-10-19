@@ -14,7 +14,11 @@ import type {
 	SetupProgress,
 } from "@stringsync/splates-server/setup";
 import type { Landed } from "@stringsync/splates-server/stats/browser";
-import type { FileDiff, Snapshot } from "@stringsync/splates-server/tasks";
+import type {
+	FileDiff,
+	FinishedPlan,
+	Snapshot,
+} from "@stringsync/splates-server/tasks";
 import type { Held } from "@stringsync/splates-server/terminal";
 import type {
 	WorkerBudgetReport,
@@ -34,6 +38,7 @@ import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
+import { openRow } from "./drivers";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { FakeShell } from "./fake-shell";
@@ -41,14 +46,7 @@ import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
 import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
-import {
-	act,
-	fireEvent,
-	ProjectApp,
-	render,
-	waitFor,
-	within,
-} from "./testing-dom";
+import { act, fireEvent, ProjectApp, render, waitFor } from "./testing-dom";
 
 export * from "./drivers";
 export * from "./fixtures";
@@ -138,6 +136,8 @@ export class Testing implements Resource {
 	listingProjects: Promise<void> = Promise.resolve();
 	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
 	diffs: Record<string, FileDiff[]> = {};
+	/** The finished tasks `/api/finished` lists, newest first, each with its plan. */
+	finished: FinishedPlan[] = [];
 	/** How each merged task went, by task, for `/api/tasks/:task/outcome`; null for one absent. */
 	landed: Record<string, Landed> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
@@ -323,6 +323,19 @@ export class Testing implements Resource {
 				return Response.json(this.tree);
 			}
 
+			if (route === "/api/finished") {
+				return Response.json(
+					this.finished.map(({ plan: _, ...facts }) => facts),
+				);
+			}
+			const finished = /^\/api\/finished\/([^/]+)$/.exec(route ?? "");
+			if (finished !== null) {
+				const key = decodeURIComponent(finished[1] ?? "");
+				const found = this.finished.find((each) => each.key === key);
+				return found === undefined
+					? Response.json({ reason: "not_found" }, { status: 404 })
+					: Response.json(found);
+			}
 			const diff = /^\/api\/tasks\/([^/]+)\/diff$/.exec(route ?? "");
 			if (diff !== null) {
 				return Response.json(
@@ -608,33 +621,6 @@ function nameIn(held: ConversationState[], id: string): string {
 export type ConversationsView = Awaited<
 	ReturnType<Testing["openConversations"]>
 >;
-
-/**
- * Opens the conversation listed by `name` from the inbox, opening it first
- * beside a sidebar, as its Inbox does.
- */
-export async function openRow(
-	view: ConversationsView,
-	name: string,
-): Promise<void> {
-	// Every agent is in the inbox, which the sidebar's Inbox opens.
-	const entry = view.queryByRole("button", { name: /^Inbox/ });
-	if (
-		view.queryByRole("region", { name: "inbox" }) === null &&
-		entry !== null
-	) {
-		await act(async () => fireEvent.click(entry));
-	}
-	const nav = view.getByRole("region", { name: "inbox" });
-	const item = within(nav)
-		.getAllByRole("listitem")
-		.flatMap((row) => within(row).getAllByRole("button"))
-		.find((button) => button.textContent?.includes(name));
-	if (item === undefined) {
-		throw new Error(`no conversation ${name} listed`);
-	}
-	await act(async () => fireEvent.click(item));
-}
 
 /** `form`'s fields, each by its name, and the files it carries as `file`. */
 function fields(form: FormData): Record<string, unknown> {

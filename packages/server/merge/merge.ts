@@ -436,6 +436,7 @@ export async function merge(
 	// with ENOENT before git is even reached.
 	service.ps.cd(git.root);
 	const discarded = await current.discard("merged", {
+		commit: head,
 		commits,
 		size,
 		testTimes,

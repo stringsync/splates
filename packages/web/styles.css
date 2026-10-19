@@ -182,6 +182,7 @@
 @source "./event-lines.tsx";
 @source "./added-line.tsx";
 @source "./events-preview.tsx";
+@source "./finished-tasks.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";
 

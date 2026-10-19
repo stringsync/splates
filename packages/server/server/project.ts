@@ -473,6 +473,8 @@ export interface Served extends AsyncResource {
 	open: Handler;
 	paths: Handler;
 	diff: Handler;
+	finishedTasks: Handler;
+	finishedTask: Handler;
 	retryTask: Handler;
 	removeTask: Handler;
 	addQueued: Handler;

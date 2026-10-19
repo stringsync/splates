@@ -281,6 +281,8 @@ export interface DiscardOptions {
 	commits?: string[];
 	/** Why it was removed, as `splates remove --reason` gives it. */
 	reason?: RemoveReason;
+	/** The commit a merge landed it as. */
+	commit?: string;
 	/** What a merge lands, read before landing. */
 	size?: DiffSize;
 	/** Each test the merge's passing gate run timed, from its JUnit report. */

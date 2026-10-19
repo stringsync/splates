@@ -1,0 +1,116 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { FinishedPlan } from "@stringsync/splates-server/tasks";
+import {
+	act,
+	cleanup,
+	details,
+	fireEvent,
+	Testing,
+	waitFor,
+	within,
+} from "./testing";
+
+describe("App's finished tasks", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+	});
+
+	it("folds them away, reading none until opened", async () => {
+		testing.finished = [finished()];
+		const view = await testing.openTasks({
+			tasks: [details({ task: "beta" })],
+		});
+
+		expect(view.getByRole("button", { name: /Finished/ })).toBeTruthy();
+		expect(testing.asked.some((path) => path.startsWith("/api/finished"))).toBe(
+			false,
+		);
+	});
+
+	it("lists each with how it ended, and opens the plan it ended on", async () => {
+		testing.finished = [
+			finished(),
+			finished({
+				key: "8-1760000000000",
+				id: 8,
+				task: "gamma",
+				subject: "try gamma",
+				ended: "removed",
+				reason: "moot",
+				commit: null,
+				took: [],
+				plan: "",
+			}),
+		];
+		const view = await testing.openTasks({ tasks: [] });
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
+		);
+		const list = await waitFor(() =>
+			view.getByRole("list", { name: "finished task list" }),
+		);
+		expect(list.textContent).toContain("alpha");
+		expect(list.textContent).toContain("ship alpha");
+		expect(list.textContent).toContain("gamma");
+
+		await act(async () =>
+			fireEvent.click(within(list).getByRole("button", { name: /alpha/ })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await waitFor(() => {
+			expect(dialog.textContent).toContain("kept the old flag");
+		});
+		expect(dialog.textContent).toContain("Merged onto main as abc1234");
+		expect(dialog.textContent).toContain("#7 Ship alpha");
+	});
+
+	it("says why a removed one went", async () => {
+		testing.finished = [
+			finished({ ended: "removed", reason: "superseded", commit: null }),
+		];
+		const view = await testing.openTasks({ tasks: [] });
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					within(
+						view.getByRole("list", { name: "finished task list" }),
+					).getByRole("button", { name: /alpha/ }),
+				),
+			),
+		);
+
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain("Removed as superseded");
+	});
+});
+
+function finished(more: Partial<FinishedPlan> = {}): FinishedPlan {
+	return {
+		key: "7-1760000000000",
+		id: 7,
+		task: "alpha",
+		subject: "ship alpha",
+		ended: "merged",
+		reason: null,
+		base: "main",
+		commit: "abc1234",
+		startedAt: new Date(Date.now() - 7_200_000).toISOString(),
+		endedAt: new Date(Date.now() - 3_600_000).toISOString(),
+		conversation: null,
+		took: [{ id: 7, subject: "Ship alpha" }],
+		plan: "# alpha\n\n## Goal\n\nship alpha\n\n## Notes\n\nkept the old flag\n",
+		...more,
+	};
+}

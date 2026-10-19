@@ -43,6 +43,7 @@ import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
+import { FinishedTasks } from "./finished-tasks";
 import { useFolded } from "./folded";
 import { useNow } from "./hooks/use-now";
 import { Mark } from "./mark";
@@ -113,6 +114,7 @@ export function Tasks({
 			) : (
 				<ProjectGroups groups={groups} onOpen={onOpen} />
 			)}
+			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
 			<Dialog
 				open={opened !== null}
 				onOpenChange={(opening) => {

@@ -28,6 +28,21 @@ describe("remove", () => {
 		);
 	});
 
+	it("keeps the removed task, and why, among the finished", async () => {
+		await add(deps, "alpha");
+
+		await remove(deps, "alpha", { reason: "moot" });
+
+		expect(await deps.service.finished.list()).toEqual([
+			expect.objectContaining({
+				task: "alpha",
+				ended: "removed",
+				reason: "moot",
+				commit: null,
+			}),
+		]);
+	});
+
 	it("returns the tasks it put back", async () => {
 		await add(deps, "alpha");
 

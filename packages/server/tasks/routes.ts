@@ -106,6 +106,23 @@ export class TaskRoutes {
 		);
 	};
 
+	// Every task that merged or was removed here, newest first, for the Tasks
+	// page to look back on.
+	readonly finishedTasks = async (): Promise<Response> =>
+		Response.json(await this.#project.service.finished.list());
+
+	// One finished task with the SPLATES.md it ended on.
+	readonly finishedTask = async (request: Request): Promise<Response> => {
+		const key = decodeURIComponent(
+			new URL(request.url).pathname.split("/")[3] ?? "",
+		);
+		const found = await this.#project.service.finished.read(key);
+		if (found === null) {
+			return refuse(404, "not_found", `no finished task ${key}`);
+		}
+		return Response.json(found);
+	};
+
 	// What a task changed against its base, for its review in the page.
 	readonly diff = async (request: Request): Promise<Response> => {
 		const task = decodeURIComponent(
