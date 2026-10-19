@@ -1,7 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { pickLabel } from "../models";
-import { TASK_EVENTS } from "./events";
-import type { Hook, HookStore } from "./store";
+import type { Automation, Hook, HookStore, Trigger } from "./store";
 
 /** What the hook commands work with. */
 export interface HookDeps {
@@ -9,7 +8,7 @@ export interface HookDeps {
 	log: Logger;
 }
 
-/** Every hook set for this project, by event, numbered from 1 within each. */
+/** Every automation set for this project, by number. */
 export async function hookList(
 	{ hooks, log }: HookDeps,
 	{ json = false }: { json?: boolean } = {},
@@ -19,42 +18,75 @@ export async function hookList(
 		log.info(JSON.stringify(set, null, "\t"));
 		return;
 	}
-	const lines = TASK_EVENTS.flatMap((event) =>
-		(set[event] ?? []).map(
-			(hook, at) => `${event} ${at + 1}: ${described(hook)}`,
-		),
-	);
 	log.info(
-		lines.length === 0
-			? "no hooks: nothing runs on a task event. `splates hook add` sets one"
-			: lines.join("\n"),
+		set.length === 0
+			? "no hooks: nothing runs on a task event or a schedule. `splates hook add` sets one"
+			: set.map(described).join("\n"),
 	);
 }
 
-/** Adds `hook` on `event`, then says what it set. */
+/** Adds `hook` on `trigger`, then says what it set. */
 export async function hookAdd(
 	{ hooks, log }: HookDeps,
-	event: string,
+	trigger: Trigger,
 	hook: Hook,
 ): Promise<void> {
-	await hooks.add(event, hook);
-	log.info(`${color.green("hooked")} ${event}: ${described(hook)}`);
+	const added = await hooks.add(trigger, hook);
+	log.info(`${color.green("hooked")} ${described(added)}`);
 }
 
-/** Takes away `event`'s hook at `index`, from 1, or every one of them. */
+/** Takes away the automation numbered `id`, or every one on the event `id` names. */
 export async function hookRemove(
 	{ hooks, log }: HookDeps,
-	event: string,
-	index?: number,
+	id: string,
 ): Promise<void> {
-	await hooks.remove(event, index);
+	const gone = await hooks.remove(id);
 	log.info(
-		`${color.green("unhooked")} ${event}${index === undefined ? "" : ` ${index}`}`,
+		gone.length === 0
+			? `no hooks on ${id}`
+			: gone
+					.map((each) => `${color.green("unhooked")} ${described(each)}`)
+					.join("\n"),
 	);
+}
+
+/** Pauses the automation numbered `id`, or lets it run again. */
+export async function hookPause(
+	{ hooks, log }: HookDeps,
+	id: string,
+	paused: boolean,
+): Promise<void> {
+	const automation = await hooks.pause(id, paused);
+	log.info(
+		`${color.green(paused ? "paused" : "resumed")} ${described(automation)}`,
+	);
+}
+
+/** `automation` in a line: its number, trigger and what it runs. */
+export function described(automation: Automation): string {
+	return `${automation.id}. ${triggerLabel(automation.trigger)}: ${hookLabel(automation.hook)}${automation.paused === true ? " (paused)" : ""}`;
+}
+
+/** `trigger` in a few words, as `task.created in backlog, lane 3` or `every 1h`. */
+export function triggerLabel(trigger: Trigger): string {
+	if ("every" in trigger) {
+		return `every ${trigger.every}`;
+	}
+	if ("cron" in trigger) {
+		return `cron ${trigger.cron}`;
+	}
+	const { stages, lanes } = trigger.filter ?? {};
+	const narrowed = [
+		...(stages === undefined ? [] : [stages.join(" or ")]),
+		...(lanes === undefined ? [] : [`lane ${lanes.join(" or ")}`]),
+	];
+	return narrowed.length === 0
+		? trigger.event
+		: `${trigger.event} in ${narrowed.join(", ")}`;
 }
 
 /** `hook` in a few words. */
-function described(hook: Hook): string {
+export function hookLabel(hook: Hook): string {
 	switch (hook.kind) {
 		case "agent":
 			return `tell ${pickLabel(hook)}: ${hook.prompt}`;

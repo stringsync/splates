@@ -25,6 +25,14 @@ export function eventReference(
 	return `[SPLATES EVENT ${[name, ...about].join(" ")}]`;
 }
 
+/**
+ * What opens the conversation an automation starts when its schedule comes
+ * due, named by the automation's number, before its prompt.
+ */
+export function scheduleReference(automation: string): string {
+	return `[SPLATES SCHEDULE ${automation}]`;
+}
+
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;

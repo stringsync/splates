@@ -6,6 +6,7 @@ import {
 	KeyRoundIcon,
 	type LucideIcon,
 	ServerIcon,
+	ZapIcon,
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
@@ -21,7 +22,7 @@ import { TaskIcon } from "./task-icon";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#stats`,
- * `#creds`, `#budget`, `#workers`, `#setup`, or the board.
+ * `#creds`, `#budget`, `#workers`, `#automations`, `#setup`, or the board.
  */
 export type Page =
 	| "todos"
@@ -31,6 +32,7 @@ export type Page =
 	| "creds"
 	| "budget"
 	| "workers"
+	| "automations"
 	| "setup";
 
 /**
@@ -55,6 +57,7 @@ export const PAGES: {
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
+	{ value: "automations", label: "Automations", Icon: ZapIcon },
 ];
 
 /**
@@ -101,6 +104,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	creds: "min-w-0 px-4 py-6",
 	budget: "min-w-0 px-4 py-6",
 	workers: "min-w-0 px-4 py-6",
+	automations: "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };

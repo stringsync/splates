@@ -58,6 +58,7 @@
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",
 		"./hooks": "./hooks/index.ts",
+		"./hooks/browser": "./hooks/browser.ts",
 		"./queue": "./queue/index.ts",
 		"./queue/browser": "./queue/browser.ts",
 		"./records": "./records/index.ts",

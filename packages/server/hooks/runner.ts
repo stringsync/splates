@@ -2,17 +2,61 @@ import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
+import type { TaskStage } from "../board";
 import type { Journal } from "../records";
 import { type TaskEvent, taskEventsOf } from "./events";
-import type { Hook, Hooks } from "./store";
+import type { AutomationRun, RunStore } from "./runs";
+import type { Automation, Hook, TaskFilter } from "./store";
+
+/** What set an automation off: a task event, or its schedule coming due. */
+export type Fired = { event: TaskEvent } | { schedule: string };
 
 /** What a hook does, by kind. */
 export interface HookActions {
-	run(command: string, event: TaskEvent): Promise<void>;
-	agent(
-		hook: Extract<Hook, { kind: "agent" }>,
-		event: TaskEvent,
-	): Promise<void>;
+	run(command: string, fired: Fired): Promise<void>;
+	agent(hook: Extract<Hook, { kind: "agent" }>, fired: Fired): Promise<void>;
+}
+
+/** Runs `automation`'s hook for `fired`, keeping the run, and logging a failure rather than throwing it. */
+export async function fire(
+	automation: Automation,
+	fired: Fired,
+	{ actions, runs, log, now }: FireDeps,
+): Promise<void> {
+	const on = "event" in fired ? said(fired.event) : "schedule";
+	const run: AutomationRun = { at: now(), on, error: null };
+	const { hook } = automation;
+	try {
+		if (hook.kind === "run") {
+			await actions.run(hook.command, fired);
+		} else if (hook.kind === "agent") {
+			await actions.agent(hook, fired);
+		}
+	} catch (error) {
+		run.error = String(error);
+		log.error(`a ${hook.kind} hook on ${on} failed: ${String(error)}`);
+	}
+	await runs
+		.ran(automation.id, run)
+		.catch((error: unknown) => log.error(String(error)));
+}
+
+/** What `fire` works with. */
+export interface FireDeps {
+	actions: HookActions;
+	runs: RunStore;
+	log: Logger;
+	/** The time now, as an ISO string. */
+	now: () => string;
+}
+
+/** `event` as a run lists it: `task.created #3`. */
+function said(event: TaskEvent): string {
+	return [
+		event.name,
+		...event.numbers.map((id) => `#${id}`),
+		...(event.task === null ? [] : [event.task]),
+	].join(" ");
 }
 
 /**
@@ -84,28 +128,54 @@ export class HookRunner implements Resource {
 		if (fresh.length === 0) {
 			return;
 		}
-		const hooks = await this.deps.hooks();
+		const automations = await this.deps.automations();
 		for (const event of fresh.flatMap(taskEventsOf)) {
-			for (const hook of hooks[event.name] ?? []) {
-				await this.#run(hook, event);
+			for (const automation of automations) {
+				const { trigger } = automation;
+				if (
+					automation.paused === true ||
+					!("event" in trigger) ||
+					trigger.event !== event.name
+				) {
+					continue;
+				}
+				const matching = await this.#matching(event, trigger.filter);
+				if (matching !== null) {
+					await fire(automation, { event: matching }, this.deps);
+				}
 			}
 		}
 		await this.#write(last?.at ?? null, events);
 	}
 
-	async #run(hook: Hook, event: TaskEvent): Promise<void> {
-		const about = `${event.name}${event.numbers.map((id) => ` #${id}`).join("")}`;
-		try {
-			if (hook.kind === "run") {
-				await this.deps.actions.run(hook.command, event);
-			} else if (hook.kind === "agent") {
-				await this.deps.actions.agent(hook, event);
-			}
-		} catch (error) {
-			this.deps.log.error(
-				`a ${hook.kind} hook on ${about} failed: ${String(error)}`,
-			);
+	/**
+	 * `event` narrowed to the tasks `filter` matches, as each stands now, or
+	 * null when it matches none. One about no task left on the list, as a
+	 * finished one, matches no filter.
+	 */
+	async #matching(
+		event: TaskEvent,
+		filter: TaskFilter | undefined,
+	): Promise<TaskEvent | null> {
+		if (
+			filter === undefined ||
+			(filter.stages === undefined && filter.lanes === undefined)
+		) {
+			return event;
 		}
+		const numbers: number[] = [];
+		for (const id of event.numbers) {
+			const task = await this.deps.task(id);
+			if (
+				task !== null &&
+				(filter.stages === undefined || filter.stages.includes(task.stage)) &&
+				(filter.lanes === undefined ||
+					(task.lane !== null && filter.lanes.includes(task.lane)))
+			) {
+				numbers.push(id);
+			}
+		}
+		return numbers.length === 0 ? null : { ...event, numbers };
 	}
 
 	async #seen(): Promise<{ at: string | null; ids: string[] } | null> {
@@ -131,17 +201,19 @@ export class HookRunner implements Resource {
 }
 
 /** What a `HookRunner` works with. */
-export interface HookRunnerDeps {
+export interface HookRunnerDeps extends FireDeps {
 	journal: Journal;
 	fs: Fs;
 	/** Where the journal writes, watched for more. */
 	splatesDir: string;
-	/** Every hook set now: the person's, and the shell ones the project checks in. */
-	hooks: () => Promise<Hooks>;
+	/** Every automation set now: the person's, and the shell hooks the project checks in. */
+	automations: () => Promise<Automation[]>;
+	/** Queued task `id`'s stage and lane now, or null for one off the list, for filters. */
+	task: (
+		id: number,
+	) => Promise<{ stage: TaskStage; lane: number | null } | null>;
 	/** Where it got to, kept past a restart. */
 	seen: string;
-	actions: HookActions;
-	log: Logger;
 }
 
 /** How soon after one read the next may run, while an agent's commands come quickly. */

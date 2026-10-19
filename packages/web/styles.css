@@ -165,6 +165,7 @@
 @source "./project-folder-list.tsx";
 @source "./budget.tsx";
 @source "./budget-forms.tsx";
+@source "./automations.tsx";
 @source "./meter.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";

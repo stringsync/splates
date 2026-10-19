@@ -189,6 +189,9 @@ function pageIn(hash: string): Page {
 	if (hash === "#workers") {
 		return "workers";
 	}
+	if (hash === "#automations") {
+		return "automations";
+	}
 	if (hash === "#setup") {
 		return "setup";
 	}

@@ -16,6 +16,7 @@ import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
 import { AutoRestart } from "./auto-restart";
+import { AutomationsPage } from "./automations";
 import { WatchBackground } from "./background";
 import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
@@ -294,6 +295,7 @@ export function App({
 							onOpenKeys={() => go("creds")}
 						/>
 					),
+					automations: <AutomationsPage />,
 					setup: (
 						<SetupPage
 							settings={settings}

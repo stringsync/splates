@@ -5,12 +5,14 @@ import { taskAdd } from "../board";
 import { queueAdd } from "../queue";
 import { Testing } from "../testing";
 import type { TaskEvent } from "./events";
-import { HookRunner } from "./runner";
-import type { Hooks } from "./store";
+import { type Fired, HookRunner } from "./runner";
+import { RunStore } from "./runs";
+import type { Automation } from "./store";
 
 describe("HookRunner", () => {
 	let deps: Testing;
-	let hooks: Hooks;
+	let automations: Automation[];
+	let runs: RunStore;
 	let ran: string[];
 	let runner: HookRunner | null;
 	let timer: FakeTimer;
@@ -27,14 +29,25 @@ describe("HookRunner", () => {
 			journal: deps.journal,
 			fs: deps.fs,
 			splatesDir: deps.splatesDir,
-			hooks: async () => hooks,
+			automations: async () => automations,
+			task: async (id) => {
+				const task = (await deps.tasks.stored()).find((each) => each.id === id);
+				return task === undefined
+					? null
+					: { stage: task.stage, lane: task.lane };
+			},
 			seen: `${deps.splatesDir}/hooks-seen.json`,
+			runs,
+			now: () => "2026-10-19T00:00:00.000Z",
 			actions: {
-				run: async (command, event) => {
-					ran.push(`${command} ${said(event)}`);
+				run: async (command, fired) => {
+					if (command === "fail") {
+						throw new Error("it broke");
+					}
+					ran.push(`${command} ${said(fired)}`);
 				},
-				agent: async (hook, event) => {
-					ran.push(`${hook.agent}: ${hook.prompt} ${said(event)}`);
+				agent: async (hook, fired) => {
+					ran.push(`${hook.agent}: ${hook.prompt} ${said(fired)}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -59,10 +72,19 @@ describe("HookRunner", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		hooks = {
-			"task.created": [{ kind: "run", command: "notify" }],
-			"task.queued": [{ kind: "agent", agent: "claude", prompt: "look" }],
-		};
+		automations = [
+			automation(
+				"1",
+				{ event: "task.created" },
+				{ kind: "run", command: "notify" },
+			),
+			automation(
+				"2",
+				{ event: "task.queued" },
+				{ kind: "agent", agent: "claude", prompt: "look" },
+			),
+		];
+		runs = new RunStore(`${deps.splatesDir}/hooks-runs.json`, deps.fs);
 		ran = [];
 		runner = null;
 		timer = new FakeTimer();
@@ -110,8 +132,90 @@ describe("HookRunner", () => {
 
 		expect(ran).toEqual(["notify task.created #1"]);
 	});
+
+	it("fires a filtered one only for the tasks its filter matches", async () => {
+		automations = [
+			automation(
+				"1",
+				{ event: "task.queued", filter: { stages: ["queued"] } },
+				{ kind: "run", command: "queued" },
+			),
+			automation(
+				"2",
+				{ event: "task.created", filter: { lanes: [1] } },
+				{ kind: "run", command: "in lane 1" },
+			),
+			automation(
+				"3",
+				{ event: "task.created", filter: { stages: ["running"] } },
+				{ kind: "run", command: "never" },
+			),
+		];
+		const following = await follow();
+		await add("One");
+		await add("Two");
+		await deps.journal.record(
+			"queue add",
+			null,
+			() => queueAdd(deps, [2]),
+			(queued) => ({
+				tasks: queued.map((task) => ({ id: task.id, subject: task.subject })),
+			}),
+		);
+
+		await look(following);
+
+		expect(ran).toEqual(["queued task.queued #2"]);
+	});
+
+	it("runs nothing paused, and keeps each run with what it failed on", async () => {
+		automations = [
+			{
+				...automation(
+					"1",
+					{ event: "task.created" },
+					{ kind: "run", command: "notify" },
+				),
+				paused: true,
+			},
+			automation(
+				"2",
+				{ event: "task.created" },
+				{ kind: "run", command: "fail" },
+			),
+		];
+		const following = await follow();
+		await add("One");
+
+		await look(following);
+
+		expect(ran).toEqual([]);
+		expect(await runs.read()).toEqual({
+			"2": {
+				runs: [
+					{
+						at: "2026-10-19T00:00:00.000Z",
+						on: "task.created #1",
+						error: "Error: it broke",
+					},
+				],
+			},
+		});
+	});
 });
 
-function said(event: TaskEvent): string {
+function said(fired: Fired): string {
+	if (!("event" in fired)) {
+		return "schedule";
+	}
+	const event: TaskEvent = fired.event;
 	return `${event.name}${event.numbers.map((id) => ` #${id}`).join("")}`;
+}
+
+function automation(
+	id: string,
+	trigger: Automation["trigger"],
+	hook: Automation["hook"],
+): Automation {
+	return { id, trigger, hook, createdAt: "2026-10-19T00:00:00.000Z" };
 }

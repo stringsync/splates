@@ -12,24 +12,14 @@ import type {
 	Conversations,
 	ConversationsHeard,
 } from "../conversations";
-import {
-	ConversationRoutes,
-	JournalEvents,
-	SERVER_TOLD,
-} from "../conversations";
+import { ConversationRoutes, JournalEvents } from "../conversations";
 import type { SecretStores } from "../creds";
 import { CredRoutes } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
-import {
-	HookRunner,
-	HookStore,
-	type Hooks,
-	type TaskEventName,
-} from "../hooks";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import { type AgentPick, Roster, splatesHome } from "../models";
-import { eventReference, type Needing, needs } from "../plans";
+import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import { QueueRunner } from "../queue";
@@ -40,6 +30,7 @@ import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, type SlotRequest } from "../workers";
 import type { Assets } from "./assets";
+import { Automations } from "./automations";
 import { heldFor } from "./held";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import type { Behind, Release } from "./release";
@@ -62,7 +53,7 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
-	let hookRunner: HookRunner | null = null;
+	const automations = new Automations(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
 		queueRunner = QueueRunner.watch({
@@ -113,7 +104,6 @@ export async function serveProject(
 		});
 		const queue = queueRunner;
 		unwatchRoom = context.onWorkerRoom(() => void queue.sweep());
-		const hookStore = new HookStore(`${splatesDir}/hooks.json`, fs);
 		events = await JournalEvents.follow({
 			journal,
 			conversations,
@@ -121,57 +111,7 @@ export async function serveProject(
 			splatesDir,
 			log,
 		});
-		const root = service.git.root;
-		hookRunner = await HookRunner.follow({
-			journal,
-			fs,
-			splatesDir,
-			hooks: async () =>
-				withCheckedIn(await hookStore.read(), project.config.on),
-			seen: `${splatesDir}/hooks-seen.json`,
-			actions: {
-				run: async (command, event) => {
-					const { exitCode, stderr } = await project.ps.spawnCapture(
-						["sh", "-c", command],
-						{
-							cwd: root,
-							env: {
-								SPLATES_EVENT: event.name,
-								SPLATES_TASKS: event.numbers.join(","),
-								SPLATES_TASK: event.task ?? "",
-							},
-						},
-					);
-					if (exitCode !== 0) {
-						throw new Error(
-							stderr.trim() || `\`${command}\` exited ${exitCode}`,
-						);
-					}
-				},
-				agent: async (hook, event) => {
-					const conversation = await conversations.start(hook.agent, {
-						task: null,
-						cwd: root,
-						model: hook.model,
-						assigned: true,
-						capped: true,
-					});
-					void conversation
-						.prompt(
-							`${eventReference(event.name, event.numbers, event.task)}\n\n${hook.prompt}`,
-							[],
-							undefined,
-							{
-								told: SERVER_TOLD,
-							},
-						)
-						.catch((error: unknown) =>
-							log.error(`a hook's agent could not start: ${String(error)}`),
-						);
-				},
-			},
-			log,
-		});
+		await automations.start(conversations, journal);
 		conversations.url = context.url;
 		let starting = Promise.resolve();
 		const handOff = (): void => {
@@ -210,6 +150,7 @@ export async function serveProject(
 		...new BoardRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
+		...automations.routes,
 		...talks,
 		retryQueued: async (request) => {
 			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
@@ -288,7 +229,7 @@ export async function serveProject(
 			handOffs?.dispose();
 			queueRunner?.dispose();
 			unwatchRoom?.();
-			hookRunner?.dispose();
+			automations.dispose();
 			events?.dispose();
 			await talks.disposeAsync();
 		},
@@ -478,6 +419,11 @@ export interface Served extends AsyncResource {
 	endRaise: Handler;
 	pauseBudget: Handler;
 	resumeBudget: Handler;
+	listAutomations: Handler;
+	addAutomation: Handler;
+	removeAutomation: Handler;
+	pauseAutomation: Handler;
+	resumeAutomation: Handler;
 	listConversations: Handler;
 	showConversation: Handler;
 	refreshLimits: Handler;
@@ -553,16 +499,3 @@ const READS = new Set<StateCall["op"]>([
 	"stat",
 	"isSymlink",
 ]);
-
-/** The person's hooks, with the shell commands the project checks in run after them. */
-function withCheckedIn(
-	hooks: Hooks,
-	on: Partial<Record<TaskEventName, string>>,
-): Hooks {
-	const all: Hooks = { ...hooks };
-	for (const [event, command] of Object.entries(on)) {
-		const name = event as TaskEventName;
-		all[name] = [...(all[name] ?? []), { kind: "run", command }];
-	}
-	return all;
-}

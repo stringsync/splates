@@ -54,6 +54,7 @@ export {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	scheduleReference,
 	setupReference,
 	taskNumberReference,
 	taskReference,

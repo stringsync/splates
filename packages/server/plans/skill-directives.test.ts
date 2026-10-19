@@ -9,6 +9,7 @@ import {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	scheduleReference,
 	setupReference,
 	taskNumberReference,
 	taskReference,
@@ -29,6 +30,7 @@ describe("the splates skill's Directives table", () => {
 				RESUME,
 				RECONNECT,
 				eventReference("<event>", [0], "<task>").replace("0", "N"),
+				scheduleReference("<n>"),
 			].toSorted(),
 		);
 	});

@@ -655,6 +655,19 @@ export async function dev(
 					"/api/budgets/raises/:id": {
 						DELETE: scoped((project) => project.endRaise),
 					},
+					// Through a tunnel only once Access verified who is asking: an
+					// agent automation spends its person's tokens.
+					"/api/automations": {
+						GET: talk(scoped((project) => project.listAutomations)),
+						POST: talk(scoped((project) => project.addAutomation)),
+					},
+					"/api/automations/:id": {
+						DELETE: talk(scoped((project) => project.removeAutomation)),
+					},
+					"/api/automations/:id/pause": {
+						PUT: talk(scoped((project) => project.pauseAutomation)),
+						DELETE: talk(scoped((project) => project.resumeAutomation)),
+					},
 					"/api/lanes/:id": {
 						PUT: scoped((project) => project.updateLane),
 						DELETE: scoped((project) => project.dropLane),
