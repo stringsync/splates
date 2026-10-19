@@ -16,7 +16,7 @@ const POINTS: { point: DemoPoint; label: string }[] = [
 /**
  * Before, After and Main: each asks the conversation that last worked `task`
  * for its demo at that point and opens it, closing the dialog; a conversation
- * gone, or none, is started for it. None while the page holds no conversations.
+ * is started for it when that one is gone, at work on another task, or none. None while the page holds no conversations.
  */
 export function DemoButtons({
 	task,
