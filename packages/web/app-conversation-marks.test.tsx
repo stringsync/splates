@@ -10,6 +10,7 @@ import {
 	message,
 	newestFirst,
 	openRow,
+	second,
 	Testing,
 	waitFor,
 	within,
@@ -87,6 +88,64 @@ Cap upload retries
 			["Rests", null],
 			["Broke", "waiting on you"],
 			["alpha", null],
+		]);
+	});
+
+	it("marks an agent quiet long enough to be stuck, and stops its turn from its menu", async () => {
+		const quiet = {
+			...message("agent", "Looking."),
+			at: second(0),
+			until: second(1),
+		};
+		const view = await testing.openConversations(
+			newestFirst([
+				conversation({
+					id: "c1",
+					title: "Quiet",
+					status: "running",
+					messages: [quiet],
+				}),
+				conversation({
+					id: "c2",
+					title: "Busy",
+					status: "running",
+					messages: [{ ...quiet, until: new Date().toISOString() }],
+				}),
+			]),
+			null,
+		);
+		expect(rows(view)).toEqual([
+			["Quiet", "possibly stuck"],
+			["Busy", "working"],
+		]);
+		expect(
+			view
+				.getByRole("status", { name: "possibly stuck" })
+				.getAttribute("title"),
+		).toStartWith("Possibly stuck: no activity for ");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More for Busy" })),
+		);
+		expect(view.queryByRole("menuitem", { name: "Stop turn" })).toBeNull();
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				key: "Escape",
+			}),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More for Quiet" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: "Stop turn" })),
+			),
+		);
+		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
+		// Stopped at once, before the server says so.
+		expect(rows(view)).toEqual([
+			["Quiet", "working"],
+			["Busy", "working"],
 		]);
 	});
 

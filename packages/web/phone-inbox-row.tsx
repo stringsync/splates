@@ -11,6 +11,7 @@ import { Trunk } from "./dispatching";
 import { Held } from "./handed-out";
 import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
+import { type Quiet, quietText, useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { TaskIcon } from "./task-icon";
@@ -53,7 +54,8 @@ export function Row({
 		conversation === null ? null : (lastReport(conversation)?.ending ?? null);
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
-	const { text, urgent } = statusOf(row, name, trunk);
+	const quiet = useQuiet(conversation);
+	const { text, urgent } = statusOf(row, name, trunk, quiet);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -141,6 +143,7 @@ export function Row({
 						unread={conversation?.unread ?? false}
 						hosting={hosting}
 						subagent={subagent}
+						quiet={quiet}
 					/>
 				</span>
 			</span>
@@ -165,7 +168,11 @@ export function statusOf(
 	{ conversation, task, need }: Needing,
 	name: string,
 	trunk: string | null,
+	quiet: Quiet | null = null,
 ): { text: string; urgent: boolean } {
+	if (quiet !== null && (need.kind === "working" || need.kind === "assuming")) {
+		return { text: quietText(quiet), urgent: true };
+	}
 	if (need.kind === "waiting") {
 		const open =
 			need.why === "questions"

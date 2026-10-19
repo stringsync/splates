@@ -3,6 +3,7 @@ import { HourglassIcon, Loader2Icon } from "lucide-react";
 import type { JSX } from "react";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
+import { type Quiet, quietTitle } from "./quiet";
 
 /**
  * What a list shows of an agent: a yellow dot when it waits on you, whatever
@@ -11,7 +12,8 @@ import { Dot } from "./dot";
  * green or red dot once its task merged or was removed, over the blue one.
  * Anything else, idle and read, shows an empty space. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
- * waits on is in its tooltip. Each sits centered in a box of one size, so
+ * waits on is in its tooltip. A spinner gone quiet long enough that the agent
+ * may be stuck stops, in amber, saying how long in its tooltip. Each sits centered in a box of one size, so
  * marks line up down a list whichever kind they are. A subagent shows only
  * its spinner, and its failure, which nothing else tells of: the rest of what
  * it needs reaches you through the agent it answers to.
@@ -24,6 +26,7 @@ export function Mark({
 	subagent = false,
 	starting = false,
 	picking = false,
+	quiet = null,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
@@ -36,6 +39,8 @@ export function Mark({
 	hosting?: boolean;
 	/** Whether it answers to another agent rather than to you. */
 	subagent?: boolean;
+	/** How long it has been quiet, once it may be stuck; null while it is not. */
+	quiet?: Quiet | null;
 }): JSX.Element {
 	if (starting) {
 		const waiting = picking
@@ -57,6 +62,7 @@ export function Mark({
 			<Mark
 				need={need.kind === "waiting" ? { kind: "idle" } : need}
 				hosting={hosting}
+				quiet={quiet}
 			/>
 		);
 	}
@@ -85,6 +91,18 @@ export function Mark({
 	if (need.kind === "idle" && !hosting) {
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
+	}
+	if (quiet !== null && need.kind !== "idle") {
+		return (
+			<span
+				role="status"
+				aria-label="possibly stuck"
+				title={quietTitle(quiet)}
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<Loader2Icon className="size-3.5 text-warning" />
+			</span>
+		);
 	}
 	return (
 		<span

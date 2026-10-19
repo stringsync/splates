@@ -15,6 +15,7 @@ import {
 	PencilIcon,
 	PinIcon,
 	PinOffIcon,
+	SquareIcon,
 } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -40,6 +41,7 @@ import { placeholding } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
 import { Mark } from "./mark";
+import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
@@ -48,8 +50,8 @@ import { useRowRefusal } from "./row-refusal";
  * One conversation in a list: its agent's mark, its name, and whether it
  * needs you, its name muted for one that answers to another, and a pin while
  * pinned. Hovered or focused, it offers a menu, Move under… among it, Archive
- * (or Unarchive), and Pin (or Unpin), but for one nested under another, which
- * moves with that one.
+ * (or Unarchive), Stop turn while its agent may be stuck, and Pin (or Unpin),
+ * but for one nested under another, which moves with that one.
  */
 export function Item({
 	conversation,
@@ -97,6 +99,7 @@ export function Item({
 	const expect = useExpect();
 	const { file, confirm } = useArchive(conversation, refuse);
 	const reported = reportedAs(conversation);
+	const quiet = useQuiet(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
 	const pins = !archived && !nested;
@@ -217,6 +220,7 @@ export function Item({
 						reported={reported}
 						unread={conversation.unread}
 						hosting={hosting}
+						quiet={quiet}
 					/>
 				)}
 			</span>
@@ -275,6 +279,14 @@ export function Item({
 							<DropdownMenuItem onClick={() => setMoving(true)}>
 								<ListTreeIcon />
 								Move under…
+							</DropdownMenuItem>
+						)}
+						{quiet !== null && (
+							<DropdownMenuItem
+								onClick={() => stopTurn(conversation, expect, refuse)}
+							>
+								<SquareIcon />
+								Stop turn
 							</DropdownMenuItem>
 						)}
 						{filable(conversation) && (

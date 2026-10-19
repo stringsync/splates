@@ -8,6 +8,7 @@ import {
 	PencilIcon,
 	PinIcon,
 	PinOffIcon,
+	SquareIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -29,6 +30,7 @@ import { nameIn } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useExpect } from "./expecting";
 import { Swipeable } from "./phone-swipe";
+import { stopTurn, useQuiet } from "./quiet";
 import type { Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 
@@ -145,8 +147,9 @@ export function Filed({
 
 /**
  * A row's menu as a sheet up from the bottom, as iOS's apps offer one on a
- * long press: its name, then Rename, Mark as unread, Move under…, Pin and
- * Archive, each a finger's height, Pin only when `pins`. Rename turns the
+ * long press: its name, then Rename, Mark as unread, Move under…, Pin, Stop
+ * turn and Archive, each a finger's height, Pin only when `pins` and Stop turn
+ * only while its agent may be stuck. Rename turns the
  * name into a box to type in; Move under… asks where in a dialog.
  */
 function RowMenu({
@@ -172,6 +175,7 @@ function RowMenu({
 	const places = usePlaces(conversation);
 	const [moving, setMoving] = useState(false);
 	const expect = useExpect();
+	const quiet = useQuiet(conversation);
 	const { id, archived } = conversation;
 	const close = () => {
 		onOpenChange(false);
@@ -301,6 +305,17 @@ function RowMenu({
 										}}
 									>
 										{conversation.pinned ? "Unpin" : "Pin"}
+									</Action>
+								)}
+								{quiet !== null && (
+									<Action
+										icon={<SquareIcon />}
+										onClick={() => {
+											close();
+											stopTurn(conversation, expect, refuse);
+										}}
+									>
+										Stop turn
 									</Action>
 								)}
 								{archive !== null && (

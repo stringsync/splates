@@ -34,7 +34,7 @@ import {
 	warning,
 	worked,
 } from "./work";
-import { liveWorkingSpan } from "./work-time";
+import { workingSpan } from "./work-time";
 import { Going, TimelineItem } from "./work-timeline";
 
 /**
@@ -120,7 +120,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								? worked(work)
 								: since === null
 									? "Working"
-									: `Working ${liveWorkingSpan(work, waiting ? Date.now() : now)}`}
+									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
 					</summary>
 					<ol

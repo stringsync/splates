@@ -7,7 +7,9 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	resize,
+	second,
 	Testing,
 	waitFor,
 	within,
@@ -148,6 +150,37 @@ describe("App's list actions on a conversation, shown before the server says so"
 				{ method: "PUT", body: { archived: true } },
 			]),
 		);
+	});
+
+	it("says a quiet agent may be stuck, and stops its turn at once from its menu", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Quiet",
+					status: "running",
+					messages: [
+						{
+							...message("agent", "Looking."),
+							at: second(0),
+							until: second(1),
+						},
+					],
+				}),
+			],
+			null,
+		);
+		const inbox = agentList(view);
+		const row = () =>
+			within(inbox).getAllByText("Quiet")[0]?.closest("li") as HTMLElement;
+		expect(within(row()).getByText(/^Possibly stuck · quiet /)).toBeTruthy();
+		testing.holdWrites();
+
+		await pick(view, "Quiet", "Stop turn");
+		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
+		expect(within(row()).queryByText(/^Possibly stuck/)).toBeNull();
+		await act(async () => testing.release());
 	});
 
 	it("marks unread and renames at once", async () => {

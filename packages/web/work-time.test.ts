@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { tool } from "./fixtures";
 import { stretchesOf, type Work, worked } from "./work";
-import { liveWorkingSpan, workingSpan } from "./work-time";
+import { workingSpan } from "./work-time";
 
 describe("permission wait timing", () => {
 	it("freezes while waiting and excludes completed waits after resuming", () => {
@@ -25,27 +25,20 @@ describe("permission wait timing", () => {
 		row.waits = [];
 		expect(workingSpan(row, at(50))).toBe("50s");
 	});
-	it("freezes after thirty seconds of silence and catches up on a fresh update", () => {
-		const row = work();
-		row.waits = [];
-		row.until = at(10);
-		expect(liveWorkingSpan(row, 20_000)).toBe("20s");
-		expect(liveWorkingSpan(row, 90_000)).toBe("40s");
-		expect(liveWorkingSpan(row, 120_000)).toBe("40s");
-		row.until = at(120);
-		expect(liveWorkingSpan(row, 121_000)).toBe("2m 1s");
-	});
 	it("counts a row opened after the agent's last update from its start", () => {
 		const row = work();
 		row.waits = [];
 		row.at = at(20);
 		row.until = at(10);
-		expect(liveWorkingSpan(row, 35_000)).toBe("15s");
-		expect(liveWorkingSpan(row, 120_000)).toBe("30s");
+		expect(workingSpan(row, 35_000)).toBe("15s");
 	});
-	it("still excludes permission waits while activity is stale", () => {
+	it("counts on through quiet, still excluding permission waits", () => {
 		const row = work(at(40));
-		expect(liveWorkingSpan(row, 300_000)).toBe("20s");
+		expect(workingSpan(row, 300_000)).toBe("20s");
+		const quiet = work();
+		quiet.waits = [];
+		quiet.until = at(10);
+		expect(workingSpan(quiet, 120_000)).toBe("2m 0s");
 	});
 	it("starts fresh live work after a trailing claim event", () => {
 		const stretches = stretchesOf(
