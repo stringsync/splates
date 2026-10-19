@@ -333,6 +333,25 @@ describe.concurrent("task links and lanes", () => {
 		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
 	});
 
+	it("ends a lane whose last task an agent took is removed, done or moot", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "first step", null, { lane: 1 });
+		await taskAdd(deps, "last step", null, { lane: 1 });
+		await add(deps, "first", { tasks: [1] });
+		await add(deps, "last", { tasks: [2] });
+
+		await taskRemove(deps, 1);
+		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		deps.log.clear();
+		await taskRemove(deps, 2);
+
+		expect(await deps.tasks.lanes()).toEqual([]);
+		expect(color.strip(deps.out())).toContain(
+			"lane 1 Licensing is done: nothing is left in it, so it is gone",
+		);
+	});
+
 	it("adds, renames and removes lanes, keeping an empty one, refusing a name in use", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "first", null);

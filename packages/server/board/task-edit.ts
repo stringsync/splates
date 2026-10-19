@@ -175,7 +175,21 @@ export async function taskRemove(
 	id: number,
 ): Promise<Task> {
 	const task = await tasks.find(id);
+	const { lane, takenBy } = task.state;
 	await task.remove();
 	log.info(`${color.green("removed")} task ${id}: ${task.subject}`);
+	// One an agent took is finished, done or moot, as a merge would have
+	// finished it: a lane it empties ends with it. One removed by hand keeps
+	// its lane, to be filled.
+	if (lane !== null && takenBy !== null) {
+		const before = await tasks.lanes();
+		await tasks.endLanes([lane]);
+		if (!(await tasks.lanes()).some((each) => each.id === lane)) {
+			const name = before.find((each) => each.id === lane)?.name ?? "";
+			log.info(
+				`  lane ${lane} ${name} is done: nothing is left in it, so it is gone`,
+			);
+		}
+	}
 	return task;
 }
