@@ -89,6 +89,37 @@ describe("App's checkpoint restart", () => {
 		expect(current(dialog)).toBeNull();
 	});
 
+	it.each([502, 503, 530])(
+		"waits quietly through a proxy %s during restart",
+		async (status) => {
+			testing.projects = [
+				project("webappwiz", [live("c1", "One", "asked")], true),
+			];
+			testing.restarting = { resume: true, shutdown: false };
+			const view = await testing.openConversations(
+				[conversation({ id: "c1", status: "running" })],
+				null,
+			);
+			await act(async () =>
+				fireEvent.click(await menuItem(view, "Restarting splates server")),
+			);
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "Restarting splates server" }),
+			);
+			expect(current(dialog)).toBe("Checkpoint");
+			testing.goAway(status);
+			await waitFor(() => expect(current(dialog)).toBe("Restart"), {
+				timeout: 3000,
+			});
+			expect(view.queryByText(/Projects not listed/)).toBeNull();
+			testing.restarting = null;
+			testing.run = "run-2";
+			testing.comeBack();
+			await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+			expect(view.queryByText(/Projects not listed/)).toBeNull();
+		},
+	);
+
 	it("confirms inline after reload while its agents resume", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),

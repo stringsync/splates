@@ -199,3 +199,25 @@ export function standing(conversations: ProjectConversation[]): Standing {
 		),
 	};
 }
+
+/**
+ * The header's word on the run `slide` is under way in, so it shows whether or
+ * not Power is open, with its agents `waiting` being resumed; null once done,
+ * which Power's last slide says instead.
+ */
+export function badgeOf(
+	slide: Slide,
+	run: Run,
+	waiting: number,
+): string | null {
+	if ((slide === "going" && run === "restart") || slide === "restarting") {
+		return "Restarting";
+	}
+	if ((slide === "going" && run === "shutdown") || slide === "shuttingDown") {
+		return "Shutting down";
+	}
+	if (slide === "resuming") {
+		return `Resuming ${plural(waiting)}`;
+	}
+	return null;
+}

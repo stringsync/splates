@@ -215,7 +215,7 @@ export class Testing implements Resource {
 	everywhereStream: Stream | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
-	#down = false;
+	#down: boolean | number = false;
 	#held: Promise<void> | null = null;
 	#heldWrites: Promise<void> | null = null;
 	#answerWrites = () => {};
@@ -229,6 +229,9 @@ export class Testing implements Resource {
 			this.asked.push(path);
 			if (this.#held !== null && path.startsWith("/api/snapshot")) {
 				await this.#held;
+			}
+			if (typeof this.#down === "number") {
+				return new Response(null, { status: this.#down });
 			}
 			if (this.#down) {
 				// As `fetch` does when nothing listens.
@@ -430,8 +433,8 @@ export class Testing implements Resource {
 	}
 
 	/** Fails every fetch from now on, standing in for a server that went away. */
-	goAway(): void {
-		this.#down = true;
+	goAway(status?: number): void {
+		this.#down = status ?? true;
 	}
 
 	/** Answers again, as a server back from a restart. */

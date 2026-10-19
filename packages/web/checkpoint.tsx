@@ -18,7 +18,7 @@ import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
 import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
 import {
-	plural,
+	badgeOf,
 	type Run,
 	type Slide,
 	slideOf,
@@ -128,6 +128,9 @@ export function CheckpointProvider({
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
+	// Read at completion: a poll may start before the restart is announced.
+	const restartPending = useRef(false);
+	restartPending.current = restarting !== null;
 	// Gone to restart on its own, the restart is Power's to see through.
 	useEffect(() => {
 		if (auto.step === "restarting") {
@@ -170,7 +173,8 @@ export function CheckpointProvider({
 				}
 				applied.current = ask;
 				// The next ask finds it once it is back.
-				if (error instanceof TypeError) {
+				// A tunnel can answer with an HTTP error while its origin stops.
+				if (error instanceof TypeError || restartPending.current) {
 					setUnreachable(true);
 				} else {
 					refuse("Projects not listed", error);
@@ -579,21 +583,3 @@ const EVERY = Duration.secs(1);
  * left, for the tab alone.
  */
 const RESTARTED = "splates.power.restarted";
-
-/**
- * The header's word on the run `slide` is under way in, so it shows whether or
- * not Power is open, with its agents `waiting` being resumed; null once done,
- * which Power's last slide says instead.
- */
-function badgeOf(slide: Slide, run: Run, waiting: number): string | null {
-	if ((slide === "going" && run === "restart") || slide === "restarting") {
-		return "Restarting";
-	}
-	if ((slide === "going" && run === "shutdown") || slide === "shuttingDown") {
-		return "Shutting down";
-	}
-	if (slide === "resuming") {
-		return `Resuming ${plural(waiting)}`;
-	}
-	return null;
-}
