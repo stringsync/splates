@@ -44,6 +44,7 @@ asks you to read it as Reference files says.
 | `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate, paused by the user, left the list: merged or removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate, paused by the user, is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
 | `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
+| `[SPLATES GROOM #N]` | An agent added todo N from its task: as the project's groomer, check, place, link and name its model | [groom.md](references/groom.md) |
 | `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[SPLATES STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
 | `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
@@ -189,7 +190,8 @@ for the lane reports):
 When something outside your Goal comes up, add it as a todo and move on:
 its subject and what you know, once you have checked no todo already asks
 it (see [references/todos.md](references/todos.md)). Leave placing it, linking it
-and picking its model to whoever grooms the list, unless the user names a
+and picking its model to the groomer `splates server` starts for each todo
+added from a task, unless the user names a
 lane, a position or what blocks it, or the model it takes is
 plain, as for a change spelled out step by step.
 

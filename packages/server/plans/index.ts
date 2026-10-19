@@ -48,6 +48,7 @@ export {
 	DICTATED,
 	DIRECTIVES,
 	directive,
+	groomReference,
 	HEARTBEAT,
 	handoffReference,
 	handoffToReference,

@@ -19,6 +19,14 @@ export function laneReference(id: number | null): string {
 	return `[SPLATES LANE ${id ?? UNTRIAGED}]`;
 }
 
+/**
+ * What tells the project's groomer that todo `id` was added from a task, for
+ * it to check, place, link and name the model of, as `Groomer` sends.
+ */
+export function groomReference(id: number): string {
+	return `[SPLATES GROOM #${id}]`;
+}
+
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;
@@ -118,11 +126,11 @@ export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
- * tasks out: a report, idle, stopped, a todo done, open or added, heartbeat or
- * lanes done, never the person's word.
+ * tasks out, or the groomer: a report, idle, stopped, a todo done, open,
+ * added or to groom, heartbeat or lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
+	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|HEARTBEAT|LANES DONE)\]$/.test(
 		text.trim(),
 	);
 }

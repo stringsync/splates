@@ -31,6 +31,7 @@ export type { Entry, Live } from "./log";
 export { ConversationLog, LOG_FORMAT } from "./log";
 export { messageOf, paused, said } from "./messages";
 export {
+	grooms,
 	lanesOf,
 	namedForTask,
 	nameOf,

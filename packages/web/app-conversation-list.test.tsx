@@ -83,6 +83,7 @@ describe("App's conversation list", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
+	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
 	it("lists archived conversations by when each was archived, last first", async () => {
 		const view = await testing.openConversations(
 			[
@@ -380,7 +381,7 @@ describe("App's conversation list", () => {
 	});
 
 	// scry-ignore simple-test-setup: the orchestrator and its lanes are what it checks, and no other test opens with them
-	it("names a lane's orchestrator after its lanes, marked as a lane, over a task it took and the agent's title", async () => {
+	it("names a lane's orchestrator after its lanes, and the groomer so, marked as a lane, over a task it took and the agent's title", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -403,6 +404,13 @@ describe("App's conversation list", () => {
 					messages: [message("user", "[SPLATES LANE untriaged]")],
 					createdAt: "2026-10-11T10:01:00.000Z",
 				}),
+				conversation({
+					id: "c4",
+					task: null,
+					title: "Splates Groom 7",
+					messages: [message("user", "[SPLATES GROOM #7]")],
+					createdAt: "2026-10-11T10:00:30.000Z",
+				}),
 			],
 			null,
 			{
@@ -422,11 +430,12 @@ describe("App's conversation list", () => {
 			"Cloudflare Access",
 			"Stats, Lane 9",
 			"Untriaged",
+			"Groomer",
 			"alpha",
 		]);
 		expect(
 			items.map((item) => within(item).queryByLabelText("Lane") !== null),
-		).toEqual([true, true, true, false]);
+		).toEqual([true, true, true, true, false]);
 		expect(names.some((name) => name.classList.contains("italic"))).toBe(false);
 	});
 

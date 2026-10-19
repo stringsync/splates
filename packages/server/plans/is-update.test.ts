@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	groomReference,
 	HEARTBEAT,
 	idleReference,
 	isUpdate,
@@ -16,9 +17,10 @@ describe("isUpdate", () => {
 				reportReference("header"),
 				idleReference("header"),
 				stoppedReference("header"),
+				groomReference(12),
 				HEARTBEAT,
 			].map(isUpdate),
-		).toEqual([true, true, true, true]);
+		).toEqual([true, true, true, true, true]);
 	});
 
 	it("takes what the person sends for theirs", () => {

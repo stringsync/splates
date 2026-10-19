@@ -2,8 +2,8 @@
 
 A lane is a named, ordered queue of todos that build on each other, landed
 top first, one task per todo, as many at once as their code allows. Lanes are the columns of the `splates server`
-board; a todo in none is untriaged. Agents place the todos they add (see
-Lanes in [references/todos.md](todos.md)), and the user rearranges them. Each has a
+board; a todo in none is untriaged. The groomer places the todos agents
+add (see [groom.md](groom.md)), and the user rearranges them. Each has a
 number, which commands and the prompt use, and a name, which says what its
 todos are for: `splates lane show N` prints them.
 

@@ -1,6 +1,7 @@
 import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
+	grooms,
 	lanesOf,
 	nameOf,
 	realName,
@@ -22,11 +23,12 @@ export function useNameOf(): (conversation: ConversationState) => string {
 }
 
 /**
- * Whether the conversation orchestrates lanes, which a row in the sidebar or
- * the inbox marks with `LaneIcon` so it stands apart from the tasks.
+ * Whether the conversation orchestrates lanes, or grooms the todos that go
+ * in them, which a row in the sidebar or the inbox marks with `LaneIcon` so
+ * it stands apart from the tasks.
  */
 export function leadsLanes(conversation: ConversationState): boolean {
-	return lanesOf(conversation).length > 0;
+	return lanesOf(conversation).length > 0 || grooms(conversation);
 }
 
 /** Whether `nameOf` is a stand-in, shown muted until a real name comes. */

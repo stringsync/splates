@@ -3,7 +3,9 @@
 An agent that adds a todo checks that none already asks it, then only adds it:
 it leaves the todo untriaged, unless
 the user names a lane, a position or what blocks it. Placing, linking and
-ordering are for the user, or the orchestrator of a lane.
+ordering are for the user, the orchestrator of a lane, or the groomer
+`splates server` starts for each todo added from a task (see
+[groom.md](groom.md)).
 
 ## One that already asks it
 

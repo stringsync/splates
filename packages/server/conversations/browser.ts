@@ -9,6 +9,7 @@
 
 export { paused } from "./messages";
 export {
+	grooms,
 	lanesOf,
 	namedForTask,
 	nameOf,

@@ -25,7 +25,14 @@ import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
 import type { Details, Snapshot } from "../tasks";
-import { HandedOut, LaneRunner, startDispatched, TaskRoutes } from "../tasks";
+import {
+	Groomer,
+	HandedOut,
+	LaneRunner,
+	SeenGroomed,
+	startDispatched,
+	TaskRoutes,
+} from "../tasks";
 import { LOCAL_WORKER } from "../workers";
 import type { Assets } from "./assets";
 import { ProjectWatch, SETTLE } from "./project-watch";
@@ -49,6 +56,7 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let handedOut: HandedOut | null = null;
 	let laneRunner: LaneRunner | null = null;
+	let groomer: Groomer | null = null;
 	let todosWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
@@ -75,6 +83,13 @@ export async function serveProject(
 					prompt,
 					by,
 				}),
+			log,
+		});
+		groomer = Groomer.watch({
+			todos: () => project.todos.stored(),
+			conversations,
+			root: service.git.root,
+			seen: new SeenGroomed(fs, `${splatesDir}/groomed-todos`),
 			log,
 		});
 		events = await JournalEvents.follow({
@@ -112,15 +127,17 @@ export async function serveProject(
 		}
 		handOff();
 		// A todo merged or let go from any tree tells its lane's orchestrator
-		// at once, not at the next sweep.
+		// at once, not at the next sweep, and one added goes to the groomer.
 		const todosSettled = new Debouncer(new SystemTimer(), SETTLE);
 		const watched = handedOut;
+		const grooming = groomer;
 		try {
 			await fs.mkdir(`${splatesDir}/todos`);
 			const watching = fs.watch(`${splatesDir}/todos`, () =>
 				todosSettled.call(() => {
 					void watched.sweep();
 					void runner.sweep();
+					void grooming.sweep();
 				}),
 			);
 			todosWatch = {
@@ -217,6 +234,7 @@ export async function serveProject(
 			todosWatch?.dispose();
 			handedOut?.dispose();
 			laneRunner?.dispose();
+			groomer?.dispose();
 			events?.dispose();
 			await talks.disposeAsync();
 		},
