@@ -35,6 +35,7 @@ describe("SETUP_AREAS", () => {
 			"coordinator",
 			"dictation",
 			"auto-pick",
+			"auto-run",
 			"github",
 			"claude",
 			"codex",

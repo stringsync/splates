@@ -319,6 +319,11 @@ export class Tasks {
 		return this.laneFiles.queueFromLanes();
 	}
 
+	/** Queues each ready task nothing blocks, unless the person took it out; gives them back. */
+	queueReady(): Promise<TaskRecord[]> {
+		return this.laneFiles.queueReady();
+	}
+
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	dropLane(id: number): Promise<void> {
 		return this.laneFiles.dropLane(id);

@@ -210,6 +210,24 @@ export class TaskLanes {
 		});
 	}
 
+	/**
+	 * Queues each ready task nothing blocks and the person has not taken out
+	 * of the queue, as auto-run does. Gives back the tasks it queued.
+	 */
+	async queueReady(): Promise<TaskRecord[]> {
+		return this.tasks.locked(async () => {
+			const queued: TaskRecord[] = [];
+			for (const state of await this.tasks.stored()) {
+				if (state.stage === "ready" && state.held !== true && isReady(state)) {
+					queued.push(
+						(await this.tasks.save({ ...state, stage: "queued" })).state,
+					);
+				}
+			}
+			return queued;
+		});
+	}
+
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	async dropLane(id: number): Promise<void> {
 		await this.tasks.locked(async () => {

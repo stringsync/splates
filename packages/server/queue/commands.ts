@@ -68,7 +68,10 @@ export async function queueAdd(
 	const queued: Task[] = [];
 	for (const task of found) {
 		queued.push(
-			await tasks.revise(task.id, (state) => ({ ...state, stage: "queued" })),
+			await tasks.revise(task.id, ({ held: _, ...state }) => ({
+				...state,
+				stage: "queued",
+			})),
 		);
 	}
 	// Queued again by hand, a queued lane counts it in once more.
@@ -105,7 +108,13 @@ export async function queueRemove(
 	}
 	const removed: Task[] = [];
 	for (const task of found) {
-		removed.push(await tasks.revise(task.id, unqueued));
+		// Held in ready, so auto-run does not queue it straight back.
+		removed.push(
+			await tasks.revise(task.id, (state) => ({
+				...unqueued(state),
+				held: true,
+			})),
+		);
 	}
 	// So a queued lane does not queue it straight back.
 	await tasks.skipInLanes(ids, true);
@@ -173,4 +182,25 @@ function waitsOn(task: TaskRecord, all: readonly TaskRecord[]): string {
 		),
 		...lost.map((gone) => `#${gone} (removed)`),
 	].join(", ");
+}
+
+/**
+ * Refuses a command that queues work when an agent runs it: only the person
+ * queues, as `splates add --agent` is refused. The server starts its tasks
+ * with neither variable set.
+ */
+export function refuseAgentQueue(
+	service: { ps: { env(name: string): string | undefined } },
+	command: string,
+): void {
+	const asking =
+		service.ps.env("SPLATES_CONVERSATION") ??
+		service.ps.env("SPLATES_STARTED_BY");
+	if (asking !== undefined) {
+		fail(
+			"usage",
+			`an agent does not queue work, so it runs no \`splates ${command}\`: \`splates task add\` the work, and the person queues it`,
+			{ command, caller: asking },
+		);
+	}
 }

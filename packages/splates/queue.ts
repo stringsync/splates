@@ -1,10 +1,13 @@
 import { tasksNamed } from "@stringsync/splates-server/board";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
+import { splatesHome } from "@stringsync/splates-server/models";
 import {
+	AutoRunStore,
 	queueAdd,
 	queueList,
 	queueMove,
 	queueRemove,
+	refuseAgentQueue,
 } from "@stringsync/splates-server/queue";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -36,6 +39,7 @@ splatesQueue
 		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
+		refuseAgentQueue(ctx.service, "queue add");
 		await refuseGroomer(ctx.service, "queue add");
 		await ctx.journal.record(
 			"queue add",
@@ -73,4 +77,27 @@ splatesQueue
 	.arg("position", z.coerce.number().int().positive(), {
 		description: "where in the queue to put it, from 1",
 	})
-	.action((opts, ctx) => queueMove(ctx, opts.id, opts.position));
+	.action((opts, ctx) => {
+		refuseAgentQueue(ctx.service, "queue move");
+		return queueMove(ctx, opts.id, opts.position);
+	});
+
+splatesQueue
+	.command("auto-run")
+	.use(repository({ needs: "read" }))
+	.description(
+		"say whether the queue queues each ready task itself, nothing blocking it, off until you turn it on; a task you take out of the queue stays in ready. Spend stays under `splates budget`, as workers are made only within it. Only you set it, not an agent",
+	)
+	.arg("state", z.enum(["on", "off"]).optional(), {
+		description: "on or off; omit to show it",
+	})
+	.action(async (opts, ctx) => {
+		const store = new AutoRunStore(`${splatesHome(ctx.ps)}/auto-run.json`, ctx);
+		if (opts.state === undefined) {
+			ctx.log.info(`auto-run is ${(await store.on()) ? "on" : "off"}`);
+			return;
+		}
+		refuseAgentQueue(ctx.service, "queue auto-run");
+		await store.set(opts.state === "on");
+		ctx.log.info(`auto-run is now ${opts.state}`);
+	});

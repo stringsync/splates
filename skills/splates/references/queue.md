@@ -106,6 +106,12 @@ with `splates queue remove` stays out until queued again. `splates lane
 unqueue <n>` stops it, taking out of the queue each of its tasks yet to
 start. Untriaged cannot be queued whole.
 
+Likewise only the user turns on auto-run, `splates queue auto-run on`, or the
+Setup step for it: each ready task nothing blocks is then queued by itself,
+off by default, and one the user took out with `splates queue remove` stays
+in ready. You never run `splates queue add`, `move` or `auto-run on` or `off`:
+they are refused for an agent.
+
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),
 `splates lane update <n> --position <p>`, 1 the first column, then read

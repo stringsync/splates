@@ -1,3 +1,4 @@
+export { AutoRunStore } from "./auto-run";
 export type { QueueDeps } from "./commands";
 export {
 	moveInQueue,
@@ -5,6 +6,7 @@ export {
 	queueList,
 	queueMove,
 	queueRemove,
+	refuseAgentQueue,
 } from "./commands";
 export { taskName } from "./name";
 export { canStart, holdsBack, queueOrder } from "./order";
