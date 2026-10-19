@@ -1,9 +1,4 @@
-import {
-	AuiIf,
-	makeAssistantDataUI,
-	useAui,
-	useAuiState,
-} from "@assistant-ui/react";
+import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import type {
 	Compaction,
 	Step,
@@ -22,13 +17,6 @@ import {
 	UnplugIcon,
 } from "lucide-react";
 import { createContext, type JSX, use, useState } from "react";
-import { ThreadExtrasContext } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
-import { Button } from "#web/components/ui/button.tsx";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { InMessage, useCardReply } from "./card-reply";
 import { useNow } from "./hooks/use-now";
@@ -45,7 +33,7 @@ import {
 	warning,
 	worked,
 } from "./work";
-import { liveWorkingSpan, workSilence } from "./work-time";
+import { liveWorkingSpan } from "./work-time";
 import { Going, TimelineItem } from "./work-timeline";
 
 /**
@@ -96,10 +84,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	// 0s while the agent has yet to start.
 	const since = work.until === null ? null : work.at;
 	const waiting = work.waits?.some((wait) => wait.to === null) ?? false;
-	const now = useNow(work.working && !waiting);
-	const silence = workSilence(work, now);
-	const aui = useAui();
-	const { stopping = false } = use(ThreadExtrasContext);
+	const now = useNow(work.working && since !== null && !waiting);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -127,10 +112,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						<span
 							className={cn(
 								"min-w-0 truncate",
-								work.working &&
-									!waiting &&
-									silence === null &&
-									"shimmer motion-reduce:animate-none",
+								work.working && "shimmer motion-reduce:animate-none",
 							)}
 						>
 							{!work.working
@@ -139,47 +121,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									? "Working"
 									: `Working ${liveWorkingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
-						{silence !== null && (
-							<Tooltip>
-								<TooltipTrigger
-									render={<span />}
-									className="inline-flex min-w-0 items-center gap-1 text-warning"
-								>
-									<TriangleAlertIcon
-										aria-hidden
-										className="size-3.5 shrink-0"
-									/>
-									<span className="truncate">
-										{silence.stuck ? "Possibly stuck · " : ""}
-										{silence.text}
-									</span>
-								</TooltipTrigger>
-								<TooltipContent>
-									The agent may be thinking, running a tool, or stuck.
-								</TooltipContent>
-							</Tooltip>
-						)}
-						{silence?.stuck && (
-							<AuiIf
-								condition={(state) =>
-									state.thread.capabilities.cancel && state.thread.isRunning
-								}
-							>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={stopping}
-									aria-busy={stopping}
-									onClick={(event) => {
-										event.stopPropagation();
-										event.preventDefault();
-										aui.thread.cancelRun();
-									}}
-								>
-									{stopping ? "Stopping…" : "Stop"}
-								</Button>
-							</AuiIf>
-						)}
 					</summary>
 					<ol
 						aria-label="timeline"

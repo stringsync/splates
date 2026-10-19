@@ -4,7 +4,6 @@ import { Duration } from "webappwiz/time";
 import {
 	act,
 	cleanup,
-	fireEvent,
 	second,
 	Testing,
 	tool,
@@ -60,20 +59,6 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const fresh = turn(
-			[tool({ id: "x1", command: "bun test", status: "in_progress" })],
-			{
-				status: "running",
-				plan: [
-					{ text: "Run the tests", status: "in_progress" },
-					{ text: "Fix what fails", status: "pending" },
-				],
-			},
-		);
-		const freshAgent = fresh.messages[1]!;
-		expect(freshAgent).toBeDefined();
-		freshAgent.until = new Date().toISOString();
-		await testing.say(fresh);
 		const line = await waitFor(() =>
 			within(thread).getByText(/^Working \d+(h|m|s)/),
 		);
@@ -98,32 +83,6 @@ describe("App's work row while working", () => {
 			expect(thread.querySelector('[data-slot="stopped"]')).not.toBeNull(),
 		);
 		expect(line(thread)).toMatch(/^Worked/);
-	});
-
-	it("shows stale activity without shimmer, recovers, and can stop a possibly stuck turn", async () => {
-		const stale = turn([tool({ id: "x1", command: "bun test" })], {
-			status: "running",
-		});
-		const agent = stale.messages[1]!;
-		expect(agent).toBeDefined();
-		agent.until = new Date(Date.now() - 45_000).toISOString();
-		const thread = await opened(stale);
-		await waitFor(() => expect(line(thread)).toContain("No activity for 45s"));
-		expect(thread.querySelector("summary .shimmer")).toBeNull();
-		expect(within(thread).queryByRole("button", { name: "Stop" })).toBeNull();
-		agent.until = new Date().toISOString();
-		await testing.say(stale);
-		await waitFor(() => expect(line(thread)).not.toContain("No activity"));
-		expect(thread.querySelector("summary .shimmer")).not.toBeNull();
-		agent.until = new Date(Date.now() - 125_000).toISOString();
-		await testing.say(stale);
-		await waitFor(() => expect(line(thread)).toContain("Possibly stuck"));
-		await act(async () =>
-			fireEvent.click(within(thread).getByRole("button", { name: "Stop" })),
-		);
-		expect(
-			testing.posted("/api/conversations/c1/cancel").map((post) => post.method),
-		).toEqual(["POST"]);
 	});
 
 	it("says Working once while it works, on its line rather than under it too", async () => {

@@ -22,30 +22,11 @@ export function workingSpan(work: Work, now: string | number): string {
 
 /** Elapsed live work, frozen after thirty seconds without an agent update. */
 export function liveWorkingSpan(work: Work, now: number): string {
-	const latest = Date.parse(work.activityAt ?? work.until ?? work.at ?? "");
+	const latest = Date.parse(work.until ?? "");
 	return workingSpan(
 		work,
 		Number.isFinite(latest)
 			? Math.min(now, latest + Duration.secs(30).ms)
 			: now,
 	);
-}
-
-/** How long a live agent has been silent; permission waits and finished work are exempt. */
-export function workSilence(
-	work: Work,
-	now: number,
-): { text: string; stuck: boolean } | null {
-	if (!work.working || work.waits?.some((wait) => wait.to === null)) {
-		return null;
-	}
-	const latest = work.activityAt ?? work.until ?? work.at;
-	const elapsed = now - Date.parse(latest ?? "");
-	if (!Number.isFinite(elapsed) || elapsed < Duration.secs(30).ms) {
-		return null;
-	}
-	return {
-		text: `No activity for ${span(latest ?? "", now)}`,
-		stuck: elapsed >= Duration.mins(2).ms,
-	};
 }

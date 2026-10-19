@@ -16,8 +16,6 @@ import { workingSpan } from "./work-time";
  * its thoughts, which the page never shows, folded into one row.
  */
 export interface Work {
-	/** Latest activity across the turn, including words after this row. */
-	activityAt?: string | null;
 	/** Permission waits across this turn, clipped to this row when timed. */
 	waits?: { from: string; to: string | null }[];
 	/** Its thoughts, tool calls, and words, in the order it went. */
@@ -169,7 +167,6 @@ export function stretchesOf(
 			type: "work",
 			work: {
 				parts: run,
-				activityAt: message.until ?? began,
 				waits: [
 					...message.parts.flatMap((part) =>
 						part.type === "tool" && part.decision?.askedAt != null
