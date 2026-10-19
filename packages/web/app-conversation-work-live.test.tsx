@@ -145,7 +145,7 @@ describe("App's work row while working", () => {
 		expect(thread.textContent).toContain("Now the fix.");
 	});
 
-	it("says Working on its row, not Worked above a Working under its reply, while the turn goes on after the reply", async () => {
+	it("says Worked above its reply, and Working only under it, while the turn goes on after the reply", async () => {
 		const thread = await opened(
 			turn(
 				[
@@ -165,8 +165,12 @@ describe("App's work row while working", () => {
 		await waitFor(() =>
 			expect(thread.textContent).toContain("Four agents are at work."),
 		);
-		expect(line(thread)).toMatch(/^Working/);
-		expect(thread.textContent?.match(/Work(ed|ing)/g)).toEqual(["Working"]);
+		expect(line(thread)).toMatch(/^Worked/);
+		const text = thread.textContent ?? "";
+		expect(text.match(/Work(ed|ing)/g)).toEqual(["Worked", "Working"]);
+		expect(text.indexOf("Working")).toBeGreaterThan(
+			text.indexOf("Four agents are at work."),
+		);
 	});
 
 	it("folds what the agent said before its latest call into the working row", async () => {

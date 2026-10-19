@@ -27,12 +27,10 @@ export interface Work {
 	until: string | null;
 	/** Still going, with nothing said since: its last thought is still being thought. */
 	running: boolean;
-	/** Whether the row says Working rather than how long it worked: the turn's last row while it goes on, even with words after it, but not one above a compaction or a splates line. */
+	/** Whether the row says Working rather than how long it worked: only the turn's last line while it goes on, so nothing, words, splates's lines or a compaction, ever shows below one. */
 	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
-	/** When the agent began the words it has so far ended its turn on while the turn goes on, as when its subagents work after its reply; null otherwise. */
-	replied: string | null;
 }
 
 /**
@@ -97,7 +95,6 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
-	const replied = going && said?.type === "text" ? (said.at ?? null) : null;
 	const ordered = folded(placed(pieces, events));
 	// Keep live work below an event even before the agent sends another part.
 	const tail = ordered.at(-1);
@@ -121,20 +118,14 @@ export function stretchesOf(
 		ordered.push([]);
 	}
 	const lastWork = ordered.findLastIndex((run) => Array.isArray(run));
-	// While a compaction goes on, its line says the agent is at work, and no
-	// row above it does.
-	const compacting = (index: number) =>
-		ordered
-			.slice(index + 1)
-			.some((run) => !Array.isArray(run) && run.type === "compaction");
 	// Thoughts never show, so work with nothing else in it goes, but for the
-	// last row while it says Working or holds the plan.
+	// last line while it says Working, or the last row while it holds the plan.
 	const kept = ordered.filter(
 		(run, index) =>
 			!Array.isArray(run) ||
 			run.some((part) => part.type !== "thought") ||
-			(index === lastWork &&
-				((going && !compacting(index)) || message.plan !== null)),
+			(going && index === ordered.length - 1) ||
+			(index === lastWork && message.plan !== null),
 	);
 	const works = kept.filter((run) => Array.isArray(run));
 	const end = kept.length - 1;
@@ -192,20 +183,11 @@ export function stretchesOf(
 							startOf(next ?? []) ??
 							message.until),
 				running: going && index === end,
-				// A line below it, splates's or a compaction's, ends it: the
-				// agent moved on, so it never says Working above one.
-				working:
-					going &&
-					run === final &&
-					!kept
-						.slice(index + 1)
-						.some(
-							(each) =>
-								!Array.isArray(each) &&
-								(each.type === "compaction" || each.type === "event"),
-						),
+				// Anything below it, words, splates's lines or a compaction, ends
+				// it: only the turn's last line says Working, or the compaction
+				// going on below it does.
+				working: going && index === end,
 				going,
-				replied,
 			},
 		};
 	});
