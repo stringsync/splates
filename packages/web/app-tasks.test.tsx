@@ -6,6 +6,7 @@ import {
 	details,
 	fireEvent,
 	Testing,
+	todo,
 	waitFor,
 	within,
 } from "./testing";
@@ -27,6 +28,43 @@ describe("App's tasks", () => {
 
 		expect(view.getByRole("heading", { name: "Tasks" })).toBeTruthy();
 		expect(view.getByText(/No tasks/)).toBeTruthy();
+	});
+
+	it("shows the queue in start order, open at first, and folds it away", async () => {
+		const view = await testing.openTasks({
+			todos: [
+				todo({
+					id: 1,
+					subject: "after the API",
+					position: 1,
+					stage: "queued",
+					blockedBy: [2],
+				}),
+				todo({ id: 2, subject: "the API", position: 2, stage: "queued" }),
+				todo({ id: 3, subject: "someday", position: 3 }),
+			],
+		});
+
+		const queue = view.getByRole("list", { name: "Queue order" });
+		expect(
+			within(queue)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["1#2the API", "2#1after the APIwaits on #2"]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Queue/ })),
+		);
+		expect(view.queryByRole("list", { name: "Queue order" })).toBeNull();
+	});
+
+	it("says plainly when nothing is queued", async () => {
+		const view = await testing.openTasks({
+			tasks: [],
+			todos: [todo({ id: 1, subject: "someday", position: 1 })],
+		});
+
+		expect(view.getByText(/Nothing is queued/)).toBeTruthy();
 	});
 
 	it("opens a task's plan, and where it stands", async () => {

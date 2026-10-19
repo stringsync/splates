@@ -222,7 +222,6 @@ function QueueRow({
 	const { setQueued, move } = useQueueing();
 	const at = whole.findIndex((each) => each.id === todo.id);
 	const next = whole[at + 1];
-	const { open, lost } = holdsBack(todo, all);
 	return (
 		<li className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-2 py-1.5 text-card-foreground">
 			<div className="flex items-start gap-2">
@@ -268,19 +267,76 @@ function QueueRow({
 					</Button>
 				</span>
 			</div>
-			{(open.length > 0 || lost.length > 0) && (
-				<p className="pl-6 text-muted-foreground text-xs">
-					{open.length > 0 &&
-						`waits on ${open.map((other) => `#${other.id}`).join(", ")}`}
-					{open.length > 0 && lost.length > 0 && "; "}
-					{lost.length > 0 && (
-						<span className="text-warning">
-							{`needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`}
-						</span>
-					)}
-				</p>
-			)}
+			<HeldBack todo={todo} all={all} />
 			<Refusal refusal={board.refusedTodos.get(todo.id)} className="pl-6" />
 		</li>
+	);
+}
+
+/** What still holds queued `todo` back among `all`, if anything. */
+function HeldBack({
+	todo,
+	all,
+}: {
+	todo: TaskRecord;
+	all: readonly TaskRecord[];
+}): JSX.Element | null {
+	const { open, lost } = holdsBack(todo, all);
+	if (open.length === 0 && lost.length === 0) {
+		return null;
+	}
+	return (
+		<p className="pl-6 text-muted-foreground text-xs">
+			{open.length > 0 &&
+				`waits on ${open.map((other) => `#${other.id}`).join(", ")}`}
+			{open.length > 0 && lost.length > 0 && "; "}
+			{lost.length > 0 && (
+				<span className="text-warning">
+					{`needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`}
+				</span>
+			)}
+		</p>
+	);
+}
+
+/**
+ * The queue as the Tasks page shows it, to say what starts next: each
+ * queued task in the order workers start them, with what holds it back.
+ * Only shown; the Board moves and unqueues them.
+ */
+export function QueueList({
+	all,
+}: {
+	/** Every task on the list, to find the queue and what each waits on. */
+	all: readonly TaskRecord[];
+}): JSX.Element {
+	const queue = queueOrder(all);
+	if (queue.length === 0) {
+		return (
+			<p className="py-1 text-muted-foreground text-sm">
+				Nothing is queued. Queue a task from the Board, and a worker starts it
+				once nothing it is blocked by is open.
+			</p>
+		);
+	}
+	return (
+		<ol aria-label="Queue order" className="flex flex-col gap-1">
+			{queue.map((todo, at) => (
+				<li key={todo.id} className="flex flex-col gap-0.5 py-1">
+					<div className="flex items-start gap-2 text-sm">
+						<span className="w-4 shrink-0 text-muted-foreground/70 text-xs tabular-nums leading-5">
+							{at + 1}
+						</span>
+						<span className="min-w-0 flex-1">
+							<span className="mr-1 text-muted-foreground tabular-nums">
+								#{todo.id}
+							</span>
+							{todo.subject}
+						</span>
+					</div>
+					<HeldBack todo={todo} all={all} />
+				</li>
+			))}
+		</ol>
 	);
 }
