@@ -1,12 +1,10 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import type { Question } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	CheckIcon,
 	EllipsisIcon,
 	FileDiffIcon,
 	type LucideIcon,
-	MessageCircleQuestionIcon,
 	RotateCcwIcon,
 	Trash2Icon,
 } from "lucide-react";
@@ -35,14 +33,12 @@ import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { taskRemoved } from "./board-expectations";
 import { ReviewChanges } from "./changes";
-import { TASK } from "./conversation-address";
 import { Dispatching, OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
 import { HandOffMenu, RestartButton } from "./hand-off";
 import { Refusal, useRefusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { StartItems, StartMenu } from "./start-menu";
-import { arriveAt } from "./task-view";
 
 /** Something to do with a task: a button in the bar, or an item in its menu. */
 interface Action {
@@ -57,45 +53,20 @@ interface Action {
 
 /**
  * Everything to do with a task, in one row: the conversations on it, or a
- * way to start one; its open questions, when no conversation here asks
- * them; its changes; another round of merges once it is out of them. On a
+ * way to start one; its changes; another round of merges once it is out of them. On a
  * phone, past two, the most pressing one and a menu of the rest.
  */
 export function ActionBar({
 	task,
-	open,
 	retry,
-	onAnswer,
 }: {
 	task: Details;
-	open: Question[];
 	retry: Action | null;
-	/** Answers them in the dialog, when the page runs no conversations. */
-	onAnswer: () => void;
 }): JSX.Element {
 	const context = useContext(Dispatching);
 	const review = useContext(ReviewChanges);
 	const wide = useWide();
 	const remove = useRemove(task);
-	// A splates server agent on the task asks its questions in its conversation,
-	// so only an external agent's need answering from here.
-	const answer: Action | null =
-		open.length === 0 ||
-		(context !== null && context.dispatch.on(task.task).length > 0)
-			? null
-			: {
-					label: `Answer ${open.length === 1 ? "a question" : `${open.length} questions`}`,
-					Icon: MessageCircleQuestionIcon,
-					closes: context !== null,
-					run:
-						context === null
-							? onAnswer
-							: () => {
-									const address = `${TASK}${task.task}`;
-									arriveAt(address);
-									context.open(address);
-								},
-				};
 	const changes: Action | null =
 		review !== null && (task.ahead ?? 0) > 0
 			? {
@@ -153,16 +124,13 @@ export function ActionBar({
 								<ActionButton key={action.label} action={action} outline />
 							),
 					)}
-					{answer !== null && <ActionButton action={answer} />}
 				</div>
 				{remove.asking}
 			</div>
 		);
 	}
 	// Most pressing first; removing never leads, since it cannot be undone.
-	const [lead, ...rest] = [answer, changes, retry].filter(
-		(action) => action !== null,
-	);
+	const [lead, ...rest] = [changes, retry].filter((action) => action !== null);
 	const count =
 		(lead === undefined ? 0 : 1 + rest.length) + (starts ? 1 : 0) + 1;
 	return (

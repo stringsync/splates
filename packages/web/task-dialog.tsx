@@ -1,12 +1,11 @@
 import { age } from "@stringsync/splates-server/age";
-import type { Question } from "@stringsync/splates-server/plans";
 import {
+	answersTo,
 	type Need,
 	need,
-	questions,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { CheckIcon, GitBranchIcon } from "lucide-react";
+import { GitBranchIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -15,7 +14,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Markdown as Parsed } from "webappwiz/md";
 import {
 	DialogContent,
 	DialogDescription,
@@ -31,12 +29,14 @@ import {
 } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Dispatching } from "./dispatching";
+import { Held, SubagentComposer } from "./handed-out";
 import { Markdown } from "./markdown";
-import { QuestionCards } from "./question-cards";
 import { ActionBar, useRetry } from "./task-actions";
 import { DemoButtons } from "./task-demo";
 import { TaskIcon } from "./task-icon";
+import { type PlanParts, planParts, stepsIn } from "./task-plan-parts";
 import { TaskPorts } from "./task-ports";
+import { Sessions } from "./task-sessions";
 
 /**
  * One task in a dialog over the task list or a todo that names it, to peek
@@ -46,10 +46,14 @@ import { TaskPorts } from "./task-ports";
 export function Task({ task }: { task: Details }): JSX.Element {
 	const retry = useRetry(task);
 	const plan = useMemo(() => planParts(task.plan), [task.plan]);
-	const open = plan.asked.filter((each) => !each.done && each.reply === null);
 	const [tab, setTab] = useState<Tab>("overview");
-	// Answered here only when the page has nowhere else to answer them.
-	const here = useContext(Dispatching) === null;
+	const context = useContext(Dispatching);
+	const external =
+		context === null ? null : context.dispatch.external(task.task);
+	// A subagent a conversation here started answers to that one, through it.
+	const by = useContext(Held);
+	const caller =
+		external === null ? null : answersTo({ conversation: null, task }, by);
 	// Focus lands on the dialog, not its first tab, so a peek opens without a ring.
 	const dialog = useRef<HTMLDivElement>(null);
 	return (
@@ -70,40 +74,48 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					className="h-9! w-full justify-start gap-3 rounded-none border-b px-4 py-0 max-md:h-11!"
 				>
 					<SectionTab value="overview">Overview</SectionTab>
-					{plan.asked.length > 0 && (
-						<SectionTab value="questions" count={open.length}>
-							Questions
-						</SectionTab>
-					)}
 					{plan.notes !== "" && <SectionTab value="notes">Notes</SectionTab>}
 					<SectionTab value="details">Details</SectionTab>
 				</TabsList>
 				<Section value="overview">
+					{caller !== null && context !== null && (
+						<div className="mb-4">
+							<SubagentComposer
+								task={task.task}
+								by={caller}
+								onOpen={(id) => context.open(id)}
+							/>
+						</div>
+					)}
 					<Overview task={task} plan={plan} />
-				</Section>
-				<Section value="questions" keepMounted>
-					<Questions open={open} asked={plan.asked} copy={here} />
 				</Section>
 				<Section value="notes">
 					<Markdown text={plan.notes} />
 				</Section>
 				<Section value="details">
-					<Facts task={task} />
+					<div className="flex min-w-0 flex-col gap-4">
+						<Facts task={task} external={external !== null} />
+						{external !== null && caller === null && context !== null && (
+							<Sessions
+								task={task.task}
+								agents={context.dispatch.agents}
+								onBrought={(conversation) => {
+									context.dispatch.brought(conversation);
+									context.open(conversation.id);
+								}}
+							/>
+						)}
+					</div>
 				</Section>
 			</Tabs>
 			<DialogFooter className="sm:justify-between">
-				<ActionBar
-					task={task}
-					open={open}
-					retry={retry.action}
-					onAnswer={() => setTab("questions")}
-				/>
+				<ActionBar task={task} retry={retry.action} />
 			</DialogFooter>
 		</DialogContent>
 	);
 }
 
-type Tab = "overview" | "questions" | "notes" | "details";
+type Tab = "overview" | "notes" | "details";
 
 /**
  * A steady height on a wide screen, so moving between tabs keeps the footer
@@ -121,12 +133,9 @@ const PHONE_SHEET =
 
 function SectionTab({
 	value,
-	count = 0,
 	children,
 }: {
 	value: Tab;
-	/** What waits on the person there, shown beside its name while any does. */
-	count?: number;
 	children: ReactNode;
 }): JSX.Element {
 	return (
@@ -135,11 +144,6 @@ function SectionTab({
 			className="flex-none px-0 text-xs group-data-horizontal/tabs:after:bottom-[-1.5px]"
 		>
 			{children}
-			{count > 0 && (
-				<span className="rounded-full bg-warning/15 px-1.5 text-[0.7rem] text-warning tabular-nums">
-					{count}
-				</span>
-			)}
 		</TabsTrigger>
 	);
 }
@@ -252,20 +256,23 @@ const PRESSING: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
 function useStanding(task: Details): Standing {
 	const context = useContext(Dispatching);
 	const rows = context?.dispatch.on(task.task) ?? [];
+	const external = context?.dispatch.external(task.task) ?? null;
 	const all: Need[] =
 		rows.length > 0
 			? rows.map((row) => row.need)
-			: context?.dispatch.orphaned(task.task)
-				? [
-						{
-							kind: "waiting",
-							why: "orphaned",
-							subject: "No agent is left on it",
-							since: null,
-							questions: [],
-						},
-					]
-				: [need(task, null)];
+			: external !== null
+				? [external]
+				: context?.dispatch.orphaned(task.task)
+					? [
+							{
+								kind: "waiting",
+								why: "orphaned",
+								subject: "No agent is left on it",
+								since: null,
+								questions: [],
+							},
+						]
+					: [need(task, null)];
 	const [first] = all.toSorted(
 		(one, other) => PRESSING.indexOf(one.kind) - PRESSING.indexOf(other.kind),
 	);
@@ -366,60 +373,17 @@ function SectionHeading({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
- * The questions its agent asked: those still open as cards, which copy a
- * reply to paste into its session where the page has nowhere else to answer
- * them, then those answered, a line each.
- */
-function Questions({
-	open,
-	asked,
-	copy,
-}: {
-	open: Question[];
-	asked: Question[];
-	copy: boolean;
-}): JSX.Element {
-	const answered = asked.filter((each) => each.done || each.reply !== null);
-	return (
-		<div className="flex min-w-0 flex-col gap-4 text-sm">
-			{open.length > 0 ? (
-				// Without the margin a card keeps between messages in a thread.
-				<div className="[&_[data-card]]:my-0">
-					<QuestionCards questions={open} copy={copy} />
-				</div>
-			) : (
-				<p className="text-muted-foreground">No open questions.</p>
-			)}
-			{answered.length > 0 && (
-				<section aria-label="answered" className="flex flex-col gap-1">
-					<SectionHeading>Answered</SectionHeading>
-					<ul className="flex flex-col gap-1">
-						{answered.map((each) => (
-							<li
-								key={each.number}
-								className="flex min-w-0 gap-2 text-muted-foreground"
-							>
-								<CheckIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-								<span className="min-w-0">
-									{each.number}. {each.text}
-									{each.reply !== null && (
-										<span className="text-foreground"> → {each.reply}</span>
-									)}
-								</span>
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
-		</div>
-	);
-}
-
-/**
  * What splates knows of a task that its SPLATES.md does not say, a row each,
  * with how its SPLATES.md departs from the shape the skill asks for.
  */
-function Facts({ task }: { task: Details }): JSX.Element {
+function Facts({
+	task,
+	external,
+}: {
+	task: Details;
+	/** Whether an agent outside the page has it, of which the page knows only signs. */
+	external: boolean;
+}): JSX.Element {
 	const facts: [string, ReactNode][] = [
 		["Branch", task.branch],
 		["Base", task.base],
@@ -450,6 +414,14 @@ function Facts({ task }: { task: Details }): JSX.Element {
 	if (task.activeAt !== null) {
 		facts.push(["Last active", `${age(task.activeAt)} ago`]);
 	}
+	if (external) {
+		facts.push([
+			"Its agent",
+			task.lease === "held"
+				? "Outside the page, running a splates command now"
+				: "Outside the page, or gone: the page sees only its edits, commits and splates commands",
+		]);
+	}
 	if (task.planProblems.length > 0) {
 		facts.push([
 			"SPLATES.md",
@@ -473,75 +445,4 @@ function Facts({ task }: { task: Details }): JSX.Element {
 			))}
 		</dl>
 	);
-}
-
-/** A task's SPLATES.md, split into what each tab shows. */
-interface PlanParts {
-	/** `## Goal`, as markdown; "" when it has none. */
-	goal: string;
-	/** `## Next`, as markdown; "" when it has none. */
-	steps: string;
-	/** `## Verification`, what was checked and what it showed; "" when none. */
-	verification: string;
-	/** `## Demo`, how to set a demo up; "" when it says none. */
-	demo: string;
-	/** Every question under `## Blocked`, in order. */
-	asked: Question[];
-	/**
-	 * `## Notes`, then any other section under its heading, or the whole of
-	 * a plan that keeps none of the sections the skill names.
-	 */
-	notes: string;
-}
-
-function planParts(plan: string | null): PlanParts {
-	if (plan === null) {
-		return {
-			goal: "",
-			steps: "",
-			verification: "",
-			demo: "",
-			asked: [],
-			notes: "",
-		};
-	}
-	const sections = Parsed.parse(plan).sections.filter(
-		(section) => section.level === 2,
-	);
-	const named = (name: string) =>
-		sections
-			.find((section) => section.heading.toLowerCase() === name)
-			?.body.trim() ?? "";
-	const known = ["goal", "next", "notes", "blocked", "verification", "demo"];
-	const others = sections.filter(
-		(section) => !known.includes(section.heading.toLowerCase()),
-	);
-	const kept = sections.length > others.length;
-	const notes = kept
-		? [
-				named("notes"),
-				...others.map(
-					(section) => `### ${section.heading}\n\n${section.body.trim()}`,
-				),
-			]
-				.filter((part) => part !== "")
-				.join("\n\n")
-		: plan.replace(/^\s*#\s[^\n]*/, "").trim();
-	return {
-		goal: named("goal"),
-		steps: named("next"),
-		verification: named("verification"),
-		demo: named("demo"),
-		asked: questions(plan),
-		notes,
-	};
-}
-
-/** How many of the `- [ ]` steps in `steps` are checked, of how many. */
-function stepsIn(steps: string): { done: number; total: number } {
-	const boxes = [...steps.matchAll(/^- \[([ xX])\]/gm)];
-	return {
-		done: boxes.filter(([, box]) => box !== " ").length,
-		total: boxes.length,
-	};
 }

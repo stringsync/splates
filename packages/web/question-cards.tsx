@@ -19,7 +19,6 @@ import {
 	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
-	CopyIcon,
 	PlusIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
@@ -31,7 +30,6 @@ import { cn } from "#web/lib/utils.ts";
 import { AnythingElsePage } from "./anything-else-page";
 import { caretToEnd } from "./box-editor";
 import { BoxFiles, MORE } from "./box-files";
-import { copiedLabel, useCopy } from "./card";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, reportText } from "./card-shell";
@@ -45,8 +43,7 @@ import { Refusal, useRefusal } from "./refusal";
  * The questions as a panel answered by keyboard alone: a letter picks a
  * choice, the arrows move between them, Enter goes on to the next question
  * and from "Anything else" sends, as ⌘Enter does from anywhere in it. What is
- * written stays in the panel, never the composer, until it is sent, or for
- * an agent outside the page, copied to paste into its session. Each
+ * written stays in the panel, never the composer, until it is sent. Each
  * question with a `(chosen)` choice comes answered with it, the agent's
  * recommendation, so a reply says it unless the person picks another. Under a
  * proposal, once every one is answered, Approve approves the proposal, saying
@@ -61,7 +58,6 @@ export function QuestionCards({
 	demo = null,
 	draft = null,
 	earlier = [],
-	copy = false,
 	paged = false,
 	answer = null,
 	onSent,
@@ -80,8 +76,6 @@ export function QuestionCards({
 	 * opens with the first that holds anything, while its own holds nothing.
 	 */
 	earlier?: string[];
-	/** Copy the reply rather than send it: its agent runs outside the page. */
-	copy?: boolean;
 	/**
 	 * Whether it shows one question a screen, as a phone's form does, with
 	 * Send on the last and a button there that opens "Anything else" on a
@@ -94,12 +88,12 @@ export function QuestionCards({
 	 * each question's answer, in order. Nothing else is asked for beside them.
 	 */
 	answer?: ((answers: (Answer | null)[]) => Promise<void>) | null;
-	/** Once the reply is sent from it, or copied. */
+	/** Once the reply is sent from it. */
 	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent, askedAgain } = useCardReply();
 	const live =
-		sent === null && !askedAgain && (copy || answer !== null || reply !== null);
+		sent === null && !askedAgain && (answer !== null || reply !== null);
 	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
 	// What the agent chose for `asked`, which it comes answered with.
@@ -160,9 +154,7 @@ export function QuestionCards({
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
 	const answered = answers.filter((answer) => answer !== null).length;
-	const send = copy || answer !== null ? null : (reply?.send ?? null);
-	// Copied, for an agent outside the page: neither sent nor answered.
-	const copies = send === null && answer === null;
+	const send = answer !== null ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
@@ -181,7 +173,6 @@ export function QuestionCards({
 		!attached;
 	const out = replyOf(questions, saidOf(), written.more);
 	const empty = !approving && out === "" && !attached;
-	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
 		if (!live || empty) {
@@ -197,10 +188,7 @@ export function QuestionCards({
 				}),
 				"Not answered",
 			);
-		} else if (send === null) {
-			// Kept, to copy again until its agent records it.
-			copyOut(approved(out), onSent);
-		} else {
+		} else if (send !== null) {
 			// Sent from outside a message, nothing else drops what it kept.
 			const { text, files: sending } = boxFiles.reply(
 				questions,
@@ -473,13 +461,11 @@ export function QuestionCards({
 										</span>
 										<span>
 											<Kbd>⌘↵</Kbd>{" "}
-											{copies
-												? "copies"
-												: answer !== null
-													? "answers"
-													: approving
-														? "approves"
-														: "sends"}
+											{answer !== null
+												? "answers"
+												: approving
+													? "approves"
+													: "sends"}
 										</span>
 									</>
 								)}
@@ -487,29 +473,16 @@ export function QuestionCards({
 							<Button
 								size="sm"
 								disabled={empty}
-								title={copied.state === "failed" ? copied.error : undefined}
 								onClick={submit}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
-								{!copies ? (
-									approving ? (
-										<CheckIcon data-icon="inline-start" />
-									) : (
-										<SendHorizontalIcon data-icon="inline-start" />
-									)
-								) : copied.state === "copied" ? (
+								{approving ? (
 									<CheckIcon data-icon="inline-start" />
 								) : (
-									<CopyIcon data-icon="inline-start" />
+									<SendHorizontalIcon data-icon="inline-start" />
 								)}
 								<span aria-live="polite">
-									{copies
-										? copiedLabel(copied, "Copy reply")
-										: answer !== null
-											? "Answer"
-											: approving
-												? "Approve"
-												: "Send"}
+									{answer !== null ? "Answer" : approving ? "Approve" : "Send"}
 								</span>
 							</Button>
 						</div>

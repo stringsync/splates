@@ -41,16 +41,10 @@ describe("App's task dialog on a phone", () => {
 
 	it("keeps the most pressing action out and the rest in a menu, past two", async () => {
 		testing.talk = { agents: AGENTS, conversations: [] };
-		const { view, bar } = await openTask(
-			details({
-				task: "beta",
-				ahead: 2,
-				plan: "# beta\n\n## Blocked\n\n- [ ] 1. Which way?\n",
-			}),
-		);
+		const { view, bar } = await openTask(details({ task: "beta", ahead: 2 }));
 
 		expect(bar.getAllByRole("button").map((each) => each.textContent)).toEqual([
-			"Answer a question",
+			"Review changes",
 			"",
 		]);
 		await act(async () =>
@@ -58,7 +52,6 @@ describe("App's task dialog on a phone", () => {
 		);
 		const items = await waitFor(() => view.getAllByRole("menuitem"));
 		expect(items.map((each) => each.textContent)).toEqual([
-			"Review changes",
 			"Claude",
 			"Codex",
 			"Remove",

@@ -52,7 +52,7 @@ describe("Notifier", () => {
 				.look([row(asks)], name, NOW)
 				.map(({ title, body }) => [title, body]),
 		).toEqual([["Fix", "Wants to run: rm -rf build"]]);
-		// Still waiting is not news.
+		// One wait tells once, so a long one never nags.
 		expect(notifier.look([row(asks)], name, NOW)).toEqual([]);
 	});
 
@@ -103,21 +103,16 @@ describe("Notifier", () => {
 		).toEqual([["Fix", "Its turn is over"]]);
 	});
 
-	it("tells of an external agent's task that goes quiet on a question, and of nothing for a new row", () => {
+	it("tells nothing of an external agent's task that asks, as it asks in its own session", () => {
 		notifier.look([row(null, beta)], name, NOW);
 
 		expect(
-			notifier
-				.look(
-					[
-						row(null, { ...beta, ...quietOn("Which call?") }),
-						row(null, details({ task: "gamma", ...quietOn("Which?") })),
-					],
-					name,
-					NOW,
-				)
-				.map(({ title, body }) => [title, body]),
-		).toEqual([["beta", "Asks: Which call?"]]);
+			notifier.look(
+				[row(null, { ...beta, ...quietOn("Which call?") })],
+				name,
+				NOW,
+			),
+		).toEqual([]);
 	});
 
 	it("tells nothing of a task left by archiving its conversation, the person's own doing", () => {
@@ -175,6 +170,7 @@ describe("Notifier", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: only this test sets a quiet time, and the times it looks at follow from it
 	it("tells once of a running conversation with no word for the quiet time", async () => {
 		await settings.set("notifications.quietAfter", 5);
 		const said = {

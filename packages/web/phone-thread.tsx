@@ -3,11 +3,10 @@ import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ChevronsRightIcon } from "lucide-react";
 import type { JSX } from "react";
+import { arriveAt } from "./arrivals";
 import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
-import type { Drafts } from "./drafts";
-import { arriveAt, useCopiedReplies } from "./task-view";
 import { BarButton } from "./top-bar";
 
 /**
@@ -19,24 +18,17 @@ import { BarButton } from "./top-bar";
  */
 export function NextWaiting({
 	feed,
-	drafts,
 	tasks,
 	open,
 	onOpen,
 }: {
 	feed: ConversationFeed;
-	drafts: Drafts;
 	tasks: Details[];
 	/** The conversation shown, or null on a page that shows none. */
 	open: string | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	const { others, conversations } = useWaitingElsewhere(
-		feed,
-		drafts,
-		tasks,
-		open,
-	);
+	const { others, conversations } = useWaitingElsewhere(feed, tasks, open);
 	const count = others.length;
 	return (
 		<BarButton
@@ -47,7 +39,7 @@ export function NextWaiting({
 			}
 			disabled={count === 0}
 			onClick={() => {
-				const next = nextWaiting(others, drafts, conversations, open);
+				const next = nextWaiting(others, open);
 				if (next !== undefined) {
 					arriveAt(openedBy(next));
 					onOpen(openedBy(next));
@@ -72,16 +64,14 @@ export function NextWaiting({
  */
 export function WaitingBadge({
 	feed,
-	drafts,
 	tasks,
 	open,
 }: {
 	feed: ConversationFeed;
-	drafts: Drafts;
 	tasks: Details[];
 	open: string | null;
 }): JSX.Element | null {
-	const count = useWaitingElsewhere(feed, drafts, tasks, open).others.length;
+	const count = useWaitingElsewhere(feed, tasks, open).others.length;
 	if (count === 0) {
 		return null;
 	}
@@ -102,7 +92,6 @@ export function WaitingBadge({
  */
 function useWaitingElsewhere(
 	feed: ConversationFeed,
-	drafts: Drafts,
 	tasks: Details[],
 	open: string | null,
 ): { others: ReturnType<typeof rowsOf>; conversations: ConversationState[] } {
@@ -111,9 +100,8 @@ function useWaitingElsewhere(
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
-	useCopiedReplies(drafts);
 	const others = rowsOf(tasks, conversations).filter(
-		(row) => openedBy(row) !== open && waitsOnYou(row, drafts, conversations),
+		(row) => openedBy(row) !== open && waitsOnYou(row),
 	);
 	return { others, conversations };
 }

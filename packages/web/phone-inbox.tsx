@@ -1,19 +1,8 @@
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import {
-	ArchiveIcon,
-	ChevronRightIcon,
-	MenuIcon,
-	PlusIcon,
-	SquarePenIcon,
-} from "lucide-react";
-import { Fragment, type JSX, type ReactNode, useContext } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
+import { type JSX, type ReactNode, useContext } from "react";
 import {
 	Empty,
 	EmptyDescription,
@@ -22,13 +11,16 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
+import { arriveAt } from "./arrivals";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
+import { agentName, type ConversationFeed } from "./conversation-feed";
 import {
-	type AgentChoice,
-	agentName,
-	type ConversationFeed,
-} from "./conversation-feed";
-import { hostsAtWork, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";
+	hostsAtWork,
+	isHostOf,
+	rowsOf,
+	shownIn,
+	waitsOnYou,
+} from "./conversation-rows";
 import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
@@ -37,9 +29,8 @@ import { NavigationContext } from "./navigation";
 import { newConversationUrl, useOpenNew } from "./new-conversation-project";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
-import { Row } from "./phone-inbox-row";
+import { FolderSection, Group } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
-import { InLanes } from "./project-folder-list";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -48,7 +39,6 @@ import {
 	groupsOf,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
-import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
 
@@ -116,16 +106,19 @@ export function Inbox({
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
 	// In the project the last one started in, which may be another's page.
 	const openNew = useOpenNew(onOpen);
-	useCopiedReplies(drafts);
 	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
-	const trees = nest(rows, (host, part) => isHostOf(tasks, host, part));
-	const { waiting, pinned, working, recent } = groupsOf(
-		trees,
-		drafts,
-		conversations,
-	);
+	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
+	// Grouped with every row, then only what the inbox shows (see `shownIn`).
+	const shown = (of: Nested<Needing>[]) => shownIn(of);
+	const groups = groupsOf(nested);
+	const trees = shown(nested);
+	const hosting = hostsAtWork(nested);
+	const waiting = shown(groups.waiting);
+	const pinned = shown(groups.pinned);
+	const working = shown(groups.working);
+	const recent = shown(groups.recent);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -141,7 +134,6 @@ export function Inbox({
 					everywhere.tasks,
 					everywhere.conversations,
 					{ ...here, tasks, conversations },
-					drafts,
 				)
 			: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
@@ -151,7 +143,7 @@ export function Inbox({
 			navigation.show(newConversationUrl(folder.project, openedBy(row)));
 			return;
 		}
-		if (waitsOnYou(row, drafts, conversations)) {
+		if (waitsOnYou(row)) {
 			arriveAt(openedBy(row));
 		}
 		onOpen(openedBy(row));
@@ -165,7 +157,7 @@ export function Inbox({
 	};
 	const empty =
 		grouped === null
-			? rows.length === 0
+			? trees.length === 0
 			: grouped.folders.every((each) => each.trees.length === 0);
 	const agent = agents.find((each) => each.id === "claude") ?? agents[0];
 	const wide = onMenu === null;
@@ -242,9 +234,9 @@ export function Inbox({
 									items={(group as Nested<Needing>[]).map((tree) => ({
 										tree,
 										folder: null,
+										hosting,
 									}))}
 									agents={agents}
-									drafts={drafts}
 									urgent={title === "Needs you"}
 									beneath={beneath}
 									onOpen={open}
@@ -256,7 +248,6 @@ export function Inbox({
 									title="Needs you"
 									items={grouped.needsYou}
 									agents={agents}
-									drafts={drafts}
 									urgent
 									named
 									beneath={beneath}
@@ -270,7 +261,6 @@ export function Inbox({
 										onFold={(open) => fold(folderKey(folder), open)}
 										onNew={available ? () => startIn(folder) : null}
 										agents={agents}
-										drafts={drafts}
 										beneath={beneath}
 										onOpen={open}
 									/>
@@ -326,217 +316,5 @@ export function Inbox({
 			)}
 			{confirm}
 		</section>
-	);
-}
-
-/** A tree to list, with the folder it is of; null while the inbox is not in folders. */
-interface Item {
-	tree: Nested<Needing>;
-	folder: Folder | null;
-}
-
-/**
- * A heading and its rows, each agent's subagents under it, and what
- * `beneath` puts under each, or nothing when it has none. The count is of the
- * agents at the top. `named` has each row say which project it is in.
- */
-function Group({
-	title,
-	items,
-	agents,
-	drafts,
-	urgent = false,
-	named = false,
-	beneath,
-	onOpen,
-}: {
-	agents: AgentChoice[];
-	drafts: Drafts;
-	title: string;
-	items: Item[];
-	urgent?: boolean;
-	named?: boolean;
-	/** The rows under an agent's, a level deeper than `depth`, its own. */
-	beneath: (row: Needing, depth: number) => ReactNode[];
-	onOpen: (row: Needing, folder: Folder | null) => void;
-}): ReactNode {
-	if (items.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label={title} className="pt-4">
-			<h2
-				className={cn(
-					"px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide",
-					urgent && "text-warning",
-				)}
-			>
-				{title} · {items.length}
-			</h2>
-			<Lines
-				items={items}
-				agents={agents}
-				drafts={drafts}
-				named={named}
-				beneath={beneath}
-				onOpen={onOpen}
-			/>
-		</section>
-	);
-}
-
-/**
- * A project's folder: its name, a dot while folded with an agent of its
- * waiting, and a + to start a conversation in it, then its agents at work and
- * the rest. Another project's rows have no menu.
- */
-function FolderSection({
-	folder,
-	open,
-	onFold,
-	onNew,
-	agents,
-	drafts,
-	beneath,
-	onOpen,
-}: {
-	folder: Folder;
-	open: boolean;
-	onFold: (open: boolean) => void;
-	/** Null while no conversation can start. */
-	onNew: (() => void) | null;
-	agents: AgentChoice[];
-	drafts: Drafts;
-	beneath: (row: Needing, depth: number) => ReactNode[];
-	onOpen: (row: Needing, folder: Folder | null) => void;
-}): JSX.Element {
-	const items = folder.listed.map((tree) => ({
-		tree,
-		folder,
-	}));
-	return (
-		<Collapsible
-			open={open}
-			onOpenChange={onFold}
-			render={<section aria-label={folder.name} />}
-			className="group/folder flex flex-col pt-4"
-		>
-			<div className="flex items-center pr-2">
-				<CollapsibleTrigger className="flex min-h-10 min-w-0 flex-1 items-center gap-1.5 px-4 font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none">
-					<ChevronRightIcon
-						aria-hidden
-						className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/folder:rotate-90"
-					/>
-					<span className="min-w-0 truncate">{folder.name}</span>
-					{!open && folder.waiting.length > 0 && (
-						<span
-							role="img"
-							aria-label="waiting on you"
-							className="size-1.5 shrink-0 rounded-full bg-warning"
-						/>
-					)}
-				</CollapsibleTrigger>
-				{onNew !== null && (
-					<button
-						type="button"
-						aria-label={`New conversation in ${folder.name}`}
-						onClick={onNew}
-						className="flex size-10 shrink-0 items-center justify-center text-muted-foreground active:bg-muted"
-					>
-						<PlusIcon className="size-4" />
-					</button>
-				)}
-			</div>
-			<CollapsibleContent>
-				{items.length > 0 && (
-					<Lines
-						items={items}
-						agents={agents}
-						drafts={drafts}
-						named={false}
-						beneath={folder.here ? beneath : () => []}
-						onOpen={onOpen}
-					/>
-				)}
-			</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
-/** The rows of `items`, each tree's subagents under it. */
-function Lines({
-	items,
-	agents,
-	drafts,
-	named,
-	beneath,
-	onOpen,
-}: {
-	items: Item[];
-	agents: AgentChoice[];
-	drafts: Drafts;
-	named: boolean;
-	beneath: (row: Needing, depth: number) => ReactNode[];
-	onOpen: (row: Needing, folder: Folder | null) => void;
-}): ReactNode {
-	const hosting = hostsAtWork(items.map(({ tree }) => tree));
-	const lines = (
-		trees: Nested<Needing>[],
-		depth: number,
-	): { row: Needing; depth: number }[] =>
-		trees.flatMap(({ row, parts }) => [
-			{ row, depth },
-			...lines(parts, depth + 1),
-		]);
-	return (
-		<>
-			{items.map(({ tree, folder }) => (
-				<InFolder
-					key={`${folder?.project ?? ""} ${openedBy(tree.row)}`}
-					folder={folder}
-				>
-					<ul>
-						{lines([tree], 0).map(({ row, depth }) => (
-							<Fragment key={openedBy(row)}>
-								<li>
-									<Row
-										row={row}
-										depth={depth}
-										agent={
-											row.conversation === null
-												? null
-												: agentName(agents, row.conversation.agent)
-										}
-										hosting={
-											row.conversation !== null &&
-											hosting.has(row.conversation.id)
-										}
-										project={named && folder !== null ? folder.name : null}
-										foreign={folder !== null && !folder.here}
-										drafts={drafts}
-										onOpen={() => onOpen(row, folder)}
-									/>
-								</li>
-								{folder === null || folder.here ? beneath(row, depth + 1) : []}
-							</Fragment>
-						))}
-					</ul>
-				</InFolder>
-			))}
-		</>
-	);
-}
-
-function InFolder({
-	folder,
-	children,
-}: {
-	folder: Folder | null;
-	children: ReactNode;
-}): ReactNode {
-	return folder === null ? (
-		children
-	) : (
-		<InLanes folder={folder}>{children}</InLanes>
 	);
 }

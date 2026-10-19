@@ -94,7 +94,7 @@ describe("A phone's inbox, nesting agents", () => {
 		expect(inboxTrees(view)).toEqual([["alpha", "alpha-api"]]);
 	});
 
-	it("nests the tasks a conversation's agent added for its subagents under it, though they land on trunk", async () => {
+	it("lists none of the tasks a conversation's agent added for its subagents, nor one outside the page, which the Tasks page shows", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -121,11 +121,7 @@ describe("A phone's inbox, nesting agents", () => {
 			},
 		);
 
-		expect(inboxTrees(view)).toEqual([
-			["split-b", "split-a", "split-c"],
-			["loose"],
-			["Look around"],
-		]);
+		expect(inboxTrees(view)).toEqual([["split-b"], ["Look around"]]);
 	});
 
 	it("keeps a subagent's conversation under its caller's once its task merged", async () => {
@@ -186,15 +182,12 @@ describe("A phone's inbox, nesting agents", () => {
 			.getAllByRole("listitem")
 			.map(nameIn);
 
-		// The external agent at work leads the conversations at rest.
 		expect(names.map((name) => name.textContent)).toEqual([
-			"alpha",
 			"Not started",
 			"fix the login",
 			"Fix login",
 		]);
 		expect(names.map((name) => name.classList.contains("italic"))).toEqual([
-			false,
 			true,
 			true,
 			false,

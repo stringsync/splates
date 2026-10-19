@@ -111,7 +111,6 @@ export function AppNav({
 					<div className="-mx-3 mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t px-3 pt-4 pb-4">
 						<NextWaiting
 							feed={talk}
-							drafts={drafts}
 							tasks={snapshot.tasks}
 							here={{
 								root: snapshot.root,

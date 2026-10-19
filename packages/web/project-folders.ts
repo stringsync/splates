@@ -9,8 +9,14 @@ import type { LaneRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { flatten, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";
-import type { Drafts } from "./drafts";
+import {
+	flatten,
+	hostsAtWork,
+	isHostOf,
+	rowsOf,
+	shownIn,
+	waitsOnYou,
+} from "./conversation-rows";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
 import { type Nested, nest } from "./parts";
 
@@ -26,11 +32,10 @@ export function foldersOf(
 	tasks: readonly InProject<Details>[],
 	conversations: readonly InProject<ConversationState>[],
 	here: Here,
-	drafts: Drafts,
 ): Folders {
 	const listed = projects.map((project) =>
 		project.root === here.root
-			? folder(project.project, here, null, true, drafts)
+			? folder(project.project, here, null, true)
 			: folder(
 					project.project,
 					{
@@ -44,11 +49,10 @@ export function foldersOf(
 					},
 					project.laneNames,
 					false,
-					drafts,
 				),
 	);
 	if (!listed.some((each) => each.here)) {
-		listed.push(folder(null, here, null, true, drafts));
+		listed.push(folder(null, here, null, true));
 	}
 	const folders = listed
 		.filter((each) => each.here || each.trees.length > 0)
@@ -80,6 +84,11 @@ export interface Folder {
 	conversations: ConversationState[];
 	/** Each with the agents it handed out, those waiting on you among them. */
 	trees: Nested<Needing>[];
+	/**
+	 * Its conversations with a subagent at work under them, as `hostsAtWork`
+	 * reads every row, those the list leaves out too.
+	 */
+	hosting: Set<string>;
 	/** The trees with an agent waiting on you, which Needs you lists in its place. */
 	waiting: Nested<Needing>[];
 	/**
@@ -115,8 +124,8 @@ export interface Here {
 }
 
 /** The page's own project in a folder of its own, for a page without the feed. */
-export function hereAlone(here: Here, drafts: Drafts): Folders {
-	return foldersOf([], [], [], here, drafts);
+export function hereAlone(here: Here): Folders {
+	return foldersOf([], [], [], here);
 }
 
 /** What a folder's fold is kept under. */
@@ -130,11 +139,9 @@ export function folderKey(folder: Folder): string {
  */
 export function groupsOf(
 	trees: Nested<Needing>[],
-	drafts: Drafts,
-	conversations: ConversationState[],
 ): Record<"waiting" | "pinned" | "working" | "recent", Nested<Needing>[]> {
 	const waiting = trees.filter((tree) =>
-		flatten([tree]).some((row) => waitsOnYou(row, drafts, conversations)),
+		flatten([tree]).some((row) => waitsOnYou(row)),
 	);
 	const rest = trees.filter((tree) => !waiting.includes(tree));
 	const pinned = rest.filter((tree) => tree.row.conversation?.pinned === true);
@@ -156,16 +163,14 @@ function folder(
 	{ repo, trunk, tasks, conversations }: Here,
 	laneNames: readonly LaneRecord[] | null,
 	here: boolean,
-	drafts: Drafts,
 ): Folder {
 	const trees = nest(rowsOf(tasks, conversations), (host, part) =>
 		isHostOf(tasks, host, part),
 	);
-	const { waiting, pinned, working, recent } = groupsOf(
-		trees,
-		drafts,
-		conversations,
-	);
+	// Grouped with every row, so a subagent at work outside the page still
+	// puts its host with those at work, then only what the list shows.
+	const { waiting, pinned, working, recent } = groupsOf(trees);
+	const shown = (of: Nested<Needing>[]) => shownIn(of);
 	return {
 		project,
 		name: repo,
@@ -174,8 +179,9 @@ function folder(
 		laneNames,
 		tasks,
 		conversations,
-		trees,
-		waiting,
-		listed: [...pinned, ...working, ...recent],
+		trees: shown(trees),
+		hosting: hostsAtWork(trees),
+		waiting: shown(waiting),
+		listed: shown([...pinned, ...working, ...recent]),
 	};
 }

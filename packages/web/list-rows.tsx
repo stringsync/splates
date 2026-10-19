@@ -1,31 +1,17 @@
-import { age } from "@stringsync/splates-server/age";
 import type { Background } from "@stringsync/splates-server/conversations";
+import type { Needing } from "@stringsync/splates-server/plans/browser";
 import {
-	type Need,
-	type Needing,
-	quietSince,
-} from "@stringsync/splates-server/plans/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
-import {
-	ClipboardCheckIcon,
-	MonitorIcon,
-	MonitorPauseIcon,
 	PencilIcon,
-	SquareArrowOutUpRightIcon,
 	SquareTerminalIcon,
 	TerminalIcon,
 	UnplugIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
-import { Duration } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
-import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
-import { useNow } from "./hooks/use-now";
-import { Mark } from "./mark";
 import type { Nested } from "./parts";
 
 /**
@@ -247,104 +233,8 @@ export function CommandRow({
 }
 
 /**
- * A task whose agent runs outside the page, such as in Claude Code or Codex,
- * as a peer of a conversation: named for its task, and opening it alone.
- */
-export function External({
-	task,
-	need,
-	copied,
-	seen,
-	current,
-	onOpen,
-	hint = null,
-	subagent = false,
-	project = null,
-}: {
-	task: Details;
-	need: Need;
-	/** Whether the reply to its open questions was copied, to paste. */
-	copied: boolean;
-	/** Whether its open questions were seen, or their reply copied. */
-	seen: boolean;
-	current: boolean;
-	onOpen: () => void;
-	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
-	hint?: string | null;
-	/** Whether it answers to a conversation rather than to you. */
-	subagent?: boolean;
-	/** The project it is in, said after its name, as Needs you names each. */
-	project?: string | null;
-}): JSX.Element {
-	const working = need.kind === "working" || need.kind === "assuming";
-	const quiet = quietSince({ task, need }, useNow(working, Duration.mins(1)));
-	return (
-		<button
-			type="button"
-			data-row
-			aria-current={current ? "page" : undefined}
-			onClick={onOpen}
-			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-accent hover:bg-accent",
-			)}
-		>
-			<SquareArrowOutUpRightIcon
-				role="img"
-				aria-label="external agent"
-				className="size-3.5 text-foreground/70"
-			/>
-			<span
-				className={cn(
-					"min-w-0 flex-1 truncate text-sm",
-					subagent && "text-muted-foreground italic",
-				)}
-			>
-				{task.task}
-			</span>
-			{project !== null && (
-				<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
-					{project}
-				</span>
-			)}
-			{hint !== null ? (
-				<Kbd aria-hidden>{hint}</Kbd>
-			) : need.kind === "waiting" && need.why === "orphaned" ? (
-				<Orphaned />
-			) : quiet !== null ? (
-				<Quiet since={quiet} />
-			) : working ? (
-				<Elsewhere />
-			) : copied ? (
-				<Copied />
-			) : seen ? null : (
-				<Mark need={need} subagent={subagent} />
-			)}
-		</button>
-	);
-}
-
-/**
- * What a list shows of an external agent whose questions were all answered
- * and the reply copied, in place of its alert: the page cannot tell whether
- * it was pasted, only that it is with you to.
- */
-function Copied(): JSX.Element {
-	return (
-		<span
-			role="status"
-			aria-label="reply copied"
-			title="Reply copied: paste it into its session"
-			className="flex size-3.5 shrink-0 items-center justify-center"
-		>
-			<ClipboardCheckIcon className="size-3.5 text-foreground/60" />
-		</span>
-	);
-}
-
-/**
- * What a list shows of a task no agent is left on, in place of its alert: it
- * waits on you to hand it to an agent or remove it, whatever its questions.
+ * What a Tasks row shows of a task no agent is left on: it waits on you to
+ * hand it to an agent or remove it.
  */
 export function Orphaned(): JSX.Element {
 	return (
@@ -355,41 +245,6 @@ export function Orphaned(): JSX.Element {
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
 			<UnplugIcon className="size-3.5 text-foreground/60" />
-		</span>
-	);
-}
-
-/**
- * What a list shows of an external agent's task with no sign of its agent
- * for a while, in place of `Elsewhere`: it may be thinking, or gone.
- */
-function Quiet({ since }: { since: string }): JSX.Element {
-	return (
-		<span
-			role="status"
-			aria-label={`no sign since ${age(since)}`}
-			title={`No sign of its agent for ${age(since)}`}
-			className="flex size-3.5 shrink-0 items-center justify-center"
-		>
-			<MonitorPauseIcon className="size-3.5 text-foreground/40" />
-		</span>
-	);
-}
-
-/**
- * What a list shows of an external agent at work, in place of a spinner: the
- * page cannot see whether it is still going, only that its task is under way
- * somewhere else, so it stays still.
- */
-function Elsewhere(): JSX.Element {
-	return (
-		<span
-			role="status"
-			aria-label="working elsewhere"
-			title="Working outside this page"
-			className="flex size-3.5 shrink-0 items-center justify-center"
-		>
-			<MonitorIcon className="size-3.5 text-foreground/60" />
 		</span>
 	);
 }

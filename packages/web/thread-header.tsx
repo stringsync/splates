@@ -16,7 +16,6 @@ import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import type { Refuse } from "./refusal";
 import { TakeUp, TakeUpItems } from "./take-up";
-import { TaskLine } from "./task-view";
 import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
@@ -196,4 +195,50 @@ export function useWhereAction({
 		icon: <GitBranchIcon />,
 		run: task === null ? null : onDetails,
 	};
+}
+
+/**
+ * The line under a header's title: the branch, which opens the task's
+ * details on a click.
+ */
+export function TaskLine({
+	branch,
+	task,
+	onDetails,
+}: {
+	/** Null once its task is gone. */
+	branch: string | null;
+	task: Details | null;
+	onDetails: () => void;
+}): JSX.Element | null {
+	if (branch === null) {
+		return null;
+	}
+	const line = (
+		<>
+			<GitBranchIcon
+				role="img"
+				aria-label="branch"
+				className="size-3 shrink-0"
+			/>
+			<span className="truncate">{branch}</span>
+		</>
+	);
+	if (task === null) {
+		return (
+			<p className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+				{line}
+			</p>
+		);
+	}
+	return (
+		<button
+			type="button"
+			aria-label={`About ${task.task}`}
+			onClick={onDetails}
+			className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
+		>
+			{line}
+		</button>
+	);
 }

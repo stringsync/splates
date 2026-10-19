@@ -1,6 +1,6 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { conversationIn } from "./conversation-address";
+import { conversationIn, TASK } from "./conversation-address";
 import type { Page } from "./page-route";
 import { isMain } from "./terminals";
 
@@ -37,7 +37,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 
 	page = pageIn(location.hash);
 	/** The conversation open, by its address, or null. */
-	open = conversationIn(location.hash);
+	open = openIn(location.hash);
 	/** The task open on the Tasks page, or null. */
 	task = taskIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
@@ -65,6 +65,11 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	 * entry of its own unless `how` is `replace`.
 	 */
 	go(next: Page, conversation = this.open, how: Move = "push"): void {
+		// A task whose agent runs outside the page opens as the task it is.
+		if (next === "conversations" && conversation?.startsWith(TASK)) {
+			this.openTask(conversation.slice(TASK.length));
+			return;
+		}
 		this.page = next;
 		this.open = conversation;
 		this.task = null;
@@ -111,7 +116,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 
 	private follow = () => {
 		this.page = pageIn(location.hash);
-		this.open = conversationIn(location.hash);
+		this.open = openIn(location.hash);
 		this.task = taskIn(location.hash);
 		this.cred = credIn(location.hash);
 		this.scroll = entry()?.scroll ?? 0;
@@ -173,7 +178,7 @@ function entry(): Entry | null {
 }
 
 function pageIn(hash: string): Page {
-	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
+	if (hash === "#tasks" || taskIn(hash) !== null) {
 		return "tasks";
 	}
 
@@ -198,10 +203,23 @@ function pageIn(hash: string): Page {
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }
 
-/** The task `#tasks/<name>` has open, or null. */
+/**
+ * The task `#tasks/<name>` has open, or null. So does
+ * `#conversations/task/<name>`, where a link or a notification from before
+ * external agents' tasks moved to the Tasks page opens one.
+ */
 function taskIn(hash: string): string | null {
-	const [, task] = hash.match(/^#tasks\/(.+)$/) ?? [];
+	const [, task] =
+		hash.match(/^#tasks\/(.+)$/) ??
+		hash.match(new RegExp(`^#conversations/${TASK}(.+)$`)) ??
+		[];
 	return task ?? null;
+}
+
+/** The conversation the address has open, but for a task's `taskIn` reads. */
+function openIn(hash: string): string | null {
+	const open = conversationIn(hash);
+	return open?.startsWith(TASK) ? null : open;
 }
 
 /** The cred `#creds/<name>` sets the Creds page on, or null. */

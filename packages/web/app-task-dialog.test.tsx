@@ -91,7 +91,7 @@ see the header
 			within(dialog)
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
-		).toEqual(["Overview", "Questions1", "Notes", "Details"]);
+		).toEqual(["Overview", "Notes", "Details"]);
 		const overview = within(dialog).getByRole("tabpanel");
 		expect(overview.textContent).toContain("ship the thing");
 		expect(overview.textContent).not.toContain("see the header");
@@ -119,21 +119,6 @@ see the header
 		expect(
 			within(dialog).getAllByText("Which port should it use?").length,
 		).toBeGreaterThan(0);
-	});
-
-	it("shows a task's open questions as cards, and those answered a line each", async () => {
-		const view = await testing.openTasks({ tasks: [asking] });
-		const dialog = await openBeta(view);
-
-		const questions = await showTab(dialog, /Questions/);
-		expect(
-			within(questions).getByRole("region", { name: "questions for you" }),
-		).toBeTruthy();
-		expect(
-			within(
-				within(questions).getByRole("region", { name: "answered" }),
-			).getByRole("listitem").textContent,
-		).toBe("1. Do the tests pass? → yes");
 	});
 
 	it("counts a task's steps done, and keeps a section the skill does not name under Notes", async () => {
@@ -226,51 +211,8 @@ see the header
 		}
 	});
 
-	it("answers a task's open questions from its action bar in the dialog when the page runs no conversations", async () => {
-		const view = await testing.openTasks({ tasks: [asking] });
-		const dialog = await openBeta(view);
-
-		await act(async () =>
-			fireEvent.click(
-				within(
-					within(dialog).getByRole("toolbar", { name: "actions" }),
-				).getByRole("button", { name: "Answer a question" }),
-			),
-		);
-
-		expect(
-			within(dialog).getByRole("region", { name: "questions for you" }),
-		).toBeTruthy();
-		expect(
-			within(dialog).getByRole("button", { name: /Sign everyone out once/ }),
-		).toBeTruthy();
-	});
-
-	it("goes from a task's open questions to its external agent's view to answer them", async () => {
+	it("answers none of a task's open questions, which its agent asks in its own session", async () => {
 		testing.talk = { agents: [], conversations: [] };
-		const view = await testing.openTasks({ tasks: [asking] });
-		const dialog = await openBeta(view);
-
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Answer a question" }),
-			),
-		);
-
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(location.hash).toBe("#conversations/task/beta");
-		expect(
-			within(view.getByRole("region", { name: "beta" })).getByRole("region", {
-				name: "questions for you",
-			}),
-		).toBeTruthy();
-	});
-
-	it("leaves a task's open questions to the splates server conversation on it, which asks them itself", async () => {
-		testing.talk = {
-			agents: [],
-			conversations: [conversation({ id: "c1", task: "beta" })],
-		};
 		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 

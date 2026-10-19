@@ -186,35 +186,11 @@ export function orphaned(
 }
 
 /**
- * How long an external agent's task goes without a sign of it at work before
- * it shows as quiet: long enough for a test run or a long think.
- */
-export const QUIET_AFTER = Duration.mins(30);
-
-/**
  * How long an external agent goes without a sign of work on its task, with
  * questions open, before it is taken to wait on their answers: it has ended
  * its turn on them, as a page conversation shows outright.
  */
 export const ASKED_QUIET = Duration.mins(3);
-
-/**
- * When an external agent's task last showed a sign of its agent at work, once
- * that is `QUIET_AFTER` ago at `now`; null while it has lately, or nothing
- * says. Only an agent taken to be at work goes quiet: one that waits on the
- * person is still for a reason.
- */
-export function quietSince(
-	{ task, need }: Pick<Needing, "task" | "need">,
-	now: number,
-): string | null {
-	const at = task?.activeAt ?? null;
-	return at !== null &&
-		(need.kind === "working" || need.kind === "assuming") &&
-		now - Date.parse(at) >= QUIET_AFTER.ms
-		? at
-		: null;
-}
 
 /**
  * What one agent needs, from its conversation (null for an agent the page

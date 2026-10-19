@@ -20,6 +20,7 @@
 @source "./sidebar-head.tsx";
 @source "./phone-app.tsx";
 @source "./phone-inbox.tsx";
+@source "./phone-inbox-groups.tsx";
 @source "./phone-inbox-row.tsx";
 @source "./phone-inbox-shells.tsx";
 @source "./phone-row-menu.tsx";
@@ -176,7 +177,7 @@
 @source "./thread-action.tsx";
 @source "./actions.tsx";
 @source "./references.tsx";
-@source "./task-view.tsx";
+@source "./task-sessions.tsx";
 @source "./top-bar.tsx";
 @source "./background.tsx";
 @source "./terminal.tsx";

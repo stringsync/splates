@@ -23,6 +23,7 @@ import {
 	ArchiveOfferProvider,
 	useArchiveOffer,
 } from "./archive-offer";
+import { toWaiting, useArrived } from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
@@ -58,7 +59,6 @@ import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
 import { QueueBanner } from "./slot-queue";
 import { Task } from "./task-dialog";
-import { toWaiting, useArrived } from "./task-view";
 import { useThreadActions } from "./thread-actions";
 import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadMessages } from "./thread-messages";

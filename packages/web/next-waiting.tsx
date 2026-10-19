@@ -2,30 +2,21 @@ import { needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useContext, useRef, useState } from "react";
+import { arriveAt } from "./arrivals";
 import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
-import {
-	flatten,
-	nextWaiting,
-	rowsOf,
-	seenFor,
-	waitsOnYou,
-} from "./conversation-rows";
-import type { Drafts } from "./drafts";
+import { flatten, nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import { foldersOf } from "./project-folders";
-import { arriveAt, useCopiedReplies } from "./task-view";
 import { WaitingLine } from "./waiting-line";
 
 /** What the sidebar's waiting line is given. */
 type Waiting = {
 	feed: ConversationFeed;
-	/** Where a reply copied for an external agent is kept. */
-	drafts: Drafts;
 	tasks: Details[];
 	/** The project the page shows, as its snapshot has it. */
 	here: { root: string; repo: string; trunk: string | null };
@@ -47,7 +38,6 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const { drafts } = given;
 	const { rows, conversations, waiting, others } = useWaitingEverywhere(given);
 	const navigation = useContext(NavigationContext);
 	const held = useHeld();
@@ -57,14 +47,12 @@ export function NextWaiting({
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
 	next.current = () => {
-		const first = nextWaiting(rows, drafts, conversations, open);
+		const first = nextWaiting(rows, open);
 		const elsewhere = others[0];
 		// Here's waiting ones, then another project's, then here's merged or unread.
 		if (
 			elsewhere !== undefined &&
-			(first === undefined ||
-				!waitsOnYou(first, drafts, conversations) ||
-				openedBy(first) === open)
+			(first === undefined || !waitsOnYou(first) || openedBy(first) === open)
 		) {
 			navigation.show(elsewhere);
 		} else if (first !== undefined) {
@@ -90,14 +78,13 @@ export function NextWaiting({
  * The agents waiting on you: how many, here and in other projects, with
  * this project's rows and the address of each other project's, on its page.
  */
-function useWaitingEverywhere({ feed, drafts, tasks, here }: Waiting) {
+function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
 	const { conversations } = useReactive(
 		feed,
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
 	const rows = rowsOf(tasks, conversations);
-	useCopiedReplies(drafts);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -112,40 +99,31 @@ function useWaitingEverywhere({ feed, drafts, tasks, here }: Waiting) {
 				everywhere.tasks,
 				everywhere.conversations,
 				{ ...here, tasks, conversations },
-				drafts,
 			).needsYou.flatMap(({ folder, tree }) => {
 				const { project } = folder;
 				return folder.here || project === null
 					? []
 					: flatten([tree])
-							.filter((row) => waitsOnYou(row, drafts, folder.conversations))
+							.filter((row) => waitsOnYou(row))
 							.map((row) => newConversationUrl(project, openedBy(row)));
 			})
 		: [];
-	const waiting =
-		rows.filter((row) => waitsOnYou(row, drafts, conversations)).length +
-		others.length;
+	const waiting = rows.filter((row) => waitsOnYou(row)).length + others.length;
 	return { rows, conversations, waiting, others };
 }
 
 /**
- * How many agents wait on the person: conversations, and tasks whose agents
- * run outside the page, but for those whose questions were seen or reply
- * copied.
+ * How many agents wait on the person: conversations alone, as an agent
+ * outside the page asks in its own session.
  */
-export function useWaiting(
-	feed: ConversationFeed,
-	drafts: Drafts,
-	tasks: Details[],
-): number {
+export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
 	const { conversations } = useReactive(
 		feed,
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
-	useCopiedReplies(drafts);
 	return needs({ tasks, conversations }).filter(
-		({ conversation, task, need }) =>
-			need.kind === "waiting" && !seenFor(drafts, conversation, task, need),
+		({ conversation, need }) =>
+			conversation !== null && need.kind === "waiting",
 	).length;
 }

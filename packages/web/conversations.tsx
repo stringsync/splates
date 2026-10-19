@@ -4,7 +4,6 @@ import {
 	named,
 } from "@stringsync/splates-server/board/browser";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
-import { needOfExternal } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
@@ -26,7 +25,6 @@ import {
 	modelFor,
 	NEW,
 	startsOne,
-	TASK,
 	taskFor,
 	terminalOf,
 } from "./conversation-address";
@@ -47,7 +45,6 @@ import { PhoneHome } from "./phone-home";
 import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
 import { Task } from "./task-dialog";
-import { TaskView } from "./task-view";
 import {
 	ConversationTerminal,
 	MainTerminal,
@@ -109,7 +106,6 @@ export function Conversations({
 		shown === null
 			? null
 			: (tasks.find((each) => each.task === shown.task) ?? null);
-	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
 	// A conversation whose terminal has a page of its own, at `<id>/terminal`.
 	const shelled = terminalOf(open);
 	const shelledIn =
@@ -246,24 +242,6 @@ export function Conversations({
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
-				) : open?.startsWith(TASK) ? (
-					external === null ? (
-						<Missing what="task" onBack={phone ? () => onOpen(null) : null} />
-					) : (
-						<TaskView
-							task={external}
-							need={needOfExternal(external, conversations)}
-							agents={agents}
-							drafts={drafts}
-							onBrought={(state) => {
-								feed.put(state);
-								onOpen(state.id, "replace");
-							}}
-							onOpen={onOpen}
-							onNew={() => onOpen(NEW)}
-							onBack={phone ? () => onOpen(null) : null}
-						/>
-					)
 				) : shown === null ? (
 					<Missing
 						what="conversation"
@@ -297,12 +275,8 @@ export function Conversations({
 							onLeft={() =>
 								phone
 									? onOpen(null, "replace")
-									: goOn(
-											rowsOf(tasks, conversations),
-											drafts,
-											conversations,
-											open,
-											(id) => onOpen(id, "replace"),
+									: goOn(rowsOf(tasks, conversations), open, (id) =>
+											onOpen(id, "replace"),
 										)
 							}
 							onOpen={onOpen}
@@ -426,7 +400,7 @@ function byArchivedAt(
 	);
 }
 
-/** In place of a conversation or a task the address names and the page has none of. */
+/** In place of a conversation the address names and the page has none of. */
 function Missing({
 	what,
 	onBack,

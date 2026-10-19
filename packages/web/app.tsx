@@ -246,7 +246,7 @@ export function App({
 		onSettings: () => setSetting(true),
 	});
 
-	const waiting = useWaiting(talk, drafts, tasks);
+	const waiting = useWaiting(talk, tasks);
 	const counted = available && waiting > 0;
 	useEffect(() => {
 		document.title = counted ? `(${waiting}) ${name}` : name;

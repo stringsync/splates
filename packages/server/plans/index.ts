@@ -20,7 +20,6 @@ export {
 	needs,
 	openedBy,
 	orphaned,
-	quietSince,
 	TASK,
 } from "./needs";
 export type { Decision, Question } from "./plan";

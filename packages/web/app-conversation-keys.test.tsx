@@ -33,8 +33,8 @@ describe("App's sidebar keys", () => {
 		options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
 	};
 
-	// scry-ignore simple-test-setup: the four agents at work and the one waiting are the rows it numbers
-	it("shows each key while ⌥⌘ is held, and opens a row shown with ⌥⌘ and its digit", async () => {
+	// scry-ignore simple-test-setup: the four agents at work and the external one asking are the rows it numbers
+	it("shows each key while ⌥⌘ is held, and opens a row shown with ⌥⌘ and its digit, an external agent's task listing none", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "First", status: "running" }),
@@ -61,7 +61,7 @@ describe("App's sidebar keys", () => {
 		await act(async () =>
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
-		expect(keys()).toEqual(["0", "1", "2", "3", "4"]);
+		expect(keys()).toEqual(["0", "1", "2", "3"]);
 		expect(
 			within(view.getByRole("tablist")).getByRole("button", { name: /^New/ })
 				.textContent,
@@ -98,7 +98,7 @@ describe("App's sidebar keys", () => {
 		expect(keys()).toEqual([]);
 	});
 
-	it("opens the row below with ⌥⌘] and the one above with ⌥⌘[, round past either end", async () => {
+	it("opens the row below with ⌥⌘] and the one above with ⌥⌘[, round past either end, passing over an external agent's task", async () => {
 		await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "First" }),
@@ -128,11 +128,9 @@ describe("App's sidebar keys", () => {
 		await press("BracketRight");
 		expect(location.hash).toBe("#conversations/c2");
 		await press("BracketRight");
-		expect(location.hash).toBe("#conversations/task/beta");
-		await press("BracketRight");
 		expect(location.hash).toBe("#conversations/c1");
 		await press("BracketLeft");
-		expect(location.hash).toBe("#conversations/task/beta");
+		expect(location.hash).toBe("#conversations/c2");
 	});
 
 	it("skips archived conversations with ⌥⌘[ and ⌥⌘], including those archived in the last hour", async () => {

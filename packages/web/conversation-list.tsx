@@ -1,24 +1,20 @@
-import {
-	answersTo,
-	type Needing,
-} from "@stringsync/splates-server/plans/browser";
+import type { Needing } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { ARCHIVED, NEW, openedBy, TASK } from "./conversation-address";
+import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import {
-	copiedFor,
 	flatten,
 	goOn,
 	hintOf,
 	hostsAtWork,
 	isHostOf,
 	rowsOf,
-	seenFor,
+	shownIn,
 } from "./conversation-rows";
 import { UnstartedRow, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
@@ -27,7 +23,7 @@ import { useFolded } from "./folded";
 import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { useBeneath } from "./list-beneath";
-import { External, Rows, TerminalRow } from "./list-rows";
+import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import { nest } from "./parts";
@@ -44,7 +40,6 @@ import {
 	foldersOf,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
-import { useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 
 /** How many rows ⌥⌘ and a digit can open. */
@@ -105,9 +100,10 @@ export function ConversationList({
 	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
 	const rows = rowsOf(tasks, conversations);
-	useCopiedReplies(drafts);
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const hosting = hostsAtWork(nested);
+	// What it lists of them, without the feed of every project.
+	const listed = shownIn(nested);
 	const everywhere = useEverywhere(
 		({ available, projects, tasks, conversations }) => ({
 			available,
@@ -122,7 +118,6 @@ export function ConversationList({
 				everywhere.tasks,
 				everywhere.conversations,
 				{ ...here, tasks, conversations },
-				drafts,
 			)
 		: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
@@ -130,7 +125,7 @@ export function ConversationList({
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
 		grouped === null
-			? flatten(nested).map((row) => ({ folder: null, row }))
+			? flatten(listed).map((row) => ({ folder: null, row }))
 			: [
 					...grouped.needsYou.flatMap(({ folder, tree }) =>
 						flatten([tree]).map((row) => ({ folder, row })),
@@ -157,8 +152,6 @@ export function ConversationList({
 	const openRow = (row: Needing) => {
 		if (row.conversation !== null) {
 			onOpen(row.conversation.id);
-		} else if (row.task !== null) {
-			onOpen(`${TASK}${row.task.task}`);
 		}
 	};
 	// The latest, for the listener below, which outlives a render.
@@ -230,7 +223,7 @@ export function ConversationList({
 				onOpen={() => openRow(row)}
 				onLeft={
 					row.conversation.id === open
-						? () => goOn(rows, drafts, conversations, open, onOpen)
+						? () => goOn(rows, open, onOpen)
 						: undefined
 				}
 				hint={held ? hintOf(shown, row) : null}
@@ -238,21 +231,7 @@ export function ConversationList({
 				hosting={hosting.has(row.conversation.id)}
 				nested={nested}
 			/>
-		) : (
-			row.task !== null && (
-				<External
-					task={row.task}
-					need={row.need}
-					copied={copiedFor(drafts, null, row.task, row.need)}
-					seen={seenFor(drafts, null, row.task, row.need)}
-					current={`${TASK}${row.task.task}` === open}
-					onOpen={() => openRow(row)}
-					hint={held ? hintOf(shown, row) : null}
-					project={project}
-					subagent={answersTo(row, conversations) !== null}
-				/>
-			)
-		);
+		) : null;
 	const renderRow: RenderRow = (folder, row, nested, named) =>
 		folder.here ? (
 			renderHere(row, nested, named ? folder.name : null)
@@ -351,7 +330,7 @@ export function ConversationList({
 				</Placing>
 			) : (
 				/* None, and no list either: an empty one would still take a gap. */
-				nested.length > 0 && (
+				listed.length > 0 && (
 					<Placing
 						value={{
 							places: placesOf(nested),
@@ -360,7 +339,7 @@ export function ConversationList({
 					>
 						<Rows
 							label="conversation list"
-							rows={nested}
+							rows={listed}
 							beneath={beneath}
 							render={(row, nested) => renderHere(row, nested, null)}
 						/>

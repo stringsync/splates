@@ -239,7 +239,7 @@ Cap upload retries
 		expect(title.parentElement?.textContent).toBe("Fix login");
 	});
 
-	it("counts the agents waiting on you in the title, as the sidebar does", async () => {
+	it("counts the agents waiting on you in the title, as the sidebar does, an external agent's ask never", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Asks", status: "running", ask })],
 			null,
@@ -258,9 +258,9 @@ Cap upload retries
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
 			).getByRole("status", {
-				name: "2 waiting on you",
+				name: "1 waiting on you",
 			}),
 		).toBeTruthy();
-		expect(document.title).toBe("(2) webappwiz");
+		expect(document.title).toBe("(1) webappwiz");
 	});
 });

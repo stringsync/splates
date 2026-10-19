@@ -64,8 +64,10 @@ export class Notices {
 			}
 			const need = row.need;
 			// An orphaned task was mostly the person's own doing, archiving its
-			// conversation, and an agent failing says so on its own row.
+			// conversation, and an agent failing says so on its own row. An agent
+			// outside the page asks in its own session, where the person is.
 			if (
+				row.conversation !== null &&
 				need.kind === "waiting" &&
 				was.kind !== "waiting" &&
 				need.why !== "orphaned"

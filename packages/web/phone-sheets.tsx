@@ -21,11 +21,11 @@ import {
 import { raises } from "#web/hooks/use-touch.ts";
 import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
+import { useArrived } from "./arrivals";
 import { lineCard } from "./board";
 import { useCardReply } from "./card-reply";
 import { CARD_SPACE, TONES, type Tone } from "./card-shell";
 import { backTo } from "./page-address";
-import { useArrived } from "./task-view";
 
 /** A card an agent waits on you through, opened in a sheet of its own. */
 interface Sheet {

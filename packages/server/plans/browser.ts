@@ -11,7 +11,6 @@ export {
 	needs,
 	openedBy,
 	orphaned,
-	quietSince,
 	TASK,
 } from "./needs";
 export { goalLine, questions, sectionApart } from "./plan";

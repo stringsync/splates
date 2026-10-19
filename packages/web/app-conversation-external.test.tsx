@@ -1,15 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	AGENTS,
 	act,
 	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
-	openRow,
 	Testing,
-	textIn,
-	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -32,14 +30,9 @@ describe("App's external agents", () => {
 
 Cap upload retries
 
-## Done
-
-- [x] find the retry loop
-
 ## Next
 
 - [ ] cap retries
-- [ ] tell the user
 
 ## Blocked
 
@@ -55,18 +48,33 @@ Cap upload retries
 				within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
 			]);
 
-	it("lists a task whose agent runs outside the page as working elsewhere, waiting once it goes quiet on its questions, and opens it alone with its questions, not its plan", async () => {
+	/** Moves the address to `hash`, as a link does. */
+	const go = (hash: string) =>
+		act(async () => {
+			location.hash = hash;
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+
+	/** The open task dialog's tab `name`, chosen. */
+	const tab = async (view: ConversationsView, name: string) => {
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("tab", { name: new RegExp(name) }),
+			),
+		);
+		return dialog;
+	};
+
+	it("lists no task whose agent runs outside the page, nor counts one asking questions as waiting on you", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			null,
 			{
 				tasks: [
 					details({ task: "alpha" }),
-					details({
-						task: "beta",
-						lease: "held",
-						createdAt: "2026-10-11T09:58:00.000Z",
-					}),
+					details({ task: "beta", lease: "held" }),
+					details({ task: "delta" }),
 					details({
 						task: "gamma",
 						lease: "held",
@@ -77,186 +85,55 @@ Cap upload retries
 			},
 		);
 
-		// The sidebar tells where it works.
-		expect(sidebar(view)).toEqual([
-			["alpha", null],
-			["beta", "working elsewhere"],
-			["gamma", "waiting on you"],
-		]);
-		await openRow(view, "gamma");
-		expect(location.hash).toBe("#conversations/task/gamma");
-		const alone = view.getByRole("region", { name: "gamma" });
-		// Not its SPLATES.md, which the task line opens: what the page knows of the agent.
-		expect(alone.textContent).not.toContain("Cap upload retries");
-		expect(alone.textContent).toContain("Its agent runs outside the page");
-		expect(
-			within(alone).getByRole("list", { name: "questions" }).textContent,
-		).toContain("How many retries?");
-		// Its agent cannot be messaged: the cards copy their reply.
-		const copied: string[] = [];
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async (text: string) => void copied.push(text) },
-		});
-		await typeIn(
-			within(alone).getByRole("textbox", { name: "Answer to 1" }),
-			"three",
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(alone).getByRole("button", { name: "Copy reply" }),
-			),
-		);
-		expect(copied).toEqual(["> **How many retries?**\n\nthree"]);
-		// The only one waiting, ⌥⌘M goes to its open question where it is.
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				code: "KeyM",
-				altKey: true,
-				metaKey: true,
-			}),
-		);
-		expect(document.activeElement).toBe(
-			within(alone).getByRole("textbox", { name: "Answer to 1" }),
-		);
-		expect(within(alone).getByRole("button", { name: "Copied" })).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "About gamma" })),
-		);
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "gamma" }),
-		);
-		expect(dialog.textContent).toContain("Cap upload retries");
-	});
-
-	it("tells a task its conversation left, and one gone quiet, from an agent at work elsewhere, and offers to hand to an agent or remove the one left", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
-				conversation({ id: "c9", task: "delta", archived: true }),
-			],
-			null,
-			{
-				tasks: [
-					details({ task: "alpha" }),
-					details({
-						task: "beta",
-						lease: "held",
-						activeAt: new Date().toISOString(),
-					}),
-					details({ task: "delta", takenBy: "c9" }),
-					details({
-						task: "gamma",
-						lease: "held",
-						activeAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-					}),
-				],
-			},
-		);
-
-		expect(sidebar(view)).toEqual([
-			["alpha", null],
-			["beta", "working elsewhere"],
-			["delta", "orphaned"],
-			["gamma", "no sign since 2h"],
-		]);
-		await openRow(view, "delta");
-		const alone = view.getByRole("region", { name: "delta" });
-		expect(alone.textContent).toContain(
-			"OrphanedIts conversation was archived, so no agent is left on it.",
-		);
-		const actions = within(alone).getByRole("toolbar", { name: "actions" });
-		expect(
-			within(actions)
-				.getAllByRole("button")
-				.map((each) => each.textContent),
-		).toEqual(["Hand to an agent", "Remove"]);
-	});
-
-	// scry-ignore simple-test-setup: it reopens the page with its own plan each time, which no other test does
-	it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, until it asks again", async () => {
-		const gamma = (plan: string) =>
-			details({
-				task: "gamma",
-				lease: "held",
-				activeAt: "2026-10-11T10:00:00.000Z",
-				plan,
-			});
-		const opened = async (plan: string) => {
-			const view = await testing.openConversations([], null, {
-				tasks: [gamma(plan)],
-			});
-			await openRow(view, "gamma");
-			return view;
-		};
-		const answer = (view: ConversationsView) =>
-			textIn(
-				within(view.getByRole("region", { name: "gamma" })).getByRole(
-					"textbox",
-					{ name: "Answer to 1" },
-				),
-			);
-		const next = () =>
-			act(async () => {
-				fireEvent.keyDown(document.body, {
-					code: "KeyM",
-					altKey: true,
-					metaKey: true,
-				});
-				fireEvent.keyUp(window, { key: "Alt", metaKey: true });
-			});
-		const elsewhere = () =>
-			act(async () => {
-				location.hash = "#conversations/new";
-				window.dispatchEvent(new HashChangeEvent("hashchange"));
-			});
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async () => {} },
-		});
-
-		let view = await testing.openConversations([], null, {
-			tasks: [gamma(PLAN)],
-		});
-		expect(sidebar(view)).toEqual([["gamma", "waiting on you"]]);
-		await openRow(view, "gamma");
-		// Seen, it no longer waits on you, nor does ⌥⌘M stop on it.
-		expect(sidebar(view)).toEqual([["gamma", null]]);
+		// Not beta at work, delta orphaned nor gamma asking: those are the
+		// Tasks page's, and gamma asks in its own session.
+		expect(sidebar(view)).toEqual([["alpha", null]]);
 		expect(
 			view.getByRole("status", { name: "Nothing waiting on you" }),
 		).toBeTruthy();
-		expect(document.title).not.toContain("(1)");
-		await elsewhere();
-		await next();
-		expect(location.hash).toBe("#conversations/new");
-
-		await openRow(view, "gamma");
-		await typeIn(view.getByRole("textbox", { name: "Answer to 1" }), "three");
-		cleanup();
-		view = await opened(PLAN);
-		expect(answer(view)).toBe("three");
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Copy reply" })),
-		);
-		expect(sidebar(view)).toEqual([["gamma", "reply copied"]]);
-		// Kept, to copy again until its agent records it.
-		cleanup();
-		view = await opened(PLAN);
-		expect(answer(view)).toBe("three");
-
-		// A question asked since waits on you again, until seen.
-		cleanup();
-		const asked = `${PLAN}- [ ] 2. Which errors count?\n`;
-		view = await testing.openConversations([], null, { tasks: [gamma(asked)] });
-		expect(sidebar(view)).toEqual([["gamma", "waiting on you"]]);
-		await next();
-		expect(location.hash).toBe("#conversations/task/gamma");
-		expect(answer(view)).toBe("three");
-		await waitFor(() => expect(sidebar(view)).toEqual([["gamma", null]]));
 	});
 
-	it("brings a session in from a task whose agent runs outside the page, and opens it", async () => {
+	it("opens an old link to an external agent's view as its task's dialog", async () => {
+		const view = await testing.openConversations([], null, {
+			tasks: [details({ task: "beta", lease: "held", plan: PLAN })],
+		});
+
+		await go("#conversations/task/beta");
+
+		expect(
+			await waitFor(() => view.getByRole("dialog", { name: /beta/ })),
+		).toBeTruthy();
+		expect(location.hash).toBe("#conversations/task/beta");
+	});
+
+	it("marks none of an external agent's questions on the Tasks page, and says only what the page knows of its agent", async () => {
+		testing.talk = { agents: AGENTS, conversations: [] };
+		const view = await testing.openTasks({
+			tasks: [
+				details({ task: "beta", lease: "held" }),
+				details({
+					task: "gamma",
+					plan: PLAN,
+					activeAt: "2026-10-11T10:00:00.000Z",
+				}),
+			],
+		});
+		const rowOf = (name: string) =>
+			within(view.getByRole("tabpanel")).getByRole("button", {
+				name: new RegExp(name),
+			});
+
+		expect(
+			within(rowOf("gamma")).queryByRole("status", { name: "waiting on you" }),
+		).toBeNull();
+		await act(async () => fireEvent.click(rowOf("beta")));
+		const dialog = await tab(view, "Details");
+		expect(dialog.textContent).toContain(
+			"Outside the page, running a splates command now",
+		);
+	});
+
+	it("brings a session in from the dialog of a task whose agent runs outside the page, and opens it", async () => {
 		testing.sessions = [
 			{
 				agent: "claude",
@@ -268,18 +145,9 @@ Cap upload retries
 		const view = await testing.openConversations([], null, {
 			tasks: [details({ task: "beta", lease: "held" })],
 		});
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /beta/ }),
-			),
-		);
-		const sessions = await waitFor(() =>
-			within(view.getByRole("region", { name: "beta" })).getByRole("region", {
-				name: "sessions",
-			}),
-		);
+		await go("#tasks/beta");
+		const dialog = await tab(view, "Details");
+		const sessions = within(dialog).getByRole("region", { name: "sessions" });
 		await waitFor(() =>
 			expect(sessions.textContent).toContain("Fix the upload"),
 		);
@@ -298,38 +166,27 @@ Cap upload retries
 		);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
-		expect(testing.posts.at(-1)).toMatchObject({
-			path: "/api/conversations/sessions",
-			method: "POST",
-		});
 		expect(JSON.parse(String(testing.posts.at(-1)?.body))).toEqual({
 			agent: "claude",
 			session: "cli-1",
 			title: "Fix the upload",
 			task: "beta",
 		});
-		// Its thread, named for its task, as one started here is.
-		await waitFor(() => {
-			expect(view.getByRole("region", { name: "beta" })).toBeTruthy();
-			expect(view.getByRole("heading", { name: "beta" })).toBeTruthy();
-		});
+		await waitFor(() =>
+			expect(view.getByRole("heading", { name: "beta" })).toBeTruthy(),
+		);
 	});
 
 	it("says when no session in a task's tree can be brought in", async () => {
 		const view = await testing.openConversations([], null, {
 			tasks: [details({ task: "beta", lease: "held" })],
 		});
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /beta/ }),
-			),
-		);
+		await go("#tasks/beta");
+		const dialog = await tab(view, "Details");
 
 		await waitFor(() =>
 			expect(
-				view.getByRole("region", { name: "sessions" }).textContent,
+				within(dialog).getByRole("region", { name: "sessions" }).textContent,
 			).toContain("None the page could bring in."),
 		);
 	});

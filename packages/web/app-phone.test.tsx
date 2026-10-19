@@ -28,6 +28,17 @@ describe("App on a phone", () => {
 		resize(1024, 768);
 	});
 
+	/** Opens task `name`'s dialog on the Tasks page, as a link to it does. */
+	const openTaskAt = async (name: string) => {
+		await act(async () => {
+			location.hash = `#tasks/${name}`;
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		await waitFor(() =>
+			expect(document.querySelector('[role="dialog"]')).not.toBeNull(),
+		);
+	};
+
 	it("keeps an empty inbox as home and in the menu without the conversation service", async () => {
 		const view = await testing.open({ tasks: [] });
 		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
@@ -194,26 +205,30 @@ describe("App on a phone", () => {
 	});
 
 	// scry-ignore simple-test-setup: each test here opens its own inbox; this one only lost a neighbour.
-	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {
-		const left = details({ task: "delta", takenBy: "c9" });
-		const quiet = details({
-			task: "gamma",
-			lease: "held",
-			activeAt: hoursAgo(2),
-		});
+	it("leaves a task its conversation left, and one at work outside the page, and one asking outside it, to the Tasks page", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c9", task: "delta", archived: true })],
 			null,
-			{ tasks: [left, quiet] },
+			{
+				tasks: [
+					details({ task: "delta", takenBy: "c9" }),
+					details({ task: "gamma", lease: "held", activeAt: hoursAgo(2) }),
+					details({
+						task: "omega",
+						activeAt: hoursAgo(2),
+						plan: "# omega\n\n## Blocked\n\n- [ ] 1. Which look?\n",
+					}),
+				],
+			},
 		);
 
 		const inbox = view.getByRole("region", { name: "inbox" });
-		const group = (name: string) =>
-			within(inbox).getByRole("region", { name }).textContent;
-		expect(group("Needs you")).toContain(
-			"Orphaned · Its conversation was archived",
-		);
-		expect(group("Working")).toContain("gamma2hNo sign since 2h");
+		expect(inbox.textContent).not.toContain("delta");
+		expect(inbox.textContent).not.toContain("gamma");
+		expect(inbox.textContent).not.toContain("omega");
+		expect(
+			within(inbox).queryByRole("region", { name: "Needs you" }),
+		).toBeNull();
 	});
 
 	it("nests a subagent under the agent it reports to, which is answered for it", async () => {
@@ -238,14 +253,13 @@ describe("App on a phone", () => {
 		expect(within(waiting).getByRole("heading").textContent).toBe(
 			"Needs you · 1",
 		);
-		const [orchestrator, sub] = within(waiting).getAllByRole("button");
+		// Its task is the Tasks page's: its wait shows on the one it reports to.
+		const [orchestrator, ...others] = within(waiting).getAllByRole("button");
 		expect(orchestrator?.textContent).toContain("sub: Which look?");
-		expect(sub?.textContent).toContain("sub");
+		expect(others).toEqual([]);
 
-		await act(async () => fireEvent.click(sub as HTMLElement));
+		await openTaskAt("sub");
 		const note = view.getByRole("note", { name: "subagent" });
-		expect(view.queryByText("Its agent runs outside the page")).toBeNull();
-		expect(view.getByText("This conversation is read-only.")).toBeTruthy();
 		expect(note.textContent).toContain("A subagent of Orchestrator");
 		await act(async () =>
 			fireEvent.click(
@@ -286,11 +300,7 @@ describe("App on a phone", () => {
 			{ tasks: [details({ task: "sub", caller: "orch" })] },
 		);
 
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("region", { name: "inbox" })).getByText("sub"),
-			),
-		);
+		await openTaskAt("sub");
 		const note = view.getByRole("note", { name: "subagent" });
 		expect(note.textContent).toContain(
 			"A subagent of Worker protocol on worker-protocol, which it reports to.",

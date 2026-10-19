@@ -119,6 +119,24 @@ describe("PageAddress", () => {
 		expect(address.task).toBeNull();
 	});
 
+	it("opens an external agent's task, asked for as a conversation, as the task it is", () => {
+		address.go("conversations", "task/alpha");
+
+		expect(address.page).toBe("tasks");
+		expect(address.task).toBe("alpha");
+		expect(address.open).toBeNull();
+		expect(location.hash).toBe("#tasks/alpha");
+	});
+
+	it("reads an old link to an external agent's view as its task", () => {
+		history.replaceState(null, "", "#conversations/task/alpha");
+		const read = new PageAddress();
+
+		expect(read.page).toBe("tasks");
+		expect(read.task).toBe("alpha");
+		expect(read.open).toBeNull();
+	});
+
 	it("puts back how far the page was scrolled when it left an entry", async () => {
 		address.go("conversations", null);
 		scrollTo(0, 240);

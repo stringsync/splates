@@ -104,7 +104,7 @@ Cap upload retries
 		expect(waiting(view)).toBe("1 waiting on you");
 	});
 
-	it("goes on ⌥⌘M to the question an external agent asks as it works, on its card", async () => {
+	it("passes over an external agent asking as it works, which asks in its own session", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Idle" })],
 			null,
@@ -112,14 +112,8 @@ Cap upload retries
 		);
 		await pressNext();
 
-		expect(location.hash).toBe("#conversations/task/alpha");
-		await waitFor(() =>
-			expect(
-				view
-					.getByRole("region", { name: "questions for you" })
-					.contains(document.activeElement),
-			).toBe(true),
-		);
+		expect(location.hash).not.toBe("#tasks/alpha");
+		expect(waiting(view)).toBe("Nothing waiting on you");
 	});
 
 	it("passes over a subagent asking as it works, answered through the conversation it answers to", async () => {
@@ -130,7 +124,7 @@ Cap upload retries
 		);
 		await pressNext();
 
-		expect(location.hash).not.toBe("#conversations/task/alpha");
+		expect(location.hash).not.toBe("#tasks/alpha");
 		expect(waiting(view)).toBe("Nothing waiting on you");
 	});
 

@@ -1,24 +1,24 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	answeredThrough,
-	answersTo,
 	externals,
 	type Need,
 	type Needing,
 	need,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { arriveAt } from "./arrivals";
 import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
-import type { Drafts } from "./drafts";
 import { isPartOf, type Nested, nest } from "./parts";
-import { arriveAt, ExternalReplies } from "./task-view";
 import { unanswered } from "./unanswered";
 
 /**
- * The sidebar's rows, the pinned ones first, each newest first: the
- * conversations listed, then external agents. `listed` picks the
- * conversations, by default those not archived.
+ * The rows of the sidebar and the phone's inbox, the pinned ones first, each
+ * newest first: the conversations listed, then external agents' tasks, which
+ * no list shows (see `shownIn`), but whose work and waits count for the
+ * conversations they answer to.
+ * `listed` picks the conversations, by default those not archived.
  */
 export function rowsOf(
 	tasks: Details[],
@@ -40,6 +40,18 @@ export function rowsOf(
 		(one, other) =>
 			Number(pinned(other)) - Number(pinned(one)) ||
 			started(other).localeCompare(started(one)),
+	);
+}
+
+/**
+ * `trees` as a list shows them: no external agent's task, which only the
+ * Tasks page lists, any agents it handed out in its place.
+ */
+export function shownIn(trees: Nested<Needing>[]): Nested<Needing>[] {
+	return trees.flatMap((tree) =>
+		tree.row.conversation === null
+			? shownIn(tree.parts)
+			: [{ row: tree.row, parts: shownIn(tree.parts) }],
 	);
 }
 
@@ -68,11 +80,9 @@ export function hintOf(shown: Needing[], row: Needing): string | null {
  */
 export function nextWaiting(
 	rows: Needing[],
-	drafts: Drafts,
-	conversations: ConversationState[],
 	open: string | null,
 ): Needing | undefined {
-	const waits = (row: Needing) => waitsOnYou(row, drafts, conversations);
+	const waits = waitsOnYou;
 	const at = rows.findIndex((row) => openedBy(row) === open);
 	const others = [...rows.slice(at + 1), ...rows.slice(0, at + 1)].filter(
 		(row) => openedBy(row) !== open,
@@ -91,12 +101,10 @@ export function nextWaiting(
  */
 export function goOn(
 	rows: Needing[],
-	drafts: Drafts,
-	conversations: ConversationState[],
 	open: string | null,
 	onOpen: (id: string) => void,
 ): void {
-	const next = nextWaiting(rows, drafts, conversations, open);
+	const next = nextWaiting(rows, open);
 	if (next === undefined || openedBy(next) === open) {
 		onOpen(NEW);
 	} else {
@@ -125,25 +133,14 @@ function isUnread({ conversation, need }: Needing): boolean {
 }
 
 /**
- * Whether ⌥⌘M stops on `row`: an agent stopped on you, or an external one
- * asking as it works, while it has questions no reply has answered yet, nor
- * for an external agent, seen in its view or copied. One the page runs asks as it works only in
- * its plan, until its report asks again as it stops. A subagent, answering to
- * one of `conversations`, waits on you only once it failed: you answer the
- * rest through that one, which is waiting on you in its place.
+ * Whether ⌥⌘M, Needs you and the waiting counts stop on `row`: a
+ * conversation stopped on you, while it has questions no reply has answered
+ * yet. An agent outside the page never does, as it asks in its own session.
  */
-export function waitsOnYou(
-	{ conversation, task, need }: Needing,
-	drafts: Drafts,
-	conversations: readonly ConversationState[],
-): boolean {
-	if (seenFor(drafts, conversation, task, need)) {
-		return false;
-	}
-	if (
-		answersTo({ conversation, task }, conversations) !== null &&
-		!(need.kind === "waiting" && need.why === "failed")
-	) {
+export function waitsOnYou({ conversation, need }: Needing): boolean {
+	// One the page runs asks as it works only in its plan, until its report
+	// asks again as it stops. A subagent of one here waits through that one.
+	if (conversation === null) {
 		return false;
 	}
 	if (need.kind === "waiting" && need.why !== "questions") {
@@ -152,11 +149,11 @@ export function waitsOnYou(
 	if (
 		need.kind === "idle" ||
 		need.kind === "working" ||
-		(need.kind === "assuming" && conversation !== null)
+		need.kind === "assuming"
 	) {
 		return false;
 	}
-	return unanswered(need.questions, conversation?.messages ?? []).length > 0;
+	return unanswered(need.questions, conversation.messages).length > 0;
 }
 
 /**
@@ -251,38 +248,6 @@ export function hostsAtWork(trees: Nested<Needing>[]): Set<string> {
 /** A row's key: its conversation's id, or its external agent's task. */
 export function keyOfRow(row: Needing): string {
 	return row.conversation?.id ?? `external ${row.task?.task ?? ""}`;
-}
-
-/** Whether a row is an external agent whose reply was copied, to paste. */
-export function copiedFor(
-	drafts: Drafts,
-	conversation: ConversationState | null,
-	task: Details | null,
-	need: Need,
-): boolean {
-	return (
-		conversation === null &&
-		task !== null &&
-		new ExternalReplies(drafts).copied(task.task, need)
-	);
-}
-
-/**
- * Whether a row is an external agent whose open questions were seen in its
- * view, or their reply copied: it waits on you no longer.
- */
-export function seenFor(
-	drafts: Drafts,
-	conversation: ConversationState | null,
-	task: Details | null,
-	need: Need,
-): boolean {
-	const replies = new ExternalReplies(drafts);
-	return (
-		conversation === null &&
-		task !== null &&
-		(replies.seen(task.task, need) || replies.copied(task.task, need))
-	);
 }
 
 /** When a row's conversation or task began; a task from before that, never. */

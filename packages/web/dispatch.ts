@@ -7,6 +7,8 @@ import {
 import {
 	type DemoPoint,
 	demoReference,
+	externals,
+	type Need,
 	type Needing,
 	needs,
 	orphaned,
@@ -40,7 +42,7 @@ export type Assignment =
  */
 export class Dispatch {
 	constructor(
-		private readonly drafts: Drafts,
+		readonly drafts: Drafts,
 		/** Where a conversation `begin` starts shows before the server says. */
 		private readonly feed: ConversationFeed,
 		/** The project the page shows, by its `?project=` slug, or null. */
@@ -82,6 +84,24 @@ export class Dispatch {
 					(each) => each.conversation === conversation && which(conversation),
 				) ?? [],
 		);
+	}
+
+	/**
+	 * What `task` needs when it is an external agent's, a live task no listed
+	 * conversation runs in nor is about to, as `externals` says, else null:
+	 * the page can only bring its session in, as it asks in its own.
+	 */
+	external(task: string): Need | null {
+		return (
+			externals(this.tasks, this.conversations).find(
+				(row) => row.task?.task === task,
+			)?.need ?? null
+		);
+	}
+
+	/** Lists `conversation`, a session just brought in, before the server says. */
+	brought(conversation: ConversationState): void {
+		this.feed.put(conversation);
 	}
 
 	/** Whether no agent is left on `task`, as `orphaned` says. */

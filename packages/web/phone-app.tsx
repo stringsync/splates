@@ -133,7 +133,6 @@ export function PhoneApp({
 								badge: snapshot !== null && (
 									<WaitingBadge
 										feed={talk}
-										drafts={drafts}
 										tasks={snapshot.tasks}
 										open={open}
 									/>
@@ -163,7 +162,6 @@ export function PhoneApp({
 							{available && snapshot !== null && (
 								<NextWaiting
 									feed={talk}
-									drafts={drafts}
 									tasks={snapshot.tasks}
 									open={null}
 									onOpen={(id) => go("conversations", id)}

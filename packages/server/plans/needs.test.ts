@@ -1,14 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import type { Details } from "../tasks";
-import {
-	ASKED_QUIET,
-	need,
-	needs,
-	orphaned,
-	QUIET_AFTER,
-	quietSince,
-} from "./needs";
+import { ASKED_QUIET, need, needs, orphaned } from "./needs";
 import { STUB_STEPS } from "./plan";
 
 describe("needs", () => {
@@ -253,32 +246,6 @@ describe("needs", () => {
 			why: "orphaned",
 			subject: "No conversation here is on it",
 		});
-	});
-
-	it("says an external agent's task is quiet once nothing has moved in it for a while", () => {
-		const at = "2026-10-11T10:00:00.000Z";
-		const working = { kind: "working", subject: null } as const;
-		const after = Date.parse(at) + QUIET_AFTER.ms;
-
-		expect(
-			quietSince({ task: task({ activeAt: at }), need: working }, after),
-		).toBe(at);
-		expect(
-			quietSince({ task: task({ activeAt: at }), need: working }, after - 1),
-		).toBeNull();
-		expect(
-			quietSince({ task: task({ activeAt: null }), need: working }, after),
-		).toBeNull();
-		// One that waits on you is still for a reason.
-		expect(
-			quietSince(
-				{
-					task: task({ activeAt: at }),
-					need: need(task({ plan: ONE, activeAt: at }), null, after),
-				},
-				after,
-			),
-		).toBeNull();
 	});
 
 	it("leaves out a task handed to an agent whose conversation has yet to start", () => {
