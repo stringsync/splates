@@ -108,6 +108,40 @@ describe("App's question cards", () => {
 		expect(view.queryByRole("region", { name: /escalated/ })).toBeNull();
 	});
 
+	it("shows questions once answered as a line of splates's, the card a Show away", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("user", "fix the header"),
+					message(
+						"agent",
+						"Working on it.\n\n1. Which pages need it?\n2. Should it wrap?",
+					),
+					message("user", "1. all of them\n2. no"),
+					message("agent", "Done."),
+				],
+			}),
+		]);
+
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toBe("Asked 2 questionsShow");
+		// The reply is the card's, never a message of its own.
+		expect(view.queryByText("all of them")).toBeNull();
+		expect(
+			view.queryByRole("region", { name: "questions for you" }),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
+		);
+
+		const asked = view.getByRole("region", { name: "questions for you" });
+		expect(within(asked).getByText("all of them")).toBeTruthy();
+		expect(within(line).getByRole("button", { name: "Hide" })).toBeTruthy();
+	});
+
 	it("renders markdown in a question's subject and choices", async () => {
 		const view = await testing.openConversations([
 			conversation({

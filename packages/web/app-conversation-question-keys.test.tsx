@@ -326,7 +326,7 @@ describe("App's question card keys", () => {
 		expect(view.getByText("1 of 1 answered")).toBeTruthy();
 	});
 
-	it("folds questions once replied to, opening on the answers sent, never asking them again", async () => {
+	it("shows questions replied to as a line of splates's, opening on the answers sent, never asking them again", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Header",
@@ -338,18 +338,17 @@ describe("App's question card keys", () => {
 				],
 			}),
 		]);
-		const panel = await waitFor(() =>
-			view.getByRole("region", { name: "escalated header" }),
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
 		);
-		const fold = within(panel).getByRole("button", {
-			name: /Escalated/,
-		});
-		expect(fold.getAttribute("aria-expanded")).toBe("false");
-		expect(fold.textContent).toContain("2 of 3 answered");
-		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+		expect(line.textContent).toBe("Asked 3 questionsheaderShow");
+		expect(view.queryByRole("region", { name: "escalated header" })).toBeNull();
 
-		await act(async () => fireEvent.click(fold));
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
+		);
 
+		const panel = view.getByRole("region", { name: "escalated header" });
 		const second = within(panel).getByRole("listitem", {
 			name: "question 2",
 		});
@@ -360,7 +359,13 @@ describe("App's question card keys", () => {
 		expect(badge.disabled).toBe(true);
 		expect(within(second).getByText("only on phones")).toBeTruthy();
 		expect(within(panel).queryByRole("textbox")).toBeNull();
-		expect(within(panel).getByText("Also the footer.")).toBeTruthy();
+		expect(
+			within(
+				within(panel).getByRole("group", { name: "Anything else" }),
+			).getByText("Also the footer."),
+		).toBeTruthy();
+		// The reply is the card's now, never a message of its own.
+		expect(view.getAllByText("Also the footer.")).toHaveLength(1);
 		expect(textIn(box(view))).toBe("");
 	});
 

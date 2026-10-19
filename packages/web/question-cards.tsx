@@ -10,6 +10,7 @@ import {
 	answerIn,
 	besides,
 	changes,
+	directive,
 	isEmpty,
 	replyOf,
 	takenOf,
@@ -38,6 +39,7 @@ import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
 import { Refusal, useRefusal } from "./refusal";
+import { SplatesEvent, type Words } from "./splates-event";
 
 /**
  * The questions as a panel answered by keyboard alone: a letter picks a
@@ -92,6 +94,9 @@ export function QuestionCards({
 	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent, askedAgain } = useCardReply();
+	// Answered, or asked again below, it is history: a line of splates's,
+	// as an approved review is. Show opens it again.
+	const [shown, setShown] = useState(false);
 	const live =
 		sent === null && !askedAgain && (answer !== null || reply !== null);
 	const kept = useKept(draft, sent, earlier);
@@ -284,11 +289,9 @@ export function QuestionCards({
 			: escalation === null
 				? ""
 				: reportText(escalation);
-	return (
+	const card = (
 		<CardShell
 			{...questionHeading(questions.length, escalation, proposal)}
-			// Asked again below, it is answered there.
-			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
 			ringed={false}
 			// Paging, its footer says it, so a narrow header never wraps.
@@ -490,19 +493,60 @@ export function QuestionCards({
 					</footer>
 				) : (
 					more !== "" && (
-						// What else the person said, as it was sent.
-						<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
-							<span className="shrink-0 text-muted-foreground">Also</span>
-							<Markdown
-								text={more}
-								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-							/>
+						// What else the person said, as it was sent: its box, frozen.
+						<footer className="border-t bg-muted/20 px-4 py-3">
+							<fieldset
+								aria-label="Anything else"
+								className="min-w-0 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+							>
+								<Markdown
+									text={more}
+									className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+								/>
+							</fieldset>
 						</footer>
 					)
 				)}
 			</div>
 		</CardShell>
 	);
+	if (sent === null && !askedAgain) {
+		return card;
+	}
+	return (
+		<div className="my-6">
+			<SplatesEvent
+				event={{
+					words: doneWords(questions.length, escalation, proposal, sent),
+					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
+				}}
+			/>
+			{shown && card}
+		</div>
+	);
+}
+
+/**
+ * What the line of questions no longer asking says: how many were asked, as a
+ * reply need not answer them, or whether the proposal they rest under was
+ * approved, and the task an escalation named. `sent` is null when they were
+ * asked again below.
+ */
+function doneWords(
+	questions: number,
+	escalation: TaskReport | null,
+	proposal: Proposal | null,
+	sent: string | null,
+): Words {
+	const said =
+		proposal === null || sent === null
+			? `Asked ${questions} ${questions === 1 ? "question" : "questions"}`
+			: directive(sent) === APPROVE
+				? "Proposal approved"
+				: "Proposal answered";
+	return escalation === null
+		? [said]
+		: [said, { kind: "task", task: escalation.task }];
 }
 
 /** Puts the caret at the end of what `stop` holds, when it is a box. */

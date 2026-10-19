@@ -105,6 +105,11 @@ function isReview(event: Event): boolean {
 	return isEscalation(event) && event.review;
 }
 
+/** Whether `event` is an escalation asking questions. */
+function isAsking(event: Event): boolean {
+	return isEscalation(event) && !event.review && event.questions.length > 0;
+}
+
 /**
  * Whether the person's message at `index` is the reply to a review: the first
  * of theirs, past splates's updates, after a message asking with one.
@@ -113,22 +118,55 @@ export function repliesToReview(
 	messages: readonly ThreadMessage[],
 	index: number,
 ): boolean {
+	return (
+		repliedTo(messages, index)?.content.some(
+			(part) =>
+				part.type === "data" &&
+				(part.name === "review" ||
+					(part.name === "event" &&
+						isReview((part.data as { event: Event }).event))),
+		) ?? false
+	);
+}
+
+/**
+ * Whether the person's message at `index` is the reply to questions, which
+ * their card shows once opened from its line: the first of theirs, past
+ * splates's updates, after a message asking them.
+ */
+export function repliesToQuestions(
+	messages: readonly ThreadMessage[],
+	index: number,
+): boolean {
+	return (
+		repliedTo(messages, index)?.content.some(
+			(part) =>
+				part.type === "data" &&
+				(part.name === "questions" ||
+					(part.name === "event" &&
+						isAsking((part.data as { event: Event }).event))),
+		) ?? false
+	);
+}
+
+/**
+ * The message asking the person something that theirs at `index` replies
+ * to, past splates's updates; null where theirs follows another of theirs.
+ */
+function repliedTo(
+	messages: readonly ThreadMessage[],
+	index: number,
+): ThreadMessage | null {
 	for (let at = index - 1; at >= 0; at -= 1) {
 		const message = messages[at] as ThreadMessage;
 		if (message.role === "user" && !isUpdate(textOf(message))) {
-			return false;
+			return null;
 		}
 		if (message.role === "assistant" && asks(message)) {
-			return message.content.some(
-				(part) =>
-					part.type === "data" &&
-					(part.name === "review" ||
-						(part.name === "event" &&
-							isReview((part.data as { event: Event }).event))),
-			);
+			return message;
 		}
 	}
-	return false;
+	return null;
 }
 
 /** The words of `message`, without its files. */
