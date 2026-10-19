@@ -41,7 +41,10 @@ export function LaneRows({
 				const name =
 					lanes.find((each) => each.id === lane)?.name ?? `Lane ${lane}`;
 				return (
-					<li key={`lane:${lane}`} className="my-1 rounded-lg bg-foreground/[0.04] pb-0.5 first:mt-0 last:mb-0">
+					<li
+						key={`lane:${lane}`}
+						className="my-1 rounded-lg bg-foreground/[0.04] pb-0.5 first:mt-0 last:mb-0"
+					>
 						<button
 							type="button"
 							onClick={() => onLane(lane)}

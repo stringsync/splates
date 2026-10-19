@@ -11,6 +11,7 @@ import {
 	CircleIcon,
 	FoldVerticalIcon,
 	LoaderIcon,
+	PowerIcon,
 	ShieldIcon,
 	SquareIcon,
 	TriangleAlertIcon,
@@ -273,6 +274,30 @@ function Interrupted(): JSX.Element {
 		</div>
 	);
 }
+
+/**
+ * Renders a `data-rested` part: the line that ends a persistent agent's run,
+ * as the groomer's, once it is put away, so the thread says its context
+ * closed there and the next run starts afresh in a conversation of its own.
+ */
+export const RestedUI = makeAssistantDataUI<Record<string, never>>({
+	name: "rested",
+	render: () => (
+		<div
+			role="note"
+			aria-label="run ended"
+			data-slot="rested"
+			className="my-4 flex items-center gap-3 text-muted-foreground text-xs"
+		>
+			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+			<p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+				<PowerIcon aria-hidden className="size-3.5" />
+				Run ended, context closed
+			</p>
+			<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+		</div>
+	),
+});
 
 /**
  * Renders a `data-compaction` part: the line where the agent folded its

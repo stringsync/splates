@@ -70,6 +70,7 @@ import { ContextMeter, compactionsIn } from "./usage";
 import {
 	CompactionUI,
 	InterruptedUI,
+	RestedUI,
 	StoppedUI,
 	TreesContext,
 	WorkUI,
@@ -317,6 +318,7 @@ function Conversation({
 										<EventUI />
 										<StoppedUI />
 										<CompactionUI />
+										<RestedUI />
 										<InterruptedUI />
 										<ArchiveOfferProvider value={offer}>
 											<StartNewContext value={startNew}>

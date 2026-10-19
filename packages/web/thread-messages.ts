@@ -148,7 +148,7 @@ export function useThreadMessages(
 				: liked;
 		// What the server refused, after all of it, as it would go if sent again.
 		return [
-			...thread,
+			...(conversation.resting === true ? rested(thread) : thread),
 			...(unsent ?? []).map(({ message }, at) => {
 				const one = like(messageOf(message), thread.length, conversation.id);
 				return {
@@ -165,6 +165,7 @@ export function useThreadMessages(
 		conversation.events,
 		conversation.id,
 		conversation.lastTask,
+		conversation.resting,
 		writing,
 		running,
 		going,
@@ -339,6 +340,24 @@ export function like(
 					]),
 		],
 	};
+}
+
+/**
+ * `thread` ended with a `data-rested` part on its last reply: a persistent
+ * agent's run put away, its context closed, the next run to start afresh.
+ */
+function rested(thread: ThreadMessageLike[]): ThreadMessageLike[] {
+	const last = thread.at(-1);
+	if (last?.role !== "assistant" || typeof last.content === "string") {
+		return thread;
+	}
+	return [
+		...thread.slice(0, -1),
+		{
+			...last,
+			content: [...last.content, { type: "data-rested", data: {} }],
+		},
+	];
 }
 
 /**
