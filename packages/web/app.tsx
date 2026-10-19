@@ -201,7 +201,7 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, lane, go, openTask, openLane, cred } =
+	const { page, open, task, lane, go, openTask, openLane, cred, rule } =
 		usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
@@ -324,7 +324,10 @@ export function App({
 						/>
 					),
 					automations: (
-						<AutomationsPage opens={{ todo: openTodo, task: openTask }} />
+						<AutomationsPage
+							opens={{ todo: openTodo, task: openTask }}
+							rule={rule}
+						/>
 					),
 					setup: (
 						<SetupPage

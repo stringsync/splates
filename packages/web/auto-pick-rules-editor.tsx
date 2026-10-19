@@ -25,6 +25,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { PickChips } from "./auto-pick-pick-chips";
 import type { RulesEditor } from "./auto-pick-rules";
 import { Refusal, useRefusal } from "./refusal";
@@ -37,8 +38,11 @@ import { Refusal, useRefusal } from "./refusal";
  */
 export function RulesEditorView({
 	editor,
+	mark = null,
 }: {
 	editor: RulesEditor;
+	/** The rule to draw the eye to, by its place from 0, scrolled into view; null for none. */
+	mark?: number | null;
 }): JSX.Element {
 	const { draft, dirty, problem, fileProblem, loadProblem, saved, percent } =
 		useReactive(
@@ -85,6 +89,7 @@ export function RulesEditorView({
 						difficulty={rule.difficulty}
 						picks={rule.picks}
 						last={index === draft.rules.length - 1}
+						marked={index === mark}
 					/>
 				))}
 			</ol>
@@ -159,6 +164,7 @@ function RuleRow({
 	difficulty,
 	picks,
 	last,
+	marked,
 }: {
 	editor: RulesEditor;
 	index: number;
@@ -166,12 +172,21 @@ function RuleRow({
 	difficulty: string;
 	picks: readonly AgentPick[];
 	last: boolean;
+	marked: boolean;
 }): JSX.Element {
 	const name = `rule ${index + 1}`;
 	return (
 		<li
 			aria-label={name}
-			className="flex flex-col gap-3 rounded-lg border bg-card p-3"
+			ref={
+				marked
+					? (node) => node?.scrollIntoView?.({ block: "center" })
+					: undefined
+			}
+			className={cn(
+				"flex flex-col gap-3 rounded-lg border bg-card p-3",
+				marked && "border-amber-500/60 bg-amber-500/5 ring-2 ring-amber-500/30",
+			)}
 		>
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="w-5 text-right text-muted-foreground text-sm tabular-nums">

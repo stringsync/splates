@@ -44,6 +44,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	lane = laneIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
+	/** The Auto pick rule the Automations page is set on, by its place from 0, or null. */
+	rule = ruleIn(location.hash);
 	/** The window's scroll to put back once the entry returned to is drawn. */
 	private scroll: number | null = null;
 
@@ -77,6 +79,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.task = null;
 		this.lane = null;
 		this.cred = null;
+		this.rule = null;
 		this.move(
 			next === "todos"
 				? ""
@@ -133,6 +136,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.task = taskIn(location.hash);
 		this.lane = laneIn(location.hash);
 		this.cred = credIn(location.hash);
+		this.rule = ruleIn(location.hash);
 		this.scroll = entry()?.scroll ?? 0;
 		this.dispatcher.dispatch("changed");
 	};
@@ -211,7 +215,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#workers") {
 		return "workers";
 	}
-	if (hash === "#automations") {
+	if (hash === "#automations" || ruleIn(hash) !== null) {
 		return "automations";
 	}
 	if (hash === "#setup") {
@@ -259,4 +263,15 @@ function credIn(hash: string): string | null {
 /** The address of the Creds page set on cred `name`. */
 export function credAddress(name: string): string {
 	return `#creds/${encodeURIComponent(name)}`;
+}
+
+/** The Auto pick rule `#automations/auto-pick/<n>` sets the Automations page on, from 0, or null. */
+function ruleIn(hash: string): number | null {
+	const [, rule] = hash.match(/^#automations\/auto-pick\/(\d+)$/) ?? [];
+	return rule === undefined ? null : Number(rule) - 1;
+}
+
+/** The address of the Automations page set on Auto pick's rule `index`, from 0. */
+export function ruleAddress(index: number): string {
+	return `#automations/auto-pick/${index + 1}`;
 }

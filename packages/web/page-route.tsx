@@ -68,14 +68,15 @@ export const PAGES: {
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, cred } = useReactive(
+	const { page, open, task, lane, cred, rule } = useReactive(
 		address,
-		({ page, open, task, lane, cred }) => ({
+		({ page, open, task, lane, cred, rule }) => ({
 			page,
 			open,
 			task,
 			lane,
 			cred,
+			rule,
 		}),
 		["changed"],
 	);
@@ -91,6 +92,7 @@ export function usePageRoute(): PageRoute {
 		task,
 		lane,
 		cred,
+		rule,
 		go: (next, conversation, how) => address.go(next, conversation, how),
 		openTask: (name) => address.openTask(name),
 		openLane: (id) => address.openLane(id),
@@ -165,4 +167,6 @@ export interface PageRoute {
 	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
+	/** The Auto pick rule the Automations page is set on, by its place from 0, or null. */
+	rule: number | null;
 }

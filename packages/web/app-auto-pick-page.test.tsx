@@ -37,13 +37,25 @@ describe("App's Auto pick page", () => {
 		await act(async () => fireEvent.click(row));
 
 		expect(location.hash).toBe("#conversations/auto-pick");
-		const trigger = await waitFor(() => view.getByLabelText("Trigger"));
-		expect(trigger.textContent).toContain("task.started");
-		expect(trigger.textContent).toContain("alpha");
-		const outcome = view.getByLabelText("Outcome");
-		expect(outcome.textContent).toContain("Haiku, low effort");
-		expect(outcome.textContent).toContain("Matched rule 2");
-		expect(within(outcome).getByLabelText("Kind").textContent).toContain("90%");
+		const line = await waitFor(() =>
+			within(view.getByRole("list", { name: "Auto pick log" })).getByRole(
+				"button",
+				{ name: /alpha/ },
+			),
+		);
+		expect(line.textContent).toContain("Haiku, low effort · rule 2");
+		await act(async () => fireEvent.click(line));
+
+		const log = view.getByRole("list", { name: "Auto pick log" });
+		expect(log.textContent).toContain("task.started");
+		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
+		await act(async () =>
+			fireEvent.click(within(log).getByRole("button", { name: "Edit rule 2" })),
+		);
+
+		// The rules are edited in Automations, set on the rule that picked.
+		expect(location.hash).toBe("#automations/auto-pick/2");
+		await waitFor(() => view.getByRole("region", { name: "automations" }));
 	});
 });
 
