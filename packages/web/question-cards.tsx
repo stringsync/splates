@@ -22,7 +22,7 @@ import {
 	CopyIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type JSX, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { focusStop, raises, useTouch } from "#web/hooks/use-touch.ts";
@@ -211,23 +211,12 @@ export function QuestionCards({
 	// the focus stays where it is, as on the button that turned it.
 	const landing = useRef<{ typing: boolean } | null>(null);
 	const turn = (to: number, land: { typing: boolean } | null = null) => {
-		clearTimeout(going.current);
 		const move = () => {
 			landing.current = land;
 			setPage(to);
 			panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
 		};
 		finishThen(move);
-	};
-	// A pick on a pick-one page goes on by itself, once the pick has shown.
-	const going = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => () => clearTimeout(going.current), []);
-	const goOn = (from: number) => {
-		clearTimeout(going.current);
-		going.current = setTimeout(() => {
-			// The choice picked goes with its page, so the next takes the focus.
-			turn(from + 1, { typing: false });
-		}, GO_ON_MS);
 	};
 	// Each question's first stop, then "Anything else": where Enter goes next.
 	const stops = () => [
@@ -346,16 +335,9 @@ export function QuestionCards({
 									live={live}
 									roomy={paging}
 									files={files?.of(asked.text) ?? null}
-									onAnswer={(next) => {
-										const picked = next.picks.some(
-											(key) =>
-												!(writtenFor(asked)?.picks.includes(key) ?? false),
-										);
-										if (paging && asked.pick === "one" && picked) {
-											goOn(at);
-										}
-										setAnswer(asked, isEmpty(next) ? null : next);
-									}}
+									onAnswer={(next) =>
+										setAnswer(asked, isEmpty(next) ? null : next)
+									}
 									onNext={() => next(asked.number)}
 								/>
 							),
@@ -502,9 +484,6 @@ function toEnd(stop: HTMLElement | null | undefined): void {
 		caretToEnd(stop);
 	}
 }
-
-/** How long a pick shows before a paging panel goes on from it. */
-const GO_ON_MS = 300;
 
 /** What the panel holds before it is sent: answers by question line, and the rest. */
 interface Written {

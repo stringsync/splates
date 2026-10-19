@@ -507,21 +507,22 @@ describe("App on a phone", () => {
 		const button = (name: string) =>
 			within(sheet).getByRole("button", { name });
 
-		// Picking all that apply leaves it to Next to go on.
+		// A pick, of one or all that apply, leaves it to Next to go on.
 		await act(async () =>
 			fireEvent.click(within(sheet).getByRole("button", { name: /Todos/ })),
 		);
 		expect(shown()).toEqual(["question 1"]);
 		await act(async () => fireEvent.click(button("Next")));
 		expect(shown()).toEqual(["question 2"]);
-
-		// Picking one goes on by itself.
 		await act(async () =>
 			fireEvent.click(
 				within(sheet).getByRole("button", { name: /A muted card/ }),
 			),
 		);
-		await waitFor(() => expect(shown()).toEqual(["question 3"]));
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(shown()).toEqual(["question 2"]);
+		await act(async () => fireEvent.click(button("Next")));
+		expect(shown()).toEqual(["question 3"]);
 
 		await act(async () => fireEvent.click(button("Back")));
 		expect(shown()).toEqual(["question 2"]);
