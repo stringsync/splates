@@ -9,6 +9,7 @@ import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
+import { SetupDot } from "./setup-state";
 
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
@@ -96,6 +97,7 @@ export function Drawer({
 										{value === "tasks" && orphans > 0 && (
 											<OrphansDot ring="ring-sidebar" />
 										)}
+										{value === "setup" && <SetupDot ring="ring-sidebar" />}
 									</span>
 								}
 								label={label}

@@ -29,23 +29,11 @@ describe("App's setup", () => {
 		resize(1024, 768);
 	});
 
-	/** Opens Setup the way a person does once the nudge is gone: from Settings. */
+	/** Opens Setup the way a person does: from its tab in the sidebar. */
 	const openSetup = async (journey: string | null = "Agents") => {
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Settings" })),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("button", { name: "Set up splates" }),
-				),
-			),
+			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {
 			await act(async () =>
@@ -66,11 +54,24 @@ describe("App's setup", () => {
 	const posted = (path: string) =>
 		testing.posted(path).map((post) => post.body);
 
-	it("has no entry of its own in the nav", async () => {
+	it("has a tab in the nav, dotted while a required step is left", async () => {
 		testing.setup = progress();
 		const view = await testing.open();
 
-		expect(view.queryByRole("tab", { name: /Setup/ })).toBeNull();
+		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
+		await waitFor(() =>
+			within(tab).getByRole("img", { name: "setup unfinished" }),
+		);
+	});
+
+	it("leaves the tab undotted once only optional steps are left", async () => {
+		testing.setup = progress({ agents: "done", required: false });
+		const view = await testing.open();
+
+		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
+		expect(
+			within(tab).queryByRole("img", { name: "setup unfinished" }),
+		).toBeNull();
 	});
 
 	it("asks a journey's step as one page, its why and its field", async () => {
@@ -142,12 +143,55 @@ describe("App's setup", () => {
 		);
 	});
 
-	it("opens from Settings", async () => {
+	it("opens from its tab in the sidebar", async () => {
 		testing.setup = progress();
 		const view = await openSetup();
 
 		expect(location.hash).toBe("#setup");
 		await step(view, "Choose the agents splates starts");
+	});
+
+	it("opens from the phone menu", async () => {
+		testing.setup = progress();
+		resize(390, 844);
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("Setup"))),
+		);
+
+		expect(location.hash).toBe("#setup");
+	});
+
+	it("opens from the link under Settings' notifications, not from a button for all of setup", async () => {
+		testing.setup = progress();
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: "Settings" })),
+			),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog).queryByRole("button", { name: "Set up splates" }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Notifications" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Set up notifications" }),
+			),
+		);
+
+		expect(location.hash).toBe("#setup");
 	});
 
 	it("never nudges a fresh machine on desktop", async () => {

@@ -32,23 +32,11 @@ describe("App's Auto pick setup", () => {
 		testing.dispose();
 	});
 
-	/** Opens the Auto pick journey from Settings, as a person does. */
+	/** Opens the Auto pick journey from the sidebar's Setup, as a person does. */
 	const openAutoPick = async (todos: Snapshot["todos"] = []) => {
 		const view = await testing.open({ todos });
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Settings" })),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("button", { name: "Set up splates" }),
-				),
-			),
+			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		await act(async () =>
 			fireEvent.click(

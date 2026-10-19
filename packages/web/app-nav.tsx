@@ -16,6 +16,7 @@ import { OrphansDot, orphanCount } from "./orphans";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
+import { SetupDot } from "./setup-state";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 
@@ -101,6 +102,7 @@ export function AppNav({
 							{value === "tasks" && orphans > 0 && (
 								<OrphansDot ring="ring-sidebar" />
 							)}
+							{value === "setup" && <SetupDot ring="ring-sidebar" />}
 						</span>
 						<span className="flex-1 text-left">{label}</span>
 						<HeldKey shortcut={shortcut} held={held} />

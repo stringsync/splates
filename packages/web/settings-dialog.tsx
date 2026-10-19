@@ -46,7 +46,7 @@ export function SettingsDialog({
 	settings: Settings;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** Opens the Setup wizard, once the dialog has closed. */
+	/** Opens the Setup page, once the dialog has closed. */
 	onSetup: () => void;
 }): JSX.Element {
 	const [query, setQuery] = useState("");
@@ -124,18 +124,6 @@ export function SettingsDialog({
 								</button>
 							))}
 						</nav>
-						{/* Under the categories, since it is a walk-through, not a setting. */}
-						<button
-							type="button"
-							onClick={() => {
-								onOpenChange(false);
-								onSetup();
-							}}
-							className="flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground hover:bg-muted hover:text-foreground m-2 mt-0 sm:mt-0"
-						>
-							<ListChecksIcon className="size-4" />
-							Set up splates
-						</button>
 					</div>
 					<div className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
 						{pages.length === 0 ? (
@@ -161,6 +149,20 @@ export function SettingsDialog({
 											/>
 										))}
 									</ul>
+									{/* Which notices is a setting; subscribing this device to pushes is a Setup step. */}
+									{category === "Notifications" && (
+										<button
+											type="button"
+											onClick={() => {
+												onOpenChange(false);
+												onSetup();
+											}}
+											className="mt-2 flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground hover:underline"
+										>
+											<ListChecksIcon className="size-3.5" />
+											Set up notifications
+										</button>
+									)}
 								</section>
 							))
 						)}

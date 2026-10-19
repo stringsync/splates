@@ -5,11 +5,13 @@ import {
 	type JSX,
 	type ReactNode,
 	useCallback,
+	useContext,
 	useEffect,
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { setup } from "./api";
+import { UpdateDot } from "./release";
 
 /** This machine's setup as the page last read it, and how to read it again. */
 export interface SetupState {
@@ -66,4 +68,17 @@ export function SetupProvider({
 }): JSX.Element {
 	const state = useSetupState(JSON.stringify(creds));
 	return <SetupContext value={state}>{children}</SetupContext>;
+}
+
+/**
+ * A dot on Setup's nav entry while a step it needs, not an optional one, is
+ * neither done nor skipped.
+ */
+export function SetupDot({ ring }: { ring: string }): ReactNode {
+	const { progress } = useContext(SetupContext);
+	return progress?.required ? (
+		<span role="img" aria-label="setup unfinished">
+			<UpdateDot ring={ring} />
+		</span>
+	) : null;
 }

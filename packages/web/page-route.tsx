@@ -4,6 +4,7 @@ import {
 	GaugeIcon,
 	KanbanIcon,
 	KeyRoundIcon,
+	ListChecksIcon,
 	type LucideIcon,
 	ServerIcon,
 	ZapIcon,
@@ -36,9 +37,8 @@ export type Page =
 	| "setup";
 
 /**
- * Each page in the nav, with the shortcut that opens it, if any. Neither
- * Conversations, which each layout lists its agents beside, nor Setup,
- * which Settings and the nudge open, is one.
+ * Each page in the nav, with the shortcut that opens it, if any. Conversations
+ * is not one: each layout lists its agents beside them.
  */
 export const PAGES: {
 	value: Page;
@@ -58,6 +58,7 @@ export const PAGES: {
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
+	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
 ];
 
 /**
