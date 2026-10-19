@@ -32,15 +32,9 @@ import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
-import {
-	Section,
-	SectionTab,
-	SectionTabs,
-	TONES,
-	type Tone,
-} from "./task-sections";
+import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
-import { stageLabel, stageOf } from "./todo-queue";
+import { STAGE_TONES, stageLabel, stageOf } from "./todo-queue";
 
 /**
  * One todo opened, in the task dialog's shape: its subject to reword as the
@@ -240,14 +234,6 @@ export function Edit({
 		</>
 	);
 }
-
-/** How each stage reads, in the task dialog's tones. */
-const STAGE_TONES: Record<ReturnType<typeof stageOf>, Tone> = {
-	running: "working",
-	queued: "working",
-	ready: "ready",
-	backlog: "quiet",
-};
 
 /**
  * A todo's detail, read as it renders, the way a Trello card opens; a click

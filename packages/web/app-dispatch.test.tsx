@@ -154,7 +154,7 @@ describe("App's controls that put agents to work", () => {
 		expect(within(chip).queryByRole("img")).toBeNull();
 	});
 
-	it("shows the conversation on a taken todo, and opens it, saying Resume once its agent stopped", async () => {
+	it("keeps the conversation on a taken todo off its card", async () => {
 		const view = await board([
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),
 		]);
@@ -162,13 +162,9 @@ describe("App's controls that put agents to work", () => {
 			view.getByRole("list", { name: "Uploads tasks" }),
 		).getAllByRole("listitem")[1] as HTMLElement;
 
-		await act(async () =>
-			fireEvent.click(
-				within(card).getByRole("button", { name: "Resume alpha" }),
-			),
+		expect(within(card).queryByRole("button", { name: "Resume alpha" })).toBe(
+			null,
 		);
-
-		expect(location.hash).toBe("#conversations/c1");
 	});
 
 	it("shows a queued todo's held conversation waiting in line on its card and in its dialog, and opens it", async () => {

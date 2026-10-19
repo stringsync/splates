@@ -2,13 +2,13 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { Badge } from "#web/components/ui/badge.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { queueTodo } from "./api";
 import { Board, still, touchArea } from "./board";
 import { queued } from "./board-expectations";
 import { Dispatching } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
+import { TONES, type Tone } from "./task-sections";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
 const STAGES = ["running", "queued", "ready", "backlog"] as const;
@@ -31,22 +31,26 @@ export function stageLabel(
 	return stage === "queued" && place !== -1 ? `${word} · ${place + 1}` : word;
 }
 
-/**
- * Where a waiting todo stands, in a quiet badge on its card; a running one
- * says who took it instead, so it has none.
- */
-export function StageBadge({ todo }: { todo: TaskRecord }): JSX.Element | null {
+/** How each stage reads, in the task dialog's tones. */
+export const STAGE_TONES: Record<Stage, Tone> = {
+	running: "working",
+	queued: "working",
+	ready: "ready",
+	backlog: "quiet",
+};
+
+/** Where a todo stands, in a badge on its card toned as in its task dialog. */
+export function StageBadge({ todo }: { todo: TaskRecord }): JSX.Element {
 	const { todos } = useContext(Board);
-	if (stageOf(todo) === "running") {
-		return null;
-	}
 	return (
-		<Badge
-			variant="outline"
-			className="h-4 px-1.5 font-normal text-muted-foreground"
+		<span
+			className={cn(
+				"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
+				TONES[STAGE_TONES[stageOf(todo)]],
+			)}
 		>
 			{stageLabel(todo, todo.stage === "queued" ? queueOrder(todos) : [])}
-		</Badge>
+		</span>
 	);
 }
 
