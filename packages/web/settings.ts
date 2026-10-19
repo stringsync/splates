@@ -67,7 +67,7 @@ export const SETTINGS = {
 		title: "Widgets beside conversations",
 		description:
 			"Show a conversation's actions, background commands and task beside its messages where there is room for them. Elsewhere they float over the conversation while you open them.",
-		default: true,
+		default: false,
 	},
 	"conversation.timestamps": {
 		category: "Appearance",

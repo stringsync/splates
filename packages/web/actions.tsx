@@ -50,7 +50,7 @@ export const WIDGETS_ROOM = "16.75rem";
 /**
  * Whether a conversation's widgets show, and where: docked beside its
  * messages where `section` leaves room for them, as the setting keeps it
- * between visits, open to start with; elsewhere floating over the thread,
+ * between visits, closed to start with; elsewhere floating over the thread,
  * open only until dismissed. The shortcut and the header's button toggle
  * whichever applies.
  */
@@ -63,7 +63,7 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
 	const settings = useContext(ShortcutSettings);
 	const docked = useSyncExternalStore(
 		(changed) => settings?.events.on("changed", changed) ?? (() => {}),
-		() => settings?.get("conversation.widgets") ?? true,
+		() => settings?.get("conversation.widgets") ?? false,
 	);
 	const [floating, setFloating] = useState(false);
 	const [roomy, setRoomy] = useState(false);
