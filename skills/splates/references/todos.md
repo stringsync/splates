@@ -1,5 +1,21 @@
 # Linking, placing and ordering todos
 
+## One that already asks it
+
+Before adding a todo, scan `splates todo list`, leaving off `--open`, by
+subject alone: it prints one line per todo and no detail. When one or two
+subjects look like the same request, `splates todo show` just those. Reuse
+the list you read grooming when little has happened since, rather than
+reading it again.
+
+- **Open, the same request**: add none. `splates todo update` its detail with
+  what you know, keeping what still holds, and name it as the todo you meant.
+- **Taken by another task**: add none, and note in `SPLATES.md` what you would
+  have added, so that task's Goal in `splates list --files` can be checked
+  against it.
+- **Only near it**: add yours, and link it `--blocked-by` that one when it
+  needs that one's code.
+
 ## Links
 
 When a todo cannot start before another merges, it is blocked by that one:

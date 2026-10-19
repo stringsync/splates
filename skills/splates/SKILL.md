@@ -187,8 +187,9 @@ Put the why, the where, and anything else in its detail, as markdown the
 `splates server` page renders: paragraphs, lists, `- [ ]` steps, inline code for
 paths and commands, and fenced blocks for snippets. Single quotes keep the
 shell off the backticks. Before every `splates todo add`, read
-[references/todos.md](references/todos.md) on linking it to what blocks it,
-placing it in a lane, and where in the list it goes:
+[references/todos.md](references/todos.md) on whether one already asks it,
+linking it to what blocks it, placing it in a lane, and where in the list it
+goes:
 
 ```sh
 splates todo add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
