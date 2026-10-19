@@ -81,64 +81,17 @@ describe("conversation events", () => {
 		]);
 	});
 
-	it("logs new events once with a trailing newline, without replaying history", async () => {
-		expect(
-			deps.log.entries.some((entry) =>
-				String(entry.message).includes('"task":"alpha"'),
-			),
-		).toBe(false);
-		await claimed("logged", null);
-		await eventually(
-			() =>
-				deps.log.entries.some((entry) =>
-					String(entry.message).includes('"task":"logged"'),
-				),
-			100,
-		);
+	it("delivers new events without echoing journal activity to the server log", async () => {
+		await claimed("external-noise", null);
+		await claimed("quiet", conversation.id);
+		await eventually(() => conversation.state.events.length === 2, 100);
 		await following.changed();
-		const entries = deps.log.entries.filter((entry) =>
-			String(entry.message).includes('"task":"logged"'),
-		);
-		expect(entries).toHaveLength(1);
-		expect(String(entries[0]?.message).endsWith("\n")).toBe(true);
-		expect(JSON.parse(String(entries[0]?.message))).toMatchObject({
-			action: "claim",
-			task: "logged",
-		});
-	});
 
-	it("logs an event's long facts short and plain, leaving out its lists", async () => {
-		deps.proc.env.SPLATES_CONVERSATION = conversation.id;
-		await deps.journal.record(
-			"claim",
-			"noisy",
-			async () => ({
-				escalated: false,
-				tookOver: false,
-				goal: `\u001b[36m<div>\u001b[39m\n${"x".repeat(500)}`,
-			}),
-			(out) => out,
-		);
-		await deps.journal.record(
-			"task take",
-			"noisy",
-			async () => ({ tasks: [{ id: 1, subject: "a".repeat(500) }] }),
-			(out) => out,
-		);
-		delete deps.proc.env.SPLATES_CONVERSATION;
-		await eventually(
-			() =>
-				deps.log.entries.filter((entry) =>
-					String(entry.message).includes('"task":"noisy"'),
-				).length === 2,
-			100,
-		);
-		const [claim, take] = deps.log.entries
-			.filter((entry) => String(entry.message).includes('"task":"noisy"'))
-			.map((entry) => JSON.parse(String(entry.message)));
-		expect(claim.goal).toBe(`<div>\n${"x".repeat(113)}…`);
-		expect(take).toMatchObject({ action: "task take", task: "noisy" });
-		expect(take.tasks).toBeUndefined();
+		expect(conversation.state.events.map((event) => event.task)).toEqual([
+			"alpha",
+			"quiet",
+		]);
+		expect(deps.log.entries).toEqual([]);
 	});
 
 	it("hands it each new event as the journal takes it, and an external agent's to none", async () => {
