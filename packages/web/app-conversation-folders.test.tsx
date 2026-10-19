@@ -7,6 +7,7 @@ import {
 	cleanup,
 	conversation,
 	fireEvent,
+	resize,
 	Testing,
 	waitFor,
 	within,
@@ -157,6 +158,93 @@ describe("App's agents, in a folder per project", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual(["Mane", "Stripes"]);
+	});
+
+	it("keeps a folder's persistent agents atop it, apart from the rest, with no Archive", async () => {
+		const groomer = conversation({
+			id: "g1",
+			title: "Groomer",
+			persistent: "groomer",
+			createdAt: "2026-10-11T09:00:00.000Z",
+		});
+		const view = await testing.openConversations(
+			[
+				...mine,
+				groomer,
+				conversation({
+					id: "c3",
+					title: "Pinned",
+					pinned: true,
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
+			],
+			null,
+		);
+		const nav = agentList(view);
+		const here = await waitFor(() =>
+			within(nav).getByRole("region", { name: "webappwiz" }),
+		);
+
+		expect(
+			within(
+				within(here).getByRole("list", {
+					name: "webappwiz persistent agents",
+				}),
+			)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["GroomerAutomation"]);
+		expect(within(here).getAllByText("Automation")).toHaveLength(1);
+		expect(
+			within(
+				within(here).getByRole("list", { name: "webappwiz conversations" }),
+			)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Pinned", "Mine"]);
+		expect(within(here).getByRole("separator")).toBeTruthy();
+		expect(
+			within(here).queryByRole("button", { name: "Archive Groomer" }),
+		).toBeNull();
+		expect(
+			within(here).getByRole("button", { name: "Archive Mine" }),
+		).toBeTruthy();
+	});
+
+	it("keeps a folder's persistent agents atop it in a phone's inbox, apart from the rest", async () => {
+		resize(390, 844);
+		try {
+			const view = await testing.openConversations(
+				[
+					...mine,
+					conversation({
+						id: "g1",
+						title: "Groomer",
+						persistent: "groomer",
+						createdAt: "2026-10-11T09:00:00.000Z",
+					}),
+				],
+				null,
+			);
+			const here = await waitFor(() =>
+				within(view.getByRole("region", { name: "inbox" })).getByRole(
+					"region",
+					{ name: "webappwiz" },
+				),
+			);
+
+			expect(
+				within(here)
+					.getAllByRole("listitem")
+					.map((item) => item.textContent),
+			).toEqual([
+				expect.stringContaining("Groomer"),
+				expect.stringContaining("Mine"),
+			]);
+			expect(within(here).getByRole("separator")).toBeTruthy();
+		} finally {
+			resize(1024, 768);
+		}
 	});
 
 	it("starts a conversation in a folder's project from its +", async () => {

@@ -4,7 +4,7 @@ import {
 } from "@stringsync/splates-server/plans/browser";
 import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AutomationTag, RowIcon } from "./agent-icons";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { Trunk } from "./dispatching";
 import { Held } from "./handed-out";
@@ -73,12 +73,13 @@ export function Row({
 			<span
 				className={cn(
 					"flex shrink-0 items-center justify-center rounded-full bg-muted",
+					conversation?.persistent !== undefined && "bg-violet-500/15",
 					depth === 0 ? "size-10" : "size-8",
 				)}
 			>
 				{conversation !== null && agent !== null ? (
-					<AgentIcon
-						agent={conversation.agent}
+					<RowIcon
+						conversation={conversation}
 						name={agent}
 						className={cn(
 							"text-foreground/80",
@@ -96,14 +97,20 @@ export function Row({
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span className="flex items-baseline gap-2">
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate font-medium text-[15px]",
-							(subagent || (conversation !== null && unnamed(conversation))) &&
-								"text-muted-foreground italic",
+					<span className="flex min-w-0 flex-1 items-center gap-1.5">
+						<span
+							className={cn(
+								"min-w-0 truncate font-medium text-[15px]",
+								(subagent ||
+									(conversation !== null && unnamed(conversation))) &&
+									"text-muted-foreground italic",
+							)}
+						>
+							{name}
+						</span>
+						{conversation !== null && (
+							<AutomationTag conversation={conversation} />
 						)}
-					>
-						{name}
 					</span>
 					{project !== null && (
 						<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">

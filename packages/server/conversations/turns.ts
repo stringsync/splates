@@ -289,7 +289,11 @@ export class ConversationTurns {
 			this.interrupt();
 		}
 		host.set({ status: "idle", ...(error === null ? {} : { error }) });
-		host.flag(true);
+		// A persistent agent's turns are its role's routine, nothing new to
+		// read: it asks the person only through what waits on them.
+		if (state.persistent === undefined) {
+			host.flag(true);
+		}
 		if (!this.held && state.messages.some((each) => each.queued)) {
 			this.send([]);
 		}

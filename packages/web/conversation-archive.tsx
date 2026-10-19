@@ -23,6 +23,15 @@ import { useRowRefusal } from "./row-refusal";
 import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
+ * Whether the page offers to archive `conversation`, or bring it back: not
+ * a persistent agent's while it is kept, which the server refuses, as only
+ * turning the agent off retires it.
+ */
+export function filable(conversation: ConversationState): boolean {
+	return conversation.archived || conversation.persistent === undefined;
+}
+
+/**
  * Archives `conversation`, or brings it back, at once, then runs `then`. Archiving
  * removes its task too, as `splates remove` does, while the task is still there
  * and this conversation last took it, and takes along the agents it handed

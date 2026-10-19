@@ -8,7 +8,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AutomationTag, RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
@@ -57,8 +57,9 @@ export function NeedsYou({
 }
 
 /**
- * A folder per project, by name, its agents at work first, then the rest,
- * those waiting on you up in Needs you. Each folds away, as this browser
+ * A folder per project, by name, its persistent agents kept atop it, set
+ * apart by a rule, then its agents at work, then the rest, those waiting on
+ * you up in Needs you. Each folds away, as this browser
  * keeps it, showing a dot while folded with an agent of its waiting, and its
  * "+" starts a conversation in it. Quiet: a name, a dot, and its rows.
  */
@@ -82,7 +83,7 @@ export function FolderList({
 			{folders.map((folder) => {
 				const key = folderKey(folder);
 				const open = !folded.has(key);
-				const rows = folder.listed;
+				const { kept, listed: rows } = folder;
 				return (
 					<Collapsible
 						key={key}
@@ -117,6 +118,19 @@ export function FolderList({
 							</button>
 						</div>
 						<CollapsibleContent>
+							{kept.length > 0 && (
+								<InLanes folder={folder}>
+									<Rows
+										label={`${folder.name} persistent agents`}
+										rows={kept}
+										render={(row, nested) => render(folder, row, nested, false)}
+										beneath={(row) => beneath(folder, row)}
+									/>
+									{rows.length > 0 && (
+										<hr className="mx-3 my-1 border-foreground/10" />
+									)}
+								</InLanes>
+							)}
 							{rows.length > 0 && (
 								<InLanes folder={folder}>
 									<Rows
@@ -169,22 +183,25 @@ export function ForeignItem({
 			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
 		>
 			{conversation !== null && agent !== null ? (
-				<AgentIcon
-					agent={conversation.agent}
+				<RowIcon
+					conversation={conversation}
 					name={agent}
 					className="size-3.5 text-foreground/70"
 				/>
 			) : (
 				<TaskIcon className="size-3.5 shrink-0 text-foreground/70" />
 			)}
-			<span
-				className={cn(
-					"min-w-0 flex-1 truncate text-sm",
-					(nested || (conversation !== null && unnamed(conversation))) &&
-						"text-muted-foreground italic",
-				)}
-			>
-				{name}
+			<span className="flex min-w-0 flex-1 items-center gap-1.5">
+				<span
+					className={cn(
+						"min-w-0 truncate text-sm",
+						(nested || (conversation !== null && unnamed(conversation))) &&
+							"text-muted-foreground italic",
+					)}
+				>
+					{name}
+				</span>
+				{conversation !== null && <AutomationTag conversation={conversation} />}
 			</span>
 			{project !== null && (
 				<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">

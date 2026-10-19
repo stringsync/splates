@@ -26,14 +26,14 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AutomationTag, RowIcon } from "./agent-icons";
 import { copiedLabel, useCopy } from "./card";
 import {
 	markUnread,
 	pinConversation,
 	renameConversation,
 } from "./conversation-api";
-import { useArchive } from "./conversation-archive";
+import { filable, useArchive } from "./conversation-archive";
 import { reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect } from "./expecting";
@@ -149,18 +149,21 @@ export function Item({
 							: "pr-6",
 				)}
 			>
-				<AgentIcon
-					agent={conversation.agent}
+				<RowIcon
+					conversation={conversation}
 					name={agent}
 					className="size-3.5 text-foreground/70"
 				/>
-				<span
-					className={cn(
-						"min-w-0 flex-1 truncate text-sm",
-						unnamed(conversation) && "text-muted-foreground italic",
-					)}
-				>
-					{nameOf(conversation)}
+				<span className="flex min-w-0 flex-1 items-center gap-1.5">
+					<span
+						className={cn(
+							"min-w-0 truncate text-sm",
+							unnamed(conversation) && "text-muted-foreground italic",
+						)}
+					>
+						{nameOf(conversation)}
+					</span>
+					<AutomationTag conversation={conversation} />
 				</span>
 				{pinned && (
 					<PinIcon
@@ -265,12 +268,14 @@ export function Item({
 								Move under…
 							</DropdownMenuItem>
 						)}
-						<DropdownMenuItem
-							onClick={() => file(archived ? undefined : onLeft)}
-						>
-							<Put />
-							{put}
-						</DropdownMenuItem>
+						{filable(conversation) && (
+							<DropdownMenuItem
+								onClick={() => file(archived ? undefined : onLeft)}
+							>
+								<Put />
+								{put}
+							</DropdownMenuItem>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 				{pins && (
@@ -291,14 +296,16 @@ export function Item({
 						<Pin />
 					</Button>
 				)}
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={() => file(archived ? undefined : onLeft)}
-				>
-					<Put />
-				</Button>
+				{filable(conversation) && (
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label={`${put} ${nameOf(conversation)}`}
+						onClick={() => file(archived ? undefined : onLeft)}
+					>
+						<Put />
+					</Button>
+				)}
 			</span>
 			<Refusal refusal={refusal} className="w-full px-3 pb-1.5" />
 		</div>

@@ -27,7 +27,7 @@ import {
 	restartConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import { useArchive } from "./conversation-archive";
+import { filable, useArchive } from "./conversation-archive";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
@@ -113,16 +113,22 @@ export function useThreadActions(
 			icon: <ClockIcon />,
 			run: stamps.toggle,
 		},
-		{
-			label: archived ? "Unarchive" : "Archive",
-			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-			detail:
-				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
-			run: () => archive.file(archived ? undefined : onLeft),
-		},
+		...(filable(conversation)
+			? [
+					{
+						label: archived ? "Unarchive" : "Archive",
+						icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
+						detail:
+							archived || archiveKey === null ? undefined : (
+								<Kbd>{archiveKey}</Kbd>
+							),
+						run: () => archive.file(archived ? undefined : onLeft),
+					},
+				]
+			: []),
 	];
 	const fileByKey = () => {
-		if (!archived) {
+		if (!archived && filable(conversation)) {
 			archive.file(onLeft);
 		}
 	};

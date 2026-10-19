@@ -75,8 +75,8 @@ export function Group({
 
 /**
  * A project's folder: its name, a dot while folded with an agent of its
- * waiting, and a + to start a conversation in it, then its agents at work and
- * the rest. Another project's rows have no menu.
+ * waiting, and a + to start a conversation in it, then its persistent
+ * agents, set apart by a rule, then its agents at work and the rest. Another project's rows have no menu.
  */
 export function FolderSection({
 	folder,
@@ -100,6 +100,7 @@ export function FolderSection({
 		tree,
 		folder,
 	}));
+	const kept = folder.kept.map((tree) => ({ tree, folder }));
 	return (
 		<Collapsible
 			open={open}
@@ -134,6 +135,20 @@ export function FolderSection({
 				)}
 			</div>
 			<CollapsibleContent>
+				{kept.length > 0 && (
+					<>
+						<Lines
+							items={kept}
+							agents={agents}
+							named={false}
+							beneath={folder.here ? beneath : () => []}
+							onOpen={onOpen}
+						/>
+						{items.length > 0 && (
+							<hr className="mx-4 my-1 border-foreground/10" />
+						)}
+					</>
+				)}
 				{items.length > 0 && (
 					<Lines
 						items={items}

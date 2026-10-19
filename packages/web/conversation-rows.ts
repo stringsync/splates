@@ -14,7 +14,8 @@ import { isPartOf, type Nested, nest } from "./parts";
 import { unanswered } from "./unanswered";
 
 /**
- * The rows of the sidebar and the phone's inbox, the pinned ones first, each
+ * The rows of the sidebar and the phone's inbox, persistent agents' first,
+ * then the pinned ones, each
  * newest first: the conversations listed, then external agents' tasks, which
  * no list shows (see `shownIn`), but whose work and waits count for the
  * conversations they answer to.
@@ -38,6 +39,7 @@ export function rowsOf(
 		conversations,
 	).toSorted(
 		(one, other) =>
+			Number(kept(other)) - Number(kept(one)) ||
 			Number(pinned(other)) - Number(pinned(one)) ||
 			started(other).localeCompare(started(one)),
 	);
@@ -53,6 +55,11 @@ export function shownIn(trees: Nested<Needing>[]): Nested<Needing>[] {
 			? shownIn(tree.parts)
 			: [{ row: tree.row, parts: shownIn(tree.parts) }],
 	);
+}
+
+/** Whether a row's conversation is a persistent agent's, as the groomer's. */
+function kept(row: Needing): boolean {
+	return row.conversation?.persistent !== undefined;
 }
 
 /** Whether a row's conversation is pinned atop the list. */

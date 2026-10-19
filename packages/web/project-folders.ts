@@ -1,7 +1,8 @@
 /**
  * Every project's agents as the sidebar, and the phone's inbox after it,
  * group them: one Needs you across every project, then a folder per project,
- * its pinned agents first, then those at work, then the rest. Only the grouping: each list draws its
+ * its persistent agents kept apart atop it, then its pinned agents, then
+ * those at work, then the rest. Only the grouping: each list draws its
  * own rows.
  */
 
@@ -92,8 +93,13 @@ export interface Folder {
 	/** The trees with an agent waiting on you, which Needs you lists in its place. */
 	waiting: Nested<Needing>[];
 	/**
-	 * The trees with none waiting, as the folder lists them: the pinned ones,
-	 * then those with an agent at work, then the rest, each newest first.
+	 * Its persistent agents' trees with none waiting, as the groomer's: kept
+	 * atop the folder, apart from the agents it lists.
+	 */
+	kept: Nested<Needing>[];
+	/**
+	 * The other trees with none waiting, as the folder lists them: the pinned
+	 * ones, then those with an agent at work, then the rest, each newest first.
 	 */
 	listed: Nested<Needing>[];
 }
@@ -135,27 +141,38 @@ export function folderKey(folder: Folder): string {
 
 /**
  * `trees` by what is most pressing in each: one waiting on you, then the
- * rest pinned, at work, or neither, each in the order given.
+ * rest a persistent agent's, pinned, at work, or none of those, each in the
+ * order given.
  */
 export function groupsOf(
 	trees: Nested<Needing>[],
-): Record<"waiting" | "pinned" | "working" | "recent", Nested<Needing>[]> {
+): Record<
+	"waiting" | "kept" | "pinned" | "working" | "recent",
+	Nested<Needing>[]
+> {
 	const waiting = trees.filter((tree) =>
 		flatten([tree]).some((row) => waitsOnYou(row)),
 	);
 	const rest = trees.filter((tree) => !waiting.includes(tree));
-	const pinned = rest.filter((tree) => tree.row.conversation?.pinned === true);
+	const kept = rest.filter(
+		(tree) => tree.row.conversation?.persistent !== undefined,
+	);
+	const pinned = rest.filter(
+		(tree) => !kept.includes(tree) && tree.row.conversation?.pinned === true,
+	);
 	const working = rest.filter(
 		(tree) =>
+			!kept.includes(tree) &&
 			!pinned.includes(tree) &&
 			flatten([tree]).some(
 				(row) => row.need.kind === "working" || row.need.kind === "assuming",
 			),
 	);
 	const recent = rest.filter(
-		(tree) => !pinned.includes(tree) && !working.includes(tree),
+		(tree) =>
+			!kept.includes(tree) && !pinned.includes(tree) && !working.includes(tree),
 	);
-	return { waiting, pinned, working, recent };
+	return { waiting, kept, pinned, working, recent };
 }
 
 function folder(
@@ -169,7 +186,7 @@ function folder(
 	);
 	// Grouped with every row, so a subagent at work outside the page still
 	// puts its host with those at work, then only what the list shows.
-	const { waiting, pinned, working, recent } = groupsOf(trees);
+	const { waiting, kept, pinned, working, recent } = groupsOf(trees);
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
 	return {
 		project,
@@ -182,6 +199,7 @@ function folder(
 		trees: shown(trees),
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),
+		kept: shown(kept),
 		listed: shown([...pinned, ...working, ...recent]),
 	};
 }

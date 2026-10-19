@@ -38,6 +38,7 @@ import {
 	useProjects,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
+import { filable } from "./conversation-archive";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
@@ -205,7 +206,7 @@ function Conversation({
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.
 	const { offer, barred } = useArchiveOffer(
-		archived ? null : ended(conversation),
+		archived || !filable(conversation) ? null : ended(conversation),
 		() => archive.file(onLeft),
 	);
 	const widgets = useWidgets(section);
