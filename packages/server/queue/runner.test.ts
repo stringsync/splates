@@ -291,11 +291,12 @@ describe("QueueRunner", () => {
 		expect(picker.told).toEqual([{ queued: 1, conversation: "h2" }]);
 	});
 
-	it("has Auto pick judge a task that names no agent as it is added, queued or not", async () => {
+	it("has Auto pick judge a backlog task that names no agent as it is added, not a ready one", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Named", null, {
 			assignee: { agent: "codex", model: "o3" },
 		});
+		await taskAdd(deps, "Groomed", null, { ready: true });
 
 		await runner.sweep();
 		await settled();

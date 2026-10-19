@@ -192,10 +192,11 @@ export class QueueRunner implements Resource {
 
 	/**
 	 * Whom each queued task goes to: the agent it names, else Auto pick's
-	 * pick. Every waiting task that names none, queued or not, has its words
-	 * judged in the background as it is added and once for each new wording,
-	 * so the queued ones take what that judged, guessed without asking again;
-	 * those about to start, `next`, are decided now on fresh plan limits.
+	 * pick. Every task in the backlog or the queue that names none has its
+	 * words judged in the background as it is added and once for each new
+	 * wording, so the queued ones take what that judged, guessed without
+	 * asking again; those about to start, `next`, are decided now on fresh
+	 * plan limits. A ready task is left until it is queued.
 	 */
 	async #picks(
 		all: readonly TaskRecord[],
@@ -206,7 +207,7 @@ export class QueueRunner implements Resource {
 	}> {
 		const waiting = all.filter(
 			(task) =>
-				task.stage !== "running" &&
+				(task.stage === "backlog" || task.stage === "queued") &&
 				task.takenBy === null &&
 				task.assignee === undefined,
 		);
