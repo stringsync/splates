@@ -15,7 +15,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
+import { AgentIcon, AgentMark } from "./agent-icons";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import { useNameOf } from "./conversation-names";
@@ -148,7 +148,7 @@ export function StartAssigned({
 				)}
 			>
 				<PlayIcon aria-hidden className="size-3 shrink-0" />
-				<AgentIcon
+				<AgentMark
 					agent={assignee.agent}
 					name={dispatch.agentName(assignee.agent)}
 					className="size-3"

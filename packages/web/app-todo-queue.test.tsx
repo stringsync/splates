@@ -63,12 +63,12 @@ describe("App's queue", () => {
 			.map((card) => card.textContent ?? "");
 		expect(cards[0]).toContain("Backlog");
 		expect(cards[1]).toContain("Ready");
-		expect(cards[1]).not.toContain("agent picked when it runs");
+		expect(cards[1]).not.toContain("Auto pick");
 		expect(cards[2]).toContain("Queued · 1");
 		expect(cards[3]).toContain("Queued · 2");
 		expect(cards[4]).not.toMatch(/Backlog|Ready|Queue/);
 		expect(cards[5]).toContain("Ready");
-		expect(cards[5]).toContain("agent picked when it runs");
+		expect(cards[5]).toContain("Auto pick");
 	});
 
 	it("counts a lane's todos by stage in its header, leaving out the stages it has none in", async () => {

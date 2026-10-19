@@ -29,6 +29,7 @@ import {
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Board, still, touchArea } from "./board";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
@@ -120,7 +121,10 @@ export function Card({
 					{todo.takenBy === null &&
 						todo.stage === "ready" &&
 						todo.assignee === undefined && (
-							<span>agent picked when it runs</span>
+							<span className="inline-flex items-center gap-1">
+								<AutoIcon className="size-3" />
+								{AUTO_PICK_NAME}
+							</span>
 						)}
 					{blockers.length > 0 && <Blocked by={blockers} />}
 					{(todo.blockersLost ?? []).length > 0 && (
