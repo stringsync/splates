@@ -1,5 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { z } from "zod";
+import { type CloudProvider, machineCloud } from "../cloud";
 import { RUNNING } from "../server/shared";
 import {
 	API_TOKEN,
@@ -11,8 +12,6 @@ import {
 import {
 	DEFAULT_WORKER_LIMITS,
 	dollars,
-	HCLOUD_TOKEN,
-	HetznerApi,
 	keptSnapshot,
 	Snapshots,
 	WORKER_LIMITS,
@@ -36,29 +35,36 @@ const LIMIT_FIELDS: readonly StepField[] = [
 ];
 
 /**
- * The Hetzner token as a page asks for it, pasted there and saved for the
+ * The cloud this machine's setup makes machines in, for what its steps say;
+ * `cloudOf` the one they ask, through the machine's own creds.
+ */
+const CLOUD = machineCloud();
+
+/** The machine's cloud, reading its token from the machine's device creds. */
+export function cloudOf(machine: SetupMachine): CloudProvider {
+	return machineCloud({
+		store: machine.device,
+		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
+	});
+}
+
+/**
+ * The cloud's token as a page asks for it, pasted there and saved for the
  * device: the token step's, and any step that needs it beside its own work.
  */
-export const HETZNER_TOKEN_FIELD: StepField = {
+export const CLOUD_TOKEN_FIELD: StepField = {
 	kind: "cred",
-	name: HCLOUD_TOKEN,
-	label: "Hetzner Cloud API token",
-	help: "In the [Hetzner Console](https://console.hetzner.com/projects), open a project for splates (or make one), then **Security › API tokens › Generate API token** with **Read & Write**, and paste it.",
+	name: CLOUD.token.cred,
+	label: CLOUD.token.label,
+	help: CLOUD.token.help,
 };
 
-/** Why a step that needs the Hetzner token is not done, when Hetzner refuses it. */
-export const HETZNER_TOKEN_REFUSED =
-	"Hetzner does not take that token: generate a Read & Write one and paste it again.";
+/** Why a step that needs the cloud's token is not done, when the cloud refuses it. */
+export const CLOUD_TOKEN_REFUSED = CLOUD.token.refused;
 
-/** Whether the device keeps a Hetzner token that Hetzner takes. */
-export async function hetznerTokenAccepted(
-	machine: SetupMachine,
-): Promise<boolean> {
-	const token = await machine.device.get(HCLOUD_TOKEN);
-	return (
-		token !== undefined &&
-		(await new HetznerApi(token, machine.fetch).accepted())
-	);
+/** Whether the device keeps a token the machine's cloud takes. */
+export function cloudTokenAccepted(machine: SetupMachine): Promise<boolean> {
+	return cloudOf(machine).accepted();
 }
 
 /**
@@ -238,27 +244,26 @@ function workersArea(): SetupArea {
 	};
 
 	const tokenStep: SetupStep = {
-		id: "hetzner-token",
-		title: "Paste a Hetzner Cloud API token",
-		why: "Cloud workers are Hetzner Cloud servers in your own account, made only while agents wait for a slot: a CPX62 runs 8 agents for about $0.25 an hour, a CX53 for about $0.06 when Hetzner has one, billed by the started hour.",
-		user: "Make a Read & Write API token in a Hetzner Cloud project and paste it.",
-		agent: `Request it with \`splates creds request ${HCLOUD_TOKEN} --device\`, with how to get it, and \`splates creds wait ${HCLOUD_TOKEN}\`. Never ask for it in chat.`,
+		id: "cloud-token",
+		title: `Paste a ${CLOUD.token.label}`,
+		why: `Cloud workers are ${CLOUD.name} machines in your own account, made only while agents wait for a slot: ${workerPrices()}.`,
+		user: `Make an API token in your ${CLOUD.name} account and paste it.`,
+		agent: `Request it with \`splates creds request ${CLOUD.token.cred} --device\`, with how to get it, and \`splates creds wait ${CLOUD.token.cred}\`. Never ask for it in chat.`,
 		optional: true,
 		after: [],
-		fields: [HETZNER_TOKEN_FIELD],
-		check: hetznerTokenAccepted,
-		notDone: HETZNER_TOKEN_REFUSED,
+		fields: [CLOUD_TOKEN_FIELD],
+		check: cloudTokenAccepted,
+		notDone: CLOUD_TOKEN_REFUSED,
 	};
 
 	const providerStep: SetupStep = {
-		id: "hetzner-provider",
+		id: "cloud-provider",
 		title: "Turn cloud workers on",
-		why: "A project makes cloud workers once its `splates.config.ts` names the provider, up to `provisionedWorkers` at once (2 by default), and only for work its agents hand out.",
-		user: "Add `workerProvider: new HetznerWorkerProvider()` to this project's `splates.config.ts` and merge it, as a task, then restart `splates server` and press Next.",
-		agent:
-			"In a task of its own, add `workerProvider: new HetznerWorkerProvider()`, imported from `@stringsync/splates-server/workers`, to `splates.config.ts` and merge it; then have the user restart `splates server`, and run `splates setup hetzner-provider`.",
+		why: "A project makes cloud workers once its `splates.config.ts` names its `cloud`, up to `provisionedWorkers` at once (2 by default), and only for work its agents hand out.",
+		user: `Add \`cloud: ${CLOUD.configSource}\` to this project's \`splates.config.ts\` and merge it, as a task, then restart \`splates server\` and press Next.`,
+		agent: `In a task of its own, add \`cloud: ${CLOUD.configSource}\`, imported from \`@stringsync/splates-server/cloud\`, to \`splates.config.ts\` and merge it; then have the user restart \`splates server\`, and run \`splates setup cloud-provider\`.`,
 		notDone:
-			"`splates.config.ts` names no `workerProvider` yet: add it, merge it, then press Next.",
+			"`splates.config.ts` names no `cloud` yet: add it, merge it, then press Next.",
 		optional: true,
 		after: [tokenStep],
 		check: async (machine) =>
@@ -269,7 +274,7 @@ function workersArea(): SetupArea {
 		id: "worker-snapshot",
 		title: "Build the worker snapshot",
 		why: "Workers boot from a snapshot with splates already installed, so one is ready to work within a minute. splates rebuilds it when it updates or after a week.",
-		user: "Next builds it on a small Hetzner server, about ten minutes and $0.04, then keeps it for about $0.10 a month.",
+		user: `Next builds it on a small ${CLOUD.name} machine, about ten minutes and a few cents, then keeps it for about $0.10 a month.`,
 		agent:
 			"Press Next on the page, which builds it through the project's `workerProvider`; or leave it, since the first cloud worker builds it too. It makes and destroys a builder server: do not run it twice at once.",
 		optional: true,
@@ -351,4 +356,19 @@ function field(limit: WorkerLimit, label: string): StepField {
 		placeholder: String(DEFAULT_WORKER_LIMITS[limit]),
 		optional: true,
 	};
+}
+
+/** What the machine's cloud's worker types cost, for the token step's why. */
+function workerPrices(): string {
+	return CLOUD.defaults.workerTypes
+		.map(
+			(type) =>
+				`a ${type.name} runs ${type.slots} agents for about ${dollars(type.dollarsPerHour)} an hour`,
+		)
+		.join(", ")
+		.concat(
+			CLOUD.defaults.workerTypes.some((type) => type.billing === "hour")
+				? ", billed by the started hour"
+				: "",
+		);
 }

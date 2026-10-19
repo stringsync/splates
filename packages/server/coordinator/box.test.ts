@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../workers";
-import { FakeHetzner } from "../workers/testing";
+import { HCLOUD_TOKEN } from "../cloud";
+import { FakeHetzner } from "../cloud/testing";
 import { CoordinatorBox, installScript } from "./index";
 
 const HOME = "/home/.splates";
@@ -130,10 +130,10 @@ describe("CoordinatorBox", () => {
 		);
 	});
 
-	it("asks for the Hetzner token's setup step without one", async () => {
+	it("asks for the cloud token's setup step without one", async () => {
 		await store.delete(HCLOUD_TOKEN);
 
-		await expect(box.up()).rejects.toThrow("hetzner-token");
+		await expect(box.up()).rejects.toThrow("cloud-token");
 	});
 });
 

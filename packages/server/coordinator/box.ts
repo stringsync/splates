@@ -1,20 +1,21 @@
-import { type SecretStore, SystemSecretStore } from "webappwiz/creds";
+import type { SecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import { type Duration, sleep } from "webappwiz/time";
+import type { Duration } from "webappwiz/time";
+import { type CloudProvider, type FirewallRule, machineCloud } from "../cloud";
 import { splatesHome } from "../models";
-import { type FirewallRule, HCLOUD_TOKEN, HetznerApi } from "../workers";
 
 /**
- * The coordinator's always-on box in the user's own Hetzner Cloud account,
- * made through its API as the workers are, with the Hetzner token the Cloud
- * workers setup keeps: a server labelled `splates-coordinator`, and the SSH
- * key and firewall of that name. The box has splates installed and serves
- * nothing until `CoordinatorMove` moves the coordinator onto it.
+ * The coordinator's always-on box in the user's own cloud account, made
+ * through its API as the workers are, with the token the setup keeps: a
+ * machine tagged `splates-coordinator`, and the SSH key and firewall of that
+ * name. The box has splates installed and serves nothing until
+ * `CoordinatorMove` moves the coordinator onto it.
  */
 export class CoordinatorBox {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
-	private readonly store: SecretStore;
+	/** The cloud it is made in: the machine's, unless `cloud` says another. */
+	readonly cloud: CloudProvider;
 	/** splates's home, under whose `coordinator` the box's SSH files are kept. */
 	readonly home: string;
 	/** Where its SSH key pair is kept: the private key, with `.pub` beside it. */
@@ -23,7 +24,13 @@ export class CoordinatorBox {
 	constructor(private readonly opts: CoordinatorBoxOptions) {
 		this.ps = opts.ps ?? new NodePs();
 		this.fs = opts.fs ?? new NodeFs();
-		this.store = opts.store ?? SystemSecretStore.device();
+		this.cloud =
+			opts.cloud ??
+			machineCloud({
+				...(opts.store === undefined ? {} : { store: opts.store }),
+				...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
+				...(opts.wait === undefined ? {} : { wait: opts.wait }),
+			});
 		this.home = opts.home ?? splatesHome(this.ps);
 		this.key = `${this.home}/coordinator/id_ed25519`;
 	}
@@ -34,92 +41,63 @@ export class CoordinatorBox {
 	 * its type, location and install script, which runs only on first boot.
 	 */
 	async up(): Promise<BoxStanding> {
-		const api = await this.api();
-		const publicKey = await this.publicKey();
-		let key = await api.sshKey(BOX_NAME);
-		if (key !== null && key.publicKey.trim() !== publicKey) {
-			await api.deleteSshKey(key.id);
-			key = null;
-		}
-		const keyId = key?.id ?? (await api.createSshKey(BOX_NAME, publicKey));
-		let firewall = await api.firewall(BOX_NAME);
-		if (firewall === null) {
-			firewall = await api.createFirewall(BOX_NAME, BOX_RULES);
-		} else {
-			await api.setFirewallRules(firewall, BOX_RULES);
-		}
-		const server =
-			(await api.servers(BOX_LABEL))[0] ??
-			(await api.createServer({
+		const { cloud } = this;
+		const keyId = await cloud.ensureSshKey(BOX_NAME, await this.publicKey());
+		const firewall = await cloud.ensureFirewall(BOX_NAME, BOX_RULES);
+		const machine =
+			(await cloud.machines(BOX_TAG))[0] ??
+			(await cloud.create({
 				name: BOX_NAME,
-				type: this.opts.serverType ?? BOX_TYPE,
-				image: BOX_IMAGE,
-				location: this.opts.location ?? BOX_LOCATION,
+				type: this.opts.type ?? cloud.defaults.box.type,
+				image: cloud.defaults.image,
+				location: this.opts.location ?? cloud.defaults.box.location,
 				userData: installScript(this.opts.version),
-				labels: { [BOX_LABEL]: "coordinator" },
+				tags: { [BOX_TAG]: "coordinator" },
 				sshKeys: [keyId],
 				firewalls: [firewall],
 			}));
-		if (!server.backups) {
-			await api.enableBackups(server.id);
+		if (!machine.backups) {
+			await cloud.enableBackups(machine.id);
 		}
-		if (!(server.protected.delete && server.protected.rebuild)) {
-			await api.protect(server.id, { delete: true, rebuild: true });
+		if (!machine.protected) {
+			await cloud.protect(machine.id, true);
 		}
 		const standing = await this.status();
 		if (standing === null) {
 			throw new Error(
-				"Hetzner made the coordinator's box but did not say its address",
+				`${cloud.name} made the coordinator's box but did not say its address`,
 			);
 		}
 		return standing;
 	}
 
-	/** The box as Hetzner has it, or null when there is none. */
+	/** The box as its cloud has it, or null when there is none. */
 	async status(): Promise<BoxStanding | null> {
-		const [server] = await (await this.api()).servers(BOX_LABEL);
-		if (server === undefined || server.ipv4 === null) {
+		const [machine] = await this.cloud.machines(BOX_TAG);
+		if (machine === undefined || machine.ipv4 === null) {
 			return null;
 		}
 		return {
-			ipv4: server.ipv4,
-			serverId: server.id,
-			serverType: server.type,
-			location: server.location,
+			ipv4: machine.ipv4,
+			serverId: machine.id,
+			serverType: machine.type,
+			location: machine.location,
 			key: this.key,
 		};
 	}
 
 	/**
 	 * Destroys the box, its backups with it, then its firewall and key: first
-	 * lifting the delete protection that keeps a stray delete off it.
+	 * lifting the protection that keeps a stray delete off it.
 	 */
 	async remove(): Promise<void> {
-		const api = await this.api();
-		for (const server of await api.servers(BOX_LABEL)) {
-			if (server.protected.delete || server.protected.rebuild) {
-				await api.protect(server.id, { delete: false, rebuild: false });
-			}
-			await api.deleteServer(server.id);
+		const { cloud } = this;
+		for (const machine of await cloud.machines(BOX_TAG)) {
+			await cloud.protect(machine.id, false);
+			await cloud.delete(machine.id);
 		}
-		const firewall = await api.firewall(BOX_NAME);
-		if (firewall !== null) {
-			await api.deleteFirewall(firewall);
-		}
-		const key = await api.sshKey(BOX_NAME);
-		if (key !== null) {
-			await api.deleteSshKey(key.id);
-		}
-	}
-
-	private async api(): Promise<HetznerApi> {
-		const token = await this.store.get(HCLOUD_TOKEN);
-		if (token === undefined) {
-			throw new Error(
-				`no Hetzner Cloud API token: do the setup step \`hetzner-token\`, which keeps it as ${HCLOUD_TOKEN}`,
-			);
-		}
-		return new HetznerApi(token, this.opts.fetch, this.opts.wait ?? sleep);
+		await cloud.removeFirewall(BOX_NAME);
+		await cloud.removeSshKey(BOX_NAME);
 	}
 
 	/** Its SSH public key, making the pair first when there is none. */
@@ -155,42 +133,33 @@ export class CoordinatorBox {
 export interface CoordinatorBoxOptions {
 	/** The splates the box installs, the coordinator's own release. */
 	version: string;
-	/** Its Hetzner server type; `BOX_TYPE` by default. */
-	serverType?: string;
-	/** Its Hetzner location; `BOX_LOCATION` by default. */
+	/** The cloud it is made in; `machineCloud()` by default, made with `store`, `fetch` and `wait`. */
+	cloud?: CloudProvider;
+	/** Its machine type; the cloud's default box type unless set. */
+	type?: string;
+	/** Its location; the cloud's default box location unless set. */
 	location?: string;
 	ps?: Ps;
 	fs?: Fs;
 	/** splates's home, where the box's SSH key is. */
 	home?: string;
-	/** Where `HCLOUD_TOKEN` is kept: the device's creds. */
+	/** Where the cloud's token is kept: the device's creds. */
 	store?: SecretStore;
 	fetch?: typeof globalThis.fetch;
-	/** How it waits between looks at a Hetzner action. */
+	/** How it waits between looks at the cloud's actions. */
 	wait?: (duration: Duration) => Promise<void>;
 }
 
-/** The box as Hetzner says it stands. */
+/** The box as its cloud says it stands. */
 export interface BoxStanding {
 	ipv4: string;
+	/** The cloud's id for its machine. */
 	serverId: string;
 	serverType: string;
 	location: string;
 	/** The private key that logs in as root, its public half beside it as `.pub`. */
 	key: string;
 }
-
-/** The box's Hetzner server type, unless `serverType` says another. */
-// Hetzner's CPX21, 3 shared vCPU and 4 GB: the server takes ~0.6 GB with 7
-// sessions, and agents and their tests run on workers. About $38 a month in
-// Ashburn after Hetzner's 15 June 2026 prices, its daily backups 20% more.
-export const BOX_TYPE = "cpx21";
-
-/** Ashburn, Virginia: Hetzner's nearest to New Jersey. */
-export const BOX_LOCATION = "ash";
-
-/** The image the box runs. */
-const BOX_IMAGE = "ubuntu-24.04";
 
 /** The password that unlocks the box's keyring, readable by root alone. */
 export const KEYRING_PASSWORD = "/root/splates-keyring";
@@ -201,8 +170,8 @@ export const BOX_USER = "splates";
 /** What the box, its SSH key and its firewall are named. */
 const BOX_NAME = "splates-coordinator";
 
-/** The label the box carries, which is how splates finds it. */
-const BOX_LABEL = "splates-coordinator";
+/** The tag the box carries, which is how splates finds it. */
+const BOX_TAG = "splates-coordinator";
 
 /** The box's firewall: SSH in, and nothing else. */
 const BOX_RULES: FirewallRule[] = [

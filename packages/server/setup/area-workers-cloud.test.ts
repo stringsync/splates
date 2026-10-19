@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../workers";
+import { HCLOUD_TOKEN } from "../cloud";
 import { FakeWorkerProvider } from "../workers/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -45,17 +45,17 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		return new Setup(machine, [REMOTE_ACCESS_AREA, WORKERS_AREA]);
 	}
 
-	it("takes a Hetzner token only once Hetzner accepts it", async () => {
+	it("takes the cloud's token only once the cloud accepts it", async () => {
 		const status = async () =>
 			(await setup().read()).areas[1]?.steps.find(
-				(step) => step.id === "hetzner-token",
+				(step) => step.id === "cloud-token",
 			)?.status;
 		expect(await status()).toBe("ready");
 
 		await machine.device.set(HCLOUD_TOKEN, "token");
 		tokenStatus = 401;
 		expect(await status()).toBe("ready");
-		await expect(setup().submit("hetzner-token", {})).rejects.toThrow(
+		await expect(setup().submit("cloud-token", {})).rejects.toThrow(
 			"Hetzner does not take that token",
 		);
 
@@ -65,12 +65,12 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 
 	it("turns cloud workers on once the project names a provider, then builds the snapshot through it", async () => {
 		await machine.device.set(HCLOUD_TOKEN, "token");
-		await expect(setup().submit("hetzner-provider", {})).rejects.toThrow(
-			"names no `workerProvider` yet",
+		await expect(setup().submit("cloud-provider", {})).rejects.toThrow(
+			"names no `cloud` yet",
 		);
 
 		provider = new FakeWorkerProvider();
-		await setup().submit("hetzner-provider", {});
+		await setup().submit("cloud-provider", {});
 		await setup().submit("worker-snapshot", {});
 
 		expect(provider.getCalls()).toEqual([

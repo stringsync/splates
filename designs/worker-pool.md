@@ -358,8 +358,11 @@ provider calling a remote API could sit behind it later without changing
 it (settled; see [splates.md](splates.md)). A provider's price per hour is
 what the user pays, so the budget would count the same dollars either way.
 
-The first provider is `HetznerWorkerProvider` (`packages/server/workers/hetzner.ts`,
-built 2026-10-17): Hetzner Cloud in the EU (Nuremberg, Falkenstein, Helsinki,
+The cloud provider is `CloudWorkers` (`packages/server/cloud/workers.ts`),
+which makes workers over any `CloudProvider` (`cloud/provider.ts`, since
+2026-10-19), as the coordinator's box is made over one too; a project turns
+it on with `cloud` in `splates.config.ts`. The first cloud is `HetznerCloud`
+(`cloud/hetzner.ts`, built 2026-10-17 as `HetznerWorkerProvider`): Hetzner Cloud in the EU (Nuremberg, Falkenstein, Helsinki,
 the first with stock), CPX62 workers, and CX53 ones whenever Hetzner can make
 one, since it is offered only while orderable and placement takes the
 cheapest. It calls the Hetzner API (`HetznerApi`, token `HCLOUD_TOKEN`)

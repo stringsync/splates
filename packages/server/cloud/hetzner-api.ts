@@ -1,5 +1,6 @@
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
+import type { FirewallRule } from "./provider";
 
 /** The device cred the Hetzner Cloud API token is kept as, named as Hetzner's own tools read it. */
 export const HCLOUD_TOKEN = "HCLOUD_TOKEN";
@@ -330,14 +331,6 @@ export interface NewServer {
 	labels: Record<string, string>;
 	sshKeys?: string[];
 	firewalls?: string[];
-}
-
-/** One inbound rule of a Hetzner firewall. */
-export interface FirewallRule {
-	direction: "in";
-	protocol: "tcp" | "udp" | "icmp";
-	port: string;
-	sourceIps: string[];
 }
 
 /** How long an action is waited on before it counts as stuck. */

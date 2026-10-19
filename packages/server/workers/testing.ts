@@ -2,11 +2,6 @@ export { FakeWorkerAccess } from "./fake-access";
 
 import { MemoryWorkerSocket } from "./memory-socket";
 
-export type {
-	FakeHetznerRequest,
-	FakeServer,
-} from "./fake-hetzner";
-export { FakeHetzner } from "./fake-hetzner";
 export { FakeWorkerProvider } from "./fake-provider";
 
 /** Two ends of an in-memory connection, for tests. */

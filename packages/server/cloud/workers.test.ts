@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { Duration } from "webappwiz/time";
-import { FakeHetzner } from "./fake-hetzner";
-import { HetznerWorkerProvider } from "./hetzner";
-import { HCLOUD_TOKEN } from "./hetzner-api";
+import { HCLOUD_TOKEN, HetznerCloud } from "./index";
+import { FakeHetzner } from "./testing";
+import { CloudWorkers } from "./workers";
 
-describe("HetznerWorkerProvider", () => {
+describe("CloudWorkers in Hetzner", () => {
 	let hetzner: FakeHetzner;
 	let store: FakeSecretStore;
 	let stuck: boolean;
 	let now: number;
-	let provider: HetznerWorkerProvider;
+	let provider: CloudWorkers;
 
 	beforeEach(async () => {
 		hetzner = new FakeHetzner();
@@ -23,18 +23,17 @@ describe("HetznerWorkerProvider", () => {
 		await store.set(HCLOUD_TOKEN, "token");
 		stuck = false;
 		now = 1000;
-		provider = new HetznerWorkerProvider({
-			store,
-			fetch: hetzner.fetch,
-			wall: { now: () => now },
-			wait: async () => {
-				if (!stuck) {
-					for (const builder of hetzner.labelled("splates-snapshot-builder")) {
-						builder.status = "off";
-					}
+		const wait = async () => {
+			if (!stuck) {
+				for (const builder of hetzner.labelled("splates-snapshot-builder")) {
+					builder.status = "off";
 				}
-			},
-		});
+			}
+		};
+		provider = new CloudWorkers(
+			new HetznerCloud({ store, fetch: hetzner.fetch, wait }),
+			{ wall: { now: () => now }, wait },
+		);
 	});
 
 	it("offers the CX53 only while one of its locations can make it", async () => {
@@ -82,7 +81,7 @@ describe("HetznerWorkerProvider", () => {
 		hetzner.stock = { nbg1: ["cpx62"] };
 		await expect(
 			provider.create({ id: "w", type: "cx53", snapshot: "1", boot: [] }),
-		).rejects.toThrow("Hetzner cannot make a cx53 in nbg1, fsn1, hel1");
+		).rejects.toThrow("Hetzner Cloud cannot make a cx53 in nbg1, fsn1, hel1");
 
 		hetzner.refuseCreate = "server limit reached";
 		await expect(
@@ -190,7 +189,7 @@ describe("HetznerWorkerProvider", () => {
 		await store.delete(HCLOUD_TOKEN);
 
 		await expect(provider.types()).rejects.toThrow(
-			"do the setup step `hetzner-token`",
+			"do the setup step `cloud-token`",
 		);
 	});
 });

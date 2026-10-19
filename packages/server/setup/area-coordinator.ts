@@ -1,5 +1,6 @@
 import { MemoryLogger } from "webappwiz/log";
 import { FileLock } from "webappwiz/system";
+import { machineCloud } from "../cloud";
 import {
 	CoordinatorBox,
 	type CoordinatorMove,
@@ -11,12 +12,12 @@ import {
 import { SYSTEM_STORES } from "../creds";
 import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
-import { HCLOUD_TOKEN } from "../workers";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import {
-	HETZNER_TOKEN_FIELD,
-	HETZNER_TOKEN_REFUSED,
-	hetznerTokenAccepted,
+	CLOUD_TOKEN_FIELD,
+	CLOUD_TOKEN_REFUSED,
+	cloudOf,
+	cloudTokenAccepted,
 } from "./area-workers";
 import { coordinatorMoved } from "./coordinator-move";
 import { setupProjectAt } from "./project";
@@ -38,6 +39,9 @@ export interface CoordinatorAreaDeps {
 /** A project as the move checks its remote. */
 export type MovingProject = Parameters<typeof remoteProblem>[0];
 
+/** The box the machine's cloud makes, as its step says it. */
+const BOX = machineCloud().defaults.box;
+
 export const COORDINATOR_AREA: SetupArea = coordinatorArea();
 
 /**
@@ -58,28 +62,28 @@ export function coordinatorArea(
 	const boxStep: SetupStep = {
 		id: "coordinator-box",
 		title: "Make the server's box",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a CPX21 in Hetzner's Ashburn, Virginia, with Hetzner's daily backups, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Paste a Hetzner Cloud API token, or leave the one saved, and Next makes the box in that account: about $38 a month, its backups 20% more.",
-		agent: `Without the cred \`${HCLOUD_TOKEN}\`, request it with \`splates creds request ${HCLOUD_TOKEN} --device\` and \`splates creds wait ${HCLOUD_TOKEN}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
+		why: `An always-on box keeps the page, the queue and merging up while this machine sleeps. It is ${BOX.about}, reached by SSH alone; it serves nothing until the server is deployed to it.`,
+		user: `Paste a ${CLOUD_TOKEN_FIELD.label}, or leave the one saved, and Next makes the box in that account.`,
+		agent: `Without the cred \`${CLOUD_TOKEN_FIELD.name}\`, request it with \`splates creds request ${CLOUD_TOKEN_FIELD.name} --device\` and \`splates creds wait ${CLOUD_TOKEN_FIELD.name}\`, never in chat. Then press Next on the page, or run \`splates server deploy --dry-run\`, which makes the box, then stops once it is ready or says what the deploy still needs; \`splates server status\` prints its address.`,
 		optional: true,
 		after: [],
 		// The page asks for the token here, so this journey never sends the user to another for it.
-		fields: [HETZNER_TOKEN_FIELD],
+		fields: [CLOUD_TOKEN_FIELD],
 		doing: "Making the coordinator's box, a few minutes…",
-		notDone: HETZNER_TOKEN_REFUSED,
+		notDone: CLOUD_TOKEN_REFUSED,
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
-			// Without a token Hetzner takes there is no box to ask it about.
-			if (!(await hetznerTokenAccepted(machine))) {
+			// Without a token the cloud takes there is no box to ask it about.
+			if (!(await cloudTokenAccepted(machine))) {
 				return false;
 			}
 			return (await box(machine).status()) !== null;
 		},
 		submit: async (machine) => {
-			if (!(await hetznerTokenAccepted(machine))) {
-				throw new Error(HETZNER_TOKEN_REFUSED);
+			if (!(await cloudTokenAccepted(machine))) {
+				throw new Error(CLOUD_TOKEN_REFUSED);
 			}
 			await box(machine).up();
 		},
@@ -201,11 +205,10 @@ async function machineProjects(
 function box(machine: SetupMachine): CoordinatorBox {
 	return new CoordinatorBox({
 		version: RUNNING,
+		cloud: cloudOf(machine),
 		ps: machine.ps,
 		fs: machine.fs,
 		home: machine.home,
-		store: machine.device,
-		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
 	});
 }
 

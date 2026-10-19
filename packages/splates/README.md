@@ -239,9 +239,25 @@ serving on this machine.
 
 ### Worker providers
 
-To have splates make workers when agents queue for want of a slot, give
-`splates.config.ts`, in the repo `splates server` starts in, a
-`workerProvider`, any object that implements `WorkerProvider`:
+To have splates make workers when agents queue for want of a slot, name the
+cloud account to make them in as `splates.config.ts`'s `cloud`, in the repo
+`splates server` starts in:
+
+```ts
+import { HetznerCloud } from "@stringsync/splates-server/cloud";
+import type { ConfigFile } from "@stringsync/splates-server/config";
+
+export default { cloud: new HetznerCloud() } satisfies ConfigFile;
+```
+
+Hetzner Cloud is the only one so far. Another is a class that implements
+`CloudProvider` from `@stringsync/splates-server/cloud`: making, listing and
+deleting tagged machines, snapshots, SSH keys and firewalls through the
+cloud's API, with its machine types and prices. splates makes both the
+workers and the coordinator's box (`splates server deploy`) over it.
+
+For machines that are not a cloud's, give it a `workerProvider` instead, any
+object that implements `WorkerProvider`:
 
 ```ts
 import type { ConfigFile } from "@stringsync/splates-server/config";

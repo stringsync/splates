@@ -89,11 +89,12 @@ PowerShell as an administrator there: the worker in a WSL2 distro of its own,
 started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
 on in its BIOS and adapter, so splates wakes it when agents queue, before
 making a worker; `splates worker wake <id>` wakes one by hand). Workers
-in their own cloud account start with `hetzner-token` (the cred
-`HCLOUD_TOKEN`), `hetzner-provider` (a task adding
-`workerProvider: new HetznerWorkerProvider()` to `splates.config.ts`) and
+in their own cloud account start with `cloud-token` (the cloud's API token,
+`HCLOUD_TOKEN` for Hetzner Cloud, the only cloud so far), `cloud-provider`
+(a task adding `cloud: new HetznerCloud()`, from
+`@stringsync/splates-server/cloud`, to `splates.config.ts`) and
 `worker-snapshot` (builds the snapshot workers boot from); and, only when
-`splates.config.ts` names a `workerProvider`, `worker-budget` (what made
+`splates.config.ts` names a `cloud` or a `workerProvider`, `worker-budget` (what made
 workers may cost: `splates budget set <hour|day|month> <dollars>`; any set counts
 as the user having seen it). Walk them
 through it as the steps at the top say. Each checks
@@ -101,8 +102,8 @@ through it as the steps at the top say. Each checks
 
 When the user asks for an always-on server, that is the Cloud server setup
 area, all of it `splates server deploy`: it makes the box when there is none
-(the `coordinator-box` step, which asks for the Hetzner token `HCLOUD_TOKEN`
-on its own page, so request it there as for `hetzner-token`: a CPX21 in Hetzner's
+(the `coordinator-box` step, which asks for the cloud's token on its own
+page, so request it there as for `cloud-token`: in Hetzner Cloud, a CPX21 in
 Ashburn with daily backups, SSH alone open, its key under
 `~/.splates/coordinator`), then deploys the server onto it. That needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the

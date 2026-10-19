@@ -1,3 +1,4 @@
+import { machineCloud } from "@stringsync/splates-server/cloud";
 import {
 	BoxShell,
 	type BoxStanding,
@@ -25,7 +26,7 @@ import { z } from "zod";
  */
 export const splatesServer = cli<SplatesDeps>("server")
 	.description(
-		"the splates server: run it on this machine, or deploy it to an always-on box in your own Hetzner Cloud account, a CPX21 in Ashburn with Hetzner's daily backups reached by SSH alone, made through Hetzner's API with the token the Cloud workers setup keeps",
+		`the splates server: run it on this machine, or deploy it to an always-on box in your own ${machineCloud().name} account, ${machineCloud().defaults.box.about}, reached by SSH alone and made through its API with the token the setup keeps`,
 	)
 	.fallback("run");
 
@@ -149,7 +150,7 @@ splatesServer
 splatesServer
 	.command("status")
 	.description(
-		"print where the server runs, here or deployed to its box, and the box as Hetzner has it",
+		"print where the server runs, here or deployed to its box, and the box as its cloud has it",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action(async (opts, ctx) => {

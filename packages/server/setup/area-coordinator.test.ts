@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { HCLOUD_TOKEN } from "../workers";
-import { FakeHetzner } from "../workers/testing";
+import { HCLOUD_TOKEN } from "../cloud";
+import { FakeHetzner } from "../cloud/testing";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
 
