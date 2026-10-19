@@ -18,6 +18,7 @@ describe("CoordinatorBox in DigitalOcean", () => {
 		fs = new FakeFs();
 		digitalocean = new FakeDigitalOcean();
 		digitalocean.actionsRun = true;
+		digitalocean.stock = { nyc3: ["s-2vcpu-4gb"], sfo3: ["s-2vcpu-4gb"] };
 		const store = new FakeSecretStore();
 		await store.set(DIGITALOCEAN_TOKEN, "token");
 		await new ChosenCloud(HOME, fs).choose("digitalocean");
@@ -59,6 +60,24 @@ describe("CoordinatorBox in DigitalOcean", () => {
 		const [key] = digitalocean.sshKeys.values();
 		expect(key?.public_key).toBe("ssh-ed25519 AAAA splates-coordinator");
 		expect(made?.ssh_keys).toEqual([key?.id ?? 0]);
+	});
+
+	it("makes it in the next region when New York cannot take its size", async () => {
+		digitalocean.stock = { nyc3: ["s-1vcpu-2gb"], sfo3: ["s-2vcpu-4gb"] };
+
+		const standing = await box.up();
+
+		expect(standing.location).toBe("sfo3");
+		expect(droplet()?.region.slug).toBe("sfo3");
+	});
+
+	it("makes nothing when no region can take its size", async () => {
+		digitalocean.stock = { nyc3: ["s-1vcpu-2gb"] };
+
+		await expect(box.up()).rejects.toThrow(
+			"DigitalOcean cannot make a s-2vcpu-4gb in nyc3, nyc1, sfo3 right now",
+		);
+		expect(digitalocean.droplets.size).toBe(0);
 	});
 
 	it("lets SSH alone in, and everything out", async () => {

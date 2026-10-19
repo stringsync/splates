@@ -21,6 +21,7 @@ describe("COORDINATOR_AREA's box step", () => {
 	beforeEach(async () => {
 		fs = new FakeFs();
 		hetzner = new FakeHetzner();
+		hetzner.stock = { ash: ["cpx21"] };
 		const device = new FakeSecretStore();
 		machine = {
 			fs,

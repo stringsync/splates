@@ -20,6 +20,7 @@ describe("CoordinatorBox", () => {
 		fs = new FakeFs();
 		ps = new KeygenPs(fs);
 		hetzner = new FakeHetzner();
+		hetzner.stock = { ash: ["cpx21"], hil: ["cpx21"] };
 		store = new FakeSecretStore();
 		await store.set(HCLOUD_TOKEN, "token");
 		await new ChosenCloud(HOME, fs).choose("hetzner");

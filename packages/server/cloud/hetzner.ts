@@ -205,10 +205,10 @@ export const HETZNER_DEFAULTS: CloudDefaults = {
 		// month in Ashburn after Hetzner's 15 June 2026 prices, its daily
 		// backups 20% more.
 		type: "cpx21",
-		// Ashburn, Virginia: Hetzner's nearest to New Jersey.
-		location: "ash",
+		// Ashburn, Virginia: Hetzner's nearest to New Jersey; then Hillsboro, Oregon.
+		locations: ["ash", "hil"],
 		about:
-			"a Hetzner CPX21 in Ashburn, Virginia, with Hetzner's daily backups: about $38 a month, its backups 20% more",
+			"a Hetzner CPX21 in Ashburn, Virginia, or Hillsboro, Oregon, when Ashburn has none, with Hetzner's daily backups: about $38 a month, its backups 20% more",
 	},
 };
 

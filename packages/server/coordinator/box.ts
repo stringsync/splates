@@ -50,18 +50,20 @@ export class CoordinatorBox {
 		const cloud = await this.cloud();
 		const keyId = await cloud.ensureSshKey(BOX_NAME, await this.publicKey());
 		const firewall = await cloud.ensureFirewall(BOX_NAME, BOX_RULES);
-		const machine =
-			(await cloud.machines(BOX_TAG))[0] ??
-			(await cloud.create({
+		let machine = (await cloud.machines(BOX_TAG))[0];
+		if (machine === undefined) {
+			const type = this.opts.type ?? cloud.defaults.box.type;
+			machine = await cloud.create({
 				name: BOX_NAME,
-				type: this.opts.type ?? cloud.defaults.box.type,
+				type,
 				image: cloud.defaults.image,
-				location: this.opts.location ?? cloud.defaults.box.location,
+				location: this.opts.location ?? (await this.where(cloud, type)),
 				userData: installScript(this.opts.version),
 				tags: { [BOX_TAG]: "coordinator" },
 				sshKeys: [keyId],
 				firewalls: [firewall],
-			}));
+			});
+		}
 		if (!machine.backups) {
 			await cloud.enableBackups(machine.id);
 		}
@@ -104,6 +106,19 @@ export class CoordinatorBox {
 		}
 		await cloud.removeFirewall(BOX_NAME);
 		await cloud.removeSshKey(BOX_NAME);
+	}
+
+	/** The first of the cloud's box locations where `type` can be ordered now. */
+	private async where(cloud: CloudProvider, type: string): Promise<string> {
+		const { locations } = cloud.defaults.box;
+		const at = (await cloud.orderable()).get(type);
+		const location = locations.find((each) => at?.has(each));
+		if (location === undefined) {
+			throw new Error(
+				`${cloud.name} cannot make a ${type} in ${locations.join(", ")} right now`,
+			);
+		}
+		return location;
 	}
 
 	/** Its SSH public key, making the pair first when there is none. */

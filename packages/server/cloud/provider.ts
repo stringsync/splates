@@ -83,7 +83,8 @@ export interface CloudDefaults {
 	/** The coordinator's box. */
 	box: {
 		type: string;
-		location: string;
+		/** Where it goes, in the order tried, the first its type can be ordered in taken. */
+		locations: readonly string[];
 		/** What it is and costs, in a sentence, as the setup page says it. */
 		about: string;
 	};

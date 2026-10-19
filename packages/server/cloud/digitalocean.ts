@@ -211,9 +211,10 @@ export const DIGITALOCEAN_DEFAULTS: CloudDefaults = {
 		// 2 vCPU and 4 GB: the server takes ~0.6 GB with 7 sessions, and
 		// agents and their tests run on workers.
 		type: "s-2vcpu-4gb",
-		location: "nyc3",
+		// New York first, as for workers: a region stops taking a size at times.
+		locations: ["nyc3", "nyc1", "sfo3"],
 		about:
-			"a DigitalOcean Basic droplet, 2 vCPU and 4 GB, in New York, with DigitalOcean's daily backups: about $24 a month, its backups 30% more",
+			"a DigitalOcean Basic droplet, 2 vCPU and 4 GB, in New York, or San Francisco when New York has none, with DigitalOcean's daily backups: about $24 a month, its backups 30% more",
 	},
 };
 
