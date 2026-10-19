@@ -84,7 +84,11 @@ export class WorktreeService {
 		this.removedDir = `${splatesDir}/removed`;
 		this.conversationsDir = `${splatesDir}/conversations`;
 		this.plansDir = `${splatesDir}/plans`;
-		this.finished = new Finished(`${splatesDir}/finished`, this.fs);
+		this.finished = new Finished(
+			`${splatesDir}/finished`,
+			this.fs,
+			config.finishedCapacity,
+		);
 	}
 
 	/**

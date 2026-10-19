@@ -31,6 +31,7 @@ describe("WorktreeService", () => {
 			leaseStalenessMs: 90_000,
 			mergeRetryCount: 2,
 			removedCapacity: 50,
+			finishedCapacity: 500,
 			logCapacity: 200,
 			taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 			attachmentCapacity: 100 * 1024 * 1024,
@@ -117,6 +118,35 @@ describe("WorktreeService", () => {
 		await worktrees.discard(await worktrees.find("alpha"), "removed");
 
 		expect((await fs.readdir(removed)).sort()).toEqual(["alpha", "newest"]);
+	});
+
+	it("keeps as many finished tasks as the config says", async () => {
+		const fs = new FakeFs();
+		config.finishedCapacity = 1;
+		const worktrees = new WorktreeService(git(fs), config, SPLATES_DIR, {
+			fs: fs,
+			ps: ps,
+		});
+		const ended = (id: number) => ({
+			id,
+			task: `task-${id}`,
+			subject: "",
+			ended: "merged" as const,
+			reason: null,
+			base: "main",
+			commit: null,
+			startedAt: "2026-10-01T00:00:00.000Z",
+			endedAt: `2026-10-0${id}T00:00:00.000Z`,
+			conversation: null,
+			took: [],
+			plan: "",
+		});
+		await worktrees.finished.record(ended(1));
+		await worktrees.finished.record(ended(2));
+
+		expect((await worktrees.finished.list()).map((each) => each.id)).toEqual([
+			2,
+		]);
 	});
 });
 

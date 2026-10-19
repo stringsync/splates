@@ -71,6 +71,7 @@ function defaults(root: string, trunk: string): Config {
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 3,
 		removedCapacity: 50,
+		finishedCapacity: 500,
 		logCapacity: 1000,
 		taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		attachmentCapacity: 100 * 1024 * 1024,

@@ -59,6 +59,12 @@ export interface Config {
 	 */
 	removedCapacity: number;
 	/**
+	 * How many finished tasks to keep, each with the `SPLATES.md` it ended on,
+	 * for the Tasks page's Finished list, which shows every one kept. The
+	 * oldest to finish goes first.
+	 */
+	finishedCapacity: number;
+	/**
 	 * How many events the log holds before it is moved aside and a fresh one
 	 * starts; moved files are kept for `LOG_KEPT_MS` (`journal.ts`).
 	 */

@@ -41,7 +41,7 @@ export class Finished {
 		readonly dir: string,
 		private readonly fs: Fs,
 		/** How many it keeps, the oldest going first. */
-		private readonly capacity = FINISHED_KEPT,
+		private readonly capacity: number,
 	) {}
 
 	async record(finished: Omit<FinishedPlan, "key">): Promise<void> {
@@ -95,9 +95,6 @@ export class Finished {
 		return `${this.dir}/${key}.md`;
 	}
 }
-
-/** How many finished tasks a repo keeps by default. */
-export const FINISHED_KEPT = 500;
 
 const KEY = /^\d+-\d+$/;
 const KEY_FILE = /^\d+-\d+\.md$/;
