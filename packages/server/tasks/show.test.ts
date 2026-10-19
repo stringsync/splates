@@ -119,7 +119,7 @@ describe("show", () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.finish(alpha);
-		await escalate(deps, "drag a todo on the board", alpha, { review: true });
+		await escalate(deps, "drag a task on the board", alpha, { review: true });
 		deps.log.clear();
 
 		await show(deps, "alpha", { json: true });
@@ -127,7 +127,7 @@ describe("show", () => {
 		const details = JSON.parse(deps.out());
 		expect(details).toMatchObject({
 			status: "escalated",
-			review: "drag a todo on the board",
+			review: "drag a task on the board",
 			ready: true,
 		});
 		// A review asks no question, so it leaves no ## Blocked behind.

@@ -59,16 +59,16 @@ export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./ports";
 const BIND_ATTEMPTS = 5;
 
 /**
- * Serves what `todo list`, `list` and `show` print as one page that refetches
+ * Serves what `task list`, `list` and `show` print as one page that refetches
  * when the repo changes, where a person adds, edits, reorders and removes
- * todos. Anything that moves a task (merge, claim) stays in the CLI, and
- * removing one answers only to this machine's own names, so a page that
- * should not have been reachable can at worst change a todo.
+ * queued tasks. Anything that moves a started task (merge, claim) stays in
+ * the CLI, and removing one answers only to this machine's own names, so a page that
+ * should not have been reachable can at worst change a queued task.
  *
  * Given `conversations`, the page also talks to agents, which run commands on
  * this machine. Those routes answer only to this machine's own names, or,
  * given `access`, to a host `hosts` lets in once Cloudflare Access verified
- * who is asking; without it, a tunnel still reaches no further than the todos.
+ * who is asking; without it, a tunnel still reaches no further than the queued tasks.
  */
 export async function dev(
 	deps: DevMachine,
@@ -592,25 +592,25 @@ export async function dev(
 					"/api/tasks/:task": {
 						DELETE: talk(scoped((project) => project.removeTask)),
 					},
-					"/api/todos": { POST: scoped((project) => project.addTodo) },
+					"/api/todos": { POST: scoped((project) => project.addQueued) },
 					"/api/todos/:id": {
-						PATCH: scoped((project) => project.updateTodo),
-						DELETE: scoped((project) => project.removeTodo),
+						PATCH: scoped((project) => project.updateQueued),
+						DELETE: scoped((project) => project.removeQueued),
 					},
 					"/api/todos/:id/restore": {
-						POST: scoped((project) => project.restoreTodo),
+						POST: scoped((project) => project.restoreQueued),
 					},
 					"/api/todos/:id/position": {
-						PUT: scoped((project) => project.moveTodo),
+						PUT: scoped((project) => project.moveQueued),
 					},
 					"/api/todos/:id/blocked-by": {
-						PUT: scoped((project) => project.linkTodo),
+						PUT: scoped((project) => project.linkQueued),
 					},
 					"/api/todos/:id/lane": {
-						PUT: scoped((project) => project.arrangeTodo),
+						PUT: scoped((project) => project.arrangeQueued),
 					},
 					"/api/todos/:id/assignee": {
-						PUT: scoped((project) => project.assignTodo),
+						PUT: scoped((project) => project.assignQueued),
 					},
 					"/api/lanes/:id/join": {
 						POST: scoped((project) => project.joinLane),

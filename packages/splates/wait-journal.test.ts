@@ -59,30 +59,30 @@ describe("splates's waits in the journal", () => {
 		);
 	});
 
-	it("logs a todo wait with the todo's subject, and how it gave up", async () => {
-		await splates.run(deps, ["todo", "add", "Seven", "detail"]);
-		const [todo] = await env.todos.all();
+	it("logs a queued task wait with its subject, and how it gave up", async () => {
+		await splates.run(deps, ["task", "add", "Seven", "detail"]);
+		const [queued] = await env.tasks.all();
 
 		await splates.run(deps, [
-			"todo",
+			"task",
 			"wait",
-			String(todo?.id),
+			String(queued?.id),
 			"--timeout-secs",
 			"0",
 		]);
 
 		const [began, ended] = await env.journal.tail(2);
 		expect(began).toMatchObject({
-			action: "todo wait",
+			action: "task wait",
 			reason: null,
-			todo: todo?.id,
+			number: queued?.id,
 			subject: "Seven",
 			began: null,
 		});
 		expect(ended).toMatchObject({
-			action: "todo wait",
+			action: "task wait",
 			reason: "timeout",
-			todo: todo?.id,
+			number: queued?.id,
 			began: began?.id,
 		});
 	});

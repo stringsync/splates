@@ -130,8 +130,8 @@ export async function reportToCaller(
 		return;
 	}
 	const here = await service.holds(ends.caller);
-	// A lane's orchestrator here hears of its todos from `splates server` instead;
-	// one of another project's page has no todo here to hear of.
+	// A lane's orchestrator here hears of its queued tasks from `splates server` instead;
+	// one of another project's page has no queued task here to hear of.
 	if (here) {
 		return;
 	}

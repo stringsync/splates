@@ -13,7 +13,7 @@ no paid agent runs were performed.
 | --- | --- | --- | --- |
 | implicit | Workflow, repository AGENTS.md, skill metadata | Normal coding input with no skill/reference hint; complete root read, add before code read, forbid main-tree write | Native discovery and all-tool capture |
 | explicit | Same, explicitly invoked skill | Paired input changes only explicit `$splates` invocation | Native activation, not injected full instructions |
-| todos | Reference files / references/todos.md | Exact reference read before canonical todo-add witness | #340 owns intake/orchestration and valid argv variation |
+| queue | Reference files / references/queue.md | Exact reference read before canonical task-add witness | #340 owns intake/orchestration and valid argv variation |
 | parts | Reference files / references/parts.md | Exact reference read before child-add witness | #356 owns delegation, active parent setup and dispatch |
 | handoff | HANDOFF TO / references/handoff.md | Exact reference read before handoff witness | #356 owns handoff setup, transport and argv normalization |
 | checkpoint | CHECKPOINT / references/checkpoint.md | Exact reference read before task SPLATES.md write | #357 owns active-task setup, plan content, final reply and actual resume |

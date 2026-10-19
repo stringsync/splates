@@ -142,17 +142,17 @@ const LINES: {
 					words: ["Retry failed", task(event)],
 					at: event.at,
 				},
-	"todo update": (event) =>
+	"task update": (event) =>
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }
 			: null,
 	// A refused add made no todo to name, and the agent says why itself.
-	"todo add": (event) =>
+	"task add": (event) =>
 		event.reason === null
 			? {
 					words: [
 						"Added",
-						{ kind: "todo", id: event.todo, subject: event.subject },
+						{ kind: "todo", id: event.number, subject: event.subject },
 					],
 					at: event.at,
 				}
@@ -161,9 +161,9 @@ const LINES: {
 	"lane add": (event) => laned("Started", event),
 	"lane update": (event) => laned("Updated", event),
 	"lane remove": (event) => laned("Removed", event),
-	"todo take": (event) => todoLine("Took", event),
-	"todo release": (event) => todoLine("Released", event),
-	"todo remove": (event) => todoLine("Removed", event),
+	"task take": (event) => todoLine("Took", event),
+	"task release": (event) => todoLine("Released", event),
+	"task remove": (event) => todoLine("Removed", event),
 	"creds request": (event) =>
 		event.reason === null && event.asked
 			? {
@@ -206,11 +206,11 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 /** The line a command on todos draws, none when it was refused. */
 function todoLine(
 	verb: string,
-	event: EventOf<"todo take" | "todo release" | "todo remove">,
+	event: EventOf<"task take" | "task release" | "task remove">,
 ): SplatesEventView | null {
-	return event.todos === undefined
+	return event.tasks === undefined
 		? null
-		: { words: [verb, todos(event.todos)], at: event.at };
+		: { words: [verb, todos(event.tasks)], at: event.at };
 }
 
 /**
@@ -227,12 +227,12 @@ function lineOfRun(
 	if (isWait(event)) {
 		return waitLine(event, also.find(isWait) ?? null, going, now);
 	}
-	if (also.length === 0 || event.action !== "todo update") {
+	if (also.length === 0 || event.action !== "task update") {
 		return lineOf(event);
 	}
 	const todos = [event, ...also].flatMap((each) =>
-		each.action === "todo update" && each.reason === null
-			? [{ id: each.todo, subject: each.subject, note: noteOf(each) }]
+		each.action === "task update" && each.reason === null
+			? [{ id: each.number, subject: each.subject, note: noteOf(each) }]
 			: [],
 	);
 	return { words: ["Updated", { kind: "todos", todos }], at: event.at };
@@ -254,8 +254,8 @@ function EventLine({
 	if (view === null) {
 		return null;
 	}
-	if (event.action === "todo add" && event.reason === null) {
-		return <AddedLine view={view} id={event.todo} />;
+	if (event.action === "task add" && event.reason === null) {
+		return <AddedLine view={view} id={event.number} />;
 	}
 	const start = startOf(event);
 	return start === null ? (
@@ -321,12 +321,12 @@ function laned(
 
 type EventOf<A extends Action> = Extract<Event, { action: A }>;
 
-type Wait = EventOf<"wait" | "todo wait" | "creds wait">;
+type Wait = EventOf<"wait" | "task wait" | "creds wait">;
 
 function isWait(event: Event): event is Wait {
 	return (
 		event.action === "wait" ||
-		event.action === "todo wait" ||
+		event.action === "task wait" ||
 		event.action === "creds wait"
 	);
 }
@@ -376,10 +376,10 @@ function waitedOn(event: Wait): Named {
 	switch (event.action) {
 		case "wait":
 			return task(event);
-		case "todo wait":
+		case "task wait":
 			return {
 				kind: "todo",
-				id: event.todo ?? 0,
+				id: event.number ?? 0,
 				subject: event.subject ?? "",
 			};
 		case "creds wait":
@@ -425,7 +425,7 @@ function removedNote(event: EventOf<"remove">): string | undefined {
 	return notes.length === 0 ? undefined : notes.join("\n");
 }
 
-type Updated = Extract<Event, { action: "todo update"; reason: null }>;
+type Updated = Extract<Event, { action: "task update"; reason: null }>;
 
 {
 	/** The todo an update is about, as a chip whose title says what changed. */
@@ -433,7 +433,7 @@ type Updated = Extract<Event, { action: "todo update"; reason: null }>;
 function todo(event: Updated): Named {
 	return {
 		kind: "todo",
-		id: event.todo,
+		id: event.number,
 		subject: event.subject,
 		note: noteOf(event),
 	};

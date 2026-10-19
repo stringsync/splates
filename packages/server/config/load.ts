@@ -32,7 +32,7 @@ export async function loadConfig(
 	root: string,
 	opts: LoadConfigOptions = {},
 ): Promise<Config> {
-	const found = await new ConfigFiles(opts.fs).read(root);
+	const found = renamedSettings(await new ConfigFiles(opts.fs).read(root));
 	// Only a repo that has not said which branch is its trunk pays for the
 	// detecting spawn.
 	const trunk =
@@ -40,6 +40,19 @@ export async function loadConfig(
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
 	return { ...defaults(root, trunk), ...found };
+}
+
+/**
+ * `found` with each setting under the name this splates reads it by: a
+ * `splates.config.ts` from before todos became tasks says `todoStalenessMs`.
+ */
+function renamedSettings(
+	found: Partial<Config> & { todoStalenessMs?: number },
+): Partial<Config> {
+	const { todoStalenessMs, ...rest } = found;
+	return todoStalenessMs === undefined || rest.taskStalenessMs !== undefined
+		? rest
+		: { ...rest, taskStalenessMs: todoStalenessMs };
 }
 
 function defaults(root: string, trunk: string): Config {
@@ -59,7 +72,7 @@ function defaults(root: string, trunk: string): Config {
 		mergeRetryCount: 3,
 		removedCapacity: 50,
 		logCapacity: 1000,
-		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
+		taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		attachmentCapacity: 100 * 1024 * 1024,
 		artifactFileCapacity: ARTIFACT_LIMITS.file,
 		artifactConversationCapacity: ARTIFACT_LIMITS.conversation,

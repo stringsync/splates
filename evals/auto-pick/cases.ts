@@ -28,7 +28,7 @@ export const CASES: Case[] = [
 	},
 	{
 		prompt:
-			"The todo list's AGE column shows '1h' for a todo added a day ago. Fix it and add a test.",
+			"The task list's AGE column shows '1h' for a task added a day ago. Fix it and add a test.",
 		tier: 2,
 	},
 	{

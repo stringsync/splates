@@ -72,7 +72,7 @@ export interface MoveOptions {
 
 /**
  * Moves arbor's directory `old` to `next` and leaves a link at `old`, so the
- * absolute paths records hold, attachments named in plans, todos and
+ * absolute paths records hold, attachments named in plans, tasks and
  * conversations above all, still resolve. Does nothing once moved, or when
  * `next` is already there. Answers whether it moved.
  */
@@ -117,7 +117,7 @@ export async function movePlan(
 
 /**
  * `path` under `.git/splates` when it names a file under `.git/arbor`, as
- * plans, todos and conversations written before the move do.
+ * plans, tasks and conversations written before the move do.
  */
 export function movedPath(path: string): string {
 	return path.replace(`/.git/${LEGACY_DIR}/`, "/.git/splates/");

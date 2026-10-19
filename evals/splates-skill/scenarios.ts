@@ -16,11 +16,11 @@ import { CORE, type Scenario } from "./scenario";
 
 export const SCENARIOS: readonly Scenario[] = [
 	{
-		id: "todo",
-		turns: ["[SPLATES TODO #1]"],
+		id: "queue",
+		turns: ["[SPLATES TASK #1]"],
 		sections: [
 			...CORE,
-			"Todos",
+			"Queueing tasks",
 			"SPLATES.md",
 			"Committing",
 			"Merge or review",
@@ -29,13 +29,13 @@ export const SCENARIOS: readonly Scenario[] = [
 		checks: [
 			STARTS,
 			{
-				id: "took-todo",
-				rule: "Reads the todo, then adds a task taking it",
+				id: "took-queued",
+				rule: "Reads the queued task, then adds a started task taking it",
 				judge: ({ log }) => {
 					const runs = splatesRuns(log.transcript.beats);
 					const show = runs.findIndex(
 						(run) =>
-							run.verb === "todo" &&
+							run.verb === "task" &&
 							run.args[0] === "show" &&
 							run.args[1] === "1",
 					);
@@ -50,7 +50,7 @@ export const SCENARIOS: readonly Scenario[] = [
 								? "showed #1, then took it"
 								: show === -1
 									? "never showed #1"
-									: "did not add it with --todo 1",
+									: "did not add it with --task 1",
 						},
 					];
 				},
@@ -127,8 +127,8 @@ export const SCENARIOS: readonly Scenario[] = [
 		],
 		sections: [
 			...CORE,
-			"Todos",
-			"Linking, placing and ordering todos",
+			"Queueing tasks",
+			"Linking, placing and ordering tasks",
 			"Links",
 			"Lanes",
 			"Positions",
@@ -148,29 +148,29 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 			{
 				id: "placed",
-				rule: "Adds the todo blocked by #1, in lane 1, near the top after reading the list",
+				rule: "Adds the queued task blocked by #1, in lane 1, near the top after reading the list",
 				judge: ({ log, end }) => {
-					const todo = end.todos.find((each) => each.id === 4);
-					if (todo === undefined) {
-						return [{ ok: false, why: "no todo added" }];
+					const added = end.queued.find((each) => each.id === 4);
+					if (added === undefined) {
+						return [{ ok: false, why: "no queued task added" }];
 					}
 					const runs = splatesRuns(log.transcript.beats);
 					const read = runs.findIndex(
-						(run) => run.verb === "todo" && run.args[0] === "list",
+						(run) => run.verb === "task" && run.args[0] === "list",
 					);
 					const placed = runs.findLastIndex(
 						(run) =>
-							run.verb === "todo" &&
+							run.verb === "task" &&
 							["add", "update"].includes(run.args[0] ?? ""),
 					);
 					const problems = [
-						...((todo.blockedBy as number[]).includes(1)
+						...((added.blockedBy as number[]).includes(1)
 							? []
 							: ["not blocked by #1"]),
-						...(todo.lane === 1 ? [] : [`in lane ${todo.lane}`]),
-						...((todo.position as number) <= 2
+						...(added.lane === 1 ? [] : [`in lane ${added.lane}`]),
+						...((added.position as number) <= 2
 							? []
-							: [`at position ${todo.position}`]),
+							: [`at position ${added.position}`]),
 						...(read !== -1 && read < placed
 							? []
 							: ["placed without reading the list"]),
@@ -182,15 +182,15 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 			{
 				id: "added-line",
-				rule: "Keeps the new todo's subject plain, and leaves heading it to its event line",
+				rule: "Keeps the new task's subject plain, and leaves heading it to its event line",
 				judge: ({ log, end }) => {
-					const todo = end.todos.find((each) => each.id === 4);
-					const subject = String(todo?.subject ?? "");
-					const headed = TODO_HEADING.test(lastSaid(log.transcript.beats));
+					const added = end.queued.find((each) => each.id === 4);
+					const subject = String(added?.subject ?? "");
+					const headed = TASK_HEADING.test(lastSaid(log.transcript.beats));
 					const problems = [
-						...(todo === undefined ? ["no todo added"] : []),
+						...(added === undefined ? ["no queued task added"] : []),
 						...(subject.includes("📝") ? ["📝 in the subject"] : []),
-						...(headed ? ["headed the added todo"] : []),
+						...(headed ? ["headed the added task"] : []),
 					];
 					return [
 						{
@@ -206,7 +206,7 @@ export const SCENARIOS: readonly Scenario[] = [
 	{
 		id: "part",
 		turns: [
-			"[SPLATES TODO #1]\n\nHand the tests for this to a subagent while you write the fix.",
+			"[SPLATES TASK #1]\n\nHand the tests for this to a subagent while you write the fix.",
 		],
 		sections: [
 			...CORE,
@@ -252,7 +252,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"subagent-brief: the subagent's prompt told it to `splates claim <part>` and work only in that worktree; not to escalate, report to the user, or take todos; to make each unsettled call itself and list in its reply what it chose and what else it could have done, never under `## Blocked`; and to squash and `splates merge` the part",
+			"subagent-brief: the subagent's prompt told it to `splates claim <part>` and work only in that worktree; not to escalate, report to the user, or take tasks; to make each unsettled call itself and list in its reply what it chose and what else it could have done, never under `## Blocked`; and to squash and `splates merge` the part",
 			"calls-recorded: each call the subagent listed was written by the parent under its own `## Notes`, or as a question under `## Blocked` when it needs the user (n/a when it listed none)",
 		],
 	},
@@ -263,7 +263,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			"[SPLATES TASK retry-413]\n\nIt waits on my review; show it to me.",
 			"Why stop on a 413 only, and not on every 4xx?",
 		],
-		setup: `splates add retry-413 --todo 1 && cd "$(splates path retry-413)" && sed -i.bak 's/if (status < 400) return;/if (status < 400) return;\\n\\t\\tif (status === 413) {\\n\\t\\t\\ttell("the file is too big to upload");\\n\\t\\t\\treturn;\\n\\t\\t}/' src/upload.ts && rm src/upload.ts.bak && git commit -qam "Stop retrying an upload refused as too big" && cat > SPLATES.md <<'EOF'
+		setup: `splates add retry-413 --task 1 && cd "$(splates path retry-413)" && sed -i.bak 's/if (status < 400) return;/if (status < 400) return;\\n\\t\\tif (status === 413) {\\n\\t\\t\\ttell("the file is too big to upload");\\n\\t\\t\\treturn;\\n\\t\\t}/' src/upload.ts && rm src/upload.ts.bak && git commit -qam "Stop retrying an upload refused as too big" && cat > SPLATES.md <<'EOF'
 # retry-413
 
 ## Goal
@@ -321,10 +321,10 @@ splates escalate --review "the message a too-big upload shows"`,
 	UNTRIAGED,
 ];
 
-/** A todo's heading in a reply, as one proposed. */
-const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
+/** A task's heading in a reply, as one proposed. */
+const TASK_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
 
-/** Whether `splates add` words take todo `id`. */
+/** Whether `splates add` words take queued task `id`. */
 function takes(args: string[], id: string): boolean {
-	return args[args.indexOf("--todo") + 1] === id && args.includes("--todo");
+	return args[args.indexOf("--task") + 1] === id && args.includes("--task");
 }

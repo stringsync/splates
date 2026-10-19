@@ -166,7 +166,7 @@ describe("App's offer to archive a conversation whose task is over", () => {
 			reason: null,
 			conversation: "c1",
 			base: "main",
-			todos: [],
+			tasks: [],
 			goal: "Fix the footer",
 			subjects: [],
 			agent: null,

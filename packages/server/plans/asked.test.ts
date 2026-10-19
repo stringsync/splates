@@ -20,10 +20,10 @@ describe("stretches", () => {
 				task: "<task>",
 				base: null,
 				to: null,
-				reason: "needs two calls on the todo board",
+				reason: "needs two calls on the task board",
 				body: "One sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
 				source:
-					"## ⚠️ Escalated <task>: needs two calls on the todo board\n\nOne sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
+					"## ⚠️ Escalated <task>: needs two calls on the task board\n\nOne sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
 			},
 		});
 		expect(found[1]).toEqual({
@@ -60,7 +60,7 @@ describe("stretches", () => {
 			},
 			{
 				number: "2",
-				text: "How should a stale todo be shown?",
+				text: "How should a stale task be shown?",
 				body: "",
 				choices: [
 					{
@@ -94,13 +94,13 @@ describe("stretches", () => {
 					base: "<base>",
 					summary: "One sentence on what changed.",
 					demo: {
-						title: "moving todos between lanes",
+						title: "moving tasks between lanes",
 						intro:
 							"Open http://localhost:4310 (a demo repo, nothing of yours).",
 						steps: [
 							{
 								number: "1",
-								action: "Drag a todo to another lane.",
+								action: "Drag a task to another lane.",
 								expect: "It lands where you drop it.",
 							},
 							{
@@ -114,7 +114,7 @@ describe("stretches", () => {
 					checks: ["bun run typecheck", "bun test"],
 					failed: [],
 					details:
-						"#### A drop saves the todo's lane and position in one write.\n\n- A reload never shows it half moved.\n- A drop on its own spot writes nothing.",
+						"#### A drop saves the task's lane and position in one write.\n\n- A reload never shows it half moved.\n- A drop on its own spot writes nothing.",
 				},
 			},
 		]);
@@ -392,7 +392,7 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a proposed todo anywhere in a message, up to the next heading or questions", () => {
+	it("reads a proposed task anywhere in a message, up to the next heading or questions", () => {
 		const found = stretches(
 			[
 				"Next up:",
@@ -431,12 +431,12 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("ends a proposed todo at its paragraph, leaving the message after it as text", () => {
+	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[
 				"### 📝 Install scry from npm [#162]",
 				"",
-				"No open todo relates to this lane,",
+				"No open task relates to this lane,",
 				"and this one is at the top of the list.",
 				"",
 				"Now for your question.",
@@ -451,7 +451,7 @@ describe("stretches", () => {
 				todo: {
 					id: 162,
 					subject: "Install scry from npm",
-					body: "No open todo relates to this lane,\nand this one is at the top of the list.",
+					body: "No open task relates to this lane,\nand this one is at the top of the list.",
 				},
 			},
 			{ type: "text", text: "Now for your question.\n\n- One real miss." },

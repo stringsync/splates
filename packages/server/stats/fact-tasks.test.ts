@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { taskAdd } from "../board";
 import { Testing } from "../testing";
-import { addFactTodos } from "./fact-todos";
+import { addFactTasks } from "./fact-tasks";
 import type { Outcome } from "./outcomes";
 
-describe.concurrent("addFactTodos", () => {
-	it("adds a todo for each failing test run of a merge, journaled, once", async () => {
+describe.concurrent("addFactTasks", () => {
+	it("adds a task for each failing test run of a merge, journaled, once", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "Tests failed: adds up", null);
 		await deps.outcomes.record(
@@ -16,11 +16,11 @@ describe.concurrent("addFactTodos", () => {
 			]),
 		);
 
-		await addFactTodos(deps, "alpha");
-		await addFactTodos(deps, "alpha");
+		await addFactTasks(deps, "alpha");
+		await addFactTasks(deps, "alpha");
 
 		expect(
-			(await deps.todos.all()).map(({ id, subject, from, lane }) => ({
+			(await deps.tasks.all()).map(({ id, subject, from, lane }) => ({
 				id,
 				subject,
 				from,
@@ -32,19 +32,19 @@ describe.concurrent("addFactTodos", () => {
 		]);
 		expect(
 			(await deps.journal.tail(10)).filter(
-				(event) => event.action === "todo add",
+				(event) => event.action === "task add",
 			),
 		).toMatchObject([
-			{ task: "alpha", todo: 2, subject: "Tests failed: counts" },
+			{ task: "alpha", number: 2, subject: "Tests failed: counts" },
 		]);
 	});
 
 	it("adds none for a task that never merged here", async () => {
 		await using deps = await Testing.open();
 
-		await addFactTodos(deps, "alpha");
+		await addFactTasks(deps, "alpha");
 
-		expect(await deps.todos.all()).toEqual([]);
+		expect(await deps.tasks.all()).toEqual([]);
 	});
 });
 

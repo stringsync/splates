@@ -1,15 +1,15 @@
 # Other projects
 
 The other splates projects on this machine are yours to read: their code in
-their directories, and their tasks, todos and lanes with `splates
---project <slug> <command>` (`splates list`, `todo list`, `show`
+their directories, and their tasks and lanes with `splates
+--project <slug> <command>` (`splates list`, `task list`, `show`
 and the like). `splates projects` lists them, with what each lets this one do
 and what this one lets each do. What you may do in one is what it grants
 this project:
 
 - **read**: look only.
-- **todos**, every project's unless it grants otherwise: `splates --project
-  <slug> todo add` what it should do, written as any todo is (see Todos in the skill),
+- **queue**, every project's unless it grants otherwise: `splates --project
+  <slug> task add` what it should do, written as any task is (see Queueing tasks in the skill),
   saying in its detail why your project needs it. Leave `--lane` off:
   whoever orchestrates that project places it.
 - **tasks**: hand it a task, `splates --project <slug> add <task> --goal

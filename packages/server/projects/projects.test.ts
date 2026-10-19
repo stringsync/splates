@@ -135,19 +135,33 @@ describe("Projects", () => {
 		]);
 	});
 
-	it("lets another project add todos until granted otherwise", async () => {
+	it("lets another project queue tasks until granted otherwise", async () => {
 		await using deps = await Testing.open({ init: false });
 		await deps.projects.register("/a/web");
 		await deps.projects.register("/c/api");
-		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("todos");
+		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("queue");
 
 		expect(await deps.projects.grant("/c/api", "/a/web", "tasks")).toBe(true);
 		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("tasks");
-		expect(await deps.projects.reach("/c/api", "/a/web")).toBe("todos");
+		expect(await deps.projects.reach("/c/api", "/a/web")).toBe("queue");
 
-		await deps.projects.grant("/c/api", "/a/web", "todos");
+		await deps.projects.grant("/c/api", "/a/web", "queue");
 		expect(await deps.fs.read(deps.projects.path)).not.toContain("grants");
 		expect(await deps.projects.grant("/nowhere", "/a/web", "read")).toBe(false);
+	});
+
+	it("reads a grant of todos, from before todos became tasks, as queue", async () => {
+		await using deps = await Testing.open({ init: false });
+		await deps.projects.register("/a/web");
+		await deps.projects.register("/c/api");
+		await deps.projects.grant("/c/api", "/a/web", "read");
+		const file = await deps.fs.read(deps.projects.path);
+		await deps.fs.write(
+			deps.projects.path,
+			file.replace('"/a/web": "read"', '"/a/web": "todos"'),
+		);
+
+		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("queue");
 	});
 
 	it("names a project by its slug, refusing one not there", async () => {

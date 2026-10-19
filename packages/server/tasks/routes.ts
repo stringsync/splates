@@ -30,16 +30,16 @@ export class TaskRoutes {
 		this.#watch = watch;
 	}
 
-	// Only a file a todo or a task holds, so the page, and whoever a tunnel
+	// Only a file a queued or started task holds, so the page, and whoever a tunnel
 	// lets reach it, can read nothing on this machine that was not put there
 	// on purpose.
 	readonly file = async (request: Request): Promise<Response> => {
-		const { todos, service, fs } = this.#project;
+		const { tasks: queue, service, fs } = this.#project;
 		const params = new URL(request.url).searchParams;
 		const path = movedPath(params.get("path") ?? "");
 		const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
 		const bytes =
-			todos.owns(path) || service.owns(path)
+			queue.owns(path) || service.owns(path)
 				? await fs.readBytes(path).catch(() => null)
 				: null;
 		if (bytes === null) {
@@ -140,7 +140,7 @@ export class TaskRoutes {
 	// the task, so it goes past an external agent's lease. Each conversation
 	// in its tree stops before the tree goes, and carries on in the main tree.
 	readonly removeTask = async (request: Request): Promise<Response> => {
-		const { journal, service, log, todos, slots, creds } = this.#project;
+		const { journal, service, log, tasks: queue, slots, creds } = this.#project;
 		const task = decodeURIComponent(
 			new URL(request.url).pathname.split("/")[3] ?? "",
 		);
@@ -159,7 +159,7 @@ export class TaskRoutes {
 					{
 						service,
 						log,
-						todos,
+						tasks: queue,
 						slots,
 						branches: TaskBranches.of({
 							git: service.git,

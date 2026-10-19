@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { merge } from "../merge";
-import { add, escalate, todoWait } from "../tasks";
+import { add, escalate, taskWait } from "../tasks";
 import { Testing } from "../testing";
 import { seed, sound2score } from "./example";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
@@ -11,11 +11,11 @@ import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { taskList, taskShow } from "./task-list";
 import { taskTake } from "./task-take";
 
-/** Each lane's todo ids, top first, as stored. */
+/** Each lane's task ids, top first, as stored. */
 async function shape(deps: Testing): Promise<number[][]> {
-	const states = (await deps.todos.all()).map((todo) => todo.state);
-	return lanes(states, await deps.todos.lanes()).map((found) =>
-		found.todos.map((todo) => todo.id),
+	const states = (await deps.tasks.all()).map((task) => task.state);
+	return lanes(states, await deps.tasks.lanes()).map((found) =>
+		found.todos.map((task) => task.id),
 	);
 }
 
@@ -28,8 +28,8 @@ async function land(deps: Testing, task: string): Promise<void> {
 	deps.ps.cd(deps.root);
 }
 
-describe.concurrent("todo links and lanes", () => {
-	it("adds a todo after others, and lists only the ready ones", async () => {
+describe.concurrent("task links and lanes", () => {
+	it("adds a task after others, and lists only the ready ones", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "store licenses", null);
 		await taskAdd(deps, "check them", null, { blockedBy: [1] });
@@ -39,9 +39,9 @@ describe.concurrent("todo links and lanes", () => {
 		await taskList(deps, { json: true, ready: true });
 
 		expect(
-			JSON.parse(deps.out()).map((todo: { id: number }) => todo.id),
+			JSON.parse(deps.out()).map((task: { id: number }) => task.id),
 		).toEqual([1, 3]);
-		expect((await deps.todos.find(2)).blockedBy).toEqual([1]);
+		expect((await deps.tasks.find(2)).blockedBy).toEqual([1]);
 		await expect(
 			taskAdd(deps, "after nothing", null, { blockedBy: [9] }),
 		).toBail("not_found");
@@ -58,57 +58,57 @@ describe.concurrent("todo links and lanes", () => {
 		});
 		await expect(taskUpdate(deps, 1, { blockedBy: [1] })).toBail("cycle");
 		await taskUpdate(deps, 3, { blockedBy: [1] });
-		expect((await deps.todos.find(3)).blockedBy).toEqual([1, 2]);
+		expect((await deps.tasks.find(3)).blockedBy).toEqual([1, 2]);
 		await taskUpdate(deps, 3, { removeBlockedBy: [2] });
-		expect((await deps.todos.find(3)).blockedBy).toEqual([1]);
+		expect((await deps.tasks.find(3)).blockedBy).toEqual([1]);
 		await expect(taskUpdate(deps, 3, { removeBlockedBy: [2] })).toBail(
 			"not_found",
 		);
 	});
 
-	it("leaves no link to a todo once it goes, by merge or by remove", async () => {
+	it("leaves no link to a task once it goes, by merge or by remove", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 
 		await taskRemove(deps, 187);
-		await add(deps, "gate", { todos: [191, 177] });
+		await add(deps, "gate", { tasks: [191, 177] });
 		await land(deps, "gate");
 
-		const all = (await deps.todos.all()).map((todo) => todo.state);
-		const ids = new Set(all.map((todo) => todo.id));
+		const all = (await deps.tasks.all()).map((task) => task.state);
+		const ids = new Set(all.map((task) => task.id));
 		expect(
-			all.flatMap((todo) => todo.blockedBy).every((id) => ids.has(id)),
+			all.flatMap((task) => task.blockedBy).every((id) => ids.has(id)),
 		).toBe(true);
-		expect((await deps.todos.find(196)).blockedBy).toEqual([]);
-		expect((await deps.todos.find(186)).blockedBy).toEqual([]);
+		expect((await deps.tasks.find(196)).blockedBy).toEqual([]);
+		expect((await deps.tasks.find(186)).blockedBy).toEqual([]);
 	});
 
-	it("takes a todo before what blocks it lands, warning, unless taken together", async () => {
+	it("takes a task before what blocks it lands, warning, unless taken together", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 
-		await add(deps, "early", { todos: [191] });
-		expect((await deps.todos.find(191)).takenBy).toBe("early");
+		await add(deps, "early", { tasks: [191] });
+		expect((await deps.tasks.find(191)).takenBy).toBe("early");
 		expect(deps.out()).toContain(
-			"todo 191 is blocked by todo 187 (lane 1, open), which has yet to merge",
+			"task 191 is blocked by task 187 (lane 1, open), which has yet to merge",
 		);
-		expect(deps.out()).toContain("splates todo wait 187");
-		await add(deps, "both", { todos: [177, 196] });
+		expect(deps.out()).toContain("splates task wait 187");
+		await add(deps, "both", { tasks: [177, 196] });
 		expect(deps.out()).toContain(
-			"todo 177 is blocked by todo 191 (lane 1, taken by early)",
+			"task 177 is blocked by task 191 (lane 1, taken by early)",
 		);
-		expect(deps.out()).not.toContain("todo 196 is blocked");
-		await add(deps, "editor", { todos: [207] });
+		expect(deps.out()).not.toContain("task 196 is blocked");
+		await add(deps, "editor", { tasks: [207] });
 		deps.ps.cd((await deps.service.find("editor")).path);
 		await taskTake(deps, [186], "editor");
 		expect(deps.out()).toContain(
-			"todo 186 is blocked by todo 177 (lane 1, taken by both)",
+			"task 186 is blocked by task 177 (lane 1, taken by both)",
 		);
 	});
 
-	it("shows what blocks a todo, what it blocks, and what it mentions", async () => {
+	it("shows what blocks a task, what it blocks, and what it mentions", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 		await taskRemove(deps, 187);
 		deps.log.clear();
 
@@ -125,84 +125,84 @@ describe.concurrent("todo links and lanes", () => {
 		expect(out).toContain("mentions:  #187, gone: merged or removed");
 	});
 
-	it("waits for a todo to land, whichever task takes it", async () => {
+	it("waits for a queued task to land, whichever task takes it", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
-		await add(deps, "store", { todos: [187] });
+		await seed(deps.tasks, sound2score());
+		await add(deps, "store", { tasks: [187] });
 
-		const waiting = todoWait(deps, 187, { poll: Duration.ms(20) });
+		const waiting = taskWait(deps, 187, { poll: Duration.ms(20) });
 		await land(deps, "store");
 		await waiting;
 
-		expect(color.strip(deps.out())).toContain("todo 187 landed or was removed");
+		expect(color.strip(deps.out())).toContain("task 187 landed or was removed");
 		await expect(
-			todoWait(deps, 191, { timeout: Duration.ms(30), poll: Duration.ms(10) }),
+			taskWait(deps, 191, { timeout: Duration.ms(30), poll: Duration.ms(10) }),
 		).toBail("timeout");
 	});
 
-	it("stops waiting when the task with the todo is escalated", async () => {
+	it("stops waiting when the task holding the queued task is escalated", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
-		await add(deps, "store", { todos: [187] });
+		await seed(deps.tasks, sound2score());
+		await add(deps, "store", { tasks: [187] });
 		await escalate(deps, "which table?", deps.ps.cwd(), { task: "store" });
 
-		await todoWait(deps, 187, { poll: Duration.ms(10) });
+		await taskWait(deps, 187, { poll: Duration.ms(10) });
 
 		expect(color.strip(deps.out())).toContain("with store, which is escalated");
 	});
 
 	it("reshapes lanes: move, reorder, join and drop, never out of order", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 
 		await taskUpdate(deps, 209, { lane: 3 });
 		expect((await shape(deps))[2]).toEqual([207, 211, 201, 206, 198, 209]);
-		await deps.todos.arrange(209, 3, { before: 207 });
+		await deps.tasks.arrange(209, 3, { before: 207 });
 		expect((await shape(deps))[2]).toEqual([209, 207, 211, 201, 206, 198]);
-		await expect(deps.todos.arrange(196, 1, { before: 177 })).toBail("usage", {
-			message: "todo 196 comes after todo 177 in lane 1",
+		await expect(deps.tasks.arrange(196, 1, { before: 177 })).toBail("usage", {
+			message: "task 196 comes after task 177 in lane 1",
 		});
 		await expect(
 			taskUpdate(deps, 177, {
-				position: (await deps.todos.find(196)).position,
+				position: (await deps.tasks.find(196)).position,
 			}),
 		).toBail("usage");
 
-		await deps.todos.joinLanes(3, 2);
+		await deps.tasks.joinLanes(3, 2);
 		expect(await shape(deps)).toEqual([
 			[187, 191, 177, 196, 197, 184],
 			[200, 186, 208, 189, 209, 207, 211, 201, 206, 198],
 		]);
 		await taskUpdate(deps, 209, { lane: "new" });
 		// Lane 3 is never handed out again.
-		expect((await deps.todos.find(209)).lane).toBe(4);
-		await deps.todos.dropLane(4);
+		expect((await deps.tasks.find(209)).lane).toBe(4);
+		await deps.tasks.dropLane(4);
 		expect(await shape(deps)).toEqual([
 			[187, 191, 177, 196, 197, 184],
 			[200, 186, 208, 189, 207, 211, 201, 206, 198],
 		]);
 		await taskUpdate(deps, 197, { lane: "new" });
-		expect((await deps.todos.find(197)).lane).toBe(5);
+		expect((await deps.tasks.find(197)).lane).toBe(5);
 	});
 
-	it("names a lane started for a todo, refusing a name another lane has", async () => {
+	it("names a lane started for a task, refusing a name another lane has", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 
-		await expect(deps.todos.arrange(209, "new", { name: "licensing" })).toBail(
+		await expect(deps.tasks.arrange(209, "new", { name: "licensing" })).toBail(
 			"exists",
 		);
-		await deps.todos.arrange(209, "new", { name: "Retries" });
+		await deps.tasks.arrange(209, "new", { name: "Retries" });
 
-		const lane = (await deps.todos.find(209)).lane;
+		const lane = (await deps.tasks.find(209)).lane;
 		expect(
-			(await deps.todos.lanes()).find((each) => each.id === lane)?.name,
+			(await deps.tasks.lanes()).find((each) => each.id === lane)?.name,
 		).toBe("Retries");
 	});
 
 	it("moves a follower down when a link puts it above what it waits on", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
+		await seed(deps.tasks, sound2score());
 
 		await taskUpdate(deps, 197, { blockedBy: [184] });
 
@@ -211,8 +211,8 @@ describe.concurrent("todo links and lanes", () => {
 
 	it("lists lanes and shows one step by step, saying what blocks it", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
-		await add(deps, "decoder", { todos: [200, 209] });
+		await seed(deps.tasks, sound2score());
+		await add(deps, "decoder", { tasks: [200, 209] });
 		deps.ps.cd(deps.root);
 		deps.log.clear();
 
@@ -226,19 +226,19 @@ describe.concurrent("todo links and lanes", () => {
 		expect(out).toContain(
 			"3. #186 Show the license tier on the account page  (blocked by #177 in Licensing)",
 		);
-		expect(out).toContain("next: todo 186, once #177 in Licensing lands");
-		expect(out).toContain("splates todo wait 177");
+		expect(out).toContain("next: task 186, once #177 in Licensing lands");
+		expect(out).toContain("splates task wait 177");
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 
-	it("shows the untriaged todos and how to place them in lanes", async () => {
+	it("shows the untriaged tasks and how to place them in lanes", async () => {
 		await using deps = await Testing.open();
 		await seed(
-			deps.todos,
-			sound2score().map((todo) =>
-				todo.id === 198 || todo.id === 201
-					? { ...todo, lane: null, blockedBy: todo.id === 201 ? [177] : [] }
-					: todo,
+			deps.tasks,
+			sound2score().map((task) =>
+				task.id === 198 || task.id === 201
+					? { ...task, lane: null, blockedBy: task.id === 201 ? [177] : [] }
+					: task,
 			),
 		);
 		deps.log.clear();
@@ -246,7 +246,7 @@ describe.concurrent("todo links and lanes", () => {
 		await laneShow(deps, null);
 
 		const out = color.strip(deps.out());
-		expect(out).toContain("untriaged: 2 todos in no lane");
+		expect(out).toContain("untriaged: 2 tasks in no lane");
 		expect(out).toContain("2. #198 Detect tempo in swing rhythms");
 		expect(out).toContain(
 			"1. #201 Rename the export menu  (blocked by #177 in Licensing)",
@@ -254,7 +254,7 @@ describe.concurrent("todo links and lanes", () => {
 		expect(out).toContain(
 			"next: place each in a lane, linking what blocks each:",
 		);
-		expect(out).toContain("splates todo update <id> --lane new");
+		expect(out).toContain("splates task update <id> --lane new");
 
 		await taskUpdate(deps, 198, { lane: 3 });
 		await taskUpdate(deps, 201, { lane: 3 });
@@ -267,41 +267,41 @@ describe.concurrent("todo links and lanes", () => {
 
 	it("goes on down the lane after a merge, waiting on another lane when it must", async () => {
 		await using deps = await Testing.open();
-		await seed(deps.todos, sound2score());
-		await add(deps, "decoder", { todos: [200] });
+		await seed(deps.tasks, sound2score());
+		await add(deps, "decoder", { tasks: [200] });
 		deps.log.clear();
 
 		await land(deps, "decoder");
 		expect(color.strip(deps.out())).toContain(
-			"next in lane 2 Audio, uploads and pricing todo 209: Retry failed uploads",
+			"next in lane 2 Audio, uploads and pricing task 209: Retry failed uploads",
 		);
 
-		await add(deps, "retries", { todos: [209] });
+		await add(deps, "retries", { tasks: [209] });
 		deps.log.clear();
 		await land(deps, "retries");
 		const out = color.strip(deps.out());
 		expect(out).toContain(
-			"next in lane 2 Audio, uploads and pricing todo 186: Show the license tier on the account page",
+			"next in lane 2 Audio, uploads and pricing task 186: Show the license tier on the account page",
 		);
 		expect(out).toContain(
-			"blocked by #177 in Licensing, not taken yet: splates todo wait 177",
+			"blocked by #177 in Licensing, not taken yet: splates task wait 177",
 		);
 	}, 20_000);
 
-	it("says a lane is done once its last todo lands, and the lane goes", async () => {
+	it("says a lane is done once its last task lands, and the lane goes", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "only step", null, { lane: "new" });
 		await taskAdd(deps, "elsewhere", null);
-		await add(deps, "only", { todos: [1] });
+		await add(deps, "only", { tasks: [1] });
 		deps.log.clear();
 
 		await land(deps, "only");
 
 		const out = color.strip(deps.out());
 		expect(out).toContain("lane 1 only step is done");
-		expect(out).toContain("next todo 2: elsewhere");
-		expect(await deps.todos.lanes()).toEqual([]);
-		expect(await deps.todos.laneNames()).toEqual([
+		expect(out).toContain("next task 2: elsewhere");
+		expect(await deps.tasks.lanes()).toEqual([]);
+		expect(await deps.tasks.laneNames()).toEqual([
 			{ id: 1, name: "only step" },
 		]);
 	});
@@ -312,23 +312,23 @@ describe.concurrent("todo links and lanes", () => {
 		await laneAdd(deps, "Billing");
 		await laneUpdate(deps, 1, { name: "Licenses" });
 
-		await deps.todos.dropLane(1);
+		await deps.tasks.dropLane(1);
 
-		expect(await deps.todos.lanes()).toEqual([{ id: 2, name: "Billing" }]);
-		expect(await deps.todos.laneNames()).toEqual([
+		expect(await deps.tasks.lanes()).toEqual([{ id: 2, name: "Billing" }]);
+		expect(await deps.tasks.laneNames()).toEqual([
 			{ id: 2, name: "Billing" },
 			{ id: 1, name: "Licenses" },
 		]);
 	});
 
-	it("keeps a lane whose last todo is removed by hand, empty", async () => {
+	it("keeps a lane whose last task is removed by hand, empty", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "only step", null, { lane: 1 });
 
 		await taskRemove(deps, 1);
 
-		expect(await deps.todos.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
 	});
 
 	it("adds, renames and removes lanes, keeping an empty one, refusing a name in use", async () => {
@@ -343,24 +343,24 @@ describe.concurrent("todo links and lanes", () => {
 		await laneUpdate(deps, 2, { name: "Score editor" });
 		await expect(laneUpdate(deps, 9, { name: "x" })).toBail("not_found");
 
-		expect(await deps.todos.lanes()).toEqual([
+		expect(await deps.tasks.lanes()).toEqual([
 			{ id: 1, name: "Licensing" },
 			{ id: 2, name: "Score editor" },
 		]);
 		await laneRemove(deps, 2);
-		expect((await deps.todos.find(1)).lane).toBeNull();
+		expect((await deps.tasks.find(1)).lane).toBeNull();
 		await laneRemove(deps, 1);
 		// Numbers are never handed out again.
 		expect((await laneAdd(deps, "Again")).id).toBe(3);
 	});
 
-	it("moves a lane among the others, keeping its todos", async () => {
+	it("moves a lane among the others, keeping its tasks", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await laneAdd(deps, "Editor");
 		await laneAdd(deps, "Docs");
 		await taskAdd(deps, "first", null, { lane: 3 });
-		const order = async () => (await deps.todos.lanes()).map((each) => each.id);
+		const order = async () => (await deps.tasks.lanes()).map((each) => each.id);
 
 		deps.log.clear();
 		await laneUpdate(deps, 3, { position: 1 });
@@ -371,19 +371,19 @@ describe.concurrent("todo links and lanes", () => {
 		await laneUpdate(deps, 3, { position: 99 });
 		expect(await order()).toEqual([1, 2, 3]);
 		await laneUpdate(deps, 1, { name: "Licenses", position: 2 });
-		expect(await deps.todos.lanes()).toEqual([
+		expect(await deps.tasks.lanes()).toEqual([
 			{ id: 2, name: "Editor" },
 			{ id: 1, name: "Licenses" },
 			{ id: 3, name: "Docs" },
 		]);
-		expect((await deps.todos.find(1)).lane).toBe(3);
+		expect((await deps.tasks.find(1)).lane).toBe(3);
 
 		await expect(laneUpdate(deps, 9, { position: 1 })).toBail("not_found");
 		await expect(laneUpdate(deps, 1, { position: 0 })).toBail("usage");
 		await expect(laneUpdate(deps, 1)).toBail("usage");
 	});
 
-	it("says which agent should work a todo in a lane, keeping it until cleared", async () => {
+	it("says which agent should work a task in a lane, keeping it until cleared", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "first", null, {
@@ -395,14 +395,14 @@ describe.concurrent("todo links and lanes", () => {
 		expect(color.strip(deps.out())).toContain("assignee:  codex");
 
 		await taskUpdate(deps, 1, { subject: "the first" });
-		expect((await deps.todos.find(1)).state.assignee).toEqual({
+		expect((await deps.tasks.find(1)).state.assignee).toEqual({
 			agent: "codex",
 		});
 		await taskUpdate(deps, 1, { assignee: null });
-		expect((await deps.todos.find(1)).state.assignee).toBeUndefined();
+		expect((await deps.tasks.find(1)).state.assignee).toBeUndefined();
 	});
 
-	it("hands the next todo out to the agent, model and thinking level it names", async () => {
+	it("hands the next task out to the agent, model and thinking level it names", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "first", null, {
@@ -412,7 +412,7 @@ describe.concurrent("todo links and lanes", () => {
 		deps.log.clear();
 		await laneShow(deps, 1);
 		expect(color.strip(deps.out())).toContain(
-			"next: splates add <task> --todo 1 --agent claude --model sonnet --effort high",
+			"next: splates add <slug> --task 1 --agent claude --model sonnet --effort high",
 		);
 	});
 
@@ -420,15 +420,15 @@ describe.concurrent("todo links and lanes", () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await deps.fs.write(
-			`${deps.todos.dir}/lanes`,
+			`${deps.tasks.dir}/lanes`,
 			JSON.stringify([
 				{ id: 1, name: "Licensing", assignee: { agent: "claude" } },
 			]),
 		);
 		await laneUpdate(deps, 1, { name: "Licenses" });
 
-		expect(await deps.todos.lanes()).toEqual([{ id: 1, name: "Licenses" }]);
-		expect(await deps.fs.read(`${deps.todos.dir}/lanes`)).not.toContain(
+		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licenses" }]);
+		expect(await deps.fs.read(`${deps.tasks.dir}/lanes`)).not.toContain(
 			"assignee",
 		);
 	});

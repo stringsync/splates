@@ -10,7 +10,7 @@ import type {
 	Report,
 	TodoProposal,
 } from "@stringsync/splates-server/plans";
-import { todoReference } from "@stringsync/splates-server/plans/browser";
+import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,
@@ -445,7 +445,7 @@ export function TodoCard({
 }): JSX.Element {
 	const board = useContext(Board);
 	const { reply, sent } = useCardReply();
-	const reference = todoReference(proposal.id);
+	const reference = taskNumberReference(proposal.id);
 	const settled = sent !== null;
 	const started = sent?.includes(reference) ?? false;
 	const live = board.todos.find((each) => each.id === proposal.id) ?? null;

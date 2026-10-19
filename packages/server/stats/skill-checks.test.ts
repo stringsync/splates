@@ -5,9 +5,9 @@ describe("skill checks", () => {
 	it("splatesCalls: finds splates where a shell would run it, not in a quoted message", () => {
 		expect(
 			splatesCalls(
-				`cd /repo && FOO=1 bunx @stringsync/splates add retry --todo 3; git commit -m "say what splates merge did"`,
+				`cd /repo && FOO=1 bunx @stringsync/splates add retry --task 3; git commit -m "say what splates merge did"`,
 			),
-		).toEqual([{ verb: "add", args: ["retry", "--todo", "3"] }]);
+		).toEqual([{ verb: "add", args: ["retry", "--task", "3"] }]);
 	});
 
 	it("plan-first: passes SPLATES.md written before the first other edit", () => {

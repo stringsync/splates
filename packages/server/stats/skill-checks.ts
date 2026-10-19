@@ -293,7 +293,7 @@ function words(text: string): string[] {
 }
 
 /** What each verb prints once it has done its work, after the task's name. */
-const DONE = /^(added|merged|removed|escalated) (?!todo \d)(\S+)/gm;
+const DONE = /^(added|merged|removed|escalated) (?!(?:todo|task) \d)(\S+)/gm;
 
 const VERBS = {
 	added: "add",

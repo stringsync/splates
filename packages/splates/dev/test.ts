@@ -44,8 +44,8 @@ export async function test(opts: TestOptions): Promise<void> {
 	// so agents testing at once queue rather than run out of memory; run from
 	// a `preMerge` hook, it runs in the slot the merge already holds
 	const heavy = opts.heavy ?? heavyJobsOfMachine({ fs: new NodeFs(), ps, log });
-	// `splates merge` names where its gate wants a JUnit report, to make a
-	// todo of each slow test; bun keeps printing its own output beside it
+	// `splates merge` names where its gate wants a JUnit report, to queue a
+	// task for each slow test; bun keeps printing its own output beside it
 	const report = ps.env("SPLATES_TEST_REPORT");
 	await using slot = await heavy.take({ what: "splates dev test" });
 	const { exitCode } = await ps.spawn(

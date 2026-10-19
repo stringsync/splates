@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { FORMAT } from "@stringsync/splates-server/records";
 import type { Json } from "./probe";
-import { command, seedFile, seedRepository } from "./probe-sandbox";
+import { command, seedFile, seedRepository, taskRecord } from "./probe-sandbox";
 import { hash, type RunContext, type Seed } from "./runner";
 
 export const lifecycleGoal = "Change value to two";
@@ -30,7 +31,7 @@ export const lifecycleSeed: Seed = {
 		}
 		const situation = data.situation;
 		await seedRepository(context);
-		await seedFile(context, ".git/splates/format", "1\n");
+		await seedFile(context, ".git/splates/format", `${FORMAT}\n`);
 		const root = context.isolation.repository;
 		const trees = join(context.isolation.outputs, "trees");
 		await seedFile(
@@ -51,10 +52,10 @@ export const lifecycleSeed: Seed = {
 		if (situation === "fresh") {
 			return;
 		}
-		if (situation === "todo") {
+		if (situation === "queued") {
 			await checked(context, [
 				"splates",
-				"todo",
+				"task",
 				"add",
 				"Change value to two",
 				"Change value.txt from one to two.",
@@ -114,9 +115,14 @@ export const lifecycleSeed: Seed = {
 			]);
 		}
 		if (situation === "budget") {
-			const file = join(root, ".git/splates/tasks/sample.json");
-			const saved = JSON.parse(await readFile(file, "utf8"));
-			await writeFile(file, JSON.stringify({ ...saved, mergeAttempts: 3 }));
+			const found = await taskRecord(root, "sample");
+			if (found === null) {
+				throw new Error("no record of sample");
+			}
+			await writeFile(
+				found.path,
+				JSON.stringify({ ...found.record, mergeAttempts: 3 }),
+			);
 		}
 		// Agent recovery starts AFTER the real failed CLI response, not after a fabricated transcript.
 		if (
@@ -135,10 +141,7 @@ export const lifecycleSeed: Seed = {
 	},
 	async observe(context) {
 		const root = context.isolation.repository;
-		const file = join(root, ".git/splates/tasks/sample.json");
-		const task = (await Bun.file(file).exists())
-			? JSON.parse(await readFile(file, "utf8"))
-			: null;
+		const task = (await taskRecord(root, "sample"))?.record ?? null;
 		const exists = await Bun.file(
 			join(context.isolation.outputs, "trees/sample/.git"),
 		).exists();
@@ -206,9 +209,9 @@ export const lifecycleSeed: Seed = {
 				result["cli/reason"] = null;
 			}
 		}
-		if (context.probe.id === "lifecycle/requested-todo") {
-			const shown = await checked(context, ["splates", "todo", "show", "1"]);
-			result["todo/takenBy"] = /taken by:\s+sample(?:\s|$)/.test(shown)
+		if (context.probe.id === "lifecycle/requested-task") {
+			const shown = await checked(context, ["splates", "task", "show", "1"]);
+			result["task/takenBy"] = /taken by:\s+sample(?:\s|$)/.test(shown)
 				? "sample"
 				: null;
 		}

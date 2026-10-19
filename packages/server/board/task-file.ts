@@ -9,7 +9,7 @@ export function parseTaskFile(
 	raw: string,
 ): { state: TaskRecord; tags: string[]; listed: boolean } | null {
 	try {
-		// One saved before todos took files has none, rather than no list; one
+		// One saved before tasks took files has none, rather than no list; one
 		// saved before they had subjects has its first line as one; one saved
 		// before they had positions has 0 until `all` places it; and one saved
 		// before links and lanes is blocked by nothing, in none.

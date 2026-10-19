@@ -78,7 +78,7 @@ describe("stretches, numbered lists as questions", () => {
 	it("reads an item that offers choices as a question without a question mark", () => {
 		const found = stretches(
 			[
-				"1. Pick how a stale todo shows:",
+				"1. Pick how a stale task shows:",
 				"   - (a) A muted card",
 				"   - (b) A badge",
 				"2. Does it need a tooltip?",
@@ -87,7 +87,7 @@ describe("stretches, numbered lists as questions", () => {
 
 		const questions = found[0]?.type === "questions" ? found[0].questions : [];
 		expect(questions.map(({ text, pick }) => ({ text, pick }))).toEqual([
-			{ text: "Pick how a stale todo shows:", pick: "one" },
+			{ text: "Pick how a stale task shows:", pick: "one" },
 			{ text: "Does it need a tooltip?", pick: null },
 		]);
 	});
@@ -109,7 +109,7 @@ describe("stretches, numbered lists as questions", () => {
 				"   Both have a header.",
 				"",
 				"   Phones matter most.",
-				"   - [a] Todos",
+				"   - [a] Tasks",
 				"   - [b] Tasks",
 				"",
 				"Thanks.",

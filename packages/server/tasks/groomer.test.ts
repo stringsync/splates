@@ -24,9 +24,9 @@ describe("Groomer", () => {
 		}
 	};
 
-	const todo = (id: number, more: Partial<TaskRecord> = {}): TaskRecord => ({
+	const queued = (id: number, more: Partial<TaskRecord> = {}): TaskRecord => ({
 		id,
-		subject: `Todo ${id}`,
+		subject: `Task ${id}`,
 		text: "",
 		position: id,
 		from: "alpha",
@@ -40,10 +40,10 @@ describe("Groomer", () => {
 
 	const watch = async () => {
 		groomer = Groomer.watch({
-			todos: async () => list,
+			queued: async () => list,
 			conversations,
 			root: deps.root,
-			seen: new SeenGroomed(deps.fs, `${deps.splatesDir}/groomed-todos`),
+			seen: new SeenGroomed(deps.fs, `${deps.splatesDir}/groomed-tasks`),
 			log: new MemoryLogger(),
 			timer: new FakeTimer(),
 		});
@@ -51,10 +51,10 @@ describe("Groomer", () => {
 		return groomer;
 	};
 
-	/** A groomer watching, told of todo 2 as it was added after todo 1. */
+	/** A groomer watching, told of queued task 2 as it was added after queued task 1. */
 	const groomedOne = async () => {
 		const watching = await watch();
-		list = [...list, todo(2)];
+		list = [...list, queued(2)];
 		await watching.sweep();
 		await until(() => said.length === 1);
 		return watching;
@@ -76,7 +76,7 @@ describe("Groomer", () => {
 			[AGENT],
 			{ launch: agent.launch },
 		);
-		list = [todo(1)];
+		list = [queued(1)];
 		groomer = null;
 	});
 
@@ -86,13 +86,13 @@ describe("Groomer", () => {
 		await deps.disposeAsync();
 	});
 
-	it("leaves the todos already on the list as it first opens", async () => {
+	it("leaves the queued tasks already on the list as it first opens", async () => {
 		await watch();
 
 		expect(await live()).toEqual([]);
 	});
 
-	it("starts one groomer in the main tree for a todo added since, told by splates", async () => {
+	it("starts one groomer in the main tree for a queued task added since, told by splates", async () => {
 		await groomedOne();
 
 		const [groomer] = await live();
@@ -104,7 +104,7 @@ describe("Groomer", () => {
 
 	it("tells the groomer it has of the next, rather than start another", async () => {
 		const watching = await groomedOne();
-		list = [...list, todo(3), todo(4)];
+		list = [...list, queued(3), queued(4)];
 
 		await watching.sweep();
 		// Told while it is busy, what it hears may queue as one message.
@@ -119,7 +119,7 @@ describe("Groomer", () => {
 		]);
 	});
 
-	it("hands each todo over once, past a restart", async () => {
+	it("hands each queued task over once, past a restart", async () => {
 		(await groomedOne()).dispose();
 
 		await watch();
@@ -133,7 +133,7 @@ describe("Groomer", () => {
 		const watching = await groomedOne();
 		const [first] = await live();
 		await first?.archive();
-		list = [...list, todo(3)];
+		list = [...list, queued(3)];
 
 		await watching.sweep();
 		await until(() => said.length === 2);
@@ -145,14 +145,14 @@ describe("Groomer", () => {
 		]);
 	});
 
-	it("leaves a todo the person added, or one placed, taken or from another project", async () => {
+	it("leaves a queued task the person added, or one placed, taken or from another project", async () => {
 		const watching = await watch();
 		list = [
 			...list,
-			todo(2, { from: null }),
-			todo(3, { lane: 1 }),
-			todo(4, { takenBy: "beta" }),
-			todo(5, { origin: { project: "/elsewhere", task: "beta" } }),
+			queued(2, { from: null }),
+			queued(3, { lane: 1 }),
+			queued(4, { takenBy: "beta" }),
+			queued(5, { origin: { project: "/elsewhere", task: "beta" } }),
 		];
 
 		await watching.sweep();
@@ -161,7 +161,7 @@ describe("Groomer", () => {
 		expect(await live()).toEqual([]);
 	});
 
-	it("runs as the first agent on its cheapest model that can judge a todo's", () => {
+	it("runs as the first agent on its cheapest model that can judge a queued task's", () => {
 		expect(groomerPick(DEFAULT_AGENTS)).toEqual({
 			agent: "claude",
 			model: "sonnet",

@@ -22,7 +22,7 @@ export const MIGRATIONS: readonly Migration[] = [ONE_TASK_STORE];
 
 /**
  * The version of the records under `.git/splates` this splates reads and writes:
- * tasks, todos, lanes, the journal and conversations, as one. A change an
+ * tasks, lanes, the journal and conversations, as one. A change an
  * older splates would misread adds a step to `MIGRATIONS`, which moves it on.
  */
 export const FORMAT = MIGRATIONS.length + 1;

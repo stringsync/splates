@@ -245,7 +245,7 @@ function beganWith(
 }
 
 function isUpdate(event: Event): boolean {
-	return event.action === "todo update" && event.reason === null;
+	return event.action === "task update" && event.reason === null;
 }
 
 /** When the last of `parts` to say so ended, or began. */

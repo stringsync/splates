@@ -6,6 +6,7 @@ import {
 	RECONNECT,
 	RESUME,
 } from "@stringsync/splates-server/plans";
+import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedRepository } from "./probe-sandbox";
 import { hash, type ProbeModule, type RunContext, type Seed } from "./runner";
@@ -75,7 +76,7 @@ const seed: Seed = {
 		});
 		await writeFile(
 			join(context.isolation.repository, ".git/splates/format"),
-			"1\n",
+			`${FORMAT}\n`,
 		);
 		await checked(context, [
 			"splates",
@@ -282,7 +283,7 @@ const probes: Probe[] = [
 		"removed-report",
 		"continuity-report",
 		"removed",
-		"The seeded continuity task was removed as moot by the fixture. Report that outcome under the splates reporting rules; no further action is needed and there are no open todos.",
+		"The seeded continuity task was removed as moot by the fixture. Report that outcome under the splates reporting rules; no further action is needed and there are no queued tasks.",
 		[
 			{
 				id: "task-format",

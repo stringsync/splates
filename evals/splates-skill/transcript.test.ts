@@ -3,13 +3,13 @@ import { readRun } from "./transcript";
 
 describe("readRun", () => {
 	it("reads the agent's own words, commands and edits as beats, each turn led by its prompt", () => {
-		const log = readRun([TURN], ["[SPLATES TODO #1]"]);
+		const log = readRun([TURN], ["[SPLATES TASK #1]"]);
 		expect(log.transcript.beats).toEqual([
-			{ kind: "user", text: "[SPLATES TODO #1]" },
+			{ kind: "user", text: "[SPLATES TASK #1]" },
 			{ kind: "say", text: "## 🌱 Added retry-413" },
 			{
 				kind: "run",
-				command: "splates add retry-413 --todo 1",
+				command: "splates add retry-413 --task 1",
 				output: "added retry-413",
 				ok: true,
 			},
@@ -52,7 +52,7 @@ const TURN = [
 					type: "tool_use",
 					id: "t1",
 					name: "Bash",
-					input: { command: "splates add retry-413 --todo 1" },
+					input: { command: "splates add retry-413 --task 1" },
 				},
 			],
 		},

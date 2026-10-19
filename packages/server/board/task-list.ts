@@ -14,7 +14,7 @@ import { cameFrom, type TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskListOptions {
-	/** Print the todos as JSON instead of a table. */
+	/** Print the tasks as JSON instead of a table. */
 	json?: boolean;
 	/** Only those no task has taken: the ones free to pick up. */
 	open?: boolean;
@@ -26,18 +26,18 @@ export interface TaskListOptions {
 }
 
 export async function taskList(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	{ json = false, open = false, ready = false }: TaskListOptions = {},
 ): Promise<void> {
-	const every = await todos.all();
+	const every = await tasks.all();
 	const listed = every.filter(
-		(todo) =>
-			(!open || todo.takenBy === null) && (!ready || isReady(todo.state)),
+		(task) =>
+			(!open || task.takenBy === null) && (!ready || isReady(task.state)),
 	);
 	if (json) {
 		log.info(
 			JSON.stringify(
-				listed.map((todo) => todo.state),
+				listed.map((task) => task.state),
 				null,
 				"\t",
 			),
@@ -45,14 +45,14 @@ export async function taskList(
 		return;
 	}
 	if (every.length === 0) {
-		log.info("no todos: `splates todo add <subject>` defers work for later");
+		log.info("no tasks: `splates task add <subject>` queues work for later");
 		return;
 	}
 	if (listed.length === 0) {
 		log.info(
 			ready
-				? "no ready todos: each is taken or blocked by one still open, see `splates todo list`"
-				: "no open todos: every one is taken, see `splates todo list`",
+				? "no ready tasks: each is taken or blocked by one still open, see `splates task list`"
+				: "no open tasks: every one is taken, see `splates task list`",
 		);
 		return;
 	}
@@ -69,39 +69,39 @@ export async function taskList(
 				"TAKEN BY",
 				"FILES",
 			],
-			listed.map((todo) => [
-				String(todo.position),
-				String(todo.id),
-				todo.subject,
-				todo.blockedBy.join(","),
-				todo.lane === null ? "" : String(todo.lane),
-				cameFrom(todo.state) ?? "",
-				age(todo.state.createdAt),
-				todo.takenBy ?? "",
-				todo.files.length === 0 ? "" : String(todo.files.length),
+			listed.map((task) => [
+				String(task.position),
+				String(task.id),
+				task.subject,
+				task.blockedBy.join(","),
+				task.lane === null ? "" : String(task.lane),
+				cameFrom(task.state) ?? "",
+				age(task.state.createdAt),
+				task.takenBy ?? "",
+				task.files.length === 0 ? "" : String(task.files.length),
 			]),
 		),
 	);
 }
 
 export interface TaskShowOptions {
-	/** Print the todo as JSON instead of prose. */
+	/** Print the task as JSON instead of prose. */
 	json?: boolean;
 }
 
-/** One todo in full: what `todo list` shows of it, its files, and its detail. */
+/** One task in full: what `task list` shows of it, its files, and its detail. */
 export async function taskShow(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
 	{ json = false }: TaskShowOptions = {},
 ): Promise<void> {
-	const todo = await todos.find(id);
+	const task = await tasks.find(id);
 	if (json) {
-		log.info(JSON.stringify(todo.state, null, "\t"));
+		log.info(JSON.stringify(task.state, null, "\t"));
 		return;
 	}
-	const states = (await todos.all()).map((each) => each.state);
-	// How another todo stands, in a few words: where it runs, who has it.
+	const states = (await tasks.all()).map((each) => each.state);
+	// How another task stands, in a few words: where it runs, who has it.
 	const where = (other: TaskRecord) =>
 		[
 			other.lane === null ? null : `lane ${other.lane}`,
@@ -111,45 +111,45 @@ export async function taskShow(
 		const said = where(other);
 		return `#${other.id} ${other.subject}${said.length === 0 ? "" : ` (${said.join(", ")})`}`;
 	};
-	const records = await todos.lanes();
-	const record = records.find((each) => each.id === todo.lane);
+	const records = await tasks.lanes();
+	const record = records.find((each) => each.id === task.lane);
 	const steps = record === undefined ? [] : lane(states, record).todos;
-	const step = steps.findIndex((other) => other.id === todo.id);
+	const step = steps.findIndex((other) => other.id === task.id);
 	const lines = [
-		`${color.bold(`todo ${todo.id}`)} ${todo.subject}`,
-		`  position:  ${todo.position}`,
-		`  from:      ${cameFrom(todo.state) ?? "added by hand"}`,
-		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
-		...(todo.state.assignee === undefined
+		`${color.bold(`task ${task.id}`)} ${task.subject}`,
+		`  position:  ${task.position}`,
+		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,
+		`  taken by:  ${task.takenBy ?? "nobody yet"}`,
+		...(task.state.assignee === undefined
 			? []
-			: [`  assignee:  ${pickLabel(todo.state.assignee)}`]),
-		...(todo.lane === null
+			: [`  assignee:  ${pickLabel(task.state.assignee)}`]),
+		...(task.lane === null
 			? []
 			: [
-					`  lane:      ${todo.lane} ${record?.name ?? ""}, step ${step + 1} of ${steps.length}`,
+					`  lane:      ${task.lane} ${record?.name ?? ""}, step ${step + 1} of ${steps.length}`,
 				]),
-		...blockersOf(states, todo.state).map(
+		...blockersOf(states, task.state).map(
 			(wait) =>
 				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TaskRecord)}`,
 		),
-		...(todo.state.blockersLanded ?? []).map(
+		...(task.state.blockersLanded ?? []).map(
 			(landed) =>
 				`  landed:    #${landed.id} ${landed.subject}, as ${landed.commit}`,
 		),
-		...((todo.state.blockersLost ?? []).length === 0
+		...((task.state.blockersLost ?? []).length === 0
 			? []
-			: [`  held:      ${lostLine(todo.state)}`]),
-		...followers(states, todo.id).map(
+			: [`  held:      ${lostLine(task.state)}`]),
+		...followers(states, task.id).map(
 			(other) => `  blocking:  ${named(other)}`,
 		),
-		`  age:       ${age(todo.state.createdAt)}`,
-		...todo.files.map((path) => `  file:      ${path}`),
+		`  age:       ${age(task.state.createdAt)}`,
+		...task.files.map((path) => `  file:      ${path}`),
 	];
-	// A mention of a todo that has gone reads as if it were still there, so
+	// A mention of a task that has gone reads as if it were still there, so
 	// each is said to be open or gone: ids never come back, and a gone one has
 	// merged or been removed.
-	const mentions = mentioned(`${todo.subject}\n${todo.text}`).filter(
-		(id) => id !== todo.id,
+	const mentions = mentioned(`${task.subject}\n${task.text}`).filter(
+		(id) => id !== task.id,
 	);
 	for (const id of mentions) {
 		const other = states.find((each) => each.id === id);
@@ -157,8 +157,8 @@ export async function taskShow(
 			`  mentions:  ${other ? named(other) : `#${id}, gone: merged or removed`}`,
 		);
 	}
-	if (todo.text !== "") {
-		lines.push("", todo.text);
+	if (task.text !== "") {
+		lines.push("", task.text);
 	}
 	log.info(lines.join("\n"));
 }

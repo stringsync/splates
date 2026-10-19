@@ -16,7 +16,7 @@ export const UPDATING = "SPLATES_UPDATING";
 /**
  * Brings this repository up to the newest splates: when npm has a newer release
  * than the one running, runs `update` again on that one, which does the rest
- * itself; otherwise moves todos saved with tags into lanes, installs this
+ * itself; otherwise moves tasks saved with tags into lanes, installs this
  * one's skill over whatever copy is there, through `bunx skills add` from
  * this release's tag, and moves what an older config holds to where this
  * one reads it. Offline, the running release is the newest there is to

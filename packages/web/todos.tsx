@@ -159,7 +159,7 @@ export function Todos({
 				refuseLane={refuseLane}
 				todos={snapshot.todos}
 				lanes={snapshot.lanes}
-				staleness={snapshot.todoStalenessMs}
+				staleness={snapshot.taskStalenessMs}
 				lifted={lifted}
 				liftedLane={lanes.find((lane) => lane.id === draggingLane)}
 			>
@@ -193,7 +193,7 @@ export function Todos({
 					{!hidden.includes(null) && (
 						<Untriaged
 							todos={kept.filter((todo) => todo.lane === null)}
-							staleness={snapshot.todoStalenessMs}
+							staleness={snapshot.taskStalenessMs}
 						/>
 					)}
 					<SortableContext
@@ -205,7 +205,7 @@ export function Todos({
 								key={lane.id}
 								lane={lane}
 								lanes={lanes}
-								staleness={snapshot.todoStalenessMs}
+								staleness={snapshot.taskStalenessMs}
 							/>
 						))}
 					</SortableContext>

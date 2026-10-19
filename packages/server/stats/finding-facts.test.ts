@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { factTodos } from "./finding-facts";
+import { factTasks } from "./finding-facts";
 import { type Finding, findings } from "./findings";
 import type { Outcome } from "./outcomes";
 
-describe("factTodos", () => {
-	it("files slow-test todos only above 20 seconds", () => {
+describe("factTasks", () => {
+	it("files slow-test tasks only above 20 seconds", () => {
 		const found = findings({
 			gateFailures: [],
 			retries: 0,
@@ -20,14 +20,14 @@ describe("factTodos", () => {
 			],
 		});
 		expect(
-			factTodos({
+			factTasks({
 				outcome: merged({ findings: found }),
 				baseline: null,
-			}).map((todo) => todo.subject),
+			}).map((each) => each.subject),
 		).toEqual(["Slow test: slow"]);
 	});
 
-	it("makes a todo of each gate run that named failing tests, with the data it came from", () => {
+	it("makes a task of each gate run that named failing tests, with the data it came from", () => {
 		const failed: Finding = {
 			kind: "gate",
 			reason: "tests_failed",
@@ -35,14 +35,14 @@ describe("factTodos", () => {
 			tests: ["adds up"],
 		};
 
-		const todos = factTodos({
+		const tasks = factTasks({
 			outcome: merged({
 				findings: [{ kind: "stopped", at: "2026-10-14T09:30:00.000Z" }, failed],
 			}),
 			baseline: null,
 		});
 
-		expect(todos).toEqual([
+		expect(tasks).toEqual([
 			{
 				subject: "Tests failed: adds up",
 				text: [
@@ -56,8 +56,8 @@ describe("factTodos", () => {
 		]);
 	});
 
-	it("makes a todo of each slow test", () => {
-		const todos = factTodos({
+	it("makes a task of each slow test", () => {
+		const tasks = factTasks({
 			outcome: merged({
 				findings: [
 					{
@@ -72,18 +72,18 @@ describe("factTodos", () => {
 			baseline: null,
 		});
 
-		expect(todos.map((todo) => todo.subject)).toEqual([
+		expect(tasks.map((each) => each.subject)).toEqual([
 			"Slow test: a > crawls",
 			"Slow test: b > drags",
 		]);
-		expect(todos[0]?.text).toStartWith(
+		expect(tasks[0]?.text).toStartWith(
 			"Found in `alpha` as it merged: the gate's passing run took 29.3s on `a > crawls` in `a.test.ts`, over the 20s bar.",
 		);
 	});
 
 	it("makes none of what every merge goes through", () => {
 		expect(
-			factTodos({
+			factTasks({
 				outcome: merged({
 					failedMerges: 1,
 					findings: [
@@ -103,7 +103,7 @@ describe("factTodos", () => {
 
 	it("makes none of a merge that went as it could", () => {
 		expect(
-			factTodos({ outcome: merged({ findings: [] }), baseline: null }),
+			factTasks({ outcome: merged({ findings: [] }), baseline: null }),
 		).toEqual([]);
 	});
 });

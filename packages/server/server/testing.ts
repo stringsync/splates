@@ -108,8 +108,8 @@ export function post(
 	});
 }
 
-/** A todo write the way the page makes one. */
-export function todoForm(
+/** A task queued the way the page makes one. */
+export function taskForm(
 	subject: string | null,
 	files: File[] = [],
 	keep: string[] = [],

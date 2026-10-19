@@ -16,18 +16,18 @@ import {
 	RESUME,
 	reportReference,
 	setupReference,
+	taskAddedReference,
+	taskDoneReference,
+	taskNumberReference,
+	taskOpenReference,
 	taskReference,
-	todoAddedReference,
-	todoDoneReference,
-	todoOpenReference,
-	todoReference,
 } from "./prompts";
 
 describe("the splates skill's Directives table", () => {
 	it("has one row for each directive, as the skill writes its placeholders", async () => {
 		expect((await rows()).toSorted()).toEqual(
 			[
-				todoReference(0).replace("0", "N"),
+				taskNumberReference(0).replace("0", "N"),
 				taskReference("<task>"),
 				setupReference("<step>"),
 				handoffReference("<task>"),
@@ -39,9 +39,9 @@ describe("the splates skill's Directives table", () => {
 				laneReference(0).replace("0", "N"),
 				reportReference("<task>"),
 				idleReference("<task>"),
-				todoDoneReference(0).replace("0", "N"),
-				todoOpenReference(0).replace("0", "N"),
-				todoAddedReference(0).replace("0", "N"),
+				taskDoneReference(0).replace("0", "N"),
+				taskOpenReference(0).replace("0", "N"),
+				taskAddedReference(0).replace("0", "N"),
 				groomReference(0).replace("0", "N"),
 				LANES_DONE,
 				CHECKPOINT,

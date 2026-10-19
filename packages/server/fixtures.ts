@@ -8,7 +8,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		path: "~/Projects/webappwiz",
 		root: "/repo",
 		worktreeRoot: "/repo-splates",
-		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
+		taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		todos: [],
 		lanes: [],
 		laneNames: [],

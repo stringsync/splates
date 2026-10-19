@@ -33,7 +33,7 @@ export interface Config {
 	 * opinion; a repo with nothing to run leaves it null and merges on a green
 	 * rebase alone.
 	 *
-	 * To have `merge` make a todo of each test slower than 5 seconds, write a
+	 * To have `merge` queue a task for each test slower than 5 seconds, write a
 	 * JUnit XML report to the path in `$SPLATES_TEST_REPORT`, as `bun test
 	 * --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"` does.
 	 */
@@ -42,7 +42,7 @@ export interface Config {
 	leaseStalenessMs: number;
 	/**
 	 * How many tasks a running lane may have out at once, each started by
-	 * `splates server` for a todo nothing blocks.
+	 * `splates server` for a queued task nothing blocks.
 	 */
 	agentsPerLane: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
@@ -59,11 +59,11 @@ export interface Config {
 	 */
 	logCapacity: number;
 	/**
-	 * How long a todo can wait before `merge` stops recommending it and offers
+	 * How long a queued task can wait before `merge` stops recommending it and offers
 	 * it for removal instead: work deferred that long has usually been done
 	 * some other way, or stopped mattering.
 	 */
-	todoStalenessMs: number;
+	taskStalenessMs: number;
 	/**
 	 * How many bytes of files `splates attach` lets one task hold, all of them
 	 * together: a screen recording is the one thing here that grows fast.

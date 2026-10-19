@@ -85,7 +85,7 @@ describe("Dispatch", () => {
 			drafts.read(newDraft("shop", "alpha")),
 			drafts.read("c1"),
 		]).toEqual([
-			"[SPLATES TODO #12]",
+			"[SPLATES TASK #12]",
 			promptFor({ kind: "task", task: "alpha" }),
 			"[SPLATES LANE 2]\n\nand keep it small",
 		]);

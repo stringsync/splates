@@ -363,7 +363,7 @@ export interface GateFailure {
 }
 
 export interface TaskState {
-	/** Its number, which it shares with the todo it started from; absent until first saved. */
+	/** Its number, which it shares with the queued task it started from; absent until first saved. */
 	id?: number;
 	task: string;
 	branch: string;

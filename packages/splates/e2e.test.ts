@@ -337,7 +337,7 @@ describe.concurrent("splates", () => {
 			stderr: expect.stringContaining("Run `splates init` in it once"),
 		};
 		expect([
-			await splates(env.root, "todo", "list"),
+			await splates(env.root, "task", "list"),
 			await splates(env.root, "add", "alpha", "--goal", "land it"),
 			await splates(env.root, "list"),
 		]).toMatchObject([uninitialized, uninitialized, uninitialized]);

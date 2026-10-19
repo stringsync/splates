@@ -172,19 +172,19 @@ const probes: Probe[] = [
 		],
 	),
 	agent(
-		"requested-todo",
+		"requested-task",
 		"lifecycle-start",
 		"Directives",
-		"todo",
-		'[SPLATES TODO #1]\nUse task name sample and goal "Change value to two". Stop after creating its worktree, before code investigation.',
+		"queued",
+		'[SPLATES TASK #1]\nUse task name sample and goal "Change value to two". Stop after creating its worktree, before code investigation.',
 		[
 			before(
-				"TODO/show-before-add",
-				cmd(["todo", "show", "1"], 0),
-				cmd(["add", "sample", "--todo", "1", "--goal", goal], 0),
+				"TASK/show-before-add",
+				cmd(["task", "show", "1"], 0),
+				cmd(["add", "sample", "--task", "1", "--goal", goal], 0),
 			),
-			state("TODO/taken-by-task", "todo/takenBy", "sample"),
-			state("TODO/task-exists", "task/exists", true),
+			state("TASK/taken-by-task", "task/takenBy", "sample"),
+			state("TASK/task-exists", "task/exists", true),
 		],
 	),
 	...(["conflict", "failed-check", "budget"] as const).map((situation) =>
@@ -219,7 +219,7 @@ const probes: Probe[] = [
 		"lifecycle-cleanup",
 		"Workflow",
 		"task",
-		"[SPLATES TASK sample]\nThe requested change is obsolete. There are no associated todos. Remove this task as moot and report the outcome.",
+		"[SPLATES TASK sample]\nThe requested change is obsolete. There are no associated queued tasks. Remove this task as moot and report the outcome.",
 		[
 			required(
 				"Workflow/remove-moot",

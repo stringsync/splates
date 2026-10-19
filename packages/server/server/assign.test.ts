@@ -17,14 +17,14 @@ describe("dev assign", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("assigns a todo an agent off the roster, and starts a conversation on a model", async () => {
+	it("assigns a queued task an agent off the roster, and starts a conversation on a model", async () => {
 		const rostered = new Conversations(
 			`${deps.splatesDir}/conversations`,
 			[ROSTERED],
 			{ launch: agent.launch },
 		);
-		await deps.todos.add("first", null);
-		await deps.todos.addLane("Licensing");
+		await deps.tasks.add("first", null);
+		await deps.tasks.addLane("Licensing");
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => rostered,
@@ -51,7 +51,7 @@ describe("dev assign", () => {
 				agent: "fake",
 				model: "Small",
 			});
-			expect((await deps.todos.find(1)).state.assignee).toEqual({
+			expect((await deps.tasks.find(1)).state.assignee).toEqual({
 				agent: "fake",
 				model: "small",
 			});
@@ -60,7 +60,7 @@ describe("dev assign", () => {
 				model: "small",
 				effort: "high",
 			});
-			expect((await deps.todos.find(1)).state.assignee).toEqual({
+			expect((await deps.tasks.find(1)).state.assignee).toEqual({
 				agent: "fake",
 				model: "small",
 				effort: "high",
@@ -70,7 +70,7 @@ describe("dev assign", () => {
 			});
 			expect(refused.status).toBe(400);
 			await json(port, "/api/todos/1/assignee", "PUT", { agent: null });
-			expect((await deps.todos.find(1)).state.assignee).toBeUndefined();
+			expect((await deps.tasks.find(1)).state.assignee).toBeUndefined();
 
 			const started = await json(port, "/api/conversations", "POST", {
 				agent: "fake",

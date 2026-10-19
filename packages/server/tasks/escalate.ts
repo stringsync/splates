@@ -64,7 +64,7 @@ export async function escalate(
 		if (!ready(left)) {
 			fail(
 				"blocked",
-				`'${name}' is not ready to merge: ${whatIsLeft(left)}. Escalate without --review to ask the questions, and finish or \`splates todo add\` the steps, then ask for the review`,
+				`'${name}' is not ready to merge: ${whatIsLeft(left)}. Escalate without --review to ask the questions, and finish or \`splates task add\` the steps, then ask for the review`,
 				{ task: name, blocked: left.questions, steps: left.steps },
 			);
 		}

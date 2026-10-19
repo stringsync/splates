@@ -25,7 +25,7 @@ export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";
 export { fingerprint, snapshot, tasksOf } from "./snapshot";
 export { reportToCaller, tell } from "./tell";
-export { DEFAULT_TIMEOUT, todoWait, untilAfter, wait } from "./wait";
+export { DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
 export type {
 	DiffSize,
 	FailedTest,

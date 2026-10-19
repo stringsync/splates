@@ -15,12 +15,12 @@ async function stored(deps: Testing, id: number): Promise<unknown> {
 }
 
 describe.concurrent("TaskStore", () => {
-	it("starts a task under the lowest todo it takes up, the rest held by it", async () => {
+	it("starts a task under the lowest queued task it takes up, the rest held by it", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await taskAdd(deps, "dark charts too", null);
 
-		await add(deps, "dark", { todos: [2, 1] });
+		await add(deps, "dark", { tasks: [2, 1] });
 
 		expect((await deps.service.find("dark")).state?.id).toBe(1);
 		expect(await stored(deps, 1)).toMatchObject({
@@ -35,10 +35,10 @@ describe.concurrent("TaskStore", () => {
 			status: "queued",
 		});
 		expect(await stored(deps, 2)).not.toHaveProperty("task");
-		expect((await deps.todos.all()).map((todo) => todo.id)).toEqual([1, 2]);
+		expect((await deps.tasks.all()).map((task) => task.id)).toEqual([1, 2]);
 	});
 
-	it("numbers a task that takes up no todo off the list, and forgets it as it goes", async () => {
+	it("numbers a task that takes up no queued task off the list, and forgets it as it goes", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "write docs", null);
 
@@ -48,7 +48,7 @@ describe.concurrent("TaskStore", () => {
 			task: "alpha",
 			listed: false,
 		});
-		expect((await deps.todos.all()).map((todo) => todo.id)).toEqual([1]);
+		expect((await deps.tasks.all()).map((task) => task.id)).toEqual([1]);
 		expect((await taskAdd(deps, "next", null)).id).toBe(3);
 
 		await remove(deps, "alpha");
@@ -57,10 +57,10 @@ describe.concurrent("TaskStore", () => {
 		expect((await deps.service.find("alpha")).status).toBe("removed");
 	});
 
-	it("queues a removed task's todo again, as it was", async () => {
+	it("queues a removed task's queued task again, as it was", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null, { lane: "new" });
-		await add(deps, "dark", { todos: [1] });
+		await add(deps, "dark", { tasks: [1] });
 
 		await remove(deps, "dark");
 
@@ -76,10 +76,10 @@ describe.concurrent("TaskStore", () => {
 		expect(record).not.toHaveProperty("lease");
 	});
 
-	it("leaves the todo a task started under queued when released before it lands", async () => {
+	it("leaves the queued task a task started under queued when released before it lands", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { todos: [1] });
+		await add(deps, "dark", { tasks: [1] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
 		await taskRelease(deps, [1], "dark");
@@ -94,14 +94,14 @@ describe.concurrent("TaskStore", () => {
 		expect((await deps.service.find("dark")).gone).toBeTrue();
 	});
 
-	it("keeps a task going when the todo it started under is removed", async () => {
+	it("keeps a task going when the queued task it started under is removed", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { todos: [1] });
+		await add(deps, "dark", { tasks: [1] });
 
 		await taskRemove(deps, 1);
 
-		await expect(deps.todos.find(1)).toBail("not_found");
+		await expect(deps.tasks.find(1)).toBail("not_found");
 		expect((await deps.service.find("dark")).status).toBe("working");
 		expect(await stored(deps, 1)).toMatchObject({ listed: false });
 	});
@@ -109,7 +109,7 @@ describe.concurrent("TaskStore", () => {
 	it("keeps what each side wrote when the other writes the same record", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { todos: [1] });
+		await add(deps, "dark", { tasks: [1] });
 
 		await taskUpdate(deps, 1, { subject: "dark mode everywhere" });
 		await (await deps.service.find("dark")).save({ mergeAttempts: 2 });
@@ -120,6 +120,6 @@ describe.concurrent("TaskStore", () => {
 			mergeAttempts: 2,
 			status: "working",
 		});
-		expect((await deps.todos.find(1)).state).not.toHaveProperty("task");
+		expect((await deps.tasks.find(1)).state).not.toHaveProperty("task");
 	});
 });

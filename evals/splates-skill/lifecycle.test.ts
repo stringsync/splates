@@ -105,24 +105,24 @@ it("requires successful verification before merge and independently observed lan
 	).toBe("fail");
 });
 
-it("bridges a requested TODO to actual task ownership", () => {
-	const show = command(["todo", "show", "1"]);
+it("bridges a requested queued task to a started task", () => {
+	const show = command(["task", "show", "1"]);
 	const take = command([
 		"add",
 		"sample",
-		"--todo",
+		"--task",
 		"1",
 		"--goal",
 		"Change value to two",
 	]);
-	const state = { "todo/takenBy": "sample", "task/exists": true };
-	expect(result("requested-todo", [show, take], state).status).toBe("pass");
-	expect(result("requested-todo", [take], state).status).toBe("fail");
-	expect(result("requested-todo", [take, show], state).status).toBe("fail");
+	const state = { "task/takenBy": "sample", "task/exists": true };
+	expect(result("requested-task", [show, take], state).status).toBe("pass");
+	expect(result("requested-task", [take], state).status).toBe("fail");
+	expect(result("requested-task", [take, show], state).status).toBe("fail");
 	expect(
-		result("requested-todo", [show, take], {
+		result("requested-task", [show, take], {
 			...state,
-			"todo/takenBy": "other",
+			"task/takenBy": "other",
 		}).status,
 	).toBe("fail");
 });

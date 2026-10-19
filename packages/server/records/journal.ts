@@ -8,6 +8,7 @@ import {
 	type Facts,
 	type FactsOf,
 	isCurrent,
+	renamed,
 } from "./events";
 
 /** How long a log file is kept once it fills, so a live conversation can still show the events in it. */
@@ -85,7 +86,7 @@ export class Journal {
 	 * Logs a wait as it begins, then `record`s how it ended with `began`
 	 * naming that first event, so the page can count it down while it runs.
 	 */
-	async waiting<A extends "wait" | "todo wait" | "creds wait", T>(
+	async waiting<A extends "wait" | "task wait" | "creds wait", T>(
 		action: A,
 		task: string | null,
 		facts: Omit<Facts[A], "began">,
@@ -196,7 +197,7 @@ export class Journal {
 			.flatMap((line) => {
 				try {
 					// A torn line loses one event, not the whole log.
-					return [JSON.parse(line) as Event];
+					return [renamed(JSON.parse(line) as Event)];
 				} catch {
 					return [];
 				}

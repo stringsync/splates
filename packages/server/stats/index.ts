@@ -1,6 +1,6 @@
 export { Adherence } from "./adherence";
 export { BudgetRoutes } from "./budget-routes";
-export { addFactTodos } from "./fact-todos";
+export { addFactTasks } from "./fact-tasks";
 export { findings } from "./findings";
 export type { Outcome } from "./outcomes";
 export { Outcomes, promptsFrom } from "./outcomes";

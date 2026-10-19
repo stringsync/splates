@@ -155,8 +155,8 @@ it("checks production directive payload/format constructors separately from agen
 		prompts.laneReference(null),
 		prompts.reportReference("work-1"),
 		prompts.idleReference("work-1"),
-		prompts.todoDoneReference(1),
-		prompts.todoOpenReference(1),
+		prompts.taskDoneReference(1),
+		prompts.taskOpenReference(1),
 		prompts.LANES_DONE,
 		prompts.DEFER,
 	];
@@ -165,8 +165,8 @@ it("checks production directive payload/format constructors separately from agen
 		"[SPLATES LANE untriaged]",
 		"[SPLATES REPORT work-1]",
 		"[SPLATES IDLE work-1]",
-		"[SPLATES TODO DONE #1]",
-		"[SPLATES TODO OPEN #1]",
+		"[SPLATES TASK DONE #1]",
+		"[SPLATES TASK OPEN #1]",
 		"[SPLATES LANES DONE]",
 		"[SPLATES DEFER]",
 	]);

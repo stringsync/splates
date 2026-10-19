@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { age } from "@stringsync/splates-server/age";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { blockerLabel } from "@stringsync/splates-server/board/browser";
-import { todoReference } from "@stringsync/splates-server/plans/browser";
+import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import {
 	CircleAlertIcon,
 	ClockIcon,
@@ -217,7 +217,7 @@ export function TakenBy({ task }: { task: string }): JSX.Element {
 }
 
 /**
- * The card's id, which copies `todoReference` for pasting into a chat. Above
+ * The card's id, which copies `taskNumberReference` for pasting into a chat. Above
  * the card's own button, and never the start of a drag.
  */
 export function CopyLink({ id }: { id: number }): JSX.Element {
@@ -227,7 +227,7 @@ export function CopyLink({ id }: { id: number }): JSX.Element {
 			type="button"
 			aria-label={`copy a link to todo ${id}`}
 			title={copied.state === "failed" ? copied.error : undefined}
-			onClick={() => copy(todoReference(id))}
+			onClick={() => copy(taskNumberReference(id))}
 			{...still}
 			className={cn(
 				"relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",

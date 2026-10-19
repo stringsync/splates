@@ -23,11 +23,11 @@ describe("App's todo add events for a todo a task has taken", () => {
 							{
 								id: "add-4",
 								at: second(2.5),
-								action: "todo add",
+								action: "task add",
 								task: "upload-413",
 								reason: null,
 								conversation: "c1",
-								todo: 4,
+								number: 4,
 								subject: "Upload retries forever on a 413",
 								lane: null,
 								position: 1,

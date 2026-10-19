@@ -73,8 +73,8 @@ describe("splates cli", () => {
 		).toBe(1);
 	});
 
-	// scry-ignore simple-test-setup: the escalated task is what numbers the todo after it, which this case checks.
-	it("escalates a task and edits its todos", async () => {
+	// scry-ignore simple-test-setup: the escalated task is what numbers the queued task after it, which this case checks.
+	it("escalates a task and edits its queued tasks", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
 		const worktree = await env.service.find("alpha");
 		await env.fs.write(
@@ -87,20 +87,20 @@ describe("splates cli", () => {
 
 		env.ps.cd(env.root);
 		await splates.run(deps, [
-			"todo",
+			"task",
 			"add",
 			"write docs",
 			"the CLI first",
 			"--file",
 			"a.png",
 		]);
-		// Task alpha took number 1, so the todo is numbered after it.
-		const [todo] = await env.todos.all();
-		const id = todo?.id ?? 0;
+		// Task alpha took number 1, so the queued task is numbered after it.
+		const [queued] = await env.tasks.all();
+		const id = queued?.id ?? 0;
 		expect(id).toBe(2);
-		const [attached = ""] = todo?.files ?? [];
+		const [attached = ""] = queued?.files ?? [];
 		await splates.run(deps, [
-			"todo",
+			"task",
 			"update",
 			String(id),
 			"--subject",
@@ -110,7 +110,7 @@ describe("splates cli", () => {
 			"--remove-file",
 			basename(attached),
 		]);
-		expect((await env.todos.find(id)).state).toMatchObject({
+		expect((await env.tasks.find(id)).state).toMatchObject({
 			subject: "write the docs",
 			text: "the CLI first",
 			position: 1,
@@ -175,10 +175,10 @@ describe("splates cli", () => {
 		});
 	});
 
-	it("logs the todo it adds, with where it went", async () => {
-		await splates.run(deps, ["todo", "add", "first"]);
+	it("logs the task it queues, with where it went", async () => {
+		await splates.run(deps, ["task", "add", "first"]);
 		await splates.run(deps, [
-			"todo",
+			"task",
 			"add",
 			"Upload retries forever on a 413",
 			"--position",
@@ -188,9 +188,9 @@ describe("splates cli", () => {
 		]);
 
 		expect((await env.journal.tail(1))[0]).toMatchObject({
-			action: "todo add",
+			action: "task add",
 			reason: null,
-			todo: 2,
+			number: 2,
 			subject: "Upload retries forever on a 413",
 			lane: 1,
 			position: 1,
@@ -264,7 +264,7 @@ describe("splates cli", () => {
 		});
 
 		await splates.run(deps, [
-			"todo",
+			"task",
 			"add",
 			"Restyle the header",
 			"--agent",
@@ -272,7 +272,7 @@ describe("splates cli", () => {
 			"--effort",
 			"low",
 		]);
-		expect((await env.todos.all()).at(-1)?.state.assignee).toEqual({
+		expect((await env.tasks.all()).at(-1)?.state.assignee).toEqual({
 			agent: "claude",
 			effort: "low",
 		});

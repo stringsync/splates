@@ -8,8 +8,8 @@ import {
 	laneReference,
 	type Needing,
 	needs,
+	taskNumberReference,
 	taskReference,
-	todoReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { settingsFor } from "./conversation-address";
@@ -176,7 +176,7 @@ export class Dispatch {
 export function promptFor(assignment: Assignment): string {
 	switch (assignment.kind) {
 		case "todo":
-			return todoReference(assignment.id);
+			return taskNumberReference(assignment.id);
 		case "lane":
 			return laneReference(assignment.id);
 		case "task":

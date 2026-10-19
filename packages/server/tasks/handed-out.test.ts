@@ -27,7 +27,7 @@ describe("HandedOut", () => {
 	let release: () => void;
 	/** The lanes on the board, lane 1 until a test empties it. */
 	let board: LaneRecord[];
-	/** The todos on the list, none until a test adds some. */
+	/** The queued tasks on the list, none until a test adds some. */
 	let list: TaskRecord[];
 
 	const until = async (done: () => boolean) => {
@@ -36,7 +36,7 @@ describe("HandedOut", () => {
 		}
 	};
 
-	/** Marks a todo on `list` stuck, as the board does on disk. */
+	/** Marks a queued task on `list` stuck, as the board does on disk. */
 	const stuck = {
 		markStuck: async (id: number, at: string | null) => {
 			list = list.map((each) => {
@@ -59,8 +59,8 @@ describe("HandedOut", () => {
 			service: deps.service,
 			conversations,
 			lanes: async () => board,
-			todos: async () => list,
-			seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+			queued: async () => list,
+			seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-tasks.json`),
 			stuck,
 			log: deps.log,
 			timer,
@@ -150,8 +150,8 @@ describe("HandedOut", () => {
 					slug: async () => "repo",
 				}),
 				lanes: async () => board,
-				todos: async () => list,
-				seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-todos.json`),
+				queued: async () => list,
+				seen: new SeenLaneTasks(deps.fs, `${deps.splatesDir}/lane-tasks.json`),
 				stuck,
 				log: deps.log,
 				timer,
@@ -412,14 +412,14 @@ describe("HandedOut", () => {
 		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES LANES DONE]"]);
 	});
 
-	/** Todo `id` in `lane`, taken by `takenBy`. */
-	const todo = (
+	/** Task `id` in `lane`, taken by `takenBy`. */
+	const queued = (
 		id: number,
 		takenBy: string | null,
 		lane: number | null = 1,
 	): TaskRecord => ({
 		id,
-		subject: `todo ${id}`,
+		subject: `queued task ${id}`,
 		text: "",
 		position: id,
 		from: null,
@@ -430,37 +430,37 @@ describe("HandedOut", () => {
 		lane,
 	});
 
-	it("tells an orchestrator once as a todo in its lane leaves the list", async () => {
+	it("tells an orchestrator once as a queued task in its lane leaves the list", async () => {
 		await orchestrating(
 			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
 		);
-		list = [todo(2, "beta"), todo(3, null)];
+		list = [queued(2, "beta"), queued(3, null)];
 		const watched = watch();
 		await watched.sweep();
-		list = [todo(3, null)];
+		list = [queued(3, null)];
 		await watched.sweep();
 		await until(() => said.length === 2);
 		await watched.sweep();
 		await Bun.sleep(50);
 
-		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO DONE #2]"]);
+		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TASK DONE #2]"]);
 	});
 
-	it("tells an orchestrator as a todo in its lane comes back open", async () => {
+	it("tells an orchestrator as a queued task in its lane comes back open", async () => {
 		await orchestrating(
 			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
 		);
-		list = [todo(2, "beta")];
+		list = [queued(2, "beta")];
 		const watched = watch();
 		await watched.sweep();
-		list = [todo(2, null)];
+		list = [queued(2, null)];
 		await watched.sweep();
 		await until(() => said.length === 2);
 
-		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO OPEN #2]"]);
+		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TASK OPEN #2]"]);
 	});
 
-	it("tells an orchestrator nothing of a todo in a lane it does not work", async () => {
+	it("tells an orchestrator nothing of a queued task in a lane it does not work", async () => {
 		await orchestrating(
 			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
 		);
@@ -468,7 +468,7 @@ describe("HandedOut", () => {
 			{ id: 1, name: "Stats" },
 			{ id: 2, name: "Licensing" },
 		];
-		list = [todo(2, "beta", 2)];
+		list = [queued(2, "beta", 2)];
 		const watched = watch();
 		await watched.sweep();
 		list = [];
@@ -478,25 +478,25 @@ describe("HandedOut", () => {
 		expect(said).toEqual(["[SPLATES LANE 1]"]);
 	});
 
-	it("tells an orchestrator of a todo that left its lane while splates server was down", async () => {
+	it("tells an orchestrator of a queued task that left its lane while splates server was down", async () => {
 		await orchestrating(
 			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
 		);
-		list = [todo(2, "beta"), todo(3, null)];
+		list = [queued(2, "beta"), queued(3, null)];
 		await watch().sweep();
 		watching?.dispose();
-		list = [todo(3, null)];
+		list = [queued(3, null)];
 		await restart();
 		await watch().sweep();
 		await until(() => said.length === 2);
 
-		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO DONE #2]"]);
+		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TASK DONE #2]"]);
 	});
 
-	/** Lane 1 set running, by the person; alpha holds its todo 2. */
+	/** Lane 1 set running, by the person; alpha holds its queued task 2. */
 	const running = () => {
 		board = [{ id: 1, name: "Stats", running: { by: null } }];
-		list = [todo(2, "alpha")];
+		list = [queued(2, "alpha")];
 	};
 
 	it("tells the agent of a running lane's task to carry on itself, and its orchestrator only once it stops again", async () => {
@@ -517,7 +517,7 @@ describe("HandedOut", () => {
 		expect(list[0]?.stuck).toBe(new Date(clock.now()).toISOString());
 	});
 
-	it("marks the todo of a running lane the person set going stuck, telling no one", async () => {
+	it("marks the queued task of a running lane the person set going stuck, telling no one", async () => {
 		running();
 		const working = await conversations.start("fake", {
 			task: "alpha",
@@ -547,29 +547,29 @@ describe("HandedOut", () => {
 		expect(list[0]?.stuck).toBeUndefined();
 	});
 
-	it("marks a stuck todo no longer stuck once its agent is at work again", async () => {
+	it("marks a stuck queued task no longer stuck once its agent is at work again", async () => {
 		running();
-		list = [{ ...todo(2, "alpha"), stuck: "2026-10-16T00:00:00Z" }];
+		list = [{ ...queued(2, "alpha"), stuck: "2026-10-16T00:00:00Z" }];
 		const { watched } = await atWork();
 		await watched.sweep();
 
 		expect(list[0]?.stuck).toBeUndefined();
 	});
 
-	it("tells an orchestrator of a running lane of a todo come into it, not of one done or open", async () => {
+	it("tells an orchestrator of a running lane of a queued task come into it, not of one done or open", async () => {
 		await orchestrating(
 			"## ⏳ Working lanes Stats: running\n\n#### The lane runs.",
 		);
 		board = [{ id: 1, name: "Stats", running: { by: null } }];
-		list = [todo(2, "beta"), todo(3, "gamma")];
+		list = [queued(2, "beta"), queued(3, "gamma")];
 		const watched = watch();
 		await watched.sweep();
-		list = [todo(3, null), todo(4, null)];
+		list = [queued(3, null), queued(4, null)];
 		await watched.sweep();
 		await until(() => said.length === 2);
 		await watched.sweep();
 		await Bun.sleep(50);
 
-		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TODO ADDED #4]"]);
+		expect(said).toEqual(["[SPLATES LANE 1]", "[SPLATES TASK ADDED #4]"]);
 	});
 });

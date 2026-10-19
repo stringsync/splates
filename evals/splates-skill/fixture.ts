@@ -10,7 +10,7 @@ import type { Scenario } from "./scenario";
 /**
  * A throwaway splates repository for one run: an uploader whose retries never
  * stop, the skill under test installed as `splates init` would, and a lane of
- * todos seeded. Every `splates` it runs, and every one its agent runs, is this
+ * queued tasks seeded. Every `splates` it runs, and every one its agent runs, is this
  * checkout's, with its own `SPLATES_HOME`, so nothing reaches the user's.
  */
 export class Fixture implements AsyncResource {
@@ -62,16 +62,16 @@ export class Fixture implements AsyncResource {
 		await sh`mkdir -p .claude/skills && ln -s ../../.agents/skills/splates .claude/skills/splates`;
 		await sh`git add -A && git commit -qm ${"Add the splates skill"}`;
 		await sh`splates lane add ${"Upload errors"}`;
-		for (const todo of TODOS) {
-			await sh`splates todo add ${todo.subject} ${todo.detail} ${todo.flags}`;
+		for (const seeded of QUEUED) {
+			await sh`splates task add ${seeded.subject} ${seeded.detail} ${seeded.flags}`;
 		}
-		// Before setup, which may land a todo as an agent would.
-		const todos = JSON.parse(
-			await sh`splates todo list --json`.text(),
+		// Before setup, which may land a task as an agent would.
+		const queued = JSON.parse(
+			await sh`splates task list --json`.text(),
 		) as unknown[];
-		if (todos.length !== TODOS.length) {
+		if (queued.length !== QUEUED.length) {
 			throw new Error(
-				`the fixture seeded ${todos.length} todos, not ${TODOS.length}`,
+				`the fixture seeded ${queued.length} queued tasks, not ${QUEUED.length}`,
 			);
 		}
 		if (scenario.dev === true) {
@@ -179,7 +179,7 @@ export class Fixture implements AsyncResource {
 			.map((line) => JSON.parse(line) as Outcome);
 		return {
 			tasks: await Promise.all(tasks.map(({ task }) => json(["show", task]))),
-			todos: (await json(["todo", "list"])) ?? [],
+			queued: (await json(["task", "list"])) ?? [],
 			lanes: (await json(["lane", "list"])) ?? [],
 			main: (await sh`git log --format=%B%x00 ${"main"}`.text())
 				.split("\0")
@@ -237,8 +237,8 @@ export interface EndRepo extends EndState {
 	landed: { task: string; base: string; commits: string[] }[];
 	/** `splates show --json` of each task left. */
 	tasks: Task[];
-	/** `splates todo list --json`. */
-	todos: Record<string, unknown>[];
+	/** `splates task list --json`. */
+	queued: Record<string, unknown>[];
 	/** `splates lane list --json`. */
 	lanes: Record<string, unknown>[];
 	/** Each commit message on main, newest first. */
@@ -304,7 +304,7 @@ export const DEV_CONVERSATION = "orch";
 export const SEEDED = 2;
 
 /** Seeded in order, so #1 and #3 make lane 1 and #2 is untriaged. */
-const TODOS = [
+const QUEUED = [
 	{
 		subject: "Upload retries forever on a 413",
 		detail: `The client retries on any status of 400 or more in \`src/upload.ts\`, so a file the server refuses as too big (413) retries forever.

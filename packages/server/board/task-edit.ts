@@ -18,7 +18,7 @@ export interface TaskAddOptions extends TaskFileOptions {
 	text?: string;
 	/** Where it goes in the list, 1 at the top; the bottom by default. */
 	position?: number;
-	/** The todos blocking it: each has to merge before it starts. */
+	/** The tasks blocking it: each has to merge before it starts. */
 	blockedBy?: number[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
@@ -29,7 +29,7 @@ export interface TaskAddOptions extends TaskFileOptions {
 }
 
 export async function taskAdd(
-	deps: { todos: Tasks; log: Logger; fs: Fs; ps: Ps },
+	deps: { tasks: Tasks; log: Logger; fs: Fs; ps: Ps },
 	subject: string,
 	from: string | null,
 	{
@@ -42,7 +42,7 @@ export async function taskAdd(
 		origin,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
-	const todo = await deps.todos.add(subject, from, {
+	const task = await deps.tasks.add(subject, from, {
 		text,
 		files: await readFiles(deps, files),
 		position,
@@ -53,23 +53,23 @@ export async function taskAdd(
 	});
 	deps.log.info(
 		[
-			`${color.green("added")} todo ${todo.id} at position ${todo.position}${todo.lane === null ? "" : ` in lane ${todo.lane}`}`,
-			...todo.files.map((path) => `  ${path}`),
-			todo.blockedBy.length === 0
-				? `  start it: splates add <task> --todo ${todo.id}`
-				: `  blocked by: ${todo.blockedBy.map((id) => `todo ${id}`).join(", ")}, which merge first`,
+			`${color.green("added")} task ${task.id} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}`,
+			...task.files.map((path) => `  ${path}`),
+			task.blockedBy.length === 0
+				? `  start it: splates add <slug> --task ${task.id}`
+				: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);
-	return todo;
+	return task;
 }
 
-/** What a `todo add` event says of the todo it added. */
-export function addedFacts(todo: Task): Facts["todo add"] {
+/** What a `task add` event says of the task it added. */
+export function addedFacts(task: Task): Facts["task add"] {
 	return {
-		todo: todo.id,
-		subject: todo.subject,
-		lane: todo.lane,
-		position: todo.position,
+		number: task.id,
+		subject: task.subject,
+		lane: task.lane,
+		position: task.position,
 	};
 }
 
@@ -82,9 +82,9 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	position?: number;
 	/** Attached files to drop, by path or by the name they were stored under. */
 	removeFiles?: string[];
-	/** Todos blocking it from now on, besides those that already do. */
+	/** Tasks blocking it from now on, besides those that already do. */
 	blockedBy?: number[];
-	/** Todos no longer blocking it. */
+	/** Tasks no longer blocking it. */
 	removeBlockedBy?: number[];
 	/** The lane it moves to, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
@@ -93,7 +93,7 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 }
 
 export async function taskUpdate(
-	deps: { todos: Tasks; log: Logger; fs: Fs; ps: Ps },
+	deps: { tasks: Tasks; log: Logger; fs: Fs; ps: Ps },
 	id: number,
 	{
 		subject,
@@ -107,50 +107,50 @@ export async function taskUpdate(
 		assignee,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
-	const todo = await deps.todos.find(id);
+	const task = await deps.tasks.find(id);
 	// A blocker removed without merging is let go of as one still linked is.
 	const lost = removeBlockedBy.filter((each) =>
-		todo.state.blockersLost?.some((gone) => gone.id === each),
+		task.state.blockersLost?.some((gone) => gone.id === each),
 	);
 	const unlinked = removeBlockedBy.find(
-		(each) => !todo.blockedBy.includes(each) && !lost.includes(each),
+		(each) => !task.blockedBy.includes(each) && !lost.includes(each),
 	);
 	if (unlinked !== undefined) {
 		fail(
 			"not_found",
-			`todo ${id} is not blocked by todo ${unlinked}: nothing was changed`,
-			{ todo: id, blockedBy: unlinked },
+			`task ${id} is not blocked by task ${unlinked}: nothing was changed`,
+			{ number: id, blockedBy: unlinked },
 		);
 	}
 	const matches = (path: string, named: string) =>
 		path === named || basename(path) === named;
 	const unknown = removeFiles.find(
-		(named) => !todo.files.some((path) => matches(path, named)),
+		(named) => !task.files.some((path) => matches(path, named)),
 	);
 	if (unknown !== undefined) {
 		fail(
 			"not_found",
-			`todo ${id} has no file '${unknown}': nothing was changed`,
-			{ todo: id, file: unknown },
+			`task ${id} has no file '${unknown}': nothing was changed`,
+			{ number: id, file: unknown },
 		);
 	}
-	const dropped = todo.files.filter((path) =>
+	const dropped = task.files.filter((path) =>
 		removeFiles.some((named) => matches(path, named)),
 	);
 	if (lost.length > 0) {
-		await deps.todos.link(id, { drop: lost });
+		await deps.tasks.link(id, { drop: lost });
 	}
-	const updated = await todo.update({
+	const updated = await task.update({
 		subject: subject || undefined,
 		text: text || undefined,
 		position,
 		files: await readFiles(deps, files),
-		keep: todo.files.filter((path) => !dropped.includes(path)),
+		keep: task.files.filter((path) => !dropped.includes(path)),
 		blockedBy:
 			blockedBy.length === 0 &&
 			removeBlockedBy.every((each) => lost.includes(each))
 				? undefined
-				: [...todo.blockedBy, ...blockedBy].filter(
+				: [...task.blockedBy, ...blockedBy].filter(
 						(each) => !removeBlockedBy.includes(each),
 					),
 		lane,
@@ -158,12 +158,12 @@ export async function taskUpdate(
 	});
 	deps.log.info(
 		[
-			`${color.green("updated")} todo ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}: ${updated.subject}`,
+			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
 			...(updated.blockedBy.length === 0
 				? []
 				: [
-						`  blocked by: ${updated.blockedBy.map((each) => `todo ${each}`).join(", ")}`,
+						`  blocked by: ${updated.blockedBy.map((each) => `task ${each}`).join(", ")}`,
 					]),
 		].join("\n"),
 	);
@@ -171,11 +171,11 @@ export async function taskUpdate(
 }
 
 export async function taskRemove(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
 ): Promise<Task> {
-	const todo = await todos.find(id);
-	await todo.remove();
-	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);
-	return todo;
+	const task = await tasks.find(id);
+	await task.remove();
+	log.info(`${color.green("removed")} task ${id}: ${task.subject}`);
+	return task;
 }

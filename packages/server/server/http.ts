@@ -12,7 +12,7 @@ import { PULSE, PULSE_EVENT } from "./pulse";
  * `hosts` lets in answers only to a request Cloudflare Access verified, and
  * such a request may use conversations and terminals too; without it,
  * those answer only to this machine's own names, so a tunnel still reaches
- * no further than the todos.
+ * no further than the queued tasks.
  */
 export class HostGate {
 	private readonly allowed: Set<string>;
@@ -118,7 +118,7 @@ export const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 export const MAX_BODY_BYTES = 25 * 1024 * 1024;
 
 /**
- * The images and recordings a todo or a task may hold, by extension, and how
+ * The images and recordings a queued or started task may hold, by extension, and how
  * each is served; `web/media.tsx` shows the same ones inline.
  */
 export const MEDIA_TYPES: Record<string, string> = {

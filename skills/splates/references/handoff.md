@@ -73,7 +73,7 @@ yourself.
 
 ## Picking a thinking level
 
-`splates handoff`, `splates add --agent` and `splates todo add` take
+`splates handoff`, `splates add --agent` and `splates task add` take
 `--effort <level>`, the thinking level the agent works at, one of those
 `splates agents` lists under THINKING for it; left off, the agent works at
 its own. Pick the model first, then the level for what is left on it:

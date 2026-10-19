@@ -89,7 +89,7 @@ export interface Repository {
 	lock: Lock;
 	shell: Shell;
 	journal: Journal;
-	todos: Tasks;
+	tasks: Tasks;
 	/** How each task on this machine ended, which a merge reads its findings from. */
 	outcomes: Outcomes;
 	/** Every splates project on this machine, which `splates init` joins this one to. */
@@ -184,7 +184,7 @@ async function checkReach(
 		fail(
 			"not_granted",
 			[
-				`${called(git.root)} lets ${called(from)} ${reach === "read" ? "only read" : "only add todos"} here, and this needs ${needs}.`,
+				`${called(git.root)} lets ${called(from)} ${reach === "read" ? "only read" : "only queue tasks"} here, and this needs ${needs}.`,
 				`Ask the user whether it may: once they say so, \`splates projects grant ${called(from)} ${needs}\` run in ${git.root} grants it.`,
 			].join("\n"),
 			{ from: called(from), to: called(git.root), reach, needs },
@@ -429,7 +429,7 @@ export async function openRepository(
 			fs,
 			ps,
 		}),
-		todos: new Tasks(store, { fs }),
+		tasks: new Tasks(store, { fs }),
 	};
 }
 

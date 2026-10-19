@@ -18,7 +18,7 @@ import {
 	seeded,
 	update,
 } from "@stringsync/splates-server/server";
-import { addFactTodos } from "@stringsync/splates-server/stats";
+import { addFactTasks } from "@stringsync/splates-server/stats";
 import {
 	add,
 	checkpoint,
@@ -45,14 +45,14 @@ import { z } from "zod";
 import { splatesArtifact } from "./artifact";
 import { splatesBudget } from "./budget";
 import { splatesCreds } from "./creds";
-import { effortIn, here, offeredOf, todoIds } from "./flags";
+import { effortIn, here, offeredOf, taskIds } from "./flags";
 import { splatesLane } from "./lane";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
 import { splatesSlots } from "./slots";
-import { splatesTodo } from "./todo";
+import { splatesTask } from "./task";
 import { splatesTunnel } from "./tunnel";
 import { splatesWorker } from "./worker";
 
@@ -137,23 +137,26 @@ splates
 	.command("add")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"start a new task: create branch task/<task>, a worktree at ../<repo>-splates.noindex/<task> and a state record",
+		"start a task: a new one, or with --task one from the queue; create branch task/<slug>, a worktree at ../<repo>-splates.noindex/<slug> and a state record",
 	)
-	.arg("task", z.string(), { description: "task name (lowercase-with-dashes)" })
+	.arg("slug", z.string(), {
+		description:
+			"the task's name, for its branch and worktree (lowercase-with-dashes)",
+	})
 	.option("base", z.string(), {
 		default: "",
 		description:
 			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
 	})
-	.option("todo", z.string(), {
+	.option("task", z.string(), {
 		default: "",
 		description:
-			"take up these todos, comma separated: their words become the plan's Goal, merging removes them, and removing the task puts them back",
+			"start these queued tasks by number, comma separated, the first as this one and the rest taken up by it: their words become the plan's Goal, merging removes them, and removing it puts them back in the queue",
 	})
 	.option("goal", z.string(), {
 		default: "",
 		description:
-			"one or two lines on what done means, written under `## Goal` in the task's SPLATES.md; required unless --todo seeds the Goal",
+			"one or two lines on what done means, written under `## Goal` in the task's SPLATES.md; required unless --task seeds the Goal",
 	})
 	.option("agent", z.string(), {
 		default: "",
@@ -181,14 +184,14 @@ splates
 			(opts.model !== "" || opts.effort !== "" || opts.prompt !== "")
 		) {
 			fail("usage", "--model, --effort and --prompt go with --agent", {
-				task: opts.task,
+				task: opts.slug,
 			});
 		}
-		if (opts.goal.trim() === "" && opts.todo === "") {
+		if (opts.goal.trim() === "" && opts.task === "") {
 			fail(
 				"usage",
-				`say what done means: \`splates add ${opts.task} --goal "<one or two lines>"\`, or take todos with --todo`,
-				{ task: opts.task },
+				`say what done means: \`splates add ${opts.slug} --goal "<one or two lines>"\`, or start queued tasks with --task`,
+				{ task: opts.slug },
 			);
 		}
 		const dispatch =
@@ -198,22 +201,22 @@ splates
 						agent: opts.agent,
 						...(opts.model === "" ? {} : { model: opts.model }),
 						...(await effortIn(ctx, opts.agent, opts.effort, {
-							task: opts.task,
+							task: opts.slug,
 						})),
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					};
 		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
-		const all = await ctx.todos.all();
-		const subjects = todoIds(opts.todo).flatMap(
-			(id) => all.find((todo) => todo.id === id)?.subject ?? [],
+		const all = await ctx.tasks.all();
+		const subjects = taskIds(opts.task).flatMap(
+			(id) => all.find((each) => each.id === id)?.subject ?? [],
 		);
 		await ctx.journal.record(
 			"add",
-			opts.task,
+			opts.slug,
 			() =>
-				add(ctx, opts.task, {
+				add(ctx, opts.slug, {
 					base: opts.base || undefined,
-					todos: todoIds(opts.todo),
+					tasks: taskIds(opts.task),
 					goal: opts.goal.trim() || undefined,
 					dispatch,
 					agents,
@@ -223,12 +226,12 @@ splates
 					// agent's, so this conversation stays where it is.
 					onTree:
 						dispatch === undefined
-							? () => follow(ctx, opts.task, { base: opts.base || undefined })
+							? () => follow(ctx, opts.slug, { base: opts.base || undefined })
 							: undefined,
 				}),
 			{
 				base: opts.base || ctx.config.trunk,
-				todos: todoIds(opts.todo),
+				tasks: taskIds(opts.task),
 				goal: opts.goal.trim() || null,
 				subjects,
 				agent: dispatch?.agent ?? null,
@@ -283,8 +286,10 @@ splates
 		if (task !== null) {
 			// After the merge's own event, so the conversation says it landed
 			// before what it found; landed is landed, whatever happens here.
-			await addFactTodos(ctx, task).catch((error: unknown) =>
-				ctx.log.error(`could not add todos for what the merge found: ${error}`),
+			await addFactTasks(ctx, task).catch((error: unknown) =>
+				ctx.log.error(
+					`could not queue tasks for what the merge found: ${error}`,
+				),
 			);
 			await follow(ctx, null, { from: task });
 		}
@@ -324,7 +329,7 @@ splates
 	.command("list")
 	.use(repository({ needs: "read" }))
 	.description(
-		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
+		"list every started task: its number, name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age; `splates task list` lists the queue",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.option("files", z.boolean(), {
@@ -369,7 +374,7 @@ splates
 	.command("log")
 	.use(repository({ needs: "read" }))
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, todo and more, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, queued task and more, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -634,7 +639,7 @@ splates
 
 splates
 	.mount("artifact", splatesArtifact)
-	.mount("todo", splatesTodo)
+	.mount("task", splatesTask)
 	.mount("lane", splatesLane)
 	.mount("projects", splatesProjects)
 	.mount("creds", splatesCreds)

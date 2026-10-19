@@ -174,7 +174,9 @@ export class Projects {
 		const record = (await this.read()).projects.find(
 			(each) => each.root === to,
 		);
-		return record?.grants?.[from] ?? DEFAULT_REACH;
+		const granted = record?.grants?.[from] as Reach | "todos" | undefined;
+		// Granted before todos became tasks, adding them was `todos`.
+		return granted === "todos" ? "queue" : (granted ?? DEFAULT_REACH);
 	}
 
 	/**
@@ -321,15 +323,15 @@ export class Projects {
 
 /**
  * What an agent working in one project may do in another through splates,
- * each including those before it: read its tasks, todos and lanes;
- * add todos to its untriaged lane; or hand its tasks to agents and
- * orchestrate them. Grants stop splates commands, not file edits.
+ * each including those before it: read its tasks and lanes; queue tasks
+ * in its untriaged lane; or hand its tasks to agents and orchestrate them.
+ * Grants stop splates commands, not file edits.
  */
-export const REACHES = ["read", "todos", "tasks"] as const;
+export const REACHES = ["read", "queue", "tasks"] as const;
 export type Reach = (typeof REACHES)[number];
 
 /** What a project lets another do that it has granted nothing. */
-export const DEFAULT_REACH: Reach = "todos";
+export const DEFAULT_REACH: Reach = "queue";
 
 /** Whether `granted` covers what `needed` asks for. */
 export function reaches(granted: Reach, needed: Reach): boolean {
@@ -364,9 +366,9 @@ export function projectLine({
 
 /** What `projectLine` says each reach lets an agent do there. */
 const REACH_LINES: Record<Reach, string> = {
-	read: "only read its tasks, todos and lanes: ask the user for more when your work needs it",
-	todos:
-		"add todos for it, but hand it no task: ask the user for more when your work needs it",
+	read: "only read its tasks and lanes: ask the user for more when your work needs it",
+	queue:
+		"add tasks to its queue, but start none: ask the user for more when your work needs it",
 	tasks:
-		"add todos for it or hand its tasks to agents, never taking one yourself",
+		"add tasks to its queue or hand its tasks to agents, never taking one yourself",
 };

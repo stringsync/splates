@@ -5,7 +5,7 @@ import {
 	isUpdate,
 	MERGE,
 	reportReference,
-	todoReference,
+	taskNumberReference,
 } from "./prompts";
 
 describe("isUpdate", () => {
@@ -15,17 +15,18 @@ describe("isUpdate", () => {
 				reportReference("header"),
 				idleReference("header"),
 				groomReference(12),
+				"[SPLATES TODO DONE #12]",
 			].map(isUpdate),
-		).toEqual([true, true, true]);
+		).toEqual([true, true, true, true]);
 	});
 
 	it("takes what the person sends for theirs", () => {
 		expect(
 			[
 				MERGE,
-				todoReference(12),
+				taskNumberReference(12),
 				`${reportReference("header")} and the footer`,
-				"> **Which pages need it?**\n\n- (a) Todos",
+				"> **Which pages need it?**\n\n- (a) Tasks",
 			].map(isUpdate),
 		).toEqual([false, false, false, false]);
 	});

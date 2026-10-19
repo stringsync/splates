@@ -12,12 +12,12 @@ adherence. No paid run, ranking, speedup or adherence rate is reported.
 | --- | --- | --- | --- |
 | lifecycle-start / Workflow | `start` | Successful exact add before `value.txt` read; base `main`, original main file, no edit | Complete read/cwd instrumentation unavailable; explicit gap for other early reads and task isolation |
 | lifecycle-start / TASK directive | `claim` | Claim before plan/code read; real working state; forbid exact new-task add | This is an input directive, not a CLI-emission assertion |
-| lifecycle-start / TODO directive | `requested-todo` | Show #1 before exact add taking it; actual todo ownership and worktree | Minimal lifecycle bridge only; no lane/grooming judgement |
+| lifecycle-start / TASK directive | `requested-task` | Show #1 before exact add taking it; actual task ownership and worktree | Minimal lifecycle bridge only; no lane/grooming judgement |
 | lifecycle-plan / Workflow, SPLATES.md | `plan` | Plan write and overlap inspection before first edit; main unchanged; forbid merge | Write does not prove plan contents at edit time or plan usefulness; explicit gap |
 | lifecycle-land / Workflow, Committing | `verify-land` | Successful real check before successful splates merge; main value, one commit, attribution check, deleted worktree | No general argv-prefix matching; exact forbidden raw merge only. Commit-message quality and all alternate git mutations remain uncovered |
 | lifecycle-recovery / Workflow | `recover-conflict`, `recover-failed-check` | Seed real failure; require plan update and no premature exact merge | Semantic correspondence to stderr remains explicitly uncovered; does not prove resolution |
 | lifecycle-recovery / Workflow, Escalation | `recover-budget` | Seed attempts exhausted; actual CLI refusal; actual escalation state, no exact retry/merge | Per-attempt report quality and alternate retry forms remain explicitly uncovered |
-| lifecycle-cleanup / Workflow | `remove-moot` | Successful remove with moot reason; worktree absent and main unchanged | No associated todos; partial todo release belongs to #340 |
+| lifecycle-cleanup / Workflow | `remove-moot` | Successful remove with moot reason; worktree absent and main unchanged | No associated queued tasks; partial task release belongs to #340 |
 | lifecycle-land/recovery / CLI responses | `cli-working`, `cli-merged`, `cli-tests_failed`, `cli-conflict`, `cli-budget_exhausted`, `cli-escalated`, `cli-removed` | Direct local CLI exit code, JSON refusal reason, actual records/outcomes, recovery guidance, and git/file state; stop at process return | No agent response claim; no complete nested event capture |
 
 Each assertion id names its skill section or CLI response. Failures retain the
@@ -76,15 +76,15 @@ channels. No adapter is allowed to drop those gaps to manufacture a pass.
   available and tests behavior. `start` is the shared behavioral endpoint;
   discovery should reference it rather than copy an entire lifecycle. A read
   alone must never satisfy either aspect's behavior requirement.
-- **#340 todos/orchestration:** owns intake semantics, taken-todo refusal,
-  grooming/releasing partial todos, lane dependencies, dispatch and no-dev lane
-  orchestration. `requested-todo` only bridges a single open todo into a task.
+- **#340 queued tasks/orchestration:** owns intake semantics, taken-queued refusal,
+  grooming/releasing partial queued tasks, lane dependencies, dispatch and no-dev lane
+  orchestration. `requested-task` only bridges a single queued task into a started task.
 - **#356 delegation/handoffs:** owns child base selection (including nondefault
   bases), briefs, handoff ownership, child-before-parent merges, and
   no-dev delegation boundaries. These single-task cases have no child agents.
   Real code behind #356 includes `handoff.ts` (handoff
   ownership) and `web/parts.ts` (part state).
-  #356 is a todo id, not an existing splates system.
+  #356 is a task number, not an existing splates system.
 - **#355 decisions:** owns approval/review choices. `verify-land` explicitly has
   no review request; `recover-budget` follows an unambiguous CLI refusal.
 - **#357 continuity/reporting:** owns checkpoint/reconnect/update and report
@@ -92,7 +92,7 @@ channels. No adapter is allowed to drop those gaps to manufacture a pass.
   parsed report. TASK inputs are independent single turns, not resume simulations.
 
 No shared runner/schema/README/COVERAGE files are changed. #342 can reconcile
-this inventory with the shared audit. Existing `todo` E2E remains untouched and
+this inventory with the shared audit. Existing `queued` E2E remains untouched and
 separately selectable (`eval e2e`); full resolution/retry journeys, all commit
 message conventions, reference discovery and actual delegated execution remain
 outside these short cases. Public fixtures are not private held-out data.
@@ -106,7 +106,7 @@ These commands are documentation only, not permission to run paid models:
 splates dev eval fast --probe lifecycle/claim --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
 splates dev eval fast --aspect lifecycle --target codex:gpt-6-astra --parallel 2 --reps 2 --milliseconds 30000 --turns 1 --tokens 2000 --allow-unmetered
 splates dev eval report --directory /path/to/results
-splates dev eval e2e run --scenario todo --reps 1
+splates dev eval e2e run --scenario queue --reps 1
 ```
 
 Tool-capable probes currently report unsupported with generic ACP; these are

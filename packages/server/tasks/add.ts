@@ -17,13 +17,13 @@ export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
 	/**
-	 * The todos this task takes up: their words seed the plan's Goal, and
+	 * The queued tasks this task takes up: their words seed the plan's Goal, and
 	 * nobody else can take them while the task lives.
 	 */
-	todos?: number[];
+	tasks?: number[];
 	/**
 	 * One or two lines on what done means, written under `## Goal` ahead of
-	 * whatever the todos seed it with.
+	 * whatever the queued tasks seed it with.
 	 */
 	goal?: string;
 	/**
@@ -53,7 +53,7 @@ export async function add(
 		config,
 		log,
 		fs,
-		todos,
+		tasks: queue,
 		heavy,
 	}: {
 		service: WorktreeService;
@@ -61,13 +61,13 @@ export async function add(
 		config: Config;
 		log: Logger;
 		fs: Fs;
-		todos: Tasks;
+		tasks: Tasks;
 		heavy: HeavyCap;
 	},
 	task: string,
 	{
 		base = config.trunk,
-		todos: ids = [],
+		tasks: ids = [],
 		goal: asked,
 		onTree,
 		dispatch,
@@ -143,17 +143,17 @@ export async function add(
 		refuseTaken(found);
 	}
 
-	// Looked up before anything is created, so a todo that is gone or taken
+	// Looked up before anything is created, so a queued task that is gone or taken
 	// refuses the whole add instead of leaving a tree behind.
 	const taken: Task[] = [];
 	const blocked: string[] = [];
 	for (const id of new Set(ids)) {
-		const todo = await todos.find(id);
-		if (todo.takenBy) {
-			await todo.take(task); // refuses, naming the task that has it
+		const each = await queue.find(id);
+		if (each.takenBy) {
+			await each.take(task); // refuses, naming the task that has it
 		}
-		blocked.push(...blockedWarning(todo, await todo.blockers(task, ids)));
-		taken.push(todo);
+		blocked.push(...blockedWarning(each, await each.blockers(task, ids)));
+		taken.push(each);
 	}
 
 	const added = await service.add(task, { base });
@@ -179,8 +179,8 @@ export async function add(
 	await onTree?.();
 	// Taken before the record is first written, which starts the task under
 	// the lowest number among them.
-	for (const todo of taken) {
-		await todo.take(task);
+	for (const each of taken) {
+		await each.take(task);
 	}
 	// An agent `splates server` started has its conversation in its env: the page
 	// nests the task under it, as for a subagent's task landing on trunk.
@@ -270,19 +270,19 @@ function refuseTaken(found: Worktree): never {
 }
 
 /**
- * Todos as a Goal: each one's subject and detail, and each file attached to it
- * by path, which stay readable until the task lands and takes the todo with
- * it. One todo is the Goal as it stands; several are each named by id.
+ * Queued tasks as a Goal: each one's subject and detail, and each file attached
+ * to it by path, which stay readable until the task lands and takes the queued
+ * task with it. One is the Goal as it stands; several are each named by number.
  */
-function goal(todos: Task[]): string {
-	return todos
-		.map((todo) => {
+function goal(queued: Task[]): string {
+	return queued
+		.map((each) => {
 			const subject =
-				todos.length === 1 ? todo.subject : `Todo ${todo.id}: ${todo.subject}`;
+				queued.length === 1 ? each.subject : `Task ${each.id}: ${each.subject}`;
 			return [
 				subject,
-				todo.text,
-				todo.files.map((path) => `Attached: \`${path}\``).join("\n"),
+				each.text,
+				each.files.map((path) => `Attached: \`${path}\``).join("\n"),
 			]
 				.filter(Boolean)
 				.join("\n\n");
@@ -291,7 +291,7 @@ function goal(todos: Task[]): string {
 }
 
 /** The plan a fresh task starts with. `## Goal` is the Goal it was given and
- * the todos it takes up, if any; it is otherwise left empty on purpose:
+ * the queued tasks it takes up, if any; it is otherwise left empty on purpose:
  * `splates show` nags until the agent fills it in. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");

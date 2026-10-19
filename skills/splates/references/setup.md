@@ -71,7 +71,7 @@ cloudflared, it is `splates server --tunnel <host> --access-team <team>
 allows that host, and it refuses to start without both Access flags, since
 who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
 picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
-Access: that host then reaches only the todos.
+Access: that host then reaches only the tasks.
 
 ## Workers
 

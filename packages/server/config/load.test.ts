@@ -52,6 +52,18 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
+	it("reads todoStalenessMs, from before todos became tasks, as taskStalenessMs", async () => {
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { todoStalenessMs: 1000 };\n`,
+		);
+
+		const config = await loadConfig(root, { fs, git });
+
+		expect(config.taskStalenessMs).toBe(1000);
+		expect("todoStalenessMs" in config).toBe(false);
+	});
+
 	it("falls back to main when the repo has no origin/HEAD", async () => {
 		const config = await loadConfig(root, { fs, git });
 

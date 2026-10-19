@@ -16,24 +16,24 @@ import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	DEFAULT_TIMEOUT,
-	todoWait,
+	taskWait,
 	untilAfter,
 } from "@stringsync/splates-server/tasks";
 import { cli } from "webappwiz/cmd";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
-import { assigneeIn, here, laneIn, position, todoIds } from "./flags";
+import { assigneeIn, here, laneIn, position, taskIds } from "./flags";
 
-/** `splates todo`, which the root cli mounts after the task commands. */
-export const splatesTodo = cli<SplatesDeps>("todo").description(
-	"defer work for later instead of growing the task you are in: `merge` recommends the next one when a task lands",
+/** `splates task`, the queue, which the root cli mounts after the commands for the task you work on. */
+export const splatesTask = cli<SplatesDeps>("task").description(
+	"the queue of numbered tasks: defer work for later instead of growing the task you are in, and `splates add <slug> --task <n>` starts one; `merge` recommends the next one when a task lands",
 );
 
-splatesTodo
+splatesTask
 	.command("add")
-	.use(repository({ needs: "todos" }))
+	.use(repository({ needs: "queue" }))
 	.description(
-		"note something to do later and move on; run from a worktree, it records the task it came up in",
+		"queue a task to do later and move on; run from a worktree, it records the task it came up in",
 	)
 	.arg("subject", z.string(), { description: "what is left to do, in a line" })
 	.arg("text", z.string(), {
@@ -47,12 +47,12 @@ splatesTodo
 	.option("file", z.string(), {
 		default: "",
 		description:
-			"files to attach, comma separated: copied under .git/splates/todos/<id>/",
+			"files to attach, comma separated: copied under .git/splates/tasks/<n>/",
 	})
 	.option("blocked-by", z.string(), {
 		default: "",
 		description:
-			"ids of the todos blocking it, comma separated: each has to merge before this one starts",
+			"numbers of the tasks blocking it, comma separated: each has to merge before this one starts",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -77,7 +77,7 @@ splatesTodo
 		if (ctx.elsewhere !== null && opts.lane !== "") {
 			fail(
 				"not_granted",
-				"a todo from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
+				"a task from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
 				{ subject: opts.subject },
 			);
 		}
@@ -97,14 +97,14 @@ splatesTodo
 									),
 					};
 		await ctx.journal.record(
-			"todo add",
+			"task add",
 			from,
 			() =>
 				taskAdd(ctx, opts.subject, from, {
 					text: opts.text,
 					position: opts.position,
 					files: commaList(opts.file),
-					blockedBy: todoIds(opts["blocked-by"]),
+					blockedBy: taskIds(opts["blocked-by"]),
 					lane: laneIn(opts.lane) ?? null,
 					assignee,
 					origin,
@@ -113,21 +113,22 @@ splatesTodo
 		);
 	});
 
-splatesTodo
+splatesTask
 	.command("list")
 	.use(repository({ needs: "read" }))
 	.description(
-		"every todo, top of the list first, with the task it came from and the task that took it up",
+		"every queued task, top of the list first, with the task it came from and the started one that took it up",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.option("open", z.boolean(), {
 		default: false,
-		description: "only todos no task has taken up: the ones free to pick up",
+		description:
+			"only tasks no started one has taken up: the ones free to pick up",
 	})
 	.option("ready", z.boolean(), {
 		default: false,
 		description:
-			"only todos free to start now: nobody has taken them, and nothing blocking them is still open",
+			"only tasks free to start now: none has taken them, and nothing blocking them is still open",
 	})
 	.action((opts, ctx) =>
 		taskList(ctx, {
@@ -137,21 +138,21 @@ splatesTodo
 		}),
 	);
 
-splatesTodo
+splatesTask
 	.command("show")
 	.use(repository({ needs: "read" }))
-	.description("one todo in full: where it stands, its files, and its detail")
-	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.description("one task in full: where it stands, its files, and its detail")
+	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => taskShow(ctx, opts.id, { json: opts.json }));
 
-splatesTodo
+splatesTask
 	.command("update")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"say what a todo is in other words, move it up or down the list, or attach and drop files; it keeps its id",
+		"say what a queued task is in other words, move it up or down the list, or attach and drop files; it keeps its number",
 	)
-	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.arg("text", z.string(), {
 		default: "",
 		description:
@@ -177,11 +178,11 @@ splatesTodo
 	.option("blocked-by", z.string(), {
 		default: "",
 		description:
-			"ids of more todos blocking it, comma separated: each has to merge before this one starts; refused when that makes a loop",
+			"numbers of more tasks blocking it, comma separated: each has to merge before this one starts; refused when that makes a loop",
 	})
 	.option("remove-blocked-by", z.string(), {
 		default: "",
-		description: "ids of todos no longer blocking it, comma separated",
+		description: "numbers of tasks no longer blocking it, comma separated",
 	})
 	.option("lane", z.string(), {
 		default: "",
@@ -204,95 +205,97 @@ splatesTodo
 	})
 	.action(async (opts, ctx) => {
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
-		await recordUpdate(ctx.journal, ctx.todos, opts.id, () =>
+		await recordUpdate(ctx.journal, ctx.tasks, opts.id, () =>
 			taskUpdate(ctx, opts.id, {
 				subject: opts.subject,
 				text: opts.text,
 				position: opts.position,
 				files: commaList(opts.file),
 				removeFiles: commaList(opts["remove-file"]),
-				blockedBy: todoIds(opts["blocked-by"]),
-				removeBlockedBy: todoIds(opts["remove-blocked-by"]),
+				blockedBy: taskIds(opts["blocked-by"]),
+				removeBlockedBy: taskIds(opts["remove-blocked-by"]),
 				lane: laneIn(opts.lane),
 				assignee,
 			}),
 		);
 	});
 
-splatesTodo
+splatesTask
 	.command("take")
 	.use(repository({ needs: "own" }))
 	.description(
-		"take up todos for the task whose worktree you are in, as when they turn out to be part of its work: merging removes them, removing the task puts them back",
+		"take up queued tasks for the task whose worktree you are in, as when they turn out to be part of its work: merging removes them, removing it puts them back",
 	)
 	.rest("ids", z.coerce.number().int().positive(), {
-		description: "todo ids",
+		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
 		const task = await here(ctx);
 		await ctx.journal.record(
-			"todo take",
+			"task take",
 			task,
 			() => taskTake(ctx, opts.ids, task),
-			(taken) => ({ todos: tasksNamed(taken) }),
+			(taken) => ({ tasks: tasksNamed(taken) }),
 		);
 	});
 
-splatesTodo
+splatesTask
 	.command("release")
 	.use(repository({ needs: "own" }))
 	.description(
-		"put taken todos back on the list, as when a task lands without finishing them: `splates todo update` the leftover first; from a worktree, only its own task's",
+		"put taken tasks back in the queue, as when a task lands without finishing them: `splates task update` the leftover first; from a worktree, only its own task's",
 	)
 	.rest("ids", z.coerce.number().int().positive(), {
-		description: "todo ids",
+		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
 		const task = await here(ctx);
 		await ctx.journal.record(
-			"todo release",
+			"task release",
 			task,
 			() => taskRelease(ctx, opts.ids, task),
-			(released) => ({ todos: tasksNamed(released) }),
+			(released) => ({ tasks: tasksNamed(released) }),
 		);
 	});
 
-splatesTodo
+splatesTask
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
-	.description("drop a todo that was done some other way or no longer applies")
-	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.description(
+		"drop a queued task that was done some other way or no longer applies",
+	)
+	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.action((opts, ctx) =>
 		ctx.journal.record(
-			"todo remove",
+			"task remove",
 			null,
 			() => taskRemove(ctx, opts.id),
-			(removed) => ({ todos: tasksNamed([removed]) }),
+			(removed) => ({ tasks: tasksNamed([removed]) }),
 		),
 	);
 
-splatesTodo
+splatesTask
 	.command("wait")
 	.use(repository({ needs: "read" }))
 	.description(
-		"block until a todo leaves the list, which it does when the task that took it merges: for a todo blocked by one another lane is on; ends early when that task is escalated, and gives up with `timeout`",
+		"block until a task leaves the queue, which it does when the task that took it merges: for a task blocked by one another lane is on; ends early when that task is escalated, and gives up with `timeout`",
 	)
-	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.option("timeout-secs", z.coerce.number(), {
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
 	.action(async (opts, ctx) => {
 		const timeout = Duration.secs(opts["timeout-secs"]);
-		const todo = (await ctx.todos.all()).find((each) => each.id === opts.id);
+		const task = (await ctx.tasks.all()).find((each) => each.id === opts.id);
 		await ctx.journal.waiting(
-			"todo wait",
+			"task wait",
 			null,
 			{
-				todo: opts.id,
-				subject: todo?.subject ?? null,
+				number: opts.id,
+				subject: task?.subject ?? null,
 				until: untilAfter(timeout),
 			},
-			() => todoWait(ctx, opts.id, { timeout }),
+			() => taskWait(ctx, opts.id, { timeout }),
 		);
 	});

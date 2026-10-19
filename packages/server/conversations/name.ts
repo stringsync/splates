@@ -19,7 +19,7 @@ export function nameOf(
 /**
  * The name a conversation has earned, or null: the name the person gave it,
  * else the lanes it was started on, so an orchestrator's follows a lane's
- * renames and keeps them through a todo it does itself, else "Groomer" for
+ * renames and keeps them through a task it does itself, else "Groomer" for
  * the project's groomer (see `grooms`), else the task its
  * agent holds, so it follows the agent from task to task, or held last, so a
  * finished task keeps its name until the agent takes another, else the
@@ -41,7 +41,7 @@ export function realName(
 /**
  * The names of the lanes a conversation opened with `[SPLATES LANE <n>]` for,
  * as an orchestrator's does, or null for any other: "Untriaged" for the
- * untriaged todos, and a lane `lanes` lacks by its number.
+ * untriaged tasks, and a lane `lanes` lacks by its number.
  */
 function lanesNamed(
 	conversation: ConversationState,
@@ -74,7 +74,7 @@ const GROOMER = "Groomer";
 
 /**
  * Whether a conversation opened on `[SPLATES GROOM #N]`, as the one
- * `splates server` starts to groom the todos agents add.
+ * `splates server` starts to groom the tasks agents add.
  */
 export function grooms(conversation: ConversationState): boolean {
 	const first = conversation.messages

@@ -34,7 +34,7 @@ describe("needs", () => {
 			need(
 				task({
 					status: "escalated",
-					review: "drag a todo on the board",
+					review: "drag a task on the board",
 					ready: true,
 					escalatedAt: at,
 				}),
@@ -43,7 +43,7 @@ describe("needs", () => {
 		).toMatchObject({
 			kind: "waiting",
 			why: "review",
-			subject: "drag a todo on the board",
+			subject: "drag a task on the board",
 			since: at,
 		});
 		expect(

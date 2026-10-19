@@ -441,7 +441,7 @@ describe("App's report cards", () => {
 			[
 				conversation({
 					messages: [
-						message("user", "[SPLATES TODO #12]"),
+						message("user", "[SPLATES TASK #12]"),
 						message("agent", "Took it."),
 						message("user", "[SPLATES LANE 3]"),
 						message("user", "[SPLATES TASK header]"),
@@ -479,12 +479,12 @@ describe("App's report cards", () => {
 	it("keeps a todo said with more as a chip", async () => {
 		const view = await testing.openConversations([
 			conversation({
-				messages: [message("user", "[SPLATES TODO #12] but skip the tests")],
+				messages: [message("user", "[SPLATES TASK #12] but skip the tests")],
 			}),
 		]);
 
 		await waitFor(() =>
-			expect(view.getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
+			expect(view.getByTitle("[SPLATES TASK #12]")).toBeTruthy(),
 		);
 		expect(view.queryByRole("region", { name: "take todo #12" })).toBeNull();
 	});

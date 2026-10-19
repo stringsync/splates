@@ -56,32 +56,32 @@ describe("splates across projects", () => {
 		});
 	});
 
-	it("adds a todo to its untriaged lane, saying where it came from", async () => {
+	it("queues a task in its untriaged lane, saying where it came from", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "Land it."]);
 		here.ps.cd((await here.service.find("alpha")).path);
 
-		await onThere("todo", "add", "Export the parser");
+		await onThere("task", "add", "Export the parser");
 
-		const [todo] = await there.todos.all();
-		expect(todo?.state).toMatchObject({
+		const [queued] = await there.tasks.all();
+		expect(queued?.state).toMatchObject({
 			subject: "Export the parser",
 			from: null,
 			lane: null,
 			origin: { project: here.root, task: "alpha" },
 		});
-		expect(await here.todos.all()).toEqual([]);
+		expect(await here.tasks.all()).toEqual([]);
 
-		await onThere("todo", "show", String(todo?.id));
+		await onThere("task", "show", String(queued?.id));
 		expect(String(here.log.entries.at(-1)?.message)).toContain(
 			`from:      ${basename(here.root)}/alpha`,
 		);
 	});
 
-	it("refuses a lane for a todo from another project", async () => {
-		await onThere("todo", "add", "Export the parser", "--lane", "new");
+	it("refuses a lane for a queued task from another project", async () => {
+		await onThere("task", "add", "Export the parser", "--lane", "new");
 
 		expect(here.out()).toContain('"reason":"not_granted"');
-		expect(await there.todos.all()).toEqual([]);
+		expect(await there.tasks.all()).toEqual([]);
 	});
 
 	it("refuses what the other project has not granted, until it does", async () => {
@@ -127,11 +127,11 @@ describe("splates across projects", () => {
 		here.proc.env.SPLATES_CONVERSATION = "c1";
 		here.ps.cd(there.root);
 
-		await splates.run(deps, ["todo", "add", "Export the parser"]);
+		await splates.run(deps, ["task", "add", "Export the parser"]);
 		expect(here.out()).toContain('"reason":"not_granted"');
-		expect(await there.todos.all()).toEqual([]);
+		expect(await there.tasks.all()).toEqual([]);
 
-		await splates.run(deps, ["todo", "list", "--json"]);
+		await splates.run(deps, ["task", "list", "--json"]);
 		expect(JSON.parse(String(here.log.entries.at(-1)?.message))).toEqual([]);
 	});
 
@@ -145,7 +145,7 @@ describe("splates across projects", () => {
 				slug: thereSlug,
 				root: there.root,
 				gone: false,
-				here: "todos",
+				here: "queue",
 				there: "tasks",
 			},
 		]);

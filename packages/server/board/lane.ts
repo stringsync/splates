@@ -20,13 +20,13 @@ export interface LaneListOptions {
 	json?: boolean;
 }
 
-/** Every lane, with its todos in order, who is on it, and what blocks it. */
+/** Every lane, with its tasks in order, who is on it, and what blocks it. */
 export async function laneList(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	{ json = false }: LaneListOptions = {},
 ): Promise<void> {
-	const states = (await todos.all()).map((todo) => todo.state);
-	const records = await todos.lanes();
+	const states = (await tasks.all()).map((task) => task.state);
+	const records = await tasks.lanes();
 	const found = lanes(states, records);
 	if (json) {
 		log.info(JSON.stringify(found.map(laneJson), null, "\t"));
@@ -34,17 +34,17 @@ export async function laneList(
 	}
 	if (found.length === 0) {
 		log.info(
-			"no lanes: `splates lane add <name>` starts one, or `splates todo add --lane new` one with its first todo",
+			"no lanes: `splates lane add <name>` starts one, or `splates task add --lane new` one with its first task",
 		);
 		return;
 	}
 	log.info(
 		table(
-			["LANE", "NAME", "TODOS", "AGENT", "NEXT", "BLOCKED BY"],
+			["LANE", "NAME", "TASKS", "AGENT", "NEXT", "BLOCKED BY"],
 			found.map((each) => [
 				String(each.id),
 				each.name,
-				each.todos.map((todo) => todo.id).join(","),
+				each.todos.map((task) => task.id).join(","),
 				each.agents.join(","),
 				each.next === null ? "" : String(each.next.id),
 				each.blockers
@@ -62,16 +62,16 @@ export interface LaneShowOptions {
 
 /**
  * One lane in full, step by step: what an agent handed `[SPLATES LANE N]`
- * reads to know which todo is next, and whether it is blocked first. For
- * null, the untriaged todos, and how to place them in lanes.
+ * reads to know which task is next, and whether it is blocked first. For
+ * null, the untriaged tasks, and how to place them in lanes.
  */
 export async function laneShow(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number | null,
 	{ json = false }: LaneShowOptions = {},
 ): Promise<void> {
-	const states = (await todos.all()).map((todo) => todo.state);
-	const records = await todos.lanes();
+	const states = (await tasks.all()).map((task) => task.state);
+	const records = await tasks.lanes();
 	if (id === null) {
 		log.info(untriagedShow(states, records, json));
 		return;
@@ -90,11 +90,11 @@ export async function laneShow(
 		return;
 	}
 	const lines = [
-		`${color.bold(`lane ${id}`)} ${found.name}${record.running === undefined ? "" : color.green(" (running)")}: ${found.todos.length} todo${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
+		`${color.bold(`lane ${id}`)} ${found.name}${record.running === undefined ? "" : color.green(" (running)")}: ${found.todos.length} task${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
 	];
-	for (const [i, todo] of found.todos.entries()) {
+	for (const [i, task] of found.todos.entries()) {
 		lines.push(
-			`  ${i + 1}. #${todo.id} ${todo.subject}${step(states, records, found, todo)}`,
+			`  ${i + 1}. #${task.id} ${task.subject}${step(states, records, found, task)}`,
 		);
 	}
 	lines.push(
@@ -107,32 +107,32 @@ export async function laneShow(
 }
 
 /**
- * What a running lane does next on its own, and each todo it holds back
+ * What a running lane does next on its own, and each task it holds back
  * for a want only an agent or the person can fill.
  */
 function runningLines(found: LaneState, states: TaskRecord[]): string[] {
-	const open = new Set(states.map((todo) => todo.id));
+	const open = new Set(states.map((task) => task.id));
 	const unnamed = found.todos.filter(
-		(todo) =>
-			todo.takenBy === null &&
-			todo.assignee === undefined &&
-			!todo.blockedBy.some((id) => open.has(id)),
+		(task) =>
+			task.takenBy === null &&
+			task.assignee === undefined &&
+			!task.blockedBy.some((id) => open.has(id)),
 	);
 	const lost = found.todos.filter(
-		(todo) => todo.takenBy === null && (todo.blockersLost ?? []).length > 0,
+		(task) => task.takenBy === null && (task.blockersLost ?? []).length > 0,
 	);
 	return [
-		`running: splates server starts each todo here that nothing blocks, as it frees up; \`splates lane pause ${found.id}\` stops it`,
+		`running: splates server starts each task here that nothing blocks, as it frees up; \`splates lane pause ${found.id}\` stops it`,
 		...unnamed.map(
-			(todo) =>
-				`  #${todo.id} names no agent, so it waits: splates todo update ${todo.id} --agent <id> --model <m>`,
+			(task) =>
+				`  #${task.id} names no agent, so it waits: splates task update ${task.id} --agent <id> --model <m>`,
 		),
-		...lost.map((todo) => `  #${todo.id} ${lostLine(todo)}`),
+		...lost.map((task) => `  #${task.id} ${lostLine(task)}`),
 	];
 }
 
 /**
- * The untriaged todos, in list order, and what an agent handed
+ * The untriaged tasks, in list order, and what an agent handed
  * `[SPLATES LANE untriaged]` does with them: place each open one in a lane,
  * then work down the lanes it placed them in.
  */
@@ -142,32 +142,32 @@ function untriagedShow(
 	json: boolean,
 ): string {
 	const found = states
-		.filter((todo) => todo.lane === null)
+		.filter((task) => task.lane === null)
 		.sort((left, right) => left.position - right.position);
-	const open = found.filter((todo) => todo.takenBy === null);
+	const open = found.filter((task) => task.takenBy === null);
 	if (json) {
 		return JSON.stringify(
 			{
 				lane: null,
 				name: "Untriaged",
-				todos: found.map((todo) => todo.id),
-				open: open.map((todo) => todo.id),
+				tasks: found.map((task) => task.id),
+				open: open.map((task) => task.id),
 			},
 			null,
 			"\t",
 		);
 	}
 	const lines = [
-		`${color.bold(UNTRIAGED)}: ${found.length} todo${found.length === 1 ? "" : "s"} in no lane`,
+		`${color.bold(UNTRIAGED)}: ${found.length} task${found.length === 1 ? "" : "s"} in no lane`,
 	];
-	for (const [i, todo] of found.entries()) {
+	for (const [i, task] of found.entries()) {
 		const blockers = states.filter((other) =>
-			todo.blockedBy.includes(other.id),
+			task.blockedBy.includes(other.id),
 		);
 		lines.push(
-			`  ${i + 1}. #${todo.id} ${todo.subject}${
-				todo.takenBy !== null
-					? color.green(`  (taken by ${todo.takenBy})`)
+			`  ${i + 1}. #${task.id} ${task.subject}${
+				task.takenBy !== null
+					? color.green(`  (taken by ${task.takenBy})`)
 					: blockers.length === 0
 						? ""
 						: color.yellow(
@@ -184,9 +184,9 @@ function untriagedShow(
 			? [`Nothing to place: ${work}`]
 			: [
 					`next: place ${open.length === 1 ? "it" : "each"} in a lane, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
-					"  splates todo update <id> --lane <n>         a lane it builds on (`splates lane list`)",
-					"  splates todo update <id> --lane new         a lane of its own, for a chain of them",
-					"  splates todo update <id> --blocked-by <id>  a todo it needs merged first",
+					"  splates task update <id> --lane <n>         a lane it builds on (`splates lane list`)",
+					"  splates task update <id> --lane new         a lane of its own, for a chain of them",
+					"  splates task update <id> --blocked-by <id>  a task it needs merged first",
 					`then ${work}`,
 				]),
 	);
@@ -199,22 +199,22 @@ function nextLines(found: LaneState, records: LaneRecord[]): string[] {
 	if (next === null) {
 		return [
 			found.todos.length === 0
-				? "Nothing in it yet: `splates todo update <id> --lane <lane>` puts a todo in it."
-				: "Every todo in it is taken: nothing to start until one is released.",
+				? "Nothing in it yet: `splates task update <id> --lane <lane>` puts a task in it."
+				: "Every task in it is taken: nothing to start until one is released.",
 		];
 	}
-	const handOut = `splates add <task> --todo ${next.id}${handTo(next)}`;
+	const handOut = `splates add <slug> --task ${next.id}${handTo(next)}`;
 	if (blockers.length === 0) {
 		return [`next: ${handOut}`];
 	}
 	return [
-		`next: todo ${next.id}, once ${blockers.map((blocker) => blockerLabel(blocker, records)).join(" and ")} ${blockers.length === 1 ? "lands" : "land"}`,
-		...blockers.map((blocker) => `  splates todo wait ${blocker.id}`),
+		`next: task ${next.id}, once ${blockers.map((blocker) => blockerLabel(blocker, records)).join(" and ")} ${blockers.length === 1 ? "lands" : "land"}`,
+		...blockers.map((blocker) => `  splates task wait ${blocker.id}`),
 		`  then: ${handOut}`,
 	];
 }
 
-/** The flags that hand `todo` to the agent and model it names, if any. */
+/** The flags that hand `task` to the agent and model it names, if any. */
 function handTo({ assignee }: TaskRecord): string {
 	if (assignee === undefined) {
 		return "";
@@ -227,13 +227,13 @@ function step(
 	states: TaskRecord[],
 	records: LaneRecord[],
 	found: LaneState,
-	todo: TaskRecord,
+	task: TaskRecord,
 ): string {
-	if (todo.takenBy !== null) {
-		return color.green(`  (taken by ${todo.takenBy})`);
+	if (task.takenBy !== null) {
+		return color.green(`  (taken by ${task.takenBy})`);
 	}
 	const outside = states.filter(
-		(other) => todo.blockedBy.includes(other.id) && other.lane !== found.id,
+		(other) => task.blockedBy.includes(other.id) && other.lane !== found.id,
 	);
 	return outside.length === 0
 		? ""
@@ -246,7 +246,7 @@ function laneJson(found: LaneState) {
 	return {
 		lane: found.id,
 		name: found.name,
-		todos: found.todos.map((todo) => todo.id),
+		tasks: found.todos.map((task) => task.id),
 		agents: found.agents,
 		next: found.next?.id ?? null,
 		ready: found.ready,
@@ -256,14 +256,14 @@ function laneJson(found: LaneState) {
 
 /** Starts an empty lane called `name`, after the others. */
 export async function laneAdd(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	name: string,
 ): Promise<LaneRecord> {
-	const record = await todos.addLane(name);
+	const record = await tasks.addLane(name);
 	log.info(
 		[
 			`${color.green("added")} lane ${record.id}: ${record.name}`,
-			`  fill it: splates todo update <id> --lane ${record.id}`,
+			`  fill it: splates task update <id> --lane ${record.id}`,
 		].join("\n"),
 	);
 	return record;
@@ -280,7 +280,7 @@ export interface LaneUpdateOptions {
 
 /** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
 	{ name, position }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
@@ -292,9 +292,9 @@ export async function laneUpdate(
 		);
 	}
 	const renamed =
-		name === undefined ? undefined : await todos.renameLane(id, name);
+		name === undefined ? undefined : await tasks.renameLane(id, name);
 	const order =
-		position === undefined ? undefined : await todos.moveLane(id, position);
+		position === undefined ? undefined : await tasks.moveLane(id, position);
 	const record = order?.find((each) => each.id === id) ?? renamed;
 	log.info(
 		[
@@ -311,15 +311,15 @@ export async function laneUpdate(
 
 /**
  * Sets lane `id` running, or pauses it: while it runs, `splates server`
- * starts each of its todos nothing blocks, as `LaneRunner` says. Run from a
+ * starts each of its tasks nothing blocks, as `LaneRunner` says. Run from a
  * conversation, the tasks it starts nest under that one.
  */
 export async function laneRun(
-	{ todos, ps, log }: { todos: Tasks; ps: Ps; log: Logger },
+	{ tasks, ps, log }: { tasks: Tasks; ps: Ps; log: Logger },
 	id: number,
 	running: boolean,
 ): Promise<LaneRecord> {
-	const record = await todos.runLane(
+	const record = await tasks.runLane(
 		id,
 		running ? { by: ps.env("SPLATES_CONVERSATION") ?? null } : null,
 	);
@@ -327,8 +327,8 @@ export async function laneRun(
 		running
 			? [
 					`${color.green("running")} lane ${id}: ${record.name}`,
-					"  splates server starts each todo in it that nothing blocks, on the agent and model it names, as many at once as agentsPerLane allows",
-					`  link what must land first with \`splates todo update <id> --blocked-by <id>\`; \`splates lane pause ${id}\` stops starting more`,
+					"  splates server starts each task in it that nothing blocks, on the agent and model it names, as many at once as agentsPerLane allows",
+					`  link what must land first with \`splates task update <id> --blocked-by <id>\`; \`splates lane pause ${id}\` stops starting more`,
 				].join("\n")
 			: [
 					`${color.green("paused")} lane ${id}: ${record.name}`,
@@ -357,11 +357,11 @@ export function laneUpdated(
 
 /**
  * Runs `drop`, which removes lane `id`, and journals it with the lane's name
- * and the todos it sent back to none, read before it went.
+ * and the tasks it sent back to none, read before it went.
  */
 export async function recordLaneRemove(
 	journal: Journal,
-	todos: Tasks,
+	tasks: Tasks,
 	id: number,
 	drop: () => Promise<void>,
 ): Promise<void> {
@@ -370,27 +370,27 @@ export async function recordLaneRemove(
 		"lane remove",
 		null,
 		async () => {
-			const name = (await todos.lanes()).find((each) => each.id === id)?.name;
+			const name = (await tasks.lanes()).find((each) => each.id === id)?.name;
 			before = {
 				lane: id,
 				name: name ?? "",
-				todos: (await todos.all())
-					.filter((todo) => todo.state.lane === id)
-					.map((todo) => todo.state.id),
+				tasks: (await tasks.all())
+					.filter((task) => task.state.lane === id)
+					.map((task) => task.state.id),
 			};
 			await drop();
 		},
-		() => before ?? { lane: id, name: "", todos: [] },
+		() => before ?? { lane: id, name: "", tasks: [] },
 	);
 }
 
-/** Removes a lane, putting its todos back with the untriaged ones. */
+/** Removes a lane, putting its tasks back with the untriaged ones. */
 export async function laneRemove(
-	{ todos, log }: { todos: Tasks; log: Logger },
+	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
 ): Promise<void> {
-	await todos.dropLane(id);
+	await tasks.dropLane(id);
 	log.info(
-		`${color.green("removed")} lane ${id}: its todos are untriaged, in no lane`,
+		`${color.green("removed")} lane ${id}: its tasks are untriaged, in no lane`,
 	);
 }

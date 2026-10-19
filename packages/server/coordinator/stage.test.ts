@@ -32,7 +32,7 @@ describe("stage", () => {
 		await fs.write(`${HOME}/push.json`, '{"vapid":"keys"}');
 		const records = `${ROOT}/.git/splates`;
 		await fs.write(`${records}/format`, "3");
-		await fs.write(`${records}/todos.lock`, "1");
+		await fs.write(`${records}/tasks.lock`, "1");
 		await fs.write(`${records}/merge.lock/holder.json`, "{}");
 		await fs.write(`${records}/conversations/c1.jsonl`, `{"cwd":"${ROOT}"}\n`);
 		await fs.write(
@@ -74,7 +74,7 @@ describe("stage", () => {
 	it("leaves out locks and dev slots", async () => {
 		expect(await fs.exists(`${STAGING}/home/projects.lock`)).toBe(false);
 		expect(await fs.exists(`${STAGING}/home/slots.json`)).toBe(false);
-		expect(await fs.exists(`${STAGING}/projects/splates/todos.lock`)).toBe(
+		expect(await fs.exists(`${STAGING}/projects/splates/tasks.lock`)).toBe(
 			false,
 		);
 		expect(await fs.exists(`${STAGING}/projects/splates/merge.lock`)).toBe(

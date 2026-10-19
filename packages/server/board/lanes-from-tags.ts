@@ -4,7 +4,7 @@ import { FileLock, type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { TaskStore } from "./store";
 import { Tasks } from "./tasks";
 
-/** Where the repository at `dir` keeps its todos, and what to do it with. */
+/** Where the repository at `dir` keeps its tasks, and what to do it with. */
 export interface LanesFromTagsOptions {
 	/** The root of a repository, or of one of its worktrees. */
 	dir: string;
@@ -14,10 +14,10 @@ export interface LanesFromTagsOptions {
 }
 
 /**
- * Moves the todos of the repository at `dir` that still have tags, from
+ * Moves the tasks of the repository at `dir` that still have tags, from
  * before splates kept lanes instead, into a lane a tag, and says where each
  * went; splates refuses to read them until then. Says nothing when `dir` is
- * no repository, keeps no todos, or none has tags.
+ * no repository, keeps no tasks, or none has tags.
  */
 export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	const log = opts.log ?? new ConsoleLogger();
@@ -33,7 +33,7 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	if (!(await fs.exists(dir))) {
 		return;
 	}
-	const todos = new Tasks(
+	const tasks = new Tasks(
 		new TaskStore(
 			dir,
 			new FileLock(`${dir}.lock`, { fs, ps: opts.ps ?? new NodePs(), log }),
@@ -41,7 +41,7 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 		),
 		{ fs },
 	);
-	for (const { lane, todos: moved } of await todos.moveTagsToLanes()) {
+	for (const { lane, tasks: moved } of await tasks.moveTagsToLanes()) {
 		log.info(
 			`moved ${moved.map((id) => `#${id}`).join(", ")} into lane ${lane.id} ${lane.name}, from their tag`,
 		);

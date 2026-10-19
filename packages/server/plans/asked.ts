@@ -94,7 +94,7 @@ export function stretches(text: string): Stretch[] {
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it
- * started lanes, a todo it proposes, or a demo for the person to try.
+ * started lanes, a task it proposes, or a demo for the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -210,12 +210,12 @@ export interface LanesStart {
 	goal: string;
 }
 
-/** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
+/** A queued task the skill proposes as `### 📝 <subject> [#<id>]`. */
 export interface TodoProposal {
 	id: number;
 	/** The subject as the agent wrote it, which may since have changed. */
 	subject: string;
-	/** What the todo is and why it matters now, as markdown. */
+	/** What the task is and why it matters now, as markdown. */
 	body: string;
 }
 
@@ -259,7 +259,7 @@ const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 
 /**
- * The report, started lanes or proposed todo titled at `start`, which runs until
+ * The report, started lanes or proposed task titled at `start`, which runs until
  * whatever begins next, and the line after it; null for any
  * other line.
  */
@@ -459,7 +459,7 @@ function trimmed(lines: string[]): string {
 
 /**
  * The line after the first paragraph from `start`, short of `end`: a
- * proposed todo's body is one sentence, so what follows it is the message
+ * proposed task's body is one sentence, so what follows it is the message
  * going on.
  */
 function paragraphEnd(lines: string[], start: number, end: number): number {

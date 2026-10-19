@@ -13,11 +13,11 @@ describe("dev tasks", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("serves a file a todo holds, and nothing else", async () => {
+	it("serves a file a queued task holds, and nothing else", async () => {
 		await add(deps, "alpha");
 		const tree = (await deps.service.find("alpha")).path;
 		await deps.fs.writeBytes(`${tree}/page.png`, new Uint8Array([7]));
-		const todo = await deps.todos.add("look", null, {
+		const queued = await deps.tasks.add("look", null, {
 			files: [
 				{ name: "shot.png", bytes: new Uint8Array([8]) },
 				{ name: "trace.log", bytes: new Uint8Array([9]) },
@@ -30,17 +30,17 @@ describe("dev tasks", () => {
 					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
 				);
 
-			const shown = await file(todo.files[0] ?? "");
+			const shown = await file(queued.files[0] ?? "");
 			expect(shown.status).toBe(200);
 			expect(shown.headers.get("content-type")).toBe("image/png");
 			expect(new Uint8Array(await shown.arrayBuffer())).toEqual(
 				new Uint8Array([8]),
 			);
-			const stored = await file(todo.files[1] ?? "");
+			const stored = await file(queued.files[1] ?? "");
 			expect(stored.status).toBe(200);
 			expect(stored.headers.get("content-disposition")).toBe("attachment");
 			expect((await file(`${tree}/page.png`)).status).toBe(404);
-			expect((await file(`${deps.todos.dir}/1/../../../config`)).status).toBe(
+			expect((await file(`${deps.tasks.dir}/1/../../../config`)).status).toBe(
 				404,
 			);
 		});

@@ -13,26 +13,26 @@ cannot run these tool-capable cases and must report unsupported.
 
 | Id | Audit requirement | Seed and checked decision |
 | --- | --- | --- |
-| independent | lanes-dispatch | Two independent lane todos; lane inspection before `lane run`, no false link, no dispatch |
+| independent | lanes-dispatch | Two independent lane queued tasks; lane inspection before `lane run`, no false link, no dispatch |
 | dependency | lanes-dispatch | Explicit dependency; `lane run` required, dispatch forbidden |
 | implicit-dependency | lanes-dispatch | Detail explicitly needs predecessor's code; link before `lane run`, no dispatch |
 | shared-files | lanes-dispatch | Explicit incompatible rewrites of one file; link before `lane run`, no dispatch |
-| triage | lanes-dispatch | Two untriaged todos and existing lane; place both, link dependency, place before `lane run` |
-| taken-todo | todos-groom | Real task owns todo; inspect without stealing or duplicate dispatch |
-| added | lanes-events | Todo added to a running lane on the same file; inspect, link, no dispatch |
+| triage | lanes-dispatch | Two untriaged queued tasks and existing lane; place both, link dependency, place before `lane run` |
+| taken-queued | queue-groom | Real task owns queued task; inspect without stealing or duplicate dispatch |
+| added | lanes-events | Task added to a running lane on the same file; inspect, link, no dispatch |
 | idle | lanes-events | Real task in a running lane, idle after splates's own nudge; inspect, numbered question, no claim |
-| todo-open | lanes-events | Reopened todo in a paused lane; inspect, leave paused, no dispatch |
-| todo-done | lanes-events | Predecessor removed in a paused lane; inspect, leave paused, no dispatch |
+| task-open | lanes-events | Reopened task in a paused lane; inspect, leave paused, no dispatch |
+| task-done | lanes-events | Predecessor removed in a paused lane; inspect, leave paused, no dispatch |
 | report | lanes-events | Stopped-task notification; inspect task (disposition intentionally uncovered) |
-| lanes-done | lanes-events | Empty board; inspect lanes/tasks, parsed finished ending and observed empty todo board |
-| pivot | lanes-events | Seeded task/todo; stop before removal, remove task before dropping todo |
-| defer | todos-defer | Additional deferred request; exact saved detail/assignment, no read of named project file |
-| cli-link | todos-intake | Free actual CLI links two todos; exact observed persisted board |
+| lanes-done | lanes-events | Empty board; inspect lanes/tasks, parsed finished ending and observed empty queue |
+| pivot | lanes-events | Seeded started and queued task; stop before removal, remove the started task before dropping the queued one |
+| defer | queue-defer | Additional deferred request; exact saved detail/assignment, no read of named project file |
+| cli-link | queue-intake | Free actual CLI links two queued tasks; exact observed persisted board |
 
 The task seeds represent state at a notification boundary. They do not run
-workers or simulate a real mid-turn interruption. `todo-open` seeds the reopened
+workers or simulate a real mid-turn interruption. `task-open` seeds the reopened
 state directly. `idle` supplies splates's earlier nudge in the input, not a
-second live turn. `shared-files` uses explicit incompatible todo details, not an
+second live turn. `shared-files` uses explicit incompatible task details, not an
 observed active worker's diff. The `report` seed requires inspection only and
 does not assert a stopped status that the seed never established.
 
@@ -40,17 +40,17 @@ does not assert a stopped status that the seed never established.
 
 The seed creates a fresh git repository and private splates home, stamps the
 current local record format without invoking network-backed `splates init`, and
-uses real local CLI commands to create lanes, todos and (when needed) tasks.
+uses real local CLI commands to create lanes, queued tasks and (when needed) tasks.
 The roster's `fake` worker is disabled. `preMerge: true` in the common minimal
 fixture is a stand-in; no probe claims merge/check coverage. Observation reads
-actual `.git/splates/todos` JSON and projects stable fields, excluding times and
+actual `.git/splates/tasks` JSON and projects stable fields, excluding times and
 paths. Missing directories mean an observed empty board; malformed records
 fail observation. Setup acts are fixture events, never agent events.
 
 `orchestration.test.ts` tests schema validation, positive synthetic witnesses,
 missing/incomplete evidence, reversed order, and failed forbidden attempts.
 It separately checks production directive constructors and parsing for LANE,
-REPORT, IDLE, TODO DONE/OPEN, LANES DONE and DEFER. These are payload
+REPORT, IDLE, TASK DONE/OPEN, LANES DONE and DEFER. These are payload
 format checks, **not a claim that a live dev server delivered a directive**.
 The actual `cli-link` invocation checks persisted state and retains the CLI
 adapter's incomplete events channel. These layers do not prove agent adherence.

@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { FakeFs } from "webappwiz/system/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
-import { eventually, post, serving, todoForm } from "./testing";
+import { eventually, post, serving, taskForm } from "./testing";
 
 describe("a project's kept snapshot", () => {
 	let deps: Testing;
@@ -17,7 +17,6 @@ describe("a project's kept snapshot", () => {
 		changes = new FakeFs();
 		await changes.mkdir(`${dirname(deps.splatesDir)}/refs`);
 		await changes.mkdir(`${deps.splatesDir}/tasks`);
-		await changes.mkdir(`${deps.splatesDir}/todos`);
 		await changes.mkdir((await deps.service.find("alpha")).path);
 		deps.fs.watch = changes.watch.bind(changes);
 	});
@@ -48,10 +47,10 @@ describe("a project's kept snapshot", () => {
 		await serving(deps, async (snapshot) => {
 			await snapshot();
 
-			await deps.todos.add("later", null);
-			await changes.write(`${deps.splatesDir}/todos/changed`, "");
+			await deps.tasks.add("later", null);
+			await changes.write(`${deps.splatesDir}/tasks/changed`, "");
 
-			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+			expect((await snapshot()).todos.map((each) => each.subject)).toEqual([
 				"later",
 			]);
 		});
@@ -106,10 +105,10 @@ describe("a project's kept snapshot", () => {
 					return worktree;
 				});
 
-			const response = await post(port, "/api/todos", todoForm("later"));
+			const response = await post(port, "/api/todos", taskForm("later"));
 			expect(response.ok).toBe(true);
 
-			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+			expect((await snapshot()).todos.map((each) => each.subject)).toEqual([
 				"later",
 			]);
 			expect(asked).toBe(0);

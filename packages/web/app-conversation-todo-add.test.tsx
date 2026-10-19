@@ -114,11 +114,11 @@ function added(id: number, secs: number): Event {
 	return {
 		id: `add-${id}`,
 		at: second(secs),
-		action: "todo add",
+		action: "task add",
 		task: null,
 		reason: null,
 		conversation: "c1",
-		todo: id,
+		number: id,
 		subject: "Upload retries forever on a 413",
 		lane: 1,
 		position: 2,
@@ -130,7 +130,7 @@ function refused(secs: number): Event {
 	return {
 		id: "refused",
 		at: second(secs),
-		action: "todo add",
+		action: "task add",
 		task: null,
 		reason: "usage",
 		conversation: "c1",

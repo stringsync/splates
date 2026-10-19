@@ -6,22 +6,22 @@ import { parseTaskFile } from "./task-file";
 import type { Tasks } from "./tasks";
 
 /**
- * The lanes of a `Todos`: their records in `lanes` beside the todos, and every
- * change that moves todos between them, each made under the todos' lock.
+ * The lanes of a `Tasks`: their records in `lanes` beside the tasks, and every
+ * change that moves tasks between them, each made under the tasks' lock.
  */
 export class TaskLanes {
 	constructor(
-		private readonly todos: Tasks,
+		private readonly tasks: Tasks,
 		private readonly fs: Fs,
 	) {}
 
 	/**
-	 * Moves every todo in lane `from` to the bottom of lane `into`, in the
+	 * Moves every task in lane `from` to the bottom of lane `into`, in the
 	 * order they had, and the lane `from` is gone.
 	 */
 	async joinLanes(from: number, into: number): Promise<void> {
-		await this.todos.locked(async () => {
-			const states = await this.todos.stored();
+		await this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			for (const lane of [from, into]) {
 				lacking(records, lane);
@@ -37,17 +37,17 @@ export class TaskLanes {
 				...rest.slice(tail + 1),
 			]);
 			for (const state of moving) {
-				await this.todos.save(state);
+				await this.tasks.save(state);
 			}
-			await this.todos.renumber(order);
+			await this.tasks.renumber(order);
 			await this.writeLanes(records.filter((record) => record.id !== from));
 		});
 	}
 
 	/** Starts an empty lane called `name`, after the others. */
 	async addLane(name: string): Promise<LaneRecord> {
-		return this.todos.locked(async () => {
-			const states = await this.todos.stored();
+		return this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
@@ -59,8 +59,8 @@ export class TaskLanes {
 
 	/** Calls lane `id` by another name. */
 	async renameLane(id: number, name: string): Promise<LaneRecord> {
-		return this.todos.locked(async () => {
-			const records = await this.records(await this.todos.stored());
+		return this.tasks.locked(async () => {
+			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
 			const others = records.filter((record) => record.id !== id);
 			const renamed = {
@@ -84,8 +84,8 @@ export class TaskLanes {
 				position,
 			});
 		}
-		return this.todos.locked(async () => {
-			const records = await this.records(await this.todos.stored());
+		return this.tasks.locked(async () => {
+			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
 			const moved = records.find((record) => record.id === id) as LaneRecord;
 			const rest = records.filter((record) => record.id !== id);
@@ -101,8 +101,8 @@ export class TaskLanes {
 	 * null; or, for `running` null, pauses it.
 	 */
 	async runLane(id: number, running: LaneRun | null): Promise<LaneRecord> {
-		return this.todos.locked(async () => {
-			const records = await this.records(await this.todos.stored());
+		return this.tasks.locked(async () => {
+			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
 			const { name } = records.find((record) => record.id === id) as LaneRecord;
 			const set = running === null ? { id, name } : { id, name, running };
@@ -113,26 +113,26 @@ export class TaskLanes {
 		});
 	}
 
-	/** Removes lane `id`, putting its todos back in none, untriaged. */
+	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	async dropLane(id: number): Promise<void> {
-		await this.todos.locked(async () => {
-			const states = await this.todos.stored();
+		await this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			lacking(records, id);
 			for (const state of states.filter((state) => state.lane === id)) {
-				await this.todos.save({ ...state, lane: null });
+				await this.tasks.save({ ...state, lane: null });
 			}
 			await this.writeLanes(records.filter((record) => record.id !== id));
 		});
 	}
 
 	/**
-	 * @internal Removes each lane in `ids` that no todo is in any more: a lane
-	 * whose last todo merged is done. One emptied by hand stays, to be filled.
+	 * @internal Removes each lane in `ids` that no task is in any more: a lane
+	 * whose last task merged is done. One emptied by hand stays, to be filled.
 	 */
 	async endLanes(ids: number[]): Promise<void> {
-		await this.todos.locked(async () => {
-			const states = await this.todos.stored();
+		await this.tasks.locked(async () => {
+			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			const done = new Set(
 				ids.filter((id) => !states.some((state) => state.lane === id)),
@@ -144,20 +144,20 @@ export class TaskLanes {
 	}
 
 	/**
-	 * Moves todos saved while splates kept tags into lanes, one lane a tag,
-	 * and drops their tags, which splates refuses to read until then. A todo
-	 * in no lane goes to the lane of its tag the most todos share, at the
+	 * Moves tasks saved while splates kept tags into lanes, one lane a tag,
+	 * and drops their tags, which splates refuses to read until then. A task
+	 * in no lane goes to the lane of its tag the most tasks share, at the
 	 * bottom, in list order, below anything in that lane blocking it; a lane
 	 * already called that takes them. Gives back each lane it filled, with
-	 * the todos it put there, in board order; none once no todo has tags.
+	 * the tasks it put there, in board order; none once no task has tags.
 	 */
-	async moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
-		return this.todos.locked(async () => {
-			const entries = await this.fs.readdir(this.todos.dir).catch(() => []);
+	async moveTagsToLanes(): Promise<{ lane: LaneRecord; tasks: number[] }[]> {
+		return this.tasks.locked(async () => {
+			const entries = await this.fs.readdir(this.tasks.dir).catch(() => []);
 			const parsed: { state: TaskRecord; tags: string[] }[] = [];
 			for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
 				const raw = await this.fs
-					.read(`${this.todos.dir}/${entry}`)
+					.read(`${this.tasks.dir}/${entry}`)
 					.catch(() => "");
 				const found = parseTaskFile(raw);
 				if (found !== null && found.tags.length > 0) {
@@ -173,7 +173,7 @@ export class TaskLanes {
 					counts.set(tag, (counts.get(tag) ?? 0) + 1);
 				}
 			}
-			const states = await this.todos.stored(
+			const states = await this.tasks.stored(
 				parsed.map(({ state }) => state.id),
 			);
 			const records = await this.records(states);
@@ -203,24 +203,24 @@ export class TaskLanes {
 					filled.set(lane, [...(filled.get(lane) ?? []), state.id]);
 				}
 				// Saved even when its lane stays, so its tags are gone.
-				await this.todos.save({ ...state, lane });
+				await this.tasks.save({ ...state, lane });
 			}
-			await this.todos.renumber(settle(await this.todos.stored()));
+			await this.tasks.renumber(settle(await this.tasks.stored()));
 			return records
 				.filter((record) => filled.has(record.id))
-				.map((lane) => ({ lane, todos: filled.get(lane.id) ?? [] }));
+				.map((lane) => ({ lane, tasks: filled.get(lane.id) ?? [] }));
 		});
 	}
 
 	/**
 	 * @internal The lane `lane` names: null for none, one there is, or for
-	 * `"new"` one started for `todos`, called `name` or named after them. Call
+	 * `"new"` one started for `tasks`, called `name` or named after them. Call
 	 * it under the lock.
 	 */
 	async laneId(
 		lane: number | "new" | null,
 		states: TaskRecord[],
-		todos: TaskRecord[],
+		tasks: TaskRecord[],
 		name?: string,
 	): Promise<number | null> {
 		if (lane === null) {
@@ -230,16 +230,16 @@ export class TaskLanes {
 			lacking(await this.records(states), lane);
 			return lane;
 		}
-		return (await this.newLane(states, todos, name)).id;
+		return (await this.newLane(states, tasks, name)).id;
 	}
 
 	/**
-	 * Starts a lane for `todos` after the others, called `name`, or aptly
+	 * Starts a lane for `tasks` after the others, called `name`, or aptly
 	 * named without one. Call it under the lock.
 	 */
 	private async newLane(
 		states: TaskRecord[],
-		todos: TaskRecord[],
+		tasks: TaskRecord[],
 		name?: string,
 	): Promise<LaneRecord> {
 		const records = await this.records(states);
@@ -247,7 +247,7 @@ export class TaskLanes {
 		const called =
 			name === undefined
 				? aptName(
-						todos,
+						tasks,
 						records.map((each) => each.name),
 					)
 				: laneName(name, records);
@@ -262,7 +262,7 @@ export class TaskLanes {
 	 */
 	private async nextLaneId(states: TaskRecord[]): Promise<number> {
 		const last = Number(
-			await this.fs.read(`${this.todos.dir}/last-lane`).catch(() => 0),
+			await this.fs.read(`${this.tasks.dir}/last-lane`).catch(() => 0),
 		);
 		const records = await this.records(states);
 		const id =
@@ -270,13 +270,13 @@ export class TaskLanes {
 				Number.isInteger(last) ? last : 0,
 				...records.map((record) => record.id),
 			) + 1;
-		await this.fs.mkdir(this.todos.dir);
-		await this.fs.write(`${this.todos.dir}/last-lane`, String(id));
+		await this.fs.mkdir(this.tasks.dir);
+		await this.fs.write(`${this.tasks.dir}/last-lane`, String(id));
 		return id;
 	}
 
 	/**
-	 * @internal The lanes as stored, and after them any lane a todo is in that
+	 * @internal The lanes as stored, and after them any lane a task is in that
 	 * has no record. A file that will not parse reads as none.
 	 */
 	async records(states: TaskRecord[]): Promise<LaneRecord[]> {
@@ -300,7 +300,7 @@ export class TaskLanes {
 	/** The lane records in `file`, none when it is missing or will not parse. */
 	private async read(file: string): Promise<LaneRecord[]> {
 		const raw = await this.fs
-			.read(`${this.todos.dir}/${file}`)
+			.read(`${this.tasks.dir}/${file}`)
 			.catch(() => "[]");
 		try {
 			const parsed: unknown = JSON.parse(raw);
@@ -344,8 +344,8 @@ export class TaskLanes {
 
 	/** Writes `records` to `file` whole, so a reader never sees half of it. */
 	private async write(file: string, records: LaneRecord[]): Promise<void> {
-		await this.fs.mkdir(this.todos.dir);
-		const path = `${this.todos.dir}/${file}`;
+		await this.fs.mkdir(this.tasks.dir);
+		const path = `${this.tasks.dir}/${file}`;
 		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
 		await this.fs.write(tmp, `${JSON.stringify(records, null, "\t")}\n`);
 		await this.fs.rename(tmp, path);
@@ -373,7 +373,7 @@ function lacking(records: LaneRecord[], id: number): void {
 function laneName(name: string, others: LaneRecord[]): string {
 	const trimmed = name.trim();
 	if (trimmed === "") {
-		fail("usage", "a lane needs a name: say what its todos are for", {});
+		fail("usage", "a lane needs a name: say what its tasks are for", {});
 	}
 	const same = others.find(
 		(other) => other.name.toLowerCase() === trimmed.toLowerCase(),

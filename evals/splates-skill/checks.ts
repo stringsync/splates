@@ -159,7 +159,7 @@ function reportBody(lines: string[]): Verdict {
 		.split(/[.!?](?=\s|$)/)
 		.filter((each) => each.trim() !== "").length;
 	const words = plain.split(/\s+/).filter(Boolean).length;
-	// The bullets come before any todo, demo, question or checks line.
+	// The bullets come before any task, demo, question or checks line.
 	const rest = body.slice(blank === -1 ? body.length : blank);
 	const stop = rest.findIndex(
 		(line) =>

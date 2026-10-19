@@ -42,7 +42,7 @@ and is absent from the published CLI.
 removes the worktree. A conflict or a failing check goes back to the agent that
 made the change, which fixes it and merges again. A check that writes a JUnit
 XML report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit
---reporter-outfile="$SPLATES_TEST_REPORT"`) gets a todo for each test slower
+--reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test slower
 than 5 seconds.
 
 **Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one

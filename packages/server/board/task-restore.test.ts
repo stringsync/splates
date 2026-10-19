@@ -4,11 +4,11 @@ import { taskAdd } from "./task-edit";
 
 /** The subjects in list order. */
 async function order(deps: Testing): Promise<string[]> {
-	return (await deps.todos.all()).map((todo) => todo.subject);
+	return (await deps.tasks.all()).map((task) => task.subject);
 }
 
-describe.concurrent("todo restore", () => {
-	it("puts a discarded todo back under its number, where it stood, with its files", async () => {
+describe.concurrent("task restore", () => {
+	it("puts a discarded task back under its number, where it stood, with its files", async () => {
 		await using deps = await Testing.open();
 		const shot = `${deps.root}/shot.png`;
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
@@ -18,11 +18,11 @@ describe.concurrent("todo restore", () => {
 			lane: "new",
 		});
 		await taskAdd(deps, "third", null, { blockedBy: [2] });
-		await (await deps.todos.find(2)).take("alpha");
+		await (await deps.tasks.find(2)).take("alpha");
 
-		await (await deps.todos.find(2)).discard();
+		await (await deps.tasks.find(2)).discard();
 		expect(await order(deps)).toEqual(["first", "third"]);
-		const restored = await deps.todos.restore(2);
+		const restored = await deps.tasks.restore(2);
 
 		expect(await order(deps)).toEqual(["first", "second", "third"]);
 		expect(restored.state).toMatchObject({
@@ -35,11 +35,11 @@ describe.concurrent("todo restore", () => {
 			new Uint8Array([1]),
 		);
 		// What its removal held for the person waits on it again.
-		expect((await deps.todos.find(3)).state).toMatchObject({
+		expect((await deps.tasks.find(3)).state).toMatchObject({
 			blockedBy: [2],
 		});
-		expect((await deps.todos.find(3)).state.blockersLost).toBeUndefined();
-		await expect(deps.todos.restore(2)).toBail("not_found");
-		await expect(deps.todos.restore(9)).toBail("not_found");
+		expect((await deps.tasks.find(3)).state.blockersLost).toBeUndefined();
+		await expect(deps.tasks.restore(2)).toBail("not_found");
+		await expect(deps.tasks.restore(9)).toBail("not_found");
 	});
 });

@@ -57,6 +57,6 @@ export async function grantReach(
 /** What `grantReach` says a project may now do. */
 const GRANTED: Record<Reach, string> = {
 	read: "only read",
-	todos: "add todos",
+	queue: "add tasks to the queue",
 	tasks: "hand out tasks",
 };

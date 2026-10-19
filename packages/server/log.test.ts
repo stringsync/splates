@@ -118,7 +118,7 @@ describe("log", () => {
 	it("keeps the facts asked of a refused command, and drops those it never learned", async () => {
 		const asked = {
 			base: "main",
-			todos: [3],
+			tasks: [3],
 			goal: null,
 			subjects: [],
 			agent: "claude",
@@ -178,6 +178,29 @@ describe("log", () => {
 		]);
 		expect(await deps.journal.recent()).toMatchObject([
 			{ action: "escalate", questions: [] },
+		]);
+	});
+
+	it("reads a todo's event from before todos became tasks as its task's", async () => {
+		const old = (action: string, facts: object) =>
+			`${JSON.stringify({
+				id: action,
+				at: "2026-10-15T16:48:21.146Z",
+				action,
+				task: null,
+				reason: null,
+				conversation: null,
+				...facts,
+			})}\n`;
+		await deps.fs.append(
+			join(deps.splatesDir, "log.jsonl"),
+			old("todo add", { todo: 3, subject: "s", lane: null, position: 1 }) +
+				old("todo remove", { todos: [{ id: 3, subject: "s" }] }),
+		);
+
+		expect(await deps.journal.tail(10)).toMatchObject([
+			{ action: "task add", number: 3, subject: "s" },
+			{ action: "task remove", tasks: [{ id: 3, subject: "s" }] },
 		]);
 	});
 

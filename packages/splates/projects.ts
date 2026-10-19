@@ -11,7 +11,7 @@ import { z } from "zod";
 /** `splates projects`, which the root cli mounts after `splates lane`. */
 export const splatesProjects = cli<SplatesDeps>("projects")
 	.description(
-		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks, todos and lanes; add `todos` to their untriaged lane, as every project may until granted otherwise; or hand their `tasks` to agents and orchestrate them. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
+		"the other splates projects on this machine, and what agents of each may do in the others through splates: `read` their tasks and lanes; add tasks to their untriaged lane with `queue`, as every project may until granted otherwise; or hand their `tasks` to agents and orchestrate them. Any repo command runs on another project as `splates --project <slug> <command>`, refused where it needs more than that project granted",
 	)
 	.fallback("list");
 
@@ -28,10 +28,10 @@ splatesProjects
 	.command("grant")
 	.use(repository({ needs: "own" }))
 	.description(
-		"let agents of another project do as much as `read`, `todos` or `tasks` here, each including those before it; the user's call, so an agent runs it only when the user asks it to",
+		"let agents of another project do as much as `read`, `queue` or `tasks` here, each including those before it; the user's call, so an agent runs it only when the user asks it to",
 	)
 	.arg("project", z.string(), { description: "the other project's slug" })
 	.arg("reach", z.enum(REACHES), {
-		description: "read, todos or tasks",
+		description: "read, queue or tasks",
 	})
 	.action((opts, ctx) => grantReach(ctx, opts.project, opts.reach));

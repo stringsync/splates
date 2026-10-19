@@ -118,7 +118,7 @@ describe("App's conversation header", () => {
 					text: "[SPLATES TASK beta]",
 				},
 			},
-			{ method: "POST", body: { text: "[SPLATES TODO #12]" } },
+			{ method: "POST", body: { text: "[SPLATES TASK #12]" } },
 		]);
 	});
 

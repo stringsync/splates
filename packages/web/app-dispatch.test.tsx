@@ -340,7 +340,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[SPLATES TODO #3]" },
+				{ text: "[SPLATES TASK #3]" },
 			]),
 		);
 
@@ -394,7 +394,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "[SPLATES TODO #3]" },
+				{ text: "[SPLATES TASK #3]" },
 			]),
 		);
 	});

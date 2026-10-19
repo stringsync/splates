@@ -83,13 +83,13 @@ describe("App's todos", () => {
 			),
 		);
 
-		expect(copied).toEqual(["[SPLATES TODO #7]"]);
+		expect(copied).toEqual(["[SPLATES TASK #7]"]);
 		expect(view.queryByText("Todo 7")).toBeNull();
 		// The id says so in place, with no toast.
 		expect(
 			view.getByRole("button", { name: "copy a link to todo 7" }).textContent,
 		).toBe("Copied");
-		expect(view.queryByText("Copied [SPLATES TODO #7]")).toBeNull();
+		expect(view.queryByText("Copied [SPLATES TASK #7]")).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "fix it" })),
@@ -102,7 +102,7 @@ describe("App's todos", () => {
 				within(dialog).getByRole("button", { name: "copy a link to todo 7" }),
 			),
 		);
-		expect(copied).toEqual(["[SPLATES TODO #7]", "[SPLATES TODO #7]"]);
+		expect(copied).toEqual(["[SPLATES TASK #7]", "[SPLATES TASK #7]"]);
 	});
 
 	it("opens the task that took one, without opening the todo", async () => {

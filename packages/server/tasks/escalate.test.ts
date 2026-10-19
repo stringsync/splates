@@ -81,7 +81,7 @@ describe("escalate", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			join(worktree, PLAN_FILE),
-			"# alpha\n\n## Next\n\n- [ ] wire it up\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n- [ ] 2. Which pages need it?\n  - [a] Todos\n  - [b] Tasks\n",
+			"# alpha\n\n## Next\n\n- [ ] wire it up\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n- [ ] 2. Which pages need it?\n  - [a] Queue\n  - [b] Tasks\n",
 		);
 
 		const facts = await escalate(deps, "two calls on the header", worktree);

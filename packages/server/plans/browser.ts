@@ -30,8 +30,8 @@ export {
 	RECONNECT,
 	RESUME,
 	setupReference,
+	taskNumberReference,
 	taskReference,
-	todoReference,
 	UNTRIAGED,
 } from "./prompts";
 export type { Answer } from "./reply";

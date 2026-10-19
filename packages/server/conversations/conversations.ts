@@ -233,7 +233,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			settings?: Record<string, string>;
 			/** The model to start on, by its value or name in the model setting. */
 			model?: string;
-			/** Whether a todo or `splates add --agent` assigned the agent and model. */
+			/** Whether a queued task or `splates add --agent` assigned the agent and model. */
 			assigned?: boolean;
 			/** Whether Auto picked the agent and model. */
 			auto?: boolean;

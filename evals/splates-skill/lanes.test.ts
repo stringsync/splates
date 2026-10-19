@@ -25,7 +25,7 @@ describe("lane checks", () => {
 			verdicts(LANE, "names-models", [], {
 				end: {
 					...END,
-					todos: [
+					queued: [
 						{ id: 1, ...named },
 						{ id: 3, ...named },
 					],
@@ -34,7 +34,7 @@ describe("lane checks", () => {
 		).toEqual([true]);
 		expect(
 			verdicts(LANE, "names-models", [], {
-				end: { ...END, todos: [{ id: 1, ...named }, { id: 3 }] },
+				end: { ...END, queued: [{ id: 1, ...named }, { id: 3 }] },
 			}),
 		).toEqual([false]);
 	});
@@ -42,12 +42,12 @@ describe("lane checks", () => {
 	it("links: passes #3 left waiting on #1, and fails it unlinked", () => {
 		expect(
 			verdicts(LANE, "links", [], {
-				end: { ...END, todos: [{ id: 3, blockedBy: [1] }] },
+				end: { ...END, queued: [{ id: 3, blockedBy: [1] }] },
 			}),
 		).toEqual([true]);
 		expect(
 			verdicts(LANE, "links", [], {
-				end: { ...END, todos: [{ id: 3, blockedBy: [] }] },
+				end: { ...END, queued: [{ id: 3, blockedBy: [] }] },
 			}),
 		).toEqual([false]);
 	});
@@ -55,15 +55,15 @@ describe("lane checks", () => {
 	it("leaves-unlinked: fails #3 linked to #1 when they share nothing", () => {
 		expect(
 			verdicts(PARALLEL, "leaves-unlinked", [], {
-				end: { ...END, todos: [{ id: 3, blockedBy: [1] }] },
+				end: { ...END, queued: [{ id: 3, blockedBy: [1] }] },
 			}),
 		).toEqual([false]);
 	});
 
-	it("hands-off: fails a todo handed out with splates add", () => {
+	it("hands-off: fails a queued task handed out with splates add", () => {
 		expect(
 			verdicts(LANE, "hands-off", [
-				run("splates add retry-413 --todo 1 --agent claude --model sonnet"),
+				run("splates add retry-413 --task 1 --agent claude --model sonnet"),
 			]),
 		).toEqual([false]);
 	});
@@ -110,7 +110,7 @@ describe("lane checks", () => {
 				{ kind: "user", text: "Change of plans" },
 				run("splates tell retry-413 --stop 'Dropped.'"),
 				run("splates remove retry-413 --reason moot"),
-				run("splates todo remove 1"),
+				run("splates task remove 1"),
 			]),
 		).toEqual([true]);
 	});
@@ -122,7 +122,7 @@ describe("lane checks", () => {
 				{ kind: "user", text: "Change of plans" },
 				run("splates remove retry-413 --reason moot"),
 				run("splates tell retry-413 --stop 'Dropped.'"),
-				run("splates todo remove 1"),
+				run("splates task remove 1"),
 			]),
 		).toEqual([false]);
 	});
@@ -130,7 +130,7 @@ describe("lane checks", () => {
 	it("keeps-going: passes #3 kept naming an agent, and fails it dropped", () => {
 		expect(
 			verdicts(PIVOT_LANE, "keeps-going", [], {
-				end: { ...END, todos: [{ id: 3, assignee: { agent: "claude" } }] },
+				end: { ...END, queued: [{ id: 3, assignee: { agent: "claude" } }] },
 			}),
 		).toEqual([true]);
 		expect(verdicts(PIVOT_LANE, "keeps-going", [])).toEqual([false]);
@@ -146,7 +146,7 @@ const RESUMED: Beat[] = [
 const END: EndRepo = {
 	landed: [],
 	tasks: [],
-	todos: [],
+	queued: [],
 	lanes: [],
 	main: [],
 };

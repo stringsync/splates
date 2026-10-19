@@ -8,7 +8,7 @@ import { recordUpdate, tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
 
 /**
- * How a project's page writes its todos and lanes, each write journaled and
+ * How a project's page writes its tasks and lanes, each write journaled and
  * read back for the pages listening. Each handler is a property, so
  * `serveProject` spreads them into the project's routes; what they work on
  * stays private, out of the spread.
@@ -28,14 +28,14 @@ export class BoardRoutes {
 		this.#watch = watch;
 	}
 
-	readonly addTodo = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
+	readonly addQueued = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
 		const form = await request.formData();
-		const todo = await journal.record(
-			"todo add",
+		const task = await journal.record(
+			"task add",
 			null,
 			async () =>
-				todos.add(String(form.get("subject") ?? ""), null, {
+				tasks.add(String(form.get("subject") ?? ""), null, {
 					text: String(form.get("text") ?? ""),
 					files: await uploads(form),
 					position: positionIn(form),
@@ -45,15 +45,15 @@ export class BoardRoutes {
 			addedFacts,
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
-	readonly updateTodo = async (request: Request): Promise<Response> => {
+	readonly updateQueued = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
-		const found = await this.todoAt(request);
-		const todo = await recordUpdate(
+		const found = await this.taskAt(request);
+		const task = await recordUpdate(
 			this.#project.journal,
-			this.#project.todos,
+			this.#project.tasks,
 			found.id,
 			async () =>
 				found.update({
@@ -67,36 +67,36 @@ export class BoardRoutes {
 				}),
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
 	// Its own route, carrying nothing but the place, so a drag can never touch
-	// a todo's words or files.
-	readonly moveTodo = async (request: Request): Promise<Response> => {
-		const found = await this.todoAt(request);
+	// a task's words or files.
+	readonly moveQueued = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
 		const { position } = (await request.json()) as { position?: unknown };
-		const todo = await recordUpdate(
+		const task = await recordUpdate(
 			this.#project.journal,
-			this.#project.todos,
+			this.#project.tasks,
 			found.id,
 			() => found.update({ position: Number(position) }),
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
 	// What blocks it, all of it: the page sends the whole list, and
 	// only the difference is linked or unlinked, so a loop is still refused.
 	// A blocker removed without merging stays while the list names it, and
 	// is let go of once it does not.
-	readonly linkTodo = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
-		const found = await this.todoAt(request);
+	readonly linkQueued = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const found = await this.taskAt(request);
 		const { blockedBy } = await body(request);
 		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
 		const lost = (found.state.blockersLost ?? []).map((gone) => gone.id);
-		const todo = await recordUpdate(journal, todos, found.id, () =>
-			todos.link(found.id, {
+		const task = await recordUpdate(journal, tasks, found.id, () =>
+			tasks.link(found.id, {
 				add: ids.filter(
 					(id) => !found.blockedBy.includes(id) && !lost.includes(id),
 				),
@@ -104,43 +104,43 @@ export class BoardRoutes {
 			}),
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
-	// Into a lane, or none, above the todo `before` or at the bottom of it.
-	readonly arrangeTodo = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
-		const found = await this.todoAt(request);
+	// Into a lane, or none, above the task `before` or at the bottom of it.
+	readonly arrangeQueued = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const found = await this.taskAt(request);
 		const { lane, before, name } = await body(request);
-		const todo = await recordUpdate(journal, todos, found.id, () =>
-			todos.arrange(found.id, laneIn(lane), {
+		const task = await recordUpdate(journal, tasks, found.id, () =>
+			tasks.arrange(found.id, laneIn(lane), {
 				name: typeof name === "string" ? name : undefined,
 				before:
 					before === undefined || before === null ? undefined : Number(before),
 			}),
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
 	readonly joinLane = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
+		const { journal, tasks } = this.#project;
 		const from = laneAt(request);
 		const { into } = await body(request);
 		await journal.record("lane join", null, () =>
-			todos.joinLanes(from, Number(into)),
+			tasks.joinLanes(from, Number(into)),
 		);
 		this.#watch.tick();
 		return Response.json({ lane: Number(into) });
 	};
 
 	readonly addLane = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
+		const { journal, tasks } = this.#project;
 		const { name } = await body(request);
 		const lane = await journal.record(
 			"lane add",
 			null,
-			() => todos.addLane(String(name ?? "")),
+			() => tasks.addLane(String(name ?? "")),
 			(added) => ({ lane: added.id, name: added.name }),
 		);
 		this.#watch.tick();
@@ -149,7 +149,7 @@ export class BoardRoutes {
 
 	// A new name, a new place among the lanes, or both.
 	readonly updateLane = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
+		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
 		const { name, position, running } = await body(request);
 		const change = {
@@ -164,15 +164,15 @@ export class BoardRoutes {
 				const renamed =
 					change.name === undefined
 						? undefined
-						: await todos.renameLane(id, change.name);
+						: await tasks.renameLane(id, change.name);
 				const order =
 					change.position === undefined
 						? undefined
-						: await todos.moveLane(id, change.position);
+						: await tasks.moveLane(id, change.position);
 				const run =
 					change.running === undefined
 						? undefined
-						: await todos.runLane(id, change.running ? { by: null } : null);
+						: await tasks.runLane(id, change.running ? { by: null } : null);
 				return run ?? order?.find((each) => each.id === id) ?? renamed;
 			},
 			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
@@ -181,56 +181,56 @@ export class BoardRoutes {
 		return Response.json(lane ?? { id });
 	};
 
-	readonly assignTodo = async (request: Request): Promise<Response> => {
-		const found = await this.todoAt(request);
+	readonly assignQueued = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
 		const assignee = await this.assigneeIn(request);
-		const todo = await recordUpdate(
+		const task = await recordUpdate(
 			this.#project.journal,
-			this.#project.todos,
+			this.#project.tasks,
 			found.id,
 			() => found.update({ assignee }),
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
 	readonly dropLane = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
+		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		await recordLaneRemove(journal, todos, id, () => todos.dropLane(id));
+		await recordLaneRemove(journal, tasks, id, () => tasks.dropLane(id));
 		this.#watch.tick();
 		return Response.json({ lane: id });
 	};
 
-	readonly removeTodo = async (request: Request): Promise<Response> => {
-		const found = await this.todoAt(request);
+	readonly removeQueued = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
 		await this.#project.journal.record(
-			"todo remove",
+			"task remove",
 			null,
 			// Kept, so the conversation line it was added on can put it back.
 			() => found.discard(),
-			() => ({ todos: tasksNamed([found]) }),
+			() => ({ tasks: tasksNamed([found]) }),
 		);
 		this.#watch.tick();
 		return Response.json(found.state);
 	};
 
-	/** Puts back a todo the page removed, under its id, where it stood. */
-	readonly restoreTodo = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
-		const todo = await journal.record(
-			"todo add",
+	/** Puts back a task the page removed, under its id, where it stood. */
+	readonly restoreQueued = async (request: Request): Promise<Response> => {
+		const { journal, tasks } = this.#project;
+		const task = await journal.record(
+			"task add",
 			null,
-			() => todos.restore(this.idAt(request)),
+			() => tasks.restore(this.idAt(request)),
 			addedFacts,
 		);
 		this.#watch.tick();
-		return Response.json(todo.state);
+		return Response.json(task.state);
 	};
 
-	/** The todo a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
-	private async todoAt(request: Request) {
-		return this.#project.todos.find(this.idAt(request));
+	/** The task a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
+	private async taskAt(request: Request) {
+		return this.#project.tasks.find(this.idAt(request));
 	}
 
 	/** The id a `/api/todos/<id>` path names, or `/api/todos/<id>/restore`. */
@@ -238,7 +238,7 @@ export class BoardRoutes {
 		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
 		const id = Number(raw);
 		if (!Number.isInteger(id) || id <= 0) {
-			fail("usage", `'${raw}' is not a todo id`, { todo: raw });
+			fail("usage", `'${raw}' is not a task id`, { number: raw });
 		}
 		return id;
 	}
@@ -273,7 +273,7 @@ export class BoardRoutes {
 	}
 }
 
-/** Where a todo write asks to put it; absent leaves it to the write. */
+/** Where a task write asks to put it; absent leaves it to the write. */
 function positionIn(form: FormData): number | undefined {
 	return form.has("position") ? Number(form.get("position")) : undefined;
 }

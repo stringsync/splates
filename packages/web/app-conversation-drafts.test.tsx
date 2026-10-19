@@ -76,23 +76,23 @@ describe("App's composer drafts", () => {
 
 	it("makes a directive typed anywhere a chip, and sends it where it stands", async () => {
 		const view = await testing.openConversations(held, "c1");
-		await type(view, "keep [SPLATES TODO #12] small");
+		await type(view, "keep [SPLATES TASK #12] small");
 
 		await waitFor(() =>
-			expect(within(box(view)).getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
+			expect(within(box(view)).getByTitle("[SPLATES TASK #12]")).toBeTruthy(),
 		);
-		expect(textIn(box(view))).toBe("keep [SPLATES TODO #12] small");
+		expect(textIn(box(view))).toBe("keep [SPLATES TASK #12] small");
 		expect(localStorage.getItem("splates.draft.c1")).toBe(
-			"keep [SPLATES TODO #12] small",
+			"keep [SPLATES TASK #12] small",
 		);
 
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "keep [SPLATES TODO #12] small" } },
+			{ method: "POST", body: { text: "keep [SPLATES TASK #12] small" } },
 		]);
 		// Out of the composer; the thread shows it in the message sent.
 		await waitFor(() =>
-			expect(within(box(view)).queryByTitle("[SPLATES TODO #12]")).toBeNull(),
+			expect(within(box(view)).queryByTitle("[SPLATES TASK #12]")).toBeNull(),
 		);
 		expect(localStorage.getItem("splates.draft.c1") ?? "").toBe("");
 	});

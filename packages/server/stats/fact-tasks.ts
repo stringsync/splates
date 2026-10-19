@@ -3,27 +3,28 @@ import type { Tasks } from "../board";
 import { addedFacts, wording } from "../board";
 import type { Git } from "../git";
 import type { Journal } from "../records";
-import { factTodos } from "./finding-facts";
+import { factTasks } from "./finding-facts";
 import { landed } from "./landed";
 import type { Outcomes } from "./outcomes";
 
 /**
- * Adds a todo, untriaged, for each of `task`'s gate runs that named failing
- * tests and each test its passing run timed as slow (see `factTodos`), journaled so the conversation that merged
- * it shows each as an "Added" line the person can remove it from. One whose
- * line is on the list already is not added again.
+ * Queues a task, untriaged, for each of `task`'s gate runs that named failing
+ * tests and each test its passing run timed as slow (see `factTasks`),
+ * journaled so the conversation that merged it shows each as an "Added" line
+ * the person can remove it from. One whose line is queued already is not added
+ * again.
  */
-export async function addFactTodos(
+export async function addFactTasks(
 	{
 		git,
 		outcomes,
-		todos,
+		tasks,
 		journal,
 		log,
 	}: {
 		git: Git;
 		outcomes: Outcomes;
-		todos: Tasks;
+		tasks: Tasks;
 		journal: Journal;
 		log: Logger;
 	},
@@ -33,19 +34,19 @@ export async function addFactTodos(
 	if (merged === null) {
 		return;
 	}
-	const listed = new Set((await todos.all()).map((todo) => todo.subject));
-	for (const fact of factTodos(merged)) {
+	const listed = new Set((await tasks.all()).map((each) => each.subject));
+	for (const fact of factTasks(merged)) {
 		const { subject, text } = wording(fact.subject, fact.text);
 		if (listed.has(subject)) {
 			continue;
 		}
 		listed.add(subject);
-		const todo = await journal.record(
-			"todo add",
+		const added = await journal.record(
+			"task add",
 			task,
-			() => todos.add(subject, task, { text }),
+			() => tasks.add(subject, task, { text }),
 			addedFacts,
 		);
-		log.info(`  ${color.green("found")} todo ${todo.id}: ${subject}`);
+		log.info(`  ${color.green("found")} task ${added.id}: ${subject}`);
 	}
 }

@@ -1,6 +1,6 @@
 import {
+	taskNumberReference,
 	taskReference,
-	todoReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { ChevronDownIcon, GitBranchIcon, ListTodoIcon } from "lucide-react";
@@ -102,7 +102,7 @@ export function TakeUpItems({
 					{todos.map((each) => (
 						<DropdownMenuItem
 							key={each.id}
-							onClick={() => onTake(todoReference(each.id))}
+							onClick={() => onTake(taskNumberReference(each.id))}
 						>
 							<ListTodoIcon aria-hidden />
 							<span className="min-w-0 flex-1 truncate">{each.subject}</span>

@@ -61,9 +61,9 @@ describe("App's waits", () => {
 		const todo = await line([
 			{
 				...began("alpha", inMins(9)),
-				action: "todo wait",
+				action: "task wait",
 				task: null,
-				todo: 7,
+				number: 7,
 				subject: "Seven",
 			} as Event,
 		]);

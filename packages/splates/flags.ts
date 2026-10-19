@@ -16,7 +16,7 @@ import { rosterOf, seeded } from "@stringsync/splates-server/server";
 import { SavedTunnel } from "@stringsync/splates-server/tunnel";
 import { z } from "zod";
 
-/** A place in the todo list, 1 at the top; absent leaves it to the command. */
+/** A place in the queue, 1 at the top; absent leaves it to the command. */
 export const position = z.coerce.number().int().positive().optional();
 
 /**
@@ -123,12 +123,12 @@ export function laneIn(raw: string): number | "new" | null | undefined {
 	return id;
 }
 
-/** `--todo 3,5` as ids, refusing anything that is not one. */
-export function todoIds(raw: string): number[] {
+/** `--task 3,5` as task numbers, refusing anything that is not one. */
+export function taskIds(raw: string): number[] {
 	return commaList(raw).map((value) => {
 		const id = Number(value);
 		if (!Number.isInteger(id) || id <= 0) {
-			fail("usage", `'${value}' is not a todo id`, { todo: value });
+			fail("usage", `'${value}' is not a task number`, { number: value });
 		}
 		return id;
 	});

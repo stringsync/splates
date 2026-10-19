@@ -76,7 +76,7 @@ function about(
 	if (bare !== undefined) {
 		return { kind: bare.label, name: "" };
 	}
-	switch (kind) {
+	switch (numbered(kind, argument) ? "TODO" : kind) {
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
@@ -144,6 +144,15 @@ export function DirectiveChip({
 			inline={inline}
 		/>
 	);
+}
+
+/**
+ * Whether a directive of `kind` names a task by its number, as
+ * `[SPLATES TASK #N]` does, or `[SPLATES TODO #N]` from before the rename,
+ * where `[SPLATES TASK <slug>]` names a started one.
+ */
+function numbered(kind: string, argument: string): boolean {
+	return (kind === "TASK" || kind === "TODO") && argument.startsWith("#");
 }
 
 /** The page asking an agent to hand its task off: the agent, and any model. */
@@ -262,7 +271,7 @@ function wordsOf(
 		];
 	}
 	const [, kind, argument = ""] = CARDED.exec(directive) ?? [];
-	switch (kind) {
+	switch (kind !== undefined && numbered(kind, argument) ? "TODO" : kind) {
 		case undefined:
 		// The orchestrator's Working card that answers it says what came of the task.
 		case "REPORT":

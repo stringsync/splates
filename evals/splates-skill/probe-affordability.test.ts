@@ -55,8 +55,8 @@ it("skips unchanged instructions before roster lookup, authentication, confirmat
 
 it("plans a targeted reference smoke without consulting targets or metering services", async () => {
 	await writeFile(
-		join(skill, "references/todos.md"),
-		"Changed todos instructions",
+		join(skill, "references/queue.md"),
+		"Changed queue instructions",
 	);
 	const log = new MemoryLogger();
 	await fastCli(
@@ -115,14 +115,14 @@ it("compares dirty and committed edits, additions, renames and deletions against
 	const initial = await skillChange(skill, "HEAD");
 	await writeFile(join(skill, "SKILL.md"), "# Splates\nChanged\n");
 	await rename(
-		join(skill, "references/todos.md"),
+		join(skill, "references/queue.md"),
 		join(skill, "references/renamed.md"),
 	);
 	const dirty = await skillChange(skill, initial.baseline);
 	expect(dirty.files).toEqual([
 		"SKILL.md",
+		"references/queue.md",
 		"references/renamed.md",
-		"references/todos.md",
 	]);
 	await exec("git", ["add", "."], { cwd: directory });
 	await exec(
@@ -146,7 +146,7 @@ it("fails closed on absent baseline, invalid revisions, missing root instruction
 	await expect(skillChange(skill)).rejects.toThrow("--baseline");
 	await expect(skillChange(skill, "missing-revision")).rejects.toThrow();
 	await expect(skillChange(directory, "HEAD")).rejects.toThrow("inside");
-	await symlink("todos.md", join(skill, "references/link.md"));
+	await symlink("queue.md", join(skill, "references/link.md"));
 	await expect(skillChange(skill, "HEAD")).rejects.toThrow("Symlinked");
 	await rm(join(skill, "references/link.md"));
 	await rm(join(skill, "SKILL.md"));
@@ -164,7 +164,7 @@ it("selects at most two mapped default smoke cases and refuses unmapped expansio
 	expect(
 		smokeProbes(module.probes, [
 			"SKILL.md",
-			"references/todos.md",
+			"references/queue.md",
 			"references/parts.md",
 		]).map((probe) => probe.id),
 	).toEqual(["discovery/implicit", "orchestration/dependency"]);
@@ -499,8 +499,8 @@ beforeEach(async () => {
 		"# Splates\nOriginal instructions\n",
 	);
 	await writeFile(
-		join(skill, "references/todos.md"),
-		"# Todos\nOriginal reference\n",
+		join(skill, "references/queue.md"),
+		"# Queueing tasks\nOriginal reference\n",
 	);
 	await exec("git", ["init", "-q"], { cwd: directory });
 	await exec("git", ["add", "."], { cwd: directory });

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { post, serving, todoForm } from "../server/testing";
+import { post, serving, taskForm } from "../server/testing";
 import { Testing } from "../testing";
 
-describe("dev todos", () => {
+describe("dev tasks", () => {
 	let deps: Testing;
 
 	beforeEach(async () => {
@@ -11,26 +11,26 @@ describe("dev todos", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("adds a todo, files and all", async () => {
+	it("adds a task, files and all", async () => {
 		await serving(deps, async (snapshot, port) => {
-			await post(port, "/api/todos", todoForm("lower"));
-			const form = todoForm("write the docs", [new File(["x"], "notes.md")]);
+			await post(port, "/api/todos", taskForm("lower"));
+			const form = taskForm("write the docs", [new File(["x"], "notes.md")]);
 			form.set("text", "the CLI first");
 			form.set("position", "1");
 			const response = await post(port, "/api/todos", form);
 
 			expect(response.status).toBe(200);
-			const [todo, lower] = (await snapshot()).todos;
-			expect(todo).toMatchObject({
+			const [task, lower] = (await snapshot()).todos;
+			expect(task).toMatchObject({
 				subject: "write the docs",
 				text: "the CLI first",
 				position: 1,
 			});
-			expect(todo?.files[0]).toEndWith("-notes.md");
+			expect(task?.files[0]).toEndWith("-notes.md");
 			expect(lower).toMatchObject({ subject: "lower", position: 2 });
 			expect((await deps.journal.tail(1))[0]).toMatchObject({
-				action: "todo add",
-				todo: todo?.id,
+				action: "task add",
+				number: task?.id,
 				subject: "write the docs",
 				lane: null,
 				position: 1,
@@ -38,9 +38,9 @@ describe("dev todos", () => {
 		});
 	});
 
-	it("moves a todo, leaving its words and files alone", async () => {
-		await deps.todos.add("first", null);
-		await deps.todos.add("second", null, {
+	it("moves a task, leaving its words and files alone", async () => {
+		await deps.tasks.add("first", null);
+		await deps.tasks.add("second", null, {
 			files: [{ name: "a.png", bytes: new Uint8Array([1]) }],
 		});
 
@@ -64,10 +64,10 @@ describe("dev todos", () => {
 		});
 	});
 
-	it("links todos and arranges lanes, refusing a loop", async () => {
-		await deps.todos.add("first", null);
-		await deps.todos.add("second", null, { blockedBy: [1] });
-		await deps.todos.add("third", null);
+	it("links tasks and arranges lanes, refusing a loop", async () => {
+		await deps.tasks.add("first", null);
+		await deps.tasks.add("second", null, { blockedBy: [1] });
+		await deps.tasks.add("third", null);
 
 		await serving(deps, async (snapshot, port) => {
 			const send = (method: string, path: string, body: unknown = {}) =>
@@ -80,7 +80,7 @@ describe("dev todos", () => {
 					body: JSON.stringify(body),
 				});
 			const state = async (id: number) =>
-				(await snapshot()).todos.find((todo) => todo.id === id);
+				(await snapshot()).todos.find((task) => task.id === id);
 
 			const loop = await send("PUT", "/api/todos/1/blocked-by", {
 				blockedBy: [2],
@@ -145,10 +145,10 @@ describe("dev todos", () => {
 	});
 
 	it("keeps a blocker removed without merging while the page's list names it", async () => {
-		await deps.todos.add("first", null);
-		await deps.todos.add("second", null);
-		await deps.todos.add("third", null, { blockedBy: [1] });
-		await (await deps.todos.find(1)).remove();
+		await deps.tasks.add("first", null);
+		await deps.tasks.add("second", null);
+		await deps.tasks.add("third", null, { blockedBy: [1] });
+		await (await deps.tasks.find(1)).remove();
 
 		await serving(deps, async (snapshot, port) => {
 			const link = (blockedBy: number[]) =>
@@ -161,7 +161,7 @@ describe("dev todos", () => {
 					body: JSON.stringify({ blockedBy }),
 				});
 			const state = async () =>
-				(await snapshot()).todos.find((todo) => todo.id === 3);
+				(await snapshot()).todos.find((task) => task.id === 3);
 
 			expect((await link([1, 2])).status).toBe(200);
 			expect(await state()).toMatchObject({
@@ -173,15 +173,15 @@ describe("dev todos", () => {
 		});
 	});
 
-	it("updates, removes and puts back a todo", async () => {
-		const todo = await deps.todos.add("write docs", null, {
+	it("updates, removes and puts back a task", async () => {
+		const task = await deps.tasks.add("write docs", null, {
 			files: [
 				{ name: "a.png", bytes: new Uint8Array([1]) },
 				{ name: "b.png", bytes: new Uint8Array([2]) },
 			],
 		});
-		await deps.todos.add("above", null);
-		const [kept, dropped] = todo.files;
+		await deps.tasks.add("above", null);
+		const [kept, dropped] = task.files;
 
 		await serving(deps, async (snapshot, port) => {
 			const write = (method: string, path: string, body?: FormData) =>
@@ -191,7 +191,7 @@ describe("dev todos", () => {
 					body,
 				});
 
-			const form = todoForm("write the docs", [], [kept ?? ""]);
+			const form = taskForm("write the docs", [], [kept ?? ""]);
 			form.set("position", "2");
 			const updated = await write("PATCH", "/api/todos/1", form);
 			expect(updated.status).toBe(200);

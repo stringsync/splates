@@ -57,28 +57,28 @@ export async function serveProject(
 	let handedOut: HandedOut | null = null;
 	let laneRunner: LaneRunner | null = null;
 	let groomer: Groomer | null = null;
-	let todosWatch: Resource | null = null;
+	let tasksWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({
 			service,
 			conversations,
 			everywhere: context.everywhere,
-			lanes: () => project.todos.lanes(),
-			todos: () => project.todos.stored(),
+			lanes: () => project.tasks.lanes(),
+			queued: () => project.tasks.stored(),
 			seen: new SeenLaneTasks(fs, `${splatesDir}/lane-tasks.json`),
-			stuck: project.todos,
+			stuck: project.tasks,
 			log,
 		});
 		laneRunner = LaneRunner.watch({
-			lanes: () => project.todos.lanes(),
-			todos: () => project.todos.stored(),
+			lanes: () => project.tasks.lanes(),
+			queued: () => project.tasks.stored(),
 			tasks: async () => (await service.list()).map(({ task }) => task),
 			capacity: project.config.agentsPerLane,
-			start: ({ task, todo, pick, prompt, by }) =>
-				startLaneTodo(project, context.url, {
+			start: ({ task, queued, pick, prompt, by }) =>
+				startLaneTask(project, context.url, {
 					task,
-					todo: todo.id,
+					number: queued.id,
 					pick,
 					prompt,
 					by,
@@ -86,7 +86,7 @@ export async function serveProject(
 			log,
 		});
 		groomer = Groomer.watch({
-			todos: () => project.todos.stored(),
+			queued: () => project.tasks.stored(),
 			conversations,
 			root: service.git.root,
 			seen: new SeenGroomed(fs, `${splatesDir}/groomed-tasks`),
@@ -126,29 +126,29 @@ export async function serveProject(
 			);
 		}
 		handOff();
-		// A todo merged or let go from any tree tells its lane's orchestrator
+		// A task merged or let go from any tree tells its lane's orchestrator
 		// at once, not at the next sweep, and one added goes to the groomer.
-		const todosSettled = new Debouncer(new SystemTimer(), SETTLE);
+		const tasksSettled = new Debouncer(new SystemTimer(), SETTLE);
 		const watched = handedOut;
 		const grooming = groomer;
 		try {
 			await fs.mkdir(`${splatesDir}/tasks`);
 			const watching = fs.watch(`${splatesDir}/tasks`, () =>
-				todosSettled.call(() => {
+				tasksSettled.call(() => {
 					void watched.sweep();
 					void runner.sweep();
 					void grooming.sweep();
 				}),
 			);
-			todosWatch = {
+			tasksWatch = {
 				dispose: () => {
 					watching.dispose();
-					todosSettled.cancel();
+					tasksSettled.cancel();
 				},
 			};
 		} catch (error) {
 			log.error(
-				`splates server cannot watch ${service.git.root}'s todos, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
+				`splates server cannot watch ${service.git.root}'s tasks, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
 			);
 		}
 	}
@@ -192,9 +192,9 @@ export async function serveProject(
 					({ state }) => state,
 				),
 			}),
-			lanes: await project.todos.laneNames(),
+			lanes: await project.tasks.laneNames(),
 		}),
-		lanes: () => project.todos.laneNames(),
+		lanes: () => project.tasks.laneNames(),
 		portOwners: async () => ({
 			worktrees: (await service.list())
 				.filter((each) => each.exists)
@@ -231,7 +231,7 @@ export async function serveProject(
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
-			todosWatch?.dispose();
+			tasksWatch?.dispose();
 			handedOut?.dispose();
 			laneRunner?.dispose();
 			groomer?.dispose();
@@ -242,24 +242,24 @@ export async function serveProject(
 }
 
 /**
- * Adds the task a running lane starts for `todo`, as `splates add --todo
- * --agent` would from the conversation that set the lane running, run as
- * this splates so it is the same one: `splates server` then starts its agent
- * as for any other. Its cap is the lane's, which `LaneRunner` keeps. Throws
+ * Adds the task a running lane starts for queued task `number`, as `splates
+ * add --task --agent` would from the conversation that set the lane running,
+ * run as this splates so it is the same one: `splates server` then starts its
+ * agent as for any other. Its cap is the lane's, which `LaneRunner` keeps. Throws
  * with what `add` said on a refusal.
  */
-async function startLaneTodo(
+async function startLaneTask(
 	{ ps, service }: Project,
 	url: string | null,
 	{
 		task,
-		todo,
+		number,
 		pick,
 		prompt,
 		by,
 	}: {
 		task: string;
-		todo: number;
+		number: number;
 		pick: AgentPick;
 		prompt: string;
 		by: string | null;
@@ -270,8 +270,8 @@ async function startLaneTodo(
 			...ps.self,
 			"add",
 			task,
-			"--todo",
-			String(todo),
+			"--task",
+			String(number),
 			"--agent",
 			pick.agent,
 			...(pick.model === undefined ? [] : ["--model", pick.model]),
@@ -303,7 +303,7 @@ export type Project = Pick<
 	| "service"
 	| "config"
 	| "journal"
-	| "todos"
+	| "tasks"
 	| "format"
 	| "splatesDir"
 	| "git"
@@ -396,18 +396,18 @@ export interface Served extends AsyncResource {
 	diff: Handler;
 	retryTask: Handler;
 	removeTask: Handler;
-	addTodo: Handler;
-	updateTodo: Handler;
-	moveTodo: Handler;
-	linkTodo: Handler;
-	arrangeTodo: Handler;
-	assignTodo: Handler;
+	addQueued: Handler;
+	updateQueued: Handler;
+	moveQueued: Handler;
+	linkQueued: Handler;
+	arrangeQueued: Handler;
+	assignQueued: Handler;
 	joinLane: Handler;
 	addLane: Handler;
 	updateLane: Handler;
 	dropLane: Handler;
-	removeTodo: Handler;
-	restoreTodo: Handler;
+	removeQueued: Handler;
+	restoreQueued: Handler;
 	listCreds: Handler;
 	saveCred: Handler;
 	removeCred: Handler;

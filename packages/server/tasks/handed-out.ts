@@ -25,9 +25,9 @@ import {
 	reportReference,
 	type Stretch,
 	stretches,
-	todoAddedReference,
-	todoDoneReference,
-	todoOpenReference,
+	taskAddedReference,
+	taskDoneReference,
+	taskOpenReference,
 	UNTRIAGED,
 } from "../plans";
 import { Everywhere } from "../projects";
@@ -42,7 +42,6 @@ export const SWEEP = Duration.mins(5);
 /** How long the conversations' changes settle before they are checked. */
 const SETTLE = Duration.secs(1);
 
-// scry-ignore doc-comments-address-users: its TODO is the directive's name, not a note left in the code
 /**
  * Keeps the conversation that handed tasks out, a lane's orchestrator with
  * `splates add --agent`, up to date on the agents it handed them to, so it
@@ -56,19 +55,19 @@ const SETTLE = Duration.secs(1);
  *
  * The agent of a task a running lane started answers to the lane rather
  * than its orchestrator: quiet, it is told `CARRY_ON` by `splates server`
- * itself, once, and quiet again with nothing said to it since, its todo is
+ * itself, once, and quiet again with nothing said to it since, its queued task is
  * marked stuck and only then is its orchestrator, if any, told
  * `[SPLATES IDLE <task>]`. At work again, it is stuck no longer.
  *
- * A lane's orchestrator is told `[SPLATES TODO DONE #N]` as a todo in a lane
- * it works leaves the list, and `[SPLATES TODO OPEN #N]` as one comes back
- * open, however that came about, so the todos drive the lane rather than its
- * agents reporting back. A running lane starts its todos itself, so its
- * orchestrator hears neither, only `[SPLATES TODO ADDED #N]` as a todo comes
+ * A lane's orchestrator is told `[SPLATES TASK DONE #N]` as a queued task in a lane
+ * it works leaves the list, and `[SPLATES TASK OPEN #N]` as one comes back
+ * open, however that came about, so the queued tasks drive the lane rather than its
+ * agents reporting back. A running lane starts its queued tasks itself, so its
+ * orchestrator hears neither, only `[SPLATES TASK ADDED #N]` as a queued task comes
  * into it, to plan it in. What changed while `splates server` was down is
  * told once it is back.
  *
- * A lane's orchestrator whose lanes are all done, however their last todos
+ * A lane's orchestrator whose lanes are all done, however their last queued tasks
  * landed, that sits idle on a Working or Waiting report, as though they were
  * not, is told `[SPLATES LANES DONE]`, once since it last started lanes, so it
  * ends on its Finished report.
@@ -95,9 +94,9 @@ export class HandedOut implements Resource {
 		private readonly conversations: Conversations,
 		private readonly everywhere: Everywhere,
 		private readonly lanes: () => Promise<LaneRecord[]>,
-		private readonly todos: () => Promise<TaskRecord[]>,
+		private readonly queued: () => Promise<TaskRecord[]>,
 		private readonly seen: SeenLaneTasks,
-		private readonly stuck: StuckTodos,
+		private readonly stuck: StuckTasks,
 		private readonly log: Logger,
 		readonly timer: Timer,
 		private readonly clock: WallClock,
@@ -127,7 +126,7 @@ export class HandedOut implements Resource {
 		conversations,
 		everywhere = Everywhere.onlyHere(service.git.root, conversations),
 		lanes,
-		todos,
+		queued,
 		seen,
 		stuck,
 		log,
@@ -143,12 +142,12 @@ export class HandedOut implements Resource {
 		everywhere?: Everywhere;
 		/** The lanes on the board, a lane gone from it once it is done. */
 		lanes: () => Promise<LaneRecord[]>;
-		/** Every todo on the list. */
-		todos: () => Promise<TaskRecord[]>;
-		/** The lane todos as last seen, kept past a restart. */
+		/** Every queued task on the list. */
+		queued: () => Promise<TaskRecord[]>;
+		/** The lane queued tasks as last seen, kept past a restart. */
 		seen: SeenLaneTasks;
-		/** Where a todo is marked stuck. */
-		stuck: StuckTodos;
+		/** Where a queued task is marked stuck. */
+		stuck: StuckTasks;
 		log: Logger;
 		timer?: Timer;
 		clock?: WallClock;
@@ -158,7 +157,7 @@ export class HandedOut implements Resource {
 			conversations,
 			everywhere,
 			lanes,
-			todos,
+			queued,
 			seen,
 			stuck,
 			log,
@@ -185,7 +184,7 @@ export class HandedOut implements Resource {
 				await this.#check(conversation);
 			}
 			const lanes = await this.lanes();
-			// Before the lanes done, so one told of its last todo ends there.
+			// Before the lanes done, so one told of its last queued task ends there.
 			await this.#tell(all, lanes);
 			for (const conversation of all) {
 				await this.#finish(conversation, lanes);
@@ -213,11 +212,11 @@ export class HandedOut implements Resource {
 	}
 
 	/**
-	 * Tells each orchestrator in `all` what became of the todos in the lanes
+	 * Tells each orchestrator in `all` what became of the queued tasks in the lanes
 	 * it works since they were last seen.
 	 */
 	async #tell(all: Conversation[], lanes: LaneRecord[]): Promise<void> {
-		const stored = await this.todos();
+		const stored = await this.queued();
 		const now = laneTasks(stored, lanes);
 		const before = await this.seen.read();
 		if (before !== null) {
@@ -226,10 +225,10 @@ export class HandedOut implements Resource {
 					if (this.#works(conversation, change)) {
 						await conversation.prompt(
 							change.change === "added"
-								? todoAddedReference(change.todo)
+								? taskAddedReference(change.number)
 								: change.change === "done"
-									? todoDoneReference(change.todo)
-									: todoOpenReference(change.todo),
+									? taskDoneReference(change.number)
+									: taskOpenReference(change.number),
 						);
 					}
 				}
@@ -337,8 +336,8 @@ export class HandedOut implements Resource {
 		if (state.archived || task === null) {
 			return;
 		}
-		const todo = await this.#laneTodo(task);
-		if (by === null && todo === null) {
+		const record = await this.#laneTask(task);
+		if (by === null && record === null) {
 			return;
 		}
 		const worktree = await this.service.find(task);
@@ -352,8 +351,8 @@ export class HandedOut implements Resource {
 		if (state.status !== "stopped") {
 			this.#readBack.delete(state.id);
 		}
-		if (working && todo?.stuck !== undefined) {
-			await this.stuck.markStuck(todo.id, null);
+		if (working && record?.stuck !== undefined) {
+			await this.stuck.markStuck(record.id, null);
 		}
 		const quiet =
 			state.status === "failed" ||
@@ -371,16 +370,16 @@ export class HandedOut implements Resource {
 		) {
 			return;
 		}
-		if (todo !== null) {
+		if (record !== null) {
 			if (!nudged(state, this.#readBack.has(state.id))) {
 				await conversation.prompt(CARRY_ON, [], undefined, {
 					told: SERVER_TOLD,
 				});
 				return;
 			}
-			if (todo.stuck === undefined) {
+			if (record.stuck === undefined) {
 				await this.stuck.markStuck(
-					todo.id,
+					record.id,
 					new Date(this.clock.now()).toISOString(),
 				);
 			}
@@ -399,20 +398,20 @@ export class HandedOut implements Resource {
 		await caller.prompt(idleReference(named));
 	}
 
-	/** The todo `task` holds in a running lane, or null for none. */
-	async #laneTodo(task: string): Promise<TaskRecord | null> {
-		const todo = (await this.todos()).find((each) => each.takenBy === task);
-		if (todo === undefined || todo.lane === null) {
+	/** The queued task `task` holds in a running lane, or null for none. */
+	async #laneTask(task: string): Promise<TaskRecord | null> {
+		const record = (await this.queued()).find((each) => each.takenBy === task);
+		if (record === undefined || record.lane === null) {
 			return null;
 		}
-		const lane = (await this.lanes()).find((each) => each.id === todo.lane);
-		return lane?.running === undefined ? null : todo;
+		const lane = (await this.lanes()).find((each) => each.id === record.lane);
+		return lane?.running === undefined ? null : record;
 	}
 }
 
-/** The todos, as far as marking one stuck goes: `Todos` on disk. */
-export interface StuckTodos {
-	/** Marks todo `id` stuck since `at`, or not stuck for null. */
+/** The queued tasks, as far as marking one stuck goes. */
+export interface StuckTasks {
+	/** Marks queued task `id` stuck since `at`, or not stuck for null. */
 	markStuck(id: number, at: string | null): Promise<void>;
 }
 

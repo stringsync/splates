@@ -10,7 +10,7 @@ describe("ONE_TASK_STORE", () => {
 
 		await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
 
-		const [first, second] = await deps.todos.all();
+		const [first, second] = await deps.tasks.all();
 		expect(first?.state).toMatchObject({
 			id: 3,
 			subject: "Three",
@@ -21,7 +21,7 @@ describe("ONE_TASK_STORE", () => {
 			"png",
 		);
 		expect(second?.state).toMatchObject({ id: 4, takenBy: "alpha" });
-		expect((await deps.todos.lanes()).map((lane) => lane.name)).toEqual([
+		expect((await deps.tasks.lanes()).map((lane) => lane.name)).toEqual([
 			"Uploads",
 		]);
 		expect(
@@ -64,7 +64,7 @@ describe("ONE_TASK_STORE", () => {
 			"beta",
 		]);
 		// Todo 4 is alpha now, still on the list; 5 waits on alpha to land.
-		expect((await deps.todos.all()).map((todo) => todo.id)).toEqual([3, 4, 5]);
+		expect((await deps.tasks.all()).map((todo) => todo.id)).toEqual([3, 4, 5]);
 		expect(await deps.fs.read(`${deps.splatesDir}/tasks/last`)).toBe("8");
 		expect(await deps.fs.read(`${deps.splatesDir}/tasks/4/started/q.png`)).toBe(
 			"question",
@@ -88,7 +88,7 @@ describe("ONE_TASK_STORE", () => {
 
 		await ONE_TASK_STORE.run(deps.splatesDir, deps.fs);
 
-		expect(await deps.todos.all()).toEqual([]);
+		expect(await deps.tasks.all()).toEqual([]);
 		expect(await deps.service.list()).toEqual([]);
 	});
 });

@@ -18,11 +18,11 @@ export interface Facts {
 	add: {
 		/** The branch the task starts from and merges onto. */
 		base: string;
-		/** The todos it took, by id. */
-		todos: number[];
-		/** What `--goal` said done means, or null when the todos seed the Goal. */
+		/** The queued tasks it took, by number. */
+		tasks: number[];
+		/** What `--goal` said done means, or null when the tasks seed the Goal. */
 		goal: string | null;
-		/** The subjects of the todos it took, in order, which seed its Goal. */
+		/** The subjects of the tasks it took, in order, which seed its Goal. */
 		subjects: string[];
 		/** The agent it was handed to, or null when this conversation keeps it. */
 		agent: string | null;
@@ -72,7 +72,7 @@ export interface Facts {
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
 		why: RemoveReason | null;
-		/** The todos it put back on the list, by id and subject. */
+		/** The tasks it put back on the list, by number and subject. */
 		released: { id: number; subject: string }[];
 	};
 	escalate: {
@@ -118,9 +118,9 @@ export interface Facts {
 		/** The merge attempts the task had spent, which the grant gives it more of. */
 		attempts: number;
 	};
-	"todo add": {
-		/** The todo it added, by id. */
-		todo: number;
+	"task add": {
+		/** The task it added, by number. */
+		number: number;
 		/** Its line, as the page names it. */
 		subject: string;
 		/** The lane it went in, or null when it went in none. */
@@ -128,9 +128,9 @@ export interface Facts {
 		/** Where it went in the list, 1 at the top. */
 		position: number;
 	};
-	"todo update": {
-		/** The todo, by id. */
-		todo: number;
+	"task update": {
+		/** The task, by number. */
+		number: number;
 		/** Its subject once updated, so a line names it though it was reworded. */
 		subject: string;
 		/** Only what moved: a key is absent when its part stayed as it was. */
@@ -143,9 +143,9 @@ export interface Facts {
 			position?: number;
 			/** The lane it moved to, null for none. */
 			lane?: number | null;
-			/** Todos it is now blocked by. */
+			/** Tasks it is now blocked by. */
 			blocked?: number[];
-			/** Todos that no longer block it. */
+			/** Tasks that no longer block it. */
 			unblocked?: number[];
 			/** Names of the files attached. */
 			attached?: string[];
@@ -155,15 +155,15 @@ export interface Facts {
 			assignee?: { agent: string; model?: string; effort?: string } | null;
 		};
 	};
-	"todo take": TodosFacts;
-	"todo wait": Waiting & {
-		/** The todo, by id. */
-		todo: number;
-		/** Its subject as the wait began, or null for a todo there is no such thing as. */
+	"task take": TasksFacts;
+	"task wait": Waiting & {
+		/** The task, by number. */
+		number: number;
+		/** Its subject as the wait began, or null for a task there is no such thing as. */
 		subject: string | null;
 	};
-	"todo release": TodosFacts;
-	"todo remove": TodosFacts;
+	"task release": TasksFacts;
+	"task remove": TasksFacts;
 	"lane add": {
 		/** The lane it started, by number. */
 		lane: number;
@@ -181,7 +181,7 @@ export interface Facts {
 			name?: string;
 			/** Where it moved to among the lanes, 1 the first column. */
 			position?: number;
-			/** Whether it runs from now on, its todos started by `splates server`. */
+			/** Whether it runs from now on, its tasks started by `splates server`. */
 			running?: boolean;
 		};
 	};
@@ -190,8 +190,8 @@ export interface Facts {
 		lane: number;
 		/** Its name. */
 		name: string;
-		/** The todos it held, now in no lane. */
-		todos: number[];
+		/** The tasks it held, now in no lane. */
+		tasks: number[];
 	};
 	"lane join": None;
 	"creds request": {
@@ -237,9 +237,9 @@ export interface Waiting {
 	began: string | null;
 }
 
-/** The todos a command took, released or removed, as they were named then. */
-interface TodosFacts {
-	todos: { id: number; subject: string }[];
+/** The tasks a command took, released or removed, as they were named then. */
+interface TasksFacts {
+	tasks: { id: number; subject: string }[];
 }
 
 export type Action = keyof Facts;
@@ -252,7 +252,7 @@ export type Action = keyof Facts;
 // Compiles only while it lists every fact in `Facts`, so an action that
 // gains one adds it here too.
 export const FACTS = {
-	add: ["base", "todos", "goal", "subjects", "agent", "model"],
+	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
 	claim: ["escalated", "tookOver", "goal"],
 	tell: ["to"],
 	wait: ["until", "began"],
@@ -264,15 +264,15 @@ export const FACTS = {
 	"artifact add": ["name", "version", "bytes"],
 	"artifact remove": ["name", "version"],
 	retry: ["attempts"],
-	"todo add": ["todo", "subject", "lane", "position"],
-	"todo update": ["todo", "subject", "changed"],
-	"todo take": ["todos"],
-	"todo wait": ["until", "began", "todo", "subject"],
-	"todo release": ["todos"],
-	"todo remove": ["todos"],
+	"task add": ["number", "subject", "lane", "position"],
+	"task update": ["number", "subject", "changed"],
+	"task take": ["tasks"],
+	"task wait": ["until", "began", "number", "subject"],
+	"task release": ["tasks"],
+	"task remove": ["tasks"],
 	"lane add": ["lane", "name"],
 	"lane update": ["lane", "name", "changed"],
-	"lane remove": ["lane", "name", "todos"],
+	"lane remove": ["lane", "name", "tasks"],
 	"lane join": [],
 	"creds request": ["name", "asked"],
 	"creds save": [],
@@ -290,6 +290,40 @@ type Unlisted = {
 }[Action];
 const listed: [Unlisted] extends [never] ? true : Unlisted = true;
 void listed;
+
+/** Each todo action from before todos became tasks, and its fact naming the todo. */
+const TODO_ACTIONS: Record<string, "todo" | "todos"> = {
+	"todo add": "todo",
+	"todo update": "todo",
+	"todo wait": "todo",
+	"todo take": "todos",
+	"todo release": "todos",
+	"todo remove": "todos",
+	add: "todos",
+	"lane remove": "todos",
+};
+
+/**
+ * `event` as this splates names it, logged before todos became tasks: a
+ * `todo ...` action as `task ...`, a todo's id as its `number`, and the todos
+ * an action names as its `tasks`. Any other event comes back as it was.
+ */
+export function renamed(event: Event): Event {
+	const { action } = event as { action: string };
+	const fact = TODO_ACTIONS[action];
+	if (fact === undefined || !(fact in event)) {
+		return event;
+	}
+	const { [fact]: value, ...rest } = event as unknown as Record<
+		string,
+		unknown
+	>;
+	return {
+		...rest,
+		action: action.replace(/^todo /, "task "),
+		[fact === "todo" ? "number" : "tasks"]: value,
+	} as unknown as Event;
+}
 
 /**
  * Whether `event` carries every fact its action records now. One that went

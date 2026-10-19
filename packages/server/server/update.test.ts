@@ -52,7 +52,7 @@ describe("update", () => {
 		]);
 	});
 
-	it("moves todos saved with tags into a lane a tag", async () => {
+	it("moves queued tasks saved with tags into a lane a tag", async () => {
 		await fs.mkdir("/repo/.git/splates/todos", { recursive: true });
 		await fs.write(
 			"/repo/.git/splates/todos/1.json",

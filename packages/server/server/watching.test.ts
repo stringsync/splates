@@ -26,7 +26,7 @@ describe("dev", () => {
 			return reader;
 		};
 
-		it("hears of an SPLATES.md, a commit and a todo as they change, without polling", async () => {
+		it("hears of an SPLATES.md, a commit and a task as they change, without polling", async () => {
 			await add(deps, "alpha");
 			const tree = (await deps.service.find("alpha")).path;
 
@@ -40,7 +40,7 @@ describe("dev", () => {
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await deps.commit(tree, "a.txt", "a\n", "add a");
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
-				await deps.todos.add("later", null);
+				await deps.tasks.add("later", null);
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await reader.cancel();
 			});
@@ -89,7 +89,7 @@ describe("dev", () => {
 				const reader = await listen(server.port);
 				expect(deps.out()).toContain("cannot watch");
 
-				await deps.todos.add("later", null);
+				await deps.tasks.add("later", null);
 				expect(await within(reader, "data: changed", 10_000)).toBe(true);
 				await reader.cancel();
 			} finally {

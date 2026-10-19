@@ -113,7 +113,7 @@ describe("tell", () => {
 		expect(sent).toEqual([]);
 	});
 
-	it("reports nothing for a task a lane's orchestrator here handed out, which hears from its todos", async () => {
+	it("reports nothing for a task a lane's orchestrator here handed out, which hears from its queued tasks", async () => {
 		runAs("agent");
 		await deps.fs.mkdir(`${deps.splatesDir}/conversations`);
 		await deps.fs.write(`${deps.splatesDir}/conversations/orch.jsonl`, "");
@@ -126,7 +126,7 @@ describe("tell", () => {
 		expect(sent).toEqual([]);
 	});
 
-	it("reports a task another project's orchestrator handed out, which has no todo here to hear of", async () => {
+	it("reports a task another project's orchestrator handed out, which has no queued task here to hear of", async () => {
 		runAs("agent");
 		await (await deps.service.find("alpha")).save({
 			dispatch: { agent: "fake", conversation: "agent" },

@@ -28,7 +28,7 @@ describe("remove", () => {
 		);
 	});
 
-	it("returns the todos it put back", async () => {
+	it("returns the tasks it put back", async () => {
 		await add(deps, "alpha");
 
 		expect(await remove(deps, "alpha")).toEqual({ released: [] });

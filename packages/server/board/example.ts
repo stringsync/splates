@@ -4,7 +4,7 @@ import type { TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
 
 /**
- * A real batch of related todos, from sound2score, and the three lanes they
+ * A real batch of related tasks, from sound2score, and the three lanes they
  * were run in: what the tests and a demo `splates server` load to see lanes at a
  * size that matters. An arrow is "merges before":
  *
@@ -19,13 +19,13 @@ import type { Tasks } from "./tasks";
  *
  * Lane 1 is the chain. Lane 2 starts on independent work so its agent is busy
  * while lane 1 builds up to #177, then takes three of its forks. Lane 3 holds
- * independent todos that touch the same files, so their agents never fight
+ * independent tasks that touch the same files, so their agents never fight
  * over rebases.
  */
 export function sound2score({
 	lanes = true,
 }: {
-	/** Put the todos in the lanes they ran in; false leaves every one in none. */
+	/** Put the tasks in the lanes they ran in; false leaves every one in none. */
 	lanes?: boolean;
 } = {}): TaskRecord[] {
 	const rows: [number, string, number[], number | null][] = [
@@ -69,24 +69,24 @@ export const SOUND2SCORE_LANES: LaneRecord[] = [
 ];
 
 /**
- * Writes `states` to `todos` as they are, ids and all, and `lanes` as the
- * lanes there are; those the todos are in, by default, as `sound2score`
+ * Writes `states` to `tasks` as they are, ids and all, and `lanes` as the
+ * lanes there are; those the tasks are in, by default, as `sound2score`
  * named them.
  */
 export async function seed(
-	todos: Tasks,
+	tasks: Tasks,
 	states: TaskRecord[],
 	fs: Fs = new NodeFs(),
 	lanes: LaneRecord[] = SOUND2SCORE_LANES.filter((record) =>
 		states.some((state) => state.lane === record.id),
 	),
 ): Promise<void> {
-	await fs.mkdir(todos.dir);
+	await fs.mkdir(tasks.dir);
 	for (const state of states) {
-		await todos.save(state);
+		await tasks.save(state);
 	}
 	await fs.write(
-		`${todos.dir}/lanes`,
+		`${tasks.dir}/lanes`,
 		`${JSON.stringify(lanes, null, "\t")}\n`,
 	);
 	// As if each lane had been made the usual way, so none is handed out again.
@@ -94,7 +94,7 @@ export async function seed(
 		...states.map((state) => state.lane ?? 0),
 		...lanes.map((record) => record.id),
 	];
-	await fs.write(`${todos.dir}/last-lane`, String(Math.max(0, ...ids)));
+	await fs.write(`${tasks.dir}/last-lane`, String(Math.max(0, ...ids)));
 }
 
 const DETAIL: Record<number, string> = {

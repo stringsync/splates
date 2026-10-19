@@ -17,7 +17,7 @@ trunk, so the user reviews one body of work rather than many small ones.
 Add the part yourself, then tell the subagent:
 
 - to `splates claim <part>` and work only in the worktree it prints;
-- not to escalate, report to the user, or take todos: it is your part, and
+- not to escalate, report to the user, or take tasks: it is your part, and
   you are the one the user hears from;
 - to make each call the request does not settle as it sees fit, listing in
   its reply those the user may need to settle, never under `## Blocked`,
@@ -37,8 +37,8 @@ forever.
 Treat each call it lists as your own (see Questions in the skill): a question
 under your `## Blocked` when it needs the user, and redo the part when an
 answer overturns one. A subagent that only reads needs no part. When the
-user asks for the subagents' work to land on its own, make each piece a
-todo rather than a task (see Todos in the skill), for `splates server` to
+user asks for the subagents' work to land on its own, queue each piece
+as a task rather than start it (see Queueing tasks in the skill), for `splates server` to
 start once its lane runs: a subagent of your harness runs with your env, so
 under `splates server` its claim of a task on trunk would move this
 conversation into that task, though a part's leaves it be. Outside `splates

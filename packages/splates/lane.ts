@@ -15,16 +15,16 @@ import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { position } from "./flags";
 
-/** `splates lane`, which the root cli mounts after `splates todo`. */
+/** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named runs of todos, landed top first; `[SPLATES LANE <n>]` from `splates server` starts an orchestrator on one, handing out each todo nothing holds back to an agent on the model it names, or doing it itself. A todo in no lane is untriaged, and `[SPLATES LANE untriaged]` starts one that places those in lanes first",
+	"lanes: named runs of queued tasks, landed top first; `[SPLATES LANE <n>]` from `splates server` starts an orchestrator on one, handing out each task nothing holds back to an agent on the model it names, or doing it itself. A task in no lane is untriaged, and `[SPLATES LANE untriaged]` starts one that places those in lanes first",
 );
 
 splatesLane
 	.command("list")
 	.use(repository({ needs: "read" }))
 	.description(
-		"every lane: its name, its todos in order, the tasks on it, its next todo, and what blocks that in other lanes",
+		"every lane: its name, its queued tasks in order, the started tasks on it, its next task, and what blocks that in other lanes",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => laneList(ctx, { json: opts.json }));
@@ -33,7 +33,7 @@ splatesLane
 	.command("show")
 	.use(repository({ needs: "read" }))
 	.description(
-		"one lane step by step, and what its agent does next: start the next todo, or wait for the one blocking it in another lane to land first; `untriaged` lists the todos in no lane, to place in lanes",
+		"one lane step by step, and what its agent does next: start the next task, or wait for the one blocking it in another lane to land first; `untriaged` lists the tasks in no lane, to place in lanes",
 	)
 	.arg(
 		"lane",
@@ -54,7 +54,7 @@ splatesLane
 	.use(repository({ needs: "tasks" }))
 	.description("start an empty lane, after the others")
 	.arg("name", z.string(), {
-		description: "what its todos are for, like `Licensing`",
+		description: "what its tasks are for, like `Licensing`",
 	})
 	.action(async (opts, ctx) => {
 		await ctx.journal.record(
@@ -93,12 +93,12 @@ for (const [verb, running, description] of [
 	[
 		"run",
 		true,
-		"set a lane running: `splates server` starts each of its todos that nothing blocks (`--blocked-by` an open todo) as a task of its own, on the agent and model the todo names, as many at once as agentsPerLane in splates.config.ts allows, and starts the next as each lands; run from a conversation, they nest under it",
+		"set a lane running: `splates server` starts each of its queued tasks that nothing blocks (`--blocked-by` an open task) as a started task of its own, on the agent and model the task names, as many at once as agentsPerLane in splates.config.ts allows, and starts the next as each lands; run from a conversation, they nest under it",
 	],
 	[
 		"pause",
 		false,
-		"stop a running lane starting more todos; the tasks already out carry on",
+		"stop a running lane starting more tasks; the tasks already out carry on",
 	],
 ] as const) {
 	splatesLane
@@ -126,13 +126,13 @@ splatesLane
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"remove a lane, putting its todos back with the untriaged ones; a lane whose last todo merges goes on its own",
+		"remove a lane, putting its tasks back with the untriaged ones; a lane whose last task merges goes on its own",
 	)
 	.arg("lane", z.coerce.number().int().positive(), {
 		description: "lane number",
 	})
 	.action((opts, ctx) =>
-		recordLaneRemove(ctx.journal, ctx.todos, opts.lane, () =>
+		recordLaneRemove(ctx.journal, ctx.tasks, opts.lane, () =>
 			laneRemove(ctx, opts.lane),
 		),
 	);

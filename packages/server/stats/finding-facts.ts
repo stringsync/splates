@@ -20,8 +20,8 @@ export interface FoundFacts {
 	findings: Fact[];
 }
 
-/** A todo made of a fact: its line, and what more there is to say. */
-export interface FactTodo {
+/** A task made of a fact: its line, and what more there is to say. */
+export interface FactTask {
 	subject: string;
 	text: string;
 }
@@ -73,14 +73,14 @@ export function foundFacts({ outcome, baseline }: Landed): FoundFacts {
 }
 
 /**
- * The todos `splates merge` adds for what went worse in `landed`: one for each
+ * The tasks `splates merge` queues for what went worse in `landed`: one for each
  * gate run that named the tests it failed on, which a later run passed, so
  * the test is flaky or was fixed on the way, and one for each test the
  * passing run timed as slow. The rest the merged card lists (conflicts,
  * retries, lost connections, the person's own calls) are what a merge goes
  * through, with nothing in the code to act on.
  */
-export function factTodos(landed: Landed): FactTodo[] {
+export function factTasks(landed: Landed): FactTask[] {
 	const { gate, findings } = foundFacts(landed);
 	const { task } = landed.outcome;
 	return [
@@ -89,14 +89,14 @@ export function factTodos(landed: Landed): FactTodo[] {
 			.map((fact) => deferred(task, fact)),
 		...findings.flatMap(({ finding }) =>
 			finding?.kind === "slow_tests"
-				? finding.tests.map((test) => slowTodo(task, test))
+				? finding.tests.map((test) => slowTask(task, test))
 				: [],
 		),
 	];
 }
 
-/** The todo made of one test the gate timed as slow in `task`. */
-function slowTodo(task: string, test: TimedTest): FactTodo {
+/** The task made of one test the gate timed as slow in `task`. */
+function slowTask(task: string, test: TimedTest): FactTask {
 	return {
 		subject: `Slow test: ${test.name}`,
 		text: [
@@ -115,8 +115,8 @@ function namesTests(finding: Finding | null): boolean {
 	);
 }
 
-/** The todo made of `fact`, found in `task` as it merged. */
-export function deferred(task: string, fact: Fact): FactTodo {
+/** The task made of `fact`, found in `task` as it merged. */
+export function deferred(task: string, fact: Fact): FactTask {
 	return {
 		subject: plain(fact.text),
 		text: [
@@ -128,7 +128,7 @@ export function deferred(task: string, fact: Fact): FactTodo {
 	};
 }
 
-/** `text` without the code spans the card shows it in, for a todo's line. */
+/** `text` without the code spans the card shows it in, for a task's line. */
 function plain(text: string): string {
 	return text.replaceAll("`", "");
 }

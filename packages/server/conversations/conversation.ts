@@ -1155,7 +1155,7 @@ interface Opening {
 	caller?: string | null;
 	cwd: string;
 	log: string;
-	/** Started on what a todo or `splates add --agent` assigned. */
+	/** Started on what a queued task or `splates add --agent` assigned. */
 	assigned?: boolean;
 	/** Started on what Auto picked. */
 	auto?: boolean;

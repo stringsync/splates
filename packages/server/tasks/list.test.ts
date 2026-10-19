@@ -36,6 +36,20 @@ describe("list", () => {
 		]);
 	});
 
+	it("names each started task by its number", async () => {
+		await add(deps, "alpha");
+		const { id } = (await deps.service.find("alpha")).state ?? {};
+
+		await list(deps);
+		expect(color.strip(deps.out())).toMatch(new RegExp(`#${id}\\s+alpha`));
+
+		deps.log.clear();
+		await list(deps, { json: true });
+		expect(JSON.parse(deps.out())).toMatchObject([
+			{ number: id, task: "alpha" },
+		]);
+	});
+
 	it("names each task's Goal and changed files with --files", async () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;

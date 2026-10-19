@@ -42,7 +42,7 @@ describe("Conversation files", () => {
 				root: "/repo",
 				projects: {
 					reach: async (from, to) =>
-						from === "/repo" && to === "/Users/me/shop" ? "tasks" : "todos",
+						from === "/repo" && to === "/Users/me/shop" ? "tasks" : "queue",
 					list: async () => [
 						{ slug: "shop", root: "/Users/me/shop", gone: false },
 						{ slug: "playback", root: "/Users/me/playback", gone: false },
@@ -207,7 +207,7 @@ describe("Conversation files", () => {
 		]);
 	});
 
-	it("leaves unknown # names and todo numbers as written", async () => {
+	it("leaves unknown # names and task numbers as written", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
 			cwd: tree,
@@ -240,7 +240,7 @@ describe("Conversation files", () => {
 		expect(agent.prompts.at(-1)).toEqual([
 			{
 				type: "text",
-				text: `Match the header in #shop, then #playback, #old and #mixer\n\n${projectLine({ slug: "shop", root: "/Users/me/shop", reach: "tasks" })}\n${projectLine({ slug: "playback", root: "/Users/me/playback", reach: "todos" })}`,
+				text: `Match the header in #shop, then #playback, #old and #mixer\n\n${projectLine({ slug: "shop", root: "/Users/me/shop", reach: "tasks" })}\n${projectLine({ slug: "playback", root: "/Users/me/playback", reach: "queue" })}`,
 			},
 		]);
 	});

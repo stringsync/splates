@@ -59,9 +59,9 @@ describe("dev projects", () => {
 				await fetch(`http://127.0.0.1:${port}/api/snapshot?project=repo-2`)
 			).json()) as Snapshot;
 			expect(there.path).toBe(other.root);
-			expect(there.todos.map((todo) => todo.subject)).toEqual(["over there"]);
+			expect(there.todos.map((each) => each.subject)).toEqual(["over there"]);
 			expect((await snapshot()).todos).toEqual([]);
-			expect((await other.todos.all()).map((todo) => todo.subject)).toEqual([
+			expect((await other.tasks.all()).map((each) => each.subject)).toEqual([
 				"over there",
 			]);
 		});
@@ -76,14 +76,14 @@ describe("dev projects", () => {
 			).toBe(404);
 
 			await using other = await another();
-			await other.todos.add("over there", null);
+			await other.tasks.add("over there", null);
 			expect((await snapshot()).todos).toEqual([]);
 
 			const focused = await write(port, "/api/focus", "PUT", {
 				project: "repo-2",
 			});
 			expect(focused.status).toBe(200);
-			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+			expect((await snapshot()).todos.map((each) => each.subject)).toEqual([
 				"over there",
 			]);
 			expect(
@@ -141,8 +141,8 @@ describe("dev projects", () => {
 			expect((await add()).uncommitted).toEqual(body.uncommitted);
 			expect(await fresh.format.check()).toBeUndefined();
 			// Focused, so an address naming none shows it.
-			await fresh.todos.add("fresh", null);
-			expect((await snapshot()).todos.map((todo) => todo.subject)).toEqual([
+			await fresh.tasks.add("fresh", null);
+			expect((await snapshot()).todos.map((each) => each.subject)).toEqual([
 				"fresh",
 			]);
 

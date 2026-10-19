@@ -57,11 +57,11 @@ describe("add", () => {
 		expect(plan).toContain("- [ ]");
 	});
 
-	it("puts the Goal it is given ahead of what its todos seed", async () => {
-		const todo = await deps.todos.add("Retry on 413", null, {
+	it("puts the Goal it is given ahead of what its queued tasks seed", async () => {
+		const queued = await deps.tasks.add("Retry on 413", null, {
 			text: "in upload.ts",
 		});
-		await add(deps, "alpha", { goal: "Stop the retries.", todos: [todo.id] });
+		await add(deps, "alpha", { goal: "Stop the retries.", tasks: [queued.id] });
 
 		const { path } = await deps.service.find("alpha");
 		expect(await deps.fs.read(join(path, "SPLATES.md"))).toContain(

@@ -43,7 +43,7 @@ export async function merge(
 		shell,
 		config,
 		log,
-		todos,
+		tasks,
 		fs,
 		slots,
 		heavy,
@@ -57,7 +57,7 @@ export async function merge(
 		shell: Shell;
 		config: Config;
 		log: Logger;
-		todos: Tasks;
+		tasks: Tasks;
 		fs: Fs;
 		slots: Slots;
 		heavy: HeavyCap;
@@ -149,7 +149,7 @@ export async function merge(
 	if (!ready(left)) {
 		fail(
 			"blocked",
-			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and check it off, or \`splates todo add\` it and drop it; then merge again`,
+			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and check it off, or \`splates task add\` it and drop it; then merge again`,
 			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
@@ -451,16 +451,16 @@ export async function merge(
 	const freed = await slots.release(current.path);
 	// Landed is landed: a remote that kept its copy only has a stray branch.
 	const unpushed = pushedLine(await branches.delete(task), "deleted");
-	// Done is done: the todos this task took up leave the list with it.
-	const done = await todos.takenBy(task);
-	// Read before the todos go, since a lane they empty ends with them.
-	const ran = (await todos.lanes()).filter((lane) =>
-		done.some((todo) => todo.lane === lane.id),
+	// Done is done: the queued tasks this task took up leave the queue with it.
+	const done = await tasks.takenBy(task);
+	// Read before the queued tasks go, since a lane they empty ends with them.
+	const ran = (await tasks.lanes()).filter((lane) =>
+		done.some((each) => each.lane === lane.id),
 	);
-	for (const todo of done) {
-		await todo.remove(head);
+	for (const each of done) {
+		await each.remove(head);
 	}
-	await todos.endLanes(ran.map((lane) => lane.id));
+	await tasks.endLanes(ran.map((lane) => lane.id));
 	const lines = [
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
@@ -474,14 +474,14 @@ export async function merge(
 			: []),
 		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
 		...(unpushed === null ? [] : [unpushed]),
-		...done.map((todo) => `  done todo ${todo.id}: ${todo.subject}`),
+		...done.map((each) => `  done task ${each.id}: ${each.subject}`),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its
 	// parent's branch hands back to that parent, which is not done yet.
 	if (landing === git.root) {
 		lines.push(
 			...recommendation(
-				await recommend(todos, task, config.todoStalenessMs, ran),
+				await recommend(tasks, task, config.taskStalenessMs, ran),
 			),
 		);
 	}

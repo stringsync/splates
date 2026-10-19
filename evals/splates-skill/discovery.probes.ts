@@ -130,11 +130,11 @@ const probes: Probe[] = [
 	),
 	...[
 		[
-			"todos",
-			'Record a follow-up using `splates todo add "Fix greeting" "Correct the greeting typo" --agent fake --model none`; do not implement it.',
-			"todos.md",
+			"queue",
+			'Record a follow-up using `splates task add "Fix greeting" "Correct the greeting typo" --agent fake --model none`; do not implement it.',
+			"queue.md",
 			[
-				"todo",
+				"task",
 				"add",
 				"Fix greeting",
 				"Correct the greeting typo",

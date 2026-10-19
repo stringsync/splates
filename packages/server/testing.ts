@@ -61,7 +61,7 @@ export class Testing implements AsyncDisposable {
 	readonly journal: Journal;
 	readonly lockPath: string;
 	readonly lock: FileLock;
-	readonly todos: Tasks;
+	readonly tasks: Tasks;
 	readonly format: Format;
 	/** Where splates keeps what is the user's, under the test's own directory. */
 	readonly splatesHome: string;
@@ -103,7 +103,7 @@ export class Testing implements AsyncDisposable {
 			agentsPerLane: 15,
 			mergeRetryCount: 2,
 			logCapacity: 200,
-			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
+			taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 			attachmentCapacity: 100 * 1024 * 1024,
 			artifactFileCapacity: 50 * 1024 * 1024,
 			artifactConversationCapacity: 250 * 1024 * 1024,
@@ -161,7 +161,7 @@ export class Testing implements AsyncDisposable {
 			log: this.log,
 			stalenessMs: this.config.leaseStalenessMs,
 		});
-		this.todos = new Tasks(store, { fs: this.fs, ids: this.ids });
+		this.tasks = new Tasks(store, { fs: this.fs, ids: this.ids });
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
 		// agent in `splates server`, it leaves out that agent's conversation too, so

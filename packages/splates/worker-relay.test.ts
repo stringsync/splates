@@ -146,9 +146,9 @@ describe("WorkerRelay", () => {
 	});
 
 	it("finds the relay and the project by hand, with no env", async () => {
-		await splates(clone, ["todo", "add", "make it so", "the detail"], {});
+		await splates(clone, ["task", "add", "make it so", "the detail"], {});
 
-		expect(await env.todos.all()).toMatchObject([{ subject: "make it so" }]);
+		expect(await env.tasks.all()).toMatchObject([{ subject: "make it so" }]);
 	});
 
 	it("joins with the token `worker add` mints, over the coordinator's own routes", async () => {
@@ -177,10 +177,10 @@ describe("WorkerRelay", () => {
 	});
 
 	it("takes a task from add to merge on the coordinator's records", async () => {
-		await env.todos.add("make it so", null);
+		await env.tasks.add("make it so", null);
 		relay = await agentDev();
 		await splates(clone, ["lane", "add", "first"]);
-		await splates(clone, ["add", "alpha", "--goal", "land it", "--todo", "1"]);
+		await splates(clone, ["add", "alpha", "--goal", "land it", "--task", "1"]);
 		const tree = (await splates(clone, ["path", "alpha"])).trim();
 
 		expect(await env.fs.exists(join(clone, ".git", "splates"))).toBe(false);
@@ -188,7 +188,7 @@ describe("WorkerRelay", () => {
 			status: "working",
 			worktree: tree,
 		});
-		expect(await env.todos.find(1)).toMatchObject({ takenBy: "alpha" });
+		expect(await env.tasks.find(1)).toMatchObject({ takenBy: "alpha" });
 
 		await splates(tree, ["claim", "alpha"]);
 		await env.fs.write(join(clone, "..", "shot.png"), "png");
@@ -207,6 +207,6 @@ describe("WorkerRelay", () => {
 			"Do the work",
 		);
 		expect((await env.service.find("alpha")).status).toBe("removed");
-		expect(await env.todos.all()).toEqual([]);
+		expect(await env.tasks.all()).toEqual([]);
 	});
 });

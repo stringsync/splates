@@ -5,7 +5,7 @@ import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";
 import type { Tasks } from "./tasks";
 
-/** What a todo is on disk: one file apiece, so two agents never rewrite one. */
+/** What a task is on disk: one file apiece, so two agents never rewrite one. */
 export interface TaskRecord {
 	id: number;
 	/** What is left to do, in a line. */
@@ -19,10 +19,10 @@ export interface TaskRecord {
 	createdAt: string;
 	/** The task working on it now, or null while it waits to be picked up. */
 	takenBy: string | null;
-	/** Absolute paths of the files attached, in `todos/<id>/`. */
+	/** Absolute paths of the files attached, in `tasks/<id>/`. */
 	files: string[];
 	/**
-	 * The todos that have to merge before this one starts, sorted. One leaves
+	 * The tasks that have to merge before this one starts, sorted. One leaves
 	 * the list when it merges or is removed, and with it every link to it.
 	 */
 	blockedBy: number[];
@@ -38,12 +38,12 @@ export interface TaskRecord {
 	 */
 	stuck?: string;
 	/**
-	 * Todos it was blocked by that merged, and the commit each landed as, so
+	 * Tasks it was blocked by that merged, and the commit each landed as, so
 	 * whoever starts it can read what it builds on; absent for none.
 	 */
 	blockersLanded?: LandedBlocker[];
 	/**
-	 * Todos it was blocked by that were removed without merging. While any
+	 * Tasks it was blocked by that were removed without merging. While any
 	 * is here, nothing starts it on its own: whether it still makes sense is
 	 * the person's call, made by unlinking each. Absent for none.
 	 */
@@ -58,7 +58,7 @@ export interface TaskRecord {
  */
 export class Task {
 	constructor(
-		private readonly todos: Tasks,
+		private readonly tasks: Tasks,
 		readonly state: TaskRecord,
 	) {}
 
@@ -96,7 +96,7 @@ export class Task {
 	}
 
 	/**
-	 * The todos blocking it that have yet to merge, leaving out those `task`
+	 * The tasks blocking it that have yet to merge, leaving out those `task`
 	 * has or takes in the same breath, among `together`: what it should not be
 	 * started before.
 	 */
@@ -104,7 +104,7 @@ export class Task {
 		if (this.takenBy === task) {
 			return [];
 		}
-		return (await this.todos.all()).filter(
+		return (await this.tasks.all()).filter(
 			(other) =>
 				this.blockedBy.includes(other.id) &&
 				other.takenBy !== task &&
@@ -114,12 +114,12 @@ export class Task {
 
 	/** Marks it as the work of `task`, refusing one another task already has. */
 	async take(task: string): Promise<Task> {
-		return this.todos.revise(this.id, (state) => {
+		return this.tasks.revise(this.id, (state) => {
 			if (state.takenBy !== null && state.takenBy !== task) {
 				fail(
 					"exists",
-					`todo ${this.id} is already taken by '${state.takenBy}': pick another from \`splates todo list\``,
-					{ todo: this.id, takenBy: state.takenBy },
+					`task ${this.id} is already taken by '${state.takenBy}': pick another from \`splates task list\``,
+					{ number: this.id, takenBy: state.takenBy },
 				);
 			}
 			const { stuck: _, ...rest } = state;
@@ -129,7 +129,7 @@ export class Task {
 
 	/** Puts it back on the list, as when the task that took it is removed. */
 	release(): Promise<Task> {
-		return this.todos.revise(this.id, ({ stuck: _, ...state }) => ({
+		return this.tasks.revise(this.id, ({ stuck: _, ...state }) => ({
 			...state,
 			takenBy: null,
 		}));
@@ -139,7 +139,7 @@ export class Task {
 		return this.state.files;
 	}
 
-	/** The todos that have to merge before it starts. */
+	/** The tasks that have to merge before it starts. */
 	get blockedBy(): number[] {
 		return this.state.blockedBy;
 	}
@@ -149,7 +149,7 @@ export class Task {
 	}
 
 	get attachments(): Attachments {
-		return this.todos.attachments(this.id);
+		return this.tasks.attachments(this.id);
 	}
 
 	/**
@@ -168,8 +168,8 @@ export class Task {
 	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
-			fail("usage", "a todo needs a subject: say what is left to do", {
-				todo: this.id,
+			fail("usage", "a task needs a subject: say what is left to do", {
+				number: this.id,
 			});
 		}
 		const kept =
@@ -180,7 +180,7 @@ export class Task {
 			this.files.filter((path) => !kept.includes(path)),
 		);
 		const added = await this.attachments.store(files);
-		const updated = await this.todos.revise(this.id, (state) =>
+		const updated = await this.tasks.revise(this.id, (state) =>
 			assigned(
 				{ ...state, ...words, files: [...kept, ...added] },
 				assignee === undefined ? state.assignee : assignee,
@@ -188,24 +188,24 @@ export class Task {
 		);
 		let linked = updated;
 		if (blockedBy !== undefined) {
-			linked = await this.todos.link(this.id, {
+			linked = await this.tasks.link(this.id, {
 				add: blockedBy.filter((id) => !updated.blockedBy.includes(id)),
 				drop: updated.blockedBy.filter((id) => !blockedBy.includes(id)),
 			});
 		}
 		if (lane !== undefined && lane !== linked.lane) {
-			linked = await this.todos.arrange(this.id, lane);
+			linked = await this.tasks.arrange(this.id, lane);
 		}
-		return position === undefined ? linked : this.todos.move(this.id, position);
+		return position === undefined ? linked : this.tasks.move(this.id, position);
 	}
 
 	/**
 	 * Removes it for good. `landed` is the commit it merged as, written on
-	 * each todo it blocked; without one, those it blocked are held for the
+	 * each task it blocked; without one, those it blocked are held for the
 	 * person.
 	 */
 	async remove(landed?: string): Promise<void> {
-		if (await this.todos.delete(this.id, landed)) {
+		if (await this.tasks.delete(this.id, landed)) {
 			// Its task goes on, holding its own files beside these.
 			await this.attachments.remove(this.files);
 		} else {
@@ -213,13 +213,13 @@ export class Task {
 		}
 	}
 
-	/** Removes it, as the person did, keeping it for `Todos.restore` to put back. */
+	/** Removes it, as the person did, keeping it for `Tasks.restore` to put back. */
 	discard(): Promise<void> {
-		return this.todos.discard(this.state);
+		return this.tasks.discard(this.state);
 	}
 }
 
-/** A todo's words, place or files changed: new ones added, some of the old kept. */
+/** A task's words, place or files changed: new ones added, some of the old kept. */
 export interface TaskChange {
 	/** A new line; the old one stays when this is absent. */
 	subject?: string;
@@ -231,7 +231,7 @@ export interface TaskChange {
 	files?: Attachment[];
 	/** The paths of the files it has now to keep; absent keeps them all. */
 	keep?: string[];
-	/** Every todo blocking it from now on; the old stay when this is absent. */
+	/** Every task blocking it from now on; the old stay when this is absent. */
 	blockedBy?: number[];
 	/** The lane it runs in, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
@@ -240,7 +240,7 @@ export interface TaskChange {
 }
 
 /**
- * Where a todo came up, as a list shows it: its task here, or for one added
+ * Where a task came up, as a list shows it: the task started here, or for one added
  * from another project, `<project>/<task>`, the project by its directory's
  * name; null for one a person added from the main tree.
  */
@@ -252,22 +252,22 @@ export function cameFrom({ from, origin }: TaskRecord): string | null {
 	return origin.task === null ? project : `${project}/${origin.task}`;
 }
 
-/** The other project a todo was added from, and the task there it came up in. */
+/** The other project a task was added from, and the started task there it came up in. */
 export interface TaskOrigin {
 	/** That project's main tree. */
 	project: string;
-	/** Its task the todo came up in, or null for its main tree. */
+	/** The started task it came up in, or null for its main tree. */
 	task: string | null;
 }
 
-/** What a new todo has besides its subject, all of it optional. */
+/** What a new task has besides its subject, all of it optional. */
 export interface TaskNew {
 	/** Whatever more there is to say about it. */
 	text?: string;
 	files?: Attachment[];
 	/** Where it goes in the list, pushing those from there down; the bottom by default. */
 	position?: number;
-	/** The todos blocking it: each has to merge before it starts. */
+	/** The tasks blocking it: each has to merge before it starts. */
 	blockedBy?: number[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
@@ -289,7 +289,7 @@ export function assigned<State extends { assignee?: AgentPick }>(
 /**
  * A subject and its detail, trimmed. A subject running past one line keeps
  * only the first, the rest leading the detail, so the list stays one line a
- * todo however it was written.
+ * task however it was written.
  */
 export function wording(
 	subject: string,
@@ -303,29 +303,29 @@ export function wording(
 }
 
 /**
- * Runs `update`, which changes todo `id`, and journals it with what moved
- * between the todo before and after, so a refused one is journaled bare.
+ * Runs `update`, which changes task `id`, and journals it with what moved
+ * between the task before and after, so a refused one is journaled bare.
  */
 export async function recordUpdate(
 	journal: Journal,
-	todos: Tasks,
+	tasks: Tasks,
 	id: number,
 	update: () => Promise<Task>,
 ): Promise<Task> {
 	let before: TaskRecord | undefined;
 	return journal.record(
-		"todo update",
+		"task update",
 		null,
 		async () => {
-			before = (await todos.find(id)).state;
+			before = (await tasks.find(id)).state;
 			return update();
 		},
 		(after) => updated(before ?? after.state, after.state),
 	);
 }
 
-/** What moved between `before` and `after`, of one todo. */
-function updated(before: TaskRecord, after: TaskRecord): Facts["todo update"] {
+/** What moved between `before` and `after`, of one task. */
+function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
 	const named = (paths: string[]) => paths.map((path) => basename(path));
 	const attached = after.files.filter((path) => !before.files.includes(path));
 	const detached = before.files.filter((path) => !after.files.includes(path));
@@ -339,7 +339,7 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["todo update"] {
 		old?.agent === now?.agent &&
 		old?.model === now?.model &&
 		old?.effort === now?.effort;
-	const changed: Facts["todo update"]["changed"] = {
+	const changed: Facts["task update"]["changed"] = {
 		...(after.subject === before.subject ? {} : { subject: after.subject }),
 		...(after.text === before.text ? {} : { text: true as const }),
 		...(after.position === before.position ? {} : { position: after.position }),
@@ -352,17 +352,17 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["todo update"] {
 			? {}
 			: { assignee: after.assignee ?? null }),
 	};
-	return { todo: after.id, subject: after.subject, changed };
+	return { number: after.id, subject: after.subject, changed };
 }
 
-/** `todos` as an event names them: each by its id and subject. */
+/** `tasks` as an event names them: each by its id and subject. */
 export function tasksNamed(
-	todos: readonly Task[],
+	tasks: readonly Task[],
 ): { id: number; subject: string }[] {
-	return todos.map(({ id, subject }) => ({ id, subject }));
+	return tasks.map(({ id, subject }) => ({ id, subject }));
 }
 
-/** A todo that blocked another and has left the list. */
+/** A task that blocked another and has left the list. */
 export interface GoneBlocker {
 	id: number;
 	subject: string;

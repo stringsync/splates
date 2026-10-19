@@ -74,7 +74,7 @@ the broader proposed coverage in the requirements map.
 | `delegation/auto-hand-down` | 1 | delegation-auto | agent |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
-| `discovery/todos` | 1 | discovery-todos | agent |
+| `discovery/queue` | 1 | discovery-queue | agent |
 | `discovery/parts` | 1 | discovery-parts | agent |
 | `discovery/handoff` | 1 | discovery-handoff | agent |
 | `discovery/checkpoint` | 1 | discovery-checkpoint | agent |
@@ -92,7 +92,7 @@ the broader proposed coverage in the requirements map.
 | `lifecycle/claim` | 1 | lifecycle-start | agent |
 | `lifecycle/plan` | 1 | lifecycle-plan | agent |
 | `lifecycle/verify-land` | 1 | lifecycle-land | agent |
-| `lifecycle/requested-todo` | 1 | lifecycle-start | agent |
+| `lifecycle/requested-task` | 1 | lifecycle-start | agent |
 | `lifecycle/recover-conflict` | 1 | lifecycle-recovery | agent |
 | `lifecycle/recover-failed-check` | 1 | lifecycle-recovery | agent |
 | `lifecycle/recover-budget` | 1 | lifecycle-recovery | agent |
@@ -109,16 +109,16 @@ the broader proposed coverage in the requirements map.
 | `orchestration/implicit-dependency` | 2 | lanes-dispatch | agent |
 | `orchestration/shared-files` | 2 | lanes-dispatch | agent |
 | `orchestration/triage` | 2 | lanes-dispatch | agent |
-| `orchestration/taken-todo` | 1 | todos-groom | agent |
+| `orchestration/taken-queued` | 1 | queue-groom | agent |
 | `orchestration/added` | 2 | lanes-events | agent |
 | `orchestration/idle` | 2 | lanes-events | agent |
-| `orchestration/todo-open` | 2 | lanes-events | agent |
-| `orchestration/todo-done` | 2 | lanes-events | agent |
+| `orchestration/task-open` | 2 | lanes-events | agent |
+| `orchestration/task-done` | 2 | lanes-events | agent |
 | `orchestration/report` | 1 | lanes-events | agent |
 | `orchestration/lanes-done` | 1 | lanes-events | agent |
 | `orchestration/pivot` | 1 | lanes-events | agent |
-| `orchestration/defer` | 1 | todos-defer | agent |
-| `orchestration/cli-link` | 1 | todos-intake | cli |
+| `orchestration/defer` | 1 | queue-defer | agent |
+| `orchestration/cli-link` | 1 | queue-intake | cli |
 
 ## Evidence and implementation status
 
@@ -150,19 +150,19 @@ selected real integration, never a prerequisite for this audit.
 
 | Audit id / source | Owner and legacy starting point | Proposed evidence and bounded stop | Limits / optional integration |
 | --- | --- | --- | --- |
-| lifecycle-start / Workflow, Reference files | #339; `todo`, `STARTS` | Agent: skill/reference read, successful add or claim before project reads; sandbox task/base state; stop after first investigation | All read tools and nested shell reads must be observed; shell text is insufficient |
-| lifecycle-plan / SPLATES.md, Workflow | #339; `todo` | Agent: captured plan with required sections before first edit; overlap inspection; todo claim state | Exact contents alone do not establish a useful plan or reasonable scope |
-| lifecycle-land / Committing, Merge or review | #339; `todo` | CLI: successful merge/state cleanup; agent: verification before merge, single commit and required commit fields; stop at landing | Seed trivial code; real checks and git state for claims about checks/commit history |
+| lifecycle-start / Workflow, Reference files | #339; `queued`, `STARTS` | Agent: skill/reference read, successful add or claim before project reads; sandbox task/base state; stop after first investigation | All read tools and nested shell reads must be observed; shell text is insufficient |
+| lifecycle-plan / SPLATES.md, Workflow | #339; `queued` | Agent: captured plan with required sections before first edit; overlap inspection; queued task claim state | Exact contents alone do not establish a useful plan or reasonable scope |
+| lifecycle-land / Committing, Merge or review | #339; `queued` | CLI: successful merge/state cleanup; agent: verification before merge, single commit and required commit fields; stop at landing | Seed trivial code; real checks and git state for claims about checks/commit history |
 | lifecycle-recovery / Workflow, Escalation | #339 | CLI failed-check/conflict/budget responses; agent follows stderr, records attempt, retries or escalates at exhaustion | Seed each failure; optional real conflict/check/merge journey tests integration |
-| lifecycle-cleanup / Workflow | #339 | Agent removes moot task or merges verified work; released partial todo retained; resulting task/worktree state | Prove cleanup from observed state, not a final report |
+| lifecycle-cleanup / Workflow | #339 | Agent removes moot task or merges verified work; released partial task retained; resulting task/worktree state | Prove cleanup from observed state, not a final report |
 | decisions-local / Questions, Keeping Blocked current | #355; `ask` | Agent notes a reversible choice it made, records external action as blocker; answer updates preserve numbering; no premature action | Only unambiguous seeded choices; whether a real decision is wise remains subjective |
 | decisions-approval / Proposing, Escalation | #355; `ask` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers and escalation state; forbid action before approval | Format and state do not establish rationale quality |
 | decisions-review / Merge or review, Demos, Reporting | #355; `review-again` | CLI MERGE payload; agent review request retained, review repeated after follow-up, checks/demo structure and no premature merge | Visual correctness and external verification remain manual/optional |
-| todos-intake / Todos, `references/todos.md`, TODO directive | #340; `todo`, `untriaged` | CLI todo input/output; agent reads/takes requested todo, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
-| todos-groom / Todos | #340 | Agent lists related/taken todos, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
-| todos-defer / DEFER directive | #340; `defer` | Agent creates todo with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
+| queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
+| queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
+| queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | lanes-dispatch / Working the untriaged lane, `references/lanes.md` | #340; `lane`, `lane-parallel`, `lane-same-files`, `untriaged` | CLI LANE payload; agent places triage first, links dependencies and shared files, names models and sets the lane running, handing out nothing itself | Fake workers test orchestration only; actual concurrent work/merge stays optional E2E |
-| lanes-events / `references/lanes.md` | #340; `lane-added`, `lane-idle`, `lane-pivot` | CLI REPORT, TODO ADDED/DONE/OPEN, IDLE, LANES DONE payloads; agent planning/stop/pivot state and order | Seed one transition; do not require full worker journeys |
+| lanes-events / `references/lanes.md` | #340; `lane-added`, `lane-idle`, `lane-pivot` | CLI REPORT, TASK ADDED/DONE/OPEN, IDLE, LANES DONE payloads; agent planning/stop/pivot state and order | Seed one transition; do not require full worker journeys |
 | delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
 | delegation-handoff / `references/handoff.md` | #356 | CLI HANDOFF/HANDOFF TO/REPORT payloads; agent records handoff context and claims takeover | Stand-ins do not prove transport, restart or delegated model execution |
 | delegation-auto / `references/handoff.md` | `[SPLATES AUTO]` | Agent Auto picked answers a question without a task, keeps work that fits, or hands it up or down with `splates handoff` | Handoff context and the one-line reason are prose; real model weight is a stand-in roster |
@@ -244,7 +244,7 @@ against them and continue calling them held-out.
 | --- | --- | --- |
 | Lifecycle | Fresh task and successful add | Existing task directive, failed add, read hidden in another tool, correction after early read |
 | Decisions | One reversible local choice | Existing numbered blockers, partial answer, review follow-up, approval with changed choice |
-| Todos/lanes | Two independent todos | Same files, dependency chain, taken todo, reopened todo, pivot with active worker |
+| Queued tasks/lanes | Two independent queued tasks | Same files, dependency chain, taken queued task, reopened task, pivot with active worker |
 | Delegation | Child on default parent | Explicit nondefault base, absent dev server |
 | Continuity | Clean checkpoint/resume | Mutation completed before disconnect, partial mutation, true mid-turn UPDATE, incomplete trace |
 | Cross-cutting | Canonical successful command | Alternate executable path, argv quoting, failed forbidden attempt, mixed output, token capability absent |

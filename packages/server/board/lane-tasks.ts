@@ -2,7 +2,7 @@ import type { Fs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
 import type { TaskRecord } from "./task";
 
-/** A todo in a lane, as a lane's orchestrator hears of it. */
+/** A task in a lane, as a lane's orchestrator hears of it. */
 export interface LaneTask {
 	id: number;
 	/** Its lane, by number and name, the name kept for once the lane ends. */
@@ -11,17 +11,17 @@ export interface LaneTask {
 	taken: boolean;
 }
 
-/** A lane as its todos were seen in it. */
+/** A lane as its tasks were seen in it. */
 export interface LaneSeen {
 	id: number;
 	name: string;
-	/** Set while it ran, its todos started by `splates server`. */
+	/** Set while it ran, its tasks started by `splates server`. */
 	running?: true;
 }
 
-/** What became of a todo in a lane since it was last seen. */
+/** What became of a task in a lane since it was last seen. */
 export interface LaneTaskChange {
-	todo: number;
+	number: number;
 	lane: LaneSeen;
 	/**
 	 * `done` once it left the list, merged or removed; `open` once its task
@@ -30,33 +30,33 @@ export interface LaneTaskChange {
 	change: "done" | "open" | "added";
 }
 
-/** The todos in a lane, out of every todo and the lanes on the board. */
+/** The tasks in a lane, out of every task and the lanes on the board. */
 export function laneTasks(
-	todos: TaskRecord[],
+	tasks: TaskRecord[],
 	lanes: LaneRecord[],
 ): LaneTask[] {
-	return todos.flatMap((todo) => {
-		const lane = lanes.find((each) => each.id === todo.lane);
+	return tasks.flatMap((task) => {
+		const lane = lanes.find((each) => each.id === task.lane);
 		return lane === undefined
 			? []
 			: [
 					{
-						id: todo.id,
+						id: task.id,
 						lane: {
 							id: lane.id,
 							name: lane.name,
 							...(lane.running === undefined ? {} : { running: true as const }),
 						},
-						taken: todo.takenBy !== null,
+						taken: task.takenBy !== null,
 					},
 				];
 	});
 }
 
 /**
- * What became of each todo in `before` by `now`: done for one gone from the
+ * What became of each task in `before` by `now`: done for one gone from the
  * list, open for one taken then and not now, added for one in a running
- * lane now that was not in it then. A running lane starts its todos itself,
+ * lane now that was not in it then. A running lane starts its tasks itself,
  * so none of its own is done or open; one that moved between lanes that do
  * not run is none of them.
  */
@@ -66,27 +66,27 @@ export function laneChanges(
 	all: TaskRecord[],
 ): LaneTaskChange[] {
 	const gone = before.flatMap((was): LaneTaskChange[] => {
-		if (!all.some((todo) => todo.id === was.id)) {
+		if (!all.some((task) => task.id === was.id)) {
 			return was.lane.running
 				? []
-				: [{ todo: was.id, lane: was.lane, change: "done" }];
+				: [{ number: was.id, lane: was.lane, change: "done" }];
 		}
 		const is = now.find((each) => each.id === was.id);
 		return was.taken && is !== undefined && !is.taken && !is.lane.running
-			? [{ todo: is.id, lane: is.lane, change: "open" }]
+			? [{ number: is.id, lane: is.lane, change: "open" }]
 			: [];
 	});
 	const added = now.flatMap((is): LaneTaskChange[] =>
 		is.lane.running &&
 		!before.some((was) => was.id === is.id && was.lane.id === is.lane.id)
-			? [{ todo: is.id, lane: is.lane, change: "added" }]
+			? [{ number: is.id, lane: is.lane, change: "added" }]
 			: [],
 	);
 	return [...gone, ...added];
 }
 
 /**
- * The lane todos as last seen, kept on disk, so what changed while `splates
+ * The lane tasks as last seen, kept on disk, so what changed while `splates
  * dev` was down is told once it is back.
  */
 export class SeenLaneTasks {

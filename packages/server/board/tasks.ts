@@ -43,13 +43,13 @@ export class Tasks {
 		return this.store.dir;
 	}
 
-	/** Where a todo's files live, beside its record. */
+	/** Where a queued task's files live, beside its record. */
 	attachments(id: number): Attachments {
 		return new Attachments(`${this.dir}/${id}`, this.fs, this.ids);
 	}
 
 	/**
-	 * Whether `path` is a file some todo holds, one level inside its folder:
+	 * Whether `path` is a file some task holds, one level inside its folder:
 	 * never a record, and not a way out of here.
 	 */
 	owns(path: string): boolean {
@@ -72,12 +72,12 @@ export class Tasks {
 	): Promise<Task> {
 		const words = wording(subject, text);
 		if (words.subject === "") {
-			fail("usage", "a todo needs a subject: say what is left to do", {});
+			fail("usage", "a task needs a subject: say what is left to do", {});
 		}
 		await this.fs.mkdir(this.dir);
 		return this.locked(async () => {
 			const stored = await this.stored();
-			// Nothing comes after a todo yet to exist, so a new one cannot close
+			// Nothing comes after a task yet to exist, so a new one cannot close
 			// a loop: only what it names has to be there.
 			for (const id of blockedBy) {
 				if (!stored.some((other) => other.id === id)) {
@@ -97,7 +97,7 @@ export class Tasks {
 				lane: null,
 				...(origin === undefined ? {} : { origin }),
 			};
-			const todo = await this.save(
+			const task = await this.save(
 				assigned(
 					{
 						...state,
@@ -106,15 +106,15 @@ export class Tasks {
 					assignee,
 				),
 			);
-			await this.place(todo.state, position);
-			return this.settled(todo.id);
+			await this.place(task.state, position);
+			return this.settled(task.id);
 		});
 	}
 
 	/**
 	 * Top of the list first. A file that will not parse is skipped rather than
 	 * fatal, and positions are counted again from 1 as they are read, so a
-	 * gap or a tie left by a crash, or a todo saved before they had any (it
+	 * gap or a tie left by a crash, or a task saved before they had any (it
 	 * goes below those that do, oldest first), never shows.
 	 */
 	async all(): Promise<Task[]> {
@@ -124,17 +124,17 @@ export class Tasks {
 	}
 
 	async find(id: number): Promise<Task> {
-		return (await this.all()).find((todo) => todo.id === id) ?? missing(id);
+		return (await this.all()).find((task) => task.id === id) ?? missing(id);
 	}
 
-	/** The todos `task` has taken; what a merge or remove settles. */
+	/** The queued tasks `task` has taken; what a merge or remove settles. */
 	async takenBy(task: string): Promise<Task[]> {
-		return (await this.all()).filter((todo) => todo.takenBy === task);
+		return (await this.all()).filter((each) => each.takenBy === task);
 	}
 
 	/**
-	 * Puts a todo at `position`, 1 at the top, past the bottom meaning the
-	 * bottom, and numbers the rest around it. Refuses to put one above a todo
+	 * Puts a task at `position`, 1 at the top, past the bottom meaning the
+	 * bottom, and numbers the rest around it. Refuses to put one above a task
 	 * in its own lane that it comes after, or below one that comes after it.
 	 */
 	async move(id: number, position: number): Promise<Task> {
@@ -146,9 +146,9 @@ export class Tasks {
 	}
 
 	/**
-	 * Says `id` comes after the todos in `add`, and no longer after those in
+	 * Says `id` comes after the tasks in `add`, and no longer after those in
 	 * `drop`: it is not to be started until they merge. Refuses a link that
-	 * would make a loop, naming the todos in it, and moves a todo down below
+	 * would make a loop, naming the tasks in it, and moves a task down below
 	 * anything in its own lane it now comes after.
 	 */
 	async link(
@@ -167,9 +167,9 @@ export class Tasks {
 					fail(
 						"cycle",
 						loop.length === 2
-							? `todo ${id} cannot come after itself`
-							: `todo ${id} cannot come after todo ${before}: that makes a loop, ${loop.map((each) => `#${each}`).join(" → ")}, where each has to merge before the next`,
-						{ todo: id, blockedBy: before, cycle: loop },
+							? `task ${id} cannot come after itself`
+							: `task ${id} cannot come after task ${before}: that makes a loop, ${loop.map((each) => `#${each}`).join(" → ")}, where each has to merge before the next`,
+						{ number: id, blockedBy: before, cycle: loop },
 					);
 				}
 			}
@@ -182,8 +182,8 @@ export class Tasks {
 			if (unknown !== undefined) {
 				fail(
 					"not_found",
-					`todo ${id} does not come after todo ${unknown}: nothing was changed`,
-					{ todo: id, blockedBy: unknown },
+					`task ${id} does not come after task ${unknown}: nothing was changed`,
+					{ number: id, blockedBy: unknown },
 				);
 			}
 			const { blockersLost: _, ...rest } = state;
@@ -200,10 +200,10 @@ export class Tasks {
 	}
 
 	/**
-	 * Puts a todo in a lane, or in none for null. `"new"` starts a lane of its
-	 * own, called `name`, or after the todo without one. With `before`, it goes just above that todo; otherwise it goes
+	 * Puts a task in a lane, or in none for null. `"new"` starts a lane of its
+	 * own, called `name`, or after the task without one. With `before`, it goes just above that task; otherwise it goes
 	 * below the rest of the lane, or keeps its place when that is in none or
-	 * new. Refuses a place above a todo in the lane that it comes after, or
+	 * new. Refuses a place above a task in the lane that it comes after, or
 	 * below one that comes after it.
 	 */
 	async arrange(
@@ -250,7 +250,7 @@ export class Tasks {
 		return this.laneFiles.names(await this.stored());
 	}
 
-	/** Moves every todo in lane `from` to the bottom of lane `into`; `from` is gone. */
+	/** Moves every task in lane `from` to the bottom of lane `into`; `from` is gone. */
 	joinLanes(from: number, into: number): Promise<void> {
 		return this.laneFiles.joinLanes(from, into);
 	}
@@ -275,24 +275,24 @@ export class Tasks {
 		return this.laneFiles.runLane(id, running);
 	}
 
-	/** Removes lane `id`, putting its todos back in none, untriaged. */
+	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	dropLane(id: number): Promise<void> {
 		return this.laneFiles.dropLane(id);
 	}
 
-	/** @internal Removes each lane in `ids` that no todo is in any more. */
+	/** @internal Removes each lane in `ids` that no task is in any more. */
 	endLanes(ids: number[]): Promise<void> {
 		return this.laneFiles.endLanes(ids);
 	}
 
-	/** Moves todos saved while splates kept tags into lanes, one lane a tag. */
-	moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
+	/** Moves tasks saved while splates kept tags into lanes, one lane a tag. */
+	moveTagsToLanes(): Promise<{ lane: LaneRecord; tasks: number[] }[]> {
 		return this.laneFiles.moveTagsToLanes();
 	}
 
 	/**
-	 * Marks todo `id` stuck since `at`, or not stuck for null, as `splates
-	 * server` finds its agent; a todo gone meanwhile is left gone.
+	 * Marks task `id` stuck since `at`, or not stuck for null, as `splates
+	 * server` finds its agent; a task gone meanwhile is left gone.
 	 */
 	async markStuck(id: number, at: string | null): Promise<void> {
 		await this.locked(async () => {
@@ -306,7 +306,7 @@ export class Tasks {
 	}
 
 	/**
-	 * @internal Rewrites one todo as it stands on disk now, under the lock, so
+	 * @internal Rewrites one task as it stands on disk now, under the lock, so
 	 * a change to its words or who has it never undoes a move made meanwhile.
 	 */
 	async revise(
@@ -317,7 +317,7 @@ export class Tasks {
 	}
 
 	/**
-	 * @internal Writes one todo, keeping what starting it added, which the
+	 * @internal Writes one task, keeping what starting it added, which the
 	 * list leaves to the task's worktree. Call it under the lock.
 	 */
 	async save(state: TaskRecord): Promise<Task> {
@@ -333,7 +333,7 @@ export class Tasks {
 
 	/**
 	 * @internal Removes one, moving those below it up to close the gap. What
-	 * came after it no longer waits on it, so no todo is left naming one that
+	 * came after it no longer waits on it, so no task is left naming one that
 	 * is gone, but each keeps what became of it: landed as commit `landed`,
 	 * or, without one, lost.
 	 */
@@ -401,7 +401,7 @@ export class Tasks {
 	}
 
 	/**
-	 * Puts a todo `discard` removed back under its id, where it stood in the
+	 * Puts a task `discard` removed back under its id, where it stood in the
 	 * list, untaken: in its lane while that lane is still on the board, after
 	 * those it waited on that still are.
 	 */
@@ -411,14 +411,14 @@ export class Tasks {
 			if (raw === null) {
 				fail(
 					"not_found",
-					`no removed todo ${id} to put back: only the last ${REMOVED_KEPT} removed are kept`,
-					{ todo: id },
+					`no removed task ${id} to put back: only the last ${REMOVED_KEPT} removed are kept`,
+					{ number: id },
 				);
 			}
 			const { state } = JSON.parse(raw) as RemovedTask;
 			const stored = await this.stored();
 			if (stored.some((other) => other.id === id)) {
-				fail("exists", `todo ${id} is on the list already`, { todo: id });
+				fail("exists", `task ${id} is on the list already`, { number: id });
 			}
 			const lanes = await this.laneFiles.records(stored);
 			const { stuck: _, ...kept } = state;
@@ -456,7 +456,7 @@ export class Tasks {
 	}
 
 	/**
-	 * Settles the list after a link or a lane changed, moving each todo below
+	 * Settles the list after a link or a lane changed, moving each task below
 	 * what it comes after in its lane, and gives back `id` as it ends up.
 	 * Call it under the lock.
 	 */
@@ -465,23 +465,23 @@ export class Tasks {
 		return this.find(id);
 	}
 
-	/** Refuses `order` when a lane in it puts a todo above one it comes after. */
+	/** Refuses `order` when a lane in it puts a task above one it comes after. */
 	private ordered(order: TaskRecord[]): void {
 		const wrong = misordered(order);
 		if (wrong) {
 			fail(
 				"usage",
-				`todo ${wrong.todo.id} comes after todo ${wrong.blockedBy.id} in lane ${wrong.todo.lane}, so it cannot go above it: \`splates todo update ${wrong.todo.id} --remove-blocked-by ${wrong.blockedBy.id}\` first, or move it to another lane`,
+				`task ${wrong.task.id} comes after task ${wrong.blockedBy.id} in lane ${wrong.task.lane}, so it cannot go above it: \`splates task update ${wrong.task.id} --remove-blocked-by ${wrong.blockedBy.id}\` first, or move it to another lane`,
 				{
-					todo: wrong.todo.id,
+					number: wrong.task.id,
 					blockedBy: wrong.blockedBy.id,
-					lane: wrong.todo.lane,
+					lane: wrong.task.lane,
 				},
 			);
 		}
 	}
 
-	/** One todo as it stands on disk; call it under the lock. */
+	/** One task as it stands on disk; call it under the lock. */
 	private async state(id: number): Promise<TaskRecord> {
 		const state = await this.read(this.path(id));
 		return state ?? missing(id);
@@ -500,7 +500,7 @@ export class Tasks {
 			(!Number.isInteger(position) || position <= 0)
 		) {
 			fail("usage", `'${position}' is not a position: 1 is the top`, {
-				todo: state.id,
+				number: state.id,
 				position,
 			});
 		}
@@ -509,7 +509,7 @@ export class Tasks {
 	}
 
 	/**
-	 * @internal Every todo in list order, with the positions it has on disk. `tagged`
+	 * @internal Every task in list order, with the positions it has on disk. `tagged`
 	 * are read though they still have tags, to move them into lanes.
 	 */
 	async stored(tagged: number[] = []): Promise<TaskRecord[]> {
@@ -528,7 +528,7 @@ export class Tasks {
 		);
 	}
 
-	/** @internal Saves each todo in `order` whose position on disk is not its place there. */
+	/** @internal Saves each task in `order` whose position on disk is not its place there. */
 	async renumber(order: TaskRecord[]): Promise<void> {
 		for (const [i, state] of order.entries()) {
 			if (state.position !== i + 1) {
@@ -545,7 +545,7 @@ export class Tasks {
 		return `${this.removedDir}/${id}.json`;
 	}
 
-	/** The todos `discard` kept, the oldest removed first. */
+	/** The tasks `discard` kept, the oldest removed first. */
 	private async removed(): Promise<RemovedTask[]> {
 		const entries = await this.fs.readdir(this.removedDir).catch(() => []);
 		const kept: RemovedTask[] = [];
@@ -567,7 +567,7 @@ export class Tasks {
 	}
 
 	/**
-	 * One todo, or null when it will not parse. One saved with tags is
+	 * One task, or null when it will not parse. One saved with tags is
 	 * refused, unless it is one of `tagged`: dropping them unasked would lose
 	 * what they grouped.
 	 */
@@ -577,7 +577,7 @@ export class Tasks {
 	): Promise<TaskRecord | null> {
 		const raw = await this.fs.read(path).catch(() => null);
 		const parsed = raw === null ? null : parseTaskFile(raw);
-		// A task started without being queued is no todo.
+		// A task started without being queued is not listed.
 		const found = parsed?.listed ? parsed : null;
 		if (
 			found !== null &&
@@ -587,26 +587,26 @@ export class Tasks {
 			fail(
 				"outdated",
 				[
-					`todo ${found.state.id} was saved with tags, and splates now groups todos in lanes instead, so it reads no todos until their tags are moved.`,
-					"Run `splates update` in this repository: it puts each tag's todos in a lane named after the tag, then splates works as before.",
+					`task ${found.state.id} was saved with tags, and splates now groups tasks in lanes instead, so it reads no tasks until their tags are moved.`,
+					"Run `splates update` in this repository: it puts each tag's tasks in a lane named after the tag, then splates works as before.",
 				].join("\n"),
-				{ todo: found.state.id },
+				{ number: found.state.id },
 			);
 		}
 		return found?.state ?? null;
 	}
 }
 
-/** How many removed todos `Todos.discard` keeps for `restore`. */
+/** How many removed tasks `Tasks.discard` keeps for `restore`. */
 export const REMOVED_KEPT = 50;
 
-/** A removed todo as `discard` keeps it. */
+/** A removed task as `discard` keeps it. */
 interface RemovedTask {
 	state: TaskRecord;
 	removedAt: string;
 }
 
-/** What `Todos` is stored through; the real filesystem by default. */
+/** What `Tasks` is stored through; the real filesystem by default. */
 export interface TasksOptions {
 	fs?: Fs;
 	/** What names stored files apart; random ids by default. */
@@ -625,5 +625,5 @@ function slot(
 }
 
 function missing(id: number): never {
-	fail("not_found", `no todo ${id}: run \`splates todo list\``, { todo: id });
+	fail("not_found", `no task ${id}: run \`splates task list\``, { number: id });
 }

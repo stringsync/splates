@@ -10,7 +10,7 @@ describe("lanesFromTags", () => {
 	const tagged = (id: number, tags: string[]) =>
 		JSON.stringify({
 			id,
-			subject: `todo ${id}`,
+			subject: `task ${id}`,
 			text: "",
 			position: id,
 			from: null,
@@ -29,7 +29,7 @@ describe("lanesFromTags", () => {
 		await fs.write("/repo/.git/splates/todos/2.json", tagged(2, []));
 	});
 
-	it("finds the todos from a worktree, through its .git file", async () => {
+	it("finds the tasks from a worktree, through its .git file", async () => {
 		await fs.mkdir("/repo/.git/worktrees/fix");
 		await fs.write("/repo/.git/worktrees/fix/commondir", "../..\n");
 		await fs.mkdir("/trees/fix");
@@ -43,7 +43,7 @@ describe("lanesFromTags", () => {
 		).toBeUndefined();
 	});
 
-	it("says nothing outside a repository, or once no todo has tags", async () => {
+	it("says nothing outside a repository, or once no task has tags", async () => {
 		await fs.mkdir("/elsewhere");
 		await lanesFromTags({ dir: "/elsewhere", fs, log, ps: new FakePs() });
 		await lanesFromTags({ dir: "/repo", fs, log, ps: new FakePs() });

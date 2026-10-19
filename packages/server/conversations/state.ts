@@ -107,8 +107,8 @@ export interface ConversationState {
 	 */
 	skill: string | null;
 	/**
-	 * Started on the agent and model a todo or `splates add --agent` assigned,
-	 * rather than ones the person picked, so a new conversation does not start
+	 * Started on the agent and model a queued task or `splates add --agent`
+	 * assigned, rather than ones the person picked, so a new conversation does not start
 	 * where this one left its settings.
 	 */
 	assigned: boolean;

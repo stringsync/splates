@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Match, Probe } from "./probe";
-import { command, seedFile, seedRepository } from "./probe-sandbox";
+import { command, seedFile, seedRepository, taskRecord } from "./probe-sandbox";
 import { hash, type ProbeModule, type Seed } from "./runner";
 
 const seed: Seed = {
@@ -170,7 +170,7 @@ const probes: Probe[] = [
 			},
 			gap(
 				"child-brief",
-				"Brief must require claim and isolated worktree, no escalation/user reporting/todos, record choices and alternatives, squash/merge to parent, and commit without waiting if blocked on parent. Natural-language adequacy is not graded.",
+				"Brief must require claim and isolated worktree, no escalation/user reporting/tasks, record choices and alternatives, squash/merge to parent, and commit without waiting if blocked on parent. Natural-language adequacy is not graded.",
 			),
 		],
 	),
@@ -329,16 +329,7 @@ const auto: Seed = {
 					model?: string;
 					effort?: string;
 				};
-			} = JSON.parse(
-				await readFile(
-					join(
-						context.isolation.repository,
-						".git/splates/tasks",
-						`${task}.json`,
-					),
-					"utf8",
-				),
-			);
+			} = (await taskRecord(context.isolation.repository, task))?.record ?? {};
 			if (state.dispatch !== undefined) {
 				handoffs.push({
 					agent: state.dispatch.agent,

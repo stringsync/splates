@@ -3,7 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { add, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
 import { dev, devPorts } from "./server";
-import { post, readUntil, serving, todoForm } from "./testing";
+import { post, readUntil, serving, taskForm } from "./testing";
 
 describe("dev", () => {
 	let deps: Testing;
@@ -71,7 +71,7 @@ describe("dev", () => {
 	it("serves each task's fields and its SPLATES.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"), {
 			base: "main",
-			todos: [],
+			tasks: [],
 			goal: "land it",
 			subjects: [],
 			agent: null,
@@ -266,12 +266,12 @@ describe("dev", () => {
 
 	it("refuses a write from another site", async () => {
 		await serving(deps, async (_snapshot, port) => {
-			const response = await post(port, "/api/todos", todoForm("planted"), {
+			const response = await post(port, "/api/todos", taskForm("planted"), {
 				origin: "https://evil.example",
 			});
 
 			expect(response.status).toBe(403);
-			expect(await deps.todos.all()).toEqual([]);
+			expect(await deps.tasks.all()).toEqual([]);
 		});
 	});
 

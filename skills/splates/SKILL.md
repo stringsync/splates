@@ -1,6 +1,6 @@
 ---
 name: splates
-description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, escalate, or defer a task, or add, pick up, link, or reorder a todo, or work down a lane of them.
+description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, escalate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them.
 version: 0.0.47
 ---
 
@@ -29,7 +29,7 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TODO #N]` | Take todo N | `splates todo show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --todo N`, or `splates todo take N` from a task under way |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, or `splates task take N` from a task under way |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[SPLATES TASK <task>]` |
@@ -37,16 +37,16 @@ asks you to read it as Reference files says.
 | `[SPLATES HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
-| `[SPLATES DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | [todos.md](references/todos.md), Deferring |
-| `[SPLATES LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
+| `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
+| `[SPLATES LANE untriaged]` | Orchestrate the queued tasks in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[SPLATES LANE N]` | Plan lane N as its orchestrator, then set it running | [lanes.md](references/lanes.md) |
 | `[SPLATES REPORT <task>]` | A task you handed to another project stopped: escalated, merged or removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TODO DONE #N]` | A todo in a lane you orchestrate, paused by the user, left the list: merged or removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TODO OPEN #N]` | A todo in a lane you orchestrate, paused by the user, is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
-| `[SPLATES TODO ADDED #N]` | A todo came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
-| `[SPLATES GROOM #N]` | An agent added todo N from its task: as the project's groomer, check, place, link and name its model | [groom.md](references/groom.md) |
+| `[SPLATES TASK DONE #N]` | A task in a lane you orchestrate, paused by the user, left the queue: merged or removed | [lanes.md](references/lanes.md) |
+| `[SPLATES TASK OPEN #N]` | A task in a lane you orchestrate, paused by the user, is open again: the task that took it let it go or was removed | [lanes.md](references/lanes.md) |
+| `[SPLATES TASK ADDED #N]` | A task came into a running lane you orchestrate: plan it in | [lanes.md](references/lanes.md) |
+| `[SPLATES GROOM #N]` | An agent queued task N from its own: as the project's groomer, check, place, link and name its model | [groom.md](references/groom.md) |
 | `[SPLATES IDLE <task>]` | A task you handed out, or your running lane started, sits still: its agent's turn ended, or failed, short of a stop, after any nudge splates gave it | [lanes.md](references/lanes.md) |
-| `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
+| `[SPLATES LANES DONE]` | Every lane you orchestrate is done, however its last task landed | [lanes.md](references/lanes.md) |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -63,10 +63,10 @@ which remembers none of it.
 - Before `splates handoff`, or when the task gives you a reason to hand it to
   another model: [references/handoff.md](references/handoff.md), handing a
   task to another agent or taking one over.
-- Before `splates lane add`, or `splates todo add`, `splates todo update` or
+- Before `splates lane add`, or `splates task add`, `splates task update` or
   `splates lane update` with `--lane`, `--position` or `--blocked-by`:
-  [references/todos.md](references/todos.md), linking, placing and ordering
-  todos.
+  [references/queue.md](references/queue.md), linking, placing and ordering
+  queued tasks.
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a cloud server, a tunnel of their
   own, notifications, dictation): [references/setup.md](references/setup.md),
@@ -85,8 +85,8 @@ which remembers none of it.
    the Goal one or two lines as you understand it so far, and investigate in
    its worktree: the main tree changes under you as other tasks land, a worktree
    does not. A question that only needs an answer stays in the main tree.
-   `splates claim <task>` resumes a task instead. When the request is a todo,
-   take it as `[SPLATES TODO #N]` says under Directives, and for any other
+   `splates claim <task>` resumes a task instead. When the request is a queued task,
+   take it as `[SPLATES TASK #N]` says under Directives, and for any other
    directive, do what its row says. Pass `--base <branch>` only when invoked
    with a branch (`/splates feature/auth`) or the user names one; never guess a base from the
    checked-out branch. Once `splates add` succeeds, the `splates server` page shows
@@ -107,10 +107,10 @@ which remembers none of it.
 4. **Work.** Commit each step with git as you go, and check it off under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
-   task), `splates todo add` it from your worktree and move on,
+   task), `splates task add` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
-   added (see A todo you add). A snag on the way, such as a lost
-   connection, a conflict or a retry, is no todo; `splates merge` adds one
+   queued (see Queueing tasks). A snag on the way, such as a lost
+   connection, a conflict or a retry, is no task to queue; `splates merge` queues one
    itself for each test that failed its gate. Make every call a revert would
    undo yourself; only one that is hard to reverse needs the user (see
    Questions), bringing `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
@@ -121,9 +121,9 @@ which remembers none of it.
    heavy-job slots, so agents testing at once queue rather than run it out
    of memory.
 5. **Land.** Once every step under `## Next` and every question under
-   `## Blocked` is checked, the task is ready to merge: `splates todo add`
+   `## Blocked` is checked, the task is ready to merge: `splates task add`
    any step you will not do, then check it off. Release each
-   todo you only partly did (see Todos), and `splates merge --message
+   task you took and only partly did (see Queueing tasks), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
@@ -145,10 +145,10 @@ which remembers none of it.
 **Clean up every task you start.** A task ends in a merge or a remove, never
 left behind, unless you hand it off, when it is the other agent's to end; one escalated and waiting on the user is not done, so leave it
 for `splates claim`. When investigating shows there is nothing to change, the
-work is moot, or it is better redone against current trunk, `splates todo
-remove` each todo it holds that is done or moot, `splates todo update` the rest
+work is moot, or it is better redone against current trunk, `splates task
+remove` each queued task it took that is done or moot, `splates task update` the rest
 with what you learned, then `cd "$(splates path)"` and `splates remove <task>
---reason <why>`, which puts them back on the list. The reason is `nothing`
+--reason <why>`, which puts them back in the queue. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way) or `redo`
 (better redone against current trunk); the Stats page counts them.
 
@@ -159,71 +159,71 @@ never its lease: `stale` is normal for one mid-edit.
 
 ## Working the untriaged lane
 
-`[SPLATES LANE untriaged]` makes you the orchestrator of the todos in no lane.
+`[SPLATES LANE untriaged]` makes you the orchestrator of the queued tasks in no lane.
 You place them in lanes first, then plan those lanes as
 [references/lanes.md](references/lanes.md) says (read it before step 3, and
 for the lane reports):
 
 1. `splates lane show untriaged` lists them. For each open one, read `splates
-   todo show <id>`, `splates lane list`, and `splates list --files` for the
-   tasks under way, then place it as for a todo you add (see Lanes in
-   [references/todos.md](references/todos.md)): in a lane whose work it
+   task show <n>`, `splates lane list`, and `splates list --files` for the
+   tasks under way, then place it as for a task you queue (see Lanes in
+   [references/queue.md](references/queue.md)): in a lane whose work it
    builds on, or `--lane new` for one of its own when it starts a chain.
-   Todos that touch the same files go in one lane, in the order they should
+   Tasks that touch the same files go in one lane, in the order they should
    land, so their agents never fight over rebases.
-2. Link what blocks each: `splates todo update <id> --blocked-by <id>` when it
-   needs another todo's code or data merged first, or would change the same
-   files, in any lane, never for priority. When two todos ask for opposite things, or one undoes a task
+2. Link what blocks each: `splates task update <n> --blocked-by <n>` when it
+   needs another task's code or data merged first, or would change the same
+   files, in any lane, never for priority. When two tasks ask for opposite things, or one undoes a task
    under way, leave them untriaged and ask the user which wins, as numbered
    questions in your reply, placing the rest meanwhile.
 3. Say in a line where each went, then plan and run each lane you placed one
    in that no agent is on, as if sent `[SPLATES LANE N]` for it. Leave a
    lane another agent is on to that agent.
 4. Each time splates wakes you, `splates lane show untriaged` again, and
-   place any todo added since the same way. Once nothing is left to place
+   place any task queued since the same way. Once nothing is left to place
    and every lane you work is done, end on a finished report.
 
-## Todos
+## Queueing tasks
 
-When something outside your Goal comes up, add it as a todo and move on:
-its subject and what you know, once you have checked no todo already asks
-it (see [references/todos.md](references/todos.md)). Leave placing it, linking it
-and picking its model to the groomer `splates server` starts for each todo
-added from a task, unless the user names a
+When something outside your Goal comes up, queue it as a task and move on:
+its subject and what you know, once you have checked no task already asks
+it (see [references/queue.md](references/queue.md)). Leave placing it, linking it
+and picking its model to the groomer `splates server` starts for each task
+queued from a task, unless the user names a
 lane, a position or what blocks it, or the model it takes is
 plain, as for a change spelled out step by step.
 
-Write a todo's subject short enough to scan. Put the why, the where, the
+Write a task's subject short enough to scan. Put the why, the where, the
 files and the feature in its detail, as markdown the `splates server` page
 renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
 commands, and fenced blocks for snippets. Single quotes keep the shell off
 the backticks:
 
 ```sh
-splates todo add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
+splates task add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big'
 ```
 
-The `splates server` page shows each `splates todo add` in the conversation as
-a line naming the todo, which opens it, so your reply needs no heading or
-summary of it. That shrinks what you say, never the todo: its subject and
+The `splates server` page shows each `splates task add` in the conversation as
+a line naming the task, which opens it, so your reply needs no heading or
+summary of it. That shrinks what you say, never the task: its subject and
 detail stay full, since whoever picks it up reads nothing else.
 
-When you take a todo that names a model other than the one you run as, take
+When you take a queued task that names a model other than the one you run as, take
 it anyway: whoever handed it to you chose you. Say so in a line of its own
 right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
 user can stop you and start the model it names instead.
 
-`splates todo update <id> '<detail>'` replaces the whole detail, so pass all of
-it: what still holds and what you learned. Merging removes every todo the task
-holds: update one you only partly did with what is left, then
-`splates todo release` it, so it stays on the list.
+`splates task update <n> '<detail>'` replaces the whole detail, so pass all of
+it: what still holds and what you learned. Merging removes every queued task
+yours took: update one you only partly did with what is left, then
+`splates task release` it, so it stays in the queue.
 
-When `splates add --todo` or `splates todo take` warns that a todo is blocked,
-what blocks it has yet to merge: `splates todo wait <id>` for it, or, when the
-user asked for this todo now, do only what does not need the blocker and say
+When `splates add --task` or `splates task take` warns that a task is blocked,
+what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
+user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
 ## Questions
@@ -257,7 +257,7 @@ cannot be read two ways. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Describe every choice, the one you went with too, and mark that one
 `(chosen)`: never a bare "That". List it first, as `(a)`: the `splates server`
-page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which todo
+page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which task
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
 
@@ -347,7 +347,7 @@ without naming it, write that answer after `→` and check it off, so it is not
 asked again. Check an item off only when its answer is one you can act on;
 anything else stays open and leads your next report. A reply about something
 you did is an instruction. When the user defers or skips a question, check it
-off and carry on without it (for a defer, `splates todo add` it first). Only
+off and carry on without it (for a defer, `splates task add` it first). Only
 the user answers questions, yours or another agent's.
 
 A message `splates tell` says in your conversation for the lane's
@@ -378,9 +378,9 @@ Never ask whether the work is ready to merge among other questions, or as a
 question at all: once they are answered and the work is done, merge or ask
 for a review (see Merge or review).
 
-A lane's orchestrator that handed you a todo (`$SPLATES_STARTED_BY` is set)
+A lane's orchestrator that handed you a task (`$SPLATES_STARTED_BY` is set)
 is not one you report to: you answer to the user, as for any task, and
-splates tells it where the lane stands from the todos.
+splates tells it where the lane stands from its tasks.
 
 ## Merge or review
 
@@ -556,7 +556,7 @@ The sentence names the one change the user will notice, not each part of it:
 status codes, errors thrown and the rest are the diff's. Then stop, but for
 a `- ` line, at most three, on anything the user must act on or would be
 caught out without: a restart to pick the change up, a file resolved in a
-conflict after their review, a todo gone stale. Leave out what the page, the
+conflict after their review, a queued task gone stale. Leave out what the page, the
 diff, or `SPLATES.md` already says: that tests pass (but for a review's
 checks), that nothing is merged yet, the files touched, how you did it, and
 the calls you made yourself.
@@ -613,7 +613,7 @@ Give a section only to a point the user needs; most reports need none. Keep
 to `####`: a `##` or `###` heading would end the card.
 
 ```markdown
-## ⚠️ Escalated <task>: needs two calls on the todo board
+## ⚠️ Escalated <task>: needs two calls on the task board
 
 One sentence on what changed.
 
@@ -630,7 +630,7 @@ Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
    It lands where you drop it.
 
 1. What feels off when dragging a card on a phone?
-2. How should a stale todo be shown?
+2. How should a stale task be shown?
    - (a) A muted card
      ![muted card](/abs/path/muted.png)
    - (b) A "stale" badge
@@ -655,11 +655,11 @@ bare when its subject says it all.
 
 One sentence on what changed.
 
-### 🎬 Demo: moving todos between lanes
+### 🎬 Demo: moving tasks between lanes
 
 Open http://localhost:4310 (a demo repo, nothing of yours).
 
-1. Drag a todo to another lane.
+1. Drag a task to another lane.
    It lands where you drop it.
 2. Reload.
    It stays there.
@@ -667,7 +667,7 @@ Open http://localhost:4310 (a demo repo, nothing of yours).
 
 Checks: `bun run typecheck`, `bun test`
 
-#### A drop saves the todo's lane and position in one write.
+#### A drop saves the task's lane and position in one write.
 
 - A reload never shows it half moved.
 - A drop on its own spot writes nothing.

@@ -198,10 +198,10 @@ it("seeds real instructions and preserves ACP's no-launch unsupported boundary",
 		);
 		expect(
 			await readFile(
-				join(repo, ".agents/skills/splates/references/todos.md"),
+				join(repo, ".agents/skills/splates/references/queue.md"),
 				"utf8",
 			),
-		).toContain("todo");
+		).toContain("task");
 		expect(
 			run.run.evidence.events.every((event) => event.actor === "fixture"),
 		).toBe(true);

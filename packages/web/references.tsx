@@ -9,8 +9,8 @@ import {
 	MERGE,
 	RECONNECT,
 	RESUME,
+	taskNumberReference,
 	taskReference,
-	todoReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
@@ -87,11 +87,11 @@ export function useReferences(
 				metadata: { directive },
 			})),
 			todo: todos.map((todo) => ({
-				id: todoReference(todo.id),
+				id: taskNumberReference(todo.id),
 				type: "todo",
 				label: todo.subject,
 				description: `#${todo.id}`,
-				metadata: { directive: todoReference(todo.id) },
+				metadata: { directive: taskNumberReference(todo.id) },
 			})),
 			lane: [
 				{

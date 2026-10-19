@@ -7,6 +7,8 @@ import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 interface Row {
+	/** Its number, as `[SPLATES TASK #N]` and `splates task show` name it; null for a record without one. */
+	number: number | null;
 	task: string;
 	status: string;
 	lease: "held" | "stale" | "none";
@@ -57,6 +59,7 @@ async function row(worktree: Worktree): Promise<Row> {
 	const { state } = worktree;
 	const diff = state ? await worktree.size() : null;
 	return {
+		number: state?.id ?? null,
 		task: worktree.task,
 		// One unreadable record shows as `unknown` instead of taking down the
 		// whole listing.
@@ -90,6 +93,7 @@ function diff(row: Row): string {
 
 function listing(rows: Row[]): string {
 	const cells = rows.map((row) => [
+		row.number === null ? "" : `#${row.number}`,
 		row.task,
 		row.status,
 		row.lease,
@@ -98,7 +102,7 @@ function listing(rows: Row[]): string {
 		row.age,
 	]);
 	const out = [
-		table(["TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
+		table(["#", "TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
 	];
 	for (const row of rows) {
 		if (row.changed !== undefined) {

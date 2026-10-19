@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { APPROVE, MERGE, questions } from "@stringsync/splates-server/plans";
+import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
 import type { ProbeModule, RunContext, Seed } from "./runner";
@@ -74,7 +75,7 @@ const seed: Seed = {
 		}
 		await seedRepository(context);
 		// Minimal versioned local records, without init/network/skill installation.
-		await seedFile(context, ".git/splates/format", "1\n");
+		await seedFile(context, ".git/splates/format", `${FORMAT}\n`);
 		await checked(context, [
 			"splates",
 			"add",

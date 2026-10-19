@@ -77,9 +77,9 @@ describe("App's composer references", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
-			expect(within(box).getByTitle("[SPLATES TODO #12]")).toBeTruthy(),
+			expect(within(box).getByTitle("[SPLATES TASK #12]")).toBeTruthy(),
 		);
-		expect(textIn(box)).toBe("[SPLATES TODO #12] ");
+		expect(textIn(box)).toBe("[SPLATES TASK #12] ");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 

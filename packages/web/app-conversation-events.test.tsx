@@ -97,14 +97,14 @@ describe("App's splates events", () => {
 
 	it("draws a todo or todos taken, released or removed as one chip, and nothing when refused", async () => {
 		const thread = await opened(turn(["Done."]), [
-			todoEvent("todo take", 3, [{ id: 12, subject: "Fix the lease" }]),
-			todoEvent("todo release", 4, [
+			todoEvent("task take", 3, [{ id: 12, subject: "Fix the lease" }]),
+			todoEvent("task release", 4, [
 				{ id: 1, subject: "One" },
 				{ id: 2, subject: "Two" },
 				{ id: 3, subject: "Three" },
 			]),
-			todoEvent("todo remove", 5, [{ id: 12, subject: "Fix the lease" }]),
-			todoEvent("todo take", 6, undefined, "not_found"),
+			todoEvent("task remove", 5, [{ id: 12, subject: "Fix the lease" }]),
+			todoEvent("task take", 6, undefined, "not_found"),
 		]);
 
 		const lines = await waitFor(() => {
@@ -272,7 +272,7 @@ describe("App's splates events", () => {
 				action: "lane remove",
 				lane: 4,
 				name: "Metrics",
-				todos: [7, 8],
+				tasks: [7, 8],
 			},
 			{
 				id: "d",
@@ -339,11 +339,11 @@ function update(id: number, secs: number, subject: string): Event {
 	return {
 		id: `u${id}`,
 		at: second(secs),
-		action: "todo update",
+		action: "task update",
 		task: null,
 		reason: null,
 		conversation: "c1",
-		todo: id,
+		number: id,
 		subject,
 		changed: { position: 2 },
 	};
@@ -380,7 +380,7 @@ function claim(
 
 /** A todo command the agent ran at `secs`, refused as `reason` when given. */
 function todoEvent(
-	action: "todo take" | "todo release" | "todo remove",
+	action: "task take" | "task release" | "task remove",
 	secs: number,
 	todos?: { id: number; subject: string }[],
 	reason?: string,
@@ -393,7 +393,7 @@ function todoEvent(
 		conversation: "c1",
 	};
 	return reason === undefined
-		? { ...common, reason: null, todos: todos ?? [] }
+		? { ...common, reason: null, tasks: todos ?? [] }
 		: { ...common, reason };
 }
 

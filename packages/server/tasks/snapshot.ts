@@ -9,7 +9,7 @@ import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Everything one page shows: `todo list`, and `list` and `show` for each
+ * Everything one page shows: `task list`, and `list` and `show` for each
  * task.
  */
 export interface Snapshot {
@@ -21,8 +21,8 @@ export interface Snapshot {
 	root: string;
 	/** The directory that holds each task's worktree, absolute. */
 	worktreeRoot: string;
-	/** Past this age a todo is offered for removal rather than recommended. */
-	todoStalenessMs: number;
+	/** Past this age a queued task is offered for removal rather than recommended. */
+	taskStalenessMs: number;
 	todos: TaskRecord[];
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
@@ -55,7 +55,7 @@ export interface Snapshot {
  */
 export async function snapshot({
 	service,
-	todos,
+	tasks: queue,
 	creds,
 	fs,
 	details,
@@ -66,7 +66,7 @@ export async function snapshot({
 	slot = null,
 }: {
 	service: WorktreeService;
-	todos: Tasks;
+	tasks: Tasks;
 	creds: Creds;
 	fs: Fs;
 	/**
@@ -87,10 +87,10 @@ export async function snapshot({
 		path: tilde(service.git.root, home),
 		root: service.git.root,
 		worktreeRoot: resolve(service.config.worktreeRoot),
-		todoStalenessMs: service.config.todoStalenessMs,
-		todos: (await todos.all()).map((todo) => todo.state),
-		lanes: await todos.lanes(),
-		laneNames: await todos.laneNames(),
+		taskStalenessMs: service.config.taskStalenessMs,
+		todos: (await queue.all()).map((each) => each.state),
+		lanes: await queue.lanes(),
+		laneNames: await queue.laneNames(),
 		tasks,
 		creds: await creds.requests(),
 		trunk: service.config.trunk,

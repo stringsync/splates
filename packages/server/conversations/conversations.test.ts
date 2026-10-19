@@ -144,7 +144,7 @@ describe("Conversations", () => {
 		expect((await offered.all()).fake).toEqual([]);
 	});
 
-	it("leaves what an agent's sessions offer as the person left it when a todo assigned the model", async () => {
+	it("leaves what an agent's sessions offer as the person left it when a queued task assigned the model", async () => {
 		const currents = async () => {
 			// Remembered as each change lands, without waiting on it.
 			await Bun.sleep(10);

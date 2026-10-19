@@ -16,20 +16,20 @@ describe("LaneRunner", () => {
 	let deps: Testing;
 	let lane: LaneRecord;
 	let started: LaneStart[];
-	/** What a start does once counted: take its todo, as `splates add --todo` does. */
+	/** What a start does once counted: take its queued task, as `splates add --task` does. */
 	let starting: (start: LaneStart) => Promise<void>;
 	let runner: LaneRunner;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		lane = await deps.todos.addLane("Stats");
+		lane = await deps.tasks.addLane("Stats");
 		started = [];
 		starting = async (each) => {
-			await (await deps.todos.find(each.todo.id)).take(each.task);
+			await (await deps.tasks.find(each.queued.id)).take(each.task);
 		};
 		runner = LaneRunner.watch({
-			lanes: () => deps.todos.lanes(),
-			todos: () => deps.todos.stored(),
+			lanes: () => deps.tasks.lanes(),
+			queued: () => deps.tasks.stored(),
 			tasks: async () => (await deps.service.list()).map(({ task }) => task),
 			capacity: 5,
 			start: (each) => {
@@ -57,7 +57,7 @@ describe("LaneRunner", () => {
 		expect(started).toEqual([]);
 	});
 
-	it("starts a running lane's unblocked todos as the conversation that ran it, once each", async () => {
+	it("starts a running lane's unblocked queued tasks as the conversation that ran it, once each", async () => {
 		await taskAdd(deps, "Totals first", null, {
 			lane: lane.id,
 			assignee: { agent: "claude", model: "sonnet" },
@@ -67,35 +67,35 @@ describe("LaneRunner", () => {
 			blockedBy: [1],
 			assignee: { agent: "claude", model: "sonnet" },
 		});
-		await deps.todos.runLane(lane.id, { by: "orchestrator" });
+		await deps.tasks.runLane(lane.id, { by: "orchestrator" });
 
 		await runner.sweep();
 		await settled();
 		await runner.sweep();
 
 		expect(
-			started.map(({ task, todo, pick, by }) => ({
+			started.map(({ task, queued, pick, by }) => ({
 				task,
-				todo: todo.id,
+				number: queued.id,
 				pick,
 				by,
 			})),
 		).toEqual([
 			{
 				task: "totals-first",
-				todo: 1,
+				number: 1,
 				pick: { agent: "claude", model: "sonnet" },
 				by: "orchestrator",
 			},
 		]);
 	});
 
-	it("tries a refused todo again only once it changes", async () => {
+	it("tries a refused queued task again only once it changes", async () => {
 		await taskAdd(deps, "Totals first", null, {
 			lane: lane.id,
 			assignee: { agent: "claude" },
 		});
-		await deps.todos.runLane(lane.id, { by: null });
+		await deps.tasks.runLane(lane.id, { by: null });
 		starting = async () => {
 			throw new Error("hook_failed");
 		};
@@ -112,101 +112,101 @@ describe("LaneRunner", () => {
 	});
 
 	it("keeps a lane running past a rename, and pausing it stops it", async () => {
-		await deps.todos.runLane(lane.id, { by: "orchestrator" });
-		await deps.todos.renameLane(lane.id, "Stats page");
+		await deps.tasks.runLane(lane.id, { by: "orchestrator" });
+		await deps.tasks.renameLane(lane.id, "Stats page");
 
-		expect(await deps.todos.lanes()).toEqual([
+		expect(await deps.tasks.lanes()).toEqual([
 			{ id: lane.id, name: "Stats page", running: { by: "orchestrator" } },
 		]);
 
-		await deps.todos.runLane(lane.id, null);
-		expect(await deps.todos.lanes()).toEqual([
+		await deps.tasks.runLane(lane.id, null);
+		expect(await deps.tasks.lanes()).toEqual([
 			{ id: lane.id, name: "Stats page" },
 		]);
 	});
 
-	it("starts every todo no open todo blocks, whatever their order", () => {
-		const todos = [
-			todo({ id: 1, position: 1 }),
-			todo({ id: 2, position: 2, blockedBy: [1] }),
-			todo({ id: 3, position: 3 }),
+	it("starts every queued task no open queued task blocks, whatever their order", () => {
+		const all = [
+			queued({ id: 1, position: 1 }),
+			queued({ id: 2, position: 2, blockedBy: [1] }),
+			queued({ id: 3, position: 3 }),
 		];
 
-		expect(ready(todos)).toEqual([1, 3]);
+		expect(ready(all)).toEqual([1, 3]);
 	});
 
-	it("holds back a todo a todo in another lane blocks, and starts it once that one is gone", () => {
-		const elsewhere = todo({ id: 9, lane: 2 });
-		const blocked = todo({ id: 1, blockedBy: [9] });
+	it("holds back a queued task a queued task in another lane blocks, and starts it once that one is gone", () => {
+		const elsewhere = queued({ id: 9, lane: 2 });
+		const blocked = queued({ id: 1, blockedBy: [9] });
 
 		expect(ready([blocked, elsewhere])).toEqual([]);
 		expect(ready([blocked])).toEqual([1]);
 	});
 
 	it("starts no more than the lane has room for beside the tasks it has out", () => {
-		const todos = [
-			todo({ id: 1, position: 1, takenBy: "one" }),
-			todo({ id: 2, position: 2 }),
-			todo({ id: 3, position: 3 }),
-			todo({ id: 4, position: 4 }),
+		const all = [
+			queued({ id: 1, position: 1, takenBy: "one" }),
+			queued({ id: 2, position: 2 }),
+			queued({ id: 3, position: 3 }),
+			queued({ id: 4, position: 4 }),
 		];
 
-		expect(ready(todos, { capacity: 3 })).toEqual([2, 3]);
-		expect(ready(todos, { capacity: 3, starting: new Set([2]) })).toEqual([3]);
-		expect(ready(todos, { capacity: 1 })).toEqual([]);
+		expect(ready(all, { capacity: 3 })).toEqual([2, 3]);
+		expect(ready(all, { capacity: 3, starting: new Set([2]) })).toEqual([3]);
+		expect(ready(all, { capacity: 1 })).toEqual([]);
 	});
 
-	it("passes over a refused todo and one naming no agent, so the next gets the room", () => {
-		const unnamed = todo({ id: 1, position: 1, assignee: undefined });
-		const todos = [
+	it("passes over a refused queued task and one naming no agent, so the next gets the room", () => {
+		const unnamed = queued({ id: 1, position: 1, assignee: undefined });
+		const all = [
 			unnamed,
-			todo({ id: 2, position: 2 }),
-			todo({ id: 3, position: 3 }),
+			queued({ id: 2, position: 2 }),
+			queued({ id: 3, position: 3 }),
 		];
 
-		expect(ready(todos, { capacity: 1, refused: new Set([2]) })).toEqual([3]);
+		expect(ready(all, { capacity: 1, refused: new Set([2]) })).toEqual([3]);
 		expect(
-			startable(RUNNING, todos, { capacity: 1, starting: NONE, refused: NONE })
+			startable(RUNNING, all, { capacity: 1, starting: NONE, refused: NONE })
 				.unnamed,
 		).toEqual([unnamed]);
 	});
 
-	it("holds back a todo whose blocker was removed without merging", () => {
-		const todos = [
-			todo({
+	it("holds back a queued task whose blocker was removed without merging", () => {
+		const all = [
+			queued({
 				id: 1,
 				position: 1,
 				blockersLost: [{ id: 9, subject: "gone" }],
 			}),
-			todo({ id: 2, position: 2 }),
+			queued({ id: 2, position: 2 }),
 		];
 
-		expect(ready(todos)).toEqual([2]);
+		expect(ready(all)).toEqual([2]);
 	});
 
-	it("names a task for its todo's words, cut at a word, numbered past a name taken", () => {
+	it("names a task for its queued task's words, cut at a word, numbered past a name taken", () => {
 		expect(taskName("Upload retries forever on a 413", NAMES)).toBe(
 			"upload-retries-forever-on-a-413",
 		);
 		expect(
 			taskName(
-				"Server starts a running lane's unblocked todos on its own, always",
+				"Server starts a running lane's unblocked queued tasks on its own, always",
 				NAMES,
 			),
 		).toBe("server-starts-a-running-lane-s-unblocked");
 		expect(taskName("Fix it", new Set(["fix-it", "fix-it-2"]))).toBe(
 			"fix-it-3",
 		);
-		expect(taskName("!!!", NAMES)).toBe("todo");
+		expect(taskName("!!!", NAMES)).toBe("task");
 	});
 
 	it("tells the agent its lane and what is out beside it", () => {
-		const out = todo({
+		const out = queued({
 			id: 1,
 			subject: "Totals first",
 			takenBy: "totals-first",
 		});
-		const next = todo({ id: 2, subject: "Breakdowns" });
+		const next = queued({ id: 2, subject: "Breakdowns" });
 
 		const prompt = lanePrompt(RUNNING, next, [out, next]);
 
@@ -214,8 +214,8 @@ describe("LaneRunner", () => {
 		expect(prompt).toContain("totals-first on #1 Totals first");
 	});
 
-	it("tells the agent the commit each todo it was blocked by landed as", () => {
-		const next = todo({
+	it("tells the agent the commit each queued task it was blocked by landed as", () => {
+		const next = queued({
 			id: 2,
 			blockersLanded: [{ id: 1, subject: "Totals first", commit: "abc1234" }],
 		});
@@ -232,10 +232,10 @@ const RUNNING: LaneRecord = { id: 1, name: "Stats", running: { by: null } };
 const NONE: ReadonlySet<number> = new Set();
 const NAMES: ReadonlySet<string> = new Set();
 
-function todo(overrides: Partial<TaskRecord>): TaskRecord {
+function queued(overrides: Partial<TaskRecord>): TaskRecord {
 	return {
 		id: 1,
-		subject: "a todo",
+		subject: "a queued task",
 		text: "",
 		position: 1,
 		from: null,
@@ -251,7 +251,7 @@ function todo(overrides: Partial<TaskRecord>): TaskRecord {
 
 /** The ids `startable` starts in `RUNNING`, top first. */
 function ready(
-	todos: TaskRecord[],
+	all: TaskRecord[],
 	{
 		capacity = 5,
 		starting = NONE,
@@ -262,8 +262,8 @@ function ready(
 		refused?: ReadonlySet<number>;
 	} = {},
 ): number[] {
-	return startable(RUNNING, todos, { capacity, starting, refused }).ready.map(
-		({ todo }) => todo.id,
+	return startable(RUNNING, all, { capacity, starting, refused }).ready.map(
+		({ queued }) => queued.id,
 	);
 }
 

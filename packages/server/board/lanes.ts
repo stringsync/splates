@@ -1,12 +1,12 @@
 import type { TaskRecord } from "./task";
 
 /**
- * What blocks which todos, and the lanes they run in, worked out from the
- * todos alone. Nothing here reads or writes the disk, so the CLI and the
+ * What blocks which tasks, and the lanes they run in, worked out from the
+ * tasks alone. Nothing here reads or writes the disk, so the CLI and the
  * `splates server` page draw the same lanes from the same list.
  */
 
-/** A todo that has to merge first, and where it stands now. */
+/** A task that has to merge first, and where it stands now. */
 export interface Blocker {
 	id: number;
 	subject: string;
@@ -23,23 +23,23 @@ export interface Blocker {
 export interface LaneRecord {
 	id: number;
 	name: string;
-	/** Set while it runs, its todos started by `splates server`: see `LaneRunner`. */
+	/** Set while it runs, its tasks started by `splates server`: see `LaneRunner`. */
 	running?: LaneRun;
 }
 
-/** A queue of todos that build on each other, worked top first. */
+/** A queue of tasks that build on each other, worked top first. */
 export interface LaneState {
 	id: number;
 	name: string;
 	todos: TaskRecord[];
-	/** Whether `splates server` starts the lane's todos on its own, as `splates lane run` sets. */
+	/** Whether `splates server` starts the lane's tasks on its own, as `splates lane run` sets. */
 	running: boolean;
-	/** The tasks at work on its todos now, top first: who is on the lane. */
+	/** The started tasks at work on its queued ones now, top first: who is on the lane. */
 	agents: string[];
-	/** The first todo no task has taken: what the lane's orchestrator hands out next. */
+	/** The first task no started task has taken: what the lane's orchestrator hands out next. */
 	next: TaskRecord | null;
 	/**
-	 * Todos in other lanes, or in none, blocking `next` that have
+	 * Tasks in other lanes, or in none, blocking `next` that have
 	 * yet to merge: what the lane is waiting on before it can go on.
 	 */
 	blockers: Blocker[];
@@ -48,43 +48,43 @@ export interface LaneState {
 }
 
 /**
- * Every lane, in the order `records` keeps them, each with its todos in list
- * order. A lane some todo is in but `records` lacks, as one written before
+ * Every lane, in the order `records` keeps them, each with its tasks in list
+ * order. A lane some task is in but `records` lacks, as one written before
  * lanes had names, comes last, called by its number.
  */
-export function lanes(todos: TaskRecord[], records: LaneRecord[]): LaneState[] {
-	return named(todos, records).map((record) => lane(todos, record));
+export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
+	return named(tasks, records).map((record) => lane(tasks, record));
 }
 
-/** `records`, and after them a record for each lane a todo is in that they lack. */
+/** `records`, and after them a record for each lane a task is in that they lack. */
 export function named(
-	todos: TaskRecord[],
+	tasks: TaskRecord[],
 	records: LaneRecord[],
 ): LaneRecord[] {
 	const unnamed = [
 		...new Set(
-			todos.flatMap((todo) =>
-				todo.lane === null || records.some((record) => record.id === todo.lane)
+			tasks.flatMap((task) =>
+				task.lane === null || records.some((record) => record.id === task.lane)
 					? []
-					: [todo.lane],
+					: [task.lane],
 			),
 		),
 	].sort((left, right) => left - right);
 	return [...records, ...unnamed.map((id) => ({ id, name: `Lane ${id}` }))];
 }
 
-/** The lane `record` stands for, empty when no todo is in it. */
+/** The lane `record` stands for, empty when no task is in it. */
 export function lane(
-	todos: TaskRecord[],
+	tasks: TaskRecord[],
 	{ id, name, running }: LaneRecord,
 ): LaneState {
-	const steps = todos
-		.filter((todo) => todo.lane === id)
+	const steps = tasks
+		.filter((task) => task.lane === id)
 		.sort((left, right) => left.position - right.position);
-	const next = steps.find((todo) => todo.takenBy === null) ?? null;
+	const next = steps.find((task) => task.takenBy === null) ?? null;
 	const agents = [
 		...new Set(
-			steps.flatMap((todo) => (todo.takenBy === null ? [] : [todo.takenBy])),
+			steps.flatMap((task) => (task.takenBy === null ? [] : [task.takenBy])),
 		),
 	];
 	// What blocks it in its own lane is the lane's own work, taken or
@@ -92,7 +92,7 @@ export function lane(
 	const blockers =
 		next === null
 			? []
-			: blockersOf(todos, next).filter((blocker) => blocker.lane !== id);
+			: blockersOf(tasks, next).filter((blocker) => blocker.lane !== id);
 	return {
 		id,
 		name,
@@ -101,48 +101,48 @@ export function lane(
 		agents,
 		next,
 		blockers,
-		ready: next !== null && blockersOf(todos, next).length === 0,
+		ready: next !== null && blockersOf(tasks, next).length === 0,
 	};
 }
 
-/** What blocks `todo` and has yet to merge, in list order. */
-export function blockersOf(todos: TaskRecord[], todo: TaskRecord): Blocker[] {
-	return todos
-		.filter((other) => todo.blockedBy.includes(other.id))
+/** What blocks `task` and has yet to merge, in list order. */
+export function blockersOf(tasks: TaskRecord[], task: TaskRecord): Blocker[] {
+	return tasks
+		.filter((other) => task.blockedBy.includes(other.id))
 		.map(({ id, subject, lane, takenBy }) => ({ id, subject, lane, takenBy }));
 }
 
-/** The todos `id` blocks, in list order. */
-export function followers(todos: TaskRecord[], id: number): TaskRecord[] {
-	return todos.filter((todo) => todo.blockedBy.includes(id));
+/** The tasks `id` blocks, in list order. */
+export function followers(tasks: TaskRecord[], id: number): TaskRecord[] {
+	return tasks.filter((task) => task.blockedBy.includes(id));
 }
 
 /**
  * Nothing blocking it is still open, none was removed from under it, and
  * nobody has it: free to start.
  */
-export function isReady(todo: TaskRecord): boolean {
+export function isReady(task: TaskRecord): boolean {
 	return (
-		todo.takenBy === null &&
-		todo.blockedBy.length === 0 &&
-		(todo.blockersLost ?? []).length === 0
+		task.takenBy === null &&
+		task.blockedBy.length === 0 &&
+		(task.blockersLost ?? []).length === 0
 	);
 }
 
 /**
- * The todos that would form a loop if `blocker` blocked `id`, as the chain
+ * The tasks that would form a loop if `blocker` blocked `id`, as the chain
  * from `id` round to itself in merge order, or null when there is none. A
  * loop is `id` already blocking `blocker`, however far down.
  */
 export function cycle(
-	todos: TaskRecord[],
+	tasks: TaskRecord[],
 	id: number,
 	blocker: number,
 ): number[] | null {
 	if (id === blocker) {
 		return [id, id];
 	}
-	const byId = new Map(todos.map((todo) => [todo.id, todo]));
+	const byId = new Map(tasks.map((task) => [task.id, task]));
 	// Walk back from `blocker` through what blocks it, looking for `id`.
 	const trail = (from: number, seen: Set<number>): number[] | null => {
 		if (from === id) {
@@ -165,55 +165,55 @@ export function cycle(
 }
 
 /**
- * `todos` in list order, but with each one below every todo in its own lane
- * that blocks it: a todo that would come too soon is moved down to just
+ * `tasks` in list order, but with each one below every task in its own lane
+ * that blocks it: a task that would come too soon is moved down to just
  * below the last of them, and everything else keeps its place.
  */
-export function settle(todos: TaskRecord[]): TaskRecord[] {
-	const pending = [...todos];
+export function settle(tasks: TaskRecord[]): TaskRecord[] {
+	const pending = [...tasks];
 	const placed = new Set<number>();
-	const byId = new Map(todos.map((todo) => [todo.id, todo]));
-	const free = (todo: TaskRecord) =>
-		todo.lane === null ||
-		todo.blockedBy.every(
-			(id) => placed.has(id) || byId.get(id)?.lane !== todo.lane,
+	const byId = new Map(tasks.map((task) => [task.id, task]));
+	const free = (task: TaskRecord) =>
+		task.lane === null ||
+		task.blockedBy.every(
+			(id) => placed.has(id) || byId.get(id)?.lane !== task.lane,
 		);
 	const order: TaskRecord[] = [];
 	while (pending.length > 0) {
 		// The links have no loop, so one is always free; the first stands in
 		// for safety, should a hand-edited file ever make one.
 		const at = Math.max(0, pending.findIndex(free));
-		const [todo] = pending.splice(at, 1) as [TaskRecord];
-		placed.add(todo.id);
-		order.push(todo);
+		const [task] = pending.splice(at, 1) as [TaskRecord];
+		placed.add(task.id);
+		order.push(task);
 	}
 	return order;
 }
 
 /**
- * The first pair in `todos`, in list order, where a todo sits above one in
+ * The first pair in `tasks`, in list order, where a task sits above one in
  * its own lane that blocks it; null when the lanes all keep to their
  * links.
  */
 export function misordered(
-	todos: TaskRecord[],
-): { todo: TaskRecord; blockedBy: TaskRecord } | null {
-	const at = new Map(todos.map((todo, i) => [todo.id, i]));
-	for (const [i, todo] of todos.entries()) {
-		if (todo.lane === null) {
+	tasks: TaskRecord[],
+): { task: TaskRecord; blockedBy: TaskRecord } | null {
+	const at = new Map(tasks.map((task, i) => [task.id, i]));
+	for (const [i, task] of tasks.entries()) {
+		if (task.lane === null) {
 			continue;
 		}
-		for (const id of todo.blockedBy) {
-			const before = todos[at.get(id) ?? -1];
-			if (before && before.lane === todo.lane && (at.get(id) ?? -1) > i) {
-				return { todo, blockedBy: before };
+		for (const id of task.blockedBy) {
+			const before = tasks[at.get(id) ?? -1];
+			if (before && before.lane === task.lane && (at.get(id) ?? -1) > i) {
+				return { task, blockedBy: before };
 			}
 		}
 	}
 	return null;
 }
 
-/** A blocking todo, and the lane it is in by name: `#177 in Licensing`. */
+/** A blocking task, and the lane it is in by name: `#177 in Licensing`. */
 export function blockerLabel(
 	{ id, lane }: { id: number; lane: number | null },
 	records: LaneRecord[],
@@ -223,13 +223,13 @@ export function blockerLabel(
 }
 
 /**
- * A name for a lane holding `todos`, none of `taken`: its first todo's
+ * A name for a lane holding `tasks`, none of `taken`: its first task's
  * subject, numbered past any lane already called that. The user renames it
  * to what the run adds up to.
  */
-export function aptName(todos: TaskRecord[], taken: string[]): string {
+export function aptName(tasks: TaskRecord[], taken: string[]): string {
 	const used = new Set(taken.map((name) => name.toLowerCase()));
-	const base = todos[0]?.subject ?? "New lane";
+	const base = tasks[0]?.subject ?? "New lane";
 	let name = base;
 	for (let count = 2; used.has(name.toLowerCase()); count++) {
 		name = `${base} ${count}`;
@@ -238,7 +238,7 @@ export function aptName(todos: TaskRecord[], taken: string[]): string {
 }
 
 /**
- * The todos a markdown text mentions as `#N`, once each, in the order
+ * The tasks a markdown text mentions as `#N`, once each, in the order
  * mentioned. Code spans and blocks are left out, where `#3` means something
  * else, as is `#N` inside a word or a link like `page#2`.
  */
@@ -262,10 +262,10 @@ export interface LaneRun {
 }
 
 /**
- * Why `todo` waits on the person, its blockers removed without merging,
+ * Why `task` waits on the person, its blockers removed without merging,
  * and how to let it go on.
  */
-export function lostLine(todo: TaskRecord): string {
-	const lost = todo.blockersLost ?? [];
-	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates todo update ${todo.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
+export function lostLine(task: TaskRecord): string {
+	const lost = task.blockersLost ?? [];
+	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates task update ${task.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
 }

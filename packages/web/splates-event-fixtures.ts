@@ -14,7 +14,7 @@ export type FixtureItem =
 export function fixtureThread(now: number): FixtureItem[] {
 	const at = (mins: number) => new Date(now + mins * 60_000).toISOString();
 	return [
-		{ kind: "user", text: "[SPLATES TODO #225]" },
+		{ kind: "user", text: "[SPLATES TASK #225]" },
 		{
 			kind: "event",
 			event: {

@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Event } from "./probe";
 import { launchIsolated } from "./probe-adapters";
@@ -124,4 +124,25 @@ export async function seedFile(
 }
 function quote(value: string): string {
 	return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * The record of the started task `slug` under `.git/splates/tasks`, which
+ * keeps each task in a file named for its number; null when none is there.
+ */
+export async function taskRecord(
+	repository: string,
+	slug: string,
+): Promise<{ path: string; record: Record<string, any> } | null> {
+	const directory = join(repository, ".git/splates/tasks");
+	for (const name of await readdir(directory).catch(() => [])) {
+		if (/^\d+\.json$/.test(name)) {
+			const path = join(directory, name);
+			const record = JSON.parse(await readFile(path, "utf8"));
+			if (record.task === slug) {
+				return { path, record };
+			}
+		}
+	}
+	return null;
 }

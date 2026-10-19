@@ -1,26 +1,26 @@
 import type { AgentPick } from "../models";
 
-/** What a chat with an agent takes to mean todo `id`. */
-export function todoReference(id: number): string {
-	return `[SPLATES TODO #${id}]`;
+/** What a chat with an agent takes to mean task `id`. */
+export function taskNumberReference(id: number): string {
+	return `[SPLATES TASK #${id}]`;
 }
 
 /**
- * What the untriaged lane, the todos in no lane, goes by where a lane's
+ * What the untriaged lane, the tasks in no lane, goes by where a lane's
  * number would: `[SPLATES LANE untriaged]`, `splates lane show untriaged`.
  */
 export const UNTRIAGED = "untriaged";
 
 /**
  * What a chat with an agent takes to mean "work down lane `id`", or, for
- * null, "place the untriaged todos in lanes, then work those down".
+ * null, "place the untriaged tasks in lanes, then work those down".
  */
 export function laneReference(id: number | null): string {
 	return `[SPLATES LANE ${id ?? UNTRIAGED}]`;
 }
 
 /**
- * What tells the project's groomer that todo `id` was added from a task, for
+ * What tells the project's groomer that task `id` was queued from a started task, for
  * it to check, place, link and name the model of, as `Groomer` sends.
  */
 export function groomReference(id: number): string {
@@ -71,32 +71,32 @@ export function idleReference(task: string): string {
 }
 
 /**
- * What tells a lane's orchestrator that todo `id`, in a lane it works, left
- * the list: merged, or removed.
+ * What tells a lane's orchestrator that task `id`, in a lane it works, left
+ * the queue: merged, or removed.
  */
-export function todoDoneReference(id: number): string {
-	return `[SPLATES TODO DONE #${id}]`;
+export function taskDoneReference(id: number): string {
+	return `[SPLATES TASK DONE #${id}]`;
 }
 
 /**
- * What tells a lane's orchestrator that todo `id`, in a lane it works, is
- * open again: the task that took it released it or was removed.
+ * What tells a lane's orchestrator that task `id`, in a lane it works, is
+ * queued again: the task that took it released it or was removed.
  */
-export function todoOpenReference(id: number): string {
-	return `[SPLATES TODO OPEN #${id}]`;
+export function taskOpenReference(id: number): string {
+	return `[SPLATES TASK OPEN #${id}]`;
 }
 
 /**
- * What tells a lane's orchestrator that todo `id` came into a running lane
+ * What tells a lane's orchestrator that task `id` came into a running lane
  * it works, added there or moved in, so it plans it in.
  */
-export function todoAddedReference(id: number): string {
-	return `[SPLATES TODO ADDED #${id}]`;
+export function taskAddedReference(id: number): string {
+	return `[SPLATES TASK ADDED #${id}]`;
 }
 
 /**
  * What `splates server` tells the agent of a running lane's task that ended
- * a turn with its task still under way, once, before its todo is marked
+ * a turn with its task still under way, once, before its task is marked
  * stuck: what a lane's orchestrator told it with `splates tell` before the
  * lanes ran on their own.
  */
@@ -105,18 +105,18 @@ export const CARRY_ON =
 
 /**
  * What tells a lane's orchestrator that every lane it works is done, however
- * the last todo landed, so it ends on its Finished report.
+ * the last task landed, so it ends on its Finished report.
  */
 export const LANES_DONE = "[SPLATES LANES DONE]";
 
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
- * tasks out, or the groomer: a report, idle, a todo done, open,
+ * tasks out, or the groomer: a report, idle, a task done, open,
  * added or to groom, or lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[(?:SPLATES|ARBOR) (?:(?:REPORT|IDLE) [^\]]+|TODO (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|LANES DONE)\]$/.test(
-		text.trim(),
+	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|LANES DONE)\]$/.test(
+		directive(text),
 	);
 }
 
@@ -153,7 +153,7 @@ export const MERGE = "[SPLATES MERGE]";
 export const APPROVE = "[SPLATES APPROVE]";
 
 /**
- * What asks an agent to make the request after it a todo rather than do it,
+ * What asks an agent to make the request after it a queued task rather than do it,
  * or, alone, to make the person's message before it one, with what it did on
  * it since, and stop, as the composer's Defer offers: the splates skill says
  * what it means.
@@ -204,13 +204,18 @@ export function leadingDirectives(text: string): {
 /** arbor's directive prefix, read as splates's for one release. */
 const LEGACY_DIRECTIVE = "[ARBOR ";
 
+/** A todo's directive from before todos became tasks, read as a task's. */
+const LEGACY_TODO = /^\[SPLATES TODO (?=(?:(?:DONE|OPEN|ADDED) )?#\d+\]$)/;
+
 /**
- * `text` trimmed, read as splates's directive when it is one of arbor's, as a
- * conversation from before the rename holds.
+ * `text` trimmed, read as splates's directive when it is one of arbor's, and
+ * as a task's when it is a todo's, as a conversation from before either
+ * rename holds.
  */
 export function directive(text: string): string {
 	const trimmed = text.trim();
-	return trimmed.startsWith(LEGACY_DIRECTIVE)
+	const splates = trimmed.startsWith(LEGACY_DIRECTIVE)
 		? `[SPLATES ${trimmed.slice(LEGACY_DIRECTIVE.length)}`
 		: trimmed;
+	return splates.replace(LEGACY_TODO, "[SPLATES TASK ");
 }

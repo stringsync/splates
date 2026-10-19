@@ -62,7 +62,7 @@ describe("dev conversations a lane's orchestrator started", () => {
 	const write = (id: string, path: string, method: string, body: object) =>
 		json(server.port, `/api/conversations/${id}/${path}`, method, body);
 
-	it("starts the agent it hands a todo to answering to the person, it the starter", async () => {
+	it("starts the agent it hands a queued task to answering to the person, it the starter", async () => {
 		deps.proc.env.SPLATES_CONVERSATION = orchestrator.id;
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },

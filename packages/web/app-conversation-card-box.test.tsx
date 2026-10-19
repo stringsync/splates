@@ -381,8 +381,8 @@ describe("App's card answer boxes", () => {
 		await typeIn(box, "#12");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		expect(textIn(answer(view, "2"))).toBe("[SPLATES TODO #12] ");
-		expect(answer(view, "2").textContent).not.toContain("[SPLATES TODO #12]");
+		expect(textIn(answer(view, "2"))).toBe("[SPLATES TASK #12] ");
+		expect(answer(view, "2").textContent).not.toContain("[SPLATES TASK #12]");
 		await typeIn(answer(view, "2"), "#Header");
 		await act(async () =>
 			fireEvent.keyDown(answer(view, "2"), { key: "Enter" }),

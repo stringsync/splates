@@ -61,11 +61,11 @@ export {
 	RESUME,
 	reportReference,
 	setupReference,
+	taskAddedReference,
+	taskDoneReference,
+	taskNumberReference,
+	taskOpenReference,
 	taskReference,
-	todoAddedReference,
-	todoDoneReference,
-	todoOpenReference,
-	todoReference,
 	UNTRIAGED,
 } from "./prompts";
 export type { Answer } from "./reply";

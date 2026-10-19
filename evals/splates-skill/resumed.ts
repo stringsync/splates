@@ -14,8 +14,8 @@ import type { Scenario } from "./scenario";
 const PICK_UP =
 	"[SPLATES TASK retry-413]\n\nPick it up and stop before the first code change; say in one line where it stands.";
 
-/** Takes todo #1 as `retry-413`, with SPLATES.md planned and nothing coded yet. */
-const PLANNED = `splates add retry-413 --todo 1 && cat > "$(splates path retry-413)/SPLATES.md" <<'EOF'
+/** Takes queued task #1 as `retry-413`, with SPLATES.md planned and nothing coded yet. */
+const PLANNED = `splates add retry-413 --task 1 && cat > "$(splates path retry-413)/SPLATES.md" <<'EOF'
 # retry-413
 
 ## Goal

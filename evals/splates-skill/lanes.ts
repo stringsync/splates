@@ -6,9 +6,9 @@ import { CORE, type Scenario } from "./scenario";
 
 // The scenarios that make the agent a lane's orchestrator. Run as an agent
 // `splates server` started, it plans the lane and sets it running: it links
-// what must wait, names a model on each todo, runs `splates lane run`, and
+// what must wait, names a model on each queued task, runs `splates lane run`, and
 // hands out and does none itself, never waiting on the agents the lane
-// starts. It acts again when splates wakes it: a todo come into the lane, an
+// starts. It acts again when splates wakes it: a task come into the lane, an
 // agent stuck, a resume, a change of course. Without `splates server`, nothing
 // runs the lane, so it lands it through its own subagents instead.
 
@@ -65,12 +65,12 @@ function runs(lane: string): EvalCheck {
 	};
 }
 
-/** The todo `id` as the repository ends, if still listed. */
-function todoAt(
+/** The queued task `id` as the repository ends, if still listed. */
+function queuedAt(
 	end: EndRepo,
 	id: number,
 ): { blockedBy?: number[]; assignee?: { agent?: string } } | undefined {
-	return end.todos.find((todo) => todo.id === id) as
+	return end.queued.find((each) => each.id === id) as
 		| { blockedBy?: number[]; assignee?: { agent?: string } }
 		| undefined;
 }
@@ -82,7 +82,7 @@ function names(...ids: number[]): EvalCheck {
 		rule: `Names an agent and model on ${ids.map((id) => `#${id}`).join(" and ")}`,
 		judge: ({ end }) => {
 			const bare = ids.filter(
-				(id) => todoAt(end, id)?.assignee?.agent === undefined,
+				(id) => queuedAt(end, id)?.assignee?.agent === undefined,
 			);
 			return [
 				{
@@ -97,7 +97,7 @@ function names(...ids: number[]): EvalCheck {
 	};
 }
 
-/** Ends with todo `id` blocked by `by`, or, when `linked` is false, not. */
+/** Ends with queued task `id` blocked by `by`, or, when `linked` is false, not. */
 function links(
 	id: number,
 	by: number,
@@ -108,7 +108,7 @@ function links(
 		id: linked ? "links" : "leaves-unlinked",
 		rule: `${linked ? "Links" : "Leaves"} #${id} ${linked ? "blocked by" : "unblocked by"} #${by}: ${why}`,
 		judge: ({ end }) => {
-			const is = todoAt(end, id)?.blockedBy?.includes(by) ?? false;
+			const is = queuedAt(end, id)?.blockedBy?.includes(by) ?? false;
 			return [
 				{
 					ok: is === linked,
@@ -119,20 +119,20 @@ function links(
 	};
 }
 
-/** The todos `beats` hand out, in order, by `splates add --todo`. */
+/** The queued tasks `beats` hand out, in order, by `splates add --task`. */
 function handedOut(beats: Beat[]): string[] {
 	return splatesRuns(beats)
-		.filter((run) => run.verb === "add" && run.args.includes("--todo"))
-		.map((run) => run.args[run.args.indexOf("--todo") + 1] ?? "");
+		.filter((run) => run.verb === "add" && run.args.includes("--task"))
+		.map((run) => run.args[run.args.indexOf("--task") + 1] ?? "");
 }
 
 /**
- * Hands out no todo and does none itself: the lane starts each, so it takes
- * none with `splates add --todo`, writes no code and runs no subagent.
+ * Hands out no queued task and does none itself: the lane starts each, so it takes
+ * none with `splates add --task`, writes no code and runs no subagent.
  */
 const HANDS_OFF: EvalCheck = {
 	id: "hands-off",
-	rule: "Hands out no todo with splates add, writing no code and running no subagent",
+	rule: "Hands out no queued task with splates add, writing no code and running no subagent",
 	judge: ({ log }) => {
 		const beats = log.transcript.beats;
 		const taken = handedOut(beats);
@@ -164,7 +164,7 @@ const NEVER_WAITS: EvalCheck = {
 		const beats = log.transcript.beats;
 		const waited = splatesRuns(beats).some(
 			(run) =>
-				run.verb === "wait" || (run.verb === "todo" && run.args[0] === "wait"),
+				run.verb === "wait" || (run.verb === "task" && run.args[0] === "wait"),
 		);
 		const slept = beats.some(
 			(beat) => beat.kind === "run" && /\bsleep\b/.test(beat.command),
@@ -193,7 +193,7 @@ const AS_DEV = [HANDS_OFF, NEVER_WAITS, WORKING];
 
 /** #3, unlinked from #1, in a file of its own. */
 const APART =
-	"splates todo update 3 --remove-blocked-by 1 --subject 'Describe a refused upload in words' 'Add `describe(status)` in a new `src/describe.ts` that turns a refusal status into a sentence. It does not touch `src/upload.ts`.'";
+	"splates task update 3 --remove-blocked-by 1 --subject 'Describe a refused upload in words' 'Add `describe(status)` in a new `src/describe.ts` that turns a refusal status into a sentence. It does not touch `src/upload.ts`.'";
 
 /** Plans the lane: names a model on #1 and #3, keeps #3 waiting on #1, and runs it, never touching untriaged #2. */
 export const LANE: Scenario = {
@@ -228,7 +228,7 @@ export const LANE: Scenario = {
 	],
 };
 
-/** Leaves a lane's two todos on separate files unlinked, so both start at once. */
+/** Leaves a lane's two queued tasks on separate files unlinked, so both start at once. */
 export const PARALLEL: Scenario = {
 	id: "lane-parallel",
 	turns: ["[SPLATES LANE 1]"],
@@ -245,11 +245,11 @@ export const PARALLEL: Scenario = {
 	rubric: [],
 };
 
-/** Links a lane's unlinked todo that changes the same file as the one above it. */
+/** Links a lane's unlinked queued task that changes the same file as the one above it. */
 export const SAME_FILES: Scenario = {
 	id: "lane-same-files",
 	turns: ["[SPLATES LANE 1]"],
-	setup: "splates todo update 3 --remove-blocked-by 1",
+	setup: "splates task update 3 --remove-blocked-by 1",
 	dev: true,
 	sections: [...CORE, ...LANES],
 	checks: [
@@ -262,9 +262,9 @@ export const SAME_FILES: Scenario = {
 	rubric: [],
 };
 
-/** Todo #1 handed out as retry-413 to an agent `splates server` started, which has yet to land it. */
-const HANDED = `splates add retry-413 --todo 1 --agent claude --model sonnet --prompt 'Stop retrying on a 413.' >/dev/null && bun -e '
-const path = ".git/splates/tasks/retry-413.json";
+/** Task #1 handed out as retry-413 to an agent `splates server` started, which has yet to land it. */
+const HANDED = `splates add retry-413 --task 1 --agent claude --model sonnet --prompt 'Stop retrying on a 413.' >/dev/null && bun -e '
+const path = ".git/splates/tasks/1.json";
 const state = await Bun.file(path).json();
 const { pending, ...dispatch } = state.dispatch;
 await Bun.write(path, JSON.stringify({ ...state, dispatch: { ...dispatch, conversation: "agent-413" } }, null, "\\t"));
@@ -272,13 +272,13 @@ await Bun.write(path, JSON.stringify({ ...state, dispatch: { ...dispatch, conver
 
 /** Lane 1 planned and running, with #1 and #3 each naming a model. */
 const RUNNING =
-	"splates todo update 1 --agent claude --model sonnet >/dev/null && splates todo update 3 --agent claude --model sonnet >/dev/null && splates lane run 1 >/dev/null";
+	"splates task update 1 --agent claude --model sonnet >/dev/null && splates task update 3 --agent claude --model sonnet >/dev/null && splates lane run 1 >/dev/null";
 
 /** Plans untriaged #2 in once it comes into the running lane, leaving it to start. */
 export const ADDED: Scenario = {
 	id: "lane-added",
-	turns: ["[SPLATES TODO ADDED #2]"],
-	setup: `${RUNNING} && splates todo update 2 --lane 1 >/dev/null`,
+	turns: ["[SPLATES TASK ADDED #2]"],
+	setup: `${RUNNING} && splates task update 2 --lane 1 >/dev/null`,
 	dev: true,
 	sections: [...CORE, ...LANES, "What wakes you"],
 	checks: [
@@ -328,12 +328,12 @@ export const IDLE: Scenario = {
 
 /** The pivot the person asks for once the orchestrator resumed. */
 const PIVOT =
-	"Change of plans: the server will cap upload sizes itself, so drop the 413 work. Stop retry-413 and drop it with todo #1, but keep #3.";
+	"Change of plans: the server will cap upload sizes itself, so drop the 413 work. Stop retry-413 and drop it with task #1, but keep #3.";
 
 /**
  * Resumes the lane with #1 already out, leaving it to its agent and setting
  * the lane running, then drops it at the person's word: stops its agent
- * first, removes the task and the todo, and keeps #3 for the lane to start.
+ * first, removes the started task and the queued one, and keeps #3 for the lane to start.
  */
 export const PIVOT_LANE: Scenario = {
 	id: "lane-pivot",
@@ -365,7 +365,7 @@ export const PIVOT_LANE: Scenario = {
 		},
 		{
 			id: "stops-then-drops",
-			rule: "Stops retry-413's agent with tell --stop before removing the task, then removes todo #1",
+			rule: "Stops retry-413's agent with tell --stop before removing the task, then removes task #1",
 			judge: ({ log }) => {
 				const all = splatesRuns(turnsOf(log.transcript.beats)[1] ?? []);
 				const stop = all.findIndex(
@@ -379,7 +379,7 @@ export const PIVOT_LANE: Scenario = {
 				);
 				const dropped = all.some(
 					(run) =>
-						run.verb === "todo" &&
+						run.verb === "task" &&
 						run.args[0] === "remove" &&
 						run.args.includes("1"),
 				);
@@ -396,7 +396,7 @@ export const PIVOT_LANE: Scenario = {
 			id: "keeps-going",
 			rule: "Keeps #3 on the list, naming a model on it, for the lane to start",
 			judge: ({ end }) => {
-				const kept = todoAt(end, 3);
+				const kept = queuedAt(end, 3);
 				const named = kept?.assignee?.agent !== undefined;
 				return [
 					{
@@ -417,7 +417,7 @@ export const PIVOT_LANE: Scenario = {
 };
 
 /**
- * Without `splates server`, lands a lane's two unlinked todos through subagents
+ * Without `splates server`, lands a lane's two unlinked queued tasks through subagents
  * of its own, since no agent it names would start.
  */
 export const NO_DEV: Scenario = {
@@ -429,7 +429,7 @@ export const NO_DEV: Scenario = {
 		STARTED,
 		{
 			id: "no-agent-flag",
-			rule: "Never hands a todo out with --agent, which nothing would start",
+			rule: "Never hands a queued task out with --agent, which nothing would start",
 			judge: ({ log }) => {
 				const flagged = splatesRuns(log.transcript.beats).some(
 					(run) => run.verb === "add" && run.args.includes("--agent"),
@@ -444,7 +444,7 @@ export const NO_DEV: Scenario = {
 		},
 		{
 			id: "lane-done",
-			rule: "Lands both todos and ends on a Finished lanes report",
+			rule: "Lands both queued tasks and ends on a Finished lanes report",
 			judge: ({ log, end }) => {
 				const landed = end.main.length - SEEDED;
 				const finished = lastSaid(log.transcript.beats).startsWith(
@@ -473,7 +473,7 @@ export const UNTRIAGED: Scenario = {
 		...CORE,
 		...LANES,
 		"Working the untriaged lane",
-		"Linking, placing and ordering todos",
+		"Linking, placing and ordering tasks",
 		"Lanes",
 	],
 	checks: [
@@ -485,7 +485,7 @@ export const UNTRIAGED: Scenario = {
 				const all = splatesRuns(log.transcript.beats);
 				const placed = all.findIndex(
 					(run) =>
-						run.verb === "todo" &&
+						run.verb === "task" &&
 						run.args[0] === "update" &&
 						run.args[1] === "2" &&
 						run.args.includes("--lane"),

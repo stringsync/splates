@@ -118,8 +118,8 @@ it("seeds a real minimal repository and permits read-only observations after the
 
 it("normalizes real argv forms without parsing shell text", () => {
 	expect(
-		normalizeCommand(["bunx", "splates", "todo", "add", "quoted title"]),
-	).toEqual({ name: "splates", args: ["todo", "add", "quoted title"] });
+		normalizeCommand(["bunx", "splates", "task", "add", "quoted title"]),
+	).toEqual({ name: "splates", args: ["task", "add", "quoted title"] });
 	expect(normalizeCommand(["/sandbox/bin/splates", "merge"])).toEqual({
 		name: "splates",
 		args: ["merge"],

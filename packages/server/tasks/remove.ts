@@ -26,13 +26,13 @@ export async function remove(
 	{
 		service,
 		log,
-		todos,
+		tasks: queue,
 		slots,
 		branches,
 	}: {
 		service: WorktreeService;
 		log: Logger;
-		todos: Tasks;
+		tasks: Tasks;
 		slots: Slots;
 		branches: TaskBranches;
 	},
@@ -81,9 +81,9 @@ export async function remove(
 	const deleted = pushedLine(await branches.delete(task), "deleted");
 
 	// The work was thrown away, not done, so what it took up is open again.
-	const released = await todos.takenBy(task);
-	for (const todo of released) {
-		await todo.release();
+	const released = await queue.takenBy(task);
+	for (const each of released) {
+		await each.release();
 	}
 
 	const lines = [
@@ -105,8 +105,8 @@ export async function remove(
 	if (deleted !== null) {
 		lines.push(deleted);
 	}
-	for (const todo of released) {
-		lines.push(`  todo ${todo.id} is open again: ${todo.subject}`);
+	for (const each of released) {
+		lines.push(`  task ${each.id} is open again: ${each.subject}`);
 	}
 	log.info(lines.join("\n"));
 	return {
