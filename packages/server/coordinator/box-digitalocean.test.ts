@@ -18,7 +18,10 @@ describe("CoordinatorBox in DigitalOcean", () => {
 		fs = new FakeFs();
 		digitalocean = new FakeDigitalOcean();
 		digitalocean.actionsRun = true;
-		digitalocean.stock = { nyc3: ["s-2vcpu-4gb"], sfo3: ["s-2vcpu-4gb"] };
+		digitalocean.stock = {
+			nyc3: ["s-2vcpu-4gb-intel"],
+			sfo3: ["s-2vcpu-4gb-intel"],
+		};
 		const store = new FakeSecretStore();
 		await store.set(DIGITALOCEAN_TOKEN, "token");
 		await new ChosenCloud(HOME, fs).choose("digitalocean");
@@ -46,7 +49,7 @@ describe("CoordinatorBox in DigitalOcean", () => {
 		expect(standing).toEqual({
 			ipv4: `203.0.113.${made?.id}`,
 			serverId: String(made?.id),
-			serverType: "s-2vcpu-4gb",
+			serverType: "s-2vcpu-4gb-intel",
 			location: "nyc3",
 			key: KEY,
 		});
@@ -63,7 +66,10 @@ describe("CoordinatorBox in DigitalOcean", () => {
 	});
 
 	it("makes it in the next region when New York cannot take its size", async () => {
-		digitalocean.stock = { nyc3: ["s-1vcpu-2gb"], sfo3: ["s-2vcpu-4gb"] };
+		digitalocean.stock = {
+			nyc3: ["s-2vcpu-4gb"],
+			sfo3: ["s-2vcpu-4gb-intel"],
+		};
 
 		const standing = await box.up();
 
@@ -72,10 +78,10 @@ describe("CoordinatorBox in DigitalOcean", () => {
 	});
 
 	it("makes nothing when no region can take its size", async () => {
-		digitalocean.stock = { nyc3: ["s-1vcpu-2gb"] };
+		digitalocean.stock = { nyc3: ["s-2vcpu-4gb"] };
 
 		await expect(box.up()).rejects.toThrow(
-			"DigitalOcean cannot make a s-2vcpu-4gb in nyc3, nyc1, sfo3 right now",
+			"DigitalOcean cannot make a s-2vcpu-4gb-intel in nyc3, nyc1, sfo3 right now",
 		);
 		expect(digitalocean.droplets.size).toBe(0);
 	});
