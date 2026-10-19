@@ -97,7 +97,7 @@ describe("App's attachments", () => {
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "and this", file: [shot] } },
+				{ method: "POST", body: { text: "and this [Image 1]", file: [shot] } },
 			]),
 		);
 	});

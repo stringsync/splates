@@ -5,9 +5,11 @@ import type {
 } from "@assistant-ui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Annotation } from "#web/annotation.ts";
+import { ATTACHMENT_REFERENCE, attachmentName } from "./attachment-chips";
 import type { Reply } from "./card-reply";
 import { SEEN } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import { fileShelf } from "./files";
 
 /**
  * Keeps what is typed in `runtime`'s composer in `drafts` under `key`, and
@@ -120,6 +122,26 @@ export function said(message: AppendMessage): string {
 		.map((part) => (part.type === "text" ? part.text : ""))
 		.join("")
 		.trim();
+}
+
+/**
+ * `text` with the chip of each of `files` it never names written after its
+ * words, as it would stand had the chip been left in them, so the sent message
+ * draws it in the line with them rather than in a row above.
+ */
+export function named(text: string, files: readonly File[]): string {
+	const called = new Set(
+		[...text.matchAll(new RegExp(ATTACHMENT_REFERENCE.source, "g"))].map(
+			(found) => found[1],
+		),
+	);
+	const counts = { image: 0, file: 0 };
+	const loose = files.flatMap((file) => {
+		const shelf = fileShelf(file);
+		const name = attachmentName(shelf, counts[shelf]++);
+		return called.has(name) ? [] : [`[${name}]`];
+	});
+	return [text, ...loose].filter((each) => each !== "").join(" ");
 }
 
 /**

@@ -8,7 +8,14 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aborts } from "webappwiz/abort";
 import { useAdapters } from "./adapters";
-import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
+import {
+	filesOf,
+	named,
+	noted,
+	said,
+	useDictated,
+	useDraft,
+} from "./composer-drafts";
 import {
 	cancelConversation,
 	promptConversation,
@@ -100,8 +107,9 @@ export function useThreadRuntime(
 	const dictated = useRef<() => boolean>(() => false);
 	const say = useCallback(
 		(message: AppendMessage) => {
+			const files = filesOf(message);
 			const text = said(message);
-			return send(text, filesOf(message), text !== "" && dictated.current());
+			return send(named(text, files), files, text !== "" && dictated.current());
 		},
 		[send],
 	);
