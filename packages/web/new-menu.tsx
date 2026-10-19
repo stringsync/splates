@@ -79,7 +79,7 @@ export function NewMenu({
 						type="button"
 						aria-current={startsOne(open) ? "page" : undefined}
 						className={cn(
-							"mb-3 flex h-10 flex-none items-center gap-2.5 rounded-lg border bg-background px-3 text-left text-foreground text-sm hover:bg-accent",
+							"mt-2 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-lg border bg-background px-3 text-left text-foreground text-sm hover:bg-accent",
 							startsOne(open) && "bg-accent",
 						)}
 					/>
