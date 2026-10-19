@@ -143,7 +143,7 @@ export function useSidePanes({
 			return;
 		}
 		terminals.toggle(conversation);
-		if (!terminals.open) {
+		if (terminals.open === null) {
 			focusComposer();
 		}
 	};
@@ -152,11 +152,13 @@ export function useSidePanes({
 			? null
 			: watched !== null
 				? { kind: "background", conversation: shown.id, background: watched.id }
-				: terminal
+				: terminal === shown.id
 					? { kind: "terminal", conversation: shown.id }
 					: null;
 	const paned =
-		reviewed !== undefined || watched !== null || (terminal && shown !== null);
+		reviewed !== undefined ||
+		watched !== null ||
+		(shown !== null && terminal === shown.id);
 	const pane =
 		reviewed !== undefined ? (
 			<ChangesPane
@@ -175,8 +177,8 @@ export function useSidePanes({
 				onClose={closeWatching}
 			/>
 		) : (
-			terminal &&
-			shown !== null && (
+			shown !== null &&
+			terminal === shown.id && (
 				// One per conversation: its projections are of that one's shell.
 				<TerminalPane
 					key={shown.id}

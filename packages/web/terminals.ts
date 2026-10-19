@@ -13,9 +13,10 @@ export type TerminalsEvents = {
  * The page's shells, one per conversation, each started in that
  * conversation's tree the first time its pane opens, and kept running while
  * the pane is shut or another conversation is up, until the browser tab
- * closes. Whether the pane is open is one setting for every conversation, the
- * way an editor's side panel stays put as you switch files, and outlives a
- * reload in `storage`, as each name a terminal was given does. The main tree's own terminals, opened from New, are
+ * closes. The pane shows the terminal of the one conversation it was last
+ * opened beside, never another's as you move to it, so a shell starts only
+ * where one was asked for; which one outlives a reload in `storage`, as each
+ * name a terminal was given does. The main tree's own terminals, opened from New, are
  * more shells, kept under `terminal/<n>` until closed. A shell that exits is
  * closed with it, as a terminal's window would be. It changes whenever one of
  * its shells does.
@@ -24,8 +25,8 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<TerminalsEvents>();
 	readonly events = this.dispatcher.events;
 
-	/** Whether the pane beside a conversation shows its terminal. */
-	open: boolean;
+	/** The conversation whose terminal the pane beside it shows, or null. */
+	open: string | null;
 
 	/**
 	 * The conversation whose pane was just shown, whose terminal takes the
@@ -55,7 +56,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		{ timer = new SystemTimer() }: { timer?: Timer } = {},
 	) {
 		this.timer = timer;
-		this.open = this.stored() === "open";
+		this.open = this.stored();
 		this.names = this.storedNames();
 	}
 
@@ -116,19 +117,23 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	/** Shows the pane beside `conversation`, or hides it. */
 	toggle(conversation: string): void {
-		this.set(!this.open, conversation);
+		this.set(this.open === conversation ? null : conversation);
 	}
 
 	/** Shows the pane beside `conversation`, its terminal taking the keyboard. */
 	show(conversation: string): void {
-		this.set(true, conversation);
+		this.set(conversation);
 	}
 
-	private set(open: boolean, conversation: string | null): void {
+	private set(open: string | null): void {
 		this.open = open;
-		this.focusing = open ? conversation : null;
+		this.focusing = open;
 		try {
-			this.storage.setItem(KEY, this.open ? "open" : "hidden");
+			if (open === null) {
+				this.storage.removeItem(KEY);
+			} else {
+				this.storage.setItem(KEY, open);
+			}
 		} catch {
 			// Storage refused, full or off: the pane stays as set until a reload.
 		}
@@ -137,7 +142,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	/** Hides the pane, for the conversation whose shell just exited. */
 	hide(): void {
-		this.set(false, null);
+		this.set(null);
 	}
 
 	/**
@@ -202,6 +207,9 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	 * a main-tree terminal is closed.
 	 */
 	close(conversation: string): void {
+		if (this.open === conversation) {
+			this.hide();
+		}
 		this.forget(conversation);
 		this.mains = this.mains.filter((each) => each !== conversation);
 		if (this.sessions.has(conversation)) {
@@ -217,6 +225,9 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private exited(key: string): void {
 		const session = this.sessions.get(key);
 		this.sessions.delete(key);
+		if (this.open === key) {
+			this.hide();
+		}
 		this.forget(key);
 		this.mains = this.mains.filter((each) => each !== key);
 		this.dispatcher.dispatch("exited", key);
@@ -275,8 +286,12 @@ export function numberOf(key: string): number {
 	return Number(key.slice(MAIN.length + 1)) || 0;
 }
 
-/** Where the pane's state is kept, beside the drafts' `splates.draft.` keys. */
-const KEY = "splates.terminal";
+/**
+ * Where the conversation the pane is open beside is kept, beside the drafts'
+ * `splates.draft.` keys. Not `splates.terminal`, which held one open or
+ * hidden for every conversation.
+ */
+const KEY = "splates.terminal.beside";
 
 /** Where the names terminals were given are kept. */
 const NAMES = "splates.terminal.names";

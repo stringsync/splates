@@ -81,9 +81,10 @@ export function TerminalPane({
 	const { session } = useReactive(
 		terminals,
 		(terminals) => ({
-			session: terminals.open
-				? terminals.sessionFor(conversation.id, conversation.task)
-				: null,
+			session:
+				terminals.open === conversation.id
+					? terminals.sessionFor(conversation.id, conversation.task)
+					: null,
 		}),
 		["changed"],
 	);

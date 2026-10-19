@@ -378,28 +378,39 @@ describe("App's terminal", () => {
 		await press(TOGGLE);
 
 		await go("#conversations/c2");
+		await press(TOGGLE);
 		await go("#conversations/c1");
 
 		expect(testing.shells.map((shell) => shell.task)).toEqual([null, "alpha"]);
 		expect(testing.shells.map((shell) => shell.readyState)).toEqual([0, 0]);
 	});
 
-	it("takes the keyboard when shown, and leaves it to the composer of a conversation moved to", async () => {
+	it("takes the keyboard when shown", async () => {
+		const view = await reading();
+
+		await press(TOGGLE);
+
+		expect(document.activeElement).toBe(
+			within(view.getByTestId("terminal")).getByRole("textbox"),
+		);
+	});
+
+	it("shows no terminal beside another conversation moved to, starting no shell there, and shows it again back where it was asked for", async () => {
 		const view = await reading([
 			conversation({ id: "c1", title: "One" }),
 			conversation({ id: "c2", title: "Two" }),
 		]);
-
 		await press(TOGGLE);
-		expect(document.activeElement).toBe(
-			within(view.getByTestId("terminal")).getByRole("textbox"),
-		);
 
 		await go("#conversations/c2");
 
-		expect(document.activeElement).not.toBe(
-			within(view.getByTestId("terminal")).getByRole("textbox"),
-		);
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+		expect(testing.shells).toHaveLength(1);
+
+		await go("#conversations/c1");
+
+		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
+		expect(testing.shells).toHaveLength(1);
 	});
 
 	it("hides the pane once the shell exits, and starts another when shown again", async () => {
@@ -427,7 +438,7 @@ describe("App's terminal", () => {
 		).toBe("Connecting");
 	});
 
-	it("drops the shell of a conversation not up once it exits, leaving the pane shown", async () => {
+	it("drops the shell of a conversation not up once it exits, starting none when it comes back up", async () => {
 		const view = await reading([
 			conversation({ id: "c1", title: "One" }),
 			conversation({ id: "c2", title: "Two" }),
@@ -436,13 +447,12 @@ describe("App's terminal", () => {
 		const [shell] = testing.shells;
 		await act(async () => shell?.accept());
 		await go("#conversations/c2");
-		await act(async () => testing.shells[1]?.accept());
 
 		await act(async () => shell?.exit(0));
-
-		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
 		await go("#conversations/c1");
-		expect(testing.shells).toHaveLength(3);
+
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+		expect(testing.shells).toHaveLength(1);
 	});
 
 	it("offers a shell where the conversation moved to, once its agent took a task", async () => {
