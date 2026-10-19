@@ -325,7 +325,15 @@ const ComposerAction: FC = () => {
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
-		<div className="aui-composer-action-wrapper relative flex min-h-10 min-w-0 flex-[1_1_auto] items-center justify-between gap-2">
+		<div
+			className={cn(
+				"aui-composer-action-wrapper relative flex min-h-10 min-w-0 flex-[1_1_auto] items-center justify-between gap-2",
+				// A take's waveform gets a line of its own below the input, however
+				// much room the line beside it has: sized by its first width, the
+				// strip would otherwise stay as short as where it started.
+				dictating && "basis-full",
+			)}
+		>
 			<div
 				className={cn(
 					"flex min-w-0 items-center gap-0 overflow-hidden",
