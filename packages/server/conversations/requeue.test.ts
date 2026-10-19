@@ -127,7 +127,7 @@ describe("A conversation whose worker is removed under it", () => {
 		const conversation = await conversations.start("fake", {
 			task,
 			cwd: task === null ? "/repo" : `/repo-splates/${task}`,
-			startedBy: "orchestrator",
+			capped: true,
 		});
 		await until(conversation, "idle");
 		return conversation;

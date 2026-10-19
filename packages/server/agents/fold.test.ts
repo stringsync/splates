@@ -31,6 +31,7 @@ describe("fold", () => {
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		capped: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

@@ -113,6 +113,11 @@ export interface ConversationState {
 	 */
 	assigned: boolean;
 	/**
+	 * Started by the server's queue or a hook, so its agent holds one of the
+	 * workers' slots; the person's own conversations take none.
+	 */
+	capped: boolean;
+	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -520,6 +525,7 @@ export function blank(
 		startedBy,
 		skill: null,
 		assigned,
+		capped: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

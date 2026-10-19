@@ -221,6 +221,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model,
 			assigned,
 			startedBy,
+			capped,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -235,6 +236,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned?: boolean;
 			/** The lane orchestrator that handed it its task, which hears when it stops. */
 			startedBy?: string | null;
+			/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
+			capped?: boolean;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
@@ -254,6 +257,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				model,
 				assigned,
 				startedBy,
+				capped,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,

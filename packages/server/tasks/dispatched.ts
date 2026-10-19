@@ -42,6 +42,7 @@ export async function startDispatched({
 			// Answers to the person; the lane's orchestrator that started it
 			// only hears when it stops.
 			startedBy: worktree.caller,
+			capped: true,
 		});
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },

@@ -91,6 +91,7 @@ export function conversation(
 		startedBy: null,
 		skill: null,
 		assigned: false,
+		capped: false,
 		unread: false,
 		seen: 0,
 		messages: [],

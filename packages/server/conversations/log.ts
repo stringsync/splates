@@ -124,6 +124,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.startedBy ?? null,
 		);
 		state.skill = start.skill ?? null;
+		state.capped = start.capped ?? false;
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -441,6 +442,8 @@ type Said =
 			startedBy?: string;
 			/** The project's splates skill version; missing when it had none, or before it was kept. */
 			skill?: string;
+			/** Whether the server's queue or a hook started it; missing for one neither did. */
+			capped?: boolean;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }

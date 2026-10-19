@@ -101,12 +101,12 @@ describe("Conversations waiting for a slot", () => {
 
 	afterEach(() => conversations.disposeAsync());
 
-	/** Starts an agent on `task` as a lane's orchestrator hands one out. */
+	/** Starts an agent on `task` as the server's queue starts one. */
 	const start = (task: string) =>
 		conversations.start("fake", {
 			task,
 			cwd: `/repo-splates/${task}`,
-			startedBy: "orchestrator",
+			capped: true,
 		});
 
 	const restOut = () => {

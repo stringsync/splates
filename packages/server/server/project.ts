@@ -126,6 +126,7 @@ export async function serveProject(
 						cwd: root,
 						model: hook.model,
 						assigned: true,
+						capped: true,
 					});
 					void conversation
 						.prompt(

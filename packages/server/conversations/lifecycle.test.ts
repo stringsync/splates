@@ -241,6 +241,31 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.pinned).toBe(false);
 	});
 
+	it("keeps that the queue started it, holding a slot, and reads it back", async () => {
+		const queued = await conversations.start("fake", {
+			task: null,
+			cwd: "/repo",
+			capped: true,
+		});
+		const own = await started();
+		const reread = async () =>
+			(
+				await new Conversations("/repo/.git/splates/conversations", [AGENT], {
+					fs,
+					timer,
+					clock,
+					launch: agent.launch,
+				}).list()
+			).map(({ state }) => [state.id, state.capped]);
+
+		expect(await reread()).toEqual(
+			expect.arrayContaining([
+				[queued.id, true],
+				[own.id, false],
+			]),
+		);
+	});
+
 	it("keeps where the person nested it, and reads it back", async () => {
 		const conversation = await started();
 		expect(conversation.state.parent).toBeNull();

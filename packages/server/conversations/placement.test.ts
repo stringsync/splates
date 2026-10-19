@@ -118,7 +118,7 @@ describe("A conversation placed on a remote worker", () => {
 		conversations.start("fake", {
 			task: "login",
 			cwd: "/repo-splates/login",
-			startedBy: "orchestrator",
+			capped: true,
 		});
 
 	it("starts its agent in the checkout readied there", async () => {

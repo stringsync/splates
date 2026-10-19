@@ -297,6 +297,7 @@ export class Conversation
 			log: path,
 			assigned = false,
 			startedBy = null,
+			capped = false,
 			skill = null,
 		}: Opening,
 		deps: ConversationDeps,
@@ -315,6 +316,7 @@ export class Conversation
 			startedBy,
 		);
 		state.skill = skill;
+		state.capped = capped;
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -327,6 +329,7 @@ export class Conversation
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(startedBy === null ? {} : { startedBy }),
+			...(capped ? { capped } : {}),
 			...(skill === null ? {} : { skill }),
 		});
 		return conversation;
@@ -1087,9 +1090,12 @@ export class Conversation
 	}
 }
 
-/** Whether another agent started it, handing it its task, rather than the person. */
+/**
+ * Whether splates started it, from the queue or a hook, rather than the
+ * person; an older one a lane's orchestrator started counts too.
+ */
 function spawned(state: ConversationState): boolean {
-	return state.startedBy !== null;
+	return state.capped || state.startedBy !== null;
 }
 
 /** What a conversation is opened with, started afresh or brought in. */
@@ -1107,6 +1113,8 @@ interface Opening {
 	assigned?: boolean;
 	/** The lane orchestrator that handed it its task, which hears when it stops. */
 	startedBy?: string | null;
+	/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
+	capped?: boolean;
 	/** The project's splates skill version as it starts; null when it has none. */
 	skill?: string | null;
 }
