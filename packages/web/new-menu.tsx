@@ -10,8 +10,9 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { AgentIcon } from "./agent-icons";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import { agentFor, NEW } from "./conversation-address";
+import { agentFor, autoAddress, NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -94,6 +95,15 @@ export function NewMenu({
 					return (section === null ? null : composerIn(section)) ?? true;
 				}}
 			>
+				<DropdownMenuItem
+					onClick={() => {
+						picked.current = true;
+						openNew(autoAddress(null));
+					}}
+				>
+					<AutoIcon />
+					{AUTO_PICK_NAME}
+				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem
 						key={each.id}

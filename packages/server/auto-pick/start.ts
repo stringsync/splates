@@ -33,6 +33,9 @@ const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
 /** Which task Auto pick starts: a started one by name, or a queued one by number. */
 export type AutoPickTarget = { task: string } | { todo: number };
 
+/** Which words Auto pick judges: a task's, or those of a new conversation's first message. */
+export type AutoPickWords = AutoPickTarget | { words: string };
+
 /** How `startAutoPick` starts the conversation, in the tree it runs in. */
 export type AutoPickStart = (
 	agent: string,
@@ -63,18 +66,22 @@ export async function startAutoPick({
 }: {
 	project: Project;
 	conversations: Conversations;
-	target: AutoPickTarget;
+	target: AutoPickWords;
 	start: AutoPickStart;
 	/** The judge to ask; the one the project's creds give by default. */
 	judge?: () => Promise<Judge | null>;
 	now?: () => Date;
 }): Promise<Conversation> {
-	const record = await recordOf(project, target);
-	const { subject, detail } = await wordsOf(project, record);
+	// Words typed in a new conversation belong to no task, so keep no record.
+	const record = "words" in target ? null : await recordOf(project, target);
+	const { subject, detail } =
+		record === null
+			? wordsOfMessage("words" in target ? target.words : "")
+			: await wordsOf(project, record);
 	const key = classificationKey(subject, detail);
 	const context = await contextOf(project, conversations, now());
 	const { offered } = context;
-	const cached = cachedFor(record, key);
+	const cached = record === null ? null : cachedFor(record, key);
 
 	const fallback =
 		cached === null
@@ -92,10 +99,13 @@ export async function startAutoPick({
 		// Kept and logged before the agent opens on it, so its line leads what it says.
 		picking: deciding.then(
 			async (judged) => {
-				await settle(project, record.id, autoPicked(judged, key, now()), {
-					conversation,
-					judged: judged.judged,
-				});
+				const picked = autoPicked(judged, key, now());
+				await (record === null
+					? announce(project, conversation, picked, judged.judged)
+					: settle(project, record.id, picked, {
+							conversation,
+							judged: judged.judged,
+						}));
 				return opened(judged.decision);
 			},
 			(error: unknown) => {
@@ -165,6 +175,12 @@ export async function wordsOf(
 		? await new Plans(project.fs).read(worktree.path)
 		: null;
 	return { subject: record.subject, detail: goalOf(plan ?? "") };
+}
+
+/** What the judge reads of a first message: its first line as the subject, the rest as detail. */
+function wordsOfMessage(message: string): { subject: string; detail: string } {
+	const [first = "", ...rest] = message.trim().split("\n");
+	return { subject: first.trim(), detail: rest.join("\n").trim() };
 }
 
 /**

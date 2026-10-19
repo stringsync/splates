@@ -40,6 +40,12 @@ export async function startConversation(
 	})) as ConversationState;
 }
 
+/** A new conversation's first message for Auto pick to judge, in `task`'s tree or the main tree for null. */
+export interface AutoWords {
+	words: string;
+	task: string | null;
+}
+
 /**
  * Starts a conversation on what Auto pick decides for a task: a started one
  * by name, in its tree, or a queued one by number, in the main tree. The
@@ -48,7 +54,7 @@ export async function startConversation(
  * any start.
  */
 export async function startAutoPick(
-	target: { task: string } | { todo: number },
+	target: { task: string } | { todo: number } | AutoWords,
 ): Promise<ConversationState> {
 	return (await sendJson(
 		"/api/conversations/auto",

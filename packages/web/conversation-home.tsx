@@ -25,10 +25,21 @@ import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
-import { NEW, newAddress, settingsFor } from "./conversation-address";
-import { promptConversation, startConversation } from "./conversation-api";
+import {
+	AUTO,
+	autoAddress,
+	NEW,
+	newAddress,
+	settingsFor,
+} from "./conversation-address";
+import {
+	promptConversation,
+	startAutoPick,
+	startConversation,
+} from "./conversation-api";
 import {
 	type AgentChoice,
 	agentName,
@@ -72,6 +83,8 @@ export interface Starting {
 	agents: AgentChoice[];
 	/** The agent the conversation starts with, picked beside New conversation. */
 	agent: string;
+	/** Whether Auto pick chooses the agent from the first message, `agent` standing in until then. */
+	auto: boolean;
 	/** The task whose tree it starts in; null for the main tree. */
 	task: string | null;
 	/** The model it starts on, by its id on the roster; null for as picked. */
@@ -96,6 +109,7 @@ export function useNewConversation({
 	feed,
 	agents,
 	agent,
+	auto,
 	task,
 	model,
 	conversations,
@@ -142,15 +156,18 @@ export function useNewConversation({
 				...picks,
 			};
 			const prompt = noted(text, files);
-			const state = await startConversation(
-				agent,
-				task,
-				settings,
-				// Keep explicit requests even when the cached catalog no longer offers them.
-				// A manual replacement wins; the server validates the exact identity.
-				requested,
-				// Asked for by a todo's agent, so no pick of the person's.
-				model !== null,
+			const state = await (auto
+				? startAutoPick({ words: text, task })
+				: startConversation(
+						agent,
+						task,
+						settings,
+						// Keep explicit requests even when the cached catalog no longer offers them.
+						// A manual replacement wins; the server validates the exact identity.
+						requested,
+						// Asked for by a todo's agent, so no pick of the person's.
+						model !== null,
+					)
 			).catch((error: unknown) => {
 				void slide(() => setStarting(false));
 				restore.current(text, files);
@@ -195,8 +212,12 @@ export function useNewConversation({
 	const draft = newDraft(shownProject(), task);
 	// So its row in the sidebar opens it again with this agent and model.
 	useEffect(
-		() => drafts.place(draft, newAddress(agent, task, model)),
-		[drafts, draft, agent, task, model],
+		() =>
+			drafts.place(
+				draft,
+				auto ? autoAddress(task) : newAddress(agent, task, model),
+			),
+		[drafts, draft, auto, agent, task, model],
 	);
 	restore.current = useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
@@ -214,20 +235,20 @@ export function useNewConversation({
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
-	const controls =
-		offered.length > 0 ? (
-			<SettingControls
-				settings={offered}
-				current={current}
-				onChange={(setting, value) =>
-					setPicks((picks) => ({ ...picks, [setting.id]: value }))
-				}
-			/>
-		) : (
-			<span className="px-1.5 text-[11px] text-muted-foreground">
-				Settings appear once {agentName(agents, agent)} starts
-			</span>
-		);
+	// The agent is yet to be picked, so there are no settings to offer.
+	const controls = auto ? undefined : offered.length > 0 ? (
+		<SettingControls
+			settings={offered}
+			current={current}
+			onChange={(setting, value) =>
+				setPicks((picks) => ({ ...picks, [setting.id]: value }))
+			}
+		/>
+	) : (
+		<span className="px-1.5 text-[11px] text-muted-foreground">
+			Settings appear once {agentName(agents, agent)} starts
+		</span>
+	);
 	// Picked, the page shows that project's own screen to start one, what was
 	// typed carried there; its trees are its own, so none of this one's task.
 	const project = (
@@ -237,7 +258,7 @@ export function useNewConversation({
 			bar
 			servers={false}
 			className="mx-0"
-			hash={`#conversations/${NEW}/${agent}`}
+			hash={`#conversations/${auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`}`}
 			onPick={(each) => {
 				drafts.move(draft, newDraft(each.slug));
 				rememberProject(each);
@@ -266,7 +287,7 @@ export function Home({
 	terminals,
 	...starting
 }: Starting & { terminals: Terminals }): JSX.Element {
-	const { tasks, agents, agent, task, conversations, onOpen } = starting;
+	const { tasks, agents, agent, auto, task, conversations, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const listed = conversations.filter((each) => !each.archived);
@@ -293,6 +314,7 @@ export function Home({
 					<AgentPicker
 						agents={agents}
 						agent={agent}
+						auto={auto}
 						task={task}
 						terminals={terminals}
 						onOpen={onOpen}
@@ -314,7 +336,14 @@ export function Home({
 							welcome={
 								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
 									<span>Start a conversation with</span>
-									<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									{auto ? (
+										<span className="flex items-center gap-2">
+											<AutoIcon className="size-[1em]" />
+											{AUTO_PICK_NAME}
+										</span>
+									) : (
+										<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									)}
 									{task !== null && (
 										<span>
 											in <span className="font-mono text-xl">{task}</span>

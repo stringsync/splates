@@ -5,7 +5,7 @@ import { type Conversation, Conversations } from "../conversations";
 import { eventually, until } from "../conversations/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
-import { type AutoPickTarget, startAutoPick } from "./index";
+import { type AutoPickWords, startAutoPick } from "./index";
 import { FakeJudge } from "./testing";
 
 /** A second agent for Auto pick to choose over the one the rules fall back on. */
@@ -27,7 +27,7 @@ describe("startAutoPick", () => {
 	let id: number;
 
 	const start = (
-		target: AutoPickTarget = { todo: id },
+		target: AutoPickWords = { todo: id },
 		gate: Promise<void> = Promise.resolve(),
 	): Promise<Conversation> =>
 		startAutoPick({
@@ -125,6 +125,21 @@ describe("startAutoPick", () => {
 				model: "small",
 				signs: ["Mechanical 90%", "Easy 80%"],
 			}),
+		);
+	});
+
+	it("judges a new conversation's first message, keeping no task record", async () => {
+		const conversation = await start({ words: "Rename foo\nIn src only." });
+		await until(conversation, "idle");
+
+		expect(conversation.state.agent).toBe("other");
+		expect(judge?.asked[0]?.state).toEqual({
+			subject: "Rename foo",
+			detail: "In src only.",
+		});
+		expect((await deps.tasks.store.read(id))?.autoPick).toBeUndefined();
+		expect(await deps.journal.tail(10)).toContainEqual(
+			expect.objectContaining({ action: "auto", agent: "other" }),
 		);
 	});
 

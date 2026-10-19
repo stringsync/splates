@@ -24,6 +24,7 @@ import {
 	agentFor,
 	modelFor,
 	NEW,
+	startsAuto,
 	startsOne,
 	taskFor,
 	terminalOf,
@@ -175,13 +176,14 @@ export function Conversations({
 		feed,
 		agents,
 		agent: agentFor(open, agents, conversations),
+		auto: startsAuto(open),
 		task: taskFor(open),
 		model: modelFor(open),
 		conversations,
 		refuseIn: refuse,
 		onOpen,
 	};
-	const startKey = `${starting.agent}/${starting.task}/${starting.model}`;
+	const startKey = `${starting.auto}/${starting.agent}/${starting.task}/${starting.model}`;
 
 	return (
 		<Board value={board}>

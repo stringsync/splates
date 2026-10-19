@@ -27,7 +27,7 @@ export {
 } from "./rules";
 export type { AutoPickAgent, AutoPickRulesView } from "./rules-routes";
 export { AutoPickRulesRoutes } from "./rules-routes";
-export type { AutoPickStart, AutoPickTarget } from "./start";
+export type { AutoPickStart, AutoPickTarget, AutoPickWords } from "./start";
 export { startAutoPick } from "./start";
 export { AutoPickStore } from "./store";
 export type {

@@ -5,6 +5,7 @@ import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thre
 import { Composing } from "#web/composing.tsx";
 import { AgentMark } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
+import { AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
 import { agentName } from "./conversation-feed";
 import {
@@ -44,7 +45,7 @@ export function PhoneHome({
 	/** Back to the inbox. */
 	onBack: () => void;
 }): JSX.Element {
-	const { agents, agent, task, onOpen } = starting;
+	const { agents, agent, auto, task, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	const section = useRef<HTMLElement>(null);
@@ -71,6 +72,7 @@ export function PhoneHome({
 					<AgentPicker
 						agents={agents}
 						agent={agent}
+						auto={auto}
 						task={task}
 						terminals={terminals}
 						onOpen={onOpen}
@@ -88,7 +90,15 @@ export function PhoneHome({
 								references={references}
 								welcome={
 									<div className="fade-in animate-in fill-mode-both flex flex-col items-center gap-3 px-6 text-center duration-200">
-										<AgentMark agent={agent} name={name} className="size-10" />
+										{auto ? (
+											<AutoIcon className="size-10" />
+										) : (
+											<AgentMark
+												agent={agent}
+												name={name}
+												className="size-10"
+											/>
+										)}
 										<p className="font-medium text-2xl tracking-tight">
 											What should we work on?
 										</p>

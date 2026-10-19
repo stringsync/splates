@@ -3,7 +3,11 @@ import { treeOf } from "../conversations";
 import { fail } from "../exit";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body } from "../server/shared";
-import { type AutoPickTarget, startAutoPick } from "./start";
+import {
+	type AutoPickTarget,
+	type AutoPickWords,
+	startAutoPick,
+} from "./start";
 import { tryAutoPick } from "./trial";
 
 /**
@@ -29,7 +33,8 @@ export class AutoPickRoutes {
 	/**
 	 * Starts a conversation on what Auto pick decides for `task`, a started
 	 * task by name, in its tree, or `todo`, a queued one by number, in the
-	 * main tree. It answers before the judge does, as any start answers
+	 * main tree, or `words`, a new conversation's first message, in `task`'s
+	 * tree if one is named. It answers before the judge does, as any start answers
 	 * before its agent opens, and the prompt the page sends next waits on the
 	 * pick.
 	 */
@@ -38,11 +43,13 @@ export class AutoPickRoutes {
 		if (conversations === null) {
 			fail("not_found", "conversations are off", {});
 		}
-		const { task, todo } = await body(request);
-		const target = targetOf(task, todo);
+		const { task, todo, words } = await body(request);
+		// A new conversation's first message, judged in `task`'s tree, if named.
+		const target: AutoPickWords =
+			typeof words === "string" ? { words } : targetOf(task, todo);
 		const [named, cwd, base, caller] = await treeOf(
 			this.#project.service,
-			"task" in target ? target.task : null,
+			"words" in target ? task : "task" in target ? target.task : null,
 		);
 		const conversation = await startAutoPick({
 			project: this.#project,

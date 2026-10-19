@@ -63,6 +63,27 @@ export function newAddress(
 		: `${address}?model=${encodeURIComponent(model)}`;
 }
 
+/**
+ * In place of the agent in a new conversation's address, as `new/auto`: the
+ * agent is left to Auto pick, which judges the first message.
+ */
+export const AUTO = "auto";
+
+/** Whether `open` is the screen that starts a conversation on Auto pick. */
+export function startsAuto(open: string | null): boolean {
+	return (
+		open?.startsWith(`${NEW}/`) === true &&
+		pathOf(open)
+			.slice(NEW.length + 1)
+			.split("/")[0] === AUTO
+	);
+}
+
+/** The address of the screen that starts a conversation on Auto pick, in `task`'s tree or the main tree. */
+export function autoAddress(task: string | null): string {
+	return task === null ? `${NEW}/${AUTO}` : `${NEW}/${AUTO}/${task}`;
+}
+
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);
