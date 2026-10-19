@@ -12,54 +12,20 @@ import { AutomationTag, RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
-import { type Folder, folderKey, type Placed } from "./project-folders";
+import { type Folder, folderKey } from "./project-folders";
 import { TaskIcon } from "./task-icon";
 
-/** Draws a row of `folder`'s; `named` when it should say which project it is in. */
+/** Draws a row of `folder`'s. */
 export type RenderRow = (
 	folder: Folder,
 	row: Needing,
 	nested: boolean,
-	named: boolean,
 ) => ReactNode;
-
-/**
- * Every agent waiting on you, whatever its project, each row naming the
- * project it is in. Nothing while none waits.
- */
-export function NeedsYou({
-	placed,
-	render,
-	beneath,
-}: {
-	placed: Placed[];
-	render: RenderRow;
-	beneath: (folder: Folder, row: Needing) => ReactNode[];
-}): ReactNode {
-	if (placed.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label="Needs you" className="flex flex-col">
-			<h2 className="px-3 pb-1 font-medium text-warning text-xs">Needs you</h2>
-			{placed.map(({ folder, tree }) => (
-				<InLanes key={keyOf(folder, tree.row)} folder={folder}>
-					<Rows
-						label={`needs you in ${folder.name}`}
-						rows={[tree]}
-						render={(row, nested) => render(folder, row, nested, true)}
-						beneath={(row) => beneath(folder, row)}
-					/>
-				</InLanes>
-			))}
-		</section>
-	);
-}
 
 /**
  * A folder per project, by name, its persistent agents kept atop it, set
  * apart by a rule, then its agents at work, then the rest, those waiting on
- * you up in Needs you. Each folds away, as this browser
+ * you left in place, their marks turned yellow. Each folds away, as this browser
  * keeps it, showing a dot while folded with an agent of its waiting, and its
  * "+" starts a conversation in it. Quiet: a name, a dot, and its rows.
  */
@@ -83,7 +49,7 @@ export function FolderList({
 			{folders.map((folder) => {
 				const key = folderKey(folder);
 				const open = !folded.has(key);
-				const { kept, listed: rows } = folder;
+				const { kept, listed: rows } = folder.inPlace;
 				return (
 					<Collapsible
 						key={key}
@@ -123,7 +89,7 @@ export function FolderList({
 									<Rows
 										label={`${folder.name} persistent agents`}
 										rows={kept}
-										render={(row, nested) => render(folder, row, nested, false)}
+										render={(row, nested) => render(folder, row, nested)}
 										beneath={(row) => beneath(folder, row)}
 									/>
 									{rows.length > 0 && (
@@ -136,7 +102,7 @@ export function FolderList({
 									<Rows
 										label={`${folder.name} conversations`}
 										rows={rows}
-										render={(row, nested) => render(folder, row, nested, false)}
+										render={(row, nested) => render(folder, row, nested)}
 										beneath={(row) => beneath(folder, row)}
 									/>
 								</InLanes>
@@ -156,7 +122,6 @@ export function FolderList({
 export function ForeignItem({
 	row,
 	agent,
-	project,
 	hint,
 	nested,
 	onOpen,
@@ -164,8 +129,6 @@ export function ForeignItem({
 	row: Needing;
 	/** Its agent's name; null for an external one. */
 	agent: string | null;
-	/** The project to name after it, or null to name none. */
-	project: string | null;
 	hint: string | null;
 	nested: boolean;
 	onOpen: () => void;
@@ -203,11 +166,6 @@ export function ForeignItem({
 				</span>
 				{conversation !== null && <AutomationTag conversation={conversation} />}
 			</span>
-			{project !== null && (
-				<span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs">
-					{project}
-				</span>
-			)}
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : (
@@ -235,8 +193,4 @@ export function InLanes({
 	) : (
 		<Lanes value={folder.laneNames}>{children}</Lanes>
 	);
-}
-
-function keyOf(folder: Folder, row: Needing): string {
-	return `${folderKey(folder)} ${row.conversation?.id ?? row.task?.task ?? ""}`;
 }

@@ -1,9 +1,9 @@
 /**
- * Every project's agents as the sidebar, and the phone's inbox after it,
- * group them: one Needs you across every project, then a folder per project,
- * its persistent agents kept apart atop it, then its pinned agents, then
- * those at work, then the rest. Only the grouping: each list draws its
- * own rows.
+ * Every project's agents as the sidebar and the phone's inbox group them:
+ * a folder per project, its persistent agents kept apart atop it, then its
+ * pinned agents, then those at work, then the rest. The inbox lifts those
+ * waiting on you out into one Needs you across every project; the sidebar
+ * leaves them in place. Only the grouping: each list draws its own rows.
  */
 
 import type { LaneRecord } from "@stringsync/splates-server/board";
@@ -102,6 +102,12 @@ export interface Folder {
 	 * ones, then those with an agent at work, then the rest, each newest first.
 	 */
 	listed: Nested<Needing>[];
+	/**
+	 * Its trees as the sidebar lists them, those waiting on you left in
+	 * place, among the agents at work, so a row never jumps as its agent
+	 * stops to ask.
+	 */
+	inPlace: { kept: Nested<Needing>[]; listed: Nested<Needing>[] };
 }
 
 /** A tree in Needs you, with the folder it comes from. */
@@ -142,17 +148,19 @@ export function folderKey(folder: Folder): string {
 /**
  * `trees` by what is most pressing in each: one waiting on you, then the
  * rest a persistent agent's, pinned, at work, or none of those, each in the
- * order given.
+ * order given. Not `apart`, none is waiting: one that waits on you goes
+ * where it would otherwise, among those at work when no other holds it.
  */
 export function groupsOf(
 	trees: Nested<Needing>[],
+	apart = true,
 ): Record<
 	"waiting" | "kept" | "pinned" | "working" | "recent",
 	Nested<Needing>[]
 > {
-	const waiting = trees.filter((tree) =>
-		flatten([tree]).some((row) => waitsOnYou(row)),
-	);
+	const waits = (tree: Nested<Needing>) =>
+		flatten([tree]).some((row) => waitsOnYou(row));
+	const waiting = apart ? trees.filter(waits) : [];
 	const rest = trees.filter((tree) => !waiting.includes(tree));
 	const kept = rest.filter(
 		(tree) => tree.row.conversation?.persistent !== undefined,
@@ -164,9 +172,10 @@ export function groupsOf(
 		(tree) =>
 			!kept.includes(tree) &&
 			!pinned.includes(tree) &&
-			flatten([tree]).some(
-				(row) => row.need.kind === "working" || row.need.kind === "assuming",
-			),
+			(waits(tree) ||
+				flatten([tree]).some(
+					(row) => row.need.kind === "working" || row.need.kind === "assuming",
+				)),
 	);
 	const recent = rest.filter(
 		(tree) =>
@@ -188,6 +197,7 @@ function folder(
 	// puts its host with those at work, then only what the list shows.
 	const { waiting, kept, pinned, working, recent } = groupsOf(trees);
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
+	const steady = groupsOf(trees, false);
 	return {
 		project,
 		name: repo,
@@ -201,5 +211,9 @@ function folder(
 		waiting: shown(waiting),
 		kept: shown(kept),
 		listed: shown([...pinned, ...working, ...recent]),
+		inPlace: {
+			kept: shown(steady.kept),
+			listed: shown([...steady.pinned, ...steady.working, ...steady.recent]),
+		},
 	};
 }

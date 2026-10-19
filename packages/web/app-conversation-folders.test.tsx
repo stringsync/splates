@@ -75,31 +75,34 @@ describe("App's agents, in a folder per project", () => {
 		return { view, nav };
 	};
 
-	it("puts every project's waiting agents in Needs you, each naming its project, then a folder per project, the waiting line counting them all", async () => {
+	it("leaves every project's waiting agents in place in a folder per project, marked waiting, the waiting line counting them all", async () => {
 		const { view, nav } = await inbox();
 
-		const needsYou = within(nav).getByRole("region", { name: "Needs you" });
-		expect(
-			within(needsYou)
-				.getAllByRole("button")
-				.map((row) => row.textContent),
-		).toEqual(
-			expect.arrayContaining([
-				expect.stringContaining("Mine brokewebappwiz"),
-				expect.stringContaining("Zebra brokezebra"),
-			]),
-		);
-		// By name, leaving out a project with no agent.
+		// By name, leaving out a project with no agent, and no Needs you above them.
 		expect(
 			within(nav)
 				.getAllByRole("region")
 				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["Needs you", "webappwiz", "zebra"]);
+		).toEqual(["webappwiz", "zebra"]);
+		const webappwiz = within(nav).getByRole("region", { name: "webappwiz" });
+		const mine = within(webappwiz)
+			.getAllByRole("listitem")
+			.find((item) => item.textContent === "Mine broke");
+		expect(
+			within(mine as HTMLElement).getByRole("status", {
+				name: "waiting on you",
+			}),
+		).toBeTruthy();
 		const zebra = within(nav).getByRole("region", { name: "zebra" });
 		expect(within(zebra).getByRole("button", { name: /Stripes/ })).toBeTruthy();
+		const broke = within(zebra)
+			.getAllByRole("listitem")
+			.find((item) => item.textContent === "Zebra broke");
 		expect(
-			within(zebra).queryByRole("button", { name: /Zebra broke/ }),
-		).toBeNull();
+			within(broke as HTMLElement).getByRole("status", {
+				name: "waiting on you",
+			}),
+		).toBeTruthy();
 		expect(
 			within(
 				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
@@ -114,13 +117,13 @@ describe("App's agents, in a folder per project", () => {
 		const nav = view.getByRole("navigation", { name: "conversations" });
 		await waitFor(() => within(nav).getByRole("button", { name: /Stripes/ }));
 
-		// Those waiting, each naming its project, then this project's, but for
-		// the fixture's external alpha, which the Tasks page lists, then zebra's.
+		// This project's, those waiting among them, but for the fixture's
+		// external alpha, which the Tasks page lists, then zebra's.
 		expect(
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Mine brokewebappwiz", "Zebra brokezebra", "Mine", "Stripes"]);
+		).toEqual(["Mine broke", "Mine", "Stripes", "Zebra broke"]);
 		await act(async () =>
 			fireEvent.click(within(nav).getByRole("button", { name: /Stripes/ })),
 		);
@@ -201,7 +204,7 @@ describe("App's agents, in a folder per project", () => {
 			)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Pinned", "Mine"]);
+		).toEqual(["Pinned", "Mine broke", "Mine"]);
 		expect(within(here).getByRole("separator")).toBeTruthy();
 		expect(
 			within(here).queryByRole("button", { name: "Archive Groomer" }),

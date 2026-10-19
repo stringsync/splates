@@ -27,12 +27,7 @@ import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import { nest } from "./parts";
-import {
-	FolderList,
-	ForeignItem,
-	NeedsYou,
-	type RenderRow,
-} from "./project-folder-list";
+import { FolderList, ForeignItem, type RenderRow } from "./project-folder-list";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -64,9 +59,8 @@ const DIGITS = 10;
  * Holding ⌥⌘ shows each of those keys beside what it opens.
  *
  * With the feed of every project to be had, the rows go in folders instead,
- * as `foldersOf` groups them: those waiting on you, whatever their project,
- * in Needs you on top, each naming its project, then a folder per project.
- * Another project's
+ * a folder per project as `foldersOf` groups them, those waiting on you
+ * left in place. Another project's
  * row opens by switching the page to that project, where its task, trunk
  * and lanes are the page's own.
  */
@@ -127,16 +121,15 @@ export function ConversationList({
 		grouped === null
 			? flatten(listed).map((row) => ({ folder: null, row }))
 			: [
-					...grouped.needsYou.flatMap(({ folder, tree }) =>
-						flatten([tree]).map((row) => ({ folder, row })),
-					),
 					...grouped.folders
 						.filter((folder) => !folded.has(folderKey(folder)))
 						.flatMap((folder) =>
-							flatten([...folder.kept, ...folder.listed]).map((row) => ({
-								folder,
-								row,
-							})),
+							flatten([...folder.inPlace.kept, ...folder.inPlace.listed]).map(
+								(row) => ({
+									folder,
+									row,
+								}),
+							),
 						),
 				];
 	const shownEntries = entries.slice(0, DIGITS);
@@ -208,12 +201,8 @@ export function ConversationList({
 	useShortcut("shortcuts.next", () => step(1));
 	useShortcut("shortcuts.previous", () => step(-1));
 
-	// A row of the page's own project, `project` named after it in Needs you.
-	const renderHere = (
-		row: Needing,
-		nested: boolean,
-		project: string | null,
-	): ReactNode =>
+	// A row of the page's own project.
+	const renderHere = (row: Needing, nested: boolean): ReactNode =>
 		row.conversation !== null ? (
 			<Item
 				conversation={row.conversation}
@@ -227,14 +216,13 @@ export function ConversationList({
 						: undefined
 				}
 				hint={held ? hintOf(shown, row) : null}
-				project={project}
 				hosting={hosting.has(row.conversation.id)}
 				nested={nested}
 			/>
 		) : null;
-	const renderRow: RenderRow = (folder, row, nested, named) =>
+	const renderRow: RenderRow = (folder, row, nested) =>
 		folder.here ? (
-			renderHere(row, nested, named ? folder.name : null)
+			renderHere(row, nested)
 		) : (
 			<ForeignItem
 				row={row}
@@ -243,7 +231,6 @@ export function ConversationList({
 						? null
 						: agentName(agents, row.conversation.agent)
 				}
-				project={named ? folder.name : null}
 				hint={held ? hintOf(shown, row) : null}
 				nested={nested}
 				onOpen={() => openEntry({ folder, row })}
@@ -310,11 +297,6 @@ export function ConversationList({
 						agentOf: (each) => agentName(agents, each.agent),
 					}}
 				>
-					<NeedsYou
-						placed={grouped.needsYou}
-						render={renderRow}
-						beneath={beneathOf}
-					/>
 					<FolderList
 						folders={grouped.folders}
 						folded={folded}
@@ -341,7 +323,7 @@ export function ConversationList({
 							label="conversation list"
 							rows={listed}
 							beneath={beneath}
-							render={(row, nested) => renderHere(row, nested, null)}
+							render={(row, nested) => renderHere(row, nested)}
 						/>
 					</Placing>
 				)
