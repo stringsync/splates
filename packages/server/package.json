@@ -71,6 +71,7 @@
 		"./setup": "./setup/index.ts",
 		"./stats": "./stats/index.ts",
 		"./stats/browser": "./stats/browser.ts",
+		"./storage": "./storage/index.ts",
 		"./testing": "./testing.ts",
 		"./tunnel": "./tunnel/index.ts",
 		"./tunnel-provider": "./tunnel/index.ts",

@@ -28,6 +28,7 @@ import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
 import { heavyJobsOfMachine } from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
+import { FsStorage, type Storage } from "../storage";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
 import { Format } from "./format";
@@ -70,6 +71,13 @@ export function repository<
 export interface Repository {
 	/** Where splates keeps its records: `.git/splates`, shared by every worktree. */
 	splatesDir: string;
+	/**
+	 * The project's records, under `splatesDir`: the coordinator's on a
+	 * worker, locked through the relay.
+	 */
+	storage: Storage;
+	/** What every project on this machine shares, under the splates home. */
+	machine: Storage;
 	/**
 	 * Reads and writes the command's files. On a worker, the records under
 	 * `splatesDir` it reaches are the coordinator's.
@@ -399,6 +407,9 @@ export async function openRepository(
 
 	return {
 		fs,
+		// The one place a project's storage is picked, and the machine's.
+		storage: new FsStorage(splatesDir, fs, { locks: { at: lockAt } }),
+		machine: FsStorage.ofMachine({ fs, ps, log }),
 		beats,
 		projects,
 		branches:

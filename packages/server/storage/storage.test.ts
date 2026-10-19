@@ -1,0 +1,234 @@
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { NodeFs } from "webappwiz/system";
+import { FakeFs } from "webappwiz/system/testing";
+import { z } from "zod";
+import { FsStorage, type Storage } from "./index";
+import { MemoryStorage, rotated } from "./testing";
+
+const made: string[] = [];
+afterAll(async () => {
+	for (const dir of made) {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+// Every backend keeps the same promises, so a store moved onto storage runs
+// the same on any of them.
+describe.each([
+	{
+		backend: "memory",
+		open: async (): Promise<Storage> => new MemoryStorage(),
+	},
+	{
+		backend: "a fake disk",
+		open: async (): Promise<Storage> => new FsStorage("/home/s", new FakeFs()),
+	},
+	{
+		backend: "the disk",
+		open: async (): Promise<Storage> => {
+			const dir = await realpath(
+				await mkdtemp(join(tmpdir(), "splates-storage-")),
+			);
+			made.push(dir);
+			return new FsStorage(dir, new NodeFs());
+		},
+	},
+])("storage on $backend", ({ open }) => {
+	describe("document", () => {
+		it("reads null until written, then what was written", async () => {
+			const settings = (await open()).document<{ on: boolean }>("push.json");
+
+			expect(await settings.read()).toBeNull();
+			await settings.write({ on: true });
+
+			expect(await settings.read()).toEqual({ on: true });
+		});
+
+		it("reads null again once removed", async () => {
+			const settings = (await open()).document("push.json");
+			await settings.write({ on: true });
+
+			await settings.remove();
+
+			expect(await settings.read()).toBeNull();
+		});
+
+		it("keeps every update made at once", async () => {
+			const storage = await open();
+			const counts = [1, 2, 3, 4, 5].map(() =>
+				storage.document<number>("count.json"),
+			);
+
+			await Promise.all(
+				counts.map((count) => count.update((total) => (total ?? 0) + 1)),
+			);
+
+			expect(await storage.document("count.json").read()).toBe(5);
+		});
+
+		it("refuses what its schema refuses", async () => {
+			const storage = await open();
+			await storage.document("count.json").write("five");
+			const count = storage.document("count.json", { schema: z.number() });
+
+			expect(count.read()).rejects.toThrow("expected number");
+		});
+	});
+
+	describe("log", () => {
+		it("replays what was appended, in order", async () => {
+			const log = (await open()).log<{ n: number }>("log.jsonl");
+
+			await log.append({ n: 1 });
+			await log.append({ n: 2 }, { n: 3 });
+
+			expect(await log.replay()).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
+		});
+
+		it("leaves out the entries its schema refuses", async () => {
+			const storage = await open();
+			await storage.log("log.jsonl").append({ n: 1 }, "torn", { n: 2 });
+			const log = storage.log("log.jsonl", {
+				schema: z.object({ n: z.number() }),
+			});
+
+			expect(await log.replay()).toEqual([{ n: 1 }, { n: 2 }]);
+		});
+
+		it("moves its entries into a segment on rotating", async () => {
+			const log = (await open()).log<number>("log.jsonl", { segments: "log" });
+			await log.append(1, 2);
+
+			const segment = await rotated(log);
+			await log.append(3);
+
+			expect(await log.replay()).toEqual([3]);
+			expect(await log.segments()).toEqual([segment]);
+			expect(await log.replaySegment(segment)).toEqual([1, 2]);
+		});
+
+		it("rotates nothing when nothing was appended", async () => {
+			const log = (await open()).log("log.jsonl");
+
+			expect(await log.rotate()).toBeNull();
+			expect(await log.segments()).toEqual([]);
+		});
+
+		it("drops a segment, and everything on removal", async () => {
+			const log = (await open()).log<number>("log.jsonl");
+			await log.append(1);
+			const first = await rotated(log);
+			await log.append(2);
+			await log.rotate();
+			await log.append(3);
+
+			await log.dropSegment(first);
+			expect(await log.segments()).toHaveLength(1);
+			await log.remove();
+
+			expect(await log.replay()).toEqual([]);
+			expect(await log.segments()).toEqual([]);
+		});
+	});
+
+	describe("collection", () => {
+		it("keeps records and blobs by name, listed sorted", async () => {
+			const tasks = (await open()).collection("tasks");
+
+			await tasks.write("2.md", "second");
+			await tasks.write("1.md", "first");
+			await tasks.writeBytes("shot.png", new Uint8Array([1, 2, 3]));
+
+			expect(await tasks.list()).toEqual(["1.md", "2.md", "shot.png"]);
+			expect(await tasks.read("1.md")).toBe("first");
+			expect(await tasks.readBytes("shot.png")).toEqual(
+				new Uint8Array([1, 2, 3]),
+			);
+			expect(await tasks.read("3.md")).toBeNull();
+			expect(await tasks.readBytes("3.md")).toBeNull();
+		});
+
+		it("sizes what it holds", async () => {
+			const files = (await open()).collection("files");
+
+			await files.write("a.txt", "four");
+			await files.writeBytes("b.bin", new Uint8Array(6));
+
+			expect(await files.size()).toBe(10);
+		});
+
+		it("leaves out a nested collection", async () => {
+			const storage = await open();
+			await storage.collection("tasks").write("7.md", "task");
+
+			await storage
+				.collection("tasks/7")
+				.writeBytes("shot.png", new Uint8Array(1));
+
+			expect(await storage.collection("tasks").list()).toEqual(["7.md"]);
+		});
+
+		it("removes one, then all", async () => {
+			const tasks = (await open()).collection("tasks");
+			await tasks.write("1.md", "first");
+			await tasks.write("2.md", "second");
+
+			await tasks.remove("1.md");
+			expect(await tasks.list()).toEqual(["2.md"]);
+			await tasks.clear();
+
+			expect(await tasks.list()).toEqual([]);
+			expect(await tasks.size()).toBe(0);
+		});
+
+		it("refuses a name that is a path", async () => {
+			const tasks = (await open()).collection("tasks");
+
+			expect(tasks.write("../push.json", "{}")).rejects.toThrow(
+				"not a name in a collection",
+			);
+		});
+	});
+
+	describe("keys", () => {
+		it("refuses one that leaves the storage", async () => {
+			const storage = await open();
+
+			expect(() => storage.document("../elsewhere.json")).toThrow(
+				"not a storage key",
+			);
+		});
+
+		it("reads within a key what the whole storage has under it", async () => {
+			const storage = await open();
+			await storage.document("projects/a/push.json").write({ on: true });
+
+			const project = storage.within("projects/a");
+
+			expect(await project.document("push.json").read()).toEqual({ on: true });
+		});
+	});
+
+	describe("watch", () => {
+		it("tells of a write under the key, relative to the storage", async () => {
+			const storage = await open();
+			const tasks = storage.collection("tasks");
+			await tasks.write("1.md", "first");
+			const watch = storage.watch("tasks");
+			const told = new Promise<string>((resolve) =>
+				watch.events.on(
+					"changed",
+					(key) => key === "tasks/1.md" && resolve(key),
+				),
+			);
+
+			await tasks.write("1.md", "again");
+
+			expect(await told).toBe("tasks/1.md");
+			watch.dispose();
+		});
+	});
+});
