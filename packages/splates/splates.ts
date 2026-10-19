@@ -277,7 +277,7 @@ splates
 	.option("message", z.string(), {
 		default: "",
 		description:
-			"squash the task's commits into one with this message before landing, saying what the base gains",
+			"squash the task's commits into one with this message before landing, saying what the base gains in at least 5 characters",
 	})
 	.action(async (opts, ctx) => {
 		await refuseGroomer(ctx.service, "merge");

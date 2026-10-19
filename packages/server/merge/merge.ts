@@ -77,6 +77,13 @@ export async function merge(
 		message?: string;
 	} = {},
 ): Promise<void> {
+	// Shorter, a squash message is a placeholder such as `X`, not a message.
+	if (message !== "" && message.trim().length < 5) {
+		fail(
+			"usage",
+			`--message ${JSON.stringify(message)} is too short to be a commit message: say in at least 5 characters what the base gains, and merge again. No merge attempt was spent.`,
+		);
+	}
 	const branch = await git.currentBranch(cwd);
 	const task = service.taskFor(branch);
 	if (!task) {

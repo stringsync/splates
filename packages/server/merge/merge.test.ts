@@ -77,6 +77,26 @@ describe.concurrent("merge", () => {
 		).toBe("alpha.txt\nbeta.txt");
 	});
 
+	it("refuses a --message too short to say anything, spending no attempt", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+
+		await expect(merge(deps, worktree, {}, { message: "  X  " })).toBail(
+			"usage",
+			{ message: "too short" },
+		);
+		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
+
+		await merge(deps, worktree, {}, { message: "Add alpha" });
+		expect(
+			await deps.gitCli(deps.root, "log", "-1", "--format=%s", "main"),
+		).toBe("Add alpha");
+	});
+
 	it("keeps each commit without --message", async () => {
 		await using deps = await Testing.open();
 
