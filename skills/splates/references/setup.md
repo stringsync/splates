@@ -115,7 +115,9 @@ in its worktree; this machine's records go aside, kept. It touches the user's
 live server and tunnel: ask before running it for real, and run it from a
 terminal outside `splates server`, which it stops, or leave it to the step's
 Next on the page, which runs it apart from the server and follows it onto the
-box's host. `splates server status` says where the server runs and the box's
+box's host. Once the server runs on the box, `splates server deploy` again
+brings the box's splates to the running release and restarts it there, the
+way to update it; this machine's worker updates itself. `splates server status` says where the server runs and the box's
 address, `splates server ssh` opens a shell on the box, and `splates server
 destroy` destroys it and its backups.
 

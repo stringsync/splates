@@ -149,12 +149,37 @@ describe("CoordinatorMove", () => {
 		expect(ps.copied).toEqual([]);
 	});
 
-	it("refuses once the coordinator runs on the box", async () => {
+	it("brings the box to this release and restarts it once the coordinator runs there", async () => {
+		ps.active = true;
+		// A move put this machine's projects and tunnel aside.
+		opts.repos = async () => [];
+		opts.tunnelHost = async () => null;
+
+		const moved = await new CoordinatorMove(opts).run();
+
+		expect(moved).toEqual({
+			status: "updated",
+			ipv4: BOX.ipv4,
+			version: opts.version,
+		});
+		expect(ps.scripts.some((each) => each.includes("bun add -g"))).toBe(true);
+		expect(ps.scripts.at(-1)).toContain("systemctl restart");
+		expect(net.posted).toEqual([]);
+		expect(ps.copied).toEqual([]);
+		expect(joined).toEqual([]);
+	});
+
+	it("changes nothing on a dry run once the coordinator runs on the box", async () => {
 		ps.active = true;
 
-		await expect(new CoordinatorMove(opts).run()).rejects.toThrow(
-			"runs on the box already",
-		);
+		const moved = await new CoordinatorMove(opts).run({ dryRun: true });
+
+		expect(moved).toEqual({
+			status: "deployed",
+			ipv4: BOX.ipv4,
+			version: opts.version,
+		});
+		expect(ps.scripts.every((each) => each.includes("is-active"))).toBe(true);
 	});
 
 	it("checkpoints and stops this machine's server, carries it over, and joins this machine as its worker", async () => {

@@ -11,11 +11,13 @@ import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
 import {
 	type BoxProject,
 	BUNDLE,
+	COORDINATOR_UNIT,
 	clonesScript,
 	credsScript,
 	inviteScript,
 	placeScript,
 	readClones,
+	restartScript,
 	startScript,
 	upgradeScript,
 } from "./scripts";
@@ -30,7 +32,8 @@ import { MOVED_HOME, stage } from "./stage";
  * creds over, starts the server there for good, and joins this machine to
  * it as a worker, which carries on each task in its worktree here. This
  * machine's own records go aside, kept. With `dryRun`, stops before
- * anything changes here.
+ * anything changes here. Once the coordinator runs on the box, it brings
+ * the box's splates to this release and restarts it there instead.
  */
 export class CoordinatorMove {
 	private readonly fetch: typeof fetch;
@@ -43,22 +46,14 @@ export class CoordinatorMove {
 
 	async run({ dryRun = false }: { dryRun?: boolean } = {}): Promise<Moved> {
 		const { log, version } = this.opts;
-		const { box, host, repos } = await this.check();
-		const shell = new BoxShell({
-			ps: this.opts.ps,
-			ipv4: box.ipv4,
-			key: box.key,
-			knownHosts: `${this.opts.home}/coordinator/known_hosts`,
-		});
-		if (
-			(
-				await shell.run("systemctl is-active splates-coordinator || true\n")
-			).trim() === "active"
-		) {
-			throw new Error(
-				`the coordinator runs on the box already: \`ssh -i ${box.key} root@${box.ipv4} systemctl status splates-coordinator\``,
-			);
+		const standing = await this.opts.box();
+		const updated =
+			standing === null ? null : await this.update(standing, { dryRun });
+		if (updated !== null) {
+			return updated;
 		}
+		const { box, host, repos } = await this.check(standing);
+		const shell = this.shell(box);
 		const projects = await this.boxProjects(repos);
 		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
 		await shell.run(upgradeScript(version));
@@ -113,14 +108,50 @@ export class CoordinatorMove {
 		return { status: "moved", host, aside, worker };
 	}
 
+	/**
+	 * Once the coordinator runs on the box, brings the box's splates to
+	 * this release and restarts it there, as a deploy does from then on;
+	 * with `dryRun`, only says it would. Null while it does not run there,
+	 * for a move.
+	 */
+	private async update(
+		box: BoxStanding,
+		{ dryRun }: { dryRun: boolean },
+	): Promise<Moved | null> {
+		const { log, version } = this.opts;
+		const shell = this.shell(box);
+		const active = await shell.run(
+			`systemctl is-active ${COORDINATOR_UNIT} || true\n`,
+		);
+		if (active.trim() !== "active") {
+			return null;
+		}
+		if (dryRun) {
+			return { status: "deployed", ipv4: box.ipv4, version };
+		}
+		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
+		await shell.run(upgradeScript(version));
+		log.info("restarting splates server on the box");
+		await shell.run(restartScript());
+		return { status: "updated", ipv4: box.ipv4, version };
+	}
+
+	private shell(box: BoxStanding): BoxShell {
+		return new BoxShell({
+			ps: this.opts.ps,
+			ipv4: box.ipv4,
+			key: box.key,
+			knownHosts: `${this.opts.home}/coordinator/known_hosts`,
+		});
+	}
+
 	/** What the move needs, all of it said at once when any is missing. */
-	private async check(): Promise<{
+	private async check(box: BoxStanding | null): Promise<{
 		box: BoxStanding;
 		host: string;
 		repos: MoveRepo[];
 	}> {
 		const missing: string[] = [];
-		const box = await this.opts.box();
 		if (box === null) {
 			missing.push(
 				"no coordinator's box: make it with `splates server deploy`",
@@ -360,6 +391,10 @@ export interface CoordinatorMoveOptions {
 export type Moved =
 	| { status: "moved"; host: string; aside: string; worker: string }
 	| { status: "ready"; host: string; projects: string[] }
+	/** The coordinator ran on the box already, which now runs `version`. */
+	| { status: "updated"; ipv4: string; version: string }
+	/** On a dry run, the coordinator runs on the box already, which a deploy brings to `version`. */
+	| { status: "deployed"; ipv4: string; version: string }
 	| { status: "keys"; keys: DeployKey[] };
 
 /** A deploy key the box made that GitHub does not yet let push. */

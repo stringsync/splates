@@ -197,15 +197,27 @@ export function startScript(): string {
 	return [
 		"set -eu",
 		`systemctl enable --now ${COORDINATOR_UNIT}`,
-		"for _ in $(seq 120); do",
-		`  curl -fsS -o /dev/null http://localhost:${BOX_PORT}/ && exit 0`,
-		"  sleep 1",
-		"done",
-		`echo "splates server did not answer in two minutes: journalctl -u ${COORDINATOR_UNIT}" >&2`,
-		"exit 1",
-		"",
+		...ANSWERS,
 	].join("\n");
 }
+
+/** Restarts the unit on the release just installed, and waits until the server answers. */
+export function restartScript(): string {
+	return ["set -eu", `systemctl restart ${COORDINATOR_UNIT}`, ...ANSWERS].join(
+		"\n",
+	);
+}
+
+/** Waits up to two minutes for the box's server to answer on its loopback. */
+const ANSWERS = [
+	"for _ in $(seq 120); do",
+	`  curl -fsS -o /dev/null http://localhost:${BOX_PORT}/ && exit 0`,
+	"  sleep 1",
+	"done",
+	`echo "splates server did not answer in two minutes: journalctl -u ${COORDINATOR_UNIT}" >&2`,
+	"exit 1",
+	"",
+];
 
 /** A join token for a worker, from the box's server on its loopback. */
 export function inviteScript(): string {

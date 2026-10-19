@@ -82,12 +82,12 @@ splatesServer
 splatesServer
 	.command("deploy")
 	.description(
-		"deploy the server to its box, over SSH, making the box first if there is none, with splates of this release installed for the user splates and an SSH key splates makes under ~/.splates/coordinator. It checks what the deploy needs, brings the box's splates to this release, and gives each project a clone there with a deploy key of its own; until GitHub lets each key push trunk, it prints each key with where to add it, with write access, and exits `blocked`: add them and run it again. Then it asks every agent of this machine's `splates server` to checkpoint and stops it, carries the server's records and creds to the box, starts `splates server` there for good under systemd, with the saved tunnel, and joins this machine to it as a worker, kept up by a LaunchAgent, where each task carries on in its worktree here. This machine's records go aside, kept, and its `splates` reaches the box from then on",
+		"deploy the server to its box, over SSH, making the box first if there is none, with splates of this release installed for the user splates and an SSH key splates makes under ~/.splates/coordinator. It checks what the deploy needs, brings the box's splates to this release, and gives each project a clone there with a deploy key of its own; until GitHub lets each key push trunk, it prints each key with where to add it, with write access, and exits `blocked`: add them and run it again. Then it asks every agent of this machine's `splates server` to checkpoint and stops it, carries the server's records and creds to the box, starts `splates server` there for good under systemd, with the saved tunnel, and joins this machine to it as a worker, kept up by a LaunchAgent, where each task carries on in its worktree here. This machine's records go aside, kept, and its `splates` reaches the box from then on. Run again once the server runs on the box, it brings the box's splates to this release and restarts it there",
 	)
 	.option("dry-run", z.boolean(), {
 		default: false,
 		description:
-			"stop once the box is ready, before this machine's server stops or anything here changes",
+			"stop once the box is ready, before this machine's server stops or anything here changes; once the server runs on the box, change nothing",
 	})
 	.option("dev", z.string(), {
 		default: `http://localhost:${DEFAULT_PORT}`,
@@ -118,6 +118,18 @@ splatesServer
 				].join("\n"),
 				{ keys: moved.keys },
 			);
+		}
+		if (moved.status === "deployed") {
+			ctx.log.info(
+				`the server runs on the box at ${moved.ipv4}: deploy again without --dry-run to bring it to ${moved.version}`,
+			);
+			return;
+		}
+		if (moved.status === "updated") {
+			ctx.log.info(
+				`the server on the box at ${moved.ipv4} runs ${moved.version} now`,
+			);
+			return;
 		}
 		if (moved.status === "ready") {
 			ctx.log.info(
