@@ -76,26 +76,24 @@ export function Drawer({
 							count={waiting}
 							urgent
 						/>
-						{PAGES.filter(({ value }) => value !== "conversations").map(
-							({ value, label, Icon }) => (
-								<Entry
-									key={value}
-									current={page === value}
-									onClick={() => go(value)}
-									icon={
-										<span className="relative flex">
-											<Icon />
-											{value === "creds" && requested && (
-												<span role="img" aria-label="creds requested">
-													<UpdateDot ring="ring-sidebar" />
-												</span>
-											)}
-										</span>
-									}
-									label={label}
-								/>
-							),
-						)}
+						{PAGES.map(({ value, label, Icon }) => (
+							<Entry
+								key={value}
+								current={page === value}
+								onClick={() => go(value)}
+								icon={
+									<span className="relative flex">
+										<Icon />
+										{value === "creds" && requested && (
+											<span role="img" aria-label="creds requested">
+												<UpdateDot ring="ring-sidebar" />
+											</span>
+										)}
+									</span>
+								}
+								label={label}
+							/>
+						))}
 					</nav>
 					{/* Archived stays at the foot. */}
 					<div className="mt-auto">

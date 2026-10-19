@@ -511,7 +511,7 @@ export class Testing implements Resource {
 		return view;
 	}
 
-	/** Opens the page with conversations on, holding `held`, on their tab. */
+	/** Opens the page with conversations on, holding `held`, on the inbox. */
 	async openConversations(
 		held: ConversationState[],
 		open: string | null = held[0]?.id ?? null,
@@ -523,14 +523,14 @@ export class Testing implements Resource {
 			tasks: [details({ task: "alpha" })],
 			...overrides,
 		});
-		// A phone has no tabs: it opens on its inbox.
-		const tab = await waitFor(
+		// A phone opens on its inbox; beside a sidebar, its Inbox opens it.
+		const inbox = await waitFor(
 			() =>
-				view.queryByRole("tab", { name: /Conversations/ }) ??
-				view.getByRole("region", { name: "inbox" }),
+				view.queryByRole("region", { name: "inbox" }) ??
+				view.getByRole("button", { name: /^Inbox/ }),
 		);
-		if (tab.getAttribute("role") === "tab") {
-			await act(async () => fireEvent.click(tab));
+		if (inbox.tagName === "BUTTON") {
+			await act(async () => fireEvent.click(inbox));
 		}
 		if (open !== null) {
 			await openRow(view, nameIn(held, open));
@@ -607,16 +607,22 @@ export type ConversationsView = Awaited<
 >;
 
 /**
- * Opens the conversation listed by `name`, as a click in the sidebar does, or
- * in the inbox on a phone.
+ * Opens the conversation listed by `name` from the inbox, opening it first
+ * beside a sidebar, as its Inbox does.
  */
 export async function openRow(
 	view: ConversationsView,
 	name: string,
 ): Promise<void> {
-	const nav =
-		view.queryByRole("navigation", { name: "conversations" }) ??
-		view.getByRole("region", { name: "inbox" });
+	// Every agent is in the inbox, which the sidebar's Inbox opens.
+	const entry = view.queryByRole("button", { name: /^Inbox/ });
+	if (
+		view.queryByRole("region", { name: "inbox" }) === null &&
+		entry !== null
+	) {
+		await act(async () => fireEvent.click(entry));
+	}
+	const nav = view.getByRole("region", { name: "inbox" });
 	const item = within(nav)
 		.getAllByRole("listitem")
 		.flatMap((row) => within(row).getAllByRole("button"))

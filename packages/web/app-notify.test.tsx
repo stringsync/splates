@@ -288,6 +288,6 @@ describe("App's settings and notifications", () => {
 		expect(FakeNotification.shown.map((each) => each.title)).toEqual(["Fix"]);
 		await act(async () => FakeNotification.shown[0]?.onclick?.());
 		expect(location.hash).toBe("#conversations/c1");
-		expect(view.getByRole("tab", { name: /Conversations/ })).toBeTruthy();
+		expect(view.getByRole("region", { name: "Fix" })).toBeTruthy();
 	});
 });

@@ -1,8 +1,14 @@
 import type { Needing } from "@stringsync/splates-server/plans";
 import { useReactive } from "@webappwiz/react";
-import { SquareTerminalIcon, TerminalIcon, XIcon } from "lucide-react";
-import { type JSX, type ReactNode, useContext } from "react";
+import {
+	PencilIcon,
+	SquareTerminalIcon,
+	TerminalIcon,
+	XIcon,
+} from "lucide-react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { useCloseTerminal } from "./close-terminal";
+import { RenameBox } from "./list-rows";
 import { NestedPanesContext } from "./side-panes";
 import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
@@ -138,19 +144,21 @@ function NestedRow({
 }
 
 /**
- * The main tree's terminals, opened from the new conversation's picker, each
- * a row to go back to it, with an X that hangs up its shell; nothing when
- * none is open.
+ * The main tree's own terminals, each with a pencil to rename it, Enter
+ * keeping what is typed (blank goes back to the name it goes by), and an X
+ * that hangs up its shell.
  */
 export function TerminalGroup({
 	mains,
 	nameOf,
+	onRename,
 	onOpen,
 	onClose,
 }: {
 	/** Their keys, `terminal/<n>`, oldest first. */
 	mains: string[];
 	nameOf: (key: string) => string;
+	onRename: (key: string, name: string) => void;
 	onOpen: (key: string) => void;
 	onClose: (key: string) => void;
 }): ReactNode {
@@ -163,34 +171,72 @@ export function TerminalGroup({
 				Terminals · {mains.length}
 			</h2>
 			<ul>
-				{mains.map((key) => {
-					const name = nameOf(key);
-					return (
-						<li key={key} className="flex items-center pr-2">
-							<button
-								type="button"
-								onClick={() => onOpen(key)}
-								className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left active:bg-muted"
-							>
-								<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
-									<SquareTerminalIcon className="size-5 text-foreground/80" />
-								</span>
-								<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span className="truncate font-medium text-[15px]">
-										{name}
-									</span>
-									<span className="truncate text-muted-foreground text-sm">
-										Main tree
-									</span>
-								</span>
-							</button>
-							<BarButton label={`Close ${name}`} onClick={() => onClose(key)}>
-								<XIcon />
-							</BarButton>
-						</li>
-					);
-				})}
+				{mains.map((key) => (
+					<Shell
+						key={key}
+						name={nameOf(key)}
+						onRename={(name) => onRename(key, name)}
+						onOpen={() => onOpen(key)}
+						onClose={() => onClose(key)}
+					/>
+				))}
 			</ul>
 		</section>
+	);
+}
+
+/** One of `TerminalGroup`'s rows, or the box renaming it. */
+function Shell({
+	name,
+	onRename,
+	onOpen,
+	onClose,
+}: {
+	name: string;
+	onRename: (name: string) => void;
+	onOpen: () => void;
+	onClose: () => void;
+}): JSX.Element {
+	const [renaming, setRenaming] = useState(false);
+	return (
+		<li className="flex min-h-16 items-center pr-2">
+			{renaming ? (
+				<div className="flex flex-1 px-4">
+					<RenameBox
+						name={name}
+						onDone={(renamed) => {
+							setRenaming(false);
+							if (renamed !== null) {
+								onRename(renamed);
+							}
+						}}
+					/>
+				</div>
+			) : (
+				<>
+					<button
+						type="button"
+						onClick={onOpen}
+						className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left active:bg-muted"
+					>
+						<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+							<SquareTerminalIcon className="size-5 text-foreground/80" />
+						</span>
+						<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span className="truncate font-medium text-[15px]">{name}</span>
+							<span className="truncate text-muted-foreground text-sm">
+								Main tree
+							</span>
+						</span>
+					</button>
+					<BarButton label={`Rename ${name}`} onClick={() => setRenaming(true)}>
+						<PencilIcon />
+					</BarButton>
+					<BarButton label={`Close ${name}`} onClick={onClose}>
+						<XIcon />
+					</BarButton>
+				</>
+			)}
+		</li>
 	);
 }

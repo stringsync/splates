@@ -62,6 +62,10 @@ describe("App's new conversation, by project", () => {
 			},
 		];
 		view = await testing.openConversations([], null, WEBAPPWIZ);
+		// Off the inbox, onto a new conversation, from the pen in its bar.
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+		);
 	});
 
 	afterEach(() => {

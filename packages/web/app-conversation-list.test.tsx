@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
 	message,
+	newestFirst,
+	openRow,
 	resize,
 	Testing,
 	waitFor,
@@ -24,10 +27,10 @@ describe("App's conversation list", () => {
 		testing.dispose();
 	});
 
-	it("shows no Conversations when the server has none", async () => {
+	it("shows no Inbox when the server has no conversations", async () => {
 		const view = await testing.open();
 
-		expect(view.queryByRole("tab", { name: /Conversations/ })).toBeNull();
+		expect(view.queryByRole("button", { name: /^Inbox/ })).toBeNull();
 		expect(view.queryByRole("button", { name: "New" })).toBeNull();
 	});
 
@@ -43,19 +46,21 @@ describe("App's conversation list", () => {
 		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
 	});
 
-	it("lists conversations newest first, each by name with its task on hover, and archived ones apart", async () => {
+	it("lists conversations at work newest first, each by name with its task on hover, and archived ones apart in the inbox", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
 					id: "c1",
 					task: "alpha",
 					title: "Fix login",
+					status: "running",
 					createdAt: "2026-10-11T10:01:00.000Z",
 				}),
 				conversation({
 					id: "c2",
 					task: null,
 					title: "Look around",
+					status: "running",
 					createdAt: "2026-10-11T10:02:00.000Z",
 				}),
 				conversation({ id: "c3", title: "Old", archived: true }),
@@ -73,14 +78,48 @@ describe("App's conversation list", () => {
 		expect(
 			within(nav).getByRole("button", { name: "Claude alpha" }).title,
 		).toBe("alpha");
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
-		);
+		expect(within(nav).queryByRole("button", { name: /Archived/ })).toBeNull();
+		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
 		});
 		expect(archived.textContent).toContain("Old");
 		expect(location.hash).toBe("#conversations/archived");
+	});
+
+	it("lists three agents at work under the Inbox, leaving the rest to the inbox, which +N more opens", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				conversation({ id: "c1", title: "Broke", status: "failed" }),
+				conversation({ id: "c2", title: "First", status: "running" }),
+				conversation({ id: "c3", title: "Rests" }),
+				conversation({ id: "c4", title: "Second", status: "running" }),
+				conversation({ id: "c5", title: "Third", status: "running" }),
+				conversation({ id: "c6", title: "Fourth", status: "running" }),
+				conversation({ id: "c7", title: "Fifth", status: "running" }),
+			]),
+			"c2",
+			{ tasks: [] },
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		expect(
+			within(nav)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["First", "Second", "Third"]);
+		expect(view.queryByRole("region", { name: "inbox" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(nav).getByRole("button", { name: "+2 more" })),
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+		expect(within(inbox).getByRole("button", { name: /Fifth/ })).toBeTruthy();
+		expect(within(inbox).getByRole("button", { name: /Broke/ })).toBeTruthy();
+		expect(
+			within(nav)
+				.getByRole("button", { name: /^Inbox/ })
+				.getAttribute("aria-current"),
+		).toBe("page");
 	});
 
 	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks
@@ -111,10 +150,7 @@ describe("App's conversation list", () => {
 			],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
-		);
+		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
 		});
@@ -149,10 +185,7 @@ describe("App's conversation list", () => {
 			],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
-		);
+		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
 		});
@@ -173,10 +206,7 @@ describe("App's conversation list", () => {
 			],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
-		);
+		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
 		});
@@ -188,12 +218,13 @@ describe("App's conversation list", () => {
 		expect(archived.textContent).not.toContain("Older");
 	});
 
-	it("nests a part's conversations under the task it was handed out from", async () => {
+	it("nests a part's conversations under the task it was handed out from, in the inbox, the sidebar listing the task alone", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
 					id: "c1",
 					task: "alpha",
+					status: "running",
 					createdAt: "2026-10-11T10:01:00.000Z",
 				}),
 				conversation({
@@ -217,19 +248,14 @@ describe("App's conversation list", () => {
 				],
 			},
 		);
-		const list = view.getByRole("list", { name: "conversation list" });
+		const nav = view.getByRole("navigation", { name: "conversations" });
 
+		expect(inboxTrees(view)).toEqual([["alpha", "alpha-api"], ["Look around"]]);
 		expect(
-			within(list)
-				.getAllByRole("listitem")
-				.filter((item) => item.parentElement === list)
-				.map((item) => item.textContent),
-		).toEqual(["Look around", "alphaalpha-api"]);
-		expect(
-			within(view.getByRole("list", { name: "parts of alpha" }))
+			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["alpha-api"]);
+		).toEqual(["alpha"]);
 	});
 
 	it("keeps a part's conversation under its caller's once both merged", async () => {
@@ -255,11 +281,7 @@ describe("App's conversation list", () => {
 			{ tasks: [] },
 		);
 
-		expect(
-			within(view.getByRole("list", { name: "parts of alpha" }))
-				.getAllByRole("listitem")
-				.map((item) => item.textContent),
-		).toEqual(["alpha-api"]);
+		expect(inboxTrees(view)).toEqual([["alpha", "alpha-api"]]);
 	});
 
 	it("nests the tasks a conversation's agent added for its subagents under it, though they land on trunk", async () => {
@@ -288,19 +310,12 @@ describe("App's conversation list", () => {
 				],
 			},
 		);
-		const list = view.getByRole("list", { name: "conversation list" });
 
-		expect(
-			within(list)
-				.getAllByRole("listitem")
-				.filter((item) => item.parentElement === list)
-				.map((item) => item.querySelector("span.truncate")?.textContent),
-		).toEqual(["Look around", "split-b", "loose"]);
-		expect(
-			within(view.getByRole("list", { name: "parts of split-b" }))
-				.getAllByRole("listitem")
-				.map((item) => item.querySelector("span.truncate")?.textContent),
-		).toEqual(["split-a", "split-c"]);
+		expect(inboxTrees(view)).toEqual([
+			["split-b", "split-a", "split-c"],
+			["loose"],
+			["Look around"],
+		]);
 	});
 
 	it("keeps a subagent's conversation under its caller's once its task merged", async () => {
@@ -326,11 +341,7 @@ describe("App's conversation list", () => {
 			{ tasks: [] },
 		);
 
-		expect(
-			within(view.getByRole("list", { name: "parts of Orchestrate" }))
-				.getAllByRole("listitem")
-				.map((item) => item.textContent),
-		).toEqual(["split-a"]);
+		expect(inboxTrees(view)).toEqual([["Orchestrate", "split-a"]]);
 	});
 
 	// scry-ignore simple-test-setup: the unnamed conversations it lists are what it checks, and no other test opens with them
@@ -361,21 +372,21 @@ describe("App's conversation list", () => {
 			],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		const names = within(nav)
+		const names = within(view.getByRole("region", { name: "inbox" }))
 			.getAllByRole("listitem")
-			.map((item) => item.querySelector("span.truncate") as HTMLElement);
+			.map(nameIn);
 
+		// The external agent at work leads the conversations at rest.
 		expect(names.map((name) => name.textContent)).toEqual([
+			"alpha",
 			"Not started",
 			"fix the login",
 			"Fix login",
-			"alpha",
 		]);
 		expect(names.map((name) => name.classList.contains("italic"))).toEqual([
-			true,
-			true,
 			false,
+			true,
+			true,
 			false,
 		]);
 	});
@@ -420,22 +431,21 @@ describe("App's conversation list", () => {
 				],
 			},
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		const items = within(nav).getAllByRole("listitem");
-		const names = items.map(
-			(item) => item.querySelector("span.truncate") as HTMLElement,
-		);
+		const items = within(
+			view.getByRole("region", { name: "inbox" }),
+		).getAllByRole("listitem");
+		const names = items.map(nameIn);
 
 		expect(names.map((name) => name.textContent)).toEqual([
+			"alpha",
 			"Cloudflare Access",
 			"Stats, Lane 9",
 			"Untriaged",
 			"Groomer",
-			"alpha",
 		]);
 		expect(
 			items.map((item) => within(item).queryByLabelText("Lane") !== null),
-		).toEqual([true, true, true, true, false]);
+		).toEqual([false, true, true, true, true]);
 		expect(names.some((name) => name.classList.contains("italic"))).toBe(false);
 	});
 
@@ -448,15 +458,20 @@ describe("App's conversation list", () => {
 			view.getByRole("img", { name: "branch" }).parentElement?.textContent;
 
 		expect(branch()).toBe("task/alpha");
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
-		);
+		await openRow(view, "Look around");
 		expect(branch()).toBe("main");
 	});
 
-	it("renames a conversation from its menu", async () => {
+	it("renames a conversation at work from its menu in the sidebar", async () => {
 		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Fix login",
+					status: "running",
+				}),
+			],
 			null,
 		);
 
@@ -484,8 +499,13 @@ describe("App's conversation list", () => {
 	it("marks a conversation read once opened, and one not open unread from its menu", async () => {
 		const view = await testing.openConversations(
 			[
-				conversation({ id: "c1", title: "Fix login", unread: true }),
-				conversation({ id: "c2", title: "Fix footer" }),
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					status: "running",
+					unread: true,
+				}),
+				conversation({ id: "c2", title: "Fix footer", status: "running" }),
 			],
 			"c1",
 		);
@@ -524,7 +544,12 @@ describe("App's conversation list", () => {
 
 	it("renames on a double click, in the list and on the open conversation's title", async () => {
 		const view = await testing.openConversations([
-			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+			conversation({
+				id: "c1",
+				task: "alpha",
+				title: "Fix login",
+				status: "running",
+			}),
 		]);
 		const nav = view.getByRole("navigation", { name: "conversations" });
 
@@ -581,6 +606,38 @@ describe("App's conversation list", () => {
 		}
 	});
 });
+
+/** Opens the archived conversations from the inbox's foot, opening it first. */
+async function openArchived(view: ConversationsView): Promise<void> {
+	if (view.queryByRole("region", { name: "inbox" }) === null) {
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
+		);
+	}
+	await act(async () =>
+		fireEvent.click(
+			within(view.getByRole("region", { name: "inbox" })).getByRole("button", {
+				name: /Archived/,
+			}),
+		),
+	);
+}
+
+/** The inbox's agents, each with those it handed out after it, by name. */
+function inboxTrees(view: ConversationsView): (string | null)[][] {
+	return within(view.getByRole("region", { name: "inbox" }))
+		.getAllByRole("list")
+		.map((list) =>
+			within(list)
+				.getAllByRole("listitem")
+				.map((item) => nameIn(item).textContent),
+		);
+}
+
+/** A row's name, first of what it truncates. */
+function nameIn(item: HTMLElement): HTMLElement {
+	return item.querySelector("span.truncate") as HTMLElement;
+}
 
 function hoursAgo(hours: number): string {
 	return new Date(Date.now() - hours * 3_600_000).toISOString();

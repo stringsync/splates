@@ -56,7 +56,7 @@ describe("App's controls that put agents to work", () => {
 			...overrides,
 		});
 		// Conversations come in on their own feed, after the board.
-		await waitFor(() => view.getByRole("tab", { name: /Conversations/ }));
+		await waitFor(() => view.getByRole("button", { name: /^Inbox/ }));
 		return view;
 	};
 

@@ -4,17 +4,9 @@ import {
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
-import { ArchiveIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
-import { cn } from "#web/lib/utils.ts";
 import { useCloseTerminal } from "./close-terminal";
-import {
-	ARCHIVED,
-	NEW,
-	openedBy,
-	TASK,
-	terminalAddress,
-} from "./conversation-address";
+import { openedBy, TASK, terminalAddress } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import {
@@ -36,14 +28,9 @@ import { useShortcut } from "./hooks/use-shortcut";
 import { CommandRow, External, Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
-import { NextWaiting } from "./next-waiting";
-import { nest } from "./parts";
-import {
-	FolderList,
-	ForeignItem,
-	NeedsYou,
-	type RenderRow,
-} from "./project-folder-list";
+import { InboxEntry } from "./next-waiting";
+import { type Nested, nest } from "./parts";
+import { ForeignItem, InLanes, type RenderRow } from "./project-folder-list";
 import {
 	FOLDED_FOLDERS,
 	type Folder,
@@ -56,32 +43,28 @@ import { useCopiedReplies } from "./task-view";
 import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
 
-/** How many rows ⌥⌘ and a digit can open. */
-const DIGITS = 10;
+/** How many agents at work the sidebar shows, before a link to the rest. */
+const WORKING = 3;
 
 /**
- * The sidebar's conversations, in one list, newest first, after
- * the main tree's own terminals, oldest first, until each is closed. Each
- * row is named alone, with its task on hover. A conversation follows its agent
- * as it takes and lands tasks. A task whose agent runs outside the page is a
- * row of its own. Rows stay put as their agents change state; each one's mark
- * says whether it works or waits on you. Under a conversation, muted as a
- * subagent is, sit its terminal while its shell is up and each command its
- * agent left running, each opening in the pane beside the page. Archived ones sit behind a link at
- * the bottom.
+ * The sidebar's agents: the Inbox, counting those waiting on you, then up to
+ * three agents at work, newest first, each named alone, with its task on
+ * hover, and "+N more" for the rest at work, which opens the inbox, where
+ * every agent is. Under a conversation, muted as a subagent is, sit its
+ * terminal while its shell is up and each command its agent left running,
+ * each opening in the pane beside the page.
  *
- * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
- * the first ten rows, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
- * main-tree terminals among them, round past either end; each but the digits as the
- * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
- * Atop it, `NextWaiting` says how many wait on you, opening the
- * next as ⌥⌘M does.
+ * The arrow keys move between rows, ⌥⌘0 to ⌥⌘2 (Ctrl+Alt off a Mac) open
+ * the rows shown, top to bottom, and ⌥⌘] and ⌥⌘[ open the agent below or
+ * above the one open, in the inbox's order, main-tree terminals among them,
+ * round past either end; each but the digits as the settings bind it.
+ * Holding ⌥⌘ shows each of those keys beside what it opens. ⌥⌘M opens the
+ * next agent waiting on you.
  *
- * With the feed of every project to be had, the rows go in folders instead,
- * as `foldersOf` groups them: those waiting on you, whatever their project,
- * in Needs you on top, each naming its project, then a folder per project.
- * Another project's row opens by switching the page to that project, where
- * its task, trunk and lanes are the page's own.
+ * With the feed of every project to be had, the agents at work come from
+ * every project, `foldersOf`'s folders in turn, each of another project's
+ * naming it and opening by switching the page to that project, where its
+ * task, trunk and lanes are the page's own.
  */
 export function ConversationList({
 	feed,
@@ -91,6 +74,8 @@ export function ConversationList({
 	here,
 	open,
 	onOpen,
+	inbox,
+	onInbox,
 }: {
 	feed: ConversationFeed;
 	/** The page's shells, the main tree's among them. */
@@ -103,6 +88,9 @@ export function ConversationList({
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
+	/** Whether the inbox is the page shown. */
+	inbox: boolean;
+	onInbox: () => void;
 }): JSX.Element {
 	const { agents, conversations } = useReactive(
 		feed,
@@ -172,10 +160,8 @@ export function ConversationList({
 		].filter(Boolean);
 	};
 
-	const listed = conversations.filter((each) => !each.archived);
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
-	const archived = conversations.length - listed.length;
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const hosting = hostsAtWork(nested);
 	const everywhere = useEverywhere(
@@ -195,7 +181,7 @@ export function ConversationList({
 				drafts,
 			)
 		: null;
-	const { folded, fold } = useFolded(FOLDED_FOLDERS);
+	const { folded } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
 	// Every row as it shows, each part under its task, the folded folders' left out.
 	const entries: Entry[] =
@@ -214,8 +200,28 @@ export function ConversationList({
 							})),
 						),
 				];
-	// What ⌥⌘0 to ⌥⌘9 open.
-	const shown = entries.slice(0, DIGITS).map(({ row }) => row);
+	// The agents at work, each with the folder it is in, or null for none.
+	const working: { folder: Folder | null; tree: Nested<Needing> }[] =
+		grouped === null
+			? nested
+					.filter(
+						(tree) =>
+							!flatten([tree]).some((row) =>
+								waitsOnYou(row, drafts, conversations),
+							) &&
+							flatten([tree]).some(
+								(row) =>
+									row.need.kind === "working" || row.need.kind === "assuming",
+							),
+					)
+					.map((tree) => ({ folder: null, tree }))
+			: grouped.folders.flatMap((folder) =>
+					folder.working.map((tree) => ({ folder, tree })),
+				);
+	const listed = working.slice(0, WORKING);
+	const more = working.length - listed.length;
+	// What ⌥⌘0 to ⌥⌘2 open.
+	const shown = listed.map(({ tree }) => tree.row);
 	const held = useHeld();
 	const openEntry = ({ folder, row }: Entry) => {
 		if (folder === null || folder.here || folder.project === null) {
@@ -234,8 +240,12 @@ export function ConversationList({
 	// The latest, for the listener below, which outlives a render.
 	const openRowRef = useRef(openEntry);
 	openRowRef.current = openEntry;
-	const shownRef = useRef(entries.slice(0, DIGITS));
-	shownRef.current = entries.slice(0, DIGITS);
+	const shownEntries = listed.map(({ folder, tree }) => ({
+		folder,
+		row: tree.row,
+	}));
+	const shownRef = useRef(shownEntries);
+	shownRef.current = shownEntries;
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -342,7 +352,7 @@ export function ConversationList({
 		);
 	const beneathOf = (folder: Folder, row: Needing) =>
 		folder.here ? beneath(row) : [];
-	// Waiting on you in other projects, for the waiting line to count and open.
+	// Waiting on you in other projects, for the Inbox to count and ⌥⌘M to open.
 	const elsewhere = (grouped?.needsYou ?? []).flatMap(({ folder, tree }) =>
 		folder.here
 			? []
@@ -373,12 +383,14 @@ export function ConversationList({
 				}
 			}}
 		>
-			<NextWaiting
+			<InboxEntry
 				feed={feed}
 				drafts={drafts}
 				tasks={tasks}
 				open={open}
 				onOpen={onOpen}
+				inbox={inbox}
+				onInbox={onInbox}
 				elsewhere={elsewhere.length}
 				onElsewhere={() => {
 					const first = elsewhere[0];
@@ -387,79 +399,54 @@ export function ConversationList({
 					}
 				}}
 			/>
-			{mains.map((each) => (
-				<TerminalRow
-					key={each}
-					name={terminals.nameOf(each)}
-					onRename={(name) => terminals.rename(each, name)}
-					current={open === each}
-					onOpen={() => onOpen(each)}
-					onClose={() =>
-						closing.close(each, () => {
-							if (open === each) {
-								onOpen(NEW);
-							}
-						})
-					}
-				/>
-			))}
-			{grouped !== null ? (
+			{/* None, and no list either: an empty one would still take a gap. */}
+			{listed.length > 0 && (
 				<Placing
 					value={{
 						places: placesOf(nested),
 						agentOf: (each) => agentName(agents, each.agent),
 					}}
 				>
-					<NeedsYou
-						placed={grouped.needsYou}
-						render={renderRow}
-						beneath={beneathOf}
-					/>
-					<FolderList
-						folders={grouped.folders}
-						folded={folded}
-						onFold={fold}
-						onNew={(folder) =>
-							folder.here || folder.project === null
-								? onOpen(NEW)
-								: navigation.show(newConversationUrl(folder.project))
-						}
-						render={renderRow}
-						beneath={beneathOf}
-					/>
+					<section aria-label="Working" className="flex flex-col">
+						{grouped === null ? (
+							<Rows
+								label="conversation list"
+								rows={listed.map(({ tree }) => ({ row: tree.row, parts: [] }))}
+								beneath={beneath}
+								render={(row, nested) => renderHere(row, nested, null)}
+							/>
+						) : (
+							listed.map(({ folder, tree }) =>
+								folder === null ? null : (
+									<InLanes
+										key={`${folderKey(folder)} ${openedBy(tree.row)}`}
+										folder={folder}
+									>
+										<Rows
+											label={`working in ${folder.name}`}
+											rows={[{ row: tree.row, parts: [] }]}
+											beneath={(row) => beneathOf(folder, row)}
+											render={(row, nested) =>
+												renderRow(folder, row, nested, !folder.here)
+											}
+										/>
+									</InLanes>
+								),
+							)
+						)}
+					</section>
 				</Placing>
-			) : (
-				/* None, and no list either: an empty one would still take a gap. */
-				nested.length > 0 && (
-					<Placing
-						value={{
-							places: placesOf(nested),
-							agentOf: (each) => agentName(agents, each.agent),
-						}}
-					>
-						<Rows
-							label="conversation list"
-							rows={nested}
-							beneath={beneath}
-							render={(row, nested) => renderHere(row, nested, null)}
-						/>
-					</Placing>
-				)
 			)}
-			<button
-				type="button"
-				data-row
-				aria-current={open === ARCHIVED ? "page" : undefined}
-				onClick={() => onOpen(ARCHIVED)}
-				className={cn(
-					"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-					open === ARCHIVED && "bg-muted text-foreground",
-				)}
-			>
-				<ArchiveIcon className="size-3.5" />
-				<span className="flex-1">Archived</span>
-				{archived > 0 && <span className="tabular-nums">{archived}</span>}
-			</button>
+			{more > 0 && (
+				<button
+					type="button"
+					data-row
+					onClick={onInbox}
+					className="flex items-center rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
+				>
+					+{more} more
+				</button>
+			)}
 			{closing.confirm}
 		</nav>
 	);

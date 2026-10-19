@@ -22,7 +22,7 @@ export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held, the conversation list under them, and a handle to drag it wider,
+ * shortcut while ⌥⌘ is held, the Inbox and the agents at work under them, and a handle to drag it wider,
  * unless it is hidden. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
@@ -57,9 +57,6 @@ export function AppNav({
 		(sidebar) => ({ shown: sidebar.shown }),
 		["changed"],
 	);
-	const pages = PAGES.filter(
-		({ value }) => value !== "conversations" || available,
-	);
 	// Creds counts nothing: a dot says a request waits on the person.
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
@@ -82,7 +79,7 @@ export function AppNav({
 						onOpen={onOpen}
 					/>
 				)}
-				{pages.map(({ value, label, Icon, shortcut }) => (
+				{PAGES.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger
 						key={value}
 						value={value}
@@ -115,6 +112,8 @@ export function AppNav({
 							}}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
+							inbox={page === "conversations" && open === null}
+							onInbox={() => onOpen(null)}
 						/>
 					</div>
 				)}

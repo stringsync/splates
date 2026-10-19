@@ -5,7 +5,6 @@ import {
 	KanbanIcon,
 	KeyRoundIcon,
 	type LucideIcon,
-	MessagesSquareIcon,
 	ServerIcon,
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
@@ -35,8 +34,9 @@ export type Page =
 	| "setup";
 
 /**
- * Each page in the nav, with the shortcut that opens it, if any. Setup is
- * not one: Settings and the nudge open it.
+ * Each page in the nav, with the shortcut that opens it, if any. Neither
+ * Conversations, whose inbox each layout leads its agents with, nor Setup,
+ * which Settings and the nudge open, is one.
  */
 export const PAGES: {
 	value: Page;
@@ -44,11 +44,6 @@ export const PAGES: {
 	Icon: LucideIcon;
 	shortcut?: ShortcutKey;
 }[] = [
-	{
-		value: "conversations",
-		label: "Conversations",
-		Icon: MessagesSquareIcon,
-	},
 	{
 		value: "todos",
 		label: "Todos",

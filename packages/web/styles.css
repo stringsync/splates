@@ -80,6 +80,7 @@
 @source "./error-banner.tsx";
 @source "./escalation-card.tsx";
 @source "./idle-banner.tsx";
+@source "./inbox-line.tsx";
 @source "./thread-actions.tsx";
 @source "./conversation-home.tsx";
 @source "./setting-controls.tsx";
@@ -158,7 +159,6 @@
 @source "./budget.tsx";
 @source "./budget-forms.tsx";
 @source "./meter.tsx";
-@source "./waiting-line.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";
 @source "./worker-card.tsx";

@@ -62,13 +62,16 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
-	const _rows = (view: ConversationsView) =>
-		within(view.getByRole("navigation", { name: "conversations" }))
-			.getAllByRole("listitem")
-			.map((row) => [
-				row.textContent,
-				within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
-			]);
+	/** The sidebar's Inbox. */
+	const inboxOf = (view: ConversationsView) =>
+		within(view.getByRole("navigation", { name: "conversations" })).getByRole(
+			"button",
+			{ name: /^Inbox/ },
+		);
+
+	/** What the Inbox counts, as it says it. */
+	const waiting = (view: ConversationsView) =>
+		within(inboxOf(view)).getByRole("status").getAttribute("aria-label");
 
 	it("passes over an agent asking only in its plan as it works on ⌥⌘M, though not one stopped on its questions", async () => {
 		const plan = PLAN.replace(
@@ -101,9 +104,7 @@ Cap upload retries
 
 		expect(location.hash).toBe("#conversations/c2");
 		expect(view.queryByRole("dialog")).toBeNull();
-		expect(
-			view.getByRole("button", { name: /waiting on you/ }).textContent,
-		).toContain("1 waiting on you");
+		expect(waiting(view)).toBe("1 waiting on you");
 	});
 
 	it("goes on ⌥⌘M to the question an external agent asks as it works, on its card", async () => {
@@ -133,9 +134,7 @@ Cap upload retries
 		await pressNext();
 
 		expect(location.hash).not.toBe("#conversations/task/alpha");
-		expect(
-			view.getByRole("button", { name: /waiting on you/ }).textContent,
-		).toContain("Nothing waiting on you");
+		expect(waiting(view)).toBe("Nothing waiting on you");
 	});
 
 	it("goes on ⌥⌘M to what the agent asks as it works", async () => {
@@ -170,7 +169,8 @@ Cap upload retries
 			newestFirst([
 				conversation({ id: "c1", title: "Runs", status: "running" }),
 				conversation({ id: "c2", title: "Asks", status: "running", ask }),
-				conversation({ id: "c3", title: "Broke", status: "failed" }),
+				conversation({ id: "c3", title: "Builds", status: "running" }),
+				conversation({ id: "c4", title: "Broke", status: "failed" }),
 			]),
 			null,
 		);
@@ -181,7 +181,18 @@ Cap upload retries
 		runs.focus();
 
 		await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));
-		expect(document.activeElement?.textContent).toBe("Asks");
+		expect(document.activeElement?.textContent).toBe("Builds");
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement as HTMLElement, {
+				key: "ArrowUp",
+			}),
+		);
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement as HTMLElement, {
+				key: "ArrowUp",
+			}),
+		);
+		expect(document.activeElement).toBe(inboxOf(view));
 		// Alt+N alone types a tilde on a Mac, so it opens nothing.
 		const before = location.hash;
 		await act(async () =>
@@ -191,9 +202,40 @@ Cap upload retries
 		await pressNext();
 		expect(location.hash).toBe("#conversations/c2");
 		await pressNext();
-		expect(location.hash).toBe("#conversations/c3");
+		expect(location.hash).toBe("#conversations/c4");
 		await pressNext();
 		expect(location.hash).toBe("#conversations/c2");
+	});
+
+	it("counts the agents waiting on you on the Inbox, which opens the inbox, and blinks it when ⌥⌘M finds none", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				conversation({ id: "c1", title: "Runs", status: "running" }),
+				conversation({ id: "c2", title: "Broke", status: "failed" }),
+			]),
+			"c1",
+		);
+		// Atop the agents.
+		expect(inboxOf(view).previousElementSibling).toBe(null);
+		expect(waiting(view)).toBe("1 waiting on you");
+
+		await act(async () => fireEvent.click(inboxOf(view)));
+		expect(location.hash).toBe("#conversations");
+		expect(inboxOf(view).getAttribute("aria-current")).toBe("page");
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+		await pressNext();
+		expect(location.hash).toBe("#conversations/c2");
+		expect(inboxOf(view).hasAttribute("data-lit")).toBe(false);
+
+		view.unmount();
+		const quiet = await testing.openConversations(
+			[conversation({ id: "c1", title: "Runs", status: "running" })],
+			"c1",
+		);
+		expect(waiting(quiet)).toBe("Nothing waiting on you");
+		await pressNext();
+		expect(location.hash).toBe("#conversations/c1");
+		expect(inboxOf(quiet).hasAttribute("data-lit")).toBe(true);
 	});
 
 	it("opens merged conversations with ⌥⌘M once none but the open one waits on you", async () => {

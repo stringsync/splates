@@ -1,30 +1,34 @@
-import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
+import { InboxIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#web/components/ui/kbd.tsx";
+import { cn } from "#web/lib/utils.ts";
 
 /** How long the line blinks once its shortcut finds nothing: three blinks of `animate-blink`. */
 const NUDGE = Duration.ms(600);
 
 /**
- * A line of one height that always says how many agents wait on you, so
- * nothing moves as the count changes. Clicking it opens the next one, as
- * its shortcut does. Each time `nudges` goes up, as when that finds nothing to open,
- * it blinks a few times in place, to catch the eye, starting over on a repeat.
+ * The sidebar's way to the inbox, counting the agents waiting on you, as the
+ * phone drawer's Inbox does. Each time `nudges` goes up, as when the shortcut
+ * to the next waiting finds nothing to open, it blinks a few times in place,
+ * to catch the eye, starting over on a repeat.
  */
-export function WaitingLine({
+export function InboxLine({
 	waiting,
+	current,
 	nudges,
 	hint,
-	onNext,
+	onOpen,
 }: {
 	/** How many agents wait on you. */
 	waiting: number;
+	/** Whether the inbox is the page shown. */
+	current: boolean;
 	/** How many times its shortcut has found nothing, so far. */
 	nudges: number;
 	/** The key to show while ⌥⌘ is held, or null. */
 	hint: string | null;
-	onNext: () => void;
+	onOpen: () => void;
 }): JSX.Element {
 	const [lit, setLit] = useState(false);
 	useEffect(() => {
@@ -39,9 +43,14 @@ export function WaitingLine({
 	return (
 		<button
 			type="button"
+			data-row
 			data-lit={lit || undefined}
-			onClick={onNext}
-			className="relative isolate flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
+			aria-current={current ? "page" : undefined}
+			onClick={onOpen}
+			className={cn(
+				"relative isolate flex h-9 min-w-0 flex-none items-center gap-3 rounded-md px-3 text-left text-sm hover:bg-muted [&_svg]:size-4",
+				current && "bg-accent [&_svg]:text-primary",
+			)}
 		>
 			{lit && (
 				// Keyed by the nudge, so a repeat starts the blinks over without
@@ -52,20 +61,27 @@ export function WaitingLine({
 					className="-z-10 pointer-events-none absolute inset-0 animate-blink rounded-md bg-foreground/15 motion-reduce:animate-none"
 				/>
 			)}
-			{waiting > 0 ? (
-				<CircleAlertIcon className="size-3.5 text-warning" />
-			) : (
-				<CircleCheckIcon className="size-3.5" />
-			)}
-			<span role="status" className="flex-1 truncate">
-				{waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you"}
-			</span>
+			<InboxIcon />
+			<span className="flex-1 truncate">Inbox</span>
 			{hint !== null && (
 				// Its own height, taller than the line, would push the rows below.
 				<Kbd aria-hidden className="-my-0.5">
 					{hint}
 				</Kbd>
 			)}
+			<span
+				role="status"
+				aria-label={
+					waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you"
+				}
+				className={cn(
+					"text-xs tabular-nums",
+					waiting > 0 &&
+						"rounded-full bg-warning px-2 py-0.5 font-medium text-background",
+				)}
+			>
+				{waiting > 0 ? waiting : null}
+			</span>
 		</button>
 	);
 }

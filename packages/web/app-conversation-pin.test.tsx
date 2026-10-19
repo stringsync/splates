@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	type ConversationsView,
 	cleanup,
 	conversation,
 	fireEvent,
@@ -10,11 +11,12 @@ import {
 
 describe("App's pinning conversations", () => {
 	let testing: Testing;
-	let nav: HTMLElement;
+	let view: ConversationsView;
+	let inbox: HTMLElement;
 
 	beforeEach(async () => {
 		testing = new Testing();
-		const view = await testing.openConversations(
+		view = await testing.openConversations(
 			[
 				conversation({
 					id: "c1",
@@ -31,7 +33,7 @@ describe("App's pinning conversations", () => {
 			null,
 			{ tasks: [] },
 		);
-		nav = view.getByRole("navigation", { name: "conversations" });
+		inbox = view.getByRole("region", { name: "inbox" });
 	});
 
 	afterEach(() => {
@@ -39,33 +41,50 @@ describe("App's pinning conversations", () => {
 		testing.dispose();
 	});
 
-	it("lists pinned conversations first, each marked pinned", () => {
-		const items = within(nav).getAllByRole("listitem");
+	/** Opens the menu of `name`'s inbox row, as a right-click does. */
+	async function menu(name: string) {
+		const row = within(inbox).getByText(name).closest("button") as Element;
+		await act(async () => {
+			fireEvent.pointerDown(row);
+			fireEvent.contextMenu(row);
+		});
+		return view.getByRole("dialog", { name });
+	}
 
-		expect(items.map((item) => item.textContent)).toEqual(["Old", "New"]);
+	it("lists pinned conversations first", () => {
 		expect(
-			items.map((item) => within(item).queryByLabelText("Pinned") !== null),
-		).toEqual([true, false]);
+			within(inbox)
+				.getAllByRole("listitem")
+				.map((item) =>
+					["Old", "New"].find((name) => within(item).queryByText(name)),
+				),
+		).toEqual(["Old", "New"]);
 	});
 
-	it("offers Pin then Archive after the menu", () => {
-		const row = within(nav).getAllByRole("listitem")[1] as HTMLElement;
+	it("offers Pin then Archive at the end of the menu", async () => {
+		const sheet = await menu("New");
 
 		expect(
-			within(row)
+			within(sheet)
 				.getAllByRole("button")
-				.slice(1)
-				.map((button) => button.getAttribute("aria-label")),
-		).toEqual(["More for New", "Pin New", "Archive New"]);
+				.map((button) => button.textContent),
+		).toEqual([
+			"Rename",
+			"Mark as unread",
+			"Move under…",
+			"Pin",
+			"Archive",
+			"Cancel",
+		]);
 	});
 
 	it("pins and unpins", async () => {
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: "Pin New" })),
-		);
-		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: "Unpin Old" })),
-		);
+		const pick = async (name: string, action: string) =>
+			fireEvent.click(
+				within(await menu(name)).getByRole("button", { name: action }),
+			);
+		await act(async () => pick("New", "Pin"));
+		await act(async () => pick("Old", "Unpin"));
 
 		expect([
 			testing.posted("/api/conversations/c2/pinned"),

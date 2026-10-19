@@ -75,6 +75,7 @@ describe("App's conversation home", () => {
 			],
 			null,
 		);
+		await openHome();
 		const recent = view.getByRole("region", { name: "recent conversations" });
 
 		expect(
@@ -112,6 +113,7 @@ describe("App's conversation home", () => {
 				],
 			},
 		);
+		await openHome();
 		const recent = view.getByRole("region", { name: "recent conversations" });
 
 		expect(
@@ -154,6 +156,7 @@ describe("App's conversation home", () => {
 				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
 			})),
 		);
+		await openHome();
 		testing.reply = conversation({
 			id: "c9",
 			agent: "codex",
@@ -325,6 +328,7 @@ describe("App's conversation home", () => {
 			{ id: "claude", name: "Claude", settings: [], limits: [] },
 			{ id: "codex", name: "Codex", settings: [model], limits: [] },
 		]);
+		await openHome();
 		testing.reply = conversation({ id: "c9", agent: "codex", task: null });
 
 		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
@@ -390,6 +394,7 @@ describe("App's conversation home", () => {
 				{ id: "gemini", name: "Gemini", settings: [], limits: [] },
 			],
 		);
+		await openHome();
 
 		const limits = view.getByRole("region", { name: "plan limits" });
 		const row = (name: string) => within(limits).getByLabelText(name);
@@ -438,6 +443,7 @@ describe("App's conversation home", () => {
 			[conversation({ id: "c1", agent: "codex", title: "Latest" })],
 			null,
 		);
+		await openHome();
 
 		expect(
 			within(
@@ -448,6 +454,15 @@ describe("App's conversation home", () => {
 	});
 });
 
+/** Opens the new conversation screen with no agent picked, as ⌥⌘N does. */
+const openHome = () =>
+	act(async () =>
+		fireEvent.keyDown(document.body, {
+			altKey: true,
+			metaKey: true,
+			code: "KeyN",
+		}),
+	);
 const hours = (count: number) =>
 	new Date(Date.now() + count * 3_600_000).toISOString();
 const limit = (window: string, used: number, at: string): Limit => ({

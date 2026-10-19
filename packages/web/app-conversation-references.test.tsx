@@ -5,6 +5,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	newWith,
 	snapshot,
 	Testing,
 	textIn,
@@ -32,11 +33,12 @@ describe("App's composer references", () => {
 	};
 
 	/**
-	 * The conversations page on `on`, its composer's box, a key pressed in
+	 * A new conversation on `on`, its composer's box, a key pressed in
 	 * it, the list `#` opens, and the row highlighted there.
 	 */
 	const opened = async (on = board) => {
 		const view = await testing.openConversations([], null, on);
+		await newWith(view, "Claude");
 		const box = view.getByRole("textbox", { name: "Message input" });
 		const list = () => view.getByRole("listbox", { name: "references" });
 		return {
@@ -290,7 +292,7 @@ describe("App's composer references", () => {
 
 	it("runs a conversation's action picked after a #, writing nothing", async () => {
 		const view = await testing.openConversations([
-			conversation({ title: "alpha" }),
+			conversation({ title: "Fix login" }),
 		]);
 		const box = view.getByRole("textbox", {
 			name: "Message input",

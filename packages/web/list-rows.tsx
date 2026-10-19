@@ -178,7 +178,7 @@ export function TerminalRow({
  * A box in place of a terminal's name, handing `onDone` what was typed on
  * Enter, or null on Escape or leaving it.
  */
-function RenameBox({
+export function RenameBox({
 	name,
 	onDone,
 }: {

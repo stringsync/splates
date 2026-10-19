@@ -2,6 +2,7 @@ import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import {
+	ArchiveIcon,
 	ChevronRightIcon,
 	MenuIcon,
 	PlusIcon,
@@ -21,7 +22,7 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { NEW, openedBy } from "./conversation-address";
+import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import {
 	type AgentChoice,
 	agentName,
@@ -74,6 +75,11 @@ import { BarButton, TopBar } from "./top-bar";
  * away as the sidebar's does, dotted while folded with one waiting, and its +
  * starts a conversation there. Another project's row only opens, by switching
  * the page to that project.
+ *
+ * Beside a sidebar, `onMenu` null, it is the page the sidebar's Inbox opens:
+ * under the shell's bar, with no menu and no composer along the bottom, the
+ * sidebar having New, and the archived conversations at its foot, as the
+ * drawer has them on a phone.
  */
 export function Inbox({
 	feed,
@@ -97,7 +103,8 @@ export function Inbox({
 	status: ReactNode;
 	/** Whether the project snapshot is still on its way. */
 	loading: boolean;
-	onMenu: () => void;
+	/** Opens the phone's drawer; null beside a sidebar. */
+	onMenu: (() => void) | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	const { agents, conversations, pending, available } = useReactive(
@@ -172,19 +179,26 @@ export function Inbox({
 			? rows.length === 0
 			: grouped.folders.every((each) => each.trees.length === 0);
 	const agent = agents.find((each) => each.id === "claude") ?? agents[0];
+	const wide = onMenu === null;
+	const archived = conversations.filter((each) => each.archived).length;
 	return (
 		<section
 			aria-label="inbox"
-			className="flex min-h-dvh flex-col bg-background"
+			className={cn(
+				"flex flex-col bg-background",
+				wide ? "mx-auto w-full max-w-3xl" : "min-h-dvh",
+			)}
 		>
 			<TopBar
 				className="sticky top-0 z-10 box-content border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur"
 				leading={
-					<BarButton label="Open menu" onClick={onMenu}>
-						<MenuIcon />
-					</BarButton>
+					onMenu !== null && (
+						<BarButton label="Open menu" onClick={onMenu}>
+							<MenuIcon />
+						</BarButton>
+					)
 				}
-				title={status}
+				title={wide ? "Inbox" : status}
 				actions={[
 					{
 						label: "New conversation",
@@ -197,7 +211,7 @@ export function Inbox({
 					},
 				]}
 			/>
-			<div className="flex flex-1 flex-col pb-28">
+			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
 				{loading || pending ? (
 					<div
 						role="status"
@@ -272,36 +286,50 @@ export function Inbox({
 						<TerminalGroup
 							mains={mains}
 							nameOf={(key) => terminals.nameOf(key)}
+							onRename={(key, name) => terminals.rename(key, name)}
 							onOpen={onOpen}
 							onClose={close}
 						/>
 					</Placing>
 				)}
+				{wide && available && (
+					<button
+						type="button"
+						onClick={() => onOpen(ARCHIVED)}
+						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted"
+					>
+						<ArchiveIcon className="size-3.5" />
+						<span>Archived</span>
+						{archived > 0 && <span className="tabular-nums">{archived}</span>}
+					</button>
+				)}
 			</div>
 			{/* Where a thumb is, as the chat apps keep their composer. */}
-			<div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background via-background to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-				{/* A field rather than a button, so a tap raises the keyboard,
+			{!wide && (
+				<div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background via-background to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+					{/* A field rather than a button, so a tap raises the keyboard,
 				    which the new conversation's composer takes over. */}
-				<label className="flex h-12 w-full items-center gap-3 rounded-full border bg-card px-4 text-muted-foreground shadow-sm">
-					{agent !== undefined && (
-						<AgentIcon
-							agent={agent.id}
-							name={agent.name}
-							className="size-4 shrink-0 text-foreground/70"
+					<label className="flex h-12 w-full items-center gap-3 rounded-full border bg-card px-4 text-muted-foreground shadow-sm">
+						{agent !== undefined && (
+							<AgentIcon
+								agent={agent.id}
+								name={agent.name}
+								className="size-4 shrink-0 text-foreground/70"
+							/>
+						)}
+						<input
+							aria-label="Start a conversation"
+							placeholder={`Ask ${agent?.name ?? "an agent"} to work on something`}
+							disabled={!available}
+							onFocus={() => {
+								launch();
+								openNew();
+							}}
+							className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
 						/>
-					)}
-					<input
-						aria-label="Start a conversation"
-						placeholder={`Ask ${agent?.name ?? "an agent"} to work on something`}
-						disabled={!available}
-						onFocus={() => {
-							launch();
-							openNew();
-						}}
-						className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
-					/>
-				</label>
-			</div>
+					</label>
+				</div>
+			)}
 			{confirm}
 		</section>
 	);

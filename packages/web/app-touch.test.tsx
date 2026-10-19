@@ -7,6 +7,7 @@ import {
 	menuItem,
 	message,
 	newWith,
+	openRow,
 	resize,
 	Testing,
 	typeIn,
@@ -43,9 +44,7 @@ describe("App on a touch device", () => {
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 			conversation({ id: "c2", title: "Look around" }),
 		]);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
-		);
+		await openRow(view, "Look around");
 		expect(
 			within(view.getByRole("navigation", { name: "actions" }))
 				.getAllByRole("button")

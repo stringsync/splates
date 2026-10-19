@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { cleanup, conversation, details, Testing, within } from "./testing";
+import {
+	act,
+	type ConversationsView,
+	cleanup,
+	conversation,
+	details,
+	fireEvent,
+	Testing,
+	within,
+} from "./testing";
 
 describe("App's pinning a part's conversation", () => {
 	let testing: Testing;
-	let view: Awaited<ReturnType<Testing["openConversations"]>>;
+	let view: ConversationsView;
 
 	beforeEach(async () => {
 		testing = new Testing();
@@ -29,19 +38,37 @@ describe("App's pinning a part's conversation", () => {
 		testing.dispose();
 	});
 
-	it("offers a pin for the host", () => {
-		expect(view.getByRole("button", { name: "Pin alpha" })).toBeTruthy();
+	/** What the menu of `name`'s inbox row offers, as a right-click opens it. */
+	async function offered(name: string): Promise<(string | null)[]> {
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const row = within(inbox)
+			.getAllByText(name)[0]
+			?.closest("button") as Element;
+		await act(async () => {
+			fireEvent.pointerDown(row);
+			fireEvent.contextMenu(row);
+		});
+		const sheet = within(view.getByRole("dialog", { name }));
+		const labels = sheet
+			.getAllByRole("button")
+			.map((button) => button.textContent);
+		await act(async () =>
+			fireEvent.click(sheet.getByRole("button", { name: "Cancel" })),
+		);
+		return labels;
+	}
+
+	it("offers a pin for the host", async () => {
+		expect(await offered("alpha")).toContain("Pin");
 	});
 
-	it("offers none for a part nested under it, pinned or not", () => {
-		const parts = view.getByRole("list", { name: "parts of alpha" });
+	it("offers none for a part nested under it, pinned or not", async () => {
+		const parts = [await offered("alpha-api"), await offered("alpha-ui")];
 
 		expect(
-			within(parts)
-				.getAllByRole("button")
-				.map((button) => button.getAttribute("aria-label") ?? "")
-				.filter((label) => /^(Pin|Unpin) /.test(label)),
-		).toEqual([]);
-		expect(within(parts).queryByLabelText("Pinned")).toBeNull();
+			parts.map((each) =>
+				each.filter((label) => /^(Pin|Unpin)$/.test(label ?? "")),
+			),
+		).toEqual([[], []]);
 	});
 });

@@ -52,6 +52,7 @@ describe("App's sending messages", () => {
 	// scry-ignore simple-test-setup: this scenario alone substitutes an HTTP acknowledgement without a stream echo
 	it("settles the first message from its HTTP acknowledgement before the live stream catches up", async () => {
 		const view = await testing.openConversations([], null);
+		await newWith(view, "Claude");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		const fetch = globalThis.fetch;
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
@@ -107,6 +108,7 @@ describe("App's sending messages", () => {
 	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
 		testing.tree = ["README.md", "src/", "src/components/", "src/index.ts"];
 		const view = await testing.openConversations([]);
+		await newWith(view, "Claude");
 		const box = view.getByRole("textbox", {
 			name: "Message input",
 		});
@@ -137,6 +139,7 @@ describe("App's sending messages", () => {
 	it("shows no list over the composer for an @ no file matches, as right after a file's chip, and sends on Enter", async () => {
 		testing.tree = ["README.md", "src/", "src/index.ts"];
 		const view = await testing.openConversations([], null);
+		await newWith(view, "Claude");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		const box = view.getByRole("textbox", {
 			name: "Message input",
@@ -153,6 +156,7 @@ describe("App's sending messages", () => {
 
 	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
 		const view = await testing.openConversations([], null);
+		await newWith(view, "Claude");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		const box = view.getByRole("textbox", { name: "Message input" });
 		await typeIn(box, "fix the login");
@@ -166,7 +170,7 @@ describe("App's sending messages", () => {
 		expect(within(thread).getByText("fix the login")).toBeTruthy();
 		expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy();
 		expect(
-			within(view.getByRole("list", { name: "conversation list" })).getByText(
+			within(view.getByRole("navigation", { name: "conversations" })).getByText(
 				"fix the login",
 			),
 		).toBeTruthy();
@@ -195,6 +199,7 @@ describe("App's sending messages", () => {
 
 	it("shows the images sent with the first message in the new conversation's thread while its agent starts, then as the server keeps them", async () => {
 		const view = await testing.openConversations([], null);
+		await newWith(view, "Claude");
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		const box = view.getByRole("textbox", { name: "Message input" });
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });

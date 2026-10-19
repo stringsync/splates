@@ -93,6 +93,15 @@ describe("App's conversation terminal on a page of its own", () => {
 	it("opens from the row the sidebar nests under the conversation, keeping its shell", async () => {
 		const view = await opening("#conversations/c1");
 		await waitFor(() => view.getByRole("navigation", { name: "actions" }));
+		// At work, as the sidebar lists only those.
+		await testing.say(
+			conversation({
+				id: "c1",
+				name: "Fix it",
+				task: "alpha",
+				status: "running",
+			}),
+		);
 		await press(TOGGLE);
 		await act(async () => testing.shells[0]?.accept());
 		const row = within(

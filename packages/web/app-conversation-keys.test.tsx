@@ -33,11 +33,14 @@ describe("App's sidebar keys", () => {
 		options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
 	};
 
-	it("shows each key while ⌥⌘ is held, and opens a row with ⌥⌘ and its digit", async () => {
+	// scry-ignore simple-test-setup: the four agents at work, one more than the sidebar shows, are what it checks
+	it("shows each key while ⌥⌘ is held, and opens a row shown with ⌥⌘ and its digit", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
-				conversation({ id: "c1", title: "First" }),
-				conversation({ id: "c2", title: "Second" }),
+				conversation({ id: "c1", title: "First", status: "running" }),
+				conversation({ id: "c2", title: "Second", status: "running" }),
+				conversation({ id: "c3", title: "Third", status: "running" }),
+				conversation({ id: "c4", title: "Fourth", status: "running" }),
 			]),
 			null,
 			{ tasks: [details({ task: "beta", status: "escalated" })] },
@@ -51,7 +54,10 @@ describe("App's sidebar keys", () => {
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
 		expect(keys()).toEqual(["M", "0", "1", "2"]);
-		expect(view.getByRole("button", { name: /^New/ }).textContent).toBe("NewN");
+		expect(
+			within(view.getByRole("tablist")).getByRole("button", { name: /^New/ })
+				.textContent,
+		).toBe("NewN");
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
 				code: "Digit1",
@@ -67,7 +73,16 @@ describe("App's sidebar keys", () => {
 				ctrlKey: true,
 			}),
 		);
-		expect(location.hash).toBe("#conversations/task/beta");
+		expect(location.hash).toBe("#conversations/c3");
+		// The fourth at work is behind +1 more, with no key of its own.
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				code: "Digit3",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+		expect(location.hash).toBe("#conversations/c3");
 
 		await act(async () =>
 			fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
@@ -148,9 +163,9 @@ describe("App's sidebar keys", () => {
 	it("goes back through the conversations opened with ⌥⌘, and forward with ⌥⌘., leaving ⌘, to Settings", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
-				conversation({ id: "c1", title: "First" }),
-				conversation({ id: "c2", title: "Second" }),
-				conversation({ id: "c3", title: "Third" }),
+				conversation({ id: "c1", title: "First", status: "running" }),
+				conversation({ id: "c2", title: "Second", status: "running" }),
+				conversation({ id: "c3", title: "Third", status: "running" }),
 			]),
 			null,
 		);
@@ -207,7 +222,6 @@ describe("App's sidebar keys", () => {
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
 		expect(key(/Todos/)).toBe("T");
-		expect(key(/Conversations/)).toBeNull();
 		expect(key(/Tasks/)).toBeNull();
 
 		await act(async () =>

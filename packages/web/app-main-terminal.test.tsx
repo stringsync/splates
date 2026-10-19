@@ -71,21 +71,49 @@ describe("App's terminals in the main tree", () => {
 		);
 	};
 
-	/** The sidebar's rows for the main tree's terminals, by name. */
-	const rows = (view: Awaited<ReturnType<typeof reading>>) =>
-		within(view.getByRole("navigation", { name: "conversations" }))
-			.queryAllByRole("button", { name: /^Terminal \d+$/ })
-			.map((row) => row.textContent);
+	/** Opens the inbox, where the main tree's terminals are listed. */
+	const inbox = async (view: Awaited<ReturnType<typeof reading>>) => {
+		if (view.queryByRole("region", { name: "inbox" }) === null) {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
+			);
+		}
+		return view.getByRole("region", { name: "inbox" });
+	};
 
-	const row = (view: Awaited<ReturnType<typeof reading>>, name: string) =>
-		within(view.getByRole("navigation", { name: "conversations" })).getByRole(
-			"button",
-			{ name },
+	/** The inbox's rows for the main tree's terminals, by name, opening it. */
+	const rows = async (view: Awaited<ReturnType<typeof reading>>) =>
+		within(await inbox(view))
+			.queryAllByRole("button", { name: /Main tree$/ })
+			.map((row) => row.textContent?.replace(/Main tree$/, ""));
+
+	const row = async (view: Awaited<ReturnType<typeof reading>>, name: string) =>
+		within(await inbox(view)).getByRole("button", {
+			name: new RegExp(`^${name} ?Main tree$`),
+		});
+
+	/** Renames the terminal `from` to `to` from its row in the inbox. */
+	const rename = async (
+		view: Awaited<ReturnType<typeof reading>>,
+		from: string,
+		to: string,
+	) => {
+		const listed = await inbox(view);
+		await act(async () =>
+			fireEvent.click(
+				within(listed).getByRole("button", { name: `Rename ${from}` }),
+			),
 		);
+		const box = within(listed).getByRole("textbox", { name: `Rename ${from}` });
+		await act(async () => {
+			fireEvent.change(box, { target: { value: to } });
+			fireEvent.keyDown(box, { key: "Enter" });
+		});
+	};
 
 	it("opens a shell in the main tree from New, on a page of its own, listed until closed", async () => {
 		const view = await reading();
-		expect(rows(view)).toEqual([]);
+		expect(await rows(view)).toEqual([]);
 
 		await openTerminal(view);
 
@@ -105,7 +133,7 @@ describe("App's terminals in the main tree", () => {
 		await waitFor(() =>
 			expect(view.getByTestId("terminal").textContent).toContain("on trunk"),
 		);
-		expect(row(view, "Terminal 1").getAttribute("aria-current")).toBe("page");
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 	});
 
 	it("starts one opened by its address, as on a reload, and lists it", async () => {
@@ -115,10 +143,10 @@ describe("App's terminals in the main tree", () => {
 
 		view.getByRole("region", { name: "terminal" });
 		expect(testing.shells.map((shell) => shell.task)).toEqual([null]);
-		expect(rows(view)).toEqual(["Terminal 3"]);
+		expect(await rows(view)).toEqual(["Terminal 3"]);
 
 		await openTerminal(view);
-		expect(rows(view)).toEqual(["Terminal 3", "Terminal 4"]);
+		expect(await rows(view)).toEqual(["Terminal 3", "Terminal 4"]);
 	});
 
 	it("starts another shell each time, each with a row of its own to go back to", async () => {
@@ -129,11 +157,11 @@ describe("App's terminals in the main tree", () => {
 		await openTerminal(view);
 		expect(location.hash).toBe("#conversations/terminal/2");
 		expect(testing.shells).toHaveLength(2);
-		expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+		expect(await rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
 
 		await go("#conversations/c1");
 		expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
-		await act(async () => fireEvent.click(row(view, "Terminal 1")));
+		await act(async () => fireEvent.click(await row(view, "Terminal 1")));
 
 		view.getByRole("region", { name: "terminal" });
 		expect(view.getByRole("heading", { name: "Terminal 1" })).toBeTruthy();
@@ -149,10 +177,10 @@ describe("App's terminals in the main tree", () => {
 
 		await act(async () => testing.shells[1]?.exit(0));
 
-		expect(rows(view)).toEqual(["Terminal 1"]);
 		expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
 		expect(location.hash).toBe("#conversations/new");
 		expect(testing.shells).toHaveLength(2);
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 	});
 
 	it("hangs up on a shell and drops its row when closed, numbering the next past those left", async () => {
@@ -161,17 +189,19 @@ describe("App's terminals in the main tree", () => {
 		await openTerminal(view);
 		await act(async () => testing.shells[1]?.accept());
 
+		const listed = await inbox(view);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Close Terminal 2" })),
+			fireEvent.click(
+				within(listed).getByRole("button", { name: "Close Terminal 2" }),
+			),
 		);
 
 		expect(testing.shells[1]?.readyState).toBe(3);
 		expect(testing.shells[0]?.readyState).toBe(0);
-		expect(rows(view)).toEqual(["Terminal 1"]);
-		expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 
 		await openTerminal(view);
-		expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+		expect(await rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
 	});
 
 	it("asks before closing a shell that runs a job, hanging up only once confirmed", async () => {
@@ -180,10 +210,14 @@ describe("App's terminals in the main tree", () => {
 		const shell = testing.shells[0] as FakeShell;
 		await act(async () => shell.accept());
 		shell.running = "bun run dev";
-		const close = () =>
-			act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Close Terminal 1" })),
+		const close = async () => {
+			const listed = await inbox(view);
+			await act(async () =>
+				fireEvent.click(
+					within(listed).getByRole("button", { name: "Close Terminal 1" }),
+				),
 			);
+		};
 
 		await close();
 		const ask = view.getByRole("dialog", { name: "Close Terminal 1?" });
@@ -192,7 +226,7 @@ describe("App's terminals in the main tree", () => {
 			fireEvent.click(within(ask).getByRole("button", { name: "Cancel" })),
 		);
 		expect(shell.readyState).toBe(1);
-		expect(rows(view)).toEqual(["Terminal 1"]);
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 
 		await close();
 		await act(async () =>
@@ -201,51 +235,39 @@ describe("App's terminals in the main tree", () => {
 			),
 		);
 		expect(shell.readyState).toBe(3);
-		expect(rows(view)).toEqual([]);
+		expect(await rows(view)).toEqual([]);
 	});
 
 	it("renames a shell from its row, in the list and atop its page, going back to its number when cleared", async () => {
 		const view = await reading();
 		await openTerminal(view);
-		const rename = async (from: string, to: string) => {
-			await act(async () => fireEvent.doubleClick(row(view, from)));
-			const box = view.getByRole("textbox", { name: `Rename ${from}` });
-			await act(async () => {
-				fireEvent.change(box, { target: { value: to } });
-				fireEvent.keyDown(box, { key: "Enter" });
-			});
-		};
 
-		await rename("Terminal 1", "Dev server");
+		await rename(view, "Terminal 1", "Dev server");
 
-		expect(row(view, "Dev server").getAttribute("aria-current")).toBe("page");
-		expect(view.getByRole("heading", { name: "Dev server" })).toBeTruthy();
+		expect(await rows(view)).toEqual(["Dev server"]);
 		expect(localStorage.getItem("splates.terminal.names")).toBe(
 			JSON.stringify({ "terminal/1": "Dev server" }),
 		);
+		await act(async () => fireEvent.click(await row(view, "Dev server")));
+		expect(view.getByRole("heading", { name: "Dev server" })).toBeTruthy();
 
-		await rename("Dev server", " ");
-		expect(rows(view)).toEqual(["Terminal 1"]);
+		await rename(view, "Dev server", " ");
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 	});
 
 	it("forgets a shell's name once closed, so the next under its number goes by that", async () => {
 		const view = await reading();
 		await openTerminal(view);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Rename Terminal 1" })),
-		);
-		const box = view.getByRole("textbox", { name: "Rename Terminal 1" });
-		await act(async () => {
-			fireEvent.change(box, { target: { value: "Logs" } });
-			fireEvent.keyDown(box, { key: "Enter" });
-		});
+		await rename(view, "Terminal 1", "Logs");
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Close Logs" })),
+			fireEvent.click(
+				within(await inbox(view)).getByRole("button", { name: "Close Logs" }),
+			),
 		);
 		await openTerminal(view);
 
-		expect(rows(view)).toEqual(["Terminal 1"]);
+		expect(await rows(view)).toEqual(["Terminal 1"]);
 	});
 
 	it("hangs up on a shell and leaves its page from the X in its bar", async () => {
@@ -258,9 +280,9 @@ describe("App's terminals in the main tree", () => {
 		);
 
 		expect(testing.shells[0]?.readyState).toBe(3);
-		expect(rows(view)).toEqual([]);
 		expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
 		expect(location.hash).toBe("#conversations/new");
+		expect(await rows(view)).toEqual([]);
 	});
 
 	it("opens another from its shortcut, shown beside Terminal in New, even from inside a shell", async () => {
@@ -283,7 +305,7 @@ describe("App's terminals in the main tree", () => {
 			view.getByTestId("terminal").querySelector("textarea") ?? window,
 		);
 		expect(location.hash).toBe("#conversations/terminal/2");
-		expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+		expect(await rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
 		expect(testing.shells[0]?.sent).toEqual([sized]);
 	});
 });

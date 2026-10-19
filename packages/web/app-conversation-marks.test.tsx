@@ -8,12 +8,13 @@ import {
 	fireEvent,
 	message,
 	newestFirst,
+	openRow,
 	Testing,
 	waitFor,
 	within,
 } from "./testing";
 
-describe("App's sidebar marks", () => {
+describe("App's marks on its agents", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -53,13 +54,21 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
+	/** The inbox's rows, where every agent is. */
+	const items = (view: ConversationsView) =>
+		within(view.getByRole("region", { name: "inbox" })).getAllByRole(
+			"listitem",
+		);
+
+	/** A row's name, first of what it truncates. */
+	const nameOf = (row: HTMLElement) =>
+		row.querySelector("span.truncate")?.textContent;
+
 	const rows = (view: ConversationsView) =>
-		within(view.getByRole("navigation", { name: "conversations" }))
-			.getAllByRole("listitem")
-			.map((row) => [
-				row.textContent,
-				within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
-			]);
+		items(view).map((row) => [
+			nameOf(row),
+			within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
+		]);
 
 	it("marks each agent waiting on you or working, and an idle one not at all", async () => {
 		const view = await testing.openConversations(
@@ -75,9 +84,9 @@ Cap upload retries
 
 		expect(rows(view)).toEqual([
 			["Asks", "waiting on you"],
+			["Broke", "waiting on you"],
 			["Runs", "working"],
 			["Rests", null],
-			["Broke", "waiting on you"],
 			["alpha", null],
 		]);
 	});
@@ -155,16 +164,14 @@ Cap upload retries
 			},
 		);
 		const marks = Object.fromEntries(
-			within(view.getByRole("navigation", { name: "conversations" }))
-				.getAllByRole("listitem")
-				.map((row) => [
-					row.textContent,
-					(
-						within(row).queryByRole("img", {
-							name: /^(merged|removed|finished)$/,
-						}) ?? within(row).queryByRole("status")
-					)?.getAttribute("aria-label") ?? null,
-				]),
+			items(view).map((row) => [
+				nameOf(row),
+				(
+					within(row).queryByRole("img", {
+						name: /^(merged|removed|finished)$/,
+					}) ?? within(row).queryByRole("status")
+				)?.getAttribute("aria-label") ?? null,
+			]),
 		);
 
 		expect(marks).toEqual({
@@ -207,10 +214,10 @@ Cap upload retries
 		);
 
 		expect(rows(view)).toEqual([
-			["Answered", "unread"],
-			["Landed", null],
 			["Broke", "waiting on you"],
 			["Runs", "working"],
+			["Answered", "unread"],
+			["Landed", null],
 		]);
 		expect(view.getByRole("img", { name: "merged" })).toBeDefined();
 	});
@@ -247,64 +254,24 @@ Cap upload retries
 			null,
 			{ tasks: [details({ task: "alpha", status: "escalated" })] },
 		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude Fix login" })),
-		);
+		await openRow(view, "Fix login");
 
 		const title = view.getByRole("heading", { name: "Fix login" });
 		expect(title.parentElement?.textContent).toBe("Fix login");
 	});
 
-	it("counts the agents waiting on you in the title, leaving the tab to the sidebar's list", async () => {
+	it("counts the agents waiting on you in the title, as the Inbox does", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Asks", status: "running", ask })],
 			null,
 			{ tasks: [details({ task: "beta", status: "escalated" })] },
 		);
 
-		expect(view.getByRole("tab", { name: /Conversations/ }).textContent).toBe(
-			"Conversations",
-		);
-		expect(document.title).toBe("(2) webappwiz");
-	});
-
-	it("counts the agents waiting on you in the sidebar, and blinks the line when a click or ⌥⌘M finds none", async () => {
-		const view = await testing.openConversations(
-			newestFirst([
-				conversation({ id: "c1", title: "Runs", status: "running" }),
-				conversation({ id: "c2", title: "Broke", status: "failed" }),
-			]),
-			null,
-		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		// Atop the list.
-		const line = within(nav).getByRole("button", { name: /waiting on you/ });
-		expect(line.previousElementSibling).toBe(null);
-		expect(line.textContent).toContain("1 waiting on you");
-
-		await act(async () => fireEvent.click(line));
-		expect(location.hash).toBe("#conversations/c2");
-		expect(line.hasAttribute("data-lit")).toBe(false);
-
-		view.unmount();
-		const quiet = await testing.openConversations(
-			[conversation({ id: "c1", title: "Runs", status: "running" })],
-			null,
-		);
-		const none = quiet.getByRole("button", { name: /waiting on you/ });
-		expect(none.textContent).toContain("Nothing waiting on you");
-		const before = location.hash;
-		await act(async () => fireEvent.click(none));
-		expect(location.hash).toBe(before);
-		expect(none.hasAttribute("data-lit")).toBe(true);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
+		expect(
+			within(view.getByRole("button", { name: /^Inbox/ })).getByRole("status", {
+				name: "2 waiting on you",
 			}),
-		);
-		expect(location.hash).toBe(before);
-		expect(none.hasAttribute("data-lit")).toBe(true);
+		).toBeTruthy();
+		expect(document.title).toBe("(2) webappwiz");
 	});
 });

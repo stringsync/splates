@@ -42,6 +42,9 @@ describe("App's terminal", () => {
 		return view;
 	};
 
+	/** A conversation whose agent works, so the sidebar lists it. */
+	const atWork = conversation({ id: "c1", title: "Fix it", status: "running" });
+
 	/** The Terminal action in the conversation's actions card. */
 	const terminalAction = (view: Awaited<ReturnType<typeof reading>>) =>
 		within(view.getByRole("navigation", { name: "actions" })).getByRole(
@@ -351,15 +354,21 @@ describe("App's terminal", () => {
 		await go("#conversations/c2");
 
 		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("navigation", { name: "conversations" }))
-					.getAllByRole("button", { name: /More/ })
-					.at(0) as HTMLElement,
-			),
+			fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
 		);
+		const row = within(view.getByRole("region", { name: "inbox" })).getByRole(
+			"button",
+			{ name: /One/ },
+		);
+		await act(async () => {
+			fireEvent.pointerDown(row);
+			fireEvent.contextMenu(row);
+		});
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: /Archive/ })),
+				within(view.getByRole("dialog", { name: "One" })).getByRole("button", {
+					name: "Archive",
+				}),
 			),
 		);
 		await act(async () =>
@@ -488,7 +497,7 @@ describe("App's terminal", () => {
 	});
 
 	it("nests the shell under its conversation in the sidebar while it is up", async () => {
-		const view = await reading();
+		const view = await reading([atWork]);
 		const nested = () =>
 			within(view.getByRole("navigation", { name: "conversations" }))
 				.queryByRole("list", { name: /^parts of / })
@@ -512,7 +521,7 @@ describe("App's terminal", () => {
 	});
 
 	it("hangs up on the shell from the X of its nested row, hiding the pane rather than starting another", async () => {
-		const view = await reading();
+		const view = await reading([atWork]);
 		await press(TOGGLE);
 		const [shell] = testing.shells;
 		await act(async () => shell?.accept());
@@ -549,7 +558,7 @@ describe("App's terminal", () => {
 	});
 
 	it("renames the shell nested under its conversation, keeping the name for its next", async () => {
-		const view = await reading();
+		const view = await reading([atWork]);
 		const sidebar = () =>
 			within(view.getByRole("navigation", { name: "conversations" }));
 		await press(TOGGLE);

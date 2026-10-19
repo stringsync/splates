@@ -76,17 +76,20 @@ describe("App's agents a lane's orchestrator started", () => {
 	it("nests each under the orchestrator by its plain name, with how it stands", async () => {
 		const view = await testing.openConversations(
 			newestFirst([orchestrator, agent]),
-			"orch",
+			null,
 			snapshot,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-		const more = await within(nav).findByRole("button", {
-			name: "More for alpha",
-		});
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const name = await within(inbox).findByText("alpha");
 
-		const row = more.closest("li") as HTMLElement;
-		expect(row.parentElement?.closest("li")).not.toBeNull();
-		expect(within(row).getByText("alpha").className).not.toContain("italic");
+		// It answers to the orchestrator that handed it out, not to you.
+		const row = name.closest("li") as HTMLElement;
+		const list = within(row.parentElement as HTMLElement).getAllByRole(
+			"listitem",
+		);
+		expect(list.indexOf(row)).toBe(1);
+		expect(list[0]?.textContent).toContain("Stats lane");
+		expect(name.className).not.toContain("italic");
 		expect(within(row).getByRole("status", { name: "working" })).toBeTruthy();
 	});
 

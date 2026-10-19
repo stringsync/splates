@@ -161,6 +161,8 @@ describe("App's conversation settings", () => {
 				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
 			})),
 		);
+		// With none open, the page is the inbox; New opens the home.
+		await newWith(view, "Claude");
 		await act(async () =>
 			fireEvent.click(view.getByRole("combobox", { name: "model" })),
 		);

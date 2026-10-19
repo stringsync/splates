@@ -28,7 +28,7 @@ function listed(
 	};
 }
 
-describe("App's sidebar, in a folder per project", () => {
+describe("App's agents, in a folder per project", () => {
 	let testing: Testing;
 	const mine = [
 		conversation({
@@ -65,15 +65,16 @@ describe("App's sidebar, in a folder per project", () => {
 		testing.dispose();
 	});
 
-	const sidebar = async () => {
+	/** The page on its inbox, once every project's agents are in. */
+	const inbox = async () => {
 		const view = await testing.openConversations(mine, null);
-		const nav = view.getByRole("navigation", { name: "conversations" });
+		const nav = view.getByRole("region", { name: "inbox" });
 		await waitFor(() => within(nav).getByRole("region", { name: "zebra" }));
 		return { view, nav };
 	};
 
-	it("puts every project's waiting agents in Needs you, each naming its project, then a folder per project", async () => {
-		const { nav } = await sidebar();
+	it("puts every project's waiting agents in the inbox's Needs you, each naming its project, then a folder per project, the Inbox counting them all", async () => {
+		const { view, nav } = await inbox();
 
 		const needsYou = within(nav).getByRole("region", { name: "Needs you" });
 		expect(
@@ -98,17 +99,25 @@ describe("App's sidebar, in a folder per project", () => {
 			within(zebra).queryByRole("button", { name: /Zebra broke/ }),
 		).toBeNull();
 		expect(
-			within(nav).getByRole("button", { name: /\d waiting on you/ })
-				.textContent,
-		).toContain("2 waiting on you");
+			within(view.getByRole("button", { name: /^Inbox/ })).getByRole("status", {
+				name: "2 waiting on you",
+			}),
+		).toBeTruthy();
 	});
 
-	it("opens another project's agent on that project's page", async () => {
-		const { nav } = await sidebar();
-		const zebra = within(nav).getByRole("region", { name: "zebra" });
+	it("lists every project's agents at work in the sidebar, another's naming it and opening on its page", async () => {
+		const { view } = await inbox();
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		await waitFor(() => within(nav).getByRole("button", { name: /Stripes/ }));
 
+		// This project's, the fixture's external alpha among them, then zebra's.
+		expect(
+			within(nav)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Mine", "alpha", "Stripeszebra"]);
 		await act(async () =>
-			fireEvent.click(within(zebra).getByRole("button", { name: /Stripes/ })),
+			fireEvent.click(within(nav).getByRole("button", { name: /Stripes/ })),
 		);
 
 		const there = new URL(String(testing.visited[0]));
@@ -117,7 +126,7 @@ describe("App's sidebar, in a folder per project", () => {
 	});
 
 	it("starts a conversation in a folder's project from its +", async () => {
-		const { nav } = await sidebar();
+		const { nav } = await inbox();
 
 		await act(async () =>
 			fireEvent.click(
@@ -131,7 +140,7 @@ describe("App's sidebar, in a folder per project", () => {
 	});
 
 	it("folds a folder away, dotted while one of its agents waits, and remembers it", async () => {
-		const { nav } = await sidebar();
+		const { nav } = await inbox();
 		const zebra = within(nav).getByRole("region", { name: "zebra" });
 		expect(
 			within(zebra).queryByRole("img", { name: "waiting on you" }),
@@ -151,7 +160,7 @@ describe("App's sidebar, in a folder per project", () => {
 		).toBeTruthy();
 		cleanup();
 
-		const again = await sidebar();
+		const again = await inbox();
 		const folded = within(again.nav).getByRole("region", { name: "zebra" });
 		expect(
 			within(folded).queryByRole("button", { name: /Stripes/ }),

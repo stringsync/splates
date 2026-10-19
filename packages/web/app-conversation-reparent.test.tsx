@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
@@ -24,6 +25,25 @@ describe("App's moving a conversation under another", () => {
 		resize(1024, 768);
 	});
 
+	/** Opens Move under… from the menu its inbox row opens on a right-click. */
+	async function moveUnder(view: ConversationsView, name: string) {
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const row = within(inbox)
+			.getAllByText(name)[0]
+			?.closest("button") as Element;
+		await act(async () => {
+			fireEvent.pointerDown(row);
+			fireEvent.contextMenu(row);
+		});
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name })).getByRole("button", {
+					name: "Move under…",
+				}),
+			),
+		);
+	}
+
 	// alpha-api is a part of alpha, so nests under it by its task.
 	const open = () =>
 		testing.openConversations(
@@ -43,20 +63,8 @@ describe("App's moving a conversation under another", () => {
 
 	it("offers every other conversation but its own parts, the one it sits under checked", async () => {
 		const view = await open();
-		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		await act(async () =>
-			fireEvent.click(
-				within(nav).getByRole("button", { name: "More for alpha" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Move under…" }),
-				),
-			),
-		);
+		await moveUnder(view, "alpha");
 		const places = within(
 			await waitFor(() => view.getByRole("dialog", { name: /Move alpha / })),
 		).getByRole("list", { name: "Places" });
@@ -76,20 +84,8 @@ describe("App's moving a conversation under another", () => {
 
 	it("moves a part to the top", async () => {
 		const view = await open();
-		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		await act(async () =>
-			fireEvent.click(
-				within(nav).getByRole("button", { name: "More for alpha-api" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Move under…" }),
-				),
-			),
-		);
+		await moveUnder(view, "alpha-api");
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: /Move alpha-api/ }),
 		);
@@ -104,6 +100,7 @@ describe("App's moving a conversation under another", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: the parents it opens with are what it tests, and no other test opens with them
 	it("nests one where the person put it, over where its task would", async () => {
 		const view = await testing.openConversations(
 			[
@@ -129,12 +126,20 @@ describe("App's moving a conversation under another", () => {
 			},
 		);
 
-		const parts = view.getByRole("list", { name: "parts of alpha" });
+		// Each agent's list holds its row, then the rows of those under it.
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const names = ["alpha", "alpha-api", "Footer"];
 		expect(
-			within(parts)
-				.getAllByRole("listitem")
-				.map((each) => each.textContent),
-		).toEqual(["Footer"]);
+			within(inbox)
+				.getAllByRole("list")
+				.map((list) =>
+					within(list)
+						.getAllByRole("listitem")
+						.map((each) =>
+							names.find((name) => within(each).queryByText(name) !== null),
+						),
+				),
+		).toEqual([["alpha", "Footer"], ["alpha-api"]]);
 	});
 
 	it("says moving one a lane's orchestrator started cuts it loose", async () => {
@@ -146,20 +151,8 @@ describe("App's moving a conversation under another", () => {
 			null,
 			{ tasks: [] },
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		await act(async () =>
-			fireEvent.click(
-				within(nav).getByRole("button", { name: "More for Footer" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Move under…" }),
-				),
-			),
-		);
+		await moveUnder(view, "Footer");
 
 		expect(
 			within(

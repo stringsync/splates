@@ -8,20 +8,22 @@ import { nextWaiting, rowsOf, seenFor, waitsOnYou } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
+import { InboxLine } from "./inbox-line";
 import { arriveAt, useCopiedReplies } from "./task-view";
-import { WaitingLine } from "./waiting-line";
 
 /**
- * A line atop the list saying how many agents wait on you, which opens the next
- * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting, or else the next
+ * The Inbox atop the sidebar's agents, counting those waiting on you. ⌥⌘M
+ * (Ctrl+Alt+M off a Mac) opens the next one waiting, or else the next
  * merged, then unread, one, lighting the line when there is none.
  */
-export function NextWaiting({
+export function InboxEntry({
 	feed,
 	drafts,
 	tasks,
 	open,
 	onOpen,
+	inbox,
+	onInbox,
 	elsewhere = 0,
 	onElsewhere = () => {},
 }: {
@@ -32,6 +34,9 @@ export function NextWaiting({
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
+	/** Whether the inbox is the page shown. */
+	inbox: boolean;
+	onInbox: () => void;
 	/** How many agents in other projects wait on you. */
 	elsewhere?: number;
 	/** Opens the first of those, on its project's page. */
@@ -70,14 +75,15 @@ export function NextWaiting({
 	useShortcut("shortcuts.waiting", () => next.current());
 
 	return (
-		<WaitingLine
+		<InboxLine
+			current={inbox}
 			waiting={
 				rows.filter((row) => waitsOnYou(row, drafts, conversations)).length +
 				elsewhere
 			}
 			nudges={nudges}
 			hint={held ? waitingKey : null}
-			onNext={() => next.current()}
+			onOpen={onInbox}
 		/>
 	);
 }

@@ -6,6 +6,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	openRow,
 	Testing,
 	textIn,
 	typeIn,
@@ -45,11 +46,24 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
-	const rows = (view: ConversationsView) =>
+	/** The sidebar's agents at work, by what each says, and its mark. */
+	const working = (view: ConversationsView) =>
 		within(view.getByRole("navigation", { name: "conversations" }))
 			.getAllByRole("listitem")
 			.map((row) => [
 				row.textContent,
+				within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
+			]);
+
+	/** The inbox's agents: each name, the group it is in, and its mark. */
+	const rows = (view: ConversationsView) =>
+		within(view.getByRole("region", { name: "inbox" }))
+			.getAllByRole("listitem")
+			.map((row) => [
+				["alpha", "beta", "gamma", "delta"].find(
+					(name) => within(row).queryAllByText(name).length > 0,
+				),
+				row.closest("section")?.getAttribute("aria-label"),
 				within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
 			]);
 
@@ -73,17 +87,13 @@ Cap upload retries
 		);
 
 		expect(rows(view)).toEqual([
-			["alpha", null],
-			["beta", "working elsewhere"],
-			["gamma", "waiting on you"],
+			["gamma", "Needs you", "waiting on you"],
+			["beta", "Working", "working"],
+			["alpha", "Recent", null],
 		]);
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /gamma/ }),
-			),
-		);
+		// The sidebar, listing those at work, tells where it works.
+		expect(working(view)).toEqual([["beta", "working elsewhere"]]);
+		await openRow(view, "gamma");
 		expect(location.hash).toBe("#conversations/task/gamma");
 		const alone = view.getByRole("region", { name: "gamma" });
 		// Not its SPLATES.md, which the task line opens: what the page knows of the agent.
@@ -151,18 +161,16 @@ Cap upload retries
 		);
 
 		expect(rows(view)).toEqual([
-			["alpha", null],
+			["delta", "Needs you", "waiting on you"],
+			["beta", "Working", "working"],
+			["gamma", "Working", null],
+			["alpha", "Recent", null],
+		]);
+		expect(working(view)).toEqual([
 			["beta", "working elsewhere"],
-			["delta", "abandoned"],
 			["gamma", "no sign since 2h"],
 		]);
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /delta/ }),
-			),
-		);
+		await openRow(view, "delta");
 		const alone = view.getByRole("region", { name: "delta" });
 		expect(alone.textContent).toContain(
 			"AbandonedIts conversation was archived, so no agent is left on it.",
@@ -175,7 +183,8 @@ Cap upload retries
 		).toEqual(["Take up", "Remove"]);
 	});
 
-	it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, and marks its row once the reply is copied, until it asks again", async () => {
+	// scry-ignore simple-test-setup: it reopens the page with its own plan each time, which no other test does
+	it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, until it asks again", async () => {
 		const gamma = (plan: string) =>
 			details({
 				task: "gamma",
@@ -184,20 +193,19 @@ Cap upload retries
 				escalatedAt: "2026-10-11T10:00:00.000Z",
 				plan,
 			});
-		const open = (view: ConversationsView) =>
-			act(async () =>
-				fireEvent.click(
-					within(
-						view.getByRole("navigation", { name: "conversations" }),
-					).getByRole("button", { name: /gamma/ }),
-				),
-			);
 		const opened = async (plan: string) => {
 			const view = await testing.openConversations([], null, {
 				tasks: [gamma(plan)],
 			});
-			await open(view);
+			await openRow(view, "gamma");
 			return view;
+		};
+		// Back to the inbox, as the sidebar's Inbox goes: where it is listed.
+		const listed = async (view: ConversationsView) => {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
+			);
+			return rows(view).map(([name, group]) => [name, group]);
 		};
 		const answer = (view: ConversationsView) =>
 			textIn(
@@ -228,17 +236,19 @@ Cap upload retries
 		let view = await testing.openConversations([], null, {
 			tasks: [gamma(PLAN)],
 		});
-		expect(rows(view)).toEqual([["gamma", "waiting on you"]]);
-		await open(view);
+		expect(rows(view)).toEqual([["gamma", "Needs you", "waiting on you"]]);
+		await openRow(view, "gamma");
 		// Seen, it no longer waits on you, nor does ⌥⌘M stop on it.
-		await waitFor(() => expect(rows(view)).toEqual([["gamma", null]]));
-		expect(view.getByText("Nothing waiting on you")).toBeTruthy();
+		expect(await listed(view)).toEqual([["gamma", "Recent"]]);
+		expect(
+			view.getByRole("status", { name: "Nothing waiting on you" }),
+		).toBeTruthy();
 		expect(document.title).not.toContain("(1)");
 		await elsewhere();
 		await next();
 		expect(location.hash).toBe("#conversations/new");
 
-		await open(view);
+		await openRow(view, "gamma");
 		await typeIn(view.getByRole("textbox", { name: "Answer to 1" }), "three");
 		cleanup();
 		view = await opened(PLAN);
@@ -247,24 +257,23 @@ Cap upload retries
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Copy reply" })),
 		);
-		await waitFor(() =>
-			expect(rows(view)).toEqual([["gamma", "reply copied"]]),
-		);
+		expect(await listed(view)).toEqual([["gamma", "Recent"]]);
 		// Kept, to copy again until its agent records it.
 		cleanup();
 		view = await opened(PLAN);
 		expect(answer(view)).toBe("three");
-		expect(rows(view)).toEqual([["gamma", "reply copied"]]);
 
 		// A question asked since waits on you again, until seen.
 		cleanup();
 		const asked = `${PLAN}- [ ] 2. Which errors count?\n`;
 		view = await testing.openConversations([], null, { tasks: [gamma(asked)] });
-		expect(rows(view)).toEqual([["gamma", "waiting on you"]]);
+		expect(rows(view)).toEqual([["gamma", "Needs you", "waiting on you"]]);
 		await next();
 		expect(location.hash).toBe("#conversations/task/gamma");
 		expect(answer(view)).toBe("three");
-		await waitFor(() => expect(rows(view)).toEqual([["gamma", null]]));
+		await waitFor(async () =>
+			expect(await listed(view)).toEqual([["gamma", "Recent"]]),
+		);
 	});
 
 	it("brings a session in from a task whose agent runs outside the page, and opens it", async () => {

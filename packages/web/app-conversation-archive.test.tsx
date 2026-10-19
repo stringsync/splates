@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
 	message,
+	openRow,
 	pressArchive,
 	resize,
 	Testing,
@@ -25,7 +27,46 @@ describe("App's archiving conversations", () => {
 		testing.dispose();
 	});
 
-	it("archives a stopped conversation from the list, with the agent's mark in place of its name", async () => {
+	/**
+	 * Archives the sidebar's row named `name`, at work, so past the question
+	 * whether to stop its agent.
+	 */
+	const archiveInSidebar = async (view: ConversationsView, name: string) => {
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: `Archive ${name}` }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("dialog", { name: `Archive ${name}?` }),
+				).getByRole("button", { name: "Archive" }),
+			),
+		);
+	};
+
+	/** Archives the inbox's row named `name` from the menu a right-click opens. */
+	const archiveInInbox = async (view: ConversationsView, name: string) => {
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const row = within(inbox).getByRole("button", { name: RegExp(name) });
+		// As a mouse's right button does: the button down, then the menu.
+		await act(async () => {
+			fireEvent.pointerDown(row);
+			fireEvent.contextMenu(row);
+		});
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name })).getByRole("button", {
+					name: "Archive",
+				}),
+			),
+		);
+	};
+
+	it("archives a stopped conversation from the inbox, with the agent's mark in place of its name", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -37,14 +78,10 @@ describe("App's archiving conversations", () => {
 			],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
+		const inbox = view.getByRole("region", { name: "inbox" });
 
-		expect(within(nav).getByRole("img", { name: "Claude" })).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(
-				within(nav).getByRole("button", { name: "Archive alpha" }),
-			),
-		);
+		expect(within(inbox).getByRole("img", { name: "Claude" })).toBeTruthy();
+		await archiveInInbox(view, "alpha");
 
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
@@ -99,14 +136,7 @@ describe("App's archiving conversations", () => {
 			null,
 			{ tasks: [details({ task: "alpha", takenBy: "c1", ahead: 2 })] },
 		);
-		const archive = () =>
-			act(async () =>
-				fireEvent.click(
-					within(
-						view.getByRole("navigation", { name: "conversations" }),
-					).getByRole("button", { name: "Archive alpha" }),
-				),
-			);
+		const archive = () => archiveInInbox(view, "alpha");
 
 		await archive();
 		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
@@ -144,13 +174,7 @@ describe("App's archiving conversations", () => {
 		);
 		testing.refuseWrites = { reason: "usage", message: "locked" };
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive alpha" }),
-			),
-		);
+		await archiveInInbox(view, "alpha");
 		await act(async () =>
 			fireEvent.click(
 				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
@@ -171,13 +195,7 @@ describe("App's archiving conversations", () => {
 			{ tasks: [details({ task: "alpha", takenBy: "c2" })] },
 		);
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive alpha" }),
-			),
-		);
+		await archiveInInbox(view, "alpha");
 
 		expect(view.queryByRole("dialog")).toBeNull();
 		expect(testing.posted("/api/tasks/alpha")).toEqual([]);
@@ -200,13 +218,7 @@ describe("App's archiving conversations", () => {
 			null,
 		);
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive Stats lane" }),
-			),
-		);
+		await archiveInInbox(view, "Stats lane");
 
 		expect(view.queryByRole("dialog")).toBeNull();
 		expect(testing.posted("/api/conversations/o1/archived")).toEqual([
@@ -229,13 +241,7 @@ describe("App's archiving conversations", () => {
 			{ tasks: [details({ task: "alpha", takenBy: "c1" })] },
 		);
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive Stats lane" }),
-			),
-		);
+		await archiveInInbox(view, "Stats lane");
 		const dialog = view.getByRole("dialog", { name: "Archive Stats lane?" });
 		expect(dialog.textContent).toContain("or started with it");
 		expect(dialog.textContent).toContain("alpha");
@@ -269,10 +275,12 @@ describe("App's archiving conversations", () => {
 		expect(view.getByRole("heading", { name: "Broke" })).toBeTruthy();
 	});
 
-	it("goes on to the next agent waiting on you from the actions' Archive, and from the open row's in the list", async () => {
+	it("goes on to the next agent waiting on you from the actions' Archive, and from the open row's in the sidebar", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Done", status: "stopped" }),
 			conversation({ id: "c2", title: "Broke", status: "failed" }),
+			// At work, so the sidebar lists it.
+			conversation({ id: "c4", title: "Busy", status: "running" }),
 			conversation({ id: "c3", title: "Asks", status: "failed" }),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
@@ -287,14 +295,9 @@ describe("App's archiving conversations", () => {
 		);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c2"));
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive Broke" }),
-			),
-		);
-		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
+		await openRow(view, "Busy");
+		await archiveInSidebar(view, "Busy");
+		expect(testing.posted("/api/conversations/c4/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c3"));
@@ -326,20 +329,14 @@ describe("App's archiving conversations", () => {
 		}
 	});
 
-	it("stays on the open conversation when the list archives another", async () => {
+	it("stays on the open conversation when the sidebar archives another", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Done", status: "stopped" }),
-			conversation({ id: "c2", title: "Broke", status: "failed" }),
+			conversation({ id: "c2", title: "Busy", status: "running" }),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
 
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: "Archive Broke" }),
-			),
-		);
+		await archiveInSidebar(view, "Busy");
 
 		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },

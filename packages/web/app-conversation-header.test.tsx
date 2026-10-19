@@ -6,6 +6,7 @@ import {
 	details,
 	fireEvent,
 	message,
+	openRow,
 	Testing,
 	todo,
 	waitFor,
@@ -60,9 +61,7 @@ describe("App's conversation header", () => {
 			"Cost3.21 USD",
 		]);
 		// Nothing to show before the agent says.
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
-		);
+		await openRow(view, "Look around");
 		expect(view.queryByRole("button", { name: /of context used/ })).toBeNull();
 	});
 
@@ -140,9 +139,7 @@ describe("App's conversation header", () => {
 		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
 		expect(view.queryByRole("complementary")).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
-		);
+		await openRow(view, "Look around");
 		const main = view.getByRole("navigation", { name: "actions" });
 		expect(
 			within(main)
@@ -380,6 +377,8 @@ describe("App's conversation header", () => {
 			conversation({
 				id: "c1",
 				title: "Serve it",
+				// At work, so the sidebar lists it.
+				status: "running",
 				background: [
 					running,
 					{ ...running, id: "b2", name: "Run the tests", state: "failed" },
@@ -408,6 +407,7 @@ describe("App's conversation header", () => {
 			conversation({
 				id: "c1",
 				title: "Serve it",
+				status: "running",
 				background: [{ ...running, state: "completed" }],
 			}),
 		);
