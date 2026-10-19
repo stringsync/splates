@@ -12,9 +12,6 @@ import { AgentIcon } from "./agent-icons";
 import { Dispatching } from "./dispatching";
 import { Stamp } from "./stamp";
 
-/** The violet of an automation, as the sidebar marks the groomer's conversation. */
-export const AUTOMATION_TINT = "border-violet-500/25 bg-violet-500/[0.04]";
-
 /**
  * An automation's mark: a violet tile with a zap for one a task event sets
  * off, or a clock for one on a schedule, as the sidebar marks the groomer's

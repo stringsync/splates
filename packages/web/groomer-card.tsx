@@ -4,7 +4,7 @@ import { type FormEvent, type JSX, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AUTOMATION_TINT, AutomationMark } from "./automation-face";
+import { AutomationMark } from "./automation-face";
 import { AssigneeMenu } from "./dispatching";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
@@ -44,7 +44,7 @@ export function GroomerOff({ onGroom }: { onGroom: Groom }): JSX.Element {
 	return (
 		<li
 			aria-label="groomer"
-			className="flex items-start gap-3 rounded-xl border border-violet-500/30 border-dashed p-3"
+			className="flex items-start gap-3 rounded-xl border border-dashed p-3"
 		>
 			<AutomationMark trigger={null} />
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -93,10 +93,7 @@ export function GroomerForm({
 		<form
 			aria-label={title.toLowerCase()}
 			onSubmit={submitted}
-			className={cn(
-				"flex flex-col gap-3 rounded-xl border p-3",
-				AUTOMATION_TINT,
-			)}
+			className="flex flex-col gap-3 rounded-xl border p-3"
 		>
 			<div className="flex items-center gap-3">
 				<AutomationMark trigger={null} />

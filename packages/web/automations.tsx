@@ -28,7 +28,7 @@ import {
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationDraft, type When } from "./automation-draft";
-import { AUTOMATION_TINT, AutomationFace } from "./automation-face";
+import { AutomationFace } from "./automation-face";
 import { AutomationList } from "./automation-list";
 import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
@@ -236,7 +236,6 @@ function Card({
 			aria-label={`automation ${row.id || "being added"}`}
 			className={cn(
 				"flex items-start gap-2 rounded-xl border bg-card p-3 shadow-xs",
-				groomer !== null && AUTOMATION_TINT,
 				(paused || pending) && "opacity-60",
 			)}
 		>
