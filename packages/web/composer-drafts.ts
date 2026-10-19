@@ -15,6 +15,7 @@ import type { Drafts } from "./drafts";
  * leaving for another conversation loses nothing. Hands back what puts text
  * back after a send was refused.
  */
+// scry-ignore classes-over-function-exports: useDraft and useReply are React hooks, called by components, which a class's methods cannot be
 export function useDraft(
 	runtime: AssistantRuntime,
 	drafts: Drafts,
@@ -27,8 +28,14 @@ export function useDraft(
 			const kept = drafts.read(key);
 			// Read first: setting the text keeps the composer's files, none yet.
 			const files = drafts.files(key);
-			if ((kept !== "" || files.length > 0) && composer.getState().isEmpty) {
+			const { isEmpty, text, attachments } = composer.getState();
+			if ((kept !== "" || files.length > 0) && isEmpty) {
 				composer.setText(kept);
+				for (const file of files) {
+					void composer.addAttachment(file);
+				}
+			} else if (attachments.length === 0 && text === kept) {
+				// The draft's files, back after a reload once its words were.
 				for (const file of files) {
 					void composer.addAttachment(file);
 				}

@@ -41,6 +41,7 @@ import { DictationContext } from "./dictation-context";
 import { agentList, openRow } from "./drivers";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
+import { FakeDraftFiles } from "./fake-draft-files";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
@@ -188,6 +189,8 @@ export class Testing implements Resource {
 	readonly wall = new FakeWallClock(Date.now());
 	/** What the composers' mic records with; none unless a test gives one. */
 	dictation: Dictation | null = null;
+	/** Where drafts' files are kept across the page's reloads in a test. */
+	readonly draftFiles = new FakeDraftFiles();
 	/** What `/api/projects` says a restart would kill. */
 	held: Held[] = [];
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
@@ -510,6 +513,7 @@ export class Testing implements Resource {
 							autoRestart: this.autoRestart,
 							timer: this.timer,
 							wall: this.wall,
+							draftFiles: this.draftFiles,
 						}),
 					),
 				),

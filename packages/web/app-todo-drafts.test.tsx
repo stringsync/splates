@@ -26,6 +26,17 @@ async function away(view: View): Promise<void> {
 	);
 }
 
+/** Opens todo `subject` to edit, and hands back its subject's box. */
+async function edit(view: View, subject: string): Promise<HTMLElement> {
+	await act(async () => fireEvent.click(view.getByText(subject)));
+	return waitFor(() => view.getByRole("textbox", { name: "subject" }));
+}
+
+/** Writes `text` into `box`, as typing it would. */
+async function change(box: HTMLElement, text: string): Promise<void> {
+	await act(async () => fireEvent.change(box, { target: { value: text } }));
+}
+
 describe("App's todo drafts", () => {
 	let testing: Testing;
 
@@ -38,6 +49,12 @@ describe("App's todo drafts", () => {
 		testing.dispose();
 	});
 
+	/** Reloads the page, as `testing.open` takes `held`. */
+	const reload = (held?: Parameters<Testing["open"]>[0]) => {
+		cleanup();
+		return testing.open(held);
+	};
+
 	it("keeps a todo being added per lane, across pages and a reload, until it is added", async () => {
 		const lanes = [{ id: 4, name: "Docs" }];
 		let view = await testing.open({ lanes });
@@ -46,16 +63,14 @@ describe("App's todo drafts", () => {
 		await act(async () =>
 			fireEvent.click(within(docs).getByRole("button", { name: "Add a task" })),
 		);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "new task" }), {
-				target: { value: "write the docs" },
-			}),
+		await change(
+			view.getByRole("textbox", { name: "new task" }),
+			"write the docs",
 		);
 		await away(view);
 		expect(value(view, "new task")).toBe("write the docs");
 
-		cleanup();
-		view = await testing.open({ lanes });
+		view = await reload({ lanes });
 		// Open on its own in its lane, and only there.
 		expect(view.getAllByRole("textbox", { name: "new task" })).toHaveLength(1);
 		const box = within(view.getByRole("region", { name: "Docs" })).getByRole(
@@ -67,12 +82,11 @@ describe("App's todo drafts", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 		await waitFor(() => expect(testing.posts).toHaveLength(1));
 		await waitFor(() => expect(value(view, "new task")).toBe(""));
-		cleanup();
-		view = await testing.open({ lanes });
+		view = await reload({ lanes });
 		expect(view.queryByRole("textbox", { name: "new task" })).toBeNull();
 	});
 
-	it("keeps a file attached across pages, and names it once a reload drops it", async () => {
+	it("keeps a file attached across pages and a reload, and names it once a reload drops it", async () => {
 		let view = await testing.open();
 
 		await act(async () =>
@@ -88,8 +102,16 @@ describe("App's todo drafts", () => {
 		expect(view.getByRole("button", { name: "shot.png" })).toBeTruthy();
 		expect(view.queryByText(/Lost on reload/)).toBeNull();
 
-		cleanup();
-		view = await testing.open();
+		testing.draftFiles.hold = true;
+		view = await reload();
+		await act(async () => testing.draftFiles.release());
+		await waitFor(() =>
+			expect(view.getByRole("button", { name: "shot.png" })).toBeTruthy(),
+		);
+		expect(view.queryByText(/Lost on reload/)).toBeNull();
+
+		testing.draftFiles.kept.clear();
+		view = await reload();
 		expect(
 			view.getByText("Lost on reload, attach again: shot.png"),
 		).toBeTruthy();
@@ -99,20 +121,14 @@ describe("App's todo drafts", () => {
 		const todos = [todo({ id: 4, subject: "write docs", text: "soon" })];
 		let view = await testing.open({ todos });
 
-		await act(async () => fireEvent.click(view.getByText("write docs")));
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "subject" }),
-		);
+		const box = await edit(view, "write docs");
 		expect(view.queryByText("Unsaved changes kept from before")).toBeNull();
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "write the docs" } }),
-		);
+		await change(box, "write the docs");
 		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 
-		cleanup();
-		view = await testing.open({ todos });
-		await act(async () => fireEvent.click(view.getByText("write docs")));
+		view = await reload({ todos });
+		await edit(view, "write docs");
 		await waitFor(() => expect(value(view, "subject")).toBe("write the docs"));
 		const dialog = view.getByRole("dialog");
 		expect(
@@ -137,21 +153,15 @@ describe("App's todo drafts", () => {
 		const todos = [todo({ id: 4, subject: "write docs" })];
 		let view = await testing.open({ todos });
 
-		await act(async () => fireEvent.click(view.getByText("write docs")));
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "subject" }),
-		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "write the docs" } }),
-		);
+		const box = await edit(view, "write docs");
+		await change(box, "write the docs");
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Save" })),
 		);
 		await waitFor(() => expect(testing.posts).toHaveLength(1));
 
-		cleanup();
-		view = await testing.open({ todos });
-		await act(async () => fireEvent.click(view.getByText("write docs")));
+		view = await reload({ todos });
+		await edit(view, "write docs");
 		await waitFor(() => expect(value(view, "subject")).toBe("write docs"));
 		expect(view.queryByText("Unsaved changes kept from before")).toBeNull();
 	});

@@ -22,6 +22,8 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 	readonly files = new Files();
 	/** Files attached before a reload, which the draft could not keep. */
 	dropped: string[];
+	/** Whether the files kept from before a reload have come back yet. */
+	private back = false;
 
 	constructor(
 		private readonly drafts: Drafts,
@@ -32,6 +34,7 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 		this.detail = new Mentions({ "@": treePaths("") }, kept?.detail ?? "");
 		this.files.add(kept?.files ?? []);
 		this.dropped = kept?.dropped ?? [];
+		void drafts.loaded.then(() => this.takeBack());
 		for (const part of [this.subject, this.detail, this.files]) {
 			part.events.on("changed", () => {
 				this.keep();
@@ -93,16 +96,31 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 		}
 	}
 
+	/** Attaches the files kept from before a reload, once they are back, if none are yet. */
+	private takeBack(): void {
+		this.back = true;
+		const kept = readTodo(this.drafts, this.key);
+		if (
+			kept === null ||
+			kept.files.length === 0 ||
+			this.files.files.length > 0
+		) {
+			return;
+		}
+		this.dropped = kept.dropped;
+		this.files.add(kept.files);
+	}
+
 	private keep(): void {
 		const words = { subject: this.subject.text, detail: this.detail.text };
 		const files = this.files.files;
-		writeTodo(
-			this.drafts,
-			this.key,
-			words.subject === "" && words.detail === "" && files.length === 0
-				? null
-				: words,
-			files,
-		);
+		const empty =
+			words.subject === "" && words.detail === "" && files.length === 0;
+		// The box says what it holds as it comes up: a draft of files only,
+		// none of them back yet, is not one to throw away.
+		if (empty && !this.back && this.dropped.length > 0) {
+			return;
+		}
+		writeTodo(this.drafts, this.key, empty ? null : words, files);
 	}
 }

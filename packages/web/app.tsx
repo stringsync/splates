@@ -2,14 +2,7 @@ import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import {
-	type JSX,
-	type ReactNode,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import {
 	type Duration,
 	SystemClock,
@@ -27,14 +20,14 @@ import { WatchBackground } from "./background";
 import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
-import { NEW, TASK, terminalAddress } from "./conversation-address";
+import { terminalAddress } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
 import { Lanes } from "./conversation-names";
 import { Conversations } from "./conversations";
 import { CredsPage } from "./creds";
 import { DesktopApp } from "./desktop-app";
-import { Dispatch } from "./dispatch";
-import { Dispatching, Trunk } from "./dispatching";
+import { Dispatching, Trunk, useDispatching } from "./dispatching";
+import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import { Feed } from "./feed";
@@ -49,6 +42,7 @@ import {
 	PHONE_PAGES,
 	usePageRoute,
 } from "./page-route";
+import { usePageVisits } from "./page-visits";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
 import { useProjectName } from "./project-places";
@@ -73,7 +67,6 @@ import {
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
-import { Visits } from "./visits";
 import { TreesContext } from "./work-row";
 import { WorkersPage } from "./workers";
 
@@ -96,6 +89,7 @@ export function App({
 	autoRestart: given,
 	timer,
 	wall,
+	draftFiles,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -111,6 +105,8 @@ export function App({
 	/** What the conversations' threads wait and read the date by; the system's by default. */
 	timer?: Timer;
 	wall?: WallClock;
+	/** Where drafts' files outlive a reload; IndexedDB by default, where there is one. */
+	draftFiles?: DraftFiles | null;
 }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
@@ -166,7 +162,17 @@ export function App({
 	);
 	// What was typed and not sent, by conversation and todo: one for the page,
 	// so a prompt composed on the board reaches the composer it opens.
-	const [drafts] = useState(() => new Drafts(localStorage));
+	const [drafts] = useState(
+		() =>
+			new Drafts(
+				localStorage,
+				draftFiles !== undefined
+					? draftFiles
+					: typeof indexedDB === "undefined"
+						? null
+						: new IndexedDraftFiles(indexedDB),
+			),
+	);
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(
 		() =>
@@ -214,45 +220,22 @@ export function App({
 		}
 	};
 	const name = useProjectName(snapshot?.repo);
-	const dispatching = useMemo(
-		() =>
-			available
-				? {
-						dispatch: new Dispatch(
-							drafts,
-							talk,
-							new URLSearchParams(location.search).get("project"),
-							agents,
-							conversations,
-							tasks,
-						),
-						open: (address: string) => go("conversations", address),
-					}
-				: null,
-		// `go` is new each render, and only ever sets the page and the address.
-		[available, drafts, talk, agents, conversations, tasks, go],
-	);
-	// Back through the conversations opened and forward, as in a browser's
-	// history, past any since archived or merged away.
-	const [visits] = useState(() => new Visits());
+	const dispatching = useDispatching({
+		available,
+		drafts,
+		talk,
+		agents,
+		conversations,
+		tasks,
+		open: (address) => go("conversations", address),
+	});
 	const [report] = useState(() => new StatsReport({ stats }));
-	useEffect(() => {
-		if (open === null || open === NEW) {
-			visits.leave();
-		} else {
-			visits.visit(open);
-		}
-	}, [open, visits]);
-	const existsRef = useRef<(id: string) => boolean>(() => false);
-	existsRef.current = (id: string) =>
-		id.startsWith(TASK)
-			? tasks.some(({ task }) => `${TASK}${task}` === id)
-			: conversations.some((each) => each.id === id && !each.archived);
-	const visit = (to: string | null) => {
-		if (to !== null) {
-			go("conversations", to);
-		}
-	};
+	const visits = usePageVisits({
+		open,
+		tasks,
+		conversations,
+		go: (to) => go("conversations", to),
+	});
 
 	const [setting, setSetting] = useState(false);
 	const pageMenu = usePageMenu({
@@ -396,21 +379,9 @@ export function App({
 																<ShortcutSettings value={settings}>
 																	<PageShortcuts
 																		onPage={go}
-																		onBack={
-																			available
-																				? () =>
-																						visit(
-																							visits.back(existsRef.current),
-																						)
-																				: null
-																		}
+																		onBack={available ? visits.back : null}
 																		onForward={
-																			available
-																				? () =>
-																						visit(
-																							visits.forward(existsRef.current),
-																						)
-																				: null
+																			available ? visits.forward : null
 																		}
 																		onSettings={() => setSetting(true)}
 																		onTerminal={

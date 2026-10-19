@@ -1,7 +1,9 @@
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { thinkingOf } from "@stringsync/splates-server/models/browser";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
-import { createContext, type JSX, useContext } from "react";
+import { createContext, type JSX, useContext, useMemo } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	DropdownMenu,
@@ -18,8 +20,10 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { still, touchArea, touchItems } from "./board";
+import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { reportedAs, useNameOf } from "./conversation-names";
-import type { Dispatch } from "./dispatch";
+import { Dispatch } from "./dispatch";
+import type { Drafts } from "./drafts";
 import { Mark } from "./mark";
 import { QueueMark } from "./slot-queue";
 
@@ -43,6 +47,46 @@ export const Dispatching = createContext<{
 	/** Opens `#conversations/<address>`. */
 	open: (address: string) => void;
 } | null>(null);
+
+/**
+ * What `Dispatching` holds for the page, from what it shows; null until
+ * its conversations are `available`. `open` opens `#conversations/<address>`.
+ */
+export function useDispatching({
+	available,
+	drafts,
+	talk,
+	agents,
+	conversations,
+	tasks,
+	open,
+}: {
+	available: boolean;
+	drafts: Drafts;
+	talk: ConversationFeed;
+	agents: AgentChoice[];
+	conversations: ConversationState[];
+	tasks: Details[];
+	open: (address: string) => void;
+}): { dispatch: Dispatch; open: (address: string) => void } | null {
+	return useMemo(
+		() =>
+			available
+				? {
+						dispatch: new Dispatch(
+							drafts,
+							talk,
+							new URLSearchParams(location.search).get("project"),
+							agents,
+							conversations,
+							tasks,
+						),
+						open,
+					}
+				: null,
+		[available, drafts, talk, agents, conversations, tasks, open],
+	);
+}
 
 /**
  * The conversations working `task`, newest first, each its agent's mark and

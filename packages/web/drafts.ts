@@ -1,4 +1,5 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { DraftFiles } from "./draft-files";
 
 /** Says which draft was written, or thrown away, by its key. */
 export type DraftsEvents = { written: string; discarded: string };
@@ -13,8 +14,8 @@ const PLACED = "splates.draftAt.";
  * What the person typed and has not sent, kept in `storage` so switching to
  * another conversation, another page or reloading never loses it. One per
  * key: a conversation's id, or what `newDraft`, `todoDraft` or `todoEdit`
- * names. Files attached to a draft are kept beside it for the page only,
- * since `storage` holds only text.
+ * names. Files attached to a draft are kept beside it in `kept`, since
+ * `storage` holds only text, and come back from it soon after a reload.
  */
 // scry-ignore resources-are-disposable: it holds nothing but its listeners, which unlisten themselves
 export class Drafts implements Eventful<DraftsEvents> {
@@ -26,8 +27,23 @@ export class Drafts implements Eventful<DraftsEvents> {
 	/** Every place this page kept, for when `storage` refuses to keep one. */
 	private readonly places = new Map<string, string>();
 
-	/** Without `storage`, every draft lives as long as the page does. */
-	constructor(private readonly storage: Storage | null = null) {}
+	/** Drafts whose files this page set, which the files loaded never replace. */
+	private readonly touched = new Set<string>();
+	/** Settles once the files kept from before a reload are back. */
+	readonly loaded: Promise<void>;
+
+	/**
+	 * Without `storage`, every draft lives as long as the page does; without
+	 * `fileStore`, every draft's files do.
+	 */
+	constructor(
+		private readonly storage: Storage | null = null,
+		private readonly fileStore: DraftFiles | null = null,
+	) {
+		this.loaded =
+			fileStore?.load().then((loaded) => this.restore(loaded)) ??
+			Promise.resolve();
+	}
 
 	/** The draft under `key`, or empty when there is none. */
 	read(key: string): string {
@@ -96,11 +112,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 		) {
 			return;
 		}
-		if (files.length === 0) {
-			this.attached.delete(key);
-		} else {
-			this.attached.set(key, files);
-		}
+		this.keepFiles(key, files);
 		this.dispatcher.dispatch("written", key);
 	}
 
@@ -166,10 +178,40 @@ export class Drafts implements Eventful<DraftsEvents> {
 		}
 	}
 
+	private keepFiles(key: string, files: File[]): void {
+		this.touched.add(key);
+		if (files.length === 0) {
+			this.attached.delete(key);
+		} else {
+			this.attached.set(key, files);
+		}
+		this.fileStore?.save(key, files);
+	}
+
+	/**
+	 * Gives back the files `loaded` from before a reload to the drafts still
+	 * holding words, which their chips are among; any other's are let go.
+	 */
+	private restore(loaded: Map<string, File[]>): void {
+		for (const [key, files] of loaded) {
+			if (this.touched.has(key)) {
+				continue;
+			}
+			if (this.read(key) === "") {
+				this.fileStore?.save(key, []);
+				continue;
+			}
+			this.attached.set(key, files);
+			this.dispatcher.dispatch("written", key);
+		}
+	}
+
 	private store(key: string, text: string): void {
 		if (text === "") {
 			this.kept.delete(key);
-			this.attached.delete(key);
+			if (this.attached.has(key)) {
+				this.keepFiles(key, []);
+			}
 		} else {
 			this.kept.set(key, text);
 		}

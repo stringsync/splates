@@ -38,6 +38,12 @@ describe("App's composer drafts", () => {
 		});
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
+	const paste = (view: ConversationsView, file: File) =>
+		act(async () =>
+			fireEvent.paste(box(view), { clipboardData: { files: [file] } }),
+		);
+	const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+	const clip = new File(["mp4 bytes"], "clip.mp4", { type: "video/mp4" });
 
 	it("keeps what was typed in each conversation, and a new one, while switching", async () => {
 		const view = await testing.openConversations(held, "c1");
@@ -56,6 +62,41 @@ describe("App's composer drafts", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe("another"));
 		await newWith(view, "Claude");
 		await waitFor(() => expect(textIn(box(view))).toBe("a fresh start"));
+	});
+
+	it("keeps a draft's files across a reload, in a conversation and a new one", async () => {
+		const view = await testing.openConversations(held, "c1");
+		await type(view, "see");
+		await paste(view, shot);
+		await waitFor(() => expect(textIn(box(view))).toBe("see [Image 1] "));
+		await newWith(view, "Claude");
+		await type(view, "and");
+		await paste(view, clip);
+		await waitFor(() => expect(textIn(box(view))).toBe("and [File 1] "));
+		cleanup();
+		testing.draftFiles.hold = true;
+
+		const again = await testing.openConversations(held, "c1");
+		await waitFor(() => expect(textIn(box(again))).toBe("see [Image 1] "));
+		await act(async () => {
+			testing.draftFiles.release();
+			await Bun.sleep(0);
+		});
+		await act(async () => fireEvent.keyDown(box(again), { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "see [Image 1]", file: [shot] } },
+			]),
+		);
+		await newWith(again, "Claude");
+		await waitFor(() => expect(textIn(box(again))).toBe("and [File 1] "));
+		testing.reply = conversation({ id: "c9", task: null, status: "starting" });
+		await act(async () => fireEvent.keyDown(box(again), { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c9/prompt")).toEqual([
+				{ method: "POST", body: { text: "and [File 1]", file: [clip] } },
+			]),
+		);
 	});
 
 	it("keeps a draft across a reload, and drops it once sent", async () => {
