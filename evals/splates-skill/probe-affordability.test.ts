@@ -165,7 +165,7 @@ it("selects at most two mapped default smoke cases and refuses unmapped expansio
 		smokeProbes(module.probes, [
 			"SKILL.md",
 			"references/queue.md",
-			"references/parts.md",
+			"references/setup.md",
 		]).map((probe) => probe.id),
 	).toEqual(["discovery/implicit", "orchestration/defer"]);
 	expect(() => smokeProbes(module.probes, ["references/new.md"])).toThrow(

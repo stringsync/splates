@@ -217,7 +217,10 @@ one is deleted.
    agent, and the `tasks` grant no longer hands a task to another project,
    so work across projects is queued there. Old handoff and Auto
    conversations still read, their reports and directives as plain words.
-   Then parts. The slot queue of
+   Then parts: an agent's `add --base task/<its task>` is refused, and a
+   harness subagent works in its parent's tree and commits there. A person
+   can still base a task on any branch, and parts open before still land
+   on their parent's branch, nested under it on the page. The slot queue of
    `workers/scheduler.ts` (`splates worker queue`) stays for now: it still
    drives provisioning and wake-on-LAN, so it goes once the task queue does
    that.

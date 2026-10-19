@@ -85,9 +85,9 @@ These are instructions, not eval commands executed during implementation.
 The plan is free and does not certify a provider. Model execution still needs an
 explicit configured target and terminal confirmation after metering admission.
 
-## Stable seam for the six aspects
+## Stable seam for the five aspects
 
-#339, #340, #355, #356, #357 and #367 each own a separate `*.probes.ts` module beside
+#339, #340, #355, #357 and #367 each own a separate `*.probes.ts` module beside
 this file. Export a default object satisfying `ProbeModule` from `./runner`:
 
 ```ts
@@ -182,7 +182,7 @@ an adapter can observe it; current event kinds do not represent that reply.
 Similarly, parsed fields across different reports do not establish one coherent
 report, and final state does not prove the order of operations.
 
-Six modules now register 51 probes (10 CLI, 41 agent); see the exact versioned
+Five modules now register 47 probes (10 CLI, 37 agent); see the exact versioned
 inventory in `COVERAGE.md`. Every registered agent probe declares tools, so
 **none is executable with generic ACP today**. An all-unsupported run is not a
 useful quick eval. `--allow-unmetered` does not repair tool capture. The free

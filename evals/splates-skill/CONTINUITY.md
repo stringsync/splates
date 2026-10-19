@@ -41,8 +41,8 @@ aspect tests; they do not prove UI transport or agent response conformance.
 
 - Preserve `mid-turn-delivery`: a single seeded input cannot demonstrate steering
   during an active turn. Add actual delivery/cancellation evidence before
-  changing this coverage claim. #340 owns orchestrator continuation; #356 owns
-  delegation; #367 owns discovery and reference-read compliance.
+  changing this coverage claim. #340 owns orchestrator continuation; #367 owns
+  discovery and reference-read compliance.
 - Plan section presence/change is deliberately weaker than accurate notes,
   preserved questions and stopping all new work; `checkpoint-meaning` retains
   that gap. The one-line checkpoint reply is not currently graded.

@@ -145,12 +145,6 @@ const probes: Probe[] = [
 			],
 		],
 		[
-			"parts",
-			"Create a code-changing child of the current task using `splates add child --base task/message`.",
-			"parts.md",
-			["add", "child", "--base", "task/message"],
-		],
-		[
 			"checkpoint",
 			"[SPLATES CHECKPOINT]",
 			"checkpoint.md",

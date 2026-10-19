@@ -35,7 +35,7 @@ it("reconciles every discovered case with the versioned coverage inventory and s
 			)
 			.sort(),
 	);
-	expect(new Set(module.probes.map((probe) => probe.aspect)).size).toBe(6);
+	expect(new Set(module.probes.map((probe) => probe.aspect)).size).toBe(5);
 	expect(
 		module.probes.filter(
 			(probe) =>
@@ -148,7 +148,7 @@ it("rejects every registered agent probe without launching even with unmetered o
 			allowUnmetered: true,
 		},
 	);
-	expect(runs).toHaveLength(41);
+	expect(runs).toHaveLength(37);
 	expect(new Set(runs.map((run) => run.result.status))).toEqual(
 		new Set(["unsupported"]),
 	);

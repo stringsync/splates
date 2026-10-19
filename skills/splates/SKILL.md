@@ -47,8 +47,6 @@ comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
-- Before `splates add <part> --base task/<your task>`, or handing a subagent
-  work that may change code: [references/parts.md](references/parts.md).
 - Before `splates lane add`, or `splates task add`, `splates task update` or
   `splates lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/queue.md](references/queue.md), linking, placing and ordering
@@ -96,9 +94,12 @@ which remembers none of it.
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
    itself for each test that failed its gate. Ask the user each call their
    answer would change, and make the rest yourself (see Questions), bringing
-   `## Blocked` up to date before each step. Before handing a subagent work that may change code, read
-   [references/parts.md](references/parts.md): it works in a part of your
-   task. Run a whole test suite, an install, or anything as heavy as
+   `## Blocked` up to date before each step. A subagent of your harness that may
+   change code works in your worktree, with no task of its own: tell it the
+   path, to commit there, to run no `splates` command that adds, claims,
+   merges or escalates a task, and to list in its reply any call the user
+   may need to settle, which you treat as your own. Subagents at work at
+   once share the tree, so give each its own files. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
    script takes a slot itself: it waits for one of the machine's few
    heavy-job slots, so agents testing at once queue rather than run it out

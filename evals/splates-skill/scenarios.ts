@@ -186,59 +186,6 @@ export const SCENARIOS: readonly Scenario[] = [
 		],
 		rubric: [],
 	},
-	{
-		id: "part",
-		turns: [
-			"[SPLATES TASK #1]\n\nHand the tests for this to a subagent while you write the fix.",
-		],
-		sections: [
-			...CORE,
-			"Handing out part of your task",
-			"Committing",
-			"Questions",
-		],
-		checks: [
-			STARTS,
-			{
-				id: "part-added",
-				rule: "Adds the part on its own task's branch",
-				judge: ({ log }) => {
-					const part = splatesRuns(log.transcript.beats).find(
-						(run) =>
-							run.verb === "add" &&
-							(run.args[run.args.indexOf("--base") + 1] ?? "").startsWith(
-								"task/",
-							),
-					);
-					return [
-						{
-							ok: part !== undefined,
-							why:
-								part === undefined ? "no part added" : `added ${part.args[0]}`,
-						},
-					];
-				},
-			},
-			{
-				id: "part-landed",
-				rule: "Lands the part on its task, then one commit on main",
-				judge: ({ end }) => {
-					const part = end.landed.some((each) => each.base.startsWith("task/"));
-					const onMain = end.main.length - SEEDED;
-					return [
-						{
-							ok: part && onMain === 1,
-							why: `${part ? "part landed" : "no part landed"}; ${onMain} commits on main`,
-						},
-					];
-				},
-			},
-		],
-		rubric: [
-			"subagent-brief: the subagent's prompt told it to `splates claim <part>` and work only in that worktree; not to escalate, report to the user, or take tasks; to make each unsettled call itself and list in its reply what it chose and what else it could have done, never under `## Blocked`; and to squash and `splates merge` the part",
-			"calls-recorded: each call the subagent listed was written by the parent under its own `## Notes`, or as a question under `## Blocked` when it needs the user (n/a when it listed none)",
-		],
-	},
 	CHECKPOINT,
 	{
 		id: "review-again",

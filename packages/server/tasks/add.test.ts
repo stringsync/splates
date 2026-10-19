@@ -240,6 +240,17 @@ describe("add", () => {
 		expect((await deps.service.find("alpha")).caller).toBe("c2");
 	});
 
+	it("refuses an agent a part of its task, before making anything", async () => {
+		await add(deps, "alpha");
+		deps.proc.env.SPLATES_CONVERSATION = "c1";
+
+		await expect(add(deps, "beta", { base: "task/alpha" })).toBail("usage", {
+			message: ["a subagent works in your own worktree", "splates task add"],
+			data: { task: "beta", base: "task/alpha" },
+		});
+		expect((await deps.service.find("beta")).gone).toBe(true);
+	});
+
 	it("names the trunk and the config when the trunk is not a branch", async () => {
 		deps.config.trunk = "master";
 

@@ -62,7 +62,7 @@ or a coherent report across multiple parsed stretches.
   continuation), full grooming/release quality and arbitrary model
   choice need additional instrumented cases; the additional-request defer
   fixture does not stand in for them.
-- #367 owns skill discovery and reference reads. #356 owns parts. These tests stop at orchestration
+- #367 owns skill discovery and reference reads. These tests stop at orchestration
   decisions; optional legacy `lane-no-dev`/lane E2E must retain actual worker
   execution and landing, separately selected and explicitly authorized.
 - Preserve per-repetition unsupported/error/bound results and compatible identity

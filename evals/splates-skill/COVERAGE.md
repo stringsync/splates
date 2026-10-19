@@ -1,6 +1,6 @@
 # Splates focused coverage audit
 
-Integrated inventory: six aspect modules, all version 1. This records implemented
+Integrated inventory: five aspect modules, all version 1. This records implemented
 assertion contracts and free CLI boundaries, **not measured model adherence**.
 The original requirements map below remains a broader target, not a claim that
 every mapped requirement is now covered.
@@ -31,7 +31,7 @@ AGENTS.md remains unchanged; lane 17 tracks the next comparison work.
 
 ## Registered probes
 
-51 cases: 10 local CLI cases and 41 agent cases. All agent cases declare tools and are unsupported by generic ACP.
+47 cases: 10 local CLI cases and 37 agent cases. All agent cases declare tools and are unsupported by generic ACP.
 
 `integration.test.ts` checks this inventory against automatic discovery and runs
 all ten CLI cases together: all pass on observed state, though nested command
@@ -40,8 +40,8 @@ quick eval and must not be presented as validated adherence.
 
 Each aspect document defines the actual evidence and limitations for these ids:
 [LIFECYCLE.md](LIFECYCLE.md), [DECISIONS.md](DECISIONS.md),
-[ORCHESTRATION.md](ORCHESTRATION.md), [DELEGATION.md](DELEGATION.md),
-[CONTINUITY.md](CONTINUITY.md), [DISCOVERY.md](DISCOVERY.md).
+[ORCHESTRATION.md](ORCHESTRATION.md), [CONTINUITY.md](CONTINUITY.md),
+[DISCOVERY.md](DISCOVERY.md).
 These boundaries, including explicit uncovered assertions, take precedence over
 the broader proposed coverage in the requirements map.
 
@@ -61,13 +61,9 @@ the broader proposed coverage in the requirements map.
 | `decisions/review-follow-up` | 1 | decisions-review | agent |
 | `decisions/cli-review-ready` | 1 | decisions-review | cli |
 | `decisions/cli-review-blocked` | 1 | decisions-review | cli |
-| `delegation/part-base` | 1 | delegation-parts | agent |
-| `delegation/part-return` | 1 | delegation-parts | agent |
-| `delegation/part-decisions` | 1 | delegation-parts | agent |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
 | `discovery/queue` | 1 | discovery-queue | agent |
-| `discovery/parts` | 1 | discovery-parts | agent |
 | `discovery/checkpoint` | 1 | discovery-checkpoint | agent |
 | `discovery/setup` | 1 | discovery-setup | agent |
 | `discovery/nested` | 1 | discovery-nested | agent |
@@ -108,7 +104,7 @@ the broader proposed coverage in the requirements map.
 | Existing free checks | `checks.test.ts`, `skill-checks.test.ts` and production parser tests | Existing check/parser behavior on their fixtures | New focused probe coverage or proof that an agent obeys a directive |
 | Legacy scenarios | `scenarios.ts`, `resumed.ts` | Existing selectable scenario definitions and checks | A new baseline; no runs were performed for this audit |
 | Runner and adapters | `runner.test.ts`, `probe-cli.test.ts`, `integration.test.ts` | Free stand-ins verify selection, isolation, bounds, cancellation, comparison identity and reporting | Generic ACP tool instrumentation remains unsupported |
-| Six aspect suites | Registered inventory above and dedicated aspect tests | Actual local CLI boundaries and synthetic positive/negative assertion contracts | No measured model adherence, live worker/notification transport or complete tool capture |
+| Five aspect suites | Registered inventory above and dedicated aspect tests | Actual local CLI boundaries and synthetic positive/negative assertion contracts | No measured model adherence, live worker/notification transport or complete tool capture |
 
 A CLI directive emission test proves the CLI emitted a payload, not that an
 agent followed it. A parsed report proves recognized structure, not that its
@@ -140,7 +136,6 @@ selected real integration, never a prerequisite for this audit.
 | queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
 | queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
-| delegation-parts / `references/parts.md` | #356; `part` | Agent reads reference, creates child on parent base, sends constrained brief, propagates blockers and merges child before parent | Brief structure can be checked; adequacy is partly subjective; real child execution optional |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
 | continuity-report / Reporting, Questions | #357; common checks | Parsed task outcome and questions/choices, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |

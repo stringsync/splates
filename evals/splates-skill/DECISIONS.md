@@ -57,7 +57,7 @@ Keep the following explicit gaps in the combined inventory:
   approved system writes and MERGE response/claim/landing remain uncovered.
   MERGE emission/delivery needs a real UI boundary, separately from its constant.
 - #367 owns skill discovery/reference loading; #340 owns orchestration
-  decisions; #356 owns delegation. No coverage from those owners is inferred.
+  decisions. No coverage from those owners is inferred.
 
 Reconcile these concrete ids with COVERAGE.md without treating mapped cases as
 measured adherence. Run selection through the existing aspect/probe/requirement

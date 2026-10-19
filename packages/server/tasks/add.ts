@@ -9,7 +9,7 @@ import { pickAgent, type RosterAgent } from "../models";
 import { PLAN_FILE, Plans, STUB_STEP } from "../plans";
 import type { Shell } from "../terminal";
 import type { Dispatched, Worktree } from "./worktree";
-import type { WorktreeService } from "./worktree-service";
+import { taskOf, type WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -103,6 +103,15 @@ export async function add(
 			"usage",
 			"an agent starts no agents: queue the work with `splates task add`, and a worker starts it, or do it yourself",
 			{ task, caller: asking },
+		);
+	}
+	// A subagent works in the tree of the task it helps, so the person reviews
+	// one body of work; parts on its branch are from before that.
+	if (taskOf(base) !== null && asking !== undefined) {
+		fail(
+			"usage",
+			"a subagent works in your own worktree, with no task of its own: have it commit there, and `splates task add` what should land apart",
+			{ task, base },
 		);
 	}
 	const handOff =
