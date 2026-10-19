@@ -53,7 +53,11 @@ describe("App's conversation list by lane", () => {
 
 		expect(
 			[...list.children].map(
-				(item) => item.querySelector("button")?.textContent,
+				(item) =>
+					(
+						item.querySelector("button[title$='on the board']") ??
+						item.querySelector("button")
+					)?.textContent,
 			),
 		).toEqual(["Uploads", "Look around"]);
 		expect(
@@ -76,5 +80,23 @@ describe("App's conversation list by lane", () => {
 				view.getByRole("region", { name: "Uploads" }).getAttribute("data-lane"),
 			).toBe("3"),
 		);
+	});
+
+	it("folds a lane's conversations away and back from its chevron", async () => {
+		const view = await open();
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Collapse Uploads lane" }),
+			),
+		);
+		expect(view.queryByRole("list", { name: "Uploads lane" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Expand Uploads lane" }),
+			),
+		);
+		expect(view.getByRole("list", { name: "Uploads lane" })).toBeTruthy();
 	});
 });
