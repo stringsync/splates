@@ -13,15 +13,14 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
 import { renameLane } from "./api";
-import { Board, still } from "./board";
+import { Board } from "./board";
 import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
-import { OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { Refusal } from "./refusal";
-import { TaskIcon } from "./task-icon";
+import { TONES } from "./task-sections";
 import { StageCounts } from "./todo-queue";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
@@ -90,8 +89,8 @@ export function Untriaged({
 }
 
 /**
- * One lane: a named group of todos, top first. The header says who is on
- * them, and moves the lane: dragged by it, the
+ * One lane: a named group of todos, top first. The header says whether an
+ * agent is at work on it and whether it is queued, and moves the lane: dragged by it, the
  * lane takes the place of the one it is let go on, as a Trello list does.
  */
 export function Lane({
@@ -107,7 +106,7 @@ export function Lane({
 	/** The board was opened on it, from its title in the sidebar: ringed. */
 	opened?: boolean;
 }): JSX.Element {
-	const { openTask, refusedLanes, todos } = useContext(Board);
+	const { refusedLanes, todos } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
 	const {
 		listeners,
@@ -121,6 +120,8 @@ export function Lane({
 	} = useSortable({ id: columnId(lane.id) });
 	// Lit for a card over it, not for a lane passing by.
 	const lit = isOver && active !== null && laneOf(active.id) === undefined;
+	// Who is on which task shows on the cards; the lane says only that one is.
+	const running = lane.agents.length > 0;
 	return (
 		<Column
 			label={lane.name}
@@ -130,6 +131,8 @@ export function Lane({
 			style={{ transform: CSS.Translate.toString(transform), transition }}
 			// The slot it leaves while it is in hand, where it will land.
 			className={cn(
+				// A bar along its top, in the tone of its cards' Running badge.
+				running && "shadow-[inset_0_2px_0_var(--color-primary)]",
 				opened && "ring-1 ring-primary/40",
 				isDragging && "bg-muted ring-1 ring-border *:invisible",
 			)}
@@ -170,37 +173,37 @@ export function Lane({
 				</div>
 				{/* A line of its own, so a long name keeps its room. */}
 				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
-				{lane.queued && (
-					<span
-						className="flex items-center gap-1 text-muted-foreground text-xs"
-						title="Each task is queued as soon as nothing blocks it, until the lane is empty"
-					>
-						<ListPlusIcon aria-hidden className="size-3" />
-						Queued lane
+				{(running || lane.queued) && (
+					<span className="flex flex-wrap items-center gap-1">
+						{running && (
+							<span
+								className={cn(
+									"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+									TONES.working,
+								)}
+								title="An agent is at work on one of its tasks"
+							>
+								<span
+									aria-hidden
+									className="size-1.5 animate-pulse rounded-full bg-primary"
+								/>
+								Running
+							</span>
+						)}
+						{lane.queued && (
+							<span
+								className={cn(
+									"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+									TONES.quiet,
+								)}
+								title="Each task is queued as soon as nothing blocks it, until the lane is empty"
+							>
+								<ListPlusIcon aria-hidden className="size-3" />
+								Queued lane
+							</span>
+						)}
 					</span>
 				)}
-				{lane.agents.map((agent) => {
-					const on = lane.todos
-						.filter((todo) => todo.takenBy === agent)
-						.map((todo) => `#${todo.id}`)
-						.join(", ");
-					return (
-						<span key={agent} className="flex min-w-0 items-center gap-1.5">
-							<button
-								type="button"
-								onClick={() => openTask(agent)}
-								{...still}
-								className="inline-flex min-w-0 pointer-coarse:min-h-10 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-							>
-								<TaskIcon aria-hidden className="size-3" />
-								<span className="truncate">
-									{agent} on {on}
-								</span>
-							</button>
-							<OnIt task={agent} />
-						</span>
-					);
-				})}
 				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards

@@ -31,7 +31,7 @@ describe("App's lanes", () => {
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
-	it("draws each lane as a named column, saying who is on it and what blocks it", async () => {
+	it("draws each lane as a named column, saying whether it is running and what blocks it", async () => {
 		const todos = sound2score().map((each) =>
 			[200, 209].includes(each.id)
 				? { ...each, takenBy: "decoder" }
@@ -48,7 +48,16 @@ describe("App's lanes", () => {
 		const two = view.getByRole("region", {
 			name: "Audio, uploads and pricing",
 		});
-		expect(two.textContent).toContain("decoder on #200, #209");
+		// Running, without naming who is on which task: the cards say that.
+		expect(
+			within(two).getByTitle("An agent is at work on one of its tasks"),
+		).toBeTruthy();
+		expect(two.textContent).not.toContain("decoder on");
+		expect(
+			within(view.getByRole("region", { name: "Score editor" })).queryByTitle(
+				"An agent is at work on one of its tasks",
+			),
+		).toBeNull();
 		// A lone hourglass, naming what blocks it only in its label and tooltip.
 		const third = within(
 			view.getByRole("list", { name: "Audio, uploads and pricing tasks" }),
