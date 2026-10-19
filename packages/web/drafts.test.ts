@@ -52,4 +52,33 @@ describe("Drafts", () => {
 		drafts.write("c1", "");
 		expect(drafts.typed()).toBe(false);
 	});
+
+	it("lists a project's unstarted drafts that hold words or files, the main tree's first", () => {
+		const drafts = new Drafts(refusing);
+		const shot = new File(["png"], "shot.png", { type: "image/png" });
+		drafts.write(newDraft("shop", "fix-upload"), "in the task");
+		drafts.attach(newDraft("shop"), [shot]);
+		drafts.write(newDraft("shopfront"), "another project");
+		drafts.write("c1", "a conversation's");
+
+		expect(drafts.unstarted("shop")).toEqual([
+			newDraft("shop"),
+			newDraft("shop", "fix-upload"),
+		]);
+		drafts.discard(newDraft("shop"));
+		expect(drafts.unstarted("shop")).toEqual([newDraft("shop", "fix-upload")]);
+	});
+
+	it("moves a draft's files with its words, and keeps where it was written", () => {
+		const drafts = new Drafts(refusing);
+		const shot = new File(["png"], "shot.png", { type: "image/png" });
+		drafts.attach("new:", [shot]);
+		drafts.place("new:", "new/codex");
+
+		drafts.move("new:", "new:shop");
+
+		expect(drafts.files("new:shop")).toEqual([shot]);
+		expect(drafts.holds("new:")).toBe(false);
+		expect(drafts.placeOf("new:")).toBe("new/codex");
+	});
 });

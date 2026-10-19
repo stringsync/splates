@@ -48,6 +48,21 @@ export function terminalOf(open: string | null): string | null {
 		: id;
 }
 
+/**
+ * The address of the screen that starts a conversation with `agent`, in
+ * `task`'s tree or the main tree for null, on `model` when given.
+ */
+export function newAddress(
+	agent: string,
+	task: string | null,
+	model: string | null = null,
+): string {
+	const address = task === null ? `${NEW}/${agent}` : `${NEW}/${agent}/${task}`;
+	return model === null
+		? address
+		: `${address}?model=${encodeURIComponent(model)}`;
+}
+
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);

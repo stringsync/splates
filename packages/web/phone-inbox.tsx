@@ -29,6 +29,7 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { hostsAtWork, isHostOf, rowsOf, waitsOnYou } from "./conversation-rows";
+import { UnstartedGroup, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
@@ -116,6 +117,7 @@ export function Inbox({
 	// In the project the last one started in, which may be another's page.
 	const openNew = useOpenNew(onOpen);
 	useCopiedReplies(drafts);
+	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
 	const trees = nest(rows, (host, part) => isHostOf(tasks, host, part));
@@ -199,6 +201,7 @@ export function Inbox({
 				]}
 			/>
 			<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
+				<UnstartedGroup unstarted={unstarted} agents={agents} onOpen={onOpen} />
 				{loading || pending ? (
 					<div
 						role="status"
@@ -209,7 +212,7 @@ export function Inbox({
 						<Skeleton className="h-16 w-full" />
 						<Skeleton className="h-16 w-full" />
 					</div>
-				) : empty && mains.length === 0 ? (
+				) : empty && mains.length === 0 && unstarted.length === 0 ? (
 					<Empty className="py-16">
 						<EmptyHeader>
 							<EmptyDescription>

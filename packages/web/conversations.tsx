@@ -193,7 +193,7 @@ export function Conversations({
 							onBack={() => onOpen(null)}
 						/>
 					) : (
-						<Home key={startKey} {...starting} />
+						<Home key={startKey} {...starting} terminals={terminals} />
 					)
 				) : open !== null && isMain(open) ? (
 					<MainTerminal

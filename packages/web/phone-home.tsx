@@ -1,23 +1,11 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import {
-	ChevronDownIcon,
-	ChevronLeftIcon,
-	SquareTerminalIcon,
-} from "lucide-react";
+import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useLayoutEffect, useRef } from "react";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "#web/components/ui/dropdown-menu.tsx";
 import { Composing } from "#web/composing.tsx";
-import { cn } from "#web/lib/utils.ts";
-import { AgentIcon, AgentMark } from "./agent-icons";
+import { AgentMark } from "./agent-icons";
+import { AgentPicker } from "./agent-picker";
 import { composerIn } from "./composer-editor";
-import { NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
 import {
 	ProjectLine,
@@ -27,7 +15,7 @@ import {
 import { NamedContext } from "./mentioned";
 import { Refusal } from "./refusal";
 import type { Terminals } from "./terminals";
-import { BarButton, TITLE, TopBar } from "./top-bar";
+import { BarButton, TopBar } from "./top-bar";
 
 /**
  * Whether the inbox's composer was just tapped, raising the keyboard, which
@@ -80,44 +68,13 @@ export function PhoneHome({
 					</BarButton>
 				}
 				title={
-					<DropdownMenu>
-						<DropdownMenuTrigger
-							render={
-								<button
-									type="button"
-									aria-label="Pick an agent"
-									className={cn(
-										TITLE,
-										"-mx-2 flex h-10 items-center gap-1.5 rounded-full px-2 active:bg-muted",
-									)}
-								/>
-							}
-						>
-							{name}
-							<ChevronDownIcon className="size-4 text-muted-foreground" />
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="w-48">
-							{agents.map((each) => (
-								<DropdownMenuItem
-									key={each.id}
-									className="h-11"
-									onClick={() => onOpen(`${NEW}/${each.id}`)}
-								>
-									<AgentIcon agent={each.id} name={each.name} />
-									{each.name}
-								</DropdownMenuItem>
-							))}
-							<DropdownMenuSeparator />
-							{/* New becomes the terminal, as a draft becomes its conversation. */}
-							<DropdownMenuItem
-								className="h-11"
-								onClick={() => onOpen(terminals.another(), "replace")}
-							>
-								<SquareTerminalIcon />
-								Terminal
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<AgentPicker
+						agents={agents}
+						agent={agent}
+						task={task}
+						terminals={terminals}
+						onOpen={onOpen}
+					/>
 				}
 			/>
 			<AssistantRuntimeProvider runtime={runtime}>

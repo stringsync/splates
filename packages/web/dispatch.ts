@@ -11,7 +11,7 @@ import {
 	taskReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { settingsFor } from "./conversation-address";
+import { newAddress, settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
@@ -92,10 +92,7 @@ export class Dispatch {
 	start(agent: string, assignment: Assignment, model?: string): string {
 		const task = assignment.kind === "task" ? assignment.task : null;
 		this.compose(newDraft(this.project, task), promptFor(assignment));
-		const address = task === null ? `new/${agent}` : `new/${agent}/${task}`;
-		return model === undefined
-			? address
-			: `${address}?model=${encodeURIComponent(model)}`;
+		return newAddress(agent, task, model ?? null);
 	}
 
 	/**

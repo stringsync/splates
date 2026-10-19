@@ -9,10 +9,9 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { composerIn } from "./composer-editor";
-import { agentFor, NEW, startsOne } from "./conversation-address";
+import { agentFor, NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -28,18 +27,16 @@ import type { Terminals } from "./terminals";
  * New, atop the sidebar, boxed so it stands out from the tabs under it: a menu
  * of the agents to start a conversation with, and a terminal. ⌥⌘N (Ctrl+Alt+N
  * off a Mac), as the settings bind it, starts one as the last was started,
- * and shows beside New while ⌥⌘ is held; ⌥` opens another terminal.
+ * and, bound to ⌥⌘ and a key, shows beside New while ⌥⌘ is held; ⌥` opens
+ * another terminal. The new conversation shown is a row of the list under it.
  */
 export function NewMenu({
 	feed,
 	terminals,
-	open,
 	onOpen,
 }: {
 	feed: ConversationFeed;
 	terminals: Terminals;
-	/** The conversation shown, by its address, or null. */
-	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
 	const { agents, conversations } = useReactive(
@@ -66,11 +63,7 @@ export function NewMenu({
 				render={
 					<button
 						type="button"
-						aria-current={startsOne(open) ? "page" : undefined}
-						className={cn(
-							"mt-2 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-lg border bg-background px-3 text-left text-foreground text-sm hover:bg-accent",
-							startsOne(open) && "bg-accent",
-						)}
+						className="mt-2 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-lg border bg-background px-3 text-left text-foreground text-sm hover:bg-accent"
 					/>
 				}
 			>

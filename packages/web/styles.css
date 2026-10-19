@@ -103,6 +103,8 @@
 @source "./directives.tsx";
 @source "./reference-chip.tsx";
 @source "./agent-icons.tsx";
+@source "./agent-picker.tsx";
+@source "./draft-rows.tsx";
 @source "./projects.tsx";
 @source "./leaving.tsx";
 @source "./checkpoint.tsx";

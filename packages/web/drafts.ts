@@ -1,10 +1,13 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
 
-/** Says which draft was written, by its key. */
-export type DraftsEvents = { written: string };
+/** Says which draft was written, or thrown away, by its key. */
+export type DraftsEvents = { written: string; discarded: string };
 
 /** Where every draft is kept, each under its own key after this. */
 const PREFIX = "splates.draft.";
+
+/** Where the screen a new conversation's draft was written on is kept, by its key. */
+const PLACED = "splates.draftAt.";
 
 /**
  * What the person typed and has not sent, kept in `storage` so switching to
@@ -20,6 +23,8 @@ export class Drafts implements Eventful<DraftsEvents> {
 	/** Every draft this page wrote, for when `storage` refuses to keep one. */
 	private readonly kept = new Map<string, string>();
 	private readonly attached = new Map<string, File[]>();
+	/** Every place this page kept, for when `storage` refuses to keep one. */
+	private readonly places = new Map<string, string>();
 
 	/** Without `storage`, every draft lives as long as the page does. */
 	constructor(private readonly storage: Storage | null = null) {}
@@ -64,24 +69,100 @@ export class Drafts implements Eventful<DraftsEvents> {
 
 	/**
 	 * Moves the draft under `from` to `to`, after any text already there, as
-	 * when a new conversation's project changes; its files stay behind.
+	 * when a new conversation's project changes, and its files after any there.
 	 */
 	move(from: string, to: string): void {
 		const text = this.read(from);
-		if (from === to || text === "") {
+		const files = this.files(from);
+		if (from === to || (text === "" && files.length === 0)) {
 			return;
 		}
 		const kept = this.read(to);
-		this.write(to, kept.trim() === "" ? text : `${kept}\n\n${text}`);
+		const keptFiles = this.files(to);
+		this.write(
+			to,
+			kept.trim() === "" ? text : text === "" ? kept : `${kept}\n\n${text}`,
+		);
+		this.attach(to, [...keptFiles, ...files]);
 		this.write(from, "");
 	}
 
 	/** Keeps `files` with the draft under `key`, for as long as the page. */
 	attach(key: string, files: File[]): void {
+		const had = this.files(key);
+		if (
+			had.length === files.length &&
+			had.every((each, i) => each === files[i])
+		) {
+			return;
+		}
 		if (files.length === 0) {
 			this.attached.delete(key);
 		} else {
 			this.attached.set(key, files);
+		}
+		this.dispatcher.dispatch("written", key);
+	}
+
+	/** Throws away the draft under `key`, from any composer showing it too. */
+	discard(key: string): void {
+		this.write(key, "");
+		this.dispatcher.dispatch("discarded", key);
+	}
+
+	/** Whether the draft under `key` holds anything: words or a file. */
+	holds(key: string): boolean {
+		return this.read(key) !== "" || this.files(key).length > 0;
+	}
+
+	/**
+	 * The keys of the drafts held for conversations not started yet in
+	 * `project`, as `newDraft` names them, the main tree's first.
+	 */
+	unstarted(project: string | null): string[] {
+		const root = newDraft(project);
+		const keys = new Set([...this.kept.keys(), ...this.attached.keys()]);
+		try {
+			for (let i = 0; i < (this.storage?.length ?? 0); i++) {
+				const key = this.storage?.key(i) ?? "";
+				if (key.startsWith(PREFIX)) {
+					keys.add(key.slice(PREFIX.length));
+				}
+			}
+		} catch {
+			// Storage refused: the drafts kept in memory are all there are.
+		}
+		return [...keys]
+			.filter(
+				(key) =>
+					(key === root || key.startsWith(`${root}:`)) && this.holds(key),
+			)
+			.sort((one, other) =>
+				one === root ? -1 : other === root ? 1 : one.localeCompare(other),
+			);
+	}
+
+	/**
+	 * Keeps where the draft under `key` was written, the screen's place under
+	 * `#conversations/`, as `new/codex`, so going back to it opens that again.
+	 */
+	place(key: string, open: string): void {
+		this.places.set(key, open);
+		try {
+			this.storage?.setItem(PLACED + key, open);
+		} catch {
+			// Storage full or refused: the place lives as long as the page does.
+		}
+	}
+
+	/** Where the draft under `key` was written, or null when it was not kept. */
+	placeOf(key: string): string | null {
+		try {
+			return (
+				this.storage?.getItem(PLACED + key) ?? this.places.get(key) ?? null
+			);
+		} catch {
+			return this.places.get(key) ?? null;
 		}
 	}
 

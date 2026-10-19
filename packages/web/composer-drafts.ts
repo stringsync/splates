@@ -11,8 +11,9 @@ import type { Drafts } from "./drafts";
 
 /**
  * Keeps what is typed in `runtime`'s composer in `drafts` under `key`, and
- * puts it back as the composer comes up, so leaving for another conversation
- * loses nothing. Hands back what puts text back after a send was refused.
+ * the files attached to it, and puts them back as the composer comes up, so
+ * leaving for another conversation loses nothing. Hands back what puts text
+ * back after a send was refused.
  */
 export function useDraft(
 	runtime: AssistantRuntime,
@@ -24,13 +25,25 @@ export function useDraft(
 		// Into an empty composer only: what is typed there is the newer draft.
 		const fill = () => {
 			const kept = drafts.read(key);
-			if (kept !== "" && composer.getState().isEmpty) {
+			// Read first: setting the text keeps the composer's files, none yet.
+			const files = drafts.files(key);
+			if ((kept !== "" || files.length > 0) && composer.getState().isEmpty) {
 				composer.setText(kept);
+				for (const file of files) {
+					void composer.addAttachment(file);
+				}
 			}
 		};
-		const unsubscribe = composer.subscribe(() =>
-			drafts.write(key, composer.getState().text),
-		);
+		const unsubscribe = composer.subscribe(() => {
+			const { text, attachments } = composer.getState();
+			drafts.write(key, text);
+			drafts.attach(
+				key,
+				attachments.flatMap((each) =>
+					each.file === undefined ? [] : [each.file],
+				),
+			);
+		});
 		fill();
 		// Written from elsewhere: a message Home could not send to it.
 		const unlisten = drafts.events.on("written", (written) => {
@@ -38,9 +51,15 @@ export function useDraft(
 				fill();
 			}
 		});
+		const unlistenDiscarded = drafts.events.on("discarded", (discarded) => {
+			if (discarded === key) {
+				void composer.reset();
+			}
+		});
 		return () => {
 			unsubscribe();
 			unlisten();
+			unlistenDiscarded();
 		};
 	}, [runtime, drafts, key]);
 	return (text, files) => {

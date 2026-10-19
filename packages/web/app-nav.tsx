@@ -73,12 +73,7 @@ export function AppNav({
 				)}
 			>
 				{available && (
-					<NewMenu
-						feed={talk}
-						terminals={terminals}
-						open={page === "conversations" ? open : null}
-						onOpen={onOpen}
-					/>
+					<NewMenu feed={talk} terminals={terminals} onOpen={onOpen} />
 				)}
 				{PAGES.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger

@@ -9,17 +9,25 @@ import type {
 } from "@stringsync/splates-server/conversations";
 import { modelOption } from "@stringsync/splates-server/models/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { type JSX, type ReactNode, useContext, useRef, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
+import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
-import { NEW, settingsFor } from "./conversation-address";
+import { NEW, newAddress, settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import {
 	type AgentChoice,
@@ -46,6 +54,7 @@ import { ProjectSwitcher } from "./projects";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
+import type { Terminals } from "./terminals";
 import { BELOW_BAR, TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
 
@@ -183,6 +192,11 @@ export function useNewConversation({
 		},
 	});
 	const draft = newDraft(shownProject(), task);
+	// So its row in the sidebar opens it again with this agent and model.
+	useEffect(
+		() => drafts.place(draft, newAddress(agent, task, model)),
+		[drafts, draft, agent, task, model],
+	);
 	restore.current = useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
@@ -244,10 +258,13 @@ export function useNewConversation({
 /**
  * The screen with no conversation open: an empty thread whose first message
  * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
- * composer, and under the greeting the latest unfinished conversations to
+ * composer, the agent picked in its bar, as on a phone, or a terminal, and under the greeting the latest unfinished conversations to
  * pick back up, none whose task merged.
  */
-export function Home(starting: Starting): JSX.Element {
+export function Home({
+	terminals,
+	...starting
+}: Starting & { terminals: Terminals }): JSX.Element {
 	const { tasks, agents, agent, task, conversations, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
@@ -270,7 +287,17 @@ export function Home(starting: Starting): JSX.Element {
 			aria-label="new conversation"
 			className={cn(BELOW_BAR, "flex min-h-0 min-w-0 flex-col gap-3")}
 		>
-			<TopBar title="New conversation" />
+			<TopBar
+				title={
+					<AgentPicker
+						agents={agents}
+						agent={agent}
+						task={task}
+						terminals={terminals}
+						onOpen={onOpen}
+					/>
+				}
+			/>
 			<AssistantRuntimeProvider runtime={runtime}>
 				<Composing.Provider value={runtime.thread.composer}>
 					<NamedContext value={named}>

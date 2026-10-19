@@ -20,6 +20,7 @@ import {
 	rowsOf,
 	seenFor,
 } from "./conversation-rows";
+import { UnstartedRow, useUnstarted } from "./draft-rows";
 import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useFolded } from "./folded";
@@ -51,7 +52,9 @@ const DIGITS = 10;
 
 /**
  * The sidebar's agents, all of them, after the main tree's own terminals,
- * oldest first, until each is closed. Each row is named alone, with its
+ * oldest first, until each is closed, and the new conversations not started
+ * yet, each listed from the moment its screen opens or while its draft holds
+ * anything. Each row is named alone, with its
  * task on hover. A conversation follows its agent as it takes and lands
  * tasks. A task whose agent runs outside the page is a row of its own. Rows stay put as their agents change
  * state; each one's mark says whether it works or waits on you. Under a
@@ -99,6 +102,7 @@ export function ConversationList({
 		["changed"],
 	);
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
+	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
@@ -304,6 +308,20 @@ export function ConversationList({
 							}
 						})
 					}
+				/>
+			))}
+			{unstarted.map((each) => (
+				<UnstartedRow
+					key={each.key}
+					unstarted={each}
+					agents={agents}
+					onOpen={() => onOpen(each.open)}
+					onDiscard={() => {
+						drafts.discard(each.key);
+						if (each.current && open !== null) {
+							onOpen(null);
+						}
+					}}
 				/>
 			))}
 			{grouped !== null ? (
