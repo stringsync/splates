@@ -255,6 +255,47 @@ describe("App's lanes", () => {
 		expect(view.queryByText("Queued lane")).toBeNull();
 	});
 
+	it("queues a lane whole with one tap on its header", async () => {
+		const view = await testing.open({
+			todos: sound2score(),
+			lanes: SOUND2SCORE_LANES,
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Queue Licensing" })),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/lanes/1",
+			method: "PUT",
+			body: JSON.stringify({ queued: true }),
+		});
+		expect(view.getByText("Queued lane")).toBeTruthy();
+		expect(
+			view.getByRole("button", { name: "Stop queueing Licensing" }),
+		).toBeTruthy();
+	});
+
+	it("stops queueing a lane with one tap on its header", async () => {
+		const view = await testing.open({
+			todos: sound2score(),
+			lanes: SOUND2SCORE_LANES.map((lane) =>
+				lane.id === 1 ? { ...lane, queued: true as const } : lane,
+			),
+		});
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Stop queueing Licensing" }),
+			),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/lanes/1",
+			body: JSON.stringify({ queued: false }),
+		});
+		expect(view.queryByText("Queued lane")).toBeNull();
+		expect(view.getByRole("button", { name: "Queue Licensing" })).toBeTruthy();
+	});
+
 	// scry-ignore simple-test-setup: each test here opens its own board; this one only lost a neighbour.
 	it("asks for a new lane's name in place when one is picked in the dialog", async () => {
 		const view = await testing.open({

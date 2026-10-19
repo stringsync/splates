@@ -6,7 +6,9 @@ import {
 	ListXIcon,
 	MergeIcon,
 	MoreHorizontalIcon,
+	PauseIcon,
 	PencilIcon,
+	PlayIcon,
 	Undo2Icon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
@@ -41,6 +43,7 @@ export function LaneMenu({
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
 	const expect = useExpectSnapshot();
+	const toggleQueued = useToggleQueued(lane);
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
 	return (
@@ -63,20 +66,7 @@ export function LaneMenu({
 					<PencilIcon />
 					Rename
 				</DropdownMenuItem>
-				<DropdownMenuItem
-					onClick={() =>
-						void expect(
-							laneQueued(lane.id, !lane.queued),
-							queueLane(lane.id, !lane.queued),
-						).catch((error: unknown) =>
-							refuseLane(
-								lane.id,
-								lane.queued ? "Lane not unqueued" : "Lane not queued",
-								error,
-							),
-						)
-					}
-				>
+				<DropdownMenuItem onClick={toggleQueued}>
 					{lane.queued ? <ListXIcon /> : <ListPlusIcon />}
 					{lane.queued ? "Stop queueing lane" : "Queue lane"}
 				</DropdownMenuItem>
@@ -142,4 +132,45 @@ export function LaneMenu({
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+}
+
+/**
+ * The lane's one tap to queue it whole, or, once queued, to stop: what its
+ * menu's Queue lane does, kept in the header where it is quick to reach.
+ */
+export function QueueLaneButton({ lane }: { lane: LaneState }): JSX.Element {
+	const toggleQueued = useToggleQueued(lane);
+	return (
+		<Button
+			size="icon-xs"
+			variant="ghost"
+			aria-label={
+				lane.queued ? `Stop queueing ${lane.name}` : `Queue ${lane.name}`
+			}
+			aria-pressed={lane.queued}
+			title={lane.queued ? "Stop queueing lane" : "Queue lane"}
+			className="pointer-coarse:size-10"
+			onClick={toggleQueued}
+			{...still}
+		>
+			{lane.queued ? <PauseIcon /> : <PlayIcon />}
+		</Button>
+	);
+}
+
+/** Queues the lane whole, or stops queueing it, shown at once. */
+function useToggleQueued(lane: LaneState): () => void {
+	const { refuseLane } = useContext(Board);
+	const expect = useExpectSnapshot();
+	return () =>
+		void expect(
+			laneQueued(lane.id, !lane.queued),
+			queueLane(lane.id, !lane.queued),
+		).catch((error: unknown) =>
+			refuseLane(
+				lane.id,
+				lane.queued ? "Lane not unqueued" : "Lane not queued",
+				error,
+			),
+		);
 }

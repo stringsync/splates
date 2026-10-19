@@ -19,7 +19,7 @@ import { Card } from "./card";
 import { OnIt } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
 import { Cards, Column, laneOfCard } from "./lane-column";
-import { LaneMenu } from "./lane-menu";
+import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { Refusal } from "./refusal";
 import { TaskIcon } from "./task-icon";
 import { StageCounts } from "./todo-queue";
@@ -152,11 +152,14 @@ export function Lane({
 							</button>
 						</h3>
 					)}
-					<LaneMenu
-						lane={lane}
-						lanes={lanes}
-						onRename={() => setRenaming(true)}
-					/>
+					<div className="flex shrink-0 items-center">
+						<QueueLaneButton lane={lane} />
+						<LaneMenu
+							lane={lane}
+							lanes={lanes}
+							onRename={() => setRenaming(true)}
+						/>
+					</div>
 				</div>
 				{/* A line of its own, so a long name keeps its room. */}
 				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
