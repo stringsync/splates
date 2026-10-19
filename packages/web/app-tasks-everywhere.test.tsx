@@ -172,10 +172,24 @@ describe("App's tasks, every project's", () => {
 		expect(again.queryByRole("list", { name: "apple tasks" })).toBeNull();
 	});
 
-	it("shows the empty page only when no project has tasks", async () => {
+	it("lists this project's group, empty, when no project has tasks", async () => {
 		testing.everywhere = [listed("empty", "empty", "/code/empty", [])];
 		const view = await testing.openTasks({ tasks: [] });
 
-		await waitFor(() => view.getByText("No tasks yet"));
+		const mine = await waitFor(() =>
+			view.getByRole("region", { name: "webappwiz" }),
+		);
+		expect(within(mine).getByText("No tasks yet")).toBeTruthy();
+		expect(view.queryByRole("region", { name: "empty" })).toBeNull();
+	});
+
+	it("keeps this project's group, empty, beside other projects' tasks", async () => {
+		const view = await testing.openTasks({ tasks: [] });
+
+		const mine = await waitFor(() =>
+			view.getByRole("region", { name: "webappwiz" }),
+		);
+		expect(within(mine).getByText("No tasks yet")).toBeTruthy();
+		expect(view.getByRole("list", { name: "zebra tasks" })).toBeTruthy();
 	});
 });

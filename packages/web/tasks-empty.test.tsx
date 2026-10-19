@@ -13,24 +13,11 @@ describe("Tasks empty state", () => {
 		testing.dispose();
 	});
 
-	it("opens a new conversation from the empty tasks page", async () => {
+	it("says the list is empty in one line, offering nothing", async () => {
 		const view = await testing.openConversations([], null, { tasks: [] });
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
 		);
-
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "Start a conversation" }),
-			),
-		);
-
-		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
-		expect(location.hash).toBe("#conversations/new");
-	});
-
-	it("explains the empty state without offering an unavailable conversation", async () => {
-		const view = await testing.openTasks({ tasks: [] });
 
 		expect(view.getByText("No tasks yet")).toBeTruthy();
 		expect(

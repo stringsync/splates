@@ -2,26 +2,16 @@ import { age } from "@stringsync/splates-server/age";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
-import { ChevronRightIcon, SquarePenIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { type CSSProperties, type JSX, useContext } from "react";
 import { Duration } from "webappwiz/time";
-import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
 import { Dialog } from "#web/components/ui/dialog.tsx";
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { NEW } from "./conversation-address";
 import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
@@ -58,40 +48,22 @@ export function Tasks({
 }): JSX.Element {
 	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
-	const dispatching = useContext(Dispatching);
 	const groups = useGroups(project);
-	const none = groups === null ? tasks.length === 0 : groups.length === 0;
+	const none =
+		groups === null
+			? tasks.length === 0
+			: groups.every((group) => group.tasks.length === 0);
 	useNow(!none, Duration.mins(1));
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
 			<TopBar title="Tasks" />
-			{none ? (
-				<Empty className="min-h-80 py-16">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<TaskIcon aria-hidden />
-						</EmptyMedia>
-						<EmptyTitle>No tasks yet</EmptyTitle>
-						<EmptyDescription>
-							Start a conversation and tell an agent what you’d like to work on.
-							Tasks will appear here as your agent picks up work.
-						</EmptyDescription>
-					</EmptyHeader>
-					{dispatching !== null && (
-						<EmptyContent>
-							<Button
-								onClick={() => dispatching.open(NEW)}
-								className="max-md:min-h-11"
-							>
-								<SquarePenIcon data-icon="inline-start" aria-hidden />
-								Start a conversation
-							</Button>
-						</EmptyContent>
-					)}
-				</Empty>
-			) : groups === null ? (
-				<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
+			{groups === null ? (
+				tasks.length === 0 ? (
+					<NoTasks />
+				) : (
+					<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
+				)
 			) : (
 				<ProjectGroups groups={groups} onOpen={onOpen} />
 			)}
@@ -150,7 +122,8 @@ function useGroups(here: Here): Group[] | null {
 
 /**
  * Every project with tasks, by name, this one's tasks as its snapshot has
- * them, which its dialog reads too.
+ * them, which its dialog reads too. This one is listed even with none, so
+ * the page still shows where its tasks will go.
  */
 function groupsOf(
 	projects: EverywhereSummary[],
@@ -190,7 +163,7 @@ function groupsOf(
 		});
 	}
 	return listed
-		.filter((group) => group.tasks.length > 0)
+		.filter((group) => group.here || group.tasks.length > 0)
 		.sort(
 			(one, other) =>
 				one.name.localeCompare(other.name) ||
@@ -241,22 +214,31 @@ function ProjectGroups({
 							<span className="tabular-nums">{group.tasks.length}</span>
 						</CollapsibleTrigger>
 						<CollapsibleContent>
-							<TaskRows
-								label={`${group.name} tasks`}
-								rows={nested(group.tasks)}
-								needing={group.needing}
-								onOpen={
-									group.here || project === null
-										? onOpen
-										: (task) => navigation.show(taskUrl(project, task))
-								}
-							/>
+							{group.tasks.length === 0 ? (
+								<NoTasks />
+							) : (
+								<TaskRows
+									label={`${group.name} tasks`}
+									rows={nested(group.tasks)}
+									needing={group.needing}
+									onOpen={
+										group.here || project === null
+											? onOpen
+											: (task) => navigation.show(taskUrl(project, task))
+									}
+								/>
+							)}
 						</CollapsibleContent>
 					</Collapsible>
 				);
 			})}
 		</div>
 	);
+}
+
+/** Where this project's tasks go while it has none. */
+function NoTasks(): JSX.Element {
+	return <p className="py-2 text-muted-foreground text-sm">No tasks yet</p>;
 }
 
 /** Project `project`'s page, opened on its task `task`. */
