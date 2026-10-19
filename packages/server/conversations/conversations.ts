@@ -198,8 +198,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	/**
-	 * The conversation kept for persistent agent `role`, archived or not, or
-	 * null before one started: the newest, should there be more.
+	 * The newest conversation started for persistent agent `role`, archived
+	 * or not, or null before one started.
 	 */
 	async persistent(role: string): Promise<Conversation | null> {
 		return (
@@ -528,11 +528,21 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	private async trim(): Promise<void> {
+		// The newest of each persistent agent's role holds its row, so is kept.
+		const roles = new Set<string>();
+		const holding = new Set<Conversation>();
+		const newest = [...this.known.values()].sort((one, other) =>
+			other.state.createdAt.localeCompare(one.state.createdAt),
+		);
+		for (const each of newest) {
+			const role = each.state.persistent;
+			if (role !== undefined && !roles.has(role)) {
+				roles.add(role);
+				holding.add(each);
+			}
+		}
 		const archived = [...this.known.values()]
-			// A persistent agent's is its role's log, kept to carry on in.
-			.filter(
-				(each) => each.state.archived && each.state.persistent === undefined,
-			)
+			.filter((each) => each.state.archived && !holding.has(each))
 			.sort((one, other) =>
 				(other.archivedSince ?? "").localeCompare(one.archivedSince ?? ""),
 			);

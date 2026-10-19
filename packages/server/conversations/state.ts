@@ -85,6 +85,13 @@ export interface ConversationState {
 	 * is not archived.
 	 */
 	archivedWith: string | null;
+	/**
+	 * Archived resting: a persistent agent's run that ended with its role
+	 * still on, the next run to start afresh in a new conversation. The
+	 * newest of its role holds the role's row while no run is on, as a
+	 * placeholder. Absent or false otherwise.
+	 */
+	resting?: boolean;
 	/** Kept atop the list, archived or not, until unpinned. */
 	pinned: boolean;
 	/**
@@ -168,10 +175,10 @@ export interface ConversationState {
 	 */
 	summary?: true;
 	/**
-	 * The role of a persistent agent, as `"groomer"`: one conversation per
-	 * project that splates keeps for that role and tells of each automation
-	 * that wakes it, rather than starting one per run, so its history is the
-	 * role's log. Absent for an ordinary conversation.
+	 * The role of a persistent agent, as `"groomer"`: splates starts one
+	 * conversation for the role per run, each with a fresh context, and
+	 * keeps the role's row atop the list, archiving each run as it ends.
+	 * Absent for an ordinary conversation.
 	 */
 	persistent?: string;
 }
@@ -241,10 +248,8 @@ export interface Message {
 	dictated?: true;
 	/** The id the page gave it as it sent it, so it knows its own copy when it comes back. */
 	id?: string;
-	/**
-	 * Seconds until sending times out, after going unanswered for a while: set only by the
-	 * page, on its own copy, never by the server.
-	 */
+	// Set only by the page, on its own copy, never by the server.
+	/** Seconds left before a send that has gone unanswered a while times out. */
 	sending?: number;
 }
 

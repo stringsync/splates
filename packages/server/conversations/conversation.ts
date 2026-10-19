@@ -893,12 +893,16 @@ export class Conversation
 
 	/**
 	 * Stops it and puts it away, off the list of conversations; `with`, the
-	 * conversation whose archiving takes it along, which brings it back.
+	 * conversation whose archiving takes it along, which brings it back;
+	 * `rest`, a persistent agent's run ended with its role still on.
 	 * Its artifacts keep only what their panel shows.
 	 */
-	async archive(withConversation?: string): Promise<void> {
+	async archive(
+		withConversation?: string,
+		{ rest = false }: { rest?: boolean } = {},
+	): Promise<void> {
 		await this.stop();
-		await put(this, { archived: true, with: withConversation });
+		await put(this, { archived: true, with: withConversation, rest });
 		await this.artifacts.archive();
 	}
 

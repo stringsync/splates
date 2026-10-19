@@ -10,6 +10,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationTag, RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
+import { placeholding } from "./conversation-rows";
 import { Rows } from "./list-rows";
 import { Mark } from "./mark";
 import { type Folder, folderKey } from "./project-folders";
@@ -143,7 +144,10 @@ export function ForeignItem({
 			data-row
 			onClick={onOpen}
 			title={conversation?.task ?? undefined}
-			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+			className={cn(
+				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
+				conversation !== null && placeholding(conversation) && "opacity-50",
+			)}
 		>
 			{conversation !== null && agent !== null ? (
 				<RowIcon
@@ -158,7 +162,9 @@ export function ForeignItem({
 				<span
 					className={cn(
 						"min-w-0 truncate text-sm",
-						(nested || (conversation !== null && unnamed(conversation))) &&
+						(nested ||
+							(conversation !== null &&
+								(unnamed(conversation) || placeholding(conversation)))) &&
 							"text-muted-foreground italic",
 					)}
 				>

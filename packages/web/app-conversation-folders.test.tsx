@@ -214,6 +214,48 @@ describe("App's agents, in a folder per project", () => {
 		).toBeTruthy();
 	});
 
+	const groomerRun = (id: string, createdAt: string, resting: boolean) =>
+		conversation({
+			id,
+			title: "Groomer",
+			persistent: "groomer",
+			createdAt,
+			archived: true,
+			resting,
+		});
+	const keptList = async (conversations: ConversationState[]) => {
+		const view = await testing.openConversations(
+			[...mine, ...conversations],
+			null,
+		);
+		const here = await waitFor(() =>
+			within(agentList(view)).getByRole("region", { name: "webappwiz" }),
+		);
+		return within(here).queryByRole("list", {
+			name: "webappwiz persistent agents",
+		});
+	};
+
+	it("holds a persistent agent's row between runs with its newest run, faint and italic", async () => {
+		const list = await keptList([
+			groomerRun("g1", "2026-10-11T09:00:00.000Z", true),
+			groomerRun("g2", "2026-10-11T09:30:00.000Z", true),
+		]);
+
+		const rows = [...(list?.querySelectorAll("[data-row]") ?? [])];
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.className).toContain("opacity-50");
+		expect(
+			within(rows[0] as HTMLElement).getByText("Groomer").className,
+		).toContain("italic");
+	});
+
+	it("drops a persistent agent's row once it is turned off", async () => {
+		expect(
+			await keptList([groomerRun("g2", "2026-10-11T09:30:00.000Z", false)]),
+		).toBeNull();
+	});
+
 	it("keeps a folder's persistent agents atop it in a phone's inbox, apart from the rest", async () => {
 		resize(390, 844);
 		try {

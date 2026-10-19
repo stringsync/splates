@@ -48,7 +48,11 @@ describe("dev groomer", () => {
 			expect(await eventually(async () => told.length === 2, 5000)).toBe(true);
 
 			expect(told).toEqual(["[SPLATES GROOM #1]", "[SPLATES GROOM #2]"]);
-			expect(await conversations.list()).toHaveLength(1);
+			expect(
+				(await conversations.list()).every(
+					({ state }) => state.persistent === "groomer",
+				),
+			).toBe(true);
 		} finally {
 			await server.disposeAsync();
 		}

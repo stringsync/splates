@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { AGENT, FakeAgent, say } from "../agents/testing";
 import { taskAdd } from "../board";
 import { Conversations, GROOMER_ROLE } from "../conversations";
+import { once } from "../conversations/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { Groomer } from "./groomer";
@@ -36,11 +37,12 @@ describe("Groomer", () => {
 	});
 
 	afterEach(async () => {
+		groomer.dispose();
 		await conversations.disposeAsync();
 		await deps.disposeAsync();
 	});
 
-	it("grooms the backlog in order, a turn at a time, in one persistent conversation", async () => {
+	it("grooms the backlog in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
 		await taskAdd(deps, "rough", null);
 		await taskAdd(deps, "groomed", null, { ready: true });
 		await taskAdd(deps, "taken", null);
@@ -55,18 +57,50 @@ describe("Groomer", () => {
 			kept?.id ?? "",
 		]);
 		expect((await deps.tasks.find(1)).state.grooming).toBe(kept?.id);
+		expect(kept?.state).toMatchObject({ archived: true, resting: true });
+		expect(kept?.state.status).toBe("stopped");
 	});
 
-	it("leaves a task it had its turn on, and tells the same conversation of the next", async () => {
+	it("leaves a task a run had its turn on, and starts the next run afresh", async () => {
 		await taskAdd(deps, "rough", null);
 		await groomer.wake({ agent: "fake" });
+		const first = await conversations.persistent(GROOMER_ROLE);
 		await groomer.wake({ agent: "fake" });
 		await taskAdd(deps, "later", null);
 
 		await groomer.wake({ agent: "fake" });
 
 		expect(told).toEqual(["[SPLATES GROOM #1]", "[SPLATES GROOM #2]"]);
-		expect(await conversations.list()).toHaveLength(1);
+		const second = await conversations.persistent(GROOMER_ROLE);
+		expect(second?.id).not.toBe(first?.id);
+		expect(second?.state.messages.map(({ role }) => role)).toEqual(["user"]);
+		expect(await conversations.list()).toHaveLength(2);
+	});
+
+	it("leaves a run that ends asking you something open, and archives it once a turn after your reply asks nothing", async () => {
+		agent.turn = async (client, sessionId, text) => {
+			told.push(text);
+			await client.sessionUpdate({
+				sessionId,
+				update: say(
+					text.startsWith("[SPLATES GROOM")
+						? "1. Which lane should #1 go in?\n   - (a) Lane 1 (chosen)\n   - (b) Lane 2"
+						: "#1: ready in lane 1",
+				),
+			});
+			return "end_turn";
+		};
+		await taskAdd(deps, "rough", null);
+		await groomer.wake({ agent: "fake" });
+		const asking = await conversations.find(
+			(await conversations.persistent(GROOMER_ROLE))?.id ?? "",
+		);
+		expect(asking.state.archived).toBe(false);
+
+		await asking.prompt("1. a", []);
+		await once(asking, () => asking.state.archived);
+
+		expect(asking.state.resting).toBe(true);
 	});
 
 	it("goes round again for a wake that comes mid-turn", async () => {
@@ -80,17 +114,19 @@ describe("Groomer", () => {
 		expect(told).toEqual(["[SPLATES GROOM #1]", "[SPLATES GROOM #2]"]);
 	});
 
-	it("retires its conversation once turned off, and carries on in it once on again", async () => {
+	it("retires its conversation, no longer resting, once turned off, and starts afresh once on again", async () => {
 		await taskAdd(deps, "rough", null);
 		await groomer.wake({ agent: "fake" });
 		const kept = await conversations.persistent(GROOMER_ROLE);
 
 		await groomer.wake(null);
-		expect(kept?.state.archived).toBe(true);
+		expect(kept?.state).toMatchObject({ archived: true, resting: false });
 
 		await taskAdd(deps, "later", null);
 		await groomer.wake({ agent: "fake" });
 		expect(told.at(-1)).toBe("[SPLATES GROOM #2]");
-		expect(kept?.state.archived).toBe(false);
+		const next = await conversations.persistent(GROOMER_ROLE);
+		expect(next?.id).not.toBe(kept?.id);
+		expect(next?.state).toMatchObject({ archived: true, resting: true });
 	});
 });

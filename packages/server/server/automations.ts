@@ -131,6 +131,7 @@ export class Automations implements Resource {
 		this.#watching?.dispose();
 		this.#runner?.dispose();
 		this.#scheduler?.dispose();
+		this.#groomer?.dispose();
 	}
 
 	/** How a hook runs here: a shell command in the main tree, or an agent started there. */

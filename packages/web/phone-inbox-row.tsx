@@ -6,6 +6,7 @@ import { type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationTag, RowIcon } from "./agent-icons";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
+import { placeholding } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { Held } from "./handed-out";
 import { Mark } from "./mark";
@@ -66,6 +67,7 @@ export function Row({
 				// No callout or selection to fight the long press.
 				"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
 				depth === 0 ? "min-h-16" : "min-h-14",
+				conversation !== null && placeholding(conversation) && "opacity-50",
 			)}
 			// Under the name of the agent it answers to.
 			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
@@ -102,7 +104,8 @@ export function Row({
 							className={cn(
 								"min-w-0 truncate font-medium text-[15px]",
 								(subagent ||
-									(conversation !== null && unnamed(conversation))) &&
+									(conversation !== null &&
+										(unnamed(conversation) || placeholding(conversation)))) &&
 									"text-muted-foreground italic",
 							)}
 						>

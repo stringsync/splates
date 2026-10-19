@@ -35,8 +35,10 @@ import {
 const SAVE_EVERY = Duration.ms(500);
 
 // Raise it with any change to the entries, their `seq`s or the frame
-// numbering that a log of the last format would be misread by.
-/** The log format this version reads: a conversation left running under another is stopped on restart, not resumed. */
+// numbering that a log of the last format would be misread by: a
+// conversation left running under another is stopped on restart, not
+// resumed.
+/** The log format this version reads and writes. */
 export const LOG_FORMAT = 1;
 
 /** What a `ConversationLog` says of its saves. */
@@ -207,6 +209,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.archived = entry.archived;
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
+				state.resting = entry.archived && entry.rest === true;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "pin") {
@@ -491,6 +494,8 @@ type Said =
 			at?: string;
 			/** The conversation whose archiving took this one with it. */
 			with?: string;
+			/** Archived resting, as a persistent agent's run that ended with its role still on. */
+			rest?: true;
 	  }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }

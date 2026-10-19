@@ -19,13 +19,15 @@ import { unanswered } from "./unanswered";
  * newest first: the conversations listed, then external agents' tasks, which
  * no list shows (see `shownIn`), but whose work and waits count for the
  * conversations they answer to.
- * `listed` picks the conversations, by default those not archived.
+ * `listed` picks the conversations, by default those not archived, and
+ * each persistent agent's placeholder (see `placeholders`).
  */
 export function rowsOf(
 	tasks: Details[],
 	conversations: ConversationState[],
-	listed: (conversation: ConversationState) => boolean = (each) =>
-		!each.archived,
+	listed: (conversation: ConversationState) => boolean = defaultListed(
+		conversations,
+	),
 ): Needing[] {
 	const rows = conversations.filter(listed).map((conversation) => ({
 		conversation,
@@ -54,6 +56,53 @@ export function shownIn(trees: Nested<Needing>[]): Nested<Needing>[] {
 		tree.row.conversation === null
 			? shownIn(tree.parts)
 			: [{ row: tree.row, parts: shownIn(tree.parts) }],
+	);
+}
+
+/** Those not archived, and each persistent agent's placeholder. */
+function defaultListed(
+	conversations: ConversationState[],
+): (conversation: ConversationState) => boolean {
+	const holding = placeholders(conversations);
+	return (each) => !each.archived || holding.has(each);
+}
+
+/**
+ * The run that holds each persistent agent's row while none of its runs is
+ * open: the newest of its role, archived resting as its run ended, shown
+ * faint in its place, so the row neither comes nor goes between runs.
+ */
+export function placeholders(
+	conversations: ConversationState[],
+): Set<ConversationState> {
+	const newest = new Map<string, ConversationState>();
+	const open = new Set<string>();
+	for (const each of conversations) {
+		const role = each.persistent;
+		if (role === undefined) {
+			continue;
+		}
+		if (!each.archived) {
+			open.add(role);
+		}
+		const kept = newest.get(role);
+		if (kept === undefined || each.createdAt > kept.createdAt) {
+			newest.set(role, each);
+		}
+	}
+	return new Set(
+		[...newest].flatMap(([role, each]) =>
+			!open.has(role) && each.archived && each.resting === true ? [each] : [],
+		),
+	);
+}
+
+/** Whether `conversation` holds its persistent agent's row as a placeholder. */
+export function placeholding(conversation: ConversationState): boolean {
+	return (
+		conversation.persistent !== undefined &&
+		conversation.archived &&
+		conversation.resting === true
 	);
 }
 
