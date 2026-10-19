@@ -6,10 +6,11 @@ tree committed (a part lands by fast-forwarding your checkout), re-read files
 before editing them, and squash only after every part has landed. Hand a
 part out only when describing it is shorter than doing it.
 
-Agents start agents one level deep, so they never multiply. When another
-conversation added the task you work, as an orchestrator or a caller handing
-you a part does, `splates add --agent` refuses: do the work yourself, never
-through another agent. Your harness's own subagents start none either.
+Only `splates server` starts agents. A part goes to your harness's own
+subagent, never to another agent: `splates add --agent` refuses a part, and
+your subagents start no agents either. When the user asks for a part to go
+to another model, run that subagent on it if your harness can; else do the
+part yourself, and say so.
 
 A subagent that may change code works in a part, never its own task on
 trunk, so the user reviews one body of work rather than many small ones.
@@ -33,25 +34,13 @@ worktree once your work is in. A subagent your harness runs in the
 foreground holds your turn until it returns, so one that waits on you waits
 forever.
 
-When the user asks for the part to go to another agent, such as one of
-another model family, run by `splates server`, hand it over as you add it:
-`splates add <part> --base task/<your task> --goal "<what done means>" --agent
-<id> --prompt '<what to do, and the rules above>'`, with `--model <m>`. Read `splates agents` first:
-it lists each agent you can name and its models, with what each is good at
-and what it costs. Take the agent and model the user names, else the
-assignee `splates todo show` gives for the part's todo, else the model whose
-strengths fit the part at the lowest cost it is worth, a cheap one for a
-mechanical part, and ask about that choice under `## Blocked`.
-`splates server` starts that agent in the part's tree, sent `[SPLATES TASK
-<part>]` and then your prompt. Its replies never reach you, so have the prompt ask it to list
-those calls in the part's commit message, `splates wait <part>` for it to land,
-and read them in `git log`.
-
 Treat each call it lists as your own (see Questions in the skill): a question
 under your `## Blocked` when it needs the user, and redo the part when an
 answer overturns one. A subagent that only reads needs no part. When the
-user asks for the subagents' work to land on its own, give each one a task of
-its own on trunk instead, and let it follow this skill as written. A
-subagent of your harness runs with your env, so under `splates server` its claim
-of a task on trunk moves this conversation into that task, though a part's
-leaves it be: there, hand each one out with `splates add <task> --agent`.
+user asks for the subagents' work to land on its own, make each piece a
+todo rather than a task (see Todos in the skill), for `splates server` to
+start once its lane runs: a subagent of your harness runs with your env, so
+under `splates server` its claim of a task on trunk would move this
+conversation into that task, though a part's leaves it be. Outside `splates
+server`, give each subagent a task of its own on trunk instead, and let it
+follow the skill as written.

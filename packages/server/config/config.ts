@@ -41,18 +41,10 @@ export interface Config {
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/**
-	 * How many agents one agent may have started at once: the tasks it
-	 * handed out with `splates add --agent` and that are still out. A lane
-	 * orchestrator hands out every todo that can go, each to an agent of
-	 * its own. Past it, `add --agent` refuses, unless the person asked for
-	 * more and it passes `--over-capacity`.
-	 */
-	agentsPerAgent: number;
-	/**
 	 * How many tasks a running lane may have out at once, each started by
-	 * `splates server` for a todo nothing blocks; null for `agentsPerAgent`.
+	 * `splates server` for a todo nothing blocks.
 	 */
-	agentsPerLane: number | null;
+	agentsPerLane: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**

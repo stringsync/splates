@@ -34,7 +34,6 @@ it("keeps the exit codes stable", () => {
 		slots_full: 26,
 		slot_running: 27,
 		not_granted: 28,
-		agents_full: 29,
 	});
 });
 

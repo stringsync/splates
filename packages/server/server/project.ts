@@ -74,7 +74,7 @@ export async function serveProject(
 			lanes: () => project.todos.lanes(),
 			todos: () => project.todos.stored(),
 			tasks: async () => (await service.list()).map(({ task }) => task),
-			capacity: project.config.agentsPerLane ?? project.config.agentsPerAgent,
+			capacity: project.config.agentsPerLane,
 			start: ({ task, todo, pick, prompt, by }) =>
 				startLaneTodo(project, context.url, {
 					task,
@@ -245,8 +245,8 @@ export async function serveProject(
  * Adds the task a running lane starts for `todo`, as `splates add --todo
  * --agent` would from the conversation that set the lane running, run as
  * this splates so it is the same one: `splates server` then starts its agent
- * as for any other. Its own cap is the lane's, which `LaneRunner` keeps, so
- * the one per agent is passed over. Throws with what `add` said on a refusal.
+ * as for any other. Its cap is the lane's, which `LaneRunner` keeps. Throws
+ * with what `add` said on a refusal.
  */
 async function startLaneTodo(
 	{ ps, service }: Project,
@@ -278,7 +278,6 @@ async function startLaneTodo(
 			...(pick.effort === undefined ? [] : ["--effort", pick.effort]),
 			"--prompt",
 			prompt,
-			"--over-capacity",
 		],
 		{
 			cwd: service.git.root,

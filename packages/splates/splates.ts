@@ -158,7 +158,7 @@ splates
 	.option("agent", z.string(), {
 		default: "",
 		description:
-			"hand the task to an agent on the roster (`splates agents`), which `splates server` starts in the worktree, told to claim it; the conversation you run this from stays where it is",
+			"hand the task to an agent on the roster (`splates agents`), which `splates server` starts in the worktree, told to claim it; the conversation you run this from stays where it is. Never for a part (--base task/<task>), which goes to your harness's own subagents",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -173,26 +173,16 @@ splates
 	.option("prompt", z.string(), {
 		default: "",
 		description:
-			"with --agent: what to tell the agent beyond claiming the task, such as a part's instructions",
-	})
-	.option("over-capacity", z.boolean(), {
-		default: false,
-		description:
-			"with --agent: hand it out though you have as many tasks out to agents as agentsPerAgent (splates.config.ts) allows; only when the person explicitly asked for more at once",
+			"with --agent: what to tell the agent beyond claiming the task",
 	})
 	.action(async (opts, ctx) => {
 		if (
 			opts.agent === "" &&
-			(opts.model !== "" ||
-				opts.effort !== "" ||
-				opts.prompt !== "" ||
-				opts["over-capacity"])
+			(opts.model !== "" || opts.effort !== "" || opts.prompt !== "")
 		) {
-			fail(
-				"usage",
-				"--model, --effort, --prompt and --over-capacity go with --agent",
-				{ task: opts.task },
-			);
+			fail("usage", "--model, --effort and --prompt go with --agent", {
+				task: opts.task,
+			});
 		}
 		if (opts.goal.trim() === "" && opts.todo === "") {
 			fail(
@@ -228,7 +218,6 @@ splates
 					dispatch,
 					agents,
 					away: ctx.elsewhere !== null,
-					overCapacity: opts["over-capacity"],
 					// Before the task is live, or the page shows it a moment as an
 					// external agent's. A task handed to another agent is that
 					// agent's, so this conversation stays where it is.

@@ -92,8 +92,7 @@ export async function snapshot({
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
-		agentsPerLane:
-			service.config.agentsPerLane ?? service.config.agentsPerAgent,
+		agentsPerLane: service.config.agentsPerLane,
 		laneNames: await todos.laneNames(),
 		tasks,
 		creds: await creds.requests(),

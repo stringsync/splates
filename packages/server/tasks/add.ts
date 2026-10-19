@@ -33,7 +33,8 @@ export interface AddOptions {
 	onTree?: () => Promise<void>;
 	/**
 	 * The agent to hand the task to, which `splates server` starts in its tree once
-	 * the tree is ready; its id must be one of `agents`.
+	 * the tree is ready; its id must be one of `agents`. Never for a part,
+	 * which goes to the harness's own subagents.
 	 */
 	dispatch?: Dispatched;
 	/** The roster's agents, which `dispatch` must name one of, and its model. */
@@ -43,11 +44,6 @@ export interface AddOptions {
 	 * to an agent of its own, so `dispatch` is a must.
 	 */
 	away?: boolean;
-	/**
-	 * Hands the task out though the agent adding it has as many out to
-	 * agents as `config.agentsPerAgent` allows, as only the person may ask.
-	 */
-	overCapacity?: boolean;
 }
 
 export async function add(
@@ -77,7 +73,6 @@ export async function add(
 		dispatch,
 		agents = [],
 		away = false,
-		overCapacity = false,
 	}: AddOptions = {},
 ): Promise<void> {
 	if (away && dispatch === undefined) {
@@ -105,19 +100,15 @@ export async function add(
 			{ task, caller: handedBy },
 		);
 	}
-	if (dispatch !== undefined && !overCapacity) {
-		// The ones this agent handed out: theirs are their own to count.
-		const caller = service.ps.env("SPLATES_CONVERSATION") ?? null;
-		const out = (await service.list()).filter(
-			(each) => each.state?.dispatch !== undefined && each.caller === caller,
-		).length;
-		if (out >= config.agentsPerAgent) {
-			fail(
-				"agents_full",
-				`you have ${out} tasks out to agents already, as many as agentsPerAgent in splates.config.ts lets one agent have at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
-				{ task, out, capacity: config.agentsPerAgent },
-			);
-		}
+	// Only the server starts agents: a part is the harness's own subagent's,
+	// working on the task's branch.
+	const parent = service.taskFor(base);
+	if (dispatch !== undefined && parent !== null) {
+		fail(
+			"usage",
+			`${task} would be a part of ${parent}, and parts go to your harness's own subagents: drop --agent and hand it to one`,
+			{ task, base },
+		);
 	}
 	const handOff =
 		dispatch === undefined
