@@ -53,7 +53,7 @@ describe("App's sidebar keys", () => {
 		await act(async () =>
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
-		expect(keys()).toEqual(["M", "0", "1", "2"]);
+		expect(keys()).toEqual(["0", "1", "2"]);
 		expect(
 			within(view.getByRole("tablist")).getByRole("button", { name: /^New/ })
 				.textContent,

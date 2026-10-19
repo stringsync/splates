@@ -87,7 +87,8 @@ describe("App's conversation list", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
-	it("lists three agents at work under the Inbox, leaving the rest to the inbox, which +N more opens", async () => {
+	// scry-ignore simple-test-setup: the seven agents, four more than it shows folded, are what it checks
+	it("lists three agents at work, folding the rest behind See N more, which unfolds them in place until Show less", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "Broke", status: "failed" }),
@@ -102,24 +103,38 @@ describe("App's conversation list", () => {
 			{ tasks: [] },
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
-
-		expect(
+		const listed = () =>
 			within(nav)
 				.getAllByRole("listitem")
-				.map((item) => item.textContent),
-		).toEqual(["First", "Second", "Third"]);
-		expect(view.queryByRole("region", { name: "inbox" })).toBeNull();
+				.map((item) => item.textContent);
+
+		expect(listed()).toEqual(["First", "Second", "Third"]);
 		await act(async () =>
-			fireEvent.click(within(nav).getByRole("button", { name: "+2 more" })),
+			fireEvent.click(within(nav).getByRole("button", { name: "See 4 more" })),
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
-		expect(within(inbox).getByRole("button", { name: /Fifth/ })).toBeTruthy();
-		expect(within(inbox).getByRole("button", { name: /Broke/ })).toBeTruthy();
+		expect(listed()).toEqual([
+			"Broke",
+			"First",
+			"Rests",
+			"Second",
+			"Third",
+			"Fourth",
+			"Fifth",
+		]);
+		expect(location.hash).toBe("#conversations/c2");
+		// This browser keeps it unfolded.
+		view.unmount();
+		const again = await testing.openConversations([], null, { tasks: [] });
+		const kept = again.getByRole("navigation", { name: "conversations" });
 		expect(
-			within(nav)
-				.getByRole("button", { name: /^Inbox/ })
-				.getAttribute("aria-current"),
-		).toBe("page");
+			within(kept).getByRole("button", { name: "Show less" }),
+		).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(kept).getByRole("button", { name: "Show less" })),
+		);
+		expect(
+			within(kept).queryByRole("button", { name: "Show less" }),
+		).toBeNull();
 	});
 
 	// scry-ignore simple-test-setup: the archived conversations and when each was archived are what it checks

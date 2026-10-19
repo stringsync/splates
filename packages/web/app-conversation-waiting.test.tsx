@@ -64,10 +64,7 @@ Cap upload retries
 
 	/** The sidebar's Inbox. */
 	const inboxOf = (view: ConversationsView) =>
-		within(view.getByRole("navigation", { name: "conversations" })).getByRole(
-			"button",
-			{ name: /^Inbox/ },
-		);
+		view.getByRole("button", { name: /^Inbox/ });
 
 	/** What the Inbox counts, as it says it. */
 	const waiting = (view: ConversationsView) =>
@@ -187,12 +184,7 @@ Cap upload retries
 				key: "ArrowUp",
 			}),
 		);
-		await act(async () =>
-			fireEvent.keyDown(document.activeElement as HTMLElement, {
-				key: "ArrowUp",
-			}),
-		);
-		expect(document.activeElement).toBe(inboxOf(view));
+		expect(document.activeElement).toBe(runs);
 		// Alt+N alone types a tilde on a Mac, so it opens nothing.
 		const before = location.hash;
 		await act(async () =>
@@ -215,8 +207,8 @@ Cap upload retries
 			]),
 			"c1",
 		);
-		// Atop the agents.
-		expect(inboxOf(view).previousElementSibling).toBe(null);
+		// The first of the pages.
+		expect(inboxOf(view).nextElementSibling?.textContent).toContain("Todos");
 		expect(waiting(view)).toBe("1 waiting on you");
 
 		await act(async () => fireEvent.click(inboxOf(view)));
