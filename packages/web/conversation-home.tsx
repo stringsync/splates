@@ -158,6 +158,7 @@ export function useNewConversation({
 				throw error;
 			});
 			feed.put(state);
+			drafts.started(draft);
 			if (root !== null) {
 				rememberShown(root);
 			}

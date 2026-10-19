@@ -1,6 +1,6 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { XIcon } from "lucide-react";
-import { type JSX, useSyncExternalStore } from "react";
+import { type JSX, useEffect, useSyncExternalStore } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
@@ -36,7 +36,9 @@ export interface Unstarted {
  * tree's first: each whose draft holds words or files, and the one whose
  * screen `open` names, held or not, so opening one lists it at once. With
  * `home`, nothing open shows the main tree's screen too, as beside a
- * sidebar, which lists it only once it holds something.
+ * sidebar, which lists it only once it holds something. With `home` too,
+ * one opened stays listed while it is empty, until it starts or is thrown
+ * away, so leaving it shifts nothing in the sidebar.
  */
 export function useUnstarted(
 	drafts: Drafts,
@@ -50,6 +52,12 @@ export function useUnstarted(
 		startsOne(open) || (home && open === null)
 			? newDraft(project, taskFor(open))
 			: null;
+	const opened = startsOne(open) ? shown : null;
+	useEffect(() => {
+		if (opened !== null) {
+			drafts.open(opened);
+		}
+	}, [drafts, opened]);
 	// One string, so the list renders again only when its drafts change.
 	const held = useSyncExternalStore(
 		(changed) => {
@@ -60,7 +68,7 @@ export function useUnstarted(
 				undiscarded();
 			};
 		},
-		() => drafts.unstarted(project).join("\n"),
+		() => drafts.unstarted(project, home).join("\n"),
 	);
 	const keys = held === "" ? [] : held.split("\n");
 	if (startsOne(open) && shown !== null && !keys.includes(shown)) {

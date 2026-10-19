@@ -69,6 +69,21 @@ describe("Drafts", () => {
 		expect(drafts.unstarted("shop")).toEqual([newDraft("shop", "fix-upload")]);
 	});
 
+	it("lists an opened unstarted conversation left empty only when asked, until it starts or is thrown away", () => {
+		const drafts = new Drafts(refusing);
+		drafts.open(newDraft("shop"));
+		drafts.open(newDraft("shop", "fix-upload"));
+
+		expect(drafts.unstarted("shop")).toEqual([]);
+		expect(drafts.unstarted("shop", true)).toEqual([
+			newDraft("shop"),
+			newDraft("shop", "fix-upload"),
+		]);
+		drafts.started(newDraft("shop"));
+		drafts.discard(newDraft("shop", "fix-upload"));
+		expect(drafts.unstarted("shop", true)).toEqual([]);
+	});
+
 	it("moves a draft's files with its words, and keeps where it was written", () => {
 		const drafts = new Drafts(refusing);
 		const shot = new File(["png"], "shot.png", { type: "image/png" });

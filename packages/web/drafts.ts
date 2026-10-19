@@ -10,6 +10,9 @@ const PREFIX = "splates.draft.";
 /** Where the screen a new conversation's draft was written on is kept, by its key. */
 const PLACED = "splates.draftAt.";
 
+/** Where each new conversation opened and not yet started or thrown away is marked, by its key. */
+const OPENED = "splates.draftOpen.";
+
 /**
  * What the person typed and has not sent, kept in `storage` so switching to
  * another conversation, another page or reloading never loses it. One per
@@ -26,6 +29,8 @@ export class Drafts implements Eventful<DraftsEvents> {
 	private readonly attached = new Map<string, File[]>();
 	/** Every place this page kept, for when `storage` refuses to keep one. */
 	private readonly places = new Map<string, string>();
+	/** Every new conversation this page opened, for when `storage` refuses to mark one. */
+	private readonly opened = new Set<string>();
 
 	/** Drafts whose files this page set, which the files loaded never replace. */
 	private readonly touched = new Set<string>();
@@ -118,8 +123,45 @@ export class Drafts implements Eventful<DraftsEvents> {
 
 	/** Throws away the draft under `key`, from any composer showing it too. */
 	discard(key: string): void {
+		this.unmark(key);
 		this.write(key, "");
 		this.dispatcher.dispatch("discarded", key);
+	}
+
+	/**
+	 * Marks the new conversation under `key` as opened, so the sidebar keeps
+	 * its row while it is empty, until it starts or is thrown away.
+	 */
+	open(key: string): void {
+		if (this.isOpen(key)) {
+			return;
+		}
+		this.opened.add(key);
+		try {
+			this.storage?.setItem(OPENED + key, "1");
+		} catch {
+			// Storage full or refused: the mark lives as long as the page does.
+		}
+		this.dispatcher.dispatch("written", key);
+	}
+
+	/** Drops the mark `open` left, as once the new conversation under `key` starts. */
+	started(key: string): void {
+		if (this.unmark(key)) {
+			this.dispatcher.dispatch("written", key);
+		}
+	}
+
+	/** Whether the new conversation under `key` was opened and is not started yet. */
+	isOpen(key: string): boolean {
+		try {
+			return (
+				(this.storage?.getItem(OPENED + key) ?? null) !== null ||
+				this.opened.has(key)
+			);
+		} catch {
+			return this.opened.has(key);
+		}
 	}
 
 	/** Whether the draft under `key` holds anything: words or a file. */
@@ -129,16 +171,23 @@ export class Drafts implements Eventful<DraftsEvents> {
 
 	/**
 	 * The keys of the drafts held for conversations not started yet in
-	 * `project`, as `newDraft` names them, the main tree's first.
+	 * `project`, as `newDraft` names them, the main tree's first; with
+	 * `opened`, each opened and left empty too.
 	 */
-	unstarted(project: string | null): string[] {
+	unstarted(project: string | null, opened = false): string[] {
 		const root = newDraft(project);
-		const keys = new Set([...this.kept.keys(), ...this.attached.keys()]);
+		const keys = new Set([
+			...this.kept.keys(),
+			...this.attached.keys(),
+			...(opened ? this.opened : []),
+		]);
 		try {
 			for (let i = 0; i < (this.storage?.length ?? 0); i++) {
 				const key = this.storage?.key(i) ?? "";
 				if (key.startsWith(PREFIX)) {
 					keys.add(key.slice(PREFIX.length));
+				} else if (opened && key.startsWith(OPENED)) {
+					keys.add(key.slice(OPENED.length));
 				}
 			}
 		} catch {
@@ -147,7 +196,8 @@ export class Drafts implements Eventful<DraftsEvents> {
 		return [...keys]
 			.filter(
 				(key) =>
-					(key === root || key.startsWith(`${root}:`)) && this.holds(key),
+					(key === root || key.startsWith(`${root}:`)) &&
+					(this.holds(key) || (opened && this.isOpen(key))),
 			)
 			.sort((one, other) =>
 				one === root ? -1 : other === root ? 1 : one.localeCompare(other),
@@ -176,6 +226,18 @@ export class Drafts implements Eventful<DraftsEvents> {
 		} catch {
 			return this.places.get(key) ?? null;
 		}
+	}
+
+	/** Drops `key`'s mark from `open`, saying whether it had one. */
+	private unmark(key: string): boolean {
+		const had = this.isOpen(key);
+		this.opened.delete(key);
+		try {
+			this.storage?.removeItem(OPENED + key);
+		} catch {
+			// Storage refused: the mark in memory was all there was.
+		}
+		return had;
 	}
 
 	private keepFiles(key: string, files: File[]): void {

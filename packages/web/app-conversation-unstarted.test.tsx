@@ -16,9 +16,11 @@ import {
 
 describe("App's new conversations not started yet", () => {
 	let testing: Testing;
+	let view: ConversationsView;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		testing = new Testing();
+		view = await testing.openConversations(held, "c1");
 	});
 
 	afterEach(() => {
@@ -37,8 +39,7 @@ describe("App's new conversations not started yet", () => {
 	const unstarted = (view: ConversationsView) =>
 		within(sidebar(view)).queryByRole("button", { name: /New conversation/ });
 
-	it("lists a new conversation in the sidebar once ⌥⌘N opens it, until it is left empty", async () => {
-		const view = await testing.openConversations(held, "c1");
+	it("lists a new conversation in the sidebar once ⌥⌘N opens it, and keeps it there when left empty", async () => {
 		expect(unstarted(view)).toBeNull();
 
 		await act(async () =>
@@ -53,11 +54,10 @@ describe("App's new conversations not started yet", () => {
 		expect(row?.getAttribute("aria-current")).toBe("page");
 		expect(row?.querySelector(".italic")?.textContent).toBe("New conversation");
 		await openRow(view, "Tidy tests");
-		expect(unstarted(view)).toBeNull();
+		expect(unstarted(view)?.getAttribute("aria-current")).toBeNull();
 	});
 
 	it("keeps a new conversation's words and files while away, to go back to from its row", async () => {
-		const view = await testing.openConversations(held, "c1");
 		await newWith(view, "Codex");
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		await act(async () =>
@@ -84,10 +84,10 @@ describe("App's new conversations not started yet", () => {
 				{ method: "POST", body: { text: "look at this", file: [shot] } },
 			]),
 		);
+		await waitFor(() => expect(unstarted(view)).toBeNull());
 	});
 
 	it("throws a new conversation's draft away from its row", async () => {
-		const view = await testing.openConversations(held, "c1");
 		await newWith(view, "Claude");
 		await typeIn(box(view), "never mind");
 		await openRow(view, "Fix login");
@@ -103,8 +103,20 @@ describe("App's new conversations not started yet", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe(""));
 	});
 
+	it("throws an empty new conversation away from its row", async () => {
+		await newWith(view, "Claude");
+		await openRow(view, "Fix login");
+
+		await act(async () =>
+			fireEvent.click(
+				within(sidebar(view)).getByRole("button", { name: "Discard draft" }),
+			),
+		);
+
+		expect(unstarted(view)).toBeNull();
+	});
+
 	it("picks another agent, or a terminal, from a new conversation's bar beside a sidebar, what was typed carried over", async () => {
-		const view = await testing.openConversations(held, null);
 		await newWith(view, "Claude");
 		await typeIn(box(view), "carry me");
 		await act(async () =>
