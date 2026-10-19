@@ -319,7 +319,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("names the failing tests ahead of the tail", async () => {
+	it("names the failing tests after the tail, where a read of its end finds them", async () => {
 		await using deps = await Testing.open();
 
 		deps.config.preMerge =
@@ -330,7 +330,10 @@ describe.concurrent("merge", () => {
 
 		await deps.finish(worktree);
 		await expect(merge(deps, worktree)).toBail("tests_failed", {
-			message: "Failing tests (1):\na > b\n",
+			message: [
+				"noise\n1 fail\n\n`printf",
+				"Failing tests (1):\na > b\n\nFix what broke",
+			],
 		});
 	});
 

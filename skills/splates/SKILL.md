@@ -125,7 +125,9 @@ which remembers none of it.
    any step you will not do, then check it off. Release each
    task you took and only partly did (see Queueing tasks), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see Merge or
-   review). On failure, do what stderr says and merge again. A successful
+   review). On failure, do what stderr says and merge again, with the
+   real message: never merge only to read a failure again, since one whose
+   gate passes this time lands. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else.
 

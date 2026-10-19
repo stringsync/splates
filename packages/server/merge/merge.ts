@@ -307,9 +307,15 @@ export async function merge(
 		});
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		facts.failedTests = failed;
+		// The failing tests and what to do come last, after the gate's own
+		// output: an agent that reads only the end of this, as through `tail`,
+		// would otherwise see the runner's summary alone, and merge again just
+		// to read it, which lands the task whenever a flaky test passes.
 		fail(
 			"tests_failed",
 			[
+				tail(output),
+				"",
 				`\`${gate}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
@@ -323,7 +329,7 @@ export async function merge(
 							"",
 						]
 					: []),
-				tail(output),
+				"Fix what broke, or run a test you think flaky on its own to check, then merge again. Never merge only to read this again: a merge whose gate passes lands, with the message it was given.",
 			].join("\n"),
 			{ task, exitCode: gated.exitCode, failedTests: failed },
 		);
