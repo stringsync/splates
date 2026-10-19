@@ -86,7 +86,7 @@ export class JournalEvents implements Resource {
 		for (const event of fresh) {
 			this.#seen.add(event.id);
 			if (logging) {
-				this.log.info(`${JSON.stringify(event)}\n`);
+				this.log.info(`${JSON.stringify(summary(event))}\n`);
 			}
 		}
 		for (const conversation of await this.conversations.list()) {
@@ -99,6 +99,30 @@ export class JournalEvents implements Resource {
 		}
 	}
 }
+
+/**
+ * `event` as one short line of the server's output: its scalar facts, each
+ * string stripped of terminal colors and cut short, leaving out lists and
+ * objects, such as a refused merge's failing tests, which can run to pages.
+ */
+function summary(event: Event): Record<string, unknown> {
+	const short: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(event)) {
+		if (typeof value === "string") {
+			const plain = value.replace(ANSI, "");
+			short[key] = plain.length > CLIP ? `${plain.slice(0, CLIP - 1)}…` : plain;
+		} else if (value === null || typeof value !== "object") {
+			short[key] = value;
+		}
+	}
+	return short;
+}
+
+/** The longest string fact a logged event keeps whole. */
+const CLIP = 120;
+
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matches terminal color codes.
+const ANSI = /\u001b\[[0-9;]*m/g;
 
 /** How soon after one read the next may run, while an agent's commands come quickly. */
 const BEAT = Duration.ms(50);

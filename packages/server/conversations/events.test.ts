@@ -107,6 +107,40 @@ describe("conversation events", () => {
 		});
 	});
 
+	it("logs an event's long facts short and plain, leaving out its lists", async () => {
+		deps.proc.env.SPLATES_CONVERSATION = conversation.id;
+		await deps.journal.record(
+			"claim",
+			"noisy",
+			async () => ({
+				escalated: false,
+				tookOver: false,
+				goal: `\u001b[36m<div>\u001b[39m\n${"x".repeat(500)}`,
+			}),
+			(out) => out,
+		);
+		await deps.journal.record(
+			"task take",
+			"noisy",
+			async () => ({ tasks: [{ id: 1, subject: "a".repeat(500) }] }),
+			(out) => out,
+		);
+		delete deps.proc.env.SPLATES_CONVERSATION;
+		await eventually(
+			() =>
+				deps.log.entries.filter((entry) =>
+					String(entry.message).includes('"task":"noisy"'),
+				).length === 2,
+			100,
+		);
+		const [claim, take] = deps.log.entries
+			.filter((entry) => String(entry.message).includes('"task":"noisy"'))
+			.map((entry) => JSON.parse(String(entry.message)));
+		expect(claim.goal).toBe(`<div>\n${"x".repeat(113)}…`);
+		expect(take).toMatchObject({ action: "task take", task: "noisy" });
+		expect(take.tasks).toBeUndefined();
+	});
+
 	it("hands it each new event as the journal takes it, and an external agent's to none", async () => {
 		// Logged ahead of the last, so they are read by the time it is.
 		await claimed("gamma", null);
