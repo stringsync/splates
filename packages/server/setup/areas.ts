@@ -3,7 +3,6 @@ import { COORDINATOR_AREA } from "./area-coordinator";
 import { DICTATION_AREA } from "./area-dictation";
 import { GITHUB_AREA } from "./area-github";
 import { CLAUDE_AREA, CODEX_AREA } from "./area-native";
-import { NOTIFICATIONS_AREA } from "./area-notifications";
 import { OPENCODE_AREA } from "./area-opencode";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -19,7 +18,6 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	REMOTE_ACCESS_AREA,
 	WORKERS_AREA,
 	COORDINATOR_AREA,
-	NOTIFICATIONS_AREA,
 	DICTATION_AREA,
 	AUTO_PICK_AREA,
 	GITHUB_AREA,

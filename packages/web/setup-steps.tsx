@@ -6,7 +6,6 @@ import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";
 import { COORDINATOR_STEPS } from "./setup-coordinator-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
-import { NOTIFY_STEPS } from "./setup-notify-steps";
 import { OPENCODE_STEPS, OpenCodeEnd } from "./setup-opencode-steps";
 
 /** What a step's own page body is handed. */
@@ -32,7 +31,6 @@ export type StepBodies = Record<string, (props: StepBodyProps) => JSX.Element>;
 export const STEP_BODIES: StepBodies = {
 	...OPENCODE_STEPS,
 	...NATIVE_STEPS,
-	...NOTIFY_STEPS,
 	...COORDINATOR_STEPS,
 	...AUTO_PICK_STEPS,
 };

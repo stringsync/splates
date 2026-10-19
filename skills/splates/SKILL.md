@@ -57,7 +57,7 @@ which remembers none of it.
   queued tasks.
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a cloud server, a tunnel of their
-  own, notifications, dictation): [references/setup.md](references/setup.md),
+  own, dictation): [references/setup.md](references/setup.md),
   one step at a time.
 - When your work needs a secret only the user can get, such as an API token:
   [references/creds.md](references/creds.md).

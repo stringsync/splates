@@ -33,7 +33,6 @@ describe("SETUP_AREAS", () => {
 			"remote-access",
 			"workers",
 			"coordinator",
-			"notifications",
 			"dictation",
 			"auto-pick",
 			"github",

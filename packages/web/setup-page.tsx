@@ -18,7 +18,6 @@ import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Markdown } from "./markdown";
-import type { Settings } from "./settings";
 import {
 	autoPickBrowserSteps,
 	RulesEditorContext,
@@ -30,7 +29,6 @@ import {
 } from "./setup-coordinator-steps";
 import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
-import { notifyBrowserSteps } from "./setup-notify-steps";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
 import { UndoDialog } from "./setup-undo";
@@ -40,15 +38,12 @@ import { TopBar } from "./top-bar";
 export function SetupPage({
 	feed,
 	onOpen,
-	settings,
 	todos,
 }: {
 	/** Where a conversation starts, or null while `splates server` holds none. */
 	feed: ConversationFeed | null;
 	/** Opens the conversation started on a step. */
 	onOpen: (id: string) => void;
-	/** This browser's settings, which the notification pages turn on. */
-	settings?: Settings;
 	/** The project's tasks, which Auto pick's try picks from. */
 	todos: readonly TaskRecord[];
 }): JSX.Element {
@@ -64,7 +59,6 @@ export function SetupPage({
 					<Journey
 						key={area.id}
 						area={area}
-						settings={settings}
 						feed={feed}
 						todos={todos}
 						onOpen={onOpen}
@@ -95,14 +89,12 @@ export function SetupPage({
 function Journey({
 	area,
 	feed,
-	settings,
 	todos,
 	onOpen,
 	onLeave,
 	onUndo,
 }: {
 	area: AreaProgress;
-	settings?: Settings;
 	feed: ConversationFeed | null;
 	todos: readonly TaskRecord[];
 	onOpen: (id: string) => void;
@@ -117,7 +109,6 @@ function Journey({
 			new SetupJourney(
 				area,
 				{
-					...(settings === undefined ? {} : notifyBrowserSteps(settings)),
 					...coordinatorBrowserSteps(move),
 					...autoPickBrowserSteps(rules),
 				},

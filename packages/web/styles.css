@@ -165,7 +165,6 @@
 @source "./setup-undo.tsx";
 @source "./setup-opencode-steps.tsx";
 @source "./setup-native-steps.tsx";
-@source "./setup-notify-steps.tsx";
 @source "./setup-coordinator-steps.tsx";
 @source "./kept-creds.tsx";
 @source "./worker-keys.tsx";

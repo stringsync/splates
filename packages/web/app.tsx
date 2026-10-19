@@ -328,7 +328,6 @@ export function App({
 					),
 					setup: (
 						<SetupPage
-							settings={settings}
 							todos={snapshot.todos}
 							feed={available ? talk : null}
 							onOpen={(id) => go("conversations", id)}
@@ -489,7 +488,6 @@ export function App({
 																				settings={settings}
 																				open={setting}
 																				onOpenChange={setSetting}
-																				onSetup={() => go("setup")}
 																			/>
 																			{/* Until the project and its conversations are in, or the page has something else to say. */}
 																			<Splash

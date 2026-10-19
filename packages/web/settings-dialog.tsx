@@ -1,11 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import {
-	CheckIcon,
-	ListChecksIcon,
-	RotateCcwIcon,
-	SearchIcon,
-	XIcon,
-} from "lucide-react";
+import { CheckIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -41,13 +35,11 @@ export function SettingsDialog({
 	settings,
 	open,
 	onOpenChange,
-	onSetup,
 }: {
 	settings: Settings;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** Opens the Setup page, once the dialog has closed. */
-	onSetup: () => void;
 }): JSX.Element {
 	const [query, setQuery] = useState("");
 	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
@@ -149,20 +141,6 @@ export function SettingsDialog({
 											/>
 										))}
 									</ul>
-									{/* Which notices is a setting; subscribing this device to pushes is a Setup step. */}
-									{category === "Notifications" && (
-										<button
-											type="button"
-											onClick={() => {
-												onOpenChange(false);
-												onSetup();
-											}}
-											className="mt-2 flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground hover:underline"
-										>
-											<ListChecksIcon className="size-3.5" />
-											Set up notifications
-										</button>
-									)}
 								</section>
 							))
 						)}

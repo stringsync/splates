@@ -35,7 +35,6 @@ const AREAS = [
 	area("claude", "Claude", 2, 2),
 	area("codex", "Codex", 0, 2),
 	area("remote-access", "Remote access", 1, 3),
-	area("notifications", "Notifications", 0, 2),
 	area("dictation", "Dictation", 1, 1),
 ];
 const leave = () => {};

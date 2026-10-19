@@ -162,35 +162,6 @@ describe("App's setup", () => {
 		expect(location.hash).toBe("#setup");
 	});
 
-	it("opens from the link under Settings' notifications, not from a button for all of setup", async () => {
-		testing.setup = setupProgress();
-		const view = await testing.open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Settings" })),
-			),
-		);
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(
-			within(dialog).queryByRole("button", { name: "Set up splates" }),
-		).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Notifications" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Set up notifications" }),
-			),
-		);
-
-		expect(location.hash).toBe("#setup");
-	});
-
 	it("never nudges a fresh machine on desktop", async () => {
 		testing.setup = setupProgress({ fresh: true });
 		const view = await testing.open();
