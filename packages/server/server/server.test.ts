@@ -94,21 +94,6 @@ describe("dev", () => {
 		});
 	});
 
-	it("reports an escalated task with the reason a person has to read", async () => {
-		await add(deps, "alpha");
-		await (await deps.service.find("alpha")).save({
-			status: "escalated",
-			escalations: [{ reason: "needs a human", at: new Date().toISOString() }],
-		});
-
-		await serving(deps, async (snapshot) => {
-			const { tasks } = await snapshot();
-
-			expect(tasks[0]?.status).toBe("escalated");
-			expect(tasks[0]?.escalation).toBe("needs a human");
-		});
-	});
-
 	it("reports a task whose worktree is gone as orphaned", async () => {
 		await add(deps, "alpha");
 		await deps.fs.rm((await deps.service.find("alpha")).path, {

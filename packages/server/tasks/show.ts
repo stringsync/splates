@@ -59,20 +59,12 @@ export interface Details {
 	 * not yet committed. Null when nothing says.
 	 */
 	activeAt: string | null;
-	escalation: string | null;
 	/** The merges it has tried; at `mergeAttemptLimit`, only `splates retry` lets it try again. */
 	mergeAttempts: number;
 	mergeAttemptLimit: number;
-	/** While escalated, when it was; null otherwise. */
-	escalatedAt: string | null;
-	/**
-	 * While escalated to be approved, what to look at before approving; null
-	 * otherwise.
-	 */
-	review: string | null;
 	/**
 	 * Whether the plan leaves nothing unchecked under `## Blocked` or
-	 * `## Next`, which `splates merge` and `splates escalate --review` require.
+	 * `## Next`, which `splates merge` requires.
 	 */
 	ready: boolean;
 	plan: string | null;
@@ -138,9 +130,6 @@ export class TaskDetails {
 			? await new Plans(this.fs).read(worktree.path)
 			: null;
 		const { stat, ahead, committedAt, uncommitted } = await this.git(worktree);
-		const last = state?.escalations?.at(-1);
-		const review =
-			state?.status === "escalated" && last?.review ? last.reason : null;
 		return {
 			task: worktree.task,
 			status: worktree.status,
@@ -156,21 +145,12 @@ export class TaskDetails {
 			age: state ? age(state.createdAt) : null,
 			createdAt: state?.createdAt ?? null,
 			activeAt: await this.activeAt(worktree, committedAt, uncommitted),
-			escalation: last?.reason ?? null,
 			mergeAttempts: worktree.mergeAttempts,
 			mergeAttemptLimit: worktree.mergeAttemptLimit,
-			escalatedAt: state?.status === "escalated" ? (last?.at ?? null) : null,
-			review,
 			ready: ready(unfinished(plan ?? "")),
 			plan,
 			planProblems:
-				plan === null
-					? []
-					: checkPlan(plan, {
-							task: worktree.task,
-							escalated: worktree.status === "escalated",
-							review: review !== null,
-						}),
+				plan === null ? [] : checkPlan(plan, { task: worktree.task }),
 			dispatched:
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
@@ -306,11 +286,6 @@ function report(details: Details): string {
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
 		`  age:       ${details.age ?? "?"}`,
 	];
-	if (details.review !== null) {
-		lines.push(`  ${color.green(`ready to merge: ${details.review}`)}`);
-	} else if (details.escalation !== null) {
-		lines.push(`  ${color.yellow(`escalated: ${details.escalation}`)}`);
-	}
 	if (details.plan !== null) {
 		lines.push("", color.bold(PLAN_FILE), details.plan.trimEnd());
 		for (const problem of details.planProblems) {

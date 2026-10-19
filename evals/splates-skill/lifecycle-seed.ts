@@ -5,6 +5,7 @@ import { encodeTask } from "@stringsync/splates-server/board";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Json } from "./probe";
 import { command, seedFile, seedRepository, taskRecord } from "./probe-sandbox";
+import { openQuestions } from "./reading";
 import { hash, type RunContext, type Seed } from "./runner";
 
 export const lifecycleGoal = "Change value to two";
@@ -176,6 +177,14 @@ export const lifecycleSeed: Seed = {
 			"task/base": task?.base ?? (task ? "main" : null),
 			"task/status": task?.status ?? outcome?.ended ?? null,
 			"task/exists": exists,
+			"task/asking":
+				exists &&
+				openQuestions(
+					await readFile(
+						join(context.isolation.outputs, "trees/sample/SPLATES.md"),
+						"utf8",
+					).catch(() => ""),
+				).length > 0,
 			"task/record": task !== null,
 			"task/branch":
 				(await checked(context, ["git", "branch", "--list", "task/sample"])) !==
@@ -198,7 +207,7 @@ export const lifecycleSeed: Seed = {
 				"lifecycle/cli-tests_failed":
 					"main is untouched and task/sample is back at",
 				"lifecycle/cli-budget_exhausted":
-					"run `splates escalate <reason>`, and a human can grant another 3 with `splates retry sample`",
+					"ask the user, who can grant another 3 with `splates retry sample`",
 			};
 			const expectedGuidance = guidance[context.probe.id];
 			if (expectedGuidance) {

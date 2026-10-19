@@ -2,8 +2,13 @@ import type { Fs } from "webappwiz/system";
 import { agentTurn, fold, tally } from "../agents";
 import { LEGACY_PLAN_FILE } from "../config";
 import type { Entry } from "../conversations";
-import { blank, type ConversationState, type Usage } from "../conversations";
-import { PLAN_FILE } from "../plans";
+import {
+	blank,
+	type ConversationState,
+	type Message,
+	type Usage,
+} from "../conversations";
+import { PLAN_FILE, stretches } from "../plans";
 
 /** What a task's turns used, apart from the rest of its conversation's. */
 export interface TaskUsage {
@@ -29,6 +34,15 @@ export interface TaskLog {
 	failedCommands: Record<string, number>;
 	/** Lines the agent's edits took out and put in, its plan's aside. */
 	editedLines: number;
+	/** Turns that ended asking the person questions. */
+	questionRounds: number;
+	/** Turns that ended asking the person to review the work. */
+	reviewRounds: number;
+	/**
+	 * How long those turns waited on the person, each until the next thing
+	 * they said, or the task's end.
+	 */
+	waitedMs: number;
 }
 
 /**
@@ -87,13 +101,14 @@ export async function taskLog(
 			});
 		}
 	}
-	return summed(state, before ?? state.usage, since);
+	return summed(state, before ?? state.usage, since, until);
 }
 
 function summed(
 	state: ConversationState,
 	before: Usage,
 	since: string,
+	until: string,
 ): TaskLog {
 	const after = state.usage;
 	const result: TaskLog = {
@@ -117,8 +132,11 @@ function summed(
 		interrupted: [],
 		failedCommands: {},
 		editedLines: 0,
+		questionRounds: 0,
+		reviewRounds: 0,
+		waitedMs: 0,
 	};
-	for (const message of state.messages) {
+	for (const [at, message] of state.messages.entries()) {
 		if (message.stopped !== undefined && message.stopped >= since) {
 			result.stopped.push(message.stopped);
 		}
@@ -134,6 +152,7 @@ function summed(
 				Date.parse(message.until) -
 					Date.parse(message.at < since ? since : message.at),
 			);
+			asked(result, message, state.messages.slice(at + 1), until);
 		}
 		for (const part of message.parts) {
 			if (part.type !== "tool" || part.at === null || part.at < since) {
@@ -155,6 +174,39 @@ function summed(
 		}
 	}
 	return result;
+}
+
+/**
+ * Counts `turn` into `result`'s rounds when it ended asking the person
+ * something, with how long it waited on them: until the first of `after`
+ * they said, or `until`.
+ */
+function asked(
+	result: TaskLog,
+	turn: Message,
+	after: Message[],
+	until: string,
+): void {
+	const text = turn.parts
+		.flatMap((part) => (part.type === "text" ? [part.text] : []))
+		.join("\n\n");
+	const found = stretches(text).map((stretch) => stretch.type);
+	const questions = found.includes("questions");
+	const review = found.includes("review");
+	if (!questions && !review) {
+		return;
+	}
+	if (questions) {
+		result.questionRounds += 1;
+	} else {
+		result.reviewRounds += 1;
+	}
+	const answered =
+		after.find((each) => each.role === "user" && each.at !== null)?.at ?? until;
+	result.waitedMs += Math.max(
+		0,
+		Date.parse(answered) - Date.parse(turn.until ?? until),
+	);
 }
 
 function lines(text: string | null): number {

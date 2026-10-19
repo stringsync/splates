@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "../conversations";
 import type { Details } from "../tasks";
-import { need, needs, QUIET_AFTER, quietSince } from "./needs";
+import { ASKED_QUIET, need, needs, QUIET_AFTER, quietSince } from "./needs";
 import { STUB_STEPS } from "./plan";
 
 describe("needs", () => {
@@ -27,65 +27,57 @@ describe("needs", () => {
 		});
 	});
 
-	it("waits on a review by what to look at, and on any other escalation by its first open question", () => {
+	it("waits on a review its last reply asks for, once its turn ends", () => {
 		const at = "2026-10-11T10:07:00.000Z";
+		const reviewing = talk({
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [{ type: "text", text: REVIEW }],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
 
-		expect(
-			need(
-				task({
-					status: "escalated",
-					review: "drag a task on the board",
-					ready: true,
-					escalatedAt: at,
-				}),
-				talk({ status: "idle" }),
-			),
-		).toMatchObject({
+		expect(need(task({ ready: true }), reviewing)).toMatchObject({
 			kind: "waiting",
 			why: "review",
-			subject: "drag a task on the board",
+			subject: "Cards drag only after a long press.",
 			since: at,
 		});
+		// A reply starts its turn again.
 		expect(
-			need(
-				task({
-					plan: PLAN,
-					status: "escalated",
-					escalation: "eyes",
-					escalatedAt: at,
-				}),
-				talk({ status: "idle" }),
-			),
-		).toMatchObject({
-			kind: "waiting",
-			why: "escalated",
-			subject: "Does the header wrap?",
-		});
+			need(task({ ready: true }), { ...reviewing, status: "running" }),
+		).toEqual({ kind: "working", subject: null });
 		expect(
-			need(
-				task({ status: "escalated", escalation: "needs staging access" }),
-				null,
-			),
-		).toMatchObject({ why: "escalated", subject: "needs staging access" });
+			need(task({ ready: true }), {
+				...reviewing,
+				messages: [
+					...reviewing.messages,
+					{ role: "user", parts: [], plan: null, at, until: at },
+				],
+			}),
+		).toEqual({ kind: "idle" });
 	});
 
-	it("stops waiting on an escalation once a reply starts the agent's turn", () => {
-		const escalated = task({
-			plan: PLAN,
-			status: "escalated",
-			escalation: "eyes",
-		});
+	it("waits on an external agent's questions once it goes quiet on them", () => {
+		const at = "2026-10-11T10:00:00.000Z";
+		const quiet = Date.parse(at) + ASKED_QUIET.ms;
 
-		expect(need(escalated, talk())).toMatchObject({
-			kind: "assuming",
-			subject: "Does the header wrap?",
-		});
-		expect(need(escalated, talk({ status: "starting" }))).toMatchObject({
-			kind: "assuming",
-		});
+		expect(need(task({ plan: PLAN, activeAt: at }), null, quiet)).toMatchObject(
+			{
+				kind: "waiting",
+				why: "questions",
+				subject: "Does the header wrap?",
+				since: at,
+			},
+		);
 		expect(
-			need(task({ status: "escalated", review: "look", ready: true }), talk()),
-		).toEqual({ kind: "working", subject: null });
+			need(task({ plan: PLAN, activeAt: at }), null, quiet - 1),
+		).toMatchObject({ kind: "assuming" });
 	});
 
 	it("assumes while the agent runs on open questions, and waits once its turn ends on them", () => {
@@ -148,7 +140,7 @@ describe("needs", () => {
 			tasks: [
 				task({ task: "few", plan: ONE }),
 				task({ task: "many", plan: TWO }),
-				task({ task: "external", status: "escalated", escalation: "look" }),
+				task({ task: "external", plan: ONE, activeAt: "2026-10-11T10:03:00Z" }),
 				task({ task: "gone", status: "orphaned" }),
 			],
 			conversations: [
@@ -159,12 +151,13 @@ describe("needs", () => {
 				talk({ id: "early", task: null, ask: ask("2026-10-11T10:01:00Z") }),
 				talk({ id: "put away", task: null, archived: true }),
 			],
+			now: Date.parse("2026-10-11T11:00:00Z"),
 		});
 
 		expect(
 			listed.map((each) => each.conversation?.id ?? each.task?.task),
-		).toEqual(["early", "late", "external", "many", "few", "idle"]);
-		expect(listed[2]?.conversation).toBeNull();
+		).toEqual(["early", "external", "late", "many", "few", "idle"]);
+		expect(listed[1]?.conversation).toBeNull();
 	});
 
 	it("waits on the conversation whose agent added an external agent's task, naming it", () => {
@@ -173,14 +166,15 @@ describe("needs", () => {
 				tasks: [
 					task({
 						task: "sub",
-						status: "escalated",
-						escalation: "look",
+						plan: ONE,
+						activeAt: "2026-10-11T10:00:00Z",
 						caller: "orch",
 					}),
 				],
 				conversations: [
 					talk({ id: "orch", task: null, status: "idle", archived }),
 				],
+				now: Date.parse("2026-10-11T11:00:00Z"),
 			});
 
 		const listed = of(false);
@@ -194,14 +188,14 @@ describe("needs", () => {
 			["sub", "idle"],
 		]);
 		expect(listed[0]?.need).toMatchObject({
-			why: "escalated",
-			subject: "look",
+			why: "questions",
+			subject: "One?",
 			via: "sub",
 		});
 		// Its caller archived, it waits on the person again, never on no row.
 		expect(of(true)[0]).toMatchObject({
 			task: { task: "sub" },
-			need: { kind: "waiting", why: "escalated" },
+			need: { kind: "waiting", why: "questions" },
 		});
 	});
 
@@ -216,6 +210,7 @@ describe("needs", () => {
 					}),
 				],
 				conversations,
+				now: Date.parse("2026-10-11T10:31:00.000Z"),
 			})[0]?.need;
 
 		expect(of([talk({ archived: true })])).toMatchObject({
@@ -261,7 +256,7 @@ describe("needs", () => {
 			quietSince(
 				{
 					task: task({ activeAt: at }),
-					need: need(task({ status: "escalated" }), null),
+					need: need(task({ plan: ONE, activeAt: at }), null, after),
 				},
 				after,
 			),
@@ -312,11 +307,8 @@ function task(overrides: Partial<Details> = {}): Details {
 		age: "3m",
 		createdAt: "2026-10-11T09:57:00.000Z",
 		activeAt: null,
-		escalation: null,
 		mergeAttempts: 0,
 		mergeAttemptLimit: 3,
-		escalatedAt: null,
-		review: null,
 		ready: false,
 		plan: null,
 		planProblems: [],
@@ -380,6 +372,15 @@ function ask(at: string) {
 		at,
 	};
 }
+
+/** A reply asking for a review. */
+const REVIEW = `## 🔍 Ready to merge alpha onto main
+
+Cards drag only after a long press.
+
+Checks: \`bun test\`
+
+Reply "merge", or say what to change.`;
 
 /** A plan asking one question, and one asking two. */
 const ONE = "# t\n\n## Blocked\n\n- [ ] 1. One?\n";

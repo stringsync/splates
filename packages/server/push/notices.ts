@@ -149,10 +149,6 @@ function wanted(
 			return said("Failed", need.subject);
 		case "questions":
 			return said("Asks", need.subject);
-		case "escalated":
-			return need.questions.length > 0
-				? said("Asks", need.subject)
-				: said("Escalated", need.subject);
 		case "abandoned":
 			return said("Abandoned", need.subject);
 	}

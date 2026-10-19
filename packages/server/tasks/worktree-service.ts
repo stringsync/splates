@@ -435,6 +435,7 @@ export class WorktreeService {
 		const endedAt = new Date().toISOString();
 		const asked = picks(ending.plan);
 		const reviews = escalations.filter((each) => each.review).length;
+		const legacy = escalations.length > 0;
 		// A dispatched task names its conversation once `splates server` started
 		// it; any other agent from the page has it in its env.
 		const conversation =
@@ -475,8 +476,12 @@ export class WorktreeService {
 			ended,
 			startedAt: state.createdAt,
 			endedAt,
-			questionRounds: escalations.length - reviews,
-			reviewRounds: reviews,
+			// A task begun before escalating was retired counts its
+			// escalations; any other, the turns its log shows asking.
+			questionRounds: legacy
+				? escalations.length - reviews
+				: (worked?.questionRounds ?? 0),
+			reviewRounds: legacy ? reviews : (worked?.reviewRounds ?? 0),
 			failedMerges: state.mergeFailures ?? 0,
 			failedMergesBy: state.mergeFailuresBy ?? {},
 			questionsAsked: asked.asked,
@@ -484,17 +489,19 @@ export class WorktreeService {
 			picksOverturned: asked.overturned,
 			picksAmended: asked.amended,
 			decisions: decisions(ending.plan),
-			// Each escalation waits until claimed, or until the task ended
-			// while it still waited.
-			waitedMs: escalations.reduce(
-				(sum, each) =>
-					sum +
-					Math.max(
+			waitedMs: legacy
+				? // Each escalation waits until claimed, or until the task
+					// ended while it still waited.
+					escalations.reduce(
+						(sum, each) =>
+							sum +
+							Math.max(
+								0,
+								Date.parse(each.resumedAt ?? endedAt) - Date.parse(each.at),
+							),
 						0,
-						Date.parse(each.resumedAt ?? endedAt) - Date.parse(each.at),
-					),
-				0,
-			),
+					)
+				: (worked?.waitedMs ?? 0),
 			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
 			...(opts.commits === undefined ? {} : { commits: opts.commits }),
 			promptsFrom:

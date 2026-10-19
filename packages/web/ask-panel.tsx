@@ -2,20 +2,22 @@ import type {
 	Answer,
 	Ask,
 	ConversationState,
+	Field,
 } from "@stringsync/splates-server/conversations";
-import { type JSX, useEffect, useState } from "react";
+import type {
+	Answer as CardAnswer,
+	Question as PlanQuestion,
+} from "@stringsync/splates-server/plans";
+import { type JSX, useEffect } from "react";
 import { PermissionGrant } from "#web/components/assistant-ui/elements/permission-grant.tsx";
-import { QuestionFlow } from "#web/components/assistant-ui/elements/question-flow.tsx";
 import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
+import { ReplyContext } from "./card-reply";
 import { answerConversation } from "./conversation-api";
 import type { Drafts } from "./drafts";
 import { useExpect } from "./expecting";
+import { QuestionCards } from "./question-cards";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
-
-const SELECT =
-	"h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** What the agent is waiting on, answered in place or skipped. */
 export function AskPanel({
@@ -63,12 +65,7 @@ export function AskPanel({
 					keys={keys}
 				/>
 			) : (
-				<Question
-					ask={ask}
-					send={send}
-					typed={typedIn(drafts.read(key))}
-					onType={(typed) => drafts.write(key, JSON.stringify(typed))}
-				/>
+				<Question ask={ask} send={send} drafts={drafts} draft={key} />
 			)}
 			<Refusal refusal={refusal} className="-mt-2 px-2" />
 		</>
@@ -85,18 +82,6 @@ function commandOf(conversation: ConversationState, id: string): string | null {
 		}
 	}
 	return null;
-}
-
-/** The boxes' draft as `Question` keeps it, or none for one that is not. */
-function typedIn(draft: string): Record<string, string> {
-	try {
-		const parsed: unknown = JSON.parse(draft);
-		return typeof parsed === "object" && parsed !== null
-			? (parsed as Record<string, string>)
-			: {};
-	} catch {
-		return {};
-	}
 }
 
 /**
@@ -167,99 +152,121 @@ function Permission({
 }
 
 /**
- * A question form, through assistant-ui's question flow: each field with
- * choices is a step, and each field without, such as Claude's "Other", a box
- * filled in before the last step is picked.
+ * A question form, as the questions card an agent's own questions show in:
+ * each field with choices is a question, the field beside it answered in
+ * words, such as Claude's "Other", its words; any other field a question
+ * answered in words alone.
  */
 function Question({
 	ask,
 	send,
-	typed: drafted,
-	onType,
+	drafts,
+	draft,
 }: {
 	ask: Extract<Ask, { type: "question" }>;
 	send: (answer: Answer) => Promise<unknown>;
-	/** What was typed into its boxes before, by field. */
-	typed: Record<string, string>;
-	/** Called with what is in its boxes whenever one changes. */
-	onType: (typed: Record<string, string>) => void;
+	drafts: Drafts;
+	/** Where what is written in it and not yet sent is kept. */
+	draft: string;
 }): JSX.Element {
-	const [typed, setTyped] = useState(drafted);
-	const steps = ask.fields.flatMap((field) =>
-		field.choices === null
-			? []
-			: [
-					{
-						id: field.key,
-						question: field.title,
-						description: field.description ?? undefined,
-						options: field.choices.map((choice) => ({
-							id: choice.value,
-							label: choice.title,
-							description: choice.description ?? undefined,
-						})),
-					},
-				],
-	);
-	const boxes = ask.fields.filter((field) => field.choices === null);
-	const answer = async (picked: Record<string, string[]>) => {
+	const asked = formQuestions(ask.fields);
+	const answer = async (answers: (CardAnswer | null)[]) => {
 		await send({
 			type: "question",
-			values: {
-				...Object.fromEntries(
-					Object.entries(picked).map(([key, [value]]) => [key, value ?? ""]),
-				),
-				...typed,
-			},
+			values: Object.fromEntries(
+				asked.flatMap(({ field, words }, at) => {
+					const { picks = [], words: said = "" } = answers[at] ?? {};
+					const picked = field.choices?.find(
+						(_, index) => letter(index) === picks[0],
+					);
+					return [
+						[field.key, field.choices === null ? said : (picked?.value ?? "")],
+						...(words === null ? [] : [[words.key, said]]),
+					];
+				}),
+			),
 		});
 	};
 	return (
 		<form
 			aria-label="question"
 			className="flex flex-col gap-2"
-			onSubmit={(event) => {
-				event.preventDefault();
-				void answer({});
-			}}
+			onSubmit={(event) => event.preventDefault()}
 		>
 			<p className="font-medium text-sm">{ask.message}</p>
-			{steps.length > 0 && (
-				<QuestionFlow
-					steps={steps}
-					onComplete={answer}
-					completeLabel="Answer"
-					className="max-w-none"
+			<ReplyContext.Provider value={{ send: null, drafts }}>
+				<QuestionCards
+					questions={asked.map(({ question }) => question)}
+					draft={draft}
+					answer={answer}
 				/>
-			)}
-			{boxes.map((field) => (
-				<input
-					key={field.key}
-					aria-label={field.title}
-					placeholder={field.description ?? field.title}
-					value={typed[field.key] ?? ""}
-					onChange={(event) => {
-						const next = { ...typed, [field.key]: event.target.value };
-						setTyped(next);
-						onType(next);
-					}}
-					className={cn(SELECT, "w-full")}
-				/>
-			))}
-			<div className="flex gap-2">
-				{steps.length === 0 && (
-					<Button type="submit" size="sm">
-						Answer
-					</Button>
-				)}
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					onClick={() => void send({ type: "dismiss" })}
-				>
-					Skip
-				</Button>
-			</div>
+			</ReplyContext.Provider>
+			<Button
+				type="button"
+				size="sm"
+				variant="ghost"
+				className="self-start"
+				onClick={() => void send({ type: "dismiss" })}
+			>
+				Skip
+			</Button>
 		</form>
 	);
+}
+
+/** A form field as a question of the card, with the field its words go to. */
+interface FormQuestion {
+	question: PlanQuestion;
+	field: Field;
+	/** The field answered in words beside one with choices; null for none. */
+	words: Field | null;
+}
+
+/**
+ * `fields` as the card's questions, numbered from 1: a field answered in
+ * words that follows one with choices, its key led by that one's, is that
+ * one's words, as Claude's "Other" is.
+ */
+export function formQuestions(fields: Field[]): FormQuestion[] {
+	const found: FormQuestion[] = [];
+	for (const field of fields) {
+		const last = found.at(-1);
+		if (
+			field.choices === null &&
+			last !== undefined &&
+			last.field.choices !== null &&
+			last.words === null &&
+			field.key.startsWith(last.field.key)
+		) {
+			last.words = field;
+			continue;
+		}
+		found.push({
+			question: {
+				number: String(found.length + 1),
+				done: false,
+				text: field.title,
+				size: null,
+				body: field.description ?? "",
+				reply: null,
+				followUps: [],
+				choices: (field.choices ?? []).map((choice, index) => ({
+					key: letter(index),
+					text: choice.title,
+					body: choice.description ?? "",
+					why: "",
+					chosen: false,
+				})),
+				pick: field.choices === null ? null : "one",
+			},
+			field,
+			words: null,
+		});
+	}
+	return found;
+}
+
+/** The letter the card gives the choice at `index`: a, b, c. */
+function letter(index: number): string {
+	return String.fromCharCode(97 + index);
 }

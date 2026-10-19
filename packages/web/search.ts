@@ -1,7 +1,7 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
-import { goalLine } from "@stringsync/splates-server/plans/browser";
+import { goalLine, needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
@@ -106,7 +106,7 @@ function taskOf(task: Details): Candidate {
 			title: task.task,
 			detail: (task.plan === null ? null : goalLine(task.plan)) ?? task.status,
 			score: 0,
-			at: task.escalatedAt ?? task.createdAt,
+			at: task.createdAt,
 		},
 		body: task.plan ?? "",
 	};
@@ -226,8 +226,8 @@ function snippetOf(body: string, at: number, length: number): string {
 }
 
 /**
- * With nothing typed: escalated tasks and conversations waiting on the person
- * first, then the latest of each kind.
+ * With nothing typed: tasks whose agent waits on the person and conversations
+ * waiting on them first, then the latest of each kind.
  */
 function unasked(searched: Searched): Group[] {
 	const recent = (one: Found, other: Found) =>
@@ -236,10 +236,10 @@ function unasked(searched: Searched): Group[] {
 		.map(taskOf)
 		.map(({ found }) => found)
 		.sort(recent);
-	const escalated = new Set(
-		searched.tasks
-			.filter((task) => task.escalation !== null)
-			.map((task) => task.task),
+	const waiting = new Set(
+		needs({ tasks: searched.tasks, conversations: searched.conversations })
+			.filter((entry) => entry.need.kind === "waiting")
+			.flatMap((entry) => (entry.task === null ? [] : [entry.task.task])),
 	);
 	const conversations = searched.conversations
 		.filter((each) => !each.archived)
@@ -252,10 +252,10 @@ function unasked(searched: Searched): Group[] {
 			kind: "task",
 			found: [
 				...tasks.filter(
-					(found) => found.kind === "task" && escalated.has(found.task),
+					(found) => found.kind === "task" && waiting.has(found.task),
 				),
 				...tasks.filter(
-					(found) => found.kind === "task" && !escalated.has(found.task),
+					(found) => found.kind === "task" && !waiting.has(found.task),
 				),
 			].slice(0, UNASKED),
 		},

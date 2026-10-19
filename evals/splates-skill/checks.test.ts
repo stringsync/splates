@@ -5,14 +5,14 @@ import type { EndRepo } from "./fixture";
 import { openQuestions } from "./reading";
 
 describe("eval checks", () => {
-	it("questions-in-report: fails an open question the escalation leaves out", () => {
-		const end = endWith({ status: "escalated", plan: PLAN });
+	it("questions-in-report: fails an open question the reply leaves out", () => {
+		const end = endWith({ status: "working", plan: PLAN });
 		expect(
 			verdicts(
 				"questions-in-report",
 				[
 					say(
-						"## ⚠️ Escalated cap: needs a number\n\nOne.\n\n1. How many tries?\n   - (a) Three (chosen)\n   - (b) Five",
+						"The cap needs a number.\n\n1. How many tries?\n   - (a) Three (chosen)\n   - (b) Five",
 					),
 				],
 				end,

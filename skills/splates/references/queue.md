@@ -47,8 +47,8 @@ Sent alone, it defers work you may have begun: save it before you stop. Put
 what you learned and did on that request since the message in the task's
 detail, ticking off the `- [ ]` steps done. When you started a task for it,
 commit what its worktree holds, write in the detail that it carries on there
-with `splates claim <task>`, bring `SPLATES.md` up to date, and `splates
-escalate "deferred to task #N"`.
+with `splates claim <task>`, and bring `SPLATES.md` up to date, its
+`## Notes` saying it is deferred to task #N.
 
 Either way, take no further step toward the request and reply with nothing
 beyond the line the page shows for the task; then, after a request, carry on

@@ -103,21 +103,21 @@ describe("Notifier", () => {
 		).toEqual([["Fix", "Its turn is over"]]);
 	});
 
-	it("tells of an external agent's task that escalates, and of nothing for a new row", () => {
+	it("tells of an external agent's task that goes quiet on a question, and of nothing for a new row", () => {
 		notifier.look([row(null, beta)], name, NOW);
 
 		expect(
 			notifier
 				.look(
 					[
-						row(null, { ...beta, status: "escalated", escalation: "a call" }),
-						row(null, details({ task: "gamma", status: "escalated" })),
+						row(null, { ...beta, ...quietOn("Which call?") }),
+						row(null, details({ task: "gamma", ...quietOn("Which?") })),
 					],
 					name,
 					NOW,
 				)
 				.map(({ title, body }) => [title, body]),
-		).toEqual([["beta", "Escalated: a call"]]);
+		).toEqual([["beta", "Asks: Which call?"]]);
 	});
 
 	it("tells nothing of a task left by archiving its conversation, the person's own doing", () => {
@@ -144,7 +144,7 @@ describe("Notifier", () => {
 			...runs,
 			title: "A conversation named by its whole first line",
 		};
-		notifier.look([row(named), row(null, beta)], name, NOW);
+		notifier.look([row(named), row(reviewed("running"))], name, NOW);
 
 		expect(
 			notifier
@@ -160,11 +160,7 @@ describe("Notifier", () => {
 								fields: [],
 							},
 						}),
-						row(null, {
-							...beta,
-							status: "escalated",
-							review: "the board at 390px",
-						}),
+						row(reviewed("idle")),
 					],
 					name,
 					NOW,
@@ -175,7 +171,7 @@ describe("Notifier", () => {
 				"A conversation named by its whole first…",
 				`Asks: Which of these should land first? ${"x".repeat(39)}…`,
 			],
-			["beta", "Ready for review"],
+			["Board", "Ready for review"],
 		]);
 	});
 
@@ -255,7 +251,27 @@ class FakeNotification {
 const row = (
 	held: ConversationState | null,
 	task: Details | null = null,
-): Needing => ({ conversation: held, task, need: need(task, held) });
+): Needing => ({ conversation: held, task, need: need(task, held, NOW) });
+
+/** A task whose agent, outside the page, went quiet an hour ago asking `text`. */
+const quietOn = (text: string): Partial<Details> => ({
+	activeAt: "2026-10-11T10:00:00.000Z",
+	plan: `# t\n\n## Blocked\n\n- [ ] 1. ${text}\n`,
+});
+
+/** A conversation whose last reply asks for a review, running or not. */
+const reviewed = (status: ConversationState["status"]): ConversationState =>
+	conversation({
+		id: "c3",
+		title: "Board",
+		status,
+		messages: [
+			message(
+				"agent",
+				'## 🔍 Ready to merge board onto main\n\nThe board fits at 390px.\n\nReply "merge", or say what to change.',
+			),
+		],
+	});
 
 const name = (each: Needing) =>
 	each.conversation?.title ?? each.task?.task ?? "";

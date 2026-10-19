@@ -59,11 +59,11 @@ export const COMMON: readonly EvalCheck[] = [
 	},
 	{
 		id: "questions-in-report",
-		rule: "Ends an escalation with every open question, numbered, its choices as written",
+		rule: "Ends a turn left asking with every open question, numbered, its choices as written",
 		judge: ({ log, end }) => {
 			const report = lastSaid(log.transcript.beats);
 			return end.tasks
-				.filter((task) => task.status === "escalated" && task.plan !== null)
+				.filter((task) => task.plan !== null)
 				.flatMap((task) =>
 					openQuestions(task.plan ?? "").map((question) => {
 						const listed = report

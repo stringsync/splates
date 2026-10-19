@@ -76,8 +76,6 @@ describe("App on a phone", () => {
 	});
 
 	const report = [
-		"## ⚠️ Escalated header: waiting on two calls",
-		"",
 		"The header wraps now.",
 		"",
 		"1. Which pages need it?",
@@ -88,6 +86,19 @@ describe("App on a phone", () => {
 		"   - (b) A badge",
 		"3. Ready to merge?",
 	].join("\n");
+	/** Task alpha, asking what `report` asks. */
+	const asking = details({
+		task: "alpha",
+		plan: [
+			"# alpha",
+			"",
+			"## Blocked",
+			"",
+			"- [ ] 1. Which pages need it?",
+			"- [ ] 2. How should a stale todo be shown?",
+			"- [ ] 3. Ready to merge?",
+		].join("\n"),
+	});
 
 	it("lists the agents waiting on you first in its inbox", async () => {
 		const view = await testing.openConversations(
@@ -209,9 +220,9 @@ describe("App on a phone", () => {
 				tasks: [
 					details({
 						task: "sub",
-						status: "escalated",
-						escalation: "look",
 						caller: "orch",
+						activeAt: "2026-10-11T10:00:00.000Z",
+						plan: "# sub\n\n## Blocked\n\n- [ ] 1. Which look?\n",
 					}),
 				],
 			},
@@ -224,7 +235,7 @@ describe("App on a phone", () => {
 			"Needs you · 1",
 		);
 		const [orchestrator, sub] = within(waiting).getAllByRole("button");
-		expect(orchestrator?.textContent).toContain("Escalated · sub: look");
+		expect(orchestrator?.textContent).toContain("sub: Which look?");
 		expect(sub?.textContent).toContain("sub");
 
 		await act(async () => fireEvent.click(sub as HTMLElement));
@@ -726,7 +737,7 @@ describe("App on a phone", () => {
 				}),
 			],
 			null,
-			{ tasks: [details({ task: "alpha", status: "escalated" })] },
+			{ tasks: [asking] },
 		);
 
 		await act(async () =>
@@ -765,7 +776,7 @@ describe("App on a phone", () => {
 				}),
 			],
 			null,
-			{ tasks: [details({ task: "alpha", status: "escalated" })] },
+			{ tasks: [asking] },
 		);
 
 		await act(async () =>
@@ -961,7 +972,7 @@ describe("App on a phone", () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Look around" })],
 			"c1",
-			{ tasks: [details({ task: "beta", status: "escalated" })] },
+			{ tasks: [details({ task: "beta" })] },
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Widgets" })),

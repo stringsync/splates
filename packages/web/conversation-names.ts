@@ -26,8 +26,9 @@ export function unnamed(conversation: ConversationState): boolean {
 }
 
 /**
- * How the task ended, or that it escalated, when the conversation's last word
- * is the agent's report saying so. Anything the person says after it carries
+ * How the task ended, or that it escalated in a conversation from before
+ * escalating was retired, when the conversation's last word is the agent's
+ * report saying so. Anything the person says after it carries
  * the conversation on, and the report goes.
  */
 export function reportedAs(conversation: ConversationState): Ending | null {
@@ -39,7 +40,10 @@ export function reportsDone(conversation: ConversationState): boolean {
 	return reportedAs(conversation) === "merged";
 }
 
-/** Whether a report `reported` leaves the person to act: its task escalated. */
+/**
+ * Whether a report `reported` leaves the person to act: its task escalated,
+ * from before escalating was retired.
+ */
 export function waitsOn(reported: Ending | null): boolean {
 	return reported === "escalated";
 }

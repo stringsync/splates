@@ -58,7 +58,7 @@ or a coherent report across multiple parsed stretches.
 - Live notification emission/delivery, complete task outcome transitions,
   semantic report truth, and start-card-before-dispatch ordering remain gaps.
   The event schema cannot represent intermediate user-visible replies.
-- Active-task DEFER (save work, commit, update SPLATES.md, escalate, then no
+- Active-task DEFER (save work, commit, update SPLATES.md, then no
   continuation), full grooming/release quality and arbitrary model
   choice need additional instrumented cases; the additional-request defer
   fixture does not stand in for them.

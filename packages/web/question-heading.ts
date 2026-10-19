@@ -10,13 +10,17 @@ export interface QuestionHeading {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
-	/** The task it escalated, shown as a pill; undefined for the rest. */
+	/**
+	 * The task it escalated, from before escalating was retired, shown as a
+	 * pill; undefined for the rest.
+	 */
 	task?: string;
 }
 
 /**
- * How a questions card is headed: as the escalation it ends, whatever else it
- * holds, since every escalation card reads the same; else as the proposal
+ * How a questions card is headed: as the escalation it ends, in a
+ * conversation from before escalating was retired, whatever else it holds,
+ * since every escalation card reads the same; else as the proposal
  * it rests under; else as the questions for the person, `count` saying how many on a phone's sheet.
  */
 export function questionHeading(

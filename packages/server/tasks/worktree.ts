@@ -308,7 +308,7 @@ export const REMOVE_REASONS = [
 export type RemoveReason = (typeof REMOVE_REASONS)[number];
 
 /** The status a task's own record carries. */
-export type RecordStatus = "working" | "merging" | "escalated";
+export type RecordStatus = "working" | "merging";
 
 /** What a task's record stores about who is driving it. */
 export interface LeaseState {
@@ -322,6 +322,10 @@ export interface LeaseState {
 	conversation?: string;
 }
 
+/**
+ * A hand-over to a person from before `splates escalate` was retired, which
+ * old records still carry for the Stats page.
+ */
 export interface Escalation {
 	reason: string;
 	at: string;

@@ -24,7 +24,6 @@ import {
 	checkpoint,
 	claim,
 	DEFAULT_TIMEOUT,
-	escalate,
 	follow,
 	list,
 	path,
@@ -254,7 +253,7 @@ splates
 	.command("claim")
 	.use(repository({ needs: "own" }))
 	.description(
-		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; an escalated task goes back to working; refuses while another agent holds the lease, but takes a stale one silently, so `splates show` first if the tree may not be abandoned",
+		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease, but takes a stale one silently, so `splates show` first if the tree may not be abandoned",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action(async (opts, ctx) => {
@@ -353,7 +352,7 @@ splates
 	.command("wait")
 	.use(repository({ needs: "read" }))
 	.description(
-		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
+		"block until a task stops moving: waiting on a person to answer its questions, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("timeout-secs", z.coerce.number(), {
@@ -374,7 +373,7 @@ splates
 	.command("log")
 	.use(repository({ needs: "read" }))
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, queued task and more, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, retry, queued task and more, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -480,39 +479,6 @@ splates
 	});
 
 splates
-	.command("escalate")
-	.use(repository({ needs: "own" }))
-	.description(
-		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
-	)
-	.arg("reason", z.string(), {
-		description:
-			"why this needs a human; with --review, what to look at before approving",
-	})
-	.option("task", z.string(), {
-		default: "",
-		description: "task name, when run outside its worktree",
-	})
-	.option("review", z.boolean(), {
-		default: false,
-		description:
-			"ask a person to approve merging, the reason saying what to look at, approved in chat; refused until the task is ready to merge, with every question under ## Blocked and step under ## Next checked",
-	})
-	.action(async (opts, ctx) => {
-		const task = opts.task || (await here(ctx));
-		await ctx.journal.record(
-			"escalate",
-			task,
-			() =>
-				escalate(ctx, opts.reason, ctx.ps.cwd(), {
-					task: opts.task || undefined,
-					review: opts.review,
-				}),
-			(facts) => facts,
-		);
-	});
-
-splates
 	.command("attach")
 	.use(repository({ needs: "own" }))
 	.description(
@@ -554,7 +520,7 @@ splates
 	.command("retry")
 	.use(repository({ needs: "own" }))
 	.description(
-		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
+		"give a task that spent its merge attempts another mergeRetryCount of them; the way out of `budget_exhausted` that is not remove and redo, for a person to run once they have seen the tree",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) => recordRetry(ctx, opts.task));

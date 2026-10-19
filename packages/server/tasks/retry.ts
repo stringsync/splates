@@ -9,10 +9,10 @@ import type { WorktreeService } from "./worktree-service";
  * The way back from `budget_exhausted`. A task that has spent its merge
  * attempts gets another `mergeRetryCount` of them, instead of `remove` and redo.
  *
- * Only from `escalated`, and deliberately: the budget's whole job is to make an
- * agent stop and hand the task over. An agent that could grant itself more
- * would be back to grinding against a moving trunk forever, so the price of a
- * fresh budget is that a human has looked at the tree first.
+ * Only once they are spent, and only for a person: the budget's whole job is
+ * to make an agent stop and ask. An agent that granted itself more would be
+ * back to grinding against a moving trunk forever, so the skill leaves it to
+ * the person, who has looked at the tree first.
  */
 export async function retry(
 	{
@@ -71,16 +71,16 @@ export async function grantRetry(
 	if (found.gone) {
 		fail("not_found", `no task '${task}'`, { task });
 	}
-	if (found.status !== "escalated") {
+	if (found.mergeAttempts < found.mergeAttemptLimit) {
 		fail(
 			"usage",
-			`'${task}' is ${found.status}, not escalated: only a task handed to a human can be granted more merge attempts`,
-			{ task, status: found.status },
+			`'${task}' has spent ${found.mergeAttempts} of its ${found.mergeAttemptLimit} merge attempts: only a task that spent them all can be granted more`,
+			{ task, attempts: found.mergeAttempts },
 		);
 	}
 
-	// The lease stays as escalate left it: whoever picks the task up takes it
-	// with `claim`, the same as any other resume.
+	// Whoever picks the task up takes it with `claim`, the same as any other
+	// resume.
 	return {
 		worktree: await found.save({
 			status: "working",

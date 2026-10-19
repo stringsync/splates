@@ -194,11 +194,10 @@ describe("dev tasks", () => {
 		});
 	});
 
-	it("grants a task out of merge attempts another round, and only an escalated one", async () => {
+	it("grants a task out of merge attempts another round, and only one out of them", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
 		await (await deps.service.find("alpha")).save({
-			status: "escalated",
 			mergeAttempts: deps.config.mergeRetryCount,
 		});
 

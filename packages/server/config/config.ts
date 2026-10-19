@@ -50,7 +50,7 @@ export interface Config {
 	on: Partial<Record<TaskEventName, string>>;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
-	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
+	/** Failed `merge` attempts a task gets before only a person's `splates retry` lets it try again. */
 	mergeRetryCount: number;
 	/**
 	 * How many removed task names to keep, so `remove` can say "already removed"

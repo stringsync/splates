@@ -63,7 +63,7 @@ export function hintOf(shown: Needing[], row: Needing): string | null {
  * The next of `rows` after the one `open` shows, around to the top, that
  * waits on you, or with none waiting, the next merged or finished one, then the next
  * unread one: what ⌥⌘M opens, and archiving goes on to. The one open is
- * passed over, so ⌥⌘M on an escalated task moves on, and comes back to its
+ * passed over, so ⌥⌘M on a task asking questions moves on, and comes back to its
  * questions only when nothing else is left.
  */
 export function nextWaiting(

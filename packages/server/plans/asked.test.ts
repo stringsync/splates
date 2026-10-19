@@ -3,24 +3,12 @@ import { join } from "node:path";
 import { stretches } from "./asked";
 
 describe("stretches", () => {
-	it("reads the questions of the skill's own escalation example", async () => {
-		const example = await skillExample("## ⚠️ Escalated");
+	it("reads the questions of the skill's own example of a turn ending on them", async () => {
+		const example = await skillExample("The board can now mark a stale task");
 
 		const found = stretches(example);
 
-		expect(found.map((each) => each.type)).toEqual(["report", "questions"]);
-		expect(found[0]).toEqual({
-			type: "report",
-			report: {
-				ending: "escalated",
-				task: "<task>",
-				base: null,
-				reason: "needs a call on stale tasks",
-				body: "The board can now mark a stale task, once you pick how.",
-				source:
-					"## ⚠️ Escalated <task>: needs a call on stale tasks\n\nThe board can now mark a stale task, once you pick how.",
-			},
-		});
+		expect(found.map((each) => each.type)).toEqual(["text", "questions"]);
 		const questions = found[1]?.type === "questions" ? found[1].questions : [];
 		expect(
 			questions.map(({ number, text, body, choices, pick }) => ({

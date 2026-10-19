@@ -8,17 +8,14 @@ are synthetic; they establish assertion behavior, not real agent compliance.
 | Probe id (prefix `decisions/`) | Audit requirement | Observable boundary |
 | --- | --- | --- |
 | local-choice | decisions-local | Choice noted under Notes, no blockers |
-| external-blocker | decisions-local | Final reply, numbered question, large open blocker, actual CLI escalated status |
+| external-blocker | decisions-local | Final reply, numbered question, large open blocker, task still working |
 | answer | decisions-local | Seeded question 3 answered b, checked, not renumbered |
 | approval | decisions-approval | APPROVE with explicit answer a recorded on seeded question 3 |
-| review-request | decisions-review | Review requested note, parsed review, actual escalated review status |
-| review-follow-up | decisions-review | Seeded waiting review, repeated parsed review and actual waiting review status |
-| cli-review-ready | decisions-review | Real local CLI review escalation with completed plan |
-| cli-review-blocked | decisions-review | Real local CLI refuses review while question 3 remains open |
+| review-request | decisions-review | Review requested note, parsed review, task still working |
+| review-follow-up | decisions-review | Seeded review request, repeated parsed review, task still working |
 
 Seeds create a minimal isolated git repository, disabled fake-agent roster and
-local format-1 splates records, then use real `splates add`, `path`, and (for a
-waiting review) `escalate`. No `init`, network, external service, real worker,
+local format-1 splates records, then use real `splates add` and `path`. No `init`, network, external service, real worker,
 shared registry edit, or legacy E2E fixture is used. The seed's check command
 is `true`: these cases make no real verification claim. Observation reads the
 actual task files and `splates show --json`, not the assistant's description.

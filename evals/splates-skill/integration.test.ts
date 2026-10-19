@@ -81,7 +81,7 @@ it("executes the discovered CLI suite without models, passing on state despite i
 			log,
 		);
 		const runs = await storedRuns(directory);
-		expect(runs).toHaveLength(10);
+		expect(runs).toHaveLength(7);
 		expect(new Set(runs.map((run) => run.agent))).toEqual(new Set(["cli"]));
 		expect(new Set(runs.map((run) => run.run.usage.tokens))).toEqual(
 			new Set([0]),

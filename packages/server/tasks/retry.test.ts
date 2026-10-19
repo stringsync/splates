@@ -12,13 +12,10 @@ describe("retry", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("puts an escalated task back to working with a fresh budget", async () => {
+	it("gives a task that spent its merge attempts a fresh budget", async () => {
 		await add(deps, "alpha");
 		const spent = await deps.service.find("alpha");
-		await spent.save({
-			status: "escalated",
-			mergeAttempts: deps.config.mergeRetryCount,
-		});
+		await spent.save({ mergeAttempts: deps.config.mergeRetryCount });
 
 		await retry(deps, "alpha");
 
@@ -31,21 +28,18 @@ describe("retry", () => {
 	it("hands back the attempts the task had spent before the grant", async () => {
 		await add(deps, "alpha");
 		const spent = await deps.service.find("alpha");
-		await spent.save({
-			status: "escalated",
-			mergeAttempts: deps.config.mergeRetryCount,
-		});
+		await spent.save({ mergeAttempts: deps.config.mergeRetryCount });
 
 		const granted = await retry(deps, "alpha");
 
 		expect(granted.attempts).toBe(deps.config.mergeRetryCount);
 	});
 
-	it("refuses a task nobody has escalated", async () => {
+	it("refuses a task with merge attempts left", async () => {
 		await add(deps, "alpha");
 
 		await expect(retry(deps, "alpha")).toBail("usage", {
-			message: "not escalated",
+			message: "only a task that spent them all",
 		});
 		expect((await deps.service.find("alpha")).state?.status).toBe("working");
 	});

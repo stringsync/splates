@@ -96,7 +96,7 @@ export const SETTINGS = {
 		category: "Notifications",
 		title: "When an agent needs you",
 		description:
-			"It asks for permission or an answer, escalates, ends its turn on open questions, or fails.",
+			"It asks for permission or an answer, ends its turn on open questions or ready to merge, or fails.",
 		default: true,
 		under: "notifications.on",
 	},

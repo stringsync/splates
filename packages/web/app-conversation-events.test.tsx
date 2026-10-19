@@ -358,7 +358,6 @@ function claim(
 				task,
 				reason: null,
 				conversation: "c1",
-				escalated: false,
 				goal: "",
 			}
 		: {

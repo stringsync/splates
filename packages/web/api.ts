@@ -268,8 +268,8 @@ export async function taskOutcome(task: string): Promise<Landed | null> {
 }
 
 /**
- * Gives `task`, escalated once it spent its merge attempts, another round of
- * them, as `splates retry` does.
+ * Gives `task`, once it spent its merge attempts, another round of them, as
+ * `splates retry` does.
  */
 export async function retryTask(task: string): Promise<void> {
 	await send(`/api/tasks/${encodeURIComponent(task)}/retry`, {});

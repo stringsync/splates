@@ -153,7 +153,7 @@ export function Conversations({
 	// external agent still holds, so its agent says so.
 	const free = tasks.filter(
 		(each) =>
-			["working", "escalated"].includes(each.status) &&
+			each.status === "working" &&
 			!each.dispatched &&
 			!conversations.some(
 				(conversation) =>

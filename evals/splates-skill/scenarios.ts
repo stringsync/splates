@@ -47,13 +47,13 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 			{
 				id: "ended",
-				rule: "Lands the fix or escalates it",
+				rule: "Lands the fix or asks what stops it",
 				judge: ({ end }) => {
 					const ok =
 						end.main.length > SEEDED ||
-						end.tasks.some((task) => task.status === "escalated");
+						end.tasks.some((task) => openQuestions(task.plan ?? "").length > 0);
 					return [
-						{ ok, why: ok ? "landed or escalated" : "left the task under way" },
+						{ ok, why: ok ? "landed or asked" : "left the task under way" },
 					];
 				},
 			},
@@ -63,13 +63,7 @@ export const SCENARIOS: readonly Scenario[] = [
 	{
 		id: "ask",
 		turns: ["Add a cap on how many times an upload retries."],
-		sections: [
-			...CORE,
-			"Questions",
-			"Keeping Blocked current",
-			"Escalation",
-			"SPLATES.md",
-		],
+		sections: [...CORE, "Questions", "Keeping Blocked current", "SPLATES.md"],
 		checks: [
 			STARTS,
 			{
@@ -79,10 +73,11 @@ export const SCENARIOS: readonly Scenario[] = [
 					const open = end.tasks.flatMap((task) =>
 						openQuestions(task.plan ?? ""),
 					);
+					// With questions open, a merge refuses: the task is left asking.
 					const ok =
 						open.length === 0
 							? end.main.length > SEEDED
-							: end.tasks.some((task) => task.status === "escalated");
+							: end.main.length === SEEDED;
 					return [
 						{
 							ok,
@@ -92,8 +87,8 @@ export const SCENARIOS: readonly Scenario[] = [
 										? "merged"
 										: "neither merged nor asked"
 									: ok
-										? "escalated with questions open"
-										: "questions open, not escalated",
+										? "asked with questions open"
+										: "merged with questions open",
 						},
 					];
 				},
@@ -208,8 +203,7 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 ## Notes
 
 Review: requested
-EOF
-splates escalate --review "the message a too-big upload shows"`,
+EOF`,
 		sections: [...CORE, "Merge or review", "Demos"],
 		checks: [
 			{

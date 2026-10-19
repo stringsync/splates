@@ -1,7 +1,10 @@
 import type { Question } from "../plans";
 import type { FailedTest, RemoveReason } from "../tasks";
 
-/** An escalation that went through, which asks the person to act. */
+/**
+ * An escalation that went through, from before `splates escalate` was
+ * retired, which old conversations still show as a card.
+ */
 export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;
 
 /** Whether `event` is an escalation that went through. */
@@ -30,8 +33,6 @@ export interface Facts {
 		model: string | null;
 	};
 	claim: {
-		/** Whether the task was escalated, so the claim ends a wait on the user. */
-		escalated: boolean;
 		/** What its `SPLATES.md` says done means, as markdown, or "" for nothing yet. */
 		goal: string;
 	};
@@ -70,6 +71,7 @@ export interface Facts {
 		/** The tasks it put back on the list, by number and subject. */
 		released: { id: number; subject: string }[];
 	};
+	/** From before `splates escalate` was retired: old journals still hold it. */
 	escalate: {
 		/** Why it needs the person, or for a review, what to look at. */
 		about: string;
@@ -251,7 +253,7 @@ export type Action = keyof Facts;
 // gains one adds it here too.
 export const FACTS = {
 	add: ["base", "tasks", "goal", "subjects", "agent", "model"],
-	claim: ["escalated", "goal"],
+	claim: ["goal"],
 	tell: ["to"],
 	wait: ["until", "began"],
 	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],

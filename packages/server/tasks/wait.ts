@@ -1,7 +1,10 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Fs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import type { Tasks } from "../board";
 import { fail } from "../exit";
+import { need } from "../plans";
+import { TaskDetails } from "./show";
 import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -24,19 +27,21 @@ export interface WaitOptions {
 	timeout?: Duration;
 	/** How long between reads of the record; the default suits a human's patience. */
 	poll?: Duration;
+	/** The time a quiet agent is measured to, in milliseconds. */
+	now?: () => number;
 }
 
 /**
  * Blocks until a task stops moving: merged or removed (both leave the name
- * `removed`), escalated to a human, or broken. Waiting is for the agent whose
+ * `removed`), waiting on a person to answer its questions, or broken. Waiting is for the agent whose
  * own work overlaps this one's and would rather rebase onto the result than
  * against it, which is why the timeout is short enough to come back and think
  * again rather than block a session for an afternoon.
  */
 export async function wait(
-	{ service, log }: { service: WorktreeService; log: Logger },
+	{ service, log, fs }: { service: WorktreeService; log: Logger; fs?: Fs },
 	task: string,
-	{ timeout = DEFAULT_TIMEOUT, poll = POLL }: WaitOptions = {},
+	{ timeout = DEFAULT_TIMEOUT, poll = POLL, now = Date.now }: WaitOptions = {},
 ): Promise<void> {
 	const deadline = Date.now() + timeout.ms;
 	for (;;) {
@@ -52,7 +57,12 @@ export async function wait(
 			);
 		}
 		if (!RUNNING.includes(worktree.status)) {
-			log.info(report(worktree));
+			log.info(report(worktree, null));
+			return;
+		}
+		const asked = await asking(worktree, fs, now());
+		if (asked !== null) {
+			log.info(report(worktree, asked));
 			return;
 		}
 		const left = deadline - Date.now();
@@ -67,11 +77,31 @@ export async function wait(
 	}
 }
 
-function report(worktree: Worktree): string {
+/**
+ * The first open question `worktree`'s agent went quiet on, so it waits on a
+ * person to answer it; null while it works, or asks nothing.
+ */
+async function asking(
+	worktree: Worktree,
+	fs: Fs | undefined,
+	now: number,
+): Promise<string | null> {
+	const asked = need(
+		await new TaskDetails(fs === undefined ? {} : { fs }).get(worktree),
+		null,
+		now,
+	);
+	return asked.kind === "waiting" ? asked.subject : null;
+}
+
+function report(worktree: Worktree, asked: string | null): string {
 	const lines = [`${color.bold(worktree.task)} ${worktree.status}`];
-	const escalation = worktree.state?.escalations?.at(-1)?.reason;
-	if (escalation) {
-		lines.push(`  ${color.yellow(`escalated: ${escalation}`)}`);
+	if (asked !== null) {
+		lines.push(
+			`  ${color.yellow(`asks: ${asked}`)}`,
+			"",
+			"It waits on a person: tell the user you are blocked on it.",
+		);
 	}
 	if (worktree.status === "removed") {
 		lines.push(
@@ -86,16 +116,17 @@ function report(worktree: Worktree): string {
  * Blocks until queued task `id` leaves the list, which it does when the task that
  * took it merges (or it is removed): what an agent whose next task comes
  * after it waits for, not knowing which task will take it. Ends early when
- * the task that has it is escalated, since that wait is on a person.
+ * the task that has it waits on a person to answer its questions.
  */
 export async function taskWait(
 	{
 		service,
 		tasks: queue,
 		log,
-	}: { service: WorktreeService; tasks: Tasks; log: Logger },
+		fs,
+	}: { service: WorktreeService; tasks: Tasks; log: Logger; fs?: Fs },
 	id: number,
-	{ timeout = DEFAULT_TIMEOUT, poll = POLL }: WaitOptions = {},
+	{ timeout = DEFAULT_TIMEOUT, poll = POLL, now = Date.now }: WaitOptions = {},
 ): Promise<void> {
 	// Refuses a task there is no such thing as, which is a typo: one already
 	// gone is a wait that is over before it began, and says so.
@@ -111,11 +142,15 @@ export async function taskWait(
 		}
 		const task =
 			queued.takenBy === null ? null : await service.find(queued.takenBy);
-		if (task?.status === "escalated") {
+		const asked =
+			task === null || !RUNNING.includes(task.status)
+				? null
+				: await asking(task, fs, now());
+		if (task !== null && asked !== null) {
 			log.info(
 				[
-					`${color.bold(`task ${id}`)} is with ${task.task}, which is escalated`,
-					`  ${color.yellow(`escalated: ${task.state?.escalations?.at(-1)?.reason ?? "no reason given"}`)}`,
+					`${color.bold(`task ${id}`)} is with ${task.task}, which waits on a person`,
+					`  ${color.yellow(`asks: ${asked}`)}`,
 					"",
 					"It waits on a person: tell the user you are blocked on it.",
 				].join("\n"),

@@ -189,7 +189,7 @@ export function statusOf(
 							? "Abandoned"
 							: open > 0
 								? `${open} ${open === 1 ? "question" : "questions"}`
-								: "Escalated";
+								: "Questions";
 		// Named, when it waits for an agent this one handed out.
 		const subject =
 			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
@@ -213,6 +213,7 @@ export function statusOf(
 		const how = {
 			merged: `Merged onto ${report.base ?? "main"}`,
 			removed: "Removed",
+			// From before escalating was retired.
 			escalated: "Escalated",
 			working: "Working",
 		}[report.ending];
@@ -220,10 +221,6 @@ export function statusOf(
 			text: report.reason === null ? how : `${how} · ${report.reason}`,
 			urgent: false,
 		};
-	}
-	// An external agent whose escalation is answered through another's row.
-	if (conversation === null && task?.escalation != null) {
-		return { text: `Escalated · ${task.escalation}`, urgent: false };
 	}
 	if (conversation?.unread === true) {
 		return { text: "New reply", urgent: false };

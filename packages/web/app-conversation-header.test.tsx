@@ -76,7 +76,7 @@ describe("App's conversation header", () => {
 			{
 				tasks: [
 					details({ task: "alpha" }),
-					details({ task: "beta", status: "escalated" }),
+					details({ task: "beta" }),
 					details({ task: "gamma", dispatched: true }),
 				],
 				todos: [

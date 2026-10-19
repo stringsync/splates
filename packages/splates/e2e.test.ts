@@ -204,7 +204,7 @@ describe.concurrent("splates", () => {
 		expect(await rows()).toEqual([]);
 	});
 
-	it("lands the work when a second agent picks up an escalated tree", async () => {
+	it("lands the work when a second agent picks up a tree the first left", async () => {
 		await using cli = await setup();
 		const { env, splates } = cli;
 
@@ -226,16 +226,12 @@ describe.concurrent("splates", () => {
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),
 		).not.toContain("add status");
-		expect(
-			(await splates(tree, "escalate", "cannot tell what ok means")).exitCode,
-		).toBe(0);
 
-		// Second agent, fresh thread: the escalated tree is still claimable, is
-		// someone's work again, and the earlier failure did not eat the whole
-		// merge budget.
+		// Second agent, fresh thread: the tree is still claimable, and the
+		// earlier failure did not eat the whole merge budget.
 		const resumed = await splates(tree, "claim", "gamma");
 		expect(resumed.exitCode).toBe(0);
-		expect(resumed.stdout).toContain("status:   working (was escalated)");
+		expect(resumed.stdout).toContain("status:   working");
 		expect(resumed.stdout).toContain("attempts: 1");
 		await env.commit(tree, "status.txt", "ok\n", "fix status");
 		await env.finish(tree);

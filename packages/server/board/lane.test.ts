@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { merge } from "../merge";
-import { add, escalate, taskWait } from "../tasks";
+import { ASKED_QUIET } from "../plans";
+import { add, taskWait } from "../tasks";
 import { Testing } from "../testing";
 import { seed, sound2score } from "./example";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
@@ -134,15 +135,23 @@ describe.concurrent("task links and lanes", () => {
 		).toBail("timeout");
 	});
 
-	it("stops waiting when the task holding the queued task is escalated", async () => {
+	it("stops waiting when the task holding the queued task waits on a person", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
 		await add(deps, "store", { tasks: [187] });
-		await escalate(deps, "which table?", deps.ps.cwd(), { task: "store" });
+		await deps.fs.write(
+			`${(await deps.service.find("store")).path}/SPLATES.md`,
+			"# store\n\n## Goal\n\nship it\n\n## Blocked\n\n- [ ] 1. Which table?\n",
+		);
 
-		await taskWait(deps, 187, { poll: Duration.ms(10) });
+		await taskWait(deps, 187, {
+			poll: Duration.ms(10),
+			now: () => Date.now() + ASKED_QUIET.ms,
+		});
 
-		expect(color.strip(deps.out())).toContain("with store, which is escalated");
+		const out = color.strip(deps.out());
+		expect(out).toContain("with store, which waits on a person");
+		expect(out).toContain("asks: Which table?");
 	});
 
 	it("reshapes lanes: move, reorder, join and drop, never out of order", async () => {

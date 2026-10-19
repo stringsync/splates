@@ -6,7 +6,6 @@ export { editLines } from "./diff";
 export { startDispatched } from "./dispatched";
 export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
-export { escalate } from "./escalate";
 export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, serveProject } from "./follow";
 export { LeaseBeat } from "./lease-beat";

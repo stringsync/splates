@@ -59,8 +59,6 @@ the broader proposed coverage in the requirements map.
 | `decisions/approval` | 1 | decisions-approval | agent |
 | `decisions/review-request` | 1 | decisions-review | agent |
 | `decisions/review-follow-up` | 1 | decisions-review | agent |
-| `decisions/cli-review-ready` | 1 | decisions-review | cli |
-| `decisions/cli-review-blocked` | 1 | decisions-review | cli |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
 | `discovery/queue` | 1 | discovery-queue | agent |
@@ -89,7 +87,6 @@ the broader proposed coverage in the requirements map.
 | `lifecycle/cli-tests_failed` | 1 | lifecycle-recovery | cli |
 | `lifecycle/cli-conflict` | 1 | lifecycle-recovery | cli |
 | `lifecycle/cli-budget_exhausted` | 1 | lifecycle-recovery | cli |
-| `lifecycle/cli-escalated` | 1 | lifecycle-land | cli |
 | `lifecycle/cli-removed` | 1 | lifecycle-land | cli |
 | `orchestration/taken-queued` | 1 | queue-groom | agent |
 | `orchestration/defer` | 1 | queue-defer | agent |
@@ -128,14 +125,14 @@ selected real integration, never a prerequisite for this audit.
 | lifecycle-start / Workflow, Reference files | #339; `queued`, `STARTS` | Agent: skill/reference read, successful add or claim before project reads; sandbox task/base state; stop after first investigation | All read tools and nested shell reads must be observed; shell text is insufficient |
 | lifecycle-plan / SPLATES.md, Workflow | #339; `queued` | Agent: captured plan with required sections before first edit; overlap inspection; queued task claim state | Exact contents alone do not establish a useful plan or reasonable scope |
 | lifecycle-land / Committing, Merge or review | #339; `queued` | CLI: successful merge/state cleanup; agent: verification before merge, single commit and required commit fields; stop at landing | Seed trivial code; real checks and git state for claims about checks/commit history |
-| lifecycle-recovery / Workflow, Escalation | #339 | CLI failed-check/conflict/budget responses; agent follows stderr, records attempt, retries or escalates at exhaustion | Seed each failure; optional real conflict/check/merge journey tests integration |
+| lifecycle-recovery / Workflow, Questions | #339 | CLI failed-check/conflict/budget responses; agent follows stderr, records attempt, or asks the user at exhaustion | Seed each failure; optional real conflict/check/merge journey tests integration |
 | lifecycle-cleanup / Workflow | #339 | Agent removes moot task or merges verified work; released partial task retained; resulting task/worktree state | Prove cleanup from observed state, not a final report |
 | decisions-local / Questions, Keeping Blocked current | #355; `ask` | Agent notes a reversible choice it made, records external action as blocker; answer updates preserve numbering; no premature action | Only unambiguous seeded choices; whether a real decision is wise remains subjective |
-| decisions-approval / Proposing, Escalation | #355; `ask` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers and escalation state; forbid action before approval | Format and state do not establish rationale quality |
+| decisions-approval / Proposing, Questions | #355; `ask` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers; forbid action before approval | Format and state do not establish rationale quality |
 | decisions-review / Merge or review, Demos, Reporting | #355; `review-again` | CLI MERGE payload; agent review request retained, review repeated after follow-up, checks/demo structure and no premature merge | Visual correctness and external verification remain manual/optional |
 | queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
-| queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work, escalates and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
+| queue-defer / DEFER directive | #340; `defer` | Agent creates queued task with prior context and no fresh investigation; saves active work and stops when deferring current task | Distinguish additional request from cancellation; stop boundary must observe forbidden continuation |
 | continuity-checkpoint / `references/checkpoint.md`, CHECKPOINT/RESUME | #357; `checkpoint` | Agent updates Done/Next/Blocked, stops; resumed agent reads saved state and claims before continuation | Separate delivered-between-turns from true mid-turn interruption |
 | continuity-reconnect / RECONNECT directive | #357 | Agent inspects git status/log and prior operation outcome before repeating mutation | Seed completed, partial and failed prior operations separately |
 | continuity-report / Reporting, Questions | #357; common checks | Parsed task outcome and questions/choices, paired with independently observed state | Parser acceptance is not full prose compliance; report truth and sensible brevity need separate checks |

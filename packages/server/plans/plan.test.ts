@@ -42,38 +42,15 @@ describe("checkPlan", () => {
 		]);
 	});
 
-	it("wants an escalation to leave numbered items behind", () => {
-		expect(checkPlan(GOOD, { task: "alpha", escalated: true })).toEqual([
-			"escalated with no ## Blocked section: add `- [ ] 1.` items for what the reviewer must do",
-		]);
+	it("wants ## Blocked to hold numbered items", () => {
 		const vague = `${GOOD}\n## Blocked\nIs the new banner the right green?\n`;
-		expect(checkPlan(vague, { task: "alpha", escalated: true })).toEqual([
-			"## Blocked lists nothing: add `- [ ] 1.` items for what the reviewer must do",
+		expect(checkPlan(vague, { task: "alpha" })).toEqual([
+			"## Blocked lists nothing: add `- [ ] 1.` items for what the user must answer",
 		]);
 		const asked = `${GOOD}\n## Blocked\n- [ ] 1. Open /tmp/shot.png. Confirm the banner is green.\n`;
-		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
+		expect(checkPlan(asked, { task: "alpha" })).toEqual([]);
 		const detailed = `${GOOD}\n## Blocked\n- [ ] 1. Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
-		expect(checkPlan(detailed, { task: "alpha", escalated: true })).toEqual([]);
-	});
-
-	it("wants no question from a review, which asks only to approve", () => {
-		expect(
-			checkPlan(GOOD, { task: "alpha", escalated: true, review: true }),
-		).toEqual([]);
-	});
-
-	it("flags open items once the task is no longer escalated", () => {
-		const items =
-			"- [x] 1. Run the tests. → pass\n- [ ] 2. Decide: keep or drop?\n- [ ] 3. Open /tmp/a.png.\n";
-		const blocked = `${GOOD}\n## Blocked\n${items}`;
-		expect(checkPlan(blocked, { task: "alpha" })).toEqual([
-			"## Blocked has open questions 2, 3: ask the reviewer before merging",
-		]);
-		const answered = `${GOOD}\n## Blocked\n${items.replaceAll("- [ ]", "- [x]")}`;
-		expect(checkPlan(answered, { task: "alpha" })).toEqual([]);
-		// Answered but unchecked is the agent's to act on, not the reviewer's.
-		const acting = `${GOOD}\n## Blocked\n- [ ] 1. Keep it? → yes\n  → and rename it\n`;
-		expect(checkPlan(acting, { task: "alpha" })).toEqual([]);
+		expect(checkPlan(detailed, { task: "alpha" })).toEqual([]);
 	});
 
 	it("flags a section nobody will think to read", () => {

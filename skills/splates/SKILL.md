@@ -1,6 +1,6 @@
 ---
 name: splates
-description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, escalate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them.
+description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them.
 version: 0.0.47
 ---
 
@@ -85,7 +85,7 @@ which remembers none of it.
    the files it has changed so far. Some overlap is normal: work alongside,
    accept the rebase, and note it in `SPLATES.md`. Only when conflicts would be hard to resolve, `splates wait
    <task>` for the other task to land first. If it is doing the opposite of
-   what you were asked, escalate instead.
+   what you were asked, ask the user instead (see Questions).
 4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
@@ -98,7 +98,7 @@ which remembers none of it.
    `## Blocked` up to date before each step. A subagent of your harness that may
    change code works in your worktree, with no task of its own: tell it the
    path, to commit there, to run no `splates` command that adds, claims,
-   merges or escalates a task, and to list in its reply any call the user
+   merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
    once share the tree, so give each its own files. Run a whole test suite, an install, or anything as heavy as
    `splates heavy -- <command>`, unless the project's instructions say its
@@ -122,15 +122,15 @@ which remembers none of it.
 
    Each `conflict`, `tests_failed` or `merge_failed` spends one of the
    task's merge attempts, so write under `## Notes` what each one failed
-   on. When `merge` stops on `budget_exhausted`, escalate (see Escalation)
-   and tell the user why merging keeps failing: a `- ` line per attempt on
-   what it failed on (the files that conflicted, the check that broke, the
-   tree in the way), then one on what would get it through, so they can
-   choose between `splates retry` and a remove and redo.
+   on. When `merge` stops on `budget_exhausted`, ask the user (see When you
+   cannot go on): a `- ` line per attempt on what it failed on (the files
+   that conflicted, the check that broke, the tree in the way), one on what
+   would get it through, then a question choosing between `splates retry
+   <task>`, theirs to run (or the page's Retry), and a remove and redo.
 
 **Clean up every task you start.** A task ends in a merge or a remove, never
-left behind; one escalated and waiting on the user is not done, so leave it
-for `splates claim`. When investigating shows there is nothing to change, the
+left behind; one waiting on the user's answers is not done, so leave it for
+`splates claim`. When investigating shows there is nothing to change, the
 work is moot, or it is better redone against current trunk, `splates task
 remove` each queued task it took that is done or moot, `splates task update` the rest
 with what you learned, then `cd "$(splates path)"` and `splates remove <task>
@@ -139,7 +139,8 @@ with what you learned, then `cd "$(splates path)"` and `splates remove <task>
 (better redone against current trunk); the Stats page counts them.
 
 `wait` ends on `removed` (landed or dropped: check for overlap again),
-`escalated` (the other task needs the user: tell them you are blocked on it),
+waits on a person (the other task's questions are open: tell the user you
+are blocked on it),
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
 
@@ -282,6 +283,24 @@ question they are for.
     ![panel](/abs/path/panel.png)
 ```
 
+### When you cannot go on
+
+When questions are still open once everything else is done, or you cannot go
+on without the user (access, a decision, a test only they can run), stop and
+ask. A secret, such as an API token, is a cred to request instead (see
+[references/creds.md](references/creds.md)).
+
+1. Leave something to look at, by **absolute path** (start from
+   `splates path <task>`): for anything visual, a screenshot or recording you
+   `splates attach`. Ask first if producing it is expensive.
+2. Make sure each question is under `## Blocked`.
+3. Ask them in your reply as Reporting says, and end your turn: the page
+   shows you waiting on the user. Do not `splates wait` or poll `SPLATES.md`:
+   answers only come in chat. A new session resumes with `splates claim <task>`.
+
+Never ask whether the work is ready to merge: once the questions are answered
+and the work is done, merge or ask for a review (see Merge or review).
+
 ## Keeping Blocked current
 
 `## Blocked` is where every question the user sees comes from, so it must say
@@ -322,32 +341,11 @@ the user answers questions, yours or another agent's.
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
 
-## Escalation
-
-Escalate when questions are still open once everything else is done, or when
-you cannot go on without the user (access, a decision, a test only they can
-run). A secret, such as an API token, is a cred to request instead (see
-[references/creds.md](references/creds.md)).
-
-1. Leave something to look at, by **absolute path** (start from
-   `splates path <task>`): for anything visual, a screenshot or recording you
-   `splates attach`. Ask first if producing it is expensive.
-2. Write each question not already there under `## Blocked`.
-3. `splates escalate <reason>`.
-4. Report, end your turn, and wait for the user to answer in chat. Do not run
-   `splates wait` or poll `SPLATES.md`: answers only come in chat. Then
-   `splates claim <task>` to carry on. `splates retry`, for `budget_exhausted`, is
-   the user's to run, before you claim.
-
-Never ask whether the work is ready to merge among other questions, or as a
-question at all: once they are answered and the work is done, merge or ask
-for a review (see Merge or review).
-
 ## Merge or review
 
 A task ready to merge has every step under `## Next` and every question under
-`## Blocked` checked; `splates merge` and `splates escalate --review` both refuse
-one that is not. Whether the user looks first is yours to decide:
+`## Blocked` checked; `splates merge` refuses one that is not, and a review
+is sent only for one that is. Whether the user looks first is yours to decide:
 
 - **Merge** work you verified yourself. This is the default, and the usual
   end of a small change.
@@ -357,8 +355,8 @@ one that is not. Whether the user looks first is yours to decide:
   migration, data written, anything sent outside the repo), or when
   `## Notes` says `Review: requested`. The demo is the user's chance to step
   in before it lands: their feedback decides whether it merges. Leave
-  something to look at (step 1 of Escalation), `splates escalate --review
-  "<what to look at>"`, report it (see Reporting), and end your turn.
+  something to look at (step 1 of When you cannot go on), send the Ready to
+  merge report (see Reporting), which is the whole request, and end your turn.
 
 When the user has to try a change before it lands, make that cheap: run it
 for them where they can open it (a dev server on throwaway data that shows
@@ -413,8 +411,8 @@ that card already tags a `(chosen)` choice, so one card asks everything.
 2. What should its button say?
 ```
 
-In a task, write each call under `## Blocked` too, then end your turn,
-without escalating; ask nothing else beside it.
+In a task, write each call under `## Blocked` too, then end your turn; ask
+nothing else beside it.
 
 The `splates server` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is
@@ -524,7 +522,8 @@ The task set out to stop uploads retrying a 413.
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.
 
-An escalation ends with every open question, those left open from earlier
+A turn that ends on questions needs no title: say in a line or two where the
+work stands, then end with every open question, those left open from earlier
 reports first, as a list numbered from 1 whatever their numbers in
 `SPLATES.md`, after the demo they ask about, if any. Each item carries what
 is needed to answer it: its subject, at most one line of body, the choices
@@ -532,8 +531,6 @@ exactly as in `SPLATES.md` (so a reply of `2. b` names one) with their `Why:`
 lines, and each screenshot under the question or choice it shows.
 
 ```markdown
-## ⚠️ Escalated <task>: needs a call on stale tasks
-
 The board can now mark a stale task, once you pick how.
 
 1. How should a stale task be shown?

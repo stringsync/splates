@@ -136,7 +136,7 @@ export function taskIds(raw: string): number[] {
 
 /**
  * Which task a command that takes no task name is about, so the journal can
- * name it. `merge` and `escalate` read it off the current branch.
+ * name it. `merge` reads it off the current branch.
  */
 export async function here({
 	service,

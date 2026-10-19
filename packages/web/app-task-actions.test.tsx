@@ -44,7 +44,6 @@ describe("App's task dialog on a phone", () => {
 		const { view, bar } = await openTask(
 			details({
 				task: "beta",
-				status: "escalated",
 				ahead: 2,
 				plan: "# beta\n\n## Blocked\n\n- [ ] 1. Which way?\n",
 			}),

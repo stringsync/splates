@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { PLAN_FILE } from "../plans";
-import { add, checkpoint, escalate, remove, WIP_MESSAGE } from "../tasks";
+import { add, checkpoint, remove, WIP_MESSAGE } from "../tasks";
 import { Testing } from "../testing";
 import { merge } from "./merge";
 
@@ -108,18 +108,6 @@ describe("TaskBranches", () => {
 		await deps.fs.write(join(tree, "half.txt"), "half done\n");
 
 		expect((await checkpoint(deps, tree)).committed).toBe(false);
-		expect(await deps.gitCli(tree, "status", "--porcelain")).toBe(
-			"?? half.txt",
-		);
-	});
-
-	it("pushes what an escalation leaves, without committing the tree", async () => {
-		await deps.commit(tree, "a.txt", "one\n", "a");
-		await deps.fs.write(join(tree, "half.txt"), "half done\n");
-
-		await escalate(deps, "needs a human", tree);
-
-		expect(await pushed()).toBe(await tip());
 		expect(await deps.gitCli(tree, "status", "--porcelain")).toBe(
 			"?? half.txt",
 		);

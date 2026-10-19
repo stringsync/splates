@@ -35,8 +35,6 @@ describe("App's tasks", () => {
 				details({ task: "alpha" }),
 				details({
 					task: "beta",
-					status: "escalated",
-					escalation: "needs eyes",
 					plan: "# beta\n\n## Goal\n\nship the thing\n",
 				}),
 			],
@@ -48,7 +46,7 @@ describe("App's tasks", () => {
 
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(dialog.textContent).toContain("ship the thing");
-		expect(dialog.textContent).toContain("needs eyes");
+		expect(dialog.textContent).toContain("working");
 	});
 
 	it("nests each part under the task it was handed out from", async () => {
@@ -70,28 +68,6 @@ describe("App's tasks", () => {
 					item.firstElementChild?.querySelector(".truncate")?.textContent,
 			),
 		).toEqual(["alpha", "beta"]);
-	});
-
-	it("marks a task waiting on approval as ready to merge, saying what to look at", async () => {
-		const view = await testing.openTasks({
-			tasks: [
-				details({
-					task: "alpha",
-					status: "escalated",
-					escalation: "drag a todo at http://localhost:4269",
-					review: "drag a todo at http://localhost:4269",
-				}),
-			],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
-		);
-
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(dialog.textContent).toContain(
-			"Ready to merge: drag a todo at http://localhost:4269",
-		);
 	});
 
 	it("opens a task's changes in a pane beside the page, a file to a line, opening all at once", async () => {
@@ -169,12 +145,7 @@ describe("App's tasks", () => {
 
 	// scry-ignore simple-test-setup: the spent merge attempts belong only to this retry test, not shared setup
 	it("grants a task out of merge attempts another round, saying so where it was asked", async () => {
-		const spent = {
-			task: "alpha",
-			status: "escalated",
-			escalation: "merge keeps conflicting",
-			mergeAttempts: 3,
-		};
+		const spent = { task: "alpha", mergeAttempts: 3 };
 		const view = await testing.openTasks({
 			tasks: [
 				details(spent),
@@ -182,7 +153,7 @@ describe("App's tasks", () => {
 			],
 		});
 
-		// Escalated for some other reason, a task has no use for more attempts.
+		// With attempts left, a task has no use for more.
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /beta/ })),
 		);
@@ -225,10 +196,10 @@ describe("App's tasks", () => {
 	it("says in the dialog why a retry was refused", async () => {
 		testing.refuseWrites = {
 			reason: "usage",
-			message: "'alpha' is working, not escalated",
+			message: "'alpha' has spent 1 of its 3 merge attempts",
 		};
 		const view = await testing.openTasks({
-			tasks: [details({ status: "escalated", mergeAttempts: 3 })],
+			tasks: [details({ mergeAttempts: 3 })],
 		});
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
@@ -241,7 +212,7 @@ describe("App's tasks", () => {
 
 		await waitFor(() =>
 			expect(view.getByRole("dialog").textContent).toContain(
-				"'alpha' is working, not escalated",
+				"'alpha' has spent 1 of its 3 merge attempts",
 			),
 		);
 		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
@@ -252,8 +223,6 @@ describe("App's tasks", () => {
 			tasks: [
 				details({
 					task: "alpha",
-					status: "escalated",
-					review: "drag a todo",
 					plan: "# alpha\n\n## Done\n\n- [x] one\n\n## Next\n\n- [ ] two\n",
 				}),
 			],
@@ -262,7 +231,6 @@ describe("App's tasks", () => {
 		const row = view.getByRole("button", { name: /alpha/ });
 		expect(row.textContent).toContain("alpha");
 		expect(row.textContent).toContain("Elapsed:");
-		expect(row.textContent).not.toContain("drag a todo");
 		expect(view.queryByRole("progressbar")).toBeNull();
 	});
 

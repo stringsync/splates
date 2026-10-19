@@ -86,15 +86,27 @@ export const CHECKS: readonly Check[] = [
 	{
 		id: "report-title",
 		rule: "Titles a task's report by how it ended",
-		judge: ({ beats }) =>
-			endings(beats).map(({ verb, review, report }) => {
+		judge: ({ beats }) => [
+			...endings(beats).map(({ verb, report }) => {
 				const title = titleOf(report);
-				const form = review ? TITLES.review : TITLES[verb];
 				return {
-					ok: form.test(title),
-					why: `${review ? "review" : verb}: ${title ? `"${title}"` : "no report"}`,
+					ok: TITLES[verb].test(title),
+					why: `${verb}: ${title ? `"${title}"` : "no report"}`,
 				};
 			}),
+			...reviews(beats).map((report) => {
+				const title = titleOf(report);
+				const last = report.trim().split("\n").at(-1)?.trim();
+				const titled = TITLES.review.test(title);
+				return {
+					ok: titled && last === REVIEW_ENDS,
+					why:
+						titled && last !== REVIEW_ENDS
+							? `review: ends "${last}"`
+							: `review: "${title}"`,
+				};
+			}),
+		],
 	},
 	{
 		id: "numbered-questions",
@@ -261,9 +273,14 @@ function acts(beat: Beat): boolean {
 const TITLES = {
 	merge: /^## ✅ Merged \S+ onto \S+$/,
 	remove: /^## 🛑 Removed \S+: .*[^.!?:]$/,
-	escalate: /^## ⚠️? Escalated \S+: .*[^.!?:]$/,
 	review: /^## 🔍 Ready to merge \S+ onto \S+$/,
 };
+
+/** A heading that asks for a review, wherever in a reply it sits. */
+const REVIEW = /^##\s.*Ready to merge\b/m;
+
+/** The line a review ends on, which the page needs to show its Merge button. */
+const REVIEW_ENDS = 'Reply "merge", or say what to change.';
 
 /** A numbered list item. */
 const NUMBERED = /^\s*\d+\.\s/;
@@ -293,13 +310,12 @@ function words(text: string): string[] {
 }
 
 /** What each verb prints once it has done its work, after the task's name. */
-const DONE = /^(added|merged|removed|escalated) (?!(?:todo|task) \d)(\S+)/gm;
+const DONE = /^(added|merged|removed) (?!(?:todo|task) \d)(\S+)/gm;
 
 const VERBS = {
 	added: "add",
 	merged: "merge",
 	removed: "remove",
-	escalated: "escalate",
 } as const;
 
 /** A terminal color code, which splates prints around what it did. */
@@ -316,8 +332,6 @@ interface Event {
 	 * another agent with `--agent`, nor a part with `--base task/…`.
 	 */
 	own: boolean;
-	/** For `escalate`, whether it asked for a review. */
-	review: boolean;
 	output: string;
 }
 
@@ -355,7 +369,6 @@ function events(beats: Beat[]): Event[] {
 					own:
 						!args.includes("--agent") &&
 						!(args.includes("--base") && base?.startsWith("task/")),
-					review: args.includes("--review"),
 					output,
 				},
 			];
@@ -399,7 +412,7 @@ function said(beats: Beat[]): string {
 
 /** A task ending, with the report it was given. */
 interface Ending extends Event {
-	verb: "merge" | "remove" | "escalate";
+	verb: "merge" | "remove";
 	/**
 	 * The last words after it, before the turn ends or another task is
 	 * added; empty when there are none.
@@ -432,6 +445,13 @@ function endings(beats: Beat[]): Ending[] {
 			];
 		});
 	});
+}
+
+/** Each turn's last words that ask for a review, by a Ready to merge heading. */
+function reviews(beats: Beat[]): string[] {
+	return turns(beats)
+		.map(({ report }) => report)
+		.filter((report) => REVIEW.test(report));
 }
 
 /** What `report` is titled: its first line. */

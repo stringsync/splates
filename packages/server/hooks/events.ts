@@ -7,7 +7,6 @@ export const TASK_EVENTS = [
 	"task.ready",
 	"task.queued",
 	"task.started",
-	"task.needs-you",
 	"task.done",
 	"task.dropped",
 ] as const;
@@ -61,8 +60,6 @@ export function taskEventsOf(event: Event): TaskEvent[] {
 			];
 		case "add":
 			return [of("task.started", event.tasks)];
-		case "escalate":
-			return [of("task.needs-you", [])];
 		case "merge":
 			return [of("task.done", [])];
 		case "remove":

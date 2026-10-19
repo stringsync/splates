@@ -209,7 +209,7 @@ export interface Outcome {
 	 * Each question its plan asked, with its size and what became of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
 	decisions?: Decision[];
-	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */
+	/** How long it waited on a person to answer, in milliseconds. Absent from older lines. */
 	waitedMs?: number;
 	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */
 	removedFor?: RemoveReason | null;

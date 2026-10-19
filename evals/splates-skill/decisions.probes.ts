@@ -86,16 +86,6 @@ const seed: Seed = {
 		const path = await checked(context, ["splates", "path", task]);
 		context.runtime.decisionPath = path;
 		await writeFile(join(path, "SPLATES.md"), data.plan);
-		if (data.waiting === true) {
-			await checked(context, [
-				"splates",
-				"escalate",
-				"review fixture",
-				"--review",
-				"--task",
-				task,
-			]);
-		}
 	},
 	async observe(context) {
 		const path = context.runtime.decisionPath;
@@ -118,7 +108,6 @@ const seed: Seed = {
 		return {
 			...(plan === null ? {} : decisionState(plan)),
 			"task/status": details?.status ?? null,
-			"task/review": typeof details?.review === "string",
 			"file/SPLATES.md": plan,
 		};
 	},
@@ -170,7 +159,6 @@ function probe(
 	input: string,
 	assertions: Assertion[],
 	plan = basePlan,
-	waiting = false,
 ): Probe {
 	return {
 		schema: 1,
@@ -182,7 +170,7 @@ function probe(
 			text: input,
 			source: `${source}#${section}`,
 		},
-		seed: { id: seed.id, version: seed.version, data: { plan, waiting } },
+		seed: { id: seed.id, version: seed.version, data: { plan } },
 		input: {
 			kind: input.startsWith("[SPLATES") ? "directive" : "message",
 			origin: "user",
@@ -211,13 +199,13 @@ export const probes: Probe[] = [
 	probe(
 		"external-blocker",
 		"decisions-local",
-		"Escalation",
-		"The only remaining step is to send a migration notice to customers. The recipient group has not been decided. Record that outward-facing decision and escalate; no sending service is available.",
+		"Questions",
+		"The only remaining step is to send a migration notice to customers. The recipient group has not been decided. Record that outward-facing decision and ask me; no sending service is available.",
 		[
 			state("plan/blocked-kinds", [
 				{ number: "1", size: "large", done: false },
 			]),
-			state("task/status", "escalated"),
+			state("task/status", "working"),
 			gap(
 				"external-decision-content",
 				"Recipient question meaning and absence of all external effects require semantic/manual review and an instrumented external boundary.",
@@ -265,8 +253,7 @@ export const probes: Probe[] = [
 		"I want to review this task before it lands. Record that request and present it for review; the fixture is ready, no changes or checks are claimed. Do not merge.",
 		[
 			state("plan/review-requested", true),
-			state("task/status", "escalated"),
-			state("task/review", true),
+			state("task/status", "working"),
 			{
 				id: "review-task",
 				kind: "reply",
@@ -284,8 +271,7 @@ export const probes: Probe[] = [
 		"While the review waits: explain what the local fixture does. This is a question, not approval or a request to change anything. Keep the review available.",
 		[
 			state("plan/review-requested", true),
-			state("task/status", "escalated"),
-			state("task/review", true),
+			state("task/status", "working"),
 			{
 				id: "review-task",
 				kind: "reply",
@@ -307,46 +293,8 @@ export const probes: Probe[] = [
 			...noMerge,
 		],
 		reviewPlan,
-		true,
 	),
 ];
-
-for (const blocked of [false, true]) {
-	const cli = probe(
-		blocked ? "cli-review-blocked" : "cli-review-ready",
-		"decisions-review",
-		"Merge or review",
-		"CLI review readiness gate",
-		[
-			state("task/status", blocked ? "working" : "escalated"),
-			state("task/review", !blocked),
-		],
-		blocked ? basePlan + question : basePlan,
-	);
-	cli.execution = {
-		kind: "cli",
-		command: [
-			"splates",
-			"escalate",
-			"review fixture",
-			"--review",
-			"--task",
-			task,
-		],
-	};
-	cli.stop = {
-		kind: "event",
-		match: {
-			actor: "cli",
-			kind: "command",
-			name: "splates",
-			exitCode: blocked ? 16 : 0,
-		},
-	};
-	cli.tools = [];
-	cli.evidence = ["state"];
-	probes.push(cli);
-}
 
 /** Production directive constants, not CLI emission or agent compliance evidence. */
 export const decisionDirectives = { approve: APPROVE, merge: MERGE };

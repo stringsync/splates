@@ -11,6 +11,7 @@ export { decided, keptDecisions, madeByYou } from "./decided";
 export type { Demo } from "./demo";
 export type { Need, Needing } from "./needs";
 export {
+	ASKED_QUIET,
 	answeredThrough,
 	answersTo,
 	externals,
@@ -27,6 +28,7 @@ export {
 	decisions,
 	goalLine,
 	goalOf,
+	openQuestions,
 	PLAN_FILE,
 	Plans,
 	picks,

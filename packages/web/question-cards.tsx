@@ -63,6 +63,7 @@ export function QuestionCards({
 	earlier = [],
 	copy = false,
 	paged = false,
+	answer = null,
 	onSent,
 }: {
 	questions: Question[];
@@ -88,11 +89,17 @@ export function QuestionCards({
 	 * can be answered.
 	 */
 	paged?: boolean;
+	/**
+	 * Answers in place of a reply, as for a form its agent asks through ACP:
+	 * each question's answer, in order. Nothing else is asked for beside them.
+	 */
+	answer?: ((answers: (Answer | null)[]) => Promise<void>) | null;
 	/** Once the reply is sent from it, or copied. */
 	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent, askedAgain } = useCardReply();
-	const live = sent === null && !askedAgain && (copy || reply !== null);
+	const live =
+		sent === null && !askedAgain && (copy || answer !== null || reply !== null);
 	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
 	// What the agent chose for `asked`, which it comes answered with.
@@ -153,7 +160,9 @@ export function QuestionCards({
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
 	const answered = answers.filter((answer) => answer !== null).length;
-	const send = copy ? null : (reply?.send ?? null);
+	const send = copy || answer !== null ? null : (reply?.send ?? null);
+	// Copied, for an agent outside the page: neither sent nor answered.
+	const copies = send === null && answer === null;
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
@@ -180,7 +189,15 @@ export function QuestionCards({
 		}
 		const approved = (text: string) =>
 			!approving ? text : text === "" ? APPROVE : `${APPROVE}\n\n${text}`;
-		if (send === null) {
+		if (answer !== null) {
+			void attempt(
+				answer(saidOf()).then(() => {
+					kept.write("");
+					onSent?.();
+				}),
+				"Not answered",
+			);
+		} else if (send === null) {
 			// Kept, to copy again until its agent records it.
 			copyOut(approved(out), onSent);
 		} else {
@@ -429,22 +446,24 @@ export function QuestionCards({
 					</footer>
 				) : live ? (
 					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
-						<CardBox
-							data-stop="more"
-							aria-label="Anything else"
-							value={written.more}
-							placeholder="Anything else?"
-							onValue={(more) => write({ ...written, more })}
-							files={files?.of(MORE) ?? null}
-							onKeyDown={(event) => {
-								// Enter sends, as in the composer; Shift+Enter is a new line.
-								if (event.key === "Enter" && !event.shiftKey) {
-									event.preventDefault();
-									submit();
-								}
-							}}
-							className="min-h-9 pointer-coarse:min-h-11"
-						/>
+						{answer === null && (
+							<CardBox
+								data-stop="more"
+								aria-label="Anything else"
+								value={written.more}
+								placeholder="Anything else?"
+								onValue={(more) => write({ ...written, more })}
+								files={files?.of(MORE) ?? null}
+								onKeyDown={(event) => {
+									// Enter sends, as in the composer; Shift+Enter is a new line.
+									if (event.key === "Enter" && !event.shiftKey) {
+										event.preventDefault();
+										submit();
+									}
+								}}
+								className="min-h-9 pointer-coarse:min-h-11"
+							/>
+						)}
 						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 								{!touch && (
@@ -454,11 +473,13 @@ export function QuestionCards({
 										</span>
 										<span>
 											<Kbd>⌘↵</Kbd>{" "}
-											{send === null
+											{copies
 												? "copies"
-												: approving
-													? "approves"
-													: "sends"}
+												: answer !== null
+													? "answers"
+													: approving
+														? "approves"
+														: "sends"}
 										</span>
 									</>
 								)}
@@ -470,7 +491,7 @@ export function QuestionCards({
 								onClick={submit}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
-								{send !== null ? (
+								{!copies ? (
 									approving ? (
 										<CheckIcon data-icon="inline-start" />
 									) : (
@@ -482,11 +503,13 @@ export function QuestionCards({
 									<CopyIcon data-icon="inline-start" />
 								)}
 								<span aria-live="polite">
-									{send === null
+									{copies
 										? copiedLabel(copied, "Copy reply")
-										: approving
-											? "Approve"
-											: "Send"}
+										: answer !== null
+											? "Answer"
+											: approving
+												? "Approve"
+												: "Send"}
 								</span>
 							</Button>
 						</div>

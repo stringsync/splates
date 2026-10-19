@@ -7,6 +7,7 @@ import {
 	message,
 	Testing,
 	tool,
+	typeIn,
 	within,
 } from "./testing";
 
@@ -71,7 +72,7 @@ describe("App's asks", () => {
 		expect(card.querySelector("code")?.textContent).toBe(command);
 	});
 
-	it("answers a question form with the choices picked", async () => {
+	it("answers a question form in the questions card, its choice picked and its Other in words", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				status: "running",
@@ -101,14 +102,20 @@ describe("App's asks", () => {
 			}),
 		]);
 		const form = view.getByRole("form", { name: "question" });
+		expect(form.textContent).toContain("Uppercase the note?");
+		// "Other" is the words of the question it follows, not one of its own.
+		const asked = within(form).getByRole("listitem", { name: "question 1" });
+		expect(
+			within(form).queryByRole("listitem", { name: "question 2" }),
+		).toBeNull();
 
 		await act(async () =>
-			fireEvent.change(within(form).getByRole("textbox", { name: "Other" }), {
-				target: { value: "only the first line" },
-			}),
+			fireEvent.click(within(asked).getByRole("button", { name: /No/ })),
 		);
+		await typeIn(within(asked).getByRole("textbox"), "only the first line");
+		expect(testing.posted("/api/conversations/c1/answer")).toEqual([]);
 		await act(async () =>
-			fireEvent.click(within(form).getByRole("button", { name: /No/ })),
+			fireEvent.click(within(form).getByRole("button", { name: "Answer" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/answer")).toEqual([

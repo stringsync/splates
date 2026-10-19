@@ -78,7 +78,7 @@ describe("App on a touch device", () => {
 		expect(document.activeElement === started).toBe(false);
 	});
 
-	it("opens a review in its sheet on a phone without raising the keyboard", async () => {
+	it("opens a review waiting on you in its sheet on a phone without raising the keyboard", async () => {
 		resize(390, 844);
 		try {
 			const view = await testing.openConversations([
@@ -99,16 +99,7 @@ describe("App on a touch device", () => {
 				}),
 			]);
 
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() =>
-						within(
-							view.getByRole("complementary", { name: "Waiting on you" }),
-						).getByRole("button", { name: /Ready to merge/ }),
-					),
-				),
-			);
-
+			// It waits on you, so its sheet opens on its own.
 			const sheet = await waitFor(() =>
 				view.getByRole("dialog", { name: "Ready to merge" }),
 			);

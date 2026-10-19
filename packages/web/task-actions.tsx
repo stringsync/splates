@@ -374,12 +374,10 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 	};
 }
 
-/** Escalated with its merge attempts spent: what `splates retry` is for. */
+/** Working with its merge attempts spent: what `splates retry` is for. */
 function outOfMerges(task: Details): boolean {
 	return (
-		task.status === "escalated" &&
-		task.review === null &&
-		task.mergeAttempts >= task.mergeAttemptLimit
+		task.status === "working" && task.mergeAttempts >= task.mergeAttemptLimit
 	);
 }
 

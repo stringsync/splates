@@ -137,7 +137,7 @@ export class TaskRoutes {
 	};
 
 	// `splates retry` from the page: another round of merge attempts for a
-	// task escalated once it spent its own.
+	// task that spent its own.
 	readonly retryTask = async (request: Request): Promise<Response> => {
 		const { journal, service } = this.#project;
 		const task = decodeURIComponent(

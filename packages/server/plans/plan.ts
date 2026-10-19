@@ -186,6 +186,14 @@ export function questions(text: string): Question[] {
 	return items(sectionLines(text, "Blocked"));
 }
 
+/**
+ * The questions under `## Blocked` still waiting on a person: unchecked and
+ * unanswered. One answered and unchecked is a follow-up for the agent.
+ */
+export function openQuestions(text: string): Question[] {
+	return questions(text).filter((asked) => !asked.done && asked.reply === null);
+}
+
 /** The numbered items among `lines`, each with the indented lines under it. */
 function items(lines: { line: string }[]): Question[] {
 	const found: { asked: Question; body: string[] }[] = [];
@@ -388,8 +396,9 @@ const STEP = /^[ \t]*- \[ \][ \t]*(.*)$/;
 
 /**
  * The questions and steps a plan leaves unchecked. Nothing in either means the
- * task is ready to merge: `splates merge` lands it, and `splates escalate --review`
- * asks a person to look first. A task with no plan has nothing left.
+ * task is ready to merge: `splates merge` lands it, or its agent's Ready to
+ * merge report asks a person to look first. A task with no plan has nothing
+ * left.
  */
 export function unfinished(text: string): Unfinished {
 	const md = Markdown.parse(text);
@@ -517,13 +526,6 @@ function sectionLines(
 export interface PlanOptions {
 	/** The task name the title is expected to match. */
 	task: string;
-	/**
-	 * Whether the task has escalated, which makes `## Blocked` required unless
-	 * it escalated for a review.
-	 */
-	escalated?: boolean;
-	/** Whether the escalation asks only to approve merging. */
-	review?: boolean;
 }
 
 /**
@@ -532,10 +534,7 @@ export interface PlanOptions {
  * plan is the point, and a malformed one still beats none, so nothing here
  * blocks a merge.
  */
-export function checkPlan(
-	text: string,
-	{ task, escalated = false, review = false }: PlanOptions,
-): string[] {
+export function checkPlan(text: string, { task }: PlanOptions): string[] {
 	const md = Markdown.parse(text);
 	const problems: string[] = [];
 	const section = (name: string) =>
@@ -557,25 +556,9 @@ export function checkPlan(
 		problems.push("## Goal is empty: say in a line or two what done means");
 	}
 	const blocked = section("Blocked");
-	// A review asks only to approve merging, which needs no question.
-	if (escalated && !review && blocked === null) {
-		problems.push(
-			"escalated with no ## Blocked section: add `- [ ] 1.` items for what the reviewer must do",
-		);
-	}
 	if (blocked !== null && !QUESTION.test(blocked)) {
 		problems.push(
-			"## Blocked lists nothing: add `- [ ] 1.` items for what the reviewer must do",
-		);
-	}
-	// Answered and unchecked is a follow-up to act on; unanswered needs a person.
-	const open = questions(text).filter(
-		(asked) => !asked.done && asked.reply === null,
-	);
-	if (!escalated && open.length > 0) {
-		const numbers = open.map((asked) => asked.number).join(", ");
-		problems.push(
-			`## Blocked has open questions ${numbers}: ask the reviewer before merging`,
+			"## Blocked lists nothing: add `- [ ] 1.` items for what the user must answer",
 		);
 	}
 	const numbers = questions(text).map((item) => item.number);

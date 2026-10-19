@@ -54,7 +54,8 @@ describe("ONE_TASK_STORE", () => {
 		expect(alpha.state).toMatchObject({
 			id: 4,
 			task: "alpha",
-			status: "escalated",
+			// Escalated before escalating was retired, so at work again.
+			status: "working",
 			createdAt: "2026-10-01T00:00:00.000Z",
 			mergeAttempts: 2,
 		});

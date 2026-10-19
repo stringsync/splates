@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { chmod } from "node:fs/promises";
+import { chmod, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OpenPortProvider } from "webappwiz/system";
@@ -237,17 +237,24 @@ describe("dev projects", () => {
 
 	it("counts the agents waiting on the person in each project, opened or not", async () => {
 		await using other = await another();
-		const escalate = async (project: typeof other, task: string) => {
+		// Its agent, outside the page, went quiet an hour ago on a question.
+		const asking = async (project: typeof other, task: string) => {
 			await add(project, task);
-			await (await project.service.find(task)).save({
-				status: "escalated",
-				escalations: [
-					{ reason: "needs a human", at: new Date().toISOString() },
-				],
+			const found = await project.service.find(task);
+			const plan = `${found.path}/SPLATES.md`;
+			await project.fs.write(
+				plan,
+				`# ${task}\n\n## Goal\n\nship it\n\n## Blocked\n\n- [ ] 1. Which way?\n`,
+			);
+			const ago = new Date(Date.now() - 3_600_000);
+			await utimes(plan, ago, ago);
+			await project.service.saveRecord({
+				...(found.state as NonNullable<typeof found.state>),
+				updatedAt: ago.toISOString(),
 			});
 		};
-		await escalate(other, "beta");
-		await escalate(other, "gamma");
+		await asking(other, "beta");
+		await asking(other, "gamma");
 		await add(other, "delta");
 
 		await serving(deps, async (_, port) => {
@@ -262,7 +269,7 @@ describe("dev projects", () => {
 				["repo-2", 2],
 			]);
 
-			await escalate(deps, "alpha");
+			await asking(deps, "alpha");
 			expect(await waiting()).toEqual([
 				["repo", 1],
 				["repo-2", 2],

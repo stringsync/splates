@@ -2,14 +2,14 @@ import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
-import { add, claim, escalate, remove, retry } from "../tasks";
+import { add, claim, remove, retry } from "../tasks";
 import { Testing } from "../testing";
 
 // Real git in a repo of its own, as in merge.test.ts.
 setDefaultTimeout(30_000);
 
 describe.concurrent("outcomes", () => {
-	it("writes down a merged task's rounds and failed merges, past a retry", async () => {
+	it("writes down a merged task's failed merges, past a retry", async () => {
 		await using deps = await Testing.open();
 		deps.config.mergeRetryCount = 1;
 		await add(deps, "alpha");
@@ -17,14 +17,9 @@ describe.concurrent("outcomes", () => {
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
 
-		await escalate(deps, "which name?", worktree);
-		await claim(deps, "alpha");
 		deps.config.preMerge = "exit 1";
 		await expect(merge(deps, worktree)).toBail("tests_failed");
-		await escalate(deps, "the gate keeps failing", worktree);
 		await retry(deps, "alpha");
-		await claim(deps, "alpha");
-		await escalate(deps, "look at the diff", worktree, { review: true });
 		await claim(deps, "alpha");
 		deps.config.preMerge = "true";
 		await merge(deps, worktree);
@@ -35,8 +30,8 @@ describe.concurrent("outcomes", () => {
 				task: "alpha",
 				base: "main",
 				ended: "merged",
-				questionRounds: 2,
-				reviewRounds: 1,
+				questionRounds: 0,
+				reviewRounds: 0,
 				failedMerges: 1,
 				conversation: null,
 				agent: null,
@@ -45,7 +40,31 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
-	it("writes down the picks overturned, failures by reason, the wait and the commits landed", async () => {
+	it("counts the turns that asked the person, and how long each waited, off its conversation", async () => {
+		await using deps = await Testing.open();
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
+		const worktree = await committed(deps, "one\n");
+		const at = await stepsFromStart(deps);
+		await logged(deps, [
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("Which name?\n\n1. Which name?\n   - (a) gain (chosen)", at(1)),
+			{ kind: "prompt", text: "a", at: at(3) },
+			said(
+				'## 🔍 Ready to merge alpha onto main\n\nIt adds gain.\n\nReply "merge", or say what to change.',
+				at(4),
+			),
+			{ kind: "prompt", text: "merge", at: at(6) },
+		]);
+
+		await Bun.sleep(80);
+		await merge(deps, worktree);
+
+		expect(await deps.outcomes.list()).toMatchObject([
+			{ questionRounds: 1, reviewRounds: 1, waitedMs: 40 },
+		]);
+	});
+
+	it("writes down the picks overturned, failures by reason and the commits landed", async () => {
 		await using deps = await Testing.open();
 
 		await add(deps, "alpha");
@@ -85,18 +104,8 @@ describe.concurrent("outcomes", () => {
 				"",
 			].join("\n"),
 		);
-		await escalate(deps, "which name?", worktree);
-		await claim(deps, "alpha");
-		const resumed = (await deps.service.find("alpha")).state?.escalations;
 		await merge(deps, worktree);
 
-		expect(resumed).toEqual([
-			{
-				reason: "which name?",
-				at: expect.any(String),
-				resumedAt: expect.any(String),
-			},
-		]);
 		const [outcome] = await deps.outcomes.list();
 		expect(outcome).toMatchObject({
 			failedMerges: 1,
@@ -220,7 +229,6 @@ describe.concurrent("outcomes", () => {
 		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
-		await escalate(deps, "the gate keeps failing", worktree);
 		await retry(deps, "alpha");
 		await claim(deps, "alpha");
 		deps.config.preMerge = "true";

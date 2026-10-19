@@ -157,7 +157,16 @@ export class TaskStore {
 }
 
 function parse(raw: string): StoredTask | null {
-	return decodeTask(raw) as StoredTask | null;
+	const stored = decodeTask(raw) as StoredTask | null;
+	// Records from before escalating was retired can still say `escalated`,
+	// which is a task at work like any other now.
+	if (
+		stored !== null &&
+		(stored.status as string | undefined) === "escalated"
+	) {
+		stored.status = "working";
+	}
+	return stored;
 }
 
 /** Every field `Started` adds, so each view of a record takes only its own. */

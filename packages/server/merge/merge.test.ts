@@ -535,7 +535,7 @@ describe.concurrent("merge", () => {
 
 		await deps.finish(worktree.path);
 		await expect(merge(deps, worktree.path)).toBail("budget_exhausted", {
-			message: "splates escalate",
+			message: "splates retry alpha",
 		});
 	});
 

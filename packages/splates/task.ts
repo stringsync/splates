@@ -238,7 +238,7 @@ splatesTask
 	.command("wait")
 	.use(repository({ needs: "read" }))
 	.description(
-		"block until a task leaves the queue, which it does when the task that took it merges: for a task blocked by one another lane is on; ends early when that task is escalated, and gives up with `timeout`",
+		"block until a task leaves the queue, which it does when the task that took it merges: for a task blocked by one another lane is on; ends early when that task waits on a person to answer its questions, and gives up with `timeout`",
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.option("timeout-secs", z.coerce.number(), {

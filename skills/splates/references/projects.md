@@ -16,7 +16,7 @@ this project:
   update`, `task remove`, `lane` and `queue`.
 
 You never start or take a task in another project yourself: you do not
-`add`, `claim`, merge or escalate one there. Queue it, and that project's
+`add`, `claim`, merge or remove one there. Queue it, and that project's
 queue starts it. A command that needs more than the project granted stops
 on `not_granted`; never `cd` there to get around it, which is checked the
 same way.

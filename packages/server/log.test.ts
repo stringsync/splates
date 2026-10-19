@@ -137,20 +137,20 @@ describe("log", () => {
 				"claim",
 				"a",
 				() => Promise.reject(new Exit("not_found", "gone")),
-				(out: { escalated: boolean; tookOver: boolean; goal: string }) => out,
+				(out: { tookOver: boolean; goal: string }) => out,
 			),
 		).toBail("not_found");
 		await deps.journal.record(
 			"claim",
 			"a",
-			async () => ({ escalated: true, tookOver: false, goal: "" }),
+			async () => ({ tookOver: false, goal: "ship it" }),
 			(out) => out,
 		);
 
 		const [add, refused, claimed] = await deps.journal.tail(3);
 		expect(add).toMatchObject({ action: "add", reason: "exists", ...asked });
-		expect(refused).not.toHaveProperty("escalated");
-		expect(claimed).toMatchObject({ action: "claim", escalated: true });
+		expect(refused).not.toHaveProperty("goal");
+		expect(claimed).toMatchObject({ action: "claim", goal: "ship it" });
 	});
 
 	it("leaves out an event recorded before its action had the facts it has now", async () => {

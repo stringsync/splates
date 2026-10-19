@@ -512,9 +512,7 @@ function Facts({
 		<section aria-label="about the task" className="flex min-w-0 flex-col">
 			<h2 className={HEADING}>Task</h2>
 			<DialogDescription className="text-foreground">
-				{task.review === null
-					? (task.escalation ?? task.status)
-					: `Ready to merge: ${task.review}`}
+				{task.status}
 			</DialogDescription>
 			<div className="mt-1 flex min-w-0 flex-col gap-0.5 text-muted-foreground text-xs tabular-nums">
 				<p className="flex min-w-0 flex-wrap gap-x-1">

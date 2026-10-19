@@ -73,19 +73,10 @@ describe("splates cli", () => {
 		).toBe(1);
 	});
 
-	// scry-ignore simple-test-setup: the escalated task is what numbers the queued task after it, which this case checks.
-	it("escalates a task and edits its queued tasks", async () => {
+	// scry-ignore simple-test-setup: the started task is what numbers the queued task after it, which this case checks.
+	it("edits the queued tasks added beside a started one", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
-		const worktree = await env.service.find("alpha");
-		await env.fs.write(
-			join(worktree.path, "SPLATES.md"),
-			"# alpha\n\n## Blocked\n\n- [ ] 1. Open it.\n",
-		);
 		await env.fs.write(join(env.root, "a.png"), "a");
-		env.ps.cd(worktree.path);
-		await splates.run(deps, ["escalate", "needs a person"]);
-
-		env.ps.cd(env.root);
 		await splates.run(deps, [
 			"task",
 			"add",
@@ -120,29 +111,8 @@ describe("splates cli", () => {
 		await splates.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(entries.map((entry: { action: string }) => entry.action)).toContain(
-			"escalate",
+			"task update",
 		);
-	});
-
-	it("asks for a review from the command line", async () => {
-		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
-		const worktree = await env.service.find("alpha");
-		await env.finish(worktree.path);
-		const plan = await env.fs.read(join(worktree.path, "SPLATES.md"));
-
-		await splates.run(deps, [
-			"escalate",
-			"check the header",
-			"--task",
-			"alpha",
-			"--review",
-		]);
-
-		expect(
-			(await env.service.find("alpha")).state?.escalations?.at(-1),
-		).toMatchObject({ reason: "check the header", review: true });
-		// A review is a state, not a question.
-		expect(await env.fs.read(join(worktree.path, "SPLATES.md"))).toBe(plan);
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {

@@ -203,17 +203,15 @@ describe("App's composer drafts", () => {
 			[asking, held[1] as ConversationState],
 			"c1",
 		);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "Note" }), {
-				target: { value: "the second one" },
-			}),
-		);
+		const note = () =>
+			within(view.getByRole("listitem", { name: "question 1" })).getByRole(
+				"textbox",
+			);
+		await typeIn(note(), "the second one");
 
 		await openRow(view, "Tidy tests");
 		await openRow(view, "Fix login");
 
-		expect(
-			(view.getByRole("textbox", { name: "Note" }) as HTMLInputElement).value,
-		).toBe("the second one");
+		expect(textIn(note())).toBe("the second one");
 	});
 });

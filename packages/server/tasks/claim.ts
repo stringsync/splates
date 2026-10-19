@@ -7,8 +7,7 @@ import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * The resume entry point: a fresh agent thread picking up existing work. An
- * escalated task goes back to `working`, since someone is on it again; its
+ * The resume entry point: a fresh agent thread picking up existing work. Its
  * merge budget stays as it was, which only `retry` refills.
  */
 export async function claim(
@@ -24,7 +23,7 @@ export async function claim(
 		branches: TaskBranches;
 	},
 	task: string,
-): Promise<{ escalated: boolean; goal: string }> {
+): Promise<{ goal: string }> {
 	let found = await service.find(task);
 
 	if (found.gone) {
@@ -68,26 +67,7 @@ export async function claim(
 	// A worktree with no readable record is still work: `save` writes a fresh
 	// one rather than refusing the resume.
 	const rebuilt = found.state === null;
-	const escalated = found.status === "escalated";
-	// The person answered, or someone took it back up: either way the wait
-	// on them ends here.
-	const escalations = found.state?.escalations ?? [];
-	const waiting = escalations.at(-1);
-	const worktree = await found.take(
-		escalated
-			? {
-					status: "working",
-					...(waiting && !waiting.resumedAt
-						? {
-								escalations: [
-									...escalations.slice(0, -1),
-									{ ...waiting, resumedAt: new Date().toISOString() },
-								],
-							}
-						: {}),
-				}
-			: {},
-	);
+	const worktree = await found.take({});
 
 	const interrupted = await worktree.interruptedOps();
 	const changes = await worktree.uncommitted();
@@ -95,7 +75,7 @@ export async function claim(
 		`${color.green("claimed")} ${worktree.task}`,
 		`  worktree: ${worktree.path}`,
 		`  branch:   ${worktree.branch}`,
-		`  status:   ${worktree.status}${escalated ? " (was escalated)" : ""}`,
+		`  status:   ${worktree.status}`,
 		`  attempts: ${worktree.mergeAttempts}`,
 	];
 	if (rebuilt) {
@@ -115,7 +95,7 @@ export async function claim(
 	log.info(lines.join("\n"));
 	// What the page shows as the task the conversation is now on.
 	const plan = (await new Plans(fs).read(worktree.path)) ?? "";
-	return { escalated, goal: goalOf(plan) };
+	return { goal: goalOf(plan) };
 }
 
 /** Refuses a task another agent holds the lease on. */

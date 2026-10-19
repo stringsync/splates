@@ -132,7 +132,7 @@ export async function merge(
 		}
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`splates escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`splates retry ${task}\`; or \`splates remove ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: ask the user, who can grant another ${config.mergeRetryCount} with \`splates retry ${task}\`, or \`splates remove ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
@@ -149,7 +149,7 @@ export async function merge(
 	if (!ready(left)) {
 		fail(
 			"blocked",
-			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and check it off, or \`splates task add\` it and drop it; then merge again`,
+			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or ask the user and end your turn; finish each step and check it off, or \`splates task add\` it and drop it; then merge again`,
 			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
@@ -245,7 +245,7 @@ export async function merge(
 						"",
 						"The rebase is still in progress. Resolve the conflicts, `git add` them,",
 						"`git rebase --continue`, then run `splates merge` again.",
-						"If both sides restructured the same logic, prefer `splates escalate <reason>`",
+						"If both sides restructured the same logic, ask the user how to combine them,",
 						`or \`splates remove ${task}\` and redo the task against current ${base}.`,
 					].join("\n")
 				: [

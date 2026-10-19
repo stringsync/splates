@@ -49,13 +49,33 @@ describe("skill checks", () => {
 				run("splates remove old --reason moot", "removed old"),
 				say("## 🛑 Removed old: moot after the rewrite"),
 				user(),
-				run("splates escalate --review 'look'", "escalated next"),
-				say("## 🔍 Ready to merge next onto main"),
-				user(),
-				run("splates escalate 'two calls'", "escalated last"),
-				say("## ⚠️ Escalated last: needs two calls"),
+				say(
+					'## 🔍 Ready to merge next onto main\n\nChecks: `bun test`\n\nReply "merge", or say what to change.',
+				),
 			]),
-		).toEqual([true, true, true, true]);
+		).toEqual([true, true, true]);
+	});
+
+	it("report-title: fails a review titled otherwise or missing its last line", () => {
+		expect(
+			verdicts("report-title", [
+				user(),
+				say(
+					'Done.\n\n## 🔍 Ready to merge next onto main\n\nReply "merge", or say what to change.',
+				),
+				user(),
+				say("## 🔍 Ready to merge next onto main\n\nShall I merge?"),
+			]),
+		).toEqual([false, false]);
+	});
+
+	it("report-title: asks no title of a turn that ends on questions", () => {
+		expect(
+			verdicts("report-title", [
+				user(),
+				say("The board can mark a stale task.\n\n1. How should it look?"),
+			]),
+		).toEqual([]);
 	});
 
 	it("report-title: fails a report that is not titled, or ends on a full stop", () => {
@@ -98,7 +118,7 @@ describe("skill checks", () => {
 			verdicts("numbered-questions", [
 				user(),
 				say(
-					"## ⚠️ Escalated x: needs calls\n\n> **Which one?**\n\n```\nwhy?\n```\n\n1. What cap?\n2. What then?\n   - (a) Stop (chosen)",
+					"Two calls left.\n\n> **Which one?**\n\n```\nwhy?\n```\n\n1. What cap?\n2. What then?\n   - (a) Stop (chosen)",
 				),
 			]),
 		).toEqual([true]);

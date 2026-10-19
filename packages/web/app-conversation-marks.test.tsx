@@ -90,7 +90,7 @@ Cap upload retries
 		]);
 	});
 
-	it("marks a conversation whose task merged green and one removed red until the person carries on, and one that escalated as waiting on you", async () => {
+	it("marks a conversation whose task merged green and one removed red until the person carries on, and one that asks as waiting on you", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({
@@ -125,7 +125,7 @@ Cap upload retries
 					messages: [
 						message(
 							"agent",
-							"## ⚠️ Escalated sidebar: needs a call\n\nIt folds.",
+							"It folds, once you pick how.\n\n1. Which way should it fold?",
 						),
 					],
 				}),
@@ -135,9 +135,7 @@ Cap upload retries
 				tasks: [
 					details({
 						task: "alpha",
-						status: "escalated",
-						escalation: "needs a call",
-						escalatedAt: "2026-10-11T10:00:00.000Z",
+						plan: "# alpha\n\n## Blocked\n\n- [ ] 1. Which way should it fold?\n",
 					}),
 				],
 			},
@@ -233,7 +231,7 @@ Cap upload retries
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", name: "Fix login" })],
 			null,
-			{ tasks: [details({ task: "alpha", status: "escalated" })] },
+			{ tasks: [details({ task: "alpha" })] },
 		);
 		await openRow(view, "Fix login");
 
@@ -245,7 +243,15 @@ Cap upload retries
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Asks", status: "running", ask })],
 			null,
-			{ tasks: [details({ task: "beta", status: "escalated" })] },
+			{
+				tasks: [
+					details({
+						task: "beta",
+						activeAt: "2026-10-11T10:00:00.000Z",
+						plan: "# beta\n\n## Blocked\n\n- [ ] 1. Which way?\n",
+					}),
+				],
+			},
 		);
 
 		expect(

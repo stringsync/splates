@@ -95,7 +95,9 @@ describe("search", () => {
 				details({
 					task: "stuck",
 					createdAt: "2026-01-01",
-					escalation: "needs a call",
+					// Its agent went quiet on an open question long ago.
+					activeAt: "2026-01-01T00:00:00.000Z",
+					plan: "# t\n\n## Blocked\n\n- [ ] 1. Which way?\n",
 				}),
 			],
 			conversations: [

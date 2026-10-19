@@ -2,7 +2,8 @@ import { Markdown } from "webappwiz/md";
 import { Duration } from "webappwiz/time";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../tasks";
-import { goalLine, type Question, questions, STUB_STEPS } from "./plan";
+import { stretches } from "./asked";
+import { goalLine, openQuestions, type Question, STUB_STEPS } from "./plan";
 
 /**
  * What an agent needs from the person, by how much it costs to leave it:
@@ -14,8 +15,8 @@ export type Need =
 			kind: "waiting";
 			why: Why;
 			/**
-			 * What to act on: the ask, what a review asks you to look at, the
-			 * first open question, or the failure.
+			 * What to act on: the ask, the review's summary, the first open
+			 * question, or the failure.
 			 */
 			subject: string;
 			/** When it stopped, where that is known. */
@@ -57,9 +58,12 @@ export interface Needing {
 export function needs({
 	tasks,
 	conversations,
+	now = Date.now(),
 }: {
 	tasks: Details[];
 	conversations: ConversationState[];
+	/** What an external agent's quiet is measured to: see `ASKED_QUIET`. */
+	now?: number;
 }): Needing[] {
 	const live = tasks.filter(isLive);
 	const found: Needing[] = [
@@ -70,7 +74,7 @@ export function needs({
 					live.find((each) => each.task === conversation.task) ?? null;
 				return { conversation, task, need: need(task, conversation) };
 			}),
-		...externals(tasks, conversations),
+		...externals(tasks, conversations, now),
 	];
 	// Stable, so equals keep the order they came in.
 	return answeredThrough(found, conversations).sort(
@@ -81,23 +85,18 @@ export function needs({
 }
 
 /**
- * Why an agent waits: a live ACP ask (a permission or a form), a review it
- * escalated for, any other escalation, open questions it ended its turn on,
- * a failure, or for a task, no agent left on it (see `abandoned`).
+ * Why an agent waits: a live ACP ask (a permission or a form), a review its
+ * last reply asked for, open questions it ended its turn on (or for an
+ * external agent, went quiet on), a failure, or for a task, no agent left on
+ * it (see `abandoned`).
  */
-export type Why =
-	| "ask"
-	| "review"
-	| "escalated"
-	| "questions"
-	| "failed"
-	| "abandoned";
+export type Why = "ask" | "review" | "questions" | "failed" | "abandoned";
 
 const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
 
 /** Whether a task is under way, so an agent may yet need something for it. */
 function isLive(task: Details): boolean {
-	return ["working", "merging", "escalated"].includes(task.status);
+	return ["working", "merging"].includes(task.status);
 }
 
 /**
@@ -108,6 +107,7 @@ function isLive(task: Details): boolean {
 export function externals(
 	tasks: Details[],
 	conversations: ConversationState[],
+	now: number = Date.now(),
 ): Needing[] {
 	const listed = conversations.filter((each) => !each.archived);
 	return tasks
@@ -120,7 +120,7 @@ export function externals(
 		.map((task) => ({
 			conversation: null,
 			task,
-			need: needOfExternal(task, conversations),
+			need: needOfExternal(task, conversations, now),
 		}));
 }
 
@@ -128,12 +128,13 @@ export function externals(
 export function needOfExternal(
 	task: Details,
 	conversations: ConversationState[],
+	now: number = Date.now(),
 ): Need {
+	const asked = need(task, null, now);
 	const left = abandoned(task, conversations);
 	if (left === null) {
-		return need(task, null);
+		return asked;
 	}
-	const asked = need(task, null);
 	return {
 		kind: "waiting",
 		why: "abandoned",
@@ -174,6 +175,13 @@ export function abandoned(
 export const QUIET_AFTER = Duration.mins(30);
 
 /**
+ * How long an external agent goes without a sign of work on its task, with
+ * questions open, before it is taken to wait on their answers: it has ended
+ * its turn on them, as a page conversation shows outright.
+ */
+export const ASKED_QUIET = Duration.mins(3);
+
+/**
  * When an external agent's task last showed a sign of its agent at work, once
  * that is `QUIET_AFTER` ago at `now`; null while it has lately, or nothing
  * says. Only an agent taken to be at work goes quiet: one that waits on the
@@ -193,17 +201,14 @@ export function quietSince(
 
 /**
  * What one agent needs, from its conversation (null for an agent the page
- * does not run) and the task it is in (null for the main tree).
+ * does not run) and the task it is in (null for the main tree), at `now`.
  */
 export function need(
 	task: Details | null,
 	conversation: ConversationState | null,
+	now: number = Date.now(),
 ): Need {
-	const open = task?.plan
-		? questions(task.plan).filter(
-				(asked) => !asked.done && asked.reply === null,
-			)
-		: [];
+	const open = task?.plan ? openQuestions(task.plan) : [];
 	const waiting = (
 		why: Why,
 		subject: string,
@@ -218,43 +223,66 @@ export function need(
 			ask.at,
 		);
 	}
-	// A reply starts the agent's turn before it claims the task back.
-	const replied =
-		conversation?.status === "running" || conversation?.status === "starting";
-	if (task?.status === "escalated" && !replied) {
-		if (task.review !== null) {
-			return waiting("review", task.review, task.escalatedAt);
-		}
-		return waiting(
-			"escalated",
-			open[0]?.text ?? task.escalation ?? "Escalated",
-			task.escalatedAt,
-		);
-	}
 	if (conversation?.status === "failed") {
 		return waiting("failed", conversation.error ?? "Failed");
 	}
-	// An agent the page does not run is taken to be at work on its task.
-	const running =
-		conversation === null ||
-		conversation.status === "running" ||
-		conversation.status === "starting";
 	const [first] = open;
-	if (first !== undefined) {
-		return running
+	if (conversation === null) {
+		// An agent the page does not run is taken to be at work on its task,
+		// until it goes quiet with questions open.
+		const at = task?.activeAt ?? null;
+		if (
+			first !== undefined &&
+			at !== null &&
+			now - Date.parse(at) >= ASKED_QUIET.ms
+		) {
+			return waiting("questions", first.text, at);
+		}
+		return first !== undefined
 			? { kind: "assuming", subject: first.text, questions: open }
-			: waiting("questions", first.text);
+			: { kind: "working", subject: task?.plan ? doing(task.plan) : null };
 	}
-	return running
-		? { kind: "working", subject: task?.plan ? doing(task.plan) : null }
-		: { kind: "idle" };
+	const running =
+		conversation.status === "running" || conversation.status === "starting";
+	if (running) {
+		return first !== undefined
+			? { kind: "assuming", subject: first.text, questions: open }
+			: { kind: "working", subject: task?.plan ? doing(task.plan) : null };
+	}
+	const last = conversation.messages.at(-1);
+	const ended = last?.until ?? last?.at ?? null;
+	if (first !== undefined) {
+		return waiting("questions", first.text, ended);
+	}
+	const review = reviewIn(conversation);
+	return review !== null ? waiting("review", review, ended) : { kind: "idle" };
+}
+
+/**
+ * The summary of the review the agent's last reply asks for, when that
+ * reply is its last word and holds one; null otherwise.
+ */
+function reviewIn(conversation: ConversationState): string | null {
+	const last = conversation.messages.at(-1);
+	if (last?.role !== "agent") {
+		return null;
+	}
+	const text = last.parts
+		.flatMap((part) => (part.type === "text" ? [part.text] : []))
+		.join("\n\n");
+	for (const stretch of stretches(text)) {
+		if (stretch.type === "review") {
+			return stretch.review.summary || "Ready to merge";
+		}
+	}
+	return null;
 }
 
 /**
  * `found` with each agent that answers to another conversation waiting on
  * that one rather than on the person: only the person answers its asks, so
  * one waits on that one's row, where they show, whatever it is doing; its
- * escalations reach the person through that one's reports, so one waits on
+ * questions reach the person through that one's reports, so one waits on
  * that one's row once it is idle, having relayed it, naming the agent, and
  * while it works on regardless, that one goes ahead with them owed, as an
  * assuming agent does. A failure stays the agent's own, since nothing tells
@@ -270,7 +298,7 @@ export function answeredThrough(
 		handedOut(entry) !== null &&
 		entry.need.kind === "waiting" &&
 		entry.need.why !== "failed";
-	// An ask before an escalation, as the agent is stuck mid-turn on it.
+	// An ask before any other wait, as the agent is stuck mid-turn on it.
 	const lifted = new Map<string, Need>();
 	for (const entry of found
 		.filter(relayed)

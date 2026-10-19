@@ -17,7 +17,7 @@ describe("taskEventsOf", () => {
 		]);
 	});
 
-	it("names the started task a merge, escalation or start is about", () => {
+	it("names the started task a merge or start is about", () => {
 		const merged = event({
 			action: "merge",
 			task: "totals",

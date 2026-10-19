@@ -41,12 +41,7 @@ see the header
   - (b) Migrate each on its next request (chosen)
 `;
 
-	const escalated = details({
-		task: "beta",
-		status: "escalated",
-		escalation: "needs a call",
-		plan: BLOCKED,
-	});
+	const asking = details({ task: "beta", plan: BLOCKED });
 
 	const openBeta = async (view: Awaited<ReturnType<Testing["open"]>>) => {
 		await act(async () =>
@@ -61,7 +56,7 @@ see the header
 	};
 
 	it("shows a task's whole plan, Blocked and all, each question's number beside its box", async () => {
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
 		expect(dialog.textContent).toContain("see the header");
@@ -96,7 +91,7 @@ see the header
 				remote: null,
 			},
 		];
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
 		const ports = await waitFor(() =>
@@ -120,7 +115,7 @@ see the header
 				remote: "https://beta-5173.ports.example.com",
 			},
 		];
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const was = location.href;
 		setURL("https://splates.example.com/");
 		try {
@@ -144,7 +139,7 @@ see the header
 	});
 
 	it("answers a task's open questions from its action bar in the dialog when the page runs no conversations", async () => {
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
 		await act(async () =>
@@ -165,7 +160,7 @@ see the header
 
 	it("goes from a task's open questions to its external agent's view to answer them", async () => {
 		testing.talk = { agents: [], conversations: [] };
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
 		await act(async () =>
@@ -188,7 +183,7 @@ see the header
 			agents: [],
 			conversations: [conversation({ id: "c1", task: "beta" })],
 		};
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 
 		// toBeNull passes on an element here, so count them instead.
@@ -198,7 +193,7 @@ see the header
 	});
 
 	it("keeps the open task in the address, and opens the one it names", async () => {
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		await openBeta(view);
 		expect(location.hash).toBe("#tasks/beta");
 
@@ -232,7 +227,7 @@ see the header
 			conversations: [conversation({ id: "c1", task: "beta", status: "idle" })],
 		};
 		const view = await testing.openTasks({
-			tasks: [{ ...escalated, ahead: 0 }],
+			tasks: [{ ...asking, ahead: 0 }],
 		});
 		const dialog = await openBeta(view);
 
@@ -255,7 +250,7 @@ see the header
 				conversation({ id: "c1", task: "beta", status: "running" }),
 			],
 		};
-		const view = await testing.openTasks({ tasks: [escalated] });
+		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
 		const remove = () =>
 			act(async () =>
@@ -297,7 +292,7 @@ see the header
 	it("asks before removing a task with commits its base lacks, saying how many go", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.openTasks({
-			tasks: [{ ...escalated, ahead: 2 }],
+			tasks: [{ ...asking, ahead: 2 }],
 		});
 		const dialog = await openBeta(view);
 
@@ -318,7 +313,7 @@ see the header
 	it("asks before removing a task an external agent holds, saying the page cannot stop it", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.openTasks({
-			tasks: [{ ...escalated, lease: "held" }],
+			tasks: [{ ...asking, lease: "held" }],
 		});
 		const dialog = await openBeta(view);
 

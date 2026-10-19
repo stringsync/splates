@@ -53,7 +53,7 @@ heavy, such as a test suite an agent runs mid-task, in a slot too.
 
 **Pushing.** With `remote: "origin"` in `splates.config.ts`, each task's
 branch goes to that remote as `splates/<task>`: after every commit an agent
-makes under `splates server`, at `splates checkpoint`, escalation and handoff,
+makes under `splates server`, at `splates checkpoint` and handoff,
 and it is deleted once the task merges or is removed. `splates checkpoint`
 commits uncommitted work first, as a `WIP: checkpoint` commit squashed before
 merging. A branch that tracks `SPLATES.md` is never pushed or merged. With the
@@ -107,10 +107,10 @@ step checked against GitHub:
 
 4. `github-push`: add `remote: "origin"` to `splates.config.ts` and merge it.
 
-**Escalating.** When an agent needs you (a decision, access, a review, or
-merges that keep failing), it runs `splates escalate`: it stops, leaves its
-worktree as it is, and writes down its questions. You answer, and it picks up
-where it left off.
+**Questions.** When an agent needs you (a decision, access, a review, or
+merges that keep failing), it writes its questions under `## Blocked` in the
+task's `SPLATES.md`, asks them in its reply and ends its turn, leaving its
+worktree as it is. You answer, and it picks up where it left off.
 
 ## The harness
 

@@ -286,8 +286,9 @@ export function useCopiedReplies(drafts: Drafts): void {
 }
 
 /**
- * The cards an agent waits on you through, newest last: its questions, an
- * escalation, a review, or a live ask.
+ * The cards an agent waits on you through, newest last: its questions, a
+ * review, a live ask, or in a conversation from before escalating was
+ * retired, an escalation.
  */
 const WAITING_CARDS = [
 	'section[aria-label="questions for you"]',
@@ -398,33 +399,22 @@ export function TaskLine({
 }
 
 /**
- * What the page knows of the agent that its SPLATES.md does not say: why it
- * stopped, and how much it has changed so far.
+ * What the page knows of the agent that its SPLATES.md does not say: how
+ * much it has changed so far.
  */
 function Agent({ task }: { task: Details }): JSX.Element {
-	const said =
-		task.review !== null
-			? `Ready to merge: ${task.review}`
-			: task.escalation === null
-				? null
-				: `Escalated: ${task.escalation}`;
 	return (
-		<div className="flex flex-col gap-2">
-			{said !== null && (
-				<p className="rounded-lg border bg-muted/40 px-3 py-2">{said}</p>
+		<p className="text-muted-foreground text-xs tabular-nums">
+			{task.ahead ?? "?"} commit{task.ahead === 1 ? "" : "s"}
+			{task.added !== null && (
+				<>
+					{" · "}
+					<span className="text-success">+{task.added}</span>{" "}
+					<span className="text-destructive">-{task.removed ?? 0}</span>
+				</>
 			)}
-			<p className="text-muted-foreground text-xs tabular-nums">
-				{task.ahead ?? "?"} commit{task.ahead === 1 ? "" : "s"}
-				{task.added !== null && (
-					<>
-						{" · "}
-						<span className="text-success">+{task.added}</span>{" "}
-						<span className="text-destructive">-{task.removed ?? 0}</span>
-					</>
-				)}
-				{task.age !== null && ` · started ${task.age} ago`}
-			</p>
-		</div>
+			{task.age !== null && ` · started ${task.age} ago`}
+		</p>
 	);
 }
 

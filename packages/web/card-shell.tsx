@@ -145,6 +145,7 @@ export const ENDINGS: Record<
 > = {
 	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	// From before escalating was retired.
 	escalated: {
 		title: "Escalated",
 		Icon: TriangleAlertIcon,

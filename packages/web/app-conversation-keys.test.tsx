@@ -43,7 +43,15 @@ describe("App's sidebar keys", () => {
 				conversation({ id: "c4", title: "Fourth", status: "running" }),
 			]),
 			null,
-			{ tasks: [details({ task: "beta", status: "escalated" })] },
+			{
+				tasks: [
+					details({
+						task: "beta",
+						activeAt: "2026-10-11T10:00:00.000Z",
+						plan: "# beta\n\n## Blocked\n\n- [ ] 1. Which way?\n",
+					}),
+				],
+			},
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
 		const keys = () =>
@@ -97,7 +105,15 @@ describe("App's sidebar keys", () => {
 				conversation({ id: "c2", title: "Second" }),
 			]),
 			null,
-			{ tasks: [details({ task: "beta", status: "escalated" })] },
+			{
+				tasks: [
+					details({
+						task: "beta",
+						activeAt: "2026-10-11T10:00:00.000Z",
+						plan: "# beta\n\n## Blocked\n\n- [ ] 1. Which way?\n",
+					}),
+				],
+			},
 		);
 		const press = (code: string) =>
 			act(async () =>

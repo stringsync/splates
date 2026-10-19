@@ -4,7 +4,6 @@ import { ROSTERED } from "../agents/testing";
 import { Testing } from "../testing";
 import { add } from "./add";
 import { claim } from "./claim";
-import { escalate } from "./escalate";
 import { show } from "./show";
 
 describe("show", () => {
@@ -113,40 +112,6 @@ describe("show", () => {
 		await show(deps, "alpha", { json: true });
 
 		expect(JSON.parse(deps.out()).activeAt).toBe(later.toISOString());
-	});
-
-	it("says a task waiting on approval is ready to merge, and what to look at", async () => {
-		await add(deps, "alpha");
-		const alpha = (await deps.service.find("alpha")).path;
-		await deps.finish(alpha);
-		await escalate(deps, "drag a task on the board", alpha, { review: true });
-		deps.log.clear();
-
-		await show(deps, "alpha", { json: true });
-
-		const details = JSON.parse(deps.out());
-		expect(details).toMatchObject({
-			status: "escalated",
-			review: "drag a task on the board",
-			ready: true,
-		});
-		// A review asks no question, so it leaves no ## Blocked behind.
-		expect(details.planProblems.join("\n")).not.toContain("## Blocked");
-	});
-
-	it("says when a task escalated, only while it is", async () => {
-		await add(deps, "alpha");
-		const alpha = (await deps.service.find("alpha")).path;
-		deps.log.clear();
-		await show(deps, "alpha", { json: true });
-		expect(JSON.parse(deps.out()).escalatedAt).toBeNull();
-
-		await escalate(deps, "needs a human", alpha);
-		deps.log.clear();
-		await show(deps, "alpha", { json: true });
-
-		const { escalatedAt } = JSON.parse(deps.out());
-		expect(Date.parse(escalatedAt)).toBeGreaterThan(Date.now() - 60_000);
 	});
 
 	it("says a task is handed to an agent until its conversation starts", async () => {

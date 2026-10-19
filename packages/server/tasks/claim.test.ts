@@ -87,13 +87,11 @@ describe("claim", () => {
 		});
 	});
 
-	it("puts an escalated task back to working, keeping its budget", async () => {
+	it("keeps a task's budget as it was", async () => {
 		await add(deps, "alpha");
 		await (await deps.service.find("alpha")).save({
-			status: "escalated",
 			lease: null,
 			mergeAttempts: 1,
-			escalations: [{ reason: "needs a look", at: new Date().toISOString() }],
 		});
 
 		await claim(deps, "alpha");
@@ -101,8 +99,6 @@ describe("claim", () => {
 		expect((await deps.service.find("alpha")).state).toMatchObject({
 			status: "working",
 			mergeAttempts: 1,
-			escalations: [{ reason: "needs a look" }],
 		});
-		expect(deps.out()).toContain("status:   working (was escalated)");
 	});
 });

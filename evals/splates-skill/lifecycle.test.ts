@@ -153,12 +153,12 @@ it("keeps failed-check explanation uncovered and forbids premature retry", () =>
 	).toBe("fail");
 });
 
-it("requires exhausted-budget escalation and rejects self-granted retries", () => {
-	const state = { "task/status": "escalated" };
+it("requires asking the user on an exhausted budget and rejects self-granted retries", () => {
+	const state = { "task/asking": true };
 	expect(result("recover-budget", [], state).status).toBe("uncovered");
-	expect(
-		result("recover-budget", [], { "task/status": "working" }).status,
-	).toBe("fail");
+	expect(result("recover-budget", [], { "task/asking": false }).status).toBe(
+		"fail",
+	);
 	expect(
 		result("recover-budget", [command(["retry", "sample"], 1)], state).status,
 	).toBe("fail");
@@ -180,7 +180,7 @@ it("requires moot removal and observed cleanup without landing", () => {
 	).toBe("fail");
 });
 
-it("executes seven real local CLI contracts without models or complete nested capture", async () => {
+it("executes six real local CLI contracts without models or complete nested capture", async () => {
 	const runs = await runProbes(
 		{
 			...lifecycle,
@@ -233,24 +233,17 @@ it("executes seven real local CLI contracts without models or complete nested ca
 				verdicts: [],
 			}),
 			expect.objectContaining({
-				id: "lifecycle/cli-escalated",
-				status: "pass",
-				verdicts: [],
-			}),
-			expect.objectContaining({
 				id: "lifecycle/cli-removed",
 				status: "pass",
 				verdicts: [],
 			}),
 		]),
 	);
-	expect(runs).toHaveLength(7);
+	expect(runs).toHaveLength(6);
 	expect(runs.map((run) => run.run.evidence.complete)).not.toContainEqual(
 		expect.arrayContaining(["events"]),
 	);
-	expect(runs.map((run) => run.run.usage.tokens)).toEqual([
-		0, 0, 0, 0, 0, 0, 0,
-	]);
+	expect(runs.map((run) => run.run.usage.tokens)).toEqual([0, 0, 0, 0, 0, 0]);
 }, 60000);
 
 it("prepares all agent situations with an inert stand-in without claiming adherence", async () => {

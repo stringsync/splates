@@ -231,7 +231,6 @@ describe("App's work row", () => {
 					task: "upload-limit",
 					reason: null,
 					conversation: "c1",
-					escalated: false,
 					goal: "Stop retrying an upload refused as too big.",
 				},
 				{

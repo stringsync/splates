@@ -312,6 +312,6 @@ export function queuePrompt(queued: TaskRecord): string {
 				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
 		),
 		"Groom it first, since nothing has yet: check no other task already asks it, link what it needs merged first with `splates task update <n> --blocked-by <n>`, and ask only what is hard to reverse. When it links a task still open, `splates remove` yours so the queue holds it until that lands.",
-		"Work it as the splates skill says, ending in `splates merge`, `splates escalate` or `splates remove`.",
+		"Work it as the splates skill says, ending in `splates merge` or `splates remove`, or in questions for the user.",
 	].join("\n");
 }

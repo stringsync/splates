@@ -1,21 +1,13 @@
 import { expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { stretches } from "@stringsync/splates-server/plans";
-import decisions, {
-	decisionDirectives,
-	decisionState,
-	probes,
-} from "./decisions.probes";
+import { decisionDirectives, decisionState, probes } from "./decisions.probes";
 import { assess, type Evidence, type Probe } from "./probe";
-import { cliAdapter } from "./probe-adapters";
 import { loadModules } from "./probe-cli";
-import { runProbes, validate } from "./runner";
+import { validate } from "./runner";
 
 it("validates independently selectable cases and production directive constants", () => {
 	validate(probes);
-	expect(new Set(probes.map((probe) => probe.id)).size).toBe(8);
+	expect(new Set(probes.map((probe) => probe.id)).size).toBe(6);
 	expect(decisionDirectives).toEqual({
 		approve: "[SPLATES APPROVE]",
 		merge: "[SPLATES MERGE]",
@@ -125,8 +117,7 @@ Reply "merge", or say what to change.`;
 	]);
 	const state = {
 		"plan/review-requested": true,
-		"task/status": "escalated",
-		"task/review": true,
+		"task/status": "working",
 	};
 	const evidence: Evidence = {
 		events: [],
@@ -143,48 +134,7 @@ Reply "merge", or say what to change.`;
 			reply.replace('Reply "merge", or say what to change.', "Thanks!"),
 		].map((wrong) => assess(selected, { ...evidence, reply: wrong }).status),
 	).toEqual(["fail", "fail", "fail"]);
-	expect(
-		assess(selected, {
-			...evidence,
-			state: { ...state, "task/status": "working" },
-		}).status,
-	).toBe("fail");
 });
-
-it("runs real free CLI review readiness gates in isolated repositories", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "decision-probes-"));
-	try {
-		const results = await runProbes(
-			{
-				...decisions,
-				probes: probes.filter((probe) => probe.execution.kind === "cli"),
-			},
-			[{ adapter: cliAdapter, model: null }],
-			{
-				directory,
-				parallel: 2,
-				reps: 1,
-				skillHash: "test",
-				cliHash: "test",
-				reproduction: [],
-			},
-		);
-		expect(results).toHaveLength(2);
-		expect(
-			results.map((result) => ({
-				status: result.result.status,
-				detail: result.result.detail,
-				tokens: result.run.usage.tokens,
-				eventsComplete: result.run.evidence.complete.includes("events"),
-			})),
-		).toEqual([
-			{ status: "pass", detail: undefined, tokens: 0, eventsComplete: false },
-			{ status: "pass", detail: undefined, tokens: 0, eventsComplete: false },
-		]);
-	} finally {
-		await rm(directory, { recursive: true, force: true });
-	}
-}, 30000);
 
 // Synthetic expected evidence tests the assertions only, never model compliance.
 it.each(probes.filter((probe) => probe.execution.kind === "agent"))(
