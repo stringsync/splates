@@ -47,7 +47,7 @@ export class JournalEvents implements Resource {
 		timer?: Timer;
 	}): Promise<JournalEvents> {
 		const following = new JournalEvents(journal, conversations, log, timer);
-		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER));
+		await following.take(await journal.tail(Number.MAX_SAFE_INTEGER), false);
 		try {
 			following.#watching = fs.watch(splatesDir, () => following.changed());
 			// Anything logged between the read above and the watch starting.
@@ -78,13 +78,16 @@ export class JournalEvents implements Resource {
 		this.#throttler.dispose();
 	}
 
-	private async take(events: Event[]): Promise<void> {
+	private async take(events: Event[], logging = true): Promise<void> {
 		const fresh = events.filter((event) => !this.#seen.has(event.id));
 		if (fresh.length === 0) {
 			return;
 		}
 		for (const event of fresh) {
 			this.#seen.add(event.id);
+			if (logging) {
+				this.log.info(`${JSON.stringify(event)}\n`);
+			}
 		}
 		for (const conversation of await this.conversations.list()) {
 			const its = fresh.filter(

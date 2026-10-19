@@ -81,6 +81,32 @@ describe("conversation events", () => {
 		]);
 	});
 
+	it("logs new events once with a trailing newline, without replaying history", async () => {
+		expect(
+			deps.log.entries.some((entry) =>
+				String(entry.message).includes('"task":"alpha"'),
+			),
+		).toBe(false);
+		await claimed("logged", null);
+		await eventually(
+			() =>
+				deps.log.entries.some((entry) =>
+					String(entry.message).includes('"task":"logged"'),
+				),
+			100,
+		);
+		await following.changed();
+		const entries = deps.log.entries.filter((entry) =>
+			String(entry.message).includes('"task":"logged"'),
+		);
+		expect(entries).toHaveLength(1);
+		expect(String(entries[0]?.message).endsWith("\n")).toBe(true);
+		expect(JSON.parse(String(entries[0]?.message))).toMatchObject({
+			action: "claim",
+			task: "logged",
+		});
+	});
+
 	it("hands it each new event as the journal takes it, and an external agent's to none", async () => {
 		// Logged ahead of the last, so they are read by the time it is.
 		await claimed("gamma", null);
