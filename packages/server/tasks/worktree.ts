@@ -426,6 +426,11 @@ export interface Dispatched {
 	/** The conversation `splates server` started, once it has. */
 	conversation?: string;
 	/**
+	 * The conversation `splates server`'s queue held for the queued task,
+	 * which takes the task rather than a new one; absent for none.
+	 */
+	held?: string;
+	/**
 	 * Whether the postCheckout hook is still readying the tree: `splates
 	 * server` starts the agent once it is not.
 	 */

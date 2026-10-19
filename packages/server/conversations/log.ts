@@ -125,6 +125,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		);
 		state.skill = start.skill ?? null;
 		state.capped = start.capped ?? false;
+		state.queued = start.queued ?? null;
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -185,6 +186,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				replayed.model = entry.model;
 			} else if (entry.kind === "agent") {
 				runOn(state, entry.agent);
+			} else if (entry.kind === "queued") {
+				state.queued = entry.queued;
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
 				replayed.sessionCwd = entry.cwd ?? replayed.sessionCwd;
@@ -449,11 +452,15 @@ type Said =
 			skill?: string;
 			/** Whether the server's queue or a hook started it; missing for one neither did. */
 			capped?: boolean;
+			/** The queued task it was held for; missing for one held for none. */
+			queued?: number;
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }
 	/** Auto picked another agent than the one it started on, before any session opened. */
 	| { kind: "agent"; agent: string }
+	/** The queue started the task it was held for, so it is held no more. */
+	| { kind: "queued"; queued: null }
 	/** Moved into a task's worktree, or back to the main tree. */
 	| {
 			kind: "task";

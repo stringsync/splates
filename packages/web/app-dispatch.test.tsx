@@ -153,6 +153,57 @@ describe("App's controls that put agents to work", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("shows a queued todo's held conversation waiting in line on its card and in its dialog, and opens it", async () => {
+		const view = await board(
+			[
+				conversation({
+					id: "c1",
+					title: "#3 Fix the upload",
+					status: "starting",
+					queued: 3,
+					queue: {
+						position: 1,
+						of: 1,
+						since: "2026-10-19T12:00:00.000Z",
+						reason: "no free slot",
+					},
+				}),
+			],
+			{
+				todos: [
+					todo({ id: 3, subject: "Fix the upload", lane: 1, stage: "queued" }),
+				],
+			},
+		);
+		const card = within(
+			view.getByRole("list", { name: "Uploads tasks" }),
+		).getAllByRole("listitem")[0] as HTMLElement;
+
+		const chip = within(card).getByRole("button", {
+			name: "Open #3 Fix the upload",
+		});
+		expect(
+			within(chip).getByRole("img", { name: "1st in line for a slot" }),
+		).toBeTruthy();
+		expect(
+			within(card).queryByRole("img", { name: /in line for an agent/ }),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(card).getByRole("button", { name: /^Fix the upload/ }),
+			),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Open #3 Fix the upload" }),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
 	it("puts a conversation already going on a task, its reference held as a chip ahead of its draft", async () => {
 		localStorage.setItem("splates.draft.c2", "then stop");
 		const view = await board([

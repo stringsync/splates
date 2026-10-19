@@ -208,7 +208,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	/**
 	 * Starts a conversation with `agent` in `cwd`, for `task` if it is one's,
-	 * with `settings` set once the session offers them.
+	 * with `settings` set once the session offers them; for `queued`, held
+	 * for that queued task until the queue starts it.
 	 */
 	async start(
 		agent: string,
@@ -222,6 +223,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned,
 			startedBy,
 			capped,
+			queued,
+			title,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -238,6 +241,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			startedBy?: string | null;
 			/** Whether the server's queue or a hook starts it, to hold a worker's slot. */
 			capped?: boolean;
+			/** The queued task it is held for, its agent unopened until `release`. */
+			queued?: number;
+			/** What to call it until its agent names it. */
+			title?: string;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
@@ -258,6 +265,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				assigned,
 				startedBy,
 				capped,
+				queued,
+				title,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,

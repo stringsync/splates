@@ -118,6 +118,11 @@ export interface ConversationState {
 	 */
 	capped: boolean;
 	/**
+	 * The queued task it is held for, out of the line for a slot until the
+	 * queue starts that task and gives it its worktree; null otherwise.
+	 */
+	queued: number | null;
+	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -526,6 +531,7 @@ export function blank(
 		skill: null,
 		assigned,
 		capped: false,
+		queued: null,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

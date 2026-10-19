@@ -2,9 +2,10 @@ import { Disposer, type Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import type { TaskRecord } from "../board";
+import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
-import { canStart, queueOrder } from "./order";
+import { canStart, holdsBack, queueOrder } from "./order";
 
 /**
  * How often the queue is checked again, for a slot freed or a task gone with
@@ -21,6 +22,8 @@ export interface QueueStart {
 	pick: AgentPick;
 	/** What its agent is told beyond claiming the task. */
 	prompt: string;
+	/** The conversation held for it, which takes the task; absent for none. */
+	held?: string;
 }
 
 /** A queued task that could start but finds no slot, and who would work it. */
@@ -54,6 +57,8 @@ export class QueueRunner implements Resource {
 	readonly #starting = new Set<number>();
 	/** Each queued task whose start was refused, as it stood then, by id. */
 	readonly #refused = new Map<number, string>();
+	/** The pick each held conversation was made on, by its id, while this runs. */
+	readonly #picks = new Map<string, string>();
 
 	private constructor(
 		private readonly deps: QueueRunnerDeps,
@@ -97,11 +102,16 @@ export class QueueRunner implements Resource {
 		);
 		const room = Math.max(0, this.deps.room() - this.#starting.size);
 		const next = startable.slice(0, room);
-		if (startable.length === 0) {
+		const fallback =
+			queueOrder(all).length === 0 ? null : await this.deps.fallback();
+		const held =
+			this.deps.held === undefined
+				? new Map<number, string>()
+				: await this.#hold(this.deps.held, all, fallback, next);
+		if (startable.length === 0 || fallback === null) {
 			this.deps.want([]);
 			return;
 		}
-		const fallback = await this.deps.fallback();
 		// The rest wait for a slot, standing in the workers' line so one is
 		// woken or made for them.
 		this.deps.want(
@@ -124,6 +134,7 @@ export class QueueRunner implements Resource {
 				task,
 				pick: queued.assignee ?? fallback,
 				prompt: queuePrompt(queued),
+				...(held.has(queued.id) ? { held: held.get(queued.id) } : {}),
 			});
 		}
 		// Each add readies a worktree, an install included, so neither another
@@ -147,9 +158,97 @@ export class QueueRunner implements Resource {
 		}
 	}
 
+	/**
+	 * Gives each queued task a held conversation, places each in the queue,
+	 * and drops those whose task left it, was taken another way, or now names
+	 * another agent or model; answers the held one of each, by queued task.
+	 */
+	async #hold(
+		conversations: HeldConversations,
+		all: readonly TaskRecord[],
+		/** Who works one that names no model; null while none is queued. */
+		fallback: AgentPick | null,
+		next: readonly TaskRecord[],
+	): Promise<Map<number, string>> {
+		const queue = queueOrder(all);
+		const listed = await conversations.list();
+		const kept = new Map<number, HeldConversation>();
+		for (const each of listed) {
+			const task = all.find((queued) => queued.id === each.queued);
+			const busy = this.#starting.has(each.queued) || each.handed;
+			const pick = task?.assignee ?? fallback;
+			const was = this.#picks.get(each.id);
+			const gone =
+				task === undefined ||
+				task.stage !== "queued" ||
+				(task.takenBy !== null && !busy) ||
+				(!busy &&
+					pick !== null &&
+					(pick.agent !== each.agent ||
+						(was !== undefined && was !== JSON.stringify(pick)))) ||
+				kept.has(each.queued);
+			if (gone && !busy) {
+				this.#picks.delete(each.id);
+				await conversations.drop(each.id);
+			} else {
+				kept.set(each.queued, each);
+			}
+		}
+		for (const queued of queue) {
+			const pick = queued.assignee ?? fallback;
+			if (!kept.has(queued.id) && pick !== null) {
+				await conversations.hold(queued, pick);
+			}
+		}
+		const held = new Map<number, string>();
+		const now = await conversations.list();
+		for (const id of this.#picks.keys()) {
+			if (!now.some((each) => each.id === id)) {
+				this.#picks.delete(id);
+			}
+		}
+		for (const each of now) {
+			const at = queue.findIndex((queued) => queued.id === each.queued);
+			const queued = queue[at];
+			if (queued === undefined) {
+				continue;
+			}
+			if (!this.#picks.has(each.id)) {
+				this.#picks.set(each.id, JSON.stringify(queued.assignee ?? fallback));
+			}
+			held.set(each.queued, each.id);
+			conversations.place(each.id, {
+				position: at + 1,
+				of: queue.length,
+				since: each.createdAt,
+				reason: waitsFor(queued, all, next.includes(queued)),
+			});
+		}
+		return held;
+	}
+
 	dispose(): void {
 		this.#disposer.dispose();
 	}
+}
+
+/**
+ * Why queued task `queued` has yet to start, among `all`: what it waits on,
+ * or a free slot, unless it is `next`, starting now.
+ */
+function waitsFor(
+	queued: TaskRecord,
+	all: readonly TaskRecord[],
+	next: boolean,
+): string {
+	const { open, lost } = holdsBack(queued, all);
+	if (lost.length > 0) {
+		return `needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`;
+	}
+	if (open.length > 0) {
+		return `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
+	}
+	return next ? "starting" : "no free slot";
 }
 
 /** What a `QueueRunner` works with. */
@@ -168,7 +267,36 @@ export interface QueueRunnerDeps {
 	/** Who works a queued task that names no model: the roster's first agent. */
 	fallback: () => Promise<AgentPick>;
 	start: QueueStarter;
+	/** The conversations held for queued tasks; absent, none is held. */
+	held?: HeldConversations;
 	log: Logger;
+}
+
+/** A conversation held for a queued task, as `HeldConversations` lists it. */
+export interface HeldConversation {
+	id: string;
+	/** The queued task it is held for. */
+	queued: number;
+	agent: string;
+	createdAt: string;
+	/** Whether a task the queue started names it, to take it. */
+	handed: boolean;
+}
+
+/**
+ * The conversations held for queued tasks, one for each from the moment it
+ * is queued, so the person sees it waiting: out of the line for a slot,
+ * which only the queue's starts join, until the queue starts its task.
+ */
+export interface HeldConversations {
+	/** Every one held, or made held and not yet given its task. */
+	list: () => Promise<HeldConversation[]>;
+	/** Makes one held for `queued`, on `pick`. */
+	hold: (queued: TaskRecord, pick: AgentPick) => Promise<void>;
+	/** Says where `id` stands in the queue, holding it again once stopped. */
+	place: (id: string, spot: QueueSpot) => void;
+	/** Archives `id`, its task gone from the queue, or taken another way. */
+	drop: (id: string) => Promise<void>;
 }
 
 /**

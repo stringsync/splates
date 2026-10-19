@@ -39,6 +39,7 @@ import type { Details, Snapshot } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, type SlotRequest } from "../workers";
 import type { Assets } from "./assets";
+import { heldFor } from "./held";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import type { Behind, Release } from "./release";
 
@@ -85,13 +86,15 @@ export async function serveProject(
 				).agents();
 				return { agent: first?.id ?? "claude" };
 			},
-			start: ({ task, queued, pick, prompt }) =>
+			start: ({ task, queued, pick, prompt, held }) =>
 				startQueuedTask(project, context.url, {
 					task,
 					number: queued.id,
 					pick,
 					prompt,
+					held,
 				}),
+			held: heldFor(conversations, service, log),
 			log,
 		});
 		const queue = queueRunner;
@@ -283,11 +286,13 @@ async function startQueuedTask(
 		number,
 		pick,
 		prompt,
+		held,
 	}: {
 		task: string;
 		number: number;
 		pick: AgentPick;
 		prompt: string;
+		held?: string;
 	},
 ): Promise<void> {
 	const { exitCode, stderr } = await ps.spawnCapture(
@@ -303,6 +308,7 @@ async function startQueuedTask(
 			...(pick.effort === undefined ? [] : ["--effort", pick.effort]),
 			"--prompt",
 			prompt,
+			...(held === undefined ? [] : ["--held", held]),
 		],
 		{
 			cwd: service.git.root,

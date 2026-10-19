@@ -169,14 +169,6 @@ export async function queueTodo(id: number, queued: boolean): Promise<void> {
 	await sendJson(`/api/todos/${id}/queued`, "PUT", { queued });
 }
 
-/**
- * Puts queued todo `id` at `position` in the queue, 1 the next to start;
- * what it is blocked by still goes first.
- */
-export async function moveInQueue(id: number, position: number): Promise<void> {
-	await sendJson(`/api/todos/${id}/queue-position`, "PUT", { position });
-}
-
 /** Moves lane `from`'s todos to the bottom of lane `into`. */
 export async function joinLanes(from: number, into: number): Promise<void> {
 	await sendJson(`/api/lanes/${from}/join`, "POST", { into });

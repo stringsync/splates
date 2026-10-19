@@ -78,6 +78,11 @@ export class Conversation
 	private grant: Grant | null = null;
 	/** Takes its agent out of the queue for a slot; null while it waits in none. */
 	private placing: AbortController | null = null;
+	/**
+	 * Lets a held one go, to open its agent, or not, once stopped; null
+	 * while it is not held.
+	 */
+	private latch: ((go: boolean) => void) | null = null;
 	/** The worker other than this machine's it was last placed on; null for none. */
 	private placed: WorkerMachine | null = null;
 	/**
@@ -247,7 +252,11 @@ export class Conversation
 		if (model !== undefined) {
 			conversation.log.write({ kind: "model-request", model });
 		}
-		conversation.opening = conversation.wake(opening.agent, opening.cwd);
+		if (opening.queued === undefined) {
+			conversation.opening = conversation.wake(opening.agent, opening.cwd);
+		} else {
+			conversation.hold();
+		}
 		return conversation;
 	}
 
@@ -299,6 +308,8 @@ export class Conversation
 			startedBy = null,
 			capped = false,
 			skill = null,
+			queued,
+			title = null,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
@@ -317,6 +328,8 @@ export class Conversation
 		);
 		state.skill = skill;
 		state.capped = capped;
+		state.queued = queued ?? null;
+		state.title = title;
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
@@ -331,7 +344,15 @@ export class Conversation
 			...(startedBy === null ? {} : { startedBy }),
 			...(capped ? { capped } : {}),
 			...(skill === null ? {} : { skill }),
+			...(queued === undefined ? {} : { queued }),
 		});
+		if (title !== null) {
+			const update: acp.SessionUpdate = {
+				sessionUpdate: "session_info_update",
+				title,
+			};
+			log.write({ kind: "update", update });
+		}
 		return conversation;
 	}
 
@@ -566,6 +587,75 @@ export class Conversation
 			lastBase: task === null ? this.state.lastBase : base,
 			lastCaller: callerAfter(this.state, task, caller),
 		});
+	}
+
+	/**
+	 * Holds it for its queued task, out of the line for a slot, until
+	 * `release` gives it the task: what is said to it meanwhile waits for
+	 * its agent, as while any agent starts. A stopped one, as a held one
+	 * reads back after a restart, is held again; one held already, or under
+	 * way, is left as it is.
+	 */
+	hold(): void {
+		const { agent, dir } = this;
+		if (
+			this.latch !== null ||
+			this.opening !== null ||
+			this.state.queued === null ||
+			this.state.archived ||
+			agent === null ||
+			dir === null
+		) {
+			return;
+		}
+		const { promise, resolve } = Promise.withResolvers<boolean>();
+		this.latch = resolve;
+		this.set({ status: "starting", error: null });
+		this.opening = (async () => {
+			try {
+				// In the dir it was released into, its task's worktree.
+				if ((await promise) && this.dir !== null) {
+					await this.wake(agent, this.dir);
+				}
+			} finally {
+				this.opening = null;
+			}
+		})();
+	}
+
+	/** Whether it is held for its queued task now (`hold`). */
+	get held(): boolean {
+		return this.latch !== null;
+	}
+
+	/**
+	 * Gives a held one its task, the queue having started it in `cwd`: it
+	 * follows the task there and takes its place in the line for a slot.
+	 */
+	release(
+		task: string,
+		cwd: string,
+		base: string | null = null,
+		caller: string | null = null,
+	): void {
+		this.move(task, cwd, base, caller);
+		this.log.write({ kind: "queued", queued: null });
+		this.set({ queued: null, queue: null });
+		this.letGo(true);
+	}
+
+	/** Keeps where a held one stands in the queue of tasks, as the queue says it. */
+	waitsAt(spot: QueueSpot): void {
+		if (this.latch !== null) {
+			this.queued(spot);
+		}
+	}
+
+	/** Lets a held one go, to open its agent or to stop. */
+	private letGo(go: boolean): void {
+		const latch = this.latch;
+		this.latch = null;
+		latch?.(go);
 	}
 
 	/** Stops the agent; the next prompt resumes where it left off. */
@@ -833,6 +923,7 @@ export class Conversation
 		this.placing?.abort();
 		this.grant?.dispose();
 		this.grant = null;
+		this.letGo(false);
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			return;
 		}
@@ -1117,6 +1208,10 @@ interface Opening {
 	capped?: boolean;
 	/** The project's splates skill version as it starts; null when it has none. */
 	skill?: string | null;
+	/** The queued task it is held for until the queue starts it (`hold`). */
+	queued?: number;
+	/** What to call it until its agent names it. */
+	title?: string | null;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

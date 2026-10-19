@@ -1,5 +1,4 @@
 import { age } from "@stringsync/splates-server/age";
-import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import {
 	type Needing,
@@ -57,7 +56,6 @@ import { QueueMark } from "./slot-queue";
 import { ActionBar, useRetry } from "./task-actions";
 import { TaskIcon } from "./task-icon";
 import { TaskPorts } from "./task-ports";
-import { QueueList } from "./todo-queue";
 import { TopBar } from "./top-bar";
 
 /**
@@ -87,7 +85,6 @@ export function Tasks({
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
 			<TopBar title="Tasks" />
-			<QueueSection all={project.todos} />
 			{none ? (
 				<Empty className="min-h-80 py-16">
 					<EmptyHeader>
@@ -133,7 +130,7 @@ export function Tasks({
 }
 
 /** What the Tasks page reads of this project's snapshot. */
-type Here = Pick<Snapshot, "tasks" | "todos" | "root" | "repo">;
+type Here = Pick<Snapshot, "tasks" | "root" | "repo">;
 
 /** One project's tasks on the Tasks page. */
 interface Group {
@@ -222,40 +219,6 @@ function groupsOf(
 
 function nested(tasks: Details[]): Nested<Details>[] {
 	return nest(tasks, (host, part) => isPartOf(part.base, host.task));
-}
-
-/** Where the Tasks page keeps its queue folded away, once folded. */
-const QUEUE_FOLDED = "splates.tasks.queue";
-
-/**
- * The queue, open unless folded away in this browser: what workers start
- * next, which a look seldom needs, so it says so plainly when empty.
- */
-function QueueSection({ all }: { all: readonly TaskRecord[] }): JSX.Element {
-	const { folded, fold } = useFolded(QUEUE_FOLDED);
-	const count = all.filter(
-		(todo) => todo.stage === "queued" && todo.takenBy === null,
-	).length;
-	return (
-		<Collapsible
-			open={!folded.has("queue")}
-			onOpenChange={(open) => fold("queue", open)}
-			render={<section aria-label="Queue" />}
-			className="group/queue flex flex-col"
-		>
-			<CollapsibleTrigger className="-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 max-md:min-h-11">
-				<ChevronRightIcon
-					aria-hidden
-					className="size-3.5 transition-transform duration-150 group-data-[open]/queue:rotate-90"
-				/>
-				Queue
-				<span className="tabular-nums">{count}</span>
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<QueueList all={all} />
-			</CollapsibleContent>
-		</Collapsible>
-	);
 }
 
 /** Where the Tasks page keeps the projects folded away, by slug. */

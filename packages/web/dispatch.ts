@@ -50,6 +50,21 @@ export class Dispatch {
 	 * handed it out, not on the person; archived ones, put away, are not.
 	 */
 	on(task: string): Needing[] {
+		return this.listed((conversation) => conversation.task === task);
+	}
+
+	/**
+	 * The conversation the queue holds for queued task `id`, waiting for
+	 * an agent until the queue starts it, with what it needs, as `on` says.
+	 */
+	heldFor(id: number): Needing[] {
+		return this.listed((conversation) => conversation.queued === id);
+	}
+
+	/** The listed conversations `which` keeps, newest first, with what each needs. */
+	private listed(
+		which: (conversation: ConversationState) => boolean,
+	): Needing[] {
 		const listed = needs({
 			tasks: this.tasks,
 			conversations: this.conversations,
@@ -57,8 +72,7 @@ export class Dispatch {
 		return this.conversations.flatMap(
 			(conversation) =>
 				listed.find(
-					(each) =>
-						each.conversation === conversation && conversation.task === task,
+					(each) => each.conversation === conversation && which(conversation),
 				) ?? [],
 		);
 	}

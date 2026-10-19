@@ -191,7 +191,6 @@ describe("App's lanes", () => {
 			body: JSON.stringify({ position: 2 }),
 		});
 		expect(columns()).toEqual([
-			"Queue",
 			"Untriaged",
 			"Licensing",
 			"Score editor",

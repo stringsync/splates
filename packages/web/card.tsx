@@ -35,7 +35,7 @@ import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
 import { TaskIcon } from "./task-icon";
-import { QueueToggle, StageBadge } from "./todo-queue";
+import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
 
 export interface CardProps {
 	todo: TaskRecord;
@@ -58,6 +58,8 @@ export function Card({
 	className,
 }: CardProps): JSX.Element {
 	const board = useContext(Board);
+	// Queued, it has a conversation waiting for an agent, as one at work has.
+	const held = todo.takenBy === null && todo.stage === "queued";
 	const stale =
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
@@ -140,6 +142,7 @@ export function Card({
 					<QueueToggle todo={todo} quiet />
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
+					{held && <OnIt task={null} queued={todo.id} spinning={false} />}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
@@ -158,14 +161,20 @@ export function Card({
 				<GripVerticalIcon className="size-4" />
 			</button>
 			{/* An agent at work spins in the top right, on every card the same
-			    place, in the grip's column so the subject keeps its width. */}
-			{todo.takenBy && (
+			    place, in the grip's column so the subject keeps its width; a
+			    queued card waits there for one. */}
+			{(todo.takenBy || held) && (
 				<OnIt
 					task={todo.takenBy}
+					queued={held ? todo.id : undefined}
 					spinning
 					className="absolute top-2 right-0 w-7 pointer-coarse:w-10 flex-col"
 				/>
 			)}
+			<QueuedMark
+				todo={todo}
+				className="absolute top-2.5 right-0 w-7 pointer-coarse:w-10 justify-center"
+			/>
 		</div>
 	);
 }

@@ -176,12 +176,20 @@ splates
 		description:
 			"with --agent: what to tell the agent beyond claiming the task",
 	})
+	.option("held", z.string(), {
+		default: "",
+		description:
+			"with --agent: the conversation `splates server`'s queue held for the queued task, which takes the task rather than a new one",
+	})
 	.action(async (opts, ctx) => {
 		if (
 			opts.agent === "" &&
-			(opts.model !== "" || opts.effort !== "" || opts.prompt !== "")
+			(opts.model !== "" ||
+				opts.effort !== "" ||
+				opts.prompt !== "" ||
+				opts.held !== "")
 		) {
-			fail("usage", "--model, --effort and --prompt go with --agent", {
+			fail("usage", "--model, --effort, --prompt and --held go with --agent", {
 				task: opts.slug,
 			});
 		}
@@ -202,6 +210,7 @@ splates
 							task: opts.slug,
 						})),
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
+						...(opts.held === "" ? {} : { held: opts.held }),
 					};
 		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
 		const all = await ctx.tasks.all();

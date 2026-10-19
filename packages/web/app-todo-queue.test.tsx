@@ -21,25 +21,11 @@ describe("App's queue", () => {
 		testing.dispose();
 	});
 
-	/**
-	 * The queue column, under a dialog too, where a hidden region has no
-	 * accessible name to find it by.
-	 */
-	const column = (view: Awaited<ReturnType<Testing["open"]>>) => {
-		const found = view
-			.getAllByRole("region", { hidden: true })
-			.find((region) => region.getAttribute("aria-label") === "Queue");
-		if (found === undefined) {
-			throw new Error("no queue column");
-		}
-		return found;
-	};
-
-	/** The queue column's rows, next to start first. */
-	const queued = (view: Awaited<ReturnType<Testing["open"]>>) =>
-		within(column(view))
-			.queryAllByRole("listitem", { hidden: true })
-			.map((row) => row.textContent ?? "");
+	/** The untriaged cards, top first, as text. */
+	const cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
+		within(view.getByRole("list", { name: "Untriaged tasks", hidden: true }))
+			.getAllByRole("listitem", { hidden: true })
+			.map((card) => card.textContent ?? "");
 
 	it("badges each waiting card with its stage, and a queued one with its place", async () => {
 		const view = await testing.open({
@@ -119,7 +105,12 @@ describe("App's queue", () => {
 			{ method: "PUT", body: { queued: true } },
 		]);
 		expect(dialog.textContent).toContain("Queued · 1");
-		expect(queued(view)).toEqual([expect.stringContaining("retry the upload")]);
+		expect(
+			view.getByRole("img", {
+				name: "Queued, 1 in line for an agent",
+				hidden: true,
+			}),
+		).toBeTruthy();
 
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Unqueue" })),
@@ -130,10 +121,9 @@ describe("App's queue", () => {
 			body: { queued: false },
 		});
 		expect(dialog.textContent).toContain("Backlog");
-		expect(queued(view)).toEqual([]);
-		expect(column(view).textContent).toContain(
-			"starts on a worker once nothing blocks it",
-		);
+		expect(
+			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
+		).toBeNull();
 	});
 
 	it("offers neither in the dialog of a todo under way", async () => {
@@ -150,7 +140,15 @@ describe("App's queue", () => {
 		expect(within(dialog).queryByRole("button", { name: /queue/i })).toBeNull();
 	});
 
-	it("lists the queue in start order, a blocked todo after its blocker, saying what it waits on", async () => {
+	it("shows no queue column, only the board's lanes", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "first", position: 1, stage: "queued" })],
+		});
+
+		expect(view.queryByRole("region", { name: "Queue" })).toBeNull();
+	});
+
+	it("marks a queued card as waiting for an agent, in start order, a blocked one after its blocker", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({
@@ -162,62 +160,29 @@ describe("App's queue", () => {
 				}),
 				todo({ id: 2, subject: "blocker", position: 2, stage: "queued" }),
 				todo({ id: 3, subject: "loose", position: 3 }),
+				todo({
+					id: 4,
+					subject: "going",
+					position: 4,
+					stage: "running",
+					takenBy: "beta",
+				}),
 			],
 		});
 
-		expect(queued(view)).toEqual([
-			expect.stringContaining("#2blocker"),
-			expect.stringContaining("#1blocked"),
-		]);
-		expect(queued(view)[1]).toContain("waits on #2");
-		expect(queued(view)[0]).not.toContain("waits on");
-	});
-
-	it("moves a todo up the queue at once, sending its new place", async () => {
-		const view = await testing.open({
-			todos: [1, 2, 3].map((id) =>
-				todo({ id, subject: `task ${id}`, position: id, stage: "queued" }),
-			),
-		});
-		testing.holdWrites();
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Move #3 up" })),
-		);
-
-		expect(testing.posted("/api/todos/3/queue-position")).toEqual([
-			{ method: "PUT", body: { position: 2 } },
-		]);
-		expect(queued(view)).toEqual([
-			expect.stringContaining("task 1"),
-			expect.stringContaining("task 3"),
-			expect.stringContaining("task 2"),
-		]);
-		expect(
-			(view.getByRole("button", { name: "Move #1 up" }) as HTMLButtonElement)
-				.disabled,
-		).toBe(true);
-	});
-
-	it("moves a todo down by moving the one below it up, which the server places exactly", async () => {
-		const view = await testing.open({
-			todos: [1, 2, 3].map((id) =>
-				todo({ id, subject: `task ${id}`, position: id, stage: "queued" }),
-			),
-		});
-		testing.holdWrites();
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Move #1 down" })),
-		);
-
-		expect(testing.posted("/api/todos/1/queue-position")).toEqual([
-			{ method: "PUT", body: { position: 2 } },
-		]);
-		expect(queued(view)).toEqual([
-			expect.stringContaining("task 2"),
-			expect.stringContaining("task 1"),
-			expect.stringContaining("task 3"),
+		const marks = within(view.getByRole("list", { name: "Untriaged tasks" }))
+			.getAllByRole("listitem")
+			.map(
+				(card) =>
+					within(card)
+						.queryByRole("img", { name: /in line for an agent/ })
+						?.getAttribute("aria-label") ?? null,
+			);
+		expect(marks).toEqual([
+			"Queued, 2 in line for an agent",
+			"Queued, 1 in line for an agent",
+			null,
+			null,
 		]);
 	});
 
@@ -231,11 +196,9 @@ describe("App's queue", () => {
 		testing.holdWrites();
 
 		await act(async () =>
-			fireEvent.click(
-				within(column(view)).getByRole("button", { name: "Unqueue #1" }),
-			),
+			fireEvent.click(view.getByRole("button", { name: "Unqueue #1" })),
 		);
-		expect(queued(view)).toEqual([expect.stringContaining("second")]);
+		expect(cards(view)[0]).toContain("Backlog");
 
 		testing.refuseWrites = {
 			reason: "not_found",
@@ -243,8 +206,8 @@ describe("App's queue", () => {
 		};
 		await act(async () => testing.release());
 
-		await waitFor(() => expect(queued(view)).toHaveLength(2));
-		expect(within(column(view)).getByRole("alert").textContent).toBe(
+		await waitFor(() => expect(cards(view)[0]).toContain("Queued · 1"));
+		expect(view.getByRole("alert").textContent).toBe(
 			"Not unqueued: task 1 is not in the queue",
 		);
 	});

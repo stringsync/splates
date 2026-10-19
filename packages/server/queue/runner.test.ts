@@ -2,9 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakeTimer } from "webappwiz/time/testing";
 import { taskAdd, taskUpdate } from "../board";
+import type { QueueSpot } from "../conversations";
 import { Testing } from "../testing";
-import { queueAdd } from "./commands";
-import { QueueRunner, type QueueStart } from "./runner";
+import { queueAdd, queueRemove } from "./commands";
+import {
+	type HeldConversation,
+	type HeldConversations,
+	QueueRunner,
+	type QueueStart,
+} from "./runner";
 
 describe("QueueRunner", () => {
 	let deps: Testing;
@@ -12,11 +18,15 @@ describe("QueueRunner", () => {
 	let started: QueueStart[];
 	/** The queued tasks the runner last said wait for a slot, by id. */
 	let waiting: number[];
-	/** What a start does once counted: take its queued task, as `splates add --task` does. */
+	/**
+	 * What a start does once counted: take its queued task, naming its held
+	 * conversation, as `splates add --task --held` does.
+	 */
 	let starting: (start: QueueStart) => Promise<void>;
 	let runner: QueueRunner;
 	/** Every start under way, for `settled` to wait out. */
 	let pending: Promise<void>[];
+	let held: FakeHeld;
 
 	/** Waits out every start under way, and the runner's note that it ended. */
 	const settled = async (): Promise<void> => {
@@ -30,8 +40,12 @@ describe("QueueRunner", () => {
 		started = [];
 		waiting = [];
 		pending = [];
+		held = new FakeHeld();
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
+			if (each.held !== undefined) {
+				held.hand(each.held);
+			}
 		};
 		runner = QueueRunner.watch({
 			queued: () => deps.tasks.stored(),
@@ -47,6 +61,7 @@ describe("QueueRunner", () => {
 				pending.push(start);
 				return start;
 			},
+			held,
 			log: new MemoryLogger(),
 			timer: new FakeTimer(),
 		});
@@ -140,4 +155,135 @@ describe("QueueRunner", () => {
 		await runner.sweep();
 		expect(started).toHaveLength(2);
 	});
+
+	it("holds a conversation for each queued task from the start, placed in queue order with what it waits on", async () => {
+		await taskAdd(deps, "Breakdowns", null);
+		await taskAdd(deps, "Totals first", null);
+		await taskAdd(deps, "Someday", null);
+		await taskUpdate(deps, 1, { blockedBy: [2] });
+		await queueAdd(deps, [1, 2]);
+		room = 0;
+
+		await runner.sweep();
+
+		expect(started).toEqual([]);
+		expect(held.placed()).toEqual([
+			{ queued: 2, position: 1, reason: "no free slot" },
+			{ queued: 1, position: 2, reason: "waits on #2" },
+		]);
+
+		await runner.sweep();
+		expect(held.held).toHaveLength(2);
+	});
+
+	it("hands a queued task's held conversation to its start, keeping it until it takes the task", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		room = 0;
+		await runner.sweep();
+		const [conversation] = held.held;
+
+		room = 1;
+		await runner.sweep();
+		await settled();
+		await runner.sweep();
+
+		expect(started.map((each) => each.held)).toEqual([conversation?.id]);
+		expect(held.dropped).toEqual([]);
+
+		held.release(conversation?.id ?? "");
+		await runner.sweep();
+		expect(held.held).toEqual([]);
+	});
+
+	it("drops a held conversation once its task is unqueued or taken another way", async () => {
+		await taskAdd(deps, "Unqueued", null);
+		await taskAdd(deps, "Taken", null);
+		await queueAdd(deps, [1, 2]);
+		room = 0;
+		await runner.sweep();
+
+		await queueRemove(deps, [1]);
+		await (await deps.tasks.find(2)).take("by-hand");
+		await runner.sweep();
+
+		expect(held.dropped).toEqual(["h1", "h2"]);
+		expect(held.held).toEqual([]);
+	});
+
+	it("holds another on the agent its task names once that changes", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		room = 0;
+		await runner.sweep();
+
+		await taskUpdate(deps, 1, { assignee: { agent: "codex" } });
+		await runner.sweep();
+
+		expect(held.dropped).toEqual(["h1"]);
+		expect(held.held.map((each) => each.agent)).toEqual(["codex"]);
+	});
 });
+
+/**
+ * Conversations held for queued tasks, as a list: each held one, where it
+ * was last placed, and those dropped.
+ */
+class FakeHeld implements HeldConversations {
+	held: HeldConversation[] = [];
+	spots = new Map<string, QueueSpot>();
+	dropped: string[] = [];
+	#next = 0;
+
+	list = async () => [...this.held];
+
+	hold = async (queued: { id: number }, pick: { agent: string }) => {
+		this.#next += 1;
+		this.held.push({
+			id: `h${this.#next}`,
+			queued: queued.id,
+			agent: pick.agent,
+			createdAt: "2026-10-19T12:00:00.000Z",
+			handed: false,
+		});
+	};
+
+	place = (id: string, spot: QueueSpot) => {
+		this.spots.set(id, spot);
+	};
+
+	drop = async (id: string) => {
+		this.dropped.push(id);
+		this.release(id);
+	};
+
+	/** Marks `id` as named by the task the queue started, as its record does. */
+	hand(id: string): void {
+		this.held = this.held.map((each) =>
+			each.id === id ? { ...each, handed: true } : each,
+		);
+	}
+
+	/** Lets `id` go, as taking its task does. */
+	release(id: string): void {
+		this.held = this.held.filter((each) => each.id !== id);
+	}
+
+	/** Each held one's queued task and where it stands, in queue order. */
+	placed(): { queued: number; position: number; reason: string }[] {
+		return this.held
+			.flatMap((each) => {
+				const spot = this.spots.get(each.id);
+				return spot === undefined
+					? []
+					: [
+							{
+								queued: each.queued,
+								position: spot.position,
+								reason: spot.reason,
+							},
+						];
+			})
+			.sort((one, other) => one.position - other.position);
+	}
+}

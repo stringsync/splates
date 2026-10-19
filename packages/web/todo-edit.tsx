@@ -147,6 +147,9 @@ export function Edit({
 				) : (
 					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
 				)}
+				{todo.takenBy === null && todo.stage === "queued" && (
+					<OnIt task={null} queued={todo.id} variant="rows" className="-mx-2" />
+				)}
 				<Links todo={todo} />
 				<Detail editor={editor} />
 				<FileList files={editor.files} />

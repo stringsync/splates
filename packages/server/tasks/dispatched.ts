@@ -1,5 +1,9 @@
 import type { Logger } from "webappwiz/log";
-import { type Conversations, SERVER_TOLD } from "../conversations";
+import {
+	type Conversation,
+	type Conversations,
+	SERVER_TOLD,
+} from "../conversations";
 import { effortSettings, modelOption } from "../models";
 import { taskReference } from "../plans";
 import type { WorktreeService } from "./worktree-service";
@@ -7,7 +11,8 @@ import type { WorktreeService } from "./worktree-service";
 /**
  * Starts the agent of each task `splates server`'s queue handed to one and
  * that has none yet, in the task's tree, on the model and thinking level
- * asked for, told to claim it. The conversation it starts goes on the record before the agent is told
+ * asked for, told to claim it: in the conversation the queue held for it,
+ * when there is one. The conversation it starts goes on the record before the agent is told
  * anything, so a task is started once however often this runs, as long as
  * no two runs overlap. Answers once each is started, not told.
  */
@@ -31,19 +36,30 @@ export async function startDispatched({
 			continue;
 		}
 		const offered = (await conversations.settings())[dispatch.agent] ?? [];
-		const conversation = await conversations.start(dispatch.agent, {
-			task: worktree.task,
-			base: worktree.base,
-			caller: worktree.caller,
-			cwd: worktree.path,
-			model: dispatch.model,
-			settings: effortSettings(dispatch.effort, offered),
-			assigned: true,
-			// Answers to the person; the lane's orchestrator that started it
-			// only hears when it stops.
-			startedBy: worktree.caller,
-			capped: true,
-		});
+		const held = await heldFor(conversations, dispatch.held);
+		if (held !== null) {
+			held.release(
+				worktree.task,
+				worktree.path,
+				worktree.base,
+				worktree.caller,
+			);
+		}
+		const conversation =
+			held ??
+			(await conversations.start(dispatch.agent, {
+				task: worktree.task,
+				base: worktree.base,
+				caller: worktree.caller,
+				cwd: worktree.path,
+				model: dispatch.model,
+				settings: effortSettings(dispatch.effort, offered),
+				assigned: true,
+				// Answers to the person; the lane's orchestrator that started it
+				// only hears when it stops.
+				startedBy: worktree.caller,
+				capped: true,
+			}));
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },
 		});
@@ -81,4 +97,21 @@ export async function startDispatched({
 			),
 		);
 	}
+}
+
+/**
+ * The conversation the queue held for a task, `id`, while it still waits
+ * for it; null for none, or one archived or let go meanwhile.
+ */
+async function heldFor(
+	conversations: Conversations,
+	id: string | undefined,
+): Promise<Conversation | null> {
+	if (id === undefined) {
+		return null;
+	}
+	const held = await conversations.find(id).catch(() => null);
+	return held === null || held.state.archived || held.state.queued === null
+		? null
+		: held;
 }

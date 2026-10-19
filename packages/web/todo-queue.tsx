@@ -1,24 +1,15 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
-import {
-	holdsBack,
-	queueOrder,
-} from "@stringsync/splates-server/queue/browser";
-import {
-	ChevronDownIcon,
-	ChevronUpIcon,
-	ListPlusIcon,
-	ListXIcon,
-} from "lucide-react";
+import { queueOrder } from "@stringsync/splates-server/queue/browser";
+import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { moveInQueue, queueTodo } from "./api";
+import { queueTodo } from "./api";
 import { Board, still, touchArea } from "./board";
-import { movedInQueue, queued } from "./board-expectations";
+import { queued } from "./board-expectations";
+import { Dispatching } from "./dispatching";
 import { useExpectSnapshot } from "./expecting";
-import { Column } from "./lane-column";
-import { Refusal } from "./refusal";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
 const STAGES = ["running", "queued", "ready", "backlog"] as const;
@@ -57,6 +48,45 @@ export function StageBadge({ todo }: { todo: TaskRecord }): JSX.Element | null {
 	);
 }
 
+/**
+ * A queued todo under way as far as the person is concerned, though no
+ * agent has it yet: an hourglass and its place in the queue, where a card
+ * at work spins, until the conversation held for it shows where it waits.
+ */
+export function QueuedMark({
+	todo,
+	className,
+}: {
+	todo: TaskRecord;
+	className?: string;
+}): JSX.Element | null {
+	const { todos } = useContext(Board);
+	const dispatching = useContext(Dispatching);
+	const place = queueOrder(todos).findIndex((each) => each.id === todo.id);
+	if (
+		stageOf(todo) !== "queued" ||
+		place === -1 ||
+		// Its held conversation says where it waits instead.
+		(dispatching?.dispatch.heldFor(todo.id).length ?? 0) > 0
+	) {
+		return null;
+	}
+	return (
+		<span
+			role="img"
+			aria-label={`Queued, ${place + 1} in line for an agent`}
+			title={`Queued, ${place + 1} in line for an agent`}
+			className={cn(
+				"inline-flex items-center gap-0.5 text-muted-foreground text-xs tabular-nums",
+				className,
+			)}
+		>
+			<HourglassIcon aria-hidden className="size-3" />
+			{place + 1}
+		</span>
+	);
+}
+
 /** How many of `todos` are in each stage, as "1 running · 2 queued", leaving out none. */
 export function StageCounts({
 	todos,
@@ -82,14 +112,12 @@ export function StageCounts({
 }
 
 /**
- * The board's queue writes, each shown at once and refused on the todo's
- * card, or by `refuse` where the control that made it says so itself.
+ * The board's queue write, shown at once and refused on the todo's card,
+ * or by `refuse` where the control that made it says so itself.
  */
 export function useQueueing(refuse?: (title: string, error: unknown) => void): {
 	/** Queues `todo`, or takes it out of the queue. */
 	setQueued: (todo: TaskRecord, queue: boolean) => void;
-	/** Puts queued todo `id` at `position`, refused on todo `on`'s card. */
-	move: (id: number, position: number) => void;
 } {
 	const { refuseTodo } = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -99,10 +127,6 @@ export function useQueueing(refuse?: (title: string, error: unknown) => void): {
 		setQueued: (todo, queue) =>
 			void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
 				refused(todo.id, queue ? "Not queued" : "Not unqueued"),
-			),
-		move: (id, position) =>
-			void expect(movedInQueue(id, position), moveInQueue(id, position)).catch(
-				refused(id, "Not moved"),
 			),
 	};
 }
@@ -158,185 +182,5 @@ export function QueueToggle({
 			<Icon data-icon="inline-start" />
 			{label}
 		</Button>
-	);
-}
-
-/**
- * The queue, the board's first column: the queued todos in the order
- * workers start them, each with what still holds it back, to move up or
- * down or take out. Its order is the list's, so moving one here moves it
- * there too.
- */
-export function QueueColumn({
-	all,
-	only,
-}: {
-	/** Every todo, to say what each queued one waits on. */
-	all: readonly TaskRecord[];
-	/** The todos the board is narrowed to, or null for every one. */
-	only: readonly number[] | null;
-}): JSX.Element {
-	const whole = queueOrder(all);
-	const queue =
-		only === null ? whole : whole.filter((todo) => only.includes(todo.id));
-	return (
-		<Column label="Queue" drop={null} lit={false}>
-			<header className="flex flex-col gap-1 px-1 pt-1">
-				<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
-					Queue
-					<span className="font-normal text-muted-foreground text-xs tabular-nums">
-						{queue.length}
-					</span>
-				</h3>
-			</header>
-			{queue.length === 0 ? (
-				<p className="px-1 py-2 text-muted-foreground text-xs">
-					Nothing queued. A queued task starts on a worker once nothing blocks
-					it.
-				</p>
-			) : (
-				<ol
-					aria-label="Queued tasks"
-					className="-mx-1 flex min-h-2 flex-col gap-1.5 overflow-y-auto px-1 py-0.5"
-				>
-					{queue.map((todo) => (
-						<QueueRow key={todo.id} todo={todo} whole={whole} all={all} />
-					))}
-				</ol>
-			)}
-		</Column>
-	);
-}
-
-/** One queued todo: its place, what holds it back, and ways to move it. */
-function QueueRow({
-	todo,
-	whole,
-	all,
-}: {
-	todo: TaskRecord;
-	whole: readonly TaskRecord[];
-	all: readonly TaskRecord[];
-}): JSX.Element {
-	const board = useContext(Board);
-	const { setQueued, move } = useQueueing();
-	const at = whole.findIndex((each) => each.id === todo.id);
-	const next = whole[at + 1];
-	return (
-		<li className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-2 py-1.5 text-card-foreground">
-			<div className="flex items-start gap-2">
-				<span className="w-4 shrink-0 pt-0.5 text-muted-foreground/70 text-xs tabular-nums">
-					{at + 1}
-				</span>
-				<button
-					type="button"
-					onClick={() => board.open(todo.id)}
-					className="min-w-0 flex-1 cursor-pointer rounded text-left font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				>
-					<span className="mr-1 font-normal text-muted-foreground tabular-nums">
-						#{todo.id}
-					</span>
-					{todo.subject}
-				</button>
-				<span className="flex shrink-0 items-center">
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={`Move #${todo.id} up`}
-						disabled={at <= 0}
-						onClick={() => move(todo.id, at)}
-					>
-						<ChevronUpIcon />
-					</Button>
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={`Move #${todo.id} down`}
-						disabled={next === undefined}
-						onClick={() => move(todo.id, at + 2)}
-					>
-						<ChevronDownIcon />
-					</Button>
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={`Unqueue #${todo.id}`}
-						onClick={() => setQueued(todo, false)}
-					>
-						<ListXIcon />
-					</Button>
-				</span>
-			</div>
-			<HeldBack todo={todo} all={all} />
-			<Refusal refusal={board.refusedTodos.get(todo.id)} className="pl-6" />
-		</li>
-	);
-}
-
-/** What still holds queued `todo` back among `all`, if anything. */
-function HeldBack({
-	todo,
-	all,
-}: {
-	todo: TaskRecord;
-	all: readonly TaskRecord[];
-}): JSX.Element | null {
-	const { open, lost } = holdsBack(todo, all);
-	if (open.length === 0 && lost.length === 0) {
-		return null;
-	}
-	return (
-		<p className="pl-6 text-muted-foreground text-xs">
-			{open.length > 0 &&
-				`waits on ${open.map((other) => `#${other.id}`).join(", ")}`}
-			{open.length > 0 && lost.length > 0 && "; "}
-			{lost.length > 0 && (
-				<span className="text-warning">
-					{`needs you: ${lost.map((id) => `#${id}`).join(", ")} was removed`}
-				</span>
-			)}
-		</p>
-	);
-}
-
-/**
- * The queue as the Tasks page shows it, to say what starts next: each
- * queued task in the order workers start them, with what holds it back.
- * Only shown; the Board moves and unqueues them.
- */
-export function QueueList({
-	all,
-}: {
-	/** Every task on the list, to find the queue and what each waits on. */
-	all: readonly TaskRecord[];
-}): JSX.Element {
-	const queue = queueOrder(all);
-	if (queue.length === 0) {
-		return (
-			<p className="py-1 text-muted-foreground text-sm">
-				Nothing is queued. Queue a task from the Board, and a worker starts it
-				once nothing it is blocked by is open.
-			</p>
-		);
-	}
-	return (
-		<ol aria-label="Queue order" className="flex flex-col gap-1">
-			{queue.map((todo, at) => (
-				<li key={todo.id} className="flex flex-col gap-0.5 py-1">
-					<div className="flex items-start gap-2 text-sm">
-						<span className="w-4 shrink-0 text-muted-foreground/70 text-xs tabular-nums leading-5">
-							{at + 1}
-						</span>
-						<span className="min-w-0 flex-1">
-							<span className="mr-1 text-muted-foreground tabular-nums">
-								#{todo.id}
-							</span>
-							{todo.subject}
-						</span>
-					</div>
-					<HeldBack todo={todo} all={all} />
-				</li>
-			))}
-		</ol>
 	);
 }

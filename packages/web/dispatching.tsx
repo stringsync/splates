@@ -55,18 +55,29 @@ export const Dispatching = createContext<{
  */
 export function OnIt({
 	task,
+	queued,
 	variant = "chips",
 	spinning,
 	className,
 }: {
-	task: string;
+	task: string | null;
+	/** A queued task's number, for the conversation the queue holds for it, over `task`. */
+	queued?: number;
 	variant?: "marks" | "chips" | "rows";
 	spinning?: boolean;
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const nameOf = useNameOf();
-	const rows = (context?.dispatch.on(task) ?? []).filter(
+	const found =
+		context === null
+			? []
+			: queued !== undefined
+				? context.dispatch.heldFor(queued)
+				: task === null
+					? []
+					: context.dispatch.on(task);
+	const rows = found.filter(
 		({ need }) => spinning === undefined || spins(need) === spinning,
 	);
 	if (context === null || rows.length === 0) {

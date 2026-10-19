@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { taskAdd } from "../board";
 import { Conversations } from "../conversations";
 import { Offered } from "../models";
+import { queueAdd } from "../queue";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
@@ -72,6 +74,49 @@ describe("dev dispatched", () => {
 			await told.promise;
 
 			expect(agent.chosen).toEqual([{ configId: "effort", value: "high" }]);
+		} finally {
+			await server.disposeAsync();
+		}
+	});
+
+	it("hands a queued task to the conversation the queue held for it, starting no other", async () => {
+		const told = Promise.withResolvers<string>();
+		agent.turn = async (_, __, text) => {
+			told.resolve(text);
+			return "end_turn";
+		};
+		await taskAdd(deps, "Alpha", null);
+		await queueAdd(deps, [1]);
+		const held = await conversations.start("fake", {
+			task: null,
+			cwd: deps.service.git.root,
+			assigned: true,
+			capped: true,
+			queued: 1,
+			title: "#1 Alpha",
+		});
+		await add(deps, "alpha", {
+			tasks: [1],
+			dispatch: { agent: "fake", held: held.id },
+			agents: [ROSTERED],
+		});
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			expect(await told.promise).toContain("[SPLATES TASK alpha]");
+
+			expect(
+				(await conversations.list()).map(({ state }) => ({
+					id: state.id,
+					task: state.task,
+					queued: state.queued,
+					archived: state.archived,
+				})),
+			).toEqual([
+				{ id: held.id, task: "alpha", queued: null, archived: false },
+			]);
 		} finally {
 			await server.disposeAsync();
 		}

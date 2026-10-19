@@ -1,6 +1,5 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
 
 /**
@@ -85,38 +84,6 @@ export function queued(id: number, queued: boolean) {
 					? "backlog"
 					: "ready",
 		}));
-}
-
-/**
- * Queued todo `id` at `position` in the queue, 1 the next to start: just
- * above the queued todo there now, or after the last. The list keeps its
- * positions, so only the order of the todos in it changes.
- */
-export function movedInQueue(id: number, position: number) {
-	return (snapshot: Snapshot): Snapshot => {
-		const todo = snapshot.todos.find((each) => each.id === id);
-		if (todo === undefined) {
-			return snapshot;
-		}
-		const queue = queueOrder(snapshot.todos).filter((each) => each.id !== id);
-		const rest = snapshot.todos.filter((each) => each.id !== id);
-		const before = queue[position - 1];
-		const last = queue.at(-1);
-		const at =
-			before !== undefined
-				? rest.indexOf(before)
-				: last === undefined
-					? rest.length
-					: rest.indexOf(last) + 1;
-		const order = [...rest.slice(0, at), todo, ...rest.slice(at)];
-		return {
-			...snapshot,
-			todos: order.map((each, i) => {
-				const place = snapshot.todos[i]?.position ?? each.position;
-				return each.position === place ? each : { ...each, position: place };
-			}),
-		};
-	};
 }
 
 /** Lane `id` called `name`. */
