@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	type ConversationsView,
 	cleanup,
 	conversation,
@@ -16,6 +17,8 @@ describe("App's moving a conversation under another", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
+		// Rows act from the inbox, which only a phone has.
+		resize(390, 844);
 		testing = new Testing();
 	});
 
@@ -27,7 +30,7 @@ describe("App's moving a conversation under another", () => {
 
 	/** Opens Move under… from the menu its inbox row opens on a right-click. */
 	async function moveUnder(view: ConversationsView, name: string) {
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const row = within(inbox)
 			.getAllByText(name)[0]
 			?.closest("button") as Element;
@@ -127,7 +130,7 @@ describe("App's moving a conversation under another", () => {
 		);
 
 		// Each agent's list holds its row, then the rows of those under it.
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const names = ["alpha", "alpha-api", "Footer"];
 		expect(
 			within(inbox)
@@ -166,7 +169,7 @@ describe("App's moving a conversation under another", () => {
 	it("moves one from a long press on its inbox row", async () => {
 		resize(390, 844);
 		const view = await open();
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const row = within(inbox).getByRole("button", { name: /Footer/ });
 		await act(async () => {
 			fireEvent.pointerDown(row);

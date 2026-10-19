@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	type ConversationsView,
 	cleanup,
 	conversation,
 	fireEvent,
+	resize,
 	Testing,
 	within,
 } from "./testing";
@@ -15,6 +17,8 @@ describe("App's pinning conversations", () => {
 	let inbox: HTMLElement;
 
 	beforeEach(async () => {
+		// Rows act from the inbox, which only a phone has.
+		resize(390, 844);
 		testing = new Testing();
 		view = await testing.openConversations(
 			[
@@ -33,10 +37,11 @@ describe("App's pinning conversations", () => {
 			null,
 			{ tasks: [] },
 		);
-		inbox = view.getByRole("region", { name: "inbox" });
+		inbox = agentList(view);
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});

@@ -62,17 +62,13 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
-	/** The sidebar's Inbox. */
-	const inboxOf = (view: ConversationsView) =>
-		view.getByRole("button", { name: /^Inbox/ });
-
-	/** The line under the Inbox that opens the next agent waiting. */
+	/** The sidebar's line that opens the next agent waiting. */
 	const lineOf = (view: ConversationsView) =>
 		view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ });
 
-	/** What the Inbox counts, as it says it. */
+	/** What the line counts, as it says it. */
 	const waiting = (view: ConversationsView) =>
-		within(inboxOf(view)).getByRole("status").getAttribute("aria-label");
+		within(lineOf(view)).getByRole("status").getAttribute("aria-label");
 
 	it("passes over an agent asking only in its plan as it works on ⌥⌘M, though not one stopped on its questions", async () => {
 		const plan = PLAN.replace(
@@ -203,7 +199,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("counts the agents waiting on you on the Inbox, which opens the inbox, and on the line atop the agents, which opens the next as ⌥⌘M does and blinks when it finds none", async () => {
+	it("counts the agents waiting on you on the line atop the agents, which opens the next as ⌥⌘M does and blinks when it finds none", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({ id: "c1", title: "Runs", status: "running" }),
@@ -211,8 +207,7 @@ Cap upload retries
 			]),
 			"c1",
 		);
-		// The first of the pages; the line, the first thing under them, atop the agents.
-		expect(inboxOf(view).nextElementSibling?.textContent).toContain("Todos");
+		// The first thing under the pages, atop the agents.
 		expect(lineOf(view).previousElementSibling).toBe(null);
 		expect(lineOf(view).nextElementSibling).toBe(
 			view.getByRole("navigation", { name: "conversations" }),
@@ -220,10 +215,6 @@ Cap upload retries
 		expect(waiting(view)).toBe("1 waiting on you");
 		expect(lineOf(view).textContent).toBe("1 waiting on you");
 
-		await act(async () => fireEvent.click(inboxOf(view)));
-		expect(location.hash).toBe("#conversations");
-		expect(inboxOf(view).getAttribute("aria-current")).toBe("page");
-		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
 		await act(async () => fireEvent.click(lineOf(view)));
 		expect(location.hash).toBe("#conversations/c2");
 		expect(lineOf(view).hasAttribute("data-lit")).toBe(false);

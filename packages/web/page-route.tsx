@@ -35,7 +35,7 @@ export type Page =
 
 /**
  * Each page in the nav, with the shortcut that opens it, if any. Neither
- * Conversations, whose inbox each layout leads its agents with, nor Setup,
+ * Conversations, which each layout lists its agents beside, nor Setup,
  * which Settings and the nudge open, is one.
  */
 export const PAGES: {

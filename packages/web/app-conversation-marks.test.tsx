@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	type ConversationsView,
 	cleanup,
 	conversation,
@@ -54,11 +55,9 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
-	/** The inbox's rows, where every agent is. */
+	/** The sidebar's rows, where every agent is. */
 	const items = (view: ConversationsView) =>
-		within(view.getByRole("region", { name: "inbox" })).getAllByRole(
-			"listitem",
-		);
+		within(agentList(view)).getAllByRole("listitem");
 
 	/** A row's name, first of what it truncates. */
 	const nameOf = (row: HTMLElement) =>
@@ -84,9 +83,9 @@ Cap upload retries
 
 		expect(rows(view)).toEqual([
 			["Asks", "waiting on you"],
-			["Broke", "waiting on you"],
 			["Runs", "working"],
 			["Rests", null],
+			["Broke", "waiting on you"],
 			["alpha", null],
 		]);
 	});
@@ -214,13 +213,13 @@ Cap upload retries
 		);
 
 		expect(rows(view)).toEqual([
-			["Broke", "waiting on you"],
-			["Runs", "working"],
 			["Answered", "unread"],
 			["Landed", null],
+			["Broke", "waiting on you"],
+			["Runs", "working"],
 		]);
 		expect(
-			within(view.getByRole("region", { name: "inbox" })).getByRole("img", {
+			within(agentList(view)).getByRole("img", {
 				name: "merged",
 			}),
 		).toBeDefined();
@@ -264,7 +263,7 @@ Cap upload retries
 		expect(title.parentElement?.textContent).toBe("Fix login");
 	});
 
-	it("counts the agents waiting on you in the title, as the Inbox does", async () => {
+	it("counts the agents waiting on you in the title, as the sidebar does", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Asks", status: "running", ask })],
 			null,
@@ -272,7 +271,9 @@ Cap upload retries
 		);
 
 		expect(
-			within(view.getByRole("button", { name: /^Inbox/ })).getByRole("status", {
+			within(
+				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
+			).getByRole("status", {
 				name: "2 waiting on you",
 			}),
 		).toBeTruthy();

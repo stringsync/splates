@@ -15,14 +15,13 @@ import type { Drafts } from "./drafts";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
-import { InboxLine } from "./inbox-line";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import { foldersOf } from "./project-folders";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { WaitingLine } from "./waiting-line";
 
-/** What the sidebar's waiting lines are given. */
+/** What the sidebar's waiting line is given. */
 type Waiting = {
 	feed: ConversationFeed;
 	/** Where a reply copied for an external agent is kept. */
@@ -31,23 +30,6 @@ type Waiting = {
 	/** The project the page shows, as its snapshot has it. */
 	here: { root: string; repo: string; trunk: string | null };
 };
-
-/**
- * The sidebar's Inbox, its first page, counting the agents waiting on you,
- * in every project when the feed of every project is to be had.
- */
-export function InboxEntry({
-	inbox,
-	onInbox,
-	...given
-}: Waiting & {
-	/** Whether the inbox is the page shown. */
-	inbox: boolean;
-	onInbox: () => void;
-}): JSX.Element {
-	const { waiting } = useWaitingEverywhere(given);
-	return <InboxLine current={inbox} waiting={waiting} onOpen={onInbox} />;
-}
 
 /**
  * A line atop the sidebar's agents saying how many wait on you, in every

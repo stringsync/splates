@@ -14,24 +14,20 @@ import {
 	within,
 } from "./testing-dom";
 
-/**
- * Opens the conversation listed by `name` from the inbox, opening it first
- * beside a sidebar, as its Inbox does.
- */
+/** Every agent the page lists: the phone's inbox, or the sidebar beside it. */
+export function agentList(view: ConversationsView): HTMLElement {
+	return (
+		view.queryByRole("region", { name: "inbox" }) ??
+		view.getByRole("navigation", { name: "conversations" })
+	);
+}
+
+/** Opens the conversation listed by `name`, as `agentList` lists it. */
 export async function openRow(
 	view: ConversationsView,
 	name: string,
 ): Promise<void> {
-	// Every agent is in the inbox, which the sidebar's Inbox opens.
-	const entry = view.queryByRole("button", { name: /^Inbox/ });
-	if (
-		view.queryByRole("region", { name: "inbox" }) === null &&
-		entry !== null
-	) {
-		await act(async () => fireEvent.click(entry));
-	}
-	const nav = view.getByRole("region", { name: "inbox" });
-	const item = within(nav)
+	const item = within(agentList(view))
 		.getAllByRole("listitem")
 		.flatMap((row) => within(row).getAllByRole("button"))
 		.find((button) => button.textContent?.includes(name));

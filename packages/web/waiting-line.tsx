@@ -7,7 +7,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 const NUDGE = Duration.ms(600);
 
 /**
- * A line under the sidebar's Inbox, of one height, that always says how many
+ * A line in the sidebar, of one height, that always says how many
  * agents wait on you, so nothing moves as the count changes. Clicking it opens the next one, as
  * its shortcut does. Each time `nudges` goes up, as when that finds nothing to open,
  * it blinks a few times in place, to catch the eye, starting over on a repeat.
@@ -36,6 +36,8 @@ export function WaitingLine({
 		return () => fade.dispose();
 	}, [nudges]);
 
+	const said =
+		waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you";
 	return (
 		<button
 			type="button"
@@ -57,9 +59,8 @@ export function WaitingLine({
 			) : (
 				<CircleCheckIcon className="size-3.5" />
 			)}
-			{/* Not a status: the Inbox above counts them for a screen reader. */}
-			<span className="flex-1 truncate">
-				{waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you"}
+			<span role="status" aria-label={said} className="flex-1 truncate">
+				{said}
 			</span>
 			{hint !== null && (
 				// Its own height, taller than the line, would push the rows below.

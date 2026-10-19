@@ -61,11 +61,8 @@ describe("App's new conversation, by project", () => {
 				waiting: 0,
 			},
 		];
+		// With none open, the page starts a new one.
 		view = await testing.openConversations([], null, WEBAPPWIZ);
-		// Off the inbox, onto a new conversation, from the pen in its bar.
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
-		);
 	});
 
 	afterEach(() => {

@@ -12,7 +12,6 @@ import { useShortcut } from "./hooks/use-shortcut";
 import { ShownRoot } from "./new-conversation-project";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
-import { Inbox } from "./phone-inbox";
 import { Sidebar } from "./sidebar";
 import { SidebarHead } from "./sidebar-head";
 import type { Terminals } from "./terminals";
@@ -45,8 +44,8 @@ const DESKTOP_PAGES: Record<Page, string> = {
  * and each page's own bar in the rest, whose kebab ends with the page menu.
  * Under them, the sidebar's tabs and the page. The sidebar keeps its width
  * and whether it shows for the next visit. What each page shows, `bodies`,
- * is the same as on a phone, but for Conversations with none open: the
- * inbox, as the sidebar's Inbox opens it.
+ * is the same as on a phone. The phone's inbox stays the phone's: with no
+ * conversation open, the sidebar lists the agents, and the page starts one.
  */
 export function DesktopApp({
 	page,
@@ -168,27 +167,7 @@ export function DesktopApp({
 									value={value}
 									className={DESKTOP_PAGES[value]}
 								>
-									{value === "conversations" &&
-									open === null &&
-									snapshot !== null ? (
-										<Inbox
-											feed={talk}
-											drafts={drafts}
-											terminals={terminals}
-											tasks={snapshot.tasks}
-											here={{
-												root: snapshot.root,
-												repo: snapshot.repo,
-												trunk: snapshot.trunk,
-											}}
-											loading={false}
-											status={null}
-											onMenu={null}
-											onOpen={(id) => go("conversations", id)}
-										/>
-									) : (
-										bodies[value]
-									)}
+									{bodies[value]}
 								</TabsContent>
 							))
 					)}

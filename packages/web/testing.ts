@@ -38,7 +38,7 @@ import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
-import { openRow } from "./drivers";
+import { agentList, openRow } from "./drivers";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { FakeShell } from "./fake-shell";
@@ -527,7 +527,7 @@ export class Testing implements Resource {
 		return view;
 	}
 
-	/** Opens the page with conversations on, holding `held`, on the inbox. */
+	/** Opens the page with conversations on, holding `held`. */
 	async openConversations(
 		held: ConversationState[],
 		open: string | null = held[0]?.id ?? null,
@@ -539,17 +539,15 @@ export class Testing implements Resource {
 			tasks: [details({ task: "alpha" })],
 			...overrides,
 		});
-		// A phone opens on its inbox; beside a sidebar, its Inbox opens it.
-		const inbox = await waitFor(
-			() =>
-				view.queryByRole("region", { name: "inbox" }) ??
-				view.getByRole("button", { name: /^Inbox/ }),
-		);
-		if (inbox.tagName === "BUTTON") {
-			await act(async () => fireEvent.click(inbox));
-		}
+		// A phone opens on its inbox; beside a sidebar, go to Conversations.
+		const list = await waitFor(() => agentList(view));
 		if (open !== null) {
 			await openRow(view, nameIn(held, open));
+		} else if (list.tagName === "NAV") {
+			await act(async () => {
+				location.hash = "#conversations";
+				window.dispatchEvent(new HashChangeEvent("hashchange"));
+			});
 		}
 		return view;
 	}

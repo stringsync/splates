@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
 	message,
 	newestFirst,
+	resize,
 	Testing,
 	todo,
 	waitFor,
@@ -17,10 +19,13 @@ describe("App's agents a lane's orchestrator started", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
+		// Rows act from the inbox, which only a phone has.
+		resize(390, 844);
 		testing = new Testing();
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});
@@ -79,7 +84,7 @@ describe("App's agents a lane's orchestrator started", () => {
 			null,
 			snapshot,
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const name = await within(inbox).findByText("alpha");
 
 		// It answers to the orchestrator that handed it out, not to you.

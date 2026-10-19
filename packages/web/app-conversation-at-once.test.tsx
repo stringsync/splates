@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
+	resize,
 	Testing,
 	waitFor,
 	within,
@@ -19,6 +21,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});
@@ -34,7 +37,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 
 	/** Opens the menu of `name`'s inbox row, as a right-click does. */
 	async function menu(view: ConversationsView, name: string) {
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const row = within(inbox)
 			.getAllByText(name)[0]
 			?.closest("button") as Element;
@@ -54,6 +57,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 	}
 
 	it("pins at once, and unpins again when the server refuses", async () => {
+		// Its menu is the inbox's, which only a phone has.
+		resize(390, 844);
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -70,7 +75,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 			null,
 			{ tasks: [] },
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		testing.holdWrites();
 
 		await pick(view, "Old", "Pin");
@@ -85,6 +90,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 	});
 
 	it("hides an archived row at the click, and brings it back with why when refused", async () => {
+		// Its menu is the inbox's, which only a phone has.
+		resize(390, 844);
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Done", status: "stopped" }),
@@ -92,7 +99,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 			],
 			null,
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		testing.holdWrites();
 
 		await pick(view, "Done", "Archive");
@@ -109,6 +116,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 	});
 
 	it("removes the task before archiving, both behind the row already gone", async () => {
+		// Its menu is the inbox's, which only a phone has.
+		resize(390, 844);
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", task: "alpha", status: "stopped" }),
@@ -117,7 +126,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 			null,
 			{ tasks: [details({ task: "alpha", takenBy: "c1" })] },
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		testing.holdWrites();
 		await pick(view, "alpha", "Archive");
 		await act(async () =>
@@ -145,6 +154,8 @@ describe("App's list actions on a conversation, shown before the server says so"
 	});
 
 	it("marks unread and renames at once", async () => {
+		// Its menu is the inbox's, which only a phone has.
+		resize(390, 844);
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Open" }),
@@ -152,7 +163,7 @@ describe("App's list actions on a conversation, shown before the server says so"
 			],
 			null,
 		);
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		testing.holdWrites();
 
 		await pick(view, "Fix footer", "Mark as unread");

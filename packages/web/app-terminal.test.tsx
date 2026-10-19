@@ -353,23 +353,9 @@ describe("App's terminal", () => {
 		await press(TOGGLE);
 		await go("#conversations/c2");
 
+		const nav = view.getByRole("navigation", { name: "conversations" });
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
-		);
-		const row = within(view.getByRole("region", { name: "inbox" })).getByRole(
-			"button",
-			{ name: /One/ },
-		);
-		await act(async () => {
-			fireEvent.pointerDown(row);
-			fireEvent.contextMenu(row);
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("dialog", { name: "One" })).getByRole("button", {
-					name: "Archive",
-				}),
-			),
+			fireEvent.click(within(nav).getByRole("button", { name: "Archive One" })),
 		);
 		await act(async () =>
 			fireEvent.click(

@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
+	agentList,
 	type ConversationsView,
 	cleanup,
 	conversation,
 	details,
 	fireEvent,
+	resize,
 	Testing,
 	within,
 } from "./testing";
@@ -15,6 +17,8 @@ describe("App's pinning a part's conversation", () => {
 	let view: ConversationsView;
 
 	beforeEach(async () => {
+		// Rows act from the inbox, which only a phone has.
+		resize(390, 844);
 		testing = new Testing();
 		view = await testing.openConversations(
 			[
@@ -34,13 +38,14 @@ describe("App's pinning a part's conversation", () => {
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});
 
 	/** What the menu of `name`'s inbox row offers, as a right-click opens it. */
 	async function offered(name: string): Promise<(string | null)[]> {
-		const inbox = view.getByRole("region", { name: "inbox" });
+		const inbox = agentList(view);
 		const row = within(inbox)
 			.getAllByText(name)[0]
 			?.closest("button") as Element;

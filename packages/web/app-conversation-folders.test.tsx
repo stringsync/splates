@@ -3,6 +3,7 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import {
 	act,
+	agentList,
 	cleanup,
 	conversation,
 	fireEvent,
@@ -65,15 +66,15 @@ describe("App's agents, in a folder per project", () => {
 		testing.dispose();
 	});
 
-	/** The page on its inbox, once every project's agents are in. */
+	/** The page, once every project's agents are in its sidebar. */
 	const inbox = async () => {
 		const view = await testing.openConversations(mine, null);
-		const nav = view.getByRole("region", { name: "inbox" });
+		const nav = agentList(view);
 		await waitFor(() => within(nav).getByRole("region", { name: "zebra" }));
 		return { view, nav };
 	};
 
-	it("puts every project's waiting agents in the inbox's Needs you, each naming its project, then a folder per project, the Inbox counting them all", async () => {
+	it("puts every project's waiting agents in Needs you, each naming its project, then a folder per project, the waiting line counting them all", async () => {
 		const { view, nav } = await inbox();
 
 		const needsYou = within(nav).getByRole("region", { name: "Needs you" });
@@ -99,7 +100,9 @@ describe("App's agents, in a folder per project", () => {
 			within(zebra).queryByRole("button", { name: /Zebra broke/ }),
 		).toBeNull();
 		expect(
-			within(view.getByRole("button", { name: /^Inbox/ })).getByRole("status", {
+			within(
+				view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
+			).getByRole("status", {
 				name: "2 waiting on you",
 			}),
 		).toBeTruthy();

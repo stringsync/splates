@@ -71,28 +71,26 @@ describe("App's terminals in the main tree", () => {
 		);
 	};
 
-	/** Opens the inbox, where the main tree's terminals are listed. */
+	/** The sidebar, unfolded, where the main tree's terminals are listed. */
 	const inbox = async (view: Awaited<ReturnType<typeof reading>>) => {
-		if (view.queryByRole("region", { name: "inbox" }) === null) {
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: /^Inbox/ })),
-			);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const more = within(nav).queryByRole("button", { name: /^See \d+ more$/ });
+		if (more !== null) {
+			await act(async () => fireEvent.click(more));
 		}
-		return view.getByRole("region", { name: "inbox" });
+		return nav;
 	};
 
-	/** The inbox's rows for the main tree's terminals, by name, opening it. */
+	/** The sidebar's rows for the main tree's terminals, by name, unfolding it. */
 	const rows = async (view: Awaited<ReturnType<typeof reading>>) =>
 		within(await inbox(view))
-			.queryAllByRole("button", { name: /Main tree$/ })
-			.map((row) => row.textContent?.replace(/Main tree$/, ""));
+			.queryAllByRole("button", { name: /^Close / })
+			.map((close) => close.getAttribute("aria-label")?.replace(/^Close /, ""));
 
 	const row = async (view: Awaited<ReturnType<typeof reading>>, name: string) =>
-		within(await inbox(view)).getByRole("button", {
-			name: new RegExp(`^${name} ?Main tree$`),
-		});
+		within(await inbox(view)).getByRole("button", { name });
 
-	/** Renames the terminal `from` to `to` from its row in the inbox. */
+	/** Renames the terminal `from` to `to` from its row in the sidebar. */
 	const rename = async (
 		view: Awaited<ReturnType<typeof reading>>,
 		from: string,

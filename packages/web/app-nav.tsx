@@ -11,7 +11,7 @@ import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
 import { NewMenu } from "./new-menu";
-import { InboxEntry, NextWaiting } from "./next-waiting";
+import { NextWaiting } from "./next-waiting";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
@@ -23,7 +23,7 @@ export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with its
- * shortcut while ⌥⌘ is held, the Inbox first, the agents under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
+ * shortcut while ⌥⌘ is held, the agents under them, atop them a line to the next waiting, Archived at the foot, and a handle to drag it wider,
  * unless it is hidden. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
@@ -78,20 +78,6 @@ export function AppNav({
 						terminals={terminals}
 						open={page === "conversations" ? open : null}
 						onOpen={onOpen}
-					/>
-				)}
-				{available && snapshot !== null && (
-					<InboxEntry
-						feed={talk}
-						drafts={drafts}
-						tasks={snapshot.tasks}
-						here={{
-							root: snapshot.root,
-							repo: snapshot.repo,
-							trunk: snapshot.trunk,
-						}}
-						inbox={page === "conversations" && open === null}
-						onInbox={() => onOpen(null)}
 					/>
 				)}
 				{PAGES.map(({ value, label, Icon, shortcut }) => (
