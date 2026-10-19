@@ -89,24 +89,9 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	const sendDictation = useDictationSend();
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 	useSlashFocusesComposer();
+	useEnterSendsDictation(dictating && !touch, sendDictation);
 	const composer = (
-		<ComposerPrimitive.Root
-			className="aui-composer-root relative flex w-full flex-col"
-			onKeyDownCapture={(event) => {
-				if (
-					dictating &&
-					!touch &&
-					event.key === "Enter" &&
-					!event.shiftKey &&
-					!event.nativeEvent.isComposing &&
-					(event.target as HTMLElement).isContentEditable
-				) {
-					event.preventDefault();
-					event.stopPropagation();
-					void sendDictation();
-				}
-			}}
-		>
+		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
 				render={
 					// A tap in the box that misses its controls still lands in the
@@ -422,6 +407,36 @@ const ComposerAction: FC = () => {
 		</div>
 	);
 };
+
+/**
+ * Enter sends a take under way from wherever focus sits: clicking the mic
+ * leaves it on the page, not the editor, once the button swaps for Stop. A
+ * focused control or another field keeps its own Enter.
+ */
+function useEnterSendsDictation(active: boolean, send: () => Promise<void>) {
+	const sending = useRef(send);
+	sending.current = send;
+	useEffect(() => {
+		if (!active) return;
+		const press = (event: KeyboardEvent) => {
+			const target = event.target;
+			if (
+				event.key !== "Enter" ||
+				event.shiftKey ||
+				event.isComposing ||
+				!(target instanceof HTMLElement) ||
+				(target !== document.body && !target.isContentEditable)
+			) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			void sending.current();
+		};
+		window.addEventListener("keydown", press, true);
+		return () => window.removeEventListener("keydown", press, true);
+	}, [active]);
+}
 
 /** Finish the take before assistant-ui sends, which otherwise cancels it. */
 function useDictationSend() {

@@ -115,6 +115,27 @@ describe("App's composer mic", () => {
 		expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(true);
 	});
 
+	it("sends with Enter while focus sits on the page, not the editor", async () => {
+		const { view, box } = await composer();
+		await typeIn(box, "Please");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		act(() => microphone.speak(" more"));
+
+		await act(async () => {
+			expect(fireEvent.keyDown(document.body, { key: "Enter" })).toBe(false);
+		});
+
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toHaveLength(1),
+		);
+		expect(microphone.open).toBe(false);
+	});
+
 	it("stops startup with Escape as Cancel dictation does", async () => {
 		microphone.speak = () => {};
 		const { view } = await composer();
