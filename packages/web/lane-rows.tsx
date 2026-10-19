@@ -42,7 +42,7 @@ export function LaneRows({
 				return (
 					<li
 						key={`lane:${lane}`}
-						className="my-1.5 ml-1 border-primary/50 border-l-2 first:mt-0"
+						className="my-1.5 ml-1 border-primary/50 border-l first:mt-0"
 					>
 						<button
 							type="button"
