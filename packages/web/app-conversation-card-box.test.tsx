@@ -90,6 +90,28 @@ describe("App's card answer boxes", () => {
 		expect(textIn(answer(view, "2"))).toBe("something more");
 	});
 
+	it("starts ⌥⌘V's take in the box in focus, not the first card's", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+
+		act(() => answer(view, "2").focus());
+		await act(async () =>
+			fireEvent.keyDown(window, {
+				code: "KeyV",
+				key: "√",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+
+		await waitFor(() =>
+			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
+		);
+		expect(
+			within(card(view, "1")).queryByRole("button", { name: "Stop dictation" }),
+		).toBeNull();
+	});
+
 	it("discards a card recording and keeps the words already typed", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));

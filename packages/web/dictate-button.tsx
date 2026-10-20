@@ -170,16 +170,24 @@ export function BoxMic({ box }: { box: BoxDictation }) {
 
 /**
  * Its shortcut, ⌥⌘V unless set otherwise, starts or stops a take in the
- * composer being written in, or else the first one showing. Once per page,
- * so one press toggles one mic.
+ * box being written in, a composer or a card's answer, or else the first
+ * one showing. Once per page, so one press toggles one mic.
  */
 export function useDictateKey(): void {
 	useShortcut("shortcuts.dictate", () => {
 		const shown = [
 			...document.querySelectorAll<HTMLButtonElement>(`.${MIC}`),
 		].filter((each) => each.getClientRects().length > 0);
-		const focused = document.activeElement?.closest("form");
-		const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
+		// The mic nearest the focus: a card's boxes sit in no form of their own.
+		let button: HTMLButtonElement | undefined;
+		for (
+			let around = document.activeElement;
+			around !== null && button === undefined;
+			around = around.parentElement
+		) {
+			button = shown.find((each) => around?.contains(each));
+		}
+		button ??= shown[0];
 		button?.click();
 		return button !== undefined;
 	});
