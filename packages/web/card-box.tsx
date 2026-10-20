@@ -30,7 +30,8 @@ type Props = Omit<BoxEditorProps, "inset"> & {
  * A card's answer box as a small composer: the text, with a plus to attach
  * and the mic at its end, and under it the files attached to it. The plus
  * and mic show only while the box has the focus or pointer. During a take,
- * a full-width waveform and stop control replace the editor. A paste of files
+ * a full-width waveform and stop control cover the editor along its bottom,
+ * the box keeping the height it had. A paste of files
  * attaches them, and `@` and `#` offer what the thread's composer does; what
  * is picked or attached is a chip in the words, as in the composer.
  */
@@ -84,48 +85,63 @@ function Box({
 				roomy ? "rounded-xl" : "rounded-lg",
 			)}
 		>
-			<div hidden={taking} className="relative min-h-(--suffix-height)">
-				<BoxEditor
-					{...props}
-					files={files}
-					onValue={(text) => {
-						onValue(text);
-						box?.typed(text);
-					}}
-					inset={roomy ? "px-4" : "px-3"}
+			<div className="relative">
+				{/* Kept in place under a take, hidden, so the box holds its height. */}
+				<div
+					inert={taking}
+					aria-hidden={taking || undefined}
 					className={cn(
-						roomy ? "py-3 text-base" : "py-2 text-sm pointer-coarse:text-base",
-						(box !== null || files !== null) && BUTTON_ROOM,
-						className,
+						"relative min-h-(--suffix-height)",
+						taking && "invisible",
 					)}
-				/>
-				{(box !== null || files !== null) && (
-					<Suffix roomy={roomy} shell={shell}>
-						{files !== null && <AttachPlus files={files} />}
-						{box !== null && <BoxMic box={box} />}
-					</Suffix>
+				>
+					<BoxEditor
+						{...props}
+						files={files}
+						onValue={(text) => {
+							onValue(text);
+							box?.typed(text);
+						}}
+						inset={roomy ? "px-4" : "px-3"}
+						className={cn(
+							roomy
+								? "py-3 text-base"
+								: "py-2 text-sm pointer-coarse:text-base",
+							(box !== null || files !== null) && BUTTON_ROOM,
+							className,
+						)}
+					/>
+					{(box !== null || files !== null) && (
+						<Suffix roomy={roomy} shell={shell}>
+							{files !== null && <AttachPlus files={files} />}
+							{box !== null && <BoxMic box={box} />}
+						</Suffix>
+					)}
+				</div>
+				{taking && box !== null && (
+					<div
+						className={cn(
+							"absolute inset-x-0 bottom-0 flex min-w-0 items-center",
+							roomy ? "p-1.5" : "p-1",
+						)}
+					>
+						<TooltipIconButton
+							tooltip="Discard dictation"
+							side="bottom"
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="size-7 shrink-0 rounded-full pointer-coarse:size-11"
+							aria-label="Discard dictation"
+							onClick={() => box.dictation.cancel()}
+						>
+							<XIcon aria-hidden="true" />
+						</TooltipIconButton>
+						<DictationStatus expanded />
+						<BoxMic box={box} />
+					</div>
 				)}
 			</div>
-			{taking && box !== null && (
-				<div
-					className={cn("flex min-w-0 items-center", roomy ? "p-1.5" : "p-1")}
-				>
-					<TooltipIconButton
-						tooltip="Discard dictation"
-						side="bottom"
-						type="button"
-						variant="ghost"
-						size="icon"
-						className="size-7 shrink-0 rounded-full pointer-coarse:size-11"
-						aria-label="Discard dictation"
-						onClick={() => box.dictation.cancel()}
-					>
-						<XIcon aria-hidden="true" />
-					</TooltipIconButton>
-					<DictationStatus expanded />
-					<BoxMic box={box} />
-				</div>
-			)}
 			{box !== null && <DictationNotice by={box.by} />}
 		</div>
 	);
