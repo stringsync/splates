@@ -102,6 +102,46 @@ describe("decide", () => {
 		});
 	});
 
+	it("passes over an OpenCode model whose Go cap was refused, not its other models", () => {
+		const opencode = {
+			id: "opencode",
+			name: "OpenCode",
+			argv: ["opencode", "acp"],
+			models: ["a", "b"].map((id) => ({
+				id,
+				name: id,
+				strengths: "",
+				cost: "unknown",
+			})),
+		};
+		const rules: AutoPickRules = {
+			...DEFAULT_RULES,
+			rules: [
+				{
+					kind: "*",
+					depth: "*",
+					picks: [
+						{ agent: "opencode", model: "a" },
+						{ agent: "opencode", model: "b" },
+					],
+				},
+			],
+		};
+		const limits = {
+			opencode: [{ window: "cap:a", used: 1, resets: LATER, at: null }],
+		};
+		expect(
+			decide({
+				...BASE,
+				agents: [opencode],
+				runnable: ["opencode"],
+				rules,
+				limits,
+				classification: DESIGN,
+			}).pick,
+		).toEqual({ agent: "opencode", model: "b" });
+	});
+
 	it("keeps an agent whose spent window has already reset", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.99, resets: EARLIER, at: null }],

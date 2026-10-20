@@ -1,3 +1,4 @@
+import { CAP_PREFIX } from "../agents";
 import type { Limit, Setting } from "../conversations";
 import type { AgentPick, RosterAgent } from "../models";
 import {
@@ -127,7 +128,11 @@ function choose(
 			return [];
 		}
 		const { model: _, ...rest } = pick;
-		const limits = input.limits[agent.id] ?? [];
+		const limits = (input.limits[agent.id] ?? []).filter(
+			(each) =>
+				!each.window.startsWith(CAP_PREFIX) ||
+				each.window === `${CAP_PREFIX}${model ?? ""}`,
+		);
 		return [
 			{
 				pick: model === undefined ? rest : { ...rest, model },

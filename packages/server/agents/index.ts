@@ -3,7 +3,7 @@ export { endBackground, foldBackground } from "./acp-extensions";
 export { agents } from "./agents";
 export { AgentConnection } from "./connection";
 export { agentError, requestError } from "./errors";
-export { agentTurn, fold, heard, result, tally } from "./fold";
+export { agentTurn, CAP_PREFIX, fold, heard, result, tally } from "./fold";
 export type {
 	Agent,
 	AgentFrame,

@@ -57,6 +57,23 @@ export function fold(
 						};
 		}
 		const turn = report.turns.at(-1);
+		if (report.retry !== null && refusedForCap(report.retry)) {
+			const model = turn?.confirmed ?? turn?.requested ?? null;
+			if (model !== null) {
+				state.usage.limits = heard(state.usage.limits, [
+					{
+						window: `${CAP_PREFIX}${model}`,
+						used: 1,
+						resets:
+							report.retry.nextRetryAt ??
+							new Date(
+								Date.parse(at ?? new Date().toISOString()) + CAP_HOLD,
+							).toISOString(),
+						at,
+					},
+				]);
+			}
+		}
 		if (
 			turn !== undefined &&
 			turn.until === null &&
@@ -290,6 +307,18 @@ export function limitsIn(update: acp.UsageUpdate, at: string | null): Limit[] {
 }
 
 /** `limits`, each window in `news` replaced by what it says now. */
+/** The prefix of a limit window recording that OpenCode refused a model for its Go cap. */
+export const CAP_PREFIX = "cap:";
+
+/** How long a cap refusal counts when the retry names no time: the shortest, 5-hour window. */
+const CAP_HOLD = 5 * 3_600_000;
+
+/** Whether an OpenCode retry says the model's usage cap is spent, not a passing fault. */
+function refusedForCap(retry: { message: string }): boolean {
+	// A plain rate limit passes with a wait; only a spent cap holds a model off.
+	return /usage limit|limit reached|quota/i.test(retry.message);
+}
+
 export function heard(limits: Limit[], news: Limit[]): Limit[] {
 	if (news.length === 0) {
 		return limits;
