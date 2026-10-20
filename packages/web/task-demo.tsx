@@ -1,33 +1,27 @@
-import { PlayIcon } from "lucide-react";
-import { type JSX, useContext } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { DialogClose } from "#web/components/ui/dialog.tsx";
+import { BotMessageSquareIcon } from "lucide-react";
+import { useContext } from "react";
 import { Dispatching } from "./dispatching";
+import type { Action } from "./task-actions";
+import type { PlanParts } from "./task-plan-parts";
 
 /**
- * Demo: starts a conversation whose agent demos `task` with its change in
- * and opens it, closing the dialog. None while the page holds no
- * conversations.
+ * Demo with an agent, for a task dialog's actions: starts a conversation
+ * whose agent sets up and shows `task` with its change in, and opens it,
+ * closing the dialog. Named for the agent, since it opens a conversation
+ * rather than playing anything. None while its plan has no `## Demo`, or
+ * the page holds no conversations.
  */
-export function DemoButton({ task }: { task: string }): JSX.Element | null {
+export function useDemo(task: string, plan: PlanParts | null): Action | null {
 	const context = useContext(Dispatching);
-	if (context === null) {
+	if (context === null || plan === null || plan.demo === "") {
 		return null;
 	}
-	return (
-		<DialogClose
-			render={
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={() => {
-						void context.dispatch.demo(task, "after").then(context.open);
-					}}
-				/>
-			}
-		>
-			<PlayIcon />
-			Demo
-		</DialogClose>
-	);
+	return {
+		label: "Demo with an agent",
+		Icon: BotMessageSquareIcon,
+		closes: true,
+		run: () => {
+			void context.dispatch.demo(task, "after").then(context.open);
+		},
+	};
 }

@@ -16,6 +16,7 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
@@ -24,6 +25,8 @@ import { ApiError, scoped } from "./api";
 import { useFolded } from "./folded";
 import { Markdown } from "./markdown";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
+import { ActionButton } from "./task-actions";
+import { useDemo } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { Overview } from "./task-overview";
 import { planParts } from "./task-plan-parts";
@@ -195,6 +198,7 @@ function FinishedDialog({
 		() => (read === null || read.plan === "" ? null : planParts(read.plan)),
 		[read],
 	);
+	const demo = useDemo(read?.task ?? "", plan);
 	// Focus lands on the dialog, not its first tab, as a live task's does.
 	const dialog = useRef<HTMLDivElement>(null);
 	return (
@@ -257,6 +261,17 @@ function FinishedDialog({
 					{task !== null && <FactList facts={factsOf(read ?? task)} />}
 				</Section>
 			</SectionTabs>
+			{demo !== null && (
+				<DialogFooter>
+					<div role="toolbar" aria-label="actions" className="flex w-full">
+						<ActionButton
+							action={demo}
+							outline
+							className="pointer-coarse:h-10 pointer-coarse:flex-1"
+						/>
+					</div>
+				</DialogFooter>
+			)}
 		</DialogContent>
 	);
 }

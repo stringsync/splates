@@ -41,7 +41,7 @@ import { useRowRefusal } from "./row-refusal";
 import { StartItems, StartMenu } from "./start-menu";
 
 /** Something to do with a task: a button in the bar, or an item in its menu. */
-interface Action {
+export interface Action {
 	label: string;
 	Icon: LucideIcon;
 	run: () => void;
@@ -53,15 +53,18 @@ interface Action {
 
 /**
  * Everything to do with a task, in one row: the conversations on it, or a
- * way to start one; its changes; another round of merges once it is out of them. On a
- * phone, past two, the most pressing one and a menu of the rest.
+ * way to start one; a demo with an agent; its changes; another round of
+ * merges once it is out of them. On a phone, past two, the most pressing one
+ * and a menu of the rest.
  */
 export function ActionBar({
 	task,
 	retry,
+	demo,
 }: {
 	task: Details;
 	retry: Action | null;
+	demo: Action | null;
 }): JSX.Element {
 	const context = useContext(Dispatching);
 	const review = useContext(ReviewChanges);
@@ -118,7 +121,7 @@ export function ActionBar({
 							<ActionItem action={remove.action} />
 						</DropdownMenuContent>
 					</DropdownMenu>
-					{[retry, changes].map(
+					{[demo, retry, changes].map(
 						(action) =>
 							action !== null && (
 								<ActionButton key={action.label} action={action} outline />
@@ -129,10 +132,14 @@ export function ActionBar({
 			</div>
 		);
 	}
-	// Most pressing first; removing never leads, since it cannot be undone.
-	const [lead, ...rest] = [changes, retry].filter((action) => action !== null);
+	// Most pressing first; removing never leads, since it cannot be undone,
+	// nor does a demo, which can wait in the menu.
+	const [lead, ...pressing] = [changes, retry].filter(
+		(action) => action !== null,
+	);
+	const rest = demo === null ? pressing : [...pressing, demo];
 	const count =
-		(lead === undefined ? 0 : 1 + rest.length) + (starts ? 1 : 0) + 1;
+		(lead === undefined ? 0 : 1) + rest.length + (starts ? 1 : 0) + 1;
 	return (
 		<div
 			role="toolbar"
@@ -142,15 +149,26 @@ export function ActionBar({
 			{/* A row of its own, so it names whose spinner it is. */}
 			{chatting && <OnIt task={task.task} variant="rows" className="-mx-2" />}
 			{revive}
-			{count <= 2 || lead === undefined ? (
+			{count <= 2 ? (
 				<div className="flex gap-2 [&>*]:flex-1">
 					<ActionButton action={remove.action} outline />
 					{starts && <Start task={task.task} wide />}
 					{lead !== undefined && <ActionButton action={lead} />}
+					{rest.map((action) => (
+						<ActionButton key={action.label} action={action} outline />
+					))}
 				</div>
 			) : (
 				<div className="flex gap-2">
-					<ActionButton action={lead} className="flex-1" />
+					{lead !== undefined ? (
+						<ActionButton action={lead} className="flex-1" />
+					) : (
+						starts && (
+							<div className="flex flex-1">
+								<Start task={task.task} wide />
+							</div>
+						)
+					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger
 							render={
@@ -168,7 +186,7 @@ export function ActionBar({
 							{rest.map((action) => (
 								<ActionItem key={action.label} action={action} />
 							))}
-							{starts && (
+							{starts && lead !== undefined && (
 								<>
 									{rest.length > 0 && <DropdownMenuSeparator />}
 									<StartItems assignment={{ kind: "task", task: task.task }} />
@@ -282,7 +300,7 @@ function Start({
 }
 
 /** An action as a button, closing the dialog when it opens elsewhere. */
-function ActionButton({
+export function ActionButton({
 	action,
 	outline = false,
 	className,

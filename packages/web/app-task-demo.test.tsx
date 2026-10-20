@@ -87,13 +87,17 @@ describe("App's task demos", () => {
 			),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
-		await waitFor(() => within(dialog).getByRole("button", { name: "Demo" }));
+		await waitFor(() =>
+			within(dialog).getByRole("button", { name: "Demo with an agent" }),
+		);
 		return dialog;
 	};
 
 	const demo = async (dialog: HTMLElement) =>
 		act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Demo" })),
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Demo with an agent" }),
+			),
 		);
 
 	const prompts = (id: string) =>
@@ -101,7 +105,7 @@ describe("App's task demos", () => {
 			.posted(`/api/conversations/${id}/prompt`)
 			.map((post) => post.body.text);
 
-	it("shows a task's Verification on its Overview, its recordings too, with one Demo button in it", async () => {
+	it("shows a task's Verification on its Overview, its recordings too, and its demo among the dialog's actions", async () => {
 		const view = await tasksPage([
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),
 		]);
@@ -115,11 +119,17 @@ describe("App's task demos", () => {
 		expect(verification.querySelector("video")?.getAttribute("src")).toBe(
 			`/api/file?${new URLSearchParams({ path: "/tmp/shots/done.webm" })}`,
 		);
-		// The demo is part of the evidence: one button, no points to pick.
+		// One action, named for the agent it starts, with no points to pick.
+		const actions = within(dialog).getByRole("toolbar", { name: "actions" });
 		expect(
-			within(verification).getAllByRole("button", { name: /demo/i }),
+			within(actions).getAllByRole("button", { name: /demo/i }),
 		).toHaveLength(1);
-		expect(within(dialog).queryByRole("region", { name: "demo" })).toBeNull();
+		expect(
+			within(actions).getByRole("button", { name: "Demo with an agent" }),
+		).not.toBeNull();
+		expect(
+			within(verification).queryByRole("button", { name: /demo/i }),
+		).toBeNull();
 		// Shown once, on the Overview, leaving the Notes tab its notes alone.
 		expect(dialog.textContent?.match(/Ran the upload tests/g)).toHaveLength(1);
 		expect(dialog.textContent).not.toContain("kept the old flag");
@@ -138,10 +148,12 @@ describe("App's task demos", () => {
 		);
 		const dialog = await liveDialog(view);
 
-		expect(within(dialog).queryByRole("button", { name: "Demo" })).toBeNull();
+		expect(
+			within(dialog).queryByRole("button", { name: "Demo with an agent" }),
+		).toBeNull();
 	});
 
-	it("offers its Demo button under Verification for a plan with a Demo but no Verification", async () => {
+	it("offers its demo for a plan with a Demo but no Verification", async () => {
 		const view = await tasksPage(
 			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
 			[
@@ -154,11 +166,13 @@ describe("App's task demos", () => {
 		);
 		const dialog = await liveDialog(view);
 
-		const verification = within(dialog).getByRole("region", {
-			name: "verification",
-		});
 		expect(
-			within(verification).getByRole("button", { name: "Demo" }),
+			within(dialog).queryByRole("region", { name: "verification" }),
+		).toBeNull();
+		expect(
+			within(
+				within(dialog).getByRole("toolbar", { name: "actions" }),
+			).getByRole("button", { name: "Demo with an agent" }),
 		).not.toBeNull();
 	});
 

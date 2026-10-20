@@ -1,14 +1,13 @@
 import type { JSX, ReactNode } from "react";
 import { Markdown } from "./markdown";
-import { DemoButton } from "./task-demo";
 import type { PlanParts } from "./task-plan-parts";
 import { stepsIn } from "./task-plan-parts";
 import { TaskPorts } from "./task-ports";
 
 /**
  * A task dialog's Overview, for a live task or a finished one alike: what
- * the task is for and how far it got, its Goal, what was verified with a
- * demo to start beside it, and its steps with how many are done; and for a live one, the
+ * the task is for and how far it got, its Goal, what was verified, and
+ * its steps with how many are done; and for a live one, the
  * ports it serves, to open what it runs.
  */
 export function Overview({
@@ -40,19 +39,10 @@ export function Overview({
 							<Markdown text={plan.goal} />
 						</section>
 					)}
-					{/* What was checked, its screenshots with it, and a demo to
-					see it for yourself: one body of evidence. */}
-					{(plan.verification !== "" || plan.demo !== "") && (
+					{plan.verification !== "" && (
 						<section aria-label="verification" className="flex flex-col gap-1">
-							{/* The button by the heading, where screenshots below
-							never push it out of sight. */}
-							<div className="flex items-center justify-between gap-2">
-								<SectionHeading>Verification</SectionHeading>
-								{plan.demo !== "" && <DemoButton task={task} />}
-							</div>
-							{plan.verification !== "" && (
-								<Markdown text={plan.verification} />
-							)}
+							<SectionHeading>Verification</SectionHeading>
+							<Markdown text={plan.verification} />
 						</section>
 					)}
 					{plan.steps !== "" && (

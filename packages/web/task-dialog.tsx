@@ -31,6 +31,7 @@ import {
 } from "./handed-out";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
+import { useDemo } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { Overview } from "./task-overview";
 import { planParts } from "./task-plan-parts";
@@ -54,6 +55,7 @@ import { Sessions } from "./task-sessions";
 export function Task({ task }: { task: Details }): JSX.Element {
 	const retry = useRetry(task);
 	const plan = useMemo(() => planParts(task.plan), [task.plan]);
+	const demo = useDemo(task.task, task.plan === null ? null : plan);
 	const [tab, setTab] = useState<Tab>("overview");
 	const context = useContext(Dispatching);
 	const external =
@@ -116,7 +118,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				</Section>
 			</SectionTabs>
 			<DialogFooter className="sm:justify-between">
-				<ActionBar task={task} retry={retry.action} />
+				<ActionBar task={task} retry={retry.action} demo={demo} />
 			</DialogFooter>
 		</DialogContent>
 	);
