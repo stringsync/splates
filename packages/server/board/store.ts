@@ -1,4 +1,5 @@
-import type { Fs, Lock } from "webappwiz/system";
+import type { Lock } from "webappwiz/system";
+import type { Collection, Storage } from "../storage";
 import type { TaskState } from "../tasks";
 import type { TaskRecord, WaitingStage } from "./task";
 import { decodeTask, encodeTask, TASK_FILE } from "./task-file";
@@ -62,16 +63,18 @@ export function queuedOf(record: StoredTask): TaskRecord & { tags?: string[] } {
 export class TaskStore {
 	/** The number each started task was last found under, by its name. */
 	private readonly numbers = new Map<string, number>();
+	/** The records themselves, with the files beside them that numbers and lanes keep. */
+	readonly records: Collection;
+	/** The tasks removed but kept, in `tasks/removed`. */
+	readonly removed: Collection;
+	/** Held while writing any record, and while numbering a new one. */
+	private readonly lock: Lock;
 
-	constructor(
-		readonly dir: string,
-		/** Held while writing any record, and while numbering a new one. */
-		private readonly lock: Lock,
-		private readonly fs: Fs,
-	) {}
-
-	path(id: number): string {
-		return `${this.dir}/${id}.md`;
+	/** `storage` is the project's, holding `tasks/` and `tasks.lock`. */
+	constructor(readonly storage: Storage) {
+		this.records = storage.collection("tasks");
+		this.removed = storage.collection("tasks/removed");
+		this.lock = storage.lock("tasks.lock");
 	}
 
 	/** Runs `run` holding the lock every write goes through. */
@@ -84,18 +87,23 @@ export class TaskStore {
 		}
 	}
 
+	/** Where task `id`'s files are kept, beside its record. */
+	filesKey(id: number): string {
+		return `tasks/${id}`;
+	}
+
 	/** Task `id`, or null when there is none or it will not parse. */
 	async read(id: number): Promise<StoredTask | null> {
-		const raw = await this.fs.read(this.path(id)).catch(() => null);
+		const raw = await this.records.read(`${id}.md`).catch(() => null);
 		return raw === null ? null : parse(raw);
 	}
 
 	/** Every task that parses, by number. */
 	async all(): Promise<StoredTask[]> {
-		const entries = await this.fs.readdir(this.dir).catch(() => []);
+		const names = await this.records.list();
 		const records: StoredTask[] = [];
-		for (const entry of entries.filter((each) => TASK_FILE.test(each))) {
-			const raw = await this.fs.read(`${this.dir}/${entry}`).catch(() => null);
+		for (const name of names.filter((each) => TASK_FILE.test(each))) {
+			const raw = await this.records.read(name).catch(() => null);
 			const record = raw === null ? null : parse(raw);
 			if (record !== null) {
 				records.push(record);
@@ -129,19 +137,14 @@ export class TaskStore {
 
 	/** Writes one task, which a reader sees whole, old or new. */
 	async write(record: StoredTask): Promise<void> {
-		// Renamed into place, so the swap is atomic.
-		await this.fs.mkdir(this.dir);
-		const path = this.path(record.id);
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(tmp, encodeTask(record));
-		await this.fs.rename(tmp, path);
+		await this.records.write(`${record.id}.md`, encodeTask(record));
 		if (record.task !== undefined) {
 			this.numbers.set(record.task, record.id);
 		}
 	}
 
 	async remove(id: number): Promise<void> {
-		await this.fs.rm(this.path(id), { force: true });
+		await this.records.remove(`${id}.md`);
 	}
 
 	/**
@@ -150,11 +153,10 @@ export class TaskStore {
 	 * under the lock.
 	 */
 	async next(): Promise<number> {
-		const last = Number(await this.fs.read(`${this.dir}/last`).catch(() => 0));
+		const last = Number(await this.records.read("last").catch(() => 0));
 		const ids = (await this.all()).map((record) => record.id);
 		const id = Math.max(Number.isInteger(last) ? last : 0, ...ids) + 1;
-		await this.fs.mkdir(this.dir);
-		await this.fs.write(`${this.dir}/last`, String(id));
+		await this.records.write("last", String(id));
 		return id;
 	}
 }

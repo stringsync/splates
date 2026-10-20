@@ -1,8 +1,8 @@
 import { Credentials, credentialName, type SecretStore } from "webappwiz/creds";
-import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { renamed } from "../config";
 import { fail } from "../exit";
+import type { Document, Storage } from "../storage";
 import {
 	type CredRequest,
 	type CredsFile,
@@ -10,6 +10,8 @@ import {
 	type KeptCred,
 } from "./requests";
 import { SCOPES, type Scope, type SecretStores } from "./stores";
+
+const FILE_KEY = "creds.json";
 
 /** How long `wait` gives a request before handing the wait back to its caller. */
 export const DEFAULT_TIMEOUT = Duration.mins(15);
@@ -25,33 +27,30 @@ const POLL = Duration.secs(2);
  * through `credentials`, so no agent, page or log ever holds it.
  */
 export class Creds {
-	readonly #fs: Fs;
+	/** The record of requests, `creds.json`, updated under `creds.lock`. */
+	readonly #record: Document<CredsFile>;
 
 	constructor(
-		/** The record of requests, `.git/splates/creds.json`. */
-		readonly file: string,
-		/** Held while the record is read and written back. */
-		private readonly lock: Lock,
+		/** The project's, holding `creds.json`. */
+		storage: Storage,
 		private readonly stores: Record<Scope, SecretStore>,
-		opts: { fs?: Fs } = {},
 	) {
-		this.#fs = opts.fs ?? new NodeFs();
+		this.#record = storage.document(FILE_KEY, {
+			schema: FILE,
+			lock: "creds.lock",
+		});
 	}
 
 	/** The project's creds, kept in `stores`. */
 	static async open(
-		splatesDir: string,
+		storage: Storage,
 		root: string,
-		lock: Lock,
 		stores: SecretStores,
-		opts: { fs?: Fs } = {},
 	): Promise<Creds> {
-		return new Creds(
-			`${splatesDir}/creds.json`,
-			lock,
-			{ project: await stores.project(root), device: stores.device },
-			opts,
-		);
+		return new Creds(storage, {
+			project: await stores.project(root),
+			device: stores.device,
+		});
 	}
 
 	/**
@@ -282,23 +281,17 @@ export class Creds {
 	}
 
 	private async read(): Promise<CredsFile> {
-		if (!(await this.#fs.exists(this.file))) {
-			return FILE.parse({});
-		}
-		return FILE.parse(JSON.parse(await this.#fs.read(this.file)));
+		return (await this.#record.read()) ?? FILE.parse({});
 	}
 
 	private async change(
 		edit: (file: CredsFile) => void | Promise<void>,
 	): Promise<void> {
-		await this.lock.acquire();
-		try {
-			const file = await this.read();
+		await this.#record.update(async (current) => {
+			const file = current ?? FILE.parse({});
 			await edit(file);
-			await this.#fs.write(this.file, `${JSON.stringify(file, null, "\t")}\n`);
-		} finally {
-			await this.lock.release();
-		}
+			return file;
+		});
 	}
 }
 

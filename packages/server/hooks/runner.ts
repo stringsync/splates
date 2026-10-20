@@ -1,9 +1,9 @@
 import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
 import type { TaskStage } from "../board";
 import type { Journal } from "../records";
+import type { Document, Storage } from "../storage";
 import { type TaskEvent, taskEventsOf } from "./events";
 import type { AutomationRun, RunStore } from "./runs";
 import type { Automation, Hook, TaskFilter } from "./store";
@@ -73,12 +73,14 @@ export class HookRunner implements Resource {
 	readonly #throttler: Throttler;
 	#reading = Promise.resolve();
 	#watching: Resource | null = null;
+	readonly #seenAt: Document<Seen>;
 
 	private constructor(
 		private readonly deps: HookRunnerDeps,
 		timer: Timer,
 	) {
 		this.#throttler = new Throttler(timer, BEAT);
+		this.#seenAt = deps.storage.document("hooks-seen.json");
 	}
 
 	/** Runs hooks for each task event from where it got to, then follows the journal for more. */
@@ -89,12 +91,14 @@ export class HookRunner implements Resource {
 		const runner = new HookRunner(deps, timer);
 		await runner.#take();
 		try {
-			runner.#watching = deps.fs.watch(deps.splatesDir, () => runner.changed());
+			const watching = deps.storage.watch("");
+			watching.events.on("changed", () => void runner.changed());
+			runner.#watching = watching;
 			// Anything logged between the read above and the watch starting.
 			await runner.changed();
 		} catch (error) {
 			deps.log.error(
-				`splates server cannot watch ${deps.splatesDir}, so hooks run only as it starts: ${String(error)}`,
+				`splates server cannot watch the project's records, so hooks run only as it starts: ${String(error)}`,
 			);
 		}
 		return runner;
@@ -182,16 +186,8 @@ export class HookRunner implements Resource {
 		return numbers.length === 0 ? null : { ...event, numbers };
 	}
 
-	async #seen(): Promise<{ at: string | null; ids: string[] } | null> {
-		const raw = await this.deps.fs.read(this.deps.seen).catch(() => null);
-		if (raw === null) {
-			return null;
-		}
-		try {
-			return JSON.parse(raw) as { at: string | null; ids: string[] };
-		} catch {
-			return null;
-		}
+	async #seen(): Promise<Seen | null> {
+		return this.#seenAt.read().catch(() => null);
 	}
 
 	/** Keeps that every event up to `at` ran, with the ids at `at`, which share it. */
@@ -200,24 +196,30 @@ export class HookRunner implements Resource {
 		events: readonly { at: string; id: string }[],
 	): Promise<void> {
 		const ids = events.filter((each) => each.at === at).map(({ id }) => id);
-		await this.deps.fs.write(this.deps.seen, JSON.stringify({ at, ids }));
+		await this.#seenAt.write({ at, ids });
 	}
 }
 
 /** What a `HookRunner` works with. */
 export interface HookRunnerDeps extends FireDeps {
 	journal: Journal;
-	fs: Fs;
-	/** Where the journal writes, watched for more. */
-	splatesDir: string;
+	/**
+	 * The project's, where the journal writes, watched for more, and where
+	 * `hooks-seen.json` keeps how far it got, past a restart.
+	 */
+	storage: Storage;
 	/** Every automation set now: the person's, and the shell hooks the project checks in. */
 	automations: () => Promise<Automation[]>;
 	/** Queued task `id`'s stage and lane now, or null for one off the list, for filters. */
 	task: (
 		id: number,
 	) => Promise<{ stage: TaskStage; lane: number | null } | null>;
-	/** Where it got to, kept past a restart. */
-	seen: string;
+}
+
+/** How far the runner got: the time of the last event it took, and the ids at that time. */
+interface Seen {
+	at: string | null;
+	ids: string[];
 }
 
 /** How soon after one read the next may run, while an agent's commands come quickly. */

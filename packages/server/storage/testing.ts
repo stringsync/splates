@@ -110,6 +110,7 @@ export class MemoryStorage implements Storage {
 		const value = (name: string) => this.held.values.get(at(name));
 		return {
 			key,
+			ensure: async () => {},
 			read: async (name) => {
 				const held = value(name);
 				return typeof held === "string" ? held : null;
@@ -125,6 +126,19 @@ export class MemoryStorage implements Storage {
 			},
 			writeBytes: async (name, bytes) => this.set(at(name), bytes.slice()),
 			list: async () => this.under(dir).sort(),
+			entries: async () =>
+				this.under(dir)
+					.sort()
+					.map((name) => {
+						const held = value(name);
+						return {
+							name,
+							size:
+								typeof held === "string"
+									? new TextEncoder().encode(held).length
+									: (held?.length ?? 0),
+						};
+					}),
 			remove: async (name) => this.delete(at(name)),
 			clear: async () => {
 				for (const name of this.under(dir)) {
@@ -169,6 +183,47 @@ export class MemoryStorage implements Storage {
 				watch.changes.dispose();
 			},
 		};
+	}
+
+	locate(key: string): string {
+		return `/memory/${this.full(key)}`;
+	}
+
+	async children(key: string): Promise<string[]> {
+		const dir = this.full(key);
+		const prefix = dir === "" ? "" : `${dir}/`;
+		const names = new Set<string>();
+		for (const at of this.held.values.keys()) {
+			const rest = at.startsWith(prefix) ? at.slice(prefix.length) : "";
+			const slash = rest.indexOf("/");
+			if (slash > 0) {
+				names.add(rest.slice(0, slash));
+			}
+		}
+		return [...names].sort();
+	}
+
+	async size(key: string): Promise<number> {
+		const dir = this.full(key);
+		let total = 0;
+		for (const [at, held] of this.held.values) {
+			if (at.startsWith(`${dir}/`)) {
+				total +=
+					typeof held === "string"
+						? new TextEncoder().encode(held).length
+						: held.length;
+			}
+		}
+		return total;
+	}
+
+	async remove(key: string): Promise<void> {
+		const dir = this.full(key);
+		for (const at of [...this.held.values.keys()]) {
+			if (at === dir || at.startsWith(`${dir}/`)) {
+				this.delete(at);
+			}
+		}
 	}
 
 	within(key: string): Storage {

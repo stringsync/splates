@@ -1,6 +1,6 @@
 import { relative, resolve, sep } from "node:path";
-import { type Fs, MemoryLock, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import { Attachments, folderBytes } from "../artifacts";
+import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { Attachments } from "../artifacts";
 import { TaskStore } from "../board";
 import type { Config } from "../config";
 import type { Entry } from "../conversations";
@@ -11,7 +11,13 @@ import { ranWith } from "../models";
 import { decisions, goalLine, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
-import { type Document, FsStorage, type Log, type Storage } from "../storage";
+import {
+	type Collection,
+	type Document,
+	FsStorage,
+	type Log,
+	type Storage,
+} from "../storage";
 import type { WorkerBudgetFile, WorkerMachine } from "../workers";
 import { WorkerBudget, workerGit } from "../workers";
 import { Finished } from "./finished";
@@ -45,15 +51,15 @@ export interface AddOptions {
  * already removed. One name, one lookup, whatever state it turns out to be in.
  */
 export class WorktreeService {
-	private readonly tasksDir: string;
+	/** The project's records. */
+	readonly storage: Storage;
 	private readonly records: StartedRecords;
-	private readonly removedDir: string;
+	private readonly removed: Collection;
 	private readonly conversationsDir: string;
-	private readonly plansDir: string;
+	private readonly plans: Collection;
 	/** Every task that merged or was removed here, newest kept, to look back on. */
 	readonly finished: Finished;
 	private readonly fs: Fs;
-	private readonly storage: Storage;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
 	private readonly workerBudget: Document<WorkerBudgetFile> | null;
@@ -72,7 +78,8 @@ export class WorktreeService {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
-		this.storage = opts.storage ?? new FsStorage(splatesDir, this.fs);
+		this.storage =
+			opts.store?.storage ?? opts.storage ?? new FsStorage(splatesDir, this.fs);
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.workerBudget = opts.workerBudget ?? null;
@@ -80,16 +87,14 @@ export class WorktreeService {
 		this.worktrees = new WorktreeCheckouts(git, this.fs);
 		this.clones = opts.clones ?? null;
 		this.machines = opts.machines ?? null;
-		this.tasksDir = `${splatesDir}/tasks`;
 		this.records = new StartedRecords(
-			opts.store ?? new TaskStore(this.tasksDir, new MemoryLock(), this.fs),
-			this.fs,
+			opts.store ?? new TaskStore(this.storage),
 		);
-		this.removedDir = `${splatesDir}/removed`;
+		this.removed = this.storage.collection("removed");
 		this.conversationsDir = `${splatesDir}/conversations`;
-		this.plansDir = `${splatesDir}/plans`;
+		this.plans = this.storage.collection("plans");
 		this.finished = new Finished(
-			`${splatesDir}/finished`,
+			this.storage,
 			this.fs,
 			config.finishedCapacity,
 		);
@@ -143,8 +148,7 @@ export class WorktreeService {
 	}
 
 	async init(): Promise<void> {
-		await this.fs.mkdir(this.tasksDir);
-		await this.fs.mkdir(this.removedDir);
+		await this.storage.collection("tasks").ensure();
 		await this.records.sweep();
 	}
 
@@ -182,8 +186,8 @@ export class WorktreeService {
 	 */
 	attached(conversation: string, task: string): Attachments {
 		return new Attachments(
-			`${this.conversationsDir}/${conversation}/attached/${task}`,
-			this.fs,
+			this.storage,
+			`conversations/${conversation}/attached/${task}`,
 		);
 	}
 
@@ -194,10 +198,7 @@ export class WorktreeService {
 	async filesOf(task: string): Promise<Attachments[]> {
 		const own = await this.files(task);
 		const folders = own === null ? [] : [own];
-		const entries = await this.fs
-			.readdir(this.conversationsDir)
-			.catch(() => []);
-		for (const entry of entries.filter((each) => !each.endsWith(".jsonl"))) {
+		for (const entry of await this.storage.children("conversations")) {
 			const folder = this.attached(entry, task);
 			if ((await folder.held()).length > 0) {
 				folders.push(folder);
@@ -211,7 +212,7 @@ export class WorktreeService {
 	 * files, which together are held to `artifactConversationCapacity`.
 	 */
 	conversationBytes(conversation: string): Promise<number> {
-		return folderBytes(this.fs, `${this.conversationsDir}/${conversation}`);
+		return this.storage.size(`conversations/${conversation}`);
 	}
 
 	/**
@@ -220,7 +221,9 @@ export class WorktreeService {
 	 * `attached/<task>/`, never a record or log, and not a way out of here.
 	 */
 	owns(path: string): boolean {
-		const parts = relative(this.tasksDir, resolve(path)).split(sep);
+		const parts = relative(this.storage.locate("tasks"), resolve(path)).split(
+			sep,
+		);
 		if (!parts.includes("..") && parts.length === 3 && parts[1] === "started") {
 			return true;
 		}
@@ -445,9 +448,7 @@ export class WorktreeService {
 			: null;
 		return (
 			own ??
-			(await this.fs
-				.read(`${this.plansDir}/${worktree.task}.md`)
-				.catch(() => "")) ??
+			(await this.plans.read(`${worktree.task}.md`).catch(() => "")) ??
 			""
 		);
 	}
@@ -565,12 +566,8 @@ export class WorktreeService {
 		return this.records.find(task);
 	}
 
-	private removedPath(task: string): string {
-		return `${this.removedDir}/${task}`;
-	}
-
 	private async removedAt(task: string): Promise<string | null> {
-		const raw = await this.fs.read(this.removedPath(task)).catch(() => null);
+		const raw = await this.removed.read(task).catch(() => null);
 		return raw?.trim() ?? null;
 	}
 
@@ -584,8 +581,8 @@ export class WorktreeService {
 		at = new Date().toISOString(),
 	): Promise<void> {
 		const { removedCapacity } = this.config;
-		await this.fs.write(this.removedPath(task), `${at}\n`);
-		const names = await this.fs.readdir(this.removedDir).catch(() => []);
+		await this.removed.write(task, `${at}\n`);
+		const names = await this.removed.list();
 		if (names.length <= removedCapacity) {
 			return;
 		}
@@ -599,7 +596,7 @@ export class WorktreeService {
 		);
 		dated.sort((left, right) => left.at.localeCompare(right.at));
 		for (const { name } of dated.slice(0, names.length - removedCapacity)) {
-			await this.fs.rm(this.removedPath(name), { force: true });
+			await this.removed.remove(name);
 		}
 	}
 }
@@ -628,7 +625,7 @@ interface Reach {
 /** What a `WorktreeService` works through; the real ones by default. */
 export interface WorktreeServiceOptions {
 	fs?: Fs;
-	/** The project's storage; the files under `splatesDir`, on `fs`, by default. */
+	/** The project's storage, unless `store` brings it; the files under `splatesDir`, on `fs`, by default. */
 	storage?: Storage;
 	ps?: Ps;
 	/** Where each task's ending is written down; none, and nothing is. */

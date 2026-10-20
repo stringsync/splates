@@ -1,6 +1,5 @@
 import { relative, resolve, sep } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, NodeFs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
 import type { LaneUpdateOptions } from "./lane";
@@ -22,7 +21,6 @@ import { TaskLanes } from "./task-lanes";
  * first, in the store under `.git/splates/tasks`.
  */
 export class Tasks {
-	private readonly fs: Fs;
 	private readonly ids: IdProvider;
 	private readonly laneFiles: TaskLanes;
 
@@ -36,18 +34,21 @@ export class Tasks {
 		readonly store: TaskStore,
 		opts: TasksOptions = {},
 	) {
-		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
-		this.laneFiles = new TaskLanes(this, this.fs);
+		this.laneFiles = new TaskLanes(this);
 	}
 
 	get dir(): string {
-		return this.store.dir;
+		return this.store.storage.locate("tasks");
 	}
 
 	/** Where a queued task's files live, beside its record. */
 	attachments(id: number): Attachments {
-		return new Attachments(`${this.dir}/${id}`, this.fs, this.ids);
+		return new Attachments(
+			this.store.storage,
+			this.store.filesKey(id),
+			this.ids,
+		);
 	}
 
 	/**
@@ -77,7 +78,6 @@ export class Tasks {
 		if (words.subject === "") {
 			fail("usage", "a task needs a subject: say what is left to do", {});
 		}
-		await this.fs.mkdir(this.dir);
 		return this.locked(async () => {
 			const stored = await this.stored();
 			// Nothing comes after a task yet to exist, so a new one cannot close
@@ -369,7 +369,7 @@ export class Tasks {
 	 */
 	async delete(id: number, landed?: string): Promise<boolean> {
 		return this.locked(async () => {
-			const gone = await this.read(this.path(id));
+			const gone = await this.read(id);
 			const stored = await this.store.read(id);
 			const kept = stored !== null && startedOf(stored) !== null;
 			if (kept) {
@@ -413,16 +413,15 @@ export class Tasks {
 	 * kept, the older going for good.
 	 */
 	async discard(state: TaskRecord): Promise<void> {
-		await this.fs.mkdir(this.removedDir);
 		const kept: RemovedTask = { state, removedAt: new Date().toISOString() };
-		await this.fs.write(
-			this.removedPath(state.id),
+		await this.store.removed.write(
+			removedName(state.id),
 			`${JSON.stringify(kept, null, "\t")}\n`,
 		);
 		await this.delete(state.id);
 		const removed = await this.removed();
 		for (const { state: old } of removed.slice(0, -REMOVED_KEPT)) {
-			await this.fs.rm(this.removedPath(old.id), { force: true });
+			await this.store.removed.remove(removedName(old.id));
 			// One still started keeps its files: its task holds them.
 			if ((await this.store.read(old.id)) === null) {
 				await this.attachments(old.id).clear();
@@ -437,7 +436,9 @@ export class Tasks {
 	 */
 	async restore(id: number): Promise<Task> {
 		return this.locked(async () => {
-			const raw = await this.fs.read(this.removedPath(id)).catch(() => null);
+			const raw = await this.store.removed
+				.read(removedName(id))
+				.catch(() => null);
 			if (raw === null) {
 				fail(
 					"not_found",
@@ -459,7 +460,7 @@ export class Tasks {
 					stored.some((other) => other.id === before),
 				),
 			});
-			await this.fs.rm(this.removedPath(id), { force: true });
+			await this.store.removed.remove(removedName(id));
 			// Those its removal held for the person wait on it again.
 			for (const other of stored) {
 				if (other.blockersLost?.some((gone) => gone.id === id)) {
@@ -512,7 +513,7 @@ export class Tasks {
 
 	/** One task as it stands on disk; call it under the lock. */
 	private async state(id: number): Promise<TaskRecord> {
-		const state = await this.read(this.path(id));
+		const state = await this.read(id);
 		return state ?? missing(id);
 	}
 
@@ -542,10 +543,10 @@ export class Tasks {
 	 * are read though they still have tags, to move them into lanes.
 	 */
 	async stored(tagged: number[] = []): Promise<TaskRecord[]> {
-		const entries = await this.fs.readdir(this.dir).catch(() => []);
+		const entries = await this.store.records.list().catch(() => []);
 		const states: TaskRecord[] = [];
 		for (const entry of entries.filter((entry) => TASK_FILE.test(entry))) {
-			const state = await this.read(`${this.dir}/${entry}`, tagged);
+			const state = await this.read(Number.parseInt(entry, 10), tagged);
 			if (state) {
 				states.push(state);
 			}
@@ -566,22 +567,12 @@ export class Tasks {
 		}
 	}
 
-	private get removedDir(): string {
-		return `${this.dir}/removed`;
-	}
-
-	private removedPath(id: number): string {
-		return `${this.removedDir}/${id}.json`;
-	}
-
 	/** The tasks `discard` kept, the oldest removed first. */
 	private async removed(): Promise<RemovedTask[]> {
-		const entries = await this.fs.readdir(this.removedDir).catch(() => []);
+		const entries = await this.store.removed.list().catch(() => []);
 		const kept: RemovedTask[] = [];
 		for (const entry of entries.filter((each) => each.endsWith(".json"))) {
-			const raw = await this.fs
-				.read(`${this.removedDir}/${entry}`)
-				.catch(() => null);
+			const raw = await this.store.removed.read(entry).catch(() => null);
 			if (raw !== null) {
 				kept.push(JSON.parse(raw) as RemovedTask);
 			}
@@ -591,20 +582,16 @@ export class Tasks {
 		);
 	}
 
-	private path(id: number): string {
-		return `${this.dir}/${id}.md`;
-	}
-
 	/**
 	 * One task, or null when it will not parse. One saved with tags is
 	 * refused, unless it is one of `tagged`: dropping them unasked would lose
 	 * what they grouped.
 	 */
 	private async read(
-		path: string,
+		id: number,
 		tagged: number[] = [],
 	): Promise<TaskRecord | null> {
-		const raw = await this.fs.read(path).catch(() => null);
+		const raw = await this.store.records.read(`${id}.md`).catch(() => null);
 		const parsed = raw === null ? null : parseTaskFile(raw);
 		// A task started without being queued is not listed.
 		const found = parsed?.listed ? parsed : null;
@@ -629,15 +616,19 @@ export class Tasks {
 /** How many removed tasks `Tasks.discard` keeps for `restore`. */
 export const REMOVED_KEPT = 50;
 
+/** The name `discard` keeps removed task `id` under. */
+function removedName(id: number): string {
+	return `${id}.json`;
+}
+
 /** A removed task as `discard` keeps it. */
 interface RemovedTask {
 	state: TaskRecord;
 	removedAt: string;
 }
 
-/** What `Tasks` is stored through; the real filesystem by default. */
+/** What `Tasks` is made with. */
 export interface TasksOptions {
-	fs?: Fs;
 	/** What names stored files apart; random ids by default. */
 	ids?: IdProvider;
 }

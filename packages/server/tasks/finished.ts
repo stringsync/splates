@@ -2,6 +2,7 @@ import { basename, relative, resolve, sep } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { decodeTask, encodeTask } from "../board";
 import { movedPath } from "../config";
+import type { Collection, Storage } from "../storage";
 import type { RemoveReason } from "./worktree";
 
 /** A task that merged or was removed, as `Finished` keeps it to look back on. */
@@ -41,12 +42,21 @@ export interface FinishedPlan extends FinishedTask {
  * so its screenshots outlive the conversation or task that held them.
  */
 export class Finished {
+	private readonly records: Collection;
+	/** Where the kept records can be opened. */
+	readonly dir: string;
+
 	constructor(
-		readonly dir: string,
+		/** The project's, holding `finished/`. */
+		private readonly storage: Storage,
+		/** Reads the attached files a plan names, which are named by absolute path. */
 		private readonly fs: Fs,
 		/** How many it keeps, the oldest going first. */
 		private readonly capacity: number,
-	) {}
+	) {
+		this.records = storage.collection("finished");
+		this.dir = storage.locate("finished");
+	}
 
 	/**
 	 * Keeps `finished`, with a copy of each file its plan names that
@@ -58,19 +68,15 @@ export class Finished {
 	): Promise<void> {
 		const key = `${finished.id}-${Date.parse(finished.endedAt) || 0}`;
 		const { plan: ended, ...facts } = finished;
-		await this.fs.mkdir(this.dir);
 		const plan = await this.keep(key, ended, attached);
-		await this.fs.write(
-			this.path(key),
+		await this.records.write(
+			recordName(key),
 			encodeTask({ ...facts, key, text: plan }),
 		);
 		const listed = await this.list();
 		for (const old of listed.slice(this.capacity)) {
-			await this.fs.rm(this.path(old.key), { force: true });
-			await this.fs.rm(this.filesDir(old.key), {
-				recursive: true,
-				force: true,
-			});
+			await this.records.remove(recordName(old.key));
+			await this.storage.remove(this.filesKey(old.key));
 		}
 	}
 
@@ -114,23 +120,22 @@ export class Finished {
 				name = `${copies}-${basename(path)}`;
 			}
 			taken.add(name);
-			const copy = `${this.filesDir(key)}/${name}`;
-			await this.fs.mkdir(this.filesDir(key));
-			await this.fs.writeBytes(copy, bytes);
-			kept.set(named, copy);
+			const files = this.storage.collection(this.filesKey(key));
+			await files.writeBytes(name, bytes);
+			kept.set(named, `${this.storage.locate(this.filesKey(key))}/${name}`);
 		}
 		return kept.size === 0
 			? plan
 			: plan.replace(PATH, (named) => kept.get(named) ?? named);
 	}
 
-	private filesDir(key: string): string {
-		return `${this.dir}/${key}`;
+	private filesKey(key: string): string {
+		return `finished/${key}`;
 	}
 
 	/** Every one kept, the latest to finish first, without its plan. */
 	async list(): Promise<FinishedTask[]> {
-		const entries = await this.fs.readdir(this.dir).catch(() => []);
+		const entries = await this.records.list();
 		const kept: FinishedTask[] = [];
 		for (const entry of entries.filter((each) => KEY_FILE.test(each))) {
 			const found = await this.read(entry.slice(0, -".md".length));
@@ -150,7 +155,7 @@ export class Finished {
 		if (!KEY.test(key)) {
 			return null;
 		}
-		const raw = await this.fs.read(this.path(key)).catch(() => null);
+		const raw = await this.records.read(recordName(key)).catch(() => null);
 		const fields = raw === null ? null : decodeTask(raw);
 		if (fields === null) {
 			return null;
@@ -160,10 +165,10 @@ export class Finished {
 		};
 		return { ...facts, plan: text };
 	}
+}
 
-	private path(key: string): string {
-		return `${this.dir}/${key}.md`;
-	}
+function recordName(key: string): string {
+	return `${key}.md`;
 }
 
 const KEY = /^\d+-\d+$/;

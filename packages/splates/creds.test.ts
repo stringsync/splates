@@ -132,7 +132,9 @@ describe("creds", () => {
 		});
 		await deps.creds.save("API_TOKEN", "hunter2", { by: "a tool" });
 
-		expect(await deps.fs.read(deps.creds.file)).not.toContain("hunter2");
+		expect(await deps.fs.read(`${deps.splatesDir}/creds.json`)).not.toContain(
+			"hunter2",
+		);
 	});
 
 	it("ends a wait once the value is saved", async () => {
@@ -215,6 +217,7 @@ describe("creds", () => {
 	});
 });
 
+// scry-ignore simple-test-setup: one describe per command, as the file groups the CLI's cases
 describe("splates creds", () => {
 	let env: Testing;
 	let deps: Parameters<typeof splates.run>[0];
@@ -295,6 +298,7 @@ describe("splates creds", () => {
 	});
 });
 
+// scry-ignore simple-test-setup: copyLegacy reads a store the other commands never touch
 describe("copyLegacy", () => {
 	let deps: Testing;
 

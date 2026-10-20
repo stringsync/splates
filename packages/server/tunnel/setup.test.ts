@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
-import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { Exit } from "../exit";
 import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { tunnelSetup } from "./setup";
 import { FakeCloudflare } from "./testing";
@@ -145,12 +145,10 @@ function machine() {
 	const cloudflare = new FakeCloudflare().zone("example.com");
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
-	const creds = new Creds(
-		"/repo/.git/splates/creds.json",
-		new MemoryLock(),
-		{ project: new FakeSecretStore(), device: store },
-		{ fs },
-	);
+	const creds = new Creds(new MemoryStorage(), {
+		project: new FakeSecretStore(),
+		device: store,
+	});
 	const saved = SavedTunnel.in(new FsStorage("/home/.splates", fs), store);
 	const setup = (
 		email = "me@example.com",

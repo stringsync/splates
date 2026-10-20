@@ -123,8 +123,7 @@ export class Conversation
 			`${deps.dir}/${state.id}`,
 			{ projects: deps.projects, home: deps.root },
 		);
-		this.artifacts = new Artifacts(`${deps.dir}/${state.id}.jsonl`, {
-			fs: deps.fs,
+		this.artifacts = new Artifacts(deps.storage, state.id, {
 			ids: deps.ids,
 			limits: deps.artifacts,
 			room: deps.room,

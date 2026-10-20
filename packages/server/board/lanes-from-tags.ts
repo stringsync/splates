@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { FileLock, type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { FsStorage } from "../storage";
 import { TaskStore } from "./store";
 import { Tasks } from "./tasks";
 
@@ -30,13 +31,13 @@ export async function lanesFromTags(opts: LanesFromTagsOptions): Promise<void> {
 	if (!(await fs.exists(dir))) {
 		return;
 	}
+	const ps = opts.ps ?? new NodePs();
 	const tasks = new Tasks(
 		new TaskStore(
-			dir,
-			new FileLock(`${dir}.lock`, { fs, ps: opts.ps ?? new NodePs(), log }),
-			fs,
+			new FsStorage(`${git}/splates`, fs, {
+				locks: { at: (path: string) => new FileLock(path, { fs, ps, log }) },
+			}),
 		),
-		{ fs },
 	);
 	for (const { lane, tasks: moved } of await tasks.moveTagsToLanes()) {
 		log.info(

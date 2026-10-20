@@ -1,15 +1,16 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
-import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN, tunnelSetup } from "../tunnel";
 import { FakeCloudflare } from "../tunnel/testing";
 import { slotTunnelSetup } from "./slot-tunnel";
 
 describe("slotTunnelSetup", () => {
+	// scry-ignore simple-test-setup: this file has one case, whose fakes are its whole setup
 	it("makes the slot's tunnel and route, and one wildcard Access app for every slot", async () => {
 		const { cloudflare, store, fs, machine, setup } = await account();
 
@@ -72,12 +73,10 @@ async function account() {
 	const cloudflare = new FakeCloudflare().zone("example.com");
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
-	const creds = new Creds(
-		"/repo/.git/splates/creds.json",
-		new MemoryLock(),
-		{ project: new FakeSecretStore(), device: store },
-		{ fs },
-	);
+	const creds = new Creds(new MemoryStorage(), {
+		project: new FakeSecretStore(),
+		device: store,
+	});
 	const log = new MemoryLogger();
 	const machineTunnel = SavedTunnel.in(
 		new FsStorage("/home/.splates", fs),

@@ -128,15 +128,7 @@ export class Testing implements AsyncDisposable {
 		this.machine = new FsStorage(this.splatesHome, this.fs);
 		this.outcomes = new Outcomes(this.machine);
 		this.adherence = new Adherence(this.machine, null);
-		const store = new TaskStore(
-			join(this.splatesDir, "tasks"),
-			new FileLock(join(this.splatesDir, "tasks.lock"), {
-				fs: this.fs,
-				ps: this.ps,
-				log: this.log,
-			}),
-			this.fs,
-		);
+		const store = new TaskStore(this.storage);
 		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
 			store,
 			fs: this.fs,
@@ -166,7 +158,7 @@ export class Testing implements AsyncDisposable {
 			log: this.log,
 			stalenessMs: this.config.leaseStalenessMs,
 		});
-		this.tasks = new Tasks(store, { fs: this.fs, ids: this.ids });
+		this.tasks = new Tasks(store, { ids: this.ids });
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
 		// agent in `splates server`, it leaves out that agent's conversation too, so
@@ -203,19 +195,13 @@ export class Testing implements AsyncDisposable {
 			}),
 			this.fs,
 		);
-		this.creds = new Creds(
-			join(this.splatesDir, "creds.json"),
-			new FileLock(join(this.splatesDir, "creds.lock"), {
-				fs: this.fs,
-				ps: this.ps,
-				log: this.log,
-			}),
-			{ project: this.projectStore, device: this.deviceStore },
-			{ fs: this.fs },
-		);
+		this.creds = new Creds(this.storage, {
+			project: this.projectStore,
+			device: this.deviceStore,
+		});
 		this.branches = TaskBranches.of({
 			...this,
-			plans: new PlanStore(this.fs, this.splatesDir),
+			plans: new PlanStore(this.fs, this.storage),
 		});
 		this.trunk = new CoordinatorLanding({
 			git: this.git,

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
+import { FsStorage } from "../storage";
 import { Finished, type FinishedPlan } from "./finished";
 
 describe("Finished", () => {
@@ -11,7 +12,7 @@ describe("Finished", () => {
 		await fs.writeBytes("/held/a.png", new Uint8Array([1]));
 		await fs.writeBytes("/held/two/a.png", new Uint8Array([2]));
 		await fs.writeBytes("/elsewhere/b.png", new Uint8Array([3]));
-		finished = new Finished("/finished", fs, 500);
+		finished = new Finished(new FsStorage("/state", fs), fs, 500);
 	});
 
 	it("lists the latest to finish first, without plans", async () => {
@@ -53,7 +54,7 @@ describe("Finished", () => {
 	});
 
 	it("keeps only the newest it has room for", async () => {
-		finished = new Finished("/finished", fs, 2);
+		finished = new Finished(new FsStorage("/state", fs), fs, 2);
 		await finished.record(ended(1, "2026-10-01T01:00:00.000Z"));
 		await finished.record(ended(2, "2026-10-01T02:00:00.000Z"));
 		await finished.record(ended(3, "2026-10-01T03:00:00.000Z"));
@@ -69,8 +70,8 @@ describe("Finished", () => {
 			(path) => path.startsWith("/held/"),
 		);
 
-		const copy = `/finished/${(await finished.list())[0]?.key}/a.png`;
-		expect((await finished.read(copy.split("/")[2] ?? ""))?.plan).toBe(
+		const copy = `/state/finished/${(await finished.list())[0]?.key}/a.png`;
+		expect((await finished.read(copy.split("/")[3] ?? ""))?.plan).toBe(
 			`![a](${copy}) and ${copy}.\n![b](/elsewhere/b.png)\n![gone](/held/gone.png)`,
 		);
 		expect(await fs.readBytes(copy)).toEqual(new Uint8Array([1]));
@@ -85,15 +86,15 @@ describe("Finished", () => {
 			() => true,
 		);
 
-		const dir = `/finished/${(await finished.list())[0]?.key}`;
-		expect((await finished.read(dir.slice("/finished/".length)))?.plan).toBe(
-			`![one](${dir}/a.png) ![two](${dir}/2-a.png)`,
-		);
+		const dir = `/state/finished/${(await finished.list())[0]?.key}`;
+		expect(
+			(await finished.read(dir.slice("/state/finished/".length)))?.plan,
+		).toBe(`![one](${dir}/a.png) ![two](${dir}/2-a.png)`);
 		expect(await fs.readBytes(`${dir}/2-a.png`)).toEqual(new Uint8Array([2]));
 	});
 
 	it("drops the files of one it no longer has room for", async () => {
-		finished = new Finished("/finished", fs, 1);
+		finished = new Finished(new FsStorage("/state", fs), fs, 1);
 		await finished.record(
 			ended(1, "2026-10-01T01:00:00.000Z", { plan: "![a](/held/a.png)" }),
 			() => true,
@@ -102,15 +103,15 @@ describe("Finished", () => {
 
 		await finished.record(ended(2, "2026-10-01T02:00:00.000Z"));
 
-		expect(await fs.exists(`/finished/${first?.key}/a.png`)).toBe(false);
+		expect(await fs.exists(`/state/finished/${first?.key}/a.png`)).toBe(false);
 	});
 
 	it("owns only the files kept with one, not its record or a way out", () => {
-		expect(finished.owns("/finished/1-2/a.png")).toBe(true);
-		expect(finished.owns("/finished/1-2.md")).toBe(false);
-		expect(finished.owns("/finished/1-2/deeper/a.png")).toBe(false);
-		expect(finished.owns("/finished/1-2/../../etc/passwd")).toBe(false);
-		expect(finished.owns("/finished/x/a.png")).toBe(false);
+		expect(finished.owns("/state/finished/1-2/a.png")).toBe(true);
+		expect(finished.owns("/state/finished/1-2.md")).toBe(false);
+		expect(finished.owns("/state/finished/1-2/deeper/a.png")).toBe(false);
+		expect(finished.owns("/state/finished/1-2/../../etc/passwd")).toBe(false);
+		expect(finished.owns("/state/finished/x/a.png")).toBe(false);
 		expect(finished.owns("/elsewhere/1-2/a.png")).toBe(false);
 	});
 

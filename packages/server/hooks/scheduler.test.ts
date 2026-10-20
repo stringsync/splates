@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
-import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { MemoryStorage } from "../storage/testing";
 import { RunStore } from "./runs";
 import { Scheduler } from "./scheduler";
 import type { Automation } from "./store";
@@ -49,7 +49,7 @@ describe("Scheduler", () => {
 		];
 		clock = new FakeWallClock(Date.UTC(2026, 9, 19, 9, 30));
 		ran = [];
-		runs = new RunStore("/hooks-runs.json", new FakeFs());
+		runs = new RunStore(new MemoryStorage());
 		scheduler = null;
 		timer = new FakeTimer();
 	});

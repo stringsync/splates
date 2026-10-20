@@ -17,7 +17,7 @@ export {
 } from "./artifacts";
 export { attach } from "./attach";
 export type { Attachment } from "./attachments";
-export { Attachments, folderBytes, readFiles } from "./attachments";
+export { Attachments, readFiles } from "./attachments";
 export { ArtifactRoom } from "./room";
 export {
 	addVersion,

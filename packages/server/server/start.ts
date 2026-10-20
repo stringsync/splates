@@ -249,12 +249,12 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ splatesDir, git, config, creds, service }) => {
+			conversations: ({ splatesDir, storage, git, config, creds, service }) => {
 				const branches = TaskBranches.of({
 					git,
 					config,
 					creds,
-					plans: new PlanStore(ctx.fs, splatesDir),
+					plans: new PlanStore(ctx.fs, storage),
 				});
 				return new Conversations(`${splatesDir}/conversations`, roster, {
 					fs: ctx.fs,

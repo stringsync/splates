@@ -116,8 +116,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.servers = opts.servers ?? null;
 		this.artifacts = opts.artifacts ?? ARTIFACT_LIMITS;
 		this.room = new ArtifactRoom({
-			fs: this.fs,
-			dir,
+			storage: this.storage,
 			capacity: this.artifacts.project,
 			shelves: () =>
 				[...this.known.values()].map((each) => ({

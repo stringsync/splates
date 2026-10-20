@@ -120,8 +120,7 @@ function logOf({ service }: ArtifactDeps, id: string): ConversationLog {
 async function open(deps: ArtifactDeps, id: string): Promise<Artifacts> {
 	const log = logOf(deps, id);
 	const held = (await log.replay())?.state.artifacts ?? [];
-	return new Artifacts(deps.service.conversationPath(id), {
-		fs: deps.fs,
+	return new Artifacts(deps.service.storage.within("conversations"), id, {
 		now: () => new Date().toISOString(),
 		limits: artifactLimits(deps.service.config),
 		held: () => held,

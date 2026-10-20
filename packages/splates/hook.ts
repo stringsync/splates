@@ -18,6 +18,7 @@ import {
 } from "@stringsync/splates-server/hooks";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
+import type { Storage } from "@stringsync/splates-server/storage";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { assigneeIn } from "./flags";
@@ -275,6 +276,6 @@ interface TriggerOptions {
 	lane: string;
 }
 
-function storeOf(ctx: { splatesDir: string } & Pick<SplatesDeps, "fs">) {
-	return new HookStore(`${ctx.splatesDir}/hooks.json`, ctx.fs);
+function storeOf(ctx: { storage: Storage }) {
+	return new HookStore(ctx.storage);
 }

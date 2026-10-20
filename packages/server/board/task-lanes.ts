@@ -1,4 +1,3 @@
-import type { Fs } from "webappwiz/system";
 import { fail } from "../exit";
 import { aptName, isReady, type LaneRecord, named, settle } from "./lanes";
 import { type TaskRecord, unqueued } from "./task";
@@ -10,10 +9,7 @@ import type { Tasks } from "./tasks";
  * change that moves tasks between them, each made under the tasks' lock.
  */
 export class TaskLanes {
-	constructor(
-		private readonly tasks: Tasks,
-		private readonly fs: Fs,
-	) {}
+	constructor(private readonly tasks: Tasks) {}
 
 	/**
 	 * Moves every task in lane `from` to the bottom of lane `into`, in the
@@ -250,12 +246,10 @@ export class TaskLanes {
 	 */
 	async moveTagsToLanes(): Promise<{ lane: LaneRecord; tasks: number[] }[]> {
 		return this.tasks.locked(async () => {
-			const entries = await this.fs.readdir(this.tasks.dir).catch(() => []);
+			const entries = await this.tasks.store.records.list();
 			const parsed: { state: TaskRecord; tags: string[] }[] = [];
 			for (const entry of entries.filter((entry) => TASK_FILE.test(entry))) {
-				const raw = await this.fs
-					.read(`${this.tasks.dir}/${entry}`)
-					.catch(() => "");
+				const raw = (await this.tasks.store.records.read(entry)) ?? "";
 				const found = parseTaskFile(raw);
 				if (found !== null && found.tags.length > 0) {
 					parsed.push(found);
@@ -359,7 +353,7 @@ export class TaskLanes {
 	 */
 	private async nextLaneId(states: TaskRecord[]): Promise<number> {
 		const last = Number(
-			await this.fs.read(`${this.tasks.dir}/last-lane`).catch(() => 0),
+			await this.tasks.store.records.read("last-lane").catch(() => 0),
 		);
 		const records = await this.records(states);
 		const id =
@@ -367,8 +361,7 @@ export class TaskLanes {
 				Number.isInteger(last) ? last : 0,
 				...records.map((record) => record.id),
 			) + 1;
-		await this.fs.mkdir(this.tasks.dir);
-		await this.fs.write(`${this.tasks.dir}/last-lane`, String(id));
+		await this.tasks.store.records.write("last-lane", String(id));
 		return id;
 	}
 
@@ -396,9 +389,8 @@ export class TaskLanes {
 
 	/** The lane records in `file`, none when it is missing or will not parse. */
 	private async read(file: string): Promise<LaneRecord[]> {
-		const raw = await this.fs
-			.read(`${this.tasks.dir}/${file}`)
-			.catch(() => "[]");
+		const raw =
+			(await this.tasks.store.records.read(file).catch(() => null)) ?? "[]";
 		try {
 			const parsed: unknown = JSON.parse(raw);
 			if (Array.isArray(parsed)) {
@@ -442,11 +434,10 @@ export class TaskLanes {
 
 	/** Writes `records` to `file` whole, so a reader never sees half of it. */
 	private async write(file: string, records: LaneRecord[]): Promise<void> {
-		await this.fs.mkdir(this.tasks.dir);
-		const path = `${this.tasks.dir}/${file}`;
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(tmp, `${JSON.stringify(records, null, "\t")}\n`);
-		await this.fs.rename(tmp, path);
+		await this.tasks.store.records.write(
+			file,
+			`${JSON.stringify(records, null, "\t")}\n`,
+		);
 	}
 }
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
-import { MemoryLock } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
 import { Creds } from "../creds";
 import { slotTunnelSetup } from "../ports";
 import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
 import { tunnelRemove } from "./remove";
 import { API_TOKEN, SavedTunnel, TUNNEL_TOKEN } from "./saved";
 import { tunnelSetup } from "./setup";
@@ -40,6 +40,7 @@ describe("tunnelRemove", () => {
 		expect([...store.values.keys()]).toEqual([API_TOKEN]);
 	});
 
+	// scry-ignore simple-test-setup: this case alone seeds the Access policy and tokens it deletes from; the others delete none
 	it("deletes the workers' policy and the service tokens it lets in, not other tokens", async () => {
 		const { cloudflare, remove } = await account();
 		const app = cloudflare.apps[0] ?? expect.unreachable();
@@ -115,12 +116,10 @@ async function account(words: string[] = []) {
 	const cloudflare = new FakeCloudflare().zone("example.com");
 	const store = new FakeSecretStore({ [API_TOKEN]: "api-token" });
 	const fs = new FakeFs();
-	const creds = new Creds(
-		"/repo/.git/splates/creds.json",
-		new MemoryLock(),
-		{ project: new FakeSecretStore(), device: store },
-		{ fs },
-	);
+	const creds = new Creds(new MemoryStorage(), {
+		project: new FakeSecretStore(),
+		device: store,
+	});
 	const log = new MemoryLogger();
 	const saved = SavedTunnel.in(new FsStorage("/home/.splates", fs), store);
 	await tunnelSetup({

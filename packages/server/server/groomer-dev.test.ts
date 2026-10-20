@@ -23,7 +23,7 @@ describe("dev groomer", () => {
 			[AGENT],
 			{ launch: agent.launch },
 		);
-		await new HookStore(`${deps.splatesDir}/hooks.json`, deps.fs).groomer({
+		await new HookStore(deps.storage).groomer({
 			agent: "fake",
 		});
 		await taskAdd(deps, "rough before", null);

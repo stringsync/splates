@@ -366,13 +366,9 @@ export async function openRepository(
 					git,
 					config,
 					new RelayApp(relay.url, relay.project),
-					new PlanStore(fs, splatesDir),
+					new PlanStore(fs, storage),
 				);
-	const store = new TaskStore(
-		`${splatesDir}/tasks`,
-		lockAt(`${splatesDir}/tasks.lock`),
-		fs,
-	);
+	const store = new TaskStore(storage);
 	const service = new WorktreeService(git, config, splatesDir, {
 		store,
 		fs,
@@ -401,13 +397,7 @@ export async function openRepository(
 		await new Plans(fs).exclude(gitDir);
 	}
 
-	const creds = await Creds.open(
-		splatesDir,
-		git.root,
-		lockAt(`${splatesDir}/creds.lock`),
-		secrets,
-		{ fs },
-	);
+	const creds = await Creds.open(storage, git.root, secrets);
 	if (migrates) {
 		await creds.copyLegacy();
 	}
@@ -426,7 +416,7 @@ export async function openRepository(
 				git,
 				config,
 				creds,
-				plans: new PlanStore(fs, splatesDir),
+				plans: new PlanStore(fs, storage),
 			}),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
@@ -445,7 +435,7 @@ export async function openRepository(
 				: new RelayLanding(relay.url, relay.project),
 		shell: new Shell({ ps }),
 		journal: new Journal(storage, config.logCapacity, { ps }),
-		tasks: new Tasks(store, { fs }),
+		tasks: new Tasks(store),
 	};
 }
 

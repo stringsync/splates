@@ -68,6 +68,10 @@ export class FsStorage implements Storage {
 		return keyIn(this.root, key);
 	}
 
+	locate(key: string): string {
+		return this.path(key);
+	}
+
 	document<T>(key: string, opts: DocumentOptions<T> = {}): Document<T> {
 		return new FsDocument(
 			key,
@@ -123,7 +127,42 @@ export class FsStorage implements Storage {
 		};
 	}
 
+	async children(key: string): Promise<string[]> {
+		const dir = this.path(key);
+		const names = (await this.fs.readdir(dir).catch(() => [])).sort();
+		const found: string[] = [];
+		for (const name of names) {
+			const stat = await this.fs.stat(`${dir}/${name}`).catch(() => null);
+			if (stat?.isDirectory()) {
+				found.push(name);
+			}
+		}
+		return found;
+	}
+
+	async size(key: string): Promise<number> {
+		return bytesUnder(this.fs, this.path(key));
+	}
+
+	async remove(key: string): Promise<void> {
+		await this.fs.rm(this.path(key), { recursive: true, force: true });
+	}
+
 	within(key: string): Storage {
 		return new FsStorage(this.path(key), this.fs, { locks: this.locks });
 	}
+}
+
+/** The bytes of every file under `dir`, folders included; 0 when it is not there. */
+async function bytesUnder(fs: Fs, dir: string): Promise<number> {
+	let total = 0;
+	for (const name of await fs.readdir(dir).catch(() => [])) {
+		const path = `${dir}/${name}`;
+		const stat = await fs.stat(path).catch(() => null);
+		if (stat === null) {
+			continue;
+		}
+		total += stat.isDirectory() ? await bytesUnder(fs, path) : stat.size;
+	}
+	return total;
 }

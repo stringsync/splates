@@ -45,7 +45,7 @@ export async function serveProject(
 	project: Project,
 	context: DevContext,
 ): Promise<Served> {
-	const { service, format, splatesDir, fs, log, journal } = project;
+	const { service, format, storage, fs, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
 	// A task `splates add --agent` handed to an agent starts it, whether or
@@ -116,9 +116,8 @@ export async function serveProject(
 		};
 		const settled = new Debouncer(new SystemTimer(), SETTLE);
 		try {
-			const watching = fs.watch(`${splatesDir}/tasks`, () =>
-				settled.call(handOff),
-			);
+			const watching = storage.watch("tasks");
+			watching.events.on("changed", () => settled.call(handOff));
 			handOffs = {
 				dispose: () => {
 					watching.dispose();
@@ -292,6 +291,7 @@ export type Project = Pick<
 	| "tasks"
 	| "format"
 	| "splatesDir"
+	| "storage"
 	| "git"
 	| "creds"
 	| "slots"

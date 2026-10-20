@@ -30,6 +30,18 @@ export interface Storage {
 	 * will miss.
 	 */
 	watch(key: string, opts?: WatchOptions): Watch;
+	/**
+	 * The path `key` can be opened at as a file, which is what an agent is
+	 * handed to read an attachment; a storage with no files gives a path no
+	 * file is at.
+	 */
+	locate(key: string): string;
+	/** The names directly under `key` that hold more keys of their own, sorted. */
+	children(key: string): Promise<string[]>;
+	/** The bytes everything under `key`, nested keys included, takes. */
+	size(key: string): Promise<number>;
+	/** Removes everything under `key`, nested keys included; nothing there is no error. */
+	remove(key: string): Promise<void>;
 	/** The storage under `key`, which its own keys are relative to. */
 	within(key: string): Storage;
 }

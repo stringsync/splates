@@ -1,8 +1,8 @@
-import type { Fs } from "webappwiz/system";
 import type { TaskStage } from "../board";
 import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
+import type { Document, Storage } from "../storage";
 import { TASK_EVENTS, type TaskEventName } from "./events";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 import { scheduleOf } from "./schedule";
@@ -59,11 +59,14 @@ export type Hooks = Partial<Record<TaskEventName, Hook[]>>;
  * its person's tokens. None set, nothing runs.
  */
 export class HookStore {
+	readonly #file: Document<unknown>;
+
 	constructor(
-		/** `.git/splates/hooks.json`, or a test's own. */
-		readonly path: string,
-		private readonly fs: Fs,
-	) {}
+		/** The project's, holding `hooks.json`. */
+		storage: Storage,
+	) {
+		this.#file = storage.document("hooks.json");
+	}
 
 	/**
 	 * Every automation set; none when the file is missing or will not parse.
@@ -71,16 +74,7 @@ export class HookStore {
 	 * hook, numbered in event order.
 	 */
 	async read(): Promise<Automation[]> {
-		const raw = await this.fs.read(this.path).catch(() => null);
-		if (raw === null) {
-			return [];
-		}
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(raw);
-		} catch {
-			return [];
-		}
+		const parsed = await this.#file.read().catch(() => null);
 		if (parsed === null || typeof parsed !== "object") {
 			return [];
 		}
@@ -216,12 +210,7 @@ export class HookStore {
 		edit: (automations: Automation[]) => Automation[],
 	): Promise<void> {
 		const automations = edit(await this.read());
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(
-			tmp,
-			`${JSON.stringify({ automations }, null, "\t")}\n`,
-		);
-		await this.fs.rename(tmp, this.path);
+		await this.#file.write({ automations });
 	}
 }
 

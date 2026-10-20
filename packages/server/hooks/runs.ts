@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Document, Storage } from "../storage";
 
 /** One time an automation ran, as its page lists it. */
 export interface AutomationRun {
@@ -30,25 +30,19 @@ export const KEPT = 5;
 export class RunStore {
 	#writing = Promise.resolve();
 
+	readonly #file: Document<AutomationRuns>;
+
 	constructor(
-		readonly path: string,
-		private readonly fs: Fs,
-	) {}
+		/** The project's, holding `hooks-runs.json`. */
+		storage: Storage,
+	) {
+		this.#file = storage.document("hooks-runs.json");
+	}
 
 	/** Every automation's runs; none when the file is missing or will not parse. */
 	async read(): Promise<AutomationRuns> {
-		const raw = await this.fs.read(this.path).catch(() => null);
-		if (raw === null) {
-			return {};
-		}
-		try {
-			const parsed = JSON.parse(raw) as unknown;
-			return parsed !== null && typeof parsed === "object"
-				? (parsed as AutomationRuns)
-				: {};
-		} catch {
-			return {};
-		}
+		const parsed = await this.#file.read().catch(() => null);
+		return parsed !== null && typeof parsed === "object" ? parsed : {};
 	}
 
 	/** Keeps that automation `id` ran, dropping its oldest past `KEPT`. */
@@ -75,9 +69,7 @@ export class RunStore {
 			.catch(() => {})
 			.then(async () => {
 				const all = edit(await this.read());
-				const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-				await this.fs.write(tmp, JSON.stringify(all));
-				await this.fs.rename(tmp, this.path);
+				await this.#file.write(all);
 			});
 		return this.#writing;
 	}

@@ -37,6 +37,7 @@ describe.each([
 		},
 	},
 ])("storage on $backend", ({ open }) => {
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("document", () => {
 		it("reads null until written, then what was written", async () => {
 			const settings = (await open()).document<{ on: boolean }>("push.json");
@@ -78,6 +79,7 @@ describe.each([
 		});
 	});
 
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("log", () => {
 		it("replays what was appended, in order", async () => {
 			const log = (await open()).log<{ n: number }>("log.jsonl");
@@ -145,6 +147,7 @@ describe.each([
 		});
 	});
 
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("collection", () => {
 		it("keeps records and blobs by name, listed sorted", async () => {
 			const tasks = (await open()).collection("tasks");
@@ -160,6 +163,34 @@ describe.each([
 			);
 			expect(await tasks.read("3.md")).toBeNull();
 			expect(await tasks.readBytes("3.md")).toBeNull();
+		});
+
+		it("lists, sizes and removes what is nested under a key", async () => {
+			const storage = await open();
+			await storage.collection("conversations/a/artifacts").write("x", "four");
+			await storage.collection("conversations/b").write("y", "ab");
+			await storage.collection("conversations/b/attached").write("z", "abc");
+
+			expect(await storage.children("conversations")).toEqual(["a", "b"]);
+			expect(await storage.children("conversations/b")).toEqual(["attached"]);
+			expect(await storage.size("conversations")).toBe(9);
+
+			await storage.remove("conversations/b");
+
+			expect(await storage.children("conversations")).toEqual(["a"]);
+			expect(await storage.size("conversations")).toBe(4);
+			expect(await storage.size("nothing")).toBe(0);
+		});
+
+		it("tells the bytes of each name held", async () => {
+			const files = (await open()).collection("files");
+			await files.write("a.txt", "four");
+			await files.writeBytes("b.bin", new Uint8Array(6));
+
+			expect(await files.entries()).toEqual([
+				{ name: "a.txt", size: 4 },
+				{ name: "b.bin", size: 6 },
+			]);
 		});
 
 		it("sizes what it holds", async () => {
@@ -204,6 +235,7 @@ describe.each([
 		});
 	});
 
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("keys", () => {
 		it("refuses one that leaves the storage", async () => {
 			const storage = await open();
@@ -223,7 +255,9 @@ describe.each([
 		});
 	});
 
+	// scry-ignore simple-test-setup: one contract suite per kind of primitive, each opening its own storage through `open`, the backends being the outer describe
 	describe("watch", () => {
+		// scry-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
 		it("tells of a write under the key, relative to the storage", async () => {
 			const storage = await open();
 			const tasks = storage.collection("tasks");

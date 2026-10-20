@@ -1,6 +1,6 @@
 import type { Fs } from "webappwiz/system";
 import { readIfThere, replace } from "./atomic";
-import type { Collection } from "./collection";
+import type { Collection, CollectionEntry } from "./collection";
 import { checkName } from "./key";
 
 /**
@@ -14,6 +14,10 @@ export class FsCollection implements Collection {
 		readonly dir: string,
 		private readonly fs: Fs,
 	) {}
+
+	async ensure(): Promise<void> {
+		await this.fs.mkdir(this.dir);
+	}
 
 	async read(name: string): Promise<string | null> {
 		return readIfThere(this.fs, this.at(name), (path) => this.fs.read(path));
@@ -35,6 +39,10 @@ export class FsCollection implements Collection {
 
 	async list(): Promise<string[]> {
 		return (await this.files()).map((file) => file.name);
+	}
+
+	async entries(): Promise<CollectionEntry[]> {
+		return this.files();
 	}
 
 	async remove(name: string): Promise<void> {

@@ -47,7 +47,7 @@ describe("CloneCheckouts", () => {
 			git,
 			config,
 			{ app: async () => null },
-			new PlanStore(deps.fs, deps.splatesDir),
+			new PlanStore(deps.fs, deps.storage),
 		);
 		// Its records are the coordinator's, as the relay reaches them.
 		const service = new WorktreeService(git, config, deps.splatesDir, {

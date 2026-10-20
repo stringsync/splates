@@ -5,6 +5,8 @@
  */
 export interface Collection {
 	readonly key: string;
+	/** Makes the collection exist while empty, so a watch on it can start. */
+	ensure(): Promise<void>;
 	/** The record under `name`, or null when there is none. */
 	read(name: string): Promise<string | null>;
 	/** Keeps `text` under `name`; a reader never sees it half written. */
@@ -13,10 +15,17 @@ export interface Collection {
 	writeBytes(name: string, bytes: Uint8Array): Promise<void>;
 	/** Every name held, sorted. */
 	list(): Promise<string[]>;
+	/** Every name held with the bytes it takes, sorted by name. */
+	entries(): Promise<CollectionEntry[]>;
 	/** Removes what is under `name`; nothing there is no error. */
 	remove(name: string): Promise<void>;
 	/** Removes everything held. */
 	clear(): Promise<void>;
 	/** The bytes everything held takes, for a quota. */
 	size(): Promise<number>;
+}
+
+export interface CollectionEntry {
+	name: string;
+	size: number;
 }

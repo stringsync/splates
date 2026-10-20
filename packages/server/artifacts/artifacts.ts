@@ -1,30 +1,28 @@
-import { basename, dirname, resolve } from "node:path";
+import { basename } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import type { Fs } from "webappwiz/system";
 import type { Config } from "../config";
 import { fail } from "../exit";
-import { folderBytes } from "./attachments";
+import type { Collection, Storage } from "../storage";
 import type { ArtifactRoom } from "./room";
 
 /**
- * A conversation's artifacts: their bytes, in `artifacts/` beside its log's
- * other files, and their record, `held`, which each change goes to through
+ * A conversation's artifacts: their bytes, in `<id>/artifacts/` among the
+ * project's conversations, and their record, `held`, which each change goes to through
  * `record` (the log, then the state) once its bytes are in place. One change
  * at a time, so two adds of one name never take the same version.
  */
 export class Artifacts {
 	/** Where the bytes are kept. */
-	readonly dir: string;
-	/** Where every conversation of the project keeps its files. */
-	private readonly conversations: string;
+	private readonly files: Collection;
 	private readonly ids: IdProvider;
 	private queue: Promise<unknown> = Promise.resolve();
 
 	constructor(
-		/** The conversation's log, whose files directory holds the artifacts. */
-		log: string,
+		/** Where every conversation of the project keeps its files, by id. */
+		private readonly storage: Storage,
+		/** The conversation's id, whose folder holds the artifacts. */
+		private readonly id: string,
 		private readonly deps: {
-			fs: Fs;
 			now: () => string;
 			limits: ArtifactLimits;
 			ids?: IdProvider;
@@ -40,8 +38,7 @@ export class Artifacts {
 			room?: ArtifactRoom;
 		},
 	) {
-		this.dir = `${resolve(log.replace(/\.jsonl$/, ""))}/artifacts`;
-		this.conversations = dirname(resolve(log));
+		this.files = storage.collection(`${id}/artifacts`);
 		this.ids = deps.ids ?? new UuidProvider();
 	}
 
@@ -62,8 +59,8 @@ export class Artifacts {
 			return this.serially(async () => {
 				const size = await this.admit(file);
 				// With no room to make it, nothing another conversation keeps can go.
-				const { fs, limits } = this.deps;
-				const project = (await projectBytes(fs, this.conversations)) + size;
+				const { limits } = this.deps;
+				const project = (await projectBytes(this.storage)) + size;
 				if (project > limits.project) {
 					tooLarge("the project", file.name.trim(), project, limits.project);
 				}
@@ -143,9 +140,7 @@ export class Artifacts {
 		if (kept === undefined || kept.gone !== null) {
 			return null;
 		}
-		const bytes = await this.deps.fs
-			.readBytes(`${this.dir}/${kept.file}`)
-			.catch(() => null);
+		const bytes = await this.files.readBytes(kept.file).catch(() => null);
 		return bytes === null ? null : { bytes, mimeType: kept.mimeType };
 	}
 
@@ -168,10 +163,7 @@ export class Artifacts {
 			);
 		}
 		// Files attached to the conversation count toward its capacity too.
-		const attached = await folderBytes(
-			this.deps.fs,
-			`${dirname(this.dir)}/attached`,
-		);
+		const attached = await this.storage.size(`${this.id}/attached`);
 		const conversation = kept(this.deps.held()) + attached + size;
 		if (conversation > limits.conversation) {
 			tooLarge("this conversation", name, conversation, limits.conversation);
@@ -183,8 +175,7 @@ export class Artifacts {
 	private async keep(file: ArtifactFile): Promise<ArtifactVersion> {
 		const name = file.name.trim();
 		const stored = `${this.ids.next()}-${safe(name)}`;
-		await this.deps.fs.mkdir(this.dir);
-		await this.deps.fs.writeBytes(`${this.dir}/${stored}`, file.bytes);
+		await this.files.writeBytes(stored, file.bytes);
 		await this.deps.record({
 			type: "add",
 			name,
@@ -203,7 +194,7 @@ export class Artifacts {
 		version: ArtifactVersion,
 		why: ArtifactGone,
 	): Promise<void> {
-		await this.deps.fs.rm(`${this.dir}/${version.file}`, { force: true });
+		await this.files.remove(version.file);
 		await this.deps.record({
 			type: "gone",
 			name,
@@ -362,14 +353,14 @@ export function shown(artifact: Artifact, version: ArtifactVersion): boolean {
 }
 
 /**
- * How many bytes every conversation under `dir` keeps, read from disk: its
+ * How many bytes every conversation in `storage` keeps, read from disk: its
  * artifacts' and the files attached to it.
  */
-export async function projectBytes(fs: Fs, dir: string): Promise<number> {
+export async function projectBytes(storage: Storage): Promise<number> {
 	let total = 0;
-	for (const entry of await fs.readdir(dir).catch(() => [])) {
-		total += await folderBytes(fs, `${dir}/${entry}/artifacts`);
-		total += await folderBytes(fs, `${dir}/${entry}/attached`);
+	for (const entry of await storage.children("")) {
+		total += await storage.size(`${entry}/artifacts`);
+		total += await storage.size(`${entry}/attached`);
 	}
 	return total;
 }

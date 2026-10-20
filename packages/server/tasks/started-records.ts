@@ -1,4 +1,3 @@
-import type { Fs } from "webappwiz/system";
 import { Attachments } from "../artifacts";
 import { queuedOf, type StoredTask, startedOf, type TaskStore } from "../board";
 import type { TaskState } from "./worktree";
@@ -9,10 +8,7 @@ import type { TaskState } from "./worktree";
  * its name, written without touching what the list holds of it.
  */
 export class StartedRecords {
-	constructor(
-		private readonly store: TaskStore,
-		private readonly fs: Fs,
-	) {}
+	constructor(private readonly store: TaskStore) {}
 
 	/** The started task called `task`, or null for none. */
 	async find(task: string): Promise<TaskState | null> {
@@ -90,8 +86,8 @@ export class StartedRecords {
 			if (record.listed === false) {
 				await this.store.remove(record.id);
 				await new Attachments(
-					`${this.store.dir}/${record.id}`,
-					this.fs,
+					this.store.storage,
+					this.store.filesKey(record.id),
 				).clear();
 			} else {
 				await this.store.write({
@@ -122,7 +118,7 @@ export class StartedRecords {
 		const started = new Set(
 			(await this.store.started()).map((record) => String(record.id)),
 		);
-		const entries = await this.fs.readdir(this.store.dir).catch(() => []);
+		const entries = await this.store.storage.children("tasks");
 		for (const entry of entries.filter((each) => /^\d+$/.test(each))) {
 			if (!started.has(entry)) {
 				await this.filesAt(Number(entry)).clear();
@@ -131,7 +127,10 @@ export class StartedRecords {
 	}
 
 	private filesAt(id: number): Attachments {
-		return new Attachments(`${this.store.dir}/${id}/started`, this.fs);
+		return new Attachments(
+			this.store.storage,
+			`${this.store.filesKey(id)}/started`,
+		);
 	}
 
 	/**

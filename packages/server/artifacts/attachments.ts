@@ -2,6 +2,7 @@ import { basename, resolve } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import type { Fs, Ps } from "webappwiz/system";
 import { fail } from "../exit";
+import type { Collection, Storage } from "../storage";
 
 /** A file handed over, as bytes so a pasted image needs no temp file. */
 export interface Attachment {
@@ -17,36 +18,36 @@ export interface Attachment {
  * open what it holds.
  */
 export class Attachments {
+	private readonly files: Collection;
+	/** Where the files can be opened, the path each is handed out by. */
+	readonly dir: string;
+
 	constructor(
-		readonly dir: string,
-		private readonly fs: Fs,
+		private readonly storage: Storage,
+		private readonly key: string,
 		private readonly ids: IdProvider = new UuidProvider(),
-	) {}
+	) {
+		this.files = storage.collection(key);
+		this.dir = storage.locate(key);
+	}
 
 	/** Copies each file in, returning the absolute path each was stored at. */
 	async store(files: Attachment[]): Promise<string[]> {
-		if (files.length === 0) {
-			return [];
-		}
-		await this.fs.mkdir(this.dir);
 		const stored: string[] = [];
 		for (const file of files) {
-			const path = `${this.dir}/${this.ids.next()}-${safe(file.name)}`;
-			await this.fs.writeBytes(path, file.bytes);
-			stored.push(path);
+			const name = `${this.ids.next()}-${safe(file.name)}`;
+			await this.files.writeBytes(name, file.bytes);
+			stored.push(`${this.dir}/${name}`);
 		}
 		return stored;
 	}
 
 	/** Each file stored here, by absolute path, with its size in bytes. */
 	async held(): Promise<{ path: string; bytes: number }[]> {
-		const names = await this.fs.readdir(this.dir).catch(() => []);
-		const held: { path: string; bytes: number }[] = [];
-		for (const name of names.sort()) {
-			const path = `${this.dir}/${name}`;
-			held.push({ path, bytes: (await this.fs.stat(path)).size });
-		}
-		return held;
+		return (await this.files.entries()).map(({ name, size }) => ({
+			path: `${this.dir}/${name}`,
+			bytes: size,
+		}));
 	}
 
 	/** Whether `path` is one of this folder's files, and not a way out of it. */
@@ -57,13 +58,13 @@ export class Attachments {
 	/** Deletes the files given that are this folder's; others are left alone. */
 	async remove(paths: string[]): Promise<void> {
 		for (const path of paths.filter((path) => this.owns(path))) {
-			await this.fs.rm(path, { force: true });
+			await this.files.remove(basename(path));
 		}
 	}
 
 	/** Deletes the folder and everything in it. */
 	async clear(): Promise<void> {
-		await this.fs.rm(this.dir, { recursive: true, force: true });
+		await this.storage.remove(this.key);
 	}
 }
 
@@ -95,15 +96,4 @@ export async function readFiles(
  */
 function safe(name: string): string {
 	return basename(name).replace(/[^\w.-]+/g, "-") || "attachment";
-}
-
-/** The bytes of every file under `dir`, folders included, 0 when it is not there. */
-export async function folderBytes(fs: Fs, dir: string): Promise<number> {
-	let total = 0;
-	for (const name of await fs.readdir(dir).catch(() => [])) {
-		const path = `${dir}/${name}`;
-		const found = await fs.stat(path);
-		total += found.isDirectory() ? await folderBytes(fs, path) : found.size;
-	}
-	return total;
 }

@@ -7,6 +7,7 @@ import type { Creds } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { Git } from "../git";
 import type { Slot } from "../ports";
+import type { Storage } from "../storage";
 import type { WorktreeService } from "../tasks";
 import type { AccessConfig, TunnelConfig } from "../tunnel";
 import type {
@@ -77,6 +78,7 @@ export interface DevOptions {
 	conversations?:
 		| ((project: {
 				splatesDir: string;
+				storage: Storage;
 				git: Git;
 				config: Config;
 				creds: Creds;

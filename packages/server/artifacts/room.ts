@@ -1,4 +1,4 @@
-import type { Fs } from "webappwiz/system";
+import type { Storage } from "../storage";
 import {
 	type Artifact,
 	type Artifacts,
@@ -22,9 +22,8 @@ export class ArtifactRoom {
 
 	constructor(
 		private readonly deps: {
-			fs: Fs;
-			/** Where every conversation of the project keeps its files. */
-			dir: string;
+			/** Where every conversation of the project keeps its files, by id. */
+			storage: Storage;
 			/** How many bytes every conversation may keep together. */
 			capacity: number;
 			/** Every conversation's store, and whether it is archived. */
@@ -44,8 +43,8 @@ export class ArtifactRoom {
 	 * refuses `too_large`, evicting nothing, when it cannot.
 	 */
 	async make(bytes: number, name: string): Promise<void> {
-		const { fs, dir, capacity } = this.deps;
-		const project = (await projectBytes(fs, dir)) + bytes;
+		const { storage, capacity } = this.deps;
+		const project = (await projectBytes(storage)) + bytes;
 		let needed = project - capacity;
 		if (needed <= 0) {
 			return;

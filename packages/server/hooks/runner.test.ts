@@ -28,8 +28,7 @@ describe("HookRunner", () => {
 	const follow = async () => {
 		runner = await HookRunner.follow({
 			journal: deps.journal,
-			fs: deps.fs,
-			splatesDir: deps.splatesDir,
+			storage: deps.storage,
 			automations: async () => automations,
 			task: async (id) => {
 				const task = (await deps.tasks.stored()).find((each) => each.id === id);
@@ -37,7 +36,6 @@ describe("HookRunner", () => {
 					? null
 					: { stage: task.stage, lane: task.lane };
 			},
-			seen: `${deps.splatesDir}/hooks-seen.json`,
 			runs,
 			now: () => "2026-10-19T00:00:00.000Z",
 			actions: {
@@ -89,7 +87,7 @@ describe("HookRunner", () => {
 				{ kind: "agent", agent: "claude", prompt: "look" },
 			),
 		];
-		runs = new RunStore(`${deps.splatesDir}/hooks-runs.json`, deps.fs);
+		runs = new RunStore(deps.storage);
 		ran = [];
 		runner = null;
 		timer = new FakeTimer();

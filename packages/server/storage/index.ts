@@ -1,4 +1,4 @@
-export type { Collection } from "./collection";
+export type { Collection, CollectionEntry } from "./collection";
 export type { Document, DocumentOptions } from "./document";
 export type { FsStorageOptions, Locks } from "./fs";
 export { FsStorage } from "./fs";

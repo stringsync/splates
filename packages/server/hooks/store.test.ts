@@ -1,12 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { FakeFs } from "webappwiz/system/testing";
+import { MemoryStorage } from "../storage/testing";
 import { HookStore } from "./store";
 
 describe("HookStore", () => {
 	it("numbers each automation, and takes them away by number or by event", async () => {
-		const fs = new FakeFs();
-		await fs.mkdir("/repo/.git/splates", { recursive: true });
-		const hooks = new HookStore("/repo/.git/splates/hooks.json", fs);
+		const hooks = new HookStore(new MemoryStorage());
 		expect(await hooks.read()).toEqual([]);
 
 		await hooks.add(
@@ -30,7 +28,7 @@ describe("HookStore", () => {
 	});
 
 	it("turns the groomer on and off as built-in automation groomer, keeping its pause", async () => {
-		const hooks = new HookStore("/hooks.json", new FakeFs());
+		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ event: "task.created" }, { kind: "run", command: "x" });
 
 		await hooks.groomer({ agent: "claude", model: "sonnet" });
@@ -53,7 +51,7 @@ describe("HookStore", () => {
 	});
 
 	it("pauses one and lets it run again", async () => {
-		const hooks = new HookStore("/hooks.json", new FakeFs());
+		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
 
 		await hooks.pause("1", true);
@@ -63,7 +61,7 @@ describe("HookStore", () => {
 	});
 
 	it("edits one in place, keeping its number and pause, and stamps a changed trigger", async () => {
-		const hooks = new HookStore("/hooks.json", new FakeFs());
+		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
 		await hooks.pause("1", true);
 
@@ -89,7 +87,7 @@ describe("HookStore", () => {
 	});
 
 	it("refuses to edit the groomer, one that is none, or to a trigger that will not read", async () => {
-		const hooks = new HookStore("/hooks.json", new FakeFs());
+		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
 		await hooks.groomer({ agent: "claude" });
 		const run = { kind: "run", command: "x" } as const;
@@ -106,15 +104,12 @@ describe("HookStore", () => {
 	});
 
 	it("reads a file of each event's hooks as automations numbered in event order", async () => {
-		const fs = new FakeFs();
-		await fs.write(
-			"/hooks.json",
-			JSON.stringify({
-				"task.done": [{ kind: "run", command: "ship" }],
-				"task.created": [{ kind: "run", command: "notify" }],
-			}),
-		);
-		const hooks = new HookStore("/hooks.json", fs);
+		const storage = new MemoryStorage();
+		await storage.document("hooks.json").write({
+			"task.done": [{ kind: "run", command: "ship" }],
+			"task.created": [{ kind: "run", command: "notify" }],
+		});
+		const hooks = new HookStore(storage);
 
 		expect(
 			(await hooks.read()).map(({ id, trigger }) => [id, trigger]),
@@ -125,7 +120,7 @@ describe("HookStore", () => {
 	});
 
 	it("refuses an event, a stage, a schedule or a number that is none", async () => {
-		const hooks = new HookStore("/hooks.json", new FakeFs());
+		const hooks = new HookStore(new MemoryStorage());
 		const run = { kind: "run", command: "x" } as const;
 
 		await expect(

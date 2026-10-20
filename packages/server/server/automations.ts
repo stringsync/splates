@@ -37,11 +37,8 @@ export class Automations implements Resource {
 
 	constructor(project: Project) {
 		this.#project = project;
-		this.#store = new HookStore(`${project.splatesDir}/hooks.json`, project.fs);
-		this.#runs = new RunStore(
-			`${project.splatesDir}/hooks-runs.json`,
-			project.fs,
-		);
+		this.#store = new HookStore(project.storage);
+		this.#runs = new RunStore(project.storage);
 		this.routes = new AutomationRoutes(
 			this.#store,
 			this.#runs,
@@ -66,7 +63,7 @@ export class Automations implements Resource {
 
 	/** Starts running them, catching up on what came while the server was down. */
 	async start(conversations: Conversations, journal: Journal): Promise<void> {
-		const { fs, splatesDir, tasks, service, log } = this.#project;
+		const { storage, tasks, service, log } = this.#project;
 		this.#groomer = new Groomer({
 			tasks: () => tasks.all(),
 			conversations,
@@ -77,8 +74,7 @@ export class Automations implements Resource {
 		this.#runner = await HookRunner.follow({
 			...fireDeps,
 			journal,
-			fs,
-			splatesDir,
+			storage,
 			automations: this.all,
 			task: async (id) => {
 				const task = (await tasks.stored()).find((each) => each.id === id);
@@ -86,7 +82,6 @@ export class Automations implements Resource {
 					? null
 					: { stage: task.stage, lane: task.lane };
 			},
-			seen: `${splatesDir}/hooks-seen.json`,
 		});
 		this.#scheduler = await Scheduler.start({
 			...fireDeps,
@@ -95,14 +90,16 @@ export class Automations implements Resource {
 		});
 		// Turned on or off from the command line, as `splates hook groomer`.
 		try {
-			this.#watching = fs.watch(splatesDir, (changed) => {
+			const watching = storage.watch("");
+			watching.events.on("changed", (changed) => {
 				if (changed.endsWith("hooks.json")) {
 					void this.groomed();
 				}
 			});
+			this.#watching = watching;
 		} catch (error) {
 			log.error(
-				`splates server cannot watch ${splatesDir}, so the groomer turns on or off from the command line only as it starts: ${String(error)}`,
+				`splates server cannot watch the project's records, so the groomer turns on or off from the command line only as it starts: ${String(error)}`,
 			);
 		}
 		// Hooks run at least once, and none while the server was down: the

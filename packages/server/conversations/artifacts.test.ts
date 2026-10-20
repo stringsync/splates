@@ -6,6 +6,7 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { type ArtifactLimits, Artifacts } from "../artifacts";
 import type { Exit } from "../exit";
+import { FsStorage } from "../storage";
 import type { Conversation } from "./conversation";
 import { Conversations } from "./index";
 import { until } from "./testing";
@@ -240,6 +241,7 @@ describe("Conversation artifacts", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: it starts the two conversations whose eviction order it compares; the other cases start one
 	it("evicts what archived conversations show before what live ones do", async () => {
 		const live = await started();
 		const archived = await started();
@@ -295,8 +297,7 @@ describe("Conversation artifacts", () => {
 		await one.artifacts.add(file("b.html", "x".repeat(10)));
 		await two.artifacts.add(file("c.html", "x".repeat(10)));
 		const held = [...two.state.artifacts];
-		const roomless = new Artifacts(`${DIR}/${two.id}.jsonl`, {
-			fs,
+		const roomless = new Artifacts(new FsStorage(DIR, fs), two.id, {
 			now: () => "2026-10-16T10:00:00.000Z",
 			limits: { file: 10, conversation: 20, project: 30 },
 			held: () => held,
@@ -334,6 +335,7 @@ describe("Conversation artifacts", () => {
 		expect(new TextDecoder().decode(current?.bytes)).toBe("two");
 	});
 
+	// scry-ignore simple-test-setup: it reads back a log written before archiving cleaned up, which no other case sets up
 	it("tidies a conversation archived before archiving cleaned up, as it is read back", async () => {
 		const conversation = await started();
 		await conversation.artifacts.add(file("report.html", "one"));
