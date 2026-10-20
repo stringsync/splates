@@ -1,4 +1,19 @@
+import { brotliCompress } from "node:zlib";
 import type { Assets } from "./assets";
+
+type Body = string | Uint8Array<ArrayBuffer>;
+
+/** One file the page asks for, hashed once as the server starts. */
+interface PageFile {
+	body: Body;
+	type: string;
+	hash: string;
+	/**
+	 * Whether its name already holds its hash, so any request for it may keep
+	 * it for good, not only one stamped with a `?v=`.
+	 */
+	named: boolean;
+}
 
 /**
  * The page the server hands to browsers: the files built as this run
@@ -9,58 +24,76 @@ export class Pages {
 	/** The shell, naming the script and styles by what they hold. */
 	readonly page: string;
 
+	private readonly files = new Map<string, PageFile>();
+
 	constructor(readonly assets: Assets) {
-		this.page = stamped(assets);
+		const file = (path: string, body: Body, type: string, named = false) => {
+			this.files.set(path, {
+				body,
+				type,
+				hash: Bun.hash(body).toString(36),
+				named,
+			});
+		};
+		const js = "text/javascript; charset=utf-8";
+		file("/main.js", assets.script, js);
+		file("/main.js.map", assets.scriptMap, "application/json");
+		file("/styles.css", assets.styles, "text/css; charset=utf-8");
+		// At the root, so its scope is the whole page.
+		file("/worker.js", assets.worker, js);
+		file("/worker.js.map", assets.workerMap, "application/json");
+		file(
+			"/manifest.webmanifest",
+			assets.manifest,
+			"application/manifest+json; charset=utf-8",
+		);
+		file("/icon-192.png", assets.icons[192], "image/png");
+		file("/icon-512.png", assets.icons[512], "image/png");
+		// The chunks the script loads as a page is first opened, each named by
+		// its content's hash, so no `?v=` is needed to keep one.
+		for (const [name, { code, map }] of Object.entries(assets.chunks)) {
+			file(`/${name}`, code, js, true);
+			file(`/${name}.map`, map, "application/json", true);
+		}
+		this.page = stamped(assets, (path) => this.files.get(path)?.hash);
+		file("/", this.page, "text/html; charset=utf-8");
 	}
 
 	/** The server's routes for the page's own files, spread into its `routes`. */
-	routes(): Record<string, (request: Request) => Response> {
+	routes(): Record<string, (request: Request) => Response | Promise<Response>> {
 		// The page is a React app in `packages/web`, built before publishing and
 		// carried in the bundle, so nothing here builds markup or reads it off
 		// disk.
-		const asset =
-			(body: () => string | Uint8Array<ArrayBuffer>, type: string) =>
-			(request: Request): Response =>
-				this.respond(request, body(), type);
-		return {
-			"/": asset(() => this.page, "text/html; charset=utf-8"),
-			"/main.js": asset(
-				() => this.assets.script,
-				"text/javascript; charset=utf-8",
-			),
-			"/main.js.map": asset(() => this.assets.scriptMap, "application/json"),
-			"/styles.css": asset(() => this.assets.styles, "text/css; charset=utf-8"),
-			// At the root, so its scope is the whole page.
-			"/worker.js": asset(
-				() => this.assets.worker,
-				"text/javascript; charset=utf-8",
-			),
-			"/worker.js.map": asset(() => this.assets.workerMap, "application/json"),
-			"/manifest.webmanifest": asset(
-				() => this.assets.manifest,
-				"application/manifest+json; charset=utf-8",
-			),
-			"/icon-192.png": asset(() => this.assets.icons[192], "image/png"),
-			"/icon-512.png": asset(() => this.assets.icons[512], "image/png"),
-		};
+		return Object.fromEntries(
+			[...this.files].map(([path, file]) => [
+				path,
+				(request: Request) => this.respond(request, file),
+			]),
+		);
 	}
 
 	/** What each body gzips to, made on first ask and kept for the run. */
 	private readonly gzipped = new Map<string, Uint8Array<ArrayBuffer>>();
 
 	/**
-	 * `body` as `type`, or a 304 for a request that holds this very build.
-	 * A request for the stamped `?v=` name of a body it holds may keep it
-	 * for good, since a new build is a new name.
+	 * What each body compresses to under brotli, which takes seconds at its
+	 * best setting: started on the first ask and kept once done, while that
+	 * ask and any before it is done are answered with gzip.
 	 */
-	respond(
-		request: Request,
-		body: string | Uint8Array<ArrayBuffer>,
-		type: string,
-	): Response {
+	private readonly brotlied = new Map<
+		string,
+		Uint8Array<ArrayBuffer> | "making"
+	>();
+
+	/**
+	 * `file`, or a 304 for a request that holds this very build. A request for
+	 * the stamped `?v=` name of a body it holds may keep it for good, since a
+	 * new build is a new name.
+	 */
+	private respond(request: Request, file: PageFile): Response {
 		// Answered by hand, since a route that reads what is served on each
 		// request gets no ETag from Bun.
-		const hash = Bun.hash(body).toString(36);
+		const { body, type, hash } = file;
 		const etag = `"${hash}"`;
 		const stamp = new URL(request.url).searchParams.get("v");
 		const headers = {
@@ -71,17 +104,31 @@ export class Pages {
 			// hours after the server moved on. Only the name stamped with the
 			// body's own hash is safe to keep.
 			"cache-control":
-				stamp === hash ? "public, max-age=31536000, immutable" : "no-cache",
+				file.named || stamp === hash
+					? "public, max-age=31536000, immutable"
+					: "no-cache",
 			vary: "accept-encoding",
 		};
 		if (request.headers.get("if-none-match") === etag) {
 			return new Response(null, { status: 304, headers });
 		}
-		const compress =
-			typeof body === "string" &&
-			body.length > 1024 &&
-			/\bgzip\b/.test(request.headers.get("accept-encoding") ?? "");
-		if (!compress) {
+		const accepts = request.headers.get("accept-encoding") ?? "";
+		if (typeof body !== "string" || body.length <= 1024) {
+			return new Response(body, {
+				headers: { ...headers, "content-type": type },
+			});
+		}
+		const brotli = /\bbr\b/.test(accepts) ? this.brotli(file) : null;
+		if (brotli !== null) {
+			return new Response(brotli, {
+				headers: {
+					...headers,
+					"content-type": type,
+					"content-encoding": "br",
+				},
+			});
+		}
+		if (!/\bgzip\b/.test(accepts)) {
 			return new Response(body, {
 				headers: { ...headers, "content-type": type },
 			});
@@ -95,14 +142,44 @@ export class Pages {
 			headers: { ...headers, "content-type": type, "content-encoding": "gzip" },
 		});
 	}
+
+	/** `file` under brotli once that is made, else null, starting to make it. */
+	private brotli({ body, hash }: PageFile): Uint8Array<ArrayBuffer> | null {
+		const made = this.brotlied.get(hash);
+		if (made !== undefined) {
+			return made === "making" ? null : made;
+		}
+		this.brotlied.set(hash, "making");
+		brotliCompress(body, (error, packed) => {
+			if (error === null) {
+				this.brotlied.set(hash, new Uint8Array(packed));
+			} else {
+				this.brotlied.delete(hash);
+			}
+		});
+		return null;
+	}
 }
 
 // The shell names its script and styles by what they hold, so no cache on the
 // way, Cloudflare's edge or a phone's, hands back a build from before a
-// restart under the name a new one goes by.
-function stamped({ shell, script, styles }: Assets): string {
-	const hash = (body: string) => Bun.hash(body).toString(36);
+// restart under the name a new one goes by. It also asks for the chunks the
+// script starts from, so they load beside it rather than after it.
+function stamped(
+	{ shell, script }: Assets,
+	hashOf: (path: string) => string | undefined,
+): string {
+	const starts = [
+		...script.matchAll(/(?:from|import\()"\.\/(chunk-\w+\.js)"/g),
+	].map((match) => match[1]);
+	const preloads = [...new Set(starts)]
+		.map((name) => `<link rel="modulepreload" href="/${name}">`)
+		.join("\n\t\t");
 	return shell
-		.replace('src="/main.js"', `src="/main.js?v=${hash(script)}"`)
-		.replace('href="/styles.css"', `href="/styles.css?v=${hash(styles)}"`);
+		.replace('src="/main.js"', `src="/main.js?v=${hashOf("/main.js")}"`)
+		.replace(
+			'href="/styles.css"',
+			`href="/styles.css?v=${hashOf("/styles.css")}"`,
+		)
+		.replace("</head>", `${preloads}\n\t</head>`);
 }

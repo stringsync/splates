@@ -439,9 +439,10 @@ describe("App's conversation header", () => {
 		).toBeNull();
 
 		await act(async () => fireEvent.click(row));
-		const pane = view.getByRole("complementary", {
-			name: "background command",
-		});
+		// The pane is a chunk fetched as it first opens.
+		const pane = await waitFor(() =>
+			view.getByRole("complementary", { name: "background command" }),
+		);
 		expect(within(pane).getByRole("heading").textContent).toBe(
 			"Start the dev server",
 		);

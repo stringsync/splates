@@ -8,10 +8,10 @@ import type {
 } from "@stringsync/splates-server/auto-pick";
 import {
 	ANY,
-	checkRules,
 	DEFAULT_RULES,
 	KIND_IDS,
 } from "@stringsync/splates-server/auto-pick/browser";
+import { checkRules } from "@stringsync/splates-server/auto-pick/check";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {

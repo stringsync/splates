@@ -193,7 +193,19 @@ describe("dev", () => {
 
 		await serving(deps, async (_snapshot, port) => {
 			const response = await fetch(`http://127.0.0.1:${port}/main.js`);
-			const js = await response.text();
+			const entry = await response.text();
+			// The entry starts the app, which it fetches as chunks beside the ones
+			// a page loads when it is first opened.
+			const names = [...new Set(entry.match(/chunk-\w+\.js/g))];
+			expect(names.length).toBeGreaterThan(1);
+			const chunks = await Promise.all(
+				names.map(async (name) => {
+					const chunk = await fetch(`http://127.0.0.1:${port}/${name}`);
+					expect(chunk.headers.get("cache-control")).toContain("immutable");
+					return chunk.text();
+				}),
+			);
+			const js = [entry, ...chunks].join("\n");
 
 			expect(response.headers.get("content-type")).toContain("text/javascript");
 			// React is in the file rather than imported from anywhere, which is what

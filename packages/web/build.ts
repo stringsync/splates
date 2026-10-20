@@ -1,9 +1,9 @@
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { Scanner } from "@tailwindcss/oxide";
 import { compile } from "tailwindcss";
 
 /**
- * Builds the `splates server` page: the React app as one script, and the stylesheet
+ * Builds the `splates server` page: the React app as scripts loaded on demand, and the stylesheet
  * with Tailwind compiled, into `../server/web-build`. server's `assets.ts`
  * imports both as text, so they end up inside the bundle a release publishes
  * and the server hands them straight to the browser.
@@ -25,14 +25,32 @@ const out = `${here}/../server/web-build`;
 /** The app icon's sizes, the two a manifest needs for an install. */
 const ICON_SIZES = [192, 512] as const;
 
+/** A script and its source map. */
+interface Built {
+	code: string;
+	map: string;
+}
+
 /**
- * A browser script, as one file with what it imports in it: the page's, with
- * React and its modules, or the service worker's. Its source map comes with it.
+ * A browser script, with what it imports in it: the page's, with React and
+ * its modules, or the service worker's. Its source map comes with it. The
+ * page's is split where it loads a page on demand, into `chunks` the script
+ * fetches by name when first needed: a name holds its content's hash, so
+ * the same name is the same bytes. The service worker, which cannot, is one
+ * file.
  */
-async function script(entry: string): Promise<{ code: string; map: string }> {
+async function script(
+	entry: string,
+	splitting: boolean,
+): Promise<Built & { chunks: Record<string, Built> }> {
 	const built = await Bun.build({
 		entrypoints: [`${here}/${entry}`],
 		target: "browser",
+		splitting,
+		naming: {
+			entry: entry === "worker.ts" ? "worker.js" : "main.js",
+			chunk: "chunk-[hash].js",
+		},
 		// React's production build: the development one is several times the
 		// size, slower, and asks the person on the page to install DevTools.
 		define: { "process.env.NODE_ENV": '"production"' },
@@ -47,11 +65,24 @@ async function script(entry: string): Promise<{ code: string; map: string }> {
 		throw: false,
 	});
 	const output = built.outputs.find(({ kind }) => kind === "entry-point");
-	const map = built.outputs.find(({ kind }) => kind === "sourcemap");
+	const map = built.outputs.find(
+		({ kind, path }) => kind === "sourcemap" && path === `${output?.path}.map`,
+	);
 	if (output === undefined || map === undefined) {
 		throw new Error(built.logs.map(String).join("\n"));
 	}
-	return { code: await output.text(), map: await map.text() };
+	const chunks: Record<string, Built> = {};
+	for (const chunk of built.outputs.filter(({ kind }) => kind === "chunk")) {
+		const name = basename(chunk.path);
+		const chunkMap = built.outputs.find(
+			({ kind, path }) => kind === "sourcemap" && path === `${chunk.path}.map`,
+		);
+		if (chunkMap === undefined) {
+			throw new Error(`chunk ${name} has no source map`);
+		}
+		chunks[name] = { code: await chunk.text(), map: await chunkMap.text() };
+	}
+	return { code: await output.text(), map: await map.text(), chunks };
 }
 
 /**
@@ -115,13 +146,18 @@ await Bun.write(
 	`${out}/shell.txt`,
 	await Bun.file(`${here}/index.html`).text(),
 );
-for (const [name, entry] of [
-	["main", "main.tsx"],
-	["worker", "worker.ts"],
+for (const [name, entry, splitting] of [
+	["main", "boot.ts", true],
+	["worker", "worker.ts", false],
 ] as const) {
-	const { code, map } = await script(entry);
+	const { code, map, chunks } = await script(entry, splitting);
 	await Bun.write(`${out}/${name}.txt`, code);
 	await Bun.write(`${out}/${name}.map.txt`, map);
+	if (splitting) {
+		// All the page's chunks in one text file, since the server imports its
+		// assets as text and a release bundles what is imported.
+		await Bun.write(`${out}/chunks.txt`, JSON.stringify(chunks));
+	}
 }
 await Bun.write(`${out}/styles.txt`, await styles());
 await Bun.write(

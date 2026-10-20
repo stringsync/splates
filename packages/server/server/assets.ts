@@ -1,3 +1,4 @@
+import chunks from "../web-build/chunks.txt" with { type: "text" };
 import icon192 from "../web-build/icon-192.txt" with { type: "text" };
 import icon512 from "../web-build/icon-512.txt" with { type: "text" };
 import scriptMap from "../web-build/main.map.txt" with { type: "text" };
@@ -18,6 +19,11 @@ export interface Assets {
 	scriptMap: string;
 	/** The stylesheet, with Tailwind already compiled. */
 	styles: string;
+	/**
+	 * The chunks of the React app that load when a page first needs them, by
+	 * the name the script asks for, each with its source map.
+	 */
+	chunks: Record<string, { code: string; map: string }>;
 	/** The service worker, through which a phone shows notifications. */
 	worker: string;
 	/** The service worker's source map. */
@@ -33,6 +39,7 @@ export const assets: Assets = {
 	shell,
 	script,
 	scriptMap,
+	chunks: JSON.parse(chunks),
 	styles,
 	worker,
 	workerMap,

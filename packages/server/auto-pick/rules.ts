@@ -1,13 +1,14 @@
 import { z } from "zod";
 import type { AgentPick } from "../models";
 import {
-	DIFFICULTIES,
 	DIFFICULTY_IDS,
 	type DifficultyId,
 	KIND_IDS,
-	KINDS,
 	type KindId,
 } from "./classes";
+import { ANY, RULES_FORMAT, ruleLabel } from "./rule-names";
+
+export { ANY, RULES_FORMAT, ruleLabel };
 
 // Browser-safe: the page edits the rules, so this file brings in no agent
 // processes and no `bun:` modules, and takes only types from `../models`.
@@ -42,12 +43,6 @@ export interface Rule {
 	picks: AgentPick[];
 }
 
-/** The rules' own format. */
-export const RULES_FORMAT = 1;
-
-/** The rule every mapping ends on, so every classification maps somewhere. */
-export const ANY = "*" as const;
-
 /** Rules that check out, or the first problem with them, in a line the page can show. */
 export type CheckedRules =
 	| { ok: true; rules: AutoPickRules }
@@ -64,20 +59,6 @@ export function checkRules(value: unknown): CheckedRules {
 		ok: false,
 		problem: `${issue?.path.join(".") || "the rules"}: ${issue?.message}`,
 	};
-}
-
-/** What a rule matches in words: `Mechanical, any difficulty`. */
-export function ruleLabel(rule: Pick<Rule, "kind" | "difficulty">): string {
-	const kind =
-		rule.kind === ANY
-			? "any kind"
-			: (KINDS.find((each) => each.id === rule.kind)?.label ?? rule.kind);
-	const difficulty =
-		rule.difficulty === ANY
-			? "any difficulty"
-			: (DIFFICULTIES.find((each) => each.id === rule.difficulty)?.label ??
-				rule.difficulty);
-	return `${kind}, ${difficulty}`;
 }
 
 const PICK = z.object({

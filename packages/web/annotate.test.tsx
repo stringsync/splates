@@ -1,7 +1,7 @@
 import "./register-dom";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, within } from "@testing-library/react";
-import { Annotate } from "./annotate";
+import { Annotate } from "./annotate-dialog";
 import { Annotation } from "./annotation";
 
 /** An annotation of a 1100 by 550 image. */

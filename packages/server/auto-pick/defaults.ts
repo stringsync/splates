@@ -1,5 +1,5 @@
-import type { Rule } from "./rules";
-import { ANY, type AutoPickRules, RULES_FORMAT } from "./rules";
+import { ANY, RULES_FORMAT } from "./rule-names";
+import type { AutoPickRules, Rule } from "./rules";
 
 /**
  * The mapping a machine starts with, over the default roster: each rule picks

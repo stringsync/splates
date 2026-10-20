@@ -54,7 +54,7 @@ import {
 } from "./terminal";
 import { isMain, type Terminals } from "./terminals";
 import { Thread } from "./thread";
-import { TodoDialog } from "./todos";
+import { TodoDialog } from "./todo-dialog";
 import { BarButton, TopBar } from "./top-bar";
 
 /**
@@ -262,7 +262,7 @@ export function Conversations({
 							shown.archived || showTerminal === null
 								? null
 								: (code) => {
-										terminals.sessionFor(shown.id, shown.task).run(code);
+										void terminals.run(shown.id, shown.task, code);
 										showTerminal(shown.id);
 									}
 						}

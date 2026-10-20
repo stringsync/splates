@@ -37,6 +37,7 @@
 @source "./side-panes.tsx";
 @source "./todos.tsx";
 @source "./board-drag.tsx";
+@source "./todo-dialog.tsx";
 @source "./todo-edit.tsx";
 @source "./todo-queue.tsx";
 @source "./tasks.tsx";
@@ -58,9 +59,11 @@
 @source "./markdown.tsx";
 @source "./media.tsx";
 @source "./lightbox.tsx";
+@source "./lightbox-dialog.tsx";
 @source "./zoom.tsx";
 @source "./add-project.tsx";
 @source "./annotate.tsx";
+@source "./annotate-dialog.tsx";
 @source "./annotate-board.tsx";
 @source "./mark-notes.tsx";
 @source "./composer-editor.tsx";
@@ -81,6 +84,7 @@
 @source "./page-menu.tsx";
 @source "./machine.tsx";
 @source "./card.tsx";
+@source "./sortable-card.tsx";
 @source "./dot.tsx";
 @source "./board.ts";
 @source "./lanes.tsx";
@@ -196,6 +200,8 @@
 @source "./task-sessions.tsx";
 @source "./top-bar.tsx";
 @source "./background.tsx";
+@source "./background-pane.tsx";
+@source "./lazy-pages.tsx";
 @source "./terminal.tsx";
 @source "./splates-event.tsx";
 @source "./artifact-open.tsx";

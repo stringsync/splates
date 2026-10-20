@@ -8,9 +8,9 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { BackgroundPane } from "./background";
 import { ChangesPane } from "./changes";
 import { focusComposer } from "./composer-editor";
+import { BackgroundPane } from "./lazy-pages";
 import type { Page } from "./page-route";
 import { TerminalPane } from "./terminal";
 import type { Terminals } from "./terminals";

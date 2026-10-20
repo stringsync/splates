@@ -2,25 +2,20 @@ import { Duration, SystemWallClock, type WallClock } from "webappwiz/time";
 import { z } from "zod";
 import type { Document } from "../storage";
 import { reached } from "./budget-notice";
+
+export {
+	DEFAULT_WORKER_LIMITS,
+	WORKER_LIMITS,
+	type WorkerLimit,
+} from "./limits";
+
+import {
+	DEFAULT_WORKER_LIMITS,
+	WORKER_LIMITS,
+	type WorkerLimit,
+} from "./limits";
 import type { BudgetReason, HeldSlot } from "./scheduler";
 import { type SpendShare, splitSpend } from "./spend";
-
-/** The limits a worker budget holds made workers to, each in US dollars. */
-export const WORKER_LIMITS = ["hour", "day", "month"] as const;
-
-/**
- * `hour` is a rate cap, the dollars per hour the made workers running at
- * once may cost together; `day` and `month` are what they may cost in all
- * since the day or month began, in local time.
- */
-export type WorkerLimit = (typeof WORKER_LIMITS)[number];
-
-/** What each limit is until the user sets it. */
-export const DEFAULT_WORKER_LIMITS: Readonly<Record<WorkerLimit, number>> = {
-	hour: 0.25,
-	day: 5,
-	month: 75,
-};
 
 /** The shares of a limit, in percent, that each warn once per window. */
 export const ALERT_TIERS = [80, 90, 100] as const;

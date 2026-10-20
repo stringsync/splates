@@ -6,7 +6,7 @@ import {
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { CSSProperties, JSX, ReactNode, Ref } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { Sortable } from "./card";
+import { Sortable } from "./sortable-card";
 
 /**
  * A column a card can be dropped on, lit while one is over it: the cards in

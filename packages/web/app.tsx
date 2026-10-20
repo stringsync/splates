@@ -15,12 +15,9 @@ import { Opening } from "./add-project";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
-import { AutoPickPage } from "./auto-pick-page";
 import { AutoRestart } from "./auto-restart";
-import { AutomationsPage } from "./automations";
 import { WatchBackground } from "./background";
 import { takenTask } from "./board";
-import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
 import { terminalAddress } from "./conversation-address";
@@ -35,6 +32,15 @@ import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
+import {
+	AutomationsPage,
+	AutoPickPage,
+	BudgetPage,
+	SetupPage,
+	StatsPage,
+	Todos,
+	WorkersPage,
+} from "./lazy-pages";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
@@ -54,12 +60,10 @@ import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
-import { SetupPage } from "./setup-page";
 import { SetupProvider } from "./setup-state";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { Splash } from "./splash";
-import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 import { Tasks } from "./tasks";
 import {
@@ -70,9 +74,7 @@ import {
 } from "./terminal";
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
-import { Todos } from "./todos";
 import { TreesContext } from "./work-row";
-import { WorkersPage } from "./workers";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];

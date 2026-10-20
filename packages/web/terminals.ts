@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { SystemTimer, type Timer } from "webappwiz/time";
-import { TerminalSession } from "./terminal-session";
+import type { TerminalSession } from "./terminal-session";
 
 export type TerminalsEvents = {
 	changed: undefined;
@@ -92,13 +92,21 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		conversation: string,
 		task: string | null,
 		project: string | null = null,
-	): TerminalSession {
+	): TerminalSession | null {
+		// xterm is a script chunk of its own, fetched the first time a shell is
+		// asked for. None until it arrives, which tells whoever drew the
+		// change to draw again.
+		const Session = this.loaded;
+		if (Session === null) {
+			void this.load();
+			return null;
+		}
 		if (this.focusing !== conversation) {
 			this.focusing = null;
 		}
 		let session = this.sessions.get(conversation);
 		if (session === undefined) {
-			const made = new TerminalSession(conversation, task, this.toggles, {
+			const made = new Session(conversation, task, this.toggles, {
 				timer: this.timer,
 				project,
 			});
@@ -113,6 +121,29 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 			this.sessions.set(conversation, session);
 		}
 		return session;
+	}
+
+	/** The shell class once its chunk is in, which `sessionFor` needs. */
+	private loaded: typeof TerminalSession | null = null;
+
+	private loading: Promise<void> | null = null;
+
+	private load(): Promise<void> {
+		this.loading ??= import("./terminal-session").then((module) => {
+			this.loaded = module.TerminalSession;
+			this.dispatcher.dispatch("changed");
+		});
+		return this.loading;
+	}
+
+	/** Types `code` into `conversation`'s shell, making it first if need be. */
+	async run(
+		conversation: string,
+		task: string | null,
+		code: string,
+	): Promise<void> {
+		await this.load();
+		this.sessionFor(conversation, task)?.run(code);
 	}
 
 	/** Shows the pane beside `conversation`, or hides it. */

@@ -32,6 +32,7 @@
 		"./agents/testing": "./agents/testing.ts",
 		"./auto-pick": "./auto-pick/index.ts",
 		"./auto-pick/browser": "./auto-pick/browser.ts",
+		"./auto-pick/check": "./auto-pick/check.ts",
 		"./tasks": "./tasks/index.ts",
 		"./tasks/browser": "./tasks/browser.ts",
 		"./models": "./models/index.ts",

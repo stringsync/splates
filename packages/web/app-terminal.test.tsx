@@ -84,7 +84,8 @@ describe("App's terminal", () => {
 
 		await act(async () => fireEvent.click(run));
 
-		view.getByRole("complementary", { name: "terminal" });
+		// xterm is a chunk fetched as the first shell is made.
+		await waitFor(() => view.getByRole("complementary", { name: "terminal" }));
 		const [shell] = testing.shells;
 		expect(shell?.task).toBe("alpha");
 		expect(shell?.sent).toEqual([]);
