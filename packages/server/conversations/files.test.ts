@@ -7,6 +7,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { AGENT, FakeAgent } from "../agents/testing";
 import { projectLine } from "../projects";
+import { MemoryStorage } from "../storage/testing";
 import { Conversations } from "./index";
 import { until } from "./testing";
 
@@ -170,6 +171,48 @@ describe("Conversation files", () => {
 			{ fs, timer, clock, launch: agent.launch },
 		).list();
 		expect(read?.state.messages[0]?.parts[0]).toEqual(file);
+	});
+
+	it("hands the agent copies in a local cache when storage keeps no files", async () => {
+		const cached = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+				root: "/repo",
+				storage: MemoryStorage.cachedIn("/cache", fs),
+			},
+		);
+		const conversation = await cached.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await until(conversation, "idle");
+
+		await conversation.prompt(`why, as in #${conversation.id}`, [MP4]);
+		await until(conversation, "idle");
+
+		const [link, said] = agent.prompts.at(-1) ?? [];
+		const uri = link?.type === "resource_link" ? link.uri : "";
+		expect(uri).toStartWith(`file:///cache/${conversation.id}/`);
+		expect(
+			new TextDecoder().decode(await fs.readBytes(new URL(uri).pathname)),
+		).toBe("mp4 bytes");
+		const log = `/cache/${conversation.id}.jsonl`;
+		expect(said).toEqual({
+			type: "text",
+			text: `why, as in #${conversation.id}\n\n#${conversation.id} references conversation ${conversation.id}. Its log is ${log}.`,
+		});
+		expect(await fs.read(log)).toContain("why, as in");
+		const transcript = await conversation.handOff();
+		expect(transcript).toContain(`/cache/${conversation.id}/transcript.md`);
+		expect(await fs.read(`/cache/${conversation.id}/transcript.md`)).toContain(
+			"why, as in",
+		);
+		await cached.disposeAsync();
 	});
 
 	it("links an image to an agent that does not take images", async () => {

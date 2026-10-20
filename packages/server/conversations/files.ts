@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
-import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import type * as acp from "@agentclientprotocol/sdk";
 import { DICTATED } from "../plans";
 import { projectLine } from "../projects";
-import type { Collection } from "../storage";
+import type { Collection, Storage } from "../storage";
 import type { ProjectRoster } from "./host";
 import { textOf } from "./messages";
 import { conversationReference } from "./reference";
@@ -16,16 +15,17 @@ import { transcriptOf } from "./transcript";
  * collection named for it, and how what they said goes to the agent.
  */
 export class ConversationFiles {
+	private readonly files: Collection;
 	private readonly projects: ProjectRoster | null;
 	private readonly home: string | null;
 
 	constructor(
-		private readonly files: Collection,
 		/**
-		 * Where an agent on this machine opens what `files` holds, as the
-		 * directory it is kept in beside the conversations' logs.
+		 * Where the conversations are kept, each log `<id>.jsonl`, which an
+		 * agent opens what it is handed from as files on this machine.
 		 */
-		private readonly dir: string,
+		private readonly storage: Storage,
+		private readonly id: string,
 		{
 			projects = null,
 			home = null,
@@ -36,6 +36,7 @@ export class ConversationFiles {
 			home?: string | null;
 		} = {},
 	) {
+		this.files = storage.collection(id);
 		this.projects = projects;
 		this.home = home;
 	}
@@ -111,17 +112,17 @@ export class ConversationFiles {
 					}),
 				),
 		);
-		const links = parts.flatMap((part): acp.ContentBlock[] =>
-			part.type === "file"
-				? [
-						{
-							type: "resource_link",
-							uri: pathToFileURL(`${this.dir}/${part.name}`).href,
-							name: part.title,
-							...(part.mimeType === "" ? {} : { mimeType: part.mimeType }),
-						},
-					]
-				: [],
+		const links = await Promise.all(
+			parts
+				.flatMap((part) => (part.type === "file" ? [part] : []))
+				.map(
+					async (part): Promise<acp.ContentBlock> => ({
+						type: "resource_link",
+						uri: pathToFileURL(await this.opened(part.name)).href,
+						name: part.title,
+						...(part.mimeType === "" ? {} : { mimeType: part.mimeType }),
+					}),
+				),
 		);
 		const said = messages
 			.map(textOf)
@@ -145,12 +146,17 @@ export class ConversationFiles {
 	 */
 	async keepTranscript(messages: Message[]): Promise<string> {
 		await this.files.write("transcript.md", `${transcriptOf(messages)}\n`);
-		return `${this.dir}/transcript.md`;
+		return this.opened("transcript.md");
 	}
 
 	/** Deletes every file kept, for good. */
 	async remove(): Promise<void> {
 		await this.files.clear();
+	}
+
+	/** Where an agent on this machine opens the file kept under `name`. */
+	private opened(name: string): Promise<string> {
+		return this.storage.materialize(`${this.id}/${name}`);
 	}
 
 	/** The bytes kept under `name`, throwing when there are none. */
@@ -175,10 +181,12 @@ export class ConversationFiles {
 			return project === undefined ? [] : [project];
 		});
 		return [
-			...conversations.map(
-				(id) =>
-					`#${id} references conversation ${id}. Its log is ${dirname(this.dir)}/${id}.jsonl.`,
-			),
+			...(await Promise.all(
+				conversations.map(
+					async (id) =>
+						`#${id} references conversation ${id}. Its log is ${await this.storage.materialize(`${id}.jsonl`)}.`,
+				),
+			)),
 			...(await Promise.all(
 				found.map(async (project) =>
 					projectLine({

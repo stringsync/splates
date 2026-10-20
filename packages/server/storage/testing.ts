@@ -1,5 +1,6 @@
 import { Dispatcher } from "webappwiz/events";
-import { type Lock, MemoryLock } from "webappwiz/system";
+import { type Fs, type Lock, MemoryLock } from "webappwiz/system";
+import { replace } from "./atomic";
 import type { Collection } from "./collection";
 import type { Document, DocumentOptions } from "./document";
 import { documentText, entriesOf, logLines } from "./json";
@@ -19,8 +20,22 @@ export class MemoryStorage implements Storage {
 			values: new Map(),
 			locks: new Map(),
 			watches: new Set(),
+			cache: null,
 		},
 	) {}
+
+	/**
+	 * One that `materialize`s into files under `dir` on `fs`, as a storage
+	 * with no files of its own would for an agent to read.
+	 */
+	static cachedIn(dir: string, fs: Fs): MemoryStorage {
+		return new MemoryStorage("", {
+			values: new Map(),
+			locks: new Map(),
+			watches: new Set(),
+			cache: { dir, fs },
+		});
+	}
 
 	/** What is kept under `key`, as text or bytes, for a test to check. */
 	peek(key: string): string | Uint8Array | undefined {
@@ -189,6 +204,22 @@ export class MemoryStorage implements Storage {
 		return `/memory/${this.full(key)}`;
 	}
 
+	async materialize(key: string): Promise<string> {
+		const { cache } = this.held;
+		if (cache === null) {
+			return this.locate(key);
+		}
+		const at = this.full(key);
+		const path = keyIn(cache.dir, at);
+		const held = this.held.values.get(at);
+		if (held === undefined) {
+			await cache.fs.rm(path, { force: true });
+		} else {
+			await replace(cache.fs, path, held);
+		}
+		return path;
+	}
+
 	async children(key: string): Promise<string[]> {
 		const dir = this.full(key);
 		const prefix = dir === "" ? "" : `${dir}/`;
@@ -286,6 +317,8 @@ interface Held {
 	values: Map<string, string | Uint8Array>;
 	locks: Map<string, Lock>;
 	watches: Set<Watching>;
+	/** Where `materialize` writes copies; null to answer `locate`'s path. */
+	cache: { dir: string; fs: Fs } | null;
 }
 
 interface Watching {

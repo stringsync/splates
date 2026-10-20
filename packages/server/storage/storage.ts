@@ -36,6 +36,12 @@ export interface Storage {
 	 * file is at.
 	 */
 	locate(key: string): string;
+	/**
+	 * A path on this machine where what is kept at `key`, a record, a blob or
+	 * a log, opens as a file, for an agent to read: where the disk keeps it,
+	 * or a copy a storage with no files writes to a local cache first.
+	 */
+	materialize(key: string): Promise<string>;
 	/** The names directly under `key` that hold more keys of their own, sorted. */
 	children(key: string): Promise<string[]>;
 	/** The bytes everything under `key`, nested keys included, takes. */

@@ -72,6 +72,10 @@ export class FsStorage implements Storage {
 		return this.path(key);
 	}
 
+	async materialize(key: string): Promise<string> {
+		return this.path(key);
+	}
+
 	document<T>(key: string, opts: DocumentOptions<T> = {}): Document<T> {
 		return new FsDocument(
 			key,

@@ -118,11 +118,10 @@ export class Conversation
 			sessionCwd = dir,
 		}: From = {},
 	) {
-		this.files = new ConversationFiles(
-			deps.storage.collection(state.id),
-			`${deps.dir}/${state.id}`,
-			{ projects: deps.projects, home: deps.root },
-		);
+		this.files = new ConversationFiles(deps.storage, state.id, {
+			projects: deps.projects,
+			home: deps.root,
+		});
 		this.artifacts = new Artifacts(deps.storage, state.id, {
 			ids: deps.ids,
 			limits: deps.artifacts,
