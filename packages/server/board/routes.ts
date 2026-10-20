@@ -38,6 +38,7 @@ export class BoardRoutes {
 			null,
 			async () =>
 				tasks.add(String(form.get("subject") ?? ""), null, {
+					slug: slugIn(form),
 					text: String(form.get("text") ?? ""),
 					files: await uploads(form),
 					position: positionIn(form),
@@ -63,6 +64,7 @@ export class BoardRoutes {
 						? String(form.get("subject"))
 						: undefined,
 					text: form.has("text") ? String(form.get("text")) : undefined,
+					slug: slugIn(form),
 					position: positionIn(form),
 					files: await uploads(form),
 					keep: form.getAll("keep").map(String),
@@ -325,4 +327,10 @@ function laneAt(request: Request): number {
 		fail("usage", `'${raw}' is not a lane`, { lane: raw });
 	}
 	return id;
+}
+
+/** The slug the form names, or none when it leaves the field out or blank. */
+function slugIn(form: FormData): string | undefined {
+	const slug = String(form.get("slug") ?? "").trim();
+	return slug === "" ? undefined : slug;
 }

@@ -26,7 +26,8 @@ export async function queueFailedTests(
 				continue;
 			}
 			listed.add(subject);
-			const add = () => tasks.add(subject, task, { text });
+			const add = () =>
+				tasks.add(subject, task, { text, slug: failureSlug(test.name) });
 			const added = journal
 				? await journal.record("task add", task, add, addedFacts)
 				: await add();
@@ -35,4 +36,14 @@ export async function queueFailedTests(
 	} catch (error) {
 		log.error(`Could not queue failing-test tasks: ${String(error)}`);
 	}
+}
+
+/** A short slug for a failed test's task: `fix-` and the test name's first words. */
+function failureSlug(name: string): string {
+	const words = name
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean)
+		.slice(0, 4);
+	return `fix-${words.join("-") || "test"}`;
 }
