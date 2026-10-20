@@ -143,6 +143,10 @@ export class WorkerRegistry
 		const known = this.byId.get(said.id);
 		const session = known?.session ?? this.session();
 		const negotiated = session.accept(socket, said);
+		if (!negotiated.ok && !negotiated.refused) {
+			this.log.error(`dropped worker ${said.id}: ${negotiated.reason}`);
+			return;
+		}
 		if (!negotiated.ok) {
 			const refused = {
 				id: said.id,

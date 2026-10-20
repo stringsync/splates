@@ -303,6 +303,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	 */
 	accept(socket: WorkerSocket, hello: WorkerHello): Negotiated {
 		this.assertRole("coordinator");
+		if (this.disposed || this.detached) {
+			// A restart or hand-over ended this session while the hello was in flight.
+			socket.dispose();
+			return { ok: false, reason: "the session ended", refused: false };
+		}
 		const negotiated = WorkerProtocol.negotiate(
 			{ protocol: WorkerProtocol.version, capabilities: this.capabilities },
 			hello,
