@@ -33,7 +33,11 @@ export interface TestOptions {
  * How long a test run may hold its heavy slot. Tests should not hang this
  * long, even under load.
  */
-export const TEST_DEADLINE = Duration.mins(3);
+// At its fewest workers, a quarter of 16 cores, with load near 40, the suite
+// took 111s, its time spread over hundreds of files rather than a few slow
+// ones, and 140s at 8 workers beside two other runs: 3 minutes left a gate on
+// a busier machine too little headroom.
+export const TEST_DEADLINE = Duration.mins(6);
 
 export async function test(opts: TestOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
