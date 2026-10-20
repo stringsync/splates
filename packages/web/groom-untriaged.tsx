@@ -1,4 +1,5 @@
 import { useReactive } from "@webappwiz/react";
+import { ZapIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -30,6 +31,7 @@ export function GroomUntriaged({ empty }: { empty: boolean }): JSX.Element {
 				disabled={empty || pending}
 				onClick={() => void groomer.start()}
 			>
+				<ZapIcon className="fill-violet-500/25 text-violet-600 dark:text-violet-400" />
 				Groom
 			</Button>
 			<Refusal refusal={refusal} />
