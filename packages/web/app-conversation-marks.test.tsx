@@ -281,7 +281,8 @@ Cap upload retries
 		).toBeDefined();
 	});
 
-	it("heads a conversation with its branch, which opens its task", async () => {
+	// scry-ignore simple-test-setup: only this test opens a task with a plan, which its dialog shows
+	it("tops a conversation's widgets with its branch, which opens its task", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -297,9 +298,10 @@ Cap upload retries
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
 		);
-		const about = view.getByRole("button", { name: "About alpha" });
+		const about = within(
+			view.getByRole("navigation", { name: "actions" }),
+		).getByRole("button", { name: "task/alpha" });
 
-		expect(about.textContent).toBe("task/alpha");
 		await act(async () => fireEvent.click(about));
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "alpha" }),

@@ -267,13 +267,8 @@ function Conversation({
 		>
 			<ThreadHeader
 				conversation={conversation}
-				task={task}
-				free={free}
-				trunk={trunk}
 				refused={refused}
 				widgets={widgets}
-				onTake={(text) => void send(text, []).catch(() => {})}
-				onDetails={() => setDetails(true)}
 				// With the same agent, in the main tree: a task's tree is its own.
 				onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
 				onBack={onBack}
@@ -416,11 +411,7 @@ function Conversation({
 								roomy={widgets.roomy}
 								open={widgets.open}
 								onClose={widgets.close}
-								actions={
-									onBack !== null && where !== null
-										? [where, ...actions]
-										: actions
-								}
+								actions={where === null ? actions : [where, ...actions]}
 							>
 								<BackgroundCard
 									conversation={id}

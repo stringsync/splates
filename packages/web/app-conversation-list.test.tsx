@@ -252,13 +252,15 @@ describe("App's conversation list", () => {
 		expect(archived.textContent).not.toContain("Older");
 	});
 
-	it("names the branch under an open conversation's title, the trunk's for the main tree", async () => {
+	it("names the branch atop an open conversation's widgets, the trunk's for the main tree", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 			conversation({ id: "c2", title: "Look around" }),
 		]);
 		const branch = () =>
-			view.getByRole("img", { name: "branch" }).parentElement?.textContent;
+			within(view.getByRole("navigation", { name: "actions" })).getAllByRole(
+				"button",
+			)[0]?.textContent;
 
 		expect(branch()).toBe("task/alpha");
 		await openRow(view, "Look around");

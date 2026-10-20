@@ -3,65 +3,20 @@ import {
 	taskReference,
 } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { ChevronDownIcon, GitBranchIcon, ListTodoIcon } from "lucide-react";
+import { ListTodoIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
-	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { Board } from "./board";
 import { TaskIcon } from "./task-icon";
 
 /**
- * The line under a main-tree conversation's title: the trunk's branch, which
- * opens a menu of the tasks and open todos its agent can take up. Picking one
- * asks the agent to claim it, and the conversation follows it there.
- */
-export function TakeUp({
-	trunk,
-	tasks,
-	onTake,
-}: {
-	trunk: string;
-	tasks: Details[];
-	/** Sends the prompt that takes it up. */
-	onTake: (text: string) => void;
-}): JSX.Element {
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<button
-						type="button"
-						aria-label="Take up a task"
-						title="Take up a task"
-						className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
-					>
-						<GitBranchIcon
-							role="img"
-							aria-label="branch"
-							className="size-3 shrink-0"
-						/>
-						<span className="truncate">{trunk}</span>
-						<ChevronDownIcon aria-hidden className="size-3 shrink-0" />
-					</button>
-				}
-			/>
-			<DropdownMenuContent className="max-h-80 w-80 overflow-y-auto">
-				<TakeUpItems tasks={tasks} onTake={onTake} />
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-}
-
-/**
  * The tasks and open todos a main-tree conversation can take up, as a
- * menu's items: `TakeUp`'s, and a phone's widget row's.
+ * menu's items, for the row atop its widgets.
  */
 export function TakeUpItems({
 	tasks,

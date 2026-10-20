@@ -68,7 +68,7 @@ describe("App's conversation header", () => {
 	});
 
 	// scry-ignore simple-test-setup: the tasks and todos it opens with are what it takes up, and no other test opens with them
-	it("takes up a task no conversation runs in, or an open todo, from a main-tree conversation's branch", async () => {
+	it("takes up a task no conversation runs in, or an open todo, from the branch atop a main-tree conversation's widgets", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", title: "Look around" }),
@@ -90,7 +90,12 @@ describe("App's conversation header", () => {
 		);
 		const open = async () =>
 			act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Take up a task" })),
+				fireEvent.click(
+					within(view.getByRole("navigation", { name: "actions" })).getByRole(
+						"button",
+						{ name: "main" },
+					),
+				),
 			);
 
 		await open();
@@ -141,7 +146,7 @@ describe("App's conversation header", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
+		).toEqual(["main", "Terminal⌃`", "Defer", "Show timestamps", "Archive⌥⌘⌫"]);
 	});
 
 	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {
