@@ -18,6 +18,15 @@ export function workingTimes(
 		if (message.role !== "assistant" || typeof message.content === "string") {
 			return message;
 		}
+		if (
+			!message.content.some(
+				(part) =>
+					part.type === "data-report" &&
+					(part.data as { report: TaskReport }).report.ending === "working",
+			)
+		) {
+			return message;
+		}
 		const parts = messages[index]?.parts ?? [];
 		return {
 			...message,

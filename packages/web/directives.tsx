@@ -1,4 +1,4 @@
-import type { ThreadMessage } from "@assistant-ui/react";
+import type { ThreadMessageLike } from "@assistant-ui/react";
 import {
 	DIRECTIVES,
 	UNTRIAGED,
@@ -199,12 +199,12 @@ export function isSoleCommand(text: string): boolean {
  * rather than opening one, and takes none of the scroll a turn's start does,
  * so the message stuck atop that turn stays there while the reply goes on.
  */
-export function carriesOn(message: ThreadMessage): boolean {
-	if (message.role !== "user") {
+export function carriesOn(message: ThreadMessageLike): boolean {
+	if (message.role !== "user" || typeof message.content === "string") {
 		return false;
 	}
 	const [only, ...more] = message.content;
-	const files = message.attachments.some((attachment) =>
+	const files = (message.attachments ?? []).some((attachment) =>
 		(attachment.content ?? []).some(
 			(part) => part.type === "image" || part.type === "file",
 		),

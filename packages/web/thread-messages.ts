@@ -4,22 +4,16 @@ import type {
 	Message,
 	Part,
 } from "@stringsync/splates-server/conversations";
-import {
-	type Review,
-	type Stretch,
-	stretches,
-	type TaskReport,
-} from "@stringsync/splates-server/plans/browser";
+import type { TaskReport } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import { type ConversationFeed, messageOf } from "./conversation-feed";
-import type { Written } from "./escalation-card";
-import type { QuestionsData } from "./message-questions";
+import { carriesOn } from "./directives";
 import { queuedReply } from "./queued-time";
-import type { Turn } from "./report-cards";
+import { replied, withEscalation } from "./thread-reply";
 import { replyDue, stretchesOf } from "./work";
 import { workingTimes } from "./working-report-time";
 
@@ -197,11 +191,35 @@ export function useThreadMessages(
 						(part.data as { report: TaskReport }).report.ending ===
 							"escalated"),
 			));
-	return { running, writing, queued, messages, openAt, asking };
+	const [first, setFirst] = useState<string | null>(
+		() => messages[windowStart(messages, null, openAt)]?.id ?? null,
+	);
+	const start = windowStart(messages, first, openAt);
+	useEffect(() => {
+		if (first === null && messages.length > 0) {
+			setFirst(messages[start]?.id ?? null);
+		}
+	}, [first, messages, start]);
+	const loadEarlier = useCallback(async () => {
+		setFirst(messages[windowStart(messages, first, openAt, 20)]?.id ?? null);
+	}, [messages, first, openAt]);
+	const visible = useMemo(() => messages.slice(start), [messages, start]);
+	return {
+		running,
+		writing,
+		queued,
+		messages: visible,
+		openAt,
+		asking,
+		hasEarlier: start > 0,
+		loadEarlier,
+	};
 }
 
 /** What `useThreadMessages` gives a thread. */
 export interface ThreadMessages {
+	hasEarlier: boolean;
+	loadEarlier: () => Promise<void>;
 	/** Whether the agent is at work, or a message is on its way to it. */
 	running: boolean;
 	/** Whether the last message is still being written. */
@@ -215,13 +233,91 @@ export interface ThreadMessages {
 	asking: boolean;
 }
 
+/** Start at a whole turn; once revealed, history stays mounted as new turns arrive. */
+export function windowStart(
+	messages: readonly ThreadMessageLike[],
+	first: string | null,
+	openAt?: string,
+	earlier = 0,
+): number {
+	const turns = messages.flatMap((message, index) =>
+		index === 0 || (message.role === "user" && !carriesOn(message))
+			? [index]
+			: [],
+	);
+	let start = turns[Math.max(0, turns.length - 20)] ?? 0;
+	for (const id of [first, openAt]) {
+		const index = messages.findIndex((message) => message.id === id);
+		if (index >= 0) {
+			start = Math.min(start, turns.findLast((at) => at <= index) ?? 0);
+		}
+	}
+	return turns[Math.max(0, turns.indexOf(start) - earlier)] ?? 0;
+}
+
+// Bound retained conversions across unmounts, while allowing superseded source
+// messages to be collected as streaming replaces them.
+const conversions = new Map<
+	string,
+	WeakMap<Message, { args: unknown[]; value: ThreadMessageLike }>
+>();
+
+/** Reuse a source message's conversion until a displayed input changes. */
+export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
+	const [
+		message,
+		index,
+		conversation,
+		settled = true,
+		began = message.at,
+		now = Number.POSITIVE_INFINITY,
+		task = null,
+		events = [],
+		waiting = null,
+		cut = false,
+	] = args;
+	let cache = conversions.get(conversation);
+	if (cache === undefined) {
+		cache = new WeakMap();
+	}
+	conversions.delete(conversation);
+	conversions.set(conversation, cache);
+	if (conversions.size > 5) {
+		const oldest = conversions.keys().next().value;
+		if (oldest !== undefined) {
+			conversions.delete(oldest);
+		}
+	}
+	const inputs = [
+		index,
+		settled,
+		began,
+		settled ? null : now,
+		task,
+		waiting,
+		cut,
+		...events,
+	];
+	const previous = cache.get(message);
+	if (
+		previous !== undefined &&
+		previous.args.length === inputs.length &&
+		inputs.every((input, at) => input === previous.args[at])
+	) {
+		return previous.value;
+	}
+	const value = convert(...args);
+	cache.set(message, { args: inputs, value });
+	return value;
+}
+
 /**
  * A message as assistant-ui takes one, the one place ACP's shape meets
  * assistant-ui's. An agent's turn is what it said, a `data-work` part for
  * each run of work between, its reply the last thing it said, and a
  * `data-stopped` part when the person stopped it.
  */
-export function like(
+function convert(
 	message: Message,
 	index: number,
 	/** The conversation it is in, to read its images from. */
@@ -360,85 +456,6 @@ function rested(thread: ThreadMessageLike[]): ThreadMessageLike[] {
 	];
 }
 
-/**
- * `parts` with what the agent wrote of the last escalation splates recorded in
- * them, its report, the questions it ends with and their demo, its review,
- * or the proposal it escalated to wait on, taken into the escalation's card
- * rather than drawn as a second one.
- */
-function withEscalation(parts: LikePart[]): LikePart[] {
-	const escalatedIn = (part: LikePart): { event: Event } | null => {
-		if (part.type !== "data-event") {
-			return null;
-		}
-		const data = part.data as { event: Event };
-		return isEscalation(data.event) ? data : null;
-	};
-	const at = parts.findLastIndex((part) => escalatedIn(part) !== null);
-	const data = at === -1 ? null : escalatedIn(parts[at] as LikePart);
-	if (data === null) {
-		return parts;
-	}
-	const { event } = data;
-	const written: Written = {
-		report: null,
-		demo: null,
-		review: null,
-		proposal: null,
-		questions: [],
-	};
-	const kept = parts.filter((part, index) => {
-		if (index === at) {
-			return true;
-		}
-		if (part.type === "data-report") {
-			const { report } = part.data as { report: TaskReport };
-			if (report.ending === "escalated" && report.task === event.task) {
-				written.report = report;
-				return false;
-			}
-		}
-		if (part.type === "data-questions") {
-			const { questions, escalation, proposal, demo, task } =
-				part.data as QuestionsData;
-			if (escalation?.task === event.task) {
-				written.report = escalation;
-				written.demo = demo;
-				return false;
-			}
-			// A proposal names no task of its own: the turn's is the escalation's,
-			// where the log can say it at all.
-			if (proposal !== null && (task === null || task === event.task)) {
-				written.proposal = proposal;
-				written.questions = questions;
-				written.demo = demo;
-				return false;
-			}
-		}
-		if (part.type === "data-review") {
-			const { review } = part.data as { review: Review };
-			if (review.task === event.task) {
-				written.review = review;
-				return false;
-			}
-		}
-		return true;
-	});
-	return kept.map((part) =>
-		part === parts[at]
-			? {
-					type: "data-event" as const,
-					data: { ...data, written },
-				}
-			: part,
-	);
-}
-
-/**
- * Each event by the index of the agent's turn it came in: the turn going at
- * the time, or the one answering a prompt it followed or came before, which
- * the reply's place holds until the agent speaks. Each turn's events stay oldest first.
- */
 function turnsOf(
 	said: Message[],
 	events: readonly Event[],
@@ -492,98 +509,4 @@ function attached(
 						},
 					],
 	};
-}
-
-/** The escalation `stretch` reports; null for any other stretch. */
-function escalatedIn(stretch: Stretch | undefined): TaskReport | null {
-	return stretch?.type === "report" && stretch.report.ending === "escalated"
-		? stretch.report
-		: null;
-}
-
-/**
- * The agent's reply, its questions and review as cards once it has stopped
- * writing them: a list mid-stream may yet turn out not to ask any. An
- * escalation's questions come right after it, or after the demo they ask
- * about, so they are one card: the questions, headed as the escalation, the
- * demo above them. A run of todos is one part, with `turn` to say which
- * of them it added, and `next` whether it follows a merge or remove report.
- */
-function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
-	if (!settled) {
-		return [{ type: "text", text }];
-	}
-	const all = stretches(text);
-	return all.flatMap((stretch, at): LikePart[] => {
-		const before = all[at - 1];
-		const after = all[at + 1];
-		// The questions an escalation or proposal ends, past the demo between.
-		const asking = all[at + (after?.type === "demo" ? 2 : 1)];
-		switch (stretch.type) {
-			case "text":
-				return [{ type: "text", text: stretch.text }];
-			case "questions": {
-				const demo = before?.type === "demo" ? before.demo : null;
-				const heading = all[demo === null ? at - 1 : at - 2];
-				return [
-					{
-						type: "data-questions",
-						data: {
-							questions: stretch.questions,
-							escalation: escalatedIn(heading),
-							proposal: heading?.type === "proposal" ? heading.proposal : null,
-							demo,
-							task: turn.task,
-						} satisfies QuestionsData,
-					},
-				];
-			}
-			case "demo":
-				return after?.type === "questions" || before?.type === "proposal"
-					? []
-					: [{ type: "data-demo", data: { demo: stretch.demo } }];
-			case "review":
-				return [{ type: "data-review", data: { review: stretch.review } }];
-			case "proposal":
-				// Its questions are its card; without any, it is a card of its own.
-				return asking?.type === "questions"
-					? []
-					: [
-							{
-								type: "data-questions",
-								data: {
-									questions: [],
-									escalation: null,
-									proposal: stretch.proposal,
-									demo: after?.type === "demo" ? after.demo : null,
-									task: turn.task,
-								} satisfies QuestionsData,
-							},
-						];
-			case "report":
-				return stretch.report.ending === "escalated" &&
-					asking?.type === "questions"
-					? []
-					: [{ type: "data-report", data: { report: stretch.report } }];
-			case "todo": {
-				// A run of todos is one part, to gather those added to a lane.
-				if (before?.type === "todo") {
-					return [];
-				}
-				const run = all.slice(at);
-				const end = run.findIndex((each) => each.type !== "todo");
-				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
-					each.type === "todo" ? [each.todo] : [],
-				);
-				// Those right after a task ended are what to take up next.
-				const next =
-					before?.type === "report" &&
-					before.report.ending !== "escalated" &&
-					before.report.ending !== "working";
-				return [{ type: "data-todo", data: { todos, turn, next } }];
-			}
-			default:
-				return stretch satisfies never;
-		}
-	});
 }

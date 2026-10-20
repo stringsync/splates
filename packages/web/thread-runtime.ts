@@ -38,7 +38,7 @@ export function useThreadRuntime(
 	conversation: ConversationState,
 	feed: ConversationFeed,
 	drafts: Drafts,
-	{ messages, running }: ThreadMessages,
+	{ messages, running, hasEarlier, loadEarlier }: ThreadMessages,
 	refused: (title: string, error: unknown) => void,
 ): ThreadRuntime {
 	const { id } = conversation;
@@ -116,6 +116,8 @@ export function useThreadRuntime(
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
 		messages,
+		hasEarlier,
+		onLoadEarlier: loadEarlier,
 		isRunning: running,
 		// A stopped conversation takes a prompt, which resumes it, unarchiving
 		// an archived one, and one still starting holds it until the session

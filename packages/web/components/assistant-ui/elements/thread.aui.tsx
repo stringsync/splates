@@ -6,6 +6,7 @@ import {
 	MessageByIndexProvider,
 	SuggestionPrimitive,
 	ThreadPrimitive,
+	useAui,
 	useAuiState,
 } from "@assistant-ui/react";
 import { ArrowDownIcon } from "lucide-react";
@@ -174,7 +175,7 @@ const ThreadRoot: FC<{
 						<ThreadHistorySkeleton />
 					</AuiIf>
 
-					<ThreadLoadEarlier />
+					<ThreadLoadEarlier viewport={viewport} />
 
 					<div
 						data-slot="aui_message-group"
@@ -272,7 +273,26 @@ const nextFocusable = (start: Element) => {
 	}
 	return null;
 };
-const ThreadLoadEarlier: FC = () => {
+const ThreadLoadEarlier: FC<{
+	viewport: React.RefObject<HTMLDivElement | null>;
+}> = ({ viewport }) => {
+	const aui = useAui();
+	const earlier = useAuiState((s) => s.thread.hasEarlier);
+	const marker = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const root = viewport.current;
+		const target = marker.current;
+		if (!earlier || root === null || target === null) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting))
+					void aui.thread.loadEarlier();
+			},
+			{ root },
+		);
+		observer.observe(target);
+		return () => observer.disconnect();
+	}, [aui, earlier, viewport]);
 	const visible = useAuiState(
 		(s) => s.thread.hasEarlier || s.thread.isLoadingEarlier,
 	);
@@ -304,6 +324,7 @@ const ThreadLoadEarlier: FC = () => {
 				focusedRef.current = event.target;
 			}}
 		>
+			<div ref={marker} aria-hidden className="h-px shrink-0" />
 			<span role="status" className="sr-only">
 				{loading ? "Loading earlier messages" : ""}
 			</span>
