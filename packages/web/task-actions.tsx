@@ -93,6 +93,9 @@ export function ActionBar({
 		<Revive conversation={failed} wide={!wide} />
 	);
 	if (wide) {
+		// Restart and Hand off, or Retry, already crowd the row: the demo waits in the menu.
+		const crowded = failed !== null || retry !== null;
+		const menuDemo = crowded ? demo : null;
 		return (
 			<div
 				role="toolbar"
@@ -118,10 +121,11 @@ export function ActionBar({
 							<EllipsisIcon />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48">
+							{menuDemo !== null && <ActionItem action={menuDemo} />}
 							<ActionItem action={remove.action} />
 						</DropdownMenuContent>
 					</DropdownMenu>
-					{[demo, retry, changes].map(
+					{[crowded ? null : demo, retry, changes].map(
 						(action) =>
 							action !== null && (
 								<ActionButton key={action.label} action={action} outline />
