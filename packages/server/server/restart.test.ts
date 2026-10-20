@@ -7,7 +7,7 @@ import { eventually, until } from "../conversations/testing";
 import { CHECKPOINT, RESUME } from "../plans";
 import { Testing } from "../testing";
 import { type DevServer, dev } from "./server";
-import { RESTART } from "./supervise";
+import { RESTART, UPDATE } from "./supervise";
 import { atWork, json } from "./testing";
 
 describe("dev restart", () => {
@@ -105,6 +105,18 @@ describe("dev restart", () => {
 		server = await again();
 		await eventually(() => said.length >= 2, 5);
 		expect(said).toEqual([CHECKPOINT, RESUME]);
+	});
+
+	it("restarts onto the newest splates when the checkpoint asks to update, as `splates update` does", async () => {
+		const response = await json(server.port, "/api/checkpoint", "POST", {
+			projects: ["repo"],
+			after: "resume",
+			update: true,
+		});
+
+		expect(response.status).toBe(200);
+		await eventually(() => exits.length !== 0, 5);
+		expect(exits).toEqual([UPDATE]);
 	});
 
 	it("refuses to shut down where splates server cannot exit itself", async () => {

@@ -37,6 +37,7 @@ import {
 } from "../workers";
 import { heavyJobsOfMachine } from "./heavy";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
+import { Migrations } from "./migrations";
 import type { DevOptions } from "./options";
 import { Pages } from "./pages";
 import { DEFAULT_PORT, devPorts } from "./ports";
@@ -50,6 +51,7 @@ import {
 } from "./project";
 import { RUNNING } from "./release";
 import { Restarts } from "./restart";
+import { Serving } from "./serving";
 import { CONNECTIONS, type Connection } from "./sockets";
 import { StateRoutes } from "./state";
 import { Versions } from "./versions";
@@ -286,7 +288,21 @@ export async function dev(
 	) {
 		workers.takingBack();
 	}
-	const terminals = new Terminals(gate, shell, { projectFor }, workers.local);
+	// Every project's records move forward before the server listens; one
+	// that fails is the page's to show, and opens a terminal at its root.
+	const migrations = new Migrations({
+		fs,
+		ps,
+		log,
+		projects,
+		reopen: servedAt,
+	});
+	const terminals = new Terminals(
+		gate,
+		shell,
+		{ projectFor, unopened: (request) => migrations.rootFor(request) },
+		workers.local,
+	);
 	// Before the worker joins, whose hello says which it kept.
 	terminals.takeBack(coordinator?.terminals ?? []);
 	const dictations = new Dictations(gate, { projectFor });
@@ -644,6 +660,8 @@ export async function dev(
 						GET: guarded(coordinatorMove.progress),
 						POST: talk(guarded(coordinatorMove.start)),
 					},
+					"/api/migration": guarded(migrations.read),
+					"/api/migration/retry": { POST: guarded(migrations.retry) },
 					"/api/restart": { POST: talk(guarded(restartIdle)) },
 					"/api/power": { POST: talk(guarded(powerNow)) },
 					"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
@@ -868,6 +886,8 @@ export async function dev(
 				return new Response("not found", { status: 404 });
 			},
 		});
+	// Before the page can ask for a project whose records are still moving.
+	await migrations.startAll();
 	let server = null as ReturnType<typeof listen> | null;
 	for (let attempt = 1; server === null; attempt++) {
 		try {
@@ -911,6 +931,10 @@ export async function dev(
 	await restarts.reopenStopped();
 
 	log.info(`splates server on http://${LOOPBACK}:${port}`);
+	// So `splates update` finds it, to restart it onto a newer splates.
+	const serving = new Serving(FsStorage.ofMachine({ fs, ps, log }), ps);
+	await serving.say(url, running);
+	disposer.defer(() => serving.forget());
 	if (tunnel !== null) {
 		const carrying = await startTunnel(tunnel, url, log);
 		if (carrying !== null) {

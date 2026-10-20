@@ -189,6 +189,7 @@ export const STATUS: Partial<Record<Reason, number>> = {
 	exists: 409,
 	cycle: 409,
 	outdated: 409,
+	migration_failed: 409,
 };
 
 /** An open server-sent event stream, as the server writes to it. */

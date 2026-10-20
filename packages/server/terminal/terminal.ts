@@ -1,5 +1,5 @@
 import { SystemTimer, type Timer } from "webappwiz/time";
-import { fail } from "../exit";
+import { Exit, fail } from "../exit";
 import type { Connection, Served } from "../server/shared";
 import { type HostGate, refuse } from "../server/shared";
 import { TerminalConnection } from "./connection";
@@ -8,6 +8,11 @@ import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./shell";
 /** How a terminal finds the project its request names. */
 export interface TerminalProjects {
 	projectFor(request: Request): Promise<Served>;
+	/**
+	 * The root of the project `request` names, read without opening it: where
+	 * a shell starts in one whose records failed to migrate.
+	 */
+	unopened?(request: Request): Promise<string>;
 }
 
 /**
@@ -101,9 +106,7 @@ export class Terminals {
 								"a terminal is a WebSocket: connect with one",
 							);
 				}
-				const project = await this.projects.projectFor(request);
-				await project.format.check();
-				const cwd = await project.terminalTree(request);
+				const cwd = await this.treeFor(request);
 				const shell = new Shell(
 					key,
 					this.worker.pty({
@@ -133,6 +136,28 @@ export class Terminals {
 				);
 			}),
 		)(request);
+
+	/**
+	 * Where a new shell for `request` starts: the tree it names in its
+	 * project, or the project's root when its records failed to migrate, so
+	 * an agent can be started there to fix them.
+	 */
+	private async treeFor(request: Request): Promise<string> {
+		try {
+			const project = await this.projects.projectFor(request);
+			await project.format.check();
+			return await project.terminalTree(request);
+		} catch (error) {
+			if (
+				error instanceof Exit &&
+				error.reason === "migration_failed" &&
+				this.projects.unopened !== undefined
+			) {
+				return this.projects.unopened(request);
+			}
+			throw error;
+		}
+	}
 
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.shells].map((shell) => shell.disposeAsync()));

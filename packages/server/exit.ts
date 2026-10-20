@@ -32,6 +32,7 @@ export const EXIT = {
 	slot_running: 27,
 	not_granted: 28,
 	// 29 was `agents_full`, gone with the cap on agents one agent started: never reuse it.
+	migration_failed: 30,
 } as const;
 
 export type Reason = keyof typeof EXIT;

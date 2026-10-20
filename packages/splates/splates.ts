@@ -10,10 +10,16 @@ import { merge } from "@stringsync/splates-server/merge";
 import { portsLs } from "@stringsync/splates-server/ports";
 import { forget, init } from "@stringsync/splates-server/projects";
 import type { Facts } from "@stringsync/splates-server/records";
-import { repository } from "@stringsync/splates-server/records";
+import {
+	MIGRATING,
+	MIGRATION_LIMIT,
+	migrateRecords,
+	repository,
+} from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	newest,
+	recordsFirst,
 	rosterOf,
 	runHeavy,
 	seeded,
@@ -90,10 +96,23 @@ splates
 	.action((_opts, ctx) => init(ctx));
 
 splates
+	.command("migrate")
+	.description(
+		`move this repository's records under .git/splates to this splates's format, as \`splates server\` does as it starts: backed up first, the steps run with ${MIGRATION_LIMIT.human()} to finish, and the backup put back if one fails or runs over, with why kept in .git/splates-migration.json; it tries again past a failure kept there, which the server and every other command leave alone. Run it only while no older \`splates server\` serves the repository, which would refuse the records once moved; \`splates update\` restarts one first`,
+	)
+	.action(async (_opts, ctx) => {
+		const format = await migrateRecords(ctx);
+		if (ctx.ps.env(MIGRATING) === undefined) {
+			ctx.log.info(`splates's records are in format ${format}`);
+		}
+	});
+
+splates
 	.command("update")
+	.use(recordsFirst())
 	.use(repository({ needs: "own" }))
 	.description(
-		"bring this repository up to the newest splates on npm: run `update` on that release when it is newer than this one, which installs its splates skill with `bunx skills add` over the copy there, leaving one that links to your own; commit what changed",
+		"bring this repository up to the newest splates on npm: run `update` on that release when it is newer than this one, which moves the records under .git/splates to its format, as `splates migrate` does, unless an older `splates server` serves the repository, which it asks to restart onto that release once its agents have checkpointed, migrating them as it starts; then installs its splates skill with `bunx skills add` over the copy there, leaving one that links to your own; commit what changed",
 	)
 	.action(async (_opts, ctx) => {
 		const code = await update({

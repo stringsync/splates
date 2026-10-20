@@ -26,6 +26,7 @@ import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
+import { RUNNING } from "../server/release";
 import {
 	type CoreClaims,
 	coreClaimsOfMachine,
@@ -37,6 +38,7 @@ import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
 import { Format } from "./format";
 import { Journal } from "./journal";
+import { MIGRATING, Migration } from "./migration";
 import { RelayApp } from "./relay-app";
 import { RelayFs } from "./relay-fs";
 import { RelayLanding } from "./relay-landing";
@@ -248,6 +250,77 @@ async function mainTree(ps: Ps): Promise<string | null> {
 }
 
 /**
+ * How `format`'s records move forward under the guard `Migration` keeps:
+ * backed up, run in a child `splates migrate` of this splates, and put back
+ * when it fails.
+ */
+export function migrationOf(
+	format: Format,
+	{ fs, ps, log }: Deps & { fs: Fs },
+): Migration {
+	return new Migration(format, {
+		fs,
+		log,
+		lock: new FileLock(`${format.splatesDir}-migration.lock`, { fs, ps, log }),
+		release: RUNNING,
+		child: Migration.childOf(ps, dirname(dirname(format.splatesDir))),
+	});
+}
+
+/**
+ * What `splates migrate` does in the repository `at` sits in: as the child a
+ * `Migration` runs, the steps themselves; otherwise the guarded migration,
+ * trying again past a failure kept for this release.
+ */
+export async function migrateRecords(
+	deps: Deps & { fs: Fs },
+	{ at }: { at?: string } = {},
+): Promise<number> {
+	const { ps } = deps;
+	const cwd = at ?? ps.cwd();
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		cwd,
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	if (exitCode !== 0) {
+		throw new Error(`not a git repository: ${cwd}`);
+	}
+	const migration = await recordsMigration(deps, stdout.trim());
+	if (ps.env(MIGRATING) !== undefined) {
+		await migration.format.migrate();
+	} else {
+		await migration.run({ retry: true });
+	}
+	return migration.format.current;
+}
+
+/**
+ * The guarded migration of the records under `gitDir`, once an old name for
+ * their directory has moved to splates's.
+ */
+export async function recordsMigration(
+	deps: Deps & { fs: Fs },
+	gitDir: string,
+): Promise<Migration> {
+	const { fs, ps, log } = deps;
+	await moveLegacyDir(`${gitDir}/${LEGACY_DIR}`, `${gitDir}/splates`, {
+		fs,
+		log,
+	});
+	const splatesDir = `${gitDir}/splates`;
+	const format = new Format(splatesDir, {
+		fs,
+		lock: new FileLock(`${splatesDir}/format.lock`, { fs, ps, log }),
+		log,
+	});
+	return migrationOf(format, deps);
+}
+
+/**
  * What a command works with in the repository `at` sits in, the working
  * directory by default: what `repository` hands an action, and what `splates
  * dev` opens each project it serves with. Refuses what `repository` does.
@@ -355,7 +428,9 @@ export async function openRepository(
 	if (creates) {
 		await format.create();
 	}
-	await (migrates ? format.migrate() : format.check());
+	await (migrates
+		? migrationOf(format, { fs: disk, ps, log }).run()
+		: format.check());
 	// The user's, shared by every repository on this machine: the registry,
 	// which only `splates init` writes this one into, and how each task ended.
 	const beats =

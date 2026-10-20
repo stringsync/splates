@@ -13,6 +13,10 @@ Run it in your repository and commit what it writes: the splates skill, which it
 installs with [`skills`](https://skills.sh) from this release's tag into
 `.agents/skills` for Codex and most agents, linked from `.claude/skills` for
 Claude Code, and `skills-lock.json`. `splates update` moves it to a newer release.
+A release that keeps its records under `.git/splates` differently moves them
+over as `splates server` starts, or as `splates update` runs, backing them up
+first and putting them back if a step fails; the page then shows what failed,
+with a way to retry or to start an agent that fixes it.
 Without splates, `bunx skills add stringsync/splates#v<release> --skill splates`
 installs the same skill. From then on, your agents start each change with
 `splates add` and land it with `splates merge`.

@@ -67,6 +67,17 @@ export class Format {
 		return this.migrations.length + 1;
 	}
 
+	/** Whether the records are stamped older than this splates's, so a step is due. */
+	async pending(): Promise<boolean> {
+		const stored = await this.stored();
+		return stored !== null && stored < this.current;
+	}
+
+	/** What the step from `format` to the next changes, or null past the last. */
+	stepAfter(format: number): string | null {
+		return this.migrations[format - 1]?.does ?? null;
+	}
+
 	/**
 	 * Makes the repository a splates project, as only `splates init` does: stamps
 	 * records from before formats were stamped as version 1, and a repository
@@ -84,7 +95,7 @@ export class Format {
 	/**
 	 * Refuses records in any format but this splates's, which it would misread or
 	 * overwrite: a newer one until splates is updated, an older one until
-	 * `splates server` has migrated it. Refuses a repository with none stamped
+	 * `splates update` has migrated it. Refuses a repository with none stamped
 	 * until `splates init` has made it a splates project.
 	 */
 	async check(): Promise<void> {
@@ -105,7 +116,7 @@ export class Format {
 			"outdated",
 			[
 				`this repository's splates records are in format ${stored}, older than this splates's ${this.current}, so it leaves them alone.`,
-				"Start `splates server` in this repository once: it migrates them, then every command works as before.",
+				"Run `splates update` in this repository once: it migrates them, restarting a `splates server` that serves it onto this splates, then every command works as before.",
 			].join("\n"),
 			{ format: stored, understood: this.current },
 		);
@@ -146,7 +157,7 @@ export class Format {
 	 * The stored version, or null for records from before formats were
 	 * stamped, which are version 1. Refuses one this splates cannot read.
 	 */
-	private async stored(): Promise<number | null> {
+	async stored(): Promise<number | null> {
 		const raw = await this.fs.read(this.path).catch(() => null);
 		if (raw === null) {
 			return null;

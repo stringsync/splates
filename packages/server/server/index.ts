@@ -13,3 +13,4 @@ export { serveDev } from "./start";
 export { rosterOf, savedTunnelOf, seeded } from "./start-settings";
 export { SERVING } from "./supervise";
 export { update } from "./update";
+export { recordsFirst } from "./update-records";

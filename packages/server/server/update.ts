@@ -30,6 +30,7 @@ export async function update({
 	log,
 	newest,
 	release,
+	records = "current",
 }: {
 	/** The repository's main tree. */
 	root: string;
@@ -40,6 +41,12 @@ export async function update({
 	newest?: () => Promise<string | null>;
 	/** The release whose skill to install, rather than the newest. */
 	release?: string;
+	/**
+	 * Whether the records are in this splates's format, or wait on the server
+	 * restarting onto it, which moves them: tasks move from tags into lanes
+	 * only once they are.
+	 */
+	records?: "current" | "restarting";
 }): Promise<number> {
 	if (release === undefined && newest && ps.env(UPDATING) === undefined) {
 		const latest = await newest();
@@ -54,7 +61,9 @@ export async function update({
 			return exitCode;
 		}
 	}
-	await lanesFromTags({ dir: root, fs, ps, log });
+	if (records === "current") {
+		await lanesFromTags({ dir: root, fs, ps, log });
+	}
 	// Before the skill, whose download can fail, so the config is read by its
 	// new name either way.
 	await renameLegacyFiles({ root, fs, ps, log });

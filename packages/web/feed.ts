@@ -44,6 +44,11 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	 */
 	missing: string | null = null;
 	/**
+	 * What the server says when this project's records could not move to the
+	 * format it reads: it put them back, and refuses them until a retry passes.
+	 */
+	failed: string | null = null;
+	/**
 	 * Whether `snapshot` is the one `seed` gave, standing in until the
 	 * project's own arrives.
 	 */
@@ -107,6 +112,11 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		});
 		void this.paint();
 		void this.load();
+	}
+
+	/** Reads the snapshot again now, as after a retry the server took. */
+	reload(): Promise<void> {
+		return this.load();
 	}
 
 	dispose(): void {
@@ -246,6 +256,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 					this.reached({ missing: refusal.message ?? "", ...seeded });
 					return;
 				}
+				if (refusal?.reason === "migration_failed") {
+					// Nothing of records the server will not read stays on screen.
+					this.seeded = false;
+					this.reached({ failed: refusal.message ?? "", snapshot: null });
+					return;
+				}
 				if (refusal?.reason !== "outdated") {
 					throw new Error(`snapshot: ${response.status}`);
 				}
@@ -261,7 +277,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 					(each.landed > read && !holds(snapshot, each.patch)),
 			);
 			this.seeded = false;
-			this.reached({ snapshot, outdated: null, missing: null });
+			this.reached({ snapshot, outdated: null, missing: null, failed: null });
 			this.copy?.keep(() => snapshot);
 		} catch {
 			// The last good snapshot stays on screen: a page that empties itself
@@ -273,7 +289,12 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	/** Starts counting down to `offline`, unless already counting. */
 	private lost(): void {
 		// Its stream is refused too, by a server that answers.
-		if (this.offline || this.unreachable !== null || this.missing !== null) {
+		if (
+			this.offline ||
+			this.unreachable !== null ||
+			this.missing !== null ||
+			this.failed !== null
+		) {
 			return;
 		}
 		this.unreachable = this.timer.setTimeout(() => {
@@ -284,7 +305,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 
 	/** The server answered with `next`: the countdown to `offline` stops. */
 	private reached(
-		next: Partial<Pick<Feed, "snapshot" | "outdated" | "missing">>,
+		next: Partial<Pick<Feed, "snapshot" | "outdated" | "missing" | "failed">>,
 	): void {
 		this.unreachable?.dispose();
 		this.unreachable = null;
@@ -292,7 +313,9 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	}
 
 	private set(
-		next: Partial<Pick<Feed, "snapshot" | "offline" | "outdated" | "missing">>,
+		next: Partial<
+			Pick<Feed, "snapshot" | "offline" | "outdated" | "missing" | "failed">
+		>,
 	): void {
 		const { snapshot, ...rest } = next;
 		Object.assign(this, rest);

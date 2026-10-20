@@ -30,6 +30,7 @@ import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import type { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
+import { MigrationFailed } from "./migration-failed";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
@@ -117,7 +118,7 @@ export function App({
 		},
 		[feed],
 	);
-	const { snapshot, seeded, offline, outdated, missing } = useReactive(
+	const { snapshot, seeded, offline, outdated, missing, failed } = useReactive(
 		feed,
 		(feed) => ({
 			snapshot: feed.snapshot,
@@ -125,6 +126,7 @@ export function App({
 			offline: feed.offline,
 			outdated: feed.outdated,
 			missing: feed.missing,
+			failed: feed.failed,
 		}),
 		["changed"],
 	);
@@ -295,7 +297,12 @@ export function App({
 		openConversation,
 	});
 	const reachable = !offline && outdated === null;
-	const opening = <Opening missing={missing} waiting={reachable} name={name} />;
+	const opening =
+		failed === null ? (
+			<Opening missing={missing} waiting={reachable} name={name} />
+		) : (
+			<MigrationFailed message={failed} feed={feed} terminals={terminals} />
+		);
 	const header = (
 		<AppHeader
 			name={name}
@@ -427,6 +434,7 @@ export function App({
 																				<Splash
 																					shown={
 																						missing === null &&
+																						failed === null &&
 																						reachable &&
 																						(snapshot === null ||
 																							loading ||

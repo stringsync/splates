@@ -47,6 +47,7 @@ import { RepliedIds } from "./fake-conversation-ids";
 import { FakeDraftFiles } from "./fake-draft-files";
 import { FakePageCopies } from "./fake-page-copies";
 import { FakeShell } from "./fake-shell";
+import { FakeStream, type Stream } from "./fake-stream";
 import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
 import type { ProjectChoice } from "./project-api";
@@ -54,6 +55,7 @@ import { Settings } from "./settings";
 import { act, fireEvent, ProjectApp, render, waitFor } from "./testing-dom";
 
 export * from "./drivers";
+export type { Stream } from "./fake-stream";
 export * from "./fixtures";
 
 import { AGENTS, PUSH_KEY } from "./fixtures";
@@ -92,17 +94,6 @@ export interface Post {
 	method: string;
 	body: BodyInit | null | undefined;
 	headers?: HeadersInit;
-}
-
-/** The handlers `Feed` sets on its `EventSource`, for a test to call. */
-export interface Stream {
-	onmessage: ((event?: { data: string }) => void) | null;
-	onopen: (() => void) | null;
-	onerror: (() => void) | null;
-	/** The listeners for named events, such as `removed`. */
-	named?: Map<string, (event: { data: string }) => void>;
-	/** Whether the page closed it. */
-	closed?: boolean;
 }
 
 /**
@@ -168,6 +159,8 @@ export class Testing implements Resource {
 	} | null = null;
 	/** The sessions `/api/conversations/sessions` lists for any task. */
 	sessions: Session[] = [];
+	/** What `/api/migration` says of a project whose records failed to migrate. */
+	migration: unknown = { failure: null, fix: null, trunk: "main" };
 	/** What each background command printed, by its id, as the server reads it. */
 	outputs: Record<string, string> = {};
 	/** The conversations' own stream, once the page opens it. */
@@ -388,6 +381,9 @@ export class Testing implements Resource {
 					this.outputs[decodeURIComponent(output[1] ?? "")] ?? "",
 				);
 			}
+			if (route === "/api/migration") {
+				return Response.json(this.migration);
+			}
 			if (route === "/api/conversations") {
 				return this.talk === null
 					? Response.json({ reason: "not_found" }, { status: 404 })
@@ -399,14 +395,9 @@ export class Testing implements Resource {
 			return Response.json(this.served);
 		}) as unknown as typeof fetch;
 		const testing = this;
-		globalThis.EventSource = class implements Stream {
-			onmessage: (() => void) | null = null;
-			onopen: (() => void) | null = null;
-			onerror: (() => void) | null = null;
-			readonly named = new Map<string, (event: { data: string }) => void>();
-			closed = false;
-
+		globalThis.EventSource = class extends FakeStream {
 			constructor(url: string) {
+				super();
 				const route = url.split("?")[0];
 				if (route === "/api/conversations/events") {
 					testing.talkStream = this;
@@ -417,18 +408,6 @@ export class Testing implements Resource {
 				} else {
 					testing.stream = this;
 				}
-			}
-
-			addEventListener(
-				name: string,
-				listener: (event: { data: string }) => void,
-			): void {
-				this.named.set(name, listener);
-			}
-
-			// `EventSource`'s own name for it, which `Feed` calls.
-			close(): void {
-				this.closed = true;
 			}
 		} as unknown as typeof EventSource;
 		globalThis.WebSocket = class extends FakeShell {
@@ -487,6 +466,11 @@ export class Testing implements Resource {
 	/** Refuses the snapshot from now on, as a server does with `reason`. */
 	refuse(reason: string, message: string): void {
 		this.#refusal = { reason, message };
+	}
+
+	/** Serves the snapshot again, as a server whose refusal was put right. */
+	stopRefusing(): void {
+		this.#refusal = null;
 	}
 
 	/** Renders the page with `served` waiting, and lets it arrive. */

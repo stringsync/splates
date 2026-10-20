@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
+import { FORMAT } from "../records";
 import { add, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
+import { RUNNING } from "./release";
 import { dev, devPorts } from "./server";
 import { post, readUntil, serving, taskForm } from "./testing";
 
@@ -26,6 +28,63 @@ describe("dev", () => {
 				"bunx @stringsync/splates@latest",
 			);
 		});
+	});
+
+	it("refuses a project whose migration failed with why, and opens it once a retry passes", async () => {
+		// Opened as `splates server` opens it, so its records migrate first.
+		const unopened = Object.create(deps, {
+			opened: { value: [] },
+		}) as Testing;
+		await deps.fs.write(
+			`${deps.splatesDir}-migration.json`,
+			JSON.stringify({
+				from: 1,
+				to: FORMAT,
+				step: "splits lanes",
+				error: "lanes are tangled",
+				release: RUNNING,
+				fallback: "0.0.47",
+				at: "2026-10-20T00:00:00.000Z",
+			}),
+		);
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
+
+		await serving(unopened, async (_, port) => {
+			const refused = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
+			expect(refused.status).toBe(409);
+			expect(await refused.json()).toMatchObject({
+				reason: "migration_failed",
+			});
+
+			const said = (await (
+				await fetch(`http://127.0.0.1:${port}/api/migration`)
+			).json()) as { failure: { error: string }; fix: string };
+			expect(said.failure.error).toBe("lanes are tangled");
+			expect(said.fix).toStartWith("claude '");
+			expect(said.fix).toContain("lanes are tangled");
+
+			// As though an agent fixed the records and migrated them itself.
+			await deps.fs.write(`${deps.splatesDir}/format`, `${FORMAT}\n`);
+			const retried = await post(port, "/api/migration/retry", "");
+			expect(retried.status).toBe(200);
+			const opened = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
+			expect(opened.status).toBe(200);
+			expect(await deps.fs.exists(`${deps.splatesDir}-migration.json`)).toBe(
+				false,
+			);
+		});
+	});
+
+	it("says where it listens on this machine while it serves, for `splates update` to find", async () => {
+		const server = await dev(deps, { ports: OpenPortProvider.any() });
+		const said = JSON.parse(
+			await deps.fs.read(`${deps.splatesHome}/server.json`),
+		) as { url: string; release: string };
+
+		expect(said.url).toBe(`http://127.0.0.1:${server.port}`);
+		expect(said.release).toBe(RUNNING);
+		await server.disposeAsync();
+		expect(await deps.fs.exists(`${deps.splatesHome}/server.json`)).toBe(false);
 	});
 
 	it("reads the repo only while a page listens", async () => {

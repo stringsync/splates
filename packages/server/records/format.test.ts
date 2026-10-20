@@ -95,7 +95,7 @@ describe("Format", () => {
 		expect(ran).toEqual(["splits lanes", "renames tasks"]);
 	});
 
-	it("refuses older records until splates server has migrated them", async () => {
+	it("refuses older records until splates update has migrated them", async () => {
 		await using deps = await Testing.open();
 		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
 		const ran: string[] = [];
@@ -104,7 +104,7 @@ describe("Format", () => {
 		await expect(older.check()).toBail("outdated", {
 			message: [
 				"format 1, older than this splates's 2",
-				"Start `splates server` in this repository once",
+				"Run `splates update` in this repository once",
 			],
 		});
 		expect(ran).toEqual([]);

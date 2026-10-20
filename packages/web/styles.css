@@ -12,6 +12,7 @@
 @source "./app-pages.tsx";
 @source "./conversation-checkpoint.tsx";
 @source "./splash.tsx";
+@source "./migration-failed.tsx";
 @source "./dictate-button.tsx";
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";

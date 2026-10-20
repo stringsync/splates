@@ -67,6 +67,11 @@ export class Restarts {
 	 */
 	private restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/**
+	 * Whether the restart under way goes onto the newest splates, as
+	 * `splates update` asks, even before a check of npm has found it.
+	 */
+	private updating = false;
+	/**
 	 * How this run began, when a checkpoint's restart started it: its agents
 	 * `resuming`, told to carry on, until each has.
 	 */
@@ -168,13 +173,15 @@ export class Restarts {
 	 * Asks every live conversation in each project `projects` names, by slug,
 	 * for a checkpoint, then restarts, or shuts down when `after` says to,
 	 * once all of them have answered, stopping other projects' agents as they
-	 * are; the next run tells each to carry on.
+	 * are; the next run tells each to carry on. With `update`, as `splates
+	 * update` asks, it restarts onto the newest splates.
 	 */
 	readonly checkpointProjects = async (request: Request): Promise<Response> => {
 		const read = (await request.json().catch(() => ({}))) as {
 			projects?: unknown;
 			after?: unknown;
 			conversations?: unknown;
+			update?: unknown;
 		};
 		const slugs = Array.isArray(read.projects) ? read.projects.map(String) : [];
 		if (slugs.length === 0) {
@@ -199,6 +206,9 @@ export class Restarts {
 		// Held commands do not refuse it, unlike restartIdle: the page warns
 		// of them first, and agents are asked only after this point.
 		// One under way already restarts once its agents answer.
+		if (read.update === true) {
+			this.updating = true;
+		}
 		if (this.restarting !== null) {
 			return Response.json({});
 		}
@@ -456,7 +466,9 @@ export class Restarts {
 			}
 			await server.disposeAsync();
 			const { release } = this.versions;
-			this.opts.exit?.(shutdown ? 0 : release === null ? RESTART : UPDATE);
+			this.opts.exit?.(
+				shutdown ? 0 : release === null && !this.updating ? RESTART : UPDATE,
+			);
 		});
 	}
 

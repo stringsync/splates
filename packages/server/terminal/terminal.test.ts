@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs, OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { dev } from "../server";
+import { FORMAT } from "../records";
+import { dev, RUNNING } from "../server";
 import { serving } from "../server/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
@@ -34,7 +35,7 @@ describe("dev terminal", () => {
 
 	const opened = async (
 		body: (port: number) => Promise<void>,
-		options: { hosts?: string[] } = {},
+		{ home = deps, ...options }: OpenedOptions = {},
 	) => {
 		// The shells run on the local worker, here in this process.
 		const workers = new DevWorkers(new MemoryLogger());
@@ -52,7 +53,7 @@ describe("dev terminal", () => {
 		);
 		void daemon.run();
 		void workers.registry.accept(pair.coordinator, "local");
-		const server = await dev(deps, {
+		const server = await dev(home, {
 			ports: OpenPortProvider.any(),
 			shell: ["/bin/sh"],
 			workers,
@@ -85,6 +86,35 @@ describe("dev terminal", () => {
 
 			await shows(`at:${deps.service.git.root}`);
 		});
+	});
+
+	it("runs a shell at the root of a project whose records failed to migrate", async () => {
+		await deps.fs.write(
+			`${deps.splatesDir}-migration.json`,
+			JSON.stringify({
+				from: 1,
+				to: FORMAT,
+				step: "splits lanes",
+				error: "lanes are tangled",
+				release: RUNNING,
+				fallback: null,
+				at: "2026-10-20T00:00:00.000Z",
+			}),
+		);
+		await deps.fs.write(`${deps.splatesDir}/format`, "1\n");
+		// Opened as `splates server` opens it, so its records migrate first.
+		const unopened = Object.create(deps, { opened: { value: [] } }) as Testing;
+
+		await opened(
+			async (port) => {
+				const { socket, shows } = await terminal(port);
+
+				socket.send(new TextEncoder().encode("echo at:$(pwd)\n"));
+
+				await shows(`at:${deps.service.git.root}`);
+			},
+			{ home: unopened },
+		);
 	});
 
 	it("runs a shell in a task's worktree", async () => {
@@ -186,3 +216,10 @@ describe("dev terminal", () => {
 		);
 	});
 });
+
+/** How `opened` serves the terminal. */
+interface OpenedOptions {
+	hosts?: string[];
+	/** The project served, the test's own by default. */
+	home?: Testing;
+}
