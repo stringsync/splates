@@ -37,6 +37,11 @@ page turns only the list into a card the user answers with a tap.
 [references/questions.md](references/questions.md) has the rest, and
 says what a conversation with no task does with the answers.
 
+When a conversation clearly asks for several tasks, ask the user whether to
+make them a lane, then whether to queue it, as
+[references/queue.md](references/queue.md), Offering a lane, says. Never
+start or queue a lane they have not said yes to.
+
 ## Directives
 
 A prompt that starts with `[SPLATES ...]` comes from the `splates server` page or
