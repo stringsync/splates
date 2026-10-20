@@ -36,7 +36,35 @@ describe("add", () => {
 			),
 		).toBe("task/alpha");
 		expect(deps.out()).toContain("added alpha");
+		expect(deps.out()).not.toContain("notes:");
 	});
+
+	it.each(["notes", "project-notes"])(
+		"points at the notes in %s when starting a queued task",
+		async (directory) => {
+			deps.config.notesDir = directory;
+			await deps.fs.mkdir(`${deps.root}/${directory}`);
+			await deps.commit(
+				deps.root,
+				`${directory}/conventions.md`,
+				"---\ndescription: Project conventions\n---\n\nUse named exports.\n",
+				"Add conventions",
+			);
+			await deps.commit(
+				deps.root,
+				`${directory}/decisions.md`,
+				"---\ndescription: Project decisions\n---\n\nKeep notes short.\n",
+				"Add decisions",
+			);
+			const queued = await deps.tasks.add("Use the notes", null);
+
+			await add(deps, "alpha", { tasks: [queued.id] });
+
+			expect(deps.out()).toContain("notes: 2, splates notes lists them");
+			expect(deps.out()).not.toContain("Project conventions");
+			expect(deps.out()).not.toContain("Project decisions");
+		},
+	);
 
 	it("remembers the conversation whose agent added it, for the page to nest it under", async () => {
 		deps.proc.env.SPLATES_CONVERSATION = "c1";
