@@ -6,6 +6,7 @@ import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
 import { fail } from "../exit";
 import type { Git } from "../git";
+import { Notes } from "../notes";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts, Journal } from "../records";
@@ -108,6 +109,20 @@ export async function merge(
 			`no state file for '${task}': run \`splates claim ${task}\` first`,
 			{ task },
 		);
+	}
+
+	// Printed on every attempt, refused or not, and gates nothing: merge cannot
+	// check that a note still holds, so the agent checks its diff against them.
+	const notes = await new Notes(fs)
+		.list(worktree.path, config)
+		.catch((error: unknown) => {
+			log.error(
+				`project notes not read: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
+		});
+	if (notes.length > 0) {
+		log.info(notes.map((note) => note.description).join("\n"));
 	}
 
 	const base = worktree.base;

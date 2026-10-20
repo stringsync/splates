@@ -32,6 +32,14 @@ every reply that ends your turn ends with the whole review report again,
 brought up to date: the page shows its Ready to merge card only for a whole
 report.
 
+## Project notes at merge
+
+When the project has notes, `splates merge` prints their index before anything
+else, on every attempt, refused or not. Read it against your diff: where a
+change makes a note untrue, update that note in the same task, commit it, and
+merge again. A note the diff leaves true needs nothing. Merge gates on none of
+this: it cannot check a note, so the check is yours.
+
 ## When a merge fails
 
 An existing Git `index.lock` stops merge as `blocked` without spending an
