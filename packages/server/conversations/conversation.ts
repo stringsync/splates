@@ -394,6 +394,11 @@ export class Conversation
 		return this.ran;
 	}
 
+	/** Whether the agent takes images, as it said connecting; null while not connected. */
+	get sees(): boolean | null {
+		return this.connection.connected ? this.connection.sees : null;
+	}
+
 	/** The agent's pid while it runs, for the commands it left running. */
 	get pid(): number | null {
 		return this.connection.pid;

@@ -6,6 +6,7 @@ import {
 	CATALOG,
 	catalogKey,
 	catalogOf,
+	inputKey,
 	type Price,
 	Prices,
 	priced,
@@ -59,6 +60,14 @@ describe("prices", () => {
 		);
 		expect(catalogKey("claude", "claude-opus-5-5")).toBeNull();
 		expect(catalogKey("codex", null)).toBeNull();
+	});
+
+	it("finds Claude's models for their inputs by their roster name", () => {
+		expect(inputKey("claude", "opus", "Opus 5.5")).toBe(
+			"anthropic/claude-opus-5-5",
+		);
+		expect(inputKey("claude", "opus", null)).toBeNull();
+		expect(inputKey("codex", "gpt-6.1-sol", null)).toBe("openai/gpt-6.1-sol");
 	});
 
 	// scry-ignore simple-test-setup: the clock it moves and the network going down are this test's own inputs.

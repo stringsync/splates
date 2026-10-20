@@ -3,6 +3,7 @@ import type { Conversation, Conversations, Picked } from "../conversations";
 import { fail } from "../exit";
 import { effortSettings, Roster, splatesHome } from "../models";
 import { goalOf, Plans } from "../plans";
+import { Prices } from "../prices";
 import type { Project } from "../server/shared";
 import { FsStorage } from "../storage";
 import { DEPTHS, KINDS, type TaskClass } from "./classes";
@@ -90,7 +91,7 @@ export async function startAutoPick({
 					mimeType: Bun.file(name).type,
 				}));
 	const key = classificationKey(subject, detail, attachments);
-	const context = await contextOf(project, conversations, now());
+	const context = await contextOf(project, conversations, now(), attachments);
 	const { offered } = context;
 	const cached = record === null ? null : cachedFor(record, key);
 
@@ -140,9 +141,17 @@ export async function contextOf(
 	project: Project,
 	conversations: Conversations,
 	now: Date,
+	attachments: readonly AttachmentInfo[] = [],
 ): Promise<DecideContext> {
 	const home = splatesHome(project.ps);
+	const images = attachments.some((each) => each.mimeType.startsWith("image/"));
 	return {
+		images,
+		// Fetched only for a task with an image, which is all that reads it.
+		catalog: images
+			? await new Prices(new FsStorage(home, project.fs)).catalog()
+			: null,
+		sights: await conversations.sights(),
 		rules: await new AutoPickStore(`${home}/auto-pick.json`, {
 			fs: project.fs,
 		}).rules(),

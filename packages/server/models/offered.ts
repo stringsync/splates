@@ -12,6 +12,8 @@ const FORMAT = 1;
 export class Offered {
 	/** Read once, then kept: this process is the one writing it. */
 	private known: Promise<Record<string, Setting[]>> | null = null;
+	/** Whether each agent last said it takes images, read with {@link known}. */
+	private images: Record<string, boolean> = {};
 	/** Set when a newer splates wrote the file, which this one leaves alone. */
 	private newer = false;
 	/** Writes one after another, so none is lost to another. */
@@ -22,6 +24,7 @@ export class Offered {
 		private readonly doc: Document<{
 			format?: number;
 			agents?: Record<string, Setting[]>;
+			images?: Record<string, boolean>;
 		}>,
 	) {}
 
@@ -29,6 +32,25 @@ export class Offered {
 	async all(): Promise<Record<string, Setting[]>> {
 		this.known ??= this.read();
 		return this.known;
+	}
+
+	/** Whether each agent that connected here last said it takes images, by its id. */
+	async sights(): Promise<Record<string, boolean>> {
+		await this.all();
+		return this.images;
+	}
+
+	/** Keeps whether `agent` said it takes images, which Auto pick reads before it connects. */
+	async see(agent: string, sees: boolean): Promise<void> {
+		const all = await this.all();
+		if (this.images[agent] === sees) {
+			return;
+		}
+		this.images = { ...this.images, [agent]: sees };
+		if (!this.newer) {
+			this.writing = this.writing.then(() => this.write(all));
+		}
+		return this.writing;
 	}
 
 	/**
@@ -85,7 +107,14 @@ export class Offered {
 		picks?: Record<string, string>,
 	): void {
 		let remembered = conversation.state.settings;
+		let sawImages: boolean | null = null;
 		conversation.events.on("changed", () => {
+			// Kept for Auto pick, which decides before an agent connects.
+			const sees = conversation.sees;
+			if (sees !== null && sees !== sawImages) {
+				sawImages = sees;
+				void this.see(conversation.state.agent, sees).catch(() => {});
+			}
 			const { agent, settings } = conversation.state;
 			if (settings !== remembered && settings.length > 0) {
 				remembered = settings;
@@ -123,6 +152,7 @@ export class Offered {
 			const parsed = (await this.doc.read()) ?? {};
 			// Only a cache: one it cannot read starts over rather than refusing.
 			this.newer = (parsed.format ?? FORMAT) > FORMAT;
+			this.images = this.newer ? {} : (parsed.images ?? {});
 			return this.newer ? {} : (parsed.agents ?? {});
 		} catch {
 			return {};
@@ -130,6 +160,6 @@ export class Offered {
 	}
 
 	private async write(agents: Record<string, Setting[]>): Promise<void> {
-		await this.doc.write({ format: FORMAT, agents });
+		await this.doc.write({ format: FORMAT, agents, images: this.images });
 	}
 }

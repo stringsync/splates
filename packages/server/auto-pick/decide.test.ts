@@ -332,6 +332,66 @@ describe("decide", () => {
 		});
 	});
 
+	it("passes over a pick that can't see the task's images, by what models.dev lists or the agent said", () => {
+		const blind = {
+			"anthropic/claude-opus-5-5": { ...PRICE, inputs: ["text"] },
+		};
+		expect(
+			decide({
+				...BASE,
+				images: true,
+				catalog: blind,
+				classification: DESIGN,
+			}),
+		).toMatchObject({
+			pick: { agent: "codex", model: "gpt-6-astra" },
+			reasons: expect.arrayContaining([
+				"passed over Claude: can't see images",
+				"Codex stays a pick: image support unknown",
+			]),
+		});
+		expect(
+			decide({
+				...BASE,
+				images: true,
+				sights: { claude: true, codex: false },
+				classification: DESIGN,
+			}),
+		).toMatchObject({
+			pick: { agent: "claude", model: "opus" },
+			reasons: expect.arrayContaining([
+				"Claude stays a pick: image support unknown",
+				"passed over Codex: can't see images",
+			]),
+		});
+	});
+
+	it("takes the rule's first pick when none of its picks can see the images", () => {
+		expect(
+			decide({
+				...BASE,
+				images: true,
+				sights: { claude: false, codex: false },
+				classification: DESIGN,
+			}),
+		).toMatchObject({
+			pick: { agent: "claude", model: "opus" },
+			reasons: expect.arrayContaining([
+				"none of rule 3's picks can see images, so the first: Claude",
+			]),
+		});
+	});
+
+	it("filters nothing without an image", () => {
+		expect(
+			decide({
+				...BASE,
+				sights: { claude: false },
+				classification: DESIGN,
+			}),
+		).toMatchObject({ pick: { agent: "claude", model: "opus" } });
+	});
+
 	it("falls back on the first roster agent that runs when no pick of the rule does", () => {
 		const rules: AutoPickRules = {
 			format: 2,
@@ -440,3 +500,11 @@ it("records context in reasons without changing the matched rule or pick", () =>
 		"verification: Automated 10%, Needs eyes 90%",
 	]);
 });
+
+const PRICE = {
+	input: 1,
+	output: 1,
+	cacheRead: 1,
+	cacheWrite: 1,
+	tiers: [],
+};

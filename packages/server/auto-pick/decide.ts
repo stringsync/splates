@@ -1,6 +1,7 @@
 import { CAP_PREFIX } from "../agents";
 import type { Limit, Setting } from "../conversations";
 import type { AgentPick, RosterAgent } from "../models";
+import { type Catalog, inputKey } from "../prices";
 import {
 	CONTEXT_CLASSES,
 	DEPTHS,
@@ -41,6 +42,12 @@ export interface DecideContext {
 	/** What each agent that ran on this machine offers, `Offered.all()`. */
 	offered: Record<string, Setting[]>;
 	now: Date;
+	/** Whether the task's first prompt has an image attached, so a pick that cannot see one is passed over. */
+	images?: boolean;
+	/** What models.dev says each model takes in; null when never heard. */
+	catalog?: Catalog | null;
+	/** Whether each agent last said it takes images, `Offered.sights()`. */
+	sights?: Record<string, boolean>;
 }
 
 /** What `decide` reads. */
@@ -110,7 +117,9 @@ function choose(
 	const reasons = [judged, `rule ${index + 1}: ${ruleLabel(matched)}`];
 
 	const pace = input.rules.pace ?? DEFAULT_PACE;
-	const usable = matched.picks.flatMap((pick) => {
+	// Picks that cannot see the task's images, kept for when no other pick is left.
+	const blind: Candidate[] = [];
+	const picks = matched.picks.flatMap((pick): Candidate[] => {
 		const agent = input.agents.find((each) => each.id === pick.agent);
 		if (agent === undefined) {
 			reasons.push(`passed over ${pick.agent}: not on the roster`);
@@ -133,15 +142,32 @@ function choose(
 				!each.window.startsWith(CAP_PREFIX) ||
 				each.window === `${CAP_PREFIX}${model ?? ""}`,
 		);
-		return [
-			{
-				pick: model === undefined ? rest : { ...rest, model },
-				agent,
-				pressure: pressed(limits, input.now),
-				fast: pace.on ? fastest(limits, input.now, pace.slack) : undefined,
-			},
-		];
+		const candidate = {
+			pick: model === undefined ? rest : { ...rest, model },
+			agent,
+			pressure: pressed(limits, input.now),
+			fast: pace.on ? fastest(limits, input.now, pace.slack) : undefined,
+		};
+		if (input.images === true) {
+			const sees = seesImages(input, agent, model);
+			if (sees === false) {
+				reasons.push(`passed over ${agent.name}: can't see images`);
+				blind.push(candidate);
+				return [];
+			}
+			if (sees === null) {
+				reasons.push(`${agent.name} stays a pick: image support unknown`);
+			}
+		}
+		return [candidate];
 	});
+	let usable = picks;
+	if (picks.length === 0 && blind[0] !== undefined) {
+		reasons.push(
+			`none of rule ${index + 1}'s picks can see images, so the first: ${blind[0].agent.name}`,
+		);
+		usable = [blind[0]];
+	}
 
 	const left = usable.filter((each) => (each.pressure?.used ?? 0) < pace.spent);
 	const paced = left.find((each) => each.fast === undefined);
@@ -197,6 +223,35 @@ function choose(
 	);
 	reasons.unshift(headline(pick, chosen.agent));
 	return { pick, rule: index, kind, depth, reasons };
+}
+
+/** A pick of a rule with the agent it names and how far into its plan that is. */
+interface Candidate {
+	pick: AgentPick;
+	agent: RosterAgent;
+	pressure: { used: number; window: string } | undefined;
+	fast: Overrun | undefined;
+}
+
+/**
+ * Whether `agent` running `model` takes images: false when the agent said it
+ * does not or models.dev lists no image among the model's inputs, true when
+ * both are known to, null when either is unknown.
+ */
+function seesImages(
+	input: DecideContext,
+	agent: RosterAgent,
+	model: string | undefined,
+): boolean | null {
+	const said = input.sights?.[agent.id];
+	const name = agent.models.find((each) => each.id === model)?.name ?? null;
+	const key = inputKey(agent.id, model ?? null, name);
+	const inputs = key === null ? undefined : input.catalog?.[key]?.inputs;
+	const listed = inputs?.includes("image");
+	if (said === false || listed === false) {
+		return false;
+	}
+	return said === true && listed === true ? true : null;
 }
 
 /** The likeliest class, when the judge is at least `threshold` sure of it, and how it reads. */

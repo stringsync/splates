@@ -19,6 +19,8 @@ export interface Rate {
 
 /** A model's API list price, and the dearer tiers past a context size some models have. */
 export interface Price extends Rate {
+	/** The kinds of input the model takes (`text`, `image`); unsaid for a catalog fetched before they were kept. */
+	inputs?: string[];
 	tiers: (Rate & { context: number })[];
 }
 
@@ -113,8 +115,17 @@ export function catalogOf(raw: unknown): Catalog {
 				continue;
 			}
 			const tiers = Array.isArray(cost.tiers) ? cost.tiers : [];
+			const modalities = isRecord(about) ? about.modalities : null;
+			const inputs = isRecord(modalities) ? modalities.input : null;
 			catalog[`${provider}/${model}`] = {
 				...base,
+				...(Array.isArray(inputs)
+					? {
+							inputs: inputs.filter(
+								(each): each is string => typeof each === "string",
+							),
+						}
+					: {}),
 				tiers: tiers.flatMap((tier) => {
 					const rate = rateOf(tier);
 					const over = isRecord(tier) ? tier.tier : null;
@@ -147,6 +158,27 @@ export function catalogKey(agent: string, model: string | null): string | null {
 		return model.includes("/") ? model : null;
 	}
 	return null;
+}
+
+/**
+ * Where `agent` running `model` is in the catalog for what it takes in:
+ * as {@link catalogKey}, and Claude's too, by the roster `name` its short
+ * model id has (`Opus 5.5` is `anthropic/claude-opus-5-5`).
+ */
+export function inputKey(
+	agent: string,
+	model: string | null,
+	name: string | null,
+): string | null {
+	if (agent === "claude") {
+		return name === null
+			? null
+			: `anthropic/claude-${name
+					.trim()
+					.toLowerCase()
+					.replace(/[\s.]+/g, "-")}`;
+	}
+	return catalogKey(agent, model);
 }
 
 /**

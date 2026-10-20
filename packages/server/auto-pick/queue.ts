@@ -87,17 +87,17 @@ export class QueueAutoPick implements QueuePicker {
 	}
 
 	async guess(queued: readonly TaskRecord[]): Promise<Map<number, AgentPick>> {
-		const context = await this.#context();
 		const guessed = new Map<number, AgentPick>();
 		for (const each of queued) {
 			const { subject, detail } = await wordsOf(this.#project, each);
+			const attachments = each.files.map((name) => ({
+				name,
+				mimeType: Bun.file(name).type,
+			}));
+			const context = await this.#context(attachments);
 			const cached = cachedFor(
 				each,
-				classificationKey(
-					subject,
-					detail,
-					each.files.map((name) => ({ name, mimeType: Bun.file(name).type })),
-				),
+				classificationKey(subject, detail, attachments),
 			);
 			try {
 				const { pick } =
@@ -119,12 +119,12 @@ export class QueueAutoPick implements QueuePicker {
 			await judging;
 			queued = (await this.#project.tasks.store.read(queued.id)) ?? queued;
 		}
-		const context = await this.#context();
 		const { subject, detail } = await wordsOf(this.#project, queued);
 		const attachments = queued.files.map((name) => ({
 			name,
 			mimeType: Bun.file(name).type,
 		}));
+		const context = await this.#context(attachments);
 		const key = classificationKey(subject, detail, attachments);
 		try {
 			const judged = await decideFor({
@@ -186,7 +186,7 @@ export class QueueAutoPick implements QueuePicker {
 				attachments,
 				cached: null,
 				judge: this.#judge,
-				context: await this.#context(),
+				context: await this.#context(attachments),
 			});
 			await settle(this.#project, id, autoPicked(judged, key, this.#now()), {
 				conversation: null,
@@ -199,8 +199,15 @@ export class QueueAutoPick implements QueuePicker {
 		}
 	}
 
-	async #context(): Promise<DecideContext> {
-		return contextOf(this.#project, this.#conversations, this.#now());
+	async #context(
+		attachments: readonly AttachmentInfo[],
+	): Promise<DecideContext> {
+		return contextOf(
+			this.#project,
+			this.#conversations,
+			this.#now(),
+			attachments,
+		);
 	}
 }
 

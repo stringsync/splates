@@ -44,7 +44,7 @@ export async function tryAutoPick({
 		name,
 		mimeType: Bun.file(name).type,
 	}));
-	const context = await contextOf(project, conversations, now());
+	const context = await contextOf(project, conversations, now(), attachments);
 	const kept = record.autoPick?.classified;
 	if (kept?.key === classificationKey(subject, detail, attachments)) {
 		return {

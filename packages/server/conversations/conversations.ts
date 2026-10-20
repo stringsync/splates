@@ -166,6 +166,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		return (await this.offered?.all()) ?? {};
 	}
 
+	/** Whether each agent that connected here last said it takes images. */
+	async sights(): Promise<Record<string, boolean>> {
+		return (await this.offered?.sights()) ?? {};
+	}
+
 	/**
 	 * Saves `value` as what `agent`'s new conversations start with for its
 	 * setting `id`, one the agent offers, as picked before any is started.

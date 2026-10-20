@@ -5,4 +5,11 @@ export type {
 	Rate,
 	TurnTokens,
 } from "./prices";
-export { CATALOG, catalogKey, catalogOf, Prices, priced } from "./prices";
+export {
+	CATALOG,
+	catalogKey,
+	catalogOf,
+	inputKey,
+	Prices,
+	priced,
+} from "./prices";
