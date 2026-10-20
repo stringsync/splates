@@ -228,11 +228,11 @@ describe.concurrent("splates", () => {
 		).not.toContain("add status");
 
 		// Second agent, fresh thread: the tree is still claimable, and the
-		// earlier failure did not eat the whole merge budget.
+		// unnamed hook failure spent none of the merge budget.
 		const resumed = await splates(tree, "claim", "gamma");
 		expect(resumed.exitCode).toBe(0);
 		expect(resumed.stdout).toContain("status:   working");
-		expect(resumed.stdout).toContain("attempts: 1");
+		expect(resumed.stdout).toContain("attempts: 0");
 		await env.commit(tree, "status.txt", "ok\n", "fix status");
 		await env.finish(tree);
 		const merged = await splates(tree, "merge");

@@ -61,6 +61,8 @@ export interface Facts {
 		 * Empty when the runner named none.
 		 */
 		failedTests: FailedTest[];
+		/** Absent on older events or a gate that passed the first time. */
+		failureAttribution?: "task" | "trunk" | "flake" | "environment";
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
@@ -263,7 +265,14 @@ export const FACTS = {
 	claim: ["goal"],
 	tell: ["to"],
 	wait: ["until", "began"],
-	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],
+	merge: [
+		"base",
+		"commit",
+		"files",
+		"attemptsLeft",
+		"failedTests",
+		"failureAttribution",
+	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
 	handoff: ["agent", "model"],
@@ -352,7 +361,7 @@ export function isCurrent(event: Event): boolean {
 		return true;
 	}
 	const facts: readonly string[] | undefined = FACTS[event.action];
-	return facts?.every((fact) => fact in event);
+	return facts?.every((fact) => fact === "failureAttribution" || fact in event);
 }
 
 /** What every event carries, whatever its action. */

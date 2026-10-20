@@ -483,7 +483,7 @@ describe.concurrent("merge", () => {
 		await expect(merge(deps, beta)).toBail("tests_failed", {
 			message: "boom-from-hook",
 		});
-		expect((await deps.service.find("beta")).state?.mergeAttempts).toBe(1);
+		expect((await deps.service.find("beta")).state?.mergeAttempts).toBe(0);
 	});
 
 	it("refuses to land while a question is open or an answer unchecked", async () => {

@@ -86,7 +86,14 @@ export function factTasks(landed: Landed): FactTask[] {
 	return [
 		...(gate ?? [])
 			.filter(({ finding }) => namesTests(finding))
-			.map((fact) => deferred(task, fact)),
+			.flatMap((fact) =>
+				fact.finding?.kind === "gate"
+					? (fact.finding.tests ?? []).map((test) => ({
+							...deferred(task, fact),
+							subject: `Tests failed: ${test}`,
+						}))
+					: [],
+			),
 		...findings.flatMap(({ finding }) =>
 			finding?.kind === "slow_tests"
 				? finding.tests.map((test) => slowTask(task, test))

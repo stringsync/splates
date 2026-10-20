@@ -8,16 +8,27 @@ import { Testing } from "../testing";
 // Real git in a repo of its own, as in merge.test.ts.
 setDefaultTimeout(30_000);
 
+const FAILING_CHECK = `import { test, expect } from "bun:test";
+test("adds up", async () => expect(await Bun.file("alpha.txt").exists()).toBe(false));`;
+const CHECK_GATE =
+	'bun test --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"';
+
 describe.concurrent("outcomes", () => {
 	it("writes down a merged task's failed merges, past a retry", async () => {
 		await using deps = await Testing.open();
 		deps.config.mergeRetryCount = 1;
+		await deps.commit(
+			deps.root,
+			"gate.test.ts",
+			FAILING_CHECK,
+			"add gate check",
+		);
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
 
-		deps.config.preMerge = "exit 1";
+		deps.config.preMerge = CHECK_GATE;
 		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await retry(deps, "alpha");
 		await claim(deps, "alpha");
@@ -224,8 +235,14 @@ describe.concurrent("outcomes", () => {
 	it("keeps each gate failure with what it named, the budget running out once, and the size landed", async () => {
 		await using deps = await Testing.open();
 		deps.config.mergeRetryCount = 1;
+		await deps.commit(
+			deps.root,
+			"gate.test.ts",
+			FAILING_CHECK,
+			"add gate check",
+		);
 		const worktree = await committed(deps, "one\ntwo\n");
-		deps.config.preMerge = "echo '(fail) adds up [1.00ms]'; exit 1";
+		deps.config.preMerge = CHECK_GATE;
 		await expect(merge(deps, worktree)).toBail("tests_failed");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
 		await expect(merge(deps, worktree)).toBail("budget_exhausted");
@@ -236,13 +253,13 @@ describe.concurrent("outcomes", () => {
 
 		const [outcome] = await deps.outcomes.list();
 		expect(outcome?.size).toEqual({ files: 1, added: 2, removed: 0 });
-		expect(outcome?.findings).toEqual([
+		expect(outcome?.findings).toMatchObject([
 			{
 				kind: "gate",
 				reason: "tests_failed",
 				at: expect.any(String),
 				tests: ["adds up"],
-				failures: [{ name: "adds up", message: "" }],
+				failures: [{ name: "adds up", message: expect.any(String) }],
 			},
 			{ kind: "gate", reason: "budget_exhausted", at: expect.any(String) },
 			{ kind: "retried", times: 1 },

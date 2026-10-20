@@ -17,6 +17,7 @@ export interface TimedTest {
  */
 export function timedTests(xml: string): TimedTest[] {
 	const suites: string[] = [];
+	const suiteFiles: Array<string | undefined> = [];
 	const tests: TimedTest[] = [];
 	for (const [, closing, tag = "", attributes = "", empty] of xml.matchAll(
 		TAG,
@@ -24,6 +25,7 @@ export function timedTests(xml: string): TimedTest[] {
 		if (closing) {
 			if (tag === "testsuite") {
 				suites.pop();
+				suiteFiles.pop();
 			}
 			continue;
 		}
@@ -31,6 +33,7 @@ export function timedTests(xml: string): TimedTest[] {
 		if (tag === "testsuite") {
 			if (!empty) {
 				suites.push(read.name ?? "");
+				suiteFiles.push(read.file);
 			}
 			continue;
 		}
@@ -38,13 +41,75 @@ export function timedTests(xml: string): TimedTest[] {
 		if (tag !== "testcase" || read.name === undefined || !(seconds >= 0)) {
 			continue;
 		}
+		const file = read.file ?? suiteFiles.findLast((file) => file !== undefined);
 		tests.push({
 			name: [...suites.slice(1), read.name].filter(Boolean).join(" > "),
-			...(read.file === undefined ? {} : { file: read.file }),
+			...(file === undefined ? {} : { file }),
 			seconds,
 		});
 	}
 	return tests;
+}
+
+/** A failed JUnit case; file is absent when the runner did not locate it. */
+export interface FailingCase extends FailedTest {
+	file?: string;
+}
+
+/** Failures and errors in a complete JUnit report, including inherited suite files. */
+export function failingCases(xml: string): FailingCase[] {
+	if (!/<\/(?:testsuites|testsuite)>\s*$/.test(xml.trim())) {
+		return [];
+	}
+	const suites: Array<{ name: string; file?: string }> = [];
+	const failed: FailingCase[] = [];
+	let current: { name: string; file?: string } | null = null;
+	for (const match of xml.matchAll(
+		/<(\/?)(testsuite|testcase|failure|error)\b([^>]*?)(\/?)>/g,
+	)) {
+		const [, closing, tag, attributes = "", empty] = match;
+		const read = attributesOf(attributes);
+		if (tag === "testsuite") {
+			if (closing) {
+				suites.pop();
+			} else if (!empty) {
+				suites.push({ name: read.name ?? "", file: read.file });
+			}
+		} else if (tag === "testcase") {
+			current =
+				closing || empty
+					? null
+					: {
+							name: [
+								...suites.slice(1).map((suite) => suite.name),
+								read.name ?? "",
+							]
+								.filter(Boolean)
+								.join(" > "),
+							file:
+								read.file ??
+								suites.findLast((suite) => suite.file !== undefined)?.file,
+						};
+		} else if (!closing && current) {
+			const end = xml.indexOf(
+				`</${tag}>`,
+				(match.index ?? 0) + match[0].length,
+			);
+			const body =
+				!empty && end >= 0
+					? xml.slice((match.index ?? 0) + match[0].length, end)
+					: "";
+			failed.push({
+				...current,
+				message:
+					unescaped(body.replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/, "$1")).trim() ||
+					read.message ||
+					"",
+			});
+			current = null;
+		}
+	}
+	return failed;
 }
 
 const TAG = /<(\/?)(testsuite|testcase)\b([^>]*?)(\/?)>/g;
@@ -65,7 +130,9 @@ function unescaped(text: string): string {
 				code[1]?.toLowerCase() === "x"
 					? Number.parseInt(code.slice(2), 16)
 					: Number.parseInt(code.slice(1), 10);
-			return Number.isNaN(point) ? entity : String.fromCodePoint(point);
+			return Number.isNaN(point) || point < 0 || point > 0x10ffff
+				? entity
+				: String.fromCodePoint(point);
 		}
 		return ENTITIES[code] ?? entity;
 	});

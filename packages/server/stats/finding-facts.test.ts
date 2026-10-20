@@ -56,6 +56,27 @@ describe("factTasks", () => {
 		]);
 	});
 
+	it("makes a separate task for each test in a failed gate so later gates deduplicate them", () => {
+		const tasks = factTasks({
+			outcome: merged({
+				findings: [
+					{
+						kind: "gate",
+						reason: "tests_failed",
+						at: "",
+						tests: ["adds up", "counts"],
+					},
+				],
+			}),
+			baseline: null,
+		});
+
+		expect(tasks.map((task) => task.subject)).toEqual([
+			"Tests failed: adds up",
+			"Tests failed: counts",
+		]);
+	});
+
 	it("makes a task of each slow test", () => {
 		const tasks = factTasks({
 			outcome: merged({

@@ -127,8 +127,13 @@ which remembers none of it.
    held by a live operation. A failed rebase with no unmerged paths is
    `merge_failed`, not a content `conflict`.
 
-   Each `conflict`, `tests_failed` or `merge_failed` spends one of the
-   task's merge attempts. Conflicts are expected: resolve them and say
+   Each `conflict` or `merge_failed` spends one of the task's merge attempts.
+   A `tests_failed` spends one only when the failing test files passed on the
+   exact base commit and failed again with the task. Trunk-red and environment
+   failures hold the merge without charging; fix what the output names before
+   retrying. Bun JUnit reports enable selective attribution; missing reports,
+   unsupported runners, and inconclusive retests hold without charging. A flake
+   can land only after the complete gate passes again. Conflicts are expected: resolve them and say
    nothing of them, in `SPLATES.md`, a report or a task. Write under
    `## Notes` what each `tests_failed` or `merge_failed` failed on. When
    `merge` stops on `budget_exhausted`, ask the user (see When you cannot go

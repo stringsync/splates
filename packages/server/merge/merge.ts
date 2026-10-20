@@ -7,7 +7,7 @@ import { fail } from "../exit";
 import type { Git } from "../git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
-import type { Facts } from "../records";
+import type { Facts, Journal } from "../records";
 import type {
 	GateFailure,
 	MergeFailure,
@@ -16,13 +16,15 @@ import type {
 } from "../tasks";
 import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
+import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
-import { failedTests, timedTests } from "./test-report";
-import type { Landed, TrunkLanding } from "./trunk";
+import { MergeGate } from "./gate";
+import { queueFailedTests } from "./queue-failures";
+import { landOnRemote } from "./remote-landing";
+import { failedTests, failingCases, timedTests } from "./test-report";
+import type { TrunkLanding } from "./trunk";
 
 const TAIL_LINES = 40;
-/** The JUnit report a hook may write at `$SPLATES_TEST_REPORT`, in the worktree's git dir. */
-const TEST_REPORT_FILE = "splates-test-report.xml";
 
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
@@ -44,6 +46,7 @@ export async function merge(
 		config,
 		log,
 		tasks,
+		journal,
 		fs,
 		slots,
 		heavy,
@@ -58,6 +61,7 @@ export async function merge(
 		config: Config;
 		log: Logger;
 		tasks: Tasks;
+		journal?: Journal;
 		fs: Fs;
 		slots: Slots;
 		heavy: HeavyCap;
@@ -106,6 +110,7 @@ export async function merge(
 	facts.base = base;
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
 	facts.failedTests = [];
+	delete facts.failureAttribution;
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(
@@ -220,7 +225,8 @@ export async function merge(
 			await worktree.moveBase(onto);
 		}
 	}
-	const rebase = await git.rebase(worktree.path, onto ?? base);
+	const rebasedOnto = onto ?? (await git.out(git.root, "rev-parse", base));
+	const rebase = await git.rebase(worktree.path, rebasedOnto);
 	if (rebase.code !== 0) {
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
@@ -275,31 +281,44 @@ export async function merge(
 	// The two hooks share one shell rather than getting a run each: the recovery
 	// is the same either way, and one gate reports one failure however far down
 	// it got.
-	const gate = [config.postRewrite, config.preMerge]
-		.filter(Boolean)
-		.join(" && ");
-	// Where the hook may write a JUnit report of the run, to time its tests.
-	// In the worktree's own git dir, so it is outside the tree the gate tests
-	// and goes with the worktree; cleared first, so an earlier attempt's
-	// report never stands in for this one's.
-	const report = `${(await git.out(worktree.path, "rev-parse", "--absolute-git-dir")).trim()}/${TEST_REPORT_FILE}`;
-	await fs.rm(report, { force: true });
-	const gated = gate
-		? await (async () => {
-				// A test run is the heaviest thing an agent does, so it waits its
-				// turn with every other on the machine.
-				await using slot = await heavy.take({ what: "preMerge", task });
-				// Awaited, or the slot goes back before the hook ends.
-				return await shell.run(gate, worktree.path, {
-					env: {
-						SPLATES_TASK: task,
-						SPLATES_WORKTREE: worktree.path,
-						SPLATES_TEST_REPORT: report,
-						...slot.env,
-					},
-				});
-			})()
-		: { exitCode: 0, stdout: "", stderr: "" };
+	const runner = new MergeGate(git, shell, fs, heavy, config);
+	let gated = await runner.run(worktree.path, task);
+	if (gated.exitCode !== 0) {
+		const attribution = await attributeFailure({ git, gate: runner }, gated, {
+			cwd: worktree.path,
+			task,
+			onto: rebasedOnto,
+		});
+		facts.failureAttribution = attribution.kind;
+		facts.failedTests = attribution.failed.length
+			? attribution.failed
+			: failedTests(`${gated.stdout}\n${gated.stderr}`);
+		await queueFailedTests(
+			{ tasks, log, journal },
+			task,
+			facts.failedTests,
+			attribution.kind,
+		);
+		log.info(attribution.why);
+		if (attribution.kind === "flake") {
+			gated = await runner.run(worktree.path, task);
+			if (gated.exitCode !== 0) {
+				// A selective pass cannot excuse a later failure anywhere in the
+				// complete gate. Keep the tree out without spending an attempt.
+				facts.failureAttribution = "environment";
+				const failed = failingCases(gated.xml);
+				facts.failedTests = failed.length
+					? failed
+					: failedTests(`${gated.stdout}\n${gated.stderr}`);
+				await queueFailedTests(
+					{ tasks, log, journal },
+					task,
+					facts.failedTests,
+					"environment",
+				);
+			}
+		}
+	}
 	if (gated.exitCode !== 0) {
 		// The rebase already finished, so there is nothing for `rebase --abort`
 		// to undo: resetting to the pre-rebase commit is what returns the branch
@@ -308,12 +327,17 @@ export async function merge(
 		await lock.release();
 		const output = `${gated.stdout}\n${gated.stderr}`;
 		const failed = failedTests(output);
-		await bump(worktree, "tests_failed", {
-			tests: failed.map((each) => each.name),
-			failures: failed,
-		});
-		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-		facts.failedTests = failed;
+		const charged = facts.failureAttribution === "task";
+		if (charged) {
+			await bump(worktree, "tests_failed", {
+				tests: facts.failedTests?.map((each) => each.name),
+				failures: facts.failedTests,
+			});
+			facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
+		} else {
+			await worktree.take({ status: "working" });
+		}
+		const named = facts.failedTests?.length ? facts.failedTests : failed;
 		// The failing tests and what to do come last, after the gate's own
 		// output: an agent that reads only the end of this, as through `tail`,
 		// would otherwise see the runner's summary alone, and merge again just
@@ -323,13 +347,16 @@ export async function merge(
 			[
 				tail(output),
 				"",
-				`\`${gate}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
+				`\`${runner.command}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
+				charged
+					? "The failure was reproduced with the task after passing on the base; one merge attempt was spent."
+					: `Failure attribution: ${facts.failureAttribution}. The merge is held; no merge attempt was spent.`,
 				"",
-				...(failed.length > 0
+				...(named.length > 0
 					? [
-							`Failing tests (${failed.length}):`,
-							...failed.flatMap((each) => [
+							`Failing tests (${named.length}):`,
+							...named.flatMap((each) => [
 								each.name,
 								...(each.message === "" ? [] : [indent(each.message)]),
 							]),
@@ -338,12 +365,17 @@ export async function merge(
 					: []),
 				"Fix what broke, or run a test you think flaky on its own to check, then merge again. Never merge only to read this again: a merge whose gate passes lands, with the message it was given.",
 			].join("\n"),
-			{ task, exitCode: gated.exitCode, failedTests: failed },
+			{
+				task,
+				exitCode: gated.exitCode,
+				failedTests: named,
+				attribution: facts.failureAttribution,
+			},
 		);
 	}
 
 	// A hook that wrote no report, or one that does not parse, times nothing.
-	const testTimes = timedTests((await fs.read(report).catch(() => null)) ?? "");
+	const testTimes = timedTests(gated.xml);
 
 	// Deliberately re-read from disk rather than trusting the copy in hand: a
 	// long test run can outlive the lease, and landing after someone else
@@ -500,49 +532,6 @@ export async function merge(
 		);
 	}
 	log.info(lines.join("\n"));
-}
-
-/**
- * Pushes the tested branch as `splates/<task>` and asks the coordinator to
- * move the remote's trunk to it from `onto`, the commit it was tested on.
- */
-async function landOnRemote({
-	git,
-	branches,
-	trunk,
-	worktree,
-	remote,
-	onto,
-	relayed,
-	holder,
-}: {
-	git: Git;
-	branches: TaskBranches;
-	trunk: TrunkLanding;
-	worktree: Worktree;
-	remote: string;
-	onto: string;
-	relayed: boolean;
-	holder: { pid: number; hostname: string };
-}): Promise<Landed> {
-	const pushed = await branches.pushTree(worktree);
-	if (pushed.status !== "pushed") {
-		return {
-			status: "refused",
-			why: `${branches.pushedBranch(worktree.task)} was not pushed to ${remote}: ${pushed.status === "off" ? "no remote is configured" : pushed.why}`,
-		};
-	}
-	const head = await git.head(worktree.path);
-	const landed = await trunk.land({
-		task: worktree.task,
-		onto,
-		head,
-		holder,
-	});
-	if (landed.status === "landed" && relayed) {
-		await worktree.moveBase(head);
-	}
-	return landed;
 }
 
 /** Git owns its lock: neither its age nor an absent open fd proves it stale. */

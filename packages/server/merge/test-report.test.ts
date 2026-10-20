@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { timedTests } from "./test-report";
+import { failingCases, timedTests } from "./test-report";
 
-describe("timedTests", () => {
+describe("test reports", () => {
 	it("names each test by its describe blocks, as bun writes them", () => {
 		const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <testsuites name="bun test" tests="2" time="0.4">
@@ -38,5 +38,33 @@ describe("timedTests", () => {
 			timedTests(`<testsuite name="f"><testcase name="untimed" /></testsuite>`),
 		).toEqual([]);
 		expect(timedTests("not xml")).toEqual([]);
+	});
+
+	it("reads failures, errors, inherited files, and XML escapes", () => {
+		expect(
+			failingCases(
+				`<testsuites name="bun test"><testsuite name="a.test.ts" file="a.test.ts"><testsuite name="outer"><testcase name="passes"/><testcase name="fails &amp; errors"><failure message="expected &lt;ok&gt;"/></testcase><testcase name="crash"><error><![CDATA[boom <x>]]></error></testcase></testsuite></testsuite></testsuites>`,
+			),
+		).toEqual([
+			{
+				name: "outer > fails & errors",
+				file: "a.test.ts",
+				message: "expected <ok>",
+			},
+			{ name: "outer > crash", file: "a.test.ts", message: "boom <x>" },
+		]);
+	});
+	it("locates timed cases whose file is inherited from a suite", () => {
+		expect(
+			timedTests(
+				'<testsuites><testsuite file="a&amp;b.test.ts"><testcase name="passed" time="0.1"/></testsuite></testsuites>',
+			),
+		).toEqual([{ name: "passed", file: "a&b.test.ts", seconds: 0.1 }]);
+	});
+
+	it("rejects truncated reports", () => {
+		expect(failingCases('<testsuite><testcase name="bad"><failure/>')).toEqual(
+			[],
+		);
 	});
 });

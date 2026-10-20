@@ -38,6 +38,9 @@ export interface Config {
 	 * To have `merge` queue a task for each test slower than 5 seconds, write a
 	 * JUnit XML report to the path in `$SPLATES_TEST_REPORT`, as `bun test
 	 * --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"` does.
+	 * A Bun report also enables selective failure attribution: only failures
+	 * reproduced with the task after passing on its base spend an attempt.
+	 * Missing reports and inconclusive retests hold the merge without charging.
 	 */
 	preMerge: string | null;
 	/**
