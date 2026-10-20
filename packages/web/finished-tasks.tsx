@@ -3,11 +3,7 @@ import type {
 	FinishedPlan,
 	FinishedTask,
 } from "@stringsync/splates-server/tasks";
-import {
-	ChevronRightIcon,
-	CircleCheckIcon,
-	CircleSlashIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -16,11 +12,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -45,6 +36,7 @@ import {
 	TASK_DIALOG,
 	TONES,
 } from "./task-sections";
+import { TasksCard } from "./tasks-card";
 
 /** Where the Tasks page keeps whether Finished is open. */
 const FOLDED = "splates.tasks.finished";
@@ -82,23 +74,14 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 		};
 	}, [open, moved]);
 	return (
-		<Collapsible
-			open={open}
-			onOpenChange={(opening) => fold("shown", !opening)}
-			render={<section aria-label="finished tasks" />}
-			className="group/finished mt-2 flex flex-col"
-		>
-			<CollapsibleTrigger className="-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 max-md:min-h-11">
-				<ChevronRightIcon
-					aria-hidden
-					className="size-3.5 transition-transform duration-150 group-data-[open]/finished:rotate-90"
-				/>
-				Finished
-				{listed !== null && (
-					<span className="tabular-nums">{listed.length}</span>
-				)}
-			</CollapsibleTrigger>
-			<CollapsibleContent>
+		<>
+			<TasksCard
+				label="finished tasks"
+				title="Finished"
+				count={listed?.length ?? null}
+				open={open}
+				onOpenChange={(opening) => fold("shown", !opening)}
+			>
 				{failed && listed === null ? (
 					<p className="py-2 text-muted-foreground text-sm">
 						Couldn’t read the finished tasks.
@@ -116,7 +99,7 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 						))}
 					</ul>
 				)}
-			</CollapsibleContent>
+			</TasksCard>
 			<Dialog
 				open={opened !== null}
 				onOpenChange={(opening) => {
@@ -132,7 +115,7 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 					/>
 				)}
 			</Dialog>
-		</Collapsible>
+		</>
 	);
 }
 

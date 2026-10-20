@@ -28,14 +28,15 @@ import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { TaskIcon } from "./task-icon";
 import { TaskQueue } from "./task-queue";
+import { TasksCard } from "./tasks-card";
 import { TopBar } from "./top-bar";
 
 /**
  * Every project's tasks, a line each, grouped by project: its name and the
- * marks of the conversations on it. Where the task stands in splates (its
- * status, its plan) waits behind a tap; another project's opens on that
- * project's page, where everything in its dialog is that project's. The
- * queue follows them.
+ * marks of the conversations on it, in a card of their own. Where the task
+ * stands in splates (its status, its plan) waits behind a tap; another
+ * project's opens on that project's page, where everything in its dialog is
+ * that project's. The queue's card and Finished's follow.
  */
 export function Tasks({
 	project,
@@ -61,17 +62,27 @@ export function Tasks({
 	useNow(!none, Duration.mins(1));
 
 	return (
-		<section aria-label="tasks" className="flex flex-col gap-2">
+		<section aria-label="tasks" className="flex flex-col gap-4">
 			<TopBar title="Tasks" />
-			{groups === null ? (
-				tasks.length === 0 ? (
-					<NoTasks />
+			<TasksCard
+				label="in progress"
+				title="In progress"
+				count={
+					groups === null
+						? tasks.length
+						: groups.reduce((sum, group) => sum + group.tasks.length, 0)
+				}
+			>
+				{groups === null ? (
+					tasks.length === 0 ? (
+						<NoTasks />
+					) : (
+						<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
+					)
 				) : (
-					<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
-				)
-			) : (
-				<ProjectGroups groups={groups} onOpen={onOpen} />
-			)}
+					<ProjectGroups groups={groups} onOpen={onOpen} />
+				)}
+			</TasksCard>
 			<TaskQueue todos={project.todos} onOpen={onOpenTodo} />
 			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
 			<Dialog
@@ -199,7 +210,7 @@ function ProjectGroups({
 	const navigation = useContext(NavigationContext);
 	const { folded, fold } = useFolded(COLLAPSED);
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-2">
 			{groups.map((group) => {
 				const key = group.project ?? "";
 				const { project } = group;

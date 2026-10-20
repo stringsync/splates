@@ -41,6 +41,7 @@
 @source "./todo-queue.tsx";
 @source "./tasks.tsx";
 @source "./task-queue.tsx";
+@source "./tasks-card.tsx";
 @source "./task-dialog.tsx";
 @source "./task-sections.tsx";
 @source "./task-overview.tsx";
