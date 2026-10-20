@@ -16,6 +16,24 @@ describe("FsStorage", () => {
 		expect(await fs.read("/home/s/push.json")).toBe('{\n\t"on": true\n}\n');
 	});
 
+	it("reads a document another writer moves into place while it looks", async () => {
+		// The read finds no file, then the other writer's rename lands before
+		// it checks whether one is there.
+		class Racing extends FakeFs {
+			override async read(path: string): Promise<string> {
+				const read = super.read(path);
+				await read.catch(() => super.write(path, '{"on":true}\n'));
+				return read;
+			}
+		}
+		const fs = new Racing();
+		const settings = new FsStorage("/home/s", fs).document<{ on: boolean }>(
+			"push.json",
+		);
+
+		expect(await settings.read()).toEqual({ on: true });
+	});
+
 	it("keeps a log's segments where the journal keeps its", async () => {
 		const fs = new FakeFs();
 		const log = new FsStorage("/repo/.git/splates", fs).log("log.jsonl", {

@@ -26,7 +26,8 @@ export async function replace(
 /**
  * What `read` gives of `path`, or null when nothing is there: an error
  * reading a file that is there is still thrown, so a store never takes an
- * unreadable file for a missing one and writes over it.
+ * unreadable file for a missing one and writes over it. A file another
+ * writer moved into place after the read missed it is read again.
  */
 export async function readIfThere<T>(
 	fs: Fs,
@@ -35,9 +36,9 @@ export async function readIfThere<T>(
 ): Promise<T | null> {
 	try {
 		return await read(path);
-	} catch (error) {
+	} catch {
 		if (await fs.exists(path)) {
-			throw error;
+			return read(path);
 		}
 		return null;
 	}
