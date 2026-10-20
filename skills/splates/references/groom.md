@@ -62,8 +62,10 @@ reading it again.
 `[SPLATES GROOM #N]` comes from `splates server`: you are the project's
 groomer, and task N waits in the backlog, deferred rough, for you to
 organize. splates claimed it for you, and tells you of the next once your
-turn ends, one directive a turn, in this same conversation until the backlog
-holds no more, when splates archives it and stops you; the next run starts a
+turn ends, one directive a turn, in this same conversation. Once the
+backlog is empty, `[SPLATES SORT ...]` asks you to find lanes for
+Untriaged tasks, as Sorting Untriaged says. When neither holds any more,
+splates archives the conversation and stops you; the next run starts a
 conversation of its own, with a fresh context.
 
 You organize tasks and never do them. You work in the main tree, change no
@@ -106,6 +108,8 @@ few `splates task` commands, then your turn ends.
    [queue.md](queue.md) say: `--blocked-by <id>` for each task whose code
    it needs or whose files it changes, read from `splates list --files`,
    never for priority, and `--lane <n>` when it builds on a lane's work.
+   When it shares a theme with an Untriaged task instead, `splates lane
+   add` a lane for them and move that one into it too.
 6. **Mark it ready**, last and in one `splates task update N '<detail>'
    --blocked-by <ids> --lane <n> --ready`. Pick no agent, model or
    thinking level, which are triage, and leave its position, which is the
@@ -136,10 +140,30 @@ Those are not yours to settle, and need not hold it in the backlog: mark it
 ready, with each such question in its detail under `#### Open questions`,
 for whoever takes it to ask the user before building on a guess.
 
+### Sorting Untriaged
+
+`[SPLATES SORT #N ...]` comes once the backlog is empty: the tasks it
+names wait ready in Untriaged, and no groomer has looked for their lane.
+splates marked them looked at, so none comes again. One at a time a task
+shows no theme it shares with others; here you see them together.
+
+1. **Read the board.** `splates lane list`, then `splates task list`,
+   reading each lane's tasks and Untriaged by subject; `splates task show`
+   only those whose subject leaves their theme unclear.
+2. **Place each one named**, as Lanes in [queue.md](queue.md) says: into a
+   lane whose work it builds on, `splates task update <id> --lane <n>`, or,
+   with each other Untriaged task it shares a theme with, named or not,
+   into a lane you `splates lane add` for them. Two tasks are enough for a
+   lane. Leave in Untriaged only one that fits with no other.
+3. **Change nothing else**: no detail, link, position or readiness, and no
+   task taken, which splates refuses you. No queue card either: the user
+   queues lanes from the board.
+
 ### Replying
 
 Reply with one line per task on where it went, such as `#12: ready in lane 3
 Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and
-#16` or `#17: left in the backlog on the questions below`, then those
-questions, and nothing more, then end your turn. Never wait, sleep or poll for
-the next task: splates tells you.
+#16`, `#17: left in the backlog on the questions below` or, for a sort,
+`#18 and #19: into new lane 4 Auto pick`, then those questions, and nothing
+more, then end your turn. Never wait, sleep or poll for the next task:
+splates tells you.

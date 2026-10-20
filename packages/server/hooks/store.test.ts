@@ -37,7 +37,7 @@ describe("HookStore", () => {
 		expect((await hooks.read()).at(-1)).toMatchObject({
 			id: "groomer",
 			source: "builtin",
-			trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+			trigger: { event: "task.created" },
 			hook: { kind: "groom", agent: "codex" },
 			paused: true,
 		});
@@ -48,6 +48,25 @@ describe("HookStore", () => {
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["groomer", "1"]);
 		await hooks.groomer(null);
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["1"]);
+	});
+
+	it("wakes a groomer saved before its trigger changed as it is now", async () => {
+		const storage = new MemoryStorage();
+		await storage.document("hooks.json").write({
+			automations: [
+				{
+					id: "groomer",
+					trigger: { event: "task.created", filter: { stages: ["backlog"] } },
+					hook: { kind: "groom", agent: "claude" },
+					createdAt: "2026-10-01T00:00:00.000Z",
+					source: "builtin",
+				},
+			],
+		});
+
+		expect((await new HookStore(storage).read())[0]?.trigger).toEqual({
+			event: "task.created",
+		});
 	});
 
 	it("turns the notes audit on weekly, keeping its pause and schedule through a new pick", async () => {

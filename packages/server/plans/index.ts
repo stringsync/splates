@@ -59,6 +59,7 @@ export {
 	RESUME,
 	scheduleReference,
 	setupReference,
+	sortReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

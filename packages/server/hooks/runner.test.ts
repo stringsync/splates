@@ -174,7 +174,7 @@ describe("HookRunner", () => {
 		expect(ran).toEqual(["queued task.queued #2"]);
 	});
 
-	it("wakes the groomer for a task added to the backlog, not one added ready", async () => {
+	it("wakes the groomer for each task added, to the backlog or ready", async () => {
 		automations = [
 			automation("groomer", GROOMER_TRIGGER, {
 				kind: "groom",
@@ -198,7 +198,7 @@ describe("HookRunner", () => {
 
 		await look(following);
 
-		expect(ran).toEqual(["groom with claude"]);
+		expect(ran).toEqual(["groom with claude", "groom with claude"]);
 	});
 
 	it("runs nothing paused, and keeps each run with what it failed on", async () => {

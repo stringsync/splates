@@ -130,11 +130,13 @@ list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,
   files, or context: `--lane <n>` puts it at the bottom.
-- **A new lane** when it starts a chain that more tasks will follow:
-  `splates lane add '<name>'`, named for what the chain adds up to, then
-  `--lane <n>`. A lane you add for the user to queue ends your reply with
-  its queue card (see Asking the user to queue).
-- **Untriaged** otherwise, the default, for the user to place.
+- **A new lane** when it starts a chain that more tasks will follow, or
+  shares a theme with another Untriaged task, such as the same feature,
+  area or kind of fix: `splates lane add '<name>'`, named for what they
+  add up to, then `--lane <n>` for each. A lane you add for the user to
+  queue ends your reply with its queue card (see Asking the user to queue).
+- **Untriaged** otherwise, for the user to place: a task that fits with no
+  other yet.
 
 `splates task update <id> --lane <n>` moves one that exists.
 

@@ -44,7 +44,7 @@ describe("Groomer", () => {
 
 	it("grooms the backlog in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
 		await taskAdd(deps, "rough", null);
-		await taskAdd(deps, "groomed", null, { ready: true });
+		await taskAdd(deps, "groomed", null, { ready: true, lane: "new" });
 		await taskAdd(deps, "taken", null);
 		await taskAdd(deps, "rougher", null);
 		await add(deps, "work", { tasks: [3] });
@@ -151,5 +151,37 @@ describe("Groomer", () => {
 
 		expect(told).toEqual([]);
 		expect(await conversations.persistent(GROOMER_ROLE)).toBeNull();
+	});
+
+	it("once the backlog is empty, asks for lanes for the Untriaged tasks no run looked at, once each", async () => {
+		await taskAdd(deps, "rough", null);
+		await taskAdd(deps, "ready", null, { ready: true });
+		await taskAdd(deps, "laned", null, { ready: true, lane: "new" });
+		await taskAdd(deps, "also ready", null, { ready: true });
+		await taskAdd(deps, "taken", null, { ready: true });
+		await add(deps, "work", { tasks: [5] });
+
+		await groomer.wake({ agent: "fake" });
+		await taskAdd(deps, "later", null, { ready: true });
+		await groomer.wake({ agent: "fake" });
+
+		expect(told).toEqual([
+			"[SPLATES GROOM #1]",
+			"[SPLATES SORT #2 #4]",
+			"[SPLATES SORT #6]",
+		]);
+		expect((await deps.tasks.find(2)).state.sorted).toBe(true);
+	});
+
+	it("asks for no lane for a lone Untriaged task with no lane to put it in", async () => {
+		await taskAdd(deps, "alone", null, { ready: true });
+
+		await groomer.wake({ agent: "fake" });
+		expect(told).toEqual([]);
+		expect(await conversations.persistent(GROOMER_ROLE)).toBeNull();
+
+		await taskAdd(deps, "another", null, { ready: true });
+		await groomer.wake({ agent: "fake" });
+		expect(told).toEqual(["[SPLATES SORT #1 #2]"]);
 	});
 });

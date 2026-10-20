@@ -6,55 +6,6 @@ import type { AgentPick } from "../models";
 import type { Facts, Journal } from "../records";
 import type { Tasks } from "./tasks";
 
-/** What a task is on disk: one file apiece, so two agents never rewrite one. */
-export interface TaskRecord {
-	id: number;
-	/** What is left to do, in a line. */
-	subject: string;
-	/** Whatever more there is to say about it, or empty when the line is enough. */
-	text: string;
-	/** Where it stands in the list, 1 at the top: the one to pick up first. */
-	position: number;
-	/** The task it came up in, or null when a person added it from the main tree. */
-	from: string | null;
-	createdAt: string;
-	slug?: string;
-	/** The task working on it now, or null while it waits to be picked up. */
-	takenBy: string | null;
-	/** Absolute paths of the files attached, in `tasks/<id>/`. */
-	files: string[];
-	/**
-	 * The tasks that have to merge before this one starts, sorted. One leaves
-	 * the list when it merges or is removed, and with it every link to it.
-	 */
-	blockedBy: number[];
-	/** The lane it runs in, or null for none. */
-	lane: number | null;
-	/** How far it has come: groomed, queued, running, or none of them yet. */
-	stage: TaskStage;
-	/** Whether it was groomed, kept once queued and running, so one let go goes back to ready. */
-	groomed?: true;
-	/** The groomer conversation that claimed it, in the backlog untaken; absent for none. */
-	grooming?: string;
-	/** The agent, and model, that should work it, over its lane's; absent for none. */
-	assignee?: AgentPick;
-	/** The other project it was added from; absent for one added here. */
-	origin?: TaskOrigin;
-	/**
-	 * Tasks it was blocked by that merged, and the commit each landed as, so
-	 * whoever starts it can read what it builds on; absent for none.
-	 */
-	blockersLanded?: LandedBlocker[];
-	/**
-	 * Tasks it was blocked by that were removed without merging. While any
-	 * is here, nothing starts it on its own: whether it still makes sense is
-	 * the person's call, made by unlinking each. Absent for none.
-	 */
-	blockersLost?: GoneBlocker[];
-	/** Its last Auto pick, with what the judge said of its words; absent for none. */
-	autoPick?: AutoPicked;
-}
-
 /**
  * Work deferred for later: what an agent notes when something outside its
  * task comes up, so it can move on instead of growing the task. Kept under the
@@ -149,9 +100,30 @@ export class Task {
 				return state;
 			}
 			claimed = true;
-			return { ...state, grooming: by };
+			// Grooming places it in a lane too, so no sort looks at it again.
+			return { ...state, grooming: by, sorted: true };
 		});
 		return claimed;
+	}
+
+	/**
+	 * Marks it as looked at for a lane, saying whether this marked it: false
+	 * for one taken, in a lane, or already looked at.
+	 */
+	async sort(): Promise<boolean> {
+		let marked = false;
+		await this.tasks.revise(this.id, (state) => {
+			if (
+				state.takenBy !== null ||
+				state.lane !== null ||
+				state.sorted === true
+			) {
+				return state;
+			}
+			marked = true;
+			return { ...state, sorted: true };
+		});
+		return marked;
 	}
 
 	/**
@@ -264,6 +236,57 @@ export class Task {
 	discard(): Promise<void> {
 		return this.tasks.discard(this.state);
 	}
+}
+
+/** What a task is on disk: one file apiece, so two agents never rewrite one. */
+export interface TaskRecord {
+	id: number;
+	/** What is left to do, in a line. */
+	subject: string;
+	/** Whatever more there is to say about it, or empty when the line is enough. */
+	text: string;
+	/** Where it stands in the list, 1 at the top: the one to pick up first. */
+	position: number;
+	/** The task it came up in, or null when a person added it from the main tree. */
+	from: string | null;
+	createdAt: string;
+	slug?: string;
+	/** The task working on it now, or null while it waits to be picked up. */
+	takenBy: string | null;
+	/** Absolute paths of the files attached, in `tasks/<id>/`. */
+	files: string[];
+	/**
+	 * The tasks that have to merge before this one starts, sorted. One leaves
+	 * the list when it merges or is removed, and with it every link to it.
+	 */
+	blockedBy: number[];
+	/** The lane it runs in, or null for none. */
+	lane: number | null;
+	/** How far it has come: groomed, queued, running, or none of them yet. */
+	stage: TaskStage;
+	/** Whether it was groomed, kept once queued and running, so one let go goes back to ready. */
+	groomed?: true;
+	/** The groomer conversation that claimed it, in the backlog untaken; absent for none. */
+	grooming?: string;
+	/** Set once a groomer has looked for a lane to put it in, so none looks again. */
+	sorted?: true;
+	/** The agent, and model, that should work it, over its lane's; absent for none. */
+	assignee?: AgentPick;
+	/** The other project it was added from; absent for one added here. */
+	origin?: TaskOrigin;
+	/**
+	 * Tasks it was blocked by that merged, and the commit each landed as, so
+	 * whoever starts it can read what it builds on; absent for none.
+	 */
+	blockersLanded?: LandedBlocker[];
+	/**
+	 * Tasks it was blocked by that were removed without merging. While any
+	 * is here, nothing starts it on its own: whether it still makes sense is
+	 * the person's call, made by unlinking each. Absent for none.
+	 */
+	blockersLost?: GoneBlocker[];
+	/** Its last Auto pick, with what the judge said of its words; absent for none. */
+	autoPick?: AutoPicked;
 }
 
 /**

@@ -8,7 +8,7 @@ import {
 	SERVER_TOLD,
 } from "../conversations";
 import { type AgentPick, effortSettings } from "../models";
-import { groomReference, need } from "../plans";
+import { groomReference, need, sortReference } from "../plans";
 
 /**
  * The project's groomer, one at a time: woken by a task added to the
@@ -27,6 +27,11 @@ import { groomReference, need } from "../plans";
  * A task someone takes meanwhile, or one already groomed, is left be, as
  * the claim (`Task.groom`) refuses it; one a groomer had its turn on and
  * left in the backlog keeps its claim, so no later run grooms it again.
+ *
+ * Once the backlog is empty, it tells the run `[SPLATES SORT #N ...]`
+ * for the Untriaged tasks not yet looked at, marking each (`Task.sort`) so
+ * none is looked at twice, for it to find them lanes: one at a time, a
+ * task shows no theme it shares with others.
  */
 export class Groomer implements Resource {
 	/** The drain running now, which a wake meanwhile asks to go round again. */
@@ -92,28 +97,37 @@ export class Groomer implements Resource {
 			await this.#hold();
 			// Turned off or paused meanwhile, it stops after the turn it was on.
 			while (this.#pick !== null && this.#pick !== "paused") {
-				const backlog = (await this.deps.tasks()).filter(
+				const tasks = await this.deps.tasks();
+				const backlog = tasks.filter(
 					(task) =>
 						task.state.stage === "backlog" &&
 						task.takenBy === null &&
 						task.state.grooming === undefined,
 				);
-				if (backlog.length === 0) {
+				const unsorted = backlog.length === 0 ? toSort(tasks) : [];
+				if (backlog.length === 0 && unsorted.length === 0) {
 					return;
 				}
 				if (conversation === null) {
 					conversation = await this.#start(pick);
 					this.#running = conversation;
 				}
-				const next = await claimFirst(backlog, conversation.id);
-				if (next === null) {
+				const told =
+					backlog.length > 0
+						? await claimFirst(backlog, conversation.id).then((next) =>
+								next === null ? null : groomReference(next.id),
+							)
+						: await markSorted(unsorted).then((ids) =>
+								ids.length === 0 ? null : sortReference(ids),
+							);
+				if (told === null) {
 					return;
 				}
-				await conversation.prompt(groomReference(next.id), [], undefined, {
+				await conversation.prompt(told, [], undefined, {
 					told: SERVER_TOLD,
 				});
 				await this.#settled(conversation);
-				this.deps.log.info(`the groomer had its turn on task ${next.id}`);
+				this.deps.log.info(`the groomer had its turn on ${told}`);
 				if (conversation.state.status === "failed") {
 					this.deps.log.error(
 						`the groomer's agent failed, so the backlog waits for its next wake: ${conversation.state.error ?? "no reason given"}`,
@@ -269,6 +283,36 @@ export interface GroomerDeps {
 
 /** What a conversation is at while a turn of its is under way. */
 const BUSY = new Set(["starting", "running"]);
+
+/**
+ * The Untriaged tasks waiting to start that no groomer has looked at for a
+ * lane; none while there is nothing to place one with: no lane, and no
+ * other Untriaged task.
+ */
+function toSort(tasks: readonly Task[]): Task[] {
+	const untriaged = tasks.filter(
+		(task) =>
+			task.lane === null &&
+			task.takenBy === null &&
+			(task.state.stage === "ready" || task.state.stage === "queued"),
+	);
+	const placeable =
+		untriaged.length > 1 || tasks.some((task) => task.lane !== null);
+	return placeable
+		? untriaged.filter((task) => task.state.sorted !== true)
+		: [];
+}
+
+/** The ids of those of `tasks` this marked as looked at for a lane. */
+async function markSorted(tasks: readonly Task[]): Promise<number[]> {
+	const ids: number[] = [];
+	for (const task of tasks) {
+		if (await task.sort()) {
+			ids.push(task.id);
+		}
+	}
+	return ids;
+}
 
 /** The first of `backlog` claimed for `by`, or null when none would be. */
 async function claimFirst(

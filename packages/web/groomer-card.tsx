@@ -100,8 +100,9 @@ export function GroomerForm({
 				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
 			</div>
 			<p className="text-muted-foreground text-sm">
-				It grooms each task deferred rough to the backlog, one at a time, in a
-				conversation of its own, as the agent picked here.
+				It grooms each task deferred rough to the backlog, one at a time, then
+				finds lanes for Untriaged tasks, in a conversation of its own, as the
+				agent picked here.
 			</p>
 			<AssigneeMenu assignee={picked} onPick={setPicked} />
 			<Refusal refusal={refusal} />

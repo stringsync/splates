@@ -198,7 +198,7 @@ function Runs({ hook, does }: { hook: Hook; does: string }): JSX.Element {
 			>
 				{hook.kind === "agent"
 					? hook.prompt
-					: "Grooms each task deferred rough to the backlog, then marks it ready."}
+					: "Grooms each task deferred rough to the backlog, then marks it ready, and finds lanes for Untriaged tasks."}
 			</p>
 		</div>
 	);

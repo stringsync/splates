@@ -14,6 +14,7 @@ import {
 	RESUME,
 	scheduleReference,
 	setupReference,
+	sortReference,
 	taskNumberReference,
 	taskReference,
 } from "./prompts";
@@ -36,6 +37,7 @@ describe("the splates skill's Directives table", () => {
 				eventReference("<event>", [0], "<task>").replace("0", "N"),
 				scheduleReference("<n>"),
 				groomReference(0).replace("0", "N"),
+				sortReference([0]).replace("0", "N ..."),
 				AUDIT,
 			].toSorted(),
 		);

@@ -82,7 +82,13 @@ export class HookStore {
 			return [];
 		}
 		if ("automations" in parsed && Array.isArray(parsed.automations)) {
-			return parsed.automations as Automation[];
+			// The groomer's trigger is splates's own, so one saved before it
+			// changed wakes it as it is now.
+			return (parsed.automations as Automation[]).map((each) =>
+				each.id === GROOMER_AUTOMATION && each.source === "builtin"
+					? { ...each, trigger: GROOMER_TRIGGER }
+					: each,
+			);
 		}
 		return fromHooks(parsed as Hooks);
 	}

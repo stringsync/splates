@@ -47,6 +47,15 @@ export function groomReference(id: number): string {
 	return `[SPLATES GROOM #${id}]`;
 }
 
+/**
+ * What tells the project's groomer to look for lanes for Untriaged tasks
+ * `ids`, which `splates server` marked as looked at: the splates skill says
+ * what it means.
+ */
+export function sortReference(ids: readonly number[]): string {
+	return `[SPLATES SORT ${ids.map((id) => `#${id}`).join(" ")}]`;
+}
+
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;
@@ -82,11 +91,11 @@ export function setupReference(step: string): string {
 /**
  * Whether `text` is an update splates itself tells the conversation that handed
  * tasks out: a report, or, in a conversation from before lanes stopped
- * running, idle, a task done, open, added or to groom, or lanes done; never
- * the person's word.
+ * running, idle, a task done, open, added, to groom or to sort, or lanes
+ * done; never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|LANES DONE)\]$/.test(
+	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|SORT(?: #\d+)+|LANES DONE)\]$/.test(
 		directive(text),
 	);
 }
