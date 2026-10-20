@@ -93,8 +93,8 @@ export function stretches(text: string): Stretch[] {
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a
- * task ended or what it waits on, a task it proposes, or a demo for the
- * person to try.
+ * task ended or what it waits on, a task it proposes, work it asks the person
+ * to queue, or a demo for the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -103,6 +103,7 @@ export type Stretch =
 	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: TaskReport }
 	| { type: "todo"; todo: TodoProposal }
+	| { type: "queue"; queue: QueueProposal }
 	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
@@ -163,6 +164,22 @@ export interface TodoProposal {
 	body: string;
 }
 
+/**
+ * Work the agent added and asks the person to queue, as the skill's `## 📥
+ * Queue lane <n>: <name>` or `## 📥 Queue #<n>, #<n>: <what>` puts it: an
+ * agent never queues work itself, so the card's buttons are the person's.
+ */
+export interface QueueProposal {
+	/** The lane to queue whole; null for tasks named one by one. */
+	lane: number | null;
+	/** The tasks named one by one; none for a lane. */
+	tasks: number[];
+	/** What the title says after its colon, if anything. */
+	title: string | null;
+	/** What the work adds up to, as markdown. */
+	body: string;
+}
+
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
 const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 /**
@@ -177,6 +194,8 @@ const ENDED =
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+const QUEUE =
+	/^## 📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
  * within its body.
@@ -198,7 +217,7 @@ const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 
 /**
- * The report or proposed task titled at `start`, which runs until
+ * The report, proposed task or work to queue titled at `start`, which runs until
  * whatever begins next, and the line after it; null for any
  * other line.
  */
@@ -211,7 +230,9 @@ function keptAt(
 	const ended = ENDED.exec(line);
 	const workingTask = WORKING_TASK.exec(line);
 	const proposed = PROPOSAL.exec(line);
+	const queue = QUEUE.exec(line);
 	if (
+		queue === null &&
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
@@ -227,6 +248,20 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
+	if (queue !== null) {
+		return {
+			stretch: {
+				type: "queue",
+				queue: {
+					lane: queue[1] === undefined ? null : Number(queue[1]),
+					tasks: Array.from((queue[2] ?? "").matchAll(/\d+/g), Number),
+					title: queue[3] || null,
+					body,
+				},
+			},
+			end,
+		};
+	}
 	if (proposed !== null) {
 		return {
 			stretch: {

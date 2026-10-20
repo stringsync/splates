@@ -3,7 +3,6 @@ import { age } from "../age";
 import { type Task, type TaskRecord, type Tasks, unqueued } from "../board";
 import { fail } from "../exit";
 import { pickLabel } from "../models";
-import { leadingDirectives, QUEUE } from "../plans";
 import { table } from "../table";
 import type { WorktreeService } from "../tasks";
 import { holdsBack, queueOrder } from "./order";
@@ -178,49 +177,24 @@ function waitsOn(task: TaskRecord, all: readonly TaskRecord[]): string {
 }
 
 /**
- * Refuses a command that queues work when an agent runs it: only the person
- * queues, as `splates add --agent` is refused. The server starts its tasks
- * with neither variable set. `queue add` alone goes through for the agent of
- * a conversation where the person sent `[SPLATES QUEUE]`, asking it to queue
- * what it adds.
+ * Refuses a command that changes the queue when an agent runs it: only the
+ * person queues, unqueues or orders work, as `splates add --agent` is
+ * refused, and an agent asks them to through the queue card its reply ends
+ * with. The server starts its tasks with neither variable set.
  */
-export async function refuseAgentQueue(
-	service: Pick<WorktreeService, "ps" | "conversation" | "conversationLog">,
+export function refuseAgentQueue(
+	service: Pick<WorktreeService, "ps">,
 	command: string,
-): Promise<void> {
+): void {
 	const asking =
 		service.ps.env("SPLATES_CONVERSATION") ??
 		service.ps.env("SPLATES_STARTED_BY");
 	if (asking === undefined) {
 		return;
 	}
-	if (command === "queue add" && (await askedToQueue(service))) {
-		return;
-	}
 	fail(
 		"usage",
-		`an agent does not queue work, so it runs no \`splates ${command}\`: \`splates task add\` the work, and the person queues it`,
+		`an agent does not change the queue, so it runs no \`splates ${command}\`: \`splates task add\` the work and end your reply with a queue card for the person to queue it`,
 		{ command, caller: asking },
-	);
-}
-
-/**
- * Whether the person sent `[SPLATES QUEUE]` in the conversation whose agent
- * runs this command: a prompt of theirs, never one an agent told it, that
- * leads with it.
- */
-async function askedToQueue(
-	service: Pick<WorktreeService, "conversation" | "conversationLog">,
-): Promise<boolean> {
-	const id = await service.conversation();
-	if (id === undefined) {
-		return false;
-	}
-	const entries = await service.conversationLog(id).replay();
-	return entries.some(
-		(entry) =>
-			entry.kind === "prompt" &&
-			entry.told === undefined &&
-			leadingDirectives(entry.text).directives.includes(QUEUE),
 	);
 }

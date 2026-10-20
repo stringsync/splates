@@ -1,6 +1,7 @@
 export type {
 	Ending,
 	Proposal,
+	QueueProposal,
 	Review,
 	Stretch,
 	TaskReport,
@@ -52,7 +53,6 @@ export {
 	isUpdate,
 	leadingDirectives,
 	MERGE,
-	QUEUE,
 	RECONNECT,
 	RESUME,
 	scheduleReference,

@@ -1,6 +1,6 @@
 # Queueing tasks
 
-Writing a task (Queueing tasks), deferring it, queueing it for the user, and linking,
+Writing a task (Queueing tasks), deferring it, asking the user to queue it, and linking,
 placing and ordering it. Grooming one, whether you write it, start it or
 groom the backlog, is in [groom.md](groom.md). Ordering is the user's (see
 Positions).
@@ -64,26 +64,47 @@ Either way, take no further step toward the request and reply with nothing
 beyond the line the page shows for the task; then, after a request, carry on
 with any work under way, and, sent alone, end your turn.
 
-## Queueing for the user
+## Asking the user to queue
 
-`[SPLATES QUEUE]` asks you to queue a request for a worker to start: the
-words after it, or, sent alone, the user's message before it. Do none of
-the work, and start no task of your own for it.
+You never change the queue: splates refuses an agent `splates queue add`,
+`remove` and `move`, and `splates lane queue` and `unqueue`. The user
+queues, from the board or from the queue card your reply ends with.
 
-1. **Work out what they want.** Read what you need of the code to know what
-   the request asks and what it touches. Ask each call the user's answer
-   would change as [questions.md](questions.md) says, and end your turn on them:
-   the task waits until you understand the request.
-2. **Add it groomed**, as Grooming a task you write in [groom.md](groom.md) says, with
-   `splates task add` from the main tree (or your worktree, when a task is
-   under way): a subject, and a detail that holds every answer, since the
-   worker that starts it reads nothing else. When an open task already asks
-   it, update that one instead and queue it.
-3. **Queue it** with `splates queue add <n>`, which `[SPLATES QUEUE]` lets
-   you run in this conversation.
+When a conversation asks for several tasks, more than one coherent change,
+such as a feature in steps or a list of fixes, add them as a lane rather
+than do them all here: `splates lane add '<name>'`, named for what they add
+up to, then `splates task add` each into it, groomed and linked as Lanes
+says. Leave one change with a follow-up or two to a task and its follow-ups,
+and do the change itself when the user asked for it. Then end your reply
+with the lane's queue card, naming it by number, and what the tasks add up
+to under it:
 
-Reply with nothing beyond the lines the page shows for the task; then, after
-a request, carry on with any work under way, and, sent alone, end your turn.
+```markdown
+## 📥 Queue lane 7: Billing export
+
+The CSV writer first, then the endpoint and the page's button that use it.
+```
+
+When the user asks you to queue a request for a worker, rather than do it,
+work out what it wants first: read what you need of the code, and ask each
+call their answer would change as [questions.md](questions.md) says, ending
+your turn on them, since whoever starts it reads nothing but the task. Then
+add it groomed, as Grooming a task you write in [groom.md](groom.md) says,
+updating an open task that already asks it rather than adding another, and
+end your reply with its card, naming each task by number:
+
+```markdown
+## 📥 Queue #31, #32: Upload fixes
+
+Both stop retries the server already refused.
+```
+
+The `splates server` page lists the work on the card as the board has it,
+with Queue now and Later for the user to choose; the choice is theirs and
+reaches only the board, never you. Ask for one queue card a reply, at its
+end, and leave it at that: whatever the user picks, carry on with any work
+under way, and do none of the work on the card in this conversation unless
+they ask you to.
 
 ## Links
 
@@ -109,63 +130,20 @@ list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,
   files, or context: `--lane <n>` puts it at the bottom.
-- **A new lane** only once the user says yes to one (see Offering a
-  lane): `splates lane add '<name>'`, named for what the chain adds up to,
-  then `--lane <n>`. Never start one on your own.
+- **A new lane** when it starts a chain that more tasks will follow:
+  `splates lane add '<name>'`, named for what the chain adds up to, then
+  `--lane <n>`. A lane you add for the user to queue ends your reply with
+  its queue card (see Asking the user to queue).
 - **Untriaged** otherwise, the default, for the user to place.
 
 `splates task update <id> --lane <n>` moves one that exists.
 
-Only when the user asks to work a whole lane, or says yes when you offer
-to queue it, `splates lane queue <n>` queues it whole: each of its tasks is queued as soon as nothing blocks it,
-those added later too, until the lane is empty. A task the user takes out
-with `splates queue remove` stays out until queued again. `splates lane
-unqueue <n>` stops it, taking out of the queue each of its tasks yet to
-start. Untriaged cannot be queued whole.
-
-A queued lane starts each task added to it with no one asking, so add a
-task to one only once the user says yes to it. When a task you add belongs
-in a queued lane, add it Untriaged and ask whether to move it in, and on a
-yes `splates task update <id> --lane <n>`:
-
-```markdown
-1. Should #31 go in Billing export, which is queued?
-   It needs the endpoint #28 adds. In the lane it starts once #28 lands.
-   - (a) Leave it Untriaged, for you to place (chosen)
-   - (b) Move it into Billing export, queued to start
-```
-
-Never queue a lane on your own: `splates lane queue` only when the user
-asks, or says yes when you offer it below.
-
-### Offering a lane
-
-When a conversation clearly asks for several tasks, more than one coherent
-change, such as a feature in steps or a list of fixes, ask the user, before
-adding any of them, whether to make them a lane and whether to queue it, in
-one question that names the tasks you would add:
-
-```markdown
-1. Should these four tasks go in a new lane, Billing export?
-   The CSV writer; the endpoint, after the writer; the page's button; docs.
-   - (a) Add them in a new lane, for you to queue from the board (chosen)
-   - (b) Add them in a new lane and queue it whole, starting each task once nothing blocks it
-   - (c) Add them Untriaged, for you to place
-   - (d) Do it all as one task here
-```
-
-Ask once per conversation, and only when the split is plain: one change
-with a follow-up or two is a task and its follow-ups, never a lane. On (a)
-or (b), `splates lane add` the lane and `splates task add` each task into
-it, groomed and linked as above, then, on (b) alone, `splates lane queue
-<n>`. Do none of the lane's work in this conversation unless the user asks
-you to.
-
-Only the user queues. You never run `splates queue add` or `move`: they are
-refused for an agent. Put work in a lane with `splates task add` and leave
-queueing it to the user. The one exception is `[SPLATES QUEUE]` (see
-Queueing for the user): sent by the user, it lets you `splates queue add`
-what it asks.
+The user queues a lane whole, from the board or a queue card: each of its
+tasks is queued as soon as nothing blocks it, those added later too, until
+the lane is empty. So a task you add to a queued lane starts with no one
+asking: the user queued the lane for its work to go on. A task the user
+takes out of the queue stays out until queued again. Untriaged cannot be
+queued whole.
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),

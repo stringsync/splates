@@ -258,6 +258,41 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads work to queue, a lane whole or tasks one by one", () => {
+		const found = stretches(
+			[
+				"## 📥 Queue lane 3: Billing export",
+				"",
+				"Four tasks, the CSV writer first.",
+				"",
+				"## 📥 Queue #12, #14",
+				"",
+				"Two fixes to uploads.",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "queue",
+				queue: {
+					lane: 3,
+					tasks: [],
+					title: "Billing export",
+					body: "Four tasks, the CSV writer first.",
+				},
+			},
+			{
+				type: "queue",
+				queue: {
+					lane: null,
+					tasks: [12, 14],
+					title: null,
+					body: "Two fixes to uploads.",
+				},
+			},
+		]);
+	});
+
 	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

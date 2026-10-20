@@ -9,6 +9,7 @@ import {
 } from "@stringsync/splates-server/board";
 import { refuseGroomer } from "@stringsync/splates-server/conversations";
 import { UNTRIAGED } from "@stringsync/splates-server/plans";
+import { refuseAgentQueue } from "@stringsync/splates-server/queue";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import { cli } from "webappwiz/cmd";
@@ -99,6 +100,7 @@ splatesLane
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
+		refuseAgentQueue(ctx.service, "lane queue");
 		await refuseGroomer(ctx.service, "lane queue");
 		const change = { queued: true };
 		await ctx.journal.record(
@@ -119,6 +121,7 @@ splatesLane
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
+		refuseAgentQueue(ctx.service, "lane unqueue");
 		const change = { queued: false };
 		await ctx.journal.record(
 			"lane update",

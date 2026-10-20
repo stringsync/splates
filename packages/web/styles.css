@@ -148,6 +148,7 @@
 @source "./close-terminal.tsx";
 @source "./review-panel.tsx";
 @source "./report-cards.tsx";
+@source "./queue-card.tsx";
 @source "./report-header.tsx";
 @source "./merged-stats.tsx";
 @source "./card-shell.tsx";

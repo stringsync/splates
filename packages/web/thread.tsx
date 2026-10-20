@@ -52,6 +52,7 @@ import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
+import { QueueUI } from "./queue-card";
 import { useTakeBack } from "./queued";
 import { GoingUI, QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
@@ -292,6 +293,7 @@ function Conversation({
 										<ReviewUI />
 										<ReportUI />
 										<TodoUI />
+										<QueueUI />
 										<DemoUI />
 										<WorkUI />
 										<QueuedUI />

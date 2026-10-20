@@ -37,10 +37,11 @@ page turns only the list into a card the user answers with a tap.
 [references/questions.md](references/questions.md) has the rest, and
 says what a conversation with no task does with the answers.
 
-When a conversation clearly asks for several tasks, ask the user, in one
-question, whether to make them a lane and whether to queue it, as
-[references/queue.md](references/queue.md), Offering a lane, says. Never
-queue a lane, or add a task to a queued one, that they have not said yes to.
+You never change the queue, which splates refuses an agent: when a
+conversation asks for several tasks, add them as a lane, and when the user
+asks you to queue work, add it; either way, end your reply with its queue
+card for the user to queue it now or later, as
+[references/queue.md](references/queue.md), Asking the user to queue, says.
 
 ## Directives
 
@@ -56,7 +57,6 @@ asks you to read it as Reference files says.
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": [merge.md](references/merge.md), Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": [proposing.md](references/proposing.md) |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
-| `[SPLATES QUEUE]` | Work out with the user what the request after it wants, or, alone, their message before it, then add it as a task, groom it yourself and queue it, never doing it | [queue.md](references/queue.md), Queueing for the user |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
@@ -73,9 +73,8 @@ the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
 - Before `splates task add` or `splates task defer`, `splates lane add`,
-  `splates lane queue` or `unqueue`, `splates queue add`, or `splates task
-  update` or `splates lane update` with `--lane`, `--position` or
-  `--blocked-by`: [references/queue.md](references/queue.md), writing,
+  a queue card, or `splates task update` or `splates lane update` with
+  `--lane`, `--position` or `--blocked-by`: [references/queue.md](references/queue.md), writing,
   deferring, linking, placing and ordering tasks.
 - Before `splates task add` or `--ready`, when you take a task `splates task
   show` says is `groomed: no`, and as the project's groomer:

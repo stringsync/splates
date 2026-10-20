@@ -76,6 +76,12 @@ Checks: `bun run typecheck`, `bun test`
 Reply "merge", or say what to change.
 ```
 
+Work you added for the user to queue ends your reply as its queue card,
+`## 📥 Queue lane <n>: <name>` or `## 📥 Queue #<n>, #<n>: <what>`, with a
+line or two under it on what the work adds up to; the page lists its tasks
+and gives the user Queue now and Later. It can follow any report, a merge
+or remove report too (see [queue.md](queue.md), Asking the user to queue).
+
 Ask every question to the user as an item of a list numbered from 1 at the
 margin, outside code blocks, wherever you ask it, even a lone one as
 `1. ...?`: only then does the page show it as a card with choices to tap.
