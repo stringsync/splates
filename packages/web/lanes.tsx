@@ -2,7 +2,11 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
-import { BACKLOG_LANE } from "@stringsync/splates-server/board/browser";
+import {
+	APPROVALS,
+	BACKLOG_LANE,
+	BUDGET_LOW,
+} from "@stringsync/splates-server/board/browser";
 import { ListPlusIcon } from "lucide-react";
 import {
 	type JSX,
@@ -11,11 +15,12 @@ import {
 	useContext,
 	useState,
 } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddTodo } from "./add-todo";
-import { renameLane } from "./api";
-import { Board } from "./board";
-import { laneRenamed } from "./board-expectations";
+import { approveLane, renameLane } from "./api";
+import { Board, still } from "./board";
+import { laneApproved, laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot } from "./expecting";
 import { GroomUntriaged } from "./groom-untriaged";
@@ -218,6 +223,9 @@ export function Lane({
 						</>
 					)}
 				</span>
+				{lane.queued &&
+					lane.budget !== undefined &&
+					lane.budget <= BUDGET_LOW && <LaneApproval lane={lane} />}
 				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards
@@ -229,6 +237,42 @@ export function Lane({
 			/>
 			<AddTodo lane={lane.id} />
 		</Column>
+	);
+}
+
+/**
+ * What a queued lane has left of the tasks it may queue on its own, once
+ * that is low, with a button for each size of approval that adds to it;
+ * at none the lane has stopped, and an approval lets it go on.
+ */
+function LaneApproval({ lane }: { lane: LaneState }): JSX.Element {
+	const { refuseLane } = useContext(Board);
+	const expect = useExpectSnapshot();
+	const left = lane.budget ?? 0;
+	return (
+		<div className="flex flex-wrap items-center gap-1 text-xs">
+			<span className="text-muted-foreground">
+				{left === 0 ? "Stopped for approval" : `${left} left to queue`}
+			</span>
+			{APPROVALS.map((more) => (
+				<Button
+					key={more}
+					size="xs"
+					variant="outline"
+					onClick={() =>
+						void expect(
+							laneApproved(lane.id, more),
+							approveLane(lane.id, more),
+						).catch((error: unknown) =>
+							refuseLane(lane.id, "Not approved", error),
+						)
+					}
+					{...still}
+				>
+					Approve {more} more
+				</Button>
+			))}
+		</div>
 	);
 }
 

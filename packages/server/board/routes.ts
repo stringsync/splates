@@ -153,11 +153,12 @@ export class BoardRoutes {
 	readonly updateLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		const { name, position, queued } = await body(request);
+		const { name, position, queued, approve } = await body(request);
 		const change = {
 			name: name === undefined ? undefined : String(name),
 			position: position === undefined ? undefined : Number(position),
 			queued: queued === undefined ? undefined : queued === true,
+			approve: approve === undefined ? undefined : Number(approve),
 		};
 		const lane = await journal.record(
 			"lane update",

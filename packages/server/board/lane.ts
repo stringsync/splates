@@ -237,18 +237,25 @@ export interface LaneUpdateOptions {
 	 * blocks it, until it is empty; false unqueues those yet to start.
 	 */
 	queued?: boolean;
+	/** How many more tasks a queued lane may queue on its own, added to its budget left. */
+	approve?: number;
 }
 
 /** Calls a lane by another name, moves it among the others, or queues it whole. */
 export async function laneUpdate(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ name, position, queued }: LaneUpdateOptions = {},
+	{ name, position, queued, approve }: LaneUpdateOptions = {},
 ): Promise<LaneRecord> {
-	if (name === undefined && position === undefined && queued === undefined) {
+	if (
+		name === undefined &&
+		position === undefined &&
+		queued === undefined &&
+		approve === undefined
+	) {
 		fail(
 			"usage",
-			"nothing to change: pass `--name <name>` or `--position <n>`",
+			"nothing to change: pass `--name <name>`, `--position <n>` or `--approve <n>`",
 			{ lane: id },
 		);
 	}
@@ -256,6 +263,7 @@ export async function laneUpdate(
 		name,
 		position,
 		queued,
+		approve,
 	});
 	log.info(
 		[
@@ -266,6 +274,11 @@ export async function laneUpdate(
 						queued
 							? "  queued whole: each of its tasks is queued once nothing blocks it, until it is empty"
 							: `  no longer queued whole${unqueued.length === 0 ? "" : `: unqueued ${unqueued.map((task) => `#${task.id}`).join(", ")}`}`,
+					]),
+			...(approve === undefined
+				? []
+				: [
+						`  approved ${approve} more task${approve === 1 ? "" : "s"} to queue on its own${record?.budget === undefined ? "" : `: ${record.budget} left`}`,
 					]),
 			...(order === undefined
 				? []
@@ -281,7 +294,7 @@ export async function laneUpdate(
 export function laneUpdated(
 	id: number,
 	record: LaneRecord,
-	{ name, position, queued }: LaneUpdateOptions,
+	{ name, position, queued, approve }: LaneUpdateOptions,
 ): Facts["lane update"] {
 	return {
 		lane: id,
@@ -290,6 +303,7 @@ export function laneUpdated(
 			...(name === undefined ? {} : { name }),
 			...(position === undefined ? {} : { position }),
 			...(queued === undefined ? {} : { queued }),
+			...(approve === undefined ? {} : { approve }),
 		},
 	};
 }

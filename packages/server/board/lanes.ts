@@ -7,6 +7,15 @@ import type { TaskRecord } from "./task";
  */
 
 /**
+ * Every lane, in the order `records` keeps them, each with its tasks in list
+ * order. A lane some task is in but `records` lacks, as one written before
+ * lanes had names, comes last, called by its number.
+ */
+export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
+	return named(tasks, records).map((record) => lane(tasks, record));
+}
+
+/**
  * A lane as stored: its number, never handed out again once it is gone, and
  * what it is called. Lanes are kept in the order the board shows them.
  */
@@ -23,6 +32,13 @@ export interface LaneRecord {
 	 * which it leaves out until they are queued again.
 	 */
 	skip?: number[];
+	/**
+	 * How many more tasks the lane may queue on its own before it stops for
+	 * the person to approve more: each one `queueFromLanes` queues takes one.
+	 * Set when the lane is queued; absent for a lane queued before budgets,
+	 * which has no limit.
+	 */
+	budget?: number;
 }
 
 /** A queue of tasks that build on each other, worked top first. */
@@ -43,15 +59,8 @@ export interface LaneState {
 	ready: boolean;
 	/** Whether the person queued the whole lane, as `LaneRecord.queued`. */
 	queued: boolean;
-}
-
-/**
- * Every lane, in the order `records` keeps them, each with its tasks in list
- * order. A lane some task is in but `records` lacks, as one written before
- * lanes had names, comes last, called by its number.
- */
-export function lanes(tasks: TaskRecord[], records: LaneRecord[]): LaneState[] {
-	return named(tasks, records).map((record) => lane(tasks, record));
+	/** The tasks it may still queue on its own, as `LaneRecord.budget`; absent for no limit. */
+	budget?: number;
 }
 
 /** A task that has to merge first, and where it stands now. */
@@ -100,7 +109,7 @@ export function named(
 /** The lane `record` stands for, empty when no task is in it. */
 export function lane(
 	tasks: TaskRecord[],
-	{ id, name, queued }: LaneRecord,
+	{ id, name, queued, budget }: LaneRecord,
 ): LaneState {
 	const steps = tasks
 		.filter((task) => task.lane === id)
@@ -126,6 +135,7 @@ export function lane(
 		blockers,
 		ready: next !== null && blockersOf(tasks, next).length === 0,
 		queued: queued === true,
+		...(queued === true && budget !== undefined ? { budget } : {}),
 	};
 }
 
@@ -284,3 +294,15 @@ export function lostLine(task: TaskRecord): string {
 	const lost = task.blockersLost ?? [];
 	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates task update ${task.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
 }
+
+/**
+ * The tasks a lane may queue on its own once queued whole, beyond those it
+ * holds then: room for the follow-ups its agents add, before it asks.
+ */
+export const LANE_SLACK = 5;
+
+/** A queued lane shows its budget, and the button to add to it, at or below this many tasks left. */
+export const BUDGET_LOW = 3;
+
+/** The sizes of an approval the person can give a queued lane, in tasks. */
+export const APPROVALS = [5, 10] as const;

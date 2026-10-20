@@ -2,6 +2,7 @@ import { relative, resolve, sep } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
+import { changeLane } from "./change-lane";
 import type { LaneUpdateOptions } from "./lane";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
@@ -285,31 +286,14 @@ export class Tasks {
 		return this.laneFiles.moveLane(id, position);
 	}
 
-	/**
-	 * Makes each change asked of lane `id`: a new name, a new place among
-	 * the lanes, queued whole or not. Gives back the lane after, the lanes in
-	 * order when it moved, and the tasks unqueued when it stopped being
-	 * queued whole.
-	 */
-	async changeLane(
-		id: number,
-		{ name, position, queued }: LaneUpdateOptions,
-	): Promise<{
-		record: LaneRecord | undefined;
-		order: LaneRecord[] | undefined;
-		unqueued: TaskRecord[];
-	}> {
-		const renamed =
-			name === undefined ? undefined : await this.renameLane(id, name);
-		const order =
-			position === undefined ? undefined : await this.moveLane(id, position);
-		const toggled =
-			queued === undefined ? undefined : await this.queueLane(id, queued);
-		return {
-			record: toggled?.lane ?? order?.find((each) => each.id === id) ?? renamed,
-			order,
-			unqueued: toggled?.unqueued ?? [],
-		};
+	/** Makes each change asked of lane `id`, as `changeLane` says. */
+	changeLane(id: number, change: LaneUpdateOptions) {
+		return changeLane(this, id, change);
+	}
+
+	/** Lets queued lane `id` queue `more` tasks beyond its budget left. */
+	approveLane(id: number, more: number): Promise<LaneRecord> {
+		return this.laneFiles.approveLane(id, more);
 	}
 
 	/** Queues lane `id` whole, or stops, unqueueing what it has yet to start. */

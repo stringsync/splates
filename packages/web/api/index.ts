@@ -18,6 +18,7 @@ export {
 export {
 	addLane,
 	addTodo,
+	approveLane,
 	arrangeTodo,
 	assignTodo,
 	dropLane,

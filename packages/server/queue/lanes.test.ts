@@ -56,6 +56,7 @@ describe.concurrent("a lane queued whole", () => {
 			id: 1,
 			name: "Licensing",
 			queued: true,
+			budget: 5,
 		});
 	});
 
@@ -110,5 +111,33 @@ describe.concurrent("a lane queued whole", () => {
 			{ id: 1, name: "Licensing" },
 			{ id: 0, name: "Backlog" },
 		]);
+	});
+
+	it("queues no more than its budget until the person approves more", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "first", null, { lane: 1 });
+		await laneUpdate(deps, 1, { queued: true });
+		// One task in it, plus the slack agents' follow-ups spend.
+		expect((await deps.tasks.lanes())[0]?.budget).toBe(6);
+
+		await taskAdd(deps, "a", null, { lane: 1 });
+		await taskAdd(deps, "b", null, { lane: 1 });
+		await taskAdd(deps, "c", null, { lane: 1 });
+		await taskAdd(deps, "d", null, { lane: 1 });
+		await taskAdd(deps, "e", null, { lane: 1 });
+		await taskAdd(deps, "f", null, { lane: 1 });
+		await taskAdd(deps, "g", null, { lane: 1 });
+		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
+			1, 2, 3, 4, 5, 6,
+		]);
+		expect((await deps.tasks.lanes())[0]?.budget).toBe(0);
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+
+		await laneUpdate(deps, 1, { approve: 5 });
+		expect((await deps.tasks.queueFromLanes()).map((task) => task.id)).toEqual([
+			7, 8,
+		]);
+		expect((await deps.tasks.lanes())[0]?.budget).toBe(3);
 	});
 });

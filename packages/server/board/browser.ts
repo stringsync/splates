@@ -1,6 +1,8 @@
 export { BACKLOG_LANE } from "./backlog";
 export type { LaneRecord, LaneState } from "./lanes";
 export {
+	APPROVALS,
+	BUDGET_LOW,
 	blockerLabel,
 	cycle,
 	followers,

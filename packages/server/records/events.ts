@@ -198,6 +198,8 @@ export interface Facts {
 			running?: boolean;
 			/** Whether it is queued whole from now on, each task queued once nothing blocks it. */
 			queued?: boolean;
+			/** How many more tasks it may queue on its own, added to its budget. */
+			approve?: number;
 		};
 	};
 	"lane remove": {

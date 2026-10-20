@@ -146,9 +146,21 @@ export function laneQueued(id: number, queued: boolean) {
 			if (lane.id !== id) {
 				return lane;
 			}
-			const { queued: _, skip: __, ...rest } = lane;
+			const { queued: _, skip: __, budget: ___, ...rest } = lane;
 			return queued ? { ...rest, queued: true as const } : rest;
 		}),
+	});
+}
+
+/** Queued lane `id` allowed `more` tasks beyond its budget left. */
+export function laneApproved(id: number, more: number) {
+	return (snapshot: Snapshot): Snapshot => ({
+		...snapshot,
+		lanes: snapshot.lanes.map((lane) =>
+			lane.id === id && lane.queued === true && lane.budget !== undefined
+				? { ...lane, budget: lane.budget + more }
+				: lane,
+		),
 	});
 }
 

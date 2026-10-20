@@ -116,6 +116,11 @@ export async function queueLane(id: number, queued: boolean): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { queued });
 }
 
+/** Lets queued lane `id` queue `more` tasks on its own, beyond its budget left. */
+export async function approveLane(id: number, more: number): Promise<void> {
+	await sendJson(`/api/lanes/${id}`, "PUT", { approve: more });
+}
+
 /** Removes lane `id` and the todos in it. */
 export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });
