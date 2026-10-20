@@ -32,6 +32,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	budget: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	workers: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	automations: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	"auto-pick": "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	setup: "mx-auto w-full min-w-0 max-w-xl px-4 pt-2 pb-6",
 	// A thread reaches across its right padding, so its scrollbar sits at the
 	// window's edge (`--thread-bleed-end`).

@@ -17,35 +17,26 @@ import {
 describe("App's Auto pick page", () => {
 	let testing: Testing;
 	let view: Awaited<ReturnType<Testing["open"]>>;
-	const realFetch = globalThis.fetch;
 
 	beforeEach(async () => {
 		testing = new Testing();
 		testing.talk = { agents: AGENTS, conversations: [] };
 		testing.autoPickRules = RULES;
-		// The Automations page reads a list the fake has no route for.
-		const fake = globalThis.fetch;
-		globalThis.fetch = ((input, init) =>
-			String(input).includes("/api/automations")
-				? Promise.resolve(Response.json({ automations: [] }))
-				: fake(input, init)) as typeof fetch;
 		view = await testing.open({
 			tasks: [details({ task: "alpha", autoPick: PICKED })],
+		});
+		await act(async () => {
+			location.hash = "#auto-pick";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
 	});
 
 	afterEach(() => {
-		globalThis.fetch = realFetch;
 		cleanup();
 		testing.dispose();
 	});
 
-	it("lists its picks under Auto pick's card in Automations, each opening to what it decided", async () => {
-		await act(async () => {
-			location.hash = "#automations";
-			window.dispatchEvent(new HashChangeEvent("hashchange"));
-		});
-
+	it("lists its picks on a page of its own, each opening to what it decided", async () => {
 		const summary = await waitFor(() => view.getByText(/Log of picks \(1\)/));
 		await act(async () => fireEvent.click(summary));
 		const line = await waitFor(() =>
@@ -60,11 +51,6 @@ describe("App's Auto pick page", () => {
 		const log = view.getByRole("list", { name: "Auto pick log" });
 		expect(log.textContent).toContain("task.started");
 		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
-	});
-
-	it("keeps Auto pick out of the sidebar", async () => {
-		await waitFor(() => view.getByRole("navigation"));
-		expect(view.queryByRole("button", { name: /^Auto pick/ })).toBeNull();
 	});
 });
 

@@ -15,6 +15,7 @@ import { Opening } from "./add-project";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
+import { AutoPickPage } from "./auto-pick-page";
 import { AutoRestart } from "./auto-restart";
 import { AutomationsPage } from "./automations";
 import { WatchBackground } from "./background";
@@ -36,6 +37,7 @@ import { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
+import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
 import { usePageMenu } from "./page-menu";
 import {
@@ -77,10 +79,6 @@ const NO_TASKS: Details[] = [];
 const NO_TODOS: TaskRecord[] = [];
 const NO_CONVERSATIONS: ConversationState[] = [];
 const NO_LANES: LaneRecord[] = [];
-
-/** The page's tree, drawn gray and faded: `index.html` has it in color. */
-const OFFLINE_ICON =
-	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🍽️</text></svg>";
 
 export function App({
 	settings,
@@ -131,18 +129,7 @@ export function App({
 		}),
 		["changed"],
 	);
-	// The tab says so too, for whoever has the page in the background.
-	useEffect(() => {
-		const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-		if (icon === null || !offline) {
-			return;
-		}
-		const online = icon.href;
-		icon.href = OFFLINE_ICON;
-		return () => {
-			icon.href = online;
-		};
-	}, [offline]);
+	useOfflineIcon(offline);
 	// Its own feed, since `splates server` holds conversations only when asked to.
 	const [talk] = useState(() => new ConversationFeed(timer, wall));
 	useDisposerEffect(
@@ -222,6 +209,8 @@ export function App({
 			openTask(task);
 		}
 	};
+	// What a run of an automation or a pick opens: its todo or its task.
+	const opens = { todo: openTodo, task: openTask };
 	const pick = (found: Found) => {
 		if (found.kind === "task") {
 			openTask(found.task);
@@ -323,12 +312,13 @@ export function App({
 							onOpenKeys={() => go("creds")}
 						/>
 					),
-					automations: (
-						<AutomationsPage
-							opens={{ todo: openTodo, task: openTask }}
+					automations: <AutomationsPage opens={opens} />,
+					"auto-pick": (
+						<AutoPickPage
+							mark={rule}
 							tasks={snapshot.tasks}
 							todos={snapshot.todos}
-							rule={rule}
+							opens={opens}
 						/>
 					),
 					setup: (

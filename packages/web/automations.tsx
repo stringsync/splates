@@ -1,5 +1,4 @@
 import type { TaskStage } from "@stringsync/splates-server/board";
-import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type {
 	AutomationRow,
 	Hook,
@@ -10,7 +9,6 @@ import {
 	TASK_EVENTS,
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
-import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { PauseIcon, PencilIcon, PlayIcon, XIcon } from "lucide-react";
 import {
@@ -29,7 +27,6 @@ import {
 } from "#web/components/ui/native-select.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutoPickRules } from "./auto-pick-card";
 import { AutomationDraft, type When } from "./automation-draft";
 import { AutomationFace, type RunOpens } from "./automation-face";
 import { AutomationList } from "./automation-list";
@@ -54,19 +51,7 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
  * checks in, which only `splates.config.ts` changes, and those splates
  * itself sets, as the groomer, whose agent is all that changes here.
  */
-export function AutomationsPage({
-	opens,
-	tasks,
-	todos,
-	rule = null,
-}: {
-	opens: RunOpens;
-	/** The tasks and queued tasks Auto pick's log is read from. */
-	tasks: readonly Details[];
-	todos: readonly TaskRecord[];
-	/** The Auto pick rule to set the page on, by its place from 0, or null. */
-	rule?: number | null;
-}): JSX.Element {
+export function AutomationsPage({ opens }: { opens: RunOpens }): JSX.Element {
 	const [list] = useState(() => new AutomationList());
 	useEffect(() => void list.read(), [list]);
 	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
@@ -126,12 +111,6 @@ export function AutomationsPage({
 							<GroomerOff onGroom={(pick) => list.groom(pick)} />
 						)}
 					</Group>
-					<AutoPickRules
-						mark={rule}
-						tasks={tasks}
-						todos={todos}
-						opens={opens}
-					/>
 				</>
 			)}
 			<AddForm onAdd={(trigger, hook) => list.add(trigger, hook)} />

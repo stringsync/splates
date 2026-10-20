@@ -137,6 +137,16 @@ describe("PageAddress", () => {
 		expect(read.open).toBeNull();
 	});
 
+	it("sets the Auto pick page on a rule, from its old place on the Automations page too", () => {
+		history.replaceState(null, "", "#auto-pick/2");
+		const read = new PageAddress();
+		history.replaceState(null, "", "#automations/auto-pick/3");
+		const old = new PageAddress();
+
+		expect([read.page, read.rule]).toEqual(["auto-pick", 1]);
+		expect([old.page, old.rule]).toEqual(["auto-pick", 2]);
+	});
+
 	it("puts back how far the page was scrolled when it left an entry", async () => {
 		address.go("conversations", null);
 		scrollTo(0, 240);

@@ -7,6 +7,7 @@ import {
 	ListChecksIcon,
 	type LucideIcon,
 	ServerIcon,
+	SparklesIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
@@ -23,7 +24,8 @@ import { TaskIcon } from "./task-icon";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`,
- * `#creds`, `#budget`, `#workers`, `#automations`, `#setup`, or the board.
+ * `#creds`, `#budget`, `#workers`, `#automations`, `#auto-pick` (or
+ * `#auto-pick/<n>` set on a rule), `#setup`, or the board.
  */
 export type Page =
 	| "todos"
@@ -34,6 +36,7 @@ export type Page =
 	| "budget"
 	| "workers"
 	| "automations"
+	| "auto-pick"
 	| "setup";
 
 /**
@@ -58,6 +61,7 @@ export const PAGES: {
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
+	{ value: "auto-pick", label: "Auto pick", Icon: SparklesIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
 ];
 
@@ -111,6 +115,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	budget: "min-w-0 px-4 py-6",
 	workers: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
+	"auto-pick": "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };
@@ -167,6 +172,6 @@ export interface PageRoute {
 	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
-	/** The Auto pick rule the Automations page is set on, by its place from 0, or null. */
+	/** The rule the Auto pick page is set on, by its place from 0, or null. */
 	rule: number | null;
 }

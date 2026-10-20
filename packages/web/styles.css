@@ -181,8 +181,8 @@
 @source "./automation-face.tsx";
 @source "./automations.tsx";
 @source "./groomer-card.tsx";
+@source "./auto-pick-log.tsx";
 @source "./auto-pick-page.tsx";
-@source "./auto-pick-card.tsx";
 @source "./meter.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";
