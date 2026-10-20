@@ -33,7 +33,7 @@ one was groomed when it was written: start work on it.
    links a task still open, `splates remove` yours, which puts it back, so
    it starts once that lands.
 3. **Ask what the user's answer would change**, under `## Blocked`, as
-   Questions in `SKILL.md` says, each conflict from step 1 among them, and
+   [questions.md](questions.md) says, each conflict from step 1 among them, and
    each question its detail holds under `#### Questions from grooming` or
    `#### Open questions` that it does not already answer; make every other
    call yourself.

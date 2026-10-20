@@ -64,7 +64,7 @@ mark it ready, when N:
   duplicates, splits into or touches.
 
 Leave it in the backlog, unmarked, and ask the user as numbered questions
-in your reply, as Questions in `SKILL.md` says, naming the task or commit
+in your reply, as [questions.md](questions.md) says, naming the task or commit
 each conflict is with. You have no `SPLATES.md`, so write the same questions
 into its detail under a `#### Questions from grooming` heading, keeping the
 rest, so they outlive this conversation: a later groomer, or the agent that

@@ -39,7 +39,7 @@ asks you to read it as Reference files says.
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
-| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo, at `before`, `after` or `main`, from its task dialog | Demos, Running a demo |
+| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo, at `before`, `after` or `main`, from its task dialog | [demos.md](references/demos.md), Running a demo |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -66,6 +66,16 @@ which remembers none of it.
   --project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
+- Before asking the user a question, after a reply, or when resuming a task
+  with questions under `## Blocked`: [references/questions.md](references/questions.md),
+  asking, recording answers and keeping Blocked current. Also read it when
+  you cannot go on without the user.
+- Before making a demo, starting a server for the user to try, attaching
+  screenshots or recordings, or creating or managing an artifact:
+  [references/demos.md](references/demos.md), demos, hosting and artifacts.
+- Before replying with a task outcome (merged, removed, waiting on answers
+  or ready for review): [references/reporting.md](references/reporting.md),
+  the exact report formats the page turns into cards.
 
 ## Workflow
 
@@ -90,7 +100,7 @@ which remembers none of it.
    the files it has changed so far. Overlap is normal: work alongside, and
    resolve any conflict as the rebase brings it, without waiting on the
    other task or noting it anywhere. If it is doing the opposite of what you
-   were asked, ask the user instead (see Questions).
+   were asked, ask the user instead (see [Questions](references/questions.md)).
    `splates add` warns when file paths in the Goal or the first changes overlap
    open tasks. Coordinate those files or queue dependent work with `--blocked-by`.
    While the server runs, `splates list` and `show` name coming conflicts at
@@ -104,7 +114,7 @@ which remembers none of it.
    queued (see Queueing tasks). A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
    itself for each test that failed its gate. Ask the user each call their
-   answer would change, and make the rest yourself (see Questions), bringing
+   answer would change, and make the rest yourself (see [Questions](references/questions.md)), bringing
    `## Blocked` up to date before each step. A subagent of your harness that may
    change code works in your worktree, with no task of its own: tell it the
    path, to commit there, to run no `splates` command that adds, claims,
@@ -119,7 +129,7 @@ which remembers none of it.
    `## Blocked` is checked, the task is ready to merge: `splates task add`
    any step you will not do, then check it off, `splates task add` or
    `defer` each follow-up you would otherwise offer or ask about once it
-   lands (see Reporting), and `splates merge --message
+   lands (see [Reporting](references/reporting.md)), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again, with the
    real message: never merge only to read a failure again, since one whose
@@ -141,8 +151,8 @@ which remembers none of it.
    can land only after the complete gate passes again. Conflicts are expected: resolve them and say
    nothing of them, in `SPLATES.md`, a report or a task. Write under
    `## Notes` what each `tests_failed` or `merge_failed` failed on. When
-   `merge` stops on `budget_exhausted`, ask the user (see When you cannot go
-   on): a `- ` line per attempt on what it failed on (the check that broke,
+   `merge` stops on `budget_exhausted`, ask the user (see [When you cannot go on](references/questions.md#when-you-cannot-go-on)):
+   a `- ` line per attempt on what it failed on (the check that broke,
    the tree in the way, or that it conflicted), one on what
    would get it through, then a question choosing between `splates retry
    <task>`, theirs to run (or the page's Retry), and a remove and redo.
@@ -211,163 +221,6 @@ what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
 user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
-## Questions
-
-Ask the user whenever their answer would change what you build: one reading
-of an ambiguous ask, a behavior or design they will see, a default they may
-want another way, a call a wrong guess would cost much rework to undo, one
-hard to reverse (a migration, data written, a message sent, anything outside
-the repo), or one that goes against something the user said before. Asking
-is cheap, so when in doubt, ask: the `splates server` page shows your
-questions as a card with your pick already chosen, so the user answers with
-a tap, and you carry on with that pick meanwhile rather than wait.
-
-Make the rest yourself, the calls the user would not care to weigh in on: a
-name only the code reads, a helper's shape, a log line. Take the better pick
-and carry on, saying nothing of it to the user; write it in a line under
-`## Notes` only when whoever resumes the task would need it.
-
-Ask in the format below and nowhere else: a numbered question under `##
-Blocked`, then in your reply as Reporting says, a lone question numbered
-`1.` too, so the page shows its question card. Never tuck a question into
-prose or put it through your harness's own question tool, which the page
-cannot show as a card. The task cannot merge
-until it is answered, though the user can answer in chat while you work.
-When an answer overturns a pick you built on, redo that part.
-
-An answer can reach you mid-turn, as a message that arrives while you work.
-Read it at the next step rather than at the end: record it (see Keeping
-Blocked current), and redo at once what it overturns, before building more on
-the choice. While a question is open, do the work it touches last where your
-plan allows, so an answer that overturns it costs little.
-
-Number questions 1, 2, … in the order you write them; numbers never change,
-and new ones continue from the highest. A question's line is its subject, short
-enough to scan and ending at its `?`, with nothing after it; everything else,
-the why included, goes in markdown lines indented under it, code blocks
-included. When checking your own work, ask for what is wrong rather than
-a bare yes or no. A yes or no decision is one of a few: give it `- (a) ...`
-choices, each saying what happens, never a bare "Yes" or "No", so the answer
-cannot be read two ways. When the answer is one of a few, end with
-`- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
-apply. Describe every choice, the one you went with too, and mark that one
-`(chosen)`: never a bare "That". List it first, as `(a)`: the `splates server`
-page puts it first and picks it for the user, who answers by changing it. When the answer is an order (what lands first, which task
-matters most), end with `- a. ...` lines in the order you would go with: the
-reply lists every letter in the order picked, `4. b, a, c`.
-
-When the pick is a close call, or the user may well want another,
-give a choice a `Why:` line indented under it: one sentence on why you would
-take it, or why not. Any choice can have one, the `(chosen)` one most often;
-leave it off where the choice says it all. The `splates server` page hides every
-`Why:` line until the user asks to see a question's reasons, so they never
-crowd the choices.
-
-```markdown
-## Blocked
-
-- [x] 1. Should the old upload endpoint stay for a release? → a
-  - (a) Keep it for one release, logging each call (chosen)
-  - (b) Remove it now
-- [ ] 2. What looks wrong in the header at 390px?
-  ![header at 390px](/abs/path/shot.png)
-- [ ] 3. How should existing sessions move to the new tokens?
-  Sessions are keyed by the old cookie.
-  - (a) Migrate each session on its next request (chosen)
-    Why: no one is signed out, and the old cookie still reads for a release.
-  - (b) Sign everyone out once
-- [ ] 4. In what order should the settings pages land?
-  - a. Profile
-  - b. Billing
-  - c. Notifications
-```
-
-Show what a question is about whenever it is something to see: a screenshot,
-or a short recording when it moves or takes steps. Save it outside the
-worktree, `splates attach` it, and name the path it prints as
-`![what](/abs/path.png)`. The `splates server` page shows an attached file inline,
-in `SPLATES.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
-as a video. Only attached files show there, so never point a question at a
-file anywhere else. Attached from a conversation (`splates server` gives its agents
-one; an agent outside it passes `--conversation <id>`), a file stays with it
-past the task, so the question still shows it when the user scrolls back;
-attached outside one, it goes when the task does. Either way, one the
-`SPLATES.md` it ends on shows is copied to keep with the finished task, so
-its record goes on showing it. Such a file is no artifact
-(see Artifacts): it serves the question it is in.
-
-Put each screenshot in the question it is for, under what it shows: under the
-question's line for what it asks about, or indented under a choice for what
-that choice looks like, which the `splates server` page shows with the choice.
-Never gather them above the questions, or ask about them apart from the
-question they are for.
-
-```markdown
-- [ ] 6. Which style should the action list take?
-  - (a) A rail beside the thread (chosen)
-    ![rail](/abs/path/rail.png)
-  - (b) A bordered panel
-    ![panel](/abs/path/panel.png)
-```
-
-### When you cannot go on
-
-When questions are still open once everything else is done, or you cannot go
-on without the user (access, a decision, a test only they can run), stop and
-ask. A secret, such as an API token, is a cred to request instead (see
-[references/creds.md](references/creds.md)).
-
-1. Leave something to look at, by **absolute path** (start from
-   `splates path <task>`): for anything visual, a screenshot or recording you
-   `splates attach`. Ask first if producing it is expensive.
-2. Make sure each question is under `## Blocked`.
-3. Ask them in your reply as Reporting says, and end your turn: the page
-   shows you waiting on the user. Do not `splates wait` or poll `SPLATES.md`:
-   answers only come in chat. A new session resumes with `splates claim <task>`.
-
-Never ask whether the work is ready to merge: once the questions are answered
-and the work is done, merge or ask for a review (see Merge or review).
-
-## Keeping Blocked current
-
-`## Blocked` is where every question the user sees comes from, so it must say
-what you need right now. Before you continue with any work (after the user
-replies, after `splates claim` returns, and between steps), bring it up to date:
-
-- write every answer the user gave after `→` on its question's line, and
-  check off each question you have acted on;
-- write a follow-up to an answer, even a checked one, on a `→ ` line of its
-  own under the question, and uncheck the question until you have acted on
-  the follow-up;
-- check off any question that no longer applies, with why after `→`
-  (`→ moot: the header was removed`), rather than deleting it;
-- retake each screenshot an open question shows once your work has changed
-  what it shows, attach it in place of the old one (`splates attach new.png
-  --remove <old path>`), and point the question at the new one;
-- add each question you now need.
-
-The user answers in chat. From the `splates server` page, a reply quotes each
-question it answers, its line in bold (`> **How should …?**`), and answers
-under it: the choices picked as `- (b) <its text>`, numbered in the order
-picked for an order, then any words. Anything else they say comes before the
-first quote. Match each quote to an open question by its line, whatever its
-number; questions not quoted stay open. A quote can come from `SPLATES.md` as
-the page last read it, ahead of your report: when it matches no question you
-have open, as one you changed since, ask again rather than guess what it
-answers. Typed by hand, a reply is a list matching your latest report: `2.`
-is its second question, whatever its number in `SPLATES.md`, and items left out
-stay open. When a reply does not fit your latest report, ask rather than
-guess. Whenever anything the user says settles an open question, even
-without naming it, write that answer after `→` and check it off, so it is not
-asked again. Check an item off only when its answer is one you can act on;
-anything else stays open and leads your next report. A reply about something
-you did is an instruction. When the user defers or skips a question, check it
-off and carry on without it (for a defer, `splates task defer` it first). Only
-the user answers questions, yours or another agent's.
-
-When the user asks to see the work before it lands, write `Review:
-requested` under `## Notes` at once, so the request outlives your session.
-
 ## Merge or review
 
 A task ready to merge has every step under `## Next` and every question under
@@ -376,35 +229,17 @@ is sent only for one that is. Whether the user looks first is yours to decide:
 
 - **Merge** work you verified yourself, its evidence under `## Verification`
   (see SPLATES.md). This is the default, and the usual end of a small change.
-- **Ask for a review**, with a demo (see Demos), when the change is invasive
+- **Ask for a review**, with a demo (see [Demos](references/demos.md)), when the change is invasive
   (it reworks how something the user relies on works, or touches much of the
   project) and above all when it is hard or impossible to reverse (a
   migration, data written, anything sent outside the repo), or when
   `## Notes` says `Review: requested`. The demo is the user's chance to step
   in before it lands: their feedback decides whether it merges. Leave
-  something to look at (step 1 of When you cannot go on), send the Ready to
-  merge report (see Reporting), which is the whole request, and end your turn.
+  something to look at (step 1 of [When you cannot go on](references/questions.md#when-you-cannot-go-on)), send the Ready to
+  merge report (see [Reporting](references/reporting.md)), which is the whole request, and end your turn.
 
-When the user has to try a change before it lands, make that cheap: run it
-for them where they can open it (a dev server on throwaway data that shows
-each case, never their own), and give them a demo (see Demos). Run splates in a
-throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
-stays out of the user's `splates server` project list. Start the server from your
-worktree, then `splates ports <task>` prints each port it listens on with two
-links: its remote one, `https://<task>-<port>.<base>` behind the user's
-Access, when `splates server --ports-host` saved a base, and its local one on
-your machine, which a worker whose server runs elsewhere has only for its
-own ports. Give the user both, the remote one first, in
-the demo's line on where to open it; the task's dialog on the page lists
-them too. When `splates tunnel status`
-shows a tunnel, `splates server --slot` from your worktree does both and prints a
-`https://<word>.<zone>` the user can open on their phone too: give them that.
-Your worktree keeps its slot until the task merges or is removed, which stops
-its server; that stops nothing else, so before merging, stop every process
-you started in the worktree yourself, such as a dev server in the background. Every other slot is another task's: never kill its server or edit
-`~/.splates/slots.json`, even when it looks left behind. When none is free, run
-`splates slots prune`, which frees only those no task holds any more, and
-otherwise ask the user.
+For a demo the user can open, read [demos.md](references/demos.md),
+Hosting a demo, before starting its server.
 
 When the user approves a review, by replying "merge" or with
 `[SPLATES MERGE]`, `splates claim <task>` and merge. When they ask for changes, `splates claim <task>`, add each as a
@@ -417,12 +252,12 @@ report.
 
 Propose only when the user asks what you think, so they can approve it or
 challenge what it rests on. Otherwise build, asking each call the user's
-answer would change as a question (see Questions) rather than a proposal.
+answer would change as a question (see [Questions](references/questions.md)) rather than a proposal.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, then what you recommend and why, briefly.
 It ends with each call it rests on that the user has not settled, as
-questions numbered from 1 (see Questions).
+questions numbered from 1 (see [Questions](references/questions.md)).
 
 ```markdown
 ## 💡 Proposed a card for proposals
@@ -443,189 +278,12 @@ The `splates server` page shows a proposal as a questions card headed by it, eac
 call with a `(chosen)` choice already answered with it. Once every call is
 answered and the user has changed none of your choices, its button approves,
 sending `[SPLATES APPROVE]`, then the answer to each call you chose nothing
-for, quoted as any answer is (see Keeping Blocked current). That, or a reply
+for, quoted as any answer is (see [Keeping Blocked current](references/questions.md#keeping-blocked-current)). That, or a reply
 of "approve", means go ahead as proposed, taking in each answer, every call
 not quoted as you chose it, after `splates add` when no task is under way. A
 reply without it, as the card sends once the user picks another choice,
 changes a call or writes anything else, answers what it quotes: take that
 in and propose again.
-
-## Demos
-
-The norm is evidence, not a demo: the user reads what you verified under
-`## Verification` in the task dialog, and starts a demo from there only when
-they want one. Start one yourself only when the user must see something to
-answer a question, or to judge a review (see Merge or review). A demo is a
-`### 🎬 Demo: <what it shows>` heading, a line on where to open it, then the
-steps, numbered from 1. Each step's line is one thing to do; indented under
-it, one line on what they should see, and a screenshot or recording only
-where words fall short. The `splates server` page shows a demo as a card of
-its steps, with a button that opens where it runs.
-
-```markdown
-### 🎬 Demo: dragging a card on a phone
-
-Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
-
-1. Press and hold a card.
-   It lifts after half a second.
-2. Drag it to another lane.
-   It lands where you drop it.
-   ![dropped in Doing](/abs/path/drop.png)
-```
-
-Give one demo per message: right before the questions it is for, or inside a review before its last line. The steps
-are the demo's only numbered list: never number steps elsewhere in a report,
-where they would read as questions.
-
-### Running a demo
-
-`[SPLATES DEMO <task> <point>]` asks you to show `<task>`, open or finished,
-at one point: `before` its change, `after` it, or on `main` as it is now.
-It starts a new conversation, so read the task first with `splates show
-<task>`, which prints a finished task's facts and the `SPLATES.md` it ended
-on too.
-
-1. `splates add demo-<task>-<point> --goal "Demo <task> at <point>"`, with
-   `--base task/<task>` for `after` while the task is open, so the demo runs
-   in a worktree of its own that nothing landing on main moves.
-2. Move it to the point: for a finished task, `git reset --hard <commit>^`
-   for `before` and `git reset --hard <commit>` for `after`, `<commit>` the
-   one it landed as. `main`, and `before` while the task is open, stay where
-   `splates add` put them. This reset is yours to run: a demo task never
-   merges.
-3. Set it up as the task's `## Demo` says, on throwaway data, and start it
-   where the user can open it (see Merge or review on servers and links).
-4. Say in a line what they should see at this point, then give the demo's
-   steps, and talk it through. A fix it turns up is work for the task, while
-   it is open, or for a new task, never for the demo's.
-
-The demo stays up until the user archives the conversation, which removes
-the demo task and stops its server and agent.
-
-## Artifacts
-
-Use artifacts proactively when the conversation warrants something the user
-can explore or return to, especially HTML artifacts: an interactive
-explanation, a comparison of options, a diagram with details to inspect, or
-a small tool for trying scenarios. Do not wait for the user to ask for an
-artifact when one would make the work easier to understand or judge. Choose
-one when its visual structure or interaction adds value, rather than for
-every reply.
-
-Screenshots remain the first choice for showing what the actual UI looks
-like, with recordings for behavior over time. An HTML artifact can complement
-that evidence with an explanation or exploration; label a mockup or
-simulation as such so it is clear what the user is seeing.
-
-An artifact is a file the user will come back for after the task is gone: a
-screenshot or recording of the finished work, an HTML page, a generated
-document. It belongs to the conversation, not the task, so it outlives every
-task the conversation runs, and the `splates server` page lists the conversation's
-artifacts beside its thread. It opens an image or a recording in its
-lightbox, an HTML page in a frame that runs its scripts but loads nothing
-else, so make a page one file with its styles, scripts and images inline,
-and offers anything else as a download. Keep one with `splates artifact add <file>`, named
-for its basename, or `--name <name>` for another. Adding a name the
-conversation already holds makes that artifact's next version, the earlier
-ones kept until cleanup takes them, so give one thing one name and add it
-again whenever it changes,
-rather than a new name per take. `splates artifact remove <name>` once it no
-longer stands, as when the work it shows was redone or dropped; `splates
-artifact list` and `splates artifact show <name>` read them back. It needs a
-conversation: `$SPLATES_CONVERSATION` from `splates server`, or
-`--conversation <id>` from outside it.
-
-Most files you show are not artifacts: a screenshot that shows a question, an
-image in a report's card, a demo step's image. Each serves the moment it is
-shown in, so it stays inline: `splates attach` it and name it as
-`![what](/abs/path.png)`, as Questions and Demos say.
-Make a file an artifact only when the user would look for it on its own,
-apart from the reply it came in.
-
-## Reporting
-
-However a task ends, say so under a `##` title, which the `splates server`
-page turns into its card: the emoji, the outcome and the bare task name,
-then the base for a merge, or otherwise, after a colon, what it waits on or
-why it went. Under it, say briefly what changed for the user, and anything
-they must act on or would be caught out without (a restart to pick it up, an
-answer you did not follow as given). Keep it to what they would read at a
-glance: a line on the change as they will meet it, then at most a few short
-points on what matters most, never a tour of every change. Leave out how you
-built it (files, functions, tests, the steps you took) and anything the
-page, the diff or `SPLATES.md` already says: the task dialog shows the rest
-to whoever wants it. A `##` or `###` heading ends the card, so keep any
-heading inside it to `####`.
-
-A merge or remove report ends the task, so it asks nothing and offers
-nothing: no question, no "Want me to ...?", no list of next steps for the
-user to pick from. Each thing you would ask or offer there is a task: queue
-it with `splates task add`, or `defer` it when you know too little to groom
-it, before you merge or remove, so it waits in the queue rather than on the
-user's reply. The conversation already shows each one you queued.
-
-```markdown
-## ✅ Merged <task> onto <base>
-
-Cards on a phone now drag on a long press. Restart `splates server` to pick it up.
-```
-
-```markdown
-## 🛑 Removed <task>: superseded by a fix on main
-
-The task set out to stop uploads retrying a 413.
-```
-
-A merge report names any artifact the task made as `Artifact: <name>`
-rather than inlining it.
-
-A turn that ends on questions needs no title: say in a line or two where the
-work stands, then end with every open question, those left open from earlier
-reports first, as a list numbered from 1 whatever their numbers in
-`SPLATES.md`, after the demo they ask about, if any. Each item carries what
-is needed to answer it: its subject, at most one line of body, the choices
-exactly as in `SPLATES.md` (so a reply of `2. b` names one) with their `Why:`
-lines, and each screenshot under the question or choice it shows.
-
-```markdown
-The board can now mark a stale task, once you pick how.
-
-1. How should a stale task be shown?
-   - (a) A muted card (chosen)
-     ![muted card](/abs/path/muted.png)
-   - (b) A "stale" badge
-     ![stale badge](/abs/path/badge.png)
-```
-
-A review asks no numbered question. After what changed comes the demo of
-what to check, then a `Checks:` line naming each check you ran that passed,
-in backticks, and a `Failed:` line for any that failed for a reason outside
-the task, then this last line exactly, which the page needs to show its
-Merge button:
-
-```markdown
-## 🔍 Ready to merge <task> onto <base>
-
-Old upload links now redirect to the new storage, after a migration that moves every stored file.
-
-### 🎬 Demo: an old upload link
-
-Open http://localhost:4310 (a copy of staging's uploads, nothing of yours).
-
-1. Open `/u/old-link`.
-   The file downloads from the new storage.
-
-Checks: `bun run typecheck`, `bun test`
-
-Reply "merge", or say what to change.
-```
-
-Ask every question to the user as an item of a list numbered from 1 at the
-margin, outside code blocks, wherever you ask it, even a lone one as
-`1. ...?`: only then does the page show it as a card with choices to tap.
-Each item's line ends at its `?`, as under `## Blocked`, its body and choices
-indented under it.
 
 ## SPLATES.md
 
