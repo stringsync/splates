@@ -91,7 +91,7 @@ function Box({
 					inert={taking}
 					aria-hidden={taking || undefined}
 					className={cn(
-						"relative min-h-(--suffix-height)",
+						"relative grid min-h-(--suffix-height) items-center",
 						taking && "invisible",
 					)}
 				>
