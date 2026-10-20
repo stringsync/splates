@@ -5,6 +5,7 @@ import type {
 import {
 	CheckIcon,
 	ChevronDownIcon,
+	Loader2Icon,
 	SquareIcon,
 	TerminalIcon,
 	XIcon,
@@ -134,5 +135,19 @@ export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 				<SquareIcon className="size-2.5! fill-current text-muted-foreground" />
 			)}
 		</span>
+	);
+}
+
+/**
+ * A command still running, in a list that drops it once it ends: a spinner,
+ * since a green dot reads as done.
+ */
+export function RunningSpinner(): JSX.Element {
+	return (
+		<Loader2Icon
+			role="img"
+			aria-label="running"
+			className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+		/>
 	);
 }

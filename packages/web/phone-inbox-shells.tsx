@@ -7,6 +7,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
+import { RunningSpinner } from "./background";
 import { useCloseTerminal } from "./close-terminal";
 import { RenameBox } from "./list-rows";
 import { NestedPanesContext } from "./side-panes";
@@ -88,11 +89,7 @@ export function useShells(
 								panes.watch(id, each.id);
 							}}
 						/>
-						<span
-							role="img"
-							aria-label="running"
-							className="size-2 shrink-0 animate-pulse rounded-full bg-success"
-						/>
+						<RunningSpinner />
 					</li>
 				)),
 		].filter(Boolean);

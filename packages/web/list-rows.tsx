@@ -10,6 +10,7 @@ import {
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { RunningSpinner } from "./background";
 import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
 import type { Nested } from "./parts";
@@ -222,7 +223,7 @@ export function RenameBox({
 
 /**
  * A command a conversation's agent left running, nested under it, muted as a
- * subagent is. It shows only while it runs, so it needs no mark to say so.
+ * subagent is, with a spinner: it shows only while it runs.
  */
 export function CommandRow({
 	background,
@@ -249,6 +250,7 @@ export function CommandRow({
 			<span className="min-w-0 flex-1 truncate text-muted-foreground text-sm italic">
 				{background.name}
 			</span>
+			<RunningSpinner />
 		</button>
 	);
 }

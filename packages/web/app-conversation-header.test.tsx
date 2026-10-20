@@ -434,6 +434,7 @@ describe("App's conversation header", () => {
 			name: /Start the dev server/,
 		});
 		expect(row.title).toBe("bun dev");
+		expect(within(row).getByRole("img", { name: "running" })).toBeTruthy();
 		expect(
 			within(sidebar).queryByRole("button", { name: /Run the tests/ }),
 		).toBeNull();

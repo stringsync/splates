@@ -1151,6 +1151,10 @@ describe("App on a phone", () => {
 			"Start the dev serverbun dev",
 		]);
 		expect(recent.textContent).not.toContain("Old build");
+		// A spinner, not a green dot that reads as done.
+		expect(within(recent).getByRole("img", { name: "running" }).tagName).toBe(
+			"svg",
+		);
 
 		await act(async () =>
 			fireEvent.click(
