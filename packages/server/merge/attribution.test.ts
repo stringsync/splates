@@ -6,8 +6,11 @@ import {
 	it,
 	setDefaultTimeout,
 } from "bun:test";
+import { Duration } from "webappwiz/time";
+import { FakeClock } from "webappwiz/time/testing";
 import type { Facts } from "../records";
 import { add } from "../tasks";
+import { Shell } from "../terminal";
 import { Testing } from "../testing";
 import { merge } from "./merge";
 
@@ -45,18 +48,39 @@ describe("merge failure attribution", () => {
 	afterEach(async () => {
 		await deps[Symbol.asyncDispose]();
 	});
+	// scry-ignore simple-test-setup: only this case measures attribution time; the other cases share the repository setup above.
 	it("charges only a failure reproduced on the task after passing on the exact base", async () => {
 		await deps.commit(tree, "mode.txt", "bad", "break mode");
 		const before = await deps.git.head(tree);
+		const clock = new FakeClock();
+		class TimedShell extends Shell {
+			override async run(...args: Parameters<Shell["run"]>) {
+				try {
+					return await super.run(...args);
+				} finally {
+					clock.advance(Duration.ms(10));
+				}
+			}
+		}
+		const shell = new TimedShell({ ps: deps.ps });
+		// Include baseline dependency preparation as well as all three runs.
+		deps.config.postRewrite = "true";
 		const facts: Partial<Facts["merge"]> = {};
 
-		await expect(merge(deps, tree, facts)).toBail("tests_failed", {
-			message: "one merge attempt was spent",
-		});
+		await expect(merge({ ...deps, clock, shell }, tree, facts)).toBail(
+			"tests_failed",
+			{
+				message: "one merge attempt was spent",
+			},
+		);
 
 		expect(facts).toMatchObject({
 			failureAttribution: "task",
 			attemptsLeft: 1,
+			durationMs: 40,
+			gateMs: 40,
+			capacityWaitMs: 0,
+			retests: 0,
 		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
 		expect(await deps.git.head(tree)).toBe(before);

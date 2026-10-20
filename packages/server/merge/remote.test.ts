@@ -102,6 +102,7 @@ describe("merge with a central remote", () => {
 		const facts: Partial<Facts["merge"]> = {};
 		await merge(deps, tree, facts);
 		expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
+		expect(facts.retests).toBe(1);
 		expect(await deps.gitCli(remote, "log", "--format=%s", "main")).toContain(
 			"sneaked",
 		);

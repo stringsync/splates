@@ -1,5 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, Lock } from "webappwiz/system";
+import { type Clock, SystemClock } from "webappwiz/time";
 import type { Tasks } from "../board";
 import type { Config } from "../config";
 import { LEGACY_PLAN_FILE } from "../config";
@@ -19,6 +20,7 @@ import { landTested } from "./landing";
 import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
 import { failedTests, failingCases, timedTests } from "./test-report";
+import { MergeTiming } from "./timing";
 import type { TrunkLanding } from "./trunk";
 
 const TAIL_LINES = 40;
@@ -51,6 +53,7 @@ export async function merge(
 		branches,
 		trunk,
 		relayed = false,
+		clock = new SystemClock(),
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -68,6 +71,7 @@ export async function merge(
 		trunk: TrunkLanding;
 		/** Whether this runs on a worker, whose records are the coordinator's. */
 		relayed?: boolean;
+		clock?: Clock;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -80,6 +84,7 @@ export async function merge(
 		message?: string;
 	} = {},
 ): Promise<void> {
+	using timing = new MergeTiming(facts, clock);
 	// Shorter, a squash message is a placeholder such as `X`, not a message.
 	if (message !== "" && message.trim().length < 5) {
 		fail(
@@ -177,7 +182,16 @@ export async function merge(
 	// leave a dead merge's `merging` status showing another landing.
 	worktree = await worktree.take({ status: "working" });
 	const state = new MergeState(worktree);
-	const runner = new MergeGate(git, shell, fs, heavy, cores, config, log);
+	const runner = new MergeGate(
+		git,
+		shell,
+		fs,
+		heavy,
+		cores,
+		config,
+		log,
+		timing,
+	);
 	await using _capacity = await runner.reserve(task);
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
 	await treeLock.acquire();
@@ -393,6 +407,7 @@ export async function merge(
 				facts,
 			);
 			if (result === null) {
+				facts.retests = (facts.retests ?? 0) + 1;
 				worktree = await worktree.reload();
 				continue;
 			}

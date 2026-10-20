@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { Exit } from "./exit";
 import { log } from "./log";
-import { Journal } from "./records";
+import { type Facts, Journal } from "./records";
 import { Testing } from "./testing";
 
 describe("log", () => {
@@ -40,6 +40,42 @@ describe("log", () => {
 		await log(deps, { count: 1, json: true });
 		expect(JSON.parse(deps.out())).toMatchObject([
 			{ action: "escalate", task: "alpha", reason: "tests_failed" },
+		]);
+	});
+
+	it("keeps historical merges and exposes timing facts in JSON, including refusals", async () => {
+		const legacy: Facts["merge"] = {
+			base: "main",
+			commit: "abc123",
+			files: [],
+			attemptsLeft: 2,
+			failedTests: [],
+		};
+		const timing = {
+			durationMs: 150,
+			gateMs: 80,
+			capacityWaitMs: 20,
+			retests: 1,
+		};
+		await deps.journal.record("merge", "old", async () => {}, legacy);
+		await deps.journal.record("merge", "new", async () => {}, {
+			...legacy,
+			...timing,
+		});
+		await expect(
+			deps.journal.record(
+				"merge",
+				"refused",
+				() => Promise.reject(new Exit("tests_failed", "nope")),
+				{ ...legacy, ...timing },
+			),
+		).toBail("tests_failed");
+
+		await log(deps, { json: true });
+		expect(JSON.parse(deps.out())).toMatchObject([
+			{ task: "old", reason: null },
+			{ task: "new", reason: null, ...timing },
+			{ task: "refused", reason: "tests_failed", ...timing },
 		]);
 	});
 

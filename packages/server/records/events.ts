@@ -44,6 +44,14 @@ export interface Facts {
 	/** A wait on a task, the event's own: see `Waiting`. */
 	wait: Waiting;
 	merge: {
+		/** Whole merge elapsed milliseconds, including waits and cleanup; absent on older events. */
+		durationMs?: number;
+		/** Cumulative gate milliseconds, including attribution setup and retests; absent on older events. */
+		gateMs?: number;
+		/** Milliseconds reserving a heavy slot and cores; absent on older events. */
+		capacityWaitMs?: number;
+		/** Rebase-and-retest rounds caused by trunk moving after a gate; absent on older events. */
+		retests?: number;
 		/** The branch it landed on, or was refused landing on. */
 		base: string;
 		/** The commit the base reached, short. */
@@ -272,6 +280,10 @@ export const FACTS = {
 		"attemptsLeft",
 		"failedTests",
 		"failureAttribution",
+		"durationMs",
+		"gateMs",
+		"capacityWaitMs",
+		"retests",
 	],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
@@ -361,7 +373,18 @@ export function isCurrent(event: Event): boolean {
 		return true;
 	}
 	const facts: readonly string[] | undefined = FACTS[event.action];
-	return facts?.every((fact) => fact === "failureAttribution" || fact in event);
+	return facts?.every(
+		(fact) =>
+			fact in event ||
+			(event.action === "merge" &&
+				[
+					"failureAttribution",
+					"durationMs",
+					"gateMs",
+					"capacityWaitMs",
+					"retests",
+				].includes(fact)),
+	);
 }
 
 /** What every event carries, whatever its action. */

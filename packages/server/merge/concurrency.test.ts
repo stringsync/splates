@@ -86,6 +86,7 @@ describe("merge concurrency", () => {
 			betaRelease.resolve();
 			await second;
 			expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
+			expect(facts.retests).toBe(1);
 			expect(tested).toHaveLength(2);
 			expect(tested[0]).not.toBe(tested[1] ?? "");
 			expect(await deps.git.head(deps.root)).toBe(tested[1] ?? "");
@@ -152,9 +153,13 @@ describe("merge concurrency", () => {
 			await deps.commit(deps.root, "alpha.txt", "trunk version\n", "move base");
 			return 0;
 		});
+		const facts: Partial<Facts["merge"]> = {};
 		await expect(
-			merge({ ...deps, shell: new Shell({ ps: alphaPs }) }, alpha),
+			merge({ ...deps, shell: new Shell({ ps: alphaPs }) }, alpha, facts),
 		).toBail("conflict");
+		expect(facts.retests).toBe(1);
+		expect(facts.gateMs).toBeGreaterThan(0);
+		expect(facts.durationMs).toBeGreaterThan(facts.gateMs ?? 0);
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
 		expect(await deps.git.conflictedPaths(alpha)).toEqual(["alpha.txt"]);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);

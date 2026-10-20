@@ -2,6 +2,7 @@ import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { PLAN_FILE } from "../plans";
+import type { Facts } from "../records";
 import { FsStorage } from "../storage";
 import { add } from "../tasks";
 import { Shell } from "../terminal";
@@ -28,7 +29,12 @@ describe.concurrent("merge", () => {
 		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
 
 		await deps.finish(worktree);
-		await merge(deps, worktree);
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, worktree, facts);
+		expect(facts.durationMs).toBeGreaterThan(0);
+		expect(facts.gateMs).toBeGreaterThan(0);
+		expect(facts.capacityWaitMs).toBeGreaterThan(0);
+		expect(facts.retests).toBe(0);
 
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
 			"add alpha",
@@ -89,10 +95,17 @@ describe.concurrent("merge", () => {
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
 
-		await expect(merge(deps, worktree, {}, { message: "  X  " })).toBail(
+		const facts: Partial<Facts["merge"]> = {};
+		await expect(merge(deps, worktree, facts, { message: "  X  " })).toBail(
 			"usage",
 			{ message: "too short" },
 		);
+		expect(facts).toMatchObject({
+			durationMs: expect.any(Number),
+			gateMs: 0,
+			capacityWaitMs: 0,
+			retests: 0,
+		});
 		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
 
 		await merge(deps, worktree, {}, { message: "Add alpha" });

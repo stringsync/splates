@@ -4,6 +4,7 @@ import type { Config } from "../config";
 import type { Git } from "../git";
 import type { CoreClaim, CoreClaims } from "../server/shared";
 import type { Shell } from "../terminal";
+import type { MergeTiming } from "./timing";
 
 /** A hook's output and its fresh JUnit report, kept together for attribution. */
 export interface GateRun {
@@ -24,6 +25,7 @@ export class MergeGate {
 		private readonly cores: CoreClaims,
 		private readonly config: Config,
 		private readonly log: Logger,
+		private readonly timing: MergeTiming,
 	) {}
 
 	/**
@@ -35,6 +37,7 @@ export class MergeGate {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
 		}
+		using _wait = this.timing.track("capacityWaitMs");
 		const slot = await this.heavy.take({ what: "preMerge", task });
 		// Half the cores heavy jobs share, so the two gates the default slots
 		// let run at once both fit.
@@ -82,6 +85,7 @@ export class MergeGate {
 		task: string,
 		{ files }: { files?: string[] } = {},
 	): Promise<GateRun> {
+		using _time = this.timing.track("gateMs");
 		try {
 			const report = `${(await this.git.out(cwd, "rev-parse", "--absolute-git-dir")).trim()}/splates-test-report.xml`;
 			await this.fs.rm(report, { force: true });
@@ -114,6 +118,7 @@ export class MergeGate {
 
 	/** The baseline needs its own dependencies, never the task's node_modules. */
 	async prepare(cwd: string, task: string): Promise<GateRun> {
+		using _time = this.timing.track("gateMs");
 		if (!this.config.postRewrite) {
 			return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 		}
