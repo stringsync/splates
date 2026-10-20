@@ -367,6 +367,38 @@ describe.concurrent("outcomes", () => {
 		});
 	});
 
+	it("backfills the API list price of a Codex task that ended before it was priced, once, leaving one with no log unpriced", async () => {
+		await using deps = await Testing.open();
+		const priced = await listPriced(deps, "claude", (at) => [
+			{ kind: "agent", agent: "codex" },
+			picked("gpt-6.1-sol"),
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("on it", at(1)),
+			{ kind: "usage", usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+			{ kind: "usage", usage: { inputTokens: 0, outputTokens: 100_000 } },
+		]);
+		const path = join(deps.splatesHome, "outcomes.jsonl");
+		const [line] = (await deps.fs.read(path)).trim().split("\n");
+		const old = JSON.parse(line ?? "{}");
+		old.usage.cost = null;
+		const orphan = { ...old, task: "orphan", conversation: "gone" };
+		await deps.fs.write(
+			path,
+			`${JSON.stringify(old)}\n${JSON.stringify(orphan)}\n`,
+		);
+		await deps.fs.write(join(deps.splatesHome, "outcome-usage.jsonl"), "");
+		const logOf = (_project: string, id: string) =>
+			deps.service.conversationLog(id);
+
+		await deps.outcomes.backfill(logOf);
+		await deps.outcomes.backfill(logOf);
+
+		const [done, left] = await deps.outcomes.list();
+		expect(priced?.cost?.listPrice).toBe(true);
+		expect(done?.usage?.cost).toEqual(priced?.cost);
+		expect(left?.usage?.cost).toBeNull();
+	});
+
 	it("reads usage with no tokens out as never kept, since no turn the task ran ever counted", async () => {
 		await using deps = await Testing.open();
 		const line = (task: string, output: number) =>

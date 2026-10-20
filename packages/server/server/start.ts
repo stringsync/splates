@@ -3,7 +3,13 @@ import { dirname } from "node:path";
 import { SystemTimer } from "webappwiz/time";
 import { SharedBrowser, StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
-import { type Config, LEGACY_DIR, loadConfig, moveLegacyDir } from "../config";
+import {
+	type Config,
+	LEGACY_DIR,
+	loadConfig,
+	moveLegacyDir,
+	unmigrated,
+} from "../config";
 import { Conversations } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
@@ -176,6 +182,17 @@ export async function serveDev(
 	// resumed together start one at a time.
 	const starting = StartLock.ofMachine(ctx);
 	const projects = Projects.ofMachine(ctx);
+	// Tasks that ended before Codex and OpenCode were priced get their cost now.
+	void outcomes
+		.backfill((project, conversation) =>
+			new FsStorage(
+				unmigrated(`${project}/.git/splates`, `${project}/.git/${LEGACY_DIR}`),
+				ctx.fs,
+			).log(`conversations/${conversation}.jsonl`),
+		)
+		.catch((error: unknown) => {
+			ctx.log.error(`the price backfill failed: ${String(error)}`);
+		});
 	// One for every project, so every agent on the machine shares one browser.
 	const browser = new SharedBrowser(
 		{

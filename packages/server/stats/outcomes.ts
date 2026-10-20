@@ -56,6 +56,46 @@ export class Outcomes {
 	}
 
 	/**
+	 * Prices at the API list price the tasks that ended before splates did, whose
+	 * tokens say no cost: writes each its cost as a turn beside the outcomes,
+	 * as `creditTurn` does, leaving alone any whose conversation log
+	 * `logOf(project, conversation)` no longer finds or whose model has no
+	 * price. A task priced has a cost, so a second run skips it. Only what the
+	 * task used by its end is priced, not the turns credited to it after.
+	 */
+	async backfill(
+		logOf: (project: string, conversation: string) => Log<Entry>,
+	): Promise<void> {
+		const catalog = () => this.prices.catalog();
+		for (const outcome of await this.list()) {
+			if (
+				outcome.conversation === null ||
+				outcome.usage === undefined ||
+				outcome.usage.cost !== null
+			) {
+				continue;
+			}
+			const log = logOf(outcome.project, outcome.conversation);
+			if (!(await log.exists())) {
+				continue;
+			}
+			const whole = await taskLog(log, outcome.startedAt, outcome.endedAt, {
+				catalog,
+			});
+			const cost = whole?.usage?.cost;
+			if (cost === undefined || cost === null) {
+				continue;
+			}
+			await this.turns.append({
+				project: outcome.project,
+				task: outcome.task,
+				endedAt: outcome.endedAt,
+				usage: { input: 0, cached: 0, output: 0, cost },
+			});
+		}
+	}
+
+	/**
 	 * Credits the task that `conversation`, logged in `log`, ended last in
 	 * its turn from `since` to `until` with what the rest of that turn used,
 	 * once the turn has ended and said it. Several ended in one turn: the
