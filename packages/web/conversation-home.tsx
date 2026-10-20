@@ -8,6 +8,7 @@ import type {
 	Setting,
 } from "@stringsync/splates-server/conversations";
 import { modelOption } from "@stringsync/splates-server/models/browser";
+import { orphaned } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	type JSX,
@@ -26,6 +27,7 @@ import { AgentBrand, AgentIcon } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { Board } from "./board";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
 import {
@@ -56,6 +58,7 @@ import {
 import { hostingWork, needOf } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
+import { Orphaned } from "./list-rows";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
 import { rememberProject, rememberShown } from "./new-conversation-project";
@@ -70,7 +73,7 @@ import type { Terminals } from "./terminals";
 import { BELOW_BAR, TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
 
-/** How many conversations the home screen offers to pick back up. */
+/** How many conversations and tasks the home screen offers to pick back up. */
 const RECENT = 5;
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
@@ -282,8 +285,9 @@ export function useNewConversation({
 /**
  * The screen with no conversation open: an empty thread whose first message
  * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
- * composer, the agent picked in its bar, as on a phone, or a terminal, and under the greeting the latest unfinished conversations to
- * pick back up, none whose task merged.
+ * composer, the agent picked in its bar, as on a phone, or a terminal, and under the greeting the tasks no agent is left on and
+ * the latest unfinished conversations to pick back up, none whose task
+ * merged and none a persistent agent's, as the groomer's.
  */
 export function Home({
 	terminals,
@@ -295,16 +299,22 @@ export function Home({
 	const listed = conversations.filter((each) => !each.archived);
 	// Only unfinished work at rest: one at work, through its subagents too, or
 	// waiting on the person is in the sidebar already, and one whose task
-	// merged, or whose lanes finished, is done.
+	// merged, or whose lanes finished, is done. A persistent agent's, as the
+	// groomer's, is never put down, so there is nothing to pick back up.
 	const hosting = hostingWork(tasks, conversations);
+	// Tasks no agent is left on wait on the person, so they lead.
+	const orphans = tasks
+		.filter((each) => orphaned(each, conversations) !== null)
+		.slice(0, RECENT);
 	const recent = listed
 		.filter(
 			(each) =>
+				each.persistent === undefined &&
 				needOf(tasks, each).kind === "idle" &&
 				!hosting.has(each.id) &&
 				!reportsDone(each),
 		)
-		.slice(0, RECENT);
+		.slice(0, RECENT - orphans.length);
 
 	return (
 		<section
@@ -360,7 +370,7 @@ export function Home({
 											limits={limitsOf(agents, conversations, agent)}
 										/>
 									)}
-									{recent.length > 0 && (
+									{orphans.length + recent.length > 0 && (
 										<section
 											aria-label="recent conversations"
 											className="mt-4 flex flex-col gap-1 px-2"
@@ -369,6 +379,11 @@ export function Home({
 												Pick back up
 											</h3>
 											<ul className="flex flex-col">
+												{orphans.map((each) => (
+													<li key={each.task}>
+														<OrphanedTask task={each.task} />
+													</li>
+												))}
 												{recent.map((each) => (
 													<li key={each.id}>
 														<Recent
@@ -446,6 +461,21 @@ function Recent({
 			{reported !== null && (
 				<Mark need={{ kind: "idle" }} reported={reported} />
 			)}
+		</button>
+	);
+}
+
+/** A task no agent is left on, to pick back up from its dialog. */
+function OrphanedTask({ task }: { task: string }): JSX.Element {
+	const board = useContext(Board);
+	return (
+		<button
+			type="button"
+			onClick={() => board.openTask(task)}
+			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+		>
+			<Orphaned />
+			<span className="min-w-0 flex-1 truncate font-mono text-sm">{task}</span>
 		</button>
 	);
 }

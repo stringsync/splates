@@ -123,6 +123,41 @@ describe("App's conversation home", () => {
 		).toEqual(["Settledmain", "split-c"]);
 	});
 
+	it("offers orphaned tasks first and leaves out the groomer's conversation", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "g1",
+					task: null,
+					title: "Groomer",
+					persistent: "groomer",
+				}),
+				conversation({ id: "c1", task: null, title: "Look into it" }),
+				conversation({
+					id: "c2",
+					task: "beta",
+					status: "failed",
+					error: "exited 1",
+				}),
+			],
+			null,
+			{ tasks: [details({ task: "alpha" }), details({ task: "beta" })] },
+		);
+		await openHome();
+		const recent = view.getByRole("region", { name: "recent conversations" });
+
+		expect(
+			within(recent)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["alpha", "beta", "Look into itmain"]);
+		await act(async () =>
+			fireEvent.click(within(recent).getByRole("button", { name: /beta/ })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getAllByText("beta").length).toBeGreaterThan(0);
+	});
+
 	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
 		const held = [
 			conversation({ id: "c1", title: "Latest" }),
