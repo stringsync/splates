@@ -70,7 +70,7 @@ export function Card({
 			className={cn(
 				// A pointer, since a tap opens it; a drag from anywhere still moves
 				// it, and the grip says so with its own cursor.
-				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border",
+				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
 				className,
 			)}
 		>
@@ -216,7 +216,7 @@ export function CopyLink({ id }: { id: number }): JSX.Element {
 			onClick={() => copy(taskNumberReference(id))}
 			{...still}
 			className={cn(
-				"relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+				"relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 				touchArea,
 			)}
 		>

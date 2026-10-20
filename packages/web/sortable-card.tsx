@@ -56,7 +56,7 @@ export function Sortable(props: CardProps): JSX.Element {
 				// The slot it leaves while it is in hand, where it will land.
 				className={cn(
 					isDragging &&
-						"border-dashed bg-muted shadow-none *:invisible hover:shadow-none",
+						"border-dashed bg-muted shadow-none *:invisible hover:shadow-none active:bg-muted",
 				)}
 			/>
 		</li>

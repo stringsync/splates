@@ -116,8 +116,8 @@ export function TerminalRow({
 	return (
 		<div
 			className={cn(
-				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-accent hover:bg-accent",
+				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+				current && "bg-accent hover:bg-accent active:bg-accent",
 			)}
 		>
 			{renaming && (
@@ -241,8 +241,8 @@ export function CommandRow({
 			title={background.command ?? background.name}
 			onClick={onOpen}
 			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-accent hover:bg-accent",
+				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+				current && "bg-accent hover:bg-accent active:bg-accent",
 			)}
 		>
 			<TerminalIcon className="size-3.5 text-foreground/70" />

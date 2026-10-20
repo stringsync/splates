@@ -88,7 +88,7 @@ export function FolderList({
 								aria-label={`New conversation in ${folder.name}`}
 								title={`New conversation in ${folder.name}`}
 								onClick={() => onNew(folder)}
-								className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
+								className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/40 group-hover/head:opacity-100 pointer-coarse:opacity-100"
 							>
 								<PlusIcon className="size-3.5" />
 							</button>
@@ -155,7 +155,7 @@ export function ForeignItem({
 			onClick={onOpen}
 			title={conversation?.task ?? undefined}
 			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
+				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
 				conversation !== null && placeholding(conversation) && "opacity-50",
 			)}
 		>

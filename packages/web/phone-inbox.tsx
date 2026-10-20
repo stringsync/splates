@@ -309,7 +309,7 @@ export function Inbox({
 					<button
 						type="button"
 						onClick={() => onOpen(ARCHIVED)}
-						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted"
+						className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
 					>
 						<ArchiveIcon className="size-3.5" />
 						<span>Archived</span>

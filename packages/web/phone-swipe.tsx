@@ -41,11 +41,14 @@ export function Swipeable({
 	archive: Archive | null;
 	children: ReactNode;
 }): JSX.Element {
-	const [offset, setOffset] = useState(0);
 	// Set as it leaves: its height, then closed to 0.
 	const [height, setHeight] = useState<number | null>(null);
 	const [leaving, setLeaving] = useState(false);
 	const box = useRef<HTMLDivElement>(null);
+	// Moved on the DOM, not through state, so a finger's every move costs no
+	// render of the row.
+	const row = useRef<HTMLDivElement>(null);
+	const backing = useRef<HTMLDivElement>(null);
 	const start = useRef<{ x: number; y: number } | null>(null);
 	const swiping = useRef(false);
 	// Set when a swipe ends, so the tap the browser sends after it opens nothing.
@@ -55,16 +58,31 @@ export function Swipeable({
 	if (archive === null) {
 		return <>{children}</>;
 	}
+	// Puts the row at `to`, following the finger at once or easing there.
+	const slide = (to: string, ease: "none" | "ease-out" | "ease-in") => {
+		if (row.current !== null) {
+			row.current.style.transition =
+				ease === "none" ? "none" : `transform ${LEAVE_MS}ms ${ease}`;
+			row.current.style.transform = to;
+		}
+		if (backing.current !== null) {
+			backing.current.style.opacity = to === "translateX(0px)" ? "0" : "1";
+		}
+	};
+	const settle = () => {
+		slide("translateX(0px)", "ease-out");
+	};
 	const back = () => {
 		setLeaving(false);
 		setHeight(null);
-		setOffset(0);
+		settle();
 	};
 	const leave = () => {
 		const ms = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 			? 0
 			: LEAVE_MS;
 		setLeaving(true);
+		slide("translateX(-100%)", "ease-in");
 		setHeight(box.current?.offsetHeight ?? 0);
 		timer.current = setTimeout(() => {
 			setHeight(0);
@@ -91,22 +109,17 @@ export function Swipeable({
 			style={height === null ? undefined : { height }}
 		>
 			<div
+				ref={backing}
 				aria-hidden
-				className="absolute inset-0 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm [&_svg]:size-5"
-				style={{ opacity: offset === 0 && !leaving ? 0 : 1 }}
+				className="absolute inset-0 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
 			>
 				<ArchiveIcon />
 				Archive
 			</div>
 			<div
+				ref={row}
 				// Up and down stay the browser's to scroll; sideways is the swipe's.
 				className="relative touch-pan-y bg-background motion-reduce:transition-none"
-				style={{
-					transform: leaving ? "translateX(-100%)" : `translateX(${offset}px)`,
-					transition: swiping.current
-						? "none"
-						: `transform ${LEAVE_MS}ms ${leaving ? "ease-in" : "ease-out"}`,
-				}}
 				onPointerDown={(event: PointerEvent) => {
 					if (leaving) {
 						return;
@@ -132,7 +145,7 @@ export function Swipeable({
 						// Kept when the finger leaves the row.
 						event.currentTarget.setPointerCapture?.(event.pointerId);
 					}
-					setOffset(Math.min(0, dx));
+					slide(`translateX(${Math.min(0, dx)}px)`, "none");
 				}}
 				onPointerUp={(event: PointerEvent) => {
 					const far =
@@ -141,9 +154,9 @@ export function Swipeable({
 						start.current.x - event.clientX >= SWIPE_PX;
 					end();
 					if (!far) {
-						setOffset(0);
+						settle();
 					} else if (archive.asks()) {
-						setOffset(0);
+						settle();
 						archive.file();
 					} else {
 						leave();
@@ -151,7 +164,7 @@ export function Swipeable({
 				}}
 				onPointerCancel={() => {
 					end();
-					setOffset(0);
+					settle();
 				}}
 				onClickCapture={(event) => {
 					if (swiped.current || leaving) {

@@ -110,8 +110,8 @@ export function Item({
 	return (
 		<div
 			className={cn(
-				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-accent hover:bg-accent",
+				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+				current && "bg-accent hover:bg-accent active:bg-accent",
 			)}
 		>
 			{renaming && (
