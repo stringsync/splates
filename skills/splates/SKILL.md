@@ -9,44 +9,99 @@ version: 0.0.50
 `splates` runs many agents on one repo, each in its own git worktree, landing on
 trunk without pull requests. Run it with `bunx @stringsync/splates <command>` (or
 `splates` if on PATH). `splates --help` explains the commands; this file covers
-only what the CLI cannot tell you.
+only what the CLI cannot tell you. A bare `splates` prints help; start the
+server with `splates server`. `splates dev` is only for developing the splates
+repository itself.
 
-A bare `splates` prints help; start the server explicitly with `splates server`.
-Backlog is the permanent catch-all lane for deferred work. Address it as
-`backlog` (or lane `0`) in lane commands and `--lane backlog` in task commands.
-It can be queued and worked, but never renamed, removed or merged away.
-Untriaged cannot be queued whole; its Groom button starts the groomer, which
-moves each task to a fitting themed lane or Backlog.
-`splates dev` is only for developing the splates repository, through its
-checkout's `bin/splates`; it is not a command in the published CLI.
+## The short version
 
-**Rule:** never use raw git for state transitions splates covers: every landing
-goes through `splates merge`. The exception is finishing a rebase left in
-progress (`git add`, `git rebase --continue`), then merging again. A failed
-command prints `{reason}` JSON on stdout and instructions on stderr: do what
-stderr says.
+Most of what follows fills in these steps. Hold to them even when you skip
+the rest:
+
+1. **Add a task before you look.** When a request may end in a code change,
+   run `splates add <task> --goal "<what done means>"` first, then read and
+   edit only in the worktree path it prints.
+2. **Ask as a numbered list.** Every question for the user is a `1.` item
+   ending at its `?`, as in Formats below.
+3. **Commit as you go**, in plain messages with no attribution.
+4. **Queue what you would offer.** Each follow-up you would suggest, or ask
+   about, once the work lands, `splates task add` (or `defer`) before merging.
+5. **Land with `splates merge --message "<what the base gains>"`**, then `cd`
+   to the main tree it prints. When it fails, do what its stderr says.
+6. **End with the report**, its title copied from Formats below, one line on
+   what changed for the user, and nothing after it: the task is over, so the
+   report asks nothing and offers nothing.
+
+Every landing goes through `splates merge`: use git only to commit and to
+finish a rebase left in progress (`git add`, `git rebase --continue`), then
+merge again. A failed command prints `{reason}` JSON on stdout and what to do
+on stderr: do what stderr says.
+
+## Formats
+
+The `splates server` page turns these shapes, and only these, into cards the
+user taps. Copy them exactly, filling in the `<...>`.
+
+A question, a lone one numbered `1.` too, the why indented under it and,
+when the answer is one of a few, `- (a)` choices, your pick first and
+marked `(chosen)`:
+
+```markdown
+1. Should the old upload endpoint stay for a release?
+   It is still called by the mobile app's last version.
+   - (a) Keep it for one release, logging each call (chosen)
+   - (b) Remove it now
+```
+
+Never as `Should I keep the old endpoint? I'd lean yes.`, a bold line, or
+your harness's own question tool: the page shows none of those as a card.
+[references/questions.md](references/questions.md) has the rest.
+
+After a merge, the task's last reply, a line on the change as the user
+will meet it under the title:
+
+```markdown
+## ✅ Merged <task> onto <base>
+
+Cards on a phone now drag on a long press. Restart `splates server` to pick it up.
+```
+
+After a remove, why it went after the colon:
+
+```markdown
+## 🛑 Removed <task>: superseded by a fix on main
+
+The task set out to stop uploads retrying a 413.
+```
+
+Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with a
+demo, a `Checks:` line and the last line `Reply "merge", or say what to
+change.`: copy its whole shape from
+[references/reporting.md](references/reporting.md) before sending one.
+
+Work you add for the user to queue ends your reply with its queue card,
+after any report (see [references/queue.md](references/queue.md), Asking
+the user to queue):
+
+```markdown
+## 🔐 Permission: queue lane <n>: <name>
+
+`splates lane queue <n>`
+
+<A line on what the tasks add up to.>
+```
 
 ## In every conversation
 
-This skill's ways hold in every conversation in a splates repository, with a
-task open or not: a design talk, or a question answered from the main tree,
-asks, proposes and reports as a task does. A task adds only its record in
+These ways hold in every conversation in a splates repository, with a task
+open or not: a design talk, or a question answered from the main tree, asks,
+proposes and reports as a task does. A task adds only its record in
 `SPLATES.md`.
-
-Above all, ask every question the user is to answer as an item of a list
-numbered from 1, a lone one as `1.` too: its line ending at its `?`, the why
-indented under it, and, when the answer is one of a few, `- (a) ...` choices,
-your pick first and marked `(chosen)`. Never ask in prose, a bold line or a
-"my lean", or through your harness's own question tool: the `splates server`
-page turns only the list into a card the user answers with a tap.
-[references/questions.md](references/questions.md) has the rest, and
-says what a conversation with no task does with the answers.
 
 You never change the queue, which splates refuses an agent: when a
 conversation asks for several tasks, add them as a lane, and when the user
 asks you to queue work, add it; either way, end your reply with its queue
-card for the user to queue it now or later, as
-[references/queue.md](references/queue.md), Asking the user to queue, says.
+card for the user to queue it now or later.
 
 ## Directives
 
@@ -56,7 +111,7 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; see Taking a queued task |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; then [queue.md](references/queue.md), Taking a queued task |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": [merge.md](references/merge.md), Merge or review |
@@ -78,8 +133,19 @@ asks you to read it as Reference files says.
 Some of this skill sits in files beside it, each read only when its moment
 comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
-which remembers none of it.
+which remembers none of it. These come up in most tasks:
 
+- Before `splates merge`, or when it stops on anything but success, and
+  before asking the user for a review: [references/merge.md](references/merge.md),
+  merging or asking for a review, and what to do when a merge fails.
+- Before replying with a task outcome (merged, removed, waiting on answers
+  or ready for review): [references/reporting.md](references/reporting.md),
+  the report formats in full, beyond those in Formats above.
+- Before asking the user a question, in a task or not, after a reply, or
+  when resuming a task with questions under `## Blocked`:
+  [references/questions.md](references/questions.md), asking, reading
+  answers and, in a task, keeping Blocked current. Also read it when you
+  cannot go on without the user.
 - Before `splates task add` or `splates task defer`, `splates lane add`,
   a queue card, or `splates task update` or `splates lane update` with
   `--lane`, `--position` or `--blocked-by`: [references/queue.md](references/queue.md), writing,
@@ -88,11 +154,14 @@ which remembers none of it.
   show` says is `groomed: no`, and as the project's groomer:
   [references/groom.md](references/groom.md), everything grooming checks
   and who does it when.
-- Before `splates merge`, or when it stops on anything but success, and
-  before asking the user for a review: [references/merge.md](references/merge.md),
-  merging or asking for a review, and what to do when a merge fails.
+- Before making a demo, starting a server for the user to try, attaching
+  screenshots or recordings, or creating or managing an artifact:
+  [references/demos.md](references/demos.md), demos, hosting and artifacts.
 - When the user asks what you think, or approves a proposal:
   [references/proposing.md](references/proposing.md).
+
+These only when their moment comes:
+
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a cloud server, a tunnel of their
   own, dictation): [references/setup.md](references/setup.md),
@@ -103,17 +172,6 @@ which remembers none of it.
   --project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
-- Before asking the user a question, in a task or not, after a reply, or
-  when resuming a task with questions under `## Blocked`:
-  [references/questions.md](references/questions.md), asking, reading
-  answers and, in a task, keeping Blocked current. Also read it when you
-  cannot go on without the user.
-- Before making a demo, starting a server for the user to try, attaching
-  screenshots or recordings, or creating or managing an artifact:
-  [references/demos.md](references/demos.md), demos, hosting and artifacts.
-- Before replying with a task outcome (merged, removed, waiting on answers
-  or ready for review): [references/reporting.md](references/reporting.md),
-  the exact report formats the page turns into cards.
 
 ## Workflow
 
@@ -132,8 +190,8 @@ reading just the notes that fit.
    `splates claim <task>` resumes a task instead. When the request is a queued task,
    take it as `[SPLATES TASK #N]` says under Directives, and for any other
    directive, do what its row says. Pass `--base <branch>` only when invoked
-   with a branch (`/splates feature/auth`) or the user names one; never guess a base from the
-   checked-out branch. Once `splates add` succeeds, the `splates server` page shows
+   with a branch (`/splates feature/auth`) or the user names one; otherwise
+   leave it off, whatever branch is checked out. Once `splates add` succeeds, the `splates server` page shows
    it in your conversation as splates's own line, the Goal on its task, so say
    nothing about adding it. When your harness asks right after for a word on
    what you are doing, say in one line what you will do next, without the
@@ -177,11 +235,15 @@ reading just the notes that fit.
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see
    [merge.md](references/merge.md)). On failure, do what stderr says and merge again, with the
-   real message: never merge only to read a failure again, since one whose
-   gate passes this time lands. A successful
+   real message, since a merge whose gate passes this time lands. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else. When merge stops on anything but success, read
    [merge.md](references/merge.md), When a merge fails.
+6. **Report.** Reply with the report from Formats above: after a merge,
+   `## ✅ Merged <task> onto <base>`, which `splates merge` prints last to
+   copy, then a line on what changed for the user, and a queue card after it
+   for any lane you added. That is the whole reply: each question or offer
+   you would add to it is a task you queued in step 5.
 
 **Clean up every task you start.** A task ends in a merge or a remove, never
 left behind; one waiting on the user's answers is not done, so leave it for
@@ -198,21 +260,6 @@ waits on a person (the other task's questions are open: tell the user you
 are blocked on it),
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
-
-## Taking a queued task
-
-When you take a queued task that names a model other than the one you run as, take
-it anyway: whoever handed it to you chose you. Say so in a line of its own
-right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
-user can stop you and start the model it names instead.
-
-When `splates add --task` warns that a task is blocked,
-what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
-user asked for this task now, do only what does not need the blocker and say
-so in your report.
-
-Merging removes the queued task yours took: when you leave part of it
-undone, `splates task add` what is left as a task of its own.
 
 ## SPLATES.md
 
@@ -254,7 +301,7 @@ The Goal's first line is what other agents see of your task in `splates list
 Goal; for a change of one commit, leave out `## Next` unless a checkpoint
 or user review needs a step, since the Goal says it all otherwise, and the
 page shows the Goal as what you are doing. Keep the rest current as you go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
-the shape. It is excluded from git: never mention it in a commit message.
+the shape. It is excluded from git, so leave it out of commit messages.
 
 The page's task dialog shows `## Verification`, for an open task and once it
 has finished, as the evidence: what you checked and its screenshots, with,

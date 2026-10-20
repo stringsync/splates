@@ -21,9 +21,9 @@ need it; otherwise the conversation and commits hold it.
 
 Ask in your reply, as [Reporting](reporting.md) says, in the format below and
 nowhere else: a numbered list, a lone question numbered `1.` too, so the page
-shows its question card. Never tuck a question into prose, a bold line or a
-"my lean", or put it through your harness's own question tool, which the page
-cannot show as a card. When an answer overturns a pick you built on, redo
+shows its question card. Put every question there, even one raised in
+passing: the page shows none asked in prose, a bold line or a "my lean", or
+through your harness's own question tool. When an answer overturns a pick you built on, redo
 that part.
 
 Number questions 1, 2, … in the order you write them. A question's line is

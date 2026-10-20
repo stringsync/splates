@@ -46,6 +46,21 @@ detail stay full, since whoever picks it up reads nothing else.
 `splates task update <n> '<detail>'` replaces the whole detail, so pass all of
 it: what still holds and what you learned.
 
+## Taking a queued task
+
+When you take a queued task that names a model other than the one you run as, take
+it anyway: whoever handed it to you chose you. Say so in a line of its own
+right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
+user can stop you and start the model it names instead.
+
+When `splates add --task` warns that a task is blocked,
+what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
+user asked for this task now, do only what does not need the blocker and say
+so in your report.
+
+Merging removes the queued task yours took: when you leave part of it
+undone, `splates task add` what is left as a task of its own.
+
 ## Deferring
 
 `[SPLATES DEFER]` asks you to make a request a task rather than do it.

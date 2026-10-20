@@ -27,6 +27,8 @@ export const COMMON_RUBRIC = [
 /** Sections every scenario leans on, beyond its own. */
 export const CORE = [
 	"Using splates",
+	"The short version",
+	"Formats",
 	"Directives",
 	"Reference files",
 	"Workflow",

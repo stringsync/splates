@@ -486,6 +486,10 @@ export async function merge(
 					...recommendation(
 						await recommend(tasks, task, config.taskStalenessMs, ran),
 					),
+					// Last, since it is what the agent writes next: the page
+					// shows the merge as a card only under this title.
+					"",
+					`${color.bold("report it")} as \`## ✅ Merged ${task} onto ${base}\`, then a line on what changed for the user; ask and offer nothing`,
 				);
 			}
 			log.info(lines.join("\n"));

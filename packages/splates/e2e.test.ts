@@ -108,6 +108,10 @@ describe.concurrent("splates", () => {
 		const merged = await splates(alpha, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged alpha onto main");
+		// Last, as what the agent is to write next.
+		expect(merged.stdout.trimEnd()).toEndWith(
+			"report it as `## ✅ Merged alpha onto main`, then a line on what changed for the user; ask and offer nothing",
+		);
 
 		// beta rebases onto a trunk that alpha moved out from under it.
 		expect((await splates(beta, "claim", "beta")).exitCode).toBe(0);
