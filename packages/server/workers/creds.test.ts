@@ -11,10 +11,10 @@ import {
 	WORKER_ACCESS_ID,
 	WORKER_ACCESS_SECRET,
 	WORKER_KEY,
-	type WorkerRunOptions,
 	workerCreds,
 	workerKeyFile,
-} from "./run";
+} from "./creds";
+import type { WorkerRunOptions } from "./run-options";
 
 describe("workerCreds", () => {
 	let store: FakeSecretStore;

@@ -40,6 +40,7 @@ export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { CoordinatorState } from "./coordinator-state";
+export { WORKER_KEY, workerCreds, workerJoin } from "./creds";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";
@@ -50,6 +51,7 @@ export {
 	WORKER_KEYS_FILE,
 	WorkerKeys,
 } from "./keys";
+export { SUPERVISOR } from "./lifecycle";
 export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
@@ -80,14 +82,7 @@ export type { RolloutStanding } from "./rollout";
 export { WorkerRollout } from "./rollout";
 export type { DevWorkerProvider, DevWorkersOptions } from "./routes";
 export { DevWorkers, LOCAL_WORKER, workerAuthorization } from "./routes";
-export {
-	SUPERVISOR,
-	WORKER_KEY,
-	workerCreds,
-	workerJoin,
-	workerRun,
-	workerSocketPath,
-} from "./run";
+export { workerRun, workerSocketPath } from "./run";
 export type {
 	BudgetReason,
 	Grant,

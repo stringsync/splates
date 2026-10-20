@@ -6,14 +6,14 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
+import { WORKER_KEY } from "./creds";
 import {
 	restartWorker,
 	UPDATE_EXIT,
 	updateFile,
 	WORKER_KEPT,
-	WORKER_KEY,
-	type WorkerRunOptions,
-} from "./run";
+} from "./lifecycle";
+import type { WorkerRunOptions } from "./run-options";
 
 describe("restartWorker", () => {
 	let dir: string;

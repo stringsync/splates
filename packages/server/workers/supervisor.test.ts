@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { FakePs } from "webappwiz/system/testing";
 import { FakeTimer } from "webappwiz/time/testing";
-import { endWithSupervisor, SUPERVISOR } from "./run";
+import { endWithSupervisor, SUPERVISOR } from "./lifecycle";
 
 describe("endWithSupervisor", () => {
 	it("ends the worker once its supervisor is gone, and only then", () => {
