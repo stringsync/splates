@@ -141,6 +141,7 @@ export function fingerprint({
 		tasks.map((task) => [
 			task.task,
 			task.status,
+			task.comingConflict,
 			task.ahead,
 			task.unmerged,
 			task.added,

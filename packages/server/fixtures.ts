@@ -26,6 +26,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 export function details(overrides: Partial<Details> = {}): Details {
 	return {
 		task: "alpha",
+		comingConflict: [],
 		status: "working",
 		branch: "task/alpha",
 		base: "main",

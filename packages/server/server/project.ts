@@ -32,6 +32,7 @@ import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, type SlotRequest } from "../workers";
 import type { Assets } from "./assets";
 import { Automations } from "./automations";
+import { ConflictWatch } from "./conflict-watch";
 import { heldFor } from "./held";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import type { Behind, Release } from "./release";
@@ -48,6 +49,8 @@ export async function serveProject(
 	const { service, format, storage, fs, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
+	const conflicts = new ConflictWatch(project, conversations);
+	await conflicts.start();
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
@@ -218,6 +221,7 @@ export async function serveProject(
 		},
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
+			await conflicts.disposeAsync();
 			watch.dispose();
 			handOffs?.dispose();
 			queueRunner?.dispose();

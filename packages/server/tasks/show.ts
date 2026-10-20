@@ -48,6 +48,8 @@ export async function show(
 
 export interface Details {
 	task: string;
+	/** Files predicted to conflict at the last checked committed tips. */
+	comingConflict?: string[];
 	status: string;
 	branch: string;
 	base: string;
@@ -165,6 +167,7 @@ export class TaskDetails {
 		const { stat, ahead, committedAt, uncommitted } = await this.git(worktree);
 		return {
 			task: worktree.task,
+			comingConflict: (await worktree.comingConflict())?.files ?? [],
 			status: worktree.status,
 			branch: worktree.branch,
 			base: worktree.base,
@@ -334,6 +337,13 @@ function report(details: Details): string {
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
 		`  age:       ${details.age ?? "?"}`,
 	];
+	if (details.comingConflict && details.comingConflict.length > 0) {
+		lines.push(
+			color.yellow(
+				`  coming conflict (committed tips): ${details.comingConflict.join(", ")}`,
+			),
+		);
+	}
 	if (details.plan !== null) {
 		lines.push("", color.bold(PLAN_FILE), details.plan.trimEnd());
 		for (const problem of details.planProblems) {

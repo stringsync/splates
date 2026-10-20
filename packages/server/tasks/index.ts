@@ -1,6 +1,8 @@
 export { add } from "./add";
 export { checkpoint, save, WIP_MESSAGE } from "./checkpoint";
 export { claim } from "./claim";
+export type { ComingConflict } from "./conflicts";
+export { ConflictChecks } from "./conflicts";
 export type { FileDiff } from "./diff";
 export { editLines } from "./diff";
 export { startDispatched } from "./dispatched";
@@ -10,6 +12,7 @@ export type { FinishedPlan, FinishedTask } from "./finished";
 export { follow, serveProject } from "./follow";
 export { LeaseBeat } from "./lease-beat";
 export { list } from "./list";
+export { overlapWarnings, TaskOverlaps } from "./overlaps";
 export { path } from "./path";
 export { recommend, recommendation } from "./recommend";
 export { remove } from "./remove";

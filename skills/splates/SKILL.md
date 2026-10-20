@@ -91,6 +91,11 @@ which remembers none of it.
    resolve any conflict as the rebase brings it, without waiting on the
    other task or noting it anywhere. If it is doing the opposite of what you
    were asked, ask the user instead (see Questions).
+   `splates add` warns when file paths in the Goal or the first changes overlap
+   open tasks. Coordinate those files or queue dependent work with `--blocked-by`.
+   While the server runs, `splates list` and `show` name coming conflicts at
+   committed branch tips, and a working agent hears a notice when one appears.
+   These checks never rebase a worktree; commit in steps so they can see the work.
 4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the

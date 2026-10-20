@@ -49,6 +49,21 @@ describe("App's tasks", () => {
 		expect(within(dialog).getByText("Working")).toBeTruthy();
 	});
 
+	it("shows a coming conflict on the row and names its files in the dialog", async () => {
+		const view = await testing.openTasks({
+			tasks: [details({ task: "alpha", comingConflict: ["src/shared.ts"] })],
+		});
+		expect(view.getByText("Coming conflict")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getByRole("alert").textContent).toContain(
+			"src/shared.ts",
+		);
+		expect(within(dialog).getByText("Coming conflict with main")).toBeTruthy();
+	});
+
 	it("nests each part under the task it was handed out from", async () => {
 		const view = await testing.openTasks({
 			tasks: [

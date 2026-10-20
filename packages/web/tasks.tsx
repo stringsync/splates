@@ -12,6 +12,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { Dialog } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { Badge } from "./components/ui/badge";
 import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
@@ -317,6 +318,14 @@ function TaskRows({
 						<span className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}>
 							{task.task}
 						</span>
+						{task.comingConflict && task.comingConflict.length > 0 && (
+							<Badge
+								variant="destructive"
+								title={`Committed tips conflict in: ${task.comingConflict.join(", ")}`}
+							>
+								Coming conflict
+							</Badge>
+						)}
 						{(task.createdAt !== null || task.age !== null) && (
 							<span
 								className="shrink-0 text-muted-foreground text-xs tabular-nums"

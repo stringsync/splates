@@ -1,6 +1,7 @@
 import type { AutoPicked } from "../auto-pick";
 import type { Git, GitResult } from "../git";
 import type { TimedTest } from "../merge";
+import { type ComingConflict, ConflictChecks } from "./conflicts";
 import { type FileDiff, parseDiff } from "./diff";
 import type { WorktreeService } from "./worktree-service";
 
@@ -15,6 +16,11 @@ export class Worktree {
 		private readonly service: WorktreeService,
 		private readonly snapshot: WorktreeSnapshot,
 	) {}
+
+	/** Latest background prediction, independent of the task's lease. */
+	comingConflict(): Promise<ComingConflict | null> {
+		return new ConflictChecks(this.service.storage).read(this.task);
+	}
 
 	get task(): string {
 		return this.snapshot.task;

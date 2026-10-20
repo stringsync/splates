@@ -10,6 +10,7 @@ interface Row {
 	/** Its number, as `[SPLATES TASK #N]` and `splates task show` name it; null for a record without one. */
 	number: number | null;
 	task: string;
+	comingConflict: string[];
 	status: string;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
@@ -61,6 +62,7 @@ async function row(worktree: Worktree): Promise<Row> {
 	return {
 		number: state?.id ?? null,
 		task: worktree.task,
+		comingConflict: (await worktree.comingConflict())?.files ?? [],
 		// One unreadable record shows as `unknown` instead of taking down the
 		// whole listing.
 		status: worktree.status,
@@ -105,6 +107,13 @@ function listing(rows: Row[]): string {
 		table(["#", "TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
 	];
 	for (const row of rows) {
+		if (row.comingConflict.length > 0) {
+			out.push(
+				color.yellow(
+					`${row.task}: coming conflict (committed tips): ${row.comingConflict.join(", ")}`,
+				),
+			);
+		}
 		if (row.changed !== undefined) {
 			out.push("", ...files(row));
 		}

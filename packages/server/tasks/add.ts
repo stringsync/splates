@@ -8,6 +8,7 @@ import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
 import { PLAN_FILE, Plans } from "../plans";
 import type { Shell } from "../terminal";
+import { TaskOverlaps } from "./overlaps";
 import type { Dispatched, Worktree } from "./worktree";
 import { taskOf, type WorktreeService } from "./worktree-service";
 
@@ -257,6 +258,13 @@ export async function add(
 		await worktree.save({ dispatch: handOff, lease: null });
 	}
 
+	const overlaps = await new TaskOverlaps(service).warnings(
+		task,
+		[asked, ...taken.map((each) => `${each.subject}\n${each.text}`)]
+			.filter(Boolean)
+			.join("\n"),
+		(await worktree.changedFiles()) ?? [],
+	);
 	log.info(
 		[
 			`${color.green("added")} ${task}`,
@@ -269,6 +277,7 @@ export async function add(
 						`  agent:    ${handOff.agent}${handOff.model === undefined ? "" : ` (${handOff.model})`}, which \`splates server\` starts in the worktree`,
 					]),
 			...blocked,
+			...overlaps.map((warning) => color.yellow(`  ${warning}`)),
 		].join("\n"),
 	);
 }

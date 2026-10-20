@@ -22,6 +22,7 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Dispatching } from "./dispatching";
 import { Held, SubagentComposer } from "./handed-out";
 import { Markdown } from "./markdown";
@@ -177,6 +178,15 @@ function Header({
 					{started !== null && ` · ${started}`}
 				</span>
 			</p>
+			{task.comingConflict && task.comingConflict.length > 0 && (
+				<Alert variant="warning">
+					<AlertTitle>Coming conflict with {task.base}</AlertTitle>
+					<AlertDescription>
+						Committed changes conflict in: {task.comingConflict.join(", ")}.
+						Your worktree has not been changed.
+					</AlertDescription>
+				</Alert>
+			)}
 			{retry}
 		</DialogHeader>
 	);
