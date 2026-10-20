@@ -183,37 +183,41 @@ export function Lane({
 				</div>
 				{/* A line of its own, so a long name keeps its room. */}
 				{lane.todos.length > 0 && <StageCounts todos={lane.todos} />}
-				{(running || lane.queued) && (
-					<span className="flex flex-wrap items-center gap-1">
-						{running && (
-							<span
-								className={cn(
-									"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-									TONES.working,
-								)}
-								title="An agent is at work on one of its tasks"
-							>
+				{/* Always there, at the chips' height, so queueing or pausing the lane
+				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
+				<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
+					{(running || lane.queued) && (
+						<>
+							{running && (
 								<span
-									aria-hidden
-									className="size-1.5 animate-pulse rounded-full bg-primary"
-								/>
-								Running
-							</span>
-						)}
-						{lane.queued && (
-							<span
-								className={cn(
-									"inline-flex items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
-									TONES.quiet,
-								)}
-								title="Each task is queued as soon as nothing blocks it, until the lane is empty"
-							>
-								<ListPlusIcon aria-hidden className="size-3" />
-								Queued lane
-							</span>
-						)}
-					</span>
-				)}
+									className={cn(
+										"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+										TONES.working,
+									)}
+									title="An agent is at work on one of its tasks"
+								>
+									<span
+										aria-hidden
+										className="size-1.5 animate-pulse rounded-full bg-primary"
+									/>
+									Running
+								</span>
+							)}
+							{lane.queued && (
+								<span
+									className={cn(
+										"inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px font-medium text-xs",
+										TONES.quiet,
+									)}
+									title="Each task is queued as soon as nothing blocks it, until the lane is empty"
+								>
+									<ListPlusIcon aria-hidden className="size-3" />
+									Queued lane
+								</span>
+							)}
+						</>
+					)}
+				</span>
 				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards
