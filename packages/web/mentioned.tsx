@@ -1,5 +1,6 @@
 import type { ProjectRef } from "@stringsync/splates-server/conversations";
 import { conversationReference } from "@stringsync/splates-server/conversations/browser";
+import type { ProjectNote } from "@stringsync/splates-server/notes";
 import { MessageCircleIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
@@ -10,6 +11,8 @@ import { ProjectChip } from "./project-chip";
 
 /** Project, conversation and file references available to a conversation. */
 export interface Named {
+	notes?: readonly ProjectNote[];
+	notesRoot?: string | null;
 	/** Current display names, indexed by the stable conversation UUID. */
 	conversations?: readonly { id: string; name: string }[];
 	projects: readonly ProjectRef[];

@@ -6,6 +6,9 @@ import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
+import { NamedContext } from "./mentioned";
+import { NoteChip } from "./note-chip";
+import { linkNotes, noteIn } from "./note-references";
 import { TaskChip } from "./reference-chip";
 
 export interface MarkdownProps {
@@ -40,7 +43,12 @@ export const Markdown = memo(function Markdown({
 	inline = false,
 	unlinked = false,
 }: MarkdownProps): JSX.Element {
-	const linked = linkMentions(linkTasks(text));
+	const named = useContext(NamedContext);
+	const linked = linkMentions(
+		linkTasks(
+			linkNotes(text, named.notes ?? [], named.notesRoot ?? named.tree),
+		),
+	);
 	if (inline) {
 		return (
 			<span className={cn("min-w-0 break-words", className)}>
@@ -281,6 +289,10 @@ export function Mention({ id }: { id: number }): JSX.Element {
 
 /** A link opens in a new tab, so the page keeps its place. */
 function Link(props: ComponentProps<"a">): JSX.Element {
+	const note = noteIn(props.href);
+	if (note !== null) {
+		return <NoteChip path={note} />;
+	}
 	const mention = mentionIn(props.href);
 	if (mention !== null) {
 		return <Mention id={mention} />;

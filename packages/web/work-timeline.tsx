@@ -10,6 +10,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
+import { NamedContext } from "./mentioned";
+import { NoteChip } from "./note-chip";
+import { noteCalled, notesRead } from "./note-references";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
@@ -171,12 +174,38 @@ function Call({
 	const state = stateOf(tool, use(Going));
 	const what = resource(tool);
 	const named = files(tool);
+	const context = use(NamedContext);
+	const notes = notesRead(
+		tool,
+		context.notes ?? [],
+		context.notesRoot ?? context.tree,
+		context.tree,
+	);
 	return (
 		<Line
 			state={state}
 			verb={verb(tool, state, subagent)}
 			resource={
-				named.length > 0 ? (
+				notes.length > 0 ? (
+					<>
+						{notes.map((note) => (
+							<NoteChip key={note.path} path={note.path} />
+						))}
+						{named
+							.filter(
+								({ path }) =>
+									!noteCalled(
+										path,
+										notes,
+										context.notesRoot ?? context.tree,
+										context.tree,
+									),
+							)
+							.map(({ path, lines }) => (
+								<FileChip key={path} path={path} lines={lines} />
+							))}
+					</>
+				) : named.length > 0 ? (
 					named.map(({ path, lines }) => (
 						<FileChip key={path} path={path} lines={lines} />
 					))

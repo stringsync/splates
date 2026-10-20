@@ -20,6 +20,7 @@ import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import type { AgentPick } from "../models";
+import { NotesRoutes } from "../notes";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -154,6 +155,7 @@ export async function serveProject(
 		...new BoardRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
+		...new NotesRoutes(project),
 		...automations.routes,
 		...new AutoPickRoutes(project, conversations, watch),
 		...talks,
@@ -423,6 +425,8 @@ export interface Served extends AsyncResource {
 	saveCred: Handler;
 	removeCred: Handler;
 	dismissCred: Handler;
+	listNotes: Handler;
+	readNote: Handler;
 	listBudgets: Handler;
 	setBudget: Handler;
 	raiseBudget: Handler;

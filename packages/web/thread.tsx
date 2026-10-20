@@ -202,6 +202,7 @@ function Conversation({
 		paths,
 		projects,
 		task?.worktree ?? (conversation.task === null ? root : null),
+		root,
 	);
 	const listed = useMemo(
 		() => ({ conversation: id, background: conversation.background }),

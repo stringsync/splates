@@ -74,6 +74,7 @@
 @source "./composing.tsx";
 @source "./files.tsx";
 @source "./file-chip.tsx";
+@source "./note-chip.tsx";
 @source "./fullscreen.tsx";
 @source "./hand-off.tsx";
 @source "./handed-out.tsx";

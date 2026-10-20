@@ -8,14 +8,45 @@ export interface ProjectNote {
 	description: string;
 }
 
+/** A note's source for an agent and its body for the reader. */
+export interface ReadNote extends ProjectNote {
+	text: string;
+	body: string;
+}
+
+/** Where a checkout keeps its notes, relative to its root. */
+export interface NotesOptions {
+	notesDir?: string;
+}
+
 /** The markdown notes in a checkout, with their on-demand descriptions. */
 export class Notes {
 	constructor(private readonly fs: Fs) {}
 
+	/** Only a listed note may be read, so a page cannot ask for arbitrary files. */
+	async read(
+		root: string,
+		path: string,
+		opts: NotesOptions = {},
+	): Promise<ReadNote | null> {
+		const note = (await this.list(root, opts)).find(
+			(note) => note.path === path,
+		);
+		if (note === undefined) {
+			return null;
+		}
+		const text = await this.fs.read(note.path);
+		return {
+			...note,
+			text,
+			body: Markdown.parse(text.replace(/\r\n/g, "\n")).body,
+		};
+	}
+
 	/** Reads the flat notes directory in filename order; an absent directory is empty. */
 	async list(
 		root: string,
-		{ notesDir = "notes" }: { notesDir?: string } = {},
+		{ notesDir = "notes" }: NotesOptions = {},
 	): Promise<ProjectNote[]> {
 		const directory = resolve(root, notesDir);
 		if (!(await this.fs.exists(directory))) {

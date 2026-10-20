@@ -262,6 +262,7 @@ export function useNewConversation({
 		task === null
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
+		root,
 	);
 	// The agent is yet to be picked, so there are no settings to offer.
 	const controls = auto ? undefined : offered.length > 0 ? (

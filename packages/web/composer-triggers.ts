@@ -4,12 +4,14 @@ import type {
 	ProjectRef,
 } from "@stringsync/splates-server/conversations";
 import { nameOf } from "@stringsync/splates-server/conversations/browser";
+import { useReactive } from "@webappwiz/react";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { paths } from "./api";
 import { Lanes } from "./conversation-names";
 import { useHeldConversations } from "./handed-out";
 import type { Named } from "./mentioned";
 import { rank } from "./mentions";
+import { NoteReader } from "./note-reader";
 import { listProjects } from "./project-api";
 
 /**
@@ -61,11 +63,20 @@ export function useNamed(
 	paths: ReadonlySet<string> | null,
 	projects: ProjectRef[] | null,
 	tree: string | null,
+	notesRoot: string | null,
 ): Named {
+	const [reader] = useState(() => new NoteReader());
+	const notes = useReactive(reader, (each) => each.notes, ["changed"]);
+	useEffect(() => {
+		void reader.list();
+		return () => reader.cancel();
+	}, [reader]);
 	const held = useHeldConversations();
 	const lanes = useContext(Lanes);
 	return useMemo(
 		() => ({
+			notes,
+			notesRoot,
 			conversations: held.map((each) => ({
 				id: each.id,
 				name: nameOf(each, lanes),
@@ -78,7 +89,7 @@ export function useNamed(
 				projects: projects === null,
 			},
 		}),
-		[paths, projects, tree, held, lanes],
+		[paths, projects, tree, held, lanes, notes, notesRoot],
 	);
 }
 

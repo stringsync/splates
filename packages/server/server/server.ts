@@ -729,6 +729,8 @@ export async function dev(
 					"/api/creds/:name/dismiss": {
 						POST: talk(scoped((project) => project.dismissCred)),
 					},
+					"/api/notes": { GET: scoped((project) => project.listNotes) },
+					"/api/notes/read": { GET: scoped((project) => project.readNote) },
 					"/api/budgets": scoped((project) => project.listBudgets),
 					"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },
 					"/api/budgets/:role/raises": {
