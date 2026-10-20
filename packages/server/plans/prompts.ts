@@ -126,6 +126,12 @@ export const APPROVE = "[SPLATES APPROVE]";
 export const DEFER = "[SPLATES DEFER]";
 
 /**
+ * What asks an agent to draft a project note from the conversation and wait
+ * for the person's approval before merging it, as Keep this sends.
+ */
+export const KEEP = "[SPLATES KEEP]";
+
+/**
  * What the agent alone is told of a message the person dictated: the page
  * marks it with a mic, and never shows these words.
  */

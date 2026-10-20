@@ -51,6 +51,7 @@ export {
 	groomReference,
 	handOffReference,
 	isUpdate,
+	KEEP,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,

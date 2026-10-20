@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not.
-version: 0.0.49
+version: 0.0.50
 ---
 
 # Using splates
@@ -56,6 +56,7 @@ asks you to read it as Reference files says.
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": [merge.md](references/merge.md), Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": [proposing.md](references/proposing.md) |
+| `[SPLATES KEEP]` | Draft a new or updated project note from this conversation; present the draft and merge only once the user approves | [notes.md](references/notes.md), Keeping a conversation |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |

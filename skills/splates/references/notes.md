@@ -34,3 +34,23 @@ Keep sensitive information out: secrets, personal details, and nonpublic
 things a client or third party said. Consider where the repository is
 published, including npm. When unsure, ask the user in the skill's numbered
 questions format and wait for the answer before committing the doubtful note.
+
+## Keeping a conversation
+
+`[SPLATES KEEP]`, sent by the conversation's Keep this button, asks you to
+save what is worth keeping from the conversation so far as a project note.
+A request in words to keep something as a note does the same.
+
+Start a task with `splates add` when none is open; use your current task
+when the note belongs to its work. Run `splates notes` and read the relevant
+files before drafting: update an existing note when it covers the same
+thing, otherwise write a new one. Follow the format and sensitivity guidance
+above, keeping only what the conversation supports.
+
+Present the full draft, including its description, and ask the user to
+approve it in the numbered questions format, or the review flow in
+[merge.md](merge.md). Keep an unchecked approval step under `## Next` in
+`SPLATES.md`. Wait for explicit approval before checking it off and merging;
+a click on Keep this asks for a draft and does not approve its contents.
+If the user asks for changes, revise the draft and present it for approval
+again. When there is no clear thing to keep, ask what they want to preserve.

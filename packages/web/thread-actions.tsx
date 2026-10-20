@@ -1,11 +1,12 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { paused } from "@stringsync/splates-server/conversations/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
-import { DEFER, RESUME } from "@stringsync/splates-server/plans/browser";
+import { DEFER, KEEP, RESUME } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
+	BookmarkIcon,
 	ClockIcon,
 	FileDiffIcon,
 	Loader2Icon,
@@ -41,7 +42,7 @@ import { ToggleTerminal } from "./terminal";
  * What a conversation's thread offers beside it: reviewing its task's
  * changes, its terminal, pausing its agent at a checkpoint and resuming it,
  * restarting its agent on its task or handing the task to a new one,
- * deferring what the person last asked, showing its messages' timestamps,
+ * deferring what the person last asked, drafting a project note, showing its messages' timestamps,
  * and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac) does too; and
  * starting a new conversation with its agent.
  */
@@ -88,6 +89,18 @@ export function useThreadActions(
 				]
 			: []),
 		...pauseActions(conversation, refused),
+		...(!archived && conversation.checkpoint !== "asked"
+			? [
+					{
+						label: "Keep this",
+						icon: <BookmarkIcon />,
+						run: () =>
+							void promptConversation(id, KEEP).catch((error: unknown) =>
+								refused("Note not requested", error),
+							),
+					},
+				]
+			: []),
 		...(dispatching !== null && conversation.task !== null && !archived
 			? [
 					{

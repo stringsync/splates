@@ -49,7 +49,14 @@ describe("App on a touch device", () => {
 			within(view.getByRole("navigation", { name: "actions" }))
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["main", "Terminal", "Defer", "Show timestamps", "Archive"]);
+		).toEqual([
+			"main",
+			"Terminal",
+			"Defer",
+			"Keep this",
+			"Show timestamps",
+			"Archive",
+		]);
 
 		await act(async () => fireEvent.click(await menuItem(view, "Settings")));
 		const dialog = view.getByRole("dialog", { name: "Settings" });

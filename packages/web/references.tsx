@@ -5,6 +5,7 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
+	KEEP,
 	MERGE,
 	RECONNECT,
 	RESUME,
@@ -189,6 +190,13 @@ export const BARE_DIRECTIVES = [
 		label: "Defer",
 		about: "put the request on the board rather than do it",
 		icon: ClockIcon,
+		tone: "neutral",
+	},
+	{
+		directive: KEEP,
+		label: "Keep this",
+		about: "draft a project note from this conversation for approval",
+		icon: BookmarkIcon,
 		tone: "neutral",
 	},
 	{
