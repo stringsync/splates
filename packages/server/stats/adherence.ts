@@ -1,4 +1,7 @@
+import type { Fs } from "webappwiz/system";
+import { ConfigFiles } from "../config";
 import type { ConversationState } from "../conversations";
+import { Notes } from "../notes";
 import type { Log, Storage } from "../storage";
 import type { Outcomes } from "./outcomes";
 import {
@@ -26,6 +29,7 @@ export class Adherence {
 		storage: Storage,
 		/** Where the commits a conversation merged are kept; null to judge without them. */
 		private readonly outcomes: Outcomes | null,
+		private readonly fs: Fs,
 	) {
 		this.log = storage.log("adherence.jsonl");
 	}
@@ -37,7 +41,13 @@ export class Adherence {
 		at: string,
 	): Promise<void> {
 		const transcript = condense(state);
-		const verdicts = judge(transcript, await this.endOf(state, transcript));
+		const config = await new ConfigFiles(this.fs).read(project);
+		const hasNotes =
+			(await new Notes(this.fs).list(project, config)).length > 0;
+		const verdicts = judge(transcript, {
+			...(await this.endOf(state, transcript)),
+			hasNotes,
+		});
 		const scores: Scores = Object.fromEntries(
 			Object.entries(verdicts)
 				.filter(([, each]) => each.length > 0)

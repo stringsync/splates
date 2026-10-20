@@ -414,7 +414,11 @@ describe("Conversations", () => {
 	});
 
 	it("judges how a conversation follows the skill as each turn ends", async () => {
-		const adherence = new Adherence(new FsStorage("/home/.splates", fs), null);
+		const adherence = new Adherence(
+			new FsStorage("/home/.splates", fs),
+			null,
+			fs,
+		);
 		const shop = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],

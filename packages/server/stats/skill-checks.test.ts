@@ -1,7 +1,54 @@
 import { describe, expect, it } from "bun:test";
-import { type Beat, judge, splatesCalls } from "./skill-checks";
+import { type Beat, type EndState, judge, splatesCalls } from "./skill-checks";
 
 describe("skill checks", () => {
+	it.each([
+		"splates notes",
+		"cd /repo && bunx @stringsync/splates notes",
+		"/repo/bin/splates notes",
+	])(
+		"notes-first: accepts %s before the first edit, including the plan",
+		(command) => {
+			expect(
+				verdicts("notes-first", [user(), run(command), edit("SPLATES.md")], {
+					hasNotes: true,
+				}),
+			).toEqual([true]);
+		},
+	);
+
+	it.each<[{ beats: Beat[] }]>([
+		[{ beats: [edit("src/upload.ts")] }],
+		[{ beats: [edit("SPLATES.md"), run("splates notes")] }],
+		[{ beats: [run('echo "splates notes"'), edit("src/upload.ts")] }],
+		[
+			{
+				beats: [
+					{ kind: "run", command: "splates notes", output: "", ok: false },
+					edit("src/upload.ts"),
+				],
+			},
+		],
+	])(
+		"notes-first: fails without a successful notes run before editing: %j",
+		({ beats }) => {
+			expect(verdicts("notes-first", beats, { hasNotes: true })).toEqual([
+				false,
+			]);
+		},
+	);
+
+	it("notes-first: passes without project notes, and does not judge a conversation without edits", () => {
+		expect(
+			verdicts("notes-first", [edit("src/upload.ts")], { hasNotes: false }),
+		).toEqual([true]);
+		expect(
+			verdicts("notes-first", [user(), run("splates notes")], {
+				hasNotes: true,
+			}),
+		).toEqual([]);
+	});
+
 	it("splatesCalls: finds splates where a shell would run it, not in a quoted message", () => {
 		expect(
 			splatesCalls(
@@ -262,6 +309,12 @@ function merge(task = "upload-413"): Beat {
 }
 
 /** What `check` found of `beats`, as pass or fail per place it applied. */
-function verdicts(check: string, beats: Beat[]): boolean[] | undefined {
-	return judge({ beats }, { landed: [] })[check]?.map((each) => each.ok);
+function verdicts(
+	check: string,
+	beats: Beat[],
+	end: Partial<EndState> = {},
+): boolean[] | undefined {
+	return judge({ beats }, { landed: [], ...end })[check]?.map(
+		(each) => each.ok,
+	);
 }

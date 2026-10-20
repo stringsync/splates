@@ -37,6 +37,8 @@ export type Beat =
 
 /** What the conversation left behind, which its transcript does not say. */
 export interface EndState {
+	/** Whether the conversation's project has notes; absent for older callers. */
+	hasNotes?: boolean;
 	/** Each task it merged, with the message of each commit that landed. */
 	landed: { task: string; commits: string[] }[];
 }
@@ -58,6 +60,35 @@ export interface Check {
 
 /** Every check, in the order the Stats page lists them. */
 export const CHECKS: readonly Check[] = [
+	{
+		id: "notes-first",
+		rule: "Runs splates notes before the first edit when the project has notes",
+		judge: ({ beats }, { hasNotes = false }) => {
+			const edit = beats.findIndex((beat) => beat.kind === "edit");
+			if (edit === -1) {
+				return [];
+			}
+			if (!hasNotes) {
+				return [{ ok: true, why: "project has no notes" }];
+			}
+			const read = beats
+				.slice(0, edit)
+				.some(
+					(beat) =>
+						beat.kind === "run" &&
+						beat.ok &&
+						splatesCalls(beat.command).some(({ verb }) => verb === "notes"),
+				);
+			return [
+				{
+					ok: read,
+					why: read
+						? "splates notes came before the first edit"
+						: "edited before running splates notes",
+				},
+			];
+		},
+	},
 	{
 		id: "plan-first",
 		rule: "Writes SPLATES.md before the first edit",

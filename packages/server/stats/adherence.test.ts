@@ -16,7 +16,11 @@ describe("Adherence", () => {
 	beforeEach(() => {
 		fs = new FakeFs();
 		outcomes = new Outcomes(new FsStorage("/home/.splates", fs));
-		adherence = new Adherence(new FsStorage("/home/.splates", fs), outcomes);
+		adherence = new Adherence(
+			new FsStorage("/home/.splates", fs),
+			outcomes,
+			fs,
+		);
 	});
 
 	const landed = (overrides: Partial<Outcome>): Outcome => ({

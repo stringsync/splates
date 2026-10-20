@@ -23,6 +23,7 @@ export class DevOutcomes {
 		this.adherence = new Adherence(
 			new FsStorage(splatesHome(ps), fs),
 			this.outcomes,
+			fs,
 		);
 	}
 

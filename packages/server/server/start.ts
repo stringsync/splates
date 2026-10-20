@@ -171,7 +171,7 @@ export async function serveDev(
 	// outcomes it reads the merged commits from.
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
-	const adherence = new Adherence(machine, outcomes);
+	const adherence = new Adherence(machine, outcomes, ctx.fs);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.
 	const starting = StartLock.ofMachine(ctx);

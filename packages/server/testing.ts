@@ -130,7 +130,7 @@ export class Testing implements AsyncDisposable {
 		this.storage = new FsStorage(this.splatesDir, this.fs);
 		this.machine = new FsStorage(this.splatesHome, this.fs);
 		this.outcomes = new Outcomes(this.machine);
-		this.adherence = new Adherence(this.machine, null);
+		this.adherence = new Adherence(this.machine, null, this.fs);
 		const store = new TaskStore(this.storage);
 		this.service = new WorktreeService(this.git, this.config, this.splatesDir, {
 			store,

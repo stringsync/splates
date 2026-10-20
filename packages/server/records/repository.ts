@@ -456,7 +456,7 @@ export async function openRepository(
 		storage,
 		ps,
 		outcomes,
-		adherence: new Adherence(machine, null),
+		adherence: new Adherence(machine, null, fs),
 		workerBudget: machine.document("worker-budget.json"),
 		leases: beats ?? undefined,
 		...(machines === undefined ? {} : { machines }),
