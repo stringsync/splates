@@ -291,10 +291,19 @@ describe("QueueAutoPick", () => {
 
 	it("holds its conversation on the judged pick, so its start swaps nothing", async () => {
 		room = 0;
+		// The judgment waits on the test, so no sweep can see it land early.
+		const gate = Promise.withResolvers<void>();
+		judge = {
+			judge: async (judgment) => {
+				await gate.promise;
+				return fake.judge(judgment);
+			},
+		};
 		await queueAdd(deps, [id]);
 		await runner.sweep();
 		expect(held.held).toEqual([]);
 
+		gate.resolve();
 		await picker.settled();
 		await runner.sweep();
 		expect(held.held.map(({ id, agent }) => ({ id, agent }))).toEqual([
