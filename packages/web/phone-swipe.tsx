@@ -245,7 +245,7 @@ export function EdgeSwipe({
 			<div
 				ref={backing}
 				aria-hidden
-				className="pointer-events-none fixed inset-0 -z-10 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
+				className="pointer-events-none fixed inset-x-0 -z-10 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
 			>
 				<div ref={label} className="flex items-center gap-2 scale-[0.7]">
 					<ArchiveIcon />
@@ -276,6 +276,13 @@ export function EdgeSwipe({
 						}
 						swiping.current = true;
 						event.currentTarget.setPointerCapture?.(event.pointerId);
+						// Behind the screen's own box only, not the safe-area padding
+						// around it, where the backing would show as a band.
+						const box = target.current?.getBoundingClientRect();
+						if (box !== undefined && backing.current !== null) {
+							backing.current.style.top = `${box.top}px`;
+							backing.current.style.height = `${box.height}px`;
+						}
 					}
 					slide(Math.min(0, dx), "none");
 				}}
