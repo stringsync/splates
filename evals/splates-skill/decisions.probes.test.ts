@@ -15,15 +15,16 @@ it("validates independently selectable cases and production directive constants"
 });
 
 it("observes placement, stable numbering, chosen answers and checked state through the production parser", () => {
-	const plan = `## Notes
-Chose three retries over five.
+	const plan = `## Next
+- [x] Prepare the local fixture
+  Chose three retries over five.
 ## Blocked
 - [x] 3. (small) Which local retry limit? → b
   - (a) Three (chosen)
   - (b) Five
 `;
 	expect(decisionState(plan)).toEqual({
-		"plan/notes": true,
+		"plan/next-context": true,
 		"plan/blocked": [
 			{ number: "3", done: true, size: "small", reply: "b", chosen: ["a"] },
 		],
@@ -45,12 +46,25 @@ Chose three retries over five.
 			plan.replace("[x] 3", "[ ] 3"),
 			plan.replace("3.", "2."),
 			plan.replace("→ b", "→ a"),
-			plan.replace("## Blocked", "## Notes"),
+			plan.replace("## Blocked", "## Verification"),
 		].map(
 			(wrong) =>
 				assess(selected, { ...evidence, state: decisionState(wrong) }).status,
 		),
 	).toEqual(["fail", "fail", "fail", "fail"]);
+});
+
+it("only records an unfinished Next review step as a review request", () => {
+	const review = "## Next\n- [ ] Show the user before merging\n";
+	expect(decisionState(review)["plan/review-requested"]).toBe(true);
+	expect(
+		decisionState(review.replace("[ ]", "[x]"))["plan/review-requested"],
+	).toBe(false);
+	expect(
+		decisionState(review.replace("## Next", "## Goal"))[
+			"plan/review-requested"
+		],
+	).toBe(false);
 });
 
 it.each([undefined, 0, 1])(

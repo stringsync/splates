@@ -1,6 +1,11 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { APPROVE, MERGE, questions } from "@stringsync/splates-server/plans";
+import {
+	APPROVE,
+	MERGE,
+	questions,
+	unfinished,
+} from "@stringsync/splates-server/plans";
 import { FORMAT } from "@stringsync/splates-server/records";
 import type { Assertion, Json, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";
@@ -17,8 +22,6 @@ Exercise one isolated decision; no external services are available.
 ## Next
 
 - [x] Prepare the local fixture
-
-## Notes
 
 ## Blocked
 `;
@@ -39,16 +42,18 @@ export function decisionState(plan: string): Record<string, Json> {
 				.filter((choice) => choice.chosen)
 				.map((choice) => choice.key),
 		}));
-	const notes = /^## Notes\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(plan);
+	const next = /^## Next\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(plan);
 	return {
-		"plan/notes": (notes?.[1] ?? "").trim() !== "",
+		"plan/next-context": /^[ \t]+\S/m.test(next?.[1] ?? ""),
 		"plan/blocked": summarize(questions(plan)),
 		"plan/blocked-kinds": questions(plan).map(({ number, size, done }) => ({
 			number,
 			size,
 			done,
 		})),
-		"plan/review-requested": /^Review: requested$/m.test(plan),
+		"plan/review-requested": unfinished(plan).steps.some((step) =>
+			/show the user before merging/i.test(step),
+		),
 	};
 }
 
@@ -63,7 +68,7 @@ async function checked(context: RunContext, argv: string[]) {
 const seed: Seed = {
 	id: "decisions/task",
 	version: "1",
-	fingerprint: "decisions-task-v1:seedRepository-v1:production-plan-summary-v1",
+	fingerprint: "decisions-task-v2:seedRepository-v1:production-plan-summary-v2",
 	async prepare(context, data) {
 		if (
 			typeof data !== "object" ||
@@ -202,16 +207,16 @@ function probe(
 const conversationTalk =
 	"No task is open, and I only want to talk this through before anything is built: should a retry limit live in config or stay a constant in the code? Weigh it, then ask me whatever my answer would change. Build nothing and start no task this turn.";
 const reviewPlan = basePlan.replace(
-	"## Notes\n",
-	"## Notes\n\nReview: requested\n",
+	"## Next\n",
+	"## Next\n\n- [ ] Show the user before merging\n",
 );
 export const probes: Probe[] = [
 	probe(
 		"local-choice",
 		"decisions-local",
 		"Questions",
-		"Choose between three and five for a local retry-limit constant. This is a new decision, cheap to undo in one commit, with no data or external effects. Record your choice and its alternative; implementation continues in a later turn.",
-		[state("plan/notes", true), state("plan/blocked", []), ...noMerge],
+		"Choose between three and five for a local retry-limit constant. This is a new decision, cheap to undo in one commit, with no data or external effects. Record your choice and its alternative under the relevant Next step; implementation continues in a later turn.",
+		[state("plan/next-context", true), state("plan/blocked", []), ...noMerge],
 	),
 	probe(
 		"external-blocker",

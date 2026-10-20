@@ -25,6 +25,13 @@ describe("unfinished", () => {
 		);
 	});
 
+	it("holds a requested review until the user approves it", () => {
+		const plan = "## Next\n- [ ] Show the user before merging\n";
+		expect(unfinished(plan).steps).toEqual(["Show the user before merging"]);
+		expect(ready(unfinished(plan))).toBe(false);
+		expect(ready(unfinished(plan.replace("[ ]", "[x]")))).toBe(true);
+	});
+
 	it("leaves nothing once every box is checked, or with no plan at all", () => {
 		const finished = GOOD.replace("- [ ] wire it up", "- [x] wire it up");
 		expect(ready(unfinished(finished))).toBe(true);

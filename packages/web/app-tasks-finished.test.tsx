@@ -66,7 +66,7 @@ describe("App's finished tasks", () => {
 			fireEvent.click(within(list).getByRole("button", { name: /alpha/ })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
-		// Its plan in the tabs a live task's dialog has.
+		// Finished tasks retain their legacy Notes tab.
 		await waitFor(() => {
 			expect(dialog.textContent).toContain("ship alpha");
 		});

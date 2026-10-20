@@ -82,12 +82,12 @@ describe("continuity aspect (free synthetic evidence, not model adherence)", () 
 				"no-new-output",
 			),
 		).toBe("fail");
-		expect(verdict("checkpoint", {}, "notes-updated")).toBe("uncovered");
+		expect(verdict("checkpoint", {}, "plan-updated")).toBe("uncovered");
 		expect(
 			verdict(
 				"checkpoint",
 				{ state: { "plan/changed": false } },
-				"notes-updated",
+				"plan-updated",
 			),
 		).toBe("fail");
 	});

@@ -31,8 +31,8 @@ export async function decisionTransport(
 	let plan = await readFile(path, "utf8");
 	if (selected === "local-choice") {
 		plan = plan.replace(
-			"## Notes\n",
-			"## Notes\n\nChose three retries over five; one commit reverts it.\n",
+			"- [x] Prepare the local fixture",
+			"- [x] Prepare the local fixture\n  Chose three retries over five; one commit reverts it.",
 		);
 	} else if (selected === "answer") {
 		plan = plan.replace(

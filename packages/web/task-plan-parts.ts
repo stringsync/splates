@@ -11,7 +11,8 @@ export interface PlanParts {
 	/** `## Demo`, how to set a demo up; "" when it says none. */
 	demo: string;
 	/**
-	 * `## Notes`, then any other section under its heading, or the whole of
+	 * Legacy `## Notes`, still shown for finished tasks, then any other
+	 * section under its heading, or the whole of
 	 * a plan that keeps none of the sections the skill names.
 	 */
 	notes: string;

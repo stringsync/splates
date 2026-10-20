@@ -7,7 +7,7 @@ are synthetic; they establish assertion behavior, not real agent compliance.
 
 | Probe id (prefix `decisions/`) | Audit requirement | Observable boundary |
 | --- | --- | --- |
-| local-choice | decisions-local | Choice noted under Notes, no blockers |
+| local-choice | decisions-local | Choice recorded under its Next step, no blockers |
 | external-blocker | decisions-local | Final reply, numbered question, large open blocker, task still working |
 | answer | decisions-local | Seeded question 3 answered b, checked, not renumbered |
 | approval | decisions-approval | APPROVE with explicit answer a recorded on seeded question 3 |

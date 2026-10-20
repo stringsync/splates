@@ -102,7 +102,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: a question under `## Blocked`, with a `(chosen)` pick, when the user's answer would change what gets built, as the cap's number and what happens at it would, when undoing it reaches past the repo's code, or when a wrong guess would cost much rework; made itself and noted under `## Notes` only when the user would not care to weigh in",
+			"calls-right: the agent settled what the request leaves open, such as the cap's number and what happens once it is reached, and handled each call where the skill puts it: a question under `## Blocked`, with a `(chosen)` pick, when the user's answer would change what gets built, as the cap's number and what happens at it would, when undoing it reaches past the repo's code, or when a wrong guess would cost much rework; made itself and noted under the relevant `## Next` step only when the user would not care to weigh in",
 		],
 	},
 	{
@@ -208,9 +208,7 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 - [x] stop retrying on 413
 - [x] tell the user the file is too big
 
-## Notes
-
-Review: requested
+- [ ] Show the user before merging
 EOF`,
 		sections: [...CORE, "Merge or review", "Demos"],
 		checks: [

@@ -141,7 +141,7 @@ it.each([
 			).toEqual(
 				selected === "local-choice"
 					? [
-							["plan/notes", "pass"],
+							["plan/next-context", "pass"],
 							["plan/blocked", "pass"],
 						]
 					: [["plan/blocked", "pass"]],

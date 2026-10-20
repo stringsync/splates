@@ -16,7 +16,8 @@ only adds the record of its questions under `## Blocked` (see In a task).
 Make the rest yourself, the calls the user would not care to weigh in on: a
 name only the code reads, a helper's shape, a log line. Take the better pick
 and carry on, saying nothing of it to the user; in a task, write it in a line
-under `## Notes` only when whoever resumes the task would need it.
+under the `## Next` step it concerns only when whoever resumes the task would
+need it; otherwise the conversation and commits hold it.
 
 Ask in your reply, as [Reporting](reporting.md) says, in the format below and
 nowhere else: a numbered list, a lone question numbered `1.` too, so the page
@@ -117,8 +118,9 @@ from the main tree, asks exactly as above, and its answers live in the
 conversation: there is no `SPLATES.md` to record them in. Ask, end your turn,
 and read the user's reply as Reading a reply says. When the talk turns into
 work, `splates add` it, then write each answer that shapes the work under
-`## Notes` and each question still open under `## Blocked`, numbered as you
-asked it, so the task carries on from what the conversation settled.
+`## Blocked` as a checked question with its answer, and each question still
+open there as unchecked, numbered as you asked it, so the task carries on
+from what the conversation settled.
 
 ## In a task
 
@@ -193,6 +195,8 @@ user defers or skips a question, check it off and carry on without it (for a
 defer, `splates task defer` it first). Only the user answers questions, yours
 or another agent's.
 
-When the user asks to see the work before it lands, write `Review:
-requested` under `## Notes` at once, so the request outlives your session.
+When the user asks to see the work before it lands, add an unchecked
+`- [ ] Show the user before merging` step under `## Next` at once, so the
+request outlives your session and holds the merge until they approve. Check
+it off only when the user approves the review.
 

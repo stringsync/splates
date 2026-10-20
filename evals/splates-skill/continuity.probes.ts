@@ -23,9 +23,7 @@ Write result.txt with exactly ready followed by a newline.
 - [x] Established the required output.
 - [ ] Write result.txt.
 
-## Notes
-
-Paused before writing result.txt. Continue that step only, then stop before verification or landing.
+  Paused before writing result.txt. Continue that step only, then stop before verification or landing.
 
 ## Blocked
 `;
@@ -120,7 +118,7 @@ const seed: Seed = {
 					`${plan}\nOpen question: Which output label should follow ready?\n`,
 			"plan/sections":
 				notes !== null &&
-				["Next", "Notes", "Blocked"].every((heading) =>
+				["Next", "Blocked"].every((heading) =>
 					notes.includes(`## ${heading}\n`),
 				),
 		};
@@ -203,11 +201,11 @@ const probes: Probe[] = [
 			count("save-plan", write("SPLATES.md")),
 			count("no-new-output", write("result.txt"), 0, 0),
 			state("output-untouched", "file/result.txt", null),
-			state("notes-updated", "plan/changed", true),
+			state("plan-updated", "plan/changed", true),
 			state("sections-retained", "plan/sections", true),
 			gap(
 				"checkpoint-meaning",
-				"Section presence and changed notes do not prove an accurate Next, preserved open questions, one-line reply or no other new work; arbitrary mutations require broader capture.",
+				"Section presence and changed plan context do not prove an accurate Next, preserved open questions, one-line reply or no other new work; arbitrary mutations require broader capture.",
 			),
 			steering,
 		],

@@ -43,7 +43,7 @@ aspect tests; they do not prove UI transport or agent response conformance.
   during an active turn. Add actual delivery/cancellation evidence before
   changing this coverage claim. #340 owns orchestrator continuation; #367 owns
   discovery and reference-read compliance.
-- Plan section presence/change is deliberately weaker than accurate notes,
+- Plan section presence/change is deliberately weaker than accurate step context,
   preserved questions and stopping all new work; `checkpoint-meaning` retains
   that gap. The one-line checkpoint reply is not currently graded.
 - Report fields are existential parser checks, potentially from different

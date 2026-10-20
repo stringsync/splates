@@ -51,7 +51,7 @@ export const STUB_STEPS = [
 ];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Next", "Notes", "Verification", "Demo", "Blocked"];
+const SECTIONS = ["Goal", "Next", "Verification", "Demo", "Blocked"];
 // Steps are for work of several commits: for one, the Goal says it all.
 const REQUIRED = ["Goal"];
 // A `Q` before the number is how plans were numbered once, and still reads.
@@ -600,7 +600,8 @@ export function checkPlan(text: string, { task }: PlanOptions): string[] {
 			`${twice.join(", ")} numbered twice under ## Blocked: new questions continue from the highest`,
 		);
 	}
-	const known = SECTIONS.map((section) => section.toLowerCase());
+	// Older tasks may still carry Notes; accept it without prescribing it.
+	const known = [...SECTIONS, "Notes"].map((section) => section.toLowerCase());
 	for (const section of md.sections) {
 		if (section.level === 2 && !known.includes(section.heading.toLowerCase())) {
 			problems.push(

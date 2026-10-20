@@ -10,13 +10,17 @@ Teach show to check the plan.
 - [x] wrote the checker
 - [ ] wire it up
 
-## Notes
-- lives in plan.ts
 `;
 
 describe("checkPlan", () => {
 	it("passes a plan in the prescribed shape", () => {
 		expect(checkPlan(GOOD, { task: "alpha" })).toEqual([]);
+	});
+
+	it("accepts legacy Notes without prescribing the section", () => {
+		expect(
+			checkPlan(`${GOOD}\n## Notes\nSaved context.\n`, { task: "alpha" }),
+		).toEqual([]);
 	});
 
 	it("wants the title to name the task", () => {
@@ -38,7 +42,7 @@ describe("checkPlan", () => {
 	it("flags a ## Done left from before the git log kept steps done", () => {
 		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
 		expect(checkPlan(old, { task: "alpha" })).toEqual([
-			'unexpected section "## Done" (line 6): keep to Goal, Next, Notes, Verification, Demo, Blocked',
+			'unexpected section "## Done" (line 6): keep to Goal, Next, Verification, Demo, Blocked',
 		]);
 	});
 

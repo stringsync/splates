@@ -29,7 +29,6 @@ import {
 	useHeldConversation,
 	useHeldConversations,
 } from "./handed-out";
-import { Markdown } from "./markdown";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
 import { TaskIcon } from "./task-icon";
@@ -79,7 +78,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				tabs={
 					<>
 						<SectionTab value="overview">Overview</SectionTab>
-						{plan.notes !== "" && <SectionTab value="notes">Notes</SectionTab>}
 						<SectionTab value="details">Details</SectionTab>
 					</>
 				}
@@ -100,9 +98,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						none="No SPLATES.md: whoever picks this up starts from the diff."
 						ports
 					/>
-				</Section>
-				<Section value="notes">
-					<Markdown text={plan.notes} />
 				</Section>
 				<Section value="details">
 					<div className="flex min-w-0 flex-col gap-4">
@@ -127,7 +122,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 	);
 }
 
-type Tab = "overview" | "notes" | "details";
+type Tab = "overview" | "details";
 
 /**
  * The task's name, where it stands and why, and the line of facts a glance

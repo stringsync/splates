@@ -92,14 +92,11 @@ see the header
 			within(dialog)
 				.getAllByRole("tab")
 				.map((each) => each.textContent),
-		).toEqual(["Overview", "Notes", "Details"]);
+		).toEqual(["Overview", "Details"]);
 		const overview = within(dialog).getByRole("tabpanel");
 		expect(overview.textContent).toContain("ship the thing");
 		expect(overview.textContent).not.toContain("see the header");
 
-		expect((await showTab(dialog, /Notes/)).textContent).toContain(
-			"see the header",
-		);
 		const details = await showTab(dialog, /Details/);
 		expect(within(details).getByText("Merges tried")).toBeTruthy();
 	});
@@ -122,7 +119,7 @@ see the header
 		).toBeGreaterThan(0);
 	});
 
-	it("counts a task's steps done, and keeps a section the skill does not name under Notes", async () => {
+	it("counts a task's steps done without an extra tab for unknown sections", async () => {
 		const view = await testing.openTasks({
 			tasks: [
 				details({
@@ -139,11 +136,9 @@ see the header
 			),
 		).toBeTruthy();
 		expect(within(dialog).queryByRole("tab", { name: /Questions/ })).toBeNull();
-		const notes = await showTab(dialog, /Notes/);
 		expect(
-			within(notes).getByRole("heading", { name: "Findings" }),
-		).toBeTruthy();
-		expect(notes.textContent).toContain("the cache is cold");
+			within(dialog).queryAllByRole("tab", { name: "Notes" }),
+		).toHaveLength(0);
 	});
 
 	it("links each port the task serves, through the ports host and on the machine", async () => {

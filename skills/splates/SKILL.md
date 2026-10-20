@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not.
-version: 0.0.47
+version: 0.0.48
 ---
 
 # Using splates
@@ -156,9 +156,9 @@ which remembers none of it.
    script takes a slot itself: it waits for one of the machine's few
    heavy-job slots, so agents testing at once queue rather than run it out
    of memory.
-5. **Land.** Once every step under `## Next` and every question under
-   `## Blocked` is checked, the task is ready to merge: `splates task add`
-   any step you will not do, then check it off, `splates task add` or
+5. **Land.** Once every step under `## Next` (including any user review) and
+   every question under `## Blocked` is checked, the task is ready to merge:
+   `splates task add` any step you will not do, then check it off, `splates task add` or
    `defer` each follow-up you would otherwise offer or ask about once it
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
    "<message>"` (see Committing), or ask for a review first (see
@@ -215,12 +215,9 @@ One or two lines on what done means.
 
 ## Next
 
-- [ ] only for work of several commits: every step you can foresee,
+- [ ] for work of several commits: every step you can foresee,
   roughly one commit each, checked off as it lands
-
-## Notes
-
-Decisions, dead ends, and how to verify.
+- [ ] also keep a step for a checkpoint or user review when needed
 
 ## Verification
 
@@ -239,9 +236,9 @@ before the change, after it, and on main.
 
 The Goal's first line is what other agents see of your task in `splates list
 --files`, so make it say what you are changing. `splates add` writes the
-Goal; for a change of one commit, leave out `## Next`, since the Goal says
-it all, and the page shows the Goal as what you are doing. Keep the rest current as you
-go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
+Goal; for a change of one commit, leave out `## Next` unless a checkpoint
+or user review needs a step, since the Goal says it all otherwise, and the
+page shows the Goal as what you are doing. Keep the rest current as you go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
 the shape. It is excluded from git: never mention it in a commit message.
 
 The page's task dialog shows `## Verification`, for an open task and once it

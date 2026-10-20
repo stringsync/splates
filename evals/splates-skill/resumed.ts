@@ -29,7 +29,6 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 - [ ] tell the user the file is too big
 - [ ] test both
 
-## Notes
 EOF`;
 
 /** A checkpoint stops the work, leaving SPLATES.md saying where it stood. */
@@ -85,12 +84,14 @@ export const CHECKPOINT: Scenario = {
 		},
 		{
 			id: "noted",
-			rule: "Leaves notes in SPLATES.md on where it stopped",
+			rule: "Records where it stopped under the current Next step",
 			judge: ({ end }) => {
 				const plan =
 					end.tasks.find((task) => task.task === "retry-413")?.plan ?? "";
-				const ok = section(plan, "Notes").trim() !== "";
-				return [{ ok, why: ok ? "notes written" : "Notes left empty" }];
+				const ok = /^[ \t]+\S/m.test(section(plan, "Next"));
+				return [
+					{ ok, why: ok ? "step context written" : "Next has no step context" },
+				];
 			},
 		},
 		{
@@ -106,6 +107,6 @@ export const CHECKPOINT: Scenario = {
 		},
 	],
 	rubric: [
-		"notes-say-where: in turn 2 the `## Notes` of SPLATES.md say what the agent was doing when stopped and what comes next, and `## Next` is checked off as far as the work stands",
+		"next-says-where: in turn 2 a line under the current `## Next` step of SPLATES.md says what the agent was doing when stopped and what comes next, and `## Next` is checked off as far as the work stands",
 	],
 };
