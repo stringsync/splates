@@ -5,7 +5,7 @@ import { Duration, type Timer } from "webappwiz/time";
 import { FakeClock } from "webappwiz/time/testing";
 import { RESTART, supervise } from "./supervise";
 
-describe("supervise, kept up", () => {
+describe("supervise, crashed", () => {
 	let ps: FakePs;
 	let clock: FakeClock;
 	let pauses: number[];
@@ -22,7 +22,7 @@ describe("supervise, kept up", () => {
 	};
 	beforeEach(() => {
 		ps = new FakePs();
-		ps.args = ["server", "--macos"];
+		ps.args = ["server"];
 		clock = new FakeClock();
 		pauses = [];
 	});
@@ -40,34 +40,55 @@ describe("supervise, kept up", () => {
 		});
 	};
 
-	it("starts a failed server again, waiting twice as long each time up to a minute, and ends on Ctrl-C", async () => {
-		running([1, 0], [1, 0], [0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [130, 0]);
+	it("starts a crashed server again, waiting twice as long each time", async () => {
+		running([1, 0], [137, 0], [1, 0], [130, 0]);
 
-		expect(await supervise(ps, { keepUp: true, timer, clock })).toBe(130);
-		expect(ps.getCalls()).toHaveLength(8);
-		expect(pauses).toEqual([2, 4, 8, 16, 32, 60, 60]);
+		expect(await supervise(ps, { timer, clock })).toBe(130);
+		expect(ps.getCalls()).toHaveLength(4);
+		expect(pauses).toEqual([2, 4, 8]);
 	});
 
-	it("waits the shortest pause again after a server that served a while", async () => {
-		running([1, 0], [1, 0], [1, 120], [1, 0], [130, 0]);
+	it("gives up after five crashes in a row, each before it served a minute", async () => {
+		running([1, 0], [1, 0], [1, 30], [1, 0], [1, 0], [0, 0]);
 
-		await supervise(ps, { keepUp: true, timer, clock });
-		expect(pauses).toEqual([2, 4, 2, 4]);
+		expect(await supervise(ps, { timer, clock })).toBe(1);
+		expect(ps.getCalls()).toHaveLength(5);
+		expect(pauses).toEqual([2, 4, 8, 16]);
+	});
+
+	it("starts a new row of crashes after a server that served a while", async () => {
+		running([1, 0], [1, 0], [1, 0], [1, 0], [1, 120], [1, 0], [130, 0]);
+
+		expect(await supervise(ps, { timer, clock })).toBe(130);
+		expect(ps.getCalls()).toHaveLength(7);
+		expect(pauses).toEqual([2, 4, 8, 16, 2, 4]);
+	});
+
+	it.each([
+		["the page shuts it down", 0],
+		["Ctrl-C reaches it alone", 130],
+		["a SIGTERM reaches it alone", 143],
+	])("ends, without starting it again, when %s", async (_, code) => {
+		ps.simulate(async () => code);
+
+		expect(await supervise(ps, { timer, clock })).toBe(code);
+		expect(ps.getCalls()).toHaveLength(1);
+		expect(pauses).toEqual([]);
+	});
+
+	it("ends when Ctrl-C ended a server with another code", async () => {
+		running([1, 0]);
+
+		expect(await supervise(ps, { timer, clock })).toBe(1);
+		expect(ps.getCalls()).toHaveLength(1);
 	});
 
 	it("restarts from the page at once, without a pause", async () => {
 		running([RESTART, 0], [130, 0]);
 
-		await supervise(ps, { keepUp: true, timer, clock });
+		await supervise(ps, { timer, clock });
 		expect(ps.getCalls()).toHaveLength(2);
 		expect(pauses).toEqual([]);
-	});
-
-	it("ends with a server that fails when not kept up", async () => {
-		running([1, 0], [0, 0]);
-
-		expect(await supervise(ps, { timer, clock })).toBe(1);
-		expect(ps.getCalls()).toHaveLength(1);
 	});
 
 	it("keeps the Mac awake while it runs, and lets it sleep once it ends", async () => {

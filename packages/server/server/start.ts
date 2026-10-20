@@ -86,10 +86,10 @@ export async function serveDev(
 			{},
 		);
 	}
-	if (opts.macos && ctx.ps.platform !== "darwin") {
+	if (opts.keepalive && ctx.ps.platform !== "darwin") {
 		fail(
 			"usage",
-			"--macos keeps a Mac awake with caffeinate: run it on macOS",
+			"--keepalive keeps a Mac awake with caffeinate: run it on macOS",
 			{},
 		);
 	}
@@ -132,8 +132,7 @@ export async function serveDev(
 				env: slot?.env,
 				worker,
 				checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
-				keepUp: opts.macos,
-				awake: opts.macos,
+				awake: opts.keepalive,
 				log: ctx.log,
 			}),
 		);
@@ -355,6 +354,6 @@ export interface DevFlags {
 	"tunnel-name": string;
 	"ports-host": string;
 	"worker-slots": number;
-	macos: boolean;
+	keepalive: boolean;
 	slot: boolean;
 }

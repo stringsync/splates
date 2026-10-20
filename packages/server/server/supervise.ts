@@ -38,9 +38,10 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
  * child with a SIGTERM and ends this, since the child would otherwise outlive
  * it, listening on its port. A `worker` runs beside it as a second child,
  * told this process's pid so it ends once this is gone. Both stop, ending
- * this with 0, once the `checkout` it runs from is deleted. When it is to
- * `keepUp`, a child that ends any other way than Ctrl-C or a stop is started
- * again after a pause that doubles with each quick failure; with `awake`,
+ * this with 0, once the `checkout` it runs from is deleted. A child that
+ * crashes, ending any other way than with 0, Ctrl-C or a stop, is started
+ * again after a pause that doubles with each crash that came quickly, until
+ * so many come in a row that it would only crash again. With `awake`,
  * `caffeinate` keeps the Mac from sleeping while this runs.
  * Answers with the exit code to end on.
  */
@@ -52,7 +53,6 @@ export async function supervise(
 		cwd,
 		worker = null,
 		checkout = null,
-		keepUp = false,
 		awake = false,
 		log = null,
 		timer = new SystemTimer(),
@@ -63,8 +63,8 @@ export async function supervise(
 	let argv = [...splates, ...ps.args];
 	// Built until it updates: npm's splates ships its page.
 	let building = build;
-	// Ctrl-C is the child's to end on, and its exit then ends this, even
-	// when it is kept up.
+	// Ctrl-C is the child's to end on, and its exit then ends this, never
+	// read as a crash.
 	let interrupted = false;
 	const quiet = ps.on("SIGINT", () => {
 		interrupted = true;
@@ -93,7 +93,8 @@ export async function supervise(
 	const caffeinate = awake
 		? ps.start(["caffeinate", "-ims", "-w", String(ps.pid)])
 		: null;
-	let pause = FIRST_PAUSE;
+	// The crashes in a row that came before the server served a while.
+	let quick = 0;
 	try {
 		for (;;) {
 			// A failed build has said why on the terminal, and the page it left
@@ -128,21 +129,29 @@ export async function supervise(
 				argv = [...splates, ...ps.args];
 				building = null;
 			} else if (exitCode !== RESTART) {
-				if (!keepUp || interrupted) {
+				if (interrupted || STOPS.includes(exitCode)) {
 					return exitCode;
 				}
-				// One that served a while failed afresh, not again.
-				if (clock.now().subtract(began).isGreaterThanOrEqual(LAST_PAUSE)) {
-					pause = FIRST_PAUSE;
+				// One that served a while crashed afresh, not again.
+				const served = clock.now().subtract(began);
+				quick = served.isLessThan(SERVED) ? quick + 1 : 1;
+				if (quick >= CRASHES) {
+					log?.error(
+						`splates server exited (${exitCode}) ${quick} times in a row before serving ${SERVED.human()}: giving up`,
+					);
+					return exitCode;
 				}
+				const pause = FIRST_PAUSE.multiply(2 ** (quick - 1));
 				log?.error(
 					`splates server exited (${exitCode}), starting it again in ${pause.human()}`,
 				);
 				await sleep(pause, timer, stopping.signal);
-				if (stopping.signal.aborted || interrupted) {
-					return stopping.signal.aborted ? stopped : exitCode;
+				if (stopping.signal.aborted) {
+					return stopped;
 				}
-				pause = Duration.min(pause.multiply(2), LAST_PAUSE);
+				if (interrupted) {
+					return exitCode;
+				}
 			}
 		}
 	} finally {
@@ -181,27 +190,31 @@ export interface SuperviseOptions {
 	 * installed from npm.
 	 */
 	checkout?: { path: string; fs: Pick<Fs, "exists"> } | null;
-	/**
-	 * Whether to start the server again whenever it ends other than on a
-	 * restart, Ctrl-C or a stop, as after a crash, waiting between starts.
-	 */
-	keepUp?: boolean;
 	/** Whether to keep the Mac awake with `caffeinate` while this runs. */
 	awake?: boolean;
-	/** Where a kept-up server's failures are told; null to tell no one. */
+	/** Where a crashed server is told of; null to tell no one. */
 	log?: Logger | null;
 	timer?: Timer;
 	clock?: Clock;
 }
 
-/** How long a server that ended is first waited on before it starts again. */
+/**
+ * What a server that meant to end exits with: 0 when the page shuts it down,
+ * and Ctrl-C's or a SIGTERM's code when one reached it alone.
+ */
+const STOPS = [0, 128 + 2, 128 + 15];
+
+/** How long the first crash in a row is waited on before the server starts again. */
 const FIRST_PAUSE = Duration.secs(2);
 
+/** How long a server must serve for its crash to start a new row. */
+const SERVED = Duration.mins(1);
+
 /**
- * The longest wait between starts of a failing server, and how long one must
- * have served for its next failure to wait only `FIRST_PAUSE` again.
+ * How many crashes in a row, each before the server served `SERVED`, end
+ * this: one that cannot start would otherwise crash forever.
  */
-const LAST_PAUSE = Duration.mins(1);
+const CRASHES = 5;
 
 /** How often a server run from a checkout looks for the checkout. */
 const CHECKOUT_POLL = Duration.secs(5);

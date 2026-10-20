@@ -32,7 +32,7 @@ export const splatesServer = cli<SplatesDeps>("server")
 splatesServer
 	.command("run")
 	.description(
-		"serve every splates project on this machine as a web page, from wherever it is run: the page picks the project it shows, adds one by its path, running `splates init` there, and shows its queued and started tasks, where queued tasks can be added, updated, reordered or removed; it brings each project's records forward as it opens it",
+		"serve every splates project on this machine as a web page, from wherever it is run: the page picks the project it shows, adds one by its path, running `splates init` there, and shows its queued and started tasks, where queued tasks can be added, updated, reordered or removed; it brings each project's records forward as it opens it. A server that crashes starts again after 2s, then 4s, 8s and 16s, and is left down after five crashes in a row that each came within a minute of its start",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
@@ -72,10 +72,10 @@ splatesServer
 		description:
 			"how many agents that other agents started (with `splates add --agent`, or a lane's orchestrator handing out tasks) this machine's worker runs at once; past them, each new or resumed one waits in the queue, first come, first served, which `splates worker queue` shows and reorders. An agent you start runs at once on any worker up, taking no slot. Read as the server starts its worker, which a restart from the page leaves running",
 	})
-	.option("macos", z.boolean(), {
+	.option("keepalive", z.boolean(), {
 		default: false,
 		description:
-			"keep the server up on a Mac left to serve: `caffeinate` keeps the Mac from sleeping while it runs, on power or idle, and a server that exits other than by Ctrl-C, a stop or a restart from the page, as on a crash, starts again after 2s, waiting twice as long after each quick failure, up to a minute. Refused on other platforms",
+			"keep a Mac left to serve awake: `caffeinate` keeps it from sleeping while the server runs, on power or idle, though closing its lid still sleeps it. Refused on other platforms",
 	})
 	.option("slot", z.boolean(), {
 		default: false,
