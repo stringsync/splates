@@ -33,13 +33,11 @@ describe("App's setup", () => {
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() =>
-						view.getByRole("button", { name: `Set up ${journey}` }),
-					),
-				),
+			// Found before `act`, which holds back the render it waits on.
+			const row = await waitFor(() =>
+				view.getByRole("button", { name: `Set up ${journey}` }),
 			);
+			await act(async () => fireEvent.click(row));
 		}
 		return view;
 	};

@@ -1085,9 +1085,12 @@ describe("App on a phone", () => {
 		);
 
 		expect(location.hash).toBe("#conversations/terminal/1");
-		expect(
-			view.getByRole("region", { name: "terminal" }).textContent,
-		).toContain("in the main tree");
+		// Its bar says where it runs once the page has drawn it.
+		await waitFor(() =>
+			expect(
+				view.getByRole("region", { name: "terminal" }).textContent,
+			).toContain("in the main tree"),
+		);
 		expect(testing.shells.map((shell) => shell.task)).toEqual([null]);
 		// Its bar keeps to the way back; closing it waits in the kebab.
 		expect(

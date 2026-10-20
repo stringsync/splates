@@ -66,8 +66,11 @@ describe("App's conversation terminal on a page of its own", () => {
 		await waitFor(() => expect(page(view)).toBeTruthy());
 		expect(view.queryByRole("navigation", { name: "actions" })).toBeNull();
 		expect(pane(view)).toBeNull();
-		const bar = view.getByRole("heading", { name: "Terminal" }).parentElement
-			?.parentElement?.textContent;
+		// The bar fills in after the page, under load well after.
+		const heading = await waitFor(() =>
+			view.getByRole("heading", { name: "Terminal" }),
+		);
+		const bar = heading.parentElement?.parentElement?.textContent;
 		expect(bar).toContain("Fix it");
 		expect(bar).toContain("in alpha");
 		expect(testing.shells.map((shell) => shell.task)).toEqual(["alpha"]);
