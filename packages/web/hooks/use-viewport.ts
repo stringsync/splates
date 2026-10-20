@@ -22,10 +22,14 @@ export function useViewport(): Viewport {
 let last: Viewport = { top: 0, height: 0, keyboard: false };
 
 function read(): Viewport {
-	const top = window.visualViewport?.offsetTop ?? 0;
+	const offset = window.visualViewport?.offsetTop ?? 0;
 	const height = window.visualViewport?.height ?? innerHeight;
 	// A keyboard takes far more than Safari's bars ever do.
 	const keyboard = innerHeight - height > 120;
+	// Only a keyboard's pan moves the screen. Safari's rubber band at either
+	// end of the page also moves the visual viewport, and a screen that
+	// followed it would slide with the page, so a drag seems to run backwards.
+	const top = keyboard ? Math.max(0, offset) : 0;
 	if (
 		top !== last.top ||
 		height !== last.height ||
