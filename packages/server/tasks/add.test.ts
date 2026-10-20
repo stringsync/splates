@@ -169,6 +169,18 @@ describe("add", () => {
 		expect((await deps.tasks.find(queued.id)).takenBy).toBeNull();
 	});
 
+	// scry-ignore simple-test-setup: the queued task is the input a failed hook must put back; the other tests take none.
+	it("puts its queued tasks back when the postCheckout hook fails", async () => {
+		deps.config.postCheckout = "exit 3";
+		const queued = await deps.tasks.add("Retry on 413", null);
+
+		await expect(add(deps, "alpha", { tasks: [queued.id] })).toBail(
+			"hook_failed",
+		);
+
+		expect((await deps.tasks.find(queued.id)).takenBy).toBeNull();
+	});
+
 	it("rejects names that are not legal branch or directory names", async () => {
 		const names = ["Alpha", "a b", "feature/x", "-alpha", ""];
 

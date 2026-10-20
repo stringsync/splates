@@ -233,6 +233,9 @@ export async function add(
 			if (handOff !== undefined) {
 				await worktree.save({ dispatch: undefined });
 			}
+			// The queued task goes back on the list, or it would leave the queue
+			// with no agent on it.
+			await letGo(tookNow);
 			// The worktree stays. Rolling back would throw away a tree the agent
 			// can fix by hand and re-run the hook in.
 			fail(
