@@ -65,7 +65,7 @@ function adding(name: string, description: string, ready: boolean) {
 		.option("lane", z.string(), {
 			default: "",
 			description:
-				"the lane it goes in, at the bottom: a lane's number, or `new` for one of its own (default: none, untriaged)",
+				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: none, untriaged)",
 		})
 		.option("agent", z.string(), {
 			default: "",
@@ -220,7 +220,7 @@ splatesTask
 	.option("lane", z.string(), {
 		default: "",
 		description:
-			"move it to a lane, at the bottom: a lane's number, `new` for one of its own, or `none` to put it back with the untriaged",
+			"move it to a lane, at the bottom: a lane's number, `backlog` for the permanent catch-all, `new` for one of its own, or `none` for untriaged",
 	})
 	.option("agent", z.string(), {
 		default: "",

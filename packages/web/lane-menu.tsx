@@ -1,4 +1,5 @@
 import type { LaneState } from "@stringsync/splates-server/board";
+import { BACKLOG_LANE } from "@stringsync/splates-server/board/browser";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
@@ -78,10 +79,12 @@ export function LaneMenu({
 					<MoreHorizontalIcon />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className={cn("w-64", touchItems)}>
-					<DropdownMenuItem onClick={onRename}>
-						<PencilIcon />
-						Rename
-					</DropdownMenuItem>
+					{lane.id !== BACKLOG_LANE && (
+						<DropdownMenuItem onClick={onRename}>
+							<PencilIcon />
+							Rename
+						</DropdownMenuItem>
+					)}
 					<DropdownMenuItem onClick={toggleQueued}>
 						{lane.queued ? <ListXIcon /> : <ListPlusIcon />}
 						{lane.queued ? "Stop queueing lane" : "Queue lane"}
@@ -105,39 +108,43 @@ export function LaneMenu({
 							</DropdownMenuItem>
 						</>
 					)}
-					{others.length > 0 && lane.todos.length > 0 && (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuGroup>
-								<DropdownMenuLabel>
-									Move its tasks to the end of
-								</DropdownMenuLabel>
-								{others.map((other) => (
-									<DropdownMenuItem
-										key={other.id}
-										onClick={() =>
-											void expect(
-												lanesJoined(lane.id, other.id),
-												joinLanes(lane.id, other.id),
-											).catch((error: unknown) =>
-												refuseLane(lane.id, "Not moved", error),
-											)
-										}
-									>
-										<MergeIcon />
-										{other.name}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuGroup>
-						</>
-					)}
+					{lane.id !== BACKLOG_LANE &&
+						others.length > 0 &&
+						lane.todos.length > 0 && (
+							<>
+								<DropdownMenuSeparator />
+								<DropdownMenuGroup>
+									<DropdownMenuLabel>
+										Move its tasks to the end of
+									</DropdownMenuLabel>
+									{others.map((other) => (
+										<DropdownMenuItem
+											key={other.id}
+											onClick={() =>
+												void expect(
+													lanesJoined(lane.id, other.id),
+													joinLanes(lane.id, other.id),
+												).catch((error: unknown) =>
+													refuseLane(lane.id, "Not moved", error),
+												)
+											}
+										>
+											<MergeIcon />
+											{other.name}
+										</DropdownMenuItem>
+									))}
+								</DropdownMenuGroup>
+							</>
+						)}
 					<DropdownMenuSeparator />
-					<DropdownMenuItem
-						onClick={() => (count === 0 ? remove() : setAsking(true))}
-					>
-						<Trash2Icon />
-						{count === 0 ? "Remove lane" : "Remove lane and its tasks"}
-					</DropdownMenuItem>
+					{lane.id !== BACKLOG_LANE && (
+						<DropdownMenuItem
+							onClick={() => (count === 0 ? remove() : setAsking(true))}
+						>
+							<Trash2Icon />
+							{count === 0 ? "Remove lane" : "Remove lane and its tasks"}
+						</DropdownMenuItem>
+					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<Dialog open={asking} onOpenChange={setAsking}>

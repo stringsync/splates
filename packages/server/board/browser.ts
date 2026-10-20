@@ -1,3 +1,4 @@
+export { BACKLOG_LANE } from "./backlog";
 export type { LaneRecord, LaneState } from "./lanes";
 export {
 	blockerLabel,

@@ -32,6 +32,26 @@ describe("App's lanes", () => {
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
+	it("offers Groom on Untriaged and protects Backlog while allowing it to be queued", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "unplaced" })],
+			lanes: [{ id: 0, name: "Backlog" }],
+		});
+		const untriaged = within(view.getByRole("region", { name: "Untriaged" }));
+		expect(untriaged.getByRole("button", { name: "Groom" })).toBeTruthy();
+		expect(
+			untriaged.queryByRole("button", { name: "Queue Untriaged" }),
+		).toBeNull();
+		const backlog = within(view.getByRole("region", { name: "Backlog" }));
+		expect(backlog.queryByTitle("Rename")).toBeNull();
+		await clickShown(() =>
+			backlog.getByRole("button", { name: "Backlog actions" }),
+		);
+		expect(view.queryByRole("menuitem", { name: "Rename" })).toBeNull();
+		expect(view.queryByRole("menuitem", { name: /Remove lane/ })).toBeNull();
+		expect(view.getByRole("menuitem", { name: "Queue lane" })).toBeTruthy();
+	});
+
 	it("draws each lane as a named column, saying whether it is running and what blocks it", async () => {
 		const todos = sound2score().map((each) =>
 			[200, 209].includes(each.id)

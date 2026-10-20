@@ -108,22 +108,23 @@ export class Task {
 
 	/**
 	 * Marks it as looked at for a lane, saying whether this marked it: false
-	 * for one taken, in a lane, or already looked at.
+	 * for one taken or in a lane. Older runs may have left a sorted task in Untriaged.
 	 */
 	async sort(): Promise<boolean> {
 		let marked = false;
 		await this.tasks.revise(this.id, (state) => {
-			if (
-				state.takenBy !== null ||
-				state.lane !== null ||
-				state.sorted === true
-			) {
+			if (state.takenBy !== null || state.lane !== null) {
 				return state;
 			}
 			marked = true;
 			return { ...state, sorted: true };
 		});
 		return marked;
+	}
+
+	/** Places a groomed task in Backlog if nobody placed or took it meanwhile. */
+	backlog(): Promise<Task> {
+		return this.tasks.backlog(this.id);
 	}
 
 	/**

@@ -2,6 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState, TaskRecord } from "@stringsync/splates-server/board";
+import { BACKLOG_LANE } from "@stringsync/splates-server/board/browser";
 import { ListPlusIcon } from "lucide-react";
 import {
 	type JSX,
@@ -17,6 +18,7 @@ import { Board } from "./board";
 import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot } from "./expecting";
+import { GroomUntriaged } from "./groom-untriaged";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { Refusal } from "./refusal";
@@ -64,10 +66,15 @@ export function Untriaged({
 	return (
 		<Column label="Untriaged" drop={setNodeRef} lit={isOver}>
 			<header className="flex flex-col gap-1 px-1 pt-1">
-				<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
-					Untriaged
-					<StageCounts todos={todos} />
-				</h3>
+				<div className="flex items-center justify-between gap-2">
+					<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
+						Untriaged
+						<StageCounts todos={todos} />
+					</h3>
+					<GroomUntriaged
+						empty={!todos.some((todo) => todo.takenBy === null)}
+					/>
+				</div>
 				<p className="text-muted-foreground text-xs">Not in a lane yet.</p>
 				<Refusal refusal={board.refusedLanes.get(null)} />
 			</header>
@@ -149,7 +156,9 @@ export function Lane({
 				className="flex cursor-grab touch-manipulation flex-col gap-1 px-1 pt-1 active:cursor-grabbing"
 			>
 				<div className="flex items-center justify-between gap-2">
-					{renaming ? (
+					{lane.id === BACKLOG_LANE ? (
+						<h3 className="font-medium text-sm">{lane.name}</h3>
+					) : renaming ? (
 						<LaneName lane={lane} onDone={() => setRenaming(false)} />
 					) : (
 						<h3 className="flex min-w-0 items-baseline pointer-coarse:items-center font-medium text-sm">

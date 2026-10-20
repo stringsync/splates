@@ -1,4 +1,5 @@
 import {
+	BACKLOG_LANE,
 	laneAdd,
 	laneList,
 	laneRemove,
@@ -16,9 +17,15 @@ import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import { position } from "./flags";
 
+/** Backlog is lane zero, also addressable by its permanent name. */
+const laneNumber = z.union([
+	z.literal("backlog").transform(() => BACKLOG_LANE),
+	z.coerce.number().int().nonnegative(),
+]);
+
 /** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named groups of tasks, for you to see related work together on the board; a lane orders nothing, but you can queue one whole with `splates lane queue`. A task in no lane is untriaged",
+	"lanes: named groups of tasks, for you to see related work together on the board; queue one whole with `splates lane queue`. Backlog (lane 0) is permanent and holds unmatched deferred work. Untriaged is groomed into lanes and cannot be queued whole",
 );
 
 splatesLane
@@ -38,14 +45,10 @@ splatesLane
 	)
 	.arg(
 		"lane",
-		z.union(
-			[
-				z.literal(UNTRIAGED).transform(() => null),
-				z.coerce.number().int().positive(),
-			],
-			{ error: "pass a lane's number, or untriaged" },
-		),
-		{ description: "lane number, or `untriaged`" },
+		z.union([z.literal(UNTRIAGED).transform(() => null), laneNumber], {
+			error: "pass a lane's number, backlog, or untriaged",
+		}),
+		{ description: "lane number, `backlog`, or `untriaged`" },
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => laneShow(ctx, opts.lane, { json: opts.json }));
@@ -70,7 +73,7 @@ splatesLane
 	.command("update")
 	.use(repository({ needs: "tasks" }))
 	.description("rename a lane, or move it among the others")
-	.arg("lane", z.coerce.number().int().positive(), {
+	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.option("name", z.string().optional(), {
@@ -96,7 +99,7 @@ splatesLane
 	.description(
 		"queue a lane whole: each of its tasks is queued as soon as nothing blocks it, now and as tasks land, until the lane is empty; a task you take out with `splates queue remove` stays out until you queue it again. Untriaged cannot be queued whole",
 	)
-	.arg("lane", z.coerce.number().int().positive(), {
+	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
@@ -117,7 +120,7 @@ splatesLane
 	.description(
 		"stop queueing a lane whole, taking out of the queue each of its tasks that has yet to start; those under way go on",
 	)
-	.arg("lane", z.coerce.number().int().positive(), {
+	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
@@ -137,7 +140,7 @@ splatesLane
 	.description(
 		"remove a lane, putting its tasks back with the untriaged ones; a lane whose last task merges goes on its own",
 	)
-	.arg("lane", z.coerce.number().int().positive(), {
+	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action((opts, ctx) =>

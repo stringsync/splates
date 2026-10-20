@@ -112,14 +112,17 @@ export class Groomer implements Resource {
 					conversation = await this.#start(pick);
 					this.#running = conversation;
 				}
+				let processed: number[] = [];
 				const told =
 					backlog.length > 0
-						? await claimFirst(backlog, conversation.id).then((next) =>
-								next === null ? null : groomReference(next.id),
-							)
-						: await markSorted(unsorted).then((ids) =>
-								ids.length === 0 ? null : sortReference(ids),
-							);
+						? await claimFirst(backlog, conversation.id).then((next) => {
+								processed = next === null ? [] : [next.id];
+								return next === null ? null : groomReference(next.id);
+							})
+						: await markSorted(unsorted).then((ids) => {
+								processed = ids;
+								return ids.length === 0 ? null : sortReference(ids);
+							});
 				if (told === null) {
 					return;
 				}
@@ -133,6 +136,18 @@ export class Groomer implements Resource {
 						`the groomer's agent failed, so the backlog waits for its next wake: ${conversation.state.error ?? "no reason given"}`,
 					);
 					return;
+				}
+				// A groomer may find no theme, or leave questions. Either way,
+				// processed tasks belong in Backlog rather than staying Untriaged.
+				const current = await this.deps.tasks();
+				for (const task of current) {
+					if (
+						processed.includes(task.id) &&
+						task.lane === null &&
+						task.takenBy === null
+					) {
+						await task.backlog();
+					}
 				}
 			}
 		} finally {
@@ -285,22 +300,16 @@ export interface GroomerDeps {
 const BUSY = new Set(["starting", "running"]);
 
 /**
- * The Untriaged tasks waiting to start that no groomer has looked at for a
- * lane; none while there is nothing to place one with: no lane, and no
- * other Untriaged task.
+ * Every waiting Untriaged task, including ones older groomers left sorted
+ * but unplaced: Backlog always offers a home when no themed lane fits.
  */
 function toSort(tasks: readonly Task[]): Task[] {
-	const untriaged = tasks.filter(
+	return tasks.filter(
 		(task) =>
 			task.lane === null &&
 			task.takenBy === null &&
 			(task.state.stage === "ready" || task.state.stage === "queued"),
 	);
-	const placeable =
-		untriaged.length > 1 || tasks.some((task) => task.lane !== null);
-	return placeable
-		? untriaged.filter((task) => task.state.sorted !== true)
-		: [];
 }
 
 /** The ids of those of `tasks` this marked as looked at for a lane. */

@@ -39,6 +39,7 @@
 @source "./page-route.tsx";
 @source "./side-panes.tsx";
 @source "./todos.tsx";
+@source "./groom-untriaged.tsx";
 @source "./board-drag.tsx";
 @source "./todo-dialog.tsx";
 @source "./todo-edit.tsx";

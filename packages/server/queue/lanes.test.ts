@@ -75,7 +75,10 @@ describe.concurrent("a lane queued whole", () => {
 			stage: "backlog",
 			takenBy: "alpha",
 		});
-		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog" },
+		]);
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 	});
 
@@ -103,6 +106,9 @@ describe.concurrent("a lane queued whole", () => {
 		await taskRemove(deps, 1);
 		await deps.tasks.queueFromLanes();
 
-		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog" },
+		]);
 	});
 });

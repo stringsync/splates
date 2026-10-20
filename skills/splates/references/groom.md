@@ -109,7 +109,8 @@ few `splates task` commands, then your turn ends.
    it needs or whose files it changes, read from `splates list --files`,
    never for priority, and `--lane <n>` when it builds on a lane's work.
    When it shares a theme with an Untriaged task instead, `splates lane
-   add` a lane for them and move that one into it too.
+   add` a lane for them and move that one into it too. When no themed lane
+   fits, use `--lane backlog`: the permanent catch-all lane for deferred work.
 6. **Mark it ready**, last and in one `splates task update N '<detail>'
    --blocked-by <ids> --lane <n> --ready`. Pick no agent, model or
    thinking level, which are triage, and leave its position, which is the
@@ -142,9 +143,9 @@ for whoever takes it to ask the user before building on a guess.
 
 ### Sorting Untriaged
 
-`[SPLATES SORT #N ...]` comes once the backlog is empty: the tasks it
-names wait ready in Untriaged, and no groomer has looked for their lane.
-splates marked them looked at, so none comes again. One at a time a task
+`[SPLATES SORT #N ...]` comes once the rough backlog is empty: the tasks it
+names wait ready in Untriaged, including any an older groomer left there.
+splates marks them looked at before the turn. One at a time a task
 shows no theme it shares with others; here you see them together.
 
 1. **Read the board.** `splates lane list`, then `splates task list`,
@@ -154,7 +155,10 @@ shows no theme it shares with others; here you see them together.
    lane whose work it builds on, `splates task update <id> --lane <n>`, or,
    with each other Untriaged task it shares a theme with, named or not,
    into a lane you `splates lane add` for them. Two tasks are enough for a
-   lane. Leave in Untriaged only one that fits with no other.
+   lane. Move any that fit with no other into Backlog with
+   `splates task update <id> --lane backlog`. Never leave a processed task
+   in Untriaged. Backlog can be worked and queued like other lanes, but
+   cannot be renamed, removed or merged away, even when empty.
 3. **Change nothing else**: no detail, link, position or readiness, and no
    task taken, which splates refuses you. No queue card either: the user
    queues lanes from the board.

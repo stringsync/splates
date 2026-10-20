@@ -1,6 +1,7 @@
 import { fail } from "../exit";
+import { BACKLOG_LANE, protectBacklog } from "./backlog";
 import { aptName, isReady, type LaneRecord, named, settle } from "./lanes";
-import { type TaskRecord, unqueued } from "./task";
+import { type Task, type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
 
@@ -11,11 +12,24 @@ import type { Tasks } from "./tasks";
 export class TaskLanes {
 	constructor(private readonly tasks: Tasks) {}
 
+	/** Places unmatched work in Backlog, settling dependencies and preserving a concurrent move. */
+	async backlog(id: number): Promise<Task> {
+		return this.tasks.locked(async () => {
+			const { state } = await this.tasks.find(id);
+			if (state.lane === null && state.takenBy === null) {
+				await this.tasks.save({ ...state, lane: BACKLOG_LANE });
+				await this.tasks.renumber(settle(await this.tasks.stored()));
+			}
+			return this.tasks.find(id);
+		});
+	}
+
 	/**
 	 * Moves every task in lane `from` to the bottom of lane `into`, in the
 	 * order they had, and the lane `from` is gone.
 	 */
 	async joinLanes(from: number, into: number): Promise<void> {
+		protectBacklog(from);
 		await this.tasks.locked(async () => {
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
@@ -48,13 +62,14 @@ export class TaskLanes {
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
 			const record = { id: await this.nextLaneId(states), name: called };
-			await this.writeLanes([...records, record]);
+			await this.writeLanes(beforeBacklog(records, record));
 			return record;
 		});
 	}
 
 	/** Calls lane `id` by another name. */
 	async renameLane(id: number, name: string): Promise<LaneRecord> {
+		protectBacklog(id);
 		return this.tasks.locked(async () => {
 			const records = await this.records(await this.tasks.stored());
 			lacking(records, id);
@@ -214,6 +229,7 @@ export class TaskLanes {
 
 	/** Removes lane `id`, putting its tasks back in none, untriaged. */
 	async dropLane(id: number): Promise<void> {
+		protectBacklog(id);
 		await this.tasks.locked(async () => {
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
@@ -234,7 +250,10 @@ export class TaskLanes {
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			const done = new Set(
-				ids.filter((id) => !states.some((state) => state.lane === id)),
+				ids.filter(
+					(id) =>
+						id !== BACKLOG_LANE && !states.some((state) => state.lane === id),
+				),
 			);
 			if (done.size > 0) {
 				await this.writeLanes(records.filter((record) => !done.has(record.id)));
@@ -349,7 +368,7 @@ export class TaskLanes {
 					)
 				: laneName(name, records);
 		const record = { id: await this.nextLaneId(states), name: called };
-		await this.writeLanes([...records, record]);
+		await this.writeLanes(beforeBacklog(records, record));
 		return record;
 	}
 
@@ -376,7 +395,11 @@ export class TaskLanes {
 	 * has no record. A file that will not parse reads as none.
 	 */
 	async records(states: TaskRecord[]): Promise<LaneRecord[]> {
-		return named(states, await this.read("lanes"));
+		const records = await this.read("lanes");
+		if (!records.some((record) => record.id === BACKLOG_LANE)) {
+			records.push({ id: BACKLOG_LANE, name: "Backlog" });
+		}
+		return named(states, records);
 	}
 
 	/**
@@ -451,6 +474,15 @@ export class TaskLanes {
 function tagName(tag: string): string {
 	const words = tag.replaceAll("-", " ");
 	return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** New themed lanes precede the catch-all lane until the user moves them. */
+function beforeBacklog(
+	records: LaneRecord[],
+	record: LaneRecord,
+): LaneRecord[] {
+	const at = records.findIndex((each) => each.id === BACKLOG_LANE);
+	return [...records.slice(0, at), record, ...records.slice(at)];
 }
 
 /** Refuses a lane `records` lacks. */

@@ -138,6 +138,12 @@ list`, then:
 - **Untriaged** otherwise, for the user to place: a task that fits with no
   other yet.
 
+After grooming, unmatched work goes to **Backlog** (`--lane backlog`, lane
+`0`), the permanent catch-all. Backlog can be queued and worked like any
+other lane, but cannot be renamed, removed, or merged away; it stays empty
+once its work finishes. Untriaged's Groom button starts the groomer, which
+always moves processed tasks to a themed lane or Backlog.
+
 `splates task update <id> --lane <n>` moves one that exists.
 
 The user queues a lane whole, from the board or a queue card: each of its

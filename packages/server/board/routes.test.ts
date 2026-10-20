@@ -114,6 +114,18 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("protects Backlog before a remove can discard any of its tasks", async () => {
+		await deps.tasks.add("deferred", null, { lane: 0 });
+		await serving(deps, async (_, port) => {
+			const response = await fetch(`http://127.0.0.1:${port}/api/lanes/0`, {
+				method: "DELETE",
+				headers: { origin: `http://127.0.0.1:${port}` },
+			});
+			expect(response.status).toBe(400);
+			expect((await deps.tasks.find(1)).lane).toBe(0);
+		});
+	});
+
 	it("links tasks and arranges lanes, refusing a loop", async () => {
 		await deps.tasks.add("first", null);
 		await deps.tasks.add("second", null, { blockedBy: [1] });
@@ -164,7 +176,7 @@ describe("dev tasks", () => {
 				).status,
 			).toBe(200);
 			expect((await state(2))?.lane).toBe(3);
-			expect((await snapshot()).lanes.at(-1)).toEqual({
+			expect((await snapshot()).lanes.find((lane) => lane.id === 3)).toEqual({
 				id: 3,
 				name: "Second",
 			});
@@ -184,7 +196,7 @@ describe("dev tasks", () => {
 			expect(
 				(await send("PUT", "/api/lanes/1", { name: "guides" })).status,
 			).toBe(409);
-			expect((await snapshot()).lanes.at(-1)).toEqual({
+			expect((await snapshot()).lanes.find((lane) => lane.id === 4)).toEqual({
 				id: 4,
 				name: "Guides",
 			});

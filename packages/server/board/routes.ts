@@ -4,6 +4,7 @@ import { type AgentPick, modelsOf, pickAgent, pickEffort } from "../models";
 import { moveInQueue, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
+import { protectBacklog } from "./backlog";
 import { laneUpdated, recordLaneRemove } from "./lane";
 import { recordUpdate, tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
@@ -221,6 +222,7 @@ export class BoardRoutes {
 	readonly dropLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
+		protectBacklog(id);
 		await recordLaneRemove(journal, tasks, id, async () => {
 			for (const task of await tasks.all()) {
 				if (task.state.lane === id) {
@@ -318,7 +320,7 @@ function laneIn(value: unknown): number | "new" | null {
 function laneAt(request: Request): number {
 	const raw = new URL(request.url).pathname.split("/")[3] ?? "";
 	const id = Number(raw);
-	if (!Number.isInteger(id) || id <= 0) {
+	if (raw === "" || !Number.isInteger(id) || id < 0) {
 		fail("usage", `'${raw}' is not a lane`, { lane: raw });
 	}
 	return id;

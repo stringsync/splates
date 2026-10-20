@@ -250,6 +250,11 @@ export class Tasks {
 		});
 	}
 
+	/** Places an unmatched task in Backlog, preserving concurrent placement or taking. */
+	backlog(id: number): Promise<Task> {
+		return this.laneFiles.backlog(id);
+	}
+
 	/** Every lane, in board order. */
 	async lanes(): Promise<LaneRecord[]> {
 		return this.laneFiles.records(await this.stored());

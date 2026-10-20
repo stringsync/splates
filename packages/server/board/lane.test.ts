@@ -14,9 +14,9 @@ import { taskList, taskShow } from "./task-list";
 /** Each lane's task ids, top first, as stored. */
 async function shape(deps: Testing): Promise<number[][]> {
 	const states = (await deps.tasks.all()).map((task) => task.state);
-	return lanes(states, await deps.tasks.lanes()).map((found) =>
-		found.todos.map((task) => task.id),
-	);
+	return lanes(states, await deps.tasks.lanes())
+		.filter((found) => found.id !== 0)
+		.map((found) => found.todos.map((task) => task.id));
 }
 
 /** Lands `task` with a commit, from its worktree. */
@@ -302,8 +302,9 @@ describe.concurrent("task links and lanes", () => {
 		const out = color.strip(deps.out());
 		expect(out).toContain("lane 1 only step is done");
 		expect(out).toContain("next task 2: elsewhere");
-		expect(await deps.tasks.lanes()).toEqual([]);
+		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
 		expect(await deps.tasks.laneNames()).toEqual([
+			{ id: 0, name: "Backlog" },
 			{ id: 1, name: "only step" },
 		]);
 	});
@@ -316,9 +317,13 @@ describe.concurrent("task links and lanes", () => {
 
 		await deps.tasks.dropLane(1);
 
-		expect(await deps.tasks.lanes()).toEqual([{ id: 2, name: "Billing" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 2, name: "Billing" },
+			{ id: 0, name: "Backlog" },
+		]);
 		expect(await deps.tasks.laneNames()).toEqual([
 			{ id: 2, name: "Billing" },
+			{ id: 0, name: "Backlog" },
 			{ id: 1, name: "Licenses" },
 		]);
 	});
@@ -330,7 +335,10 @@ describe.concurrent("task links and lanes", () => {
 
 		await taskRemove(deps, 1);
 
-		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog" },
+		]);
 	});
 
 	it("ends a lane whose last task an agent took is removed, done or moot", async () => {
@@ -342,11 +350,14 @@ describe.concurrent("task links and lanes", () => {
 		await add(deps, "last", { tasks: [2] });
 
 		await taskRemove(deps, 1);
-		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 1, name: "Licensing" },
+			{ id: 0, name: "Backlog" },
+		]);
 		deps.log.clear();
 		await taskRemove(deps, 2);
 
-		expect(await deps.tasks.lanes()).toEqual([]);
+		expect(await deps.tasks.lanes()).toEqual([{ id: 0, name: "Backlog" }]);
 		expect(color.strip(deps.out())).toContain(
 			"lane 1 Licensing is done: nothing is left in it, so it is gone",
 		);
@@ -367,6 +378,7 @@ describe.concurrent("task links and lanes", () => {
 		expect(await deps.tasks.lanes()).toEqual([
 			{ id: 1, name: "Licensing" },
 			{ id: 2, name: "Score editor" },
+			{ id: 0, name: "Backlog" },
 		]);
 		await laneRemove(deps, 2);
 		expect((await deps.tasks.find(1)).lane).toBeNull();
@@ -385,16 +397,17 @@ describe.concurrent("task links and lanes", () => {
 
 		deps.log.clear();
 		await laneUpdate(deps, 3, { position: 1 });
-		expect(await order()).toEqual([3, 1, 2]);
+		expect(await order()).toEqual([3, 1, 2, 0]);
 		expect(color.strip(deps.out())).toContain(
 			"lanes in order: 3 Docs, 1 Licensing, 2 Editor",
 		);
 		await laneUpdate(deps, 3, { position: 99 });
-		expect(await order()).toEqual([1, 2, 3]);
+		expect(await order()).toEqual([1, 2, 0, 3]);
 		await laneUpdate(deps, 1, { name: "Licenses", position: 2 });
 		expect(await deps.tasks.lanes()).toEqual([
 			{ id: 2, name: "Editor" },
 			{ id: 1, name: "Licenses" },
+			{ id: 0, name: "Backlog" },
 			{ id: 3, name: "Docs" },
 		]);
 		expect((await deps.tasks.find(1)).lane).toBe(3);
@@ -434,7 +447,10 @@ describe.concurrent("task links and lanes", () => {
 		);
 		await laneUpdate(deps, 1, { name: "Licenses" });
 
-		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licenses" }]);
+		expect(await deps.tasks.lanes()).toEqual([
+			{ id: 1, name: "Licenses" },
+			{ id: 0, name: "Backlog" },
+		]);
 		expect(await deps.fs.read(`${deps.tasks.dir}/lanes`)).not.toContain(
 			"assignee",
 		);

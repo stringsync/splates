@@ -2,6 +2,7 @@ import { color } from "webappwiz/log";
 import { age } from "../age";
 import type { Task, Tasks } from "../board";
 import {
+	BACKLOG_LANE,
 	blockerLabel,
 	isReady,
 	type LaneRecord,
@@ -59,7 +60,8 @@ export async function recommend(
 		}
 	}
 	const finished = ran.find(
-		(record) => lane(states, record).todos.length === 0,
+		(record) =>
+			record.id !== BACKLOG_LANE && lane(states, record).todos.length === 0,
 	);
 	const rank = (each: Task) => (each.from === task ? 1 : 0);
 	const open = all

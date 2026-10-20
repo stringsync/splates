@@ -1,3 +1,4 @@
+export { BACKLOG_LANE, protectBacklog } from "./backlog";
 export { blockedWarning } from "./blocked-warning";
 export {
 	laneAdd,

@@ -12,6 +12,11 @@ trunk without pull requests. Run it with `bunx @stringsync/splates <command>` (o
 only what the CLI cannot tell you.
 
 A bare `splates` prints help; start the server explicitly with `splates server`.
+Backlog is the permanent catch-all lane for deferred work. Address it as
+`backlog` (or lane `0`) in lane commands and `--lane backlog` in task commands.
+It can be queued and worked, but never renamed, removed or merged away.
+Untriaged cannot be queued whole; its Groom button starts the groomer, which
+moves each task to a fitting themed lane or Backlog.
 `splates dev` is only for developing the splates repository, through its
 checkout's `bin/splates`; it is not a command in the published CLI.
 

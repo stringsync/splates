@@ -1,3 +1,4 @@
+import { BACKLOG_LANE } from "@stringsync/splates-server/board";
 import { commaList } from "@stringsync/splates-server/comma-list";
 import { SYSTEM_STORES } from "@stringsync/splates-server/creds";
 import { fail } from "@stringsync/splates-server/exit";
@@ -116,8 +117,11 @@ export function laneIn(raw: string): number | "new" | null | undefined {
 	if (value === "none") {
 		return null;
 	}
+	if (value === "backlog") {
+		return BACKLOG_LANE;
+	}
 	const id = Number(value);
-	if (!Number.isInteger(id) || id <= 0) {
+	if (!Number.isInteger(id) || id < 0) {
 		fail("usage", `'${value}' is not a lane: pass its number, new or none`, {
 			lane: value,
 		});

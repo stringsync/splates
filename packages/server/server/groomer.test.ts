@@ -57,6 +57,7 @@ describe("Groomer", () => {
 			kept?.id ?? "",
 		]);
 		expect((await deps.tasks.find(1)).state.grooming).toBe(kept?.id);
+		expect((await deps.tasks.find(1)).lane).toBe(0);
 		expect(kept?.state).toMatchObject({ archived: true, resting: true });
 		expect(kept?.state.status).toBe("stopped");
 	});
@@ -173,15 +174,34 @@ describe("Groomer", () => {
 		expect((await deps.tasks.find(2)).state.sorted).toBe(true);
 	});
 
-	it("asks for no lane for a lone Untriaged task with no lane to put it in", async () => {
+	it("preserves a themed lane chosen during grooming", async () => {
+		const lane = await deps.tasks.addLane("Editor");
+		await taskAdd(deps, "editor work", null, { ready: true });
+		agent.turn = async () => {
+			await deps.tasks.arrange(1, lane.id);
+			return "end_turn";
+		};
+		await groomer.wake({ agent: "fake" });
+		expect((await deps.tasks.find(1)).lane).toBe(lane.id);
+	});
+
+	it("revisits tasks an older groomer marked sorted but left in Untriaged", async () => {
+		await taskAdd(deps, "unplaced", null, { ready: true });
+		await (await deps.tasks.find(1)).sort();
+		await groomer.wake({ agent: "fake" });
+		expect(told).toEqual(["[SPLATES SORT #1]"]);
+		expect((await deps.tasks.find(1)).lane).toBe(0);
+	});
+
+	it("sorts even a lone Untriaged task into the permanent Backlog when no themed lane fits", async () => {
 		await taskAdd(deps, "alone", null, { ready: true });
 
 		await groomer.wake({ agent: "fake" });
-		expect(told).toEqual([]);
-		expect(await conversations.persistent(GROOMER_ROLE)).toBeNull();
+		expect(told).toEqual(["[SPLATES SORT #1]"]);
+		expect((await deps.tasks.find(1)).lane).toBe(0);
 
 		await taskAdd(deps, "another", null, { ready: true });
 		await groomer.wake({ agent: "fake" });
-		expect(told).toEqual(["[SPLATES SORT #1 #2]"]);
+		expect(told).toEqual(["[SPLATES SORT #1]", "[SPLATES SORT #2]"]);
 	});
 });
