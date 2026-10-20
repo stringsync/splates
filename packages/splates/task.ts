@@ -44,6 +44,10 @@ function adding(name: string, description: string, ready: boolean) {
 			default: "",
 			description: "whatever more there is to say about it, in markdown",
 		})
+		.option("slug", z.string(), {
+			description:
+				"a short name for the task that takes it (lowercase-with-dashes), naming its branch, worktree and conversation: a few words for what it changes, not the subject cut short",
+		})
 		.option("position", position, {
 			description:
 				"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
@@ -110,6 +114,7 @@ function adding(name: string, description: string, ready: boolean) {
 				from,
 				() =>
 					taskAdd(ctx, opts.subject, from, {
+						slug: opts.slug,
 						text: opts.text,
 						position: opts.position,
 						files: commaList(opts.file),
@@ -185,6 +190,11 @@ splatesTask
 		default: "",
 		description: "what is left to do, in a line; leave out to keep it",
 	})
+	.option("slug", z.string(), {
+		default: "",
+		description:
+			"a new name for the task that takes it (lowercase-with-dashes); leave out to keep it",
+	})
 	.option("position", position, {
 		description:
 			"where to move it in the list, 1 at the top; the others close up around it",
@@ -241,6 +251,7 @@ splatesTask
 		await recordUpdate(ctx.journal, ctx.tasks, opts.id, () =>
 			taskUpdate(ctx, opts.id, {
 				subject: opts.subject,
+				slug: opts.slug,
 				text: opts.text,
 				position: opts.position,
 				files: commaList(opts.file),

@@ -63,6 +63,8 @@ const queue = (subject: string, text: string, ...flags: string[]) => [
 	"add",
 	subject,
 	text,
+	"--slug",
+	subject.toLowerCase(),
 	"--agent",
 	"fake",
 	...flags,
@@ -154,7 +156,17 @@ const probes: Probe[] = [
 		"groom-duplicate",
 		"queue-groomer",
 		"[SPLATES GROOM #3]",
-		[...board, ["task", "defer", "Base again", "Change base.ts, as Base asks"]],
+		[
+			...board,
+			[
+				"task",
+				"defer",
+				"Base again",
+				"Change base.ts, as Base asks",
+				"--slug",
+				"base-again",
+			],
+		],
 		[
 			required("inspect-groomed", ["task", "show", "3"]),
 			required("fold-duplicate", ["task", "remove", "3"]),
@@ -165,7 +177,7 @@ const probes: Probe[] = [
 	agent(
 		"defer",
 		"queue-defer",
-		"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and assign fake; leave it untriaged.",
+		"[SPLATES DEFER] Add a widget. Preserve this entire detail: Change widget.ts and add a regression test. Name the task 'Add widget' with detail 'Change widget.ts and add a regression test.' and slug 'add-widget', and assign fake; leave it untriaged.",
 		[],
 		[
 			required("save-request", [
@@ -173,6 +185,8 @@ const probes: Probe[] = [
 				"defer",
 				"Add widget",
 				"Change widget.ts and add a regression test.",
+				"--slug",
+				"add-widget",
 				"--agent",
 				"fake",
 			]),

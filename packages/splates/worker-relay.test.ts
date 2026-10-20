@@ -147,11 +147,12 @@ describe("WorkerRelay", () => {
 	});
 
 	it("finds the relay and the project by hand, with no env", async () => {
-		await splates(clone, ["task", "add", "make it so", "the detail"], {});
+		await splates(clone, ["task", "add", "make it so", "--slug", "so"], {});
 
 		expect(await env.tasks.all()).toMatchObject([{ subject: "make it so" }]);
 	});
 
+	// scry-ignore simple-test-setup: minting a token and saving the creds it gets are what this test checks, and no other test here does either.
 	it("joins with the token `worker add` mints, over the coordinator's own routes", async () => {
 		const coordinator = `http://127.0.0.1:${server.port}`;
 		const added = await env.ps.spawnCapture(["bun", CLI, "worker", "add"], {

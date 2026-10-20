@@ -119,6 +119,10 @@ export async function taskShow(
 	const step = steps.findIndex((other) => other.id === task.id);
 	const lines = [
 		`${color.bold(`task ${task.id}`)} ${task.subject}`,
+		// The name to start it under: `splates add <slug> --task <n>`.
+		...(task.state.slug === undefined
+			? []
+			: [`  slug:      ${task.state.slug}`]),
 		`  position:  ${task.position}`,
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.

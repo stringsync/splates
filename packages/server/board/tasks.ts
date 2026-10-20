@@ -7,6 +7,7 @@ import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import { startedOf, type TaskStore } from "./store";
 import {
 	assigned,
+	checkSlug,
 	staged,
 	Task,
 	type TaskNew,
@@ -64,6 +65,7 @@ export class Tasks {
 		subject: string,
 		from: string | null,
 		{
+			slug,
 			text = "",
 			files = [],
 			position,
@@ -78,6 +80,9 @@ export class Tasks {
 		if (words.subject === "") {
 			fail("usage", "a task needs a subject: say what is left to do", {});
 		}
+		if (slug !== undefined) {
+			checkSlug(slug, { subject: words.subject, slug });
+		}
 		return this.locked(async () => {
 			const stored = await this.stored();
 			// Nothing comes after a task yet to exist, so a new one cannot close
@@ -91,6 +96,7 @@ export class Tasks {
 			const state: TaskRecord = {
 				id,
 				...words,
+				...(slug === undefined ? {} : { slug }),
 				position: 0,
 				from,
 				createdAt: new Date().toISOString(),

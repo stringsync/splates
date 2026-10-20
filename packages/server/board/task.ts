@@ -18,6 +18,7 @@ export interface TaskRecord {
 	/** The task it came up in, or null when a person added it from the main tree. */
 	from: string | null;
 	createdAt: string;
+	slug?: string;
 	/** The task working on it now, or null while it waits to be picked up. */
 	takenBy: string | null;
 	/** Absolute paths of the files attached, in `tasks/<id>/`. */
@@ -184,6 +185,7 @@ export class Task {
 	 */
 	async update({
 		subject,
+		slug,
 		text,
 		position,
 		files = [],
@@ -199,6 +201,9 @@ export class Task {
 				number: this.id,
 			});
 		}
+		if (slug !== undefined) {
+			checkSlug(slug, { number: this.id, slug });
+		}
 		const kept =
 			keep === undefined
 				? this.files
@@ -212,6 +217,7 @@ export class Task {
 				{
 					...state,
 					...words,
+					...(slug === undefined ? {} : { slug }),
 					files: [...kept, ...added],
 					// Groomed once running, it stays running.
 					...(ready
@@ -294,6 +300,8 @@ export function staged(state: TaskRecord, running: boolean): TaskRecord {
 export interface TaskChange {
 	/** A new line; the old one stays when this is absent. */
 	subject?: string;
+	/** A new name for the task that takes it; the old stays when this is absent. */
+	slug?: string;
 	/** New detail, empty for none; the old stays when this is absent. */
 	text?: string;
 	/** Where to move it in the list; it stays put when this is absent. */
@@ -335,6 +343,11 @@ export interface TaskOrigin {
 
 /** What a new task has besides its subject, all of it optional. */
 export interface TaskNew {
+	/**
+	 * The name the task that takes it starts under, its branch, worktree and
+	 * conversation's; absent, the queue names it from its subject.
+	 */
+	slug?: string;
 	/** Whatever more there is to say about it. */
 	text?: string;
 	files?: Attachment[];
@@ -362,6 +375,20 @@ export function assigned<State extends { assignee?: AgentPick }>(
 ): State {
 	const { assignee: _, ...rest } = state;
 	return (assignee == null ? rest : { ...rest, assignee }) as State;
+}
+
+/** What a task's name may be: lowercase words and digits, joined by dashes. */
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Refuses `slug` unless `SLUG` allows it, saying so with `facts`. */
+export function checkSlug(slug: string, facts: Record<string, unknown>): void {
+	if (!SLUG.test(slug)) {
+		fail(
+			"usage",
+			`invalid task name '${slug}': use lowercase letters, digits and dashes`,
+			facts,
+		);
+	}
 }
 
 /**
@@ -419,6 +446,7 @@ function updated(before: TaskRecord, after: TaskRecord): Facts["task update"] {
 		old?.effort === now?.effort;
 	const changed: Facts["task update"]["changed"] = {
 		...(after.subject === before.subject ? {} : { subject: after.subject }),
+		...(after.slug === before.slug ? {} : { slug: after.slug }),
 		...(after.text === before.text ? {} : { text: true as const }),
 		...(after.position === before.position ? {} : { position: after.position }),
 		...(after.lane === before.lane ? {} : { lane: after.lane }),

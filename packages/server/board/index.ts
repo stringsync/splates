@@ -31,7 +31,13 @@ export type {
 	TaskRecord,
 	TaskStage,
 } from "./task";
-export { recordUpdate, tasksNamed, unqueued, wording } from "./task";
+export {
+	checkSlug,
+	recordUpdate,
+	tasksNamed,
+	unqueued,
+	wording,
+} from "./task";
 export { addedFacts, taskAdd, taskRemove, taskUpdate } from "./task-edit";
 export { decodeTask, encodeTask, TASK_FILE } from "./task-file";
 export { taskList, taskShow } from "./task-list";

@@ -61,6 +61,8 @@ export const lifecycleSeed: Seed = {
 				"add",
 				"Change value to two",
 				"Change value.txt from one to two.",
+				"--slug",
+				"value-two",
 				"--agent",
 				"fake",
 			]);

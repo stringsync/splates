@@ -60,7 +60,14 @@ describe("splates's waits in the journal", () => {
 	});
 
 	it("logs a queued task wait with its subject, and how it gave up", async () => {
-		await splates.run(deps, ["task", "add", "Seven", "detail"]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"Seven",
+			"detail",
+			"--slug",
+			"seven",
+		]);
 		const [queued] = await env.tasks.all();
 
 		await splates.run(deps, [

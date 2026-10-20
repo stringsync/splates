@@ -295,6 +295,28 @@ describe.concurrent("task", () => {
 		]);
 	});
 
+	it("keeps the slug it is given to start under, shows it, and renames it", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "Upload retries forever on a 413", null, {
+			slug: "upload-413",
+		});
+
+		expect((await deps.tasks.find(1)).state.slug).toBe("upload-413");
+		expect(deps.out()).toContain("splates add upload-413 --task 1");
+		deps.log.clear();
+		await taskShow(deps, 1);
+		expect(deps.out()).toContain("slug:      upload-413");
+		await taskUpdate(deps, 1, { slug: "stop-413-retries" });
+		expect((await deps.tasks.find(1)).state.slug).toBe("stop-413-retries");
+		await expect(
+			taskAdd(deps, "Rename the menu", null, { slug: "Rename menu" }),
+		).toBail("usage", {
+			data: { subject: "Rename the menu", slug: "Rename menu" },
+		});
+		await expect(taskUpdate(deps, 1, { slug: "413_" })).toBail("usage");
+		expect(await order(deps)).toEqual(["Upload retries forever on a 413"]);
+	});
+
 	it("refuses a task with no subject", async () => {
 		await using deps = await Testing.open();
 

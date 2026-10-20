@@ -2,7 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import { MarkdownWriter } from "webappwiz/md";
 import type { Fs, HeavyCap } from "webappwiz/system";
 import type { Task, Tasks } from "../board";
-import { blockedWarning } from "../board";
+import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
@@ -11,8 +11,6 @@ import type { Shell } from "../terminal";
 import { TaskOverlaps } from "./overlaps";
 import type { Dispatched, Worktree } from "./worktree";
 import { taskOf, type WorktreeService } from "./worktree-service";
-
-const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
@@ -87,13 +85,7 @@ export async function add(
 			{ task, tasks: ids },
 		);
 	}
-	if (!NAME.test(task)) {
-		fail(
-			"usage",
-			`invalid task name '${task}': use lowercase letters, digits and dashes`,
-			{ task },
-		);
-	}
+	checkSlug(task, { task });
 	// Agents start no agents, so they never multiply: work goes to the queue,
 	// whose worker starts it. The server starts its tasks with neither set.
 	const asking =

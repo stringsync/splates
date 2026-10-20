@@ -144,6 +144,8 @@ export interface Facts {
 		changed: {
 			/** The new subject. */
 			subject?: string;
+			/** The new name for the task that takes it. */
+			slug?: string;
 			/** Whether its detail was rewritten. */
 			text?: true;
 			/** Where it moved to in the list, 1 at the top. */

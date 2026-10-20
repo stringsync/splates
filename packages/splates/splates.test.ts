@@ -96,6 +96,8 @@ describe("splates cli", () => {
 			"add",
 			"write docs",
 			"the CLI first",
+			"--slug",
+			"cli-docs",
 			"--file",
 			"a.png",
 		]);
@@ -110,6 +112,8 @@ describe("splates cli", () => {
 			String(id),
 			"--subject",
 			"write the docs",
+			"--slug",
+			"docs",
 			"--position",
 			"1",
 			"--remove-file",
@@ -117,6 +121,7 @@ describe("splates cli", () => {
 		]);
 		expect((await env.tasks.find(id)).state).toMatchObject({
 			subject: "write the docs",
+			slug: "docs",
 			text: "the CLI first",
 			position: 1,
 			files: [],
@@ -160,11 +165,13 @@ describe("splates cli", () => {
 	});
 
 	it("logs the task it queues, with where it went", async () => {
-		await splates.run(deps, ["task", "add", "first"]);
+		await splates.run(deps, ["task", "add", "first", "--slug", "first"]);
 		await splates.run(deps, [
 			"task",
 			"add",
 			"Upload retries forever on a 413",
+			"--slug",
+			"upload-413",
 			"--position",
 			"1",
 			"--lane",
@@ -239,6 +246,8 @@ describe("splates cli", () => {
 			"task",
 			"add",
 			"Restyle the header",
+			"--slug",
+			"header-style",
 			"--agent",
 			"claude",
 			"--effort",

@@ -2,10 +2,24 @@
 const NAME_LENGTH = 40;
 
 /**
- * A task name for a queued task called `subject`: its words, lowercased and
- * dashed, cut at a word to `NAME_LENGTH`, and numbered past any in `taken`.
+ * A task name for `queued`: the slug its writer gave it, else its subject's
+ * words, lowercased and dashed, cut at a word to `NAME_LENGTH`; numbered past
+ * any in `taken`.
  */
-export function taskName(subject: string, taken: ReadonlySet<string>): string {
+export function taskName(
+	queued: { subject: string; slug?: string },
+	taken: ReadonlySet<string>,
+): string {
+	const base = queued.slug ?? fromSubject(queued.subject);
+	let name = base;
+	for (let count = 2; taken.has(name); count++) {
+		name = `${base}-${count}`;
+	}
+	return name;
+}
+
+/** `subject`'s words, lowercased and dashed, cut at a word to `NAME_LENGTH`. */
+function fromSubject(subject: string): string {
 	const words = subject
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
@@ -18,10 +32,5 @@ export function taskName(subject: string, taken: ReadonlySet<string>): string {
 		}
 		base = longer.slice(0, NAME_LENGTH);
 	}
-	base ||= "task";
-	let name = base;
-	for (let count = 2; taken.has(name); count++) {
-		name = `${base}-${count}`;
-	}
-	return name;
+	return base || "task";
 }

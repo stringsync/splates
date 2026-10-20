@@ -14,6 +14,8 @@ export interface TaskFileOptions {
 }
 
 export interface TaskAddOptions extends TaskFileOptions {
+	/** The name the task that takes it starts under; one from its subject by default. */
+	slug?: string;
 	/** Whatever more there is to say than the subject. */
 	text?: string;
 	/** Where it goes in the list, 1 at the top; the bottom by default. */
@@ -35,6 +37,7 @@ export async function taskAdd(
 	subject: string,
 	from: string | null,
 	{
+		slug,
 		text,
 		files = [],
 		position,
@@ -46,6 +49,7 @@ export async function taskAdd(
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.add(subject, from, {
+		slug,
 		text,
 		files: await readFiles(deps, files),
 		position,
@@ -60,7 +64,7 @@ export async function taskAdd(
 			`${color.green("added")} task ${task.id} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
 			...task.files.map((path) => `  ${path}`),
 			task.blockedBy.length === 0
-				? `  start it: splates add <slug> --task ${task.id}`
+				? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
 				: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);
@@ -81,6 +85,8 @@ export function addedFacts(task: Task): Facts["task add"] {
 export interface TaskUpdateOptions extends TaskFileOptions {
 	/** A new line; the old one stays when this is absent or empty. */
 	subject?: string;
+	/** A new name for the task that takes it; the old stays when this is absent or empty. */
+	slug?: string;
 	/** New detail; the old stays when this is absent or empty. */
 	text?: string;
 	/** Where to move it in the list, 1 at the top; it stays put when absent. */
@@ -104,6 +110,7 @@ export async function taskUpdate(
 	id: number,
 	{
 		subject,
+		slug,
 		text,
 		position,
 		files = [],
@@ -150,6 +157,7 @@ export async function taskUpdate(
 	}
 	const updated = await task.update({
 		subject: subject || undefined,
+		slug: slug || undefined,
 		text: text || undefined,
 		position,
 		files: await readFiles(deps, files),

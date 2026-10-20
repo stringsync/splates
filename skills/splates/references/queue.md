@@ -20,6 +20,11 @@ too, unless the user names one: a task that names none goes to Auto pick,
 which judges its words and starts it on the agent, model and thinking level
 the user's rules give.
 
+Give each task a `--slug`: a short lowercase-with-dashes name for what it
+changes, a few words such as `upload-413`, never the subject cut short. The
+task that takes it starts under that name, and its branch, worktree and
+conversation carry it.
+
 Write a task's subject short enough to scan. Put the why, the where, the
 files and the feature in its detail, as markdown the `splates server` page
 renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
@@ -27,7 +32,7 @@ commands, and fenced blocks for snippets. Single quotes keep the shell off
 the backticks:
 
 ```sh
-splates task add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
+splates task add "Upload retries forever on a 413" --slug upload-413 'The client retries on any 4xx in `src/upload.ts`.
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big'

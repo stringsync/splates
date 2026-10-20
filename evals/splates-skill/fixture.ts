@@ -284,17 +284,24 @@ const QUEUED = [
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big`,
-		flags: ["--lane", "1"],
+		flags: ["--slug", "upload-413", "--lane", "1"],
 	},
 	{
 		subject: "Rename the export menu",
 		detail: `The menu says "Export as…"; it should say "Download".`,
-		flags: [],
+		flags: ["--slug", "export-menu-download"],
 	},
 	{
 		subject: "Stop retrying other client errors",
 		detail:
 			"After the 413 fix, stop retrying every 4xx except 408 and 429 in `src/upload.ts`.",
-		flags: ["--lane", "1", "--blocked-by", "1"],
+		flags: [
+			"--slug",
+			"upload-client-errors",
+			"--lane",
+			"1",
+			"--blocked-by",
+			"1",
+		],
 	},
 ];

@@ -145,7 +145,7 @@ export class QueueRunner implements Resource {
 		const names = new Set(await this.deps.tasks());
 		const starts: (QueueStart & { decided?: QueuePicked })[] = [];
 		for (const queued of next) {
-			const task = taskName(queued.subject, names);
+			const task = taskName(queued, names);
 			names.add(task);
 			this.#starting.add(queued.id);
 			starts.push({

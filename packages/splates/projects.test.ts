@@ -60,7 +60,13 @@ describe("splates across projects", () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "Land it."]);
 		here.ps.cd((await here.service.find("alpha")).path);
 
-		await onThere("task", "add", "Export the parser");
+		await onThere(
+			"task",
+			"add",
+			"Export the parser",
+			"--slug",
+			"parser-export",
+		);
 
 		const [queued] = await there.tasks.all();
 		expect(queued?.state).toMatchObject({
@@ -78,14 +84,28 @@ describe("splates across projects", () => {
 	});
 
 	it("refuses a lane for a queued task from another project", async () => {
-		await onThere("task", "add", "Export the parser", "--lane", "new");
+		await onThere(
+			"task",
+			"add",
+			"Export the parser",
+			"--slug",
+			"parser-export",
+			"--lane",
+			"new",
+		);
 
 		expect(here.out()).toContain('"reason":"not_granted"');
 		expect(await there.tasks.all()).toEqual([]);
 	});
 
 	it("refuses what the other project has not granted, until it does", async () => {
-		await onThere("task", "add", "Export the parser");
+		await onThere(
+			"task",
+			"add",
+			"Export the parser",
+			"--slug",
+			"parser-export",
+		);
 		await onThere("task", "remove", "1");
 		expect(here.out()).toContain('"reason":"not_granted"');
 		expect(here.out()).toContain(`splates projects grant ${hereSlug} tasks`);
@@ -129,7 +149,13 @@ describe("splates across projects", () => {
 		here.proc.env.SPLATES_CONVERSATION = "c1";
 		here.ps.cd(there.root);
 
-		await splates.run(deps, ["task", "add", "Export the parser"]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"Export the parser",
+			"--slug",
+			"parser-export",
+		]);
 		expect(here.out()).toContain('"reason":"not_granted"');
 		expect(await there.tasks.all()).toEqual([]);
 
