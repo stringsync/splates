@@ -127,8 +127,8 @@ describe("App's question cards", () => {
 			view.getByRole("note", { name: "splates" }),
 		);
 		expect(line.textContent).toBe("Asked 2 questionsShow");
-		// The reply is the card's, never a message of its own.
-		expect(view.queryByText("all of them")).toBeNull();
+		// The reply is a message of its own, pinned atop its turn.
+		expect(view.getAllByText("all of them")).toHaveLength(1);
 		expect(
 			view.queryByRole("region", { name: "questions for you" }),
 		).toBeNull();
@@ -139,6 +139,7 @@ describe("App's question cards", () => {
 
 		const asked = view.getByRole("region", { name: "questions for you" });
 		expect(within(asked).getByText("all of them")).toBeTruthy();
+		expect(view.getAllByText("all of them")).toHaveLength(2);
 		expect(within(line).getByRole("button", { name: "Hide" })).toBeTruthy();
 	});
 

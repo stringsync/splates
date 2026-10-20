@@ -364,8 +364,8 @@ describe("App's question card keys", () => {
 				within(panel).getByRole("group", { name: "Anything else" }),
 			).getByText("Also the footer."),
 		).toBeTruthy();
-		// The reply is the card's now, never a message of its own.
-		expect(view.getAllByText("Also the footer.")).toHaveLength(1);
+		// The reply stays a message of its own, beside the card's copy of it.
+		expect(view.getAllByText(/Also the footer\./)).toHaveLength(2);
 		expect(textIn(box(view))).toBe("");
 	});
 

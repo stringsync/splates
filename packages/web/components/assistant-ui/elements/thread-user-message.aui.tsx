@@ -29,7 +29,7 @@ import {
 } from "react";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { lineCardHeight } from "#web/board.ts";
-import { repliesToQuestions, repliesToReview } from "#web/card-reply.tsx";
+import { repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	useAnchorAtOnce,
@@ -170,21 +170,7 @@ export const UserMessage: FC = () => {
 		(s) =>
 			sole === MERGE && repliesToReview(s.thread.messages, s.message.index),
 	);
-	// Answers to questions, which their card shows once opened from its line.
-	const answering = useAuiState((s) =>
-		repliesToQuestions(s.thread.messages, s.message.index),
-	);
 	const sent = sentOf(attachments);
-	if (answering && sent.length === 0) {
-		// Nothing to see, but still where its turn starts.
-		return (
-			<MessagePrimitive.Root
-				data-slot="aui_user-message-root"
-				data-message-id={id}
-				data-role="user"
-			/>
-		);
-	}
 	if (sole !== null && sent.length === 0 && isBare(sole)) {
 		// Not a primitive's root, which assistant-ui would anchor a reply's
 		// turn to: it carries on the turn it comes in (see `carriesOn`).
