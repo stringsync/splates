@@ -321,6 +321,12 @@ export function EdgeSwipe({
 						: LEAVE_MS;
 					slide(-window.innerWidth, "ease-in");
 					timer.current = setTimeout(() => {
+						// The screen is off, so the backing is hidden before the page moves
+						// on: the snapshot the browser keeps of it for a swipe back would
+						// otherwise show a bare Archive screen.
+						if (backing.current !== null) {
+							backing.current.style.opacity = "0";
+						}
 						archive.file(undefined, settle);
 					}, ms);
 				}}
