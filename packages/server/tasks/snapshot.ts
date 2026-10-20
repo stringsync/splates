@@ -13,6 +13,8 @@ import type { WorktreeService } from "./worktree-service";
  * task.
  */
 export interface Snapshot {
+	/** What `?project=` names the project by, which the registry gives it. */
+	project: string;
 	/** The repository's directory name, so a page among many says whose it is. */
 	repo: string;
 	/** Where the repository sits, with the home directory as `~`. */
@@ -54,6 +56,7 @@ export interface Snapshot {
  * the page can sit open on a live tree without disturbing the agent in it.
  */
 export async function snapshot({
+	project,
 	service,
 	tasks: queue,
 	creds,
@@ -65,6 +68,7 @@ export async function snapshot({
 	unbuilt = false,
 	slot = null,
 }: {
+	project: string;
 	service: WorktreeService;
 	tasks: Tasks;
 	creds: Creds;
@@ -83,6 +87,7 @@ export async function snapshot({
 }): Promise<Snapshot> {
 	const tasks = await tasksOf({ service, fs, details });
 	return {
+		project,
 		repo: basename(service.git.root),
 		path: tilde(service.git.root, home),
 		root: service.git.root,

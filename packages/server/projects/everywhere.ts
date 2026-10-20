@@ -65,6 +65,11 @@ export class Everywhere {
 		);
 	}
 
+	/** What the registry names the project at `root` by, which `?project=` takes. */
+	slug(root: string): Promise<string> {
+		return this.placing.slug(root);
+	}
+
 	/**
 	 * How a directive names `task`, of the project at `root`, to a
 	 * conversation of the project at `to`: bare in its own, else

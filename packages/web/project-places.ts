@@ -10,6 +10,19 @@ export function shownProject(): string | null {
 	return new URLSearchParams(location.search).get("project") || null;
 }
 
+/** The slug of the focused project once a snapshot says it, which the bare address never does. */
+let focused: string | null = null;
+
+/** Records the slug of the project the bare address shows. */
+export function knowFocused(slug: string): void {
+	focused = slug;
+}
+
+/** What `rememberPlace` files the project shown by `shownProject` under. */
+export function placeKey(project: string | null): string {
+	return project ?? focused ?? "";
+}
+
 /** Where this tab last was in each project, by slug, "" for the focused one. */
 const PLACES = "splates.places";
 
@@ -72,8 +85,16 @@ export function projectUrl(
  * address names, so a switch heads the page with where it is going rather
  * than "splates".
  */
-export function useProjectName(repo: string | undefined): string {
+export function useProjectName(
+	repo: string | undefined,
+	slug?: string,
+): string {
 	const project = shownProject() ?? "";
+	useEffect(() => {
+		if (project === "" && slug !== undefined) {
+			knowFocused(slug);
+		}
+	}, [project, slug]);
 	useEffect(() => {
 		if (repo !== undefined) {
 			rememberPlace(project, { name: repo });

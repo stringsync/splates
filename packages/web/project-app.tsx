@@ -1,6 +1,6 @@
 import { type ComponentProps, type JSX, useContext, useState } from "react";
 import { App } from "./app";
-import { EverywhereContext } from "./everywhere-context";
+import { EverywhereContext, useHoldEverywhere } from "./everywhere-context";
 import { useShownProject } from "./navigation";
 import { ProjectFeeds, type ProjectFeedsOptions } from "./project-feeds";
 
@@ -18,6 +18,9 @@ export function ProjectApp({
 	Pick<ProjectFeedsOptions, "copies" | "conversationIds">): JSX.Element {
 	const project = useShownProject() ?? "";
 	const everywhere = useContext(EverywhereContext);
+	// Held for as long as the page is open, so a switch to a project not
+	// shown before always has its tasks and conversations to draw from.
+	useHoldEverywhere();
 	const [feeds] = useState(
 		() => new ProjectFeeds(everywhere, { ...props, copies, conversationIds }),
 	);

@@ -112,6 +112,7 @@ function snapshotOf(
 	served: Snapshot | null | undefined,
 ): Snapshot {
 	return {
+		project: listed.project,
 		repo: listed.repo,
 		path: listed.root,
 		root: listed.root,

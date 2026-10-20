@@ -219,7 +219,7 @@ export function App({
 			openTodo(found.todo);
 		}
 	};
-	const name = useProjectName(snapshot?.repo);
+	const name = useProjectName(snapshot?.repo, snapshot?.project);
 
 	const [report] = useState(() => new StatsReport({ stats }));
 	// What the other pages read, so each shows its last answer on a visit.

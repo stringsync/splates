@@ -11,6 +11,12 @@ export const EverywhereContext = createContext<EverywhereFeed>(
 	new EverywhereFeed(),
 );
 
+/** Keeps the feed streaming while the component is mounted, reading nothing. */
+export function useHoldEverywhere(): void {
+	const feed = useContext(EverywhereContext);
+	useDisposerEffect((disposer) => disposer.use(feed.hold()), [feed]);
+}
+
 /**
  * What `select` reads of every project's tasks and conversations, kept
  * streaming while the component is mounted.

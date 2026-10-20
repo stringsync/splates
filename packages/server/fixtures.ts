@@ -4,6 +4,7 @@ import type { Details, Snapshot } from "./tasks";
 
 export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
+		project: "webappwiz",
 		repo: "webappwiz",
 		path: "~/Projects/webappwiz",
 		root: "/repo",

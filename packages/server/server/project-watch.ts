@@ -165,7 +165,7 @@ export class ProjectWatch implements StreamWatcher {
 	}
 
 	/** The repo read whole, the server's own facts aside. */
-	private read(): Promise<Snapshot> {
+	private async read(): Promise<Snapshot> {
 		const { service, tasks, creds, fs, ps } = this.project;
 		const { details } = this;
 		// Unwatched, nothing says when git moved, so it is asked every time.
@@ -173,6 +173,7 @@ export class ProjectWatch implements StreamWatcher {
 			details.moved();
 		}
 		return snapshot({
+			project: await this.context.everywhere.slug(service.git.root),
 			service,
 			tasks,
 			creds,

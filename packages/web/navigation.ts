@@ -1,5 +1,5 @@
 import { createContext, useSyncExternalStore } from "react";
-import { rememberPlace, shownProject } from "./project-places";
+import { placeKey, rememberPlace, shownProject } from "./project-places";
 
 /** Where the page goes to another address, which tests fake. */
 export interface Navigation {
@@ -28,7 +28,7 @@ export function showAddress(url: string): void {
 	// So coming back to the project left lands where it was, however it was left.
 	const leaving = shownProject();
 	if ((next.searchParams.get("project") || null) !== leaving) {
-		rememberPlace(leaving ?? "", { hash: location.hash });
+		rememberPlace(placeKey(leaving), { hash: location.hash });
 	}
 	// The scroll to come back to, as `PageAddress` keeps it; and no `back`,
 	// so the page's own back button never steps out of the project.
