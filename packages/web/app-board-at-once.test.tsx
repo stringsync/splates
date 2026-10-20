@@ -62,6 +62,12 @@ describe("App's board writes at once", () => {
 		await clickShown(() => view.getByRole("menuitem", { name }));
 	}
 
+	/** Removes a lane with tasks in it, past the dialog that asks first. */
+	async function removeLane(lane: string): Promise<void> {
+		await pick(lane, "Remove lane, untriage its tasks");
+		await clickShown(() => view.getByRole("button", { name: "Remove lane" }));
+	}
+
 	it("adds and renames a lane at the click, before the server answers", async () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Add another lane" })),
@@ -90,8 +96,21 @@ describe("App's board writes at once", () => {
 		expect(columns()).not.toContain("Licensing");
 	});
 
-	it("removes a lane at once, and puts it back saying why when refused", async () => {
+	it("asks before removing a lane with tasks, and keeps it on Cancel", async () => {
 		await pick("Docs", "Remove lane, untriage its tasks");
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getByText("Remove Docs?")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
+		);
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(columns()).toContain("Docs");
+		expect(cards("Docs").join()).toContain("second");
+	});
+
+	it("removes a lane at once, and puts it back saying why when refused", async () => {
+		await removeLane("Docs");
 
 		expect(columns()).not.toContain("Docs");
 		expect(cards("Untriaged").join()).toContain("second");
@@ -187,7 +206,7 @@ describe("App's board writes at once", () => {
 
 	it("keeps an expected change over the refetch that began before its write landed", async () => {
 		const arrive = testing.holdSnapshots();
-		await pick("Docs", "Remove lane, untriage its tasks");
+		await removeLane("Docs");
 		await act(async () => testing.stream?.onmessage?.());
 		await answer();
 		await act(async () => arrive());
