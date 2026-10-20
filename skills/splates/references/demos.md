@@ -5,7 +5,7 @@
 The norm is evidence, not a demo: the user reads what you verified under
 `## Verification` in the task dialog, and starts a demo from there only when
 they want one. Start one yourself only when the user must see something to
-answer a question, or to judge a review (see [Merge or review](../SKILL.md#merge-or-review)). A demo is a
+answer a question, or to judge a review (see [Merge or review](merge.md#merge-or-review)). A demo is a
 `### 🎬 Demo: <what it shows>` heading, a line on where to open it, then the
 steps, numbered from 1. Each step's line is one thing to do; indented under
 it, one line on what they should see, and a screenshot or recording only

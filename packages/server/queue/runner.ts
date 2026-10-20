@@ -478,7 +478,7 @@ export function queuePrompt(queued: TaskRecord): string {
 		...(queued.groomed
 			? []
 			: [
-					"Groom it first, since nothing has yet: check no other task already asks it, link what it needs merged first with `splates task update <n> --blocked-by <n>`, and ask the user what their answer would change, any conflict with another task or with work already merged among it, and any question its detail leaves open. When it links a task still open, `splates remove` yours so the queue holds it until that lands.",
+					"Groom it first, since nothing has yet, as the splates skill's `references/groom.md` says under Grooming a task you start.",
 				]),
 		"Work it as the splates skill says, ending in `splates merge` or `splates remove`, or in questions for the user.",
 	].join("\n");

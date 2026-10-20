@@ -1,65 +1,50 @@
-# Linking, placing and ordering tasks
+# Queueing tasks
 
-A task is ready once groomed: no other task asks it, what blocks it is
-linked, and it is in its lane when that is plain. Whoever writes a task
-grooms it as they add it with `splates task add`, which makes it ready, or,
-knowing too little of it, `splates task defer`s it to the backlog, rough. A
-backlog task is groomed later, by a groomer or the agent that starts it,
-which `splates task update N --ready` moves to ready. Ordering is the
-user's (see Positions).
+Writing a task (Queueing tasks), deferring it, queueing it for the user, and linking,
+placing and ordering it. Grooming one, whether you write it, start it or
+groom the backlog, is in [groom.md](groom.md). Ordering is the user's (see
+Positions).
 
-## Grooming a task you write
+## Queueing tasks
 
-Before `splates task add`, check none already asks it (see One that already
-asks it), give it `--blocked-by` for each task whose code it needs or whose
-files it changes, read from `splates task list` and `splates list --files`,
-and `--lane` when it builds on a lane's work (see Lanes). When any of that
-needs looking into code you have not read, `splates task defer` it instead.
+When something outside your Goal comes up, queue it as a task and move on:
+its subject and what you know. `splates task add` makes it ready, which
+says you groomed it: you checked no task already asks it, linked what
+blocks it, and put it in a lane when its lane is plain (see
+[groom.md](groom.md)). When you know too little of it
+to do that without looking into it, as for a rough idea or a request
+deferred as it came, `splates task defer` it instead, which takes the same
+flags and leaves it in the backlog for whoever grooms it. Leave its position
+to the user and the queue, unless the user names it. Leave its model off
+too, unless the user names one: a task that names none goes to Auto pick,
+which judges its words and starts it on the agent, model and thinking level
+the user's rules give.
 
-## Grooming a task you start
+Write a task's subject short enough to scan. Put the why, the where, the
+files and the feature in its detail, as markdown the `splates server` page
+renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
+commands, and fenced blocks for snippets. Single quotes keep the shell off
+the backticks:
 
-A task from the backlog, which `splates task show N` shows as `groomed: no`,
-is groomed once, by the agent that starts it, before any work on it. A ready
-one was groomed when it was written: start work on it.
+```sh
+splates task add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
 
-1. **One that already asks it.** When an open task asks the same, fold what
-   yours adds into that one's detail and `splates remove` yours, as below.
-   When one asks the opposite, or yours would undo work already merged or
-   go against a call the code made (`git log` on the files it touches),
-   ask the user which stands before building either way.
-2. **Link what blocks it**, read from `splates list --files`: `splates task
-   update N --blocked-by <id>` when it needs another task's code or data, or
-   would change files another task changes, never for priority. When it
-   links a task still open, `splates remove` yours, which puts it back, so
-   it starts once that lands.
-3. **Ask what the user's answer would change**, under `## Blocked`, as
-   [questions.md](questions.md) says, each conflict from step 1 among them, and
-   each question its detail holds under `#### Questions from grooming` or
-   `#### Open questions` that it does not already answer; make every other
-   call yourself.
-4. **Mark it groomed** with `splates task update N --ready`, so it goes back
-   to ready rather than the backlog should it be let go.
+- [ ] stop retrying on 413
+- [ ] tell the user the file is too big'
+```
 
-## One that already asks it
+The `splates server` page shows each `splates task add` in the conversation as
+a line naming the task, which opens it, so your reply needs no heading or
+summary of it. That shrinks what you say, never the task: its subject and
+detail stay full, since whoever picks it up reads nothing else.
 
-Before adding a task, scan `splates task list`, leaving off `--open`, by
-subject alone: it prints one line per task and no detail. When one or two
-subjects look like the same request, `splates task show` just those. Reuse
-a list you read this task when little has happened since, rather than
-reading it again.
-
-- **Open, the same request**: add none. `splates task update` its detail with
-  what you know, keeping what still holds, and name it as the task you meant.
-- **Taken by another task**: add none, and note in `SPLATES.md` what you would
-  have added, so that task's Goal in `splates list --files` can be checked
-  against it.
-- **Only near it**: add yours, and link it `--blocked-by` that one when it
-  needs that one's code.
+`splates task update <n> '<detail>'` replaces the whole detail, so pass all of
+it: what still holds and what you learned.
 
 ## Deferring
 
 `[SPLATES DEFER]` asks you to make a request a task rather than do it.
-`splates task defer` it as Queueing tasks in the skill says, from your worktree when a
+`splates task defer` it as Queueing tasks says, from your worktree when a
 task is under way, its detail all the message gives and what you already
 know of the code it touches, with no new investigation.
 
@@ -82,9 +67,9 @@ the work, and start no task of your own for it.
 
 1. **Work out what they want.** Read what you need of the code to know what
    the request asks and what it touches. Ask each call the user's answer
-   would change as Questions in the skill says, and end your turn on them:
+   would change as [questions.md](questions.md) says, and end your turn on them:
    the task waits until you understand the request.
-2. **Add it groomed**, as Grooming a task you write says, with
+2. **Add it groomed**, as Grooming a task you write in [groom.md](groom.md) says, with
    `splates task add` from the main tree (or your worktree, when a task is
    under way): a subject, and a detail that holds every answer, since the
    worker that starts it reads nothing else. When an open task already asks

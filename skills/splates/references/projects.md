@@ -9,7 +9,7 @@ this project:
 
 - **read**: look only.
 - **queue**, every project's unless it grants otherwise: `splates --project
-  <slug> task defer` what it should do, written as any task is (see Queueing tasks in the skill),
+  <slug> task defer` what it should do, written as any task is (see Queueing tasks in [queue.md](queue.md)),
   saying in its detail why your project needs it. Leave `--lane` off:
   that project's user places it.
 - **tasks**: also run its queue: `splates --project <slug>` with `task

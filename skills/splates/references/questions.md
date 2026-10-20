@@ -113,7 +113,7 @@ ask. A secret, such as an API token, is a cred to request instead (see
    answers only come in chat. A new session resumes with `splates claim <task>`.
 
 Never ask whether the work is ready to merge: once the questions are answered
-and the work is done, merge or ask for a review (see [Merge or review](../SKILL.md#merge-or-review)).
+and the work is done, merge or ask for a review (see [Merge or review](merge.md#merge-or-review)).
 
 ## Keeping Blocked current
 

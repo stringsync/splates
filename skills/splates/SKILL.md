@@ -29,11 +29,11 @@ asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then, when `splates task show N` says `groomed: no`, groom it as [queue.md](references/queue.md) says under Grooming a task you start |
+| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <task> --task N`, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; see Taking a queued task |
 | `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
 | `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
-| `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
-| `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
+| `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": [merge.md](references/merge.md), Merge or review |
+| `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": [proposing.md](references/proposing.md) |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
 | `[SPLATES QUEUE]` | Work out with the user what the request after it wants, or, alone, their message before it, then add it as a task, groom it yourself and queue it, never doing it | [queue.md](references/queue.md), Queueing for the user |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
@@ -51,11 +51,20 @@ comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
-- Before `splates lane add`, `splates lane queue` or `unqueue`, `splates queue
-  add`, `splates task defer`, or `splates task add`, `splates task update` or `splates lane
-  update` with `--lane`, `--position`, `--blocked-by` or `--ready`:
-  [references/queue.md](references/queue.md), linking, placing and ordering
-  queued tasks.
+- Before `splates task add` or `splates task defer`, `splates lane add`,
+  `splates lane queue` or `unqueue`, `splates queue add`, or `splates task
+  update` or `splates lane update` with `--lane`, `--position` or
+  `--blocked-by`: [references/queue.md](references/queue.md), writing,
+  deferring, linking, placing and ordering tasks.
+- Before `splates task add` or `--ready`, when you take a task `splates task
+  show` says is `groomed: no`, and as the project's groomer:
+  [references/groom.md](references/groom.md), everything grooming checks
+  and who does it when.
+- Before `splates merge`, or when it stops on anything but success, and
+  before asking the user for a review: [references/merge.md](references/merge.md),
+  merging or asking for a review, and what to do when a merge fails.
+- When the user asks what you think, or approves a proposal:
+  [references/proposing.md](references/proposing.md).
 - When the user asks to set splates up on this machine, or any part of it
   (agents, remote access, workers, a cloud server, a tunnel of their
   own, dictation): [references/setup.md](references/setup.md),
@@ -111,7 +120,7 @@ which remembers none of it.
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `splates task add` or `defer` it from your worktree and move on,
    so the task stays one coherent change; the conversation shows what you
-   queued (see Queueing tasks). A snag on the way, such as a lost
+   queued (see [queue.md](references/queue.md), Queueing tasks). A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge` queues one
    itself for each test that failed its gate. Ask the user each call their
    answer would change, and make the rest yourself (see [Questions](references/questions.md)), bringing
@@ -130,32 +139,13 @@ which remembers none of it.
    any step you will not do, then check it off, `splates task add` or
    `defer` each follow-up you would otherwise offer or ask about once it
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
-   "<message>"` (see Committing), or ask for a review first (see Merge or
-   review). On failure, do what stderr says and merge again, with the
+   "<message>"` (see Committing), or ask for a review first (see
+   [merge.md](references/merge.md)). On failure, do what stderr says and merge again, with the
    real message: never merge only to read a failure again, since one whose
    gate passes this time lands. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
-   running anything else.
-
-   An existing Git `index.lock` stops merge as `blocked` without spending an
-   attempt. Wait for its owner to finish and merge again; never delete a lock
-   held by a live operation. A failed rebase with no unmerged paths is
-   `merge_failed`, not a content `conflict`.
-
-   Each `conflict` or `merge_failed` spends one of the task's merge attempts.
-   A `tests_failed` spends one only when the failing test files passed on the
-   exact base commit and failed again with the task. Trunk-red and environment
-   failures hold the merge without charging; fix what the output names before
-   retrying. Bun JUnit reports enable selective attribution; missing reports,
-   unsupported runners, and inconclusive retests hold without charging. A flake
-   can land only after the complete gate passes again. Conflicts are expected: resolve them and say
-   nothing of them, in `SPLATES.md`, a report or a task. Write under
-   `## Notes` what each `tests_failed` or `merge_failed` failed on. When
-   `merge` stops on `budget_exhausted`, ask the user (see [When you cannot go on](references/questions.md#when-you-cannot-go-on)):
-   a `- ` line per attempt on what it failed on (the check that broke,
-   the tree in the way, or that it conflicted), one on what
-   would get it through, then a question choosing between `splates retry
-   <task>`, theirs to run (or the page's Retry), and a remove and redo.
+   running anything else. When merge stops on anything but success, read
+   [merge.md](references/merge.md), When a merge fails.
 
 **Clean up every task you start.** A task ends in a merge or a remove, never
 left behind; one waiting on the user's answers is not done, so leave it for
@@ -173,117 +163,20 @@ are blocked on it),
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
 
-## Queueing tasks
-
-When something outside your Goal comes up, queue it as a task and move on:
-its subject and what you know. `splates task add` makes it ready, which
-says you groomed it: you checked no task already asks it, linked what
-blocks it, and put it in a lane when its lane is plain (see
-[references/queue.md](references/queue.md)). When you know too little of it
-to do that without looking into it, as for a rough idea or a request
-deferred as it came, `splates task defer` it instead, which takes the same
-flags and leaves it in the backlog for whoever grooms it. Leave its position
-to the user and the queue, unless the user names it. Leave its model off
-too, unless the user names one: a task that names none goes to Auto pick,
-which judges its words and starts it on the agent, model and thinking level
-the user's rules give.
-
-Write a task's subject short enough to scan. Put the why, the where, the
-files and the feature in its detail, as markdown the `splates server` page
-renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
-commands, and fenced blocks for snippets. Single quotes keep the shell off
-the backticks:
-
-```sh
-splates task add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
-
-- [ ] stop retrying on 413
-- [ ] tell the user the file is too big'
-```
-
-The `splates server` page shows each `splates task add` in the conversation as
-a line naming the task, which opens it, so your reply needs no heading or
-summary of it. That shrinks what you say, never the task: its subject and
-detail stay full, since whoever picks it up reads nothing else.
+## Taking a queued task
 
 When you take a queued task that names a model other than the one you run as, take
 it anyway: whoever handed it to you chose you. Say so in a line of its own
 right after `splates add`, such as `#12 names Sonnet; I run as Opus.`, so the
 user can stop you and start the model it names instead.
 
-`splates task update <n> '<detail>'` replaces the whole detail, so pass all of
-it: what still holds and what you learned. Merging removes the queued task
-yours took: when you leave part of it undone, `splates task add` what is
-left as a task of its own.
-
 When `splates add --task` warns that a task is blocked,
 what blocks it has yet to merge: `splates task wait <n>` for it, or, when the
 user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
-## Merge or review
-
-A task ready to merge has every step under `## Next` and every question under
-`## Blocked` checked; `splates merge` refuses one that is not, and a review
-is sent only for one that is. Whether the user looks first is yours to decide:
-
-- **Merge** work you verified yourself, its evidence under `## Verification`
-  (see SPLATES.md). This is the default, and the usual end of a small change.
-- **Ask for a review**, with a demo (see [Demos](references/demos.md)), when the change is invasive
-  (it reworks how something the user relies on works, or touches much of the
-  project) and above all when it is hard or impossible to reverse (a
-  migration, data written, anything sent outside the repo), or when
-  `## Notes` says `Review: requested`. The demo is the user's chance to step
-  in before it lands: their feedback decides whether it merges. Leave
-  something to look at (step 1 of [When you cannot go on](references/questions.md#when-you-cannot-go-on)), send the Ready to
-  merge report (see [Reporting](references/reporting.md)), which is the whole request, and end your turn.
-
-For a demo the user can open, read [demos.md](references/demos.md),
-Hosting a demo, before starting its server.
-
-When the user approves a review, by replying "merge" or with
-`[SPLATES MERGE]`, `splates claim <task>` and merge. When they ask for changes, `splates claim <task>`, add each as a
-step under `## Next`, and work through them as before. While a review waits,
-every reply that ends your turn ends with the whole review report again,
-brought up to date: the page shows its Ready to merge card only for a whole
-report.
-
-## Proposing
-
-Propose only when the user asks what you think, so they can approve it or
-challenge what it rests on. Otherwise build, asking each call the user's
-answer would change as a question (see [Questions](references/questions.md)) rather than a proposal.
-
-A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
-few words on what you would build, then what you recommend and why, briefly.
-It ends with each call it rests on that the user has not settled, as
-questions numbered from 1 (see [Questions](references/questions.md)).
-
-```markdown
-## 💡 Proposed a card for proposals
-
-Fold proposals into the questions card, each call a question with a pick:
-that card already tags a `(chosen)` choice, so one card asks everything.
-
-1. Where should a proposal's calls come from?
-   - (a) The reply, so a proposal works outside a task too (chosen)
-   - (b) `SPLATES.md`, so every proposal needs a task
-2. What should its button say?
-```
-
-In a task, write each call under `## Blocked` too, then end your turn; ask
-nothing else beside it.
-
-The `splates server` page shows a proposal as a questions card headed by it, each
-call with a `(chosen)` choice already answered with it. Once every call is
-answered and the user has changed none of your choices, its button approves,
-sending `[SPLATES APPROVE]`, then the answer to each call you chose nothing
-for, quoted as any answer is (see [Keeping Blocked current](references/questions.md#keeping-blocked-current)). That, or a reply
-of "approve", means go ahead as proposed, taking in each answer, every call
-not quoted as you chose it, after `splates add` when no task is under way. A
-reply without it, as the card sends once the user picks another choice,
-changes a call or writes anything else, answers what it quotes: take that
-in and propose again.
+Merging removes the queued task yours took: when you leave part of it
+undone, `splates task add` what is left as a task of its own.
 
 ## SPLATES.md
 

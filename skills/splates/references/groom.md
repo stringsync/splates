@@ -1,5 +1,64 @@
 # Grooming tasks
 
+A task is ready once groomed: no other task asks it, what blocks it is
+linked, and it is in its lane when that is plain. Whoever writes a task
+grooms it as they add it with `splates task add`, which makes it ready, or,
+knowing too little of it, `splates task defer`s it to the backlog, rough. A
+backlog task is groomed later, by the project's groomer or the agent that
+starts it, which `splates task update N --ready` moves to ready. Linking and
+placing are in [queue.md](queue.md); this file is what grooming checks, and
+who does it when.
+
+## Grooming a task you write
+
+Before `splates task add`, check none already asks it (see One that already
+asks it), give it `--blocked-by` for each task whose code it needs or whose
+files it changes, read from `splates task list` and `splates list --files`,
+and `--lane` when it builds on a lane's work (see Lanes in [queue.md](queue.md)). When any of that
+needs looking into code you have not read, `splates task defer` it instead.
+
+## Grooming a task you start
+
+A task from the backlog, which `splates task show N` shows as `groomed: no`,
+is groomed once, by the agent that starts it, before any work on it. A ready
+one was groomed when it was written: start work on it.
+
+1. **One that already asks it.** When an open task asks the same, fold what
+   yours adds into that one's detail and `splates remove` yours, as below.
+   When one asks the opposite, or yours would undo work already merged or
+   go against a call the code made (`git log` on the files it touches),
+   ask the user which stands before building either way.
+2. **Link what blocks it**, read from `splates list --files`: `splates task
+   update N --blocked-by <id>` when it needs another task's code or data, or
+   would change files another task changes, never for priority. When it
+   links a task still open, `splates remove` yours, which puts it back, so
+   it starts once that lands.
+3. **Ask what the user's answer would change**, under `## Blocked`, as
+   [questions.md](questions.md) says, each conflict from step 1 among them, and
+   each question its detail holds under `#### Questions from grooming` or
+   `#### Open questions` that it does not already answer; make every other
+   call yourself.
+4. **Mark it groomed** with `splates task update N --ready`, so it goes back
+   to ready rather than the backlog should it be let go.
+
+## One that already asks it
+
+Before adding a task, scan `splates task list`, leaving off `--open`, by
+subject alone: it prints one line per task and no detail. When one or two
+subjects look like the same request, `splates task show` just those. Reuse
+a list you read this task when little has happened since, rather than
+reading it again.
+
+- **Open, the same request**: add none. `splates task update` its detail with
+  what you know, keeping what still holds, and name it as the task you meant.
+- **Taken by another task**: add none, and note in `SPLATES.md` what you would
+  have added, so that task's Goal in `splates list --files` can be checked
+  against it.
+- **Only near it**: add yours, and link it `--blocked-by` that one when it
+  needs that one's code.
+
+## The project's groomer
+
 `[SPLATES GROOM #N]` comes from `splates server`: you are the project's
 groomer, and task N waits in the backlog, deferred rough, for you to
 organize. splates claimed it for you, and tells you of the next once your
@@ -21,7 +80,7 @@ few `splates task` commands, then your turn ends.
    leave it as it is.
 2. **One that already asks it.** Scan `splates task list` by subject, and
    `splates task show` those that look like the same request, as One that
-   already asks it in [queue.md](queue.md) says. When an open one asks it,
+   already asks it says. When an open one asks it,
    fold what N adds into that one's detail (`splates task update <id>
    '<detail>'` replaces it, so pass all of it), then `splates task remove
    N`, and you are done with N. One only near it gets what N knows that it
@@ -52,10 +111,10 @@ few `splates task` commands, then your turn ends.
    thinking level, which are triage, and leave its position, which is the
    user's.
 
-## Conflicts and open questions
+### Conflicts and open questions
 
-Make every call a revert would undo yourself. Ask the user, rather than
-mark it ready, when N:
+The groomer makes every call a revert would undo itself. It asks the user,
+rather than mark it ready, when N:
 
 - asks the opposite of another task, open or under way;
 - would undo work already merged, or go against a call the code or a past
@@ -77,7 +136,7 @@ Those are not yours to settle, and need not hold it in the backlog: mark it
 ready, with each such question in its detail under `#### Open questions`,
 for whoever takes it to ask the user before building on a guess.
 
-## Replying
+### Replying
 
 Reply with one line per task on where it went, such as `#12: ready in lane 3
 Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and

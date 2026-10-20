@@ -11,10 +11,12 @@ export const SCENARIOS: readonly Scenario[] = [
 		sections: [
 			...CORE,
 			"Queueing tasks",
+			"Taking a queued task",
+			"Grooming a task you start",
 			"SPLATES.md",
 			"Committing",
 			"Merge or review",
-			"Questions",
+			"Questions and answers",
 		],
 		checks: [
 			STARTS,
@@ -63,7 +65,12 @@ export const SCENARIOS: readonly Scenario[] = [
 	{
 		id: "ask",
 		turns: ["Add a cap on how many times an upload retries."],
-		sections: [...CORE, "Questions", "Keeping Blocked current", "SPLATES.md"],
+		sections: [
+			...CORE,
+			"Questions and answers",
+			"Keeping Blocked current",
+			"SPLATES.md",
+		],
 		checks: [
 			STARTS,
 			{
@@ -106,7 +113,8 @@ export const SCENARIOS: readonly Scenario[] = [
 		sections: [
 			...CORE,
 			"Queueing tasks",
-			"Linking, placing and ordering tasks",
+			"Grooming a task you write",
+			"One that already asks it",
 			"Links",
 			"Lanes",
 			"Positions",
