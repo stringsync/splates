@@ -93,8 +93,8 @@ export function stretches(text: string): Stretch[] {
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a
- * task ended or what it waits on, a task it proposes, work it asks the person
- * to queue, or a demo for the person to try.
+ * task ended or what it waits on, a task it proposes, a permission it asks the person
+ * to give, or a demo for the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -103,7 +103,7 @@ export type Stretch =
 	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: TaskReport }
 	| { type: "todo"; todo: TodoProposal }
-	| { type: "queue"; queue: QueueProposal }
+	| { type: "permission"; permission: PermissionProposal }
 	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
@@ -165,18 +165,22 @@ export interface TodoProposal {
 }
 
 /**
- * Work the agent added and asks the person to queue, as the skill's `## 📥
- * Queue lane <n>: <name>` or `## 📥 Queue #<n>, #<n>: <what>` puts it: an
- * agent never queues work itself, so the card's buttons are the person's.
+ * What the agent asks the person to allow, as the skill's `## 🔐 Permission:
+ * queue lane <n>: <name>`, `## 🔐 Permission: queue #<n>, #<n>: <what>` or `##
+ * 🔐 Permission: remove lane <n>: <name>` puts it: an agent never does these
+ * itself, so the card's buttons are the person's. The older `## 📥 Queue ...`
+ * titles read as the queue ones.
  */
-export interface QueueProposal {
-	/** The lane to queue whole; null for tasks named one by one. */
+export interface PermissionProposal {
+	/** What it asks: queue work, or remove a lane with its tasks. */
+	action: "queue" | "remove-lane";
+	/** The lane it acts on whole; null for tasks named one by one. */
 	lane: number | null;
 	/** The tasks named one by one; none for a lane. */
 	tasks: number[];
 	/** What the title says after its colon, if anything. */
 	title: string | null;
-	/** What the work adds up to, as markdown. */
+	/** What it comes to, as markdown. */
 	body: string;
 }
 
@@ -194,8 +198,8 @@ const ENDED =
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
-const QUEUE =
-	/^## 📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*))(?::[ \t]*(.*?))?[ \t]*$/;
+const PERMISSION =
+	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
  * A queue card's line of the command that queues its work from a terminal,
  * `` `splates lane queue 7` ``, which the card shows on its own row.
@@ -235,9 +239,9 @@ function keptAt(
 	const ended = ENDED.exec(line);
 	const workingTask = WORKING_TASK.exec(line);
 	const proposed = PROPOSAL.exec(line);
-	const queue = QUEUE.exec(line);
+	const permission = PERMISSION.exec(line);
 	if (
-		queue === null &&
+		permission === null &&
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
@@ -253,14 +257,19 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
-	if (queue !== null) {
+	if (permission !== null) {
+		const lane = permission[2] ?? permission[3] ?? permission[5];
 		return {
 			stretch: {
-				type: "queue",
-				queue: {
-					lane: queue[1] === undefined ? null : Number(queue[1]),
-					tasks: Array.from((queue[2] ?? "").matchAll(/\d+/g), Number),
-					title: queue[3] || null,
+				type: "permission",
+				permission: {
+					action: permission[1] === undefined ? "queue" : "remove-lane",
+					lane: lane === undefined ? null : Number(lane),
+					tasks: Array.from(
+						(permission[4] ?? permission[6] ?? "").matchAll(/\d+/g),
+						Number,
+					),
+					title: permission[7] || null,
 					body: body.replace(COMMAND_LINE, "").replace(/^\n+|\s+$/g, ""),
 				},
 			},

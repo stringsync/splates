@@ -261,7 +261,7 @@ describe("stretches", () => {
 	it("reads work to queue, a lane whole or tasks one by one, leaving out the command the card shows on its own", () => {
 		const found = stretches(
 			[
-				"## 📥 Queue lane 3: Billing export",
+				"## 🔐 Permission: queue lane 3: Billing export",
 				"",
 				"`splates lane queue 3`",
 				"",
@@ -270,13 +270,24 @@ describe("stretches", () => {
 				"## 📥 Queue #12, #14",
 				"",
 				"Two fixes to uploads.",
+				"",
+				"## 🔐 Permission: remove lane 5: Old ideas",
+				"",
+				"`splates lane remove 5`",
+				"",
+				"Nothing in it is wanted.",
+				"",
+				"## 🔐 Permission: queue #12, #14",
+				"",
+				"Two fixes to uploads.",
 			].join("\n"),
 		);
 
 		expect(found).toEqual([
 			{
-				type: "queue",
-				queue: {
+				type: "permission",
+				permission: {
+					action: "queue",
 					lane: 3,
 					tasks: [],
 					title: "Billing export",
@@ -284,8 +295,29 @@ describe("stretches", () => {
 				},
 			},
 			{
-				type: "queue",
-				queue: {
+				type: "permission",
+				permission: {
+					action: "queue",
+					lane: null,
+					tasks: [12, 14],
+					title: null,
+					body: "Two fixes to uploads.",
+				},
+			},
+			{
+				type: "permission",
+				permission: {
+					action: "remove-lane",
+					lane: 5,
+					tasks: [],
+					title: "Old ideas",
+					body: "Nothing in it is wanted.",
+				},
+			},
+			{
+				type: "permission",
+				permission: {
+					action: "queue",
 					lane: null,
 					tasks: [12, 14],
 					title: null,

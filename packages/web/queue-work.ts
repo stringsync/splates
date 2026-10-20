@@ -1,5 +1,5 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { QueueProposal } from "@stringsync/splates-server/plans";
+import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { laneQueued, queued } from "./board-expectations";
 import type { SnapshotExpecter } from "./expecting";
 import { stageOf } from "./todo-queue";
@@ -16,7 +16,7 @@ export interface QueueWrites {
  */
 export class QueueWork {
 	constructor(
-		readonly proposal: QueueProposal,
+		readonly proposal: PermissionProposal,
 		private readonly board: {
 			linked: boolean;
 			lanes: readonly LaneRecord[];

@@ -23,7 +23,7 @@ describe("QueueWork", () => {
 	it("queues a lane whole, named as the board has it", async () => {
 		const writes = new NotedWrites();
 		const work = new QueueWork(
-			{ lane: 3, tasks: [], title: "Old name", body: "" },
+			{ action: "queue", lane: 3, tasks: [], title: "Old name", body: "" },
 			{
 				linked: true,
 				lanes: [{ id: 3, name: "Billing export" }],
@@ -41,7 +41,7 @@ describe("QueueWork", () => {
 	it("queues each named task yet to start and not yet queued", async () => {
 		const writes = new NotedWrites();
 		const work = new QueueWork(
-			{ lane: null, tasks: [4, 5, 6], title: null, body: "" },
+			{ action: "queue", lane: null, tasks: [4, 5, 6], title: null, body: "" },
 			{
 				linked: true,
 				lanes: [],
@@ -64,7 +64,13 @@ describe("QueueWork", () => {
 			lanes: [{ id: 3, name: "Billing export", queued: true as const }],
 			todos: [],
 		};
-		const proposal = { lane: 3, tasks: [], title: null, body: "" };
+		const proposal = {
+			action: "queue" as const,
+			lane: 3,
+			tasks: [],
+			title: null,
+			body: "",
+		};
 
 		expect(new QueueWork(proposal, board).queued).toBe(true);
 		expect(new QueueWork(proposal, { ...board, lanes: [] }).gone).toBe(true);

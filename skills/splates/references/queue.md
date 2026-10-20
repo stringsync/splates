@@ -83,7 +83,7 @@ with the lane's queue card, naming it by number, and what the tasks add up
 to under it:
 
 ```markdown
-## 📥 Queue lane 7: Billing export
+## 🔐 Permission: queue lane 7: Billing export
 
 `splates lane queue 7`
 
@@ -99,7 +99,7 @@ updating an open task that already asks it rather than adding another, and
 end your reply with its card, naming each task by number:
 
 ```markdown
-## 📥 Queue #31, #32: Upload fixes
+## 🔐 Permission: queue #31, #32: Upload fixes
 
 `splates queue add 31 32`
 

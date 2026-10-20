@@ -76,11 +76,17 @@ Checks: `bun run typecheck`, `bun test`
 Reply "merge", or say what to change.
 ```
 
-Work you added for the user to queue ends your reply as its queue card,
-`## 📥 Queue lane <n>: <name>` or `## 📥 Queue #<n>, #<n>: <what>`, with a
-line or two under it on what the work adds up to; the page lists its tasks
-and gives the user Queue now and Later. It can follow any report, a merge
-or remove report too (see [queue.md](queue.md), Asking the user to queue).
+What you may not do yourself, you ask the user to allow with a permission
+card: `## 🔐 Permission: queue lane <n>: <name>`, `## 🔐 Permission: queue
+#<n>, #<n>: <what>` or `## 🔐 Permission: remove lane <n>: <name>`, then the
+command that does it in a code span on its own line, and a line or two on
+what it comes to. The page lists the tasks it queues or removes and gives the
+user Now and Later. The queue card ends your reply with work you added (see
+[queue.md](queue.md), Asking the user to queue), after any report, a merge or
+remove report too. Removing a lane takes its tasks with it, kept to restore,
+and `splates lane remove` is refused an agent, so ask with the card, naming
+the lane and how many tasks go. The old `## 📥 Queue ...` titles still read
+as queue cards.
 
 Ask every question to the user as an item of a list numbered from 1 at the
 margin, outside code blocks, wherever you ask it, even a lone one as

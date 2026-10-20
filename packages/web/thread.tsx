@@ -52,10 +52,10 @@ import { EventUI, lineOf } from "./event-lines";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
+import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
 import { offerUndo } from "./phone-undo";
-import { QueueUI } from "./queue-card";
 import { useTakeBack } from "./queued";
 import { GoingUI, QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
@@ -313,7 +313,7 @@ function Conversation({
 											<ReviewUI />
 											<ReportUI />
 											<TodoUI />
-											<QueueUI />
+											<PermissionUI />
 											<DemoUI />
 											<WorkUI />
 											<QueuedUI />

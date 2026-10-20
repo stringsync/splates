@@ -1,7 +1,7 @@
 export type {
 	Ending,
+	PermissionProposal,
 	Proposal,
-	QueueProposal,
 	Review,
 	Stretch,
 	TaskReport,

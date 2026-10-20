@@ -184,8 +184,13 @@ export function replied(
 					before.report.ending !== "working";
 				return [{ type: "data-todo", data: { todos, turn, next } }];
 			}
-			case "queue":
-				return [{ type: "data-queue", data: { queue: stretch.queue } }];
+			case "permission":
+				return [
+					{
+						type: "data-permission",
+						data: { permission: stretch.permission },
+					},
+				];
 			default:
 				return stretch satisfies never;
 		}

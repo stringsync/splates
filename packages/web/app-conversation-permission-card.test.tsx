@@ -11,7 +11,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's queue card", () => {
+describe("App's permission card", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -29,7 +29,7 @@ describe("App's queue card", () => {
 			message(
 				"agent",
 				[
-					"## 📥 Queue lane 3: Billing export",
+					"## 🔐 Permission: queue lane 3: Billing export",
 					"",
 					"Two tasks, the writer first.",
 				].join("\n"),
@@ -102,5 +102,36 @@ describe("App's queue card", () => {
 
 		expect(card.textContent).toContain("Left for you to do");
 		expect(testing.posts.length).toBe(sent);
+	});
+
+	it("shows what removing a lane takes with it, and Remove now removes it from the page", async () => {
+		const removing = conversation({
+			title: "Billing",
+			messages: [
+				message(
+					"agent",
+					[
+						"## 🔐 Permission: remove lane 3: Billing export",
+						"",
+						"`splates lane remove 3`",
+						"",
+						"Nothing in it is wanted now.",
+					].join("\n"),
+				),
+			],
+		});
+		const view = await testing.openConversations([removing], undefined, board);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "remove Billing export" }),
+		);
+		expect(card.textContent).toContain("Its 2 tasks go with it.");
+		expect(card.textContent).toContain("splates lane remove 3");
+
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: /Remove now/ })),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({ method: "DELETE" });
+		expect(testing.posts.at(-1)?.path).toContain("/api/lanes/3");
 	});
 });
