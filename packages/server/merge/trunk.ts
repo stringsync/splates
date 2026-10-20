@@ -29,7 +29,9 @@ export type Landed =
 	/** Trunk is `head` on the remote; `local` says what became of the coordinator's own checkout. */
 	| { status: "landed"; local: "moved" | { stuck: string } }
 	/** Refused before trunk moved, for `why`. */
-	| { status: "refused"; why: string };
+	| { status: "refused"; why: string }
+	/** Trunk moved: rebase and test again without charging an attempt. */
+	| { status: "moved" };
 
 /**
  * Moves trunk on the central remote to a task's tested branch, which only
@@ -83,10 +85,7 @@ export class CoordinatorLanding implements TrunkLanding {
 			return { status: "refused", why: `could not read ${remote}` };
 		}
 		if (heads.get(trunkRef) !== onto) {
-			return {
-				status: "refused",
-				why: `${trunk} on ${remote} moved from ${short(onto)} to ${short(heads.get(trunkRef) ?? "nothing")} after the rebase`,
-			};
+			return { status: "moved" };
 		}
 		if (heads.get(branch) !== head) {
 			return {
@@ -118,6 +117,10 @@ export class CoordinatorLanding implements TrunkLanding {
 			`${head}:${trunkRef}`,
 		]);
 		if (pushed.code !== 0) {
+			const latest = await git.remoteHeads(remote, [trunkRef]);
+			if (latest !== null && latest.get(trunkRef) !== onto) {
+				return { status: "moved" };
+			}
 			return {
 				status: "refused",
 				why: `${remote} refused ${trunk}: ${pushed.stderr || pushed.stdout}`,

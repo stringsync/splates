@@ -8,19 +8,15 @@ import type { Git } from "../git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts, Journal } from "../records";
-import type {
-	GateFailure,
-	MergeFailure,
-	Worktree,
-	WorktreeService,
-} from "../tasks";
+import type { WorktreeService } from "../tasks";
 import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
 import { attributeFailure } from "./attribution";
 import { pushedLine, type TaskBranches } from "./branches";
 import { MergeGate } from "./gate";
+import { landTested } from "./landing";
+import { MergeState } from "./merge-state";
 import { queueFailedTests } from "./queue-failures";
-import { landOnRemote } from "./remote-landing";
 import { failedTests, failingCases, timedTests } from "./test-report";
 import type { TrunkLanding } from "./trunk";
 
@@ -30,7 +26,7 @@ const TAIL_LINES = 40;
  * Lands the current worktree's branch on its base branch, trunk unless the
  * task was created with `--base`. Never a merge commit: it rebases onto the
  * base, runs the gate there, and fast-forwards the base with
- * `git merge --ff-only`, in whichever worktree has the base checked out.
+ * compare-and-swap, in whichever worktree has the base checked out.
  * History stays linear.
  *
  * With a central remote, trunk is the remote's: the merge fetches it,
@@ -173,417 +169,303 @@ export async function merge(
 			{ task },
 		);
 	}
-	if (message !== "") {
-		const squashed = await git.squash(worktree.path, base, message);
-		if (squashed !== null && squashed.code !== 0) {
-			fail(
-				"blocked",
-				`could not squash '${task}' into one commit: ${squashed.stderr || squashed.stdout}\nIts commits are as they were. No merge attempt was spent.`,
-				{ task },
-			);
-		}
-	}
-	// Working until the lock is ours: a merge that died holding it left
-	// `merging` behind, and waiting under that would show two merges at once.
+
+	// Working until landing holds the lock: waiting and testing must not
+	// leave a dead merge's `merging` status showing another landing.
 	worktree = await worktree.take({ status: "working" });
-
-	// Blocks until free: an agent told "busy, try later" goes and edits code in
-	// a branch that is supposed to be frozen.
-	await lock.acquire();
-	worktree = await worktree.take({ status: "merging" });
-
-	const before = await git.head(worktree.path);
-	// Trunk as the remote has it, which only the coordinator moves: the
-	// commit the gate tests on, and the one the coordinator checks trunk is
-	// still at before it lands.
-	let onto: string | null = null;
-	if (remote !== null) {
-		const fetched = await branches.fetchTrunk(task, base, worktree.path);
-		if (fetched.status !== "fetched") {
-			await lock.release();
-			await worktree.take({ status: "working" });
-			fail(
-				"blocked",
-				`could not fetch ${base} from ${remote}: ${fetched.status === "off" ? "no remote is configured" : fetched.why}\nNo merge attempt was spent: merge again once ${remote} can be reached.`,
-				{ task, remote },
-			);
-		}
-		onto = fetched.commit;
-		if (!relayed && !(await git.isAncestor(`refs/heads/${base}`, onto))) {
-			await lock.release();
-			await worktree.take({ status: "working" });
-			fail(
-				"blocked",
-				[
-					`${base} here has commits ${remote} lacks, and a merge lands on ${remote}'s ${base}, which would leave them behind.`,
-					`Push them first (\`git push ${remote} ${base}\` from ${git.root}), then merge again. No merge attempt was spent.`,
-				].join("\n"),
-				{ task, remote },
-			);
-		}
-		if (relayed) {
-			// A worker's own trunk follows the remote's, so what the task
-			// changed reads against what it rebased onto.
-			await worktree.moveBase(onto);
-		}
-	}
-	const rebasedOnto = onto ?? (await git.out(git.root, "rev-parse", base));
-	const rebase = await git.rebase(worktree.path, rebasedOnto);
-	if (rebase.code !== 0) {
-		// Left in progress on purpose: the agent needs the conflict markers.
-		const paths = await git.conflictedPaths(worktree.path);
-		facts.files = paths;
-		// A rebase can fail with no file in conflict (an untracked file in the
-		// way, a locked index, a refusing hook): git then often aborted itself,
-		// so there is nothing to resolve or continue, and its words are the
-		// only clue.
-		const inProgress = (await git.interruptedOps(worktree.path)).length > 0;
-		const output = tail(`${rebase.stdout}\n${rebase.stderr}`);
-		await lock.release();
-		await refuseIndexLock(
-			worktree,
-			`${rebase.stdout}\n${rebase.stderr}`,
-			paths,
-		);
-		const reason = paths.length > 0 ? "conflict" : "merge_failed";
-		await bump(worktree, reason, {
-			files: paths,
-			...(paths.length === 0 && { output }),
-		});
-		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-		fail(
-			reason,
-			paths.length > 0
-				? [
-						`rebase onto ${base} conflicted in ${paths.length} file(s):`,
-						...paths.map((file) => `  ${file}`),
-						"",
-						"The rebase is still in progress. Resolve the conflicts, `git add` them,",
-						"`git rebase --continue`, then run `splates merge` again.",
-						"If both sides restructured the same logic, ask the user how to combine them,",
-						`or \`splates remove ${task}\` and redo the task against current ${base}.`,
-					].join("\n")
-				: [
-						`rebase onto ${base} failed with no file in conflict (exit ${rebase.code}). Git said:`,
-						indent(output),
-						"",
-						inProgress
-							? "The rebase is still in progress: finish it (`git rebase --continue`, or `--skip` for a commit that became empty), then run `splates merge` again."
-							: "Git stopped the rebase itself, so there is nothing to resolve: fix what it names, then run `splates merge` again.",
-					].join("\n"),
-			{ task, paths },
-		);
-	}
-
-	// After the rebase, never before: a branch that passed against an older
-	// trunk tells you nothing about the combination. This is the only thing
-	// standing between semantic conflicts and a broken trunk, and a repo that
-	// configures neither hook has chosen to go without it.
-	//
-	// The two hooks share one shell rather than getting a run each: the recovery
-	// is the same either way, and one gate reports one failure however far down
-	// it got.
+	const state = new MergeState(worktree);
 	const runner = new MergeGate(git, shell, fs, heavy, config);
-	let gated = await runner.run(worktree.path, task);
-	if (gated.exitCode !== 0) {
-		const attribution = await attributeFailure({ git, gate: runner }, gated, {
-			cwd: worktree.path,
-			task,
-			onto: rebasedOnto,
-		});
-		facts.failureAttribution = attribution.kind;
-		facts.failedTests = attribution.failed.length
-			? attribution.failed
-			: failedTests(`${gated.stdout}\n${gated.stderr}`);
-		await queueFailedTests(
-			{ tasks, log, journal },
-			task,
-			facts.failedTests,
-			attribution.kind,
-		);
-		log.info(attribution.why);
-		if (attribution.kind === "flake") {
-			gated = await runner.run(worktree.path, task);
+	await using _capacity = await runner.reserve(task);
+	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
+	await treeLock.acquire();
+	try {
+		worktree = await state.requireLease();
+		if (message !== "") {
+			const squashed = await git.squash(worktree.path, base, message);
+			if (squashed !== null && squashed.code !== 0) {
+				fail(
+					"blocked",
+					`could not squash '${task}' into one commit: ${squashed.stderr || squashed.stdout}\nIts commits are as they were. No merge attempt was spent.`,
+					{ task },
+				);
+			}
+		}
+		for (;;) {
+			worktree = await state.requireLease();
+			delete facts.failureAttribution;
+			facts.failedTests = [];
+
+			const before = await git.head(worktree.path);
+			// Trunk as the remote has it, which only the coordinator moves: the
+			// commit the gate tests on, and the one the coordinator checks trunk is
+			// still at before it lands.
+			let onto: string | null = null;
+			if (remote !== null) {
+				const fetched = await branches.fetchTrunk(task, base, worktree.path);
+				if (fetched.status !== "fetched") {
+					fail(
+						"blocked",
+						`could not fetch ${base} from ${remote}: ${fetched.status === "off" ? "no remote is configured" : fetched.why}\nNo merge attempt was spent: merge again once ${remote} can be reached.`,
+						{ task, remote },
+					);
+				}
+				onto = fetched.commit;
+				if (!relayed && !(await git.isAncestor(`refs/heads/${base}`, onto))) {
+					fail(
+						"blocked",
+						[
+							`${base} here has commits ${remote} lacks, and a merge lands on ${remote}'s ${base}, which would leave them behind.`,
+							`Push them first (\`git push ${remote} ${base}\` from ${git.root}), then merge again. No merge attempt was spent.`,
+						].join("\n"),
+						{ task, remote },
+					);
+				}
+				if (relayed) {
+					// A worker's own trunk follows the remote's, so what the task
+					// changed reads against what it rebased onto.
+					await worktree.moveBase(onto);
+				}
+			}
+			const rebasedOnto = onto ?? (await git.out(git.root, "rev-parse", base));
+			await state.requireLease();
+			const rebase = await git.rebase(worktree.path, rebasedOnto);
+			await state.requireLease();
+			if (rebase.code !== 0) {
+				// Left in progress on purpose: the agent needs the conflict markers.
+				const paths = await git.conflictedPaths(worktree.path);
+				facts.files = paths;
+				// A rebase can fail with no file in conflict (an untracked file in the
+				// way, a locked index, a refusing hook): git then often aborted itself,
+				// so there is nothing to resolve or continue, and its words are the
+				// only clue.
+				const inProgress = (await git.interruptedOps(worktree.path)).length > 0;
+				const output = tail(`${rebase.stdout}\n${rebase.stderr}`);
+				await state.refuseIndexLock(
+					`${rebase.stdout}\n${rebase.stderr}`,
+					paths,
+				);
+				const reason = paths.length > 0 ? "conflict" : "merge_failed";
+				await state.bump(reason, {
+					files: paths,
+					...(paths.length === 0 && { output }),
+				});
+				facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
+				fail(
+					reason,
+					paths.length > 0
+						? [
+								`rebase onto ${base} conflicted in ${paths.length} file(s):`,
+								...paths.map((file) => `  ${file}`),
+								"",
+								"The rebase is still in progress. Resolve the conflicts, `git add` them,",
+								"`git rebase --continue`, then run `splates merge` again.",
+								"If both sides restructured the same logic, ask the user how to combine them,",
+								`or \`splates remove ${task}\` and redo the task against current ${base}.`,
+							].join("\n")
+						: [
+								`rebase onto ${base} failed with no file in conflict (exit ${rebase.code}). Git said:`,
+								indent(output),
+								"",
+								inProgress
+									? "The rebase is still in progress: finish it (`git rebase --continue`, or `--skip` for a commit that became empty), then run `splates merge` again."
+									: "Git stopped the rebase itself, so there is nothing to resolve: fix what it names, then run `splates merge` again.",
+							].join("\n"),
+					{ task, paths },
+				);
+			}
+
+			// After the rebase, never before: a branch that passed against an older
+			// trunk tells you nothing about the combination. This is the only thing
+			// standing between semantic conflicts and a broken trunk, and a repo that
+			// configures neither hook has chosen to go without it.
+			//
+			// The two hooks share one shell rather than getting a run each: the recovery
+			// is the same either way, and one gate reports one failure however far down
+			// it got.
+			const testedHead = await git.head(worktree.path);
+			let gated = await runner.run(worktree.path, task);
+			await state.requireLease();
 			if (gated.exitCode !== 0) {
-				// A selective pass cannot excuse a later failure anywhere in the
-				// complete gate. Keep the tree out without spending an attempt.
-				facts.failureAttribution = "environment";
-				const failed = failingCases(gated.xml);
-				facts.failedTests = failed.length
-					? failed
+				const attribution = await attributeFailure(
+					{ git, gate: runner },
+					gated,
+					{
+						cwd: worktree.path,
+						task,
+						onto: rebasedOnto,
+					},
+				);
+				await state.requireLease();
+				facts.failureAttribution = attribution.kind;
+				facts.failedTests = attribution.failed.length
+					? attribution.failed
 					: failedTests(`${gated.stdout}\n${gated.stderr}`);
 				await queueFailedTests(
 					{ tasks, log, journal },
 					task,
 					facts.failedTests,
-					"environment",
+					attribution.kind,
+				);
+				log.info(attribution.why);
+				if (attribution.kind === "flake") {
+					gated = await runner.run(worktree.path, task);
+					if (gated.exitCode !== 0) {
+						// A selective pass cannot excuse a later failure anywhere in the
+						// complete gate. Keep the tree out without spending an attempt.
+						facts.failureAttribution = "environment";
+						const failed = failingCases(gated.xml);
+						facts.failedTests = failed.length
+							? failed
+							: failedTests(`${gated.stdout}\n${gated.stderr}`);
+						await queueFailedTests(
+							{ tasks, log, journal },
+							task,
+							facts.failedTests,
+							"environment",
+						);
+					}
+				}
+			}
+			await state.requireLease();
+			if (gated.exitCode !== 0) {
+				// The rebase already finished, so there is nothing for `rebase --abort`
+				// to undo: resetting to the pre-rebase commit is what returns the branch
+				// to its previous state.
+				await git.resetHard(worktree.path, before);
+				const output = `${gated.stdout}\n${gated.stderr}`;
+				const failed = failedTests(output);
+				const charged = facts.failureAttribution === "task";
+				if (charged) {
+					await state.bump("tests_failed", {
+						tests: facts.failedTests?.map((each) => each.name),
+						failures: facts.failedTests,
+					});
+					facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
+				} else {
+				}
+				const named = facts.failedTests?.length ? facts.failedTests : failed;
+				// The failing tests and what to do come last, after the gate's own
+				// output: an agent that reads only the end of this, as through `tail`,
+				// would otherwise see the runner's summary alone, and merge again just
+				// to read it, which lands the task whenever a flaky test passes.
+				fail(
+					"tests_failed",
+					[
+						tail(output),
+						"",
+						`\`${runner.command}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
+						`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
+						charged
+							? "The failure was reproduced with the task after passing on the base; one merge attempt was spent."
+							: `Failure attribution: ${facts.failureAttribution}. The merge is held; no merge attempt was spent.`,
+						"",
+						...(named.length > 0
+							? [
+									`Failing tests (${named.length}):`,
+									...named.flatMap((each) => [
+										each.name,
+										...(each.message === "" ? [] : [indent(each.message)]),
+									]),
+									"",
+								]
+							: []),
+						"Fix what broke, or run a test you think flaky on its own to check, then merge again. Never merge only to read this again: a merge whose gate passes lands, with the message it was given.",
+					].join("\n"),
+					{
+						task,
+						exitCode: gated.exitCode,
+						failedTests: named,
+						attribution: facts.failureAttribution,
+					},
 				);
 			}
-		}
-	}
-	if (gated.exitCode !== 0) {
-		// The rebase already finished, so there is nothing for `rebase --abort`
-		// to undo: resetting to the pre-rebase commit is what returns the branch
-		// to its previous state.
-		await git.resetHard(worktree.path, before);
-		await lock.release();
-		const output = `${gated.stdout}\n${gated.stderr}`;
-		const failed = failedTests(output);
-		const charged = facts.failureAttribution === "task";
-		if (charged) {
-			await bump(worktree, "tests_failed", {
-				tests: facts.failedTests?.map((each) => each.name),
-				failures: facts.failedTests,
+
+			// A hook that wrote no report, or one that does not parse, times nothing.
+			const testTimes = timedTests(gated.xml);
+
+			const result = await landTested(
+				{ service, git, lock, branches, trunk, relayed },
+				worktree,
+				{ remote, onto: rebasedOnto, testedHead },
+				facts,
+			);
+			if (result === null) {
+				worktree = await worktree.reload();
+				continue;
+			}
+			const { current, head, landing, landed, changed, commits, size } = result;
+
+			facts.commit = head;
+			facts.files = changed;
+			// The work is on the base, so the tree has nothing left to hold. Discarding it
+			// here is what keeps `splates list` a list of live work rather than a graveyard
+			// of landed tasks.
+			//
+			// Step out of it first: merge usually runs from inside the tree it is about
+			// to delete, and spawning git from a directory that no longer exists fails
+			// with ENOENT before git is even reached.
+			service.ps.cd(git.root);
+			const discarded = await current.discard("merged", {
+				commit: head,
+				commits,
+				size,
+				testTimes,
 			});
-			facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-		} else {
-			await worktree.take({ status: "working" });
-		}
-		const named = facts.failedTests?.length ? facts.failedTests : failed;
-		// The failing tests and what to do come last, after the gate's own
-		// output: an agent that reads only the end of this, as through `tail`,
-		// would otherwise see the runner's summary alone, and merge again just
-		// to read it, which lands the task whenever a flaky test passes.
-		fail(
-			"tests_failed",
-			[
-				tail(output),
-				"",
-				`\`${runner.command}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
-				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
-				charged
-					? "The failure was reproduced with the task after passing on the base; one merge attempt was spent."
-					: `Failure attribution: ${facts.failureAttribution}. The merge is held; no merge attempt was spent.`,
-				"",
-				...(named.length > 0
+			if (discarded.code !== 0) {
+				fail(
+					"usage",
+					`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`splates remove ${task}\` to clean up.`,
+					{ task },
+				);
+			}
+			const freed = await slots.release(current.path);
+			// Landed is landed: a remote that kept its copy only has a stray branch.
+			const unpushed = pushedLine(await branches.delete(task), "deleted");
+			// Done is done: the queued tasks this task took up leave the queue with it.
+			const done = await tasks.takenBy(task);
+			// Read before the queued tasks go, since a lane they empty ends with them.
+			const ran = (await tasks.lanes()).filter((lane) =>
+				done.some((each) => each.lane === lane.id),
+			);
+			for (const each of done) {
+				await each.remove(head);
+			}
+			await tasks.endLanes(ran.map((lane) => lane.id));
+			const lines = [
+				`${color.green("merged")} ${task} onto ${base} (${head})${
+					landing === git.root ? "" : `\n  landed in: ${landing}`
+				}\n  worktree removed, cd ${git.root}`,
+				...(landed !== null && landed.local !== "moved"
 					? [
-							`Failing tests (${named.length}):`,
-							...named.flatMap((each) => [
-								each.name,
-								...(each.message === "" ? [] : [indent(each.message)]),
-							]),
-							"",
+							color.yellow(
+								`  ${base} here could not follow ${remote}: ${landed.local.stuck}\n  It landed on ${remote}; bring this checkout up with \`git pull --ff-only\`.`,
+							),
 						]
 					: []),
-				"Fix what broke, or run a test you think flaky on its own to check, then merge again. Never merge only to read this again: a merge whose gate passes lands, with the message it was given.",
-			].join("\n"),
-			{
-				task,
-				exitCode: gated.exitCode,
-				failedTests: named,
-				attribution: facts.failureAttribution,
-			},
-		);
-	}
-
-	// A hook that wrote no report, or one that does not parse, times nothing.
-	const testTimes = timedTests(gated.xml);
-
-	// Deliberately re-read from disk rather than trusting the copy in hand: a
-	// long test run can outlive the lease, and landing after someone else
-	// claimed the tree would land work that is no longer ours.
-	const current = await worktree.reload();
-	if (!current.leaseOurs) {
-		await lock.release();
-		fail(
-			"lease_lost",
-			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the merge, stopping without landing. Do not retry; another agent owns this tree.`,
-			{ task, lease: current.lease },
-		);
-	}
-
-	// A branch can only be advanced where it is checked out: git allows one
-	// worktree per branch, and moving the ref behind that worktree's back would
-	// leave its index and files on the old commit. For trunk that tree is the
-	// main one; for a task created with `--base task/<other>` it is that task's
-	// worktree, and the work lands there rather than on trunk.
-	// Read while the branch is still ahead of its base: once it lands there
-	// is nothing between them to read, and the outcome needs what it touched.
-	const changed = (await current.changedFiles()) ?? [];
-	const commits = (await current.commitMessages()) ?? undefined;
-	const size = (await current.size()) ?? undefined;
-	const landed =
-		remote !== null && onto !== null
-			? await landOnRemote({
-					git,
-					branches,
-					trunk,
-					worktree: current,
-					remote,
-					onto,
-					relayed,
-					holder: { pid: service.ps.pid, hostname: service.ps.hostname },
-				})
-			: null;
-	if (landed !== null && landed.status === "refused") {
-		await lock.release();
-		await bump(current, "merge_failed", { error: landed.why });
-		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-		fail(
-			"merge_failed",
-			[
-				`could not land ${branch} on ${remote}'s ${base}: ${landed.why}`,
-				`${base} is untouched; ${branch} stays rebased and tested. Merge again.`,
-			].join("\n"),
-			{ task, base, remote },
-		);
-	}
-	const holder = landed === null ? await git.worktreeFor(base) : null;
-	const landing = holder ?? git.root;
-	const checkout = landed !== null || holder ? null : await git.checkout(base);
-	const merged =
-		landed !== null
-			? { code: 0, stdout: "", stderr: "" }
-			: checkout && checkout.code !== 0
-				? checkout
-				: await git.mergeFfOnly(landing, service.branchFor(task));
-	if (merged.code !== 0) {
-		await lock.release();
-		await refuseIndexLock(worktree, `${merged.stdout}\n${merged.stderr}`);
-		await bump(worktree, "merge_failed", {
-			error: (merged.stderr || merged.stdout).trim(),
-		});
-		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
-		// Said to the agent landing the part, not the one holding the tree: telling
-		// it to stash sends it into a tree it does not own, and a stash there is
-		// how another agent's work gets lost.
-		const holderTask = service.taskFor(base);
-		const whoever = holderTask
-			? `The agent working on '${holderTask}'`
-			: "Whoever is working in that tree";
-		fail(
-			"merge_failed",
-			[
-				`could not fast-forward ${base} in ${landing}: ${merged.stderr || merged.stdout}`,
-				...(landing === git.root
-					? []
-					: [
-							"",
-							`${base} is checked out there, which is the only place it can move.`,
-							`${whoever} has to commit what collides; leave that tree alone`,
-							"and tell them, then merge again once they have.",
-						]),
-			].join("\n"),
-			{ task, base, landing },
-		);
-	}
-
-	const head =
-		landed === null
-			? await git.shortHead(landing)
-			: (await git.out(current.path, "rev-parse", "--short", "HEAD")).trim();
-	facts.commit = head;
-	facts.files = changed;
-	// The work is on the base, so the tree has nothing left to hold. Discarding it
-	// here is what keeps `splates list` a list of live work rather than a graveyard
-	// of landed tasks.
-	//
-	// Step out of it first: merge usually runs from inside the tree it is about
-	// to delete, and spawning git from a directory that no longer exists fails
-	// with ENOENT before git is even reached.
-	service.ps.cd(git.root);
-	const discarded = await current.discard("merged", {
-		commit: head,
-		commits,
-		size,
-		testTimes,
-	});
-	await lock.release();
-	if (discarded.code !== 0) {
-		fail(
-			"usage",
-			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`splates remove ${task}\` to clean up.`,
-			{ task },
-		);
-	}
-	const freed = await slots.release(current.path);
-	// Landed is landed: a remote that kept its copy only has a stray branch.
-	const unpushed = pushedLine(await branches.delete(task), "deleted");
-	// Done is done: the queued tasks this task took up leave the queue with it.
-	const done = await tasks.takenBy(task);
-	// Read before the queued tasks go, since a lane they empty ends with them.
-	const ran = (await tasks.lanes()).filter((lane) =>
-		done.some((each) => each.lane === lane.id),
-	);
-	for (const each of done) {
-		await each.remove(head);
-	}
-	await tasks.endLanes(ran.map((lane) => lane.id));
-	const lines = [
-		`${color.green("merged")} ${task} onto ${base} (${head})${
-			landing === git.root ? "" : `\n  landed in: ${landing}`
-		}\n  worktree removed, cd ${git.root}`,
-		...(landed !== null && landed.local !== "moved"
-			? [
-					color.yellow(
-						`  ${base} here could not follow ${remote}: ${landed.local.stuck}\n  It landed on ${remote}; bring this checkout up with \`git pull --ff-only\`.`,
+				...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
+				...(unpushed === null ? [] : [unpushed]),
+				...done.map((each) => `  done task ${each.id}: ${each.subject}`),
+			];
+			// Only a landing on trunk ends a piece of work. A part landing on its
+			// parent's branch hands back to that parent, which is not done yet.
+			if (landing === git.root) {
+				lines.push(
+					...recommendation(
+						await recommend(tasks, task, config.taskStalenessMs, ran),
 					),
-				]
-			: []),
-		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
-		...(unpushed === null ? [] : [unpushed]),
-		...done.map((each) => `  done task ${each.id}: ${each.subject}`),
-	];
-	// Only a landing on trunk ends a piece of work. A part landing on its
-	// parent's branch hands back to that parent, which is not done yet.
-	if (landing === git.root) {
-		lines.push(
-			...recommendation(
-				await recommend(tasks, task, config.taskStalenessMs, ran),
-			),
-		);
+				);
+			}
+			log.info(lines.join("\n"));
+			return;
+		}
+	} finally {
+		await treeLock.release();
 	}
-	log.info(lines.join("\n"));
-}
-
-/** Git owns its lock: neither its age nor an absent open fd proves it stale. */
-async function refuseIndexLock(
-	worktree: Worktree,
-	output: string,
-	conflicts: string[] = [],
-): Promise<void> {
-	if (
-		conflicts.length > 0 ||
-		!/Unable to create ['"].*[/\\]index\.lock['"]: File exists/i.test(output)
-	) {
-		return;
-	}
-	await worktree.take({ status: "working" });
-	fail(
-		"blocked",
-		[
-			"Git could not acquire index.lock; this is lock contention, not a content conflict. No merge attempt was spent.",
-			indent(tail(output)),
-			"Wait for the Git operation using this worktree to finish, then run `splates merge` again. Splates has left the lock untouched.",
-			"If Git left a rebase in progress, finish it after the lock is released (`git rebase --continue`) before merging again.",
-			"If it persists, investigate its owner before any manual recovery; never delete a lock held by a live operation.",
-		].join("\n"),
-		{ task: worktree.task },
-	);
-}
-
-async function bump(
-	worktree: Worktree,
-	reason: MergeFailure,
-	named: Omit<GateFailure, "reason" | "at">,
-): Promise<void> {
-	const by = worktree.state?.mergeFailuresBy ?? {};
-	await worktree.take({
-		status: "working",
-		mergeAttempts: worktree.mergeAttempts + 1,
-		mergeFailures: (worktree.state?.mergeFailures ?? 0) + 1,
-		mergeFailuresBy: { ...by, [reason]: (by[reason] ?? 0) + 1 },
-		gateFailures: [
-			...(worktree.state?.gateFailures ?? []),
-			{ reason, at: new Date().toISOString(), ...named },
-		],
-	});
 }
 
 function tail(output: string): string {
 	return output.trim().split("\n").slice(-TAIL_LINES).join("\n");
 }
-
 function indent(text: string): string {
 	return text
 		.split("\n")

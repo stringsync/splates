@@ -7,6 +7,7 @@ import {
 	setDefaultTimeout,
 } from "bun:test";
 import { join } from "node:path";
+import type { Facts } from "../records";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { merge } from "./merge";
@@ -90,22 +91,21 @@ describe("merge with a central remote", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("refuses a trunk moved on the remote after the rebase, spending an attempt", async () => {
-		// The gate runs between the rebase and the landing.
+	it("rebases and retests a moved remote trunk without spending an attempt", async () => {
+		const marker = join(other, "moved-once");
 		deps.config.preMerge = [
-			`git -C ${other} pull --quiet --ff-only`,
-			`git -C ${other} commit --quiet --allow-empty -m sneaked`,
-			`git -C ${other} push --quiet origin main`,
-		].join(" && ");
-
-		await expect(merge(deps, tree)).toBail("merge_failed", {
-			message: "moved from",
-		});
-
-		expect(await deps.gitCli(remote, "log", "-1", "--format=%s", "main")).toBe(
+			`if ! test -f ${marker}; then`,
+			`git -C ${other} pull --quiet --ff-only &&`,
+			`git -C ${other} commit --quiet --allow-empty -m sneaked &&`,
+			`git -C ${other} push --quiet origin main && touch ${marker}; fi`,
+		].join(" ");
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, tree, facts);
+		expect(facts.attemptsLeft).toBe(deps.config.mergeRetryCount);
+		expect(await deps.gitCli(remote, "log", "--format=%s", "main")).toContain(
 			"sneaked",
 		);
-		expect((await deps.service.find("alpha")).mergeAttempts).toBe(1);
+		expect((await deps.service.find("alpha")).status).toBe("removed");
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 

@@ -1,4 +1,4 @@
-import type { Fs, HeavyCap } from "webappwiz/system";
+import type { Fs, HeavyCap, HeavySlot } from "webappwiz/system";
 import type { Config } from "../config";
 import type { Git } from "../git";
 import type { Shell } from "../terminal";
@@ -13,6 +13,7 @@ export interface GateRun {
 
 /** Runs merge checks in the machine's heavy-job slots, including isolated retests. */
 export class MergeGate {
+	private reserved: HeavySlot | null = null;
 	constructor(
 		private readonly git: Git,
 		private readonly shell: Shell,
@@ -20,6 +21,27 @@ export class MergeGate {
 		private readonly heavy: HeavyCap,
 		private readonly config: Config,
 	) {}
+
+	/** Reserves capacity before a merge takes a tree lock; retests share it. */
+	async reserve(task: string): Promise<AsyncDisposable> {
+		if (!this.command) {
+			return { [Symbol.asyncDispose]: async () => {} };
+		}
+		const slot = await this.heavy.take({ what: "preMerge", task });
+		this.reserved = slot;
+		return {
+			[Symbol.asyncDispose]: async () => {
+				this.reserved = null;
+				await slot[Symbol.asyncDispose]();
+			},
+		};
+	}
+
+	private async slot(what: string, task: string): Promise<HeavySlot> {
+		return this.reserved === null
+			? this.heavy.take({ what, task })
+			: { env: this.reserved.env, [Symbol.asyncDispose]: async () => {} };
+	}
 
 	get command(): string {
 		return [this.config.postRewrite, this.config.preMerge]
@@ -46,7 +68,7 @@ export class MergeGate {
 			if (!command) {
 				return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 			}
-			await using slot = await this.heavy.take({ what: "preMerge", task });
+			await using slot = await this.slot("preMerge", task);
 			const run = await this.shell.run(command, cwd, {
 				env: {
 					SPLATES_TASK: task,
@@ -67,10 +89,7 @@ export class MergeGate {
 		if (!this.config.postRewrite) {
 			return { exitCode: 0, stdout: "", stderr: "", xml: "" };
 		}
-		await using slot = await this.heavy.take({
-			what: "preMerge attribution setup",
-			task,
-		});
+		await using slot = await this.slot("preMerge attribution setup", task);
 		const run = await this.shell.run(this.config.postRewrite, cwd, {
 			env: { SPLATES_TASK: task, SPLATES_WORKTREE: cwd, ...slot.env },
 			timeoutMs: 180_000,

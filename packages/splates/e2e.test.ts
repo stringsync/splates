@@ -278,7 +278,7 @@ describe.concurrent("splates", () => {
 		const { env, splates, rows } = cli;
 
 		// SIGKILL from inside the test gate: the first merge dies after rebasing
-		// and before trunk moves, holding both the lease and the merge lock. The
+		// and before trunk moves, holding the task lease and tree lock. The
 		// marker file makes it happen exactly once, so the retry can pass.
 		const die = join(env.root, "die");
 		await env.fs.write(
@@ -309,12 +309,16 @@ describe.concurrent("splates", () => {
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),
 		).not.toContain("add epsilon");
-		expect(await env.fs.exists(join(env.splatesDir, "merge.lock"))).toBe(true);
+		expect(await env.fs.exists(join(env.splatesDir, "merge.lock"))).toBe(false);
 
-		// Second agent: the abandoned lock is stolen rather than waited out.
+		expect(
+			await env.fs.exists(join(env.splatesDir, "merge-trees/epsilon.lock")),
+		).toBe(true);
+
+		// The next merge steals the abandoned tree lock; landings were never blocked.
 		const resumed = await splates(tree, "claim", "epsilon");
 		expect(resumed.exitCode).toBe(0);
-		expect(resumed.stdout).toContain("status:   merging");
+		expect(resumed.stdout).toContain("status:   working");
 		await env.finish(tree);
 		const merged = await splates(tree, "merge");
 		expect(merged.exitCode).toBe(0);

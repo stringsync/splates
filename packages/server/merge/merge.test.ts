@@ -409,6 +409,7 @@ describe.concurrent("merge", () => {
 		expect((await deps.heavy.read()).running).toEqual([]);
 	});
 
+	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.
 	it("keeps the slow tests of the JUnit report the gate wrote at $SPLATES_TEST_REPORT", async () => {
 		await using deps = await Testing.open();
 		const report = join(deps.splatesHome, "report.xml");
@@ -642,34 +643,4 @@ describe.concurrent("merge", () => {
 			"add alpha",
 		);
 	});
-
-	it("serializes: one merge runs its tests and lands before the next starts", async () => {
-		await using deps = await Testing.open();
-
-		const trace = join(deps.root, "trace.log");
-		deps.config.preMerge = `printf 'start-%s\\n' "$SPLATES_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$SPLATES_TASK" >> ${trace}`;
-
-		await add(deps, "alpha");
-		await add(deps, "beta");
-		const alpha = (await deps.service.find("alpha")).path;
-		const beta = (await deps.service.find("beta")).path;
-		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
-		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
-
-		await deps.finish(alpha);
-		await deps.finish(beta);
-		await Promise.all([merge(deps, alpha), merge(deps, beta)]);
-
-		const lines = (await deps.fs.read(trace)).trim().split("\n");
-		expect(lines).toHaveLength(4);
-		// Merges hold the lock exclusively, so the second can't start until the first ends.
-		expect(lines[1]).toBe(`end-${lines[0]?.slice("start-".length)}`);
-		expect(lines[3]).toBe(`end-${lines[2]?.slice("start-".length)}`);
-		const log = await deps.gitCli(deps.root, "log", "--oneline", "main");
-		expect(log).toContain("add alpha");
-		expect(log).toContain("add beta");
-		expect(
-			await deps.gitCli(deps.root, "rev-list", "--count", "--merges", "main"),
-		).toBe("0");
-	}, 20_000);
 });
