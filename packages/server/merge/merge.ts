@@ -338,7 +338,7 @@ export async function merge(
 					facts.failedTests,
 					attribution.kind,
 				);
-				log.info(attribution.why);
+				log.error(attribution.why);
 				if (attribution.kind === "flake") {
 					gated = await runner.run(worktree.path, task);
 					if (gated.exitCode !== 0) {
