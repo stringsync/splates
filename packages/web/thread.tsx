@@ -22,6 +22,7 @@ import { cn } from "#web/lib/utils.ts";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import {
 	ArchiveBar,
+	ArchiveConversation,
 	ArchiveOfferProvider,
 	useArchiveOffer,
 } from "./archive-offer";
@@ -210,9 +211,11 @@ function Conversation({
 	);
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.
+	const archivable = !archived && filable(conversation);
+	const fileAway = () => archive.file(onLeft);
 	const { offer, barred } = useArchiveOffer(
-		archived || !filable(conversation) ? null : ended(conversation),
-		() => archive.file(onLeft),
+		archivable ? ended(conversation) : null,
+		fileAway,
 	);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
@@ -305,68 +308,70 @@ function Conversation({
 										<BackgroundUI />
 										<RestedUI />
 										<InterruptedUI />
-										<ArchiveOfferProvider value={offer}>
-											<StartNewContext value={startNew}>
-												<ReplyContext value={reply}>
-													<NamedContext value={named}>
-														<ListedBackground value={listed}>
-															<ThreadView
-																openAt={openAt}
-																autoFocus={!asking || typed}
-																stopping={stopping}
-																mentions={mentions ?? undefined}
-																references={references}
-																commands={commands ?? undefined}
-																placeholder={
-																	archived
-																		? "Send a message to unarchive and continue"
-																		: undefined
-																}
-																controls={
-																	!archived && (
+										<ArchiveConversation value={archivable ? fileAway : null}>
+											<ArchiveOfferProvider value={offer}>
+												<StartNewContext value={startNew}>
+													<ReplyContext value={reply}>
+														<NamedContext value={named}>
+															<ListedBackground value={listed}>
+																<ThreadView
+																	openAt={openAt}
+																	autoFocus={!asking || typed}
+																	stopping={stopping}
+																	mentions={mentions ?? undefined}
+																	references={references}
+																	commands={commands ?? undefined}
+																	placeholder={
+																		archived
+																			? "Send a message to unarchive and continue"
+																			: undefined
+																	}
+																	controls={
+																		!archived && (
+																			<>
+																				<ContextMeter
+																					usage={conversation.usage}
+																					compactions={compactionsIn(
+																						conversation.messages,
+																					)}
+																				/>
+																				<SettingControls
+																					settings={settings}
+																					current={(setting) => setting.current}
+																					onChange={choose}
+																				/>
+																			</>
+																		)
+																	}
+																	above={
 																		<>
-																			<ContextMeter
-																				usage={conversation.usage}
-																				compactions={compactionsIn(
-																					conversation.messages,
-																				)}
-																			/>
-																			<SettingControls
-																				settings={settings}
-																				current={(setting) => setting.current}
-																				onChange={choose}
-																			/>
-																		</>
-																	)
-																}
-																above={
-																	<>
-																		<NeedsYouBar />
+																			<NeedsYouBar />
 
-																		<Refusal
-																			refusal={refusal}
-																			className="px-2"
-																		/>
-																		{offer !== null && barred && (
-																			<ArchiveBar offer={offer} />
-																		)}
-																		{conversation.ask !== null && (
-																			<AskPanel
-																				key={conversation.ask.id}
-																				drafts={drafts}
-																				conversation={conversation}
-																				agent={agent}
-																				ask={conversation.ask}
+																			<Refusal
+																				refusal={refusal}
+																				className="px-2"
 																			/>
-																		)}
-																	</>
-																}
-															/>
-														</ListedBackground>
-													</NamedContext>
-												</ReplyContext>
-											</StartNewContext>
-										</ArchiveOfferProvider>
+																			{offer !== null && barred && (
+																				<ArchiveBar offer={offer} />
+																			)}
+																			{conversation.ask !== null && (
+																				<AskPanel
+																					key={conversation.ask.id}
+																					drafts={drafts}
+																					conversation={conversation}
+																					agent={agent}
+																					ask={conversation.ask}
+																				/>
+																			)}
+																		</>
+																	}
+																/>
+															</ListedBackground>
+														</NamedContext>
+													</ReplyContext>
+												</StartNewContext>
+											</ArchiveOfferProvider>
+										</ArchiveConversation>
 									</UnsentContext.Provider>
 								</Composing.Provider>
 							</AssistantRuntimeProvider>

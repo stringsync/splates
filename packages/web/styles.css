@@ -204,6 +204,7 @@
 @source "./workers.tsx";
 @source "./changes.tsx";
 @source "./thread-action.tsx";
+@source "./action-card.tsx";
 @source "./actions.tsx";
 @source "./references.tsx";
 @source "./task-sessions.tsx";

@@ -197,6 +197,11 @@ const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 const QUEUE =
 	/^## 📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
+ * A queue card's line of the command that queues its work from a terminal,
+ * `` `splates lane queue 7` ``, which the card shows on its own row.
+ */
+const COMMAND_LINE = /^`splates [^`\n]+`[ \t]*$/gm;
+/**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
  * within its body.
  */
@@ -256,7 +261,7 @@ function keptAt(
 					lane: queue[1] === undefined ? null : Number(queue[1]),
 					tasks: Array.from((queue[2] ?? "").matchAll(/\d+/g), Number),
 					title: queue[3] || null,
-					body,
+					body: body.replace(COMMAND_LINE, "").replace(/^\n+|\s+$/g, ""),
 				},
 			},
 			end,

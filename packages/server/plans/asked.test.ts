@@ -258,10 +258,12 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads work to queue, a lane whole or tasks one by one", () => {
+	it("reads work to queue, a lane whole or tasks one by one, leaving out the command the card shows on its own", () => {
 		const found = stretches(
 			[
 				"## 📥 Queue lane 3: Billing export",
+				"",
+				"`splates lane queue 3`",
 				"",
 				"Four tasks, the CSV writer first.",
 				"",

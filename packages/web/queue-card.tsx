@@ -1,23 +1,22 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import type { QueueProposal } from "@stringsync/splates-server/plans";
-import { CheckIcon, ClockIcon, InboxIcon, ListPlusIcon } from "lucide-react";
-import { type JSX, useContext, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { InboxIcon, ListPlusIcon } from "lucide-react";
+import { type JSX, useContext } from "react";
+import { ActionCard } from "./action-card";
 import { queueLane, queueTodo } from "./api";
 import { Board } from "./board";
 import { InMessage } from "./card-reply";
-import { CardBody, CardShell } from "./card-shell";
 import { useExpectSnapshot } from "./expecting";
 import { QueueWork } from "./queue-work";
-import { Refusal, useRefusal } from "./refusal";
 import { stageOf } from "./todo-queue";
 
 /**
  * Renders a `data-queue` part: work an agent added and asks the person to
  * queue, a lane whole or tasks one by one. Agents never queue work, so its
  * Queue now is the person's own write to the board, never a reply the agent
- * acts on, and Later leaves the work where it is on the board.
+ * acts on, as is the command it gives to run in a terminal instead; Later
+ * leaves the work where it is on the board.
  */
 export const QueueUI = makeAssistantDataUI<{ queue: QueueProposal }>({
 	name: "queue",
@@ -35,22 +34,25 @@ export function QueueCard({
 }): JSX.Element {
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
-	const { refusal, attempt } = useRefusal();
-	// Purely this page's: the work stays on the board, unqueued, either way.
-	const [later, setLater] = useState(false);
 	const work = new QueueWork(proposal, board);
-	const { name, todos, gone } = work;
-	const done = work.queued;
-	const queueNow = (): void =>
-		void attempt(work.queue(expect, { queueLane, queueTodo }), "Not queued");
+	const { name, todos } = work;
 	return (
-		<CardShell
+		<ActionCard
 			label={`queue ${name}`}
 			Icon={InboxIcon}
 			title={proposal.lane === null ? `Queue ${name}` : `Queue lane ${name}`}
-			tone={done ? "success" : "info"}
+			body={proposal.body}
+			action={{
+				verb: "Queue now",
+				VerbIcon: ListPlusIcon,
+				done: "Queued",
+				command: work.command,
+				run: () => work.queue(expect, { queueLane, queueTodo }),
+				failed: "Not queued",
+			}}
+			done={work.queued}
+			gone={work.gone ? "No longer on the board" : null}
 		>
-			{proposal.body !== "" && <CardBody text={proposal.body} />}
 			{todos.length > 0 && (
 				<ul className="flex flex-col gap-1 border-border/60 border-t px-4 py-2.5 text-sm @max-md:px-3">
 					{todos.map((todo) => (
@@ -58,42 +60,7 @@ export function QueueCard({
 					))}
 				</ul>
 			)}
-			<div className="flex flex-wrap items-center gap-2 border-border/60 border-t px-4 py-2.5 @max-md:px-3">
-				{gone ? (
-					<span className="text-muted-foreground text-xs">
-						No longer on the board
-					</span>
-				) : done ? (
-					<span className="flex items-center gap-1 text-success text-xs">
-						<CheckIcon className="size-3.5" strokeWidth={3} />
-						Queued
-					</span>
-				) : (
-					<>
-						<Button size="sm" onClick={queueNow} className="gap-1.5">
-							<ListPlusIcon data-icon="inline-start" />
-							Queue now
-						</Button>
-						{later ? (
-							<span className="text-muted-foreground text-xs">
-								Left on the board, to queue when you choose
-							</span>
-						) : (
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => setLater(true)}
-								className="gap-1.5"
-							>
-								<ClockIcon data-icon="inline-start" />
-								Later
-							</Button>
-						)}
-					</>
-				)}
-			</div>
-			<Refusal refusal={refusal} />
-		</CardShell>
+		</ActionCard>
 	);
 }
 

@@ -48,6 +48,14 @@ export class QueueWork {
 			: (this.lane?.name ?? title ?? `lane ${lane}`);
 	}
 
+	/** The command that queues it from a terminal, as the person may instead. */
+	get command(): string {
+		const { lane, tasks } = this.proposal;
+		return lane === null
+			? `splates queue add ${tasks.join(" ")}`
+			: `splates lane queue ${lane}`;
+	}
+
 	/** Whether it is queued: the lane whole, or each task yet to start. */
 	get queued(): boolean {
 		return this.proposal.lane === null

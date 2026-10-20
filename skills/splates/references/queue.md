@@ -82,6 +82,8 @@ to under it:
 ```markdown
 ## 📥 Queue lane 7: Billing export
 
+`splates lane queue 7`
+
 The CSV writer first, then the endpoint and the page's button that use it.
 ```
 
@@ -96,11 +98,15 @@ end your reply with its card, naming each task by number:
 ```markdown
 ## 📥 Queue #31, #32: Upload fixes
 
+`splates queue add 31 32`
+
 Both stop retries the server already refused.
 ```
 
+Under its title, give the command that queues it, on a line of its own in
+backticks, so a user reading in a terminal can run it themselves.
 The `splates server` page lists the work on the card as the board has it,
-with Queue now and Later for the user to choose; the choice is theirs and
+with that command to copy, and Later and Queue now for the user to choose; the choice is theirs and
 reaches only the board, never you. Ask for one queue card a reply, at its
 end, and leave it at that: whatever the user picks, carry on with any work
 under way, and do none of the work on the card in this conversation unless

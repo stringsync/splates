@@ -31,6 +31,12 @@ const ArchiveOfferContext = createContext<ArchiveOffer | null>(null);
 
 export const ArchiveOfferProvider = ArchiveOfferContext.Provider;
 
+/**
+ * Archives the conversation, for a card that offers it once the person has
+ * done what it asked, such as queue its lane; null while it cannot be.
+ */
+export const ArchiveConversation = createContext<(() => void) | null>(null);
+
 /** How much of the card's button must show for it to stand in for the bar. */
 const IN_VIEW = 0.5;
 
