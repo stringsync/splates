@@ -23,7 +23,7 @@ import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thre
 import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
-import { AgentBrand, AgentIcon } from "./agent-icons";
+import { AgentBrand } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
@@ -48,18 +48,8 @@ import {
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
-import { whereOf } from "./conversation-item";
-import {
-	reportedAs,
-	reportsDone,
-	unnamed,
-	useNameOf,
-} from "./conversation-names";
-import { hostingWork, needOf } from "./conversation-rows";
-import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { Orphaned } from "./list-rows";
-import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
 import { rememberProject, rememberShown } from "./new-conversation-project";
 import type { Move } from "./page-address";
@@ -73,7 +63,7 @@ import type { Terminals } from "./terminals";
 import { BELOW_BAR, TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
 
-/** How many conversations and tasks the home screen offers to pick back up. */
+/** How many tasks the home screen offers to pick back up. */
 const RECENT = 5;
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
@@ -285,9 +275,8 @@ export function useNewConversation({
 /**
  * The screen with no conversation open: an empty thread whose first message
  * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
- * composer, the agent picked in its bar, as on a phone, or a terminal, and under the greeting the tasks no agent is left on and
- * the latest unfinished conversations to pick back up, none whose task
- * merged and none a persistent agent's, as the groomer's.
+ * composer, the agent picked in its bar, as on a phone, or a terminal, and under the greeting the tasks no agent is left on,
+ * to pick back up.
  */
 export function Home({
 	terminals,
@@ -296,25 +285,11 @@ export function Home({
 	const { tasks, agents, agent, auto, task, conversations, onOpen } = starting;
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
-	const listed = conversations.filter((each) => !each.archived);
-	// Only unfinished work at rest: one at work, through its subagents too, or
-	// waiting on the person is in the sidebar already, and one whose task
-	// merged, or whose lanes finished, is done. A persistent agent's, as the
-	// groomer's, is never put down, so there is nothing to pick back up.
-	const hosting = hostingWork(tasks, conversations);
-	// Tasks no agent is left on wait on the person, so they lead.
+	// Only tasks no agent is left on: a conversation, or a task an agent is
+	// on, is in the sidebar already, to open from there.
 	const orphans = tasks
 		.filter((each) => orphaned(each, conversations) !== null)
 		.slice(0, RECENT);
-	const recent = listed
-		.filter(
-			(each) =>
-				each.persistent === undefined &&
-				needOf(tasks, each).kind === "idle" &&
-				!hosting.has(each.id) &&
-				!reportsDone(each),
-		)
-		.slice(0, RECENT - orphans.length);
 
 	return (
 		<section
@@ -370,9 +345,9 @@ export function Home({
 											limits={limitsOf(agents, conversations, agent)}
 										/>
 									)}
-									{orphans.length + recent.length > 0 && (
+									{orphans.length > 0 && (
 										<section
-											aria-label="recent conversations"
+											aria-label="pick back up"
 											className="mt-4 flex flex-col gap-1 px-2"
 										>
 											<h3 className="pl-3 font-medium text-muted-foreground text-xs">
@@ -382,15 +357,6 @@ export function Home({
 												{orphans.map((each) => (
 													<li key={each.task}>
 														<OrphanedTask task={each.task} />
-													</li>
-												))}
-												{recent.map((each) => (
-													<li key={each.id}>
-														<Recent
-															conversation={each}
-															agent={agentName(agents, each.agent)}
-															onOpen={() => onOpen(each.id)}
-														/>
 													</li>
 												))}
 											</ul>
@@ -418,50 +384,6 @@ export function ProjectLine({
 			<span className="shrink-0">In</span>
 			{children}
 		</div>
-	);
-}
-
-/** A conversation to pick back up: its agent, name, and where it runs. */
-function Recent({
-	conversation,
-	agent,
-	onOpen,
-}: {
-	conversation: ConversationState;
-	agent: string;
-	onOpen: () => void;
-}): JSX.Element {
-	const reported = reportedAs(conversation);
-	const trunk = useContext(Trunk);
-	const nameOf = useNameOf();
-	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
-		>
-			<AgentIcon
-				agent={conversation.agent}
-				name={agent}
-				className="size-3.5 text-foreground/70"
-			/>
-			<span
-				className={cn(
-					"min-w-0 flex-1 truncate text-sm",
-					unnamed(conversation) && "text-muted-foreground italic",
-				)}
-			>
-				{nameOf(conversation)}
-			</span>
-			{whereOf(conversation, trunk) !== null && (
-				<span className="shrink-0 truncate text-muted-foreground text-xs">
-					{whereOf(conversation, trunk)}
-				</span>
-			)}
-			{reported !== null && (
-				<Mark need={{ kind: "idle" }} reported={reported} />
-			)}
-		</button>
 	);
 }
 

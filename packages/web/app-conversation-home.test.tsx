@@ -7,7 +7,6 @@ import {
 	conversation,
 	details,
 	fireEvent,
-	message,
 	newWith,
 	pick,
 	Testing,
@@ -29,37 +28,13 @@ describe("App's conversation home", () => {
 		testing.dispose();
 	});
 
-	it("offers the latest idle conversations when none is open, excluding working, waiting, and merged ones", async () => {
+	it("offers only tasks no agent is left on to pick back up, opening each one's dialog", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({ id: "c2", task: null, title: "Look into it" }),
 				conversation({
-					id: "c7",
-					task: null,
-					title: "Landed",
-					messages: [
-						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
-					],
-				}),
-				conversation({
-					id: "c8",
-					task: null,
-					title: "Carried on",
-					messages: [
-						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
-						message("user", "now the footer"),
-					],
-				}),
-				conversation({ id: "c4", title: "Busy", status: "running" }),
-				conversation({ id: "c5", task: null, title: "Look into it" }),
-				conversation({
-					id: "c6",
-					task: null,
-					lastTask: "beta",
-					title: "Landed it",
-				}),
-				conversation({
-					id: "c2",
+					id: "c3",
 					task: null,
 					title: "Look around",
 					status: "running",
@@ -71,91 +46,49 @@ describe("App's conversation home", () => {
 						options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
 					},
 				}),
-				conversation({ id: "c3", title: "Old", archived: true }),
-			],
-			null,
-		);
-		await openHome();
-		const recent = view.getByRole("region", { name: "recent conversations" });
-
-		expect(
-			within(recent)
-				.getAllByRole("button")
-				.map((each) => each.textContent),
-		).toEqual(["alpha", "Carried onmain", "Look into itmain", "beta"]);
-		expect(within(recent).queryByRole("status")).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),
-		);
-		expect(location.hash).toBe("#conversations/c1");
-	});
-
-	it("leaves out of picking back up a conversation with a subagent at work under it, in a conversation or outside the page", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({ id: "c1", task: null, title: "Orchestrate" }),
 				conversation({
-					id: "c2",
-					task: "split-a",
-					lastCaller: "c1",
-					status: "running",
-				}),
-				conversation({ id: "c3", task: null, title: "Hand out" }),
-				conversation({ id: "c4", task: null, title: "Settled" }),
-				conversation({ id: "c5", task: "split-c", lastCaller: "c4" }),
-			],
-			null,
-			{
-				tasks: [
-					details({ task: "split-a", caller: "c1" }),
-					details({ task: "split-b", caller: "c3" }),
-					details({ task: "split-c", caller: "c4" }),
-				],
-			},
-		);
-		await openHome();
-		const recent = view.getByRole("region", { name: "recent conversations" });
-
-		expect(
-			within(recent)
-				.getAllByRole("button")
-				.map((each) => each.textContent),
-		).toEqual(["Settledmain", "split-c"]);
-	});
-
-	it("offers orphaned tasks first and leaves out the groomer's conversation", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "g1",
-					task: null,
-					title: "Groomer",
-					persistent: "groomer",
-				}),
-				conversation({ id: "c1", task: null, title: "Look into it" }),
-				conversation({
-					id: "c2",
+					id: "c4",
 					task: "beta",
 					status: "failed",
 					error: "exited 1",
 				}),
 			],
 			null,
-			{ tasks: [details({ task: "alpha" }), details({ task: "beta" })] },
+			{
+				tasks: [
+					details({ task: "alpha" }),
+					details({ task: "beta" }),
+					details({ task: "gamma" }),
+				],
+			},
 		);
 		await openHome();
-		const recent = view.getByRole("region", { name: "recent conversations" });
+		const picking = view.getByRole("region", { name: "pick back up" });
 
 		expect(
-			within(recent)
+			within(picking)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["alpha", "beta", "Look into itmain"]);
+		).toEqual(["beta", "gamma"]);
 		await act(async () =>
-			fireEvent.click(within(recent).getByRole("button", { name: /beta/ })),
+			fireEvent.click(within(picking).getByRole("button", { name: /beta/ })),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getAllByText("beta").length).toBeGreaterThan(0);
+	});
+
+	it("offers nothing to pick back up when every task has an agent on it", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({ id: "c2", task: null, title: "Look into it" }),
+			],
+			null,
+			{ tasks: [details({ task: "alpha" })] },
+		);
+		await openHome();
+
+		expect(view.queryByRole("region", { name: "pick back up" })).toBeNull();
 	});
 
 	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
