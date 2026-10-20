@@ -123,40 +123,43 @@ with `splates queue remove` stays out until queued again. `splates lane
 unqueue <n>` stops it, taking out of the queue each of its tasks yet to
 start. Untriaged cannot be queued whole.
 
-A queued lane starts each task added to it with no one asking, so working a
-task from one, add to that lane only what the user asked for: a step the
-work they queued splits into. A follow-up you found on the way goes
-Untriaged, or to a lane that is not queued, for the user to place, so one
-lane's agents never keep it going by queueing more of their own.
+A queued lane starts each task added to it with no one asking, so add a
+task to one only once the user says yes to it. When a task you add belongs
+in a queued lane, add it Untriaged and ask whether to move it in, and on a
+yes `splates task update <id> --lane <n>`:
+
+```markdown
+1. Should #31 go in Billing export, which is queued?
+   It needs the endpoint #28 adds. In the lane it starts once #28 lands.
+   - (a) Leave it Untriaged, for you to place (chosen)
+   - (b) Move it into Billing export, queued to start
+```
+
+Never queue a lane on your own: `splates lane queue` only when the user
+asks, or says yes when you offer it below.
 
 ### Offering a lane
 
 When a conversation clearly asks for several tasks, more than one coherent
 change, such as a feature in steps or a list of fixes, ask the user, before
-adding any of them, whether to make them a lane, naming the tasks you would
-add:
+adding any of them, whether to make them a lane and whether to queue it, in
+one question that names the tasks you would add:
 
 ```markdown
 1. Should these four tasks go in a new lane, Billing export?
    The CSV writer; the endpoint, after the writer; the page's button; docs.
-   - (a) Add them in a new lane, Billing export (chosen)
-   - (b) Add them Untriaged, for you to place
-   - (c) Do it all as one task here
+   - (a) Add them in a new lane, for you to queue from the board (chosen)
+   - (b) Add them in a new lane and queue it whole, starting each task once nothing blocks it
+   - (c) Add them Untriaged, for you to place
+   - (d) Do it all as one task here
 ```
 
 Ask once per conversation, and only when the split is plain: one change
-with a follow-up or two is a task and its follow-ups, never a lane. On a
-yes, `splates lane add` the lane and `splates task add` each task into it,
-groomed and linked as above, then ask once whether to queue it:
-
-```markdown
-1. Should I queue Billing export now?
-   - (a) Leave it for you to queue from the board (chosen)
-   - (b) Queue it whole, starting each task once nothing blocks it
-```
-
-Only on a yes run `splates lane queue <n>`. Either way, do none of the
-lane's work in this conversation unless the user asks you to.
+with a follow-up or two is a task and its follow-ups, never a lane. On (a)
+or (b), `splates lane add` the lane and `splates task add` each task into
+it, groomed and linked as above, then, on (b) alone, `splates lane queue
+<n>`. Do none of the lane's work in this conversation unless the user asks
+you to.
 
 Only the user queues. You never run `splates queue add` or `move`: they are
 refused for an agent. Put work in a lane with `splates task add` and leave
