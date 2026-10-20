@@ -62,7 +62,7 @@ asks you to read it as Reference files says.
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
-| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo, at `before`, `after` or `main`, from its task dialog | [demos.md](references/demos.md), Running a demo |
+| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo: the Demo button in its task dialog sends `after`, and `before` or `main` come only when asked for by hand | [demos.md](references/demos.md), Running a demo |
 | `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -227,13 +227,14 @@ One or two lines on what done means.
 
 ## Verification
 
-What you checked and what it showed: each check run, and a screenshot or
-recording you `splates attach`ed where the change is something to see.
+What you checked and what it showed: each check run, and, where the change
+is something to see, screenshots or a recording you `splates attach`ed,
+inline as `![what](/abs/path.png)`.
 
 ## Demo
 
 How to set up a demo of the change, in words, and what the user should see
-before the change, after it, and on main.
+with it in.
 
 ## Blocked
 
@@ -248,12 +249,14 @@ page shows the Goal as what you are doing. Keep the rest current as you go, not 
 the shape. It is excluded from git: never mention it in a commit message.
 
 The page's task dialog shows `## Verification`, for an open task and once it
-has finished, so fill it in before you merge: it is the evidence the user
-reads instead of a demo. Write `## Demo` for any change the user can see or
-try, and leave it out otherwise. Keep it to what an agent needs to set the
-demo up later against the code of the day (what to run, the throwaway data
-to make, where to open it) and what each point shows, never a script to keep
-in step with the code.
+has finished, as one section of evidence: what you checked, its screenshots,
+and, when there is a `## Demo`, a Demo button that starts an agent to show
+the change. Fill it in before you merge: it is what the user reads instead of
+a demo. Write `## Demo` for any change the user can see or try, and leave it
+out otherwise. Keep it to what an agent needs to set the demo up later
+against the code of the day (what to run, the throwaway data to make, where
+to open it) and what it shows, never a script to keep in step with the
+code.
 
 ## Committing
 

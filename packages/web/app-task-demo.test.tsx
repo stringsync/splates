@@ -87,15 +87,13 @@ describe("App's task demos", () => {
 			),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
-		await waitFor(() => within(dialog).getByRole("region", { name: "demo" }));
+		await waitFor(() => within(dialog).getByRole("button", { name: "Demo" }));
 		return dialog;
 	};
 
-	const demo = async (dialog: HTMLElement, point: string) =>
+	const demo = async (dialog: HTMLElement) =>
 		act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: `Demo ${point}` }),
-			),
+			fireEvent.click(within(dialog).getByRole("button", { name: "Demo" })),
 		);
 
 	const prompts = (id: string) =>
@@ -103,7 +101,7 @@ describe("App's task demos", () => {
 			.posted(`/api/conversations/${id}/prompt`)
 			.map((post) => post.body.text);
 
-	it("shows a task's Verification on its Overview, its recordings too, with its demo buttons", async () => {
+	it("shows a task's Verification on its Overview, its recordings too, with one Demo button in it", async () => {
 		const view = await tasksPage([
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),
 		]);
@@ -117,14 +115,11 @@ describe("App's task demos", () => {
 		expect(verification.querySelector("video")?.getAttribute("src")).toBe(
 			`/api/file?${new URLSearchParams({ path: "/tmp/shots/done.webm" })}`,
 		);
-		const buttons = within(
-			within(dialog).getByRole("region", { name: "demo" }),
-		).getAllByRole("button");
-		expect(buttons.map((each) => each.textContent)).toEqual([
-			"Before",
-			"After",
-			"Main",
-		]);
+		// The demo is part of the evidence: one button, no points to pick.
+		expect(
+			within(verification).getAllByRole("button", { name: /demo/i }),
+		).toHaveLength(1);
+		expect(within(dialog).queryByRole("region", { name: "demo" })).toBeNull();
 		// Shown once, on the Overview, leaving the Notes tab its notes alone.
 		expect(dialog.textContent?.match(/Ran the upload tests/g)).toHaveLength(1);
 		expect(dialog.textContent).not.toContain("kept the old flag");
@@ -143,7 +138,28 @@ describe("App's task demos", () => {
 		);
 		const dialog = await liveDialog(view);
 
-		expect(within(dialog).queryByRole("region", { name: "demo" })).toBeNull();
+		expect(within(dialog).queryByRole("button", { name: "Demo" })).toBeNull();
+	});
+
+	it("offers its Demo button under Verification for a plan with a Demo but no Verification", async () => {
+		const view = await tasksPage(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			[
+				details({
+					task: "alpha",
+					plan: "# alpha\n\n## Goal\n\nship alpha\n\n## Demo\n\nUpload a file.\n",
+					takenBy: "c1",
+				}),
+			],
+		);
+		const dialog = await liveDialog(view);
+
+		const verification = within(dialog).getByRole("region", {
+			name: "verification",
+		});
+		expect(
+			within(verification).getByRole("button", { name: "Demo" }),
+		).not.toBeNull();
 	});
 
 	it("starts a new conversation for a live task's demo, past the one working it", async () => {
@@ -153,7 +169,7 @@ describe("App's task demos", () => {
 		const dialog = await liveDialog(view);
 
 		testing.reply = conversation({ id: "c9", status: "starting" });
-		await demo(dialog, "after");
+		await demo(dialog);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(
@@ -174,11 +190,11 @@ describe("App's task demos", () => {
 		const dialog = await finishedDialog(view);
 
 		testing.reply = conversation({ id: "c9", status: "starting" });
-		await demo(dialog, "main");
+		await demo(dialog);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await waitFor(() =>
-			expect(prompts("c9")).toEqual(["[SPLATES DEMO alpha main]"]),
+			expect(prompts("c9")).toEqual(["[SPLATES DEMO alpha after]"]),
 		);
 		expect(testing.posted("/api/conversations/c2/archived")).toEqual([]);
 		expect(prompts("c2")).toEqual([]);
