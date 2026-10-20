@@ -21,6 +21,7 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
+import type { NoteUses } from "../notes";
 import { installedVersion } from "../server/shared";
 import type { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
@@ -70,6 +71,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
 	private readonly adherence: Adherence | null;
+	private readonly noteUses: NoteUses | null;
 	private readonly outcomes: Outcomes | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
@@ -112,6 +114,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
 		this.adherence = opts.adherence ?? null;
+		this.noteUses = opts.noteUses ?? null;
 		this.outcomes = opts.outcomes ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
@@ -517,6 +520,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// A turn ended, however it did: how it followed the skill may have
 			// changed.
 			if (status === "running" && conversation.state.status !== "running") {
+				void this.noteUses
+					?.record(conversation.state, this.root ?? conversation.cwd)
+					.catch(() => {});
 				void this.adherence
 					?.judge(
 						conversation.state,
@@ -527,17 +533,12 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				// A task it merged wrote its outcome before the turn said its usage.
 				const { outcomes } = this;
 				if (outcomes !== null && turnStarted !== null) {
-					const since = turnStarted;
-					const until = conversation.now();
-					void conversation
-						.saved()
-						.then(() =>
-							outcomes.creditTurn(
-								conversation.id,
-								this.storage.log(`${conversation.id}.jsonl`),
-								since,
-								until,
-							),
+					void outcomes
+						.creditSaved(
+							conversation,
+							this.storage.log(`${conversation.id}.jsonl`),
+							turnStarted,
+							conversation.now(),
 						)
 						.catch(() => {});
 				}

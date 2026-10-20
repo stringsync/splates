@@ -95,6 +95,17 @@ export class Outcomes {
 		}
 	}
 
+	/** `creditTurn` once `conversation`'s log has taken the whole turn. */
+	async creditSaved(
+		conversation: { id: string; saved(): Promise<unknown> },
+		log: Log<Entry>,
+		since: string,
+		until: string,
+	): Promise<void> {
+		await conversation.saved();
+		await this.creditTurn(conversation.id, log, since, until);
+	}
+
 	/**
 	 * Credits the task that `conversation`, logged in `log`, ended last in
 	 * its turn from `since` to `until` with what the rest of that turn used,

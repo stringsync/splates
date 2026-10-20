@@ -193,6 +193,17 @@ export function NotesPage({
 								<span className="break-all text-muted-foreground text-xs">
 									{note.path}
 								</span>
+								<span
+									className={
+										note.uses === 0
+											? "text-destructive text-xs"
+											: "text-muted-foreground text-xs"
+									}
+								>
+									{note.uses === 0
+										? "Never read"
+										: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
+								</span>
 							</button>
 						</li>
 					))}

@@ -1,16 +1,24 @@
+import { relative } from "node:path";
 import { fail } from "../exit";
 import type { Project } from "../server/shared";
-import { Notes } from "./notes";
+import { type ListedNote, Notes } from "./notes";
+import { NoteUses } from "./uses";
 
 /** Read the project's landed notes from its main checkout. */
 export class NotesRoutes {
 	constructor(private readonly project: Project) {}
 
 	readonly listNotes = async (): Promise<Response> => {
-		const { service, fs } = this.project;
-		return Response.json(
-			await new Notes(fs).list(service.git.root, service.config),
-		);
+		const { service, fs, storage } = this.project;
+		const root = service.git.root;
+		const counts = await new NoteUses(storage, fs).counts();
+		const listed: ListedNote[] = (
+			await new Notes(fs).list(root, service.config)
+		).map((note) => ({
+			...note,
+			uses: counts.get(relative(root, note.path)) ?? 0,
+		}));
+		return Response.json(listed);
 	};
 
 	readonly readNote = async (request: Request): Promise<Response> => {

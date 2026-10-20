@@ -2,13 +2,17 @@ import type { ReadNote } from "@stringsync/splates-server/notes";
 
 /** The notes a page test's server holds. */
 export class FakeNotes {
-	items: ReadNote[] = [];
+	items: (ReadNote & { uses?: number })[] = [];
 
 	respond(path: string): Response | null {
 		const url = new URL(path, "http://localhost");
 		if (url.pathname === "/api/notes") {
 			return Response.json(
-				this.items.map(({ path, description }) => ({ path, description })),
+				this.items.map(({ path, description, uses = 0 }) => ({
+					path,
+					description,
+					uses,
+				})),
 			);
 		}
 		if (url.pathname !== "/api/notes/read") {

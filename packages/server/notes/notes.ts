@@ -8,6 +8,11 @@ export interface ProjectNote {
 	description: string;
 }
 
+/** A note as the Notes page lists it, with how many conversations have read it. */
+export interface ListedNote extends ProjectNote {
+	uses: number;
+}
+
 /** A note's source for an agent and its body for the reader. */
 export interface ReadNote extends ProjectNote {
 	text: string;

@@ -1,4 +1,4 @@
-import type { ProjectNote, ReadNote } from "@stringsync/splates-server/notes";
+import type { ListedNote, ReadNote } from "@stringsync/splates-server/notes";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { send } from "./api";
 import { agentFor, NEW } from "./conversation-address";
@@ -16,7 +16,7 @@ export const NEW_NOTE =
 export class NotesReading implements Eventful<NotesReadingEvents> {
 	private readonly dispatcher = new Dispatcher<NotesReadingEvents>();
 	readonly events = this.dispatcher.events;
-	notes: ProjectNote[] = [];
+	notes: ListedNote[] = [];
 	note: ReadNote | null = null;
 	loading = true;
 	error: string | null = null;
@@ -38,7 +38,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 		try {
 			const notes = (await send("/api/notes", {
 				method: "GET",
-			})) as ProjectNote[];
+			})) as ListedNote[];
 			if (version !== this.version) {
 				return;
 			}

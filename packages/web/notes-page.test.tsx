@@ -8,29 +8,40 @@ import { cleanup, conversation, fireEvent, render, Testing } from "./testing";
 const NOTE = {
 	path: "/repo/notes/exports.md",
 	description: "Why named exports",
+	uses: 3,
 	text: "---\ndescription: Why named exports\n---\n# Exports\n\nUse **named exports**.",
 	body: "# Exports\n\nUse **named exports**.",
 };
 
 describe("notes page", () => {
 	let testing: Testing;
+	let page: ReturnType<typeof render>;
+	let drafts: Drafts;
+	let opened: string[];
 	beforeEach(() => {
 		testing = new Testing();
-		testing.notes.items = [NOTE];
+		testing.notes.items = [
+			NOTE,
+			{ ...NOTE, path: "/repo/notes/b.md", description: "Unread", uses: 0 },
+		];
+		drafts = new Drafts(localStorage, null);
+		opened = [];
+		page = render(
+			<NotesPage
+				feed={null}
+				drafts={drafts}
+				onOpen={(id) => opened.push(id)}
+			/>,
+		);
 	});
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
 	});
 
-	it("opens a note as markdown and returns to the index", async () => {
-		const page = render(
-			<NotesPage
-				feed={null}
-				drafts={new Drafts(localStorage, null)}
-				onOpen={() => {}}
-			/>,
-		);
+	it("lists each note with how many conversations read it, then opens one as markdown and returns to the index", async () => {
+		expect(await page.findByText("Read in 3 conversations")).toBeTruthy();
+		expect(page.getByText("Never read")).toBeTruthy();
 		fireEvent.click(
 			await page.findByRole("button", { name: /Why named exports/ }),
 		);
@@ -45,17 +56,7 @@ describe("notes page", () => {
 	});
 
 	it("opens one new conversation seeded to write a note, keeping what was typed", async () => {
-		testing.notes.items = [];
-		const opened: string[] = [];
-		const drafts = new Drafts(localStorage, null);
-		const page = render(
-			<NotesPage
-				feed={null}
-				drafts={drafts}
-				onOpen={(id) => opened.push(id)}
-			/>,
-		);
-		expect(await page.findByText("No project notes yet")).toBeTruthy();
+		await page.findByText("Never read");
 		fireEvent.click(page.getByRole("button", { name: /New note/ }));
 		expect(opened).toEqual(["new?draft=note"]);
 		const key = newDraft(null, null, "note");

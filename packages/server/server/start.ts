@@ -16,6 +16,7 @@ import { fail } from "../exit";
 import { Git } from "../git";
 import { pushOnMove, TaskBranches } from "../merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
+import { NoteUses } from "../notes";
 import { PlanStore } from "../plans";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
@@ -300,6 +301,7 @@ export async function serveDev(
 					offered,
 					limits,
 					adherence,
+					noteUses: new NoteUses(storage, ctx.fs),
 					outcomes,
 					readLimits: async (agent) =>
 						isCodex(agent)
