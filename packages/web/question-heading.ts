@@ -1,6 +1,6 @@
 import type { Proposal, TaskReport } from "@stringsync/splates-server/plans";
 import type { LucideIcon } from "lucide-react";
-import { MessageCircleQuestionIcon } from "lucide-react";
+import { TriangleAlertIcon } from "lucide-react";
 import { ENDINGS, type Tone } from "./card-shell";
 
 /** What heads a questions card, on the page and on a phone's sheet alike. */
@@ -40,18 +40,18 @@ export function questionHeading(
 	if (proposal !== null) {
 		return {
 			label: `proposal ${proposal.subject}`,
-			Icon: MessageCircleQuestionIcon,
+			Icon: TriangleAlertIcon,
 			title: `Questions: ${proposal.subject}`,
-			tone: "info",
+			tone: "warning",
 		};
 	}
 	return {
 		label: "questions for you",
-		Icon: MessageCircleQuestionIcon,
+		Icon: TriangleAlertIcon,
 		title:
 			count === undefined
 				? `${questions === 1 ? "A question" : "Questions"} for you`
 				: `${count} for you`,
-		tone: "info",
+		tone: "warning",
 	};
 }
