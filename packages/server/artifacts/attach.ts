@@ -102,9 +102,13 @@ export async function attach(
 		);
 	}
 	if (conversation !== undefined && here) {
-		const dropped = held
-			.filter((file) => !kept.includes(file) && here.owns(file.path))
-			.reduce((sum, file) => sum + file.bytes, 0);
+		const dropped = (
+			await Promise.all(
+				held.map(async (file) =>
+					!kept.includes(file) && (await here.owns(file.path)) ? file : null,
+				),
+			)
+		).reduce((sum, file) => sum + (file?.bytes ?? 0), 0);
 		const bytes =
 			(await service.conversationBytes(conversation)) -
 			dropped +

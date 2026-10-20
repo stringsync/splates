@@ -122,7 +122,10 @@ export class Finished {
 			taken.add(name);
 			const files = this.storage.collection(this.filesKey(key));
 			await files.writeBytes(name, bytes);
-			kept.set(named, `${this.storage.locate(this.filesKey(key))}/${name}`);
+			kept.set(
+				named,
+				await this.storage.materialize(`${this.filesKey(key)}/${name}`),
+			);
 		}
 		return kept.size === 0
 			? plan
