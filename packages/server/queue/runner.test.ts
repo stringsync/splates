@@ -29,6 +29,7 @@ describe("QueueRunner", () => {
 	let pending: Promise<void>[];
 	let held: FakeHeld;
 	let picker: FakePicker;
+	let timer: FakeTimer;
 
 	/** Waits out every start under way, and the runner's note that it ended. */
 	const settled = async (): Promise<void> => {
@@ -44,6 +45,7 @@ describe("QueueRunner", () => {
 		pending = [];
 		held = new FakeHeld();
 		picker = new FakePicker();
+		timer = new FakeTimer();
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
 			if (each.held !== undefined) {
@@ -67,7 +69,7 @@ describe("QueueRunner", () => {
 			},
 			held,
 			log: new MemoryLogger(),
-			timer: new FakeTimer(),
+			timer,
 		});
 		// `watch` checks the queue at once; left running, that check can read
 		// a test's tasks as it queues them and start them before the test sets
@@ -164,7 +166,43 @@ describe("QueueRunner", () => {
 		expect(waiting).toEqual([]);
 	});
 
-	it("tries a refused queued task again only once it changes", async () => {
+	it("tries a refused queued task again after a wait that doubles with each refusal", async () => {
+		await taskAdd(deps, "Totals first", null);
+		await queueAdd(deps, [1]);
+		starting = async () => {
+			throw new Error("index.lock exists");
+		};
+		/** Lets a sweep of the clock go by, waiting out what it starts. */
+		const sweep = async (): Promise<void> => {
+			timer.fireIntervals();
+			await runner.sweep();
+			await settled();
+		};
+
+		await runner.sweep();
+		await settled();
+		expect(started).toHaveLength(1);
+
+		await sweep();
+		expect(started).toHaveLength(2);
+
+		await sweep();
+		expect(started).toHaveLength(2);
+		await sweep();
+		expect(started).toHaveLength(3);
+
+		starting = async (each) => {
+			await (await deps.tasks.find(each.queued.id)).take(each.task);
+		};
+		await sweep();
+		await sweep();
+		await sweep();
+		expect(started).toHaveLength(3);
+		await sweep();
+		expect(started).toHaveLength(4);
+	});
+
+	it("tries a refused queued task again at once when it changes", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await queueAdd(deps, [1]);
 		starting = async () => {

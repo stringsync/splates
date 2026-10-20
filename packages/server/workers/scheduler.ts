@@ -139,7 +139,9 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 
 	/**
 	 * How many more agents could start now without waiting: the free slots
-	 * of every worker up and taking work, less those already waiting for one.
+	 * of every worker up and taking work, less those already waiting that
+	 * could take one. An agent waiting for a slot it can never use, as one
+	 * needing a key or a platform no free worker has, takes none of them.
 	 */
 	room(): number {
 		const used = new Map<string, number>();
@@ -148,19 +150,23 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 				used.set(worker, (used.get(worker) ?? 0) + 1);
 			}
 		}
-		const free = this.pool
+		const open = this.pool
 			.workers()
 			.filter(
 				(worker) =>
-					worker.awake && worker.checkouts && worker.draining !== true,
-			)
-			.reduce(
-				(sum, worker) =>
-					sum + Math.max(0, worker.slots - (used.get(worker.id) ?? 0)),
-				0,
+					worker.awake &&
+					worker.checkouts &&
+					worker.draining !== true &&
+					worker.slots > (used.get(worker.id) ?? 0),
 			);
+		const free = open.reduce(
+			(sum, worker) => sum + worker.slots - (used.get(worker.id) ?? 0),
+			0,
+		);
 		const waiting = this.waiting.filter(
-			({ request }) => request.uncapped !== true,
+			({ request }) =>
+				request.uncapped !== true &&
+				open.some((worker) => eligible(worker, request)),
 		).length;
 		return Math.max(0, free - waiting);
 	}
@@ -244,7 +250,9 @@ export class Scheduler implements Eventful<SchedulerEvents>, Resource {
 		for (const worker of started) {
 			this.dispatcher.dispatch("drain", worker);
 		}
-		if (this.place()) {
+		// Queued tasks wanting a slot are never placed here, so the task queue
+		// hears of a worker joining or growing to start them itself.
+		if (this.place() || this.wanted.size > 0) {
 			this.changed();
 		}
 	}

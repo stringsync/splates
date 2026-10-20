@@ -36,6 +36,45 @@ describe("App's composer queue", () => {
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
 
+	it("opens a conversation held for a queued task on the task it will be asked, queued, not an empty thread", async () => {
+		const spot = {
+			position: 1,
+			of: 2,
+			since: "2026-10-19T12:00:00.000Z",
+			reason: "waits on #2",
+		};
+		const state = conversation({
+			id: "c1",
+			title: "#3 Fix the upload",
+			// As one reads back after a restart, before the queue holds it again.
+			status: "stopped",
+			queued: 3,
+			queue: spot,
+			createdAt: new Date(Date.now() - 30_000).toISOString(),
+		});
+		const view = await testing.openConversations([state], "c1");
+		const thread = view.getByRole("region", { name: "#3 Fix the upload" });
+
+		expect(view.queryByText("How can I help you today?")).toBeNull();
+		expect(
+			within(thread).getByRole("note", { name: "splates" }).textContent,
+		).toMatch(/Task\s*#\s*3/);
+		expect(within(thread).getByText(/^Queued \d+s$/)).toBeTruthy();
+
+		await testing.say({
+			...state,
+			status: "starting",
+			messages: [{ ...message("user", "and the logout"), queued: true }],
+		});
+		await waitFor(() =>
+			expect(within(thread).getByText("and the logout")).toBeTruthy(),
+		);
+		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
+		expect(
+			within(thread).getByRole("note", { name: "splates" }).textContent,
+		).toMatch(/Task\s*#\s*3/);
+	});
+
 	// scry-ignore simple-test-setup: The starting conversation and its timestamp belong only to this startup-queue test.
 	it("pins startup-held messages in the thread above a shimmering Queued label until the first turn starts", async () => {
 		const first = {

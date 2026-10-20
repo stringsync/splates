@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { MemoryLogger } from "webappwiz/log";
 import { OpenPortProvider } from "webappwiz/system";
 import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
 import { taskAdd } from "../board";
@@ -6,7 +7,7 @@ import { Conversations } from "../conversations";
 import { Offered } from "../models";
 import { queueAdd } from "../queue";
 import { FsStorage } from "../storage";
-import { add } from "../tasks";
+import { add, startDispatched } from "../tasks";
 import { Testing } from "../testing";
 import { dev } from "./server";
 
@@ -14,10 +15,17 @@ describe("dev dispatched", () => {
 	let deps: Testing;
 	let agent: FakeAgent;
 	let conversations: Conversations;
+	/** What the agent was first told. */
+	let told: PromiseWithResolvers<string>;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
+		told = Promise.withResolvers<string>();
+		agent.turn = async (_, __, text) => {
+			told.resolve(text);
+			return "end_turn";
+		};
 		agent.options = [
 			...agent.options,
 			{
@@ -58,11 +66,6 @@ describe("dev dispatched", () => {
 	afterEach(() => deps.disposeAsync());
 
 	it("starts the agent of a task handed to one at the thinking level it was handed", async () => {
-		const told = Promise.withResolvers<string>();
-		agent.turn = async (_, __, text) => {
-			told.resolve(text);
-			return "end_turn";
-		};
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake", effort: "high" },
 			agents: [ROSTERED],
@@ -81,11 +84,6 @@ describe("dev dispatched", () => {
 	});
 
 	it("hands a queued task to the conversation the queue held for it, starting no other", async () => {
-		const told = Promise.withResolvers<string>();
-		agent.turn = async (_, __, text) => {
-			told.resolve(text);
-			return "end_turn";
-		};
 		await taskAdd(deps, "Alpha", null);
 		await queueAdd(deps, [1]);
 		const held = await conversations.start("fake", {
@@ -121,5 +119,29 @@ describe("dev dispatched", () => {
 		} finally {
 			await server.disposeAsync();
 		}
+	});
+
+	it("starts the rest when one task's agent cannot start, trying that one again next time", async () => {
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+		await add(deps, "beta", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+		await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "gone" },
+		});
+		const log = new MemoryLogger();
+
+		await startDispatched({ service: deps.service, conversations, log });
+
+		expect((await conversations.list()).map(({ state }) => state.task)).toEqual(
+			["beta"],
+		);
+		expect((await deps.service.find("alpha")).state?.dispatch).toEqual({
+			agent: "gone",
+		});
 	});
 });

@@ -13,6 +13,12 @@ import { canStart, holdsBack, queueOrder } from "./order";
  */
 export const QUEUE_SWEEP = Duration.mins(1);
 
+/**
+ * The most sweeps a refused start waits before it is tried again, its wait
+ * doubling from one sweep with each refusal until it reaches this.
+ */
+export const RETRY_SWEEPS_MAX = 30;
+
 /** One queued task the queue starts, as `QueueRunner` hands it to its `start`. */
 export interface QueueStart {
 	queued: TaskRecord;
@@ -49,10 +55,12 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
  * nothing blocks it, first thing in each check, until no task is left in it.
  *
  * Checked as tasks change, as workers' slots free, and every `QUEUE_SWEEP`.
- * A queued task whose start was refused is not tried again until it changes,
- * the person asks (`retry`), or the server restarts, so a broken one never
- * loops; its held conversation says why it was refused meanwhile. What Auto
- * pick keeps on a task's record is not such a change.
+ * A queued task whose start was refused is tried again at once when it
+ * changes or the person asks (`retry`), and otherwise after a wait that
+ * doubles with each refusal, up to `RETRY_SWEEPS_MAX` sweeps, so a passing
+ * snag never strands it and a broken one never loops; its held
+ * conversation says why it was refused meanwhile. What Auto pick keeps on a
+ * task's record is not such a change.
  */
 export class QueueRunner implements Resource {
 	readonly #disposer = new Disposer();
@@ -61,10 +69,11 @@ export class QueueRunner implements Resource {
 	/** The queued tasks being started now, until their task takes them. */
 	readonly #starting = new Set<number>();
 	/**
-	 * Each queued task whose start was refused, by id: as it stood then, and
-	 * why.
+	 * Each queued task whose start was refused, by id: as it stood then, why,
+	 * how many times in a row, and the sweeps it has waited since; `due` once
+	 * it has waited enough to be tried again.
 	 */
-	readonly #refused = new Map<number, { was: string; why: string }>();
+	readonly #refused = new Map<number, Refused>();
 	/**
 	 * When each queued task was first placed as starting, by id, so its held
 	 * conversation says how long the start has taken, not the queue.
@@ -77,7 +86,12 @@ export class QueueRunner implements Resource {
 		private readonly deps: QueueRunnerDeps,
 		timer: Timer,
 	) {
-		this.#disposer.use(timer.setInterval(() => this.sweep(), QUEUE_SWEEP));
+		this.#disposer.use(
+			timer.setInterval(() => {
+				this.#waitOut();
+				void this.sweep();
+			}, QUEUE_SWEEP),
+		);
 	}
 
 	/** Works the queue, checking it at once. */
@@ -105,6 +119,16 @@ export class QueueRunner implements Resource {
 		return this.sweep();
 	}
 
+	/** Counts a sweep against each refused start, making those waited out due. */
+	#waitOut(): void {
+		for (const refused of this.#refused.values()) {
+			refused.waited += 1;
+			if (refused.waited >= retryAfter(refused.tries)) {
+				refused.due = true;
+			}
+		}
+	}
+
 	async #check(): Promise<void> {
 		await this.deps.lanes?.();
 		const all = await this.deps.queued();
@@ -117,7 +141,7 @@ export class QueueRunner implements Resource {
 		const startable = queueOrder(all).filter(
 			(queued) =>
 				!this.#starting.has(queued.id) &&
-				!this.#refused.has(queued.id) &&
+				this.#refused.get(queued.id)?.due !== false &&
 				canStart(queued, all),
 		);
 		const room = Math.max(0, this.deps.room() - this.#starting.size);
@@ -169,16 +193,21 @@ export class QueueRunner implements Resource {
 						await decided.tell(start.held);
 					}
 					await this.deps.start(start);
+					this.#refused.delete(start.queued.id);
 					this.deps.log.info(
 						`the queue started task ${start.queued.id} as ${start.task}`,
 					);
 				} catch (error) {
+					const tries = (this.#refused.get(start.queued.id)?.tries ?? 0) + 1;
 					this.#refused.set(start.queued.id, {
 						was: asWas(start.queued),
 						why: refusal(error),
+						tries,
+						waited: 0,
+						due: false,
 					});
 					this.deps.log.error(
-						`the queue could not start task ${start.queued.id} as ${start.task}, and leaves it until it changes: ${String(error)}`,
+						`the queue could not start task ${start.queued.id} as ${start.task}, and tries it again in ${retryAfter(tries)} sweeps or once it changes: ${String(error)}`,
 					);
 					// Its held conversation says so now, not at the next sweep;
 					// the check runs after `finally`, so it is no longer starting.
@@ -306,7 +335,9 @@ export class QueueRunner implements Resource {
 				queued,
 				all,
 				next.includes(queued),
-				this.#refused.get(queued.id)?.why,
+				this.#refused.get(queued.id)?.due === false
+					? this.#refused.get(queued.id)?.why
+					: undefined,
 			);
 			if (reason !== "starting") {
 				this.#startingSince.delete(queued.id);
@@ -350,6 +381,20 @@ function waitsFor(
 		return `waits on ${open.map((other) => `#${other.id}`).join(", ")}`;
 	}
 	return next ? "starting" : "no free slot";
+}
+
+/** A queued task's start the queue was refused, as `QueueRunner` keeps it. */
+interface Refused {
+	was: string;
+	why: string;
+	tries: number;
+	waited: number;
+	due: boolean;
+}
+
+/** How many sweeps a start refused `tries` times in a row waits before the next try. */
+function retryAfter(tries: number): number {
+	return Math.min(RETRY_SWEEPS_MAX, 2 ** (tries - 1));
 }
 
 /**

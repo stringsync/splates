@@ -376,7 +376,8 @@ function Conversation({
 																			<ArchiveBar offer={offer} />
 																		)}
 																		{queued.length > 0 &&
-																			conversation.status !== "starting" && (
+																			conversation.status !== "starting" &&
+																			conversation.queued === null && (
 																				<Queued
 																					conversation={id}
 																					messages={queued}

@@ -23,7 +23,7 @@ import type { AgentPick } from "../models";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
-import { QueueRunner } from "../queue";
+import { QUEUE_SWEEP, QueueRunner } from "../queue";
 import type { Format, Repository } from "../records";
 import { answerState, type StateCall } from "../records";
 import { BudgetRoutes } from "../stats";
@@ -110,19 +110,28 @@ export async function serveProject(
 		});
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
-		const handOff = (): void => {
-			// A task gone moves the queue on.
-			void queue.sweep();
+		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
 				.catch((error: unknown) => log.error(String(error)));
 		};
-		const settled = new Debouncer(new SystemTimer(), SETTLE);
+		const handOff = (): void => {
+			// A task gone moves the queue on.
+			void queue.sweep();
+			startAll();
+		};
+		const timer = new SystemTimer();
+		const settled = new Debouncer(timer, SETTLE);
+		// Again with the queue's sweep, for a task handed out while its
+		// change went unseen or its start did not take.
+		const sweeping = timer.setInterval(startAll, QUEUE_SWEEP);
+		handOffs = sweeping;
 		try {
 			const watching = storage.watch("tasks");
 			watching.events.on("changed", () => settled.call(handOff));
 			handOffs = {
 				dispose: () => {
+					sweeping.dispose();
 					watching.dispose();
 					settled.cancel();
 				},
@@ -368,8 +377,8 @@ export interface Served extends AsyncResource {
 	refresh: () => void;
 	snapshot: Handler;
 	/**
-	 * Everything its page shows, kept from the last read while nothing in the
-	 * repo moved, so reading it for every project costs little.
+	 * Everything its page shows, cheap enough to read for every project at
+	 * once: a read while nothing in the repo moved answers the last one.
 	 */
 	current: () => Promise<Snapshot>;
 	/** How many of its agents wait on the person. */

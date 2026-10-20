@@ -4,7 +4,11 @@ import type {
 	Message,
 	Part,
 } from "@stringsync/splates-server/conversations";
-import type { TaskReport } from "@stringsync/splates-server/plans/browser";
+import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
+import {
+	type TaskReport,
+	taskNumberReference,
+} from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -78,9 +82,17 @@ export function useThreadMessages(
 		void shown;
 		const now = feed.wall.now();
 		const starting = conversation.status === "starting";
-		const said = conversation.messages.filter(
-			(each) => !each.queued || starting,
+		// Held for a queued task, its agent waits for the task to start: what
+		// it will be asked opens the thread, waiting as any prompt does for an
+		// agent starting, with whatever the person said to it meanwhile after.
+		const held = conversation.queued;
+		const kept = conversation.messages.filter(
+			(each) => !each.queued || starting || held !== null,
 		);
+		const said =
+			held === null
+				? kept
+				: [heldPrompt(held, conversation.createdAt), ...kept];
 		const happened = turnsOf(said, conversation.events);
 		// An agent starting again may carry on the turn its last message holds.
 		const resumed = starting
@@ -117,7 +129,7 @@ export function useThreadMessages(
 		// agent's first move fills that row rather than putting one in its place.
 		const prompt = said.at(-1);
 		const thread =
-			(running || starting || going) && prompt?.role === "user"
+			(running || starting || going || held !== null) && prompt?.role === "user"
 				? [
 						...liked,
 						queuedReply(
@@ -156,6 +168,8 @@ export function useThreadMessages(
 	}, [
 		conversation.messages,
 		conversation.status,
+		conversation.queued,
+		conversation.createdAt,
 		conversation.ask,
 		conversation.events,
 		conversation.id,
@@ -214,6 +228,22 @@ export function useThreadMessages(
 		asking,
 		hasEarlier: start > 0,
 		loadEarlier,
+	};
+}
+
+/**
+ * What the conversation held for queued task `id` will ask its agent, as
+ * splates says it, queued since the conversation began.
+ */
+function heldPrompt(id: number, at: string): Message {
+	return {
+		role: "user",
+		parts: [{ type: "text", text: taskNumberReference(id) }],
+		plan: null,
+		at,
+		until: at,
+		queued: true,
+		told: SERVER_TOLD,
 	};
 }
 
