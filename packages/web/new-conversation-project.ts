@@ -13,9 +13,6 @@ import { shownProject } from "./project-places";
 /** Where the project last used for a new conversation is kept. */
 const LAST = "splates.newConversationProject";
 
-/** Where whether the last conversation started was on Auto pick is kept. */
-const LAST_AUTO = "splates.newConversationAuto";
-
 /** A project a new conversation was started or picked in. */
 export interface UsedProject {
 	slug: string;
@@ -68,24 +65,6 @@ export function rememberShown(root: string): void {
 		},
 		() => {},
 	);
-}
-
-/** Whether the last conversation started was on Auto pick, so New starts there too. */
-export function lastStartedAuto(): boolean {
-	try {
-		return localStorage.getItem(LAST_AUTO) === "true";
-	} catch {
-		return false;
-	}
-}
-
-/** Keeps whether the conversation just started was on Auto pick, for New to follow. */
-export function rememberAuto(auto: boolean): void {
-	try {
-		localStorage.setItem(LAST_AUTO, String(auto));
-	} catch {
-		// Storage refused: New starts with the newest conversation's agent.
-	}
 }
 
 /** Stops New starting in `slug`, a project forgotten. */

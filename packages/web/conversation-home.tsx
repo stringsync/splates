@@ -33,6 +33,7 @@ import {
 	autoAddress,
 	NEW,
 	newAddress,
+	rememberAuto,
 	settingsFor,
 } from "./conversation-address";
 import {
@@ -57,11 +58,7 @@ import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
-import {
-	rememberAuto,
-	rememberProject,
-	rememberShown,
-} from "./new-conversation-project";
+import { rememberProject, rememberShown } from "./new-conversation-project";
 import type { Move } from "./page-address";
 import { limitsOf, PlanLimits } from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";

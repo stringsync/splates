@@ -12,7 +12,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { AgentIcon } from "./agent-icons";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { composerIn } from "./composer-editor";
-import { agentFor, autoAddress, NEW } from "./conversation-address";
+import { agentFor, autoAddress, NEW, startsAuto } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import { useHeld } from "./hooks/use-held";
 import {
@@ -21,7 +21,7 @@ import {
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
-import { lastStartedAuto, useOpenNew } from "./new-conversation-project";
+import { useOpenNew } from "./new-conversation-project";
 import type { Terminals } from "./terminals";
 
 /**
@@ -52,11 +52,12 @@ export function NewMenu({
 	// In the project the last one started in, which may be another's page,
 	// with the agent, model, and settings the last one started with.
 	const openNew = useOpenNew(onOpen);
-	useShortcut("shortcuts.new", () =>
-		openNew(lastStartedAuto() ? autoAddress(null) : NEW),
-	);
+	useShortcut("shortcuts.new", () => openNew(NEW));
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
+	// What ⌥⌘N starts on, shown beside it in the menu.
+	const auto = startsAuto(NEW);
+	const shortcutAgent = auto ? null : agentFor(NEW, agents, conversations);
 	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));
 	const terminalShortcut = useShortcutLabel("shortcuts.newTerminal");
 
@@ -105,6 +106,9 @@ export function NewMenu({
 				>
 					<AutoIcon />
 					{AUTO_PICK_NAME}
+					{newShortcut !== null && auto && (
+						<Kbd className="ml-auto">{newShortcut}</Kbd>
+					)}
 				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem
@@ -116,10 +120,9 @@ export function NewMenu({
 					>
 						<AgentIcon agent={each.id} name={each.name} />
 						{each.name}
-						{newShortcut !== null &&
-							each.id === agentFor(NEW, agents, conversations) && (
-								<Kbd className="ml-auto">{newShortcut}</Kbd>
-							)}
+						{newShortcut !== null && each.id === shortcutAgent && (
+							<Kbd className="ml-auto">{newShortcut}</Kbd>
+						)}
 					</DropdownMenuItem>
 				))}
 				<DropdownMenuSeparator />

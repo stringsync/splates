@@ -10,9 +10,9 @@ export { openedBy, TASK } from "@stringsync/splates-server/plans/browser";
 export const ARCHIVED = "archived";
 /**
  * In place of an id in the address: the screen that starts a conversation,
- * with the agent after it, as `new/codex`, else the agent last used, and
- * after that the task whose tree it starts in, as `new/codex/fix-upload`,
- * else the main tree.
+ * with the agent after it, as `new/codex`, else as the last one started (see
+ * `startsAuto` and `agentFor`), and after that the task whose tree it starts
+ * in, as `new/codex/fix-upload`, else the main tree.
  */
 export const NEW = "new";
 
@@ -69,14 +69,44 @@ export function newAddress(
  */
 export const AUTO = "auto";
 
-/** Whether `open` is the screen that starts a conversation on Auto pick. */
+/**
+ * Whether `open` is the screen that starts a conversation on Auto pick: one
+ * that names it, or one that names no agent when the last conversation
+ * started was on Auto pick. Every way to New without naming an agent (⌥⌘N,
+ * a folder's +, the screen shown after a close) asks this, with `agentFor`
+ * for the agent otherwise, so the two decide what New starts on.
+ */
 export function startsAuto(open: string | null): boolean {
+	if (open === null || pathOf(open) === NEW) {
+		return lastStartedAuto();
+	}
 	return (
-		open?.startsWith(`${NEW}/`) === true &&
+		open.startsWith(`${NEW}/`) &&
 		pathOf(open)
 			.slice(NEW.length + 1)
 			.split("/")[0] === AUTO
 	);
+}
+
+/** Where whether the last conversation started was on Auto pick is kept. */
+const LAST_AUTO = "splates.newConversationAuto";
+
+/** Whether the last conversation started was on Auto pick, so New starts there too. */
+export function lastStartedAuto(): boolean {
+	try {
+		return localStorage.getItem(LAST_AUTO) === "true";
+	} catch {
+		return false;
+	}
+}
+
+/** Keeps whether the conversation just started was on Auto pick, for New to follow. */
+export function rememberAuto(auto: boolean): void {
+	try {
+		localStorage.setItem(LAST_AUTO, String(auto));
+	} catch {
+		// Storage refused: New starts with the newest conversation's agent.
+	}
 }
 
 /** The address of the screen that starts a conversation on Auto pick, in `task`'s tree or the main tree. */
