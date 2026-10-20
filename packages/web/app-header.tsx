@@ -33,7 +33,7 @@ export function AppHeader({
 		<header className="flex min-w-0 flex-col">
 			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
 				<SlotMark snapshot={snapshot} />
-				<ProjectSwitcher name={name} keyed={false} />
+				<ProjectSwitcher name={name} keyed={false} path={false} />
 				<ServerBadges
 					snapshot={snapshot}
 					outdated={outdated}
