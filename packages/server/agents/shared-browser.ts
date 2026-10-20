@@ -20,6 +20,12 @@ export const IDLE = Duration.mins(5);
 /** How long the MCP has to say where it listens, a first install aside. */
 const START_WAIT = Duration.secs(30);
 
+/**
+ * How long a session waits for a heavy slot to start the browser in, before
+ * it starts without it.
+ */
+const SLOT_WAIT = Duration.secs(5);
+
 /** What the MCP prints once it listens, with where; it answers MCP at `/mcp` there. */
 const LISTENING = /Listening on (http:\/\/\S+)/;
 
@@ -76,9 +82,27 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 	}
 
 	private async start(): Promise<{ child: Child; url: string } | null> {
-		await using _slot = await this.deps.heavy.take({
-			what: "shared browser start",
-		});
+		const { heavy, timer, log } = this.deps;
+		const taking = heavy.take({ what: "shared browser start" });
+		let giveUp: { dispose(): void } | undefined;
+		const slot = await Promise.race([
+			taking,
+			new Promise<null>((resolve) => {
+				giveUp = timer.setTimeout(() => resolve(null), SLOT_WAIT);
+			}),
+		]);
+		giveUp?.dispose();
+		if (slot === null) {
+			// A session starts only once it knows its servers, so it must not
+			// queue behind a test run; the slot, once it comes, goes straight back.
+			void taking.then((late) => late[Symbol.asyncDispose]()).catch(() => {});
+			log.error(
+				"every heavy slot is taken, so this agent runs its own browser; the next to start tries the shared one again",
+			);
+			this.running = null;
+			return null;
+		}
+		await using _slot = slot;
 		return this.started();
 	}
 

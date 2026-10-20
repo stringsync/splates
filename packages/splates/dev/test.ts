@@ -2,6 +2,7 @@ import { availableParallelism } from "node:os";
 import { heavyJobsOfMachine } from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { ROOT } from "./root";
 
 export interface TestOptions {
@@ -15,7 +16,15 @@ export interface TestOptions {
 	log?: Logger;
 	/** The machine's heavy-job slots, one of which the run waits for. */
 	heavy?: HeavyCap;
+	/** How long the run may take before it is stopped. */
+	deadline?: Duration;
 }
+
+/**
+ * How long a test run may hold its heavy slot. The suite takes under a
+ * minute, so this only ever stops one that hangs.
+ */
+export const TEST_DEADLINE = Duration.mins(10);
 
 export async function test(opts: TestOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
@@ -48,19 +57,34 @@ export async function test(opts: TestOptions): Promise<void> {
 	// task for each slow test; bun keeps printing its own output beside it
 	const report = ps.env("SPLATES_TEST_REPORT");
 	await using slot = await heavy.take({ what: "splates dev test" });
-	const { exitCode } = await ps.spawn(
-		[
-			"bun",
-			"test",
-			"--pass-with-no-tests",
-			`--parallel=${workers}`,
-			"--timeout",
-			"30000",
-			...filter,
-			...(report ? ["--reporter=junit", `--reporter-outfile=${report}`] : []),
-		],
-		{ cwd: ROOT, env: slot.env },
-	);
+	// bun's per-test timeout cannot stop a test spinning in a synchronous
+	// loop, and such a run held its slot for ten hours while every add, merge
+	// and conversation on the machine queued behind it. Ending bun's runner
+	// ends its workers too.
+	const deadline = opts.deadline ?? TEST_DEADLINE;
+	const signal = AbortSignal.timeout(deadline.ms);
+	const { exitCode } = await ps
+		.spawn(
+			[
+				"bun",
+				"test",
+				"--pass-with-no-tests",
+				`--parallel=${workers}`,
+				"--timeout",
+				"30000",
+				...filter,
+				...(report ? ["--reporter=junit", `--reporter-outfile=${report}`] : []),
+			],
+			{ cwd: ROOT, env: slot.env, signal },
+		)
+		.catch((error: unknown) => {
+			if (signal.aborted) {
+				throw new Error(
+					`Tests ran past ${deadline.mins} minutes, so they were stopped: a test may be stuck in a loop`,
+				);
+			}
+			throw error;
+		});
 	if (exitCode !== 0) {
 		throw new Error("Tests failed");
 	}
