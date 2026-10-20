@@ -409,9 +409,17 @@ const ComposerAction: FC = () => {
 };
 
 /**
+ * Where Enter is the focused element's own while a take is under way: a field
+ * typed in, a menu or list picking from, or a dialog over the conversation.
+ */
+const OWN_ENTER =
+	"input, textarea, select, [role=menu], [role=listbox], [role=combobox], [role=dialog], [role=alertdialog]";
+
+/**
  * Enter sends a take under way from wherever focus sits: clicking the mic
- * leaves it on the page, not the editor, once the button swaps for Stop. A
- * focused control or another field keeps its own Enter.
+ * leaves it on the page, not the editor, once the button swaps for Stop, and
+ * the shortcut leaves it where it was, as on the sidebar row that opened the
+ * conversation. A field, menu or dialog keeps its own Enter.
  */
 function useEnterSendsDictation(active: boolean, send: () => Promise<void>) {
 	const sending = useRef(send);
@@ -425,7 +433,7 @@ function useEnterSendsDictation(active: boolean, send: () => Promise<void>) {
 				event.shiftKey ||
 				event.isComposing ||
 				!(target instanceof HTMLElement) ||
-				(target !== document.body && !target.isContentEditable)
+				(!target.isContentEditable && target.closest(OWN_ENTER) !== null)
 			) {
 				return;
 			}

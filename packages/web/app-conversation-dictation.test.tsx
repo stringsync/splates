@@ -136,6 +136,44 @@ describe("App's composer mic", () => {
 		expect(microphone.open).toBe(false);
 	});
 
+	it("sends with Enter while focus sits on a button outside the composer", async () => {
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		act(() => microphone.speak(" more"));
+		const row = view.getByRole("button", { name: "Archived" });
+
+		await act(async () => {
+			expect(fireEvent.keyDown(row, { key: "Enter" })).toBe(false);
+		});
+
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toHaveLength(1),
+		);
+	});
+
+	it("leaves Enter to a field typed in elsewhere", async () => {
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		const field = document.createElement("input");
+		document.body.append(field);
+
+		expect(fireEvent.keyDown(field, { key: "Enter" })).toBe(true);
+		field.remove();
+
+		expect(view.getByRole("button", { name: "Stop dictation" })).toBeTruthy();
+		expect(testing.posted(`/api/conversations/${talk.id}/prompt`)).toHaveLength(
+			0,
+		);
+	});
+
 	it("stops startup with Escape as Cancel dictation does", async () => {
 		microphone.speak = () => {};
 		const { view } = await composer();
