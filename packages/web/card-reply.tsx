@@ -130,6 +130,24 @@ export function repliesToReview(
 }
 
 /**
+ * Whether the person's message at `index` is the reply to a proposal: the
+ * first of theirs, past splates's updates, after a message making one.
+ */
+export function repliesToProposal(
+	messages: readonly ThreadMessage[],
+	index: number,
+): boolean {
+	return (
+		repliedTo(messages, index)?.content.some(
+			(part) =>
+				part.type === "data" &&
+				part.name === "questions" &&
+				(part.data as { proposal: unknown }).proposal != null,
+		) ?? false
+	);
+}
+
+/**
  * The message asking the person something that theirs at `index` replies
  * to, past splates's updates; null where theirs follows another of theirs.
  */

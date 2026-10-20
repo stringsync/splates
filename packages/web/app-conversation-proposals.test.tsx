@@ -24,8 +24,14 @@ describe("App's questions card under a proposal", () => {
 		testing.dispose();
 	});
 
-	/** A proposal resting on the calls `asked` lists, as a numbered list. */
-	const proposing = (asked: string[]) =>
+	/**
+	 * A proposal resting on the calls `asked` lists, as a numbered list, and
+	 * the messages `after` it.
+	 */
+	const proposing = (
+		asked: string[],
+		after: ReturnType<typeof message>[] = [],
+	) =>
 		conversation({
 			title: "Header",
 			messages: [
@@ -46,6 +52,7 @@ describe("App's questions card under a proposal", () => {
 						...asked,
 					].join("\n"),
 				),
+				...after,
 			],
 		});
 
@@ -77,6 +84,17 @@ describe("App's questions card under a proposal", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "[SPLATES APPROVE]" } },
 		]);
+	});
+
+	it("says once that it was approved, in the card's line alone", async () => {
+		const view = await testing.openConversations([
+			proposing([], [message("user", "[SPLATES APPROVE]")]),
+		]);
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toBe("Proposal approvedShow");
+		expect(view.queryByTitle("[SPLATES APPROVE]")).toBeNull();
 	});
 
 	it("replies, approving nothing, once a pick differs from what it chose", async () => {

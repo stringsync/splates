@@ -10,6 +10,7 @@ import {
 } from "@assistant-ui/react";
 import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import {
+	APPROVE,
 	leadingDirectives,
 	MERGE,
 } from "@stringsync/splates-server/plans/browser";
@@ -29,7 +30,7 @@ import {
 } from "react";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { lineCardHeight } from "#web/board.ts";
-import { repliesToReview } from "#web/card-reply.tsx";
+import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	useAnchorAtOnce,
@@ -165,10 +166,13 @@ export const UserMessage: FC = () => {
 			.flatMap((part) => (part.type === "text" ? [part.text] : []))
 			.join("\n"),
 	);
-	// A review's Merge, which the review's own line says was approved.
-	const merged = useAuiState(
+	// A review's Merge or a proposal's Approve, which the card's own line
+	// says was approved.
+	const approved = useAuiState(
 		(s) =>
-			sole === MERGE && repliesToReview(s.thread.messages, s.message.index),
+			(sole === MERGE && repliesToReview(s.thread.messages, s.message.index)) ||
+			(sole === APPROVE &&
+				repliesToProposal(s.thread.messages, s.message.index)),
 	);
 	const sent = sentOf(attachments);
 	if (sole !== null && sent.length === 0 && isBare(sole)) {
@@ -178,10 +182,10 @@ export const UserMessage: FC = () => {
 			<div
 				data-slot="aui_user-message-root"
 				data-message-id={id}
-				className={merged ? undefined : "px-2"}
+				className={approved ? undefined : "px-2"}
 				data-role="user"
 			>
-				{!merged && <DirectiveLine directive={sole} at={at} />}
+				{!approved && <DirectiveLine directive={sole} at={at} />}
 			</div>
 		);
 	}
