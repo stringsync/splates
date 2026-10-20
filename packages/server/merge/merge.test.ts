@@ -409,6 +409,25 @@ describe.concurrent("merge", () => {
 		expect((await deps.heavy.read()).running).toEqual([]);
 	});
 
+	// scry-ignore simple-test-setup: each case owns a separate repo, as the heavy-slot case beside it does.
+	it("claims cores first in line around the gate, passing them down to it", async () => {
+		await using deps = await Testing.open();
+		const seen = join(deps.splatesHome, "seen.json");
+		deps.config.preMerge = `cp ${join(deps.splatesHome, "cores.json")} ${seen} && test -n "$SPLATES_CORES"`;
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const during = JSON.parse(await deps.fs.read(seen));
+		expect(during.running).toMatchObject([
+			{ what: "preMerge in alpha", first: true },
+		]);
+		expect((await deps.cores.read()).running).toEqual([]);
+	});
+
 	// scry-ignore simple-test-setup: each concurrent case owns a separate repo; shared beforeEach state would race other merges.
 	it("keeps the slow tests of the JUnit report the gate wrote at $SPLATES_TEST_REPORT", async () => {
 		await using deps = await Testing.open();

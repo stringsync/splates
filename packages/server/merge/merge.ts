@@ -8,6 +8,7 @@ import type { Git } from "../git";
 import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import { freedLine, type Slots } from "../ports";
 import type { Facts, Journal } from "../records";
+import type { CoreClaims } from "../server/shared";
 import type { WorktreeService } from "../tasks";
 import { recommend, recommendation } from "../tasks";
 import type { Shell } from "../terminal";
@@ -46,6 +47,7 @@ export async function merge(
 		fs,
 		slots,
 		heavy,
+		cores,
 		branches,
 		trunk,
 		relayed = false,
@@ -61,6 +63,7 @@ export async function merge(
 		fs: Fs;
 		slots: Slots;
 		heavy: HeavyCap;
+		cores: CoreClaims;
 		branches: TaskBranches;
 		trunk: TrunkLanding;
 		/** Whether this runs on a worker, whose records are the coordinator's. */
@@ -174,7 +177,7 @@ export async function merge(
 	// leave a dead merge's `merging` status showing another landing.
 	worktree = await worktree.take({ status: "working" });
 	const state = new MergeState(worktree);
-	const runner = new MergeGate(git, shell, fs, heavy, config);
+	const runner = new MergeGate(git, shell, fs, heavy, cores, config, log);
 	await using _capacity = await runner.reserve(task);
 	const treeLock = service.storage.lock(`merge-trees/${task}.lock`);
 	await treeLock.acquire();

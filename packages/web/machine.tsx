@@ -148,11 +148,25 @@ function JobList({
 			{jobs.map((job) => (
 				<li key={`${job.pid}-${job.since}`} className="truncate">
 					{job.task !== null && <span>{job.task} · </span>}
-					<span className="font-mono text-muted-foreground">{job.what}</span>
+					{mergeGate(job) ? (
+						<span className="text-success" title={job.what}>
+							merge
+						</span>
+					) : (
+						<span className="font-mono text-muted-foreground">{job.what}</span>
+					)}
 				</li>
 			))}
 		</ul>
 	);
+}
+
+/**
+ * Whether a merge's gate runs the job, which the others wait on: splates
+ * names each it runs, retests included, from `preMerge`.
+ */
+function mergeGate(job: HeavyJob): boolean {
+	return job.what.startsWith("preMerge");
 }
 
 function Meter({

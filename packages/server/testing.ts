@@ -18,7 +18,7 @@ import { MACHINE_HOME, SLOT, Slots } from "./ports";
 import { Projects } from "./projects";
 import { Format, Journal } from "./records";
 import { assets } from "./server";
-import { HEAVY_HELD } from "./server/shared";
+import { CoreClaims, HEAVY_HELD } from "./server/shared";
 import { Adherence, Outcomes } from "./stats";
 import { FsStorage } from "./storage";
 import { WorktreeService } from "./tasks";
@@ -59,6 +59,8 @@ export class Testing implements AsyncDisposable {
 	readonly shell: Shell;
 	/** The heavy-job slots the commands under test take, never the machine's, so a test never waits on a real job. */
 	readonly heavy: HeavyJobs;
+	/** The cores a merge under test claims, never the machine's. */
+	readonly cores: CoreClaims;
 	readonly journal: Journal;
 	/** The project's storage, under `splatesDir`. */
 	readonly storage: FsStorage;
@@ -148,6 +150,12 @@ export class Testing implements AsyncDisposable {
 			cap: 2,
 			held: HEAVY_HELD,
 		});
+		this.cores = CoreClaims.under(this.splatesHome, {
+			fs: this.fs,
+			ps: this.ps,
+			log: this.log,
+			budget: 4,
+		});
 		this.journal = new Journal(this.storage, this.config.logCapacity, {
 			ps: this.ps,
 		});
@@ -175,6 +183,7 @@ export class Testing implements AsyncDisposable {
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
 			SPLATES_HEAVY,
+			SPLATES_CORES,
 			...inherited
 		} = process.env;
 		// The same under their old `ARBOR_*` names, which splates still reads.

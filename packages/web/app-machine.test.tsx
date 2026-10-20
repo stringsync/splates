@@ -65,7 +65,7 @@ describe("App's machine stats", () => {
 		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 
-	it("says the Mac is busy while a heavy job waits, naming what runs and what waits", async () => {
+	it("says the Mac is busy while a heavy job waits, naming what runs and what waits, a merge's as a merge", async () => {
 		testing.machine = reading({
 			heavy: {
 				cap: 2,
@@ -73,7 +73,10 @@ describe("App's machine stats", () => {
 					job("preMerge", "alpha", 11),
 					job("splates dev test", "beta", 12),
 				],
-				waiting: [job("postCheckout", "gamma", 13)],
+				waiting: [
+					job("postCheckout", "gamma", 13),
+					job("preMerge", "delta", 14),
+				],
 			},
 		});
 		const view = await testing.open();
@@ -86,10 +89,10 @@ describe("App's machine stats", () => {
 		expect(jobs.textContent).toContain("2 of 2");
 		expect(
 			within(jobs).getByRole("list", { name: "Running" }).textContent,
-		).toBe("alpha · preMergebeta · splates dev test");
+		).toBe("alpha · mergebeta · splates dev test");
 		expect(
 			within(jobs).getByRole("list", { name: "Waiting" }).textContent,
-		).toBe("gamma · postCheckout");
+		).toBe("gamma · postCheckoutdelta · merge");
 	});
 
 	it("says how many agents and queued tasks wait for a slot in the header, each agent a tap away to move up", async () => {

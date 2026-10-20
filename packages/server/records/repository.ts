@@ -26,7 +26,11 @@ import { splatesHome } from "../models";
 import { PLAN_FILE, PlanStore, Plans } from "../plans";
 import { Slots } from "../ports";
 import { Projects, type Reach, reaches } from "../projects";
-import { heavyJobsOfMachine } from "../server/shared";
+import {
+	type CoreClaims,
+	coreClaimsOfMachine,
+	heavyJobsOfMachine,
+} from "../server/shared";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { LeaseBeat, type WorkerMachines, WorktreeService } from "../tasks";
@@ -108,6 +112,8 @@ export interface Repository {
 	slots: Slots;
 	/** The machine's slots for test runs and installs, which hooks wait for. */
 	heavy: HeavyCap;
+	/** The machine's cores, which a merge claims around its gate. */
+	cores: CoreClaims;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
 	/**
@@ -420,6 +426,7 @@ export async function openRepository(
 			}),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
+		cores: coreClaimsOfMachine({ fs, ps, log }),
 		creds,
 		splatesDir,
 		config,

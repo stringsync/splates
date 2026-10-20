@@ -14,6 +14,19 @@ export const CORES_RESERVED = 2;
 /** How long a claim waits for its cores before it gives up. */
 export const CORES_TIMEOUT = Duration.mins(5);
 
+/**
+ * What runs inside a claim finds its cores in this variable: a claim it makes
+ * takes those, as `splates dev test` does in a merge's gate, and claims none.
+ */
+export const CORES_HELD = "SPLATES_CORES";
+
+/**
+ * A claim that goes `first` (a merge's gate, which others wait on) joins the
+ * line ahead of ordinary waiters that have waited less than this, so one that
+ * has waited longer keeps the rest of its timeout to get its cores.
+ */
+export const FIRST_PASSES_UNDER = Duration.mins(2);
+
 const POLL = Duration.secs(1);
 
 /** The cores heavy jobs may claim: `SPLATES_HEAVY_CORES`, else all but two. */
@@ -35,6 +48,8 @@ export interface CoreJob {
 	/** The cores it holds, or the fewest it would take while it waits. */
 	cores: number;
 	since: string;
+	/** Whether it went ahead of ordinary waiters, as a merge's gate does. */
+	first?: boolean;
 }
 
 interface CoresFile {
@@ -45,11 +60,13 @@ interface CoresFile {
 /** Cores claimed, which the holder gives back when the job is done. */
 export interface CoreClaim extends AsyncDisposable {
 	readonly cores: number;
+	/** What to add to the environment of what runs in it, to run on these cores. */
+	readonly env: Record<string, string>;
 }
 
 export interface CoreClaimsOptions {
 	fs: Fs;
-	ps: Pick<Ps, "pid" | "alive">;
+	ps: Pick<Ps, "pid" | "alive" | "env">;
 	lock: Lock;
 	log: Logger;
 	/** How many cores the claims share. */
@@ -62,7 +79,8 @@ export interface CoreClaimsOptions {
 /**
  * The machine's cores heavy jobs share, so one test run cannot take them all.
  * `claim` waits first come first served until `min` cores are free, then takes
- * up to `want` of them. A holder that dies gives its cores back by dying.
+ * up to `want` of them; a `first` claim waits ahead of ordinary ones. A holder
+ * that dies gives its cores back by dying.
  */
 export class CoreClaims {
 	readonly #path: string;
@@ -90,16 +108,31 @@ export class CoreClaims {
 		this.#opts = opts;
 	}
 
+	/** How many cores the claims share. */
+	get budget(): number {
+		return this.#opts.budget;
+	}
+
 	async claim({
 		what,
 		want,
 		min = want,
+		first = false,
 	}: {
 		what: string;
 		want: number;
 		min?: number;
+		first?: boolean;
 	}): Promise<CoreClaim> {
 		const { ps, log, budget } = this.#opts;
+		const inherited = Number(ps.env(CORES_HELD));
+		if (Number.isInteger(inherited) && inherited > 0) {
+			return {
+				cores: inherited,
+				env: {},
+				[Symbol.asyncDispose]: async () => {},
+			};
+		}
 		const timeout = this.#opts.timeout ?? CORES_TIMEOUT;
 		const poll = this.#opts.poll ?? POLL;
 		const most = Math.min(want, budget);
@@ -110,6 +143,7 @@ export class CoreClaims {
 			pid: ps.pid,
 			cores: least,
 			since: new Date().toISOString(),
+			...(first ? { first } : {}),
 		};
 		const deadline = Date.now() + timeout.ms;
 		let told = false;
@@ -118,7 +152,7 @@ export class CoreClaims {
 			const held = await this.#change((file) => {
 				const waiting = file.waiting.some((each) => each.id === entry.id)
 					? file.waiting
-					: [...file.waiting, entry];
+					: joined(file.waiting, entry);
 				const free = budget - sum(file.running);
 				if (waiting[0]?.id === entry.id && free >= least) {
 					const cores = Math.min(most, free);
@@ -163,6 +197,7 @@ export class CoreClaims {
 		}
 		return {
 			cores: granted,
+			env: { [CORES_HELD]: String(granted) },
 			[Symbol.asyncDispose]: () => this.#give(entry.id),
 		};
 	}
@@ -241,11 +276,25 @@ export function coreClaimsOfMachine({
 	});
 }
 
+/** The line with `entry` joined: at its end, or a `first` one ahead of young ordinary waiters. */
+function joined(waiting: CoreJob[], entry: CoreJob): CoreJob[] {
+	const at = entry.first
+		? waiting.findIndex(
+				(each) =>
+					!each.first &&
+					Date.now() - Date.parse(each.since) < FIRST_PASSES_UNDER.ms,
+			)
+		: -1;
+	return at === -1
+		? [...waiting, entry]
+		: [...waiting.slice(0, at), entry, ...waiting.slice(at)];
+}
+
 const sum = (jobs: CoreJob[]) =>
 	jobs.reduce((total, each) => total + each.cores, 0);
 
 const describe = (job: CoreJob) =>
-	`${job.what}: ${job.cores} cores (pid ${job.pid}, since ${job.since})`;
+	`${job.what}${job.first ? " (first)" : ""}: ${job.cores} cores (pid ${job.pid}, since ${job.since})`;
 
 const describeAll = (jobs: CoreJob[]) =>
 	jobs.length === 0 ? "nobody" : jobs.map(describe).join("; ");

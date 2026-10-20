@@ -1,6 +1,8 @@
+import type { Logger } from "webappwiz/log";
 import type { Fs, HeavyCap, HeavySlot } from "webappwiz/system";
 import type { Config } from "../config";
 import type { Git } from "../git";
+import type { CoreClaim, CoreClaims } from "../server/shared";
 import type { Shell } from "../terminal";
 
 /** A hook's output and its fresh JUnit report, kept together for attribution. */
@@ -19,19 +21,45 @@ export class MergeGate {
 		private readonly shell: Shell,
 		private readonly fs: Fs,
 		private readonly heavy: HeavyCap,
+		private readonly cores: CoreClaims,
 		private readonly config: Config,
+		private readonly log: Logger,
 	) {}
 
-	/** Reserves capacity before a merge takes a tree lock; retests share it. */
+	/**
+	 * Reserves a heavy slot and cores before a merge takes a tree lock, ahead
+	 * of ordinary claims, since others wait on a merge; the gate and its
+	 * retests run in them, and a `splates dev test` they run claims no more.
+	 */
 	async reserve(task: string): Promise<AsyncDisposable> {
 		if (!this.command) {
 			return { [Symbol.asyncDispose]: async () => {} };
 		}
 		const slot = await this.heavy.take({ what: "preMerge", task });
-		this.reserved = slot;
+		// Half the cores heavy jobs share, so the two gates the default slots
+		// let run at once both fit.
+		const want = Math.max(1, Math.floor(this.cores.budget / 2));
+		// Waiting out the claim's timeout only leaves the gate's own test run
+		// to claim its cores, as it did before merges claimed any.
+		const claim = await this.cores
+			.claim({
+				what: `preMerge in ${task}`,
+				want,
+				min: 1,
+				first: true,
+			})
+			.catch((error: unknown): CoreClaim | null => {
+				this.log.info(`${String(error)}; the gate runs without them`);
+				return null;
+			});
+		this.reserved = {
+			env: { ...slot.env, ...claim?.env },
+			[Symbol.asyncDispose]: async () => {},
+		};
 		return {
 			[Symbol.asyncDispose]: async () => {
 				this.reserved = null;
+				await claim?.[Symbol.asyncDispose]();
 				await slot[Symbol.asyncDispose]();
 			},
 		};

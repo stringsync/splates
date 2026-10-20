@@ -73,7 +73,8 @@ export async function test(opts: TestOptions): Promise<void> {
 	// a worker is a core claimed: when other heavy jobs hold the machine's
 	// cores the run waits (five minutes at most) for half its workers, rather
 	// than starve the server and the agents; asked for workers by number, it
-	// waits for exactly those
+	// waits for exactly those. Run in a merge's gate, it takes the cores the
+	// merge claimed, first in line, and claims none of its own
 	const claims =
 		opts.cores ?? coreClaimsOfMachine({ fs: new NodeFs(), ps, log });
 	await using claim = await claims.claim({

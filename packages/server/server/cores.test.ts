@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { ConsoleLogger } from "webappwiz/log";
 import { MemoryLock, NodeFs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { CoreClaims, coreBudgetOf } from "./cores";
+import { CORES_HELD, CoreClaims, coreBudgetOf } from "./cores";
 
 describe("cores", () => {
 	let dir: string;
@@ -17,10 +17,17 @@ describe("cores", () => {
 	});
 
 	/** The claims of one process, pid `pid`, sharing one file with the rest. */
-	const claims = (pid: number, budget: number, timeout = Duration.secs(5)) =>
+	const claims = (
+		pid: number,
+		budget: number,
+		{
+			timeout = Duration.secs(5),
+			env = {},
+		}: { timeout?: Duration; env?: Record<string, string> } = {},
+	) =>
 		CoreClaims.under(dir, {
 			fs: new NodeFs(),
-			ps: { pid, alive: () => true },
+			ps: { pid, alive: () => true, env: (name) => env[name] },
 			lock,
 			log: new ConsoleLogger(),
 			budget,
@@ -61,10 +68,21 @@ describe("cores", () => {
 
 	it("gives up after the timeout, leaving the line", async () => {
 		await using _first = await claims(1, 8).claim({ what: "a", want: 8 });
-		const second = claims(2, 8, Duration.ms(100));
+		const second = claims(2, 8, { timeout: Duration.ms(100) });
 		await expect(second.claim({ what: "b", want: 8 })).rejects.toThrow(
 			/Waited .* minutes/,
 		);
 		expect((await second.read()).waiting).toEqual([]);
+	});
+
+	it("passes its cores down, so a claim inside it takes those and claims none", async () => {
+		await using outer = await claims(1, 8).claim({ what: "preMerge", want: 4 });
+		expect(outer.env).toEqual({ [CORES_HELD]: "4" });
+		await using inner = await claims(1, 8, { env: outer.env }).claim({
+			what: "splates dev test",
+			want: 8,
+		});
+		expect(inner.cores).toBe(4);
+		expect((await claims(2, 8).read()).running).toHaveLength(1);
 	});
 });
