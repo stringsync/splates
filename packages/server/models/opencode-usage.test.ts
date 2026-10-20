@@ -225,6 +225,12 @@ describe("OpenCode usage observations", () => {
 			),
 		).toEqual([12, null]);
 		expect(first?.model).toBe("opencode-go/test");
-		expect((await taskLog(log.log, AT, END))?.usage).toBeUndefined();
+		// Its tokens once, unpriced with no catalog.
+		expect((await taskLog(log.log, AT, END))?.usage).toEqual({
+			input: 12,
+			cached: 0,
+			output: 2,
+			cost: null,
+		});
 	});
 });

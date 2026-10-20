@@ -460,7 +460,8 @@ export class WorktreeService {
 		ending: Ending,
 		opts: DiscardOptions,
 	): Promise<void> {
-		if (!this.outcomes || !state) {
+		const { outcomes } = this;
+		if (!outcomes || !state) {
 			return;
 		}
 		const escalations = state.escalations ?? [];
@@ -481,7 +482,11 @@ export class WorktreeService {
 			conversation === null ? null : this.conversationLog(conversation);
 		const ran = log === null ? null : await ranWith(log);
 		const worked =
-			log === null ? null : await taskLog(log, state.createdAt, endedAt);
+			log === null
+				? null
+				: await taskLog(log, state.createdAt, endedAt, {
+						catalog: () => outcomes.prices.catalog(),
+					});
 		const judged =
 			conversation === null || this.adherence === null
 				? null
@@ -497,7 +502,7 @@ export class WorktreeService {
 						Date.parse(state.createdAt),
 						Date.parse(endedAt),
 					);
-		await this.outcomes.record({
+		await outcomes.record({
 			project: this.git.root,
 			task,
 			base,

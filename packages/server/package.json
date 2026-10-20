@@ -57,6 +57,7 @@
 		"./merge": "./merge/index.ts",
 		"./push/browser": "./push/browser.ts",
 		"./ports": "./ports/index.ts",
+		"./prices": "./prices/index.ts",
 		"./probe-runtime": "./probe-runtime.ts",
 		"./projects": "./projects/index.ts",
 		"./plans": "./plans/index.ts",

@@ -4,6 +4,7 @@ import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import { add, claim, remove, retry } from "../tasks";
 import { Testing } from "../testing";
+import type { Outcome } from "./index";
 
 // Real git in a repo of its own, as in merge.test.ts.
 setDefaultTimeout(30_000);
@@ -313,6 +314,59 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
+	it("prices a Codex task's turns at the API list price of the model each ran on, once Auto moved it there", async () => {
+		await using deps = await Testing.open();
+
+		const usage = await listPriced(deps, "claude", (at) => [
+			{ kind: "agent", agent: "codex" },
+			picked("gpt-6.1-sol"),
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("on it", at(1)),
+			{
+				kind: "usage",
+				usage: {
+					inputTokens: 1_000_000,
+					cachedReadTokens: 10_000_000,
+					outputTokens: 100_000,
+				},
+			},
+			picked("gpt-6-astra"),
+			{ kind: "prompt", text: "harder", at: at(2) },
+			said("on it", at(3)),
+			{ kind: "usage", usage: { inputTokens: 0, outputTokens: 20_000 } },
+		]);
+
+		// $2 + $1 + $1 on 6.1 Sol, then $1 on 6 Astra.
+		expect(usage).toEqual({
+			input: 11_000_000,
+			cached: 10_000_000,
+			output: 120_000,
+			cost: { amount: 5, currency: "USD", listPrice: true },
+		});
+	});
+
+	it("prices an OpenCode task's turns at the confirmed model's API list price, not its plan's", async () => {
+		await using deps = await Testing.open();
+
+		const usage = await listPriced(deps, "opencode", (at) => [
+			{ kind: "prompt", text: "go", at: at(0) },
+			{ kind: "observed-turn", turn: observed("opencode-go/kimi-k3", at(0)) },
+			said("on it", at(1)),
+			costing(0),
+			{
+				kind: "usage",
+				usage: { inputTokens: 1_000_000, outputTokens: 100_000 },
+			},
+		]);
+
+		expect(usage).toEqual({
+			input: 1_000_000,
+			cached: 0,
+			output: 100_000,
+			cost: { amount: 4.5, currency: "USD", listPrice: true },
+		});
+	});
+
 	it("reads usage with no tokens out as never kept, since no turn the task ran ever counted", async () => {
 		await using deps = await Testing.open();
 		const line = (task: string, output: number) =>
@@ -380,6 +434,76 @@ describe.concurrent("outcomes", () => {
 
 const BEFORE = "2000-01-01T00:00:00.000Z";
 
+/** Writes the machine's API list prices, fetched just now so none is fetched. */
+async function listPrices(deps: Testing): Promise<void> {
+	const rate = (input: number, output: number, cacheRead: number) => ({
+		input,
+		output,
+		cacheRead,
+		cacheWrite: input,
+		tiers: [],
+	});
+	await deps.fs.write(
+		join(deps.splatesHome, "prices.json"),
+		JSON.stringify({
+			fetchedAt: Date.now(),
+			catalog: {
+				"openai/gpt-6-astra": rate(10, 50, 1),
+				"openai/gpt-6.1-sol": rate(2, 10, 0.1),
+				"opencode-go/kimi-k3": rate(3, 15, 0.3),
+			},
+		}),
+	);
+}
+
+/**
+ * The usage task `alpha` merges with, its conversation `c1` on `agent`
+ * logging `lines`, timed from when it began, with list prices to hand.
+ */
+async function listPriced(
+	deps: Testing,
+	agent: string,
+	lines: (at: (step: number) => string) => object[],
+): Promise<Outcome["usage"]> {
+	deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
+	const worktree = await committed(deps, "one\n");
+	await listPrices(deps);
+	await logged(deps, lines(await stepsFromStart(deps)), agent);
+	await Bun.sleep(60);
+	await merge(deps, worktree);
+	return (await deps.outcomes.list())[0]?.usage;
+}
+
+/** An OpenCode turn begun `at` on `model`. */
+function observed(model: string, at: string): object {
+	return {
+		at,
+		until: null,
+		firstText: null,
+		requested: model,
+		confirmed: model,
+		cwd: null,
+		tokens: null,
+	};
+}
+
+/** The agent's settings, `model` picked. */
+function picked(model: string): object {
+	return {
+		kind: "settings",
+		settings: [
+			{
+				id: "model",
+				name: "Model",
+				type: "select",
+				category: "model",
+				current: model,
+				options: [],
+			},
+		],
+	};
+}
+
 /** Task `alpha`, with `text` committed and its plan finished: ready to merge. */
 async function committed(deps: Testing, text: string): Promise<string> {
 	await add(deps, "alpha");
@@ -399,12 +523,16 @@ async function stepsFromStart(
 	return (step) => new Date(began + step * 10).toISOString();
 }
 
-/** Writes conversation `c1`'s log: its start, then `lines`. */
-async function logged(deps: Testing, lines: object[]): Promise<void> {
+/** Writes conversation `c1`'s log: its start on `agent`, then `lines`. */
+async function logged(
+	deps: Testing,
+	lines: object[],
+	agent = "claude",
+): Promise<void> {
 	await deps.fs.mkdir(join(deps.splatesDir, "conversations"));
 	await deps.fs.write(
 		join(deps.splatesDir, "conversations", "c1.jsonl"),
-		[{ kind: "start", id: "c1", agent: "claude", task: null }, ...lines]
+		[{ kind: "start", id: "c1", agent, task: null }, ...lines]
 			.map((line) => `${JSON.stringify(line)}\n`)
 			.join(""),
 	);
@@ -432,7 +560,7 @@ function said(text: string, at: string): object {
 	};
 }
 
-/** Claude saying what the session has cost so far. */
+/** The agent saying what the session has cost so far. */
 function costing(amount: number): object {
 	return {
 		kind: "update",

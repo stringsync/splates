@@ -102,6 +102,26 @@ describe("mergedFacts", () => {
 		expect(facts.stats.map((stat) => stat.high)).toEqual([false]);
 	});
 
+	it("says a cost splates priced at the API's list price is that", () => {
+		const facts = mergedFacts({
+			outcome: merged({
+				usage: {
+					input: 1_500,
+					cached: 0,
+					output: 12_300,
+					cost: { amount: 0.75, currency: "USD", listPrice: true },
+				},
+			}),
+			baseline: null,
+		});
+
+		expect(facts.stats[1]).toMatchObject({
+			label: "Cost",
+			value: "$0.75",
+			detail: "1.5k in · 12.3k out · at API list price",
+		});
+	});
+
 	it("says tokens for an agent that tells no cost, and only the failures an older outcome counted", () => {
 		const facts = mergedFacts({
 			outcome: merged({

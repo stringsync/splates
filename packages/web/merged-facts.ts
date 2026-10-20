@@ -66,7 +66,13 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 		stats.push(
 			outcome.usage.cost === null
 				? { label: "Tokens", value: read, detail: null, high: false }
-				: stat("cost", "Cost", dollars(outcome.usage.cost.amount), read),
+				: stat(
+						"cost",
+						"Cost",
+						dollars(outcome.usage.cost.amount),
+						// Codex and OpenCode say no API cost, so splates priced their tokens.
+						outcome.usage.cost.listPrice ? `${read} · at API list price` : read,
+					),
 		);
 	}
 	if (outcome.size !== undefined) {

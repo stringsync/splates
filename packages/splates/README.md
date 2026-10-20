@@ -405,6 +405,18 @@ test was run. See [the experiment plan](../../designs/opencode-acp.md) for opt-i
 provider restrictions, and the separate paid-overflow control. Fixture checks
 never establish account entitlement or remaining quota.
 
+### Task cost at API list price
+
+Claude says what each session would cost at API rates, and a task's cost is
+that. Codex says no cost, and OpenCode's is its plan's, so for those two splates
+prices each turn's tokens at the public API list price of the model it ran on,
+from [models.dev](https://models.dev), the catalog OpenCode prices models by.
+It keeps a copy in `~/.splates/prices.json`, fetched again once a day, and
+prices a turn at a model's long-context rate once the turn's context passed it.
+The merged card marks such a cost "at API list price". It is an estimate: a
+turn cut short before the agent said its tokens counts nothing, and OpenCode's
+counts leave out its subagents.
+
 ### OpenCode experiment usage
 
 OpenCode's Usage popover shows the last dispatched requested/confirmed full model
@@ -413,7 +425,9 @@ counts. Missing fields read **Unknown**, including optional cache counts. Report
 USD cost is a cumulative session observation, separate from unknown additional
 charges; it is not a subscription invoice. Quota and mixed-model remaining
 allowance stay unknown: consult OpenCode Console and keep **Use balance** disabled.
-Legacy task cost/token aggregates exclude these differently scoped observations.
+A task's cost on its merged card and the Stats page prices these per-turn tokens
+at each confirmed model's API list price instead, as it does Codex's (see Task
+cost at API list price).
 
 See [the manual comparison recipe](../../designs/opencode-acp.md#354-implementation-and-manual-comparison-record)
 for identical baseline files, a results worksheet, provenance and the authorization

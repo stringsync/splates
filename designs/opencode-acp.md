@@ -266,10 +266,9 @@ bodies. Retry status clears on retry start or turn end; cancellation remains usa
 
 Reported cost is not an independently verified additional charge. Charges, quota,
 mixed-model remaining allowance and quota reset times stay unknown; Console is
-the source to consult. OpenCode measurements are deliberately excluded from the
-legacy task aggregate (which assumes additive, fully known tokens and task cost).
-Use the scoped conversation observations for this experiment. Claude/Codex task
-accounting remains unchanged.
+the source to consult. A task's aggregate counts each observed turn's tokens once
+and prices them at the confirmed model's API list price, never the reported
+cost, so it leaves out subagents and is an estimate, not a charge.
 
 ### Prepare the identical baseline (local files only)
 

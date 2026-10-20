@@ -77,6 +77,7 @@ export {
 	FROM_HEADER,
 	IDLE_STOP,
 	listed,
+	runOn,
 	SERVER_TOLD,
 	unused,
 } from "./state";

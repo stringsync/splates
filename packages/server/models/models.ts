@@ -69,6 +69,14 @@ export function pickedModel(settings: Setting[]): string | null {
 		: option.name;
 }
 
+/** The value of the model `settings` has picked, `gpt-6.1-sol`; null when none is offered. */
+export function modelValue(settings: Setting[]): string | null {
+	return (
+		settings.find((each) => each.category === "model" || each.id === "model")
+			?.current ?? null
+	);
+}
+
 /**
  * The agent the conversation logged in `log` runs, and the model it last had
  * picked; null when there is no such log.

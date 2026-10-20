@@ -1,5 +1,6 @@
 import type { Device, Entry } from "../conversations";
 import type { Decision } from "../plans";
+import { Prices } from "../prices";
 import type { Log, Storage } from "../storage";
 import type { DiffSize, MergeFailure, RemoveReason } from "../tasks";
 import type { Finding } from "./findings";
@@ -13,18 +14,23 @@ import { type TaskUsage, taskLog } from "./task-log";
 export class Outcomes {
 	readonly log: Log<Outcome>;
 	/**
-	 * Beside `log`, the usage of the turns tasks ended in, which `splates
-	 * merge` writes its line too early to see. Apart from `log`, so splates
-	 * versions that read only that never mistake one for a task.
+	 * The usage of the turns tasks ended in, which `splates merge` writes its
+	 * line too early to see; `list` adds each to its task.
 	 */
+	// Apart from `log`, so splates versions that read only that never mistake
+	// one for a task.
 	readonly turns: Log<TurnUsage>;
+	/** The API list prices that agents saying no cost of their own are priced at. */
+	readonly prices: Prices;
 
 	constructor(
 		/** The machine's storage, or a test's own. */
 		storage: Storage,
+		prices: Prices = new Prices(storage),
 	) {
 		this.log = storage.log("outcomes.jsonl");
 		this.turns = storage.log("outcome-usage.jsonl");
+		this.prices = prices;
 	}
 
 	async record(outcome: Outcome): Promise<void> {
@@ -71,7 +77,9 @@ export class Outcomes {
 		if (ended?.usage === undefined) {
 			return;
 		}
-		const whole = await taskLog(log, ended.startedAt, until);
+		const whole = await taskLog(log, ended.startedAt, until, {
+			catalog: () => this.prices.catalog(),
+		});
 		if (whole?.usage === undefined) {
 			return;
 		}
@@ -120,6 +128,9 @@ function credited(outcome: Outcome, turn: TurnUsage): Outcome {
 								(usage.cost?.amount ?? 0) + (turn.usage.cost?.amount ?? 0),
 							currency:
 								usage.cost?.currency ?? turn.usage.cost?.currency ?? "USD",
+							...(usage.cost?.listPrice || turn.usage.cost?.listPrice
+								? { listPrice: true }
+								: {}),
 						},
 		},
 	};
@@ -135,8 +146,8 @@ function less(whole: TaskUsage, part: TaskUsage): TaskUsage {
 			whole.cost === null
 				? null
 				: {
+						...whole.cost,
 						amount: whole.cost.amount - (part.cost?.amount ?? 0),
-						currency: whole.cost.currency,
 					},
 	};
 }
