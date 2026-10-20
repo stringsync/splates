@@ -296,7 +296,11 @@ function Conversation({
 						phone={onBack !== null}
 					/>
 				)}
-				<PhoneSheets conversation={id} on={onBack !== null}>
+				<PhoneSheets
+					conversation={id}
+					on={onBack !== null}
+					whole={summary !== true}
+				>
 					<TaskRegistry>
 						{(version) => (
 							<div

@@ -886,6 +886,48 @@ describe("App on a phone", () => {
 		expect(view.getByText("fix the header")).toBeTruthy();
 	});
 
+	it("keeps open the sheet the inbox opened as the conversation is read whole", async () => {
+		const [, first] = [
+			message("user", "fix the header"),
+			message("agent", report),
+		];
+		const summary = conversation({
+			id: "c1",
+			title: "Header",
+			task: "alpha",
+			summary: true,
+			messages: [message("user", "fix the header"), first as never],
+		});
+		// Read whole, the agent's message gains the tool calls a summary drops.
+		const [call] = message("agent", tool({ id: "t1", command: "ls" })).parts;
+		testing.wholes.c1 = {
+			...summary,
+			summary: undefined,
+			messages: summary.messages.map((each, at) =>
+				at === 1 ? { ...each, parts: [call as never, ...each.parts] } : each,
+			),
+		};
+		const view = await testing.openConversations([summary], null, {
+			tasks: [asking],
+		});
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+		await waitFor(() =>
+			view.getByRole("dialog", { name: "3 questions for you" }),
+		);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+		expect(
+			view.getByRole("dialog", { name: "3 questions for you" }),
+		).toBeTruthy();
+	});
+
 	it("goes back to the inbox on closing a sheet the inbox opened", async () => {
 		const view = await testing.openConversations(
 			[

@@ -67,18 +67,27 @@ const SheetsContext = createContext<Sheets | null>(null);
 export function PhoneSheets({
 	conversation,
 	on,
+	whole,
 	children,
 }: {
 	/** The conversation's id, which an arrival names. */
 	conversation: string;
 	/** Whether to: on a phone; beside a sidebar, cards show in full. */
 	on: boolean;
+	/**
+	 * Whether the thread has all its messages. A listing's summary lacks the
+	 * tool calls and thoughts, so reading it whole moves the cards among the
+	 * parts and mounts them anew, closing a sheet opened before.
+	 */
+	whole: boolean;
 	children: ReactNode;
 }): JSX.Element {
 	const all = useRef<Sheet[]>([]);
-	// An arrival before any card came up, as while the thread loads, by the
-	// address it came from: the first to come up opens.
+	// An arrival before any card came up, or before the thread was whole, as
+	// while it loads, by the address it came from: the first to come up opens.
 	const arriving = useRef<string | null>(null);
+	const complete = useRef(whole);
+	complete.current = whole;
 	const [shown, setShown] = useState<Sheet[]>([]);
 	const [inView, setInView] = useState<ReadonlySet<string>>(new Set());
 	const sight = useCallback((id: string, seen: boolean) => {
@@ -101,7 +110,7 @@ export function PhoneSheets({
 			sheet,
 		];
 		setShown(all.current);
-		if (arriving.current !== null) {
+		if (arriving.current !== null && complete.current) {
 			sheet.open(arriving.current);
 			arriving.current = null;
 		}
@@ -117,7 +126,7 @@ export function PhoneSheets({
 	// Beside a sidebar, the thread scrolls to it instead.
 	useArrived(on ? conversation : "", (from) => {
 		const latest = all.current.at(-1);
-		if (latest === undefined) {
+		if (latest === undefined || !complete.current) {
 			arriving.current = from;
 		} else {
 			latest.open(from);

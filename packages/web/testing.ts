@@ -160,6 +160,8 @@ export class Testing implements Resource {
 		agents: AgentChoice[];
 		conversations: ConversationState[];
 	} | null = null;
+	/** What `/api/conversations/<id>` reads whole, for a listed summary, by id. */
+	wholes: Record<string, ConversationState> = {};
 	/** The sessions `/api/conversations/sessions` lists for any task. */
 	sessions: Session[] = [];
 	/** What `/api/migration` says of a project whose records failed to migrate. */
@@ -390,6 +392,11 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/migration") {
 				return Response.json(this.migration);
+			}
+			const whole = /^\/api\/conversations\/([^/]+)$/.exec(route ?? "");
+			const read = this.wholes[decodeURIComponent(whole?.[1] ?? "")];
+			if (read !== undefined) {
+				return Response.json(read);
 			}
 			if (route === "/api/conversations") {
 				return this.talk === null
