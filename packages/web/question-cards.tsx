@@ -19,7 +19,7 @@ import {
 	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
-	PlusIcon,
+	MessageSquarePlusIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -420,22 +420,20 @@ export function QuestionCards({
 						<button
 							type="button"
 							onClick={() => turn(end)}
-							className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-dashed px-4 py-2 text-left text-muted-foreground active:bg-muted"
+							className="flex min-h-14 w-full items-center gap-3 rounded-xl bg-muted px-3 py-2.5 text-left active:bg-muted/70"
 						>
-							{written.more.trim() === "" ? (
-								<PlusIcon className="size-4 shrink-0" />
-							) : null}
-							<span className="min-w-0 flex-1 truncate text-sm">
-								{written.more.trim() === "" ? (
-									"Anything else?"
-								) : (
-									<>
-										<span className="text-foreground">Anything else:</span>{" "}
-										{written.more.trim()}
-									</>
-								)}
+							<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-primary">
+								<MessageSquarePlusIcon className="size-4.5" />
 							</span>
-							<ChevronRightIcon className="size-4 shrink-0" />
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="font-medium text-sm">Anything else?</span>
+								<span className="truncate text-muted-foreground text-xs">
+									{written.more.trim() === ""
+										? "Something the questions didn't cover"
+										: written.more.trim()}
+								</span>
+							</span>
+							<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
 						</button>
 					</div>
 				)}

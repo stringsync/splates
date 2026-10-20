@@ -522,7 +522,7 @@ describe("App on a phone", () => {
 			within(sheet).queryByRole("textbox", { name: "Anything else" }),
 		).toBeNull();
 		expect(within(sheet).queryByRole("button", { name: "Back" })).toBeNull();
-		const button = (name: string) =>
+		const button = (name: string | RegExp) =>
 			within(sheet).getByRole("button", { name });
 
 		// A pick, of one or all that apply, leaves it to Next to go on.
@@ -554,7 +554,7 @@ describe("App on a phone", () => {
 		expect(
 			within(sheet).queryByRole("textbox", { name: "Anything else" }),
 		).toBeNull();
-		await act(async () => fireEvent.click(button("Anything else?")));
+		await act(async () => fireEvent.click(button(/^Anything else\?/)));
 
 		// Its screen: what else to say, each question a tap back, and Send.
 		expect(within(sheet).queryByRole("list", { name: "questions" })).toBeNull();
