@@ -10,7 +10,6 @@ import {
 	answerIn,
 	besides,
 	changes,
-	directive,
 	isEmpty,
 	replyOf,
 	takenOf,
@@ -38,8 +37,9 @@ import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
+import { questionOutcome } from "./question-outcome";
 import { Refusal, useRefusal } from "./refusal";
-import { SplatesEvent, type Words } from "./splates-event";
+import { SplatesEvent } from "./splates-event";
 
 /**
  * The questions as a panel answered by keyboard alone: a letter picks a
@@ -476,6 +476,7 @@ export function QuestionCards({
 								</Button>
 							) : (
 								<Button
+									variant={approving ? "success" : "default"}
 									className="h-11 flex-1 text-base"
 									disabled={empty && !taking}
 									onClick={sendNow}
@@ -513,6 +514,7 @@ export function QuestionCards({
 							</p>
 							<Button
 								size="sm"
+								variant={answer === null && approving ? "success" : "default"}
 								disabled={empty && !taking}
 								onClick={sendNow}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
@@ -540,36 +542,13 @@ export function QuestionCards({
 		<div className="my-6">
 			<SplatesEvent
 				event={{
-					words: doneWords(questions.length, escalation, proposal, sent),
+					words: questionOutcome(questions.length, escalation, proposal, sent),
 					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
 				}}
 			/>
 			{shown && card}
 		</div>
 	);
-}
-
-/**
- * What the line of questions no longer asking says: how many were asked, as a
- * reply need not answer them, or whether the proposal they rest under was
- * approved, and the task an escalation named. `sent` is null when they were
- * asked again below.
- */
-function doneWords(
-	questions: number,
-	escalation: TaskReport | null,
-	proposal: Proposal | null,
-	sent: string | null,
-): Words {
-	const said =
-		proposal === null || sent === null
-			? `Asked ${questions} ${questions === 1 ? "question" : "questions"}`
-			: directive(sent) === APPROVE
-				? "Proposal approved"
-				: "Proposal answered";
-	return escalation === null
-		? [said]
-		: [said, { kind: "task", task: escalation.task }];
 }
 
 /** Puts the caret at the end of what `stop` holds, when it is a box. */
