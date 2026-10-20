@@ -52,3 +52,7 @@ export const Annotate = onDemand(async () => ({
 export const AutoPickPage = onDemand(async () => ({
 	default: (await import("./auto-pick-page")).AutoPickPage,
 }));
+
+export const NotesPage = onDemand(async () => ({
+	default: (await import("./notes-page")).NotesPage,
+}));

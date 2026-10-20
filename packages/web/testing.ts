@@ -45,6 +45,7 @@ import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { RepliedIds } from "./fake-conversation-ids";
 import { FakeDraftFiles } from "./fake-draft-files";
+import { FakeNotes } from "./fake-notes";
 import { FakePageCopies } from "./fake-page-copies";
 import { FakeShell } from "./fake-shell";
 import { FakeStream, type Stream } from "./fake-stream";
@@ -120,6 +121,8 @@ export class Testing implements Resource {
 		providers: [],
 		holders: { workers: [], types: [] },
 	};
+	/** What `/api/notes` lists and `/api/notes/read` reads. */
+	readonly notes = new FakeNotes();
 	/** What `/api/budgets` says of the project's scry budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
@@ -288,6 +291,10 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/workers/keys") {
 				return Response.json(this.workerKeys);
+			}
+			const note = this.notes.respond(path);
+			if (note !== null) {
+				return note;
 			}
 			if (route === "/api/budgets") {
 				await this.readingBudgets;

@@ -223,6 +223,9 @@ function pageIn(hash: string): Page {
 	if (hash === AUTO_PICK || hash === "#auto-pick" || ruleIn(hash) !== null) {
 		return "auto-pick";
 	}
+	if (hash === "#notes") {
+		return "notes";
+	}
 	if (hash === "#setup") {
 		return "setup";
 	}

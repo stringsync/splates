@@ -8,6 +8,7 @@ import {
 	AutomationsPage,
 	AutoPickPage,
 	BudgetPage,
+	NotesPage,
 	SetupPage,
 	StatsPage,
 	Todos,
@@ -84,6 +85,12 @@ export function useAppPages({
 									go("todos");
 									todoView.open(id);
 								}}
+							/>
+						),
+						notes: (
+							<NotesPage
+								feed={available ? talk : null}
+								onOpen={openConversation}
 							/>
 						),
 						stats: <StatsPage report={report} />,

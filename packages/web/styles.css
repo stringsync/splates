@@ -194,6 +194,7 @@
 @source "./notes-audit-card.tsx";
 @source "./auto-pick-log.tsx";
 @source "./auto-pick-page.tsx";
+@source "./notes-page.tsx";
 @source "./meter.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";

@@ -1,5 +1,6 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
+	BookOpenIcon,
 	ChartColumnIcon,
 	GaugeIcon,
 	KanbanIcon,
@@ -37,7 +38,8 @@ export type Page =
 	| "workers"
 	| "automations"
 	| "auto-pick"
-	| "setup";
+	| "setup"
+	| "notes";
 
 /**
  * Each page in the nav, with the shortcut that opens it, if any. Conversations
@@ -61,6 +63,7 @@ export const PAGES: {
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
+	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
 ];
 
@@ -126,6 +129,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	workers: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",
+	notes: "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };
