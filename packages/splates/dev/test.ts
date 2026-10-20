@@ -1,5 +1,9 @@
 import { availableParallelism } from "node:os";
-import { heavyJobsOfMachine } from "@stringsync/splates-server/server";
+import {
+	type CoreClaims,
+	coreClaimsOfMachine,
+	heavyJobsOfMachine,
+} from "@stringsync/splates-server/server";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -10,12 +14,17 @@ export interface TestOptions {
 	evals?: boolean;
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
-	/** Test files run at once; half the cores when left out. */
+	/**
+	 * Test files run at once; half the cores when left out, fewer (down to half
+	 * of that) when the machine's other heavy jobs hold some of its cores.
+	 */
 	workers?: number;
 	ps?: Ps;
 	log?: Logger;
 	/** The machine's heavy-job slots, one of which the run waits for. */
 	heavy?: HeavyCap;
+	/** The machine's cores, which the run claims its workers from. */
+	cores?: CoreClaims;
 	/** How long the run may take before it is stopped. */
 	deadline?: Duration;
 }
@@ -47,7 +56,7 @@ export async function test(opts: TestOptions): Promise<void> {
 	// 0 to 2 at 8, finishing sooner too; one run alone is about 1.5s slower.
 	// Even so, those suites run many times slower under load than alone, so
 	// each test gets 30s rather than 5s.
-	const workers =
+	const want =
 		opts.workers ?? Math.max(1, Math.floor(availableParallelism() / 2));
 	// one of the machine's few heavy-job slots, as splates's `preMerge` takes,
 	// so agents testing at once queue rather than run out of memory; run from
@@ -57,6 +66,18 @@ export async function test(opts: TestOptions): Promise<void> {
 	// task for each slow test; bun keeps printing its own output beside it
 	const report = ps.env("SPLATES_TEST_REPORT");
 	await using slot = await heavy.take({ what: "splates dev test" });
+	// a worker is a core claimed: when other heavy jobs hold the machine's
+	// cores the run waits (five minutes at most) for half its workers, rather
+	// than starve the server and the agents; asked for workers by number, it
+	// waits for exactly those
+	const claims =
+		opts.cores ?? coreClaimsOfMachine({ fs: new NodeFs(), ps, log });
+	await using claim = await claims.claim({
+		what: "splates dev test",
+		want,
+		min: opts.workers === undefined ? Math.max(1, Math.floor(want / 2)) : want,
+	});
+	const workers = claim.cores;
 	// bun's per-test timeout cannot stop a test spinning in a synchronous
 	// loop, and such a run held its slot for ten hours while every add, merge
 	// and conversation on the machine queued behind it. Ending bun's runner

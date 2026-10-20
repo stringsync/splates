@@ -1,4 +1,5 @@
 export { assets } from "./assets";
+export { type CoreClaims, coreClaimsOfMachine } from "./cores";
 export { heavyJobsOfMachine } from "./heavy";
 export { runHeavy } from "./heavy-run";
 export { DEFAULT_PORT } from "./ports";
