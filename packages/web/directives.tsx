@@ -104,9 +104,7 @@ function about(
 			return {
 				kind: "Task",
 				name: argument,
-				open: board.tasks.includes(argument)
-					? () => board.openTask(argument)
-					: undefined,
+				open: () => board.openTask(argument),
 			};
 		default:
 			return {

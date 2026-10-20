@@ -122,6 +122,38 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 	);
 }
 
+/**
+ * The dialog of the newest finished task named `name`, for a tap on a task
+ * that has merged or been removed since something mentioned it.
+ */
+export function FinishedByName({ name }: { name: string }): JSX.Element {
+	const [key, setKey] = useState<string | null | undefined>(undefined);
+	useEffect(() => {
+		let current = true;
+		finishedTasks().then(
+			(read) =>
+				current && setKey(read.find((each) => each.task === name)?.key ?? null),
+			() => current && setKey(null),
+		);
+		return () => {
+			current = false;
+		};
+	}, [name]);
+	if (typeof key === "string") {
+		return <FinishedDialog opened={key} listed={null} />;
+	}
+	return (
+		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
+			<DialogHeader>
+				<DialogTitle>{name}</DialogTitle>
+				<DialogDescription>
+					{key === undefined ? "Reading…" : "No record of this task is kept."}
+				</DialogDescription>
+			</DialogHeader>
+		</DialogContent>
+	);
+}
+
 /** One finished task a line: how it ended, its name, its Goal, and when. */
 function FinishedRow({
 	task,

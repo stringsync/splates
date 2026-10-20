@@ -61,8 +61,8 @@ export function ReferenceChip({
 }
 
 /**
- * A task, named wherever the page mentions one; a tap opens it while it is
- * live, as the page has nothing to show of one merged or removed.
+ * A task, named wherever the page mentions one; a tap opens it, live or
+ * finished.
  */
 export function TaskChip({
 	task,
@@ -78,11 +78,7 @@ export function TaskChip({
 			kind="Task"
 			name={task}
 			title={task}
-			open={
-				board.linked && board.tasks.includes(task)
-					? () => board.openTask(task)
-					: undefined
-			}
+			open={board.linked ? () => board.openTask(task) : undefined}
 			inline={inline}
 		/>
 	);

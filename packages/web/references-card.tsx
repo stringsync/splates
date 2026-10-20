@@ -6,8 +6,8 @@ import { TaskIcon } from "./task-icon";
 
 /**
  * The tasks a conversation references: the one it runs in, any it acted on
- * (added, claimed, merged), in the order it first met them. Those still live
- * open on a tap; merged or removed ones are named and muted. Nothing at all
+ * (added, claimed, merged), in the order it first met them. Each opens on a tap, as
+ * its dialog if live, else as it finished. Nothing at all
  * while it references none.
  */
 export function ReferencesCard({
@@ -32,12 +32,11 @@ export function ReferencesCard({
 			</h3>
 			<ul aria-label="referenced tasks">
 				{tasks.map((task) => {
-					const live = board.linked && board.tasks.includes(task);
 					return (
 						<li key={task}>
 							<button
 								type="button"
-								disabled={!live}
+								disabled={!board.linked}
 								onClick={() => board.openTask(task)}
 								className="flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors enabled:hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0"
 							>

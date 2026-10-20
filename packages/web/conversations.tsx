@@ -44,6 +44,7 @@ import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useExpect } from "./expecting";
+import { FinishedByName } from "./finished-tasks";
 import { useNow } from "./hooks/use-now";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
@@ -310,10 +311,14 @@ export const Conversations = memo(function Conversations({
 			</div>
 			<TodoDialog todo={todo} onClose={() => setOpenedTodo(null)} />
 			<Dialog
-				open={task !== undefined}
+				open={openedTask !== null}
 				onOpenChange={(open) => open || setOpenedTask(null)}
 			>
-				{task && <Task task={task} />}
+				{task ? (
+					<Task task={task} />
+				) : (
+					openedTask !== null && <FinishedByName name={openedTask} />
+				)}
 			</Dialog>
 		</Board>
 	);

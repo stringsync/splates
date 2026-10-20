@@ -223,7 +223,7 @@ describe("linkTasks", () => {
 });
 
 describe("Markdown's task mentions", () => {
-	it("draws a task's branch as its chip, which opens a live task", () => {
+	it("draws a task's branch as its chip, which opens a live or finished task", () => {
 		const opened: string[] = [];
 		const page = render(
 			<Board
@@ -240,8 +240,9 @@ describe("Markdown's task mentions", () => {
 
 		fireEvent.click(page.getByTitle("fix-login"));
 
-		expect(opened).toEqual(["fix-login"]);
-		expect(page.getByTitle("gone-now").tagName).toBe("SPAN");
+		fireEvent.click(page.getByTitle("gone-now"));
+
+		expect(opened).toEqual(["fix-login", "gone-now"]);
 		expect(page.container.querySelector("code")).toBeNull();
 	});
 });
