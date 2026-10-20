@@ -303,7 +303,8 @@ describe.concurrent("splates", () => {
 		expect(await env.fs.exists(die)).toBe(false);
 
 		const stalled = (await rows())[0];
-		expect(stalled?.status).toBe("merging");
+		// Its merge died with it, so it is no longer merging.
+		expect(stalled?.status).toBe("working");
 		expect(stalled?.lease).toBe("stale");
 		expect(
 			await env.gitCli(env.root, "log", "--oneline", "main"),

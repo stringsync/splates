@@ -128,7 +128,14 @@ export class Worktree {
 			return "unknown";
 		}
 		if (state) {
-			return exists ? state.status : "orphaned";
+			if (!exists) {
+				return "orphaned";
+			}
+			// A merge holds the lease it marked `merging` under, so one whose
+			// process died is not merging any more.
+			return state.status === "merging" && !this.leaseHeld
+				? "working"
+				: state.status;
 		}
 		if (exists) {
 			return "unrecorded";

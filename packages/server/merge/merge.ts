@@ -183,7 +183,9 @@ export async function merge(
 			);
 		}
 	}
-	worktree = await worktree.take();
+	// Working until the lock is ours: a merge that died holding it left
+	// `merging` behind, and waiting under that would show two merges at once.
+	worktree = await worktree.take({ status: "working" });
 
 	// Blocks until free: an agent told "busy, try later" goes and edits code in
 	// a branch that is supposed to be frozen.

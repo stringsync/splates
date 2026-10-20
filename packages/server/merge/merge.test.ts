@@ -14,6 +14,9 @@ import { merge } from "./merge";
 // runs in parallel on a busy machine.
 setDefaultTimeout(30_000);
 
+/** Above any pid macOS or Linux hands out, so no process has it. */
+const DEAD_PID = 99_999_999;
+
 describe.concurrent("merge", () => {
 	it("rebases, tests, then fast-forwards trunk", async () => {
 		await using deps = await Testing.open();
@@ -252,6 +255,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	// scry-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
 	it.each(["task", "base"])(
 		"preserves a %s index lock without spending an attempt",
 		async (where) => {
@@ -587,6 +591,56 @@ describe.concurrent("merge", () => {
 		).toBail("lease_lost");
 		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+
+	it("reads a task a dead merge left merging as working", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = await deps.service.find("alpha");
+		await worktree.save({
+			status: "merging",
+			lease: {
+				pid: DEAD_PID,
+				hostname: deps.ps.hostname,
+				heartbeatAt: new Date().toISOString(),
+			},
+		});
+
+		expect((await deps.service.find("alpha")).status).toBe("working");
+	});
+
+	// scry-ignore simple-test-setup: these tests run concurrently, each on deps of its own, so there is no beforeEach to share it
+	it("keeps a task working, not merging, while its merge waits on the lock", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = await deps.service.find("alpha");
+		await deps.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree.path);
+		// What an interrupted merge leaves: `merging` on the record, and the
+		// lock gone with its process, then taken by another task's merge.
+		await worktree.save({ status: "merging" });
+		await deps.lock.acquire();
+		const waiting = Promise.withResolvers<void>();
+		const lock = {
+			acquire: () => {
+				waiting.resolve();
+				return deps.lock.acquire();
+			},
+			release: () => deps.lock.release(),
+			releaseIfOurs: () => deps.lock.releaseIfOurs(),
+		};
+
+		const merged = merge({ ...deps, lock }, worktree.path);
+		await waiting.promise;
+		expect((await deps.service.find("alpha")).state?.status).toBe("working");
+
+		await deps.lock.release();
+		await merged;
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
 	});
 
 	it("serializes: one merge runs its tests and lands before the next starts", async () => {
