@@ -30,10 +30,12 @@ import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
+import { KeptPage } from "./kept-page";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
+import type { PageCopies } from "./page-copies";
 import { usePageMenu } from "./page-menu";
 import { PageShortcuts, PHONE_PAGES, usePageRoute } from "./page-route";
 import { usePageVisits } from "./page-visits";
@@ -73,6 +75,7 @@ export function App({
 	timer,
 	wall,
 	draftFiles,
+	copies,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -90,11 +93,17 @@ export function App({
 	wall?: WallClock;
 	/** Where drafts' files outlive a reload; IndexedDB by default, where there is one. */
 	draftFiles?: DraftFiles | null;
+	/** Where the page keeps what it last drew; IndexedDB by default, where there is one. */
+	copies?: PageCopies | null;
 }): JSX.Element {
+	// What the page last drew of this project, to draw from at once.
+	const [kept] = useState(() => KeptPage.open(copies, timer));
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
 	// would leave the page listening to the one it replaced, showing nothing.
-	const [feed] = useState(() => new Feed(offlineAfter));
+	const [feed] = useState(
+		() => new Feed(offlineAfter, undefined, kept?.snapshot ?? null),
+	);
 	useDisposerEffect(
 		(disposer) => {
 			feed.start();
@@ -114,7 +123,9 @@ export function App({
 	);
 	useOfflineIcon(offline);
 	// Its own feed, since `splates server` holds conversations only when asked to.
-	const [talk] = useState(() => new ConversationFeed(timer, wall));
+	const [talk] = useState(
+		() => new ConversationFeed(timer, wall, undefined, kept?.listing ?? null),
+	);
 	useDisposerEffect(
 		(disposer) => {
 			talk.start();
@@ -133,15 +144,7 @@ export function App({
 	// What was typed and not sent, by conversation and todo: one for the page,
 	// so a prompt composed on the board reaches the composer it opens.
 	const [drafts] = useState(
-		() =>
-			new Drafts(
-				localStorage,
-				draftFiles !== undefined
-					? draftFiles
-					: typeof indexedDB === "undefined"
-						? null
-						: new IndexedDraftFiles(indexedDB),
-			),
+		() => new Drafts(localStorage, IndexedDraftFiles.unlessGiven(draftFiles)),
 	);
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(

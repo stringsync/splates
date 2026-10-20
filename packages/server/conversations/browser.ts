@@ -22,6 +22,7 @@ export {
 	DEVICES,
 	FROM_HEADER,
 	IDLE_STOP,
+	listed,
 	SERVER_TOLD,
 	unused,
 } from "./state";

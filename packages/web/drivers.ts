@@ -1,3 +1,4 @@
+import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { TextNode } from "lexical";
 import type { ConversationsView } from "./testing";
 import {
@@ -266,4 +267,16 @@ export function workTimelines(thread: HTMLElement): HTMLElement[] {
 export function workTimeline(thread: HTMLElement): HTMLElement {
 	unfold(thread);
 	return within(thread).getByRole("list", { name: "timeline" });
+}
+
+/** The name the sidebar lists conversation `id` of `held` under. */
+export function nameIn(held: ConversationState[], id: string): string {
+	const found = held.find((each) => each.id === id);
+	const opening = found?.messages
+		.filter((message) => message.role === "user")
+		.flatMap((message) => message.parts)
+		.flatMap((part) => (part.type === "text" ? [part.text.trim()] : []))
+		.find((text) => text !== "")
+		?.split("\n")[0];
+	return found?.name ?? found?.task ?? found?.title ?? opening ?? "Not started";
 }

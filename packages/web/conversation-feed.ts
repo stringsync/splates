@@ -10,6 +10,7 @@ import type {
 import {
 	type ConversationDelta,
 	ConversationUpdates,
+	listed,
 } from "@stringsync/splates-server/conversations/browser";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -22,8 +23,10 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { scoped } from "./api";
+import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
+import type { PageCopy } from "./page-copy";
 
 /** How long a message goes unanswered before the page says it is still sending. */
 export const STILL_SENDING = Duration.secs(3);
@@ -49,6 +52,12 @@ export interface Sending {
 	dictated: boolean;
 	/** When it was sent, as epoch ms, to tell when it has gone unanswered for `STILL_SENDING`. */
 	at: number;
+}
+
+/** What the page keeps of a listing, to draw from at once when opened again. */
+export interface Listing {
+	agents: AgentChoice[];
+	conversations: ConversationState[];
 }
 
 /** A message the server refused, with why: shown until sent again or taken back. */
@@ -92,6 +101,8 @@ export class ConversationFeed
 	private readonly changedAt = new Map<string, number>();
 	/** How many listings have started, so a listing knows which writes it follows. */
 	private reads = 0;
+	/** Whether a listing has come from the server, which the kept one gives way to. */
+	private heard = false;
 	/** The conversations `whole` is reading, by id. */
 	private readonly reading = new Set<string>();
 	private stream: LiveStream | null = null;
@@ -99,12 +110,14 @@ export class ConversationFeed
 
 	/**
 	 * `timer` and `wall` are what the thread waits and reads the date by;
-	 * `ids` names each message on its way.
+	 * `ids` names each message on its way; `copy` is the listing last kept,
+	 * which the page draws from until the server answers.
 	 */
 	constructor(
 		readonly timer: Timer = new SystemTimer(),
 		readonly wall: WallClock = new SystemWallClock(),
 		private readonly ids: IdProvider = new UuidProvider(),
+		private readonly copy: PageCopy<Listing> | null = null,
 	) {}
 
 	start(): void {
@@ -113,10 +126,39 @@ export class ConversationFeed
 		if (this.stream !== null) {
 			return;
 		}
+		void this.paint();
 		void this.load();
 	}
 
+	/**
+	 * Shows the listing last kept, unless a listing has come since; a refused
+	 * one leaves it, as the server's last word.
+	 */
+	private async paint(): Promise<void> {
+		const kept = this.copy === null ? null : await this.copy.load();
+		if (kept === null || this.heard) {
+			return;
+		}
+		Object.assign(this, {
+			available: true,
+			loading: false,
+			agents: kept.agents,
+		});
+		this.show(kept.conversations);
+	}
+
+	/** Keeps what the server last said, as a listing says it, for the next page. */
+	private kept(): void {
+		this.copy?.keep(() => ({
+			agents: this.agents,
+			conversations: this.recorded.map((each) =>
+				each.summary === true ? each : listed(each),
+			),
+		}));
+	}
+
 	dispose(): void {
+		this.copy?.dispose();
 		this.stream?.dispose();
 		this.stream = null;
 		this.streamed.clear();
@@ -156,6 +198,7 @@ export class ConversationFeed
 				? [state, ...this.recorded]
 				: this.recorded.map((each, index) => (index === at ? state : each)),
 		);
+		this.kept();
 	}
 
 	/**
@@ -194,6 +237,7 @@ export class ConversationFeed
 		this.changedAt.set(id, this.changes++);
 		this.expected.delete(id);
 		this.show(this.recorded.filter((each) => each.id !== id));
+		this.kept();
 	}
 
 	/**
@@ -508,9 +552,9 @@ export class ConversationFeed
 	private async list(): Promise<boolean> {
 		const since = this.changes;
 		const read = this.reads++;
-		const response = await fetch(scoped("/api/conversations")).catch(
-			() => null,
-		);
+		const response = await EARLY_READS.fetch(
+			scoped("/api/conversations"),
+		).catch(() => null);
 		// Off, or a host that may not have them: either way, nothing to show.
 		if (response === null || !response.ok) {
 			this.loading = false;
@@ -522,6 +566,7 @@ export class ConversationFeed
 			conversations: ConversationState[];
 		};
 		Object.assign(this, { available: true, loading: false, agents });
+		this.heard = true;
 		// What streamed while the listing was on its way is newer than it, as
 		// when the stream reopens and a message is said before this answers.
 		const moved = (id: string) => (this.changedAt.get(id) ?? -1) >= since;
@@ -539,6 +584,7 @@ export class ConversationFeed
 					: [each],
 			),
 		]);
+		this.kept();
 		return true;
 	}
 }

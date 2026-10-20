@@ -17,6 +17,16 @@ const STORE = "files";
 export class IndexedDraftFiles implements DraftFiles {
 	private readonly database: Promise<IDBDatabase | null>;
 
+	/** `given`, or, when none is, IndexedDB's where there is one. */
+	static unlessGiven(given: DraftFiles | null | undefined): DraftFiles | null {
+		if (given !== undefined) {
+			return given;
+		}
+		return typeof indexedDB === "undefined"
+			? null
+			: new IndexedDraftFiles(indexedDB);
+	}
+
 	constructor(factory: IDBFactory) {
 		this.database = new Promise((resolve) => {
 			try {

@@ -8,6 +8,7 @@ import { DictationContext } from "./dictation-context";
 import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
+import type { Stale } from "./page-cache";
 import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
 
@@ -60,6 +61,13 @@ document.addEventListener("gesturestart", (event) => event.preventDefault());
 // The worker a phone shows notifications through. A browser only allows one
 // on https or localhost; elsewhere, notifications fall back to the page's own.
 void navigator.serviceWorker?.register("/worker.js").catch(() => {});
+// It serves the page from its cache, and says when what it served was a build
+// from before the server's last restart, which this script would not match.
+navigator.serviceWorker?.addEventListener("message", (event) => {
+	if ((event.data as Stale | undefined)?.type === "splates:reload") {
+		location.reload();
+	}
+});
 
 // The mic needs https or localhost, and a browser with an AudioWorklet to tap
 // it; elsewhere the composer has no mic button.

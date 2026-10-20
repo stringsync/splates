@@ -1,8 +1,9 @@
 /**
- * The page's service worker, which exists only to show notifications: a
- * phone's browser shows one only through a worker's registration, and hears
- * of one the server pushes while the page is frozen only through a worker.
- * It caches nothing, since the page is only of use live.
+ * The page's service worker: it shows notifications, since a phone's browser
+ * shows one only through a worker's registration, and hears of one the
+ * server pushes while the page is frozen only through a worker; and it keeps
+ * the page's own files, so a page opened again draws without waiting on the
+ * network (see `PageCache`). It keeps nothing the server says under `/api`.
  *
  * Clicking a notification focuses a window on the row's project and tells it
  * which row to open, or, with none on that project, opens one at the row's
@@ -10,6 +11,7 @@
  */
 
 import type { Pushed } from "@stringsync/splates-server/push";
+import { PageCache, type PageCaches, type Stale } from "./page-cache";
 
 /** What a notification carries for its click, as `Notifier.show` and a push set it. */
 export interface Opening {
@@ -28,8 +30,10 @@ export interface Opened {
 /** The little of a service worker's scope this uses, which the DOM lib leaves out. */
 interface WorkerScope {
 	skipWaiting(): Promise<void>;
+	caches: PageCaches;
 	clients: {
 		claim(): Promise<void>;
+		get(id: string): Promise<{ postMessage(message: Stale): void } | undefined>;
 		matchAll(options: {
 			type: "window";
 			includeUncontrolled: boolean;
@@ -51,6 +55,15 @@ interface WorkerScope {
 		): Promise<void>;
 	};
 	addEventListener(type: "install", listener: () => void): void;
+	addEventListener(
+		type: "fetch",
+		listener: (event: {
+			request: Request;
+			resultingClientId: string;
+			respondWith(response: Promise<Response>): void;
+			waitUntil(done: Promise<unknown>): void;
+		}) => void,
+	): void;
 	addEventListener(
 		type: "push",
 		listener: (event: {
@@ -74,6 +87,15 @@ scope.addEventListener("install", () => void scope.skipWaiting());
 scope.addEventListener("activate", (event) =>
 	event.waitUntil(scope.clients.claim()),
 );
+
+const cache = new PageCache(scope.caches, scope.clients);
+scope.addEventListener("fetch", (event) => {
+	const answer = cache.respond(event.request, event.resultingClientId);
+	if (answer !== null) {
+		event.respondWith(answer.response);
+		event.waitUntil(answer.after.catch(() => {}));
+	}
+});
 
 scope.addEventListener("notificationclick", (event) => {
 	const notification = event.notification;

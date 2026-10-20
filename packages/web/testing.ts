@@ -40,10 +40,11 @@ import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
-import { agentList, openRow } from "./drivers";
+import { agentList, nameIn, openRow } from "./drivers";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { FakeDraftFiles } from "./fake-draft-files";
+import { FakePageCopies } from "./fake-page-copies";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
 import { NavigationContext, showAddress } from "./navigation";
@@ -196,6 +197,8 @@ export class Testing implements Resource {
 	dictation: Dictation | null = null;
 	/** Where drafts' files are kept across the page's reloads in a test. */
 	readonly draftFiles = new FakeDraftFiles();
+	/** Where the page keeps what the server last said across reloads. */
+	readonly copies = new FakePageCopies();
 	/** What `/api/projects` says a restart would kill. */
 	held: Held[] = [];
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
@@ -533,6 +536,7 @@ export class Testing implements Resource {
 							timer: this.timer,
 							wall: this.wall,
 							draftFiles: this.draftFiles,
+							copies: this.copies,
 						}),
 					),
 				),
@@ -619,18 +623,6 @@ export class Testing implements Resource {
 		globalThis.EventSource = this.#eventSource;
 		globalThis.WebSocket = this.#webSocket;
 	}
-}
-
-/** The name the sidebar lists conversation `id` of `held` under. */
-function nameIn(held: ConversationState[], id: string): string {
-	const found = held.find((each) => each.id === id);
-	const opening = found?.messages
-		.filter((message) => message.role === "user")
-		.flatMap((message) => message.parts)
-		.flatMap((part) => (part.type === "text" ? [part.text.trim()] : []))
-		.find((text) => text !== "")
-		?.split("\n")[0];
-	return found?.name ?? found?.task ?? found?.title ?? opening ?? "Not started";
 }
 
 /** The page as `openConversations` rendered it. */

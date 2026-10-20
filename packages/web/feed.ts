@@ -3,8 +3,10 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 import { scoped } from "./api";
+import { EARLY_READS } from "./early-reads";
 import type { SnapshotExpecter } from "./expecting";
 import { LiveStream } from "./live-stream";
+import type { PageCopy } from "./page-copy";
 
 export type FeedEvents = { changed: undefined };
 
@@ -59,6 +61,8 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	constructor(
 		private readonly offlineAfter: Duration = OFFLINE_AFTER,
 		private readonly timer: Timer = new SystemTimer(),
+		/** The last snapshot kept, which the page draws from until the server answers. */
+		private readonly copy: PageCopy<Snapshot> | null = null,
 	) {}
 
 	start(): void {
@@ -76,6 +80,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 			// back.
 			error: () => this.lost(),
 		});
+		void this.paint();
 		void this.load();
 	}
 
@@ -88,6 +93,20 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		this.unreachable?.dispose();
 		this.unreachable = null;
 		this.expected = [];
+		this.copy?.dispose();
+	}
+
+	/** Shows the snapshot last kept, unless the server has said something since. */
+	private async paint(): Promise<void> {
+		const kept = this.copy === null ? null : await this.copy.load();
+		if (
+			kept !== null &&
+			this.recorded === null &&
+			this.missing === null &&
+			this.outdated === null
+		) {
+			this.show(kept);
+		}
 	}
 
 	/**
@@ -161,7 +180,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	private async read(): Promise<void> {
 		const read = this.reads++;
 		try {
-			const response = await fetch(scoped("/api/snapshot"));
+			const response = await EARLY_READS.fetch(scoped("/api/snapshot"));
 			if (!response.ok) {
 				const refusal = (await response.json().catch(() => null)) as {
 					reason?: string;
@@ -186,6 +205,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 					(each.landed > read && !holds(snapshot, each.patch)),
 			);
 			this.reached({ snapshot, outdated: null, missing: null });
+			this.copy?.keep(() => snapshot);
 		} catch {
 			// The last good snapshot stays on screen: a page that empties itself
 			// because one poll failed is worse than one that admits it is stale.

@@ -40,6 +40,18 @@
 				document.querySelector('meta[name="theme-color"]').content = dark ? "#1d1f23" : "#f3f4f7";
 			} catch {}
 		</script>
+		<!-- The page's first reads, started now rather than once its script has
+		     loaded and mounted: the feeds take each for their first read. See
+		     web/early-reads.ts. -->
+		<script>
+			try {
+				const project = new URLSearchParams(location.search).get("project");
+				const scoped = (path) => (project ? `${path}?${new URLSearchParams({ project })}` : path);
+				window.splatesEarly = new Map(
+					["/api/snapshot", "/api/conversations"].map((path) => [scoped(path), fetch(scoped(path))]),
+				);
+			} catch {}
+		</script>
 		<style>
 			html { background: #f3f4f7; }
 			html.dark { background: #1d1f23; }

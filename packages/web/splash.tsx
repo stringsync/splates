@@ -20,7 +20,7 @@ export function Splash({ shown }: { shown: boolean }): JSX.Element | null {
 		<div
 			aria-hidden="true"
 			className={cn(
-				"fixed inset-0 z-[100] grid place-items-center bg-background text-[96px] leading-none transition-opacity duration-500 ease-out will-change-[opacity]",
+				"fixed inset-0 z-[100] grid place-items-center bg-background text-[96px] leading-none transition-opacity duration-150 ease-out will-change-[opacity]",
 				!shown && "pointer-events-none opacity-0",
 			)}
 			onTransitionEnd={() => {
