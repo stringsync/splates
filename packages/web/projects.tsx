@@ -57,7 +57,7 @@ import { shortPath } from "./short-path";
 import { TITLE } from "./top-bar";
 
 /**
- * The project's name and path, heading the page, as a picker of every
+ * The project's name, and under it its path unless `path` is false, heading the page, as a picker of every
  * project on this machine in order of their names, each marked with how many
  * agents wait on you there: its shortcut, ⌃⌘P unless set otherwise, which no
  * browser takes, opens it, typing narrows it, the arrows and Enter pick.
@@ -73,6 +73,7 @@ export function ProjectSwitcher({
 	bar = false,
 	hash,
 	servers: slots = true,
+	path = true,
 	onPick,
 	className,
 }: {
@@ -85,6 +86,8 @@ export function ProjectSwitcher({
 	hash?: string;
 	/** Whether it lists the slots' servers too, to open another one's page. */
 	servers?: boolean;
+	/** Whether its trigger shows the project's path under its name. */
+	path?: boolean;
 	/** Told of a pick of another project just before the page shows it. */
 	onPick?: (project: ProjectChoice) => void;
 	/** Classes for its trigger, as `flex-1` to take the head's width. */
@@ -247,7 +250,7 @@ export function ProjectSwitcher({
 					) : (
 						<span className="flex min-w-0 flex-col">
 							<h1 className={cn(TITLE, "truncate leading-tight")}>{name}</h1>
-							{here !== undefined && (
+							{path && here !== undefined && (
 								<span className="truncate text-muted-foreground text-xs leading-tight">
 									{shortPath(here.root)}
 								</span>
