@@ -1,6 +1,6 @@
 import type { SecretStore } from "webappwiz/creds";
 import type { Fs } from "webappwiz/system";
-import { FsStorage } from "../storage";
+import { FsStorage, type Storage } from "../storage";
 import { SavedTunnel, type TunnelRecord } from "./saved";
 
 /**
@@ -24,22 +24,23 @@ export async function machineTunnel({
 	fs,
 	home,
 	store,
+	storage = new FsStorage(home, fs),
 }: {
 	fs: Fs;
 	home: string;
 	store: SecretStore;
+	storage?: Storage;
 }): Promise<TunnelRecord | null> {
-	const read = (dir: string) =>
-		SavedTunnel.in(new FsStorage(dir, fs), store).read();
-	const own = await read(home);
+	const read = (storage: Storage) => SavedTunnel.in(storage, store).read();
+	const own = await read(storage);
 	if (own !== null) {
 		return own;
 	}
-	const names = await fs.readdir(home).catch(() => []);
+	const names = await storage.children("");
 	// Each stamp is an ISO time, so the last by name is the last move.
 	const last = names
 		.filter((each) => each.startsWith(ASIDE))
 		.sort()
 		.at(-1);
-	return last === undefined ? null : read(`${home}/${last}`);
+	return last === undefined ? null : read(storage.within(last));
 }

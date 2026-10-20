@@ -38,6 +38,25 @@ export class Roster {
 		}
 	}
 
+	/** The validated document, retaining fields that splates does not interpret. */
+	async read(): Promise<RosterFile | null> {
+		const file = await this.load();
+		this.validate(file);
+		return file as RosterFile | null;
+	}
+
+	/** Edits the latest validated roster under its document's lock. */
+	async update(
+		edit: (file: RosterFile | null) => RosterFile | Promise<RosterFile>,
+	): Promise<void> {
+		await this.doc.update(async (current) => {
+			this.validate(current);
+			const next = await edit(current as RosterFile | null);
+			this.validate(next);
+			return next;
+		});
+	}
+
 	/**
 	 * Writes the defaults when there is no roster yet, saying whether it did,
 	 * so the user has a file to edit rather than a list they cannot see.
@@ -106,7 +125,10 @@ export class Roster {
 
 	/** Every agent on the roster, in its order; the defaults when there is none. */
 	async agents(): Promise<RosterAgent[]> {
-		const json = await this.load();
+		return this.validate(await this.load());
+	}
+
+	private validate(json: unknown): RosterAgent[] {
 		if (json === null) {
 			return DEFAULT_AGENTS;
 		}
@@ -156,6 +178,13 @@ export class Roster {
 interface RosterEntry {
 	id: string;
 	models: RosterModel[];
+	[key: string]: unknown;
+}
+
+/** A validated roster with its unrecognized fields kept for editing. */
+export interface RosterFile {
+	format?: number;
+	agents: RosterAgent[];
 	[key: string]: unknown;
 }
 

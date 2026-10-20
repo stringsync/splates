@@ -1,7 +1,6 @@
-import { FileLock, type Fs, type Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
-import { DEFAULT_AGENTS, Roster } from "../models";
-import { FsStorage } from "../storage";
+import { DEFAULT_AGENTS, type Roster, type RosterFile } from "../models";
 import { OpenCodeModelError } from "./opencode-model-error";
 import {
 	contentPrefix,
@@ -13,13 +12,13 @@ import {
 } from "./opencode-recipe";
 
 /** Only metadata commands. The configuration is embedded in the roster argv so
- * a single atomic rename activates both the models and their experiment policy. */
+ * a single document update activates both the models and their experiment policy. */
 export class OpenCodeModels {
 	/** The Go catalog as last listed, kept briefly so one page read lists it once. */
 	#catalog: { models: Promise<string[]>; at: number } | null = null;
 	readonly recipes: OpenCodeRecipes;
 	constructor(
-		private readonly deps: { fs: Fs; ps: Ps; home: string },
+		private readonly deps: { fs: Fs; ps: Ps; home: string; roster?: Roster },
 		private readonly metadata: OpenCodeMetadata,
 	) {
 		this.recipes = new OpenCodeRecipes(deps);
@@ -79,25 +78,13 @@ export class OpenCodeModels {
 			OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
 		};
 		await this.verify(selection, config, signal, env);
-		const path = `${this.deps.home}/agents.json`;
-		const lock = new FileLock(`${path}.lock`, this.deps);
-		await this.deps.fs.mkdir(this.deps.home, { recursive: true });
-		await lock.acquire();
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		try {
-			const after = await this.roster(
-				await this.recipes.rawRoster(),
-				selection,
-				env,
-			);
-			await this.deps.fs.write(tmp, after);
-			await this.deps.fs.chmod(tmp, 0o600);
+		// Preserve the filesystem boundary's refusal of linked rosters.
+		await this.recipes.rawRoster();
+		await this.recipes.roster.update((current) => {
+			const after = this.roster(current, selection, env);
 			signal.throwIfAborted();
-			await this.deps.fs.rename(tmp, path);
-		} finally {
-			await this.deps.fs.rm(tmp, { force: true }).catch(() => {});
-			await lock.release();
-		}
+			return after;
+		});
 	}
 
 	async verifyStored(
@@ -222,19 +209,18 @@ export class OpenCodeModels {
 			);
 		}
 	}
-	private async roster(
-		raw: string | null,
+	private roster(
+		current: RosterFile | null,
 		selection: OpenCodeSelection,
 		env: Record<string, string>,
-	): Promise<string> {
+	): RosterFile {
 		// Validate using the existing roster contract, then edit the original JSON
 		// so unknown fields, other agents, ordering and custom descriptions survive.
-		await Roster.in(new FsStorage(this.deps.home, this.deps.fs)).agents();
-		const value =
-			raw === null
-				? { format: 1, agents: structuredClone(DEFAULT_AGENTS) }
-				: JSON.parse(raw);
-		const agents = value.agents as Array<Record<string, unknown>>;
+		const value = current ?? {
+			format: 1,
+			agents: structuredClone(DEFAULT_AGENTS),
+		};
+		const agents = value.agents;
 		let agent = agents.find((entry) => entry.id === "opencode");
 		if (agent && !managedArgv(agent.argv)) {
 			throw new OpenCodeModelError(
@@ -242,7 +228,7 @@ export class OpenCodeModels {
 			);
 		}
 		if (!agent) {
-			agent = { id: "opencode", name: "OpenCode Go", models: [] };
+			agent = { id: "opencode", name: "OpenCode Go", argv: [], models: [] };
 			agents.push(agent);
 		}
 		agent.argv = [
@@ -252,7 +238,7 @@ export class OpenCodeModels {
 			"opencode",
 			"acp",
 		];
-		const models = agent.models as Array<Record<string, unknown>>;
+		const models = agent.models;
 		for (const model of new Set([selection.model, selection.auxiliary])) {
 			if (!models.some((entry) => entry.id === model)) {
 				models.push({
@@ -263,7 +249,7 @@ export class OpenCodeModels {
 				});
 			}
 		}
-		return `${JSON.stringify(value, null, "\t")}\n`;
+		return value;
 	}
 }
 

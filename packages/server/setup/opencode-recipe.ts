@@ -1,6 +1,6 @@
-import { FileLock, type Fs, type Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
-import { Roster } from "../models";
+import { Roster, type RosterFile } from "../models";
 import { FsStorage } from "../storage";
 import { OpenCodeModelError } from "./opencode-model-error";
 import type { OpenCodeSelection } from "./opencode-models";
@@ -8,21 +8,30 @@ import type { OpenCodeSelection } from "./opencode-models";
 export interface OpenCodeRecipe extends OpenCodeSelection {
 	config: Record<string, unknown>;
 	env: Record<string, string>;
+	/** The serialized document checked for changes during verification. */
 	raw: string;
 }
 
 export class OpenCodeRecipes {
-	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {}
+	readonly roster: Roster;
+	constructor(
+		private readonly deps: { fs: Fs; ps: Ps; home: string; roster?: Roster },
+	) {
+		this.roster = deps.roster ?? Roster.in(new FsStorage(deps.home, deps.fs));
+	}
 
-	/** Read disk on every revisit; this never asserts readiness or runs a process. */
+	/** Read storage on every revisit; this never asserts readiness or runs a process. */
 	async stored(): Promise<OpenCodeRecipe | null> {
-		const raw = await this.rawRoster();
-		if (raw === null) {
+		await this.checkLink();
+		return this.from(await this.roster.read());
+	}
+
+	private from(file: RosterFile | null): OpenCodeRecipe | null {
+		if (file === null) {
 			return null;
 		}
-		const agents = await Roster.in(
-			new FsStorage(this.deps.home, this.deps.fs),
-		).agents();
+		const raw = JSON.stringify(file);
+		const agents = file.agents;
 		const agent = agents.find((entry) => entry.id === "opencode");
 		if (!agent) {
 			return null;
@@ -76,37 +85,38 @@ export class OpenCodeRecipes {
 
 	/** Only removes the wizard-owned entry; native authentication is untouched. */
 	async disable(signal: AbortSignal): Promise<void> {
-		const lock = new FileLock(`${this.deps.home}/agents.json.lock`, this.deps);
-		await lock.acquire();
-		const path = `${this.deps.home}/agents.json`;
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		try {
-			const recipe = await this.stored();
-			if (!recipe) {
-				return;
-			}
-			const value = JSON.parse(recipe.raw);
-			value.agents = value.agents.filter(
-				(entry: { id: string }) => entry.id !== "opencode",
-			);
-			await this.deps.fs.write(tmp, `${JSON.stringify(value, null, "\t")}\n`);
-			await this.deps.fs.chmod(tmp, 0o600);
-			await this.unchanged(recipe, signal);
-			await this.deps.fs.rename(tmp, path);
-		} finally {
-			await this.deps.fs.rm(tmp, { force: true }).catch(() => {});
-			await lock.release();
+		const recipe = await this.stored();
+		if (!recipe) {
+			return;
 		}
+		await this.roster.update((file) => {
+			signal.throwIfAborted();
+			if (file === null || JSON.stringify(file) !== recipe.raw) {
+				throw new OpenCodeModelError(
+					"The roster changed during the check. Check configuration again.",
+				);
+			}
+			file.agents = file.agents.filter((entry) => entry.id !== "opencode");
+			return file;
+		});
 	}
 
 	async rawRoster(): Promise<string | null> {
-		const path = `${this.deps.home}/agents.json`;
-		if (await this.deps.fs.isSymlink(path)) {
+		await this.checkLink();
+		const file = await this.roster.read();
+		return file === null ? null : JSON.stringify(file);
+	}
+
+	/** Filesystem setup refuses to replace a user's explicitly linked roster. */
+	private async checkLink(): Promise<void> {
+		if (
+			!this.deps.roster &&
+			(await this.deps.fs.isSymlink(`${this.deps.home}/agents.json`))
+		) {
 			throw new OpenCodeModelError(
 				"The roster is a symbolic link. Manage its target explicitly before using setup.",
 			);
 		}
-		return (await this.deps.fs.exists(path)) ? this.deps.fs.read(path) : null;
 	}
 }
 

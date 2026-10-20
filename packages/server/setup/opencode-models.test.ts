@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { DEFAULT_AGENTS } from "../models";
+import { DEFAULT_AGENTS, Roster } from "../models";
+import { MemoryStorage } from "../storage/testing";
 import { type OpenCodeMetadata, OpenCodeModels } from "./opencode-models";
 import type { OpenCodeRecipe } from "./opencode-recipe";
 
@@ -51,7 +52,10 @@ describe("OpenCode model setup", () => {
 			models.verifyStored(recipe, "/project", signal.signal),
 		).rejects.toThrow("no longer listed");
 		opencode.catalog = `${selected.model}\n${selected.auxiliary}\n`;
-		await fs.write("/splates/agents.json", `${recipe.raw} `);
+		await fs.write(
+			"/splates/agents.json",
+			JSON.stringify({ ...JSON.parse(recipe.raw), extra: "changed" }),
+		);
 		await expect(
 			models.verifyStored(recipe, "/project", signal.signal),
 		).rejects.toThrow("roster changed");
@@ -71,6 +75,51 @@ describe("OpenCode model setup", () => {
 			DEFAULT_AGENTS,
 		);
 		expect(await models.recipes.stored()).toBeNull();
+	});
+
+	it("saves, checks and disables a recipe on storage without files", async () => {
+		const storage = new MemoryStorage();
+		models = new OpenCodeModels(
+			{ fs, ps: new FakePs(), home: "/unused", roster: Roster.in(storage) },
+			opencode,
+		);
+		await Promise.all([save(), save()]);
+		const recipe = (await models.recipes.stored()) as OpenCodeRecipe;
+		expect(recipe).toMatchObject(selected);
+		await models.verifyStored(recipe, "/project", signal.signal);
+		expect(await fs.exists("/unused/agents.json")).toBe(false);
+		await models.recipes.disable(signal.signal);
+		expect(await models.recipes.stored()).toBeNull();
+		expect(await Roster.in(storage).agents()).toEqual(DEFAULT_AGENTS);
+	});
+
+	it("preserves another roster edit made while model verification runs", async () => {
+		const run = opencode.run.bind(opencode);
+		opencode.run = async (...args) => {
+			const result = await run(...args);
+			await fs.write(
+				"/splates/agents.json",
+				JSON.stringify({ format: 1, extra: "keep", agents: DEFAULT_AGENTS }),
+			);
+			return result;
+		};
+		await save();
+		expect(JSON.parse(await fs.read("/splates/agents.json")).extra).toBe(
+			"keep",
+		);
+	});
+
+	it("leaves a custom command alone when disabling setup", async () => {
+		const original = JSON.stringify({
+			agents: [
+				{ id: "opencode", name: "Custom", argv: ["wrapper"], models: [] },
+			],
+		});
+		await fs.write("/splates/agents.json", original);
+		await expect(models.recipes.disable(signal.signal)).rejects.toThrow(
+			"custom commands",
+		);
+		expect(await fs.read("/splates/agents.json")).toBe(original);
 	});
 
 	it("lists exact Go IDs once for repeated reads, without prompts", async () => {

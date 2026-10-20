@@ -2,6 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 import * as acp from "@agentclientprotocol/sdk";
 import type { Fs, Ps } from "webappwiz/system";
 import { AgentStream, framed } from "../agents";
+import type { Roster } from "../models";
 import { OpenCodeModelError } from "./opencode-model-error";
 import { OpenCodeModels, type OpenCodeSelection } from "./opencode-models";
 
@@ -45,11 +46,16 @@ export class OpenCodeSetup {
 			home: string;
 			/** Has open projects read the roster again once it changes. */
 			roster?: () => Promise<void>;
+			/** The machine roster; file storage by default. */
+			agents?: Roster;
 		},
 	) {
-		this.models = new OpenCodeModels(deps, {
-			run: (args, signal, env, cwd) => this.command(args, signal, env, cwd),
-		});
+		this.models = new OpenCodeModels(
+			{ ...deps, roster: deps.agents },
+			{
+				run: (args, signal, env, cwd) => this.command(args, signal, env, cwd),
+			},
+		);
 	}
 
 	/** Where Setup runs OpenCode, away from any project's configuration. */

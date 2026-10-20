@@ -1,8 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { agents } from "../agents";
 import { FsStorage } from "../storage";
+import { MemoryStorage } from "../storage/testing";
 import { Testing } from "../testing";
-import { DEFAULT_AGENTS, pickAgent, Roster, traitsOf } from "./roster";
+import {
+	DEFAULT_AGENTS,
+	pickAgent,
+	Roster,
+	type RosterAgent,
+	traitsOf,
+} from "./roster";
 
 async function setup() {
 	const deps = await Testing.open({ init: false });
@@ -11,6 +18,39 @@ async function setup() {
 }
 
 describe("Roster", () => {
+	it("serializes document edits and retains unrecognized fields", async () => {
+		const storage = new MemoryStorage();
+		const roster = Roster.in(storage);
+		await storage.document("agents.json").write({ agents: [], extra: "keep" });
+		await Promise.all([
+			roster.update(async (file) => ({
+				...file,
+				agents: [...(file?.agents ?? []), DEFAULT_AGENTS[0] as RosterAgent],
+			})),
+			roster.update(async (file) => ({
+				...file,
+				agents: [...(file?.agents ?? []), DEFAULT_AGENTS[1] as RosterAgent],
+			})),
+		]);
+		expect(await roster.read()).toEqual({
+			agents: DEFAULT_AGENTS,
+			extra: "keep",
+		});
+	});
+
+	it("refuses to edit a malformed or newer document", async () => {
+		const storage = new MemoryStorage();
+		const doc = storage.document("agents.json");
+		const roster = Roster.in(storage);
+		const edit = () => ({ agents: [] });
+		await doc.write({ agents: "broken" });
+		await expect(roster.update(edit)).toBail("usage");
+		expect(await doc.read()).toEqual({ agents: "broken" });
+		await doc.write({ format: 999, agents: [] });
+		await expect(roster.update(edit)).toBail("outdated");
+		expect(await doc.read()).toEqual({ format: 999, agents: [] });
+	});
+
 	it("chooses models for one agent, keeping the others, its launch arguments and models of its own", async () => {
 		await using deps = await setup();
 		await deps.fs.mkdir(deps.splatesHome, { recursive: true });

@@ -137,6 +137,12 @@ describe("OPENCODE_AREA", () => {
 			`${HOME}/agents.json`,
 			`${await fs.read(`${HOME}/agents.json`)} `,
 		);
+		expect((await statuses())["opencode-ready"]).toBe("done");
+		const roster = JSON.parse(await fs.read(`${HOME}/agents.json`));
+		await fs.write(
+			`${HOME}/agents.json`,
+			JSON.stringify({ ...roster, extra: "changed" }),
+		);
 		expect((await statuses())["opencode-ready"]).toBe("ready");
 	});
 
