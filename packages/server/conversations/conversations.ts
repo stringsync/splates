@@ -167,6 +167,32 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	/**
+	 * Saves `value` as what `agent`'s new conversations start with for its
+	 * setting `id`, one the agent offers, as picked before any is started.
+	 */
+	async chooseDefault(agent: string, id: string, value: string): Promise<void> {
+		const settings = (await this.settings())[agent] ?? [];
+		const setting = settings.find((each) => each.id === id);
+		if (setting === undefined) {
+			fail("usage", `agent '${agent}' has no setting '${id}'`);
+		}
+		if (!setting.options.some((option) => option.value === value)) {
+			fail(
+				"usage",
+				`'${value}' is not a ${setting.name.toLowerCase()} this agent offers`,
+			);
+		}
+		await this.offered?.choose(
+			agent,
+			settings.map((each) =>
+				each.id === id ? { ...each, current: value } : each,
+			),
+			[id],
+		);
+		this.dispatcher.dispatch("settings");
+	}
+
+	/**
 	 * Each agent's plan limits as it last said, from any project, by its id:
 	 * what a new conversation shows before one here says.
 	 */

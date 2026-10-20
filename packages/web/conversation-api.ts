@@ -235,6 +235,19 @@ export async function chooseSetting(
 	});
 }
 
+/** Saves `value` for `agent`'s setting `setting` as what its new conversations start with. */
+export async function chooseDefault(
+	agent: string,
+	setting: string,
+	value: string,
+): Promise<void> {
+	await sendJson("/api/conversations/defaults", "PUT", {
+		agent,
+		id: setting,
+		value,
+	});
+}
+
 /** Names conversation `id` `name`, or back to the agent's title when blank. */
 export async function renameConversation(
 	id: string,

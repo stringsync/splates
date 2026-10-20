@@ -130,6 +130,17 @@ export class ConversationRoutes {
 		return Response.json({});
 	};
 
+	/** Saves a setting a new conversation's agent starts with, before one starts. */
+	readonly chooseDefault = async (request: Request): Promise<Response> => {
+		const { agent, id, value } = await body(request);
+		await this.held().chooseDefault(
+			String(agent ?? ""),
+			String(id ?? ""),
+			String(value ?? ""),
+		);
+		return Response.json({});
+	};
+
 	readonly listConversations = async (): Promise<Response> => {
 		return Response.json(await listing(this.held()));
 	};

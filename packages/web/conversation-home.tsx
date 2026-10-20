@@ -42,6 +42,7 @@ import {
 	withDraft,
 } from "./conversation-address";
 import {
+	chooseDefault,
 	promptConversation,
 	startAutoPick,
 	startConversation,
@@ -267,9 +268,13 @@ export function useNewConversation({
 		<SettingControls
 			settings={offered}
 			current={current}
-			onChange={(setting, value) =>
-				setPicks((picks) => ({ ...picks, [setting.id]: value }))
-			}
+			onChange={(setting, value) => {
+				setPicks((picks) => ({ ...picks, [setting.id]: value }));
+				// Kept as the agent's default now, whether or not this one starts.
+				void chooseDefault(agent, setting.id, value).catch((error: unknown) =>
+					refuseIn(draft, `${setting.name} not kept`, error),
+				);
+			}}
 		/>
 	) : (
 		<span className="px-1.5 text-[11px] text-muted-foreground">

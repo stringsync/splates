@@ -753,6 +753,9 @@ export async function dev(
 						GET: talk(scoped((project) => project.listSessions)),
 						POST: talk(scoped((project) => project.bringSession)),
 					},
+					"/api/conversations/defaults": {
+						PUT: talk(scoped((project) => project.chooseDefault)),
+					},
 					"/api/conversations/limits": {
 						POST: talk(scoped((project) => project.refreshLimits)),
 					},

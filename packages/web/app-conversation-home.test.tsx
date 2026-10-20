@@ -177,6 +177,50 @@ describe("App's conversation home", () => {
 		expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy();
 	});
 
+	it("keeps a setting picked on the home composer as the agent's default at once, with nothing sent", async () => {
+		const settings = [
+			{
+				id: "model",
+				name: "Model",
+				type: "select" as const,
+				category: "model",
+				current: "big",
+				options: [
+					{ value: "big", name: "Big", description: null },
+					{ value: "small", name: "Small", description: null },
+				],
+			},
+		];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", agent: "codex", settings })],
+			null,
+			{},
+			AGENTS.map((agent) => ({
+				...agent,
+				settings: agent.id === "codex" ? settings : [],
+			})),
+		);
+		await openHome();
+		await newWith(view, "Codex");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: "Small" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/defaults")).toEqual([
+				{
+					method: "PUT",
+					body: { agent: "codex", id: "model", value: "small" },
+				},
+			]),
+		);
+		expect(testing.posted("/api/conversations")).toEqual([]);
+	});
+
 	it("recommends no task, lane or todo to take up", async () => {
 		const view = await testing.openConversations([], null, {
 			tasks: [details({ task: "header-wrap" })],

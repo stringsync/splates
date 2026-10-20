@@ -189,6 +189,29 @@ describe("Conversations", () => {
 		expect((await offered.all()).fake).toEqual([]);
 	});
 
+	it("keeps a setting picked before any conversation starts as the agent's default, refusing one it does not offer", async () => {
+		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
+		await until(conversation, "idle");
+		await Bun.sleep(10);
+
+		await shop.chooseDefault("fake", "model", "small");
+
+		const later = new Offered(machine.document("offered.json"));
+		expect(
+			(await later.all()).fake?.map(({ id, current }) => [id, current]),
+		).toEqual([
+			["mode", "ask"],
+			["model", "small"],
+			["fast", "off"],
+		]);
+		await expect(shop.chooseDefault("fake", "model", "huge")).rejects.toThrow(
+			"'huge' is not a model this agent offers",
+		);
+		await expect(shop.chooseDefault("fake", "color", "red")).rejects.toThrow(
+			"agent 'fake' has no setting 'color'",
+		);
+	});
+
 	it("leaves what an agent's sessions offer as the person left it when a queued task assigned the model", async () => {
 		const currents = async () => {
 			// Remembered as each change lands, without waiting on it.

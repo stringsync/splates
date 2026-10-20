@@ -438,6 +438,7 @@ export interface Served extends AsyncResource {
 	listConversations: Handler;
 	showConversation: Handler;
 	refreshLimits: Handler;
+	chooseDefault: Handler;
 	startConversation: Handler;
 	startAutoPick: Handler;
 	tryAutoPick: Handler;
