@@ -59,6 +59,7 @@ the broader proposed coverage in the requirements map.
 | `decisions/approval` | 1 | decisions-approval | agent |
 | `decisions/review-request` | 1 | decisions-review | agent |
 | `decisions/review-follow-up` | 1 | decisions-review | agent |
+| `decisions/conversation-question` | 1 | decisions-conversation | agent |
 | `discovery/implicit` | 1 | discovery-implicit | agent |
 | `discovery/explicit` | 1 | discovery-explicit | agent |
 | `discovery/queue` | 1 | discovery-queue | agent |
@@ -131,6 +132,7 @@ selected real integration, never a prerequisite for this audit.
 | decisions-local / Questions, Keeping Blocked current | #355; `ask` | Agent notes a reversible choice it made, records external action as blocker; answer updates preserve numbering; no premature action | Only unambiguous seeded choices; whether a real decision is wise remains subjective |
 | decisions-approval / Proposing, Questions | #355; `ask` | CLI APPROVE payload; agent parsed proposal/questions, recorded chosen answers; forbid action before approval | Format and state do not establish rationale quality |
 | decisions-review / Merge or review, Demos, Reporting | #355; `review-again` | CLI MERGE payload; agent review request retained, review repeated after follow-up, checks/demo structure and no premature merge | Visual correctness and external verification remain manual/optional |
+| decisions-conversation / In every conversation, Questions | #543; `ask` | With no task open, the agent asks a numbered question with its pick first and `(chosen)`, and starts no task | Whether it asks the question the talk hinges on remains subjective |
 | queue-intake / Queueing tasks, `references/queue.md`, TASK directive | #340; `queued`, `untriaged` | CLI task input/output; agent reads/takes requested queued task, preserves full detail, assigns model, places lane and dependency links | Actual assignee quality is subjective; #339 owns task lifecycle after intake |
 | queue-groom / Queueing tasks | #340 | Agent lists related/taken queued tasks, updates or coordinates without stealing; releases unfinished work | Seed explicit relevance; no unrestricted semantic relevance grader |
 | queue-groomer / GROOM directive, `references/groom.md` | #290 | Groomer shows the backlog task it is told of, folds a duplicate into the open task that asks it and removes it, and never starts or queues a task | Seed an exact duplicate; whether a split or a lane is wise remains subjective |

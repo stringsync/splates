@@ -13,8 +13,10 @@ are synthetic; they establish assertion behavior, not real agent compliance.
 | approval | decisions-approval | APPROVE with explicit answer a recorded on seeded question 3 |
 | review-request | decisions-review | Review requested note, parsed review, task still working |
 | review-follow-up | decisions-review | Seeded review request, repeated parsed review, task still working |
+| conversation-question | decisions-conversation | No task open: numbered question, first choice chosen, still no task |
 
-Seeds create a minimal isolated git repository, disabled fake-agent roster and
+The `conversation-question` seed is the repository alone, with no task, and
+observes only how many tasks are open. Other seeds create a minimal isolated git repository, disabled fake-agent roster and
 local format-1 splates records, then use real `splates add` and `path`. No `init`, network, external service, real worker,
 shared registry edit, or legacy E2E fixture is used. The seed's check command
 is `true`: these cases make no real verification claim. Observation reads the

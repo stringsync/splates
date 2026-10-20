@@ -7,7 +7,7 @@ import { validate } from "./runner";
 
 it("validates independently selectable cases and production directive constants", () => {
 	validate(probes);
-	expect(new Set(probes.map((probe) => probe.id)).size).toBe(6);
+	expect(new Set(probes.map((probe) => probe.id)).size).toBe(7);
 	expect(decisionDirectives).toEqual({
 		approve: "[SPLATES APPROVE]",
 		merge: "[SPLATES MERGE]",

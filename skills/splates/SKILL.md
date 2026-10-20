@@ -1,6 +1,6 @@
 ---
 name: splates
-description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them.
+description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not.
 version: 0.0.47
 ---
 
@@ -20,6 +20,22 @@ goes through `splates merge`. The exception is finishing a rebase left in
 progress (`git add`, `git rebase --continue`), then merging again. A failed
 command prints `{reason}` JSON on stdout and instructions on stderr: do what
 stderr says.
+
+## In every conversation
+
+This skill's ways hold in every conversation in a splates repository, with a
+task open or not: a design talk, or a question answered from the main tree,
+asks, proposes and reports as a task does. A task adds only its record in
+`SPLATES.md`.
+
+Above all, ask every question the user is to answer as an item of a list
+numbered from 1, a lone one as `1.` too: its line ending at its `?`, the why
+indented under it, and, when the answer is one of a few, `- (a) ...` choices,
+your pick first and marked `(chosen)`. Never ask in prose, a bold line or a
+"my lean", or through your harness's own question tool: the `splates server`
+page turns only the list into a card the user answers with a tap.
+[references/questions.md](references/questions.md) has the rest, and
+says what a conversation with no task does with the answers.
 
 ## Directives
 
@@ -75,10 +91,11 @@ which remembers none of it.
   --project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
-- Before asking the user a question, after a reply, or when resuming a task
-  with questions under `## Blocked`: [references/questions.md](references/questions.md),
-  asking, recording answers and keeping Blocked current. Also read it when
-  you cannot go on without the user.
+- Before asking the user a question, in a task or not, after a reply, or
+  when resuming a task with questions under `## Blocked`:
+  [references/questions.md](references/questions.md), asking, reading
+  answers and, in a task, keeping Blocked current. Also read it when you
+  cannot go on without the user.
 - Before making a demo, starting a server for the user to try, attaching
   screenshots or recordings, or creating or managing an artifact:
   [references/demos.md](references/demos.md), demos, hosting and artifacts.
@@ -92,7 +109,8 @@ which remembers none of it.
    `splates add <task> --goal "<what done means>"` before reading any code,
    the Goal one or two lines as you understand it so far, and investigate in
    its worktree: the main tree changes under you as other tasks land, a worktree
-   does not. A question that only needs an answer stays in the main tree.
+   does not. A question that only needs an answer stays in the main tree,
+   asking and answering as In every conversation says.
    `splates claim <task>` resumes a task instead. When the request is a queued task,
    take it as `[SPLATES TASK #N]` says under Directives, and for any other
    directive, do what its row says. Pass `--base <branch>` only when invoked

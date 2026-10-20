@@ -35,12 +35,12 @@ The task set out to stop uploads retrying a 413.
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.
 
-A turn that ends on questions needs no title: say in a line or two where the
+A turn that ends on questions, with a task open or not, needs no title: say in a line or two where the
 work stands, then end with every open question, those left open from earlier
 reports first, as a list numbered from 1 whatever their numbers in
-`SPLATES.md`, after the demo they ask about, if any. Each item carries what
+a task's `SPLATES.md`, after the demo they ask about, if any. Each item carries what
 is needed to answer it: its subject, at most one line of body, the choices
-exactly as in `SPLATES.md` (so a reply of `2. b` names one) with their `Why:`
+exactly as you wrote them (so a reply of `2. b` names one) with their `Why:`
 lines, and each screenshot under the question or choice it shows.
 
 ```markdown

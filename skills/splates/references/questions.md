@@ -9,33 +9,29 @@ is cheap, so when in doubt, ask: the `splates server` page shows your
 questions as a card with your pick already chosen, so the user answers with
 a tap, and you carry on with that pick meanwhile rather than wait.
 
+This holds in every conversation in a splates repository, with a task open
+or not: a design talk in the main tree asks the same way a task does. A task
+only adds the record of its questions under `## Blocked` (see In a task).
+
 Make the rest yourself, the calls the user would not care to weigh in on: a
 name only the code reads, a helper's shape, a log line. Take the better pick
-and carry on, saying nothing of it to the user; write it in a line under
-`## Notes` only when whoever resumes the task would need it.
+and carry on, saying nothing of it to the user; in a task, write it in a line
+under `## Notes` only when whoever resumes the task would need it.
 
-Ask in the format below and nowhere else: a numbered question under `##
-Blocked`, then in your reply as [Reporting](reporting.md) says, a lone question numbered
-`1.` too, so the page shows its question card. Never tuck a question into
-prose or put it through your harness's own question tool, which the page
-cannot show as a card. The task cannot merge
-until it is answered, though the user can answer in chat while you work.
-When an answer overturns a pick you built on, redo that part.
+Ask in your reply, as [Reporting](reporting.md) says, in the format below and
+nowhere else: a numbered list, a lone question numbered `1.` too, so the page
+shows its question card. Never tuck a question into prose, a bold line or a
+"my lean", or put it through your harness's own question tool, which the page
+cannot show as a card. When an answer overturns a pick you built on, redo
+that part.
 
-An answer can reach you mid-turn, as a message that arrives while you work.
-Read it at the next step rather than at the end: record it (see Keeping
-Blocked current), and redo at once what it overturns, before building more on
-the choice. While a question is open, do the work it touches last where your
-plan allows, so an answer that overturns it costs little.
-
-Number questions 1, 2, … in the order you write them; numbers never change,
-and new ones continue from the highest. A question's line is its subject, short
-enough to scan and ending at its `?`, with nothing after it; everything else,
-the why included, goes in markdown lines indented under it, code blocks
-included. When checking your own work, ask for what is wrong rather than
-a bare yes or no. A yes or no decision is one of a few: give it `- (a) ...`
-choices, each saying what happens, never a bare "Yes" or "No", so the answer
-cannot be read two ways. When the answer is one of a few, end with
+Number questions 1, 2, … in the order you write them. A question's line is
+its subject, short enough to scan and ending at its `?`, with nothing after
+it; everything else, the why included, goes in markdown lines indented under
+it, code blocks included. When checking your own work, ask for what is wrong
+rather than a bare yes or no. A yes or no decision is one of a few: give it
+`- (a) ...` choices, each saying what happens, never a bare "Yes" or "No", so
+the answer cannot be read two ways. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Describe every choice, the one you went with too, and mark that one
 `(chosen)`: never a bare "That". List it first, as `(a)`: the `splates server`
@@ -51,22 +47,20 @@ leave it off where the choice says it all. The `splates server` page hides every
 crowd the choices.
 
 ```markdown
-## Blocked
-
-- [x] 1. Should the old upload endpoint stay for a release? → a
-  - (a) Keep it for one release, logging each call (chosen)
-  - (b) Remove it now
-- [ ] 2. What looks wrong in the header at 390px?
-  ![header at 390px](/abs/path/shot.png)
-- [ ] 3. How should existing sessions move to the new tokens?
-  Sessions are keyed by the old cookie.
-  - (a) Migrate each session on its next request (chosen)
-    Why: no one is signed out, and the old cookie still reads for a release.
-  - (b) Sign everyone out once
-- [ ] 4. In what order should the settings pages land?
-  - a. Profile
-  - b. Billing
-  - c. Notifications
+1. Should the old upload endpoint stay for a release?
+   - (a) Keep it for one release, logging each call (chosen)
+   - (b) Remove it now
+2. What looks wrong in the header at 390px?
+   ![header at 390px](/abs/path/shot.png)
+3. How should existing sessions move to the new tokens?
+   Sessions are keyed by the old cookie.
+   - (a) Migrate each session on its next request (chosen)
+     Why: no one is signed out, and the old cookie still reads for a release.
+   - (b) Sign everyone out once
+4. In what order should the settings pages land?
+   - a. Profile
+   - b. Billing
+   - c. Notifications
 ```
 
 Show what a question is about whenever it is something to see: a screenshot,
@@ -75,7 +69,9 @@ worktree, `splates attach` it, and name the path it prints as
 `![what](/abs/path.png)`. The `splates server` page shows an attached file inline,
 in `SPLATES.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
 as a video. Only attached files show there, so never point a question at a
-file anywhere else. Attached from a conversation (`splates server` gives its agents
+file anywhere else. `splates attach` keeps a file with a task, so a question
+with no task open that needs one to look at starts the task first
+(`splates add`). Attached from a conversation (`splates server` gives its agents
 one; an agent outside it passes `--conversation <id>`), a file stays with it
 past the task, so the question still shows it when the user scrolls back;
 attached outside one, it goes when the task does. Either way, one the
@@ -90,14 +86,70 @@ Never gather them above the questions, or ask about them apart from the
 question they are for.
 
 ```markdown
-- [ ] 6. Which style should the action list take?
-  - (a) A rail beside the thread (chosen)
-    ![rail](/abs/path/rail.png)
-  - (b) A bordered panel
-    ![panel](/abs/path/panel.png)
+6. Which style should the action list take?
+   - (a) A rail beside the thread (chosen)
+     ![rail](/abs/path/rail.png)
+   - (b) A bordered panel
+     ![panel](/abs/path/panel.png)
 ```
 
-## When you cannot go on
+## Reading a reply
+
+The user answers in chat. From the `splates server` page, a reply quotes each
+question it answers, its line in bold (`> **How should …?**`), and answers
+under it: the choices picked as `- (b) <its text>`, numbered in the order
+picked for an order, then any words. Anything else they say comes before the
+first quote. Match each quote to an open question by its line, whatever its
+number; questions not quoted stay open. In a task, a quote can come from
+`SPLATES.md` as the page last read it, ahead of your report: when it matches
+no question you have open, as one you changed since, ask again rather than
+guess what it answers. Typed by hand, a reply is a list matching your latest
+report: `2.` is its second question, whatever its number in `SPLATES.md`, and
+items left out stay open. When a reply does not fit your latest report, ask
+rather than guess. Anything the user says can settle an open question without
+naming it; an answer that is not one you can act on leaves it open, to lead
+your next report. A reply about something you did is an instruction.
+
+## Without a task
+
+A conversation with no task, such as a design talk or a question answered
+from the main tree, asks exactly as above, and its answers live in the
+conversation: there is no `SPLATES.md` to record them in. Ask, end your turn,
+and read the user's reply as Reading a reply says. When the talk turns into
+work, `splates add` it, then write each answer that shapes the work under
+`## Notes` and each question still open under `## Blocked`, numbered as you
+asked it, so the task carries on from what the conversation settled.
+
+## In a task
+
+A task asks the same way, and writes each question under `## Blocked` in
+`SPLATES.md` too, before the reply that asks it, so the record outlives your
+session. The task cannot merge until each is answered, though you carry on
+with your pick meanwhile and the user can answer in chat while you work.
+Questions keep their numbers there: numbers never change, and new ones
+continue from the highest, while each reply lists the open ones from 1 as
+[Reporting](reporting.md) says.
+
+```markdown
+## Blocked
+
+- [x] 1. Should the old upload endpoint stay for a release? → a
+  - (a) Keep it for one release, logging each call (chosen)
+  - (b) Remove it now
+- [ ] 3. How should existing sessions move to the new tokens?
+  Sessions are keyed by the old cookie.
+  - (a) Migrate each session on its next request (chosen)
+    Why: no one is signed out, and the old cookie still reads for a release.
+  - (b) Sign everyone out once
+```
+
+An answer can reach you mid-turn, as a message that arrives while you work.
+Read it at the next step rather than at the end: record it (see Keeping
+Blocked current), and redo at once what it overturns, before building more on
+the choice. While a question is open, do the work it touches last where your
+plan allows, so an answer that overturns it costs little.
+
+### When you cannot go on
 
 When questions are still open once everything else is done, or you cannot go
 on without the user (access, a decision, a test only they can run), stop and
@@ -115,7 +167,7 @@ ask. A secret, such as an API token, is a cred to request instead (see
 Never ask whether the work is ready to merge: once the questions are answered
 and the work is done, merge or ask for a review (see [Merge or review](merge.md#merge-or-review)).
 
-## Keeping Blocked current
+### Keeping Blocked current
 
 `## Blocked` is where every question the user sees comes from, so it must say
 what you need right now. Before you continue with any work (after the user
@@ -133,24 +185,13 @@ replies, after `splates claim` returns, and between steps), bring it up to date:
   --remove <old path>`), and point the question at the new one;
 - add each question you now need.
 
-The user answers in chat. From the `splates server` page, a reply quotes each
-question it answers, its line in bold (`> **How should …?**`), and answers
-under it: the choices picked as `- (b) <its text>`, numbered in the order
-picked for an order, then any words. Anything else they say comes before the
-first quote. Match each quote to an open question by its line, whatever its
-number; questions not quoted stay open. A quote can come from `SPLATES.md` as
-the page last read it, ahead of your report: when it matches no question you
-have open, as one you changed since, ask again rather than guess what it
-answers. Typed by hand, a reply is a list matching your latest report: `2.`
-is its second question, whatever its number in `SPLATES.md`, and items left out
-stay open. When a reply does not fit your latest report, ask rather than
-guess. Whenever anything the user says settles an open question, even
-without naming it, write that answer after `→` and check it off, so it is not
-asked again. Check an item off only when its answer is one you can act on;
-anything else stays open and leads your next report. A reply about something
-you did is an instruction. When the user defers or skips a question, check it
-off and carry on without it (for a defer, `splates task defer` it first). Only
-the user answers questions, yours or another agent's.
+Whenever anything the user says settles an open question, even without
+naming it (see Reading a reply), write that answer after `→` and check it
+off, so it is not asked again. Check an item off only when its answer is one
+you can act on; anything else stays open and leads your next report. When the
+user defers or skips a question, check it off and carry on without it (for a
+defer, `splates task defer` it first). Only the user answers questions, yours
+or another agent's.
 
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.

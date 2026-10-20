@@ -112,6 +112,21 @@ const seed: Seed = {
 		};
 	},
 };
+/** The repository alone, for a conversation with no task open. */
+const conversationSeed: Seed = {
+	id: "decisions/conversation",
+	version: "1",
+	fingerprint: "decisions-conversation-v1:seedRepository-v1",
+	async prepare(context) {
+		await seedRepository(context);
+		await seedFile(context, ".git/splates/format", `${FORMAT}\n`);
+	},
+	async observe(context) {
+		const listed = await command(context, ["splates", "list", "--json"]);
+		const tasks = listed.exitCode === 0 ? JSON.parse(listed.stdout) : null;
+		return { "tasks/open": Array.isArray(tasks) ? tasks.length : null };
+	},
+};
 const state = (key: string, equals: Json): Assertion => ({
 	id: key,
 	kind: "state",
@@ -184,6 +199,8 @@ function probe(
 		execution: { kind: "agent", skill: ".agents/skills/splates" },
 	};
 }
+const conversationTalk =
+	"No task is open, and I only want to talk this through before anything is built: should a retry limit live in config or stay a constant in the code? Weigh it, then ask me whatever my answer would change. Build nothing and start no task this turn.";
 const reviewPlan = basePlan.replace(
 	"## Notes\n",
 	"## Notes\n\nReview: requested\n",
@@ -294,8 +311,47 @@ export const probes: Probe[] = [
 		],
 		reviewPlan,
 	),
+	{
+		...probe(
+			"conversation-question",
+			"decisions-conversation",
+			"In every conversation",
+			conversationTalk,
+			[
+				state("tasks/open", 0),
+				{
+					id: "numbered-question",
+					kind: "reply",
+					type: "questions",
+					field: ["questions", "0", "number"],
+					equals: "1",
+				},
+				{
+					id: "chosen-first",
+					kind: "reply",
+					type: "questions",
+					field: ["questions", "0", "choices", "0", "chosen"],
+					equals: true,
+				},
+				gap(
+					"conversation-question-content",
+					"Whether the question is the one the design hinges on, and its choices sound, requires semantic/manual review.",
+				),
+				...noMerge,
+			],
+		),
+		seed: {
+			id: conversationSeed.id,
+			version: conversationSeed.version,
+			data: null,
+		},
+		input: { kind: "message", origin: "user", text: conversationTalk },
+	},
 ];
 
 /** Production directive constants, not CLI emission or agent compliance evidence. */
 export const decisionDirectives = { approve: APPROVE, merge: MERGE };
-export default { probes, seeds: [seed] } satisfies ProbeModule;
+export default {
+	probes,
+	seeds: [seed, conversationSeed],
+} satisfies ProbeModule;
