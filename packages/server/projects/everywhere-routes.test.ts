@@ -126,6 +126,39 @@ describe("dev everywhere", () => {
 		});
 	}, 15_000);
 
+	it("streams metadata deltas after a full copy and resets on reconnect", async () => {
+		await serving(async (port) => {
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+			});
+			const { id } = (await started.json()) as { id: string };
+			const response = await fetch(
+				`http://127.0.0.1:${port}/api/everywhere/events`,
+			);
+			const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+			const initial = await readUntil(reader, '"conversation":');
+			expect(initial).toContain('"messages":[]');
+			await json(port, `/api/conversations/${id}/name`, "PUT", {
+				name: "delta-name",
+			});
+			const delta = await readUntil(reader, '"name":"delta-name"');
+			expect(delta).toContain("event: delta");
+			expect(delta).toContain('"project":"repo"');
+			expect(delta).not.toContain('"agent":');
+			await reader.cancel();
+			const reconnected = await fetch(
+				`http://127.0.0.1:${port}/api/everywhere/events`,
+			);
+			const again = (
+				reconnected.body as ReadableStream<Uint8Array>
+			).getReader();
+			expect(await readUntil(again, '"name":"delta-name"')).toContain(
+				'"conversation":',
+			);
+			await again.cancel();
+		});
+	});
+
 	it("finds a conversation of a project not served yet by its id", async () => {
 		await using _other = await another();
 		let id = "";

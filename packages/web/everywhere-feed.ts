@@ -1,4 +1,8 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import {
+	type ConversationDelta,
+	ConversationUpdates,
+} from "@stringsync/splates-server/conversations/browser";
 import type {
 	EverywhereBoard,
 	EverywhereListing,
@@ -54,6 +58,8 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	private readonly changedAt = new Map<string, number>();
 	private stream: LiveStream | null = null;
 	private holders = 0;
+	private readonly streamed = new Map<string, ConversationState>();
+	private readonly tagged = new WeakMap<object, object>();
 
 	/** Streams until the last holder disposes what this returns. */
 	hold(): Resource {
@@ -86,9 +92,23 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 					project: string;
 					conversation: ConversationState;
 				};
+				this.streamed.set(`${project}/${conversation.id}`, conversation);
 				this.put(project, conversation);
 			},
 			named: {
+				delta: (event) => {
+					const { project, delta } = JSON.parse(event.data) as {
+						project: string;
+						delta: ConversationDelta;
+					};
+					const key = `${project}/${delta.id}`;
+					const before = this.streamed.get(key);
+					if (before !== undefined) {
+						const state = ConversationUpdates.apply(before, delta);
+						this.streamed.set(key, state);
+						this.put(project, state);
+					}
+				},
 				removed: (event) => {
 					const { project, id } = JSON.parse(event.data) as {
 						project: string;
@@ -100,7 +120,10 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 				projects: () => void this.list(),
 			},
 			// Each open, the first too: what moved while it was away was never said.
-			open: () => void this.list(),
+			open: () => {
+				this.streamed.clear();
+				void this.list();
+			},
 		});
 	}
 
@@ -125,6 +148,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	}
 
 	private drop(slug: string, id: string): void {
+		this.streamed.delete(`${slug}/${id}`);
 		const held = this.held.get(slug);
 		if (held === undefined) {
 			return;
@@ -142,6 +166,13 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 		this.changedAt.set(board.project, this.changes++);
 		this.held.set(board.project, {
 			...board,
+			tasks: board.tasks.map((task) => {
+				const before = held?.tasks.find((each) => each.task === task.task);
+				return before !== undefined &&
+					JSON.stringify(before) === JSON.stringify(task)
+					? before
+					: task;
+			}),
 			conversations: held?.conversations ?? [],
 		});
 		this.show();
@@ -186,16 +217,38 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 		this.show();
 	}
 
+	private inProject<T extends object>(value: T, project: string): InProject<T> {
+		const kept = this.tagged.get(value);
+		if (kept !== undefined) {
+			return kept as InProject<T>;
+		}
+		const tagged = { ...value, project };
+		this.tagged.set(value, tagged);
+		return tagged;
+	}
+
 	private show(): void {
 		const all = [...this.held.values()].sort((one, other) =>
 			one.project.localeCompare(other.project),
 		);
-		this.projects = all.map(({ tasks, conversations, ...summary }) => summary);
+		this.projects = all.map(({ tasks, conversations, ...summary }) => {
+			const before = this.projects.find(
+				(each) => each.project === summary.project,
+			);
+			return before !== undefined &&
+				Object.keys(summary).every(
+					(key) => Reflect.get(before, key) === Reflect.get(summary, key),
+				)
+				? before
+				: summary;
+		});
 		this.tasks = all.flatMap(({ project, tasks }) =>
-			tasks.map((task) => ({ ...task, project })),
+			tasks.map((task) => this.inProject(task, project)),
 		);
 		this.conversations = all.flatMap(({ project, conversations }) =>
-			conversations.map((conversation) => ({ ...conversation, project })),
+			conversations.map((conversation) =>
+				this.inProject(conversation, project),
+			),
 		);
 		this.dispatcher.dispatch("changed");
 	}

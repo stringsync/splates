@@ -3,6 +3,7 @@ import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import { type EventSink, eventStream } from "../server/shared";
 import type { Conversations } from "./conversations";
 import type { ConversationState } from "./state";
+import { ConversationUpdates } from "./updates";
 
 /** What a listener hears of a project's conversations. */
 export interface ConversationsHeard {
@@ -15,24 +16,27 @@ export interface ConversationsHeard {
 }
 
 /**
- * Each change to a project's conversations, to its pages' streams and to
- * whatever else listens, such as the every-project feed. Each change
- * carries the whole conversation, since an agent streams in small pieces
- * and a page refetching after each would fall behind. At most one per
- * conversation per beat, the latest, which holds everything before.
+ * Streams each project's conversations at most once per beat. Pages receive
+ * full copies when they connect, then deltas; other listeners receive states.
  */
 export class ConversationStream implements Resource {
 	private readonly pages = new Set<EventSink>();
+	private readonly copies = new Map<EventSink, ConversationUpdates>();
 	private readonly heard = new Set<ConversationsHeard>();
 	/** Each conversation's beat, by id, while it lives. */
 	private readonly beats = new Map<string, Throttler>();
 	private readonly disposer = new Disposer();
 
-	constructor(conversations: Conversations) {
+	constructor(private readonly conversations: Conversations) {
 		const timer = new SystemTimer();
 		this.heard.add({
-			changed: (state) => this.send(`data: ${JSON.stringify(state)}\n\n`),
-			removed: (id) => this.send(`event: removed\ndata: ${id}\n\n`),
+			changed: (state) => this.changed(state),
+			removed: (id) => {
+				for (const copy of this.copies.values()) {
+					copy.drop(id);
+				}
+				this.send(`event: removed\ndata: ${id}\n\n`);
+			},
 			settings: () => this.send("event: settings\ndata: {}\n\n"),
 		});
 		this.disposer.defer(() => this.heard.clear());
@@ -77,7 +81,30 @@ export class ConversationStream implements Resource {
 
 	/** The stream a page listens to. */
 	events(): Response {
-		return eventStream(this.pages);
+		return eventStream(this.pages, {
+			opened: () => {
+				for (const sink of this.pages) {
+					if (this.copies.has(sink)) {
+						continue;
+					}
+					this.copies.set(sink, new ConversationUpdates());
+					void this.conversations.list().then((all) => {
+						if (this.pages.has(sink)) {
+							for (const { state } of all) {
+								this.write(sink, state);
+							}
+						}
+					});
+				}
+			},
+			closed: () => {
+				for (const sink of this.copies.keys()) {
+					if (!this.pages.has(sink)) {
+						this.copies.delete(sink);
+					}
+				}
+			},
+		});
 	}
 
 	/** Tells `heard` of each change a page hears, until the returned function is called. */
@@ -88,6 +115,23 @@ export class ConversationStream implements Resource {
 
 	dispose(): void {
 		this.disposer.dispose();
+	}
+
+	private changed(state: ConversationState): void {
+		for (const sink of this.pages) {
+			this.write(sink, state);
+		}
+	}
+
+	private write(sink: EventSink, state: ConversationState): void {
+		const update = this.copies.get(sink)?.next(state);
+		if (update !== undefined) {
+			sink.enqueue(
+				encoder.encode(
+					`${"changes" in update ? "event: delta\n" : ""}data: ${JSON.stringify(update)}\n\n`,
+				),
+			);
+		}
 	}
 
 	private send(text: string): void {

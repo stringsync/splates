@@ -86,6 +86,54 @@ describe("EverywhereFeed", () => {
 
 	const stream = () => streams.at(-1) as Stream;
 
+	// scry-ignore simple-test-setup: the two projects and their unchanged neighbours are this identity regression's own inputs
+	it("retains other tasks, conversations and project summaries on a streamed delta", async () => {
+		held = feed.hold();
+		const state = conversation({ id: "a1" });
+		await open([
+			project("api", {
+				tasks: [details({ task: "auth" })],
+				conversations: [state, conversation({ id: "a2" })],
+			}),
+			project("web", { conversations: [conversation({ id: "w1" })] }),
+		]);
+		stream().onmessage?.({
+			data: JSON.stringify({ project: "api", conversation: state }),
+		});
+		const task = feed.tasks[0];
+		const other = feed.conversations[1];
+		const elsewhere = feed.conversations[2];
+		const summary = feed.projects[0];
+		stream().named.get("delta")?.({
+			data: JSON.stringify({
+				project: "api",
+				delta: { id: "a1", changes: { name: "Updated" }, removed: [] },
+			}),
+		});
+		expect(feed.conversations[0]?.name).toBe("Updated");
+		expect(feed.tasks[0]).toBe(task);
+		expect(feed.conversations[1]).toBe(other);
+		expect(feed.conversations[2]).toBe(elsewhere);
+		expect(feed.projects[0]).toBe(summary);
+	});
+
+	it("retains unchanged tasks when a board event replaces another task", async () => {
+		held = feed.hold();
+		const auth = details({ task: "auth" });
+		await open([project("api", { tasks: [auth, details({ task: "other" })] })]);
+		const unchanged = feed.tasks[0];
+		const changed = feed.tasks[1];
+		stream().named.get("board")?.({
+			data: JSON.stringify(
+				project("api", {
+					tasks: [auth, details({ task: "other", status: "merging" })],
+				}),
+			),
+		});
+		expect(feed.tasks[0]).toBe(unchanged);
+		expect(feed.tasks[1]).not.toBe(changed);
+	});
+
 	it("streams nothing until held, and stops once the last holder lets go", () => {
 		expect(streams).toEqual([]);
 		held = feed.hold();

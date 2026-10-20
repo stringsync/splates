@@ -7,6 +7,10 @@ import type {
 	Setting,
 	Taking,
 } from "@stringsync/splates-server/conversations";
+import {
+	type ConversationDelta,
+	ConversationUpdates,
+} from "@stringsync/splates-server/conversations/browser";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
@@ -54,9 +58,9 @@ export interface Unsent {
 }
 
 /**
- * The page's copy of every conversation, each replaced whole as the server
- * streams it. `available` stays false when the server holds no
- * conversations. The phone still keeps its Inbox as home.
+ * The page's copy of every conversation, updated as the server streams it.
+ * `available` stays false when the server holds no conversations. The phone
+ * still keeps its Inbox as home.
  */
 export class ConversationFeed
 	implements Eventful<ConversationFeedEvents>, Expecter, Resource
@@ -91,6 +95,7 @@ export class ConversationFeed
 	/** The conversations `whole` is reading, by id. */
 	private readonly reading = new Set<string>();
 	private stream: LiveStream | null = null;
+	private readonly streamed = new Map<string, ConversationState>();
 
 	/**
 	 * `timer` and `wall` are what the thread waits and reads the date by;
@@ -114,6 +119,7 @@ export class ConversationFeed
 	dispose(): void {
 		this.stream?.dispose();
 		this.stream = null;
+		this.streamed.clear();
 		for (const messages of this.sending.values()) {
 			messages.forEach(forget);
 		}
@@ -127,8 +133,21 @@ export class ConversationFeed
 		this.expected.clear();
 	}
 
-	/** Puts `state` in place of what the page had of it, or first when new. */
-	put(state: ConversationState): void {
+	/** Updates a conversation from a whole state or a streamed delta, adding new ones first. */
+	put(update: ConversationState | ConversationDelta): void {
+		const before =
+			this.streamed.get(update.id) ??
+			this.recorded.find((each) => each.id === update.id);
+		if ("changes" in update && before === undefined) {
+			return;
+		}
+		const state =
+			"changes" in update
+				? ConversationUpdates.apply(before as ConversationState, update)
+				: update;
+		if ("changes" in update) {
+			this.streamed.set(state.id, state);
+		}
 		this.settle(state.id);
 		this.changedAt.set(state.id, this.changes++);
 		const at = this.recorded.findIndex((each) => each.id === state.id);
@@ -164,6 +183,7 @@ export class ConversationFeed
 
 	/** Drops conversation `id`, deleted as an older archived one. */
 	drop(id: string): void {
+		this.streamed.delete(id);
 		this.changedAt.set(id, this.changes++);
 		this.expected.delete(id);
 		this.show(this.recorded.filter((each) => each.id !== id));
@@ -430,15 +450,23 @@ export class ConversationFeed
 			return;
 		}
 		this.stream = new LiveStream(scoped("/api/conversations/events"), {
-			message: (event) => this.put(JSON.parse(event.data) as ConversationState),
+			message: (event) => {
+				const state = JSON.parse(event.data) as ConversationState;
+				this.streamed.set(state.id, state);
+				this.put(state);
+			},
 			named: {
+				delta: (event) => this.put(JSON.parse(event.data) as ConversationDelta),
 				removed: (event) => this.drop(event.data),
 				settings: () => void this.list(),
 			},
 			// Back after the stream dropped, as when `splates server` restarts or the
 			// machine wakes: what the page holds may have moved meanwhile, so it
 			// is read again whole.
-			open: (again) => void this.reopened(again),
+			open: (again) => {
+				this.streamed.clear();
+				void this.reopened(again);
+			},
 		});
 	}
 

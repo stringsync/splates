@@ -2,6 +2,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { type LaneRecord, lanesTaken } from "../board";
 import { type ConversationState, listed } from "../conversations";
+import { ConversationUpdates } from "../conversations/browser";
 import type { Served } from "../server/shared";
 import {
 	type EventSink,
@@ -55,13 +56,18 @@ export interface EverywhereBoard {
  * finds any conversation and the focused page never waits on the rest.
  *
  * The stream says:
- * - a conversation, whole, as `data: {project, conversation}`;
+ * - a full conversation on connection, as `data: {project, conversation}`;
+ * - `event: delta` with `{project, delta}` for its later changes;
  * - `event: removed` with `{project, id}`, for one deleted;
  * - `event: board` with an `EverywhereBoard`, when a project's tasks moved;
  * - `event: projects`, when one was served since, to list again.
  */
 export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 	private readonly listeners = new Set<EventSink>();
+	private readonly copies = new Map<
+		EventSink,
+		Map<string, ConversationUpdates>
+	>();
 	/** Each served project heard, by root, while a stream is open. */
 	private readonly heard = new Map<string, Resource>();
 	private opening: Promise<void> | null = null;
@@ -134,17 +140,32 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 	}
 
 	opened(): void {
-		if (this.listeners.size !== 1) {
-			return;
-		}
-		void this.servedNow().then((all) => {
-			for (const [root, project] of all) {
-				this.hear(root, project);
+		for (const sink of this.listeners) {
+			if (this.copies.has(sink)) {
+				continue;
 			}
-		});
+			this.copies.set(sink, new Map());
+			void this.servedNow().then(async (all) => {
+				for (const [root, project] of all) {
+					this.hear(root, project);
+					const slug = await this.slugOf(root);
+					const conversations = (await project.conversations?.list()) ?? [];
+					if (this.listeners.has(sink)) {
+						for (const { state } of conversations) {
+							this.write(sink, slug, listed(state));
+						}
+					}
+				}
+			});
+		}
 	}
 
 	closed(): void {
+		for (const sink of this.copies.keys()) {
+			if (!this.listeners.has(sink)) {
+				this.copies.delete(sink);
+			}
+		}
 		if (this.listeners.size > 0) {
 			return;
 		}
@@ -169,16 +190,17 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 			project.listen({
 				changed: (conversation) =>
 					void slug.then((project) =>
-						this.say(
-							`data: ${JSON.stringify({ project, conversation: listed(conversation) })}\n\n`,
-						),
+						this.changed(project, listed(conversation)),
 					),
 				removed: (id) =>
-					void slug.then((project) =>
+					void slug.then((project) => {
+						for (const copies of this.copies.values()) {
+							copies.get(project)?.drop(id);
+						}
 						this.say(
 							`event: removed\ndata: ${JSON.stringify({ project, id })}\n\n`,
-						),
-					),
+						);
+					}),
 				// The agents and their settings are each project's page's own.
 				settings: () => {},
 				board: () =>
@@ -235,6 +257,32 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				?.slug ??
 			root.split("/").filter(Boolean).at(-1) ??
 			root
+		);
+	}
+
+	private changed(project: string, state: ConversationState): void {
+		for (const sink of this.listeners) {
+			this.write(sink, project, state);
+		}
+	}
+
+	private write(
+		sink: EventSink,
+		project: string,
+		state: ConversationState,
+	): void {
+		const copies = this.copies.get(sink);
+		if (copies === undefined) {
+			return;
+		}
+		const copy = copies.get(project) ?? new ConversationUpdates();
+		copies.set(project, copy);
+		const update = copy.next(state);
+		const delta = "changes" in update;
+		sink.enqueue(
+			encoder.encode(
+				`${delta ? "event: delta\n" : ""}data: ${JSON.stringify({ project, [delta ? "delta" : "conversation"]: update })}\n\n`,
+			),
 		);
 	}
 

@@ -184,6 +184,26 @@ describe("dev conversations", () => {
 		]);
 	});
 
+	it("starts each connection whole and streams later metadata as deltas", async () => {
+		const { id, conversation } = await opened();
+		const events = await get(port, "/api/conversations/events");
+		const reader = (events.body as ReadableStream<Uint8Array>).getReader();
+		const initial = await readUntil(reader, `"id":"${id}"`);
+		expect(initial).toContain('"messages":[]');
+		conversation.state.name = "delta-name";
+		conversation.changed();
+		const delta = await readUntil(reader, '"name":"delta-name"');
+		expect(delta).toContain("event: delta");
+		expect(delta).not.toContain('"agent":');
+		await reader.cancel();
+		const reconnected = await get(port, "/api/conversations/events");
+		const again = (reconnected.body as ReadableStream<Uint8Array>).getReader();
+		const snapshot = await readUntil(again, '"name":"delta-name"');
+		expect(snapshot).toContain('"messages":[]');
+		expect(snapshot).not.toContain("event: delta");
+		await again.cancel();
+	});
+
 	it("streams the agent's turn", async () => {
 		const id = await start(port, "alpha");
 		const events = await get(port, "/api/conversations/events");

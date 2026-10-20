@@ -25,3 +25,5 @@ export {
 	SERVER_TOLD,
 	unused,
 } from "./state";
+export type { ConversationDelta } from "./updates";
+export { ConversationUpdates } from "./updates";

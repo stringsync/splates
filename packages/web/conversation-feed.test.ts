@@ -64,6 +64,50 @@ describe("ConversationFeed", () => {
 		stream?.onmessage?.({ data: JSON.stringify(state) });
 	}
 
+	it("merges streamed deltas over its wire copy while retaining optimistic messages", async () => {
+		feed.start();
+		await list([]);
+		const state = conversation({
+			messages: [message("user", "old"), message("agent", "answer")],
+		});
+		say(state);
+		const unchanged = feed.conversations[0]?.messages[0];
+		feed.send("c1", "pending");
+		state.messages[1]?.parts.push({ type: "text", text: " more" });
+		stream?.named.get("delta")?.({
+			data: JSON.stringify({
+				id: state.id,
+				changes: {},
+				removed: [],
+				messages: { length: 2, replace: [[1, state.messages[1]]] },
+			}),
+		});
+		expect(feed.conversations[0]?.messages[0]).toBe(unchanged);
+		expect(feed.conversations[0]?.messages[1]).toEqual(state.messages[1]);
+		expect(feed.conversations[0]?.messages).toHaveLength(3);
+	});
+
+	it("keeps the wire baseline apart from a newer HTTP listing", async () => {
+		feed.start();
+		await list([]);
+		const state = conversation({ messages: [message("agent", "old")] });
+		say(state);
+		stream?.named.get("settings")?.({ data: "{}" });
+		await list([
+			conversation({ messages: [message("agent", "newer listing")] }),
+		]);
+		state.name = "changed";
+		stream?.named.get("delta")?.({
+			data: JSON.stringify({
+				id: state.id,
+				changes: { name: state.name },
+				removed: [],
+			}),
+		});
+		expect(feed.conversations[0]?.messages).toEqual(state.messages);
+		expect(feed.conversations[0]?.name).toBe("changed");
+	});
+
 	it("shows a refused message apart, so one sent after it goes once the server has that one", async () => {
 		const idle = conversation({ status: "idle", messages: [] });
 		feed.start();
