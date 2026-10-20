@@ -131,8 +131,8 @@ export function Lane({
 			style={{ transform: CSS.Translate.toString(transform), transition }}
 			// The slot it leaves while it is in hand, where it will land.
 			className={cn(
-				// A bar along its top, in the tone of its cards' Running badge.
-				running && "shadow-[inset_0_2px_0_var(--color-primary)]",
+				// A glint running around its edge.
+				running && "running-outline",
 				opened && "ring-1 ring-primary/40",
 				isDragging && "bg-muted ring-1 ring-border *:invisible",
 			)}
