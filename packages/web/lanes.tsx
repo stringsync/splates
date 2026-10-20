@@ -120,8 +120,9 @@ export function Lane({
 	} = useSortable({ id: columnId(lane.id) });
 	// Lit for a card over it, not for a lane passing by.
 	const lit = isOver && active !== null && laneOf(active.id) === undefined;
-	// Who is on which task shows on the cards; the lane says only that one is.
-	const running = lane.agents.length > 0;
+	// Who is on which task shows on the cards; the lane says only that one is,
+	// and only while it is queued: a lane no longer queued is paused.
+	const running = lane.queued && lane.agents.length > 0;
 	return (
 		<Column
 			label={lane.name}

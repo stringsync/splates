@@ -39,7 +39,14 @@ describe("App's lanes", () => {
 					? { ...each, takenBy: "store" }
 					: each,
 		);
-		const view = await testing.open({ todos, lanes: SOUND2SCORE_LANES });
+		const view = await testing.open({
+			todos,
+			lanes: SOUND2SCORE_LANES.map((record) =>
+				record.name === "Audio, uploads and pricing"
+					? { ...record, queued: true as const }
+					: record,
+			),
+		});
 
 		expect(steps(view, "Licensing")).toHaveLength(6);
 		expect(steps(view, "Licensing")[0]).toContain(
@@ -49,12 +56,18 @@ describe("App's lanes", () => {
 			name: "Audio, uploads and pricing",
 		});
 		// Running, without naming who is on which task: the cards say that.
+		// Only a queued lane shows it: one paused shows none.
 		expect(
 			within(two).getByTitle("An agent is at work on one of its tasks"),
 		).toBeTruthy();
 		expect(two.textContent).not.toContain("decoder on");
 		expect(
 			within(view.getByRole("region", { name: "Score editor" })).queryByTitle(
+				"An agent is at work on one of its tasks",
+			),
+		).toBeNull();
+		expect(
+			within(view.getByRole("region", { name: "Licensing" })).queryByTitle(
 				"An agent is at work on one of its tasks",
 			),
 		).toBeNull();
