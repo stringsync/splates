@@ -109,11 +109,14 @@ describe("App's terminals in the main tree", () => {
 		await openTerminal(view);
 
 		view.getByRole("region", { name: "terminal" });
-		// Named in the page's bar, atop the shell.
-		expect(
-			view.getByRole("heading", { name: "Terminal 1" }).parentElement
-				?.parentElement?.textContent,
-		).toContain("in the main tree");
+		// Named in the page's bar, atop the shell; the bar fills in after the
+		// page opens, so wait for it.
+		const heading = await waitFor(() =>
+			view.getByRole("heading", { name: "Terminal 1" }),
+		);
+		expect(heading.parentElement?.parentElement?.textContent).toContain(
+			"in the main tree",
+		);
 		expect(location.hash).toBe("#conversations/terminal/1");
 		const [shell] = testing.shells;
 		expect(shell?.task).toBeNull();
