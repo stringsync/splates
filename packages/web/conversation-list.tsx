@@ -8,8 +8,6 @@ import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { AutoPickEntry } from "./auto-pick-entry";
-import { autoPickRuns } from "./auto-pick-runs";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
@@ -118,7 +116,6 @@ export function ConversationList({
 	const keptHere = listed.filter(
 		(tree) => tree.row.conversation?.persistent !== undefined,
 	);
-	const picked = autoPickRuns(tasks, todos).length > 0;
 	const taken = lanesTaken(todos);
 	const groupsHere = byLane(
 		listed.filter((tree) => !keptHere.includes(tree)),
@@ -333,16 +330,6 @@ export function ConversationList({
 						folders={grouped.folders}
 						folded={folded}
 						onFold={fold}
-						keptAfter={(folder) =>
-							folder.here && picked ? (
-								<AutoPickEntry
-									tasks={tasks}
-									todos={todos}
-									open={open}
-									onOpen={onOpen}
-								/>
-							) : null
-						}
 						onNew={(folder) =>
 							folder.here || folder.project === null
 								? onOpen(NEW)
@@ -359,14 +346,7 @@ export function ConversationList({
 					/>
 				</Placing>
 			) : /* None, and no list either: an empty one would still take a gap. */
-			listed.length === 0 ? (
-				<AutoPickEntry
-					tasks={tasks}
-					todos={todos}
-					open={open}
-					onOpen={onOpen}
-				/>
-			) : (
+			listed.length === 0 ? null : (
 				<Placing
 					value={{
 						places: placesOf(nested),
@@ -382,13 +362,7 @@ export function ConversationList({
 								beneath={beneath}
 							/>
 						)}
-						<AutoPickEntry
-							tasks={tasks}
-							todos={todos}
-							open={open}
-							onOpen={onOpen}
-						/>
-						{(keptHere.length > 0 || picked) && groupsHere.length > 0 && (
+						{keptHere.length > 0 && groupsHere.length > 0 && (
 							<hr className="mx-3 my-1 border-foreground/10" />
 						)}
 						{groupsHere.length > 0 && (

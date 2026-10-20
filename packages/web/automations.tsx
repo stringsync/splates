@@ -1,4 +1,5 @@
 import type { TaskStage } from "@stringsync/splates-server/board";
+import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type {
 	AutomationRow,
 	Hook,
@@ -9,6 +10,7 @@ import {
 	TASK_EVENTS,
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
+import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { PauseIcon, PencilIcon, PlayIcon, XIcon } from "lucide-react";
 import {
@@ -54,9 +56,14 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
  */
 export function AutomationsPage({
 	opens,
+	tasks,
+	todos,
 	rule = null,
 }: {
 	opens: RunOpens;
+	/** The tasks and queued tasks Auto pick's log is read from. */
+	tasks: readonly Details[];
+	todos: readonly TaskRecord[];
 	/** The Auto pick rule to set the page on, by its place from 0, or null. */
 	rule?: number | null;
 }): JSX.Element {
@@ -119,7 +126,12 @@ export function AutomationsPage({
 							<GroomerOff onGroom={(pick) => list.groom(pick)} />
 						)}
 					</Group>
-					<AutoPickRules mark={rule} />
+					<AutoPickRules
+						mark={rule}
+						tasks={tasks}
+						todos={todos}
+						opens={opens}
+					/>
 				</>
 			)}
 			<AddForm onAdd={(trigger, hook) => list.add(trigger, hook)} />

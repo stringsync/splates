@@ -7,7 +7,6 @@ import {
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
-	ArrowLeftIcon,
 	ChevronRightIcon,
 	PencilIcon,
 	SparklesIcon,
@@ -22,68 +21,49 @@ import { ReferenceChip } from "./reference-chip";
 import { TaskIcon } from "./task-icon";
 
 /**
- * Auto pick's log, for the sidebar's and inbox's entry: a line per pick,
+ * Auto pick's log, under its card on the Automations page: a line per pick,
  * newest first, with what started it, what it decided and the rule that
  * matched. A line opens to how sure the judge was and why, and to "Edit
- * rule", which goes to the Automations page, where the rules are edited,
- * set on that rule.
+ * rule", which sets the page on that rule. `only` lists the picks of one
+ * rule, by its place from 0.
  */
-export function AutoPickPage({
+export function AutoPickLog({
 	tasks,
 	todos,
 	opens,
-	onBack,
+	only = null,
 }: {
 	tasks: readonly Details[];
 	todos: readonly TaskRecord[];
 	/** Opens a task a pick was for: by its number while queued, or by its name. */
 	opens: { todo: (id: number) => void; task: (task: string) => void };
-	/** Goes back to the list, on a phone; null beside a sidebar. */
-	onBack: (() => void) | null;
+	only?: number | null;
 }): JSX.Element {
-	const runs = autoPickRuns(tasks, todos);
+	const runs = autoPickRuns(tasks, todos).filter(
+		(run) => only === null || run.picked.rule === only,
+	);
 	const [shown, setShown] = useState<string | null>(null);
+	if (runs.length === 0) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				{only === null
+					? "Nothing yet: the next task you start on Auto pick shows here."
+					: `No task has been picked by rule ${only + 1} yet.`}
+			</p>
+		);
+	}
 	return (
-		<div className="flex min-w-0 flex-col gap-6">
-			<header className="flex items-center gap-3">
-				{onBack !== null && (
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						aria-label="Back"
-						onClick={onBack}
-					>
-						<ArrowLeftIcon />
-					</Button>
-				)}
-				<AutoPickMark className="size-8" />
-				<div className="flex min-w-0 flex-col">
-					<h1 className="font-semibold text-lg">Auto pick</h1>
-					<p className="text-muted-foreground text-sm">
-						Each task started with no agent named, and whom your routing rules
-						picked for it.
-					</p>
-				</div>
-			</header>
-			{runs.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					Nothing yet: the next task you start on Auto pick shows here.
-				</p>
-			) : (
-				<ol aria-label="Auto pick log" className="flex flex-col gap-2">
-					{runs.map((run) => (
-						<Line
-							key={run.key}
-							run={run}
-							open={shown === run.key}
-							onToggle={() => setShown(shown === run.key ? null : run.key)}
-							opens={opens}
-						/>
-					))}
-				</ol>
-			)}
-		</div>
+		<ol aria-label="Auto pick log" className="flex flex-col gap-2">
+			{runs.map((run) => (
+				<Line
+					key={run.key}
+					run={run}
+					open={shown === run.key}
+					onToggle={() => setShown(shown === run.key ? null : run.key)}
+					opens={opens}
+				/>
+			))}
+		</ol>
 	);
 }
 

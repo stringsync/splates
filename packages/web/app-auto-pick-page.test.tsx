@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
+import type {
+	AutoPicked,
+	AutoPickRulesView,
+} from "@stringsync/splates-server/auto-pick";
 import { AGENTS } from "./fixtures";
 import {
 	act,
@@ -13,30 +16,38 @@ import {
 
 describe("App's Auto pick page", () => {
 	let testing: Testing;
+	let view: Awaited<ReturnType<Testing["open"]>>;
+	const realFetch = globalThis.fetch;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		testing = new Testing();
+		testing.talk = { agents: AGENTS, conversations: [] };
+		testing.autoPickRules = RULES;
+		// The Automations page reads a list the fake has no route for.
+		const fake = globalThis.fetch;
+		globalThis.fetch = ((input, init) =>
+			String(input).includes("/api/automations")
+				? Promise.resolve(Response.json({ automations: [] }))
+				: fake(input, init)) as typeof fetch;
+		view = await testing.open({
+			tasks: [details({ task: "alpha", autoPick: PICKED })],
+		});
 	});
 
 	afterEach(() => {
+		globalThis.fetch = realFetch;
 		cleanup();
 		testing.dispose();
 	});
 
-	it("opens from the sidebar's Auto pick row, saying what started the pick and what it decided", async () => {
-		testing.talk = { agents: AGENTS, conversations: [] };
-		const view = await testing.open({
-			tasks: [details({ task: "alpha", autoPick: PICKED })],
+	it("lists its picks under Auto pick's card in Automations, each opening to what it decided", async () => {
+		await act(async () => {
+			location.hash = "#automations";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
 
-		const row = await waitFor(
-			() =>
-				view.getAllByRole("button", { name: /^Auto pick/ })[0] as HTMLElement,
-		);
-		expect(row.textContent).toContain("Haiku, low effort");
-		await act(async () => fireEvent.click(row));
-
-		expect(location.hash).toBe("#conversations/auto-pick");
+		const summary = await waitFor(() => view.getByText(/Log of picks \(1\)/));
+		await act(async () => fireEvent.click(summary));
 		const line = await waitFor(() =>
 			within(view.getByRole("list", { name: "Auto pick log" })).getByRole(
 				"button",
@@ -49,13 +60,11 @@ describe("App's Auto pick page", () => {
 		const log = view.getByRole("list", { name: "Auto pick log" });
 		expect(log.textContent).toContain("task.started");
 		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
-		await act(async () =>
-			fireEvent.click(within(log).getByRole("button", { name: "Edit rule 2" })),
-		);
+	});
 
-		// The rules are edited in Automations, set on the rule that picked.
-		expect(location.hash).toBe("#automations/auto-pick/2");
-		await waitFor(() => view.getByRole("region", { name: "automations" }));
+	it("keeps Auto pick out of the sidebar", async () => {
+		await waitFor(() => view.getByRole("navigation"));
+		expect(view.queryByRole("button", { name: /^Auto pick/ })).toBeNull();
 	});
 });
 
@@ -79,4 +88,24 @@ const PICKED: AutoPicked = {
 			difficulty: { easy: 0.8, medium: 0.3, hard: 0.1 },
 		},
 	},
+};
+
+const RULES: AutoPickRulesView = {
+	rules: {
+		format: 1,
+		threshold: 0.5,
+		rules: [
+			{ kind: "lookup", difficulty: "*", picks: [{ agent: "claude" }] },
+			{ kind: "*", difficulty: "*", picks: [{ agent: "claude" }] },
+		],
+	},
+	problem: null,
+	agents: [
+		{
+			id: "claude",
+			name: "Claude",
+			models: [{ id: "haiku", name: "Haiku" }],
+			efforts: ["low"],
+		},
+	],
 };

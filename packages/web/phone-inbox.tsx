@@ -16,7 +16,6 @@ import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { arriveAt } from "./arrivals";
-import { AutoPickEntry } from "./auto-pick-entry";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import {
@@ -269,15 +268,6 @@ export function Inbox({
 										beneath={beneath}
 										onOpen={open}
 									/>
-									{title === "Pinned" && (
-										<AutoPickEntry
-											phone
-											tasks={tasks}
-											todos={todos}
-											open={null}
-											onOpen={onOpen}
-										/>
-									)}
 								</Fragment>
 							))
 						) : (
@@ -290,13 +280,6 @@ export function Inbox({
 									named
 									beneath={beneath}
 									onOpen={open}
-								/>
-								<AutoPickEntry
-									phone
-									tasks={tasks}
-									todos={todos}
-									open={null}
-									onOpen={onOpen}
 								/>
 								{grouped.folders.map((folder) => (
 									<FolderSection

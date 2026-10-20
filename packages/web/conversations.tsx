@@ -18,11 +18,9 @@ import {
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Duration } from "webappwiz/time";
 import { Dialog } from "#web/components/ui/dialog.tsx";
-import { AutoPickPage } from "./auto-pick-page";
 import { Board, takenTask } from "./board";
 import {
 	ARCHIVED,
-	AUTO_PICK_PAGE,
 	agentFor,
 	modelFor,
 	NEW,
@@ -245,13 +243,6 @@ export function Conversations({
 							}}
 						/>
 					)
-				) : open === AUTO_PICK_PAGE ? (
-					<AutoPickPage
-						tasks={tasks}
-						todos={todos}
-						opens={{ todo: setOpenedTodo, task: setOpenedTask }}
-						onBack={phone ? () => onOpen(null) : null}
-					/>
 				) : open === ARCHIVED ? (
 					<Archived
 						tasks={tasks}

@@ -39,8 +39,14 @@ import { Refusal, useRefusal } from "./refusal";
 export function RulesEditorView({
 	editor,
 	mark = null,
+	picks = [],
+	onLog,
 }: {
 	editor: RulesEditor;
+	/** How many picks each rule has made, by its place from 0. */
+	picks?: readonly number[];
+	/** Lists the picks rule `rule` made, by its place from 0; without it, no offer. */
+	onLog?: (rule: number) => void;
 	/** The rule to draw the eye to, by its place from 0, scrolled into view; null for none. */
 	mark?: number | null;
 }): JSX.Element {
@@ -88,6 +94,8 @@ export function RulesEditorView({
 						kind={rule.kind}
 						difficulty={rule.difficulty}
 						picks={rule.picks}
+						made={picks[index] ?? 0}
+						onLog={onLog}
 						last={index === draft.rules.length - 1}
 						marked={index === mark}
 					/>
@@ -163,6 +171,8 @@ function RuleRow({
 	kind,
 	difficulty,
 	picks,
+	made,
+	onLog,
 	last,
 	marked,
 }: {
@@ -171,6 +181,8 @@ function RuleRow({
 	kind: string;
 	difficulty: string;
 	picks: readonly AgentPick[];
+	made: number;
+	onLog?: (rule: number) => void;
 	last: boolean;
 	marked: boolean;
 }): JSX.Element {
@@ -271,6 +283,15 @@ function RuleRow({
 				)}
 			</div>
 			<PickChips editor={editor} rule={index} picks={picks} />
+			{onLog !== undefined && made > 0 && (
+				<button
+					type="button"
+					className="self-start text-muted-foreground text-xs underline"
+					onClick={() => onLog(index)}
+				>
+					{made === 1 ? "1 pick" : `${made} picks`} by {name} in the log
+				</button>
+			)}
 		</li>
 	);
 }

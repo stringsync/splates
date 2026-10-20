@@ -326,6 +326,8 @@ export function App({
 					automations: (
 						<AutomationsPage
 							opens={{ todo: openTodo, task: openTask }}
+							tasks={snapshot.tasks}
+							todos={snapshot.todos}
 							rule={rule}
 						/>
 					),
