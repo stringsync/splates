@@ -6,9 +6,9 @@ import {
 	KIND_IDS,
 	type KindId,
 } from "./classes";
-import { ANY, RULES_FORMAT, ruleLabel } from "./rule-names";
+import { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";
 
-export { ANY, RULES_FORMAT, ruleLabel };
+export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel };
 
 // Browser-safe: the page edits the rules, so this file brings in no agent
 // processes and no `bun:` modules, and takes only types from `../models`.
@@ -27,6 +27,8 @@ export interface AutoPickRules {
 	threshold: number;
 	/** Tried in order: the first that matches the task decides. The last is `* *`. */
 	rules: Rule[];
+	/** When a pick's plan counts as used too fast; left out, `DEFAULT_PACE`. */
+	pace?: Pace;
 }
 
 /** One line of the mapping: what it matches, and whom it picks. */
@@ -59,6 +61,23 @@ export function checkRules(value: unknown): CheckedRules {
 		ok: false,
 		problem: `${issue?.path.join(".") || "the rules"}: ${issue?.message}`,
 	};
+}
+
+/**
+ * When a pick is passed over for the next on its rule because of its agent's
+ * plan, each share 0 to 1 of a plan window.
+ */
+export interface Pace {
+	/**
+	 * Whether a pick is passed over while its agent uses any window faster
+	 * than the window goes by: more of it used than `slack` past the share
+	 * of it gone.
+	 */
+	on: boolean;
+	/** How far use may run ahead of the window's time before a pick is passed over. */
+	slack: number;
+	/** Past this much of any window, a pick is passed over, pace or not. */
+	spent: number;
 }
 
 const PICK = z.object({
@@ -96,6 +115,13 @@ export const AUTO_PICK_RULES = z
 		format: z.literal(RULES_FORMAT),
 		threshold: z.number().min(0).max(1),
 		rules: z.array(RULE).min(1, "the rules list at least one rule"),
+		pace: z
+			.object({
+				on: z.boolean(),
+				slack: z.number().min(0).max(1),
+				spent: z.number().min(0).max(1),
+			})
+			.optional(),
 	})
 	.superRefine((value, ctx) => {
 		const last = value.rules.at(-1);

@@ -11,4 +11,4 @@
 
 export { DIFFICULTIES, DIFFICULTY_IDS, KIND_IDS, KINDS } from "./classes";
 export { DEFAULT_RULES } from "./defaults";
-export { ANY, RULES_FORMAT, ruleLabel } from "./rule-names";
+export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";

@@ -61,6 +61,20 @@ describe("checkRules", () => {
 		});
 	});
 
+	it("takes a mapping with no pace, and refuses a slack past 1", () => {
+		const { pace: _, ...without } = DEFAULT_RULES;
+		expect(checkRules(without)).toEqual({ ok: true, rules: without });
+		expect(
+			checkRules({
+				...DEFAULT_RULES,
+				pace: { on: true, slack: 1.5, spent: 0.95 },
+			}),
+		).toMatchObject({
+			ok: false,
+			problem: expect.stringMatching(/^pace\.slack: /),
+		});
+	});
+
 	it("names what a rule matches in words", () => {
 		expect(ruleLabel({ kind: "mechanical", difficulty: "*" })).toBe(
 			"Mechanical, any difficulty",

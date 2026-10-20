@@ -1,4 +1,4 @@
-import { ANY, RULES_FORMAT } from "./rule-names";
+import { ANY, DEFAULT_PACE, RULES_FORMAT } from "./rule-names";
 import type { AutoPickRules, Rule } from "./rules";
 
 /**
@@ -6,7 +6,8 @@ import type { AutoPickRules, Rule } from "./rules";
  * a Claude model, then the Codex model of the same tier for when Claude's
  * plan is nearly used up, except lookups and mechanical work, which go to
  * Codex first and fall back to Claude. Specific rules sit above the general
- * ones they would otherwise lose to.
+ * ones they would otherwise lose to. A pick whose plan is used faster than
+ * its window goes by gives way to the next too.
  */
 export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
@@ -25,6 +26,7 @@ export const DEFAULT_RULES: AutoPickRules = {
 		rule(ANY, "hard", ["opus", "gpt-6-astra"], "high"),
 		rule(ANY, ANY, ["opus", "gpt-6-astra"], "medium"),
 	],
+	pace: DEFAULT_PACE,
 };
 
 /** A default rule: each model at `effort`, `first`'s agent ahead of the other. */

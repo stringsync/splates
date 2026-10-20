@@ -4,10 +4,12 @@ import type {
 	AutoPickRulesView,
 	DifficultyId,
 	KindId,
+	Pace,
 	Rule,
 } from "@stringsync/splates-server/auto-pick";
 import {
 	ANY,
+	DEFAULT_PACE,
 	DEFAULT_RULES,
 	KIND_IDS,
 } from "@stringsync/splates-server/auto-pick/browser";
@@ -74,6 +76,11 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		return Math.round(this.draft.threshold * 100);
 	}
 
+	/** When a pick's plan counts as used too fast, the defaults' when the rules name none. */
+	get pace(): Pace {
+		return this.draft.pace ?? DEFAULT_PACE;
+	}
+
 	/** Reads the rules, unless they were read already. */
 	async load(): Promise<void> {
 		if (this.saved !== null) {
@@ -98,6 +105,20 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 			const clamped = Math.min(100, Math.max(0, Math.round(percent)));
 			this.edit((rules) => ({ ...rules, threshold: clamped / 100 }));
 		}
+	}
+
+	setPaced(on: boolean): void {
+		this.edit((rules) => ({ ...rules, pace: { ...this.pace, on } }));
+	}
+
+	/** How far use may run ahead of a window's time, as a whole percent. */
+	setSlackPercent(percent: number): void {
+		this.editPace("slack", percent);
+	}
+
+	/** How much of a window a pick may use at all, as a whole percent. */
+	setSpentPercent(percent: number): void {
+		this.editPace("spent", percent);
 	}
 
 	setKind(index: number, kind: KindId | typeof ANY): void {
@@ -311,6 +332,16 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.draft = view.rules;
 		this.agents = view.agents;
 		this.fileProblem = view.problem;
+	}
+
+	private editPace(field: "slack" | "spent", percent: number): void {
+		if (Number.isFinite(percent)) {
+			const clamped = Math.min(100, Math.max(0, Math.round(percent)));
+			this.edit((rules) => ({
+				...rules,
+				pace: { ...this.pace, [field]: clamped / 100 },
+			}));
+		}
 	}
 
 	private editRule(

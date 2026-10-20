@@ -3,7 +3,10 @@ import type {
 	AutoPickRules,
 	AutoPickRulesView,
 } from "@stringsync/splates-server/auto-pick";
-import { DEFAULT_RULES } from "@stringsync/splates-server/auto-pick/browser";
+import {
+	DEFAULT_PACE,
+	DEFAULT_RULES,
+} from "@stringsync/splates-server/auto-pick/browser";
 import { RulesEditor, type RulesStore } from "./auto-pick-rules";
 
 describe("RulesEditor", () => {
@@ -91,6 +94,20 @@ describe("RulesEditor", () => {
 		await expect(resetting).rejects.toThrow("the disk is full");
 		expect(editor.draft.threshold).toBe(0.8);
 		expect(editor.saved).toEqual(VIEW.rules);
+	});
+
+	it("edits the pace, starting from the defaults when the rules name none", async () => {
+		const store = new FakeRulesStore();
+		const editor = new RulesEditor(store);
+		await editor.load();
+		expect(editor.pace).toEqual(DEFAULT_PACE);
+
+		editor.setPaced(false);
+		editor.setSlackPercent(24.6);
+		editor.setSpentPercent(120);
+		expect(editor.draft.pace).toEqual({ on: false, slack: 0.25, spent: 1 });
+		expect(editor.dirty).toBe(true);
+		expect(editor.problem).toBeNull();
 	});
 });
 

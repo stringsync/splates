@@ -17,11 +17,12 @@ export { classificationKey } from "./key";
 export { QueueAutoPick } from "./queue";
 export type { AutoPicked } from "./record";
 export { AutoPickRoutes } from "./routes";
-export type { AutoPickRules, CheckedRules, Rule } from "./rules";
+export type { AutoPickRules, CheckedRules, Pace, Rule } from "./rules";
 export {
 	ANY,
 	AUTO_PICK_RULES,
 	checkRules,
+	DEFAULT_PACE,
 	RULES_FORMAT,
 	ruleLabel,
 } from "./rules";

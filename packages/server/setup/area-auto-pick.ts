@@ -65,7 +65,7 @@ function autoPickArea(): SetupArea {
 	const rulesStep: SetupStep = {
 		id: "auto-pick-rules",
 		title: "Map tasks to models",
-		why: "Auto pick tries your rules from the top, and the first that matches a task's kind and difficulty picks its agent; a pick whose plan is nearly used up is passed over for the next on its row.",
+		why: "Auto pick tries your rules from the top, and the first that matches a task's kind and difficulty picks its agent; a pick whose plan is nearly used up, or used faster than its window goes by, is passed over for the next on its row.",
 		user: "Edit the rules, then press Next to save them. They are kept in `~/.splates/auto-pick.json`, which you can edit by hand too.",
 		agent:
 			"Have the user edit the rules on the page, or edit `~/.splates/auto-pick.json` with them; its last rule must stay kind `*` and difficulty `*`.",

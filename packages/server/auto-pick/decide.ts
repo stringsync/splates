@@ -8,7 +8,7 @@ import {
 	type TaskClass,
 } from "./classes";
 import type { Classification } from "./classify";
-import { ANY, type AutoPickRules, ruleLabel } from "./rules";
+import { ANY, type AutoPickRules, DEFAULT_PACE, ruleLabel } from "./rules";
 
 /** Whom Auto pick starts on a task, and why. */
 export interface AutoPickDecision {
@@ -53,13 +53,11 @@ export interface DecideWithoutInput extends DecideContext {
 	reason: string;
 }
 
-/** Past this share of any plan window, an agent is passed over while another pick is left. */
-const SPENT = 0.95;
-
 /**
  * Turns a classification into a pick: the likeliest kind and difficulty, each
  * when the judge is sure enough of it, find the first rule that matches both,
- * and the first of its picks whose agent has plan left wins.
+ * and the first of its picks whose agent has plan left, used no faster than
+ * its windows go by, wins.
  */
 export function decide(input: DecideInput): AutoPickDecision {
 	const { threshold } = input.rules;
@@ -104,6 +102,7 @@ function choose(
 	}
 	const reasons = [judged, `rule ${index + 1}: ${ruleLabel(matched)}`];
 
+	const pace = input.rules.pace ?? DEFAULT_PACE;
 	const usable = matched.picks.flatMap((pick) => {
 		const agent = input.agents.find((each) => each.id === pick.agent);
 		if (agent === undefined) {
@@ -122,30 +121,44 @@ function choose(
 			return [];
 		}
 		const { model: _, ...rest } = pick;
+		const limits = input.limits[agent.id] ?? [];
 		return [
 			{
 				pick: model === undefined ? rest : { ...rest, model },
 				agent,
-				pressure: pressed(input.limits[agent.id] ?? [], input.now),
+				pressure: pressed(limits, input.now),
+				fast: pace.on ? fastest(limits, input.now, pace.slack) : undefined,
 			},
 		];
 	});
 
-	const fresh = usable.find((each) => (each.pressure?.used ?? 0) < SPENT);
+	const left = usable.filter((each) => (each.pressure?.used ?? 0) < pace.spent);
+	const paced = left.find((each) => each.fast === undefined);
+	let chosen = paced ?? left[0];
 	for (const each of usable.slice(
 		0,
-		fresh === undefined ? 0 : usable.indexOf(fresh),
+		chosen === undefined ? 0 : usable.indexOf(chosen),
 	)) {
-		reasons.push(`passed over ${each.agent.name}: ${plan(each.pressure)}`);
+		reasons.push(
+			`passed over ${each.agent.name}: ${
+				(each.pressure?.used ?? 0) < pace.spent
+					? ahead(each.fast)
+					: plan(each.pressure)
+			}`,
+		);
 	}
-	let chosen = fresh;
+	if (chosen !== undefined && paced === undefined) {
+		reasons.push(
+			`every pick with plan left is ahead of pace, so the first: ${chosen.agent.name}, ${ahead(chosen.fast)}`,
+		);
+	}
 	if (chosen === undefined) {
 		chosen = [...usable].sort(
 			(left, right) => (left.pressure?.used ?? 0) - (right.pressure?.used ?? 0),
 		)[0];
 		if (chosen !== undefined) {
 			reasons.push(
-				`every pick is past ${SPENT * 100}% of a plan, so the least used: ${chosen.agent.name}, ${plan(chosen.pressure)}`,
+				`every pick is past ${Math.round(pace.spent * 100)}% of a plan, so the least used: ${chosen.agent.name}, ${plan(chosen.pressure)}`,
 			);
 		}
 	}
@@ -157,7 +170,12 @@ function choose(
 		reasons.push(
 			`no pick of rule ${index + 1} can run here, so ${first.name} on its default`,
 		);
-		chosen = { pick: { agent: first.id }, agent: first, pressure: undefined };
+		chosen = {
+			pick: { agent: first.id },
+			agent: first,
+			pressure: undefined,
+			fast: undefined,
+		};
 	}
 
 	const pick = withEffort(
@@ -269,6 +287,91 @@ function pressed(
 					: most,
 			undefined,
 		);
+}
+
+/** How far into a window its use is, and how far into its time. */
+interface Overrun {
+	window: string;
+	used: number;
+	/** The share of the window's time gone by when `used` was read. */
+	elapsed: number;
+}
+
+/**
+ * The window an agent uses furthest ahead of its time, more than `slack` of
+ * it ahead; undefined when none is. A window whose length its name does not
+ * give, or that has reset, is not judged.
+ */
+function fastest(
+	limits: Limit[],
+	now: Date,
+	slack: number,
+): Overrun | undefined {
+	return limits
+		.flatMap((each) => {
+			const length = lengthOf(each.window);
+			const resets = Date.parse(each.resets);
+			if (length === null || !(resets > now.getTime())) {
+				return [];
+			}
+			// `used` was read at `at`, so its pace is the window's time gone by then.
+			const read = each.at === null ? now.getTime() : Date.parse(each.at);
+			const elapsed = Math.min(1, Math.max(0, 1 - (resets - read) / length));
+			return each.used > elapsed + slack
+				? [{ window: each.window, used: each.used, elapsed }]
+				: [];
+		})
+		.reduce<Overrun | undefined>(
+			(most, each) =>
+				most === undefined ||
+				each.used - each.elapsed > most.used - most.elapsed
+					? each
+					: most,
+			undefined,
+		);
+}
+
+const COUNTS: Record<string, number> = {
+	one: 1,
+	two: 2,
+	three: 3,
+	four: 4,
+	five: 5,
+	six: 6,
+	seven: 7,
+	eight: 8,
+	nine: 9,
+	ten: 10,
+	twelve: 12,
+	thirty: 30,
+};
+
+const UNITS: Record<string, number> = {
+	minute: 60_000,
+	hour: 3_600_000,
+	day: 86_400_000,
+	week: 604_800_000,
+};
+
+/**
+ * A window's length in milliseconds from its name, as Claude names them
+ * (`five_hour`, `seven_day_opus`) and Codex's that splates names
+ * (`300_minutes`); null for a name that gives none.
+ */
+function lengthOf(window: string): number | null {
+	const [count, unit] = window.toLowerCase().split("_");
+	const times = /^\d+$/.test(count ?? "") ? Number(count) : COUNTS[count ?? ""];
+	const each = UNITS[unit?.replace(/s$/, "") ?? ""];
+	return times === undefined || each === undefined || times === 0
+		? null
+		: times * each;
+}
+
+/** An agent's pace in words: `60% of five_hour used, 20% of it gone`. */
+function ahead(pace: Overrun | undefined): string {
+	return pace === undefined
+		? "within its pace"
+		: `${Math.round(pace.used * 100)}% of ${pace.window} used, ${Math.round(pace.elapsed * 100)}% of it gone`;
 }
 
 /** An agent's plan pressure in words: `85% of five_hour used`. */

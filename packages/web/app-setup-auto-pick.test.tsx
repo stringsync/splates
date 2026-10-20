@@ -138,6 +138,36 @@ describe("App's Auto pick setup", () => {
 		);
 	});
 
+	it("turns pacing off, which stops its slack being edited, and saves it", async () => {
+		testing.setup = progress({ judge: "done" });
+		const view = await openAutoPick();
+		await editor(view);
+
+		const slack = view.getByLabelText(/How far ahead of its window/);
+		expect(slack).toHaveProperty("disabled", false);
+		await press(
+			view.getByRole("switch", { name: /^Pass over a pick whose plan/ }),
+		);
+		expect(slack).toHaveProperty("disabled", true);
+		await act(async () =>
+			fireEvent.change(
+				view.getByLabelText(/How much of a plan a pick may use/),
+				{
+					target: { value: "90" },
+				},
+			),
+		);
+		const edited: AutoPickRules = {
+			...RULES,
+			pace: { on: false, slack: 0.1, spent: 0.9 },
+		};
+		testing.reply = { ...VIEW, rules: edited };
+
+		await press(view.getByRole("button", { name: "Save rules" }));
+
+		expect(puts()).toEqual([["PUT", { rules: edited }]]);
+	});
+
 	it("keeps the last rule as any kind and any difficulty, in place", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();

@@ -25,6 +25,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
+import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { PickChips } from "./auto-pick-pick-chips";
 import type { RulesEditor } from "./auto-pick-rules";
@@ -33,7 +34,7 @@ import { Refusal, useRefusal } from "./refusal";
 /**
  * The Auto pick rules as a list to edit: each rule's kind and difficulty and
  * its ordered picks, the last rule fixed as any kind and any difficulty, the
- * confidence threshold, and Save and Reset, each shown at once and said
+ * confidence threshold, when a pick's plan is used too fast, and Save and Reset, each shown at once and said
  * beside it when the server refuses.
  */
 export function RulesEditorView({
@@ -50,20 +51,29 @@ export function RulesEditorView({
 	/** The rule to draw the eye to, by its place from 0, scrolled into view; null for none. */
 	mark?: number | null;
 }): JSX.Element {
-	const { draft, dirty, problem, fileProblem, loadProblem, saved, percent } =
-		useReactive(
-			editor,
-			(each) => ({
-				draft: each.draft,
-				dirty: each.dirty,
-				problem: each.problem,
-				fileProblem: each.fileProblem,
-				loadProblem: each.loadProblem,
-				saved: each.saved,
-				percent: each.percent,
-			}),
-			["changed"],
-		);
+	const {
+		draft,
+		dirty,
+		problem,
+		fileProblem,
+		loadProblem,
+		saved,
+		percent,
+		pace,
+	} = useReactive(
+		editor,
+		(each) => ({
+			draft: each.draft,
+			dirty: each.dirty,
+			problem: each.problem,
+			fileProblem: each.fileProblem,
+			loadProblem: each.loadProblem,
+			saved: each.saved,
+			percent: each.percent,
+			pace: each.pace,
+		}),
+		["changed"],
+	);
 	const { refusal, attempt } = useRefusal();
 	useEffect(() => void editor.load(), [editor]);
 	if (loadProblem !== null) {
@@ -131,6 +141,66 @@ export function RulesEditorView({
 				<FieldDescription>
 					Below it, a task counts as any kind, or any difficulty, and only rules
 					with * there match it.
+				</FieldDescription>
+			</Field>
+			<Field orientation="horizontal">
+				<Switch
+					id="auto-pick-paced"
+					checked={pace.on}
+					onCheckedChange={(checked) => editor.setPaced(checked)}
+				/>
+				<FieldLabel htmlFor="auto-pick-paced">
+					Pass over a pick whose plan is used faster than its window goes by
+				</FieldLabel>
+			</Field>
+			<Field data-disabled={!pace.on || undefined}>
+				<FieldLabel htmlFor="auto-pick-slack">
+					How far ahead of its window a plan may run, in percent
+				</FieldLabel>
+				<div>
+					<Input
+						id="auto-pick-slack"
+						type="number"
+						inputMode="numeric"
+						min={0}
+						max={100}
+						step={5}
+						className="w-24"
+						disabled={!pace.on}
+						value={Math.round(pace.slack * 100)}
+						onChange={(event) =>
+							editor.setSlackPercent(event.currentTarget.valueAsNumber)
+						}
+					/>
+				</div>
+				<FieldDescription>
+					Two hours into a five-hour window, 40% of it has gone by: at 10, a
+					pick is passed over once its plan is past 50% used, while the next on
+					its row has plan left.
+				</FieldDescription>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="auto-pick-spent">
+					How much of a plan a pick may use at all, in percent
+				</FieldLabel>
+				<div>
+					<Input
+						id="auto-pick-spent"
+						type="number"
+						inputMode="numeric"
+						min={0}
+						max={100}
+						step={5}
+						className="w-24"
+						value={Math.round(pace.spent * 100)}
+						onChange={(event) =>
+							editor.setSpentPercent(event.currentTarget.valueAsNumber)
+						}
+					/>
+				</div>
+				<FieldDescription>
+					Past it, a pick is passed over for the next on its row, pace or not.
+					When every pick is past it, the least used is picked.
 				</FieldDescription>
 			</Field>
 			{problem !== null && (

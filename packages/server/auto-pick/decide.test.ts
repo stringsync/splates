@@ -133,6 +133,133 @@ describe("decide", () => {
 		});
 	});
 
+	it("passes over a pick whose agent uses a window faster than it goes by", () => {
+		// Two of five hours gone, so 40% of the window: 60% used is ahead.
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
+		};
+		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
+			pick: { agent: "codex", model: "gpt-6-astra", effort: "high" },
+			reasons: [
+				"6 Astra, high effort",
+				expect.any(String),
+				expect.any(String),
+				"passed over Claude: 60% of five_hour used, 40% of it gone",
+			],
+		});
+	});
+
+	it("keeps a pick within its slack of pace", () => {
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.45, resets: LATER, at: null }],
+		};
+		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
+			agent: "claude",
+			model: "opus",
+			effort: "high",
+		});
+	});
+
+	it("judges pace by when the use was read", () => {
+		// Read at the window's start, 30% used is far ahead, though 40% of it is gone now.
+		const limits = {
+			claude: [
+				{ window: "five_hour", used: 0.3, resets: LATER, at: WINDOW_START },
+			],
+		};
+		expect(decide({ ...BASE, limits, classification: DESIGN }).pick.agent).toBe(
+			"codex",
+		);
+	});
+
+	it("judges a week's window and a window named in minutes", () => {
+		const week = {
+			claude: [
+				{ window: "seven_day_opus", used: 0.5, resets: IN_SIX_DAYS, at: null },
+			],
+		};
+		expect(
+			decide({ ...BASE, limits: week, classification: DESIGN }).pick.agent,
+		).toBe("codex");
+		const minutes = {
+			codex: [{ window: "300_minutes", used: 0.6, resets: LATER, at: null }],
+		};
+		expect(
+			decide({ ...BASE, limits: minutes, classification: MECHANICAL_LIGHT })
+				.pick.agent,
+		).toBe("claude");
+	});
+
+	it("does not judge the pace of a window whose length its name does not give", () => {
+		const limits = {
+			claude: [{ window: "primary", used: 0.9, resets: LATER, at: null }],
+		};
+		expect(decide({ ...BASE, limits, classification: DESIGN }).pick.agent).toBe(
+			"claude",
+		);
+	});
+
+	it("takes the first pick with plan left when every one is ahead of pace", () => {
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
+			codex: [{ window: "five_hour", used: 0.7, resets: LATER, at: null }],
+		};
+		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
+			pick: { agent: "claude", model: "opus" },
+			reasons: [
+				"Opus 5.5, high effort",
+				expect.any(String),
+				expect.any(String),
+				"every pick with plan left is ahead of pace, so the first: Claude, 60% of five_hour used, 40% of it gone",
+			],
+		});
+	});
+
+	it("follows the person's pace", () => {
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
+		};
+		const off: AutoPickRules = {
+			...DEFAULT_RULES,
+			pace: { on: false, slack: 0.1, spent: 0.95 },
+		};
+		expect(
+			decide({ ...BASE, rules: off, limits, classification: DESIGN }).pick
+				.agent,
+		).toBe("claude");
+		const loose: AutoPickRules = {
+			...DEFAULT_RULES,
+			pace: { on: true, slack: 0.25, spent: 0.95 },
+		};
+		expect(
+			decide({ ...BASE, rules: loose, limits, classification: DESIGN }).pick
+				.agent,
+		).toBe("claude");
+		const capped: AutoPickRules = {
+			...DEFAULT_RULES,
+			pace: { on: false, slack: 0.1, spent: 0.5 },
+		};
+		expect(
+			decide({ ...BASE, rules: capped, limits, classification: DESIGN }),
+		).toMatchObject({
+			pick: { agent: "codex" },
+			reasons: expect.arrayContaining([
+				"passed over Claude: 60% of five_hour used",
+			]),
+		});
+	});
+
+	it("paces a mapping that names no pace as the defaults do", () => {
+		const { pace: _, ...without } = DEFAULT_RULES;
+		const limits = {
+			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
+		};
+		expect(
+			decide({ ...BASE, rules: without, limits, classification: DESIGN }).pick
+				.agent,
+		).toBe("codex");
+	});
+
 	it("passes over a pick whose agent is not on the roster", () => {
 		const rules: AutoPickRules = {
 			format: 1,
@@ -216,6 +343,8 @@ describe("decide", () => {
 const NOW = new Date("2026-10-19T12:00:00Z");
 const LATER = "2026-10-19T15:00:00Z";
 const EARLIER = "2026-10-19T09:00:00Z";
+const WINDOW_START = "2026-10-19T10:00:00Z";
+const IN_SIX_DAYS = "2026-10-25T12:00:00Z";
 
 /** A task the judge takes for mechanical and easy work. */
 const MECHANICAL_LIGHT: Classification = {
