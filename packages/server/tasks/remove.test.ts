@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { queueAdd } from "../queue";
 import { LIVE_PID, Testing } from "../testing";
 import { add } from "./add";
 import { remove } from "./remove";
@@ -83,6 +84,31 @@ describe("remove", () => {
 		await add(deps, "alpha");
 
 		expect(await remove(deps, "alpha")).toEqual({ released: [] });
+	});
+
+	it("puts the queued task it started from back in the queue, to redo", async () => {
+		const queued = await deps.tasks.add("Retry on 413", null);
+		await queueAdd(deps, [queued.id]);
+		await add(deps, "alpha", { tasks: [queued.id] });
+
+		await remove(deps, "alpha", { reason: "redo" });
+
+		expect((await deps.tasks.find(queued.id)).state.stage).toBe("queued");
+	});
+
+	it("takes what it took out of the queue when the person removes it", async () => {
+		const started = await deps.tasks.add("Retry on 413", null);
+		const taken = await deps.tasks.add("Log the retries", null);
+		await queueAdd(deps, [started.id, taken.id]);
+		await add(deps, "alpha", { tasks: [started.id] });
+		await (await deps.tasks.find(taken.id)).take("alpha");
+
+		await remove(deps, "alpha", { unqueue: true });
+
+		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
+			{ id: started.id, stage: "backlog", takenBy: null },
+			{ id: taken.id, stage: "backlog", takenBy: null },
+		]);
 	});
 
 	it("tells 'already removed' apart from 'never existed'", async () => {

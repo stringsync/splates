@@ -95,8 +95,10 @@ export class TaskLanes {
 	/**
 	 * Queues lane `id` whole, or stops: queued, each of its tasks is queued
 	 * once nothing blocks it (`queueFromLanes`); stopped, each it holds that
-	 * is queued and not yet started goes back to ready when groomed, else the
-	 * backlog, so nothing more of it starts. Gives back the lane, and the tasks stopping took out.
+	 * is queued, taken or not, goes back to ready when groomed, else the
+	 * backlog, so nothing more of it starts, and one started from the queue
+	 * goes there too once its start ends, rather than back in the queue.
+	 * Gives back the lane, and the tasks stopping took out.
 	 */
 	async queueLane(
 		id: number,
@@ -115,12 +117,16 @@ export class TaskLanes {
 			const taken: TaskRecord[] = [];
 			if (!queued) {
 				for (const state of states) {
-					if (
-						state.lane === id &&
-						state.stage === "queued" &&
-						state.takenBy === null
-					) {
+					if (state.lane === id && state.stage === "queued") {
 						taken.push((await this.tasks.save(unqueued(state))).state);
+					}
+				}
+				for (const record of await this.tasks.store.started()) {
+					if (record.lane === id && record.startedFrom === "queued") {
+						await this.tasks.store.write({
+							...record,
+							startedFrom: unqueued(record).stage,
+						});
 					}
 				}
 			}

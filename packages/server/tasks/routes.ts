@@ -185,9 +185,12 @@ export class TaskRoutes {
 						}),
 					},
 					task,
+					// The person's removal: what it took leaves the queue, so
+					// the runner does not start it again at once.
 					{
 						force: true,
 						conversation: on[0]?.id,
+						unqueue: true,
 					},
 				),
 			({ released }) => ({ why: null, released }),

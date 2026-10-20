@@ -367,7 +367,7 @@ export class WorktreeService {
 				(path) => this.owns(path),
 			);
 		}
-		await this.records.end(worktree.task);
+		await this.records.end(worktree.task, { unqueue: opts.unqueue });
 		await this.storage.document(`conflicts/${worktree.task}.json`).remove();
 		await this.rememberRemoved(worktree.task);
 		await this.recordOutcome(worktree, ended, ending, opts);

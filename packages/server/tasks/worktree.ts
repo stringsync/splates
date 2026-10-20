@@ -295,6 +295,11 @@ export interface DiscardOptions {
 	commits?: string[];
 	/** Why it was removed, as `splates remove --reason` gives it. */
 	reason?: RemoveReason;
+	/**
+	 * Whether the queued task it started from goes back to ready or the
+	 * backlog rather than the queue, as when the person removes it.
+	 */
+	unqueue?: boolean;
 	/** The commit a merge landed it as. */
 	commit?: string;
 	/** What a merge lands, read before landing. */

@@ -1,5 +1,11 @@
 import { Attachments } from "../artifacts";
-import { queuedOf, type StoredTask, startedOf, type TaskStore } from "../board";
+import {
+	queuedOf,
+	type StoredTask,
+	startedOf,
+	type TaskStore,
+	unqueued,
+} from "../board";
 import type { TaskState } from "./worktree";
 
 /**
@@ -73,10 +79,10 @@ export class StartedRecords {
 
 	/**
 	 * Ends `task`'s start: drops what it added to the record, and its files.
-	 * One off the list goes, and one on it is queued again, for the list to
-	 * settle.
+	 * One off the list goes, and one on it goes back to the stage it started
+	 * from, for the list to settle; `unqueue`, never back in the queue.
 	 */
-	async end(task: string): Promise<void> {
+	async end(task: string, { unqueue = false } = {}): Promise<void> {
 		await this.store.locked(async () => {
 			const record = await this.store.find(task);
 			if (record === null) {
@@ -90,10 +96,11 @@ export class StartedRecords {
 					this.store.filesKey(record.id),
 				).clear();
 			} else {
-				await this.store.write({
-					...queuedOf(record),
-					stage: record.startedFrom ?? "backlog",
-				});
+				const back = queuedOf(record);
+				const stage = record.startedFrom ?? "backlog";
+				await this.store.write(
+					unqueue && stage === "queued" ? unqueued(back) : { ...back, stage },
+				);
 			}
 		});
 	}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { laneAdd, laneUpdate, taskAdd, taskRemove, taskUpdate } from "../board";
+import { add, remove } from "../tasks";
 import { Testing } from "../testing";
 import { queueAdd, queueRemove } from "./commands";
 
@@ -58,7 +59,7 @@ describe.concurrent("a lane queued whole", () => {
 		});
 	});
 
-	it("unqueues what it has yet to start once stopped", async () => {
+	it("unqueues what it holds once stopped, taken or not", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");
 		await taskAdd(deps, "store licenses", null, { lane: 1 });
@@ -70,8 +71,26 @@ describe.concurrent("a lane queued whole", () => {
 		await laneUpdate(deps, 1, { queued: false });
 
 		expect((await deps.tasks.find(1)).state.stage).toBe("backlog");
-		expect((await deps.tasks.find(2)).state.takenBy).toBe("alpha");
+		expect((await deps.tasks.find(2)).state).toMatchObject({
+			stage: "backlog",
+			takenBy: "alpha",
+		});
 		expect(await deps.tasks.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+	});
+
+	it("once stopped, sends a task started from it back to the backlog when its start ends", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "store licenses", null, { lane: 1 });
+		await laneUpdate(deps, 1, { queued: true });
+		await deps.tasks.queueFromLanes();
+		await add(deps, "alpha", { tasks: [1] });
+
+		await laneUpdate(deps, 1, { queued: false });
+		await remove(deps, "alpha", { reason: "redo" });
+
+		expect((await deps.tasks.find(1)).state.stage).toBe("backlog");
 		expect(await deps.tasks.queueFromLanes()).toEqual([]);
 	});
 

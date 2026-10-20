@@ -154,10 +154,13 @@ export class Task {
 		return claimed;
 	}
 
-	/** Puts it back on the list, as when the task that took it is removed. */
-	release(): Promise<Task> {
+	/**
+	 * Puts it back on the list, as when the task that took it is removed;
+	 * `unqueue`, out of the queue too.
+	 */
+	release({ unqueue = false } = {}): Promise<Task> {
 		return this.tasks.revise(this.id, (state) => ({
-			...state,
+			...(unqueue && state.stage === "queued" ? unqueued(state) : state),
 			takenBy: null,
 		}));
 	}
@@ -267,7 +270,9 @@ export class Task {
  * `state` taken out of the queue: back in ready when it was groomed, else
  * the backlog.
  */
-export function unqueued(state: TaskRecord): TaskRecord {
+export function unqueued<T extends TaskRecord>(
+	state: T,
+): T & { stage: "ready" | "backlog" } {
 	return { ...state, stage: state.groomed ? "ready" : "backlog" };
 }
 

@@ -13,6 +13,11 @@ export interface RemoveOptions {
 	conversation?: string;
 	/** Why, kept in its outcome for the Stats page. */
 	reason?: RemoveReason;
+	/**
+	 * Take what it took out of the queue rather than put it back there, as
+	 * when the person removes it.
+	 */
+	unqueue?: boolean;
 }
 
 /**
@@ -37,7 +42,7 @@ export async function remove(
 		branches: TaskBranches;
 	},
 	task: string,
-	{ force = false, conversation, reason }: RemoveOptions = {},
+	{ force = false, conversation, reason, unqueue }: RemoveOptions = {},
 ): Promise<{ released: { id: number; subject: string }[] }> {
 	const worktree = await service.find(task);
 
@@ -70,7 +75,11 @@ export async function remove(
 	// Counted before the branch goes, so the report can say what was lost.
 	const unlanded = worktree.hasBranch ? await worktree.commitsAhead() : 0;
 
-	const discarded = await worktree.discard("removed", { conversation, reason });
+	const discarded = await worktree.discard("removed", {
+		conversation,
+		reason,
+		unqueue,
+	});
 	if (discarded.code !== 0) {
 		fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
 			task,
@@ -83,7 +92,7 @@ export async function remove(
 	// The work was thrown away, not done, so what it took up is open again.
 	const released = await queue.takenBy(task);
 	for (const each of released) {
-		await each.release();
+		await each.release({ unqueue });
 	}
 
 	const lines = [
