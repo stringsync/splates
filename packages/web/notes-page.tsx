@@ -1,6 +1,7 @@
 import { useReactive } from "@webappwiz/react";
 import { ArrowLeftIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { UuidProvider } from "webappwiz/id";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Empty,
@@ -10,17 +11,24 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
+import { NEW, withDraft } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
+import { type Drafts, newDraft } from "./drafts";
 import { Markdown } from "./markdown";
-import { NotesReading } from "./notes-reading";
+import { NEW_NOTE, NotesReading } from "./notes-reading";
+import { shownProject } from "./project-places";
 import { TopBar } from "./top-bar";
+
+const ids = new UuidProvider();
 
 /** Read landed project notes and ask an agent to make changes. */
 export function NotesPage({
 	feed,
+	drafts,
 	onOpen,
 }: {
 	feed: ConversationFeed | null;
+	drafts: Drafts;
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	const [reading] = useState(() => new NotesReading());
@@ -49,7 +57,13 @@ export function NotesPage({
 						label: "New note",
 						icon: <PlusIcon />,
 						text: "New",
-						run: () => reading.request("new"),
+						run: () => {
+							// A fresh conversation's own composer, with its model and
+							// settings, seeded with what a note's agent is asked.
+							const identity = ids.next();
+							drafts.write(newDraft(shownProject(), null, identity), NEW_NOTE);
+							onOpen(withDraft(NEW, identity));
+						},
 					},
 					{
 						label: "Refresh notes",
@@ -76,15 +90,9 @@ export function NotesPage({
 					}}
 				>
 					<h2 className="font-medium">
-						{action === "new"
-							? "New note"
-							: action === "edit"
-								? "Edit note"
-								: "Remove note"}
+						{action === "edit" ? "Edit note" : "Remove note"}
 					</h2>
-					{action !== "new" && (
-						<p className="break-words text-sm">{note?.description}</p>
-					)}
+					<p className="break-words text-sm">{note?.description}</p>
 					<p className="text-muted-foreground text-sm">
 						An agent will make this change in a task and land it after checks
 						pass.
@@ -92,17 +100,15 @@ export function NotesPage({
 					<FieldGroup>
 						<Field>
 							<FieldLabel htmlFor="note-request">
-								{action === "new"
-									? "What should the note say?"
-									: action === "edit"
-										? "What should change?"
-										: "Why remove this note? (optional)"}
+								{action === "edit"
+									? "What should change?"
+									: "Why remove this note? (optional)"}
 							</FieldLabel>
 							<Textarea
 								id="note-request"
 								value={ask}
 								onChange={(event) => reading.write(event.target.value)}
-								required={action !== "remove"}
+								required={action === "edit"}
 								disabled={starting}
 							/>
 						</Field>
@@ -118,7 +124,7 @@ export function NotesPage({
 							disabled={
 								feed === null ||
 								starting ||
-								(action !== "remove" && ask.trim() === "")
+								(action === "edit" && ask.trim() === "")
 							}
 						>
 							{starting ? "Starting…" : "Start conversation"}
@@ -163,8 +169,8 @@ export function NotesPage({
 					<EmptyHeader>
 						<EmptyTitle>No project notes yet</EmptyTitle>
 						<EmptyDescription>
-							Keep the project's conventions and decisions here. Use New to ask
-							an agent to write a note.
+							Keep the project's conventions and decisions here. Use New to
+							start a conversation that writes a note.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

@@ -5,7 +5,11 @@ import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 
-export type NoteAction = "new" | "edit" | "remove";
+export type NoteAction = "edit" | "remove";
+
+/** What a new note's conversation starts with in its composer, for the person to finish. */
+export const NEW_NOTE =
+	"Create a project note. Use the splates skill: make the change in a task and land it with splates merge. Consult splates notes and the notes guidance first.\n\nThe note should say:\n";
 export type NotesReadingEvents = { changed: undefined };
 
 /** The notes reader and its requests for an agent to change a note. */
@@ -93,10 +97,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 	}
 
 	request(action: NoteAction | null): void {
-		if (
-			this.starting ||
-			(action !== null && action !== "new" && this.note === null)
-		) {
+		if (this.starting || (action !== null && this.note === null)) {
 			return;
 		}
 		this.action = action;
@@ -118,7 +119,7 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 		if (
 			this.starting ||
 			this.action === null ||
-			(this.action !== "remove" && this.ask.trim() === "")
+			(this.action === "edit" && this.ask.trim() === "")
 		) {
 			return;
 		}
@@ -149,11 +150,9 @@ export class NotesReading implements Eventful<NotesReadingEvents> {
 
 	private prompt(): string {
 		return [
-			this.action === "new"
-				? "Create a project note."
-				: `${this.action === "edit" ? "Edit" : "Remove"} this project note: ${this.note?.path}`,
+			`${this.action === "edit" ? "Edit" : "Remove"} this project note: ${this.note?.path}`,
 			"Use the splates skill: make the change in a task and land it with splates merge. Consult splates notes and the notes guidance first.",
-			this.note === null || this.action === "new"
+			this.note === null
 				? ""
 				: `Current note (${this.note.description}):\n\n${this.note.text}`,
 			this.ask.trim() === "" ? "" : `My request:\n${this.ask.trim()}`,

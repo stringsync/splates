@@ -7,6 +7,14 @@ and when you learn something worth keeping. It prints each note's
 description, one per line. Read the relevant files; search with `rg`.
 No notes directory means no output.
 
+Notes are disclosed progressively, never all at once: nothing loads them for
+you, and a project may hold many. Explore and index them yourself. Run
+`splates notes` to list every description, pick the ones that bear on your
+task, read only those files, and `rg` the notes directory for a term the
+descriptions do not show. Do this before reading code for how something is
+meant to work, and read no note that does not fit. Judge by the
+description alone, which is why each must say what its note is about.
+
 Notes live as checked-in Markdown files in a flat `notes/` directory at the
 checkout root. A project's `splates.config.ts` may set `notesDir` to another
 directory, relative to that root or absolute. Each file has one thing to say

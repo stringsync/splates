@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { ConversationFeed } from "./conversation-feed";
+import { Drafts } from "./drafts";
 import { NotesPage } from "./notes-page";
 import { NotesReading } from "./notes-reading";
 import { cleanup, conversation, fireEvent, render, Testing } from "./testing";
@@ -23,7 +24,13 @@ describe("notes page", () => {
 	});
 
 	it("opens a note as markdown and returns to the index", async () => {
-		const page = render(<NotesPage feed={null} onOpen={() => {}} />);
+		const page = render(
+			<NotesPage
+				feed={null}
+				drafts={new Drafts(localStorage, null)}
+				onOpen={() => {}}
+			/>,
+		);
 		fireEvent.click(
 			await page.findByRole("button", { name: /Why named exports/ }),
 		);
@@ -37,18 +44,23 @@ describe("notes page", () => {
 		).toBeTruthy();
 	});
 
-	it("shows an empty index with a way to request the first note", async () => {
+	it("opens a new conversation seeded to write the first note", async () => {
 		testing.notes.items = [];
-		const page = render(<NotesPage feed={null} onOpen={() => {}} />);
+		const opened: string[] = [];
+		const page = render(
+			<NotesPage
+				feed={null}
+				drafts={new Drafts(localStorage, null)}
+				onOpen={(id) => opened.push(id)}
+			/>,
+		);
 		expect(await page.findByText("No project notes yet")).toBeTruthy();
 		fireEvent.click(page.getByRole("button", { name: /New note/ }));
-		expect(page.getByLabelText("What should the note say?")).toBeTruthy();
-		expect(
-			page.getByText("Connect an agent to request a change."),
-		).toBeTruthy();
+		expect(opened).toHaveLength(1);
+		expect(opened[0]).toMatch(/^new\?draft=/);
 	});
 
-	it.each(["new", "edit", "remove"] as const)(
+	it.each(["edit", "remove"] as const)(
 		"hands a %s request to an agent conversation",
 		async (action) => {
 			const reading = new NotesReading();
@@ -72,9 +84,7 @@ describe("notes page", () => {
 				const prompt = testing.posts[1]?.body as FormData;
 				expect(prompt.get("text")).toContain("Explain the reason.");
 				expect(prompt.get("text")).toContain("splates merge");
-				expect(prompt.get("text")).toContain(
-					action === "new" ? "Create a project note." : NOTE.text,
-				);
+				expect(prompt.get("text")).toContain(NOTE.text);
 			} finally {
 				feed.dispose();
 			}

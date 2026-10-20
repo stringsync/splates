@@ -119,7 +119,9 @@ which remembers none of it.
 
 When you need to know how the project is meant to work, before reading code
 for it, or have learned something worth keeping, run `splates notes` and read
-[references/notes.md](references/notes.md).
+[references/notes.md](references/notes.md). Notes are progressively
+disclosed: only descriptions are listed, so explore and index them yourself,
+reading just the notes that fit.
 
 1. **Start before you look.** When a request may end in a code change,
    `splates add <task> --goal "<what done means>"` before reading any code,
