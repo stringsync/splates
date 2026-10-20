@@ -112,9 +112,6 @@ export function Item({
 			className={cn(
 				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
 				current && "bg-accent hover:bg-accent",
-				need.kind === "working" &&
-					need.merging &&
-					"bg-success/15 hover:bg-success/20",
 			)}
 		>
 			{renaming && (

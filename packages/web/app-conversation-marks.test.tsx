@@ -111,8 +111,8 @@ Cap upload retries
 			["Runs", "working"],
 		]);
 		const [lands, runs] = items(view);
-		expect(lands?.innerHTML).toContain("bg-success/15");
-		expect(runs?.innerHTML).not.toContain("bg-success/15");
+		expect(lands?.innerHTML).toContain('aria-label="merging"');
+		expect(runs?.innerHTML).not.toContain('aria-label="merging"');
 	});
 
 	it("marks an agent quiet long enough to be stuck, and stops its turn from its menu", async () => {
