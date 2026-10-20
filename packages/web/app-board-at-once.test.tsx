@@ -64,7 +64,7 @@ describe("App's board writes at once", () => {
 
 	/** Removes a lane with tasks in it, past the dialog that asks first. */
 	async function removeLane(lane: string): Promise<void> {
-		await pick(lane, "Remove lane, untriage its tasks");
+		await pick(lane, "Remove lane and its tasks");
 		await clickShown(() => view.getByRole("button", { name: "Remove lane" }));
 	}
 
@@ -97,7 +97,7 @@ describe("App's board writes at once", () => {
 	});
 
 	it("asks before removing a lane with tasks, and keeps it on Cancel", async () => {
-		await pick("Docs", "Remove lane, untriage its tasks");
+		await pick("Docs", "Remove lane and its tasks");
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByText("Remove Docs?")).toBeTruthy();
 		await act(async () =>
@@ -113,7 +113,7 @@ describe("App's board writes at once", () => {
 		await removeLane("Docs");
 
 		expect(columns()).not.toContain("Docs");
-		expect(cards("Untriaged").join()).toContain("second");
+		expect(cards("Untriaged").join()).not.toContain("second");
 
 		await answer("in use");
 

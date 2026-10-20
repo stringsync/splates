@@ -39,7 +39,7 @@ import { useExpectSnapshot } from "./expecting";
 
 /**
  * What can be done to a whole lane: rename it, queue it whole, move it, fold
- * it into another, or remove it, asking first when that untriages tasks.
+ * it into another, or remove it with its tasks, asking first when it has any.
  */
 export function LaneMenu({
 	lane,
@@ -136,7 +136,7 @@ export function LaneMenu({
 						onClick={() => (count === 0 ? remove() : setAsking(true))}
 					>
 						<Undo2Icon />
-						{count === 0 ? "Remove lane" : "Remove lane, untriage its tasks"}
+						{count === 0 ? "Remove lane" : "Remove lane and its tasks"}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

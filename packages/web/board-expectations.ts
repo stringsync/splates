@@ -152,13 +152,11 @@ export function laneQueued(id: number, queued: boolean) {
 	});
 }
 
-/** Lane `id` gone, its todos back in none. */
+/** Lane `id` gone, and its todos with it. */
 export function laneDropped(id: number) {
 	return (snapshot: Snapshot): Snapshot => ({
 		...snapshot,
-		todos: snapshot.todos.map((todo) =>
-			todo.lane === id ? { ...todo, lane: null } : todo,
-		),
+		todos: snapshot.todos.filter((todo) => todo.lane !== id),
 		lanes: snapshot.lanes.filter((lane) => lane.id !== id),
 	});
 }

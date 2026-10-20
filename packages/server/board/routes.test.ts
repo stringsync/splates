@@ -168,7 +168,11 @@ describe("dev tasks", () => {
 				id: 3,
 				name: "Second",
 			});
+			// A lane goes with its tasks, each kept to put back, in no lane.
 			expect((await send("DELETE", "/api/lanes/3")).status).toBe(200);
+			expect(await state(2)).toBeUndefined();
+			expect((await snapshot()).lanes.map(({ id }) => id)).not.toContain(3);
+			expect((await send("POST", "/api/todos/2/restore")).status).toBe(200);
 			expect((await state(2))?.lane).toBeNull();
 			expect((await send("DELETE", "/api/lanes/9")).status).toBe(404);
 

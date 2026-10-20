@@ -214,10 +214,21 @@ export class BoardRoutes {
 		return Response.json((await this.#project.tasks.find(found.id)).state);
 	};
 
+	/**
+	 * Removes a lane and the tasks in it, each kept as removing it from its
+	 * dialog keeps it: the person never wants a lane gone but its tasks left.
+	 */
 	readonly dropLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
-		await recordLaneRemove(journal, tasks, id, () => tasks.dropLane(id));
+		await recordLaneRemove(journal, tasks, id, async () => {
+			for (const task of await tasks.all()) {
+				if (task.state.lane === id) {
+					await task.discard();
+				}
+			}
+			await tasks.dropLane(id);
+		});
 		this.#watch.tick();
 		return Response.json({ lane: id });
 	};
