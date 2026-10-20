@@ -304,13 +304,10 @@ describe("StatsPage", () => {
 		await act(async () =>
 			fireEvent.click(page.getByRole("button", { name: "Period: 7 days" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					page.getByRole("menuitemradio", { name: "All time" }),
-				),
-			),
+		const allTime = await waitFor(() =>
+			page.getByRole("menuitemradio", { name: "All time" }),
 		);
+		await act(async () => fireEvent.click(allTime));
 
 		await waitFor(() => page.getByRole("button", { name: "Period: All time" }));
 		expect(asked).toEqual(["7d", "all"]);

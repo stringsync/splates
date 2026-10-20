@@ -82,9 +82,8 @@ describe("App's shutdown confirmation", () => {
 
 		testing.goAway();
 
-		const gone = await waitFor(
-			() => view.getByRole("dialog", { name: "splates server shut down" }),
-			{ timeout: 3000 },
+		const gone = await waitFor(() =>
+			view.getByRole("dialog", { name: "splates server shut down" }),
 		);
 		expect(gone.textContent).toContain(
 			"Start splates server again to resume the agents.",
@@ -121,9 +120,8 @@ describe("App's shutdown confirmation", () => {
 			),
 		);
 		testing.goAway();
-		await waitFor(
-			() => view.getByRole("dialog", { name: "splates server shut down" }),
-			{ timeout: 3000 },
+		await waitFor(() =>
+			view.getByRole("dialog", { name: "splates server shut down" }),
 		);
 
 		testing.restarting = null;
@@ -133,9 +131,7 @@ describe("App's shutdown confirmation", () => {
 		];
 		testing.comeBack();
 
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull(), {
-			timeout: 3000,
-		});
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		await menuItem(view, "Agents checkpointed");
 	});
 });

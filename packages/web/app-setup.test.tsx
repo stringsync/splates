@@ -3,6 +3,7 @@ import { setupProgress } from "./setup-testing";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	resize,
@@ -33,11 +34,9 @@ describe("App's setup", () => {
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {
-			// Found before `act`, which holds back the render it waits on.
-			const row = await waitFor(() =>
+			await clickShown(() =>
 				view.getByRole("button", { name: `Set up ${journey}` }),
 			);
-			await act(async () => fireEvent.click(row));
 		}
 		return view;
 	};
@@ -153,9 +152,7 @@ describe("App's setup", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
 		);
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("Setup"))),
-		);
+		await clickShown(() => view.getByText("Setup"));
 
 		expect(location.hash).toBe("#setup");
 	});

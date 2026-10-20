@@ -39,9 +39,8 @@ describe("App's Auto pick setup", () => {
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		// The Setup page is a chunk fetched as it first opens.
-		const start = await waitFor(
-			() => view.getByRole("button", { name: "Set up Auto pick" }),
-			{ timeout: 5000 },
+		const start = await waitFor(() =>
+			view.getByRole("button", { name: "Set up Auto pick" }),
 		);
 		await act(async () => fireEvent.click(start));
 		return view;

@@ -60,9 +60,7 @@ describe("App's checkpoint restart", () => {
 
 		testing.goAway();
 
-		await waitFor(() => expect(current(dialog)).toBe("Restart"), {
-			timeout: 3000,
-		});
+		await waitFor(() => expect(current(dialog)).toBe("Restart"));
 		testing.restarting = null;
 		testing.restarted = "resuming";
 		testing.run = "run-2";
@@ -70,18 +68,14 @@ describe("App's checkpoint restart", () => {
 			project("webappwiz", [live("c1", "One", "done")], true),
 		];
 		testing.comeBack();
-		await waitFor(() => expect(current(dialog)).toBe("Resume"), {
-			timeout: 3000,
-		});
+		await waitFor(() => expect(current(dialog)).toBe("Resume"));
 		expect(dialog.textContent).toContain("0 of 1 agent back at work.");
 		within(dialog).getByText("splates 0.0.1");
 
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
-		await waitFor(() => within(dialog).getByText("1 agent back at work."), {
-			timeout: 3000,
-		});
+		await waitFor(() => within(dialog).getByText("1 agent back at work."));
 		// The same screen throughout, rather than one sliding in per step.
 		expect(view.getByRole("dialog", { name: "splates server restarted" })).toBe(
 			dialog,
@@ -108,14 +102,12 @@ describe("App's checkpoint restart", () => {
 			);
 			expect(current(dialog)).toBe("Checkpoint");
 			testing.goAway(status);
-			await waitFor(() => expect(current(dialog)).toBe("Restart"), {
-				timeout: 3000,
-			});
+			await waitFor(() => expect(current(dialog)).toBe("Restart"));
 			expect(view.queryByText(/Projects not listed/)).toBeNull();
 			testing.restarting = null;
 			testing.run = "run-2";
 			testing.comeBack();
-			await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+			await waitFor(() => expect(testing.reloads).toBe(1));
 			expect(view.queryByText(/Projects not listed/)).toBeNull();
 		},
 	);
@@ -136,7 +128,7 @@ describe("App's checkpoint restart", () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "done")], true),
 		];
-		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+		await waitFor(() => expect(testing.reloads).toBe(1));
 		cleanup();
 
 		const again = await testing.open();
@@ -163,7 +155,7 @@ describe("App's checkpoint restart", () => {
 			...testing.served,
 			release: null,
 		};
-		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+		await waitFor(() => expect(testing.reloads).toBe(1));
 		cleanup();
 
 		const again = await testing.open({

@@ -149,7 +149,8 @@ const ENTITIES: Record<string, string> = {
 /**
  * The tests a runner reported as failing, each with what it said, which the
  * tail cuts off. Another runner prints none, so the tail alone is what the
- * agent gets.
+ * agent gets. An error thrown between tests fails the run with no test
+ * failing, so it is named for the file it came from.
  */
 export function failedTests(output: string): FailedTest[] {
 	// bun prints each as a `(fail) name` line well before the summary, with the
@@ -157,7 +158,19 @@ export function failedTests(output: string): FailedTest[] {
 	const lines = output.split("\n");
 	const found = new Map<string, string>();
 	let start = 0;
+	let file: string | undefined;
 	lines.forEach((line, index) => {
+		file = FILE_LINE.exec(line)?.[1] ?? file;
+		if (UNHANDLED_LINE.test(line)) {
+			const name = `${UNHANDLED}${file === undefined ? "" : ` in ${file}`}`;
+			const error = unhandled(lines.slice(index + 1));
+			if (!found.has(name)) {
+				found.set(name, error.message);
+			}
+			// what it said is no test's message
+			start = index + 1 + error.lines;
+			return;
+		}
 		const name = FAIL_LINE.exec(line)?.[1];
 		if (name === undefined) {
 			return;
@@ -177,12 +190,33 @@ export function failedTests(output: string): FailedTest[] {
 	return [...found].map(([name, message]) => ({ name, message }));
 }
 
+// bun frames what an unhandled error said between two rules of dashes
+function unhandled(after: string[]): { message: string; lines: number } {
+	const opens = RULE_LINE.test(after[0] ?? "") ? 1 : 0;
+	const closes = after.findIndex(
+		(line, index) => index >= opens && RULE_LINE.test(line),
+	);
+	const end = closes === -1 ? opens + MESSAGE_LINES : closes;
+	return {
+		message: after
+			.slice(opens, Math.min(end, opens + MESSAGE_LINES))
+			.join("\n")
+			.trim(),
+		lines: closes === -1 ? opens : closes + 1,
+	};
+}
+
 // bun prints a timed-out test's only explanation on the line after its name,
 // so the lines above it are another test's noise
 function afterFail(next: string | undefined): string[] {
 	return next !== undefined && /^\s*\^ /.test(next) ? [next.trim()] : [];
 }
 
+const UNHANDLED = "Unhandled error between tests";
+const UNHANDLED_LINE = /^\s*# Unhandled error between tests\s*$/;
+const RULE_LINE = /^-{3,}\s*$/;
+// bun heads each file's output with its path
+const FILE_LINE = /^(\S+\.(?:test|spec)\.[cm]?[jt]sx?):\s*$/;
 const FAIL_LINE = /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;
 
 /** The most lines kept of what one failed test said. */

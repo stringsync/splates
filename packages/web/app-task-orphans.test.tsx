@@ -3,6 +3,7 @@ import {
 	AGENTS,
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -101,11 +102,7 @@ describe("App's orphaned tasks", () => {
 		await act(async () =>
 			fireEvent.click(bar.getByRole("button", { name: /Hand to a new agent/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: /Codex/ })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: /Codex/ }));
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c2/prompt")).toHaveLength(1),

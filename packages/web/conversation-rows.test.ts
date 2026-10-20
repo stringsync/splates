@@ -42,28 +42,36 @@ describe("conversation rows", () => {
 	});
 
 	it("leaves out an agent handed out once it has exited, unless it asks or hosts one", () => {
+		// each row made once: a conversation is stamped with when it was made,
+		// so the same row made twice can differ by a millisecond
 		const gone = (id: string, need: Need = { kind: "idle" }): Needing => ({
 			...row(id),
 			conversation: conversation({ id, status: "stopped" }),
 			need,
 		});
+		const [top, idle, asks, hosts] = [
+			gone("top"),
+			gone("a"),
+			gone("b", asking),
+			gone("c"),
+		];
 		expect(
 			shownIn([
 				{
-					row: gone("top"),
+					row: top,
 					parts: [
-						{ row: gone("a"), parts: [] },
-						{ row: gone("b", asking), parts: [] },
-						{ row: gone("c"), parts: [{ row: part, parts: [] }] },
+						{ row: idle, parts: [] },
+						{ row: asks, parts: [] },
+						{ row: hosts, parts: [{ row: part, parts: [] }] },
 					],
 				},
 			]),
 		).toEqual([
 			{
-				row: gone("top"),
+				row: top,
 				parts: [
-					{ row: gone("b", asking), parts: [] },
-					{ row: gone("c"), parts: [{ row: part, parts: [] }] },
+					{ row: asks, parts: [] },
+					{ row: hosts, parts: [{ row: part, parts: [] }] },
 				],
 			},
 		]);

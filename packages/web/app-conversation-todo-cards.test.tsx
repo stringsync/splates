@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	message,
@@ -360,12 +361,8 @@ describe("App's todo cards", () => {
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: /Codex.*assigned/ }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: /Codex.*assigned/ }),
 		);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await waitFor(() =>

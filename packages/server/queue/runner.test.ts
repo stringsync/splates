@@ -69,6 +69,10 @@ describe("QueueRunner", () => {
 			log: new MemoryLogger(),
 			timer: new FakeTimer(),
 		});
+		// `watch` checks the queue at once; left running, that check can read
+		// a test's tasks as it queues them and start them before the test sets
+		// its room
+		await runner.sweep();
 	});
 
 	afterEach(async () => {

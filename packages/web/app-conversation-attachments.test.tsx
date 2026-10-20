@@ -3,6 +3,7 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	message,
@@ -192,11 +193,7 @@ describe("App's attachments", () => {
 			await act(async () =>
 				fireEvent.click(within(box).getByRole("button", { name: chip })),
 			);
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() => view.getByRole("menuitem", { name: "Remove" })),
-				),
-			);
+			await clickShown(() => view.getByRole("menuitem", { name: "Remove" }));
 		};
 		await waitFor(() =>
 			expect(within(box).getByRole("button", { name: "File 1" })).toBeTruthy(),

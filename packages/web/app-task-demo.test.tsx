@@ -5,6 +5,7 @@ import {
 	AGENTS,
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -79,13 +80,10 @@ describe("App's task demos", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(
-						view.getByRole("list", { name: "finished task list" }),
-					).getByRole("button", { name: /alpha/ }),
-				),
+		await clickShown(() =>
+			within(view.getByRole("list", { name: "finished task list" })).getByRole(
+				"button",
+				{ name: /alpha/ },
 			),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));

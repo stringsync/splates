@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -101,12 +102,8 @@ describe("App's conversation header", () => {
 		]);
 		await act(async () => fireEvent.click(items[0] as HTMLElement));
 		await open();
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: /Retry the upload/ }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: /Retry the upload/ }),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{

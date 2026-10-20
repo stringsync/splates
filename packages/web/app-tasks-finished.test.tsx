@@ -3,6 +3,7 @@ import type { FinishedPlan } from "@stringsync/splates-server/tasks";
 import {
 	act,
 	cleanup,
+	clickShown,
 	details,
 	fireEvent,
 	Testing,
@@ -90,13 +91,10 @@ describe("App's finished tasks", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(
-						view.getByRole("list", { name: "finished task list" }),
-					).getByRole("button", { name: /alpha/ }),
-				),
+		await clickShown(() =>
+			within(view.getByRole("list", { name: "finished task list" })).getByRole(
+				"button",
+				{ name: /alpha/ },
 			),
 		);
 

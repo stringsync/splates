@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { failingCases, timedTests } from "./test-report";
+import { failedTests, failingCases, timedTests } from "./test-report";
 
 describe("test reports", () => {
 	it("names each test by its describe blocks, as bun writes them", () => {
@@ -66,5 +66,56 @@ describe("test reports", () => {
 		expect(failingCases('<testsuite><testcase name="bad"><failure/>')).toEqual(
 			[],
 		);
+	});
+
+	it("names an error thrown between tests for the file it came from, with what it said", () => {
+		const output = [
+			"packages/a/b.test.ts:",
+			"(pass) b > fine [1.00ms]",
+			"",
+			"# Unhandled error between tests",
+			"-------------------------------",
+			"19 | 		await fs.rename(tmp, path);",
+			"                ^",
+			"ENOENT: no such file or directory, rename 'x.tmp' -> 'x'",
+			"-------------------------------",
+			"",
+			" 1 pass",
+			" 0 fail",
+			" 1 error",
+		].join("\n");
+
+		expect(failedTests(output)).toEqual([
+			{
+				name: "Unhandled error between tests in packages/a/b.test.ts",
+				message: [
+					"19 | 		await fs.rename(tmp, path);",
+					"                ^",
+					"ENOENT: no such file or directory, rename 'x.tmp' -> 'x'",
+				].join("\n"),
+			},
+		]);
+	});
+
+	it("names one with no file before it by itself, beside a failed test", () => {
+		const output = [
+			"# Unhandled error between tests",
+			"-------------------------------",
+			"ReferenceError: x is not defined",
+			"-------------------------------",
+			"Expected: 1",
+			"(fail) a > b [1.2ms]",
+		].join("\n");
+
+		expect(failedTests(output)).toEqual([
+			{
+				name: "Unhandled error between tests",
+				message: "ReferenceError: x is not defined",
+			},
+			{
+				name: "a > b",
+				message: "Expected: 1",
+			},
+		]);
 	});
 });

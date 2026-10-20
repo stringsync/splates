@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -182,11 +183,7 @@ describe("App's tasks", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Retry" })),
-			),
-		);
+		await clickShown(() => view.getByRole("button", { name: "Retry" }));
 
 		await waitFor(() =>
 			expect(testing.posts.map((post) => post.path)).toEqual([
@@ -219,11 +216,7 @@ describe("App's tasks", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Retry" })),
-			),
-		);
+		await clickShown(() => view.getByRole("button", { name: "Retry" }));
 
 		await waitFor(() =>
 			expect(view.getByRole("dialog").textContent).toContain(

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	fireEvent,
 	snapshot,
 	Testing,
@@ -290,13 +291,7 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Forget shop" }),
-				),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Forget shop" }));
 
 		await waitFor(() =>
 			expect(new URL(String(testing.visited[0])).search).toBe(
@@ -312,13 +307,7 @@ describe("App's projects", () => {
 		await openSwitcher(view);
 
 		await openMenu(view, "shop");
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Forget shop" }),
-				),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Forget shop" }));
 
 		await waitFor(() =>
 			expect(String(testing.visited[0])).toBe("http://localhost/"),
@@ -329,9 +318,7 @@ describe("App's projects", () => {
 		const view = await testing.open();
 		await openSwitcher(view);
 
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
-		);
+		await clickShown(() => view.getByText("/code/shop"));
 
 		expect(testing.posts).toContainEqual(
 			expect.objectContaining({
@@ -465,12 +452,8 @@ async function openMenu(
 	view: ReturnType<typeof within>,
 	slug: string,
 ): Promise<void> {
-	await act(async () =>
-		fireEvent.click(
-			await waitFor(() =>
-				view.getByRole("button", { name: `More for ${slug}` }),
-			),
-		),
+	await clickShown(() =>
+		view.getByRole("button", { name: `More for ${slug}` }),
 	);
 }
 

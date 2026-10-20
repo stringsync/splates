@@ -5,6 +5,7 @@ import {
 	act,
 	type ConversationsView,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	message,
@@ -128,14 +129,10 @@ describe("App's card answer boxes", () => {
 		testing.dictation = new Dictation(microphone, async () => link);
 		const view = await testing.openConversations([asking]);
 		await toThread(view);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(
-						view.getByRole("complementary", { name: "Waiting on you" }),
-					).getByRole("button", { name: /2 questions for you/ }),
-				),
-			),
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /2 questions for you/ }),
 		);
 		const sheet = await waitFor(() =>
 			view.getByRole("dialog", { name: "2 questions for you" }),
@@ -455,11 +452,7 @@ describe("App's card answer boxes", () => {
 				within(card(view, "2")).getByRole("button", { name: "Image 1" }),
 			),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Remove" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Remove" }));
 
 		await waitFor(() =>
 			expect(textIn(answer(view, "2"))).toBe("This overlaps "),

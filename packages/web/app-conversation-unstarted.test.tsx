@@ -3,6 +3,7 @@ import {
 	act,
 	type ConversationsView,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	newWith,
@@ -95,11 +96,7 @@ describe("App's new conversations not started yet", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: /Codex/ })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: /Codex/ }));
 		expect(location.hash.split("?")[1]).toBe(second.split("?")[1]);
 		expect(textIn(box(view))).toBe("second draft");
 		await pressNew();
@@ -187,11 +184,7 @@ describe("App's new conversations not started yet", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: /Codex/ })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: /Codex/ }));
 
 		expect(location.hash).toBe("#conversations/new/codex");
 		expect(
@@ -202,11 +195,7 @@ describe("App's new conversations not started yet", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Terminal" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Terminal" }));
 		expect(location.hash).toBe("#conversations/terminal/1");
 	});
 });

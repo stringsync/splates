@@ -4,6 +4,7 @@ import { setupProgress } from "./setup-testing";
 import {
 	act,
 	cleanup,
+	clickShown,
 	fireEvent,
 	resize,
 	Testing,
@@ -33,12 +34,8 @@ describe("App's setup undo", () => {
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() =>
-						view.getByRole("button", { name: `Set up ${journey}` }),
-					),
-				),
+			await clickShown(() =>
+				view.getByRole("button", { name: `Set up ${journey}` }),
 			);
 		}
 		return view;
@@ -70,11 +67,7 @@ describe("App's setup undo", () => {
 
 	const openUndo = async () => {
 		const view = await openSetup(null);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Undo Agents" })),
-			),
-		);
+		await clickShown(() => view.getByRole("button", { name: "Undo Agents" }));
 		return view;
 	};
 
@@ -103,11 +96,7 @@ describe("App's setup undo", () => {
 		const view = await openUndo();
 		testing.reply = setupProgress();
 
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Undo Agents" })),
-			),
-		);
+		await clickShown(() => view.getByRole("button", { name: "Undo Agents" }));
 
 		expect(posted("/api/setup/agents/undo")).toEqual([{ confirm: null }]);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
@@ -174,12 +163,8 @@ describe("App's setup undo", () => {
 		});
 		const view = await openSetup("Dictation");
 
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("button", { name: "Undo Dictation" }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("button", { name: "Undo Dictation" }),
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		await waitFor(() => expect(dialog.textContent).toContain("not finished"));

@@ -101,7 +101,7 @@ describe("App's auto update", () => {
 		expect(dialog.textContent).toContain("This page reloads once it is back.");
 
 		testing.run = "run-2";
-		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+		await waitFor(() => expect(testing.reloads).toBe(1));
 	});
 
 	it("starts no countdown while Power is open", async () => {

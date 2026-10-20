@@ -4,6 +4,7 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -85,11 +86,7 @@ describe("App's controls that put agents to work", () => {
 		item: RegExp,
 	) => {
 		await act(async () => fireEvent.click(trigger));
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: item })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: item }));
 	};
 
 	const composer = (view: Awaited<ReturnType<typeof board>>) =>
@@ -229,19 +226,11 @@ describe("App's controls that put agents to work", () => {
 				within(dialog).getByRole("button", { name: "Start a conversation" }),
 			),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "In a conversation" }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "In a conversation" }),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: /Tidy the docs/ }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: /Tidy the docs/ }),
 		);
 
 		expect(location.hash).toBe("#conversations/c2");

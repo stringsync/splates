@@ -4,6 +4,7 @@ import {
 	agentList,
 	type ConversationsView,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -160,11 +161,7 @@ Cap upload retries
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More for Quiet" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Stop turn" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Stop turn" }));
 		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
 		// Stopped at once, before the server says so.
 		expect(rows(view)).toEqual([

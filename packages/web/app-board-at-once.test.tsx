@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	fireEvent,
 	Testing,
 	todo,
@@ -58,11 +59,7 @@ describe("App's board writes at once", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: `${lane} actions` })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name }));
 	}
 
 	it("adds and renames a lane at the click, before the server answers", async () => {

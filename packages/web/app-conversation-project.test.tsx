@@ -3,6 +3,7 @@ import { newDraft } from "./drafts";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	Testing,
@@ -83,9 +84,7 @@ describe("App's new conversation, by project", () => {
 				within(home).getByRole("button", { name: /^Switch project/ }),
 			),
 		);
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
-		);
+		await clickShown(() => view.getByText("/code/shop"));
 
 		const there = new URL(String(testing.visited.at(-1)));
 		expect(there.search).toBe("?project=shop");

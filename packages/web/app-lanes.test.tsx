@@ -6,6 +6,7 @@ import {
 import {
 	act,
 	cleanup,
+	clickShown,
 	fireEvent,
 	Testing,
 	todo,
@@ -201,11 +202,7 @@ describe("App's lanes", () => {
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: `${lane} actions` })),
 			);
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() => view.getByRole("menuitem", { name })),
-				),
-			);
+			await clickShown(() => view.getByRole("menuitem", { name }));
 		};
 
 		await pick("Score editor", "Move left");
@@ -239,11 +236,7 @@ describe("App's lanes", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Licensing actions" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Queue lane" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Queue lane" }));
 
 		expect(testing.posts.at(-1)).toMatchObject({
 			path: "/api/lanes/1",
@@ -265,12 +258,8 @@ describe("App's lanes", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Licensing actions" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Stop queueing lane" }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Stop queueing lane" }),
 		);
 
 		expect(testing.posts.at(-1)).toMatchObject({
@@ -376,12 +365,8 @@ describe("App's lanes", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^Lanes/ })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitemcheckbox", { name: /^Licensing/ }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitemcheckbox", { name: /^Licensing/ }),
 		);
 
 		expect(view.queryByRole("region", { name: "Licensing" })).toBeNull();
@@ -397,12 +382,8 @@ describe("App's lanes", () => {
 		expect(again.queryByRole("region", { name: "Licensing" })).toBeNull();
 
 		// All at once: shown, then hidden, the menu staying open between.
-		const all = async (name: string) =>
-			act(async () =>
-				fireEvent.click(
-					await waitFor(() => again.getByRole("menuitem", { name })),
-				),
-			);
+		const all = (name: string) =>
+			clickShown(() => again.getByRole("menuitem", { name }));
 		await act(async () =>
 			fireEvent.click(again.getByRole("button", { name: /^Lanes/ })),
 		);

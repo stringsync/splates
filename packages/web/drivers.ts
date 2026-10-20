@@ -55,6 +55,19 @@ export async function toThread(view: ConversationsView): Promise<void> {
 	});
 }
 
+/**
+ * Clicks what `find` returns once the page shows it. Use it rather than a
+ * `waitFor` inside `act`, which waits out its whole timeout for anything yet
+ * to render.
+ */
+export async function clickShown(find: () => HTMLElement): Promise<void> {
+	// waited for before `act`, never inside it: React holds every render until
+	// `act` returns, so what has yet to render, as a page loaded lazily on its
+	// first open, never shows while a wait in it runs
+	const shown = await waitFor(find);
+	await act(async () => fireEvent.click(shown));
+}
+
 /** Opens New from the sidebar, then picks `agent` in the conversation header. */
 export async function newWith(
 	view: ConversationsView,
@@ -66,12 +79,8 @@ export async function newWith(
 	await act(async () =>
 		fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 	);
-	await act(async () =>
-		fireEvent.click(
-			await waitFor(() =>
-				view.getByRole("menuitem", { name: new RegExp(agent) }),
-			),
-		),
+	await clickShown(() =>
+		view.getByRole("menuitem", { name: new RegExp(agent) }),
 	);
 }
 

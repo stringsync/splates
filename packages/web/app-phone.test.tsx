@@ -3,6 +3,7 @@ import { SWIPE_PX } from "./phone-swipe";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -638,14 +639,10 @@ describe("App on a phone", () => {
 				}),
 			]);
 			await toThread(view);
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() =>
-						within(
-							view.getByRole("complementary", { name: "Waiting on you" }),
-						).getByRole("button", { name: /2 questions for you/ }),
-					),
-				),
+			await clickShown(() =>
+				within(
+					view.getByRole("complementary", { name: "Waiting on you" }),
+				).getByRole("button", { name: /2 questions for you/ }),
 			);
 			const sheet = await waitFor(() =>
 				view.getByRole("dialog", { name: "2 questions for you" }),
@@ -683,14 +680,10 @@ describe("App on a phone", () => {
 			}),
 		]);
 		await toThread(view);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(
-						view.getByRole("complementary", { name: "Waiting on you" }),
-					).getByRole("button", { name: /1 question for you/ }),
-				),
-			),
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /1 question for you/ }),
 		);
 		const sheet = await waitFor(() =>
 			view.getByRole("dialog", { name: "1 question for you" }),
@@ -729,14 +722,10 @@ describe("App on a phone", () => {
 		]);
 		await toThread(view);
 
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(
-						view.getByRole("complementary", { name: "Waiting on you" }),
-					).getByRole("button", { name: /1 question for you/ }),
-				),
-			),
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /1 question for you/ }),
 		);
 		const sheet = await waitFor(() =>
 			view.getByRole("dialog", { name: "1 question for you" }),
@@ -1054,12 +1043,8 @@ describe("App on a phone", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "New conversation" }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "New conversation" }),
 		);
 
 		expect(location.hash).toBe("#conversations/new/codex");
@@ -1078,11 +1063,7 @@ describe("App on a phone", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Terminal" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Terminal" }));
 
 		expect(location.hash).toBe("#conversations/terminal/1");
 		// Its bar says where it runs once the page has drawn it.
@@ -1213,7 +1194,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c1");
 		expect(
 			within(
-				view.getByRole("complementary", { name: "background command" }),
+				await view.findByRole("complementary", { name: "background command" }),
 			).getByRole("heading").textContent,
 		).toBe("Start the dev server");
 	});

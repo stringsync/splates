@@ -189,7 +189,7 @@ describe("App's checkpoint dialog", () => {
 
 		testing.restarting = null;
 		testing.run = "run-2";
-		await waitFor(() => expect(testing.reloads).toBe(1), { timeout: 3000 });
+		await waitFor(() => expect(testing.reloads).toBe(1));
 	});
 
 	it("shuts down with no checkpoint, saying what that stops where a restart would keep it", async () => {
@@ -240,9 +240,8 @@ describe("App's checkpoint dialog", () => {
 			{ method: "POST", body: { shutdown: true } },
 		]);
 		testing.goAway();
-		const gone = await waitFor(
-			() => view.getByRole("dialog", { name: "splates server shut down" }),
-			{ timeout: 3000 },
+		const gone = await waitFor(() =>
+			view.getByRole("dialog", { name: "splates server shut down" }),
 		);
 		expect(gone.textContent).toContain(
 			"Start splates server again from a terminal.",

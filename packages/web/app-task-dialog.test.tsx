@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -317,13 +318,10 @@ see the header
 		expect(testing.posts).toEqual([]);
 
 		await remove();
-		await act(async () =>
-			fireEvent.click(
-				within(
-					await waitFor(() =>
-						view.getByRole("dialog", { name: "Remove beta?" }),
-					),
-				).getByRole("button", { name: "Remove" }),
+		await clickShown(() =>
+			within(view.getByRole("dialog", { name: "Remove beta?" })).getByRole(
+				"button",
+				{ name: "Remove" },
 			),
 		);
 		await waitFor(() =>

@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { MachineStatus } from "./api";
-import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
+import {
+	act,
+	cleanup,
+	clickShown,
+	fireEvent,
+	Testing,
+	waitFor,
+	within,
+} from "./testing";
 
 describe("App's machine stats", () => {
 	let testing: Testing;
@@ -70,9 +78,7 @@ describe("App's machine stats", () => {
 		});
 		const view = await testing.open();
 
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("Mac busy"))),
-		);
+		await clickShown(() => view.getByText("Mac busy"));
 
 		const jobs = await waitFor(() =>
 			view.getByRole("region", { name: "Heavy jobs" }),
@@ -119,9 +125,7 @@ describe("App's machine stats", () => {
 		});
 		const view = await testing.open();
 
-		await act(async () =>
-			fireEvent.click(await waitFor(() => view.getByText("3 queued"))),
-		);
+		await clickShown(() => view.getByText("3 queued"));
 		const queue = await waitFor(() =>
 			view.getByRole("list", { name: "Queue" }),
 		);

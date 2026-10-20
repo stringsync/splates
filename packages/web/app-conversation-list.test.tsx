@@ -3,6 +3,7 @@ import {
 	act,
 	type ConversationsView,
 	cleanup,
+	clickShown,
 	conversation,
 	fireEvent,
 	newestFirst,
@@ -280,11 +281,7 @@ describe("App's conversation list", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More for alpha" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Rename" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Rename" }));
 		const box = await waitFor(() =>
 			view.getByRole("textbox", { name: "Rename alpha" }),
 		);
@@ -331,12 +328,8 @@ describe("App's conversation list", () => {
 				view.getByRole("button", { name: "More for Fix footer" }),
 			),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Mark as unread" }),
-				),
-			),
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Mark as unread" }),
 		);
 
 		expect(testing.posted("/api/conversations/c2/unread")).toEqual([

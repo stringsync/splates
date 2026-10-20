@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	clickShown,
 	fireEvent,
 	Testing,
 	todo,
@@ -152,11 +153,7 @@ describe("App's todo edits", () => {
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name })),
 			);
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() => view.getByRole("menuitem", { name: item })),
-				),
-			);
+			await clickShown(() => view.getByRole("menuitem", { name: item }));
 		};
 		expect(view.queryByRole("img", { name: "a.png" })).toBeNull();
 		await menu("a.png", "View");
@@ -185,11 +182,7 @@ describe("App's todo edits", () => {
 		});
 
 		await act(async () => fireEvent.click(view.getByText("write docs")));
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Remove" })),
-			),
-		);
+		await clickShown(() => view.getByRole("button", { name: "Remove" }));
 		expect(testing.posts).toHaveLength(0);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Remove for good" })),

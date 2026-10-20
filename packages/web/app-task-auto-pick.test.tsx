@@ -5,6 +5,7 @@ import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	act,
 	cleanup,
+	clickShown,
 	conversation,
 	details,
 	fireEvent,
@@ -115,11 +116,7 @@ describe("App's Auto pick", () => {
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Auto pick" })),
-			),
-		);
+		await clickShown(() => view.getByRole("menuitem", { name: "Auto pick" }));
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(

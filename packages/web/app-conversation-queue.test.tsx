@@ -56,9 +56,7 @@ describe("App's composer queue", () => {
 		expect(user?.hasAttribute("data-sticks")).toBe(true);
 		const label = within(thread).getByText(/^Queued \d+s$/);
 		const initial = label.textContent;
-		await waitFor(() => expect(label.textContent).not.toBe(initial), {
-			timeout: 2500,
-		});
+		await waitFor(() => expect(label.textContent).not.toBe(initial));
 		expect(label.className).toContain("shimmer");
 		expect(label.className).toContain("motion-reduce:animate-none");
 		expect(label.getAttribute("role")).toBe("status");
