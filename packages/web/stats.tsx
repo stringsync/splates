@@ -1,23 +1,19 @@
 import type { SkillVersion } from "@stringsync/splates-server/stats/browser";
 import { useReactive } from "@webappwiz/react";
-import { CalendarRangeIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
-import {
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-} from "#web/components/ui/dropdown-menu.tsx";
+import { Tabs, TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { touchItems } from "./board";
 import type { Advice } from "./stats-advice";
 import { BY_DEVICE, BY_MODEL, BY_PROJECT, type Column } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
@@ -84,33 +80,25 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		<section aria-label="stats" className="flex min-w-0 flex-col gap-6">
 			<TopBar
 				title="Stats"
-				actions={[
-					projectFilter(report, project, options),
-					{
-						label: "Period",
-						icon: <CalendarRangeIcon />,
-						text: period.label,
-						menuClassName: cn("w-40", touchItems),
-						menu: (
-							<DropdownMenuRadioGroup
-								value={period.id}
-								onValueChange={(id) => {
-									const chosen = PERIODS.find((each) => each.id === id);
-									if (chosen !== undefined) {
-										void report.choose(chosen);
-									}
-								}}
-							>
-								{PERIODS.map((each) => (
-									<DropdownMenuRadioItem key={each.id} value={each.id}>
-										{each.label}
-									</DropdownMenuRadioItem>
-								))}
-							</DropdownMenuRadioGroup>
-						),
-					},
-				]}
+				actions={[projectFilter(report, project, options)]}
 			/>
+			<Tabs
+				value={period.id}
+				onValueChange={(id) => {
+					const chosen = PERIODS.find((each) => each.id === id);
+					if (chosen !== undefined) {
+						void report.choose(chosen);
+					}
+				}}
+			>
+				<TabsList aria-label="Period" className="max-w-full overflow-x-auto">
+					{PERIODS.map((each) => (
+						<TabsTrigger key={each.id} value={each.id}>
+							{each.label}
+						</TabsTrigger>
+					))}
+				</TabsList>
+			</Tabs>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

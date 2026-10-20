@@ -302,14 +302,16 @@ describe("StatsPage", () => {
 		await waitFor(() => page.getByText(/tasks ended/));
 
 		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "Period: 7 days" })),
+			fireEvent.click(page.getByRole("tab", { name: "All time" })),
 		);
-		const allTime = await waitFor(() =>
-			page.getByRole("menuitemradio", { name: "All time" }),
-		);
-		await act(async () => fireEvent.click(allTime));
 
-		await waitFor(() => page.getByRole("button", { name: "Period: All time" }));
+		await waitFor(() =>
+			expect(
+				page
+					.getByRole("tab", { name: "All time" })
+					.getAttribute("aria-selected"),
+			).toBe("true"),
+		);
 		expect(asked).toEqual(["7d", "all"]);
 		expect(page.getByText(/tasks ended/).textContent).toMatch(
 			/^2 tasks ended counting since/,
