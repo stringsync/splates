@@ -1,4 +1,3 @@
-import { ArchiveIcon } from "lucide-react";
 import {
 	type JSX,
 	type PointerEvent,
@@ -8,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { ArchiveBacking, showPast } from "./phone-swipe-cue";
 
 /** How far left a row is swiped, in pixels, before letting go archives it. */
 export const SWIPE_PX = 120;
@@ -52,6 +52,8 @@ export function Swipeable({
 	const backing = useRef<HTMLDivElement>(null);
 	const start = useRef<{ x: number; y: number } | null>(null);
 	const swiping = useRef(false);
+	// Whether the pull is past SWIPE_PX, so letting go would archive.
+	const past = useRef(false);
 	// Set when a swipe ends, so the tap the browser sends after it opens nothing.
 	const swiped = useRef(false);
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -60,7 +62,7 @@ export function Swipeable({
 		return <>{children}</>;
 	}
 	// Puts the row at `to`, following the finger at once or easing there.
-	const slide = (to: string, ease: "none" | "ease-out" | "ease-in") => {
+	const slide = (to: string, ease: "none" | "ease-out" | "ease-in", dx = 0) => {
 		if (row.current !== null) {
 			row.current.style.transition =
 				ease === "none" ? "none" : `transform ${LEAVE_MS}ms ${ease}`;
@@ -68,6 +70,14 @@ export function Swipeable({
 		}
 		if (backing.current !== null) {
 			backing.current.style.opacity = to === "translateX(0px)" ? "0" : "1";
+		}
+		const isPast = dx <= -SWIPE_PX;
+		if (isPast !== past.current) {
+			past.current = isPast;
+			showPast(backing.current, isPast);
+			if (isPast && ease === "none") {
+				navigator.vibrate?.(10);
+			}
 		}
 	};
 	const settle = () => {
@@ -83,7 +93,7 @@ export function Swipeable({
 			? 0
 			: LEAVE_MS;
 		setLeaving(true);
-		slide("translateX(-100%)", "ease-in");
+		slide("translateX(-100%)", "ease-in", -SWIPE_PX);
 		setHeight(box.current?.offsetHeight ?? 0);
 		timer.current = setTimeout(() => {
 			setHeight(0);
@@ -109,14 +119,7 @@ export function Swipeable({
 			className="relative overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
 			style={height === null ? undefined : { height }}
 		>
-			<div
-				ref={backing}
-				aria-hidden
-				className="absolute inset-0 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
-			>
-				<ArchiveIcon />
-				Archive
-			</div>
+			<ArchiveBacking backing={backing} className="absolute inset-0 flex" />
 			<div
 				ref={row}
 				// Up and down stay the browser's to scroll; sideways is the swipe's.
@@ -146,7 +149,7 @@ export function Swipeable({
 						// Kept when the finger leaves the row.
 						event.currentTarget.setPointerCapture?.(event.pointerId);
 					}
-					slide(`translateX(${Math.min(0, dx)}px)`, "none");
+					slide(`translateX(${Math.min(0, dx)}px)`, "none", dx);
 				}}
 				onPointerUp={(event: PointerEvent) => {
 					const far =
@@ -206,7 +209,6 @@ export function EdgeSwipe({
 	target: RefObject<HTMLElement | null>;
 }): JSX.Element {
 	const backing = useRef<HTMLDivElement>(null);
-	const label = useRef<HTMLDivElement>(null);
 	// Whether the pull is past SWIPE_PX, so letting go would archive.
 	const past = useRef(false);
 	// When the finger went down, to tell a flick.
@@ -236,11 +238,7 @@ export function EdgeSwipe({
 		}
 		if (backing.current !== null) {
 			backing.current.style.opacity = String(progress);
-			backing.current.style.filter = isPast ? "brightness(0.88)" : "";
-		}
-		if (label.current !== null) {
-			label.current.style.transition = "transform 120ms ease-out";
-			label.current.style.transform = `scale(${isPast ? 1.15 : 0.7 + 0.3 * progress})`;
+			showPast(backing.current, isPast);
 		}
 	};
 	const settle = () => slide(0, "ease-out");
@@ -250,16 +248,10 @@ export function EdgeSwipe({
 	};
 	return (
 		<>
-			<div
-				ref={backing}
-				aria-hidden
-				className="pointer-events-none fixed inset-x-0 -z-10 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
-			>
-				<div ref={label} className="flex items-center gap-2 scale-[0.7]">
-					<ArchiveIcon />
-					Archive
-				</div>
-			</div>
+			<ArchiveBacking
+				backing={backing}
+				className="pointer-events-none fixed inset-x-0 -z-10 flex"
+			/>
 			<div
 				data-testid="edge-swipe"
 				// Below the bar and above the composer, whose buttons sit near the edge.
