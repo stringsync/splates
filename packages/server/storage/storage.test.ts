@@ -270,7 +270,16 @@ describe.each([
 				),
 			);
 
-			await tasks.write("1.md", "again");
+			// A native watcher can take a moment to become ready, and a write
+			// before then goes unseen, so write again until it tells.
+			let settled = false;
+			void told.then(() => {
+				settled = true;
+			});
+			for (let i = 0; !settled && i < 100; i++) {
+				await tasks.write("1.md", `again ${i}`);
+				await Bun.sleep(50);
+			}
 
 			expect(await told).toBe("tasks/1.md");
 			watch.dispose();
