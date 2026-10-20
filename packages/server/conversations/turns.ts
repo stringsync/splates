@@ -501,6 +501,23 @@ export class ConversationTurns {
 	}
 
 	/**
+	 * Starts the agent again for what was said while a start the server cut
+	 * short was under way, saying the first of it once the session opens, as
+	 * that start would have, and the rest once its turn ends.
+	 */
+	async sayUnsaid(): Promise<void> {
+		const { host } = this;
+		await host.resume();
+		if (
+			host.state.status === "idle" &&
+			host.state.messages.some((each) => each.queued)
+		) {
+			this.held = false;
+			this.send([], { first: true });
+		}
+	}
+
+	/**
 	 * Stops the agent's turn for the person, marking the turn as one they
 	 * stopped, and leaves the conversation open for the next.
 	 */

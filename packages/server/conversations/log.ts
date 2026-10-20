@@ -137,6 +137,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		let ask: { rpc: acp.JsonRpcId | null; ask: Ask } | null = null;
 		let tells = false;
 		let seq = 0;
+		// Asked for at a start, until a session opens with them.
+		let requested: Record<string, string> = {};
+		// Said while it started, with no turn yet to take it.
+		let unsaid = false;
 		for (const entry of entries) {
 			if ("at" in entry && typeof entry.at === "string") {
 				replayed.last = entry.at;
@@ -158,8 +162,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 					...(entry.dictated ? { dictated: true } : {}),
 					...(entry.id === undefined ? {} : { id: entry.id }),
 				});
+				unsaid ||= entry.queued === true && !replayed.running;
 			} else if (entry.kind === "sent") {
 				delivered(state.messages, entry.count, entry.at);
+				unsaid = false;
 			} else if (entry.kind === "stopped") {
 				agentTurn(state, entry.at).stopped = entry.at;
 			} else if (entry.kind === "interrupted") {
@@ -177,6 +183,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.usage.limits = heard(state.usage.limits, entry.limits);
 			} else if (entry.kind === "model-request") {
 				replayed.model = entry.model;
+			} else if (entry.kind === "picks-request") {
+				requested = entry.picks;
 			} else if (entry.kind === "agent") {
 				runOn(state, entry.agent);
 			} else if (entry.kind === "queued") {
@@ -193,6 +201,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				replayed.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
+				requested = {};
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
@@ -258,6 +267,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				foldBackground(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
+				// Stopped by the person, or failed, it waits for them.
+				unsaid &&= entry.unsaid === true;
 				launched = null;
 				requests = [];
 				prompt = null;
@@ -265,11 +276,21 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			}
 		}
 		// As last set, for the resumed session to match, picks made while
-		// stopped among them.
-		replayed.picks = Object.fromEntries(
-			state.settings.map((each) => [each.id, each.current]),
-		);
+		// stopped among them, and over them those a start asked for.
+		replayed.picks = {
+			...Object.fromEntries(
+				state.settings.map((each) => [each.id, each.current]),
+			),
+			...requested,
+		};
 		if (launched === null) {
+			// A held one is held again rather than started.
+			replayed.unsaid =
+				unsaid &&
+				!replayed.running &&
+				state.queued === null &&
+				!state.archived &&
+				state.messages.some((each) => each.queued);
 			await this.stopped(replayed);
 			return replayed;
 		}
@@ -398,6 +419,11 @@ export interface Replayed {
 	running: boolean;
 	/** Whether reading it back cut that turn short, its process being gone. */
 	cut?: boolean;
+	/**
+	 * Whether what was said while it started waits unheard, the server
+	 * having gone down before its session opened, for the next run to say.
+	 */
+	unsaid?: boolean;
 	/** When the log last said anything happened; null for one that never did. */
 	last: string | null;
 }
@@ -458,6 +484,8 @@ type Said =
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }
+	/** Settings to set once the session opens, by id, as Auto pick chose them. */
+	| { kind: "picks-request"; picks: Record<string, string> }
 	/** Auto picked another agent than the one it started on, before any session opened. */
 	| { kind: "agent"; agent: string }
 	/** The queue started the task it was held for, so it is held no more. */
@@ -560,4 +588,12 @@ type Said =
 	| { kind: "ask"; ask: null }
 	/** Word of a command the agent left running in the background. */
 	| { kind: "background"; update: AsyncTaskUpdate; at?: string }
-	| { kind: "end"; error: string | null };
+	| {
+			kind: "end";
+			error: string | null;
+			/**
+			 * The server went down while it started, before its agent heard
+			 * what was queued: the next run starts it again to say it.
+			 */
+			unsaid?: true;
+	  };

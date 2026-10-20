@@ -76,6 +76,11 @@ export class Conversation
 	private reconnects = 0;
 	/** Let go of its process for a restart: nothing here ends it now. */
 	private detached = false;
+	/**
+	 * Read back with what was said while it started still unheard, the
+	 * server having gone down first: `sayUnsaid` starts it again to say it.
+	 */
+	private unsaid = false;
 	/** The slot its agent holds on a worker; null while it has none. */
 	private grant: Grant | null = null;
 	/** Takes its agent out of the queue for a slot; null while it waits in none. */
@@ -191,6 +196,7 @@ export class Conversation
 		if (replayed.cut === true) {
 			conversation.reconnect();
 		}
+		conversation.unsaid = replayed.unsaid === true && taken === null;
 		if (taken !== null && agent !== null) {
 			conversation.grant = taken.hold;
 			conversation.placed = taken.hold?.machine ?? null;
@@ -267,6 +273,7 @@ export class Conversation
 		if (model !== undefined) {
 			conversation.log.write({ kind: "model-request", model });
 		}
+		conversation.request(settings);
 		if (opening.queued === undefined) {
 			conversation.opening = conversation.wake(opening.agent, opening.cwd);
 		} else {
@@ -682,10 +689,48 @@ export class Conversation
 
 	/** Stops the agent; the next prompt resumes where it left off. */
 	async stop(): Promise<void> {
+		await this.halt(false);
+	}
+
+	/**
+	 * Stops it as the server goes down. One still starting, what was said
+	 * to it yet to reach its agent, keeps that unsaid, so the next run
+	 * starts it again and says it, as though the server had stayed up.
+	 */
+	async shutDown(): Promise<void> {
+		await this.halt(
+			this.state.status === "starting" &&
+				this.latch === null &&
+				this.state.messages.some((each) => each.queued),
+		);
+	}
+
+	/**
+	 * Starts it again when it was read back with what was said while it
+	 * started still unheard (`shutDown`), saying it once the session opens;
+	 * one read back any other way waits for the person.
+	 */
+	sayUnsaid(): void {
+		if (!this.unsaid) {
+			return;
+		}
+		this.unsaid = false;
+		void this.turns.sayUnsaid().catch(() => {});
+	}
+
+	/** Stops the agent, leaving what it was told `unsaid` for the next run or not. */
+	private async halt(unsaid: boolean): Promise<void> {
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
 		this.unkeep();
-		await this.close(null);
+		await this.close(null, { unsaid });
+	}
+
+	/** Keeps `picks`, to set once the session opens, through a restart before it does. */
+	private request(picks: Record<string, string>): void {
+		if (Object.keys(picks).length > 0) {
+			this.log.write({ kind: "picks-request", picks });
+		}
 	}
 
 	/**
@@ -994,8 +1039,15 @@ export class Conversation
 		this.turns.ended(error);
 	}
 
-	/** Ends the agent's process, with `error` for one that failed, and keeps that it stopped. */
-	async close(error: string | null): Promise<void> {
+	/**
+	 * Ends the agent's process, with `error` for one that failed, and keeps
+	 * that it stopped, and whether what it was told is left `unsaid`, for the
+	 * next run to say.
+	 */
+	async close(
+		error: string | null,
+		{ unsaid = false }: { unsaid?: boolean } = {},
+	): Promise<void> {
 		if (this.detached) {
 			return;
 		}
@@ -1011,7 +1063,11 @@ export class Conversation
 		if (this.state.checkpoint === "asked") {
 			this.turns.mark("failed");
 		}
-		this.log.write({ kind: "end", error });
+		this.log.write({
+			kind: "end",
+			error,
+			...(unsaid ? { unsaid: true as const } : {}),
+		});
 		await this.log.flush();
 		endBackground(this.state, this.now());
 		this.set({
@@ -1166,6 +1222,7 @@ export class Conversation
 		if (model !== undefined) {
 			this.log.write({ kind: "model-request", model });
 		}
+		this.request(settings);
 		this.connection.openOn(model ?? null, settings);
 		this.state.picking = false;
 		this.changed();

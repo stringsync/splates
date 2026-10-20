@@ -101,6 +101,54 @@ describe("A conversation Auto pick is deciding for", () => {
 		expect(agent.launched).toEqual([]);
 	});
 
+	it("says what it was told once read back, on what Auto pick chose, the server having gone down before the agent opened", async () => {
+		// Never answered: a killed agent's start ends with its connection,
+		// which the fake's does not.
+		agent.hold = new Promise(() => {});
+		const conversation = await start();
+		void conversation.prompt("fix the login");
+		pick({ agent: "other", model: "small", settings: { mode: "auto" } });
+		await eventually(() => agent.launched.length === 1);
+
+		await conversations.disposeAsync();
+		agent.hold = null;
+		conversations = open();
+		const read = await conversations.find(conversation.id);
+		await eventually(() => agent.prompts.length === 1);
+
+		expect(agent.launched.map((each) => each.argv)).toEqual([
+			["other-acp"],
+			["other-acp"],
+		]);
+		expect(agent.chosen).toEqual([
+			{ configId: "mode", value: "auto" },
+			{ configId: "model", value: "small" },
+		]);
+		expect(read.state.messages[0]).toMatchObject({
+			parts: [{ type: "text", text: "fix the login" }],
+		});
+		expect(read.state.messages[0]?.queued).toBeUndefined();
+	});
+
+	it("leaves one the person stopped before its agent opened stopped once read back, what they said still queued", async () => {
+		agent.hold = new Promise(() => {});
+		const conversation = await start();
+		void conversation.prompt("fix the login");
+		pick({ agent: "other", settings: {} });
+		await eventually(() => agent.launched.length === 1);
+
+		await conversation.stop();
+		await conversations.disposeAsync();
+		agent.hold = null;
+		conversations = open();
+		const read = await conversations.find(conversation.id);
+		await Bun.sleep(5);
+
+		expect(agent.launched).toHaveLength(1);
+		expect(read.state.status).toBe("stopped");
+		expect(read.state.messages[0]?.queued).toBe(true);
+	});
+
 	it("reads back on the agent Auto pick chose", async () => {
 		const conversation = await start();
 		pick({ agent: "other", settings: {} });

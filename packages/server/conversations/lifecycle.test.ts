@@ -129,6 +129,37 @@ describe("Conversation lifecycle", () => {
 		await reread.disposeAsync();
 	});
 
+	it("says what it was told once read back, when the server died before its agent opened", async () => {
+		const log = [
+			{
+				kind: "start",
+				id: "c1",
+				agent: "fake",
+				task: "login",
+				cwd: "/repo-splates/login",
+				createdAt: "2026-10-11T09:00:00.000Z",
+			},
+			{
+				kind: "prompt",
+				text: "fix the login",
+				at: "2026-10-11T09:00:01.000Z",
+				queued: true,
+			},
+		];
+		await fs.write(
+			"/repo/.git/splates/conversations/c1.jsonl",
+			log.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
+		);
+
+		const read = await conversations.find("c1");
+		await eventually(() => agent.prompts.length === 1);
+
+		expect(agent.launched.map((each) => each.cwd)).toEqual([
+			"/repo-splates/login",
+		]);
+		expect(read.state.messages[0]?.queued).toBeUndefined();
+	});
+
 	// scry-ignore simple-test-setup: only this test configures usage and a cumulative session cost
 	it("adds up the tokens each turn used and what the session cost, through a restart", async () => {
 		agent.usage = {

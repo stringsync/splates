@@ -459,9 +459,12 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		return this.pruning;
 	}
 
-	/** Stops every live conversation, so no agent outlives the server. */
+	/**
+	 * Stops every live conversation, so no agent outlives the server; one
+	 * still starting says what it was told once the next run reads it back.
+	 */
 	async disposeAsync(): Promise<void> {
-		await Promise.all([...this.known.values()].map((each) => each.stop()));
+		await Promise.all([...this.known.values()].map((each) => each.shutDown()));
 	}
 
 	/**
@@ -613,6 +616,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			const read = await Conversation.read(name, this.agents, this.deps);
 			if (read !== null && !this.known.has(read.id)) {
 				this.track(read);
+				read.sayUnsaid();
 			}
 		}
 	}
