@@ -242,7 +242,7 @@ export function CommandRow({
 			title={background.command ?? background.name}
 			onClick={onOpen}
 			className={cn(
-				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
 				current && "bg-accent hover:bg-accent active:bg-accent",
 			)}
 		>
