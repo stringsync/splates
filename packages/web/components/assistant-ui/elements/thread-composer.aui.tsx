@@ -103,7 +103,13 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					// biome-ignore lint/a11y/useKeyWithClickEvents: as above
 					<div
 						onClick={(event) => {
-							if (!(event.target as Element).closest(CONTROL)) {
+							const target = event.target as Element;
+							// A click in a dialog portaled from a chip, such as the
+							// annotator's, bubbles here through React, not the page.
+							if (
+								event.currentTarget.contains(target) &&
+								!target.closest(CONTROL)
+							) {
 								focusComposer(event.currentTarget);
 							}
 						}}

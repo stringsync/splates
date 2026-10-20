@@ -53,4 +53,16 @@ describe("Annotate", () => {
 
 		expect(done()).toBe(0);
 	});
+
+	it("picks the box on B and the arrow on A", () => {
+		const { board } = opened();
+		const tool = (name: string) => within(board).getByRole("button", { name });
+
+		fireEvent.keyDown(board, { key: "a" });
+		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("true");
+		fireEvent.keyDown(board, { key: "b" });
+
+		expect(tool("Box").getAttribute("aria-pressed")).toBe("true");
+		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("false");
+	});
 });

@@ -303,6 +303,36 @@ describe("App's attachments", () => {
 		}
 	});
 
+	it("leaves the keyboard on the annotator on a click there, though its chip is in the composer", async () => {
+		const decode = globalThis.createImageBitmap;
+		// The page decodes it to draw on, which happy-dom cannot.
+		globalThis.createImageBitmap = (async () => ({
+			width: 100,
+			height: 50,
+			close() {},
+		})) as unknown as typeof createImageBitmap;
+		try {
+			const { view, box } = await openEmpty();
+			await act(async () => box.focus());
+			await paste(box, [new File(["png"], "two.png", { type: "image/png" })]);
+			await waitFor(() => hint());
+			await act(async () =>
+				fireEvent.keyDown(box, { key: "b", code: "KeyB", metaKey: true }),
+			);
+			const board = await waitFor(() =>
+				view.getByRole("dialog", { name: "Mark up two.png" }),
+			);
+			const canvas = within(board).getByLabelText(/^two\.png, with/);
+
+			await act(async () => canvas.focus());
+			await act(async () => fireEvent.click(canvas));
+
+			expect(document.activeElement).not.toBe(box);
+		} finally {
+			globalThis.createImageBitmap = decode;
+		}
+	});
+
 	it("draws the images a sent message names as chips that view them", async () => {
 		const { view, thread } = await openSent("see [Image 1]", [
 			{ type: "image", name: "ab12.png", mimeType: "image/png" },

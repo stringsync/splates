@@ -12,6 +12,8 @@ import {
 } from "react";
 import { Position, Rect } from "webappwiz/geometry";
 import { Button } from "#web/components/ui/button.tsx";
+import { Kbd } from "#web/components/ui/kbd.tsx";
+import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { Annotation, Tool } from "./annotation";
 import { type Grip, Label, Note } from "./mark-notes";
@@ -29,7 +31,7 @@ const SLOP = 10;
 const MARGIN = { most: 120, share: 0.12 };
 
 const TOOLS: { tool: Tool; label: string; key: string; icon: JSX.Element }[] = [
-	{ tool: "box", label: "Box", key: "r", icon: <SquareIcon /> },
+	{ tool: "box", label: "Box", key: "b", icon: <SquareIcon /> },
 	{ tool: "arrow", label: "Arrow", key: "a", icon: <MoveUpRightIcon /> },
 ];
 
@@ -46,6 +48,7 @@ export function AnnotateBoard({
 	const stage = useRef<HTMLDivElement>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const view = useView(annotation, stage);
+	const touch = useTouch();
 	const { marks, tool, selected, draft } = useReactive(
 		annotation,
 		(each) => ({
@@ -177,6 +180,19 @@ export function AnnotateBoard({
 						>
 							{each.icon}
 							<span className="max-sm:sr-only">{each.label}</span>
+							{!touch && (
+								<Kbd
+									aria-hidden
+									className={cn(
+										"max-sm:hidden",
+										tool === each.tool
+											? "bg-black/10 text-black/60"
+											: "bg-white/15 text-white/70",
+									)}
+								>
+									{each.key.toUpperCase()}
+								</Kbd>
+							)}
 						</Button>
 					))}
 				</fieldset>
