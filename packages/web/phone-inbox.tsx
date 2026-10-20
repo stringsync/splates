@@ -14,7 +14,6 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AgentIcon } from "./agent-icons";
 import { arriveAt } from "./arrivals";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
@@ -36,7 +35,6 @@ import {
 	useOpenNew,
 } from "./new-conversation-project";
 import { type Nested, nest } from "./parts";
-import { launch } from "./phone-home";
 import { FolderSection, Group } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import {
@@ -59,8 +57,8 @@ import { BarButton, TopBar } from "./top-bar";
  * under the lane's title, as in the sidebar, which opens the lane on the
  * board. A tap on one waiting goes straight to what it
  * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
- * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen, like the composer
- * along the bottom, starts a new conversation. Under each conversation, as in
+ * left archives it, asking first as Archive does. The menu opens the drawer to switch projects, and the pen starts a new
+ * conversation. Under each conversation, as in
  * the sidebar, sit its terminal while its shell is up and each command its
  * agent left running, each opening the conversation with it on the screen.
  * The main tree's terminals come last, to go back to or close.
@@ -185,7 +183,6 @@ export function Inbox({
 		grouped === null
 			? trees.length === 0
 			: grouped.folders.every((each) => each.trees.length === 0);
-	const agent = agents.find((each) => each.id === "claude") ?? agents[0];
 	const wide = onMenu === null;
 	const archived = conversations.filter((each) => each.archived).length;
 	return (
@@ -317,32 +314,6 @@ export function Inbox({
 					</button>
 				)}
 			</div>
-			{/* Where a thumb is, as the chat apps keep their composer. */}
-			{!wide && (
-				<div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background via-background to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-					{/* A field rather than a button, so a tap raises the keyboard,
-				    which the new conversation's composer takes over. */}
-					<label className="flex h-12 w-full items-center gap-3 rounded-full border bg-card px-4 text-muted-foreground shadow-sm">
-						{agent !== undefined && (
-							<AgentIcon
-								agent={agent.id}
-								name={agent.name}
-								className="size-4 shrink-0 text-foreground/70"
-							/>
-						)}
-						<input
-							aria-label="Start a conversation"
-							placeholder={`Ask ${agent?.name ?? "an agent"} to work on something`}
-							disabled={!available}
-							onFocus={() => {
-								launch();
-								openNew();
-							}}
-							className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
-						/>
-					</label>
-				</div>
-			)}
 			{confirm}
 		</section>
 	);

@@ -420,17 +420,12 @@ describe("App on a phone", () => {
 		]);
 	});
 
-	it("starts a new conversation from the composer along the inbox's bottom", async () => {
+	it("has no composer along the inbox's bottom, the pen starting a conversation", async () => {
 		const view = await testing.openConversations([], null);
 
-		await act(async () =>
-			fireEvent.focus(
-				view.getByRole("textbox", { name: "Start a conversation" }),
-			),
-		);
-
-		expect(location.hash).toBe("#conversations/new");
-		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
+		expect(
+			view.queryByRole("textbox", { name: "Start a conversation" }),
+		).toBeNull();
 	});
 
 	it("starts a new conversation from the pen atop any other page", async () => {
