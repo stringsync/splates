@@ -161,11 +161,11 @@ export async function serveDev(
 			String(ctx.ps.pid),
 		);
 	}
-	// Read once: a roster edited while it serves applies from the restart.
-	const roster = await seeded(rosterOf(ctx));
 	// One for every project's conversations, so none overwrites another's.
 	const settingsStorage = FsStorage.ofMachine(ctx);
 	const offered = new Offered(settingsStorage.document("offered.json"));
+	// Read once: a roster edited while it serves applies from the restart.
+	const roster = await seeded(rosterOf(ctx), offered);
 	const limits = new Limits(settingsStorage.document("limits.json"));
 	// Judged as each turn ends, for the Stats page, across projects like the
 	// outcomes it reads the merged commits from.

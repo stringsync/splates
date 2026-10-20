@@ -2,9 +2,10 @@ import { homedir } from "node:os";
 import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { LEGACY_DIR, unmigrated } from "../config";
-import type { Agent } from "../conversations";
+import type { Agent, Setting } from "../conversations";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
+import { modelOption } from "./models";
 
 /**
  * The agents splates can start, and the models each runs, kept in one file
@@ -94,11 +95,63 @@ export class Roster {
 			.filter((each) => models.includes(each.id))
 			.map((each) => own.find((kept) => kept.id === each.id) ?? each);
 		const custom = own.filter((kept) => !listed.includes(kept.id));
-		const written = { ...(entry ?? base), models: [...chosen, ...custom] };
+		const written = {
+			...(entry ?? base),
+			models: [...chosen, ...custom],
+			// The person has seen every default, so none returns as new.
+			seen: listed,
+		};
 		file.agents = entry
 			? file.agents.map((each) => (each === entry ? written : each))
 			: [...file.agents, written];
 		await this.write(file);
+	}
+
+	/**
+	 * Adds to each roster agent the default models it offers (`offered`, by
+	 * agent id) that the roster lacks and has not yet seen, so a roster
+	 * written before a default joined still carries it. A model the person
+	 * dropped by choosing stays dropped. Returns whether the roster changed.
+	 */
+	async adopt(offered: Record<string, Setting[]>): Promise<boolean> {
+		// Read first, so a roster that will not parse is reported, not overwritten.
+		await this.agents();
+		const file = (await this.doc.read().catch(() => null)) as {
+			format?: number;
+			agents: RosterEntry[];
+		} | null;
+		if (file === null) {
+			return false;
+		}
+		let changed = false;
+		file.agents = file.agents.map((entry) => {
+			const base = DEFAULT_AGENTS.find((each) => each.id === entry.id);
+			const settings = offered[entry.id];
+			if (base === undefined || settings === undefined) {
+				return entry;
+			}
+			const seen = (entry.seen as string[] | undefined) ?? [];
+			const have = entry.models.map((each) => each.id);
+			const added = base.models.filter(
+				(each) =>
+					!have.includes(each.id) &&
+					!seen.includes(each.id) &&
+					modelOption(settings, each.id, true) !== null,
+			);
+			if (added.length === 0) {
+				return entry;
+			}
+			changed = true;
+			return {
+				...entry,
+				models: [...entry.models, ...added],
+				seen: [...seen, ...added.map((each) => each.id)],
+			};
+		});
+		if (changed) {
+			await this.write(file);
+		}
+		return changed;
 	}
 
 	/**

@@ -1,5 +1,5 @@
 import { SYSTEM_STORES } from "../creds";
-import { Roster, type RosterAgent, splatesHome } from "../models";
+import { type Offered, Roster, type RosterAgent, splatesHome } from "../models";
 import { FsStorage } from "../storage";
 import { SavedPortsHost, SavedTunnel } from "../tunnel";
 import type { SplatesDeps } from "./runtime-deps";
@@ -28,8 +28,14 @@ export function savedTunnelOf({
 	);
 }
 
-/** Seeds default agents before reading the roster. */
-export async function seeded(roster: Roster): Promise<RosterAgent[]> {
+/** Seeds default agents, and adds the default models agents offer that the roster lacks, before reading it. */
+export async function seeded(
+	roster: Roster,
+	offered?: Offered,
+): Promise<RosterAgent[]> {
 	await roster.seed();
+	if (offered !== undefined) {
+		await roster.adopt(await offered.all());
+	}
 	return roster.agents();
 }

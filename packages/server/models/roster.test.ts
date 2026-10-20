@@ -18,6 +18,36 @@ async function setup() {
 }
 
 describe("Roster", () => {
+	it("adopts a default model an agent offers that an older roster lacks, once", async () => {
+		const storage = new MemoryStorage();
+		const roster = Roster.in(storage);
+		const codex = DEFAULT_AGENTS[1] as RosterAgent;
+		const old = {
+			...codex,
+			models: codex.models.filter((each) => each.id !== "gpt-6.1-sol"),
+		};
+		await storage.document("agents.json").write({ agents: [old] });
+		const offered = {
+			codex: [
+				{
+					id: "model",
+					name: "Model",
+					category: "model",
+					current: "gpt-6.1-sol",
+					options: [{ value: "gpt-6.1-sol", name: "6.1 Sol" }],
+				},
+			],
+		} as never;
+		expect(await roster.adopt({})).toBe(false);
+		expect(await roster.adopt(offered)).toBe(true);
+		expect((await roster.agents())[0]?.models.map((each) => each.id)).toContain(
+			"gpt-6.1-sol",
+		);
+		// Dropped by choosing, it stays dropped.
+		await roster.choose("codex", ["gpt-6-astra"]);
+		expect(await roster.adopt(offered)).toBe(false);
+	});
+
 	it("serializes document edits and retains unrecognized fields", async () => {
 		const storage = new MemoryStorage();
 		const roster = Roster.in(storage);
