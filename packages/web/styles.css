@@ -207,6 +207,7 @@
 @source "./action-card.tsx";
 @source "./actions.tsx";
 @source "./references.tsx";
+@source "./references-card.tsx";
 @source "./task-sessions.tsx";
 @source "./top-bar.tsx";
 @source "./background.tsx";

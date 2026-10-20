@@ -57,6 +57,7 @@ import { QueueUI } from "./queue-card";
 import { useTakeBack } from "./queued";
 import { GoingUI, QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
+import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
@@ -390,6 +391,7 @@ function Conversation({
 									conversation={id}
 									artifacts={conversation.artifacts}
 								/>
+								<ReferencesCard conversation={conversation} />
 								<CurrentTask version={version} />
 							</Widgets>
 						</div>
