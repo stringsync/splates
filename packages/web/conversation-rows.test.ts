@@ -40,4 +40,32 @@ describe("conversation rows", () => {
 			]),
 		).toEqual([{ row: host, parts: [{ row: part, parts: [] }] }]);
 	});
+
+	it("leaves out an agent handed out once it has exited, unless it asks or hosts one", () => {
+		const gone = (id: string, need: Need = { kind: "idle" }): Needing => ({
+			...row(id),
+			conversation: conversation({ id, status: "stopped" }),
+			need,
+		});
+		expect(
+			shownIn([
+				{
+					row: gone("top"),
+					parts: [
+						{ row: gone("a"), parts: [] },
+						{ row: gone("b", asking), parts: [] },
+						{ row: gone("c"), parts: [{ row: part, parts: [] }] },
+					],
+				},
+			]),
+		).toEqual([
+			{
+				row: gone("top"),
+				parts: [
+					{ row: gone("b", asking), parts: [] },
+					{ row: gone("c"), parts: [{ row: part, parts: [] }] },
+				],
+			},
+		]);
+	});
 });

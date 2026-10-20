@@ -49,14 +49,28 @@ export function rowsOf(
 
 /**
  * `trees` as a list shows them: no external agent's task, which only the
- * Tasks page lists, any agents it handed out in its place.
+ * Tasks page lists, any agents it handed out in its place, and none of those
+ * agents once it has exited, unless it still waits on you or hosts one that
+ * is shown. The widgets still show them.
  */
-export function shownIn(trees: Nested<Needing>[]): Nested<Needing>[] {
-	return trees.flatMap((tree) =>
-		tree.row.conversation === null
-			? shownIn(tree.parts)
-			: [{ row: tree.row, parts: shownIn(tree.parts) }],
-	);
+export function shownIn(
+	trees: Nested<Needing>[],
+	nested = false,
+): Nested<Needing>[] {
+	return trees.flatMap((tree) => {
+		if (tree.row.conversation === null) {
+			return shownIn(tree.parts, nested);
+		}
+		const parts = shownIn(tree.parts, true);
+		return nested && exited(tree.row) && parts.length === 0
+			? []
+			: [{ row: tree.row, parts }];
+	});
+}
+
+/** Whether a row's agent has exited and asks nothing of you. */
+function exited(row: Needing): boolean {
+	return row.conversation?.status === "stopped" && row.need.kind !== "waiting";
 }
 
 /** Those not archived, and each persistent agent's placeholder. */
