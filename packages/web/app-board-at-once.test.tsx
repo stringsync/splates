@@ -65,7 +65,9 @@ describe("App's board writes at once", () => {
 	/** Removes a lane with tasks in it, past the dialog that asks first. */
 	async function removeLane(lane: string): Promise<void> {
 		await pick(lane, "Remove lane and its tasks");
-		await clickShown(() => view.getByRole("button", { name: "Remove lane" }));
+		await clickShown(() =>
+			view.getByRole("button", { name: "Remove lane and tasks" }),
+		);
 	}
 
 	it("adds and renames a lane at the click, before the server answers", async () => {

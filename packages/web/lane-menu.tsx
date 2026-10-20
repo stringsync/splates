@@ -9,7 +9,7 @@ import {
 	PauseIcon,
 	PencilIcon,
 	PlayIcon,
-	Undo2Icon,
+	Trash2Icon,
 } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -135,7 +135,7 @@ export function LaneMenu({
 					<DropdownMenuItem
 						onClick={() => (count === 0 ? remove() : setAsking(true))}
 					>
-						<Undo2Icon />
+						<Trash2Icon />
 						{count === 0 ? "Remove lane" : "Remove lane and its tasks"}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
@@ -145,8 +145,8 @@ export function LaneMenu({
 					<DialogHeader>
 						<DialogTitle>Remove {lane.name}?</DialogTitle>
 						<DialogDescription>
-							Its {count === 1 ? "task goes" : `${count} tasks go`} back to
-							untriaged, out of any lane.
+							{count === 1 ? "Its task is" : `Its ${count} tasks are`} removed
+							with it.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
@@ -160,7 +160,7 @@ export function LaneMenu({
 								remove();
 							}}
 						>
-							Remove lane
+							Remove lane and tasks
 						</Button>
 					</DialogFooter>
 				</DialogContent>

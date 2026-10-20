@@ -116,7 +116,7 @@ export async function queueLane(id: number, queued: boolean): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { queued });
 }
 
-/** Removes lane `id`, putting its todos back with the untriaged ones. */
+/** Removes lane `id` and the todos in it. */
 export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });
 }
