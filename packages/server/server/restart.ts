@@ -457,11 +457,15 @@ export class Restarts {
 			if (this.restarting === null || this.disposed) {
 				return;
 			}
-			this.leaving = this.leave(reopens, shutdown).catch((error) => {
+			const leaving = this.leave(reopens, shutdown).catch((error) => {
 				log.error(`splates server did not restart: ${String(error)}`);
 				return false;
 			});
-			if (!(await this.leaving)) {
+			// Kept with any before it, as a power-now during a checkpoint's
+			// restart starts a second, so disposing waits out both.
+			const before = this.leaving;
+			this.leaving = Promise.all([before, leaving]).then(([, left]) => left);
+			if (!(await leaving)) {
 				return;
 			}
 			await server.disposeAsync();
