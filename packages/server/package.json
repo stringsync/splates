@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates-server",
-	"version": "0.0.48",
+	"version": "0.0.49",
 	"description": "The Spinning Plates server and shared backend",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -35,6 +35,7 @@
 		"./auto-pick/check": "./auto-pick/check.ts",
 		"./tasks": "./tasks/index.ts",
 		"./tasks/browser": "./tasks/browser.ts",
+		"./notes": "./notes/index.ts",
 		"./models": "./models/index.ts",
 		"./models/browser": "./models/browser.ts",
 		"./artifacts": "./artifacts/index.ts",

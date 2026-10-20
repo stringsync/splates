@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not.
-version: 0.0.48
+version: 0.0.49
 ---
 
 # Using splates
@@ -108,6 +108,10 @@ which remembers none of it.
   the exact report formats the page turns into cards.
 
 ## Workflow
+
+When you need to know how the project is meant to work, before reading code
+for it, or have learned something worth keeping, run `splates notes` and read
+[references/notes.md](references/notes.md).
 
 1. **Start before you look.** When a request may end in a code change,
    `splates add <task> --goal "<what done means>"` before reading any code,

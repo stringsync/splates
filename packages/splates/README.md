@@ -49,6 +49,16 @@ XML report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit
 --reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test slower
 than 5 seconds.
 
+**Project notes.** Keep durable conventions, decisions and other project context
+as short Markdown files in `notes/`, one thing per file, edited in place.
+Each starts with frontmatter such as `description: Why releases use explicit exports`
+between `---` lines. `splates notes` prints those descriptions in filename
+order, one per line; a missing directory prints nothing successfully. Read
+the files directly or search them with `rg`. Set `notesDir: "docs/context"`
+in `splates.config.ts` to move the directory, relative to the checkout root
+or to an absolute path. Notes change through tasks, just as code does.
+Keep sensitive information out of them.
+
 **Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one
 of the machine's heavy-job slots, two by default (`SPLATES_HEAVY_JOBS` sets
 how many), so several agents testing at once queue rather than run the

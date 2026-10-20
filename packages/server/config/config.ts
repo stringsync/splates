@@ -20,6 +20,8 @@ export interface Config {
 	remote: string | null;
 	/** Directory holding one worktree per task, a sibling of the repo. */
 	worktreeRoot: string;
+	/** Directory of project notes, relative to the checkout root unless absolute. */
+	notesDir: string;
 	/** Command run by `add` in the new worktree, via `sh -c`. */
 	postCheckout: string | null;
 	/**

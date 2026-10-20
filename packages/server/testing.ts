@@ -103,6 +103,7 @@ export class Testing implements AsyncDisposable {
 			trunk: "main",
 			remote: null,
 			worktreeRoot: `${this.root}-splates`,
+			notesDir: "notes",
 			postCheckout: null,
 			postRewrite: null,
 			// Keeps merge's gate green unless a test asks otherwise.

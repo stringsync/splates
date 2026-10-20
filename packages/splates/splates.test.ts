@@ -31,6 +31,56 @@ describe("splates cli", () => {
 
 	afterEach(() => env.disposeAsync());
 
+	it("prints nothing successfully when there is no notes directory", async () => {
+		await splates.run(deps, ["notes"]);
+		expect(env.out()).toBe("");
+		expect(env.proc.lastExit()).toBeUndefined();
+	});
+
+	it("prints only note descriptions and does not record consulting them", async () => {
+		await env.fs.mkdir(join(env.root, "notes"));
+		await env.fs.write(
+			join(env.root, "notes/a.md"),
+			"---\ndescription: Project conventions\n---\nBody",
+		);
+		await env.fs.write(
+			join(env.root, "notes/b.md"),
+			"---\ndescription: Client agreement\n---\nBody",
+		);
+		const before = await env.journal.tail(10);
+		await splates.run(deps, ["notes"]);
+		expect(env.log.entries.map((entry) => entry.message)).toEqual([
+			"Project conventions",
+			"Client agreement",
+		]);
+		expect(await env.journal.tail(10)).toEqual(before);
+	});
+
+	it("reads the current worktree's notes and configuration from a subdirectory", async () => {
+		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
+		const { path } = await env.service.find("alpha");
+		await env.fs.mkdir(join(path, "context"));
+		await env.fs.mkdir(join(env.root, "notes"));
+		await env.fs.write(
+			join(path, "splates.config.ts"),
+			'export default { notesDir: "context" };\n',
+		);
+		await env.fs.write(
+			join(path, "context/a.md"),
+			"---\ndescription: Worktree convention\n---\n",
+		);
+		await env.fs.write(
+			join(env.root, "notes/a.md"),
+			"---\ndescription: Main convention\n---\n",
+		);
+		env.ps.cd(join(path, "context"));
+		const count = env.log.entries.length;
+		await splates.run(deps, ["notes"]);
+		expect(env.log.entries.slice(count).map((entry) => entry.message)).toEqual([
+			"Worktree convention",
+		]);
+	});
+
 	it("runs its commands against the dependencies it is given", async () => {
 		await splates.run(deps, ["add", "alpha", "--goal", "land it"]);
 		await splates.run(deps, ["list", "--json"]);
