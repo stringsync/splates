@@ -711,6 +711,73 @@ describe("App on a phone", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: its layout and resize stubs are its own, which no other test shares
+	it("keeps the field typed in above the keyboard as it grows a line with no input event", async () => {
+		// The field's resizes, fired by hand, as the page has no layout to make.
+		const watchers = new Set<() => void>();
+		const real = globalThis.ResizeObserver;
+		globalThis.ResizeObserver = class {
+			private readonly fire: () => void;
+			constructor(changed: ResizeObserverCallback) {
+				this.fire = () => changed([], this as unknown as ResizeObserver);
+			}
+			observe() {
+				watchers.add(this.fire);
+			}
+			unobserve() {}
+			disconnect() {
+				watchers.delete(this.fire);
+			}
+		} as unknown as typeof ResizeObserver;
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", "1. What looks wrong at 390px?"),
+					],
+				}),
+			]);
+			await toThread(view);
+			await clickShown(() =>
+				within(
+					view.getByRole("complementary", { name: "Waiting on you" }),
+				).getByRole("button", { name: /1 question for you/ }),
+			);
+			const sheet = await waitFor(() =>
+				view.getByRole("dialog", { name: "1 question for you" }),
+			);
+			const body = sheet.querySelector("[data-sheet]") as HTMLElement;
+			const field = within(sheet).getByRole("textbox", {
+				name: "Answer to 1",
+			});
+			// The keyboard is up, and the field ends just above the sheet's foot.
+			const end = innerHeight;
+			body.getBoundingClientRect = () =>
+				DOMRect.fromRect({ x: 0, y: 56, width: 390, height: end - 56 });
+			let foot = end - 20;
+			field.getBoundingClientRect = () =>
+				DOMRect.fromRect({ x: 0, y: foot - 40, width: 390, height: 40 });
+			await act(async () => field.focus());
+			await act(() => new Promise((done) => requestAnimationFrame(done)));
+			const from = body.scrollTop;
+
+			// A new line, laid out by the editor itself, takes it under the foot.
+			foot = end + 24;
+			await act(async () => {
+				// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
+				for (const fire of watchers) {
+					fire();
+				}
+			});
+
+			await waitFor(() => expect(body.scrollTop).toBe(from + 24 + 12));
+		} finally {
+			globalThis.ResizeObserver = real;
+		}
+	});
+
 	it("counts nothing on a sheet of one question, sending from it", async () => {
 		const view = await testing.openConversations([
 			conversation({

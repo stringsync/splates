@@ -264,12 +264,24 @@ function useTypedInView(sheet: HTMLElement | null, height: number): void {
 			cancelAnimationFrame(frame);
 			frame = requestAnimationFrame(() => reveal(sheet));
 		};
-		later();
-		sheet.addEventListener("focusin", later);
+		// Its growth, not its input: a box's editor lays out the line it breaks
+		// itself, with no input event, as it does a take's words.
+		const grown = new ResizeObserver(later);
+		const focused = () => {
+			grown.disconnect();
+			const field = document.activeElement;
+			if (field instanceof HTMLElement && sheet.contains(field)) {
+				grown.observe(field);
+			}
+			later();
+		};
+		focused();
+		sheet.addEventListener("focusin", focused);
 		sheet.addEventListener("input", later);
 		return () => {
 			cancelAnimationFrame(frame);
-			sheet.removeEventListener("focusin", later);
+			grown.disconnect();
+			sheet.removeEventListener("focusin", focused);
 			sheet.removeEventListener("input", later);
 		};
 	}, [sheet, height]);
