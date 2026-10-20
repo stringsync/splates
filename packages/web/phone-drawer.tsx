@@ -7,7 +7,7 @@ import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
-import { PAGES, type Page } from "./page-route";
+import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
 
@@ -84,7 +84,7 @@ export function Drawer({
 						{PAGES.map(({ value, label, Icon }) => (
 							<Entry
 								key={value}
-								current={page === value}
+								current={navPage(page) === value}
 								onClick={() => go(value)}
 								icon={
 									<span className="relative flex">

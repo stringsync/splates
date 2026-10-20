@@ -26,7 +26,7 @@ describe("App's Auto pick page", () => {
 			tasks: [details({ task: "alpha", autoPick: PICKED })],
 		});
 		await act(async () => {
-			location.hash = "#auto-pick";
+			location.hash = "#automations/auto-pick";
 			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
 	});
@@ -51,6 +51,26 @@ describe("App's Auto pick page", () => {
 		const log = view.getByRole("list", { name: "Auto pick log" });
 		expect(log.textContent).toContain("task.started");
 		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
+	});
+
+	it("opens from its card on Automations, which the nav marks, and goes back there", async () => {
+		expect(view.queryByRole("tab", { name: /Auto pick/ })).toBeNull();
+		const automations = view.getByRole("tab", { name: /Automations/ });
+		expect(automations.className).toContain("tabs-list:bg-accent");
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to automations" }),
+			),
+		);
+		expect(location.hash).toBe("#automations");
+		const card = await waitFor(() =>
+			view.getByRole("button", { name: /^Auto pick/ }),
+		);
+		await act(async () => fireEvent.click(card));
+
+		expect(location.hash).toBe("#automations/auto-pick");
+		await waitFor(() => view.getByText(/Log of picks/));
 	});
 });
 

@@ -1,7 +1,7 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
-import { PageAddress } from "./page-address";
+import { PageAddress, ruleAddress } from "./page-address";
 
 /** Waits for the browser to move through its history, as a swipe does. */
 function traverse(step: () => void): Promise<void> {
@@ -137,14 +137,25 @@ describe("PageAddress", () => {
 		expect(read.open).toBeNull();
 	});
 
-	it("sets the Auto pick page on a rule, from its old place on the Automations page too", () => {
-		history.replaceState(null, "", "#auto-pick/2");
+	it("sets the Auto pick page on a rule under Automations, from its old place in the nav too", () => {
+		history.replaceState(null, "", ruleAddress(1));
 		const read = new PageAddress();
-		history.replaceState(null, "", "#automations/auto-pick/3");
+		history.replaceState(null, "", "#auto-pick/3");
 		const old = new PageAddress();
 
+		expect(ruleAddress(1)).toBe("#automations/auto-pick/2");
 		expect([read.page, read.rule]).toEqual(["auto-pick", 1]);
 		expect([old.page, old.rule]).toEqual(["auto-pick", 2]);
+	});
+
+	it("puts the Auto pick page under Automations", () => {
+		history.replaceState(null, "", "#automations");
+		const address = new PageAddress();
+
+		address.go("auto-pick");
+
+		expect(location.hash).toBe("#automations/auto-pick");
+		expect(new PageAddress().page).toBe("auto-pick");
 	});
 
 	it("puts back how far the page was scrolled when it left an entry", async () => {

@@ -10,7 +10,13 @@ import {
 	type TaskEventName,
 } from "@stringsync/splates-server/hooks/browser";
 import { useReactive } from "@webappwiz/react";
-import { PauseIcon, PencilIcon, PlayIcon, XIcon } from "lucide-react";
+import {
+	ChevronRightIcon,
+	PauseIcon,
+	PencilIcon,
+	PlayIcon,
+	XIcon,
+} from "lucide-react";
 import {
 	type FormEvent,
 	type JSX,
@@ -27,6 +33,7 @@ import {
 } from "#web/components/ui/native-select.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AutoPickMark } from "./auto-pick-log";
 import { AutomationDraft, type When } from "./automation-draft";
 import { AutomationFace, type RunOpens } from "./automation-face";
 import { AutomationList } from "./automation-list";
@@ -51,7 +58,14 @@ const STAGES: TaskStage[] = ["backlog", "ready", "queued", "running"];
  * checks in, which only `splates.config.ts` changes, and those splates
  * itself sets, as the groomer, whose agent is all that changes here.
  */
-export function AutomationsPage({ opens }: { opens: RunOpens }): JSX.Element {
+export function AutomationsPage({
+	opens,
+	onAutoPick,
+}: {
+	opens: RunOpens;
+	/** Opens the Auto pick page, from its card. */
+	onAutoPick: () => void;
+}): JSX.Element {
 	const [list] = useState(() => new AutomationList());
 	useEffect(() => void list.read(), [list]);
 	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
@@ -73,6 +87,8 @@ export function AutomationsPage({ opens }: { opens: RunOpens }): JSX.Element {
 				What runs on a task event or a schedule, while splates server runs. A
 				schedule that came due while it was down runs once as it starts.
 			</p>
+			{/* Apart from the list, so it opens however reading that goes. */}
+			<AutoPickCard onOpen={onAutoPick} />
 			<Refusal refusal={refusal} />
 			{rows === null ? (
 				<p role="status" className="text-muted-foreground text-sm">
@@ -115,6 +131,27 @@ export function AutomationsPage({ opens }: { opens: RunOpens }): JSX.Element {
 			)}
 			<AddForm onAdd={(trigger, hook) => list.add(trigger, hook)} />
 		</section>
+	);
+}
+
+/** Auto pick, as a card that opens its page of rules and log of picks. */
+function AutoPickCard({ onOpen }: { onOpen: () => void }): JSX.Element {
+	return (
+		<button
+			type="button"
+			onClick={onOpen}
+			className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left shadow-xs hover:bg-accent active:bg-accent"
+		>
+			<AutoPickMark className="size-8" />
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="font-medium text-sm">Auto pick</span>
+				<span className="text-muted-foreground text-xs">
+					Picks the agent, model and effort for a task started with none named,
+					by the rules you set.
+				</span>
+			</span>
+			<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+		</button>
 	);
 }
 

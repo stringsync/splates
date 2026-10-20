@@ -314,13 +314,16 @@ export function App({
 							onOpenKeys={() => go("creds")}
 						/>
 					),
-					automations: <AutomationsPage opens={opens} />,
+					automations: (
+						<AutomationsPage opens={opens} onAutoPick={() => go("auto-pick")} />
+					),
 					"auto-pick": (
 						<AutoPickPage
 							mark={rule}
 							tasks={snapshot.tasks}
 							todos={snapshot.todos}
 							opens={opens}
+							onBack={() => go("automations")}
 						/>
 					),
 					setup: (

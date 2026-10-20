@@ -7,7 +7,6 @@ import {
 	ListChecksIcon,
 	type LucideIcon,
 	ServerIcon,
-	SparklesIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
@@ -24,8 +23,9 @@ import { TaskIcon } from "./task-icon";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`,
- * `#creds`, `#budget`, `#workers`, `#automations`, `#auto-pick` (or
- * `#auto-pick/<n>` set on a rule), `#setup`, or the board.
+ * `#creds`, `#budget`, `#workers`, `#automations`,
+ * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
+ * `#setup`, or the board.
  */
 export type Page =
 	| "todos"
@@ -61,7 +61,6 @@ export const PAGES: {
 	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
-	{ value: "auto-pick", label: "Auto pick", Icon: SparklesIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
 ];
 
@@ -101,6 +100,14 @@ export function usePageRoute(): PageRoute {
 		openTask: (name) => address.openTask(name),
 		openLane: (id) => address.openLane(id),
 	};
+}
+
+/**
+ * The page in the nav that `page` sits under, so the nav marks it: Auto pick
+ * opens from a card on Automations; every other page is its own.
+ */
+export function navPage(page: Page): Page {
+	return page === "auto-pick" ? "automations" : page;
 }
 
 /** How each page sits on a phone, under its bar; a conversation fills it. */

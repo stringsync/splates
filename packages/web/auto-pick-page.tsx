@@ -1,14 +1,15 @@
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { AutoPickLog, AutoPickMark } from "./auto-pick-log";
 import { RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";
 import { autoPickRuns } from "./auto-pick-runs";
-import { TopBar } from "./top-bar";
+import { BarButton, TopBar } from "./top-bar";
 
 /**
- * The Auto pick page: its log of picks, then the routing rules a pick
+ * The Auto pick page, under Automations, whose card opens it: its log of picks, then the routing rules a pick
  * follows, each offering the picks it made. The log's "Edit rule" opens a
  * rule marked.
  */
@@ -17,12 +18,15 @@ export function AutoPickPage({
 	tasks,
 	todos,
 	opens,
+	onBack,
 }: {
 	/** The rule to set the page on, by its place from 0, or null. */
 	mark: number | null;
 	tasks: readonly Details[];
 	todos: readonly TaskRecord[];
 	opens: { todo: (id: number) => void; task: (task: string) => void };
+	/** Goes back to the Automations page. */
+	onBack: () => void;
 }): JSX.Element {
 	const [editor] = useState(() => new RulesEditor());
 	// The rule whose picks the log lists; null for all of them.
@@ -35,7 +39,14 @@ export function AutoPickPage({
 	}, []);
 	return (
 		<section aria-label="Auto pick" className="flex min-w-0 flex-col gap-6">
-			<TopBar title="Auto pick" />
+			<TopBar
+				leading={
+					<BarButton label="Back to automations" onClick={onBack}>
+						<ChevronLeftIcon />
+					</BarButton>
+				}
+				title="Auto pick"
+			/>
 			<div className="flex items-center gap-3">
 				<AutoPickMark className="size-8" />
 				<p className="text-muted-foreground text-sm">

@@ -13,7 +13,7 @@ import { useHeldKey } from "./hooks/use-shortcut";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
-import { PAGES, type Page } from "./page-route";
+import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
@@ -97,7 +97,13 @@ export function AppNav({
 					<TabsTrigger
 						key={value}
 						value={value}
-						className="h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+						className={cn(
+							"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary",
+							// Marked too while a page under it is open.
+							value !== page &&
+								value === navPage(page) &&
+								"group-data-[variant=line]/tabs-list:bg-accent [&_svg]:text-primary",
+						)}
 					>
 						<span className="relative flex">
 							<Icon />

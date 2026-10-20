@@ -85,7 +85,9 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 				? ""
 				: next === "conversations" && conversation !== null
 					? `#conversations/${conversation}`
-					: `#${next}`,
+					: next === "auto-pick"
+						? AUTO_PICK
+						: `#${next}`,
 			how,
 		);
 	}
@@ -218,7 +220,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#automations") {
 		return "automations";
 	}
-	if (hash === "#auto-pick" || ruleIn(hash) !== null) {
+	if (hash === AUTO_PICK || hash === "#auto-pick" || ruleIn(hash) !== null) {
 		return "auto-pick";
 	}
 	if (hash === "#setup") {
@@ -268,10 +270,13 @@ export function credAddress(name: string): string {
 	return `#creds/${encodeURIComponent(name)}`;
 }
 
+/** The Auto pick page's address, under Automations, where its card opens it. */
+const AUTO_PICK = "#automations/auto-pick";
+
 /**
- * The rule `#auto-pick/<n>` sets the Auto pick page on, from 0, or null. So
- * does `#automations/auto-pick/<n>`, where a link from before Auto pick moved
- * off the Automations page opens one.
+ * The rule `#automations/auto-pick/<n>` sets the Auto pick page on, from 0,
+ * or null. So does `#auto-pick/<n>`, where a link from when Auto pick was a
+ * page of the nav opens one.
  */
 function ruleIn(hash: string): number | null {
 	const [, rule] = hash.match(/^#(?:automations\/)?auto-pick\/(\d+)$/) ?? [];
@@ -280,5 +285,5 @@ function ruleIn(hash: string): number | null {
 
 /** The address of the Auto pick page set on rule `index`, from 0. */
 export function ruleAddress(index: number): string {
-	return `#auto-pick/${index + 1}`;
+	return `${AUTO_PICK}/${index + 1}`;
 }
