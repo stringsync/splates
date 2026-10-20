@@ -8,6 +8,7 @@ import {
 	useEffect,
 	useId,
 	useRef,
+	useSyncExternalStore,
 } from "react";
 import { ATTACH } from "#web/components/assistant-ui/elements/attachment.aui.tsx";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -15,7 +16,7 @@ import { cn } from "#web/lib/utils.ts";
 import { BoxDictation } from "./box-dictation";
 import { BoxEditor, type BoxEditorProps } from "./box-editor";
 import { BoxMic } from "./dictate-button";
-import type { Dictation } from "./dictation";
+import { COMPOSER, type Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { DictationNotice, DictationStatus } from "./dictation-status";
 import type { Files } from "./files";
@@ -242,4 +243,21 @@ export function useCardDictationTurn(
 			move();
 		}
 	};
+}
+
+/**
+ * Whether a box's take is under way, rather than the composer's: its words
+ * are not in the box until it finishes, so an empty card can still send.
+ */
+export function useBoxTaking(): boolean {
+	const dictation = useContext(DictationContext);
+	return useSyncExternalStore(
+		(changed) => dictation?.events.on("changed", changed) ?? (() => {}),
+		() =>
+			dictation !== null &&
+			dictation.owner !== COMPOSER &&
+			["asking", "opening", "recording", "finishing"].includes(
+				dictation.state.phase,
+			),
+	);
 }

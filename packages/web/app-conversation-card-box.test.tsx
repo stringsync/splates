@@ -187,6 +187,35 @@ describe("App's card answer boxes", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
+	it("finishes a card's take on Send and sends its words", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "2")).getByRole("button", { name: "Dictate" }),
+			),
+		);
+		await waitFor(() =>
+			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "> **What looks off at 390px?**\n\nsomething more",
+					},
+				},
+			]),
+		);
+	});
+
 	it("stops a card's take with Escape even when focus moves to the message composer", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));

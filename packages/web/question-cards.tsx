@@ -23,7 +23,7 @@ import {
 	PlusIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useLayoutEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { focusStop, raises, useTouch } from "#web/hooks/use-touch.ts";
@@ -31,7 +31,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AnythingElsePage } from "./anything-else-page";
 import { caretToEnd } from "./box-editor";
 import { BoxFiles, MORE } from "./box-files";
-import { CardBox, useCardDictationTurn } from "./card-box";
+import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
@@ -212,6 +212,17 @@ export function QuestionCards({
 	};
 	const panel = useRef<HTMLDivElement>(null);
 	const finishThen = useCardDictationTurn(panel);
+	const taking = useBoxTaking();
+	// A take under way sends once it is done, from the render that holds its
+	// words: the click's own `submit` reads the box from before them.
+	const [sendTaken, setSendTaken] = useState(false);
+	useEffect(() => {
+		if (sendTaken) {
+			setSendTaken(false);
+			submit();
+		}
+	});
+	const sendNow = () => finishThen(() => setSendTaken(true));
 	// Answered, every question shows, as on any other card.
 	const paging = paged && live;
 	// The screen shown when paging, over a footer pinned to the sheet's foot:
@@ -322,7 +333,7 @@ export function QuestionCards({
 					if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 						event.preventDefault();
 						event.stopPropagation();
-						submit();
+						sendNow();
 					}
 				}}
 			>
@@ -466,8 +477,8 @@ export function QuestionCards({
 							) : (
 								<Button
 									className="h-11 flex-1 text-base"
-									disabled={empty}
-									onClick={submit}
+									disabled={empty && !taking}
+									onClick={sendNow}
 								>
 									{approving ? (
 										<CheckIcon data-icon="inline-start" />
@@ -502,8 +513,8 @@ export function QuestionCards({
 							</p>
 							<Button
 								size="sm"
-								disabled={empty}
-								onClick={submit}
+								disabled={empty && !taking}
+								onClick={sendNow}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{approving ? (
