@@ -21,10 +21,10 @@ export interface TestOptions {
 }
 
 /**
- * How long a test run may hold its heavy slot. The suite takes under a
- * minute, so this only ever stops one that hangs.
+ * How long a test run may hold its heavy slot. Tests should not hang this
+ * long, even under load.
  */
-export const TEST_DEADLINE = Duration.mins(10);
+export const TEST_DEADLINE = Duration.mins(3);
 
 export async function test(opts: TestOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
@@ -80,7 +80,7 @@ export async function test(opts: TestOptions): Promise<void> {
 		.catch((error: unknown) => {
 			if (signal.aborted) {
 				throw new Error(
-					`Tests ran past ${deadline.mins} minutes, so they were stopped: a test may be stuck in a loop`,
+					`Tests ran past ${deadline.mins} minutes, so they were stopped: tests should not hang this long, even under load; a test may be stuck in a loop`,
 				);
 			}
 			throw error;
