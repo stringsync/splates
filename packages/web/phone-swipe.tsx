@@ -200,21 +200,42 @@ export function EdgeSwipe({
 	target: RefObject<HTMLElement | null>;
 }): JSX.Element {
 	const backing = useRef<HTMLDivElement>(null);
+	const label = useRef<HTMLDivElement>(null);
+	// Whether the pull is past SWIPE_PX, so letting go would archive.
+	const past = useRef(false);
 	const start = useRef<{ x: number; y: number } | null>(null);
 	const swiping = useRef(false);
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	useEffect(() => () => clearTimeout(timer.current), []);
-	const slide = (to: string, ease: "none" | "ease-out" | "ease-in") => {
+	// Puts the screen `dx` pixels left (0 or less), fading the backing in with
+	// the pull and deepening it once letting go would archive.
+	const slide = (dx: number, ease: "none" | "ease-out" | "ease-in") => {
+		const pulled = Math.abs(dx);
+		const progress = Math.min(1, pulled / SWIPE_PX);
+		const isPast = pulled >= SWIPE_PX;
+		if (isPast && !past.current && ease === "none") {
+			navigator.vibrate?.(10);
+		}
+		past.current = isPast;
+		// Past the threshold the screen follows the finger at half speed.
+		const shown = isPast ? -(SWIPE_PX + (pulled - SWIPE_PX) / 2) : dx;
+		const motion = ease === "none" ? "none" : `transform ${LEAVE_MS}ms ${ease}`;
 		if (target.current !== null) {
-			target.current.style.transition =
-				ease === "none" ? "none" : `transform ${LEAVE_MS}ms ${ease}`;
-			target.current.style.transform = to;
+			target.current.style.transition = motion;
+			target.current.style.transform = `translateX(${ease === "ease-in" ? dx : shown}px)`;
+			target.current.style.boxShadow =
+				dx < 0 ? "-8px 0 24px rgb(0 0 0 / 0.18)" : "";
 		}
 		if (backing.current !== null) {
-			backing.current.style.opacity = to === "translateX(0px)" ? "0" : "1";
+			backing.current.style.opacity = String(progress);
+			backing.current.style.filter = isPast ? "brightness(0.88)" : "";
+		}
+		if (label.current !== null) {
+			label.current.style.transition = "transform 120ms ease-out";
+			label.current.style.transform = `scale(${isPast ? 1.15 : 0.7 + 0.3 * progress})`;
 		}
 	};
-	const settle = () => slide("translateX(0px)", "ease-out");
+	const settle = () => slide(0, "ease-out");
 	const end = () => {
 		start.current = null;
 		swiping.current = false;
@@ -226,8 +247,10 @@ export function EdgeSwipe({
 				aria-hidden
 				className="pointer-events-none fixed inset-0 -z-10 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
 			>
-				<ArchiveIcon />
-				Archive
+				<div ref={label} className="flex items-center gap-2 scale-[0.7]">
+					<ArchiveIcon />
+					Archive
+				</div>
 			</div>
 			<div
 				data-testid="edge-swipe"
@@ -254,7 +277,7 @@ export function EdgeSwipe({
 						swiping.current = true;
 						event.currentTarget.setPointerCapture?.(event.pointerId);
 					}
-					slide(`translateX(${Math.min(0, dx)}px)`, "none");
+					slide(Math.min(0, dx), "none");
 				}}
 				onPointerUp={(event: PointerEvent) => {
 					const far =
@@ -273,7 +296,7 @@ export function EdgeSwipe({
 						.matches
 						? 0
 						: LEAVE_MS;
-					slide("translateX(-100%)", "ease-in");
+					slide(-window.innerWidth, "ease-in");
 					timer.current = setTimeout(() => {
 						archive.file(undefined, settle);
 					}, ms);
