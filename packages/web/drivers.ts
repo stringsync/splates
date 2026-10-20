@@ -204,3 +204,54 @@ export function resize(width: number, height: number): void {
 		}
 	).happyDOM.setViewport({ width, height });
 }
+
+/** Opens or folds `details` as a click on its summary would. */
+export function toggle(details: HTMLDetailsElement, open: boolean): void {
+	act(() => {
+		details.open = open;
+		details.dispatchEvent(new Event("toggle"));
+	});
+}
+
+/**
+ * Builds every folded work row's timeline, which mounts only once its row has
+ * been opened, and leaves the rows folded as they were.
+ */
+export function unfold(thread: HTMLElement): void {
+	for (const row of thread.querySelectorAll<HTMLDetailsElement>(
+		"[data-slot=work] > details",
+	)) {
+		if (!row.open) {
+			toggle(row, true);
+			toggle(row, false);
+		}
+	}
+}
+
+/**
+ * Builds the body of every folded card in `timeline`, which mounts only once
+ * the card has been opened, and leaves the cards folded as they were. Only the
+ * cards there now: a card's body holds no cards of its own to build.
+ */
+export function unfoldCards(timeline: HTMLElement): void {
+	for (const card of [
+		...timeline.querySelectorAll<HTMLDetailsElement>("details"),
+	]) {
+		if (!card.open) {
+			toggle(card, true);
+			toggle(card, false);
+		}
+	}
+}
+
+/** The thread's work timelines, built if still folded, in order. */
+export function workTimelines(thread: HTMLElement): HTMLElement[] {
+	unfold(thread);
+	return within(thread).getAllByRole("list", { name: "timeline" });
+}
+
+/** The thread's one work timeline. */
+export function workTimeline(thread: HTMLElement): HTMLElement {
+	unfold(thread);
+	return within(thread).getByRole("list", { name: "timeline" });
+}

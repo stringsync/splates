@@ -92,6 +92,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	// Folded until the person opens it, while the agent works too, and open
 	// from then on.
 	const [open, setOpen] = useState(false);
+	// The timeline is built on the first open and kept after, so reopening is
+	// instant and a long thread mounts none of its folded cards.
+	const [opened, setOpened] = useState(false);
 	return (
 		<Going value={work.going}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
@@ -99,7 +102,12 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					open={open}
 					// The thread follows it as it grows while it is open.
 					data-working={work.working || undefined}
-					onToggle={(event) => setOpen(event.currentTarget.open)}
+					onToggle={(event) => {
+						setOpen(event.currentTarget.open);
+						if (event.currentTarget.open) {
+							setOpened(true);
+						}
+					}}
 					// The timeline slides open and shut with the chevron, where the
 					// browser can size to `auto`; elsewhere it opens at once.
 					className={cn(
@@ -123,30 +131,32 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
 					</summary>
-					<ol
-						aria-label="timeline"
-						// Under the line's words, clear of its chevron.
-						className="mt-2 flex flex-col gap-1.5 pl-5"
-					>
-						{!work.going && work.plan !== null && (
-							<li>
-								<Plan steps={work.plan} />
-							</li>
-						)}
-						{items
-							.filter((item) => item.type !== "decision")
-							.map((item, index) => (
-								<li
-									// The timeline only grows at its end, so an index is stable.
-									// biome-ignore lint/suspicious/noArrayIndexKey: as above
-									key={index}
-									// The agent's words stand apart from the calls around them.
-									className={cn(item.type === "said" && "py-2")}
-								>
-									<TimelineItem item={item} short={short} />
+					{opened && (
+						<ol
+							aria-label="timeline"
+							// Under the line's words, clear of its chevron.
+							className="mt-2 flex flex-col gap-1.5 pl-5"
+						>
+							{!work.going && work.plan !== null && (
+								<li>
+									<Plan steps={work.plan} />
 								</li>
-							))}
-					</ol>
+							)}
+							{items
+								.filter((item) => item.type !== "decision")
+								.map((item, index) => (
+									<li
+										// The timeline only grows at its end, so an index is stable.
+										// biome-ignore lint/suspicious/noArrayIndexKey: as above
+										key={index}
+										// The agent's words stand apart from the calls around them.
+										className={cn(item.type === "said" && "py-2")}
+									>
+										<TimelineItem item={item} short={short} />
+									</li>
+								))}
+						</ol>
+					)}
 				</details>
 				{items
 					.filter((item) => item.type === "decision")

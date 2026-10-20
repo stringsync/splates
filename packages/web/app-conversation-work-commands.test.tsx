@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
+import { toggle, unfoldCards, workTimeline } from "./drivers";
 import { act, cleanup, Testing, tool, turn, waitFor, within } from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
@@ -54,8 +55,7 @@ describe("App's work row commands", () => {
 		const thread = await opened(
 			turn(calls("in_progress"), { status: "running" }),
 		);
-		const rows = () =>
-			lines(within(thread).getByRole("list", { name: "timeline" }));
+		const rows = () => lines(workTimeline(thread));
 
 		await waitFor(() =>
 			expect(rows()).toEqual([
@@ -92,13 +92,10 @@ describe("App's work row commands", () => {
 				{ status: "running" },
 			);
 		const thread = await opened(command("Starting\n"));
-		const output = await waitFor(() =>
-			within(thread).getByRole("region", { name: "output" }),
-		);
-		const details = output.closest("details") as HTMLDetailsElement;
-		await act(async () => {
-			details.open = true;
-		});
+		const timeline = await waitFor(() => workTimeline(thread));
+		const details = timeline.querySelector("details") as HTMLDetailsElement;
+		toggle(details, true);
+		const output = within(details).getByRole("region", { name: "output" });
 		expect(thread.textContent).not.toContain("Exit code:");
 		await testing.say(command("Starting\n1 pass\n"));
 		await waitFor(() => expect(output.textContent).toContain("1 pass"));
@@ -126,13 +123,17 @@ describe("App's work row commands", () => {
 		);
 		const thread = await opened(reading());
 
-		const chip = await waitFor(() => within(thread).getByRole("link"));
+		const chip = await waitFor(() =>
+			within(workTimeline(thread)).getByRole("link"),
+		);
 		expect(chip.getAttribute("href")).toBe("vscode://file/repo/src/a.ts:12");
 	});
 
 	it("asks the server to open a clicked chip inside its worktree, on its own machine only", async () => {
 		const thread = await opened(reading());
-		const chip = await waitFor(() => within(thread).getByRole("link"));
+		const chip = await waitFor(() =>
+			within(workTimeline(thread)).getByRole("link"),
+		);
 		const opens = () =>
 			testing.posts.filter((each) => each.path === "/api/open");
 
@@ -166,9 +167,7 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		const [code, other] = within(timeline).getAllByRole("link");
 		expect([code?.textContent, code?.getAttribute("href")]).toEqual([
 			"a.ts#L12-80",
@@ -191,9 +190,7 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		const [read, command] = within(timeline).getAllByRole("listitem");
 		expect(read?.querySelector("details")).toBeNull();
 		expect(read?.querySelector(".lucide-chevron-right")).toBeNull();
@@ -262,9 +259,7 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(
 			within(timeline)
 				.getAllByRole("listitem")
@@ -296,12 +291,11 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(within(timeline).getByText("Ran")).toBeTruthy();
 		expect(within(timeline).getByText("Stopped running")).toBeTruthy();
 		expect(within(timeline).queryByText("Running")).toBeNull();
+		unfoldCards(timeline);
 		expect(within(timeline).getByText("No output")).toBeTruthy();
 	});
 
@@ -320,9 +314,16 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const row = await waitFor(() => within(thread).getByText("×3"));
+		const row = await waitFor(() =>
+			within(workTimeline(thread)).getByText("×3"),
+		);
 		const command = row.closest("details") as HTMLDetailsElement;
+		// A folded card builds its output only once opened, and keeps it after.
+		expect(within(command).queryByLabelText("output")).toBeNull();
+		toggle(command, true);
 		expect(within(command).getByText("Failed to run")).toBeTruthy();
+		expect(within(command).getByLabelText("output").textContent).toBe("1 fail");
+		toggle(command, false);
 		expect(within(command).getByLabelText("output").textContent).toBe("1 fail");
 	});
 
@@ -359,9 +360,7 @@ describe("App's work row commands", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(
 			within(thread).queryByRole("list", { name: "edited files" }),
 		).toBeNull();
@@ -376,9 +375,7 @@ describe("App's work row commands", () => {
 			["/tmp/c.ts", "c.ts"],
 		]);
 		const first = within(timeline).getAllByRole("listitem")[0] as HTMLElement;
-		await act(async () => {
-			(first.querySelector("details") as HTMLDetailsElement).open = true;
-		});
+		toggle(first.querySelector("details") as HTMLDetailsElement, true);
 		expect(
 			within(first)
 				.getAllByLabelText("edit to /repo/src/a.ts")

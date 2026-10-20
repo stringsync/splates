@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
+import { workTimelines } from "./drivers";
 import {
 	cleanup,
 	second,
@@ -60,9 +61,7 @@ describe("App's splates events", () => {
 			"Claimedalpha",
 			"Claim failedbeta",
 		]);
-		expect(
-			within(thread).getAllByRole("list", { name: "timeline" }),
-		).toHaveLength(2);
+		expect(workTimelines(thread)).toHaveLength(2);
 		expect(thread.textContent).toMatch(
 			/splates claim alpha.*Claimedalpha.*a\.ts.*Claim failedbeta.*It stops now\./,
 		);

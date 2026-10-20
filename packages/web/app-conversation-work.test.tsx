@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Event } from "@stringsync/splates-server/records";
+import { unfoldCards, workTimeline, workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -71,11 +72,11 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1),
 		);
-		const timeline = within(thread).getByRole("list", { name: "timeline" });
-		expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
-			false,
-		);
-		expect(lines(timeline)).toEqual([
+		// A folded row builds its timeline only once opened.
+		expect(within(thread).queryByRole("list", { name: "timeline" })).toBeNull();
+		const list = workTimeline(thread);
+		expect((list.closest("details") as HTMLDetailsElement).open).toBe(false);
+		expect(lines(list)).toEqual([
 			"Let me run them.",
 			"Reada.ts",
 			"Failed to runbun test28s",
@@ -83,7 +84,7 @@ describe("App's work row", () => {
 			"Editeda.ts",
 			"Ranbun test29s",
 		]);
-		expect(timeline.textContent).not.toContain("All tests pass.");
+		expect(list.textContent).not.toContain("All tests pass.");
 		expect(thread.textContent).toContain("All tests pass.");
 		expect(thread.textContent).not.toContain("Which tests?");
 		expect(thread.textContent).not.toContain("The parser.");
@@ -114,7 +115,7 @@ describe("App's work row", () => {
 				"Task upload-limit: Stop retrying an upload refused as too big.",
 			),
 		).toBeTruthy();
-		const works = within(thread).getAllByRole("list", { name: "timeline" });
+		const works = workTimelines(thread);
 		expect(works.map(lines)).toEqual([
 			["Ransplates add upload-limit1s"],
 			["Reada.ts"],
@@ -309,10 +310,8 @@ describe("App's work row", () => {
 		await waitFor(() =>
 			expect(thread.textContent).toContain("No, I'm not waiting on you."),
 		);
-		const timelines = within(thread).getAllByRole("list", {
-			name: "timeline",
-		});
-		expect(timelines.map((each) => each.textContent)).toEqual([
+		const all = workTimelines(thread);
+		expect(all.map((each) => each.textContent)).toEqual([
 			"Let me look.Reada.ts",
 			expect.stringContaining("bun test"),
 		]);
@@ -346,12 +345,11 @@ describe("App's work row", () => {
 			]),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(lines(timeline)).toEqual([
 			"Ran subagentFind the callers· 2 tool calls",
 		]);
+		unfoldCards(timeline);
 		expect(lines(timeline.querySelector("details ul") as Element)).toEqual([
 			"Searchedgrep fold",
 			"Read",

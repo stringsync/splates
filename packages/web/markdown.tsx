@@ -1,7 +1,7 @@
 import { MENTION } from "@stringsync/splates-server/board/browser";
 import { ArchiveIcon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
-import { type ComponentProps, type JSX, useContext } from "react";
+import { type ComponentProps, type JSX, memo, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
 import { GROUP } from "./lightbox";
@@ -33,7 +33,7 @@ export interface MarkdownProps {
  * Renders markdown with markdown-to-jsx: GitHub's flavor, nesting, tables and
  * task lists included, styled to sit quietly in the page.
  */
-export function Markdown({
+export const Markdown = memo(function Markdown({
 	text,
 	className,
 	preview = false,
@@ -62,7 +62,7 @@ export function Markdown({
 			<Render options={preview ? GLIMPSE : OPTIONS}>{linked}</Render>
 		</div>
 	);
-}
+});
 
 // Every level renders as the same quiet uppercase label: the documents this
 // renders sit inside a card or a dialog that already carries the real title,

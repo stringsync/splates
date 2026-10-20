@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { Duration } from "webappwiz/time";
+import { workTimeline, workTimelines } from "./drivers";
 import {
 	act,
 	cleanup,
@@ -35,9 +36,7 @@ describe("App's work row while working", () => {
 		thread.querySelector('[data-slot="work"] summary')?.textContent;
 	// The work row's foldable timeline, the first when there are more.
 	const details = (thread: HTMLElement) =>
-		within(thread)
-			.getAllByRole("list", { name: "timeline" })[0]
-			?.closest("details") as HTMLDetailsElement;
+		workTimelines(thread)[0]?.closest("details") as HTMLDetailsElement;
 	it("says only Working and how long it has worked while it works, shimmering, with its plan", async () => {
 		const thread = await opened(
 			turn(
@@ -128,9 +127,7 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(timeline.textContent).toContain("Now the fix.");
 		expect(line(thread)).toMatch(/^Working /);
 		act(() => {
@@ -138,9 +135,7 @@ describe("App's work row while working", () => {
 			testing.timer.fireTimeouts();
 		});
 		await waitFor(() =>
-			expect(
-				within(thread).getByRole("list", { name: "timeline" }).textContent,
-			).not.toContain("Now the fix."),
+			expect(workTimeline(thread).textContent).not.toContain("Now the fix."),
 		);
 		expect(thread.textContent).toContain("Now the fix.");
 	});
@@ -185,9 +180,7 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const timeline = await waitFor(() =>
-			within(thread).getByRole("list", { name: "timeline" }),
-		);
+		const timeline = await waitFor(() => workTimeline(thread));
 		expect(timeline.textContent).toContain("Let me look.");
 		expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
 			false,
@@ -202,8 +195,7 @@ describe("App's work row while working", () => {
 				status: "running",
 			}),
 		);
-		const timelines = () =>
-			within(thread).getAllByRole("list", { name: "timeline" });
+		const timelines = () => workTimelines(thread);
 		await waitFor(() => expect(thread.textContent).toContain("Checking."));
 		expect(details(thread).open).toBe(false);
 		expect(timelines()[0]?.textContent).not.toContain("Checking.");

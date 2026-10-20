@@ -1,7 +1,7 @@
 import type { Edit, Tool } from "@stringsync/splates-server/conversations";
 import { editLines } from "@stringsync/splates-server/tasks/browser";
 import { ChevronRightIcon } from "lucide-react";
-import { createContext, type JSX, type ReactNode, use } from "react";
+import { createContext, type JSX, type ReactNode, use, useState } from "react";
 import { CodeDiff } from "#web/components/assistant-ui/elements/code-diff.tsx";
 import {
 	field,
@@ -220,6 +220,9 @@ function Line({
 	children?: ReactNode;
 }): JSX.Element {
 	const opens = children !== undefined && children !== false;
+	// The body mounts on the first open and stays, so a long thread builds
+	// none of its folded cards.
+	const [opened, setOpened] = useState(false);
 	const head = (
 		<>
 			<span className="flex min-w-0 items-center gap-1.5">
@@ -250,7 +253,14 @@ function Line({
 		return <div className={line}>{head}</div>;
 	}
 	return (
-		<details className="group/row">
+		<details
+			className="group/row"
+			onToggle={(event) => {
+				if (event.currentTarget.open) {
+					setOpened(true);
+				}
+			}}
+		>
 			<summary
 				className={cn(
 					line,
@@ -259,7 +269,9 @@ function Line({
 			>
 				{head}
 			</summary>
-			<div className="mt-1 mb-2 flex flex-col gap-1.5">{children}</div>
+			{opened && (
+				<div className="mt-1 mb-2 flex flex-col gap-1.5">{children}</div>
+			)}
 		</details>
 	);
 }
