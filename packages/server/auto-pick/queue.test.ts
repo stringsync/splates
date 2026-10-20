@@ -24,10 +24,10 @@ const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
 
 /** A judge sure the task is easy mechanical work. */
 const LIGHT_EDIT = {
-	"kind:mechanical": 0.9,
-	"kind:lookup": 0.1,
-	"difficulty:easy": 0.8,
-	"difficulty:hard": 0.1,
+	"kind:bugfix": 0.9,
+	"kind:open": 0.1,
+	"depth:shallow": 0.8,
+	"depth:deep": 0.1,
 };
 
 /** A judge whose provider is down. */
@@ -76,17 +76,17 @@ describe("QueueAutoPick", () => {
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
 			JSON.stringify({
-				format: 1,
+				format: 2,
 				threshold: 0.5,
 				rules: [
 					{
-						kind: "mechanical",
-						difficulty: "easy",
+						kind: "bugfix",
+						depth: "shallow",
 						picks: [{ agent: "other", model: "small" }],
 					},
 					{
 						kind: "*",
-						difficulty: "*",
+						depth: "*",
 						picks: [{ agent: "fake", model: "big" }],
 					},
 				],
@@ -126,9 +126,9 @@ describe("QueueAutoPick", () => {
 		expect(decided.pick).toEqual({ agent: "other", model: "small" });
 		expect((await queued()).autoPick).toMatchObject({
 			pick: { agent: "other", model: "small" },
-			kind: "mechanical",
-			difficulty: "easy",
-			classified: { classification: { kinds: { mechanical: 0.9 } } },
+			kind: "bugfix",
+			depth: "shallow",
+			classified: { classification: { kinds: {} } },
 		});
 
 		const conversation = await conversations.start("other", {
@@ -144,7 +144,7 @@ describe("QueueAutoPick", () => {
 				action: "auto",
 				conversation: conversation.id,
 				agent: "other",
-				signs: ["Mechanical 90%", "Easy 80%"],
+				signs: ["Bugfix 90%", "Shallow 80%"],
 			}),
 		);
 	});
@@ -263,7 +263,7 @@ describe("QueueAutoPick", () => {
 		expect(fake.asked).toHaveLength(1);
 		expect((await queued()).autoPick).toMatchObject({
 			pick: { agent: "other", model: "small" },
-			classified: { classification: { kinds: { mechanical: 0.9 } } },
+			classified: { classification: { kinds: {} } },
 		});
 	});
 

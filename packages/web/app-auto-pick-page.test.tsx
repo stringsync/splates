@@ -77,32 +77,30 @@ describe("App's Auto pick page", () => {
 const PICKED: AutoPicked = {
 	pick: { agent: "claude", model: "haiku", effort: "low" },
 	rule: 1,
-	kind: "mechanical",
-	difficulty: "easy",
-	reasons: ["Haiku, low effort", "judged: Mechanical 90%, Easy 80%"],
+	kind: "bugfix",
+	depth: "shallow",
+	reasons: ["Haiku, low effort", "judged: Bugfix 90%, Shallow 80%"],
 	at: new Date().toISOString(),
 	classified: {
 		key: "k",
 		classification: {
 			kinds: {
-				lookup: 0.1,
-				mechanical: 0.9,
-				bugfix: 0.2,
+				bugfix: 0.9,
 				design: 0.1,
 				open: 0.1,
 			},
-			difficulty: { easy: 0.8, medium: 0.3, hard: 0.1 },
+			depth: { shallow: 0.8, moderate: 0.3, deep: 0.1 },
 		},
 	},
 };
 
 const RULES: AutoPickRulesView = {
 	rules: {
-		format: 1,
+		format: 2,
 		threshold: 0.5,
 		rules: [
-			{ kind: "lookup", difficulty: "*", picks: [{ agent: "claude" }] },
-			{ kind: "*", difficulty: "*", picks: [{ agent: "claude" }] },
+			{ kind: "open", depth: "*", picks: [{ agent: "claude" }] },
+			{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
 		],
 	},
 	problem: null,

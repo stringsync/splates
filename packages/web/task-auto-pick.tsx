@@ -1,9 +1,6 @@
 import { age } from "@stringsync/splates-server/age";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import {
-	DIFFICULTIES,
-	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
+import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
 import type { JSX } from "react";
 
 /**
@@ -13,7 +10,10 @@ import type { JSX } from "react";
  */
 export function AutoPickFact({ picked }: { picked: AutoPicked }): JSX.Element {
 	const [headline, judged, ...why] = picked.reasons;
-	const classification = picked.classified?.classification;
+	const classification =
+		picked.classified?.classification.depth === undefined
+			? undefined
+			: picked.classified.classification;
 	return (
 		<div className="flex flex-col gap-0.5">
 			<span>
@@ -25,11 +25,7 @@ export function AutoPickFact({ picked }: { picked: AutoPicked }): JSX.Element {
 					? judged
 					: [
 							likeliest(KINDS, classification.kinds, picked.kind),
-							likeliest(
-								DIFFICULTIES,
-								classification.difficulty,
-								picked.difficulty,
-							),
+							likeliest(DEPTHS, classification.depth, picked.depth),
 						].join(" · ")}
 			</span>
 			{why.length > 0 && (

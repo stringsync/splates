@@ -1,8 +1,9 @@
 import type { Limit, Setting } from "../conversations";
 import type { AgentPick, RosterAgent } from "../models";
 import {
-	DIFFICULTIES,
-	type DifficultyId,
+	CONTEXT_CLASSES,
+	DEPTHS,
+	type DepthId,
 	KINDS,
 	type KindId,
 	type TaskClass,
@@ -17,8 +18,8 @@ export interface AutoPickDecision {
 	rule: number;
 	/** The kind the task was taken for; null when the judge was not sure of any. */
 	kind: KindId | null;
-	/** The difficulty the task was taken for; null when the judge was not sure of any. */
-	difficulty: DifficultyId | null;
+	/** The depth the task was taken for; null when the judge was not sure of any. */
+	depth: DepthId | null;
 	/** Why, in short lines the page can show, the pick first. */
 	reasons: string[];
 }
@@ -54,7 +55,7 @@ export interface DecideWithoutInput extends DecideContext {
 }
 
 /**
- * Turns a classification into a pick: the likeliest kind and difficulty, each
+ * Turns a classification into a pick: the likeliest kind and depth, each
  * when the judge is sure enough of it, find the first rule that matches both,
  * and the first of its picks whose agent has plan left, used no faster than
  * its windows go by, wins.
@@ -62,38 +63,43 @@ export interface DecideWithoutInput extends DecideContext {
 export function decide(input: DecideInput): AutoPickDecision {
 	const { threshold } = input.rules;
 	const kind = likeliest(KINDS, input.classification.kinds, threshold);
-	const difficulty = likeliest(
-		DIFFICULTIES,
-		input.classification.difficulty,
-		threshold,
-	);
-	return choose(
+	const depth = likeliest(DEPTHS, input.classification.depth, threshold);
+	const decision = choose(
 		input,
 		kind.id,
-		difficulty.id,
-		`judged: ${kind.said}, ${difficulty.said}`,
+		depth.id,
+		`judged: ${kind.said}, ${depth.said}`,
 	);
+	for (const [group, classes] of Object.entries(CONTEXT_CLASSES)) {
+		const answers = input.classification[group as keyof typeof CONTEXT_CLASSES];
+		if (answers !== undefined) {
+			decision.reasons.push(
+				`${group}: ${classes.map((each) => `${each.label} ${Math.round(((answers as Record<string, number>)[each.id] ?? 0.5) * 100)}%`).join(", ")}`,
+			);
+		}
+	}
+	return decision;
 }
 
 /**
  * A pick for a task the judge could not classify: the first rule that takes
- * any kind and any difficulty, saying why the judge was not asked.
+ * any kind and any depth, saying why the judge was not asked.
  */
 export function decideWithout(input: DecideWithoutInput): AutoPickDecision {
 	return choose(input, null, null, input.reason);
 }
 
-/** The first rule matching `kind` and `difficulty`, and the first of its picks with plan left. */
+/** The first rule matching `kind` and `depth`, and the first of its picks with plan left. */
 function choose(
 	input: DecideContext,
 	kind: KindId | null,
-	difficulty: DifficultyId | null,
+	depth: DepthId | null,
 	judged: string,
 ): AutoPickDecision {
 	const index = input.rules.rules.findIndex(
 		(each) =>
 			(each.kind === ANY || each.kind === kind) &&
-			(each.difficulty === ANY || each.difficulty === difficulty),
+			(each.depth === ANY || each.depth === depth),
 	);
 	const matched = input.rules.rules[index];
 	if (matched === undefined) {
@@ -185,7 +191,7 @@ function choose(
 		reasons,
 	);
 	reasons.unshift(headline(pick, chosen.agent));
-	return { pick, rule: index, kind, difficulty, reasons };
+	return { pick, rule: index, kind, depth, reasons };
 }
 
 /** The likeliest class, when the judge is at least `threshold` sure of it, and how it reads. */

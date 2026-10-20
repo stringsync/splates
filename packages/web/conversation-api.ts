@@ -52,6 +52,7 @@ export async function startConversation(
 
 /** A new conversation's first message for Auto pick to judge, in `task`'s tree or the main tree for null. */
 export interface AutoWords {
+	attachments?: { name: string; mimeType: string }[];
 	words: string;
 	task: string | null;
 	/** The id it starts on, picked by the page to open it at once. */

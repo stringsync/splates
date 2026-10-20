@@ -5,7 +5,8 @@ import { effortSettings, Roster, splatesHome } from "../models";
 import { goalOf, Plans } from "../plans";
 import type { Project } from "../server/shared";
 import { FsStorage } from "../storage";
-import { DIFFICULTIES, KINDS, type TaskClass } from "./classes";
+import { DEPTHS, KINDS, type TaskClass } from "./classes";
+import type { AttachmentInfo } from "./classify";
 import {
 	type AutoPickDecision,
 	type DecideContext,
@@ -24,7 +25,7 @@ const JUDGE_KEY = JUDGE_CREDS.jev[0];
 
 /** What {@link JUDGE_KEY} is for, as the Creds page shows it. */
 const PURPOSE =
-	"Auto pick asks TypeSafe's Jev what kind of work a task is and how hard, to start it on the agent, model and thinking level your Auto pick rules give that; without a key every Auto pick takes the rule for any kind and difficulty.";
+	"Auto pick asks TypeSafe's Jev what kind of work a task is and how deeply it needs to reason, to start it on the agent, model and thinking level your Auto pick rules give that; without a key every Auto pick takes the rule for any kind and depth.";
 
 /** How to get {@link JUDGE_KEY}, as the Creds page shows it. */
 const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
@@ -35,7 +36,9 @@ const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
 export type AutoPickTarget = { task: string } | { todo: number };
 
 /** Which words Auto pick judges: a task's, or those of a new conversation's first message. */
-export type AutoPickWords = AutoPickTarget | { words: string };
+export type AutoPickWords =
+	| AutoPickTarget
+	| { words: string; attachments?: readonly AttachmentInfo[] };
 
 /** How `startAutoPick` starts the conversation, in the tree it runs in. */
 export type AutoPickStart = (
@@ -79,7 +82,14 @@ export async function startAutoPick({
 		record === null
 			? wordsOfMessage("words" in target ? target.words : "")
 			: await wordsOf(project, record);
-	const key = classificationKey(subject, detail);
+	const attachments =
+		"words" in target
+			? (target.attachments ?? [])
+			: (record?.files ?? []).map((name) => ({
+					name,
+					mimeType: Bun.file(name).type,
+				}));
+	const key = classificationKey(subject, detail, attachments);
 	const context = await contextOf(project, conversations, now());
 	const { offered } = context;
 	const cached = record === null ? null : cachedFor(record, key);
@@ -88,7 +98,14 @@ export async function startAutoPick({
 		cached === null
 			? decideWithout({ ...context, reason: "the judge has yet to answer" })
 			: decide({ ...context, classification: cached });
-	const deciding = decideFor({ subject, detail, cached, judge, context });
+	const deciding = decideFor({
+		subject,
+		detail,
+		attachments,
+		cached,
+		judge,
+		context,
+	});
 	const opened = ({ pick }: AutoPickDecision): Picked<string> => ({
 		agent: pick.agent,
 		...(pick.model === undefined ? {} : { model: pick.model }),
@@ -261,7 +278,7 @@ async function logPick(
 				? null
 				: [
 						likeliest(KINDS, classification.kinds),
-						likeliest(DIFFICULTIES, classification.difficulty),
+						likeliest(DEPTHS, classification.depth),
 					],
 	});
 	if (asking !== null) {

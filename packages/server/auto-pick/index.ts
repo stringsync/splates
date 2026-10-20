@@ -1,6 +1,11 @@
-export type { DifficultyId, KindId, TaskClass } from "./classes";
-export { DIFFICULTIES, DIFFICULTY_IDS, KIND_IDS, KINDS } from "./classes";
-export type { Classification, Classified, ClassifyInput } from "./classify";
+export type { DepthId, KindId, TaskClass } from "./classes";
+export { DEPTH_IDS, DEPTHS, KIND_IDS, KINDS } from "./classes";
+export type {
+	AttachmentInfo,
+	Classification,
+	Classified,
+	ClassifyInput,
+} from "./classify";
 export { classify, DETAIL_CHARS } from "./classify";
 export { Clef } from "./clef";
 export type {

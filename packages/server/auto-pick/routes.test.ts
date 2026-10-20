@@ -34,12 +34,12 @@ describe("dev Auto pick", () => {
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
 			JSON.stringify({
-				format: 1,
+				format: 2,
 				threshold: 0.5,
 				rules: [
 					{
 						kind: "*",
-						difficulty: "*",
+						depth: "*",
 						picks: [{ agent: "fake", model: "big" }],
 					},
 				],
@@ -97,8 +97,8 @@ describe("dev Auto pick", () => {
 			decision: {
 				pick: { agent: "fake", model: "big" },
 				rule: 0,
-				kind: "mechanical",
-				difficulty: "easy",
+				kind: "bugfix",
+				depth: "shallow",
 			},
 		});
 		expect((await conversations.list()).length).toBe(0);
@@ -138,21 +138,19 @@ const SUBJECT = "Rename `foo` to `bar`";
 const KEPT: AutoPicked = {
 	pick: { agent: "fake" },
 	rule: 0,
-	kind: "mechanical",
-	difficulty: "easy",
+	kind: "bugfix",
+	depth: "shallow",
 	reasons: ["Fake on its default model"],
 	at: "2026-10-19T00:00:00.000Z",
 	classified: {
 		key: classificationKey(SUBJECT, ""),
 		classification: {
 			kinds: {
-				lookup: 0.1,
-				mechanical: 0.9,
-				bugfix: 0.1,
+				bugfix: 0.9,
 				design: 0.1,
 				open: 0.1,
 			},
-			difficulty: { easy: 0.8, medium: 0.2, hard: 0.1 },
+			depth: { shallow: 0.8, moderate: 0.2, deep: 0.1 },
 		},
 	},
 };

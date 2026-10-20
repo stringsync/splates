@@ -2,7 +2,7 @@ import type {
 	AutoPickAgent,
 	AutoPickRules,
 	AutoPickRulesView,
-	DifficultyId,
+	DepthId,
 	KindId,
 	Pace,
 	Rule,
@@ -125,8 +125,8 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.editRule(index, (rule) => ({ ...rule, kind }));
 	}
 
-	setDifficulty(index: number, difficulty: DifficultyId | typeof ANY): void {
-		this.editRule(index, (rule) => ({ ...rule, difficulty }));
+	setDepth(index: number, depth: DepthId | typeof ANY): void {
+		this.editRule(index, (rule) => ({ ...rule, depth }));
 	}
 
 	/** Adds a rule just above the last, where a specific rule has to sit to win. */
@@ -135,7 +135,7 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 			this.agents[0]?.id ?? this.draft.rules.at(-1)?.picks[0]?.agent;
 		const rule: Rule = {
 			kind: KIND_IDS[0],
-			difficulty: ANY,
+			depth: ANY,
 			picks: agent === undefined ? [] : [{ agent }],
 		};
 		this.edit((rules) => ({

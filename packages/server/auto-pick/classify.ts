@@ -1,8 +1,9 @@
 import { aborts } from "webappwiz/abort";
 import { Duration } from "webappwiz/time";
 import {
-	DIFFICULTIES,
-	type DifficultyId,
+	CONTEXT_CLASSES,
+	DEPTHS,
+	type DepthId,
 	KINDS,
 	type KindId,
 	type TaskClass,
@@ -12,11 +13,16 @@ import type { Judge, Noul, Verdict } from "./system-one";
 
 /**
  * What the judge said of a task: the probability, 0 to 1, that it is each
- * kind of work and each difficulty. A question left unanswered is a coin toss.
+ * kind of work and each depth. A question left unanswered is a coin toss.
  */
 export interface Classification {
 	kinds: Record<KindId, number>;
-	difficulty: Record<DifficultyId, number>;
+	depth: Record<DepthId, number>;
+	/** Additional evidence, never used for rule matching. Absent on older records. */
+	breadth?: Record<"spot" | "module" | "system", number>;
+	clarity?: Record<"settled" | "unresolved", number>;
+	stakes?: Record<"routine" | "sensitive", number>;
+	verification?: Record<"automated" | "visual", number>;
 }
 
 /** A classification, or why there is none, in a short line the page can show. */
@@ -32,20 +38,19 @@ export interface ClassifyInput {
 	detail: string;
 	/** The decision model; null when no cred for one is kept. */
 	judge: Judge | null;
+	/** Names and MIME types only; never attachment contents. */
+	attachments?: readonly AttachmentInfo[];
 	/** How long the judge may take; 5 seconds when not given. */
 	timeout?: Duration;
 	/** Gives up on the judgment, and rejects with its reason, when it aborts. */
 	signal?: AbortSignal;
 }
 
-/** How long `classify` waits on the judge. */
-const DEFAULT_TIMEOUT = Duration.secs(5);
-
-/**
- * The detail the judge reads, at most this long: the head says how big the
- * work is, and a provider cuts a long state short without saying.
- */
-export const DETAIL_CHARS = 4000;
+/** Metadata available before a first message has been uploaded. */
+export interface AttachmentInfo {
+	name: string;
+	mimeType: string;
+}
 
 /**
  * Asks the judge every question about the task in one judgment. With no
@@ -73,10 +78,17 @@ export async function classify(input: ClassifyInput): Promise<Classified> {
 					state: {
 						subject: input.subject,
 						detail: input.detail.slice(0, DETAIL_CHARS),
+						paths: namedPaths(`${input.subject}\n${input.detail}`),
+						attachments: attachmentSummary(input.attachments ?? []),
 					},
 					questions: {
 						...questions("kind", KINDS),
-						...questions("difficulty", DIFFICULTIES),
+						...questions("depth", DEPTHS),
+						...Object.fromEntries(
+							Object.entries(CONTEXT_CLASSES).flatMap(([group, classes]) =>
+								Object.entries(questions(group, classes)),
+							),
+						),
 					},
 				},
 				{ signal },
@@ -86,7 +98,15 @@ export async function classify(input: ClassifyInput): Promise<Classified> {
 			ok: true,
 			classification: {
 				kinds: answers(verdict, "kind", KINDS),
-				difficulty: answers(verdict, "difficulty", DIFFICULTIES),
+				depth: answers(verdict, "depth", DEPTHS),
+				breadth: answers(verdict, "breadth", CONTEXT_CLASSES.breadth),
+				clarity: answers(verdict, "clarity", CONTEXT_CLASSES.clarity),
+				stakes: answers(verdict, "stakes", CONTEXT_CLASSES.stakes),
+				verification: answers(
+					verdict,
+					"verification",
+					CONTEXT_CLASSES.verification,
+				),
 			},
 		};
 	} catch (error) {
@@ -125,3 +145,46 @@ function answers<Id extends string>(
 		]),
 	) as Record<Id, number>;
 }
+
+/** Paths mentioned anywhere in the goal survive the detail's size limit. */
+export function namedPaths(words: string): string[] {
+	return [
+		...new Set(
+			words.match(/(?:[\w@.~+-]+\/)+[\w.*@+-]+(?:\/[\w.*@+-]+)*\/?/g) ?? [],
+		),
+	];
+}
+
+/** Count, media kind and name of each attachment; no file is opened. */
+export function attachmentSummary(files: readonly AttachmentInfo[]): string {
+	const groups = new Map<string, string[]>();
+	for (const file of files) {
+		const kind = file.mimeType.startsWith("image/")
+			? "image"
+			: file.mimeType.startsWith("video/")
+				? "video"
+				: file.mimeType.startsWith("audio/")
+					? "audio file"
+					: "file";
+		const names = groups.get(kind) ?? [];
+		names.push(file.name);
+		groups.set(kind, names);
+	}
+	return (
+		[...groups]
+			.map(
+				([kind, names]) =>
+					`${names.length} ${kind}${names.length === 1 ? "" : "s"} (${names.join(", ")})`,
+			)
+			.join(", ") || "none"
+	);
+}
+
+/** How long `classify` waits on the judge. */
+const DEFAULT_TIMEOUT = Duration.secs(5);
+
+/**
+ * The detail the judge reads, at most this long: the head says how big the
+ * work is, and a provider cuts a long state short without saying.
+ */
+export const DETAIL_CHARS = 4000;

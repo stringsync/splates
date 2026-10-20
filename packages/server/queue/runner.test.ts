@@ -395,7 +395,7 @@ describe("QueueRunner", () => {
 						pick: { agent: "claude" },
 						rule: 0,
 						kind: null,
-						difficulty: null,
+						depth: null,
 						reasons: [],
 						at: new Date().toISOString(),
 					},

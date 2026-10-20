@@ -1,9 +1,6 @@
 import { age } from "@stringsync/splates-server/age";
 import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
-import {
-	DIFFICULTIES,
-	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
+import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import {
@@ -182,10 +179,13 @@ function Line({
 	);
 }
 
-/** How sure the judge was of the task's kind and difficulty, and the reasons given. */
+/** How sure the judge was of the task's kind and depth, and the reasons given. */
 function Judged({ picked }: { picked: AutoPicked }): JSX.Element {
 	const [, ...why] = picked.reasons;
-	const classification = picked.classified?.classification;
+	const classification =
+		picked.classified?.classification.depth === undefined
+			? undefined
+			: picked.classified.classification;
 	return (
 		<div className="flex flex-col gap-3">
 			{classification !== undefined && (
@@ -197,10 +197,10 @@ function Judged({ picked }: { picked: AutoPicked }): JSX.Element {
 						taken={picked.kind}
 					/>
 					<Confidences
-						title="Difficulty"
-						classes={DIFFICULTIES}
-						answers={classification.difficulty}
-						taken={picked.difficulty}
+						title="Depth"
+						classes={DEPTHS}
+						answers={classification.depth}
+						taken={picked.depth}
 					/>
 				</div>
 			)}

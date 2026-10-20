@@ -43,10 +43,12 @@ export class AutoPickRoutes {
 		if (conversations === null) {
 			fail("not_found", "conversations are off", {});
 		}
-		const { id, task, todo, words } = await body(request);
+		const { id, task, todo, words, attachments } = await body(request);
 		// A new conversation's first message, judged in `task`'s tree, if named.
 		const target: AutoPickWords =
-			typeof words === "string" ? { words } : targetOf(task, todo);
+			typeof words === "string"
+				? { words, attachments: attachmentInfos(attachments) }
+				: targetOf(task, todo);
 		const [named, cwd, base, caller] = await treeOf(
 			this.#project.service,
 			"words" in target ? task : "task" in target ? target.task : null,
@@ -103,4 +105,24 @@ function targetOf(task: unknown, todo: unknown): AutoPickTarget {
 		return { todo };
 	}
 	fail("usage", "name a task, by `task` or by `todo` number, to Auto pick", {});
+}
+
+/** Only first-message metadata crosses the judging endpoint, never bytes. */
+function attachmentInfos(value: unknown): { name: string; mimeType: string }[] {
+	if (value === undefined) {
+		return [];
+	}
+	if (
+		!Array.isArray(value) ||
+		value.some(
+			(file) =>
+				file === null ||
+				typeof file !== "object" ||
+				typeof file.name !== "string" ||
+				typeof file.mimeType !== "string",
+		)
+	) {
+		fail("usage", "attachments must give each file's name and mimeType", {});
+	}
+	return value.map((file) => ({ name: file.name, mimeType: file.mimeType }));
 }

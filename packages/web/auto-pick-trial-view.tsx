@@ -1,8 +1,5 @@
 import type { AutoPickTrial } from "@stringsync/splates-server/auto-pick";
-import {
-	DIFFICULTIES,
-	KINDS,
-} from "@stringsync/splates-server/auto-pick/browser";
+import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { useReactive } from "@webappwiz/react";
 import { Loader2Icon } from "lucide-react";
@@ -22,7 +19,7 @@ import { Refusal, useRefusal } from "./refusal";
 
 /**
  * Picks a task and shows what Auto pick would start it on, on the rules
- * saved now: the pick, how sure the judge was of each kind and difficulty,
+ * saved now: the pick, how sure the judge was of each kind and depth,
  * the rule that matched and why. Starts nothing and changes no task.
  */
 export function TrialView({
@@ -114,10 +111,10 @@ function TrialResult({ trial }: { trial: AutoPickTrial }): JSX.Element {
 						taken={decision.kind}
 					/>
 					<Confidences
-						title="Difficulty"
-						classes={DIFFICULTIES}
-						answers={classification.difficulty}
-						taken={decision.difficulty}
+						title="Depth"
+						classes={DEPTHS}
+						answers={classification.depth}
+						taken={decision.depth}
 					/>
 				</div>
 			)}

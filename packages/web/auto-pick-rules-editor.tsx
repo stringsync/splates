@@ -1,7 +1,7 @@
 import type { Rule } from "@stringsync/splates-server/auto-pick";
 import {
 	ANY,
-	DIFFICULTIES,
+	DEPTHS,
 	KINDS,
 } from "@stringsync/splates-server/auto-pick/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
@@ -32,8 +32,8 @@ import type { RulesEditor } from "./auto-pick-rules";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
- * The Auto pick rules as a list to edit: each rule's kind and difficulty and
- * its ordered picks, the last rule fixed as any kind and any difficulty, the
+ * The Auto pick rules as a list to edit: each rule's kind and depth and
+ * its ordered picks, the last rule fixed as any kind and any depth, the
  * confidence threshold, when a pick's plan is used too fast, and Save and Reset, each shown at once and said
  * beside it when the server refuses.
  */
@@ -102,7 +102,7 @@ export function RulesEditorView({
 						editor={editor}
 						index={index}
 						kind={rule.kind}
-						difficulty={rule.difficulty}
+						depth={rule.depth}
 						picks={rule.picks}
 						made={picks[index] ?? 0}
 						onLog={onLog}
@@ -139,8 +139,8 @@ export function RulesEditorView({
 					/>
 				</div>
 				<FieldDescription>
-					Below it, a task counts as any kind, or any difficulty, and only rules
-					with * there match it.
+					Below it, a task counts as any kind, or any depth, and only rules with
+					* there match it.
 				</FieldDescription>
 			</Field>
 			<Field orientation="horizontal">
@@ -239,7 +239,7 @@ function RuleRow({
 	editor,
 	index,
 	kind,
-	difficulty,
+	depth,
 	picks,
 	made,
 	onLog,
@@ -249,7 +249,7 @@ function RuleRow({
 	editor: RulesEditor;
 	index: number;
 	kind: string;
-	difficulty: string;
+	depth: string;
 	picks: readonly AgentPick[];
 	made: number;
 	onLog?: (rule: number) => void;
@@ -276,7 +276,7 @@ function RuleRow({
 				</span>
 				{last ? (
 					<span className="flex-1 text-sm">
-						Any kind, any difficulty{" "}
+						Any kind, any depth{" "}
 						<span className="text-muted-foreground">
 							· last, so every task maps somewhere
 						</span>
@@ -300,19 +300,17 @@ function RuleRow({
 						</NativeSelect>
 						<NativeSelect
 							size="sm"
-							aria-label={`${name} difficulty`}
-							value={difficulty}
+							aria-label={`${name} depth`}
+							value={depth}
 							onChange={(event) =>
-								editor.setDifficulty(
+								editor.setDepth(
 									index,
-									event.currentTarget.value as Rule["difficulty"],
+									event.currentTarget.value as Rule["depth"],
 								)
 							}
 						>
-							<NativeSelectOption value={ANY}>
-								Any difficulty
-							</NativeSelectOption>
-							{DIFFICULTIES.map((each) => (
+							<NativeSelectOption value={ANY}>Any depth</NativeSelectOption>
+							{DEPTHS.map((each) => (
 								<NativeSelectOption key={each.id} value={each.id}>
 									{each.label}
 								</NativeSelectOption>

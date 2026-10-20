@@ -3,6 +3,7 @@ import type { Conversations } from "../conversations";
 import type { AgentPick } from "../models";
 import type { QueuePicked, QueuePicker } from "../queue";
 import type { Project } from "../server/shared";
+import type { AttachmentInfo } from "./classify";
 import { type DecideContext, decide, decideWithout } from "./decide";
 import { judgeFrom } from "./judge";
 import { autoPicked, cachedFor, decideFor } from "./judged";
@@ -53,13 +54,17 @@ export class QueueAutoPick implements QueuePicker {
 	async ahead(queued: readonly TaskRecord[]): Promise<void> {
 		for (const each of queued) {
 			const { subject, detail } = await wordsOf(this.#project, each);
-			const key = classificationKey(subject, detail);
+			const attachments = each.files.map((name) => ({
+				name,
+				mimeType: Bun.file(name).type,
+			}));
+			const key = classificationKey(subject, detail, attachments);
 			if (cachedFor(each, key) !== null || this.#tried.get(each.id) === key) {
 				continue;
 			}
 			this.#tried.set(each.id, key);
 			const run = (this.#judging.get(each.id) ?? Promise.resolve()).then(() =>
-				this.#judgeAhead(each.id, { subject, detail, key }),
+				this.#judgeAhead(each.id, { subject, detail, attachments, key }),
 			);
 			this.#judging.set(each.id, run);
 			void run.finally(() => {
@@ -86,7 +91,14 @@ export class QueueAutoPick implements QueuePicker {
 		const guessed = new Map<number, AgentPick>();
 		for (const each of queued) {
 			const { subject, detail } = await wordsOf(this.#project, each);
-			const cached = cachedFor(each, classificationKey(subject, detail));
+			const cached = cachedFor(
+				each,
+				classificationKey(
+					subject,
+					detail,
+					each.files.map((name) => ({ name, mimeType: Bun.file(name).type })),
+				),
+			);
 			try {
 				const { pick } =
 					cached === null
@@ -109,11 +121,16 @@ export class QueueAutoPick implements QueuePicker {
 		}
 		const context = await this.#context();
 		const { subject, detail } = await wordsOf(this.#project, queued);
-		const key = classificationKey(subject, detail);
+		const attachments = queued.files.map((name) => ({
+			name,
+			mimeType: Bun.file(name).type,
+		}));
+		const key = classificationKey(subject, detail, attachments);
 		try {
 			const judged = await decideFor({
 				subject,
 				detail,
+				attachments,
 				cached: cachedFor(queued, key),
 				judge: this.#judge,
 				context,
@@ -147,7 +164,17 @@ export class QueueAutoPick implements QueuePicker {
 	 */
 	async #judgeAhead(
 		id: number,
-		{ subject, detail, key }: { subject: string; detail: string; key: string },
+		{
+			subject,
+			detail,
+			attachments,
+			key,
+		}: {
+			subject: string;
+			detail: string;
+			attachments: readonly AttachmentInfo[];
+			key: string;
+		},
 	): Promise<void> {
 		if (this.#tried.get(id) !== key) {
 			return;
@@ -156,6 +183,7 @@ export class QueueAutoPick implements QueuePicker {
 			const judged = await decideFor({
 				subject,
 				detail,
+				attachments,
 				cached: null,
 				judge: this.#judge,
 				context: await this.#context(),

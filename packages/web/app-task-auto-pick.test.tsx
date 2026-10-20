@@ -139,8 +139,8 @@ describe("App's Auto pick", () => {
 		const facts = within(dialog).getByLabelText("about the task");
 		expect(facts.textContent).toContain("Auto pick");
 		expect(facts.textContent).toContain("Haiku, low effort");
-		expect(facts.textContent).toContain("Mechanical 90% · Easy 80%");
-		expect(facts.textContent).toContain("rule 2: Mechanical, Easy");
+		expect(facts.textContent).toContain("Bugfix 90% · Shallow 80%");
+		expect(facts.textContent).toContain("rule 2: Bugfix, Shallow");
 	});
 
 	/** The line a conversation draws for Auto pick's decision, the judge having found `signs`. */
@@ -153,14 +153,14 @@ describe("App's Auto pick", () => {
 
 	it("logs the pick in the conversation, what the judge found after it and every reason on hover", async () => {
 		const line = await lineFor(
-			["Mechanical 90%", "Easy 80%"],
-			"judged: Mechanical 90%, Easy 80%",
+			["Bugfix 90%", "Shallow 80%"],
+			"judged: Bugfix 90%, Shallow 80%",
 		);
 		expect(line.textContent).toBe(
-			"Auto picked Haiku, low effort: Mechanical 90%, Easy 80%",
+			"Auto picked Haiku, low effort: Bugfix 90%, Shallow 80%",
 		);
 		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
-			"judged: Mechanical 90%, Easy 80%\nrule 2: Mechanical, Easy",
+			"judged: Bugfix 90%, Shallow 80%\nrule 2: Bugfix, Shallow",
 		);
 	});
 
@@ -184,7 +184,7 @@ function picked(signs: string[] | null, judged: string): Event {
 		agent: "claude",
 		model: "haiku",
 		effort: "low",
-		reasons: ["Haiku, low effort", judged, "rule 2: Mechanical, Easy"],
+		reasons: ["Haiku, low effort", judged, "rule 2: Bugfix, Shallow"],
 		signs,
 	};
 }
@@ -207,25 +207,23 @@ const AGENTS = [
 const PICKED: AutoPicked = {
 	pick: { agent: "claude", model: "haiku", effort: "low" },
 	rule: 1,
-	kind: "mechanical",
-	difficulty: "easy",
+	kind: "bugfix",
+	depth: "shallow",
 	reasons: [
 		"Haiku, low effort",
-		"judged: Mechanical 90%, Easy 80%",
-		"rule 2: Mechanical, Easy",
+		"judged: Bugfix 90%, Shallow 80%",
+		"rule 2: Bugfix, Shallow",
 	],
 	at: new Date().toISOString(),
 	classified: {
 		key: "k",
 		classification: {
 			kinds: {
-				lookup: 0.1,
-				mechanical: 0.9,
-				bugfix: 0.2,
+				bugfix: 0.9,
 				design: 0.1,
 				open: 0.1,
 			},
-			difficulty: { easy: 0.8, medium: 0.3, hard: 0.1 },
+			depth: { shallow: 0.8, moderate: 0.3, deep: 0.1 },
 		},
 	},
 };

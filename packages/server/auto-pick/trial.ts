@@ -40,9 +40,13 @@ export async function tryAutoPick({
 }): Promise<AutoPickTrial> {
 	const record = await recordOf(project, target);
 	const { subject, detail } = await wordsOf(project, record);
+	const attachments = record.files.map((name) => ({
+		name,
+		mimeType: Bun.file(name).type,
+	}));
 	const context = await contextOf(project, conversations, now());
 	const kept = record.autoPick?.classified;
-	if (kept?.key === classificationKey(subject, detail)) {
+	if (kept?.key === classificationKey(subject, detail, attachments)) {
 		return {
 			subject,
 			decision: decide({ ...context, classification: kept.classification }),
@@ -50,7 +54,12 @@ export async function tryAutoPick({
 			cached: true,
 		};
 	}
-	const classified = await classify({ subject, detail, judge: await judge() });
+	const classified = await classify({
+		subject,
+		detail,
+		attachments,
+		judge: await judge(),
+	});
 	return classified.ok
 		? {
 				subject,

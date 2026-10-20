@@ -1,11 +1,6 @@
 import { z } from "zod";
 import type { AgentPick } from "../models";
-import {
-	DIFFICULTY_IDS,
-	type DifficultyId,
-	KIND_IDS,
-	type KindId,
-} from "./classes";
+import { DEPTH_IDS, type DepthId, KIND_IDS, type KindId } from "./classes";
 import { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";
 
 export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel };
@@ -19,10 +14,10 @@ export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel };
  */
 export interface AutoPickRules {
 	/** The file's own format. */
-	format: 1;
+	format: 2;
 	/**
 	 * How sure the judge has to be, 0 to 1, before its likeliest kind or
-	 * difficulty counts; below it, the task is that dimension's `*` alone.
+	 * depth counts; below it, the task is that dimension's `*` alone.
 	 */
 	threshold: number;
 	/** Tried in order: the first that matches the task decides. The last is `* *`. */
@@ -35,8 +30,8 @@ export interface AutoPickRules {
 export interface Rule {
 	/** The kind of work it matches, or `*` for any, a task of no sure kind too. */
 	kind: KindId | "*";
-	/** The difficulty it matches, or `*` for any, a task of no sure difficulty too. */
-	difficulty: DifficultyId | "*";
+	/** The depth it matches, or `*` for any, a task of no sure depth too. */
+	depth: DepthId | "*";
 	/**
 	 * Whom it picks, the first first: a pick whose agent's plan is nearly
 	 * used up is passed over for the next. A pick with no model takes the
@@ -52,7 +47,7 @@ export type CheckedRules =
 
 /** Checks `value` as a mapping, for the page's editor and the file alike. */
 export function checkRules(value: unknown): CheckedRules {
-	const parsed = AUTO_PICK_RULES.safeParse(value);
+	const parsed = AUTO_PICK_RULES.safeParse(migrateRules(value));
 	if (parsed.success) {
 		return { ok: true, rules: parsed.data as AutoPickRules };
 	}
@@ -88,7 +83,7 @@ const PICK = z.object({
 
 const RULE = z.object({
 	kind: z.enum([ANY, ...KIND_IDS]),
-	difficulty: z.enum([ANY, ...DIFFICULTY_IDS]),
+	depth: z.enum([ANY, ...DEPTH_IDS]),
 	picks: z
 		.array(PICK)
 		.min(1, "a rule picks at least one agent")
@@ -125,12 +120,58 @@ export const AUTO_PICK_RULES = z
 	})
 	.superRefine((value, ctx) => {
 		const last = value.rules.at(-1);
-		if (last !== undefined && (last.kind !== ANY || last.difficulty !== ANY)) {
+		if (last !== undefined && (last.kind !== ANY || last.depth !== ANY)) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["rules", value.rules.length - 1],
 				message:
-					"the last rule must be kind * and difficulty *, so every task maps to a pick",
+					"the last rule must be kind * and depth *, so every task maps to a pick",
 			});
 		}
 	});
+
+/** Carry format 1 mappings forward in order, preserving their picks and pace. */
+function migrateRules(value: unknown): unknown {
+	if (
+		value === null ||
+		typeof value !== "object" ||
+		!("format" in value) ||
+		value.format !== 1 ||
+		!("rules" in value) ||
+		!Array.isArray(value.rules)
+	) {
+		return value;
+	}
+	const depths: Record<string, string> = {
+		easy: "shallow",
+		medium: "moderate",
+		hard: "deep",
+		"*": "*",
+	};
+	return {
+		...value,
+		format: 2,
+		rules: value.rules.map((rule: unknown) => {
+			if (rule === null || typeof rule !== "object") {
+				return rule;
+			}
+			const { difficulty, ...rest } = rule as Record<string, unknown>;
+			return {
+				...rest,
+				kind:
+					rest.kind === "lookup" || rest.kind === "mechanical"
+						? "*"
+						: rest.kind,
+				depth:
+					rest.depth ??
+					(typeof difficulty === "string"
+						? difficulty === "*" && rest.kind === "lookup"
+							? "shallow"
+							: difficulty === "*" && rest.kind === "mechanical"
+								? "moderate"
+								: (depths[difficulty] ?? difficulty)
+						: difficulty),
+			};
+		}),
+	};
+}

@@ -235,7 +235,7 @@ export interface Facts {
 		/** What it picked, then why, as `AutoPickDecision.reasons`. */
 		reasons: string[];
 		/**
-		 * What the judge found: the likeliest kind and difficulty, each with its
+		 * What the judge found: the likeliest kind and depth, each with its
 		 * confidence, or what old Auto found in the prompt; null when no judge
 		 * answered, the first reason after the pick then saying why.
 		 */

@@ -9,15 +9,15 @@ import type { AutoPickRules } from "./rules";
 import type { AutoPickRulesView } from "./rules-routes";
 
 const MINE: AutoPickRules = {
-	format: 1,
+	format: 2,
 	threshold: 0.6,
 	rules: [
 		{
-			kind: "lookup",
-			difficulty: "*",
+			kind: "open",
+			depth: "*",
 			picks: [{ agent: "fake", model: "small" }],
 		},
-		{ kind: "*", difficulty: "*", picks: [{ agent: "fake", effort: "high" }] },
+		{ kind: "*", depth: "*", picks: [{ agent: "fake", effort: "high" }] },
 	],
 };
 
@@ -99,7 +99,7 @@ describe("dev's Auto pick rules", () => {
 			expect(await refused.json()).toEqual({
 				reason: "usage",
 				message:
-					"not Auto pick rules: rules.0: the last rule must be kind * and difficulty *, so every task maps to a pick",
+					"not Auto pick rules: rules.0: the last rule must be kind * and depth *, so every task maps to a pick",
 			});
 			expect(JSON.parse(await deps.fs.read(path))).toEqual(MINE);
 		} finally {

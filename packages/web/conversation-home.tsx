@@ -170,7 +170,15 @@ export function useNewConversation({
 			let refused = false;
 			const started = (
 				auto
-					? startAutoPick({ words: text, task, id })
+					? startAutoPick({
+							words: text,
+							task,
+							id,
+							attachments: files.map((file) => ({
+								name: file.name,
+								mimeType: file.type,
+							})),
+						})
 					: startConversation(agent, task, {
 							settings,
 							// Keep explicit requests even when the cached catalog no longer offers them.

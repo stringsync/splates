@@ -7,11 +7,11 @@ import { AutoPickStore } from "./store";
 const PATH = "/home/.splates/auto-pick.json";
 
 const MINE: AutoPickRules = {
-	format: 1,
+	format: 2,
 	threshold: 0.7,
 	rules: [
-		{ kind: "bugfix", difficulty: "*", picks: [{ agent: "codex" }] },
-		{ kind: "*", difficulty: "*", picks: [{ agent: "claude", model: "opus" }] },
+		{ kind: "bugfix", depth: "*", picks: [{ agent: "codex" }] },
+		{ kind: "*", depth: "*", picks: [{ agent: "claude", model: "opus" }] },
 	],
 };
 
@@ -37,7 +37,7 @@ describe("AutoPickStore", () => {
 	it("refuses to save rules that do not end on * *, leaving the file alone", async () => {
 		await expect(
 			store.save({ ...MINE, rules: MINE.rules.slice(0, 1) }),
-		).rejects.toThrow("the last rule must be kind * and difficulty *");
+		).rejects.toThrow("the last rule must be kind * and depth *");
 		expect(await fs.exists(PATH)).toBe(false);
 	});
 
@@ -51,7 +51,7 @@ describe("AutoPickStore", () => {
 		await fs.mkdir("/home/.splates", { recursive: true });
 		await fs.write(
 			PATH,
-			JSON.stringify({ format: 1, threshold: 0.5, rules: [] }),
+			JSON.stringify({ format: 2, threshold: 0.5, rules: [] }),
 		);
 		await expect(store.rules()).rejects.toThrow(
 			`${PATH} is not Auto pick rules: rules: the rules list at least one rule`,

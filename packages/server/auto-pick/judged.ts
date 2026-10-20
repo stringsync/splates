@@ -1,5 +1,5 @@
 import type { TaskRecord } from "../board";
-import { type Classification, classify } from "./classify";
+import { type AttachmentInfo, type Classification, classify } from "./classify";
 import {
 	type AutoPickDecision,
 	type DecideContext,
@@ -26,12 +26,14 @@ export interface Judged {
 export async function decideFor({
 	subject,
 	detail,
+	attachments,
 	cached,
 	judge,
 	context,
 }: {
 	subject: string;
 	detail: string;
+	attachments?: readonly AttachmentInfo[];
 	cached: Classification | null;
 	judge: () => Promise<Judge | null>;
 	context: DecideContext;
@@ -44,7 +46,12 @@ export async function decideFor({
 		};
 	}
 	const asked = await judge();
-	const classified = await classify({ subject, detail, judge: asked });
+	const classified = await classify({
+		subject,
+		detail,
+		attachments,
+		judge: asked,
+	});
 	return classified.ok
 		? {
 				decision: decide({

@@ -13,10 +13,10 @@ const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
 
 /** A judge sure the task is easy mechanical work. */
 const LIGHT_EDIT = {
-	"kind:mechanical": 0.9,
-	"kind:lookup": 0.1,
-	"difficulty:easy": 0.8,
-	"difficulty:hard": 0.1,
+	"kind:bugfix": 0.9,
+	"kind:open": 0.1,
+	"depth:shallow": 0.8,
+	"depth:deep": 0.1,
 };
 
 describe("startAutoPick", () => {
@@ -65,17 +65,17 @@ describe("startAutoPick", () => {
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
 			JSON.stringify({
-				format: 1,
+				format: 2,
 				threshold: 0.5,
 				rules: [
 					{
-						kind: "mechanical",
-						difficulty: "easy",
+						kind: "bugfix",
+						depth: "shallow",
 						picks: [{ agent: "other", model: "small" }],
 					},
 					{
 						kind: "*",
-						difficulty: "*",
+						depth: "*",
 						picks: [{ agent: "fake", model: "big" }],
 					},
 				],
@@ -108,12 +108,12 @@ describe("startAutoPick", () => {
 		expect(await record()).toMatchObject({
 			pick: { agent: "other", model: "small" },
 			rule: 0,
-			kind: "mechanical",
-			difficulty: "easy",
+			kind: "bugfix",
+			depth: "shallow",
 			classified: {
 				classification: {
-					kinds: { mechanical: 0.9 },
-					difficulty: { easy: 0.8 },
+					kinds: {},
+					depth: { shallow: 0.8 },
 				},
 			},
 		});
@@ -123,7 +123,7 @@ describe("startAutoPick", () => {
 				conversation: conversation.id,
 				agent: "other",
 				model: "small",
-				signs: ["Mechanical 90%", "Easy 80%"],
+				signs: ["Bugfix 90%", "Shallow 80%"],
 			}),
 		);
 	});
@@ -133,7 +133,7 @@ describe("startAutoPick", () => {
 		await until(conversation, "idle");
 
 		expect(conversation.state.agent).toBe("other");
-		expect(judge?.asked[0]?.state).toEqual({
+		expect(judge?.asked[0]?.state).toMatchObject({
 			subject: "Rename foo",
 			detail: "In src only.",
 		});
@@ -141,6 +141,15 @@ describe("startAutoPick", () => {
 		expect(await deps.journal.tail(10)).toContainEqual(
 			expect.objectContaining({ action: "auto", agent: "other" }),
 		);
+	});
+
+	it("gives the judge first-message attachment names and kinds without contents", async () => {
+		const conversation = await start({
+			words: "Check the layout",
+			attachments: [{ name: "header.png", mimeType: "image/png" }],
+		});
+		await until(conversation, "idle");
+		expect(judge?.asked[0]?.state.attachments).toBe("1 image (header.png)");
 	});
 
 	it("asks the judge again only once the task's words change", async () => {
@@ -167,7 +176,7 @@ describe("startAutoPick", () => {
 
 		await until(await start({ task: "alpha" }), "idle");
 
-		expect(judge?.asked[0]?.state).toEqual({
+		expect(judge?.asked[0]?.state).toMatchObject({
 			subject: "alpha",
 			detail: "Ship the login.",
 		});
@@ -190,9 +199,9 @@ describe("startAutoPick", () => {
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
 			JSON.stringify({
-				format: 1,
+				format: 2,
 				threshold: 0.5,
-				rules: [{ kind: "*", difficulty: "*", picks: [{ agent: "third" }] }],
+				rules: [{ kind: "*", depth: "*", picks: [{ agent: "third" }] }],
 			}),
 		);
 

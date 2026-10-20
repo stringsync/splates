@@ -72,7 +72,7 @@ describe("App's Auto pick setup", () => {
 		expect(form.textContent).toContain("~/.splates/auto-pick.json");
 		expect(
 			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
-		).toBe("lookup");
+		).toBe("open");
 		expect(within(rules).getByLabelText("rule 1 pick 1").textContent).toContain(
 			"1ClaudeHaiku · low",
 		);
@@ -87,7 +87,7 @@ describe("App's Auto pick setup", () => {
 		const rules = await editor(view);
 
 		await choose(within(rules).getByLabelText("rule 1 kind"), "bugfix");
-		await choose(within(rules).getByLabelText("rule 1 difficulty"), "hard");
+		await choose(within(rules).getByLabelText("rule 1 depth"), "deep");
 		await press(
 			within(rules).getByRole("button", { name: "Edit rule 1 pick 1" }),
 		);
@@ -113,12 +113,12 @@ describe("App's Auto pick setup", () => {
 			"Unsaved changes",
 		);
 		const edited: AutoPickRules = {
-			format: 1,
+			format: 2,
 			threshold: 0.7,
 			rules: [
 				{
 					kind: "bugfix",
-					difficulty: "hard",
+					depth: "deep",
 					picks: [
 						{ agent: "claude", model: "opus", effort: "max" },
 						{ agent: "codex", model: "gpt-6-astra", effort: "medium" },
@@ -167,7 +167,7 @@ describe("App's Auto pick setup", () => {
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
 	});
 
-	it("keeps the last rule as any kind and any difficulty, in place", async () => {
+	it("keeps the last rule as any kind and any depth, in place", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();
 		const rules = await editor(view);
@@ -175,7 +175,7 @@ describe("App's Auto pick setup", () => {
 		await press(view.getByRole("button", { name: "Add rule" }));
 
 		const last = within(rules).getByRole("listitem", { name: "rule 3" });
-		expect(last.textContent).toContain("Any kind, any difficulty");
+		expect(last.textContent).toContain("Any kind, any depth");
 		expect(within(last).queryByLabelText("rule 3 kind")).toBeNull();
 		expect(
 			within(last).queryByRole("button", { name: "Remove rule 3" }),
@@ -184,7 +184,7 @@ describe("App's Auto pick setup", () => {
 			within(rules).getByRole("button", { name: "Move rule 2 down" }),
 		).toHaveProperty("disabled", true);
 
-		await choose(within(rules).getByLabelText("rule 2 kind"), "mechanical");
+		await choose(within(rules).getByLabelText("rule 2 kind"), "bugfix");
 		await press(within(rules).getByRole("button", { name: "Move rule 2 up" }));
 		await press(within(rules).getByRole("button", { name: "Remove rule 2" }));
 		expect(
@@ -192,7 +192,7 @@ describe("App's Auto pick setup", () => {
 		).toHaveLength(2);
 		expect(
 			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
-		).toBe("mechanical");
+		).toBe("bugfix");
 	});
 
 	it("says a refused save beside it, the edit kept unsaved", async () => {
@@ -232,23 +232,21 @@ describe("App's Auto pick setup", () => {
 			cached: false,
 			classification: {
 				kinds: {
-					lookup: 0.1,
-					mechanical: 0.9,
-					bugfix: 0.1,
+					bugfix: 0.9,
 					design: 0.1,
 					open: 0.2,
 				},
-				difficulty: { easy: 0.8, medium: 0.3, hard: 0.1 },
+				depth: { shallow: 0.8, moderate: 0.3, deep: 0.1 },
 			},
 			decision: {
 				pick: { agent: "claude", model: "haiku", effort: "low" },
 				rule: 0,
-				kind: "mechanical",
-				difficulty: "easy",
+				kind: "bugfix",
+				depth: "shallow",
 				reasons: [
 					"Haiku, low effort",
-					"judged: Mechanical 90%, Easy 80%",
-					"rule 1: Mechanical, any difficulty",
+					"judged: Bugfix 90%, Shallow 80%",
+					"rule 1: Bugfix, any depth",
 				],
 			},
 		};
@@ -264,9 +262,9 @@ describe("App's Auto pick setup", () => {
 		);
 		expect(result.textContent).toContain("Haiku, low effort");
 		expect(result.textContent).toContain("Rule 1");
-		expect(result.textContent).toContain("rule 1: Mechanical, any difficulty");
+		expect(result.textContent).toContain("rule 1: Bugfix, any depth");
 		expect(within(result).getByLabelText("Kind").textContent).toContain(
-			"Mechanical90%",
+			"Bugfix90%",
 		);
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
@@ -350,15 +348,15 @@ function progress({
 }
 
 const RULES: AutoPickRules = {
-	format: 1,
+	format: 2,
 	threshold: 0.5,
 	rules: [
 		{
-			kind: "lookup",
-			difficulty: "*",
+			kind: "open",
+			depth: "*",
 			picks: [{ agent: "claude", model: "haiku", effort: "low" }],
 		},
-		{ kind: "*", difficulty: "*", picks: [{ agent: "claude" }] },
+		{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
 	],
 };
 

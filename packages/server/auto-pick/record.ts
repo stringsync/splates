@@ -5,7 +5,7 @@ import type { AutoPickDecision } from "./decide";
 
 /**
  * The last Auto pick for a task, kept on its record: whom it started and
- * why, and what the judge said of the task's words, so a pick of the same
+ * why, and what the judge said of the task's words and attachment metadata, so a pick of the same
  * words again needs no judge.
  */
 export interface AutoPicked extends AutoPickDecision {
@@ -13,7 +13,7 @@ export interface AutoPicked extends AutoPickDecision {
 	at: string;
 	/**
 	 * What the judge said of the task, by the `classificationKey` of the words
-	 * it read; absent when it said nothing, as with no judge or one that failed.
+	 * it read, including breadth, clarity, stakes and verification; absent when it said nothing, as with no judge or one that failed.
 	 */
 	classified?: { key: string; classification: Classification };
 }

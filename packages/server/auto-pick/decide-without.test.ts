@@ -5,7 +5,7 @@ import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
 
 describe("decideWithout", () => {
-	it("takes the last rule of the defaults, the first to match any kind and difficulty", () => {
+	it("takes the last rule of the defaults, the first to match any kind and depth", () => {
 		expect(
 			decideWithout({
 				reason: "the judge took over 5s",
@@ -18,33 +18,33 @@ describe("decideWithout", () => {
 			}),
 		).toEqual({
 			pick: { agent: "claude", model: "opus", effort: "medium" },
-			rule: 10,
+			rule: 3,
 			kind: null,
-			difficulty: null,
+			depth: null,
 			reasons: [
 				"Opus 5.5, medium effort",
 				"the judge took over 5s",
-				"rule 11: any kind, any difficulty",
+				"rule 4: any kind, any depth",
 			],
 		});
 	});
 
-	it("skips rules that name a kind or an difficulty", () => {
+	it("skips rules that name a kind or an depth", () => {
 		const rules: AutoPickRules = {
-			format: 1,
+			format: 2,
 			threshold: 0.5,
 			rules: [
 				{
-					kind: "lookup",
-					difficulty: "*",
+					kind: "open",
+					depth: "*",
 					picks: [{ agent: "claude", model: "haiku" }],
 				},
 				{
 					kind: "*",
-					difficulty: "easy",
+					depth: "shallow",
 					picks: [{ agent: "claude", model: "haiku" }],
 				},
-				{ kind: "*", difficulty: "*", picks: [{ agent: "codex" }] },
+				{ kind: "*", depth: "*", picks: [{ agent: "codex" }] },
 			],
 		};
 		expect(

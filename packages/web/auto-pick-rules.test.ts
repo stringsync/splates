@@ -47,7 +47,7 @@ describe("RulesEditor", () => {
 		const editor = new RulesEditor(new FakeRulesStore());
 		await editor.load();
 
-		editor.setKind(0, "lookup");
+		editor.setKind(0, "open");
 		editor.removeRule(0);
 
 		expect(editor.draft).toEqual(VIEW.rules);
@@ -60,7 +60,7 @@ describe("RulesEditor", () => {
 		await editor.load();
 		editor.draft = {
 			...editor.draft,
-			rules: [{ kind: "*", difficulty: "*", picks: [] }],
+			rules: [{ kind: "*", depth: "*", picks: [] }],
 		};
 
 		expect(editor.problem).toBe(
@@ -113,12 +113,12 @@ describe("RulesEditor", () => {
 
 const VIEW: AutoPickRulesView = {
 	rules: {
-		format: 1,
+		format: 2,
 		threshold: 0.5,
 		rules: [
 			{
 				kind: "*",
-				difficulty: "*",
+				depth: "*",
 				picks: [{ agent: "claude", model: "opus", effort: "max" }],
 			},
 		],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
-import { DIFFICULTY_IDS, KIND_IDS } from "./classes";
+import { CONTEXT_CLASSES, DEPTH_IDS, KIND_IDS } from "./classes";
 import { classify, DETAIL_CHARS } from "./classify";
 import { FakeJudge } from "./testing";
 
@@ -10,14 +10,17 @@ describe("classify", () => {
 		await classify({ subject: "Fix the login", detail: "It 500s", judge });
 		expect(judge.asked).toHaveLength(1);
 		const [judgment] = judge.asked;
-		expect(judgment?.state).toEqual({
+		expect(judgment?.state).toMatchObject({
 			subject: "Fix the login",
 			detail: "It 500s",
 		});
 		expect(Object.keys(judgment?.questions ?? {}).sort()).toEqual(
 			[
 				...KIND_IDS.map((id) => `kind:${id}`),
-				...DIFFICULTY_IDS.map((id) => `difficulty:${id}`),
+				...DEPTH_IDS.map((id) => `depth:${id}`),
+				...Object.entries(CONTEXT_CLASSES).flatMap(([group, classes]) =>
+					classes.map((each) => `${group}:${each.id}`),
+				),
 			].sort(),
 		);
 	});
@@ -35,19 +38,21 @@ describe("classify", () => {
 	it("reads the answers by class, a coin toss for any missing", async () => {
 		const judge = new FakeJudge({
 			"kind:bugfix": 0.9,
-			"difficulty:hard": 0.1,
+			"depth:deep": 0.1,
 		});
 		expect(await classify({ subject: "s", detail: "d", judge })).toEqual({
 			ok: true,
 			classification: {
 				kinds: {
-					lookup: 0.5,
-					mechanical: 0.5,
 					bugfix: 0.9,
 					design: 0.5,
 					open: 0.5,
 				},
-				difficulty: { easy: 0.5, medium: 0.5, hard: 0.1 },
+				depth: { shallow: 0.5, moderate: 0.5, deep: 0.1 },
+				breadth: { spot: 0.5, module: 0.5, system: 0.5 },
+				clarity: { settled: 0.5, unresolved: 0.5 },
+				stakes: { routine: 0.5, sensitive: 0.5 },
+				verification: { automated: 0.5, visual: 0.5 },
 			},
 		});
 	});
@@ -93,5 +98,24 @@ describe("classify", () => {
 				signal: controller.signal,
 			}),
 		).rejects.toThrow("gone");
+	});
+
+	it("sends named paths beyond the detail limit and attachment metadata only", async () => {
+		const judge = new FakeJudge();
+		await classify({
+			subject: "Adjust the header",
+			detail: `${"x".repeat(DETAIL_CHARS)} See packages/web/header.tsx`,
+			judge,
+			attachments: [
+				{ name: "header-390.png", mimeType: "image/png" },
+				{ name: "menu-open.png", mimeType: "image/png" },
+				{ name: "bug.mov", mimeType: "video/quicktime" },
+			],
+		});
+		expect(judge.asked[0]?.state).toMatchObject({
+			paths: ["packages/web/header.tsx"],
+			attachments:
+				"2 images (header-390.png, menu-open.png), 1 video (bug.mov)",
+		});
 	});
 });

@@ -7,49 +7,47 @@ import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
 
 describe("decide", () => {
-	it("takes the first rule matching the likeliest kind and difficulty, saying why", () => {
-		expect(decide({ ...BASE, classification: MECHANICAL_LIGHT })).toEqual({
-			pick: { agent: "codex", model: "gpt-6-luna", effort: "low" },
-			rule: 1,
-			kind: "mechanical",
-			difficulty: "easy",
+	it("takes the first rule matching the likeliest kind and depth, saying why", () => {
+		expect(decide({ ...BASE, classification: SHALLOW })).toEqual({
+			pick: { agent: "claude", model: "sonnet", effort: "low" },
+			rule: 0,
+			kind: "bugfix",
+			depth: "shallow",
 			reasons: [
-				"6 Luna, low effort",
-				"judged: Mechanical 72%, Easy 64%",
-				"rule 2: Mechanical, Easy",
+				"Sonnet 5.5, low effort",
+				"judged: Bugfix 72%, Shallow 64%",
+				"rule 1: any kind, Shallow",
 			],
 		});
 	});
 
-	it("matches a rule's * to any difficulty", () => {
+	it("matches a rule's * to any depth", () => {
 		expect(decide({ ...BASE, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 5,
+			rule: 2,
 			kind: "design",
-			difficulty: "medium",
+			depth: "deep",
 		});
 	});
 
 	it("takes a task for no kind when the judge is not sure enough, so only * matches it", () => {
 		const unsure: Classification = {
 			kinds: {
-				lookup: 0.1,
-				mechanical: 0.2,
 				bugfix: 0.3,
 				design: 0.4,
 				open: 0.1,
 			},
-			difficulty: { easy: 0.1, medium: 0.2, hard: 0.8 },
+			depth: { shallow: 0.1, moderate: 0.2, deep: 0.8 },
 		};
 		expect(decide({ ...BASE, classification: unsure })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 9,
+			rule: 2,
 			kind: null,
-			difficulty: "hard",
+			depth: "deep",
 			reasons: [
 				"Opus 5.5, high effort",
-				"judged: unsure (Design 40%), Hard 80%",
-				"rule 10: any kind, Hard",
+				"judged: unsure (Design 40%), Deep 80%",
+				"rule 3: any kind, Deep",
 			],
 		});
 	});
@@ -57,33 +55,31 @@ describe("decide", () => {
 	it("follows the person's threshold", () => {
 		const strict: AutoPickRules = { ...DEFAULT_RULES, threshold: 0.75 };
 		expect(
-			decide({ ...BASE, rules: strict, classification: MECHANICAL_LIGHT }),
-		).toMatchObject({ rule: 10, kind: null, difficulty: null });
+			decide({ ...BASE, rules: strict, classification: SHALLOW }),
+		).toMatchObject({ rule: 3, kind: null, depth: null });
 	});
 
 	it("lets an earlier rule win over a more specific one below it", () => {
 		const rules: AutoPickRules = {
-			format: 1,
+			format: 2,
 			threshold: 0.5,
 			rules: [
-				{ kind: "*", difficulty: "easy", picks: [{ agent: "codex" }] },
+				{ kind: "*", depth: "shallow", picks: [{ agent: "codex" }] },
 				{
-					kind: "mechanical",
-					difficulty: "easy",
+					kind: "bugfix",
+					depth: "shallow",
 					picks: [{ agent: "claude" }],
 				},
-				{ kind: "*", difficulty: "*", picks: [{ agent: "claude" }] },
+				{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
 			],
 		};
-		expect(
-			decide({ ...BASE, rules, classification: MECHANICAL_LIGHT }),
-		).toMatchObject({
+		expect(decide({ ...BASE, rules, classification: SHALLOW })).toMatchObject({
 			pick: { agent: "codex" },
 			rule: 0,
 			reasons: [
 				"Codex on its default model",
 				expect.any(String),
-				"rule 1: any kind, Easy",
+				"rule 1: any kind, Shallow",
 			],
 		});
 	});
@@ -182,12 +178,11 @@ describe("decide", () => {
 			decide({ ...BASE, limits: week, classification: DESIGN }).pick.agent,
 		).toBe("codex");
 		const minutes = {
-			codex: [{ window: "300_minutes", used: 0.6, resets: LATER, at: null }],
+			claude: [{ window: "300_minutes", used: 0.6, resets: LATER, at: null }],
 		};
 		expect(
-			decide({ ...BASE, limits: minutes, classification: MECHANICAL_LIGHT })
-				.pick.agent,
-		).toBe("claude");
+			decide({ ...BASE, limits: minutes, classification: SHALLOW }).pick.agent,
+		).toBe("codex");
 	});
 
 	it("does not judge the pace of a window whose length its name does not give", () => {
@@ -262,12 +257,12 @@ describe("decide", () => {
 
 	it("passes over a pick whose agent is not on the roster", () => {
 		const rules: AutoPickRules = {
-			format: 1,
+			format: 2,
 			threshold: 0.5,
 			rules: [
 				{
 					kind: "*",
-					difficulty: "*",
+					depth: "*",
 					picks: [{ agent: "ghost" }, { agent: "claude", model: "Sonnet 5.5" }],
 				},
 			],
@@ -277,7 +272,7 @@ describe("decide", () => {
 			reasons: [
 				"Sonnet 5.5",
 				expect.any(String),
-				"rule 1: any kind, any difficulty",
+				"rule 1: any kind, any depth",
 				"passed over ghost: not on the roster",
 			],
 		});
@@ -291,7 +286,7 @@ describe("decide", () => {
 			reasons: [
 				expect.any(String),
 				expect.any(String),
-				"rule 6: Design, any difficulty",
+				"rule 3: any kind, Deep",
 				"passed over Claude: can't run here",
 			],
 		});
@@ -299,9 +294,9 @@ describe("decide", () => {
 
 	it("falls back on the first roster agent that runs when no pick of the rule does", () => {
 		const rules: AutoPickRules = {
-			format: 1,
+			format: 2,
 			threshold: 0.5,
-			rules: [{ kind: "*", difficulty: "*", picks: [{ agent: "claude" }] }],
+			rules: [{ kind: "*", depth: "*", picks: [{ agent: "claude" }] }],
 		};
 		expect(
 			decide({ ...BASE, rules, runnable: ["codex"], classification: DESIGN }),
@@ -325,18 +320,22 @@ describe("decide", () => {
 				"Claude offers no high thinking, so its own",
 			],
 		});
-		expect(
-			decide({ ...BASE, offered, classification: MECHANICAL_LIGHT }).pick,
-		).toEqual({ agent: "codex", model: "gpt-6-luna", effort: "low" });
+		expect(decide({ ...BASE, offered, classification: SHALLOW }).pick).toEqual({
+			agent: "claude",
+			model: "sonnet",
+			effort: "low",
+		});
 	});
 
-	it("falls back to Claude for mechanical work when Codex's plan is spent", () => {
+	it("falls back to Codex for shallow work when Claude's plan is spent", () => {
 		const limits = {
-			codex: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
+			claude: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
 		};
-		expect(
-			decide({ ...BASE, limits, classification: MECHANICAL_LIGHT }).pick,
-		).toEqual({ agent: "claude", model: "haiku", effort: "low" });
+		expect(decide({ ...BASE, limits, classification: SHALLOW }).pick).toEqual({
+			agent: "codex",
+			model: "gpt-6.1-sol",
+			effort: "low",
+		});
 	});
 });
 
@@ -346,16 +345,16 @@ const EARLIER = "2026-10-19T09:00:00Z";
 const WINDOW_START = "2026-10-19T10:00:00Z";
 const IN_SIX_DAYS = "2026-10-25T12:00:00Z";
 
-/** A task the judge takes for mechanical and easy work. */
-const MECHANICAL_LIGHT: Classification = {
-	kinds: { lookup: 0.1, mechanical: 0.72, bugfix: 0.2, design: 0.1, open: 0.1 },
-	difficulty: { easy: 0.64, medium: 0.3, hard: 0.05 },
+/** A task the judge takes for shallow bugfix work. */
+const SHALLOW: Classification = {
+	kinds: { bugfix: 0.72, design: 0.1, open: 0.1 },
+	depth: { shallow: 0.64, moderate: 0.3, deep: 0.05 },
 };
 
-/** A design task the judge takes for medium work. */
+/** A design task the judge takes for deep work. */
 const DESIGN: Classification = {
-	kinds: { lookup: 0.1, mechanical: 0.1, bugfix: 0.2, design: 0.9, open: 0.3 },
-	difficulty: { easy: 0.1, medium: 0.8, hard: 0.3 },
+	kinds: { bugfix: 0.72, design: 0.9, open: 0.3 },
+	depth: { shallow: 0.1, moderate: 0.3, deep: 0.8 },
 };
 
 const BASE = {
@@ -378,3 +377,26 @@ const THOUGHT_LEVEL: Setting = {
 		{ value: "medium", name: "Medium", description: null },
 	],
 };
+
+it("records context in reasons without changing the matched rule or pick", () => {
+	const before = decide({ ...BASE, classification: DESIGN });
+	const after = decide({
+		...BASE,
+		classification: {
+			...DESIGN,
+			breadth: { spot: 0.1, module: 0.2, system: 0.9 },
+			clarity: { settled: 0.1, unresolved: 0.9 },
+			stakes: { routine: 0.1, sensitive: 0.9 },
+			verification: { automated: 0.1, visual: 0.9 },
+		},
+	});
+	expect(after.pick).toEqual(before.pick);
+	expect(after.rule).toBe(before.rule);
+	expect(after.reasons).toEqual([
+		...before.reasons,
+		"breadth: One spot 10%, One module 20%, Across modules 90%",
+		"clarity: Calls settled 10%, Calls unresolved 90%",
+		"stakes: Routine 10%, Sensitive 90%",
+		"verification: Automated 10%, Needs eyes 90%",
+	]);
+});
