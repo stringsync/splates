@@ -422,6 +422,48 @@ describe("App on a phone", () => {
 		]);
 	});
 
+	it("archives an open conversation swiped left from the right edge, landing in the inbox with an undo that goes when something else is done", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
+				conversation({ id: "c2", title: "Add search", status: "stopped" }),
+			],
+			"c1",
+			{ tasks: [] },
+		);
+		const edge = await view.findByTestId("edge-swipe");
+		const swipe = async (by: number) => {
+			await act(async () => {
+				fireEvent.pointerDown(edge, { clientX: 380, clientY: 300 });
+				fireEvent.pointerMove(edge, { clientX: 380 - by, clientY: 304 });
+				fireEvent.pointerUp(edge, { clientX: 380 - by, clientY: 304 });
+			});
+		};
+
+		await swipe(SWIPE_PX - 20);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+
+		await swipe(SWIPE_PX + 20);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+		await waitFor(() =>
+			expect(view.getByRole("region", { name: "inbox" })).toBeTruthy(),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Undo/ })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+				{ method: "PUT", body: { archived: false } },
+			]),
+		);
+		expect(view.queryByRole("button", { name: /Undo/ })).toBeNull();
+	});
+
 	it("has no composer along the inbox's bottom, the pen starting a conversation", async () => {
 		const view = await testing.openConversations([], null);
 

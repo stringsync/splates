@@ -3,6 +3,7 @@ import {
 	type JSX,
 	type PointerEvent,
 	type ReactNode,
+	type RefObject,
 	useEffect,
 	useRef,
 	useState,
@@ -177,5 +178,111 @@ export function Swipeable({
 				{children}
 			</div>
 		</div>
+	);
+}
+
+/** How wide the strip along the right edge is, in pixels, that starts a swipe. */
+const EDGE_PX = 16;
+
+/**
+ * A strip along the right edge of a screen whose finger, pulled left, slides
+ * `target` away over an Archive backing, as `Swipeable`'s rows slide. Only the
+ * edge starts it, so what the screen scrolls sideways, as a code block does, is
+ * left alone. Let go short of `SWIPE_PX`, the screen slides back; past it, an
+ * archiving that asks first slides back as the question opens, and any other
+ * slides off before it is filed.
+ */
+export function EdgeSwipe({
+	archive,
+	target,
+}: {
+	archive: Archive;
+	target: RefObject<HTMLElement | null>;
+}): JSX.Element {
+	const backing = useRef<HTMLDivElement>(null);
+	const start = useRef<{ x: number; y: number } | null>(null);
+	const swiping = useRef(false);
+	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+	useEffect(() => () => clearTimeout(timer.current), []);
+	const slide = (to: string, ease: "none" | "ease-out" | "ease-in") => {
+		if (target.current !== null) {
+			target.current.style.transition =
+				ease === "none" ? "none" : `transform ${LEAVE_MS}ms ${ease}`;
+			target.current.style.transform = to;
+		}
+		if (backing.current !== null) {
+			backing.current.style.opacity = to === "translateX(0px)" ? "0" : "1";
+		}
+	};
+	const settle = () => slide("translateX(0px)", "ease-out");
+	const end = () => {
+		start.current = null;
+		swiping.current = false;
+	};
+	return (
+		<>
+			<div
+				ref={backing}
+				aria-hidden
+				className="pointer-events-none fixed inset-0 -z-10 flex items-center justify-end gap-2 bg-primary px-6 font-medium text-primary-foreground text-sm opacity-0 [&_svg]:size-5"
+			>
+				<ArchiveIcon />
+				Archive
+			</div>
+			<div
+				data-testid="edge-swipe"
+				// Below the bar and above the composer, whose buttons sit near the edge.
+				className="fixed right-0 bottom-24 top-[calc(env(safe-area-inset-top)+var(--top-bar-height))] z-20 touch-pan-y"
+				style={{ width: EDGE_PX }}
+				onPointerDown={(event: PointerEvent) => {
+					start.current = { x: event.clientX, y: event.clientY };
+				}}
+				onPointerMove={(event: PointerEvent) => {
+					if (start.current === null) {
+						return;
+					}
+					const dx = event.clientX - start.current.x;
+					const dy = event.clientY - start.current.y;
+					if (!swiping.current) {
+						if (Math.hypot(dx, dy) <= DRIFT_PX) {
+							return;
+						}
+						if (dx >= 0 || Math.abs(dy) >= Math.abs(dx)) {
+							start.current = null;
+							return;
+						}
+						swiping.current = true;
+						event.currentTarget.setPointerCapture?.(event.pointerId);
+					}
+					slide(`translateX(${Math.min(0, dx)}px)`, "none");
+				}}
+				onPointerUp={(event: PointerEvent) => {
+					const far =
+						swiping.current &&
+						start.current !== null &&
+						start.current.x - event.clientX >= SWIPE_PX;
+					end();
+					if (!far || archive.asks()) {
+						settle();
+						if (far) {
+							archive.file();
+						}
+						return;
+					}
+					const ms = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+						.matches
+						? 0
+						: LEAVE_MS;
+					slide("translateX(-100%)", "ease-in");
+					timer.current = setTimeout(() => {
+						archive.file(undefined, settle);
+					}, ms);
+				}}
+				onPointerCancel={() => {
+					end();
+					settle();
+				}}
+			/>
+		</>
 	);
 }

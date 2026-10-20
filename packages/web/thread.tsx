@@ -53,6 +53,8 @@ import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
+import { EdgeSwipe } from "./phone-swipe";
+import { offerUndo } from "./phone-undo";
 import { QueueUI } from "./queue-card";
 import { useTakeBack } from "./queued";
 import { GoingUI, QueuedUI } from "./queued-time";
@@ -214,6 +216,12 @@ function Conversation({
 	// the task is over.
 	const archivable = !archived && filable(conversation);
 	const fileAway = () => archive.file(onLeft);
+	// Swiped away on a phone, it is offered back in the inbox it lands in.
+	const swipeAway = (_then?: () => void, failed?: () => void) =>
+		archive.file(() => {
+			offerUndo(id);
+			onLeft();
+		}, failed);
 	const { offer, barred } = useArchiveOffer(
 		archivable ? ended(conversation) : null,
 		fileAway,
@@ -221,184 +229,194 @@ function Conversation({
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	return (
-		<section
-			ref={section}
-			aria-label={nameOf(conversation)}
-			// Up in an empty composer takes back the last queued message, as a
-			// terminal brings back the last command.
-			onKeyDownCapture={(event) => {
-				const box = event.target as HTMLElement;
-				const last = queued.at(-1);
-				if (
-					event.key === "ArrowUp" &&
-					box.getAttribute("aria-label") === "Message input" &&
-					runtime.thread.composer.getState().text === "" &&
-					last !== undefined &&
-					// The last one is still on its way, with nothing to take back.
-					feed.unrecorded(id) === 0
-				) {
-					event.preventDefault();
-					void edit(queued.length - 1, last);
-				}
-			}}
-			// A phone's fills the screen; beside a sidebar, the pane's padding.
-			className={cn(
-				"@container flex min-h-0 min-w-0 flex-col",
-				onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
-			)}
-		>
-			<ThreadHeader
-				conversation={conversation}
-				refused={refused}
-				widgets={widgets}
-				// With the same agent, in the main tree: a task's tree is its own.
-				onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
-				onBack={onBack}
-			/>
-			{archived && <ArchivedBanner phone={onBack !== null} />}
-			{archive.confirm}
-			{task !== null && (
-				<Dialog open={details} onOpenChange={setDetails}>
-					{details && <Task task={task} />}
-				</Dialog>
-			)}
-			{conversation.error !== null && (
-				<ErrorBanner
-					conversation={conversation}
-					error={conversation.error}
-					phone={onBack !== null}
+		<>
+			{onBack !== null && archivable && (
+				<EdgeSwipe
+					archive={{ asks: archive.asks, file: swipeAway }}
+					target={section}
 				/>
 			)}
-			{conversation.status === "stopped" &&
-				conversation.stoppedIdle !== null && (
-					<IdleBanner phone={onBack !== null} />
+			<section
+				ref={section}
+				aria-label={nameOf(conversation)}
+				// Up in an empty composer takes back the last queued message, as a
+				// terminal brings back the last command.
+				onKeyDownCapture={(event) => {
+					const box = event.target as HTMLElement;
+					const last = queued.at(-1);
+					if (
+						event.key === "ArrowUp" &&
+						box.getAttribute("aria-label") === "Message input" &&
+						runtime.thread.composer.getState().text === "" &&
+						last !== undefined &&
+						// The last one is still on its way, with nothing to take back.
+						feed.unrecorded(id) === 0
+					) {
+						event.preventDefault();
+						void edit(queued.length - 1, last);
+					}
+				}}
+				// A phone's fills the screen; beside a sidebar, the pane's padding.
+				className={cn(
+					"@container flex min-h-0 min-w-0 flex-col bg-background",
+					onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
 				)}
-			{conversation.queue !== null && (
-				<QueueBanner
-					id={conversation.id}
-					spot={conversation.queue}
-					held={conversation.queued}
-					phone={onBack !== null}
+			>
+				<ThreadHeader
+					conversation={conversation}
+					refused={refused}
+					widgets={widgets}
+					// With the same agent, in the main tree: a task's tree is its own.
+					onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
+					onBack={onBack}
 				/>
-			)}
-			<PhoneSheets conversation={id} on={onBack !== null}>
-				<TaskRegistry>
-					{(version) => (
-						<div
-							className="relative min-h-0 flex-1"
-							style={{
-								["--thread-inset-end" as string]:
-									widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-							}}
-						>
-							<AssistantRuntimeProvider runtime={runtime}>
-								<Composing.Provider value={runtime.thread.composer}>
-									<UnsentContext.Provider value={unsentActions}>
-										<QuestionsUI />
-										<ReviewUI />
-										<ReportUI />
-										<TodoUI />
-										<QueueUI />
-										<DemoUI />
-										<WorkUI />
-										<QueuedUI />
-										<GoingUI />
-										<EventUI />
-										<StoppedUI />
-										<CompactionUI />
-										<BackgroundUI />
-										<RestedUI />
-										<InterruptedUI />
-										<ArchiveConversation value={archivable ? fileAway : null}>
-											<ArchiveOfferProvider value={offer}>
-												<StartNewContext value={startNew}>
-													<ReplyContext value={reply}>
-														<NamedContext value={named}>
-															<ListedBackground value={listed}>
-																<ThreadView
-																	openAt={openAt}
-																	autoFocus={!asking || typed}
-																	stopping={stopping}
-																	mentions={mentions ?? undefined}
-																	references={references}
-																	commands={commands ?? undefined}
-																	placeholder={
-																		archived
-																			? "Send a message to unarchive and continue"
-																			: undefined
-																	}
-																	controls={
-																		!archived && (
-																			<>
-																				<ContextMeter
-																					usage={conversation.usage}
-																					compactions={compactionsIn(
-																						conversation.messages,
-																					)}
-																				/>
-																				<SettingControls
-																					settings={settings}
-																					current={(setting) => setting.current}
-																					onChange={choose}
-																				/>
-																			</>
-																		)
-																	}
-																	above={
-																		<>
-																			<NeedsYouBar />
-
-																			<Refusal
-																				refusal={refusal}
-																				className="px-2"
-																			/>
-																			{offer !== null && barred && (
-																				<ArchiveBar offer={offer} />
-																			)}
-																			{conversation.ask !== null && (
-																				<AskPanel
-																					key={conversation.ask.id}
-																					drafts={drafts}
-																					conversation={conversation}
-																					agent={agent}
-																					ask={conversation.ask}
-																				/>
-																			)}
-																		</>
-																	}
-																/>
-															</ListedBackground>
-														</NamedContext>
-													</ReplyContext>
-												</StartNewContext>
-											</ArchiveOfferProvider>
-										</ArchiveConversation>
-									</UnsentContext.Provider>
-								</Composing.Provider>
-							</AssistantRuntimeProvider>
-							<Widgets
-								phone={onBack !== null}
-								roomy={widgets.roomy}
-								open={widgets.open}
-								onClose={widgets.close}
-								actions={where === null ? actions : [where, ...actions]}
-							>
-								<BackgroundCard
-									conversation={id}
-									background={conversation.background}
-								/>
-								<ArtifactsCard
-									conversation={id}
-									artifacts={conversation.artifacts}
-								/>
-								<ReferencesCard conversation={conversation} />
-								<CurrentTask version={version} />
-							</Widgets>
-						</div>
+				{archived && <ArchivedBanner phone={onBack !== null} />}
+				{archive.confirm}
+				{task !== null && (
+					<Dialog open={details} onOpenChange={setDetails}>
+						{details && <Task task={task} />}
+					</Dialog>
+				)}
+				{conversation.error !== null && (
+					<ErrorBanner
+						conversation={conversation}
+						error={conversation.error}
+						phone={onBack !== null}
+					/>
+				)}
+				{conversation.status === "stopped" &&
+					conversation.stoppedIdle !== null && (
+						<IdleBanner phone={onBack !== null} />
 					)}
-				</TaskRegistry>
-			</PhoneSheets>
-		</section>
+				{conversation.queue !== null && (
+					<QueueBanner
+						id={conversation.id}
+						spot={conversation.queue}
+						held={conversation.queued}
+						phone={onBack !== null}
+					/>
+				)}
+				<PhoneSheets conversation={id} on={onBack !== null}>
+					<TaskRegistry>
+						{(version) => (
+							<div
+								className="relative min-h-0 flex-1"
+								style={{
+									["--thread-inset-end" as string]:
+										widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+								}}
+							>
+								<AssistantRuntimeProvider runtime={runtime}>
+									<Composing.Provider value={runtime.thread.composer}>
+										<UnsentContext.Provider value={unsentActions}>
+											<QuestionsUI />
+											<ReviewUI />
+											<ReportUI />
+											<TodoUI />
+											<QueueUI />
+											<DemoUI />
+											<WorkUI />
+											<QueuedUI />
+											<GoingUI />
+											<EventUI />
+											<StoppedUI />
+											<CompactionUI />
+											<BackgroundUI />
+											<RestedUI />
+											<InterruptedUI />
+											<ArchiveConversation value={archivable ? fileAway : null}>
+												<ArchiveOfferProvider value={offer}>
+													<StartNewContext value={startNew}>
+														<ReplyContext value={reply}>
+															<NamedContext value={named}>
+																<ListedBackground value={listed}>
+																	<ThreadView
+																		openAt={openAt}
+																		autoFocus={!asking || typed}
+																		stopping={stopping}
+																		mentions={mentions ?? undefined}
+																		references={references}
+																		commands={commands ?? undefined}
+																		placeholder={
+																			archived
+																				? "Send a message to unarchive and continue"
+																				: undefined
+																		}
+																		controls={
+																			!archived && (
+																				<>
+																					<ContextMeter
+																						usage={conversation.usage}
+																						compactions={compactionsIn(
+																							conversation.messages,
+																						)}
+																					/>
+																					<SettingControls
+																						settings={settings}
+																						current={(setting) =>
+																							setting.current
+																						}
+																						onChange={choose}
+																					/>
+																				</>
+																			)
+																		}
+																		above={
+																			<>
+																				<NeedsYouBar />
+
+																				<Refusal
+																					refusal={refusal}
+																					className="px-2"
+																				/>
+																				{offer !== null && barred && (
+																					<ArchiveBar offer={offer} />
+																				)}
+																				{conversation.ask !== null && (
+																					<AskPanel
+																						key={conversation.ask.id}
+																						drafts={drafts}
+																						conversation={conversation}
+																						agent={agent}
+																						ask={conversation.ask}
+																					/>
+																				)}
+																			</>
+																		}
+																	/>
+																</ListedBackground>
+															</NamedContext>
+														</ReplyContext>
+													</StartNewContext>
+												</ArchiveOfferProvider>
+											</ArchiveConversation>
+										</UnsentContext.Provider>
+									</Composing.Provider>
+								</AssistantRuntimeProvider>
+								<Widgets
+									phone={onBack !== null}
+									roomy={widgets.roomy}
+									open={widgets.open}
+									onClose={widgets.close}
+									actions={where === null ? actions : [where, ...actions]}
+								>
+									<BackgroundCard
+										conversation={id}
+										background={conversation.background}
+									/>
+									<ArtifactsCard
+										conversation={id}
+										artifacts={conversation.artifacts}
+									/>
+									<ReferencesCard conversation={conversation} />
+									<CurrentTask version={version} />
+								</Widgets>
+							</div>
+						)}
+					</TaskRegistry>
+				</PhoneSheets>
+			</section>
+		</>
 	);
 }
 

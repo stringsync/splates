@@ -177,7 +177,9 @@ export interface ThreadActions {
 	actions: Action[];
 	/** Archives the conversation, asking first while its shell runs. */
 	archive: {
-		file: (then?: () => void) => void;
+		file: (then?: () => void, failed?: () => void) => void;
+		/** Whether `file` would ask first, were it called now. */
+		asks: () => boolean;
 		confirm: JSX.Element;
 	};
 	/** Drafts todo `id` in a new chat, with `assignee` selected when on the roster. */
