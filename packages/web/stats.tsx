@@ -83,6 +83,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				actions={[projectFilter(report, project, options)]}
 			/>
 			<Tabs
+				className="sticky top-0 z-10 -mt-2 items-center bg-background py-2"
 				value={period.id}
 				onValueChange={(id) => {
 					const chosen = PERIODS.find((each) => each.id === id);
