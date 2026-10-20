@@ -2,7 +2,7 @@ import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { z } from "zod";
 import type { ProcessHandle } from "../agents";
-import type { WorkerChannel } from "../workers";
+import type { WorkerChannel, WorkerSession } from "../workers";
 import type { PtyEvents } from "./pty";
 
 const Said = z.discriminatedUnion("type", [
@@ -28,6 +28,8 @@ export class RemotePty implements AsyncResource, Eventful<PtyEvents> {
 	constructor(
 		private readonly channel: WorkerChannel,
 		worker: string,
+		/** Given for a shell taken back, whose `describe` waits for the worker to join. */
+		private readonly resumedOn: WorkerSession | null = null,
 	) {
 		this.handle = { worker, channel: channel.id };
 		// What a shell says goes to the page as it comes, so it is held once heard.
@@ -70,8 +72,17 @@ export class RemotePty implements AsyncResource, Eventful<PtyEvents> {
 
 	/** Asks the worker to say the pid again and write the screen it kept, as `data`. */
 	describe(): void {
-		if (!this.channel.closed) {
-			this.channel.send({ type: "describe" });
+		const send = () => {
+			if (!this.channel.closed) {
+				this.channel.send({ type: "describe" });
+			}
+		};
+		// Sent once the handshake has said where this end's seqs carry on
+		// from, since a frame numbered before that the worker drops.
+		if (this.resumedOn === null || this.resumedOn.connected) {
+			send();
+		} else {
+			this.resumedOn.events.on("connected", send, { once: true });
 		}
 	}
 

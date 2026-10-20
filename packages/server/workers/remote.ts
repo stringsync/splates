@@ -131,6 +131,7 @@ export class RemoteWorker implements WorkerMachine {
 		return new RemotePty(
 			this.session.resume(handle.channel, "pty", null, null),
 			this.id,
+			this.session,
 		);
 	}
 
