@@ -32,7 +32,7 @@ import type { Action } from "./actions";
 import { Board } from "./board";
 import type { Tone } from "./card-shell";
 import { Lanes } from "./conversation-names";
-import { Held } from "./handed-out";
+import { useHeldConversations } from "./handed-out";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -74,7 +74,7 @@ export function useReferences(
 	projects: readonly ProjectRef[] = [],
 ): References {
 	const { todos } = useContext(Board);
-	const conversations = useContext(Held);
+	const conversations = useHeldConversations();
 	const namedLanes = useContext(Lanes);
 	return useMemo(() => {
 		const runnable = actions.filter((action) => action.run !== null);

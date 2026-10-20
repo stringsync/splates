@@ -88,12 +88,17 @@ export function SidebarHandle({ sidebar }: { sidebar: Sidebar }): JSX.Element {
 		const handle = event.currentTarget;
 		handle.setPointerCapture(event.pointerId);
 		const from = event.clientX - sidebar.width;
-		const move = (moved: globalThis.PointerEvent) =>
-			sidebar.set(moved.clientX - from);
+		const root = handle.closest<HTMLElement>("[data-sidebar-layout]");
+		let width = sidebar.width;
+		const move = (moved: globalThis.PointerEvent) => {
+			width = clamp(moved.clientX - from);
+			root?.style.setProperty("--sidebar-width", `${width}px`);
+		};
 		const end = () => {
 			handle.removeEventListener("pointermove", move);
 			handle.removeEventListener("pointerup", end);
 			handle.removeEventListener("pointercancel", end);
+			sidebar.set(width);
 			sidebar.keep();
 		};
 		handle.addEventListener("pointermove", move);

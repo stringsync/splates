@@ -1,12 +1,24 @@
-import { beforeEach, describe, expect, it } from "bun:test";
-import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH, Sidebar } from "./sidebar";
-import "./testing";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { createElement } from "react";
+import {
+	DEFAULT_WIDTH,
+	MAX_WIDTH,
+	MIN_WIDTH,
+	Sidebar,
+	SidebarHandle,
+} from "./sidebar";
+import { cleanup, fireEvent, render } from "./testing";
+
+afterEach(cleanup);
 
 describe("Sidebar", () => {
-	beforeEach(() => localStorage.clear());
+	let sidebar: Sidebar;
+	beforeEach(() => {
+		localStorage.clear();
+		sidebar = new Sidebar(localStorage);
+	});
 
 	it("starts at the default, and keeps a width once asked to", () => {
-		const sidebar = new Sidebar(localStorage);
 		expect(sidebar.width).toBe(DEFAULT_WIDTH);
 
 		sidebar.set(300);
@@ -16,7 +28,6 @@ describe("Sidebar", () => {
 	});
 
 	it("stays within its range, however far it is dragged or what was kept", () => {
-		const sidebar = new Sidebar(localStorage);
 		sidebar.set(10);
 		expect(sidebar.width).toBe(MIN_WIDTH);
 		sidebar.set(5000);
@@ -29,7 +40,6 @@ describe("Sidebar", () => {
 	});
 
 	it("goes back to the default on reset, keeping nothing", () => {
-		const sidebar = new Sidebar(localStorage);
 		sidebar.set(320);
 		sidebar.keep();
 		sidebar.reset();
@@ -38,7 +48,6 @@ describe("Sidebar", () => {
 	});
 
 	it("hides and shows again, keeping a hidden one hidden", () => {
-		const sidebar = new Sidebar(localStorage);
 		expect(sidebar.shown).toBe(true);
 
 		sidebar.toggle();
@@ -47,5 +56,39 @@ describe("Sidebar", () => {
 		sidebar.toggle();
 		expect(new Sidebar(localStorage).shown).toBe(true);
 		expect(new Sidebar().shown).toBe(true);
+	});
+	// scry-ignore simple-test-setup: only the drag case mounts a handle and counts pointer-driven changes; Sidebar is shared in beforeEach
+	it("updates the DOM during a drag and commits the clamped width only on release", () => {
+		let changes = 0;
+		sidebar.events.on("changed", () => changes++);
+		const view = render(
+			createElement(
+				"div",
+				{ "data-sidebar-layout": "" },
+				createElement(SidebarHandle, { sidebar }),
+			),
+		);
+		const handle = view.getByRole("separator");
+		handle.setPointerCapture = () => {};
+		fireEvent.pointerDown(handle, {
+			button: 0,
+			clientX: sidebar.width,
+			pointerId: 1,
+		});
+		fireEvent.pointerMove(handle, { clientX: 300, pointerId: 1 });
+		expect(
+			handle.parentElement?.style.getPropertyValue("--sidebar-width"),
+		).toBe("300px");
+		expect({ width: sidebar.width, changes }).toEqual({
+			width: DEFAULT_WIDTH,
+			changes: 0,
+		});
+		fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
+		fireEvent.pointerUp(handle, { pointerId: 1 });
+		expect({ width: sidebar.width, changes }).toEqual({
+			width: MAX_WIDTH,
+			changes: 1,
+		});
+		expect(new Sidebar(localStorage).width).toBe(MAX_WIDTH);
 	});
 });

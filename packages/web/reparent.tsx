@@ -15,7 +15,7 @@ import { reparentConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { flatten } from "./conversation-rows";
 import { useExpect } from "./expecting";
-import { Held } from "./handed-out";
+import { useHeldConversations } from "./handed-out";
 import type { Nested } from "./parts";
 import type { Refuse } from "./refusal";
 
@@ -93,7 +93,7 @@ export function MoveUnder({
 	const nameOf = useNameOf();
 	const { agentOf } = useContext(Placing);
 	const { startedBy } = conversation;
-	const starter = useContext(Held).find((each) => each.id === startedBy);
+	const starter = useHeldConversations().find((each) => each.id === startedBy);
 	const expect = useExpect();
 	const move = (parent: string | null) => {
 		onOpenChange(false);

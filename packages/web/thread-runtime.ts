@@ -120,7 +120,7 @@ export function useThreadRuntime(
 		// A stopped conversation takes a prompt, which resumes it, unarchiving
 		// an archived one, and one still starting holds it until the session
 		// opens.
-		convertMessage: (message: ThreadMessageLike) => message,
+		convertMessage,
 		adapters,
 		onNew: say,
 		// So the composer takes a message while the agent works. The server
@@ -189,3 +189,6 @@ export interface ThreadRuntime {
 	/** Puts a message the server refused back in the composer. */
 	edit: (message: Sending) => void;
 }
+
+const convertMessage = (message: ThreadMessageLike): ThreadMessageLike =>
+	message;

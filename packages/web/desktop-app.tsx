@@ -123,6 +123,7 @@ export function DesktopApp({
 		<ShownRoot value={snapshot?.root ?? null}>
 			<TopBarFrame value={frame}>
 				<Tabs
+					data-sidebar-layout=""
 					value={page}
 					onValueChange={(value) => go(value as Page)}
 					orientation="vertical"

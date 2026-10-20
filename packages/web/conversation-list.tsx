@@ -6,17 +6,27 @@ import type { Needing } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
-import { type JSX, type ReactNode, useContext, useEffect, useRef } from "react";
+import {
+	type JSX,
+	memo,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
+import { conversationIndex, useConversationIndex } from "./conversation-index";
 import { Item } from "./conversation-item";
 import {
 	flatten,
 	goOn,
 	hintOf,
 	hostsAtWork,
-	isHostOf,
+	nestRows,
 	rowsOf,
 	shownIn,
 } from "./conversation-rows";
@@ -32,7 +42,6 @@ import { useBeneath } from "./list-beneath";
 import { Rows, TerminalRow } from "./list-rows";
 import { NavigationContext } from "./navigation";
 import { laneUrl, newConversationUrl } from "./new-conversation-project";
-import { nest } from "./parts";
 import { FolderList, ForeignItem, type RenderRow } from "./project-folder-list";
 import {
 	FOLDED_FOLDERS,
@@ -72,7 +81,7 @@ const DIGITS = 10;
  * row opens by switching the page to that project, where its task, trunk
  * and lanes are the page's own.
  */
-export function ConversationList({
+export const ConversationList = memo(function ConversationList({
 	feed,
 	terminals,
 	drafts,
@@ -99,68 +108,87 @@ export function ConversationList({
 	/** Opens the page's project's board on lane `id`. */
 	onLane: (id: number) => void;
 }): JSX.Element {
-	const { agents, conversations } = useReactive(
-		feed,
-		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
-		["changed"],
-	);
+	const conversations = useConversationIndex(feed);
+	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
+		"changed",
+	]);
 	const { mains, beneath, closing } = useBeneath(terminals, open, onOpen);
 	const unstarted = useUnstarted(drafts, open, true, agents, conversations);
 
-	const rows = rowsOf(tasks, conversations);
-	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
-	const hosting = hostsAtWork(nested);
-	// What it lists of them, without the feed of every project: its
-	// persistent agents kept atop, apart, as a folder keeps them.
-	const listed = shownIn(nested);
-	const keptHere = listed.filter(
-		(tree) => tree.row.conversation?.persistent !== undefined,
-	);
-	const taken = lanesTaken(todos);
-	const groupsHere = byLane(
-		listed.filter((tree) => !keptHere.includes(tree)),
-		taken,
-	);
-	const everywhere = useEverywhere(
-		({ available, projects, tasks, conversations }) => ({
-			available,
-			projects,
+	const { rows, nested, hosting, listed, keptHere, taken, groupsHere } =
+		useMemo(() => {
+			const rows = rowsOf(tasks, conversations);
+			const nested = nestRows(tasks, rows);
+			const hosting = hostsAtWork(nested);
+			// What it lists of them, without the feed of every project: its
+			// persistent agents kept atop, apart, as a folder keeps them.
+			const listed = shownIn(nested);
+			const keptHere = listed.filter(
+				(tree) => tree.row.conversation?.persistent !== undefined,
+			);
+			const taken = lanesTaken(todos);
+			const groupsHere = byLane(
+				listed.filter((tree) => !keptHere.includes(tree)),
+				taken,
+			);
+			return { rows, nested, hosting, listed, keptHere, taken, groupsHere };
+		}, [tasks, conversations, todos]);
+	const everywhere = useEverywhere((feed) => ({
+		available: feed.available,
+		projects: feed.projects,
+		tasks: feed.tasks,
+		conversations: conversationIndex(feed),
+	}));
+	const grouped = useMemo(
+		() =>
+			everywhere.available
+				? foldersOf(
+						everywhere.projects,
+						everywhere.tasks,
+						everywhere.conversations,
+						{ ...here, tasks, conversations },
+					)
+				: null,
+		[
+			everywhere.available,
+			everywhere.projects,
+			everywhere.tasks,
+			everywhere.conversations,
+			here,
 			tasks,
 			conversations,
-		}),
+		],
 	);
-	const grouped = everywhere.available
-		? foldersOf(
-				everywhere.projects,
-				everywhere.tasks,
-				everywhere.conversations,
-				{ ...here, tasks, conversations },
-			)
-		: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
-	const groupsOf = (folder: Folder) =>
-		byLane(folder.inPlace.listed, folder.lanesTaken ?? taken);
+	const groupsOf = useCallback(
+		(folder: Folder) =>
+			byLane(folder.inPlace.listed, folder.lanesTaken ?? taken),
+		[taken],
+	);
 	// Every row as it shows, each part under its task, the folded folders' left out.
-	const entries: Entry[] =
-		grouped === null
-			? flatten([...keptHere, ...inOrder(groupsHere)]).map((row) => ({
-					folder: null,
-					row,
-				}))
-			: [
-					...grouped.folders
-						.filter((folder) => !folded.has(folderKey(folder)))
-						.flatMap((folder) =>
-							flatten([
-								...folder.inPlace.kept,
-								...inOrder(groupsOf(folder)),
-							]).map((row) => ({
-								folder,
-								row,
-							})),
-						),
-				];
+	const entries = useMemo<Entry[]>(
+		() =>
+			grouped === null
+				? flatten([...keptHere, ...inOrder(groupsHere)]).map((row) => ({
+						folder: null,
+						row,
+					}))
+				: [
+						...grouped.folders
+							.filter((folder) => !folded.has(folderKey(folder)))
+							.flatMap((folder) =>
+								flatten([
+									...folder.inPlace.kept,
+									...inOrder(groupsOf(folder)),
+								]).map((row) => ({
+									folder,
+									row,
+								})),
+							),
+					],
+		[grouped, keptHere, groupsHere, folded, groupsOf],
+	);
 	const shownEntries = entries.slice(0, DIGITS);
 	const shown = shownEntries.map(({ row }) => row);
 	const held = useHeld();
@@ -231,19 +259,28 @@ export function ConversationList({
 	useShortcut("shortcuts.previous", () => step(-1));
 
 	// A row of the page's own project.
+	const goNext = useCallback(
+		() => goOn(rows, open, onOpen),
+		[rows, open, onOpen],
+	);
+	const placing = useMemo(
+		() => ({
+			places: placesOf(nested),
+			agentOf: (
+				each: import("@stringsync/splates-server/conversations").ConversationState,
+			) => agentName(agents, each.agent),
+		}),
+		[nested, agents],
+	);
 	const renderHere = (row: Needing, nested: boolean): ReactNode =>
 		row.conversation !== null ? (
-			<Item
+			<ListItem
 				conversation={row.conversation}
 				agent={agentName(agents, row.conversation.agent)}
-				need={row.need}
+				need={JSON.stringify(row.need)}
 				current={row.conversation.id === open}
-				onOpen={() => openRow(row)}
-				onLeft={
-					row.conversation.id === open
-						? () => goOn(rows, open, onOpen)
-						: undefined
-				}
+				onOpen={onOpen}
+				onLeft={row.conversation.id === open ? goNext : undefined}
 				hint={held ? hintOf(shown, row) : null}
 				hosting={hosting.has(row.conversation.id)}
 				nested={nested}
@@ -320,12 +357,7 @@ export function ConversationList({
 				/>
 			))}
 			{grouped !== null ? (
-				<Placing
-					value={{
-						places: placesOf(nested),
-						agentOf: (each) => agentName(agents, each.agent),
-					}}
-				>
+				<Placing value={placing}>
 					<FolderList
 						folders={grouped.folders}
 						folded={folded}
@@ -347,12 +379,7 @@ export function ConversationList({
 				</Placing>
 			) : /* None, and no list either: an empty one would still take a gap. */
 			listed.length === 0 ? null : (
-				<Placing
-					value={{
-						places: placesOf(nested),
-						agentOf: (each) => agentName(agents, each.agent),
-					}}
-				>
+				<Placing value={placing}>
 					<div className="flex flex-col">
 						{keptHere.length > 0 && (
 							<Rows
@@ -380,7 +407,7 @@ export function ConversationList({
 			{closing.confirm}
 		</nav>
 	);
-}
+});
 
 /**
  * The sidebar's menu item for the archived conversations, with how many
@@ -431,3 +458,24 @@ interface Entry {
 	folder: Folder | null;
 	row: Needing;
 }
+
+/** Stable row props let selection changes redraw only the two selected rows. */
+const ListItem = memo(function ListItem({
+	conversation,
+	need,
+	onOpen,
+	...props
+}: Omit<Parameters<typeof Item>[0], "need" | "onOpen"> & {
+	need: string;
+	onOpen: (id: string) => void;
+}): JSX.Element {
+	const parsed = useMemo(() => JSON.parse(need) as Needing["need"], [need]);
+	return (
+		<Item
+			{...props}
+			conversation={conversation}
+			need={parsed}
+			onOpen={() => onOpen(conversation.id)}
+		/>
+	);
+});

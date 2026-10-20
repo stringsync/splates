@@ -7,7 +7,7 @@ import { nameOf } from "@stringsync/splates-server/conversations/browser";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { paths } from "./api";
 import { Lanes } from "./conversation-names";
-import { Held } from "./handed-out";
+import { useHeldConversations } from "./handed-out";
 import type { Named } from "./mentioned";
 import { rank } from "./mentions";
 import { listProjects } from "./project-api";
@@ -62,7 +62,7 @@ export function useNamed(
 	projects: ProjectRef[] | null,
 	tree: string | null,
 ): Named {
-	const held = useContext(Held);
+	const held = useHeldConversations();
 	const lanes = useContext(Lanes);
 	return useMemo(
 		() => ({

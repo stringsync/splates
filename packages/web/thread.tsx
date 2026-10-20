@@ -3,9 +3,11 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { TaskReport } from "@stringsync/splates-server/plans";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
 import {
 	type JSX,
+	memo,
 	useCallback,
 	useContext,
 	useEffect,
@@ -82,7 +84,9 @@ import {
  * off a Mac) archives it; only Unarchive brings it back. Its artifacts open
  * in their viewers, from the card beside it and the lines in it alike.
  */
-export function Thread(props: Parameters<typeof Conversation>[0]): JSX.Element {
+export const Thread = memo(function Thread(
+	props: Parameters<typeof Conversation>[0],
+): JSX.Element {
 	const { conversation } = props;
 	return (
 		<ArtifactViewer
@@ -92,7 +96,7 @@ export function Thread(props: Parameters<typeof Conversation>[0]): JSX.Element {
 			<Conversation {...props} />
 		</ArtifactViewer>
 	);
-}
+});
 
 function Conversation({
 	drafts,
@@ -159,7 +163,7 @@ function Conversation({
 		retry,
 		edit: editUnsent,
 	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
-	const unsent = feed.unsent.get(id);
+	const unsent = useReactive(feed, (feed) => feed.unsent.get(id), ["changed"]);
 	const unsentActions = useMemo(
 		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
 		[unsent, retry, editUnsent],

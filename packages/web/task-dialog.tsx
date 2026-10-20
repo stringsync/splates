@@ -24,7 +24,11 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Dispatching } from "./dispatching";
-import { Held, SubagentComposer } from "./handed-out";
+import {
+	SubagentComposer,
+	useHeldConversation,
+	useHeldConversations,
+} from "./handed-out";
 import { Markdown } from "./markdown";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
@@ -56,9 +60,10 @@ export function Task({ task }: { task: Details }): JSX.Element {
 	const external =
 		context === null ? null : context.dispatch.external(task.task);
 	// A subagent a conversation here started answers to that one, through it.
-	const by = useContext(Held);
+	const by = useHeldConversations();
 	const caller =
 		external === null ? null : answersTo({ conversation: null, task }, by);
+	const liveCaller = useHeldConversation(caller?.id ?? null);
 	// Focus lands on the dialog, not its first tab, so a peek opens without a ring.
 	const dialog = useRef<HTMLDivElement>(null);
 	return (
@@ -84,7 +89,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						<div className="mb-4">
 							<SubagentComposer
 								task={task.task}
-								by={caller}
+								by={liveCaller ?? caller}
 								onOpen={(id) => context.open(id)}
 							/>
 						</div>

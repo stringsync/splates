@@ -1,7 +1,14 @@
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
-import { createContext, type JSX, type ReactNode, use } from "react";
-import { Held } from "./handed-out";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	use,
+	useCallback,
+} from "react";
+import type { ConversationFeed } from "./conversation-feed";
+import { HeldFeed } from "./handed-out";
 import { useRefusals } from "./refusal";
 import { RowRefusals } from "./row-refusal";
 
@@ -42,7 +49,10 @@ const Expecting = createContext<Expecter>({
 /** Shows a change to a conversation at once, while its write is on its way. */
 export function useExpect(): Expecter["expect"] {
 	const expecter = use(Expecting);
-	return (id, expectation, write) => expecter.expect(id, expectation, write);
+	return useCallback(
+		(id, expectation, write) => expecter.expect(id, expectation, write),
+		[expecter],
+	);
 }
 
 /** What shows a change to the board, or any of the repo's snapshot, before the server says so. */
@@ -71,7 +81,10 @@ export const SnapshotExpecting = createContext<SnapshotExpecter>({
 /** Shows a change to the snapshot at once, while its write is on its way. */
 export function useExpectSnapshot(): SnapshotExpecter["expect"] {
 	const expecter = use(SnapshotExpecting);
-	return (expectation, write) => expecter.expect(expectation, write);
+	return useCallback(
+		(expectation, write) => expecter.expect(expectation, write),
+		[expecter],
+	);
 }
 
 /**
@@ -82,19 +95,17 @@ export function useExpectSnapshot(): SnapshotExpecter["expect"] {
  */
 export function Talking({
 	feed,
-	held,
 	children,
 }: {
-	feed: Expecter;
-	held: readonly ConversationState[];
+	feed: ConversationFeed;
 	children: ReactNode;
 }): JSX.Element {
 	const refusals = useRefusals<string>();
 	return (
-		<Held value={held}>
+		<HeldFeed value={feed}>
 			<Expecting value={feed}>
 				<RowRefusals value={refusals}>{children}</RowRefusals>
 			</Expecting>
-		</Held>
+		</HeldFeed>
 	);
 }

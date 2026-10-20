@@ -6,6 +6,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import {
 	Dialog,
@@ -15,6 +16,7 @@ import {
 import { Input } from "#web/components/ui/input.tsx";
 import { useShortcut } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
+import type { ConversationFeed } from "./conversation-feed";
 import { type Found, type Kind, type Searched, search } from "./search";
 import { TaskIcon } from "./task-icon";
 
@@ -37,9 +39,11 @@ const ICONS: Record<Kind, LucideIcon> = {
  */
 export function SearchDialog({
 	searched,
+	feed,
 	pick,
 }: {
-	searched: Searched;
+	searched: Omit<Searched, "conversations">;
+	feed: ConversationFeed;
 	/** Opens what was found. */
 	pick: (found: Found) => void;
 }): JSX.Element {
@@ -59,7 +63,20 @@ export function SearchDialog({
 	const list = useRef<HTMLUListElement>(null);
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
-	const { tasks, todos, conversations, lanes } = searched;
+	const { tasks, todos, lanes } = searched;
+	const subscribe = useCallback(
+		(changed: () => void) => feed.events.on("changed", changed),
+		[feed],
+	);
+	const held = useRef(EMPTY_CONVERSATIONS);
+	if (open) {
+		held.current = feed.conversations;
+	}
+	const read = useCallback(
+		() => (open ? feed.conversations : held.current),
+		[feed, open],
+	);
+	const conversations = useSyncExternalStore(subscribe, read, read);
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
 		() => search(query, { tasks, todos, conversations, lanes }),
@@ -162,3 +179,5 @@ export function SearchDialog({
 		</Dialog>
 	);
 }
+
+const EMPTY_CONVERSATIONS: Searched["conversations"] = [];

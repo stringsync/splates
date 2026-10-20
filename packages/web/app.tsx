@@ -1,8 +1,7 @@
 import type { LaneRecord, TaskRecord } from "@stringsync/splates-server/board";
-import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type Duration,
 	SystemClock,
@@ -15,43 +14,28 @@ import { Opening } from "./add-project";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
+import { useAppPages } from "./app-pages";
 import { AutoRestart } from "./auto-restart";
 import { WatchBackground } from "./background";
 import { takenTask } from "./board";
 import { ReviewChanges } from "./changes";
-import { CheckpointProvider } from "./checkpoint";
 import { terminalAddress } from "./conversation-address";
+import { ConversationCheckpoint } from "./conversation-checkpoint";
 import { ConversationFeed } from "./conversation-feed";
 import { Lanes } from "./conversation-names";
-import { Conversations } from "./conversations";
-import { CredsPage } from "./creds";
 import { DesktopApp } from "./desktop-app";
-import { Dispatching, Trunk, useDispatching } from "./dispatching";
+import { DispatchingProvider, Trunk } from "./dispatching";
 import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
 import { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
-import {
-	AutomationsPage,
-	AutoPickPage,
-	BudgetPage,
-	SetupPage,
-	StatsPage,
-	Todos,
-	WorkersPage,
-} from "./lazy-pages";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
 import { usePageMenu } from "./page-menu";
-import {
-	type Page,
-	PageShortcuts,
-	PHONE_PAGES,
-	usePageRoute,
-} from "./page-route";
+import { PageShortcuts, PHONE_PAGES, usePageRoute } from "./page-route";
 import { usePageVisits } from "./page-visits";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
@@ -65,7 +49,6 @@ import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { Splash } from "./splash";
 import { StatsReport } from "./stats-report";
-import { Tasks } from "./tasks";
 import {
 	OpenTerminalPage,
 	ShellRunning,
@@ -74,12 +57,10 @@ import {
 } from "./terminal";
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
-import { TreesContext } from "./work-row";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
 const NO_TODOS: TaskRecord[] = [];
-const NO_CONVERSATIONS: ConversationState[] = [];
 const NO_LANES: LaneRecord[] = [];
 
 export function App({
@@ -141,13 +122,11 @@ export function App({
 		},
 		[talk],
 	);
-	const { loading, available, agents, conversations } = useReactive(
+	const { loading, available } = useReactive(
 		talk,
 		(talk) => ({
 			loading: talk.loading,
 			available: talk.available,
-			agents: talk.agents,
-			conversations: talk.conversations,
 		}),
 		["changed"],
 	);
@@ -198,21 +177,31 @@ export function App({
 	const searched = {
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
-		conversations: available ? conversations : NO_CONVERSATIONS,
 		lanes: snapshot?.laneNames ?? NO_LANES,
 	};
 	// A todo opens on the board, or as the task that took it.
-	const openTodo = (id: number) => {
-		const task = takenTask(searched.todos, tasks, id);
-		if (task === null) {
-			go("todos");
-			todoView.open(id);
-		} else {
-			openTask(task);
-		}
-	};
+	const openTodo = useCallback(
+		(id: number) => {
+			const task = takenTask(snapshot?.todos ?? NO_TODOS, tasks, id);
+			if (task === null) {
+				go("todos");
+				todoView.open(id);
+			} else {
+				openTask(task);
+			}
+		},
+		[snapshot?.todos, tasks, go, todoView, openTask],
+	);
 	// What a run of an automation or a pick opens: its todo or its task.
-	const opens = { todo: openTodo, task: openTask };
+	const opens = useMemo(
+		() => ({ todo: openTodo, task: openTask }),
+		[openTodo, openTask],
+	);
+	const openConversation = useCallback(
+		(id: string | null, how?: import("./page-address").Move) =>
+			go("conversations", id, how),
+		[go],
+	);
 	const pick = (found: Found) => {
 		if (found.kind === "task") {
 			openTask(found.task);
@@ -223,21 +212,13 @@ export function App({
 		}
 	};
 	const name = useProjectName(snapshot?.repo);
-	const dispatching = useDispatching({
-		available,
-		drafts,
-		talk,
-		agents,
-		conversations,
-		tasks,
-		open: (address) => go("conversations", address),
-	});
+
 	const [report] = useState(() => new StatsReport({ stats }));
 	const visits = usePageVisits({
 		open,
 		tasks,
-		conversations,
-		go: (to) => go("conversations", to),
+		feed: talk,
+		go: openConversation,
 	});
 
 	const [setting, setSetting] = useState(false);
@@ -267,93 +248,44 @@ export function App({
 		pane,
 	} = useSidePanes({
 		snapshot,
-		conversations,
+		feed: talk,
 		available,
 		page,
 		open,
 		terminals,
 		wide,
 	});
-	// What each page shows, laid out by the sidebar's tabs or the phone's own.
-	const bodies: Record<Page, ReactNode> | null =
-		snapshot === null
-			? null
-			: {
-					todos: (
-						<Todos
-							snapshot={snapshot}
-							drafts={drafts}
-							view={todoView}
-							lane={lane}
-						/>
-					),
-					tasks: (
-						<Tasks
-							project={snapshot}
-							open={task}
-							onOpen={openTask}
-							onOpenTodo={(id) => {
-								go("todos");
-								todoView.open(id);
-							}}
-						/>
-					),
-					stats: <StatsPage report={report} />,
-					creds: (
-						<CredsPage
-							requests={snapshot.creds}
-							project={snapshot.repo}
-							cred={cred}
-						/>
-					),
-					budget: <BudgetPage talk={talk} />,
-					workers: (
-						<WorkersPage
-							tasks={new Set(snapshot.tasks.map((each) => each.task))}
-							onOpenTask={openTask}
-							onOpenKeys={() => go("creds")}
-						/>
-					),
-					automations: (
-						<AutomationsPage opens={opens} onAutoPick={() => go("auto-pick")} />
-					),
-					"auto-pick": (
-						<AutoPickPage
-							mark={rule}
-							tasks={snapshot.tasks}
-							todos={snapshot.todos}
-							opens={opens}
-							onBack={() => go("automations")}
-						/>
-					),
-					setup: (
-						<SetupPage
-							todos={snapshot.todos}
-							feed={available ? talk : null}
-							onOpen={(id) => go("conversations", id)}
-						/>
-					),
-					conversations: available && (
-						<TreesContext value={snapshot}>
-							<Conversations
-								feed={talk}
-								terminals={terminals}
-								drafts={drafts}
-								tasks={snapshot.tasks}
-								todos={snapshot.todos}
-								lanes={snapshot.lanes}
-								trunk={snapshot.trunk}
-								open={open}
-								onOpen={(id, how) => go("conversations", id, how)}
-								onTodos={(ids) => {
-									go("todos");
-									todoView.filter(ids);
-								}}
-								phone={!wide}
-							/>
-						</TreesContext>
-					),
-				};
+	const revealTerminal = useCallback(
+		(id: string) => {
+			openConversation(id);
+			showTerminal(id);
+		},
+		[openConversation, showTerminal],
+	);
+	const openTerminal = useCallback(
+		(id: string) => go("conversations", terminalAddress(id)),
+		[go],
+	);
+	const editorOpener = useMemo(() => openerOf(opener), [opener]);
+	const bodies = useAppPages({
+		snapshot,
+		drafts,
+		todoView,
+		lane,
+		task,
+		openTask,
+		go,
+		report,
+		cred,
+		talk,
+		opens,
+		rule,
+		available,
+		terminals,
+		open,
+		wide,
+		openConversation,
+	});
 	const reachable = !offline && outdated === null;
 	const opening = <Opening missing={missing} waiting={reachable} name={name} />;
 	const header = (
@@ -368,9 +300,9 @@ export function App({
 
 	return (
 		<SetupProvider creds={snapshot?.creds ?? null}>
-			<OpenerContext value={openerOf(opener)}>
+			<OpenerContext value={editorOpener}>
 				<SnapshotExpecting value={feed}>
-					<Talking feed={talk} held={conversations}>
+					<Talking feed={talk}>
 						<Lanes value={searched.lanes}>
 							{/* Here rather than in the sidebar's list, which a phone has none of. */}
 							{available && snapshot !== null && (
@@ -378,10 +310,15 @@ export function App({
 									feed={talk}
 									tasks={snapshot.tasks}
 									settings={settings}
-									onOpen={(id) => go("conversations", id)}
+									onOpen={openConversation}
 								/>
 							)}
-							<Dispatching value={dispatching}>
+							<DispatchingProvider
+								feed={talk}
+								drafts={drafts}
+								tasks={tasks}
+								open={openConversation}
+							>
 								<Trunk value={snapshot?.trunk ?? null}>
 									<ReviewChanges value={review}>
 										<WatchBackground value={watch}>
@@ -391,22 +328,10 @@ export function App({
 												>
 													<ShellRunning value={shellRunning}>
 														<ShowTerminal
-															value={
-																available
-																	? (id: string) => {
-																			go("conversations", id);
-																			showTerminal(id);
-																		}
-																	: null
-															}
+															value={available ? revealTerminal : null}
 														>
 															<OpenTerminalPage
-																value={
-																	available
-																		? (id: string) =>
-																				go("conversations", terminalAddress(id))
-																		: null
-																}
+																value={available ? openTerminal : null}
 															>
 																<ShortcutSettings value={settings}>
 																	<PageShortcuts
@@ -423,10 +348,8 @@ export function App({
 																		}
 																	/>
 																	<TooltipProvider>
-																		<CheckpointProvider
-																			conversations={conversations.filter(
-																				(each) => !each.archived,
-																			)}
+																		<ConversationCheckpoint
+																			feed={talk}
 																			every={checkpointEvery}
 																			restartShown={checkpointRestartShown}
 																			reload={reload}
@@ -483,6 +406,7 @@ export function App({
 																			{pane}
 																			<SearchDialog
 																				searched={searched}
+																				feed={talk}
 																				pick={pick}
 																			/>
 																			<SettingsDialog
@@ -498,7 +422,7 @@ export function App({
 																					(snapshot === null || loading)
 																				}
 																			/>
-																		</CheckpointProvider>
+																		</ConversationCheckpoint>
 																	</TooltipProvider>
 																</ShortcutSettings>
 															</OpenTerminalPage>
@@ -509,7 +433,7 @@ export function App({
 										</WatchBackground>
 									</ReviewChanges>
 								</Trunk>
-							</Dispatching>
+							</DispatchingProvider>
 						</Lanes>
 					</Talking>
 				</SnapshotExpecting>

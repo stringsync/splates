@@ -6,7 +6,7 @@ import type { Needing } from "@stringsync/splates-server/plans";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon, MenuIcon, SquarePenIcon } from "lucide-react";
-import { Fragment, type JSX, type ReactNode, useContext } from "react";
+import { Fragment, type JSX, type ReactNode, useContext, useMemo } from "react";
 import {
 	Empty,
 	EmptyDescription,
@@ -17,9 +17,10 @@ import { cn } from "#web/lib/utils.ts";
 import { arriveAt } from "./arrivals";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
+import { conversationIndex, useConversationIndex } from "./conversation-index";
 import {
 	hostsAtWork,
-	isHostOf,
+	nestRows,
 	rowsOf,
 	shownIn,
 	waitsOnYou,
@@ -34,7 +35,7 @@ import {
 	newConversationUrl,
 	useOpenNew,
 } from "./new-conversation-project";
-import { type Nested, nest } from "./parts";
+import type { Nested } from "./parts";
 import { FolderSection, Group } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import {
@@ -107,11 +108,11 @@ export function Inbox({
 	/** Opens the page's project's board on lane `id`. */
 	onLane: (id: number) => void;
 }): JSX.Element {
-	const { agents, conversations, pending, available } = useReactive(
+	const conversations = useConversationIndex(feed);
+	const { agents, pending, available } = useReactive(
 		feed,
 		(feed) => ({
 			agents: feed.agents,
-			conversations: feed.conversations,
 			pending: feed.loading,
 			available: feed.available,
 		}),
@@ -121,36 +122,58 @@ export function Inbox({
 	// In the project the last one started in, which may be another's page.
 	const openNew = useOpenNew(onOpen);
 	const unstarted = useUnstarted(drafts, null, false, agents, conversations);
-	const rows = rowsOf(tasks, conversations);
-	// Each with the agents it handed out, in the group of the most pressing.
-	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
-	// Grouped with every row, then only what the inbox shows (see `shownIn`).
-	const shown = (of: Nested<Needing>[]) => shownIn(of);
-	const groups = groupsOf(nested);
-	const trees = shown(nested);
-	const hosting = hostsAtWork(nested);
-	const waiting = shown(groups.waiting);
-	// Without folders, persistent agents are pinned, ahead of those pinned.
-	const pinned = shown([...groups.kept, ...groups.pinned]);
-	const working = shown(groups.working);
-	const recent = shown(groups.recent);
-	const everywhere = useEverywhere(
-		({ available, projects, tasks, conversations }) => ({
-			available,
-			projects,
+	const { trees, hosting, waiting, pinned, working, recent } = useMemo(() => {
+		const rows = rowsOf(tasks, conversations);
+		// Each with the agents it handed out, in the group of the most pressing.
+		const nested = nestRows(tasks, rows);
+		// Grouped with every row, then only what the inbox shows (see `shownIn`).
+		const shown = (of: Nested<Needing>[]) => shownIn(of);
+		const groups = groupsOf(nested);
+		const trees = shown(nested);
+		const hosting = hostsAtWork(nested);
+		const waiting = shown(groups.waiting);
+		// Without folders, persistent agents are pinned, ahead of those pinned.
+		const pinned = shown([...groups.kept, ...groups.pinned]);
+		const working = shown(groups.working);
+		const recent = shown(groups.recent);
+		return {
+			rows,
+			nested,
+			groups,
+			trees,
+			hosting,
+			waiting,
+			pinned,
+			working,
+			recent,
+		};
+	}, [tasks, conversations]);
+	const everywhere = useEverywhere((feed) => ({
+		available: feed.available,
+		projects: feed.projects,
+		tasks: feed.tasks,
+		conversations: conversationIndex(feed),
+	}));
+	const grouped = useMemo(
+		() =>
+			everywhere.available && here !== null
+				? foldersOf(
+						everywhere.projects,
+						everywhere.tasks,
+						everywhere.conversations,
+						{ ...here, tasks, conversations },
+					)
+				: null,
+		[
+			everywhere.available,
+			everywhere.projects,
+			everywhere.tasks,
+			everywhere.conversations,
+			here,
 			tasks,
 			conversations,
-		}),
+		],
 	);
-	const grouped =
-		everywhere.available && here !== null
-			? foldersOf(
-					everywhere.projects,
-					everywhere.tasks,
-					everywhere.conversations,
-					{ ...here, tasks, conversations },
-				)
-			: null;
 	const { folded, fold } = useFolded(FOLDED_FOLDERS);
 	const navigation = useContext(NavigationContext);
 	const open = (row: Needing, folder: Folder | null) => {

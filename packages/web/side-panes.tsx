@@ -6,10 +6,12 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 import { ChangesPane } from "./changes";
 import { focusComposer } from "./composer-editor";
+import type { ConversationFeed } from "./conversation-feed";
 import { BackgroundPane } from "./lazy-pages";
 import type { Page } from "./page-route";
 import { TerminalPane } from "./terminal";
@@ -64,7 +66,7 @@ export const NestedPanesContext = createContext<NestedPanes | null>(null);
  */
 export function useSidePanes({
 	snapshot,
-	conversations,
+	feed,
 	available,
 	page,
 	open,
@@ -72,7 +74,7 @@ export function useSidePanes({
 	wide,
 }: {
 	snapshot: Snapshot | null;
-	conversations: ConversationState[];
+	feed: ConversationFeed;
 	/** Whether `splates server` holds conversations. */
 	available: boolean;
 	page: Page;
@@ -81,6 +83,28 @@ export function useSidePanes({
 	terminals: Terminals;
 	wide: boolean;
 }): SidePanes {
+	// Streaming words do not change the pane's layout or terminal identity.
+	useReactive(
+		feed,
+		(feed) => {
+			const shown = feed.conversations.find(
+				(each) => each.id === open && !each.archived,
+			);
+			return {
+				id: shown?.id,
+				task: shown?.task,
+				title: shown?.title,
+				name: shown?.name,
+				background: shown?.background,
+				archived: feed.conversations
+					.filter((each) => each.archived)
+					.map((each) => each.id)
+					.join("\n"),
+			};
+		},
+		["changed"],
+	);
+	const conversations = feed.conversations;
 	const { terminal } = useReactive(
 		terminals,
 		(terminals) => ({ terminal: terminals.open }),
@@ -132,29 +156,45 @@ export function useSidePanes({
 		setWatching(null);
 		setReviewing(task);
 	}, []);
-	const showTerminal = (conversation: string) => {
-		setWatching(null);
-		setReviewing(null);
-		terminals.show(conversation);
-	};
-	const toggleTerminal = (conversation: string) => {
-		if (watched !== null || reviewing !== null) {
-			showTerminal(conversation);
-			return;
-		}
-		terminals.toggle(conversation);
-		if (terminals.open === null) {
-			focusComposer();
-		}
-	};
-	const showing: Showing =
-		reviewed !== undefined || shown === null
-			? null
-			: watched !== null
-				? { kind: "background", conversation: shown.id, background: watched.id }
-				: terminal === shown.id
-					? { kind: "terminal", conversation: shown.id }
-					: null;
+	const showTerminal = useCallback(
+		(conversation: string) => {
+			setWatching(null);
+			setReviewing(null);
+			terminals.show(conversation);
+		},
+		[terminals],
+	);
+	const toggleTerminal = useCallback(
+		(conversation: string) => {
+			if (watched !== null || reviewing !== null) {
+				showTerminal(conversation);
+				return;
+			}
+			terminals.toggle(conversation);
+			if (terminals.open === null) {
+				focusComposer();
+			}
+		},
+		[watched, reviewing, showTerminal, terminals],
+	);
+	const shownId = shown?.id ?? null;
+	const watchedId = watched?.id ?? null;
+	const reviewedTask = reviewed?.task ?? null;
+	const showing = useMemo<Showing>(
+		() =>
+			reviewedTask !== null || shownId === null
+				? null
+				: watchedId !== null
+					? {
+							kind: "background",
+							conversation: shownId,
+							background: watchedId,
+						}
+					: terminal === shownId
+						? { kind: "terminal", conversation: shownId }
+						: null,
+		[reviewedTask, shownId, watchedId, terminal],
+	);
 	const paned =
 		reviewed !== undefined ||
 		watched !== null ||
@@ -194,7 +234,10 @@ export function useSidePanes({
 		shellRunning,
 		toggleTerminal,
 		showTerminal,
-		nested: { showing, showTerminal, watch },
+		nested: useMemo(
+			() => ({ showing, showTerminal, watch }),
+			[showing, showTerminal, watch],
+		),
 		shown,
 		paned,
 		pane,

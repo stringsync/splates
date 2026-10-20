@@ -3,9 +3,11 @@ import type {
 	Tool,
 } from "@stringsync/splates-server/conversations";
 import { GitBranchIcon, LockIcon } from "lucide-react";
-import { createContext, type JSX } from "react";
+import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { ConversationFeed } from "./conversation-feed";
+import { useConversation, useConversationIndex } from "./conversation-index";
 import { useNameOf } from "./conversation-names";
 import { bleed } from "./error-banner";
 
@@ -15,6 +17,29 @@ import { bleed } from "./error-banner";
  * Provided once, over every list and thread.
  */
 export const Held = createContext<readonly ConversationState[]>([]);
+
+/** The live source stays stable while individual consumers select what they show. */
+export const HeldFeed = createContext<ConversationFeed | null>(null);
+
+/** Conversation identity and list state, without subscribing to streaming text. */
+export function useHeldConversations(): readonly ConversationState[] {
+	const feed = useContext(HeldFeed);
+	const held = useContext(Held);
+	const listed = useConversationIndex(feed ?? EMPTY_FEED);
+	return feed === null ? held : listed;
+}
+
+/** Full state of one conversation, including its subagent tool calls. */
+export function useHeldConversation(
+	id: string | null,
+): ConversationState | undefined {
+	const feed = useContext(HeldFeed);
+	const held = useContext(Held);
+	const conversation = useConversation(feed ?? EMPTY_FEED, id);
+	return feed === null
+		? held.find((each) => each.id === id)
+		: (conversation ?? undefined);
+}
 
 /**
  * In place of a composer, for a subagent whose harness started it under
@@ -181,3 +206,5 @@ export function ReadOnlyBanner({
 		</p>
 	);
 }
+
+const EMPTY_FEED = new ConversationFeed();

@@ -3,9 +3,12 @@ import type {
 	ConversationState,
 	Tool,
 } from "@stringsync/splates-server/conversations";
+import { useCallback, useContext, useSyncExternalStore } from "react";
 import { Duration } from "webappwiz/time";
 import { cancelConversation } from "./conversation-api";
+import { EverywhereContext } from "./everywhere-context";
 import type { useExpect } from "./expecting";
+import { HeldFeed } from "./handed-out";
 import { useNow } from "./hooks/use-now";
 import type { Refuse } from "./refusal";
 
@@ -75,8 +78,29 @@ export function quietOf(
 
 /** `quietOf` kept current while the agent works. */
 export function useQuiet(conversation: ConversationState | null): Quiet | null {
+	const local = useContext(HeldFeed);
+	const everywhere = useContext(EverywhereContext);
+	const project =
+		conversation !== null && "project" in conversation
+			? conversation.project
+			: null;
+	const feed = project === null ? local : everywhere;
 	const now = useNow(conversation?.status === "running", Duration.secs(15));
-	return conversation === null ? null : quietOf(conversation, now);
+	const subscribe = useCallback(
+		(changed: () => void) => feed?.events.on("changed", changed) ?? (() => {}),
+		[feed],
+	);
+	const read = useCallback(() => {
+		const current =
+			feed?.conversations.find(
+				(each) =>
+					each.id === conversation?.id &&
+					(project === null || ("project" in each && each.project === project)),
+			) ?? conversation;
+		return JSON.stringify(current === null ? null : quietOf(current, now));
+	}, [feed, conversation, project, now]);
+	const quiet = useSyncExternalStore(subscribe, read, read);
+	return JSON.parse(quiet) as Quiet | null;
 }
 
 /** What a row says of an agent that may be stuck. */

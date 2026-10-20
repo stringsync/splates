@@ -183,9 +183,13 @@ export function CheckpointProvider({
 		);
 	}, [refuse]);
 	// A change here is the one the page hears of; others come by asking.
-	const here = conversations
-		.map((each) => `${each.id}:${each.status}:${each.checkpoint}`)
-		.join();
+	const here = useMemo(
+		() =>
+			conversations
+				.map((each) => `${each.id}:${each.status}:${each.checkpoint}`)
+				.join(),
+		[conversations],
+	);
 	useEffect(() => {
 		void here;
 		void load();

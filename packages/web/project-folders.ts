@@ -13,13 +13,13 @@ import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	flatten,
 	hostsAtWork,
-	isHostOf,
+	nestRows,
 	rowsOf,
 	shownIn,
 	waitsOnYou,
 } from "./conversation-rows";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
-import { type Nested, nest } from "./parts";
+import type { Nested } from "./parts";
 
 /** Where the sidebar keeps its folders folded away, by `folderKey`. */
 export const FOLDED_FOLDERS = "splates.sidebar.collapsed";
@@ -197,9 +197,7 @@ function folder(
 	lanesTaken: Readonly<Record<string, number>> | null,
 	here: boolean,
 ): Folder {
-	const trees = nest(rowsOf(tasks, conversations), (host, part) =>
-		isHostOf(tasks, host, part),
-	);
+	const trees = nestRows(tasks, rowsOf(tasks, conversations));
 	// Grouped with every row, so a subagent at work outside the page still
 	// puts its host with those at work, then only what the list shows.
 	const { waiting, kept, pinned, working, recent } = groupsOf(trees);

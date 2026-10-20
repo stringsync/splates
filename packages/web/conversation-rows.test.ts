@@ -5,7 +5,14 @@ import {
 	type Needing,
 	questions,
 } from "@stringsync/splates-server/plans/browser";
-import { shownIn, waitsOnYou } from "./conversation-rows";
+import {
+	isHostOf,
+	nestRows,
+	rowsOf,
+	shownIn,
+	waitsOnYou,
+} from "./conversation-rows";
+import { nest } from "./parts";
 import { conversation, details } from "./testing";
 
 describe("conversation rows", () => {
@@ -75,5 +82,22 @@ describe("conversation rows", () => {
 				],
 			},
 		]);
+	});
+	it("preserves first-host precedence, explicit roots and cycle recovery", () => {
+		const tasks = [
+			details({ task: "alpha" }),
+			details({ task: "beta", base: "task/alpha", caller: "other" }),
+		];
+		const rows = rowsOf(tasks, [
+			conversation({ id: "other", lastTask: "other" }),
+			conversation({ id: "host", task: "alpha", lastTask: "alpha" }),
+			conversation({ id: "part", task: "beta", lastTask: "beta" }),
+			conversation({ id: "root", lastTask: "beta", parent: { id: null } }),
+			conversation({ id: "cycle-one", parent: { id: "cycle-two" } }),
+			conversation({ id: "cycle-two", parent: { id: "cycle-one" } }),
+		]);
+		expect(nestRows(tasks, rows)).toEqual(
+			nest(rows, (host, part) => isHostOf(tasks, host, part)),
+		);
 	});
 });

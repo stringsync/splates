@@ -9,6 +9,7 @@ import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
 import {
 	type JSX,
+	memo,
 	useContext,
 	useEffect,
 	useMemo,
@@ -38,6 +39,7 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { Home } from "./conversation-home";
+import { useConversation, useConversationIndex } from "./conversation-index";
 import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
@@ -64,7 +66,7 @@ import { BarButton, TopBar } from "./top-bar";
  * phone, where the inbox lists them in place of a sidebar, each has a way back
  * to it.
  */
-export function Conversations({
+export const Conversations = memo(function Conversations({
 	feed,
 	terminals,
 	drafts,
@@ -99,12 +101,11 @@ export function Conversations({
 	/** Whether there is no sidebar to hold the list. */
 	phone: boolean;
 }): JSX.Element {
-	const { agents, conversations } = useReactive(
-		feed,
-		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
-		["changed"],
-	);
-	const shown = conversations.find((each) => each.id === open) ?? null;
+	const conversations = useConversationIndex(feed);
+	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
+		"changed",
+	]);
+	const shown = useConversation(feed, open);
 	const shownTask =
 		shown === null
 			? null
@@ -307,7 +308,7 @@ export function Conversations({
 			</Dialog>
 		</Board>
 	);
-}
+});
 
 /**
  * Marks `conversation` read while it shows on a page in front: once it is
@@ -361,6 +362,10 @@ function Archived({
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const now = useNow(true, Duration.mins(1));
+	const sorted = useMemo(
+		() => conversations.toSorted(byArchivedAt),
+		[conversations],
+	);
 	return (
 		<section
 			aria-label="archived conversations"
@@ -380,7 +385,7 @@ function Archived({
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
 				<ul className="flex min-h-0 flex-col overflow-y-auto overscroll-contain">
-					{conversations.toSorted(byArchivedAt).map((each) => (
+					{sorted.map((each) => (
 						<li key={each.id}>
 							<Item
 								conversation={each}

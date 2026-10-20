@@ -17,7 +17,7 @@ import { archiveConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { Dispatching } from "./dispatching";
 import { useExpect, useExpectSnapshot } from "./expecting";
-import { Held } from "./handed-out";
+import { useHeldConversations } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
 import { ShellRunning, ShowTerminal } from "./terminal";
@@ -73,7 +73,7 @@ export function useArchive(
 			: dispatching?.dispatch.task(conversation.task);
 	const task = !archived && taken?.takenBy === id ? taken : null;
 	// The agents it started go with it, any at work stopped.
-	const held = useContext(Held);
+	const held = useHeldConversations();
 	const along = held.filter((each) => each.startedBy === id && !each.archived);
 	// One it started is done once it stopped working and its task is gone,
 	// merged or removed.

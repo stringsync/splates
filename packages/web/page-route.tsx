@@ -9,7 +9,7 @@ import {
 	ServerIcon,
 	ZapIcon,
 } from "lucide-react";
-import { useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
 import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
@@ -66,7 +66,7 @@ export const PAGES: {
 
 /**
  * Where the page is, as `PageAddress` keeps it in the address and the
- * browser's history. `go` and `openTask` are new each render.
+ * browser's history. Navigation actions retain their identity across renders.
  */
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
@@ -96,9 +96,12 @@ export function usePageRoute(): PageRoute {
 		lane,
 		cred,
 		rule,
-		go: (next, conversation, how) => address.go(next, conversation, how),
-		openTask: (name) => address.openTask(name),
-		openLane: (id) => address.openLane(id),
+		go: useCallback(
+			(next, conversation, how) => address.go(next, conversation, how),
+			[address],
+		),
+		openTask: useCallback((name) => address.openTask(name), [address]),
+		openLane: useCallback((id) => address.openLane(id), [address]),
 	};
 }
 

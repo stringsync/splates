@@ -2,8 +2,15 @@ import type { ConversationState } from "@stringsync/splates-server/conversations
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { thinkingOf } from "@stringsync/splates-server/models/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
+import { useReactive } from "@webappwiz/react";
 import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
-import { createContext, type JSX, useContext, useMemo } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useMemo,
+} from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	DropdownMenu,
@@ -21,6 +28,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { still, touchArea, touchItems } from "./board";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
+import { useConversationIndex } from "./conversation-index";
 import { reportedAs, useNameOf } from "./conversation-names";
 import { Dispatch } from "./dispatch";
 import type { Drafts } from "./drafts";
@@ -377,4 +385,39 @@ export function AssigneeMenu({
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+}
+
+/** Provides the board and task controls with live conversation assignments. */
+export function DispatchingProvider({
+	feed,
+	drafts,
+	tasks,
+	open,
+	children,
+}: {
+	feed: ConversationFeed;
+	drafts: Drafts;
+	tasks: Details[];
+	open: (address: string) => void;
+	children: ReactNode;
+}): JSX.Element {
+	const conversations = useConversationIndex(feed);
+	const { available, agents } = useReactive(
+		feed,
+		(feed) => ({
+			available: feed.available,
+			agents: feed.agents,
+		}),
+		["changed"],
+	);
+	const value = useDispatching({
+		available,
+		agents,
+		conversations,
+		talk: feed,
+		drafts,
+		tasks,
+		open,
+	});
+	return <Dispatching value={value}>{children}</Dispatching>;
 }

@@ -1,7 +1,7 @@
-import type { ConversationState } from "@stringsync/splates-server/conversations";
 import type { Details } from "@stringsync/splates-server/tasks";
 import { useEffect, useRef, useState } from "react";
 import { NEW, TASK } from "./conversation-address";
+import type { ConversationFeed } from "./conversation-feed";
 import { Visits } from "./visits";
 
 /**
@@ -12,12 +12,12 @@ import { Visits } from "./visits";
 export function usePageVisits({
 	open,
 	tasks,
-	conversations,
+	feed,
 	go,
 }: {
 	open: string | null;
 	tasks: Details[];
-	conversations: ConversationState[];
+	feed: ConversationFeed;
 	go: (conversation: string) => void;
 }): { back: () => void; forward: () => void } {
 	const [visits] = useState(() => new Visits());
@@ -33,7 +33,7 @@ export function usePageVisits({
 	exists.current = (id: string) =>
 		id.startsWith(TASK)
 			? tasks.some(({ task }) => `${TASK}${task}` === id)
-			: conversations.some((each) => each.id === id && !each.archived);
+			: feed.conversations.some((each) => each.id === id && !each.archived);
 	const visit = (to: string | null) => {
 		if (to !== null) {
 			go(to);

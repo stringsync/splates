@@ -292,11 +292,7 @@ export function hostingWork(
 	tasks: Details[],
 	conversations: ConversationState[],
 ): Set<string> {
-	return hostsAtWork(
-		nest(rowsOf(tasks, conversations), (host, part) =>
-			isHostOf(tasks, host, part),
-		),
-	);
+	return hostsAtWork(nestRows(tasks, rowsOf(tasks, conversations)));
 }
 
 /** What `hostingWork` reads, from the rows already nested. */
@@ -335,4 +331,48 @@ export function needOf(
 			? null
 			: (tasks.find((each) => each.task === conversation.task) ?? null);
 	return need(task, conversation);
+}
+
+/** Nests conversation rows under their explicit parent, task host, or caller. */
+export function nestRows(tasks: Details[], rows: Needing[]): Nested<Needing>[] {
+	const byTask = new Map(tasks.map((task) => [task.task, task]));
+	const byId = new Map<string, Needing[]>();
+	const byBase = new Map<string, Needing[]>();
+	const order = new Map(rows.map((row, at) => [row, at]));
+	for (const row of rows) {
+		if (row.conversation !== null) {
+			const id = row.conversation.id;
+			byId.set(id, [...(byId.get(id) ?? []), row]);
+		}
+		const task = lastTaskOfRow(row);
+		if (task !== null) {
+			const base = `task/${task}`;
+			byBase.set(base, [...(byBase.get(base) ?? []), row]);
+		}
+	}
+	const hosts = new Map<Needing, Needing>();
+	for (const row of rows) {
+		const placed = row.conversation?.parent ?? null;
+		const task = byTask.get(lastTaskOfRow(row) ?? "");
+		const base = row.conversation?.lastBase ?? task?.base ?? null;
+		const caller = row.conversation?.lastCaller ?? task?.caller ?? null;
+		const candidates =
+			placed !== null
+				? placed.id === null
+					? []
+					: (byId.get(placed.id) ?? [])
+				: [
+						...(base === null ? [] : (byBase.get(base) ?? [])),
+						...(caller === null || caller === row.conversation?.id
+							? []
+							: (byId.get(caller) ?? [])),
+					];
+		const host = candidates
+			.filter((each) => each !== row)
+			.sort((one, other) => (order.get(one) ?? 0) - (order.get(other) ?? 0))[0];
+		if (host !== undefined) {
+			hosts.set(row, host);
+		}
+	}
+	return nest(rows, (host, part) => hosts.get(part) === host);
 }

@@ -8,7 +8,7 @@ import { AutomationTag, RowIcon } from "./agent-icons";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { placeholding } from "./conversation-rows";
 import { Trunk } from "./dispatching";
-import { Held } from "./handed-out";
+import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { type Quiet, quietText, useQuiet } from "./quiet";
@@ -49,7 +49,7 @@ export function Row({
 	const trunk = useContext(Trunk);
 	const { conversation, task, need } = row;
 	// One that answers to another is not yours to address.
-	const subagent = answersTo(row, useContext(Held)) !== null;
+	const subagent = answersTo(row, useHeldConversations()) !== null;
 	const reported =
 		conversation === null ? null : (lastReport(conversation)?.ending ?? null);
 	const name =

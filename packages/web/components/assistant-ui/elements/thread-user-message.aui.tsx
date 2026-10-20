@@ -48,7 +48,7 @@ import {
 	soleDirective,
 	unshown,
 } from "#web/directives.tsx";
-import { Held } from "#web/handed-out.tsx";
+import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
 import {
 	type Sent,
@@ -145,7 +145,7 @@ export const UserMessage: FC = () => {
 		const from = s.message.metadata.custom.told;
 		return typeof from === "string" ? from : null;
 	});
-	const teller = useContext(Held).find((each) => each.id === told);
+	const teller = useHeldConversations().find((each) => each.id === told);
 	const dictated = useAuiState(
 		(s) => s.message.metadata.custom.dictated === true,
 	);

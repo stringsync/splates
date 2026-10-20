@@ -1,10 +1,17 @@
 import { needs } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import { useReactive } from "@webappwiz/react";
-import { type JSX, useContext, useRef, useState } from "react";
+import {
+	type JSX,
+	useCallback,
+	useContext,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { arriveAt } from "./arrivals";
 import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
+import { conversationIndex, useConversationIndex } from "./conversation-index";
 import { flatten, nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
@@ -38,7 +45,7 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const { rows, conversations, waiting, others } = useWaitingEverywhere(given);
+	const { rows, waiting, others } = useWaitingEverywhere(given);
 	const navigation = useContext(NavigationContext);
 	const held = useHeld();
 	const waitingKey = useHeldKey("shortcuts.waiting");
@@ -79,20 +86,14 @@ export function NextWaiting({
  * this project's rows and the address of each other project's, on its page.
  */
 function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
-	const { conversations } = useReactive(
-		feed,
-		(feed) => ({ conversations: feed.conversations }),
-		["changed"],
-	);
+	const conversations = useConversationIndex(feed);
 	const rows = rowsOf(tasks, conversations);
-	const everywhere = useEverywhere(
-		({ available, projects, tasks, conversations }) => ({
-			available,
-			projects,
-			tasks,
-			conversations,
-		}),
-	);
+	const everywhere = useEverywhere((feed) => ({
+		available: feed.available,
+		projects: feed.projects,
+		tasks: feed.tasks,
+		conversations: conversationIndex(feed),
+	}));
 	const others = everywhere.available
 		? foldersOf(
 				everywhere.projects,
@@ -117,13 +118,17 @@ function useWaitingEverywhere({ feed, tasks, here }: Waiting) {
  * outside the page asks in its own session.
  */
 export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
-	const { conversations } = useReactive(
-		feed,
-		(feed) => ({ conversations: feed.conversations }),
-		["changed"],
+	const subscribe = useCallback(
+		(changed: () => void) => feed.events.on("changed", changed),
+		[feed],
 	);
-	return needs({ tasks, conversations }).filter(
-		({ conversation, need }) =>
-			conversation !== null && need.kind === "waiting",
-	).length;
+	const read = useCallback(
+		() =>
+			needs({ tasks, conversations: feed.conversations }).filter(
+				({ conversation, need }) =>
+					conversation !== null && need.kind === "waiting",
+			).length,
+		[feed, tasks],
+	);
+	return useSyncExternalStore(subscribe, read, read);
 }
