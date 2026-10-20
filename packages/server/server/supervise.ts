@@ -1,5 +1,6 @@
+import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
+import type { Child, Fs, Ps } from "webappwiz/system";
 import {
 	type Clock,
 	Duration,
@@ -41,8 +42,9 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
  * this with 0, once the `checkout` it runs from is deleted. A child that
  * crashes, ending any other way than with 0, Ctrl-C or a stop, is started
  * again after a pause that doubles with each crash that came quickly, until
- * so many come in a row that it would only crash again. With `awake`,
- * `caffeinate` keeps the Mac from sleeping while this runs.
+ * so many come in a row that it would only crash again. With `awake`, the
+ * platform's own command keeps the machine from sleeping while this runs,
+ * as `awakeCommand` names it.
  * Answers with the exit code to end on.
  */
 export async function supervise(
@@ -89,10 +91,7 @@ export async function supervise(
 			timer,
 		});
 	}
-	// It waits on this process, so it ends with it however this ends.
-	const caffeinate = awake
-		? ps.start(["caffeinate", "-ims", "-w", String(ps.pid)])
-		: null;
+	const waking = awake ? keepAwake(ps, log) : null;
 	// The crashes in a row that came before the server served a while.
 	let quick = 0;
 	try {
@@ -155,7 +154,7 @@ export async function supervise(
 			}
 		}
 	} finally {
-		caffeinate?.kill();
+		waking?.dispose();
 		working.abort();
 		watching?.dispose();
 		quiet.dispose();
@@ -190,7 +189,7 @@ export interface SuperviseOptions {
 	 * installed from npm.
 	 */
 	checkout?: { path: string; fs: Pick<Fs, "exists"> } | null;
-	/** Whether to keep the Mac awake with `caffeinate` while this runs. */
+	/** Whether to keep the machine awake while this runs, as `awakeCommand` does. */
 	awake?: boolean;
 	/** Where a crashed server is told of; null to tell no one. */
 	log?: Logger | null;
@@ -251,6 +250,65 @@ async function keep(
 		await ps.spawn(argv(), opts).catch(() => {});
 		await sleep(WORKER_PAUSE, timer, opts.signal);
 	}
+}
+
+/**
+ * What keeps this machine from sleeping until the process `pid` ends, on
+ * `platform`: `caffeinate` on macOS, and on Linux a systemd inhibitor lock
+ * held by a `tail` that waits on the pid. Null where there is none.
+ */
+export function awakeCommand(
+	platform: NodeJS.Platform,
+	pid: number,
+): string[] | null {
+	if (platform === "darwin") {
+		return ["caffeinate", "-ims", "-w", String(pid)];
+	}
+	if (platform === "linux") {
+		return [
+			"systemd-inhibit",
+			"--what=sleep:idle",
+			"--who=splates",
+			"--why=splates server is serving",
+			"tail",
+			`--pid=${pid}`,
+			"-f",
+			"/dev/null",
+		];
+	}
+	return null;
+}
+
+/**
+ * Runs `awakeCommand` until disposed. One that cannot run, as without
+ * systemd or where it refuses the lock, is told of and the server serves on.
+ */
+function keepAwake(ps: Ps, log: Logger | null): Resource {
+	const argv = awakeCommand(ps.platform, ps.pid);
+	if (argv === null) {
+		log?.error(`nothing keeps ${ps.platform} awake: serving without it`);
+		return { dispose() {} };
+	}
+	const [name] = argv;
+	let child: Child;
+	try {
+		child = ps.start(argv);
+	} catch (error) {
+		log?.error(`${name} could not start, so the machine may sleep: ${error}`);
+		return { dispose() {} };
+	}
+	let disposed = false;
+	void child.exited.then((code) => {
+		if (!disposed) {
+			log?.error(`${name} exited (${code}), so the machine may sleep`);
+		}
+	});
+	return {
+		dispose() {
+			disposed = true;
+			child.kill();
+		},
+	};
 }
 
 /** Waits `pause`, or until `signal` aborts. */

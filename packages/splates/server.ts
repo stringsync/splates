@@ -75,7 +75,7 @@ splatesServer
 	.option("keepalive", z.boolean(), {
 		default: false,
 		description:
-			"keep a Mac left to serve awake: `caffeinate` keeps it from sleeping while the server runs, on power or idle, though closing its lid still sleeps it. Refused on other platforms",
+			"keep a machine left to serve awake while the server runs: on macOS with `caffeinate`, on power or idle, though closing a laptop's lid still sleeps it; on Linux with a systemd-inhibit lock on sleep and idle, which the server serves on without, saying so, where systemd is missing or refuses it. Refused on other platforms",
 	})
 	.option("slot", z.boolean(), {
 		default: false,

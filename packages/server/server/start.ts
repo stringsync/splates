@@ -47,7 +47,7 @@ import {
 	savedTunnelOf,
 	seeded,
 } from "./start-settings";
-import { SERVING, supervise, UNBUILT } from "./supervise";
+import { awakeCommand, SERVING, supervise, UNBUILT } from "./supervise";
 
 /**
  * Runs `splates server` with its flags: the page for every registered
@@ -86,10 +86,10 @@ export async function serveDev(
 			{},
 		);
 	}
-	if (opts.keepalive && ctx.ps.platform !== "darwin") {
+	if (opts.keepalive && awakeCommand(ctx.ps.platform, ctx.ps.pid) === null) {
 		fail(
 			"usage",
-			"--keepalive keeps a Mac awake with caffeinate: run it on macOS",
+			"--keepalive keeps macOS and Linux awake: this platform has nothing to do it",
 			{},
 		);
 	}

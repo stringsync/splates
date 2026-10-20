@@ -91,22 +91,48 @@ describe("supervise, crashed", () => {
 		expect(pauses).toEqual([]);
 	});
 
-	it("keeps the Mac awake while it runs, and lets it sleep once it ends", async () => {
-		running([130, 0]);
-		ps.pid = 4242;
-		const started: string[] = [];
-		const start = ps.start.bind(ps);
-		ps.start = (argv, opts) => {
-			started.push(argv.join(" "));
-			return start(argv, opts);
-		};
+	it.each([
+		["darwin", "caffeinate -ims -w 4242"],
+		[
+			"linux",
+			"systemd-inhibit --what=sleep:idle --who=splates --why=splates server is serving tail --pid=4242 -f /dev/null",
+		],
+	] as const)(
+		"keeps %s awake while it runs, and lets it sleep once it ends",
+		async (platform, command) => {
+			running([130, 0]);
+			ps.platform = platform;
+			ps.pid = 4242;
+			const started: string[] = [];
+			const start = ps.start.bind(ps);
+			ps.start = (argv, opts) => {
+				started.push(argv.join(" "));
+				return start(argv, opts);
+			};
 
-		await supervise(ps, { awake: true, timer, clock });
-		expect(started).toEqual(["caffeinate -ims -w 4242"]);
-		expect(ps.getChildren()[0]?.signals).toEqual(["SIGTERM"]);
+			await supervise(ps, { awake: true, timer, clock });
+			expect(started).toEqual([command]);
+			expect(ps.getChildren()[0]?.signals).toEqual(["SIGTERM"]);
+		},
+	);
+
+	it("serves on, saying so, when nothing can keep it awake", async () => {
+		running([130, 0]);
+		ps.platform = "linux";
+		ps.start = () => {
+			throw new Error("systemd-inhibit: not found");
+		};
+		const said: unknown[] = [];
+		const log = { info() {}, error: (message: unknown) => said.push(message) };
+
+		expect(await supervise(ps, { awake: true, timer, clock, log })).toBe(130);
+		expect(ps.getCalls()).toHaveLength(1);
+		expect(said).toEqual([
+			"systemd-inhibit could not start, so the machine may sleep: Error: systemd-inhibit: not found",
+		]);
 	});
 
-	it("keeps no Mac awake unless asked", async () => {
+	it("keeps nothing awake unless asked", async () => {
 		running([130, 0]);
 
 		await supervise(ps, { timer, clock });
