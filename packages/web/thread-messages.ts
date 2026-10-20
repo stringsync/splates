@@ -187,6 +187,11 @@ export function useThreadMessages(
 								conversation.id,
 							),
 							waitedOn,
+							// A message the page has yet to see recorded is still on its way.
+							(status === "stopped" || status === "failed") &&
+								lastWaiting?.at !== null
+								? id
+								: undefined,
 						),
 					];
 		// What the server refused, after all of it, as it would go if sent again.
@@ -218,6 +223,8 @@ export function useThreadMessages(
 		shown,
 		feed,
 		unsent,
+		status,
+		id,
 	]);
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so

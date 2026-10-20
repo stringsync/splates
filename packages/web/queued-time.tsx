@@ -5,9 +5,11 @@ import {
 import type { Message } from "@stringsync/splates-server/conversations";
 import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
 import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
-import { CheckIcon, HourglassIcon } from "lucide-react";
+import { CheckIcon, HourglassIcon, SendIcon } from "lucide-react";
 import type { JSX } from "react";
 import { WorkingIndicator } from "#web/components/assistant-ui/elements/thread-assistant-message.aui.tsx";
+import { Button } from "./components/ui/button";
+import { sendQueuedNow } from "./conversation-api";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { span } from "./work";
@@ -16,9 +18,13 @@ import { span } from "./work";
 export const QueuedUI = makeAssistantDataUI<{
 	at: string;
 	until: string | null;
+	/** The stopped or failed conversation's id, its message waiting on the person. */
+	halted?: string;
 }>({
 	name: "queued",
-	render: ({ data }) => <QueuedTime at={data.at} until={data.until} />,
+	render: ({ data }) => (
+		<QueuedTime at={data.at} until={data.until} halted={data.halted} />
+	),
 });
 
 /**
@@ -34,6 +40,7 @@ export const GoingUI = makeAssistantDataUI<Record<string, never>>({
 export function queuedReply(
 	reply: ThreadMessageLike,
 	prompt: Message | undefined,
+	halted?: string,
 ): ThreadMessageLike {
 	if (
 		reply.role !== "assistant" ||
@@ -45,7 +52,11 @@ export function queuedReply(
 	}
 	const queued: Exclude<ThreadMessageLike["content"], string>[number] = {
 		type: "data-queued",
-		data: { at: prompt.at, until: prompt.sentAt ?? null },
+		data: {
+			at: prompt.at,
+			until: prompt.sentAt ?? null,
+			...(halted === undefined ? {} : { halted }),
+		},
 	};
 	return {
 		...reply,
@@ -102,31 +113,50 @@ export function working(
 function QueuedTime({
 	at,
 	until,
+	halted,
 }: {
 	at: string;
 	until: string | null;
+	halted?: string;
 }): JSX.Element {
-	const now = useNow(until === null);
+	const now = useNow(until === null && halted === undefined);
+	const stuck = until === null && halted !== undefined;
 	return (
 		<div
 			data-slot="queued"
 			// Its icon sits where the work row's chevron does, below it.
 			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
 		>
-			{until === null ? (
-				<HourglassIcon aria-hidden className="size-3.5 shrink-0" />
-			) : (
+			{until !== null ? (
 				<CheckIcon aria-hidden className="size-3.5 shrink-0" />
+			) : (
+				<HourglassIcon aria-hidden className="size-3.5 shrink-0" />
 			)}
 			<span
-				role={until === null ? "status" : undefined}
+				role={until === null && !stuck ? "status" : undefined}
 				className={cn(
 					"min-w-0 truncate font-sans",
-					until === null && "shimmer motion-reduce:animate-none",
+					until === null && !stuck && "shimmer motion-reduce:animate-none",
 				)}
 			>
-				{until === null ? "Queued" : "Queued for"} {span(at, until ?? now)}
+				{stuck
+					? "Waiting on you since "
+					: until === null
+						? "Queued "
+						: "Queued for "}
+				{stuck ? new Date(at).toLocaleTimeString() : span(at, until ?? now)}
 			</span>
+			{stuck ? (
+				<Button
+					size="sm"
+					variant="outline"
+					className="ml-1 h-7 min-h-7 shrink-0 touch:h-11"
+					onClick={() => void sendQueuedNow(halted).catch(() => undefined)}
+				>
+					<SendIcon aria-hidden />
+					Send
+				</Button>
+			) : null}
 		</div>
 	);
 }
