@@ -97,7 +97,7 @@ export function ActionBar({
 				className="flex w-full flex-wrap items-center justify-between gap-1.5"
 			>
 				<div className="flex flex-wrap items-center gap-1.5">
-					{chatting && <OnIt task={task.task} variant="chips" />}
+					{chatting && <OnIt task={task.task} variant="rows" />}
 					{starts && <Start task={task.task} />}
 					{revive}
 				</div>
