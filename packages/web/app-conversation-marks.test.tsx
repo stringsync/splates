@@ -92,7 +92,7 @@ Cap upload retries
 		]);
 	});
 
-	it("marks an agent whose task is landing as merging, on a green row", async () => {
+	it("marks an agent whose task is landing as merging", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({
