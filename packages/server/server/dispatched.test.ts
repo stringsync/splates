@@ -144,4 +144,39 @@ describe("dev dispatched", () => {
 			agent: "gone",
 		});
 	});
+
+	it("starts the agent of a task whose splates add died before it cleared pending, but not while that add runs", async () => {
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+		const worktree = await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "fake", pending: true },
+			lease: {
+				pid: deps.ps.pid,
+				hostname: deps.ps.hostname,
+				heartbeatAt: new Date().toISOString(),
+			},
+		});
+		const log = new MemoryLogger();
+
+		await startDispatched({ service: deps.service, conversations, log });
+		expect(await conversations.list()).toEqual([]);
+
+		await worktree.save({
+			lease: {
+				pid: 2 ** 22 + 1,
+				hostname: deps.ps.hostname,
+				heartbeatAt: new Date().toISOString(),
+			},
+		});
+		await startDispatched({ service: deps.service, conversations, log });
+
+		expect((await conversations.list()).map(({ state }) => state.task)).toEqual(
+			["alpha"],
+		);
+		const { dispatch, lease } = (await deps.service.find("alpha")).state ?? {};
+		expect(dispatch?.pending).toBeUndefined();
+		expect(lease).toBeNull();
+	});
 });

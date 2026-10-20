@@ -31,7 +31,10 @@ export async function startDispatched({
 		if (
 			dispatch === undefined ||
 			dispatch.conversation !== undefined ||
-			dispatch.pending === true ||
+			// Pending while its `splates add` still runs; one that died leaves the
+			// lease it took stale, and the tree as the hook left it, which the
+			// agent can mend.
+			(dispatch.pending === true && worktree.leaseHeld) ||
 			!worktree.exists
 		) {
 			continue;
@@ -75,8 +78,10 @@ async function startOne(
 			startedBy: worktree.caller,
 			capped: true,
 		}));
+	const { pending: _, ...settled } = dispatch;
 	await worktree.save({
-		dispatch: { ...dispatch, conversation: conversation.id },
+		dispatch: { ...settled, conversation: conversation.id },
+		...(dispatch.pending === true ? { lease: null } : {}),
 	});
 	// Each agent takes its time to start, so none waits on another's.
 	void (async () => {

@@ -111,6 +111,12 @@ describe("dev conversations", () => {
 		const gamma = await deps.service.find("gamma");
 		await gamma.save({
 			dispatch: { ...gamma.state?.dispatch, agent: "fake", pending: true },
+			// The add that left it pending is still running.
+			lease: {
+				pid: deps.ps.pid,
+				hostname: deps.ps.hostname,
+				heartbeatAt: new Date().toISOString(),
+			},
 		});
 		server = await dev(deps, {
 			ports: OpenPortProvider.any(),
