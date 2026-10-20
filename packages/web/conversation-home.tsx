@@ -29,6 +29,7 @@ import { WIDE } from "./app-nav";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Board } from "./board";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
+import { composerIn } from "./composer-editor";
 import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
 import {
 	AUTO,
@@ -37,6 +38,7 @@ import {
 	newAddress,
 	rememberAuto,
 	settingsFor,
+	withDraft,
 } from "./conversation-address";
 import {
 	promptConversation,
@@ -49,6 +51,7 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
+import { useTouch } from "./hooks/use-touch";
 import { Orphaned } from "./list-rows";
 import { NamedContext } from "./mentioned";
 import { rememberProject, rememberShown } from "./new-conversation-project";
@@ -83,6 +86,8 @@ export interface Starting {
 	task: string | null;
 	/** The model it starts on, by its id on the roster; null for as picked. */
 	model: string | null;
+	/** Separate draft within this tree; null for its original draft. */
+	identity: string | null;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
@@ -106,6 +111,7 @@ export function useNewConversation({
 	auto,
 	task,
 	model,
+	identity,
 	conversations,
 	refuseIn,
 	onOpen,
@@ -204,15 +210,18 @@ export function useNewConversation({
 			}
 		},
 	});
-	const draft = newDraft(shownProject(), task);
+	const draft = newDraft(shownProject(), task, identity);
 	// So its row in the sidebar opens it again with this agent and model.
 	useEffect(
 		() =>
 			drafts.place(
 				draft,
-				auto ? autoAddress(task) : newAddress(agent, task, model),
+				withDraft(
+					auto ? autoAddress(task) : newAddress(agent, task, model),
+					identity,
+				),
 			),
-		[drafts, draft, auto, agent, task, model],
+		[drafts, draft, auto, agent, task, model, identity],
 	);
 	restore.current = useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
@@ -253,9 +262,9 @@ export function useNewConversation({
 			bar
 			servers={false}
 			className="mx-0"
-			hash={`#conversations/${auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`}`}
+			hash={`#conversations/${withDraft(auto ? `${NEW}/${AUTO}` : `${NEW}/${agent}`, identity)}`}
 			onPick={(each) => {
-				drafts.move(draft, newDraft(each.slug));
+				drafts.move(draft, newDraft(each.slug, null, identity));
 				rememberProject(each);
 			}}
 		/>
@@ -283,6 +292,13 @@ export function Home({
 	...starting
 }: Starting & { terminals: Terminals }): JSX.Element {
 	const { tasks, agents, agent, auto, task, conversations, onOpen } = starting;
+	const section = useRef<HTMLElement>(null);
+	const touch = useTouch();
+	useEffect(() => {
+		if (!touch && section.current !== null) {
+			composerIn(section.current)?.focus();
+		}
+	}, [touch]);
 	const { runtime, refusal, project, controls, mentions, references, named } =
 		useNewConversation(starting);
 	// Only tasks no agent is left on: a conversation, or a task an agent is
@@ -293,6 +309,7 @@ export function Home({
 
 	return (
 		<section
+			ref={section}
 			aria-label="new conversation"
 			className={cn(BELOW_BAR, "flex min-h-0 min-w-0 flex-col gap-3")}
 		>

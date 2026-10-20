@@ -91,7 +91,7 @@ describe("App's conversation home", () => {
 		expect(view.queryByRole("region", { name: "pick back up" })).toBeNull();
 	});
 
-	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
+	it("starts a conversation from the home composer, in the main tree with the agent picked in the header and its settings, and says the message", async () => {
 		const held = [
 			conversation({ id: "c1", title: "Latest" }),
 			conversation({
@@ -142,7 +142,7 @@ describe("App's conversation home", () => {
 		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
 
 		await newWith(view, "Codex");
-		expect(location.hash).toBe("#conversations/new/codex");
+		expect(location.hash.split("?")[0]).toBe("#conversations/new/codex");
 		// The saved Codex defaults.
 		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
 			"Big",
@@ -389,7 +389,7 @@ describe("App's conversation home", () => {
 		expect(view.queryByRole("region", { name: "plan limits" })).toBeNull();
 	});
 
-	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {
+	it("opens the new conversation screen with the agent picked in its header after New is clicked", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 		]);

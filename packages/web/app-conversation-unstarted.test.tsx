@@ -17,9 +17,11 @@ import {
 describe("App's new conversations not started yet", () => {
 	let testing: Testing;
 	let view: ConversationsView;
+	let shot: File;
 
 	beforeEach(async () => {
 		testing = new Testing();
+		shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		view = await testing.openConversations(held, "c1");
 	});
 
@@ -39,6 +41,19 @@ describe("App's new conversations not started yet", () => {
 	const unstarted = (view: ConversationsView) =>
 		within(sidebar(view)).queryByRole("button", { name: /New conversation/ });
 
+	const pressNew = () =>
+		act(async () =>
+			fireEvent.keyDown(box(view), {
+				altKey: true,
+				metaKey: true,
+				code: "KeyN",
+			}),
+		);
+	const rows = () =>
+		within(sidebar(view)).getAllByRole("button", {
+			name: /New conversation/,
+		});
+
 	it("lists a new conversation in the sidebar once ⌥⌘N opens it, and keeps it there when left empty", async () => {
 		expect(unstarted(view)).toBeNull();
 
@@ -57,9 +72,59 @@ describe("App's new conversations not started yet", () => {
 		expect(unstarted(view)?.getAttribute("aria-current")).toBeNull();
 	});
 
+	it("opens another draft on every shortcut and click, preserving earlier text and files", async () => {
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New" })),
+		);
+		const first = location.hash;
+
+		await typeIn(box(view), "keep this");
+		await act(async () =>
+			fireEvent.paste(box(view), { clipboardData: { files: [shot] } }),
+		);
+		await waitFor(() => expect(textIn(box(view))).toContain("[Image 1]"));
+		await pressNew();
+		const second = location.hash;
+		expect(second).not.toBe(first);
+		expect(textIn(box(view))).toBe("");
+		expect(rows()).toHaveLength(2);
+		await typeIn(box(view), "second draft");
+		const secondRow = rows().find(
+			(row) => row.getAttribute("aria-current") === "page",
+		) as HTMLElement;
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: /Codex/ })),
+			),
+		);
+		expect(location.hash.split("?")[1]).toBe(second.split("?")[1]);
+		expect(textIn(box(view))).toBe("second draft");
+		await pressNew();
+		expect(location.hash).not.toBe(second);
+		expect(textIn(box(view))).toBe("");
+		expect(rows()).toHaveLength(3);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New" })),
+		);
+		expect(rows()).toHaveLength(4);
+		await act(async () => fireEvent.click(secondRow));
+		expect(textIn(box(view))).toBe("second draft");
+		expect(
+			view.getByRole("button", { name: "Pick an agent" }).textContent,
+		).toContain("Codex");
+		await act(async () => fireEvent.click(rows()[0] as HTMLElement));
+		expect(location.hash).toBe("#conversations/new/claude");
+		await waitFor(() =>
+			expect(textIn(box(view))).toContain("keep this [Image 1]"),
+		);
+	});
+
 	it("keeps a new conversation's words and files while away, to go back to from its row", async () => {
 		await newWith(view, "Codex");
-		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+
 		await act(async () =>
 			fireEvent.paste(box(view), { clipboardData: { files: [shot] } }),
 		);

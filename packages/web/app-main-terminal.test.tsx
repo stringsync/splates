@@ -59,16 +59,9 @@ describe("App's terminals in the main tree", () => {
 	/** What the page sends as the socket opens: the size it settled on. */
 	const sized = expect.objectContaining({ type: "resize" });
 
-	/** Opens New, and its Terminal item. */
-	const openTerminal = async (view: Awaited<ReturnType<typeof reading>>) => {
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Terminal" })),
-			),
-		);
+	/** Opens the main tree's terminal from its shortcut. */
+	const openTerminal = async (_view: Awaited<ReturnType<typeof reading>>) => {
+		await press(ANOTHER);
 	};
 
 	/** The sidebar, unfolded, where the main tree's terminals are listed. */
@@ -283,16 +276,8 @@ describe("App's terminals in the main tree", () => {
 		expect(await rows(view)).toEqual([]);
 	});
 
-	it("opens another from its shortcut, shown beside Terminal in New, even from inside a shell", async () => {
+	it("opens another from its shortcut, even from inside a shell", async () => {
 		const view = await reading();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
-		);
-		const item = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Terminal" }),
-		);
-		expect(item.textContent).toContain("⌥`");
-		await press({ key: "Escape", code: "Escape" });
 
 		await press(ANOTHER);
 		expect(location.hash).toBe("#conversations/terminal/1");

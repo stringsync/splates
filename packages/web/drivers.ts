@@ -55,13 +55,16 @@ export async function toThread(view: ConversationsView): Promise<void> {
 	});
 }
 
-/** Opens the new conversation screen with `agent`, from the sidebar. */
+/** Opens New from the sidebar, then picks `agent` in the conversation header. */
 export async function newWith(
 	view: ConversationsView,
 	agent: string,
 ): Promise<void> {
 	await act(async () =>
 		fireEvent.click(view.getByRole("button", { name: "New" })),
+	);
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
 	);
 	await act(async () =>
 		fireEvent.click(

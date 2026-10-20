@@ -7,9 +7,7 @@ import {
 	details,
 	fireEvent,
 	newestFirst,
-	newWith,
 	Testing,
-	waitFor,
 	within,
 } from "./testing";
 
@@ -303,27 +301,23 @@ describe("App's sidebar keys", () => {
 		);
 	});
 
-	it("shows ⌥⌘N in the New menu beside the agent it starts", async () => {
+	it("opens New directly and shows its shortcut on the button", async () => {
 		const view = await testing.openConversations(
-			newestFirst([
-				conversation({ id: "c1", agent: "codex", title: "Latest" }),
-				conversation({ id: "c2", title: "Earlier" }),
-			]),
-			null,
+			[conversation({ id: "c1", agent: "codex" })],
+			"c1",
 		);
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
-		);
-		const item = (name: string) =>
-			waitFor(() => view.getByRole("menuitem", { name: new RegExp(name) }));
-		expect((await item("Codex")).textContent).toContain("⌥⌘N");
-		expect((await item("Claude")).textContent).not.toContain("⌥⌘N");
+		const button = view.getByRole("button", { name: "New" });
+		expect(button.title).toBe("⌥⌘N");
+		expect(button.hasAttribute("aria-haspopup")).toBe(false);
+		await act(async () => fireEvent.click(button));
+		expect(view.queryByRole("menu")).toBeNull();
+		expect(location.hash).toBe("#conversations/new");
+		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
 	});
 
-	it("focuses the composer of the agent picked from New, the one shown too", async () => {
+	it("focuses the composer after clicking New, even with a new conversation open", async () => {
 		const view = await testing.openConversations(
-			[conversation({ id: "c1", title: "Latest" })],
+			[conversation({ id: "c1", agent: "codex", title: "Latest" })],
 			null,
 		);
 		const composer = () =>
@@ -335,7 +329,9 @@ describe("App's sidebar keys", () => {
 		// Picked twice: the second time, the conversation is already open.
 		const pick = async () => {
 			view.getByRole("button", { name: "New" }).focus();
-			await newWith(view, "Codex");
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "New" })),
+			);
 			return {
 				// Not the element, whose printout on a failure overwhelms Bun.
 				focused: document.activeElement === composer(),

@@ -116,7 +116,7 @@ export function autoAddress(task: string | null): string {
 
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
-	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);
+	return open !== null && (pathOf(open) === NEW || open.startsWith(`${NEW}/`));
 }
 
 /**
@@ -182,4 +182,23 @@ export function modelFor(open: string | null): string | null {
 /** `open` without its `?` and what follows. */
 function pathOf(open: string): string {
 	return open.split("?")[0] ?? open;
+}
+
+/** The identity of a separate new draft, or null for the original tree's draft. */
+export function draftFor(open: string | null): string | null {
+	const at = open?.indexOf("?") ?? -1;
+	return open === null || at === -1
+		? null
+		: new URLSearchParams(open.slice(at + 1)).get("draft");
+}
+
+/** Keeps a new draft's identity while its agent, model or project changes. */
+export function withDraft(open: string, draft: string | null): string {
+	if (draft === null) {
+		return open;
+	}
+	const [path, query] = open.split("?");
+	const params = new URLSearchParams(query);
+	params.set("draft", draft);
+	return `${path}?${params}`;
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { cleanup, conversation, newWith, Testing } from "./testing";
+import { act, cleanup, conversation, fireEvent, Testing } from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
 function visit(url: string): void {
@@ -69,19 +69,23 @@ describe("App's New, by project", () => {
 	it("opens New in the project last used, from another project's page", async () => {
 		rememberProject({ slug: "shop", root: "/code/shop" });
 
-		await newWith(view, "Codex");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New" })),
+		);
 
 		const there = new URL(String(testing.visited.at(-1)));
 		expect(there.search).toBe("?project=shop");
-		expect(there.hash).toBe("#conversations/new/codex");
+		expect(there.hash).toBe("#conversations/new");
 	});
 
 	it("opens New on the page when it shows the project last used", async () => {
 		rememberProject({ slug: "webappwiz", root: "/code/webappwiz" });
 
-		await newWith(view, "Codex");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New" })),
+		);
 
 		expect(testing.visited).toEqual([]);
-		expect(location.hash).toBe("#conversations/new/codex");
+		expect(location.hash).toBe("#conversations/new");
 	});
 });

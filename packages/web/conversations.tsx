@@ -22,12 +22,14 @@ import { Board, takenTask } from "./board";
 import {
 	ARCHIVED,
 	agentFor,
+	draftFor,
 	modelFor,
 	NEW,
 	startsAuto,
 	startsOne,
 	taskFor,
 	terminalOf,
+	withDraft,
 } from "./conversation-address";
 import { markUnread } from "./conversation-api";
 import {
@@ -179,11 +181,13 @@ export function Conversations({
 		auto: startsAuto(open),
 		task: taskFor(open),
 		model: modelFor(open),
+		identity: draftFor(open),
 		conversations,
 		refuseIn: refuse,
-		onOpen,
+		onOpen: (id: string, how?: Move) =>
+			onOpen(startsOne(id) ? withDraft(id, draftFor(open)) : id, how),
 	};
-	const startKey = `${starting.auto}/${starting.agent}/${starting.task}/${starting.model}`;
+	const startKey = `${starting.auto}/${starting.agent}/${starting.task}/${starting.model}/${starting.identity}/${startsOne(open)}`;
 
 	return (
 		<Board value={board}>

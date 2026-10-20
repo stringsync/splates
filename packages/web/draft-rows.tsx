@@ -6,6 +6,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import {
 	agentFor,
+	draftFor,
 	NEW,
 	newAddress,
 	startsOne,
@@ -50,7 +51,7 @@ export function useUnstarted(
 	const project = shownProject();
 	const shown =
 		startsOne(open) || (home && open === null)
-			? newDraft(project, taskFor(open))
+			? newDraft(project, taskFor(open), draftFor(open))
 			: null;
 	const opened = startsOne(open) ? shown : null;
 	useEffect(() => {
@@ -76,7 +77,10 @@ export function useUnstarted(
 	}
 	const root = newDraft(project);
 	return keys.map((key) => {
-		const task = key === root ? null : key.slice(root.length + 1);
+		const task =
+			key === root
+				? null
+				: key.slice(root.length).split(":draft=")[0]?.slice(1) || null;
 		const place =
 			key === shown && startsOne(open) && open !== null
 				? open
@@ -88,7 +92,7 @@ export function useUnstarted(
 			key,
 			open: place,
 			agent: agentFor(place, agents, conversations),
-			task,
+			task: taskFor(place),
 			current: key === shown,
 		};
 	});

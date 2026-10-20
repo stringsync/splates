@@ -10,7 +10,7 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
-import { NewMenu } from "./new-menu";
+import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
 import { PAGES, type Page } from "./page-route";
@@ -87,7 +87,11 @@ export function AppNav({
 				)}
 			>
 				{available && (
-					<NewMenu feed={talk} terminals={terminals} onOpen={onOpen} />
+					<NewConversation
+						drafts={drafts}
+						terminals={terminals}
+						onOpen={onOpen}
+					/>
 				)}
 				{PAGES.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger

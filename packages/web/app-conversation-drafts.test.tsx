@@ -60,7 +60,13 @@ describe("App's composer drafts", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe("half a thought"));
 		await openRow(view, "Tidy tests");
 		await waitFor(() => expect(textIn(box(view))).toBe("another"));
-		await newWith(view, "Claude");
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /New conversation/ }),
+			),
+		);
 		await waitFor(() => expect(textIn(box(view))).toBe("a fresh start"));
 	});
 
@@ -88,7 +94,13 @@ describe("App's composer drafts", () => {
 				{ method: "POST", body: { text: "see [Image 1]", file: [shot] } },
 			]),
 		);
-		await newWith(again, "Claude");
+		await act(async () =>
+			fireEvent.click(
+				within(
+					again.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /New conversation/ }),
+			),
+		);
 		await waitFor(() => expect(textIn(box(again))).toBe("and [File 1] "));
 		testing.reply = conversation({ id: "c9", task: null, status: "starting" });
 		await act(async () => fireEvent.keyDown(box(again), { key: "Enter" }));
@@ -225,6 +237,7 @@ describe("App's composer drafts", () => {
 		expect(view.queryByText("Couldn't send")).toBeNull();
 	});
 
+	// scry-ignore simple-test-setup: only this case needs a conversation asking a question
 	it("keeps what was typed into a question's box while away", async () => {
 		const asking = conversation({
 			id: "c1",

@@ -293,15 +293,17 @@ export class Drafts implements Eventful<DraftsEvents> {
 /**
  * The key of the draft for a conversation not started yet, one per project
  * (every project's page is on the same origin, so shares one storage), and
- * one more per task for one to start in that task's tree.
+ * one more per task for one to start in that task's tree. An identity keeps
+ * additional new conversations separate within the same tree.
  */
 export function newDraft(
 	project: string | null,
 	task: string | null = null,
+	identity: string | null = null,
 ): string {
-	return task === null
-		? `new:${project ?? ""}`
-		: `new:${project ?? ""}:${task}`;
+	const key =
+		task === null ? `new:${project ?? ""}` : `new:${project ?? ""}:${task}`;
+	return identity === null ? key : `${key}:draft=${identity}`;
 }
 
 /** The key of the todo being added at the foot of `lane`, null the untriaged one. */
