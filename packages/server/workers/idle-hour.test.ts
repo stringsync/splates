@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
+import { HOUR_END_MARGIN } from "./idle";
 import { idleWorker } from "./idle-testing";
-import { HOUR_END_MARGIN } from "./provisioning";
 
 describe("idle made workers billed by the hour", () => {
 	let fixture: Awaited<ReturnType<typeof idleWorker>>;

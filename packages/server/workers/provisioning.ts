@@ -16,40 +16,19 @@ import type {
 	WorkerAlert,
 	WorkerBudget,
 } from "./budget";
+import { BUDGET_EVERY, lookAtBudget } from "./budget-stop";
+import { ComingWorkers } from "./coming";
+import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
+import { type ProvisionOptions, pickType } from "./pick-type";
 import type { WorkerProvider, WorkerType } from "./provider";
+import { ProviderReconciler, SWEEP_EVERY } from "./reconcile";
 import type { WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
-import type { HeldSlot, Platform, Scheduler } from "./scheduler";
-import { SNAPSHOT_SPLATES, type Snapshots, snapshotRecipe } from "./snapshot";
+import type { HeldSlot, Scheduler } from "./scheduler";
+import { SNAPSHOT_SPLATES, type Snapshots } from "./snapshot";
 
 /** How long placement waits after a failed provision before it asks the provider again. */
 export const PROVISION_BACKOFF = Duration.mins(5);
-
-/** How often the budget is looked at again as time passes, for its alerts and hard stop. */
-export const BUDGET_EVERY = Duration.mins(1);
-
-/** How often the provider is squared with the records, for machines lost or left behind. */
-export const SWEEP_EVERY = Duration.mins(5);
-
-/**
- * How long a machine no record knows is seen before it is destroyed: a
- * worker's record is written before its machine is asked for, so such a
- * machine is one a failed or interrupted provision left, but a second look
- * keeps a slow listing from costing a worker.
- */
-export const ORPHAN_AFTER = Duration.mins(10);
-
-/** How long a made worker may be idle before it is destroyed, unless its provider says otherwise. */
-export const DEFAULT_IDLE_AFTER = Duration.mins(15);
-
-/**
- * How much of a paid hour is left when an idle worker billed by the hour is
- * destroyed: enough for the destroy to finish before the next hour starts,
- * so it is never billed for one more.
- */
-export const HOUR_END_MARGIN = Duration.mins(5);
-
-const HOUR = Duration.hrs(1);
 
 /** A worker a provider was asked to make. */
 export interface Provisioned {
@@ -84,27 +63,22 @@ export class WorkerProvisioning
 {
 	private readonly dispatcher = new Dispatcher<WorkerProvisioningEvents>();
 	readonly events = this.dispatcher.events;
-	/** Slots of the workers asked for that have yet to dial, by id. */
-	private readonly coming = new Map<string, number>();
+	private readonly coming = new ComingWorkers();
 	private watching: (() => void) | null = null;
 	private asking = false;
 	private failedAt: number | null = null;
 	private readonly wall: WallClock;
 	private tick: Resource | null = null;
 	private sweeping: Resource | null = null;
-	/** The workers whose machine is being asked for now, which the provider may not list yet. */
-	private readonly creating = new Set<string>();
-	/** When each machine no record knows was first seen, by id. */
-	private readonly unknownSince = new Map<string, number>();
+	private readonly reconciler: ProviderReconciler;
 	private offering: RaiseOffer | null = null;
 	private scheduler: Scheduler | null = null;
-	/** When each made worker was first seen idle, by id; absent while it is busy. */
-	/** The platform of each type the provider has made, for what a queued agent could take. */
-	private readonly platforms = new Map<string, Platform>();
-	private readonly idleSince = new Map<string, number>();
+	private readonly idle: IdleWorkers;
 
 	constructor(private readonly opts: WorkerProvisioningOptions) {
 		this.wall = opts.wall ?? new SystemWallClock();
+		this.reconciler = new ProviderReconciler({ ...opts, wall: this.wall });
+		this.idle = new IdleWorkers(opts.records, this.wall);
 	}
 
 	get budget(): WorkerBudget {
@@ -143,7 +117,7 @@ export class WorkerProvisioning
 	 */
 	async provision(opts: ProvisionOptions = {}): Promise<Provisioned> {
 		const { provider, snapshots, records, registry } = this.opts;
-		const type = pick(await provider.types(), opts);
+		const type = pickType(await provider.types(), opts);
 		const coordinator = this.opts.coordinator();
 		if (coordinator === null) {
 			throw new Error(
@@ -164,40 +138,39 @@ export class WorkerProvisioning
 			},
 		});
 		registry.expect(id, "provisioned");
-		this.coming.set(id, type.slots);
+		this.coming.expect(id, type.slots);
 		const { token } = await records.invite(
 			(await this.opts.access?.mint()) ?? null,
 		);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
-		this.creating.add(id);
 		try {
-			await provider.create({
-				id,
-				type: type.name,
-				snapshot: snapshot.id,
-				boot: [
-					SNAPSHOT_SPLATES,
-					"worker",
-					"run",
-					"--coordinator",
-					coordinator,
-					"--id",
+			await this.reconciler.creating(id, () =>
+				provider.create({
 					id,
-					"--slots",
-					String(type.slots),
-					"--join",
-					token,
-					"--ephemeral",
-				],
-			});
+					type: type.name,
+					snapshot: snapshot.id,
+					boot: [
+						SNAPSHOT_SPLATES,
+						"worker",
+						"run",
+						"--coordinator",
+						coordinator,
+						"--id",
+						id,
+						"--slots",
+						String(type.slots),
+						"--join",
+						token,
+						"--ephemeral",
+					],
+				}),
+			);
 		} catch (error) {
-			this.coming.delete(id);
+			this.coming.forget(id);
 			registry.forget(id);
 			await records.remove(id);
 			await this.opts.budget.ended(id);
 			throw error;
-		} finally {
-			this.creating.delete(id);
 		}
 		this.opts.log.info(
 			`provisioned ${id}, a ${type.name} at $${type.dollarsPerHour.toFixed(2)}/hour`,
@@ -207,8 +180,8 @@ export class WorkerProvisioning
 
 	/** Destroys the machine of worker `id`, one a provider made. */
 	async destroy(id: string): Promise<void> {
-		this.coming.delete(id);
-		this.idleSince.delete(id);
+		this.coming.forget(id);
+		this.idle.forget(id);
 		await this.opts.provider.destroy(id);
 		await this.opts.budget.ended(id);
 	}
@@ -220,59 +193,8 @@ export class WorkerProvisioning
 	 * interrupted provision left; then the provider sweeps what it leaves
 	 * outside its machines. Answers the workers forgotten.
 	 */
-	async reconcile(): Promise<string[]> {
-		const { provider, records, registry, log } = this.opts;
-		const machines = await provider.list();
-		const exists = new Set(machines.map((machine) => machine.id));
-		const gone: string[] = [];
-		for (const record of records.all) {
-			if (
-				record.provisioned !== null &&
-				!exists.has(record.id) &&
-				!this.creating.has(record.id)
-			) {
-				await records.remove(record.id);
-				await this.opts.budget.ended(record.id);
-				if (record.access !== null) {
-					await this.opts.access
-						?.revoke(record.access)
-						.catch((error: unknown) => {
-							log.error(
-								`could not revoke ${record.id}'s service token ${record.access}: ${String(error)}`,
-							);
-						});
-				}
-				registry.forget(record.id);
-				gone.push(record.id);
-			}
-		}
-		const now = this.wall.now();
-		const unknown = new Set<string>();
-		for (const machine of machines) {
-			if (records.of(machine.id) !== undefined) {
-				continue;
-			}
-			unknown.add(machine.id);
-			const since = this.unknownSince.get(machine.id);
-			if (since === undefined) {
-				this.unknownSince.set(machine.id, now);
-				log.info(
-					`the worker provider has a machine ${machine.id} that splates has no record of: destroying it if it is still so in ${ORPHAN_AFTER.mins} minutes`,
-				);
-			} else if (now - since >= ORPHAN_AFTER.ms) {
-				await provider.destroy(machine.id);
-				log.info(`destroyed ${machine.id}, a machine left without a record`);
-			}
-		}
-		for (const id of this.unknownSince.keys()) {
-			if (!unknown.has(id)) {
-				this.unknownSince.delete(id);
-			}
-		}
-		for (const swept of (await provider.sweep?.()) ?? []) {
-			log.info(`the worker provider deleted ${swept}, left behind`);
-		}
-		return gone;
+	reconcile(): Promise<string[]> {
+		return this.reconciler.reconcile();
 	}
 
 	/**
@@ -290,7 +212,7 @@ export class WorkerProvisioning
 					`who ran on made workers could not be kept: ${String(error)}`,
 				);
 			});
-			this.track(scheduler);
+			this.idle.track(scheduler);
 			void this.fill(scheduler);
 		});
 		const timer = this.opts.timer ?? new SystemTimer();
@@ -316,111 +238,37 @@ export class WorkerProvisioning
 	 * it allows again, and fills the queue as far as it now allows.
 	 */
 	async look(scheduler: Scheduler): Promise<void> {
-		const { budget, records, stop, log } = this.opts;
 		try {
-			for (const alert of await budget.alerts()) {
-				this.dispatcher.dispatch("alert", alert);
-			}
-			const stopped = budget.stopped();
-			const running = records.all.filter(
-				(each) => each.provisioned !== null && !each.removing,
+			await lookAtBudget(
+				{
+					alert: (alert) => this.dispatcher.dispatch("alert", alert),
+					stopping: (stopped) => this.dispatcher.dispatch("stopping", stopped),
+					carrying: (carried) => this.dispatcher.dispatch("carrying", carried),
+				},
+				this.opts,
 			);
-			if (stopped !== null && running.length > 0 && stop !== undefined) {
-				log.info(
-					`${stopped}: stopping made workers ${running.map((each) => each.id).join(", ")}`,
-				);
-				const held = await stop(running.map((each) => each.id));
-				if (held.length > 0) {
-					await budget.hold(
-						held.map((each) => ({
-							project: each.project,
-							conversation: each.id,
-						})),
-					);
-					this.dispatcher.dispatch("stopping", { reason: stopped, held });
-				}
-			}
-			if (stopped === null && budget.held.length > 0) {
-				const held = await budget.release();
-				log.info(
-					`the worker budget allows made workers again: carrying on ${held.map((each) => each.conversation).join(", ")}`,
-				);
-				this.dispatcher.dispatch("carrying", { held });
-			}
 		} catch (error) {
-			log.error(`the worker budget could not be looked at: ${String(error)}`);
+			this.opts.log.error(
+				`the worker budget could not be looked at: ${String(error)}`,
+			);
 		}
 		await this.retire(scheduler);
 		await this.fill(scheduler);
 	}
 
-	/**
-	 * Notes which made workers are idle now, as it changes: none holds an
-	 * agent and none queued could take it, a worker still booting included.
-	 */
-	private track(scheduler: Scheduler): void {
-		const { records } = this.opts;
-		const now = this.wall.now();
-		const held = new Set(scheduler.held().map((each) => each.worker));
-		const queued = scheduler.queue();
-		const live = new Set<string>();
-		for (const record of records.all) {
-			if (record.provisioned === null || record.removing) {
-				continue;
-			}
-			live.add(record.id);
-			const platform = this.platforms.get(record.provisioned.type);
-			const wanted = queued.some(
-				(entry) => platform === undefined || entry.platform === platform,
-			);
-			if (held.has(record.id) || wanted) {
-				this.idleSince.delete(record.id);
-			} else if (!this.idleSince.has(record.id)) {
-				this.idleSince.set(record.id, now);
-			}
-		}
-		for (const id of this.idleSince.keys()) {
-			if (!live.has(id)) {
-				this.idleSince.delete(id);
-			}
-		}
-	}
-
-	/**
-	 * Destroys each made worker idle for its provider's `idleAfter`: at once
-	 * when its type bills by the second, else only in the last
-	 * `HOUR_END_MARGIN` of the hour it has paid for, counted from its creation.
-	 */
+	/** Destroys each made worker idle past its provider's `idleAfter`, as `IdleWorkers.due` says. */
 	private async retire(scheduler: Scheduler): Promise<void> {
-		const { records, provider, retire, log } = this.opts;
+		const { provider, retire, log } = this.opts;
 		if (retire === undefined) {
 			return;
 		}
 		try {
-			for (const type of await provider.types()) {
-				this.platforms.set(type.name, type.platform);
-			}
+			this.idle.learn(await provider.types());
 		} catch {
 			// A type no longer offered keeps the platform last seen.
 		}
-		this.track(scheduler);
-		const now = this.wall.now();
-		const after = (provider.idleAfter ?? DEFAULT_IDLE_AFTER).ms;
-		const due: string[] = [];
-		for (const [id, since] of this.idleSince) {
-			const made = records.of(id)?.provisioned;
-			if (made == null || now - since < after) {
-				continue;
-			}
-			if (made.billing === "hour") {
-				const sinceCreated = now - (made.createdAt ?? since);
-				const left = HOUR.ms - (sinceCreated % HOUR.ms);
-				if (left > HOUR_END_MARGIN.ms) {
-					continue;
-				}
-			}
-			due.push(id);
-		}
+		this.idle.track(scheduler);
+		const due = this.idle.due(provider.idleAfter ?? DEFAULT_IDLE_AFTER);
 		if (due.length === 0) {
 			return;
 		}
@@ -434,16 +282,9 @@ export class WorkerProvisioning
 			return;
 		}
 		const { registry, budget, provider, log } = this.opts;
-		for (const id of this.coming.keys()) {
-			if (registry.worker(id)?.connected !== false) {
-				this.coming.delete(id);
-			}
-		}
 		const waiting = scheduler.queue();
 		// A sleeping worker woken for the queue seats it before any is made.
-		const seats =
-			[...this.coming.values()].reduce((sum, slots) => sum + slots, 0) +
-			(this.opts.waking?.() ?? 0);
+		const seats = this.coming.seats(registry) + (this.opts.waking?.() ?? 0);
 		if (waiting.length <= seats) {
 			scheduler.withhold(null);
 			this.offering = null;
@@ -467,7 +308,7 @@ export class WorkerProvisioning
 				scheduler.withhold(null);
 				return;
 			}
-			const type = pick(types, {
+			const type = pickType(types, {
 				platform: first.platform,
 				agent: first.agent,
 				runs: (name) => holds(name, first.agent),
@@ -546,52 +387,4 @@ export interface WorkerProvisioningOptions {
 	log: Logger;
 	wall?: WallClock;
 	timer?: Timer;
-}
-
-/** What worker `WorkerProvisioning.provision` is asked for. */
-export interface ProvisionOptions {
-	/** The provider's type to make; by default its cheapest. */
-	type?: string;
-	/** The platform the cheapest must run; null or unset for any. */
-	platform?: Platform | null;
-	/** The agent it is made for, which says why none fits. */
-	agent?: string;
-	/** Whether workers of a type, by name, can run what it is made for; any can, unless said. */
-	runs?: (type: string) => boolean;
-}
-
-/**
- * The type `opts` asks for: the one it names, else the cheapest on its
- * platform among those splates can build a snapshot for whose workers hold
- * the key its agent runs on.
- */
-function pick(types: WorkerType[], opts: ProvisionOptions): WorkerType {
-	if (opts.type !== undefined) {
-		const named = types.find((each) => each.name === opts.type);
-		if (named === undefined) {
-			throw new Error(
-				`the worker provider makes no ${opts.type}: it makes ${types.map((each) => each.name).join(", ") || "nothing"}`,
-			);
-		}
-		return named;
-	}
-	const bootable = types.filter(
-		(each) =>
-			(opts.platform == null || each.platform === opts.platform) &&
-			snapshotRecipe(each.platform, "") !== null,
-	);
-	if (bootable.length === 0) {
-		throw new Error(
-			`the worker provider makes no worker splates can boot${opts.platform == null ? "" : ` on ${opts.platform}`}`,
-		);
-	}
-	const [cheapest] = bootable
-		.filter((each) => opts.runs?.(each.name) ?? true)
-		.sort((one, other) => one.dollarsPerHour - other.dollarsPerHour);
-	if (cheapest === undefined) {
-		throw new Error(
-			`no type of worker the provider makes holds a key for ${opts.agent ?? "its agent"}: add one for a type on the Creds page`,
-		);
-	}
-	return cheapest;
 }

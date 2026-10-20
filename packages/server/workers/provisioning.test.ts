@@ -4,7 +4,8 @@ import { Duration } from "webappwiz/time";
 import { FakeWallClock } from "webappwiz/time/testing";
 import { joinAccess } from "./access";
 import { WorkerBudget } from "./budget";
-import { ORPHAN_AFTER, WorkerProvisioning } from "./provisioning";
+import { WorkerProvisioning } from "./provisioning";
+import { ORPHAN_AFTER } from "./reconcile";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
 import { Scheduler } from "./scheduler";
@@ -48,29 +49,8 @@ describe("WorkerProvisioning", () => {
 	});
 
 	it("keeps who holds slots on made workers, for the budget's split", async () => {
-		const wall = new FakeWallClock();
-		const { made, budget } = await provisioning(
-			undefined,
-			undefined,
-			WorkerBudget.memory(wall),
-		);
-		const worker = await made.provision();
-		const scheduler = new Scheduler(
-			{
-				workers: () => [
-					{
-						id: worker.id,
-						kind: "provisioned",
-						slots: 4,
-						platform: "linux",
-						awake: true,
-						checkouts: true,
-						runs: () => true,
-					},
-				],
-			},
-			{ now: () => Date.now() },
-		);
+		const { made, budget, wall } = await provisioning();
+		const scheduler = schedulerOn((await made.provision()).id);
 		made.watch(scheduler);
 
 		await scheduler.take({
@@ -88,11 +68,10 @@ describe("WorkerProvisioning", () => {
 	});
 
 	it("counts nothing for a worker its provider failed to make", async () => {
-		const provider = new FakeWorkerProvider([...TYPES]);
+		const { provider, made, budget } = await provisioning();
 		provider.create = async () => {
 			throw new Error("quota");
 		};
-		const { made, budget } = await provisioning(provider);
 
 		await expect(made.provision()).rejects.toThrow("quota");
 		expect(budget.rate()).toBe(0);
@@ -105,18 +84,17 @@ describe("WorkerProvisioning", () => {
 	});
 
 	it("makes none without a URL to dial", async () => {
-		const { provider, made } = await provisioning(undefined, null);
+		const { provider, made } = await provisioning(null);
 
 		await expect(made.provision()).rejects.toThrow("tunnel");
 		expect(provider.getCalls()).toEqual([]);
 	});
 
 	it("forgets a worker its provider failed to make", async () => {
-		const provider = new FakeWorkerProvider([...TYPES]);
+		const { provider, records, registry, made } = await provisioning();
 		provider.create = async () => {
 			throw new Error("quota");
 		};
-		const { records, registry, made } = await provisioning(provider);
 
 		await expect(made.provision()).rejects.toThrow("quota");
 		expect(records.all).toEqual([]);
@@ -152,26 +130,9 @@ describe("WorkerProvisioning", () => {
 		expect(await provider.list()).toEqual([]);
 	});
 
-	it("never forgets a worker whose machine is still being asked for", async () => {
-		const provider = new FakeWorkerProvider([...TYPES]);
-		const { records, made } = await provisioning(provider);
-		const create = provider.create.bind(provider);
-		const forgotten: string[][] = [];
-		provider.create = async (spec) => {
-			forgotten.push(await made.reconcile());
-			return create(spec);
-		};
-
-		const worker = await made.provision();
-
-		expect(forgotten).toEqual([[]]);
-		expect(records.of(worker.id)).toBeDefined();
-	});
-
 	it("has the provider sweep what it left behind", async () => {
-		const provider = new FakeWorkerProvider([...TYPES]);
+		const { provider, made, log } = await provisioning();
 		provider.leftovers.push("a builder");
-		const { made, log } = await provisioning(provider);
 
 		await made.reconcile();
 
@@ -191,6 +152,26 @@ describe("WorkerProvisioning", () => {
 		expect(access.revoked).toEqual(["st-1"]);
 	});
 });
+
+/** A scheduler whose one worker is made worker `id`, of four slots. */
+function schedulerOn(id: string): Scheduler {
+	return new Scheduler(
+		{
+			workers: () => [
+				{
+					id,
+					kind: "provisioned",
+					slots: 4,
+					platform: "linux",
+					awake: true,
+					checkouts: true,
+					runs: () => true,
+				},
+			],
+		},
+		{ now: () => Date.now() },
+	);
+}
 
 /** The join token worker `id` was booted with. */
 function joinTokenOf(provider: FakeWorkerProvider, id: string): string {
@@ -225,11 +206,11 @@ const TYPES = [
 
 /** A `WorkerProvisioning` over `provider`, with what it keeps. */
 async function provisioning(
-	provider = new FakeWorkerProvider([...TYPES]),
 	coordinator: string | null = "https://splates.example.com",
-	budget = WorkerBudget.memory(),
 ) {
+	const provider = new FakeWorkerProvider([...TYPES]);
 	const wall = new FakeWallClock();
+	const budget = WorkerBudget.memory(wall);
 	const records = WorkerRecords.memory();
 	const log = new MemoryLogger();
 	const registry = new WorkerRegistry(new MemoryLogger());
