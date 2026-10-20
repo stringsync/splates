@@ -27,7 +27,7 @@ import { toWaiting, useArrived } from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
-import { BackgroundCard } from "./background";
+import { BackgroundCard, RunningBar } from "./background";
 import { ReplyContext } from "./card-reply";
 import { useChooseSetting } from "./choose-setting";
 import { useReply, useTyped } from "./composer-drafts";
@@ -356,6 +356,10 @@ function Conversation({
 															above={
 																<>
 																	<NeedsYouBar />
+																	<RunningBar
+																		conversation={id}
+																		background={conversation.background}
+																	/>
 
 																	<Refusal refusal={refusal} className="px-2" />
 																	{offer !== null && barred && (

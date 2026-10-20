@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { lineCard } from "./board";
 
 /**
  * Opens what a conversation's background command printed in the pane beside
@@ -116,6 +117,56 @@ export function BackgroundCard({
 				</button>
 			)}
 		</section>
+	);
+}
+
+/**
+ * A bar above the composer while the agent has commands running in the
+ * background, each command a chip opening what it printed in the pane, as
+ * its row in the card beside the thread does: so a conversation that looks
+ * idle says what it is waiting on. Nothing once none run.
+ */
+export function RunningBar({
+	conversation,
+	background,
+}: {
+	conversation: string;
+	background: Background[];
+}): JSX.Element | null {
+	const watch = useContext(WatchBackground);
+	const running = background.filter((each) => each.state === "running");
+	if (running.length === 0 || watch === null) {
+		return null;
+	}
+	return (
+		<aside
+			aria-label="Running in the background"
+			className={cn(
+				"flex items-center gap-2 rounded-lg border bg-card pl-3 text-sm shadow-xs",
+				lineCard,
+			)}
+		>
+			<RunningSpinner />
+			<span className="shrink-0 text-muted-foreground">Running</span>
+			<ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+				{running.map((each) => (
+					<li key={each.id} className="min-w-0 max-w-full">
+						<button
+							type="button"
+							title={
+								each.subagent === null
+									? each.name
+									: `${each.name}\nStarted by ${each.subagent.title}`
+							}
+							onClick={() => watch(conversation, each.id)}
+							className="flex h-7 max-w-full items-center rounded-md border bg-background px-2 font-mono text-xs shadow-xs transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none pointer-coarse:h-10 pointer-coarse:px-3"
+						>
+							<span className="truncate">{each.command ?? each.name}</span>
+						</button>
+					</li>
+				))}
+			</ul>
+		</aside>
 	);
 }
 

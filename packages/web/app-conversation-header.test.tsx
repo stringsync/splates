@@ -405,6 +405,60 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
+	it("says above the composer which commands run in the background, each opening its output", async () => {
+		const running = {
+			id: "b1",
+			name: "Start the dev server",
+			command: "bun dev",
+			subagent: null,
+			state: "running" as const,
+			output: "/tmp/b1.output",
+		};
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [
+					running,
+					{ ...running, id: "b2", name: "Lint", command: null },
+					{ ...running, id: "b3", command: "bun test", state: "completed" },
+				],
+			}),
+		]);
+		const bar = view.getByRole("complementary", {
+			name: "Running in the background",
+		});
+		expect(
+			within(bar)
+				.getAllByRole("button")
+				.map((chip) => [chip.textContent, chip.title]),
+		).toEqual([
+			["bun dev", "Start the dev server"],
+			["Lint", "Lint"],
+		]);
+
+		await act(async () =>
+			fireEvent.click(within(bar).getByRole("button", { name: "bun dev" })),
+		);
+		const pane = await waitFor(() =>
+			view.getByRole("complementary", { name: "background command" }),
+		);
+		expect(within(pane).getByRole("heading").textContent).toBe(
+			"Start the dev server",
+		);
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [{ ...running, state: "completed" }],
+			}),
+		);
+		expect(
+			view.queryByRole("complementary", { name: "Running in the background" }),
+		).toBeNull();
+	});
+
 	it("nests each command it left running under it in the sidebar, opening its output from there", async () => {
 		const running = {
 			id: "b1",
