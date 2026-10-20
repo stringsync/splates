@@ -4,6 +4,7 @@ import {
 	type Hook,
 	HookStore,
 	hookAdd,
+	hookAudit,
 	hookEdit,
 	hookGroomer,
 	hookList,
@@ -232,6 +233,52 @@ splatesHook
 			);
 		}
 		await hookGroomer({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null);
+	});
+
+splatesHook
+	.command("audit")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"turn on the notes audit, built-in automation `notes-audit`, or set the agent it runs as and its schedule, as the Automations page does: on each run, an agent in the main tree reads each project note no open task names by its path, checks it against the code and the other notes, and defers a task for each one gone stale or contradicting another, never fixing one itself. Off by default, since each run reads code for every note on your tokens; it runs every 7d until you set `--every` or `--cron`. `--off` turns it off",
+	)
+	.option("agent", z.string(), {
+		default: "",
+		description: "the agent it runs as, as `splates agents` names it",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "its model (default: the agent's own)",
+	})
+	.option("effort", z.string(), {
+		default: "",
+		description: "its thinking level (default: the agent's own)",
+	})
+	.option("every", z.string(), {
+		default: "",
+		description: "run every so often, as 1d (default: as it was, or 7d)",
+	})
+	.option("cron", z.string(), {
+		default: "",
+		description:
+			'run on a five-field cron line, in this machine\'s time, as "0 9 * * 1"',
+	})
+	.option("off", z.boolean(), {
+		default: false,
+		description: "turn it off",
+	})
+	.action(async (opts, ctx) => {
+		const pick = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
+		if (opts.off === (pick != null)) {
+			fail(
+				"usage",
+				"say how it runs with --agent, or turn it off with --off",
+				{},
+			);
+		}
+		await hookAudit({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null, {
+			every: opts.every,
+			cron: opts.cron,
+		});
 	});
 
 /** What sets the automation `splates hook add` adds off, refusing two triggers or none. */

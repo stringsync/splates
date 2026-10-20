@@ -50,6 +50,36 @@ describe("HookStore", () => {
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["1"]);
 	});
 
+	it("turns the notes audit on weekly, keeping its pause and schedule through a new pick", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+
+		await hooks.audit({ agent: "claude" });
+		expect((await hooks.read())[0]).toMatchObject({
+			id: "notes-audit",
+			source: "builtin",
+			trigger: { every: "7d" },
+			hook: { kind: "audit", agent: "claude" },
+		});
+
+		await hooks.audit({ agent: "claude" }, { cron: "0 9 * * 1" });
+		await hooks.pause("notes-audit", true);
+		await hooks.audit({ agent: "codex", model: "gpt" });
+		const audit = (await hooks.read())[0];
+		expect(audit).toMatchObject({
+			trigger: { cron: "0 9 * * 1" },
+			hook: { kind: "audit", agent: "codex", model: "gpt" },
+			paused: true,
+		});
+		// The new schedule counts from when it was set.
+		expect(audit?.editedAt).toBeString();
+
+		await expect(
+			hooks.audit({ agent: "claude" }, { every: "soon" }),
+		).rejects.toThrow("no interval");
+		await hooks.audit(null);
+		expect(await hooks.read()).toEqual([]);
+	});
+
 	it("pauses one and lets it run again", async () => {
 		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });

@@ -42,6 +42,7 @@ export {
 export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
+	AUDIT,
 	CHECKPOINT,
 	DEFER,
 	DICTATED,

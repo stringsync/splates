@@ -67,6 +67,34 @@ describe("AutomationList", () => {
 		await editing;
 	});
 
+	it("shows the notes audit turned on at once, on the schedule picked, as the server says it stands", async () => {
+		const { api, settle } = held([TIDY]);
+		const list = new AutomationList(api);
+		await list.read();
+		expect(list.notesAudit).toBeNull();
+
+		const turning = list.audit({ agent: "claude" }, { every: "7d" });
+		expect(list.builtIn).toMatchObject([
+			{
+				id: "notes-audit",
+				trigger: { every: "7d" },
+				hook: { kind: "audit", agent: "claude" },
+				when: "",
+			},
+		]);
+		settle();
+		expect(await turning).toBe(true);
+		expect(list.notesAudit).toMatchObject({ when: "every 7d" });
+
+		const editing = list.audit({ agent: "claude" }, { cron: "0 9 * * 1" });
+		expect(list.notesAudit).toMatchObject({
+			trigger: { cron: "0 9 * * 1" },
+			when: "",
+		});
+		settle();
+		await editing;
+	});
+
 	it("says a refusal and goes back to what stands", async () => {
 		const { api, settle } = held([TIDY]);
 		const list = new AutomationList(api);
@@ -115,6 +143,19 @@ function held(rows: AutomationRow[]) {
 					source: "builtin",
 					when: "task.created in backlog",
 					does: `groom the backlog with ${pick.agent}`,
+				},
+			]),
+		audit: (pick, schedule) =>
+			write([
+				TIDY,
+				{
+					...TIDY,
+					id: "notes-audit",
+					trigger: schedule,
+					hook: { kind: "audit", ...pick },
+					source: "builtin",
+					when: "every" in schedule ? `every ${schedule.every}` : "cron",
+					does: `audit the project notes with ${pick.agent}`,
 				},
 			]),
 	};

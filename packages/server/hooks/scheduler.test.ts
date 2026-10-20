@@ -3,6 +3,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { MemoryStorage } from "../storage/testing";
+import { AUDIT_TRIGGER } from "./audit";
 import { RunStore } from "./runs";
 import { Scheduler } from "./scheduler";
 import type { Automation } from "./store";
@@ -30,6 +31,9 @@ describe("Scheduler", () => {
 				},
 				groom: async () => {
 					ran.push("groom");
+				},
+				audit: async (hook) => {
+					ran.push(`audit with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -94,6 +98,23 @@ describe("Scheduler", () => {
 		clock.advance(Duration.hrs(1));
 		await running.look();
 		expect(ran).toEqual(["tidy"]);
+	});
+
+	it("starts the notes audit as its schedule comes due", async () => {
+		automations = [
+			{
+				id: "notes-audit",
+				trigger: AUDIT_TRIGGER,
+				hook: { kind: "audit", agent: "claude" },
+				createdAt: new Date(clock.now()).toISOString(),
+				source: "builtin",
+			},
+		];
+		const running = await start();
+		clock.advance(Duration.days(7));
+		await running.look();
+
+		expect(ran).toEqual(["audit with claude"]);
 	});
 
 	it("runs nothing paused", async () => {

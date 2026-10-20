@@ -15,7 +15,8 @@ import {
 	type TaskEventName,
 } from "../hooks";
 import { type AgentPick, effortSettings } from "../models";
-import { eventReference, scheduleReference } from "../plans";
+import { Notes, unclaimed } from "../notes";
+import { AUDIT, eventReference, scheduleReference } from "../plans";
 import type { Journal } from "../records";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
@@ -136,6 +137,22 @@ export class Automations implements Resource {
 	#fireDeps(conversations: Conversations): FireDeps {
 		const { ps, service, log } = this.#project;
 		const root = service.git.root;
+		const begin = async (pick: AgentPick, prompt: string): Promise<void> => {
+			const offered = (await conversations.settings())[pick.agent] ?? [];
+			const conversation = await conversations.start(pick.agent, {
+				task: null,
+				cwd: root,
+				model: pick.model,
+				settings: effortSettings(pick.effort, offered),
+				assigned: true,
+				capped: true,
+			});
+			void conversation
+				.prompt(prompt, [], undefined, { told: SERVER_TOLD })
+				.catch((error: unknown) =>
+					log.error(`a hook's agent could not start: ${String(error)}`),
+				);
+		};
 		return {
 			runs: this.#runs,
 			now: () => new Date().toISOString(),
@@ -152,23 +169,23 @@ export class Automations implements Resource {
 						);
 					}
 				},
-				agent: async (hook, fired) => {
-					const offered = (await conversations.settings())[hook.agent] ?? [];
-					const conversation = await conversations.start(hook.agent, {
-						task: null,
-						cwd: root,
-						model: hook.model,
-						settings: effortSettings(hook.effort, offered),
-						assigned: true,
-						capped: true,
-					});
-					void conversation
-						.prompt(`${referenceOf(fired)}\n\n${hook.prompt}`, [], undefined, {
-							told: SERVER_TOLD,
-						})
-						.catch((error: unknown) =>
-							log.error(`a hook's agent could not start: ${String(error)}`),
-						);
+				agent: (hook, fired) =>
+					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`),
+				// No agent, and none of the person's tokens, while every note
+				// has a task open for it already, or there are none.
+				audit: async (hook) => {
+					const notes = await new Notes(this.#project.fs).list(
+						root,
+						this.#project.config,
+					);
+					const paths = unclaimed(
+						notes,
+						root,
+						await this.#project.tasks.stored(),
+					);
+					if (paths.length > 0) {
+						await begin(pickOf(hook), auditPrompt(paths));
+					}
 				},
 				// Not awaited: the groomer works down the backlog turn by turn,
 				// while the hooks after it run.
@@ -197,6 +214,11 @@ function referenceOf(fired: Fired): string {
 	return "event" in fired
 		? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
 		: scheduleReference(fired.schedule);
+}
+
+/** What the notes audit's conversation opens with: the directive, then each note it reads. */
+function auditPrompt(paths: readonly string[]): string {
+	return `${AUDIT}\n\n${paths.map((path) => `- \`${path}\``).join("\n")}`;
 }
 
 /** The agent, model and thinking level a groom hook runs its groomer as. */

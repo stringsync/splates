@@ -1,7 +1,9 @@
+export { AUDIT_AUTOMATION, AUDIT_TRIGGER } from "./audit";
 export type { HookDeps } from "./commands";
 export {
 	described,
 	hookAdd,
+	hookAudit,
 	hookEdit,
 	hookGroomer,
 	hookLabel,

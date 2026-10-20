@@ -3,7 +3,10 @@ import type {
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
-import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
+import {
+	AUDIT_AUTOMATION,
+	GROOMER_AUTOMATION,
+} from "@stringsync/splates-server/hooks/browser";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { ApiError, scoped, send, sendJson } from "./api";
 
@@ -50,6 +53,19 @@ export async function groomAutomation(
 	return rows(
 		await sendJson(`/api/automations/${GROOMER_AUTOMATION}`, "PUT", {
 			hook: pick,
+		}),
+	);
+}
+
+/** Sets the agent the notes audit runs as and when, turning it on when it is off. */
+export async function auditAutomation(
+	pick: AgentPick,
+	schedule: { every: string } | { cron: string },
+): Promise<AutomationRow[]> {
+	return rows(
+		await sendJson(`/api/automations/${AUDIT_AUTOMATION}`, "PUT", {
+			hook: pick,
+			trigger: schedule,
 		}),
 	);
 }

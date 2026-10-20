@@ -1,6 +1,7 @@
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body } from "../server/shared";
+import { AUDIT_AUTOMATION } from "./audit";
 import { hookLabel, triggerLabel } from "./commands";
 import type { TaskEventName } from "./events";
 import { GROOMER_AUTOMATION } from "./groomer";
@@ -62,13 +63,19 @@ export class AutomationRoutes {
 	/**
 	 * Edits one of the person's automations or, named `groomer`, sets the
 	 * agent the groomer runs as, turning it on when it is off: its trigger
-	 * and its prompt are splates's own.
+	 * and its prompt are splates's own. Named `notes-audit`, it sets the
+	 * agent the notes audit runs as and its schedule, turning it on.
 	 */
 	readonly editAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook } = await body(request);
 		const id = idIn(request);
 		if (id === GROOMER_AUTOMATION) {
 			await this.#store.groomer(pickIn(hook));
+		} else if (id === AUDIT_AUTOMATION) {
+			await this.#store.audit(
+				pickIn(hook),
+				trigger === undefined ? undefined : scheduleIn(trigger),
+			);
 		} else {
 			await this.#store.edit(id, triggerIn(trigger), hookIn(hook));
 		}
@@ -106,10 +113,14 @@ export class AutomationRoutes {
 	}
 }
 
-/** The person's automation `/api/automations/<id>/...` names, or the groomer. */
+/** The person's automation `/api/automations/<id>/...` names, or a built-in one. */
 function idIn(request: Request): string {
 	const id = new URL(request.url).pathname.split("/")[3] ?? "";
-	if (!/^\d+$/.test(id) && id !== GROOMER_AUTOMATION) {
+	if (
+		!/^\d+$/.test(id) &&
+		id !== GROOMER_AUTOMATION &&
+		id !== AUDIT_AUTOMATION
+	) {
 		fail("usage", `no automation ${id}: only one of yours changes here`, {
 			id,
 		});
@@ -146,11 +157,20 @@ function triggerIn(raw: unknown): Trigger {
 		: { event, filter: narrowed };
 }
 
-/** The agent a request sent the groomer to run as, refusing none. */
+/** The schedule a request sent, refusing a task event or none; the store checks the rest. */
+function scheduleIn(raw: unknown): { every: string } | { cron: string } {
+	const trigger = triggerIn(raw);
+	if ("event" in trigger) {
+		fail("usage", "say when it runs: every or cron", {});
+	}
+	return trigger;
+}
+
+/** The agent a request sent a built-in automation to run as, refusing none. */
 function pickIn(raw: unknown): AgentPick {
 	const given = (raw ?? {}) as Record<string, unknown>;
 	if (typeof given.agent !== "string" || given.agent === "") {
-		fail("usage", "pick the agent the groomer runs as", {});
+		fail("usage", "pick the agent it runs as", {});
 	}
 	return {
 		agent: given.agent,

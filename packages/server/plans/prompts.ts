@@ -34,6 +34,12 @@ export function scheduleReference(automation: string): string {
 }
 
 /**
+ * What opens the conversation the notes audit starts, before the paths of
+ * the notes it reads: the splates skill says what it means.
+ */
+export const AUDIT = "[SPLATES AUDIT]";
+
+/**
  * What tells the project's groomer to groom backlog task `id`, which
  * `splates server` claimed for it: the splates skill says what it means.
  */

@@ -4,6 +4,7 @@ import type {
 	Trigger,
 } from "@stringsync/splates-server/hooks";
 import {
+	AUDIT_AUTOMATION,
 	GROOMER_AUTOMATION,
 	GROOMER_TRIGGER,
 } from "@stringsync/splates-server/hooks/browser";
@@ -11,6 +12,7 @@ import type { AgentPick } from "@stringsync/splates-server/models";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
 	addAutomation,
+	auditAutomation,
 	editAutomation,
 	groomAutomation,
 	pauseAutomation,
@@ -29,7 +31,11 @@ export interface AutomationsApi {
 	remove: (id: string) => Promise<AutomationRow[]>;
 	pause: (id: string, paused: boolean) => Promise<AutomationRow[]>;
 	groom: (pick: AgentPick) => Promise<AutomationRow[]>;
+	audit: (pick: AgentPick, schedule: AuditSchedule) => Promise<AutomationRow[]>;
 }
+
+/** When the notes audit runs: every so often, or on a cron line. */
+export type AuditSchedule = { every: string } | { cron: string };
 
 const API: AutomationsApi = {
 	read: readAutomations,
@@ -38,6 +44,7 @@ const API: AutomationsApi = {
 	remove: removeAutomation,
 	pause: pauseAutomation,
 	groom: groomAutomation,
+	audit: auditAutomation,
 };
 
 /**
@@ -74,6 +81,11 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 	/** The groomer, or null while it is off. */
 	get groomer(): AutomationRow | null {
 		return this.rows?.find((each) => each.id === GROOMER_AUTOMATION) ?? null;
+	}
+
+	/** The notes audit, or null while it is off. */
+	get notesAudit(): AutomationRow | null {
+		return this.rows?.find((each) => each.id === AUDIT_AUTOMATION) ?? null;
 	}
 
 	async read(): Promise<void> {
@@ -164,6 +176,38 @@ export class AutomationList implements Eventful<AutomationListEvents> {
 							},
 						],
 			() => this.api.groom(pick),
+		);
+	}
+
+	/**
+	 * Sets the agent the notes audit runs as and when, turning it on when it
+	 * is off, shown as being saved until the server says what it now is.
+	 */
+	audit(pick: AgentPick, schedule: AuditSchedule): Promise<boolean> {
+		const hook: Hook = { kind: "audit", ...pick };
+		return this.#change(
+			"Not saved",
+			(rows) =>
+				rows.some((each) => each.id === AUDIT_AUTOMATION)
+					? rows.map((each) =>
+							each.id === AUDIT_AUTOMATION
+								? { ...each, trigger: schedule, hook, when: "", does: "" }
+								: each,
+						)
+					: [
+							...rows,
+							{
+								id: AUDIT_AUTOMATION,
+								trigger: schedule,
+								hook,
+								createdAt: new Date().toISOString(),
+								source: "builtin",
+								when: "",
+								does: "",
+								runs: [],
+							},
+						],
+			() => this.api.audit(pick, schedule),
 		);
 	}
 

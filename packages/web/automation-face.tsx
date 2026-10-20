@@ -4,7 +4,10 @@ import type {
 	Hook,
 	Trigger,
 } from "@stringsync/splates-server/hooks";
-import { GROOMER_AUTOMATION } from "@stringsync/splates-server/hooks/browser";
+import {
+	AUDIT_AUTOMATION,
+	GROOMER_AUTOMATION,
+} from "@stringsync/splates-server/hooks/browser";
 import { ClockIcon, ListTodoIcon, TerminalIcon, ZapIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
@@ -44,7 +47,8 @@ export interface RunOpens {
 
 /**
  * What an automation is, beside its buttons: its mark, what sets it off,
- * who or what it runs, and when it last ran. The groomer goes by its name.
+ * who or what it runs, and when it last ran. The groomer and the notes
+ * audit go by their names.
  */
 export function AutomationFace({
 	row,
@@ -56,7 +60,12 @@ export function AutomationFace({
 	const adding = row.id === "";
 	// Blank until the server labels what was added or saved.
 	const pending = row.when === "";
-	const groomer = row.id === GROOMER_AUTOMATION;
+	const named =
+		row.id === GROOMER_AUTOMATION
+			? "Groomer"
+			: row.id === AUDIT_AUTOMATION
+				? "Notes audit"
+				: null;
 	const when = adding ? "Adding…" : pending ? "Saving…" : row.when;
 	const last = row.runs.at(-1);
 	return (
@@ -64,8 +73,8 @@ export function AutomationFace({
 			<AutomationMark trigger={row.trigger} />
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-					{groomer ? (
-						<span className="font-medium">Groomer</span>
+					{named !== null ? (
+						<span className="font-medium">{named}</span>
 					) : (
 						<>
 							{!adding && (
@@ -78,9 +87,13 @@ export function AutomationFace({
 					)}
 					{row.paused === true && <Badge variant="secondary">Paused</Badge>}
 				</div>
-				{groomer && (
+				{named !== null && (
 					<p className="text-muted-foreground text-xs">
-						{pending ? when : `On ${when}`}
+						{pending
+							? when
+							: "event" in row.trigger
+								? `On ${when}`
+								: when.replace(/^./, (first) => first.toUpperCase())}
 					</p>
 				)}
 				<Runs hook={row.hook} does={row.does} />

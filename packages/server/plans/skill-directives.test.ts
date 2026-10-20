@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
+	AUDIT,
 	CHECKPOINT,
 	DEFER,
 	demoReference,
@@ -35,6 +36,7 @@ describe("the splates skill's Directives table", () => {
 				eventReference("<event>", [0], "<task>").replace("0", "N"),
 				scheduleReference("<n>"),
 				groomReference(0).replace("0", "N"),
+				AUDIT,
 			].toSorted(),
 		);
 	});

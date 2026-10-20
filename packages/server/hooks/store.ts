@@ -3,6 +3,7 @@ import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";
+import { AUDIT_AUTOMATION, AUDIT_TRIGGER } from "./audit";
 import { TASK_EVENTS, type TaskEventName } from "./events";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 import { scheduleOf } from "./schedule";
@@ -15,7 +16,9 @@ export type Hook =
 	| ({ kind: "agent"; prompt: string } & AgentPick)
 	| { kind: "run"; command: string }
 	/** The project's groomer, told to groom the backlog, as built-in automation `groomer` runs. */
-	| ({ kind: "groom" } & AgentPick);
+	| ({ kind: "groom" } & AgentPick)
+	/** An agent told to audit the project notes, as built-in automation `notes-audit` runs. */
+	| ({ kind: "audit" } & AgentPick);
 
 /** Which tasks an event hook fires for; a field left out matches any. */
 export interface TaskFilter {
@@ -44,7 +47,7 @@ export interface Automation {
 	paused?: boolean;
 	/** When it was set, which a schedule counts its first run from. */
 	createdAt: string;
-	/** When its trigger last changed, which a schedule counts from in place of an earlier run. */
+	/** When its trigger last changed: its schedule counts from then, not from a run before. */
 	editedAt?: string;
 	/** Where it comes from: the person, by default; the project's config, or splates itself. */
 	source?: "config" | "builtin";
@@ -142,6 +145,48 @@ export class HookStore {
 				hook: { kind: "groom", ...pick },
 				createdAt: was?.createdAt ?? new Date().toISOString(),
 				source: "builtin",
+				...(was?.paused === true ? { paused: true } : {}),
+			};
+			return [...rest, set];
+		});
+		return set;
+	}
+
+	/**
+	 * Turns the notes audit on, running as `pick` on `trigger`, or off for
+	 * null: built-in automation `notes-audit`, which keeps its pause and, given
+	 * no trigger, its schedule through a change of pick. What it is told is
+	 * splates's own.
+	 */
+	async audit(
+		pick: AgentPick | null,
+		trigger?: { every: string } | { cron: string },
+	): Promise<Automation | null> {
+		if (trigger !== undefined) {
+			checked(trigger);
+		}
+		let set: Automation | null = null;
+		await this.change((automations) => {
+			const was = automations.find(({ id }) => id === AUDIT_AUTOMATION);
+			const rest = automations.filter((each) => each !== was);
+			if (pick === null) {
+				return rest;
+			}
+			const kept = trigger ?? was?.trigger ?? AUDIT_TRIGGER;
+			const retriggered =
+				was !== undefined &&
+				JSON.stringify(was.trigger) !== JSON.stringify(kept);
+			set = {
+				id: AUDIT_AUTOMATION,
+				trigger: kept,
+				hook: { kind: "audit", ...pick },
+				createdAt: was?.createdAt ?? new Date().toISOString(),
+				source: "builtin",
+				...(retriggered
+					? { editedAt: new Date().toISOString() }
+					: was?.editedAt === undefined
+						? {}
+						: { editedAt: was.editedAt }),
 				...(was?.paused === true ? { paused: true } : {}),
 			};
 			return [...rest, set];
