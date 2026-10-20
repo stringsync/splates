@@ -153,24 +153,4 @@ describe("App on a touch device", () => {
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1);
 	});
-
-	it("sends nothing queued on Return with nothing typed", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					status: "running",
-					messages: [
-						message("user", "go"),
-						{ ...message("user", "the second note"), queued: true },
-					],
-				}),
-			],
-			"c1",
-		);
-		const box = view.getByRole("textbox", { name: "Message input" });
-
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
-	});
 });

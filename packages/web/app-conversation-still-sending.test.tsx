@@ -39,8 +39,8 @@ describe("App's messages still sending", () => {
 	});
 
 	it("says a message is still sending once it goes unanswered for a few seconds", async () => {
-		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).queryByText(/Sending…/)).toBeNull();
+		const thread = view.getByRole("region", { name: "Login" });
+		expect(within(thread).queryByText(/Sending…/)).toBeNull();
 
 		await act(async () => {
 			testing.wall.advance(Duration.secs(4));
@@ -51,11 +51,11 @@ describe("App's messages still sending", () => {
 			);
 		});
 
-		expect(within(queued).getByText("Sending… times out in 26s")).toBeTruthy();
+		expect(within(thread).getByText("Sending… times out in 26s")).toBeTruthy();
 	});
 
 	it("counts down each second and offers Retry and Edit when the deadline passes", async () => {
-		const queued = view.getByRole("region", { name: "queued messages" });
+		const thread = view.getByRole("region", { name: "Login" });
 		await act(async () => {
 			testing.wall.advance(Duration.secs(3));
 			testing.timer.fireTimeout(
@@ -64,7 +64,7 @@ describe("App's messages still sending", () => {
 				),
 			);
 		});
-		expect(within(queued).getByText("Sending… times out in 27s")).toBeTruthy();
+		expect(within(thread).getByText("Sending… times out in 27s")).toBeTruthy();
 		await act(async () => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeout(
@@ -73,7 +73,7 @@ describe("App's messages still sending", () => {
 				),
 			);
 		});
-		expect(within(queued).getByText("Sending… times out in 26s")).toBeTruthy();
+		expect(within(thread).getByText("Sending… times out in 26s")).toBeTruthy();
 		await act(async () => {
 			testing.wall.advance(Duration.secs(26));
 			testing.timer.fireTimeouts();
@@ -122,11 +122,11 @@ describe("App's messages still sending", () => {
 
 		await act(async () => testing.release());
 
-		const queued = view.getByRole("region", { name: "queued messages" });
+		const thread = view.getByRole("region", { name: "Login" });
 		await waitFor(() =>
-			expect(within(queued).queryByText(/Sending…/)).toBeNull(),
+			expect(within(thread).queryByText(/Sending…/)).toBeNull(),
 		);
-		expect(within(queued).getAllByText("and the logout")).toHaveLength(1);
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 		await act(async () => {
 			testing.wall.advance(Duration.secs(30));
 			testing.timer.fireTimeouts();
@@ -144,6 +144,5 @@ describe("App's messages still sending", () => {
 			expect(within(thread).getByText("Couldn't send")).toBeTruthy(),
 		);
 		expect(within(thread).getByRole("button", { name: "Retry" })).toBeTruthy();
-		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
 	});
 });

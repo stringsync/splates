@@ -163,10 +163,11 @@ export const AssistantMessage: FC = () => {
 };
 /**
  * The shimmering Working label under a busy reply, there while its text streams
- * too, except under streaming reasoning, or in a turn whose row of what the
- * agent is doing still says Working above the reply.
+ * too, except under streaming reasoning, in a turn whose row of what the
+ * agent is doing still says Working above the reply, or under the Queued row
+ * of what waits for the turn: the turn itself says it works.
  */
-const WorkingIndicator: FC = () => {
+export const WorkingIndicator: FC = () => {
 	const labelled = useAuiState((s) => {
 		const last = s.message.parts.at(-1);
 		return (
@@ -174,8 +175,10 @@ const WorkingIndicator: FC = () => {
 			s.message.parts.some(
 				(part) =>
 					part.type === "data" &&
-					part.name === "work" &&
-					(part.data as { work: Work }).work.working,
+					((part.name === "work" &&
+						(part.data as { work: Work }).work.working) ||
+						(part.name === "queued" &&
+							(part.data as { until: string | null }).until === null)),
 			)
 		);
 	});

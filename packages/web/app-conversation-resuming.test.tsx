@@ -41,16 +41,8 @@ describe("App's sending to a stopped conversation", () => {
 		await waitFor(() =>
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
 		);
-		const queued = within(thread).getByRole("region", {
-			name: "queued messages",
-		});
-		expect(within(queued).getByText("and the signup")).toBeTruthy();
-		// The server has nothing of it to take back yet.
-		const discard = within(queued).getByRole("button", {
-			name: "Discard and the signup",
-		}) as HTMLButtonElement;
-		expect(discard.disabled).toBe(true);
-
+		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
+		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
 		await testing.say(
 			conversation({
 				title: "Login",
@@ -70,7 +62,6 @@ describe("App's sending to a stopped conversation", () => {
 			}),
 		);
 
-		await waitFor(() => expect(discard.disabled).toBe(false));
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
 	});

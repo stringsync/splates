@@ -3,8 +3,11 @@ import {
 	type ThreadMessageLike,
 } from "@assistant-ui/react";
 import type { Message } from "@stringsync/splates-server/conversations";
+import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
+import { taskNumberReference } from "@stringsync/splates-server/plans/browser";
 import { CheckIcon, HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
+import { WorkingIndicator } from "#web/components/assistant-ui/elements/thread-assistant-message.aui.tsx";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { span } from "./work";
@@ -16,6 +19,15 @@ export const QueuedUI = makeAssistantDataUI<{
 }>({
 	name: "queued",
 	render: ({ data }) => <QueuedTime at={data.at} until={data.until} />,
+});
+
+/**
+ * Says Working under a turn still going with messages queued after it, as
+ * `working` marks it: register it with the thread's other data parts.
+ */
+export const GoingUI = makeAssistantDataUI<Record<string, never>>({
+	name: "going",
+	render: () => <WorkingIndicator />,
 });
 
 /** Queue time stays before the reply's work, ticking until the prompt reaches the agent. */
@@ -46,6 +58,45 @@ export function queuedReply(
 					: reply.content),
 		],
 	};
+}
+
+/**
+ * What the conversation held for queued task `id` will ask its agent, as
+ * splates says it, queued since the conversation began.
+ */
+export function heldPrompt(id: number, at: string): Message {
+	return {
+		role: "user",
+		parts: [{ type: "text", text: taskNumberReference(id) }],
+		plan: null,
+		at,
+		until: at,
+		queued: true,
+		told: SERVER_TOLD,
+	};
+}
+
+/**
+ * `thread` with a `data-going` part on its last reply when `going`, its
+ * turn still running with messages queued after it, which take the place
+ * assistant-ui shows Working under.
+ */
+export function working(
+	thread: ThreadMessageLike[],
+	going: boolean,
+): ThreadMessageLike[] {
+	const last = thread.at(-1);
+	if (
+		!going ||
+		last?.role !== "assistant" ||
+		typeof last.content === "string"
+	) {
+		return thread;
+	}
+	return [
+		...thread.slice(0, -1),
+		{ ...last, content: [...last.content, { type: "data-going", data: {} }] },
+	];
 }
 
 function QueuedTime({

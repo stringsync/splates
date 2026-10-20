@@ -48,13 +48,12 @@ import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
 import { EventUI, lineOf } from "./event-lines";
-import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
-import { Queued, useQueueEdits } from "./queued";
-import { QueuedUI } from "./queued-time";
+import { useTakeBack } from "./queued";
+import { GoingUI, QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
@@ -173,12 +172,7 @@ function Conversation({
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
-	const { sendNow, edit, discard } = useQueueEdits(
-		id,
-		runtime,
-		section,
-		refused,
-	);
+	const edit = useTakeBack(id, runtime, section, refused);
 	const { actions, archive, startNew } = useThreadActions(
 		conversation,
 		task,
@@ -220,33 +214,15 @@ function Conversation({
 	);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
-	const touch = useTouch();
 	return (
 		<section
 			ref={section}
 			aria-label={nameOf(conversation)}
 			// Up in an empty composer takes back the last queued message, as a
-			// terminal brings back the last command. Enter with nothing typed
-			// sends what is queued now, as in Zed; ⌘⇧↵ (Ctrl+Shift+Enter) with
-			// something typed sends that now too, as `useThreadRuntime` steers. On the
-			// way down, so the composer is read before it sends and empties. A
-			// phone's Return only types a new line.
+			// terminal brings back the last command.
 			onKeyDownCapture={(event) => {
 				const box = event.target as HTMLElement;
 				const last = queued.at(-1);
-				if (
-					event.key === "Enter" &&
-					!touch &&
-					!event.shiftKey &&
-					box.getAttribute("aria-label") === "Message input" &&
-					runtime.thread.composer.getState().text === "" &&
-					queued.length > 0
-				) {
-					event.preventDefault();
-					event.stopPropagation();
-					void sendNow();
-					return;
-				}
 				if (
 					event.key === "ArrowUp" &&
 					box.getAttribute("aria-label") === "Message input" &&
@@ -319,6 +295,7 @@ function Conversation({
 										<DemoUI />
 										<WorkUI />
 										<QueuedUI />
+										<GoingUI />
 										<EventUI />
 										<StoppedUI />
 										<CompactionUI />
@@ -370,22 +347,6 @@ function Conversation({
 																		{offer !== null && barred && (
 																			<ArchiveBar offer={offer} />
 																		)}
-																		{queued.length > 0 &&
-																			conversation.status !== "starting" &&
-																			conversation.queued === null && (
-																				<Queued
-																					conversation={id}
-																					messages={queued}
-																					pending={feed.unrecorded(id)}
-																					edits={{
-																						onEdit: (index, message) =>
-																							void edit(index, message),
-																						onDiscard: (index) =>
-																							void discard(index),
-																						onSendNow: () => void sendNow(),
-																					}}
-																				/>
-																			)}
 																		{conversation.ask !== null && (
 																			<AskPanel
 																				key={conversation.ask.id}

@@ -4,11 +4,7 @@ import type {
 	Message,
 	Part,
 } from "@stringsync/splates-server/conversations";
-import { SERVER_TOLD } from "@stringsync/splates-server/conversations/browser";
-import {
-	type TaskReport,
-	taskNumberReference,
-} from "@stringsync/splates-server/plans/browser";
+import type { TaskReport } from "@stringsync/splates-server/plans/browser";
 import type { Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,7 +12,7 @@ import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
-import { queuedReply } from "./queued-time";
+import { heldPrompt, queuedReply, working } from "./queued-time";
 import { messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
 import { replyDue, stretchesOf } from "./work";
@@ -28,8 +24,7 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 /**
  * What a conversation's thread shows: its messages as assistant-ui takes
  * them, with the reply's place held while the agent has yet to speak, and
- * what waits for the turn's end apart, for above the composer. Startup-held
- * prompts use the normal thread so they are pinned before the agent starts.
+ * what waits for the turn's end after it, under a Queued row.
  */
 export function useThreadMessages(
 	conversation: ConversationState,
@@ -46,10 +41,7 @@ export function useThreadMessages(
 	// starting is coming back to answer a prompt, never to go on with the turn
 	// it last ended, which a lost connection may have cut short.
 	const writing = status === "running";
-	// What waits for the turn's end sits above the composer, not in the
-	// thread: the agent has yet to hear it, and the thread would take it for
-	// a turn the agent is answering. Startup-held messages are also shown
-	// in the thread, with a Queued placeholder until the first turn starts.
+	// What waits for the turn's end, which the person can take back.
 	const queued = conversation.messages.filter((each) => each.queued);
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);
@@ -78,7 +70,7 @@ export function useThreadMessages(
 		);
 		return () => timer.dispose();
 	}, [due, feed]);
-	const messages = useMemo(() => {
+	const built = useMemo(() => {
 		void shown;
 		const now = feed.wall.now();
 		const starting = conversation.status === "starting";
@@ -153,11 +145,55 @@ export function useThreadMessages(
 						),
 					]
 				: liked;
+		// What waits for the turn's end follows the turn it waits on, as sent,
+		// under a Queued row in its reply's place. Held or starting, it is in
+		// `said` already, waiting with the rest.
+		const waiting =
+			starting || held !== null
+				? []
+				: conversation.messages.filter((each) => each.queued);
+		const ended = working(
+			conversation.resting === true ? rested(thread) : thread,
+			running && waiting.length > 0,
+		);
+		// Sent from the page, the server has yet to say when: queued since the
+		// page sent it.
+		const lastWaiting = waiting.at(-1);
+		const pendingAt = (feed.sending.get(conversation.id) ?? []).findLast(
+			(each) => each.queued,
+		)?.at;
+		const waitedOn =
+			lastWaiting?.at === null && pendingAt !== undefined
+				? { ...lastWaiting, at: new Date(pendingAt).toISOString() }
+				: lastWaiting;
+		const lined =
+			waiting.length === 0
+				? ended
+				: [
+						...ended,
+						...waiting.map((message, at) =>
+							like(message, ended.length + at, conversation.id),
+						),
+						queuedReply(
+							like(
+								{
+									role: "agent",
+									parts: [],
+									plan: null,
+									at: null,
+									until: null,
+								},
+								ended.length + waiting.length,
+								conversation.id,
+							),
+							waitedOn,
+						),
+					];
 		// What the server refused, after all of it, as it would go if sent again.
-		return [
-			...(conversation.resting === true ? rested(thread) : thread),
+		const all = [
+			...lined,
 			...(unsent ?? []).map(({ message }, at) => {
-				const one = like(messageOf(message), thread.length, conversation.id);
+				const one = like(messageOf(message), lined.length, conversation.id);
 				return {
 					...one,
 					id: `unsent ${at}`,
@@ -165,6 +201,7 @@ export function useThreadMessages(
 				};
 			}),
 		];
+		return { all, last: waiting.length === 0 ? all.at(-1) : ended.at(-1) };
 	}, [
 		conversation.messages,
 		conversation.status,
@@ -185,13 +222,13 @@ export function useThreadMessages(
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so
 	// this holds what it was before.
+	const { all: messages, last } = built;
 	const [openAt] = useState(() =>
 		conversation.unread ? String(conversation.seen) : undefined,
 	);
 	// Its last word asks questions, escalates, or asks for a review, or it
 	// asks as it works: the card takes the focus, not the composer, unless it
-	// holds a draft.
-	const last = messages.at(-1);
+	// holds a draft. What is queued after it asks nothing.
 	const asking =
 		conversation.ask !== null ||
 		(last?.role === "assistant" &&
@@ -231,22 +268,6 @@ export function useThreadMessages(
 	};
 }
 
-/**
- * What the conversation held for queued task `id` will ask its agent, as
- * splates says it, queued since the conversation began.
- */
-function heldPrompt(id: number, at: string): Message {
-	return {
-		role: "user",
-		parts: [{ type: "text", text: taskNumberReference(id) }],
-		plan: null,
-		at,
-		until: at,
-		queued: true,
-		told: SERVER_TOLD,
-	};
-}
-
 /** What `useThreadMessages` gives a thread. */
 export interface ThreadMessages {
 	hasEarlier: boolean;
@@ -255,7 +276,7 @@ export interface ThreadMessages {
 	running: boolean;
 	/** Whether the last message is still being written. */
 	writing: boolean;
-	/** What waits for the turn's end, shown above the composer. */
+	/** What waits for the turn's end, shown in the thread after it. */
 	queued: Message[];
 	messages: ThreadMessageLike[];
 	/** The message to open at, the first unseen, or undefined for the bottom. */

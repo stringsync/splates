@@ -100,9 +100,15 @@ describe("App's sending messages", () => {
 				key: "Enter",
 			}),
 		);
-		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(within(queued).queryByText("first note")).toBeNull();
-		expect(within(queued).getByText("second note")).toBeTruthy();
+		const thread = view.getByRole("region", { name: "first note" });
+		expect(within(thread).getAllByText("first note")).toHaveLength(1);
+		expect(within(thread).getAllByText("second note")).toHaveLength(1);
+		const queued = within(thread)
+			.getByText(/^Queued \d+s$/)
+			.closest('[data-slot="aui_assistant-message-root"]');
+		expect(queued?.previousElementSibling?.textContent).toContain(
+			"second note",
+		);
 	});
 
 	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
@@ -397,22 +403,19 @@ describe("App's sending messages", () => {
 		return view;
 	}
 
-	it("shows a message sent mid-turn among the queued at once when the server will queue it", async () => {
+	it("shows a message sent mid-turn in the thread at once under a Queued row when the server will queue it", async () => {
 		const view = await sayMidTurn("queue");
 
-		const queued = view.getByRole("region", { name: "queued messages" });
-		expect(
-			within(queued)
-				.getAllByRole("listitem")
-				.map((each) => each.textContent),
-		).toEqual([expect.stringContaining("and the logout")]);
+		const thread = view.getByRole("region", { name: "Login" });
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(within(thread).getAllByText(/^Queued \d+s$/)).toHaveLength(1);
 	});
 
 	it("shows a message sent mid-turn in the thread at once when the server will steer it in", async () => {
 		const view = await sayMidTurn("steer");
 
-		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
 		expect(view.getAllByText("and the logout")).toHaveLength(1);
+		expect(view.queryByText(/^Queued \d+s$/)).toBeNull();
 	});
 
 	it("names the layout each message is sent from, for the Stats page", async () => {
