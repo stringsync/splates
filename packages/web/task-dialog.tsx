@@ -73,7 +73,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 			initialFocus={dialog}
 			className={cn(TASK_DIALOG, PHONE_SHEET)}
 		>
-			<Header task={task} retry={retry.note} />
+			<Header task={task} goal={plan.goal} retry={retry.note} />
 			<SectionTabs
 				value={tab}
 				onValueChange={(value) => setTab(value as Tab)}
@@ -132,21 +132,27 @@ type Tab = "overview" | "details";
  */
 function Header({
 	task,
+	goal,
 	retry,
 }: {
 	task: Details;
+	/** The Goal from its SPLATES.md, which the Overview shows already. */
+	goal: string;
 	/** What Retry in the footer gives, or gave, once it is out of merges. */
 	retry: ReactNode;
 }): JSX.Element {
 	const standing = useStanding(task);
 	const started = task.createdAt === null ? task.age : age(task.createdAt);
+	// A working agent's subject is mostly its Goal, which the Overview shows.
+	const why =
+		standing.why === null || sameText(standing.why, goal) ? null : standing.why;
 	return (
 		<DialogHeader className="gap-1.5">
-			<DialogTitle className="flex items-center gap-2 pr-8">
-				<TaskIcon aria-hidden className="size-4 shrink-0" />
-				<span className="min-w-0 break-words">{task.task}</span>
-			</DialogTitle>
-			<DialogDescription className="flex min-w-0 items-baseline gap-2 text-foreground">
+			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 pr-8">
+				<DialogTitle className="flex min-w-0 items-center gap-2">
+					<TaskIcon aria-hidden className="size-4 shrink-0" />
+					<span className="min-w-0 break-words">{task.task}</span>
+				</DialogTitle>
 				<span
 					className={cn(
 						"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
@@ -155,10 +161,12 @@ function Header({
 				>
 					{standing.label}
 				</span>
-				{standing.why !== null && (
-					<span className="min-w-0 text-sm">{standing.why}</span>
-				)}
-			</DialogDescription>
+			</div>
+			{why !== null && (
+				<DialogDescription className="min-w-0 text-foreground text-sm">
+					{why}
+				</DialogDescription>
+			)}
 			<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
 				<GitBranchIcon aria-hidden className="size-3 shrink-0" />
 				<span className="min-w-0 truncate" title={task.branch}>
@@ -192,6 +200,11 @@ function Header({
 			{retry}
 		</DialogHeader>
 	);
+}
+
+function sameText(one: string, other: string): boolean {
+	const flat = (text: string) => text.replace(/\s+/g, " ").trim();
+	return flat(one) === flat(other);
 }
 
 /** A task's standing: a word for it, and what it is about, when anything says. */
