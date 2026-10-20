@@ -6,7 +6,7 @@ import {
 	TrendingUpIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentBrand } from "./agent-icons";
@@ -16,14 +16,15 @@ import {
 	pauseBudget,
 	type RoleBudget,
 	raiseBudget,
-	budgets as readBudgets,
 	resumeBudget,
 	setBudget,
 } from "./api";
 import { EditForm, ends, PauseForm, RaiseForm } from "./budget-forms";
+import { BudgetReading } from "./budget-reading";
 import type { ConversationFeed } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
+import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
 import { TopBar } from "./top-bar";
@@ -51,22 +52,15 @@ const PLANS = [
  * them.
  */
 export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
-	const [budgets, setBudgets] = useState<Budgets | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const read = useCallback(() => {
-		readBudgets()
-			.then((read) => {
-				setBudgets(read);
-				setError(null);
-			})
-			.catch((caught: Error) => setError(caught.message));
-	}, []);
-	useEffect(read, [read]);
-	const changed = (change: Promise<Budgets>) =>
-		change.then((read) => {
-			setBudgets(read);
-			setError(null);
-		});
+	const reading = useReading("budgets", () => new BudgetReading());
+	const { budgets, error } = useReactive(
+		reading,
+		({ budgets, error }) => ({ budgets, error }),
+		["changed"],
+	);
+	// Read each time the page is shown, behind the last answer.
+	useEffect(() => void reading.refresh(), [reading]);
+	const changed = (change: Promise<Budgets>) => reading.changed(change);
 	return (
 		<section aria-label="budget" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Budget" />

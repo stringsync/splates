@@ -12,13 +12,14 @@ import { ProjectFeeds, type ProjectFeedsOptions } from "./project-feeds";
  */
 export function ProjectApp({
 	copies,
+	conversationIds,
 	...props
 }: Omit<ComponentProps<typeof App>, "feed" | "talk"> &
-	Pick<ProjectFeedsOptions, "copies">): JSX.Element {
+	Pick<ProjectFeedsOptions, "copies" | "conversationIds">): JSX.Element {
 	const project = useShownProject() ?? "";
 	const everywhere = useContext(EverywhereContext);
 	const [feeds] = useState(
-		() => new ProjectFeeds(everywhere, { ...props, copies }),
+		() => new ProjectFeeds(everywhere, { ...props, copies, conversationIds }),
 	);
 	// Keyed, so the last project's shells and state go with its `App`; its
 	// feeds, kept, stop streaming as it goes.

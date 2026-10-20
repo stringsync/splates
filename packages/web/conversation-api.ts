@@ -22,16 +22,26 @@ import { WIDE } from "./app-nav";
 export async function startConversation(
 	agent: string,
 	task: string | null,
-	settings: Record<string, string> = {},
-	/** The model to start on, by its id on the roster. */
-	model?: string,
-	/**
-	 * Whether a todo assigned the agent and model, so a new conversation does
-	 * not start where this one leaves its settings.
-	 */
-	assigned = false,
+	{
+		settings = {},
+		model,
+		assigned = false,
+		id,
+	}: {
+		settings?: Record<string, string>;
+		/** The model to start on, by its id on the roster. */
+		model?: string;
+		/**
+		 * Whether a todo assigned the agent and model, so a new conversation does
+		 * not start where this one leaves its settings.
+		 */
+		assigned?: boolean;
+		/** The id it starts on, picked by the page to open it at once; the server's otherwise. */
+		id?: string;
+	} = {},
 ): Promise<ConversationState> {
 	return (await sendJson("/api/conversations", "POST", {
+		...(id === undefined ? {} : { id }),
 		agent,
 		task,
 		settings,
@@ -44,6 +54,8 @@ export async function startConversation(
 export interface AutoWords {
 	words: string;
 	task: string | null;
+	/** The id it starts on, picked by the page to open it at once. */
+	id?: string;
 }
 
 /**

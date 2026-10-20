@@ -160,7 +160,12 @@ describe("App's conversation home", () => {
 		expect(testing.posted("/api/conversations")).toEqual([
 			{
 				method: "POST",
-				body: { agent: "codex", task: null, settings: { model: "small" } },
+				body: {
+					id: "c9",
+					agent: "codex",
+					task: null,
+					settings: { model: "small" },
+				},
 			},
 		]);
 		await waitFor(() =>
@@ -218,6 +223,7 @@ describe("App's conversation home", () => {
 			{
 				method: "POST",
 				body: {
+					id: "c9",
 					agent: "opencode",
 					task: null,
 					settings: { model: wanted },
@@ -270,6 +276,7 @@ describe("App's conversation home", () => {
 			{
 				method: "POST",
 				body: {
+					id: "c9",
 					agent: "opencode",
 					task: null,
 					settings: { model: wanted },
@@ -315,7 +322,12 @@ describe("App's conversation home", () => {
 		expect(testing.posted("/api/conversations")).toEqual([
 			{
 				method: "POST",
-				body: { agent: "codex", task: null, settings: { model: "big" } },
+				body: {
+					id: "c9",
+					agent: "codex",
+					task: null,
+					settings: { model: "big" },
+				},
 			},
 		]);
 	});

@@ -1,5 +1,6 @@
 import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
 import type { Message } from "@stringsync/splates-server/conversations";
+import { textOf } from "@stringsync/splates-server/conversations/browser";
 import { leadingDirectives } from "@stringsync/splates-server/plans/browser";
 import {
 	Loader2Icon,
@@ -40,7 +41,7 @@ export function Queued({
 	 * as to a conversation that answers to another, which shows them only.
 	 */
 	edits: {
-		onEdit: (index: number) => void;
+		onEdit: (index: number, message: Message) => void;
 		onDiscard: (index: number) => void;
 		onSendNow: () => void;
 	} | null;
@@ -134,7 +135,7 @@ export function Queued({
 										className="pointer-coarse:size-10"
 										aria-label={`Edit ${label}`}
 										disabled={unrecorded}
-										onClick={() => edits.onEdit(index)}
+										onClick={() => edits.onEdit(index, message)}
 									>
 										<PencilIcon />
 									</Button>
@@ -171,27 +172,30 @@ export function useQueueEdits(
 	// Stops the turn so what is queued goes out now.
 	const sendNow = () =>
 		sendQueuedNow(id).catch((error: unknown) => refused("Not sent", error));
-	// Back into the composer to edit, ahead of anything typed there since.
-	const edit = async (index: number) => {
+	// Back into the composer to edit, ahead of anything typed there since: its
+	// words at once, as shown, its files once the server hands them back, and
+	// the composer as it was should the server refuse.
+	const edit = async (index: number, message: Message) => {
+		const text = textOf(message);
+		const composer = runtime.thread.composer;
+		const typed = composer.getState().text;
+		const editing =
+			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`;
+		composer.setText(editing);
+		focusComposer(section.current);
 		const taken = await unqueueConversation(id, index).catch(
 			(error: unknown) => {
+				// Unless typed into since, which is the newer draft.
+				if (composer.getState().text === editing) {
+					composer.setText(typed);
+				}
 				refused("Not taken back", error);
 				return null;
 			},
 		);
-		if (taken === null) {
-			return;
-		}
-		const { text, files } = taken;
-		const composer = runtime.thread.composer;
-		const typed = composer.getState().text;
-		composer.setText(
-			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`,
-		);
-		for (const file of files) {
+		for (const file of taken?.files ?? []) {
 			void composer.addAttachment(file);
 		}
-		focusComposer(section.current);
 	};
 	// Gone before the agent hears it, its words with it.
 	const discard = (index: number) =>
@@ -204,6 +208,6 @@ export function useQueueEdits(
 /** What `useQueueEdits` gives a thread. */
 export interface QueueEdits {
 	sendNow: () => Promise<void>;
-	edit: (index: number) => Promise<void>;
+	edit: (index: number, message: Message) => Promise<void>;
 	discard: (index: number) => Promise<unknown>;
 }

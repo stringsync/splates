@@ -1,5 +1,6 @@
 import type { EverywhereProject } from "@stringsync/splates-server/projects";
 import type { Snapshot } from "@stringsync/splates-server/tasks";
+import type { IdProvider } from "webappwiz/id";
 import type { Duration, Timer, WallClock } from "webappwiz/time";
 import { ConversationFeed } from "./conversation-feed";
 import type { EverywhereFeed } from "./everywhere-feed";
@@ -55,6 +56,7 @@ export class ProjectFeeds {
 				talk: new ConversationFeed(this.opts.timer, this.opts.wall, undefined, {
 					copy: kept?.listing,
 					project,
+					conversationIds: this.opts.conversationIds,
 				}),
 			};
 			this.seed(feeds, project);
@@ -96,6 +98,8 @@ export interface ProjectFeedsOptions {
 	offlineAfter?: Duration;
 	timer?: Timer;
 	wall?: WallClock;
+	/** What names each conversation the page starts; random UUIDs by default. */
+	conversationIds?: IdProvider;
 }
 
 /**

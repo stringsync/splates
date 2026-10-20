@@ -279,6 +279,36 @@ describe("App's composer queue", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe("more"));
 	});
 
+	it("takes a queued message back into the composer at once, putting it back as it was when refused", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					status: "running",
+					messages: [
+						message("user", "go"),
+						{ ...message("user", "the note"), queued: true },
+					],
+				}),
+			],
+			"c1",
+		);
+		await type(view, "still typing");
+		testing.holdWrites();
+		testing.refuseWrites = { reason: "not_found", message: "already sent" };
+		const queued = view.getByRole("region", { name: "queued messages" });
+
+		await act(async () =>
+			fireEvent.click(within(queued).getByRole("button", { name: /Edit/ })),
+		);
+
+		expect(textIn(box(view))).toBe("the note\n\nstill typing");
+		await act(async () => testing.release());
+		await waitFor(() => expect(textIn(box(view))).toBe("still typing"));
+		expect(view.getByText("Not taken back: already sent")).toBeTruthy();
+	});
+
 	it("throws a queued message away, leaving the composer as it was", async () => {
 		const view = await testing.openConversations(
 			[

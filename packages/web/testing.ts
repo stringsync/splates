@@ -43,6 +43,7 @@ import { DictationContext } from "./dictation-context";
 import { agentList, nameIn, openRow } from "./drivers";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
+import { RepliedIds } from "./fake-conversation-ids";
 import { FakeDraftFiles } from "./fake-draft-files";
 import { FakePageCopies } from "./fake-page-copies";
 import { FakeShell } from "./fake-shell";
@@ -130,6 +131,8 @@ export class Testing implements Resource {
 	};
 	/** What `/api/budgets` says of the project's scry budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
+	/** What `/api/budgets` waits on, for a test to hold a reading back. */
+	readingBudgets: Promise<void> = Promise.resolve();
 	/** What the page reads; a test sets it before the page fetches again. */
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
@@ -294,6 +297,7 @@ export class Testing implements Resource {
 				return Response.json(this.workerKeys);
 			}
 			if (route === "/api/budgets") {
+				await this.readingBudgets;
 				return Response.json(this.budgets);
 			}
 			if (route === "/api/identity") {
@@ -537,6 +541,7 @@ export class Testing implements Resource {
 							wall: this.wall,
 							draftFiles: this.draftFiles,
 							copies: this.copies,
+							conversationIds: new RepliedIds(this),
 						}),
 					),
 				),

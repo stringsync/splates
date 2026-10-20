@@ -42,6 +42,28 @@ describe("App's budget", () => {
 		);
 	});
 
+	it("opens again on the budgets it last read, reading them afresh behind", async () => {
+		const view = await openBudget();
+		await card(view, "som");
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+		);
+		const asked = testing.asked.filter((path) =>
+			path.endsWith("/api/budgets"),
+		).length;
+		testing.readingBudgets = new Promise(() => {});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Budget/ })),
+		);
+
+		expect((await card(view, "som")).textContent).toContain("4.2m of 7m");
+		expect(view.queryByText("Reading budgets…")).toBeNull();
+		expect(
+			testing.asked.filter((path) => path.endsWith("/api/budgets")).length,
+		).toBe(asked + 1);
+	});
+
 	it("sets a model's spend from Edit", async () => {
 		const view = await openBudget();
 		const llm = await card(view, "llm");

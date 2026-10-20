@@ -43,7 +43,7 @@ export class AutoPickRoutes {
 		if (conversations === null) {
 			fail("not_found", "conversations are off", {});
 		}
-		const { task, todo, words } = await body(request);
+		const { id, task, todo, words } = await body(request);
 		// A new conversation's first message, judged in `task`'s tree, if named.
 		const target: AutoPickWords =
 			typeof words === "string" ? { words } : targetOf(task, todo);
@@ -58,6 +58,8 @@ export class AutoPickRoutes {
 			// Not the person's pick, so the next start does not take its settings.
 			start: (agent, { model, settings, picking }) =>
 				conversations.start(agent, {
+					// As the page picked it, to open the conversation at once.
+					id: typeof id === "string" ? id : undefined,
 					task: named,
 					base,
 					caller,

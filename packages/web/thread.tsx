@@ -233,6 +233,7 @@ function Conversation({
 			// phone's Return only types a new line.
 			onKeyDownCapture={(event) => {
 				const box = event.target as HTMLElement;
+				const last = queued.at(-1);
 				if (
 					event.key === "Enter" &&
 					!touch &&
@@ -250,12 +251,12 @@ function Conversation({
 					event.key === "ArrowUp" &&
 					box.getAttribute("aria-label") === "Message input" &&
 					runtime.thread.composer.getState().text === "" &&
-					queued.length > 0 &&
+					last !== undefined &&
 					// The last one is still on its way, with nothing to take back.
 					feed.unrecorded(id) === 0
 				) {
 					event.preventDefault();
-					void edit(queued.length - 1);
+					void edit(queued.length - 1, last);
 				}
 			}}
 			// A phone's fills the screen; beside a sidebar, the pane's padding.
@@ -381,7 +382,8 @@ function Conversation({
 																					messages={queued}
 																					pending={feed.unrecorded(id)}
 																					edits={{
-																						onEdit: (index) => void edit(index),
+																						onEdit: (index, message) =>
+																							void edit(index, message),
 																						onDiscard: (index) =>
 																							void discard(index),
 																						onSendNow: () => void sendNow(),

@@ -141,9 +141,17 @@ function Journey({
 						null,
 					)
 						.then(async (state) => {
+							// Open once it is up, its message shown on its way, and
+							// kept in the thread, unsent, should the server refuse it.
 							feed.put(state);
-							await promptConversation(state.id, setupReference(step.id));
+							const text = setupReference(step.id);
+							const sending = feed.send(state.id, text);
 							onOpen(state.id);
+							await promptConversation(state.id, text, [], false, sending.id)
+								.then((answered) => feed.answered(state.id, sending, answered))
+								.catch((error: unknown) =>
+									feed.refused(state.id, sending, error),
+								);
 						})
 						.catch((error: Error) => journey.failed(error.message));
 				};

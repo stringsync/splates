@@ -5,10 +5,9 @@ import type {
 	WorkerStanding,
 } from "@stringsync/splates-server/workers";
 import { dollars } from "@stringsync/splates-server/workers/browser";
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { PencilIcon, TrendingUpIcon, XIcon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
-import { WindowBackgroundObserver } from "webappwiz/browser";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { type JSX, useCallback, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import {
@@ -19,16 +18,14 @@ import {
 } from "./budget-forms";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
+import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import {
 	endWorkerRaise,
 	raiseWorkerLimit,
 	setWorkerLimit,
-	workerBudget,
 } from "./worker-budget-api";
-
-/** How often the page asks what made workers cost, while in front. */
-const EVERY = Duration.secs(15);
+import { WorkerBudgetView } from "./worker-budget-view";
 
 /**
  * What made workers may cost, beside scry's budgets: what they burn now,
@@ -67,63 +64,24 @@ export function WorkerBudgetSection(): JSX.Element | null {
 }
 
 /**
- * The worker budget, asked every few seconds while the page is in front,
- * so spend moves as made workers run: undefined before the first answer,
- * null when there is no budget. `change` shows a change at once, then the
- * server's answer, or puts it back and throws the refusal.
+ * The worker budget, kept across visits: undefined before the first answer,
+ * null when there is no budget, read again while the page is shown.
  */
 function useWorkerBudget(): {
 	report: WorkerBudgetReport | null | undefined;
 	error: string | null;
-	change: (
-		expect: (report: WorkerBudgetReport) => WorkerBudgetReport,
-		send: () => Promise<WorkerBudgetReport>,
-	) => Promise<void>;
+	change: WorkerBudgetView["change"];
 } {
-	const [report, setReport] = useState<WorkerBudgetReport | null | undefined>(
-		undefined,
+	const view = useReading("worker-budget", () => new WorkerBudgetView());
+	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
+	const { report, error } = useReactive(
+		view,
+		({ report, error }) => ({ report, error }),
+		["changed"],
 	);
-	const [error, setError] = useState<string | null>(null);
-	const latest = useRef(report);
-	latest.current = report;
-	useEffect(() => {
-		const observer = new WindowBackgroundObserver();
-		const ask = () => {
-			if (!observer.isBackgrounded()) {
-				workerBudget().then(
-					(read) => {
-						setReport(read);
-						setError(null);
-					},
-					(caught: Error) => setError(caught.message),
-				);
-			}
-		};
-		ask();
-		observer.events.on("change", ask);
-		const tick = new SystemTimer().setInterval(ask, EVERY);
-		return () => {
-			tick.dispose();
-			observer.dispose();
-		};
-	}, []);
-	const change = useCallback(
-		async (
-			expect: (report: WorkerBudgetReport) => WorkerBudgetReport,
-			send: () => Promise<WorkerBudgetReport>,
-		) => {
-			const before = latest.current;
-			if (before != null) {
-				setReport(expect(before));
-			}
-			try {
-				setReport(await send());
-			} catch (caught) {
-				setReport(before);
-				throw caught;
-			}
-		},
-		[],
+	const change = useCallback<WorkerBudgetView["change"]>(
+		(expect, send) => view.change(expect, send),
+		[view],
 	);
 	return { report, error, change };
 }

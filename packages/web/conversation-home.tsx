@@ -7,6 +7,7 @@ import type {
 	ConversationState,
 	Setting,
 } from "@stringsync/splates-server/conversations";
+import { blank } from "@stringsync/splates-server/conversations/browser";
 import { modelOption } from "@stringsync/splates-server/models/browser";
 import { orphaned } from "@stringsync/splates-server/plans/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
@@ -60,7 +61,7 @@ import { limitsOf, PlanLimits } from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
 import { useReferences } from "./references";
-import { Refusal, useRefusal } from "./refusal";
+import { Refusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
 import type { Terminals } from "./terminals";
 import { BELOW_BAR, TopBar } from "./top-bar";
@@ -94,6 +95,13 @@ export interface Starting {
 	refuseIn: (id: string, title: string, error: unknown) => void;
 	/** Opens `id`, in place of what is open for `replace`. */
 	onOpen: (id: string, how?: Move) => void;
+	/**
+	 * Why a start under each draft was refused, kept by the page, since the
+	 * conversation is open by the time the server says.
+	 */
+	refusals: ReadonlyMap<string, string>;
+	/** Goes back to `address` from conversation `id`, its start refused, if it is still open. */
+	onRefused: (id: string, address: string) => void;
 }
 
 /**
@@ -115,8 +123,9 @@ export function useNewConversation({
 	conversations,
 	refuseIn,
 	onOpen,
+	refusals,
+	onRefused,
 }: Starting) {
-	const { refusal, refuse } = useRefusal();
 	const offered = settingsFor(agent, agents, conversations);
 	const modelSetting = offered.find(
 		(each) => each.category === "model" || each.id === "model",
@@ -135,7 +144,6 @@ export function useNewConversation({
 		setting.current;
 
 	const [starting, setStarting] = useState(false);
-	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	const dictated = useRef<() => boolean>(() => false);
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
@@ -147,6 +155,8 @@ export function useNewConversation({
 			const text = said(message);
 			const files = filesOf(message);
 			const spoken = text !== "" && dictated.current();
+			// Picked here, so its thread opens on it before the server answers.
+			const id = feed.newId();
 			// Running, the thread drops its composer to the bottom: it slides
 			// there at once, rather than when the server answers.
 			const dropped = slide(() => setStarting(true));
@@ -156,41 +166,60 @@ export function useNewConversation({
 				...picks,
 			};
 			const prompt = noted(text, files);
-			const state = await (auto
-				? startAutoPick({ words: text, task })
-				: startConversation(
-						agent,
-						task,
-						settings,
-						// Keep explicit requests even when the cached catalog no longer offers them.
-						// A manual replacement wins; the server validates the exact identity.
-						requested,
-						// Asked for by a todo's agent, so no pick of the person's.
-						model !== null,
-					)
+			let refused = false;
+			const started = (
+				auto
+					? startAutoPick({ words: text, task, id })
+					: startConversation(agent, task, {
+							settings,
+							// Keep explicit requests even when the cached catalog no longer offers them.
+							// A manual replacement wins; the server validates the exact identity.
+							model: requested,
+							// Asked for by a todo's agent, so no pick of the person's.
+							assigned: model !== null,
+							id,
+						})
 			).catch((error: unknown) => {
+				// Back where it was typed, the words in its composer, unless
+				// something else was typed there since.
+				refused = true;
+				feed.drop(id);
 				void slide(() => setStarting(false));
-				restore.current(text, files);
-				refuse("Not started", error);
-				throw error;
+				if (!drafts.holds(draft)) {
+					drafts.attach(draft, files);
+					drafts.write(draft, text);
+				}
+				refuseIn(draft, "Not started", error);
+				onRefused(id, address);
+				return null;
 			});
+			// As the server will answer, so the person watches the agent come up.
+			feed.put({
+				...blank(id, agent, task, new Date().toISOString()),
+				picking: auto,
+			});
+			// Its message waits on the server for the session to open.
+			const sending =
+				text !== "" || files.length > 0
+					? feed.send(id, prompt, files, text, spoken)
+					: null;
+			// After the drop, or the thread would cut it short.
+			await dropped;
+			if (!refused) {
+				void slide(() => onOpen(id, "replace"));
+			}
+			const state = await started;
+			if (state === null) {
+				return;
+			}
 			feed.put(state);
 			drafts.started(draft);
 			rememberAuto(auto);
 			if (root !== null) {
 				rememberShown(root);
 			}
-			// Shown at once in its thread, so the person watches the agent come
-			// up; the message waits on the server for the session to open.
-			const sending =
-				text !== "" || files.length > 0
-					? feed.send(state.id, prompt, files, text, spoken)
-					: null;
-			// After the drop, or the thread would cut it short.
-			await dropped;
-			void slide(() => onOpen(state.id, "replace"));
 			const answered = await promptConversation(
-				state.id,
+				id,
 				prompt,
 				files,
 				spoken,
@@ -199,31 +228,25 @@ export function useNewConversation({
 				// The conversation is open by now: what was not sent stays in its
 				// thread, to send again or edit there.
 				if (sending !== null) {
-					feed.refused(state.id, sending, error);
+					feed.refused(id, sending, error);
 				} else {
-					refuseIn(state.id, "Not sent", error);
+					refuseIn(id, "Not sent", error);
 				}
 				return null;
 			});
 			if (sending !== null && answered !== null) {
-				feed.answered(state.id, sending, answered);
+				feed.answered(id, sending, answered);
 			}
 		},
 	});
 	const draft = newDraft(shownProject(), task, identity);
-	// So its row in the sidebar opens it again with this agent and model.
-	useEffect(
-		() =>
-			drafts.place(
-				draft,
-				withDraft(
-					auto ? autoAddress(task) : newAddress(agent, task, model),
-					identity,
-				),
-			),
-		[drafts, draft, auto, agent, task, model, identity],
+	const address = withDraft(
+		auto ? autoAddress(task) : newAddress(agent, task, model),
+		identity,
 	);
-	restore.current = useDraft(runtime, drafts, draft);
+	// So its row in the sidebar opens it again with this agent and model.
+	useEffect(() => drafts.place(draft, address), [drafts, draft, address]);
+	useDraft(runtime, drafts, draft);
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
 	const projects = useProjects();
@@ -271,7 +294,7 @@ export function useNewConversation({
 	);
 	return {
 		runtime,
-		refusal,
+		refusal: refusals.get(draft) ?? null,
 		project,
 		starting,
 		controls,

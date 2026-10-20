@@ -45,6 +45,16 @@ describe("App's setup", () => {
 	const step = (view: Awaited<ReturnType<Testing["open"]>>, title: string) =>
 		waitFor(() => view.getByRole("form", { name: title }));
 
+	/** The Agents journey's first step, an agent's start to answer as `c9`. */
+	const agentsStep = async () => {
+		testing.setup = setupProgress();
+		testing.talk = { agents: AGENTS, conversations: [] };
+		const view = await openSetup();
+		const current = await step(view, "Choose the agents splates starts");
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		return { view, current };
+	};
+
 	const posted = (path: string) =>
 		testing.posted(path).map((post) => post.body);
 
@@ -113,11 +123,7 @@ describe("App's setup", () => {
 	});
 
 	it("starts an agent on the step, sent the setup directive", async () => {
-		testing.setup = setupProgress();
-		testing.talk = { agents: AGENTS, conversations: [] };
-		const view = await openSetup();
-		const current = await step(view, "Choose the agents splates starts");
-		testing.reply = conversation({ id: "c9", status: "starting" });
+		const { current } = await agentsStep();
 
 		await act(async () =>
 			fireEvent.click(
@@ -134,6 +140,29 @@ describe("App's setup", () => {
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
 				{ text: "[SPLATES SETUP agents]" },
 			]),
+		);
+	});
+
+	it("opens the agent's conversation once it starts, its message on its way", async () => {
+		const { view, current } = await agentsStep();
+		const fetch = globalThis.fetch;
+		// The prompt never answered, as while the agent comes up.
+		globalThis.fetch = ((path: string, init?: RequestInit) =>
+			path.endsWith("/prompt")
+				? new Promise(() => {})
+				: fetch(path, init)) as typeof globalThis.fetch;
+
+		await act(async () =>
+			fireEvent.click(
+				within(current).getByRole("button", {
+					name: "Set it up with an agent",
+				}),
+			),
+		);
+
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		expect(view.getAllByText("[SPLATES SETUP agents]").length).toBeGreaterThan(
+			0,
 		);
 	});
 

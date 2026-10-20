@@ -7,7 +7,7 @@
 // The index brings in the server, agent processes and `bun:` modules with it,
 // so these are re-exported from the files that bring in none.
 
-export { paused } from "./messages";
+export { paused, textOf } from "./messages";
 export {
 	grooms,
 	lanesOf,

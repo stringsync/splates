@@ -35,6 +35,7 @@ import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
 import { usePageMenu } from "./page-menu";
+import { PageReadings, PageReadingsContext } from "./page-readings";
 import {
 	type Page,
 	PageShortcuts,
@@ -219,6 +220,8 @@ export function App({
 	const name = useProjectName(snapshot?.repo);
 
 	const [report] = useState(() => new StatsReport({ stats }));
+	// What the other pages read, so each shows its last answer on a visit.
+	const [readings] = useState(() => new PageReadings());
 	const visits = usePageVisits({
 		open,
 		tasks,
@@ -306,144 +309,147 @@ export function App({
 	return (
 		<SetupProvider creds={snapshot?.creds ?? null}>
 			<OpenerContext value={editorOpener}>
-				<SnapshotExpecting value={feed}>
-					<Talking feed={talk}>
-						<Lanes value={searched.lanes}>
-							{/* Here rather than in the sidebar's list, which a phone has none of. */}
-							{available && snapshot !== null && (
-								<Notifications
+				<PageReadingsContext value={readings}>
+					<SnapshotExpecting value={feed}>
+						<Talking feed={talk}>
+							<Lanes value={searched.lanes}>
+								{/* Here rather than in the sidebar's list, which a phone has none of. */}
+								{available && snapshot !== null && (
+									<Notifications
+										feed={talk}
+										tasks={snapshot.tasks}
+										settings={settings}
+										onOpen={openConversation}
+									/>
+								)}
+								<DispatchingProvider
 									feed={talk}
-									tasks={snapshot.tasks}
-									settings={settings}
-									onOpen={openConversation}
-								/>
-							)}
-							<DispatchingProvider
-								feed={talk}
-								drafts={drafts}
-								tasks={tasks}
-								open={openConversation}
-							>
-								<Trunk value={snapshot?.trunk ?? null}>
-									<ReviewChanges value={review}>
-										<WatchBackground value={watch}>
-											<NestedPanesContext value={nested}>
-												<ToggleTerminal
-													value={shown === null ? null : toggleTerminal}
-												>
-													<ShellRunning value={shellRunning}>
-														<ShowTerminal
-															value={available ? revealTerminal : null}
-														>
-															<OpenTerminalPage
-																value={available ? openTerminal : null}
+									drafts={drafts}
+									tasks={tasks}
+									open={openConversation}
+								>
+									<Trunk value={snapshot?.trunk ?? null}>
+										<ReviewChanges value={review}>
+											<WatchBackground value={watch}>
+												<NestedPanesContext value={nested}>
+													<ToggleTerminal
+														value={shown === null ? null : toggleTerminal}
+													>
+														<ShellRunning value={shellRunning}>
+															<ShowTerminal
+																value={available ? revealTerminal : null}
 															>
-																<ShortcutSettings value={settings}>
-																	<PageShortcuts
-																		onPage={go}
-																		onBack={available ? visits.back : null}
-																		onForward={
-																			available ? visits.forward : null
-																		}
-																		onSettings={() => setSetting(true)}
-																		onTerminal={
-																			shown === null
-																				? null
-																				: () => toggleTerminal(shown.id)
-																		}
-																	/>
-																	<TooltipProvider>
-																		<ConversationCheckpoint
-																			feed={talk}
-																			every={checkpointEvery}
-																			restartShown={checkpointRestartShown}
-																			reload={reload}
-																			autoRestart={autoRestart}
-																			timer={timer}
-																		>
-																			{wide ? (
-																				<DesktopApp
-																					page={page}
-																					open={open}
-																					go={go}
-																					openLane={openLane}
-																					name={name}
-																					bodies={bodies}
-																					opening={opening}
-																					paned={paned}
-																					available={available}
-																					snapshot={snapshot}
-																					outdated={outdated}
-																					offline={offline}
-																					talk={talk}
-																					drafts={drafts}
-																					terminals={terminals}
-																					menu={pageMenu}
-																				/>
-																			) : (
-																				<PhoneApp
-																					page={page}
-																					open={open}
-																					go={go}
-																					openLane={openLane}
-																					header={header}
-																					offline={offline}
-																					body={
-																						bodies === null ? (
-																							opening
-																						) : (
-																							<div
-																								className={PHONE_PAGES[page]}
-																							>
-																								{bodies[page]}
-																							</div>
-																						)
-																					}
-																					available={available}
-																					waiting={counted ? waiting : 0}
-																					snapshot={snapshot}
-																					talk={talk}
-																					drafts={drafts}
-																					terminals={terminals}
-																					pageMenu={pageMenu}
-																				/>
-																			)}
-																			{pane}
-																			<SearchDialog
-																				searched={searched}
+																<OpenTerminalPage
+																	value={available ? openTerminal : null}
+																>
+																	<ShortcutSettings value={settings}>
+																		<PageShortcuts
+																			onPage={go}
+																			onBack={available ? visits.back : null}
+																			onForward={
+																				available ? visits.forward : null
+																			}
+																			onSettings={() => setSetting(true)}
+																			onTerminal={
+																				shown === null
+																					? null
+																					: () => toggleTerminal(shown.id)
+																			}
+																		/>
+																		<TooltipProvider>
+																			<ConversationCheckpoint
 																				feed={talk}
-																				pick={pick}
-																			/>
-																			<SettingsDialog
-																				settings={settings}
-																				open={setting}
-																				onOpenChange={setSetting}
-																			/>
-																			{/* Until the project and its conversations are in, or the page has something else to say. */}
-																			<Splash
-																				shown={
-																					missing === null &&
-																					reachable &&
-																					(snapshot === null ||
-																						loading ||
-																						(seeded && !SEEDED_PAGES.has(page)))
-																				}
-																			/>
-																		</ConversationCheckpoint>
-																	</TooltipProvider>
-																</ShortcutSettings>
-															</OpenTerminalPage>
-														</ShowTerminal>
-													</ShellRunning>
-												</ToggleTerminal>
-											</NestedPanesContext>
-										</WatchBackground>
-									</ReviewChanges>
-								</Trunk>
-							</DispatchingProvider>
-						</Lanes>
-					</Talking>
-				</SnapshotExpecting>
+																				every={checkpointEvery}
+																				restartShown={checkpointRestartShown}
+																				reload={reload}
+																				autoRestart={autoRestart}
+																				timer={timer}
+																			>
+																				{wide ? (
+																					<DesktopApp
+																						page={page}
+																						open={open}
+																						go={go}
+																						openLane={openLane}
+																						name={name}
+																						bodies={bodies}
+																						opening={opening}
+																						paned={paned}
+																						available={available}
+																						snapshot={snapshot}
+																						outdated={outdated}
+																						offline={offline}
+																						talk={talk}
+																						drafts={drafts}
+																						terminals={terminals}
+																						menu={pageMenu}
+																					/>
+																				) : (
+																					<PhoneApp
+																						page={page}
+																						open={open}
+																						go={go}
+																						openLane={openLane}
+																						header={header}
+																						offline={offline}
+																						body={
+																							bodies === null ? (
+																								opening
+																							) : (
+																								<div
+																									className={PHONE_PAGES[page]}
+																								>
+																									{bodies[page]}
+																								</div>
+																							)
+																						}
+																						available={available}
+																						waiting={counted ? waiting : 0}
+																						snapshot={snapshot}
+																						talk={talk}
+																						drafts={drafts}
+																						terminals={terminals}
+																						pageMenu={pageMenu}
+																					/>
+																				)}
+																				{pane}
+																				<SearchDialog
+																					searched={searched}
+																					feed={talk}
+																					pick={pick}
+																				/>
+																				<SettingsDialog
+																					settings={settings}
+																					open={setting}
+																					onOpenChange={setSetting}
+																				/>
+																				{/* Until the project and its conversations are in, or the page has something else to say. */}
+																				<Splash
+																					shown={
+																						missing === null &&
+																						reachable &&
+																						(snapshot === null ||
+																							loading ||
+																							(seeded &&
+																								!SEEDED_PAGES.has(page)))
+																					}
+																				/>
+																			</ConversationCheckpoint>
+																		</TooltipProvider>
+																	</ShortcutSettings>
+																</OpenTerminalPage>
+															</ShowTerminal>
+														</ShellRunning>
+													</ToggleTerminal>
+												</NestedPanesContext>
+											</WatchBackground>
+										</ReviewChanges>
+									</Trunk>
+								</DispatchingProvider>
+							</Lanes>
+						</Talking>
+					</SnapshotExpecting>
+				</PageReadingsContext>
 			</OpenerContext>
 		</SetupProvider>
 	);

@@ -45,6 +45,7 @@ import {
 	GroomerOff,
 	groomerPick,
 } from "./groomer-card";
+import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
 import { TopBar } from "./top-bar";
@@ -66,7 +67,7 @@ export function AutomationsPage({
 	/** Opens the Auto pick page, from its card. */
 	onAutoPick: () => void;
 }): JSX.Element {
-	const [list] = useState(() => new AutomationList());
+	const list = useReading("automations", () => new AutomationList());
 	useEffect(() => void list.read(), [list]);
 	const { rows, refusal, own, checkedIn, builtIn, groomer } = useReactive(
 		list,

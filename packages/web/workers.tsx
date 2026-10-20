@@ -8,6 +8,7 @@ import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { workerKeys } from "./api";
 import { localWorker, localWorkerOn } from "./local-worker";
+import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 import { useRefusals } from "./refusal";
 import { TopBar } from "./top-bar";
@@ -37,7 +38,7 @@ export function WorkersPage({
 	/** Opens the Creds page, where a worker's keys are added. */
 	onOpenKeys: () => void;
 }): JSX.Element {
-	const [view] = useState(() => new WorkerPoolView());
+	const view = useReading("workers", () => new WorkerPoolView());
 	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
 	const { pool, error } = useReactive(
 		view,

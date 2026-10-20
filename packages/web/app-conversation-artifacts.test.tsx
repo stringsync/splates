@@ -180,11 +180,30 @@ describe("App's artifacts", () => {
 			testing.posted("/api/conversations/c1/artifacts/report.html/2"),
 		).toEqual([]);
 		expect(button.textContent).toBe("Delete?");
+		testing.holdWrites();
 		await act(async () => fireEvent.click(button));
-		await waitFor(() => expect(button.textContent).toBe("Deleted"));
+		// At once, while the server has yet to say.
+		expect(button.textContent).toBe("Deleted");
 		expect(
 			testing.posted("/api/conversations/c1/artifacts/report.html/2"),
 		).toEqual([{ method: "DELETE", body: {} }]);
+	});
+
+	it("says a version was not deleted when the server refuses, why on hover", async () => {
+		const { view } = await opened([
+			artifact("report.html", [version(1, 300), version(2, 500)]),
+		]);
+		testing.refuseWrites = { reason: "not_found", message: "no version 2" };
+		const card = view.getByRole("region", { name: "artifacts" });
+		const button = within(card).getByRole("button", {
+			name: "Delete report.html v2",
+		});
+
+		await act(async () => fireEvent.click(button));
+		await act(async () => fireEvent.click(button));
+
+		await waitFor(() => expect(button.textContent).toBe("Not deleted"));
+		expect(button.getAttribute("title")).toBe("no version 2");
 	});
 
 	it("opens a page in a sandboxed frame that may run scripts and nothing more", async () => {
@@ -219,6 +238,7 @@ describe("App's artifacts", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: one artifact of each kind is what this test alone opens
 	it("opens an image or a recording in the lightbox among the others beside it, and downloads anything else", async () => {
 		const { view } = await opened([
 			artifact("a.png", [version(1, 10, "image/png")]),

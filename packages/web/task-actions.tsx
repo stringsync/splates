@@ -426,21 +426,19 @@ export function useRetry(task: Details): {
 	action: Action | null;
 	note: ReactNode;
 } {
-	const [state, setState] = useState<"idle" | "retrying" | "retried">("idle");
+	const [state, setState] = useState<"idle" | "retried">("idle");
 	const [failed, setFailed] = useState<string | null>(null);
 	if (state === "idle" && !outOfMerges(task)) {
 		return { action: null, note: null };
 	}
+	// Granted at once, and taken back with why should the server refuse.
 	const retry = () => {
-		setState("retrying");
+		setState("retried");
 		setFailed(null);
-		retryTask(task.task).then(
-			() => setState("retried"),
-			(error: unknown) => {
-				setState("idle");
-				setFailed(error instanceof Error ? error.message : String(error));
-			},
-		);
+		retryTask(task.task).catch((error: unknown) => {
+			setState("idle");
+			setFailed(error instanceof Error ? error.message : String(error));
+		});
 	};
 	return {
 		action: {

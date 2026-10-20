@@ -270,7 +270,7 @@ describe("App's controls that put agents to work", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		expect(posted("/api/conversations")).toEqual([
-			{ agent: "claude", task: "alpha", settings: {} },
+			{ id: "c9", agent: "claude", task: "alpha", settings: {} },
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([

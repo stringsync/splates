@@ -36,6 +36,9 @@ import type {
 import type { ConversationsOptions } from "./options";
 import type { Limit, Setting } from "./state";
 
+/** A conversation id as `UuidProvider` makes it, which a page may pick. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** How long Codex's limits asked for stand before the Budget page asks again, in ms. */
 const LIMITS_FRESH = 5 * 60_000;
 
@@ -212,6 +215,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		);
 	}
 
+	/** `id`, as a page picked it for a new conversation: a UUID none has. */
+	private unused(id: string): string {
+		if (!UUID.test(id)) {
+			fail("usage", `not a conversation id: ${id}`, { conversation: id });
+		}
+		if (this.known.has(id)) {
+			fail("usage", `conversation ${id} already exists`, { conversation: id });
+		}
+		return id;
+	}
+
 	async find(id: string): Promise<Conversation> {
 		await this.load();
 		const found = this.known.get(id);
@@ -229,6 +243,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	async start(
 		agent: string,
 		{
+			id: given,
 			task,
 			base,
 			caller,
@@ -243,6 +258,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			persistent,
 			picking,
 		}: {
+			/**
+			 * The id the page picked, so it opens the conversation before the
+			 * server answers; a new one when not given.
+			 */
+			id?: string;
 			task: string | null;
 			/** The branch `task` was cut from. */
 			base?: string | null;
@@ -273,7 +293,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	): Promise<Conversation> {
 		const chosen = this.agentOf(agent);
 		await this.load();
-		const id = this.ids.next();
+		const id = given === undefined ? this.ids.next() : this.unused(given);
 		const conversation = await Conversation.start(
 			{
 				id,

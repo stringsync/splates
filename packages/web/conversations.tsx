@@ -170,6 +170,9 @@ export const Conversations = memo(function Conversations({
 	// By conversation, so a message Home sends to one it just started can be
 	// refused in that one's thread.
 	const { refusals, refuse } = useRefusals<string>();
+	// What is open now, for a start refused after its thread opened.
+	const opened = useRef(open);
+	opened.current = open;
 	useRead(shown);
 	// What a new conversation starts with. Its picks are for one agent's
 	// settings, and its draft for one tree, so it starts over for another.
@@ -187,6 +190,12 @@ export const Conversations = memo(function Conversations({
 		refuseIn: refuse,
 		onOpen: (id: string, how?: Move) =>
 			onOpen(startsOne(id) ? withDraft(id, draftFor(open)) : id, how),
+		refusals,
+		onRefused: (id: string, address: string) => {
+			if (opened.current === id) {
+				onOpen(address, "replace");
+			}
+		},
 	};
 	const startKey = `${starting.auto}/${starting.agent}/${starting.task}/${starting.model}/${starting.identity}/${startsOne(open)}`;
 

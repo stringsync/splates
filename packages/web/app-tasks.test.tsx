@@ -205,7 +205,7 @@ describe("App's tasks", () => {
 		);
 	});
 
-	it("says in the dialog why a retry was refused", async () => {
+	it("shows a retry at once, then says in the dialog why it was refused", async () => {
 		testing.refuseWrites = {
 			reason: "usage",
 			message: "'alpha' has spent 1 of its 3 merge attempts",
@@ -216,8 +216,12 @@ describe("App's tasks", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
 		);
+		testing.holdWrites();
 		await clickShown(() => view.getByRole("button", { name: "Retry" }));
 
+		// Granted at once, while the server has yet to say.
+		expect(view.getByRole("button", { name: "Retried" })).toBeTruthy();
+		await act(async () => testing.release());
 		await waitFor(() =>
 			expect(view.getByRole("dialog").textContent).toContain(
 				"'alpha' has spent 1 of its 3 merge attempts",

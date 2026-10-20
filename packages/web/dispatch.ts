@@ -204,16 +204,14 @@ export class Dispatch {
 		text: string,
 	): Promise<string> {
 		const left = settingsFor(pick.agent, this.agents, this.conversations);
-		const started = await startConversation(
-			pick.agent,
-			task,
-			{
+		const started = await startConversation(pick.agent, task, {
+			settings: {
 				...Object.fromEntries(left.map((each) => [each.id, each.current])),
 				...effortSettings(pick.effort, left),
 			},
-			pick.model,
-			true,
-		).catch(() => null);
+			model: pick.model,
+			assigned: true,
+		}).catch(() => null);
 		if (started === null) {
 			this.compose(newDraft(this.project, task), text);
 			return newAddress(pick.agent, task, pick.model ?? null);

@@ -44,6 +44,8 @@ export interface Listing {
 export interface ConversationFeedOptions {
 	copy?: PageCopy<Listing> | null;
 	project?: string | null;
+	/** What names each conversation the page starts. */
+	conversationIds?: IdProvider;
 }
 
 /**
@@ -90,6 +92,7 @@ export class ConversationFeed
 	private seeded = false;
 	private readonly streamed = new Map<string, ConversationState>();
 	private readonly copy: PageCopy<Listing> | null;
+	private readonly conversationIds: IdProvider;
 	private readonly project: string | null;
 
 	/**
@@ -107,6 +110,15 @@ export class ConversationFeed
 	) {
 		this.copy = opts.copy ?? null;
 		this.project = opts.project ?? null;
+		this.conversationIds = opts.conversationIds ?? new UuidProvider();
+	}
+
+	/**
+	 * An id for a conversation the page starts, which the server keeps, so
+	 * its thread opens before the server answers.
+	 */
+	newId(): string {
+		return this.conversationIds.next();
 	}
 
 	start(): void {

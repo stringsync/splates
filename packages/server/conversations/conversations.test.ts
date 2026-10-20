@@ -79,6 +79,25 @@ describe("Conversations", () => {
 		return conversation;
 	};
 
+	it("starts on the id the page picked, refusing one taken or not a UUID", async () => {
+		const id = "0b5c2a8e-9f4d-4c1e-8a3b-2d6f7e9c1a4b";
+
+		const conversation = await conversations.start("fake", {
+			id,
+			task: null,
+			cwd: "/repo",
+		});
+
+		expect(conversation.state.id).toBe(id);
+		expect(await conversations.find(id)).toBe(conversation);
+		await expect(
+			conversations.start("fake", { id, task: null, cwd: "/repo" }),
+		).rejects.toThrow(`conversation ${id} already exists`);
+		await expect(
+			conversations.start("fake", { id: "../x", task: null, cwd: "/repo" }),
+		).rejects.toThrow("not a conversation id");
+	});
+
 	it("starts the agent in the task's tree and offers its settings", async () => {
 		const conversation = await started();
 

@@ -169,8 +169,9 @@ function ArtifactRow({
 
 /**
  * Deletes a version's bytes, asking in place: the button turns into "Delete?",
- * then "Deleted" once it is done. Nothing on a version already gone, unless it
- * was this click that took it.
+ * then "Deleted" at once, or "Not deleted", its reason on hover, should the
+ * server refuse. Nothing on a version already gone, unless it was this click
+ * that took it.
  */
 function DeleteControl({
 	conversation,
@@ -183,35 +184,37 @@ function DeleteControl({
 	version: ArtifactVersion;
 	label: string;
 }): JSX.Element | null {
-	const [step, setStep] = useState<"idle" | "asking" | "deleting" | "deleted">(
+	const [step, setStep] = useState<"idle" | "asking" | "deleted" | "refused">(
 		"idle",
 	);
+	const [why, setWhy] = useState<string | undefined>(undefined);
 	if (version.gone !== null && step !== "deleted") {
 		return null;
 	}
 	const text = {
 		idle: "Delete",
 		asking: "Delete?",
-		deleting: "Deleting",
 		deleted: "Deleted",
+		refused: "Not deleted",
 	}[step];
 	return (
 		<button
 			type="button"
 			aria-label={step === "idle" ? `Delete ${label}` : `${text} ${label}`}
-			disabled={step === "deleting" || step === "deleted"}
-			onClick={async () => {
-				if (step === "idle") {
+			title={step === "refused" ? why : undefined}
+			disabled={step === "deleted"}
+			onClick={() => {
+				if (step !== "asking") {
 					setStep("asking");
 					return;
 				}
-				setStep("deleting");
-				try {
-					await deleteArtifactVersion(conversation, name, version.version);
-					setStep("deleted");
-				} catch {
-					setStep("idle");
-				}
+				setStep("deleted");
+				deleteArtifactVersion(conversation, name, version.version).catch(
+					(error: unknown) => {
+						setWhy(error instanceof Error ? error.message : String(error));
+						setStep("refused");
+					},
+				);
 			}}
 			onBlur={() => setStep((was) => (was === "asking" ? "idle" : was))}
 			className={cn(
