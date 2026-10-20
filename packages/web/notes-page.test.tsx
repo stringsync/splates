@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { ConversationFeed } from "./conversation-feed";
-import { Drafts } from "./drafts";
+import { Drafts, newDraft } from "./drafts";
 import { NotesPage } from "./notes-page";
-import { NotesReading } from "./notes-reading";
+import { NEW_NOTE, NotesReading } from "./notes-reading";
 import { cleanup, conversation, fireEvent, render, Testing } from "./testing";
 
 const NOTE = {
@@ -44,20 +44,26 @@ describe("notes page", () => {
 		).toBeTruthy();
 	});
 
-	it("opens a new conversation seeded to write the first note", async () => {
+	it("opens one new conversation seeded to write a note, keeping what was typed", async () => {
 		testing.notes.items = [];
 		const opened: string[] = [];
+		const drafts = new Drafts(localStorage, null);
 		const page = render(
 			<NotesPage
 				feed={null}
-				drafts={new Drafts(localStorage, null)}
+				drafts={drafts}
 				onOpen={(id) => opened.push(id)}
 			/>,
 		);
 		expect(await page.findByText("No project notes yet")).toBeTruthy();
 		fireEvent.click(page.getByRole("button", { name: /New note/ }));
-		expect(opened).toHaveLength(1);
-		expect(opened[0]).toMatch(/^new\?draft=/);
+		expect(opened).toEqual(["new?draft=note"]);
+		const key = newDraft(null, null, "note");
+		expect(drafts.read(key)).toBe(NEW_NOTE);
+		drafts.write(key, `${NEW_NOTE}Why named exports`);
+		fireEvent.click(page.getByRole("button", { name: /New note/ }));
+		expect(opened).toEqual(["new?draft=note", "new?draft=note"]);
+		expect(drafts.read(key)).toBe(`${NEW_NOTE}Why named exports`);
 	});
 
 	it.each(["edit", "remove"] as const)(

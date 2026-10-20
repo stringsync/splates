@@ -6,11 +6,11 @@ import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 
 export type NoteAction = "edit" | "remove";
+export type NotesReadingEvents = { changed: undefined };
 
 /** What a new note's conversation starts with in its composer, for the person to finish. */
 export const NEW_NOTE =
 	"Create a project note. Use the splates skill: make the change in a task and land it with splates merge. Consult splates notes and the notes guidance first.\n\nThe note should say:\n";
-export type NotesReadingEvents = { changed: undefined };
 
 /** The notes reader and its requests for an agent to change a note. */
 export class NotesReading implements Eventful<NotesReadingEvents> {

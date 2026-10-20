@@ -1,7 +1,6 @@
 import { useReactive } from "@webappwiz/react";
 import { ArrowLeftIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { UuidProvider } from "webappwiz/id";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Empty,
@@ -19,7 +18,8 @@ import { NEW_NOTE, NotesReading } from "./notes-reading";
 import { shownProject } from "./project-places";
 import { TopBar } from "./top-bar";
 
-const ids = new UuidProvider();
+/** The one new conversation New keeps for writing a note, so pressing it again returns there. */
+const NOTE_DRAFT = "note";
 
 /** Read landed project notes and ask an agent to make changes. */
 export function NotesPage({
@@ -58,11 +58,13 @@ export function NotesPage({
 						icon: <PlusIcon />,
 						text: "New",
 						run: () => {
-							// A fresh conversation's own composer, with its model and
-							// settings, seeded with what a note's agent is asked.
-							const identity = ids.next();
-							drafts.write(newDraft(shownProject(), null, identity), NEW_NOTE);
-							onOpen(withDraft(NEW, identity));
+							// A new conversation's own composer, with its model and
+							// settings, seeded only when empty so what was typed stays.
+							const key = newDraft(shownProject(), null, NOTE_DRAFT);
+							if (!drafts.holds(key)) {
+								drafts.write(key, NEW_NOTE);
+							}
+							onOpen(withDraft(NEW, NOTE_DRAFT));
 						},
 					},
 					{
