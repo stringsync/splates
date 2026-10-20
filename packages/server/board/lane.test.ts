@@ -381,7 +381,8 @@ describe.concurrent("task links and lanes", () => {
 			{ id: 0, name: "Backlog" },
 		]);
 		await laneRemove(deps, 2);
-		expect((await deps.tasks.find(1)).lane).toBeNull();
+		expect(await deps.tasks.all()).toEqual([]);
+		expect(color.strip(deps.out())).toContain("its 1 task, kept to restore");
 		await laneRemove(deps, 1);
 		// Numbers are never handed out again.
 		expect((await laneAdd(deps, "Again")).id).toBe(3);

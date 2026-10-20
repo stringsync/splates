@@ -5,7 +5,7 @@ import { moveInQueue, queueAdd, queueRemove } from "../queue";
 import type { Project, ProjectWatch } from "../server/shared";
 import { body, uploads } from "../server/shared";
 import { protectBacklog } from "./backlog";
-import { laneUpdated, recordLaneRemove } from "./lane";
+import { laneRemove, laneUpdated, recordLaneRemove } from "./lane";
 import { recordUpdate, tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
 
@@ -226,14 +226,9 @@ export class BoardRoutes {
 		const { journal, tasks } = this.#project;
 		const id = laneAt(request);
 		protectBacklog(id);
-		await recordLaneRemove(journal, tasks, id, async () => {
-			for (const task of await tasks.all()) {
-				if (task.state.lane === id) {
-					await task.discard();
-				}
-			}
-			await tasks.dropLane(id);
-		});
+		await recordLaneRemove(journal, tasks, id, () =>
+			laneRemove({ tasks, log: this.#project.log }, id),
+		);
 		this.#watch.tick();
 		return Response.json({ lane: id });
 	};

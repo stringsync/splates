@@ -161,13 +161,14 @@ splatesLane
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"remove a lane, putting its tasks back with the untriaged ones; a lane whose last task merges goes on its own",
+		"remove a lane and its tasks, kept to restore; a lane whose last task merges goes on its own; refused from an agent, which asks with a permission card",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
-	.action((opts, ctx) =>
-		recordLaneRemove(ctx.journal, ctx.tasks, opts.lane, () =>
+	.action((opts, ctx) => {
+		refuseAgentQueue(ctx.service, "lane remove");
+		return recordLaneRemove(ctx.journal, ctx.tasks, opts.lane, () =>
 			laneRemove(ctx, opts.lane),
-		),
-	);
+		);
+	});

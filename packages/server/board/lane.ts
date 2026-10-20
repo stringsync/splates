@@ -337,13 +337,23 @@ export async function recordLaneRemove(
 	);
 }
 
-/** Removes a lane, putting its tasks back with the untriaged ones. */
+/**
+ * Removes a lane and the tasks in it, each kept to restore as removing it from
+ * its dialog keeps it: the person never wants a lane gone but its tasks left.
+ */
 export async function laneRemove(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
 ): Promise<void> {
+	let removed = 0;
+	for (const task of await tasks.all()) {
+		if (task.state.lane === id) {
+			await task.discard();
+			removed += 1;
+		}
+	}
 	await tasks.dropLane(id);
 	log.info(
-		`${color.green("removed")} lane ${id}: its tasks are untriaged, in no lane`,
+		`${color.green("removed")} lane ${id} and its ${removed} task${removed === 1 ? "" : "s"}, kept to restore`,
 	);
 }
