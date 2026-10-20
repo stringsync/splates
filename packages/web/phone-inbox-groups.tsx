@@ -288,7 +288,7 @@ function LaneBlock({
 	return (
 		<section
 			aria-label={`${name} lane`}
-			className="my-1 ml-2 border-primary/50 border-l-2"
+			className="my-1 ml-2 border-foreground/10 border-l"
 		>
 			<button
 				type="button"
