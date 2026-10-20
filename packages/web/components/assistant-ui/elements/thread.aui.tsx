@@ -245,8 +245,9 @@ const ThreadTurns: FC = () => {
 			data-slot="aui_turn"
 			// Margins, as between turns, so cards sit as far apart across
 			// messages as within one. The 2rem below a stuck message is what
-			// keeps its fade clear of the reply.
-			className="[&>*+*]:mt-6 [&>[data-sticks]+*]:mt-8"
+			// keeps its fade clear of the reply, on a wide thread, the only one
+			// it sticks atop.
+			className="[&>*+*]:mt-6 md:[&>[data-sticks]+*]:mt-8"
 		>
 			{turn.map(({ id, index }) => (
 				<MessageByIndexProvider key={id} index={index}>

@@ -301,10 +301,11 @@ export const UserMessage: FC = () => {
 				// the reply out over the 2rem below it, which its turn keeps clear
 				// while it is not stuck (`data-sticks`). The margin alone is what
 				// its turn holds it by, so the fade comes to the next message's
-				// top as that pushes it out. On a phone the fade is half that, so
-				// it hides less of a short screen.
-				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
-				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
+				// top as that pushes it out. A phone's thread (narrower than
+				// `WIDE`) scrolls it away with the rest, keeping its short screen
+				// for the reply.
+				"bg-background md:sticky top-0 z-10 mb-2 [container-type:scroll-state]",
+				"md:after:pointer-events-none md:after:absolute md:after:inset-x-0 md:after:top-full md:after:h-8 md:after:bg-linear-to-b md:after:from-background md:after:to-transparent",
 			)}
 			data-role="user"
 			data-sticks
@@ -474,9 +475,9 @@ const Clamped: FC<
 				ref={text}
 				className={cn(
 					!open && [CLAMP, "overflow-hidden"],
-					// Open, it still sticks atop the thread, so it scrolls past half
-					// the screen rather than hide the reply.
-					open && "max-h-[50dvh] overflow-y-auto",
+					// Open, it still sticks atop a wide thread, so it scrolls past
+					// half the screen rather than hide the reply.
+					open && "md:max-h-[50dvh] md:overflow-y-auto",
 					!open && more && CUT_FADE,
 					!open && CUT_LINE,
 				)}

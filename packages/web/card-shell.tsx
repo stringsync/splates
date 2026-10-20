@@ -15,6 +15,7 @@ import {
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { WIDE } from "./app-nav";
 import { Markdown } from "./markdown";
 import { ReferenceChip, TaskChip } from "./reference-chip";
 
@@ -163,15 +164,19 @@ export function reportText(report: TaskReport): string {
 
 /**
  * Scrolls `card` to its top, just clear of the person's message stuck atop
- * its turn, with the fade `::after` paints below it, so a card that comes up
- * or takes the focus reads from its start.
+ * its turn, with the fade `::after` paints below it, where it sticks (not on
+ * a phone), so a card that comes up or takes the focus reads from its start.
  */
 export function toCardTop(
 	card: HTMLElement,
 	behavior: ScrollBehavior = "instant",
 ): void {
 	const stuck = card.closest('[data-slot="aui_turn"]')?.firstElementChild;
-	if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
+	if (
+		stuck instanceof HTMLElement &&
+		stuck.dataset.role === "user" &&
+		matchMedia(WIDE).matches
+	) {
 		const fade = Number.parseFloat(getComputedStyle(stuck, "::after").height);
 		card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
 	}

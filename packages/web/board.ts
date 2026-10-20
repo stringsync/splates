@@ -74,7 +74,7 @@ export const touchButton = "pointer-coarse:h-10 pointer-coarse:px-3";
 
 /**
  * How tall a card that spans one line stands, kept in `--line-card` so what
- * stands beside one, as the message stuck atop a phone's thread, matches it:
+ * stands beside one, as a person's message in a phone's thread, matches it:
  * its call to action (`touchButton`), `lineCard`'s inset above and below
  * it, and the card's border.
  */
