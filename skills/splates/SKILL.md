@@ -35,6 +35,7 @@ asks you to read it as Reference files says.
 | `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
 | `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
+| `[SPLATES QUEUE]` | Work out with the user what the request after it wants, or, alone, their message before it, then add it as a task, groom it yourself and queue it, never doing it | [queue.md](references/queue.md), Queueing for the user |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
 | `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
@@ -50,8 +51,8 @@ comes: a directive whose row names it, or one of the moments below. Then read
 the whole file before going on, even mid-task, and again in a later session,
 which remembers none of it.
 
-- Before `splates lane add`, `splates lane queue` or `unqueue`, `splates task
-  defer`, or `splates task add`, `splates task update` or `splates lane
+- Before `splates lane add`, `splates lane queue` or `unqueue`, `splates queue
+  add`, `splates task defer`, or `splates task add`, `splates task update` or `splates lane
   update` with `--lane`, `--position`, `--blocked-by` or `--ready`:
   [references/queue.md](references/queue.md), linking, placing and ordering
   queued tasks.

@@ -126,6 +126,15 @@ export const APPROVE = "[SPLATES APPROVE]";
 export const DEFER = "[SPLATES DEFER]";
 
 /**
+ * What asks an agent to work out with the person what the request after it,
+ * or, alone, the person's message before it, wants, then add it as a task,
+ * groom it and queue it, as the composer's Queue offers: the splates skill
+ * says what it means. Sent by the person, it lets the conversation's agent
+ * run `splates queue add`, which is otherwise refused to an agent.
+ */
+export const QUEUE = "[SPLATES QUEUE]";
+
+/**
  * What the agent alone is told of a message the person dictated: the page
  * marks it with a mic, and never shows these words.
  */

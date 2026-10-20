@@ -1,7 +1,33 @@
 import { describe, expect, it } from "bun:test";
 import { taskAdd, taskUpdate } from "../board";
 import { Testing } from "../testing";
-import { queueAdd, queueList, queueMove, queueRemove } from "./commands";
+import {
+	queueAdd,
+	queueList,
+	queueMove,
+	queueRemove,
+	refuseAgentQueue,
+} from "./commands";
+
+/** Starts this command's caller as conversation `id`, the person having said each of `said`. */
+async function caller(
+	deps: Testing,
+	id: string,
+	said: { text: string; told?: string }[],
+): Promise<void> {
+	const log = deps.service.conversationLog(id);
+	await log.append({
+		kind: "start",
+		id,
+		agent: "fake",
+		task: null,
+		createdAt: "2026-10-20T00:00:00.000Z",
+	});
+	for (const prompt of said) {
+		await log.append({ kind: "prompt", ...prompt });
+	}
+	deps.proc.env.SPLATES_CONVERSATION = id;
+}
 
 describe("queue commands", () => {
 	it("queues tasks from the backlog or groomed, and takes them out to where they were", async () => {
@@ -89,5 +115,32 @@ describe("queue commands", () => {
 		expect(await order()).toEqual([1, 3, 4, 2]);
 		await queueMove(deps, 1, 9);
 		expect(await order()).toEqual([3, 4, 2, 1]);
+	});
+	it("lets the person queue, and refuses an agent", async () => {
+		await using deps = await Testing.open();
+		await refuseAgentQueue(deps.service, "queue add");
+
+		await caller(deps, "c1", [{ text: "Add a widget" }]);
+		await expect(refuseAgentQueue(deps.service, "queue add")).toBail("usage", {
+			message: "does not queue work",
+		});
+	});
+
+	it("lets `queue add` alone through for an agent the person sent [SPLATES QUEUE]", async () => {
+		await using deps = await Testing.open();
+		await caller(deps, "c1", [
+			{ text: "Add a widget" },
+			{ text: "[SPLATES QUEUE]" },
+		]);
+		await refuseAgentQueue(deps.service, "queue add");
+		await expect(refuseAgentQueue(deps.service, "queue move")).toBail("usage");
+	});
+
+	it("refuses an agent whose [SPLATES QUEUE] another agent told it", async () => {
+		await using deps = await Testing.open();
+		await caller(deps, "c1", [
+			{ text: "[SPLATES QUEUE] Add a widget", told: "c2" },
+		]);
+		await expect(refuseAgentQueue(deps.service, "queue add")).toBail("usage");
 	});
 });

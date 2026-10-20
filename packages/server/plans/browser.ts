@@ -26,6 +26,7 @@ export {
 	isUpdate,
 	leadingDirectives,
 	MERGE,
+	QUEUE,
 	RECONNECT,
 	RESUME,
 	setupReference,

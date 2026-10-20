@@ -68,6 +68,27 @@ Either way, take no further step toward the request and reply with nothing
 beyond the line the page shows for the task; then, after a request, carry on
 with any work under way, and, sent alone, end your turn.
 
+## Queueing for the user
+
+`[SPLATES QUEUE]` asks you to queue a request for a worker to start: the
+words after it, or, sent alone, the user's message before it. Do none of
+the work, and start no task of your own for it.
+
+1. **Work out what they want.** Read what you need of the code to know what
+   the request asks and what it touches. Ask each call the user's answer
+   would change as Questions in the skill says, and end your turn on them:
+   the task waits until you understand the request.
+2. **Add it groomed**, as Grooming a task you write says, with
+   `splates task add` from the main tree (or your worktree, when a task is
+   under way): a subject, and a detail that holds every answer, since the
+   worker that starts it reads nothing else. When an open task already asks
+   it, update that one instead and queue it.
+3. **Queue it** with `splates queue add <n>`, which `[SPLATES QUEUE]` lets
+   you run in this conversation.
+
+Reply with nothing beyond the lines the page shows for the task; then, after
+a request, carry on with any work under way, and, sent alone, end your turn.
+
 ## Links
 
 When a task cannot start before another merges, it is blocked by that one:
@@ -108,7 +129,9 @@ start. Untriaged cannot be queued whole.
 
 Only the user queues. You never run `splates queue add` or `move`: they are
 refused for an agent. Put work in a lane with `splates task add` and leave
-queueing it to the user.
+queueing it to the user. The one exception is `[SPLATES QUEUE]` (see
+Queueing for the user): sent by the user, it lets you `splates queue add`
+what it asks.
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),

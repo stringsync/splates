@@ -15,7 +15,7 @@ import { here } from "./flags";
 
 /** `splates queue`, which the root cli mounts beside `splates task`. */
 export const splatesQueue = cli<SplatesDeps>("queue").description(
-	"the queue: the tasks a worker of `splates server` starts as soon as it has a slot free, each after every task it is blocked by, otherwise in the order you set. Only you queue a task, from the backlog or groomed; one that names no model runs on the roster's first agent",
+	"the queue: the tasks a worker of `splates server` starts as soon as it has a slot free, each after every task it is blocked by, otherwise in the order you set. Only you queue a task, from the backlog or groomed, or an agent you send `[SPLATES QUEUE]`; one that names no model runs on the roster's first agent",
 );
 
 splatesQueue
@@ -37,7 +37,7 @@ splatesQueue
 		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "queue add");
+		await refuseAgentQueue(ctx.service, "queue add");
 		await refuseGroomer(ctx.service, "queue add");
 		await ctx.journal.record(
 			"queue add",
@@ -75,7 +75,7 @@ splatesQueue
 	.arg("position", z.coerce.number().int().positive(), {
 		description: "where in the queue to put it, from 1",
 	})
-	.action((opts, ctx) => {
-		refuseAgentQueue(ctx.service, "queue move");
+	.action(async (opts, ctx) => {
+		await refuseAgentQueue(ctx.service, "queue move");
 		return queueMove(ctx, opts.id, opts.position);
 	});
