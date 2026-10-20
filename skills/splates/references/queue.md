@@ -24,13 +24,19 @@ one was groomed when it was written: start work on it.
 
 1. **One that already asks it.** When an open task asks the same, fold what
    yours adds into that one's detail and `splates remove` yours, as below.
+   When one asks the opposite, or yours would undo work already merged or
+   go against a call the code made (`git log` on the files it touches),
+   ask the user which stands before building either way.
 2. **Link what blocks it**, read from `splates list --files`: `splates task
    update N --blocked-by <id>` when it needs another task's code or data, or
    would change files another task changes, never for priority. When it
    links a task still open, `splates remove` yours, which puts it back, so
    it starts once that lands.
 3. **Ask what the user's answer would change**, under `## Blocked`, as
-   Questions in `SKILL.md` says; make every other call yourself.
+   Questions in `SKILL.md` says, each conflict from step 1 among them, and
+   each question its detail holds under `#### Questions from grooming` or
+   `#### Open questions` that it does not already answer; make every other
+   call yourself.
 4. **Mark it groomed** with `splates task update N --ready`, so it goes back
    to ready rather than the backlog should it be let go.
 
