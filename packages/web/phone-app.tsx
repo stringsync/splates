@@ -2,6 +2,10 @@ import type { Snapshot } from "@stringsync/splates-server/tasks";
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+} from "#web/components/ui/dropdown-menu.tsx";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { ShownRoot, useOpenNew } from "./new-conversation-project";
@@ -12,7 +16,7 @@ import type { Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
-import { NextWaiting, WaitingBadge } from "./phone-thread";
+import { WaitingBadge } from "./phone-thread";
 import { QueueBadge } from "./slot-queue";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
@@ -21,10 +25,12 @@ import { WorkerBudgetBadge } from "./worker-budget-badge";
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
  * agents is home, an open conversation takes the whole screen with its own way
- * back, and every other page sits under a bar whose menu opens the drawer and
- * whose pen, as the inbox's, starts a new conversation, then how many agents
- * wait on you, at the end of every bar but the inbox's. Branding and the project
- * switcher head the drawer. Every bar's kebab holds the page menu.
+ * back, and every other page sits under a bar whose menu opens the drawer.
+ * How many agents wait on you marks the way out of every screen but the
+ * inbox, which lists them: a conversation's way back, and a page's menu.
+ * Branding and the project switcher head the drawer. Every bar's kebab holds
+ * the page menu, and a page's starts a new conversation too, as the inbox's
+ * pen does.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
@@ -133,8 +139,6 @@ export function PhoneApp({
 						<TopBarFrame
 							value={{
 								...kebab,
-								// Restarting to update is the inbox's to say.
-								dot: false,
 								badge: snapshot !== null && (
 									<WaitingBadge
 										feed={talk}
@@ -152,30 +156,40 @@ export function PhoneApp({
 						{/* The page's own bar lands in the middle, as every other's
 					    does beside a sidebar. */}
 						<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
-							<BarButton label="Open menu" onClick={menu}>
-								<MenuIcon />
-							</BarButton>
+							<span className="relative flex shrink-0">
+								<BarButton label="Open menu" onClick={menu}>
+									<MenuIcon />
+								</BarButton>
+								{snapshot !== null && (
+									<WaitingBadge
+										feed={talk}
+										tasks={snapshot.tasks}
+										open={null}
+									/>
+								)}
+							</span>
 							<div
 								ref={setSlot}
 								className="flex min-w-0 flex-1 items-center gap-1"
 							/>
-							{available && (
-								<BarButton label="New conversation" onClick={() => openNew()}>
-									<SquarePenIcon />
-								</BarButton>
-							)}
-							{available && snapshot !== null && (
-								<NextWaiting
-									feed={talk}
-									tasks={snapshot.tasks}
-									open={null}
-									onOpen={(id) => go("conversations", id)}
-								/>
-							)}
 						</header>
 						<TopBarFrame
 							value={{
 								...kebab,
+								menu: (
+									<>
+										{available && (
+											<>
+												<DropdownMenuItem onClick={() => openNew()}>
+													<SquarePenIcon />
+													New conversation
+												</DropdownMenuItem>
+												<DropdownMenuSeparator />
+											</>
+										)}
+										{pageMenu.items}
+									</>
+								),
 								slot,
 								status,
 							}}

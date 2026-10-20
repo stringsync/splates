@@ -428,7 +428,7 @@ describe("App on a phone", () => {
 		).toBeNull();
 	});
 
-	it("starts a new conversation from the pen atop any other page", async () => {
+	it("starts a new conversation from the kebab atop any other page", async () => {
 		const view = await testing.openConversations([], null);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
@@ -440,9 +440,18 @@ describe("App on a phone", () => {
 			fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
 		);
 		expect(location.hash).toBe("#tasks");
+		// The inbox's pen starts one; a page's bar keeps it in the kebab.
+		expect(view.queryByRole("button", { name: "New conversation" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "New conversation" }),
+				),
+			),
 		);
 
 		expect(location.hash).toBe("#conversations/new");
@@ -847,7 +856,7 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations");
 	});
 
-	it("goes from atop any other page to the next agent waiting on you", async () => {
+	it("counts the agents waiting on you on any other page's menu, which leads to the inbox", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -876,13 +885,19 @@ describe("App on a phone", () => {
 		);
 		expect(location.hash).toBe("#tasks");
 
+		expect(view.getByRole("status", { name: "2 waiting on you" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: /Next waiting/ })).toBeNull();
 		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "Next waiting on you, of 2" }),
-			),
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const pages = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(pages).getByRole("button", { name: /Inbox/ })),
 		);
 
-		expect(location.hash).toBe("#conversations/c1");
+		expect(location.hash).toBe("#conversations");
 	});
 
 	it("keeps branding and the project switcher in the drawer alone", async () => {
@@ -1005,15 +1020,19 @@ describe("App on a phone", () => {
 		).toContain("beta");
 	});
 
-	it("leaves Update to the inbox's bar, out of a conversation's", async () => {
+	it("puts Update in a conversation's bar as in the inbox's, and the version in the kebab alone", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Broke" })],
 			"c1",
 			{ release: { running: "0.0.43", newest: "0.0.44" } },
 		);
 		expect(location.hash).toBe("#conversations/c1");
-		view.getByRole("button", { name: "More" });
-		expect(view.queryByRole("button", { name: "Update" })).toBeNull();
+		await waitFor(() => view.getByRole("button", { name: "Update" }));
+		expect(view.queryByTitle(/^Current version/)).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await waitFor(() => view.getByText(/^splates v/));
 
 		await act(async () =>
 			fireEvent.click(
@@ -1070,6 +1089,21 @@ describe("App on a phone", () => {
 			view.getByRole("region", { name: "terminal" }).textContent,
 		).toContain("in the main tree");
 		expect(testing.shells.map((shell) => shell.task)).toEqual([null]);
+		// Its bar keeps to the way back; closing it waits in the kebab.
+		expect(
+			view.queryByRole("button", { name: "Close the terminal" }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await waitFor(() =>
+			view.getByRole("menuitem", { name: "Close the terminal" }),
+		);
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				key: "Escape",
+			}),
+		);
 
 		await act(async () =>
 			fireEvent.click(

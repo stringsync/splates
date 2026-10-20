@@ -10,7 +10,8 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { useShortcutLabel } from "#web/hooks/use-shortcut.ts";
 import { identity, type MachineStatus } from "./api";
-import { CheckpointItem } from "./checkpoint";
+import { useWide } from "./app-nav";
+import { CheckpointItem, useCheckpoint } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
 import { MachineStats, useMachine } from "./machine";
 import { type Update, update } from "./release";
@@ -20,7 +21,8 @@ import { type Update, update } from "./release";
  * Cloudflare Access signed in, if anyone, and Sign out, and how hard the
  * machine is working; Power, to checkpoint, restart, shut down or any of
  * them together; Fullscreen; Reload, for an app on a home screen, which has
- * no browser's reload button; and Settings. `dot` marks the kebab, and its
+ * no browser's reload button; Settings; and on a phone, whose bar leaves it
+ * out, the version running. `dot` marks the kebab, and its
  * Power too, once a restart would update. The machine's reading, asked once
  * here, is for the server's badges too.
  */
@@ -81,6 +83,8 @@ function PageMenuItems({
 }): JSX.Element {
 	const why = update(release, behind);
 	const settingsKey = useShortcutLabel("shortcuts.settings");
+	const wide = useWide();
+	const { version } = useCheckpoint();
 	return (
 		<>
 			{email !== null && (
@@ -119,6 +123,16 @@ function PageMenuItems({
 					<DropdownMenuShortcut aria-hidden>{settingsKey}</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
+			{!wide && version !== null && (
+				<>
+					<DropdownMenuSeparator />
+					<DropdownMenuGroup>
+						<DropdownMenuLabel className="font-mono font-normal text-xs">
+							splates v{version}
+						</DropdownMenuLabel>
+					</DropdownMenuGroup>
+				</>
+			)}
 		</>
 	);
 }

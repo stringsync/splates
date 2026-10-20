@@ -3,7 +3,11 @@ import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useCheckpoint } from "./checkpoint";
 
-/** Restarts directly, keeping progress and the reload's confirmation in place. */
+/**
+ * Restarts directly, keeping progress and the reload's confirmation in place.
+ * Idle, it says the version beside a sidebar, and nothing on a phone, whose
+ * kebab says it instead, so the bar keeps its room for the title.
+ */
 export function RestartButton({
 	wide,
 	update,
@@ -14,7 +18,7 @@ export function RestartButton({
 	const { restart, restartBusy, restartDone, version } = useCheckpoint();
 	const done = restartDone && !update && !restartBusy;
 	if (!update && !restartBusy && !done) {
-		return version === null ? null : (
+		return version === null || !wide ? null : (
 			<span
 				title={`Current version: splates ${version}`}
 				className="shrink-0 whitespace-nowrap font-mono text-muted-foreground text-xs"

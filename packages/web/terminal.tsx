@@ -384,6 +384,7 @@ function OnTrunk({ trunk }: { trunk: string }): JSX.Element {
  * A terminal's page, once its shell is made: its name, `where` it runs, and
  * `actions` ahead of Restart and Close. Restart shows once the shell is lost,
  * or once it is `moved`: started in a tree its conversation has since left.
+ * On a phone, the rest wait in the kebab.
  */
 function PageScreen({
 	terminals,
@@ -404,6 +405,7 @@ function PageScreen({
 	onBack: (() => void) | null;
 	onClose: () => void;
 }): JSX.Element {
+	const phone = onBack !== null;
 	const { status } = useReactive(
 		session,
 		(session) => ({ status: session.status }),
@@ -447,7 +449,8 @@ function PageScreen({
 					</span>
 				}
 				actions={[
-					...actions,
+					// A phone keeps its bar to Restart, the one it may need at once.
+					...actions.map((action) => ({ ...action, kebab: phone })),
 					...(status === "closed" || moved
 						? [
 								{
@@ -458,7 +461,12 @@ function PageScreen({
 								},
 							]
 						: []),
-					{ label: "Close the terminal", icon: <XIcon />, run: onClose },
+					{
+						label: "Close the terminal",
+						icon: <XIcon />,
+						run: onClose,
+						kebab: phone,
+					},
 				]}
 			/>
 			<Screen
