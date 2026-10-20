@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
+import {
+	act,
+	cleanup,
+	details,
+	fireEvent,
+	Testing,
+	waitFor,
+	within,
+} from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
 function visit(url: string): void {
@@ -64,6 +72,36 @@ describe("App coming back to a project", () => {
 		const returned = new URL(String(testing.visited[1]));
 		expect(returned.search).toBe("?project=webappwiz");
 		expect(returned.hash).toBe("#creds");
+	});
+
+	it("comes back to the page it left a project on through another project's task", async () => {
+		visit("http://localhost/?project=webappwiz");
+		testing.everywhere = [
+			{
+				project: "shop",
+				repo: "shop",
+				root: "/code/shop",
+				worktreeRoot: "/code/worktrees",
+				trunk: "main",
+				tasks: [details({ task: "checkout" })],
+				laneNames: [],
+				lanesTaken: {},
+				conversations: [],
+			},
+		];
+		const view = await testing.openTasks();
+		const shop = await waitFor(() =>
+			view.getByRole("list", { name: "shop tasks" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(shop).getByRole("button", { name: /checkout/ })),
+		);
+		await waitFor(() => expect(location.hash).toBe("#tasks/checkout"));
+
+		await pick(within(document.body), "/code/webappwiz");
+
+		expect(location.search).toBe("?project=webappwiz");
+		expect(location.hash).toBe("#tasks");
 	});
 
 	it("names the project started in while it opens again", async () => {

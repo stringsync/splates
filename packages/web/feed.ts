@@ -43,6 +43,11 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	 * or the one the address names is gone.
 	 */
 	missing: string | null = null;
+	/**
+	 * Whether `snapshot` is the one `seed` gave, standing in until the
+	 * project's own arrives.
+	 */
+	seeded = false;
 
 	private stream: LiveStream | null = null;
 	/** The changes on their way, in the order made (see `expect`). */
@@ -58,12 +63,32 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	/** Counting down to `offline` while the server is unreachable. */
 	private unreachable: Resource | null = null;
 
-	constructor(
-		private readonly offlineAfter: Duration = OFFLINE_AFTER,
-		private readonly timer: Timer = new SystemTimer(),
+	private readonly offlineAfter: Duration;
+	private readonly timer: Timer;
+	private readonly project: string | null;
+	private readonly copy: PageCopy<Snapshot> | null;
+
+	constructor({
+		offlineAfter = OFFLINE_AFTER,
+		timer = new SystemTimer(),
+		copy = null,
+		project = null,
+	}: {
+		offlineAfter?: Duration;
+		timer?: Timer;
 		/** The last snapshot kept, which the page draws from until the server answers. */
-		private readonly copy: PageCopy<Snapshot> | null = null,
-	) {}
+		copy?: PageCopy<Snapshot> | null;
+		/**
+		 * The project it reads, a slug or "" for the focused one, whatever the
+		 * address goes on to name; the address's own by default.
+		 */
+		project?: string | null;
+	} = {}) {
+		this.offlineAfter = offlineAfter;
+		this.timer = timer;
+		this.project = project;
+		this.copy = copy;
+	}
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would
@@ -71,7 +96,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		if (this.stream !== null) {
 			return;
 		}
-		this.stream = new LiveStream(scoped("/events"), {
+		this.stream = new LiveStream(scoped("/events", this.project), {
 			message: () => void this.load(),
 			// Back after the stream dropped, what moved meanwhile was never said.
 			open: (again) => (again ? void this.load() : this.reached({})),
@@ -96,17 +121,43 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		this.copy?.dispose();
 	}
 
-	/** Shows the snapshot last kept, unless the server has said something since. */
+	/**
+	 * Shows the snapshot last kept, unless the server has said something
+	 * since. Over a seed, it gives the rest of the project, under the seed's
+	 * tasks, which are newer.
+	 */
 	private async paint(): Promise<void> {
 		const kept = this.copy === null ? null : await this.copy.load();
 		if (
-			kept !== null &&
-			this.recorded === null &&
-			this.missing === null &&
-			this.outdated === null
+			kept === null ||
+			(this.recorded !== null && !this.seeded) ||
+			this.missing !== null ||
+			this.outdated !== null
 		) {
-			this.show(kept);
+			return;
 		}
+		const seed = this.seeded ? this.recorded : null;
+		this.seeded = false;
+		this.show(
+			seed === null
+				? kept
+				: { ...kept, tasks: seed.tasks, laneNames: seed.laneNames },
+		);
+	}
+
+	/**
+	 * Shows `snapshot`, made from what the page already holds of the
+	 * project, until the server's own arrives, so a project the page has not
+	 * read yet draws at once. With `whole`, it is one the server gave, under
+	 * another address, and stands for all of the project. Ignored once it has
+	 * a snapshot.
+	 */
+	seed(snapshot: Snapshot, { whole = false }: { whole?: boolean } = {}): void {
+		if (this.recorded !== null) {
+			return;
+		}
+		this.seeded = !whole;
+		this.show(snapshot);
 	}
 
 	/**
@@ -180,14 +231,19 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	private async read(): Promise<void> {
 		const read = this.reads++;
 		try {
-			const response = await EARLY_READS.fetch(scoped("/api/snapshot"));
+			const response = await EARLY_READS.fetch(
+				scoped("/api/snapshot", this.project),
+			);
 			if (!response.ok) {
 				const refusal = (await response.json().catch(() => null)) as {
 					reason?: string;
 					message?: string;
 				} | null;
 				if (refusal?.reason === "not_found") {
-					this.reached({ missing: refusal.message ?? "" });
+					// Nothing of a project the server has not got to stand in for.
+					const seeded = this.seeded ? { snapshot: null } : {};
+					this.seeded = false;
+					this.reached({ missing: refusal.message ?? "", ...seeded });
 					return;
 				}
 				if (refusal?.reason !== "outdated") {
@@ -204,6 +260,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 					each.landed === null ||
 					(each.landed > read && !holds(snapshot, each.patch)),
 			);
+			this.seeded = false;
 			this.reached({ snapshot, outdated: null, missing: null });
 			this.copy?.keep(() => snapshot);
 		} catch {

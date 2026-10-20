@@ -1,6 +1,6 @@
 import { CircleAlertIcon, Loader2Icon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
-import type { Sending, Unsent } from "./conversation-feed";
+import type { Sending, Unsent } from "./sending";
 
 /** A thread's messages the server refused, and what can be done with each. */
 export interface UnsentActions {

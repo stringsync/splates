@@ -21,23 +21,26 @@ import { takenTask } from "./board";
 import { ReviewChanges } from "./changes";
 import { terminalAddress } from "./conversation-address";
 import { ConversationCheckpoint } from "./conversation-checkpoint";
-import { ConversationFeed } from "./conversation-feed";
+import type { ConversationFeed } from "./conversation-feed";
 import { Lanes } from "./conversation-names";
 import { DesktopApp } from "./desktop-app";
 import { DispatchingProvider, Trunk } from "./dispatching";
 import { type DraftFiles, IndexedDraftFiles } from "./draft-files";
 import { Drafts } from "./drafts";
 import { SnapshotExpecting, Talking } from "./expecting";
-import { Feed } from "./feed";
+import type { Feed } from "./feed";
 import { ShortcutSettings } from "./hooks/use-shortcut";
-import { KeptPage } from "./kept-page";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
-import type { PageCopies } from "./page-copies";
 import { usePageMenu } from "./page-menu";
-import { PageShortcuts, PHONE_PAGES, usePageRoute } from "./page-route";
+import {
+	type Page,
+	PageShortcuts,
+	PHONE_PAGES,
+	usePageRoute,
+} from "./page-route";
 import { usePageVisits } from "./page-visits";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
@@ -65,6 +68,13 @@ const NO_TASKS: Details[] = [];
 const NO_TODOS: TaskRecord[] = [];
 const NO_LANES: LaneRecord[] = [];
 
+/**
+ * The pages a seeded snapshot draws, its tasks being the project's own; the
+ * rest wait for the project's snapshot, the seed having none of their todos,
+ * lanes or creds.
+ */
+const SEEDED_PAGES: ReadonlySet<Page> = new Set(["conversations", "tasks"]);
+
 export function App({
 	settings,
 	checkpointEvery,
@@ -75,7 +85,8 @@ export function App({
 	timer,
 	wall,
 	draftFiles,
-	copies,
+	feed,
+	talk,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -93,17 +104,11 @@ export function App({
 	wall?: WallClock;
 	/** Where drafts' files outlive a reload; IndexedDB by default, where there is one. */
 	draftFiles?: DraftFiles | null;
-	/** Where the page keeps what it last drew; IndexedDB by default, where there is one. */
-	copies?: PageCopies | null;
+	/** The project's snapshot, kept by `ProjectApp` past a switch of project. */
+	feed: Feed;
+	/** The project's conversations, kept as `feed` is. */
+	talk: ConversationFeed;
 }): JSX.Element {
-	// What the page last drew of this project, to draw from at once.
-	const [kept] = useState(() => KeptPage.open(copies, timer));
-	// One Feed for as long as this component lives. `useReactive` subscribes to
-	// the source it saw on its first render, so an instance that got rebuilt
-	// would leave the page listening to the one it replaced, showing nothing.
-	const [feed] = useState(
-		() => new Feed(offlineAfter, undefined, kept?.snapshot ?? null),
-	);
 	useDisposerEffect(
 		(disposer) => {
 			feed.start();
@@ -111,10 +116,11 @@ export function App({
 		},
 		[feed],
 	);
-	const { snapshot, offline, outdated, missing } = useReactive(
+	const { snapshot, seeded, offline, outdated, missing } = useReactive(
 		feed,
 		(feed) => ({
 			snapshot: feed.snapshot,
+			seeded: feed.seeded,
 			offline: feed.offline,
 			outdated: feed.outdated,
 			missing: feed.missing,
@@ -122,10 +128,6 @@ export function App({
 		["changed"],
 	);
 	useOfflineIcon(offline);
-	// Its own feed, since `splates server` holds conversations only when asked to.
-	const [talk] = useState(
-		() => new ConversationFeed(timer, wall, undefined, kept?.listing ?? null),
-	);
 	useDisposerEffect(
 		(disposer) => {
 			talk.start();
@@ -422,7 +424,9 @@ export function App({
 																				shown={
 																					missing === null &&
 																					reachable &&
-																					(snapshot === null || loading)
+																					(snapshot === null ||
+																						loading ||
+																						(seeded && !SEEDED_PAGES.has(page)))
 																				}
 																			/>
 																		</ConversationCheckpoint>

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { EverywhereProject } from "@stringsync/splates-server/projects";
+import type { Details } from "@stringsync/splates-server/tasks";
 import {
 	act,
 	cleanup,
 	clickShown,
+	details,
 	fireEvent,
 	snapshot,
 	Testing,
@@ -114,6 +117,59 @@ describe("App's projects", () => {
 		await waitFor(() => screen.getByText("shop's own"));
 		expect(testing.asked).toContain("/api/snapshot?project=shop");
 		expect(testing.reloads).toBe(0);
+	});
+
+	it("draws a project not shown before at once, from every project's tasks, while its snapshot is on its way", async () => {
+		testing.everywhere = [
+			listed("shop", "/code/shop", [details({ task: "checkout" })]),
+		];
+		const view = await testing.openTasks({ repo: "webappwiz" });
+		await waitFor(() => view.getByRole("list", { name: "shop tasks" }));
+		const arrive = testing.holdSnapshots();
+
+		await pick(view, "/code/shop");
+
+		await waitFor(() => expect(location.search).toBe("?project=shop"));
+		const screen = within(document.body);
+		expect(screen.queryByText("Opening shop")).toBeNull();
+		expect(
+			screen.getAllByText("🍽️").map((each) => each.getAttribute("aria-hidden")),
+		).not.toContain("true");
+		expect(
+			within(screen.getByRole("list", { name: "shop tasks" })).getByRole(
+				"button",
+				{ name: /checkout/ },
+			),
+		).toBeTruthy();
+		arrive();
+	});
+
+	it("draws a project shown before at once on a return, as it last held it, while its snapshot is on its way", async () => {
+		testing.everywhere = [
+			listed("webappwiz", "/repo", []),
+			listed("shop", "/code/shop", []),
+		];
+		// On, so the page's list of every project's conversations reads them.
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open({
+			repo: "webappwiz",
+			todos: [todo({ id: 1, subject: "webappwiz's own" })],
+		});
+		await waitFor(() => view.getByText("webappwiz's own"));
+		testing.served = snapshot({ repo: "shop" });
+		await pick(view, "/code/shop");
+		const screen = within(document.body);
+		await waitFor(() =>
+			expect(screen.queryByText("webappwiz's own")).toBeNull(),
+		);
+		const arrive = testing.holdSnapshots();
+
+		await pick(screen, "/code/webappwiz");
+
+		await waitFor(() => expect(location.search).toBe("?project=webappwiz"));
+		expect(screen.getByText("webappwiz's own")).toBeTruthy();
+		expect(screen.queryByText("Opening webappwiz")).toBeNull();
+		arrive();
 	});
 
 	it("goes back to the project left on the browser's back", async () => {
@@ -465,4 +521,23 @@ async function pick(
 	await openSwitcher(view);
 	const project = await waitFor(() => view.getByText(root));
 	await act(async () => fireEvent.click(project));
+}
+
+/** A project as `/api/everywhere` lists it, holding `tasks`. */
+function listed(
+	project: string,
+	root: string,
+	tasks: Details[],
+): EverywhereProject {
+	return {
+		project,
+		repo: project,
+		root,
+		worktreeRoot: "/code/worktrees",
+		trunk: "main",
+		tasks,
+		laneNames: [],
+		lanesTaken: {},
+		conversations: [],
+	};
 }

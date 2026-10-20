@@ -67,6 +67,7 @@ describe("EverywhereFeed", () => {
 		trunk: "main",
 		tasks: [],
 		laneNames: [],
+		worktreeRoot: "/code/worktrees",
 		lanesTaken: {},
 		conversations: [],
 		...overrides,
@@ -134,15 +135,25 @@ describe("EverywhereFeed", () => {
 		expect(feed.tasks[1]).not.toBe(changed);
 	});
 
-	it("streams nothing until held, and stops once the last holder lets go", () => {
+	it("streams nothing until held, and stops once the last holder lets go", async () => {
 		expect(streams).toEqual([]);
 		held = feed.hold();
 		const again = feed.hold();
 		expect(streams.map((each) => each.url)).toEqual(["/api/everywhere/events"]);
 		held.dispose();
+		await Promise.resolve();
 		expect(stream().closed).toBe(false);
 		again.dispose();
+		await Promise.resolve();
 		expect(stream().closed).toBe(true);
+	});
+
+	it("keeps streaming when held again in the turn it was let go, as a page drawn afresh does", async () => {
+		feed.hold().dispose();
+		held = feed.hold();
+		await Promise.resolve();
+		expect(streams).toHaveLength(1);
+		expect(stream().closed).toBe(false);
 	});
 
 	it("tags every task and conversation with its project, alphabetically", async () => {

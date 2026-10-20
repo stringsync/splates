@@ -41,6 +41,8 @@ export interface EverywhereBoard {
 	repo: string;
 	/** Its main tree. */
 	root: string;
+	/** The directory that holds each of its tasks' worktrees. */
+	worktreeRoot: string;
 	trunk: string;
 	tasks: Details[];
 	/** Every lane there has been, to name an orchestrator after. */
@@ -235,11 +237,13 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 	): Promise<EverywhereBoard | null> {
 		try {
 			await project.format.check();
-			const { repo, trunk, tasks, laneNames, todos } = await project.current();
+			const { repo, worktreeRoot, trunk, tasks, laneNames, todos } =
+				await project.current();
 			return {
 				project: await this.slugOf(root),
 				repo,
 				root,
+				worktreeRoot,
 				trunk,
 				tasks,
 				laneNames,

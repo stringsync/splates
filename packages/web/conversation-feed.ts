@@ -1,9 +1,6 @@
 import type {
-	Attached,
 	ConversationState,
-	Image,
 	Limit,
-	Message,
 	Setting,
 	Taking,
 } from "@stringsync/splates-server/conversations";
@@ -27,32 +24,15 @@ import { EARLY_READS } from "./early-reads";
 import type { Expectation, Expecter } from "./expecting";
 import { LiveStream } from "./live-stream";
 import type { PageCopy } from "./page-copy";
-
-/** How long a message goes unanswered before the page says it is still sending. */
-export const STILL_SENDING = Duration.secs(3);
-
-/** How long the page waits for a prompt acknowledgement. */
-export const SEND_TIMEOUT = Duration.secs(30);
+import {
+	forget,
+	messageOf,
+	type Sending,
+	STILL_SENDING,
+	type Unsent,
+} from "./sending";
 
 export type ConversationFeedEvents = { changed: undefined };
-
-/** A message on its way: its words, and its files read from the page's own copies. */
-export interface Sending {
-	/** The page's id for it, which the server's own copy of it carries back. */
-	id: string;
-	text: string;
-	images: Image[];
-	files: Attached[];
-	/** Whether it waits for the running turn's end, as the server will record it. */
-	queued: boolean;
-	/** What the person wrote and attached, to send again or take back. */
-	typed: string;
-	attached: File[];
-	/** Whether the person said it into the mic. */
-	dictated: boolean;
-	/** When it was sent, as epoch ms, to tell when it has gone unanswered for `STILL_SENDING`. */
-	at: number;
-}
 
 /** What the page keeps of a listing, to draw from at once when opened again. */
 export interface Listing {
@@ -60,10 +40,10 @@ export interface Listing {
 	conversations: ConversationState[];
 }
 
-/** A message the server refused, with why: shown until sent again or taken back. */
-export interface Unsent {
-	message: Sending;
-	why: string;
+/** Where a `ConversationFeed` keeps its listing, and which project it reads. */
+export interface ConversationFeedOptions {
+	copy?: PageCopy<Listing> | null;
+	project?: string | null;
 }
 
 /**
@@ -106,19 +86,28 @@ export class ConversationFeed
 	/** The conversations `whole` is reading, by id. */
 	private readonly reading = new Set<string>();
 	private stream: LiveStream | null = null;
+	/** Whether what it shows is what `seed` gave, the server not yet having said. */
+	private seeded = false;
 	private readonly streamed = new Map<string, ConversationState>();
+	private readonly copy: PageCopy<Listing> | null;
+	private readonly project: string | null;
 
 	/**
 	 * `timer` and `wall` are what the thread waits and reads the date by;
-	 * `ids` names each message on its way; `copy` is the listing last kept,
-	 * which the page draws from until the server answers.
+	 * `ids` names each message on its way. `opts.copy` is the listing last
+	 * kept, which the page draws from until the server answers; `opts.project`,
+	 * a slug or "" for the focused one, is the project it reads, whatever the
+	 * address goes on to name, the address's own by default.
 	 */
 	constructor(
 		readonly timer: Timer = new SystemTimer(),
 		readonly wall: WallClock = new SystemWallClock(),
 		private readonly ids: IdProvider = new UuidProvider(),
-		private readonly copy: PageCopy<Listing> | null = null,
-	) {}
+		opts: ConversationFeedOptions = {},
+	) {
+		this.copy = opts.copy ?? null;
+		this.project = opts.project ?? null;
+	}
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would
@@ -132,19 +121,22 @@ export class ConversationFeed
 
 	/**
 	 * Shows the listing last kept, unless a listing has come since; a refused
-	 * one leaves it, as the server's last word.
+	 * one leaves it, as the server's last word. Over a seed, it gives only
+	 * its agents, the seed's conversations being newer.
 	 */
 	private async paint(): Promise<void> {
 		const kept = this.copy === null ? null : await this.copy.load();
 		if (kept === null || this.heard) {
 			return;
 		}
+		const seeded = this.seeded;
+		this.seeded = false;
 		Object.assign(this, {
 			available: true,
 			loading: false,
 			agents: kept.agents,
 		});
-		this.show(kept.conversations);
+		this.show(seeded ? this.recorded : kept.conversations);
 	}
 
 	/** Keeps what the server last said, as a listing says it, for the next page. */
@@ -173,6 +165,20 @@ export class ConversationFeed
 		}
 		this.unsent.clear();
 		this.expected.clear();
+	}
+
+	/**
+	 * Shows `conversations`, what the page already holds of the project's, as
+	 * summaries, until its own listing arrives, so a project the page has not
+	 * read yet draws at once. Ignored once it has listed them.
+	 */
+	seed(conversations: ConversationState[]): void {
+		if (!this.loading) {
+			return;
+		}
+		this.seeded = true;
+		Object.assign(this, { available: true, loading: false });
+		this.show(conversations);
 	}
 
 	/** Updates a conversation from a whole state or a streamed delta, adding new ones first. */
@@ -214,7 +220,7 @@ export class ConversationFeed
 		try {
 			const since = this.changes;
 			const response = await fetch(
-				scoped(`/api/conversations/${encodeURIComponent(id)}`),
+				scoped(`/api/conversations/${encodeURIComponent(id)}`, this.project),
 			).catch(() => null);
 			if (response?.ok) {
 				const state = (await response.json()) as ConversationState;
@@ -494,25 +500,29 @@ export class ConversationFeed
 		if (!(await this.list())) {
 			return;
 		}
-		this.stream = new LiveStream(scoped("/api/conversations/events"), {
-			message: (event) => {
-				const state = JSON.parse(event.data) as ConversationState;
-				this.streamed.set(state.id, state);
-				this.put(state);
+		this.stream = new LiveStream(
+			scoped("/api/conversations/events", this.project),
+			{
+				message: (event) => {
+					const state = JSON.parse(event.data) as ConversationState;
+					this.streamed.set(state.id, state);
+					this.put(state);
+				},
+				named: {
+					delta: (event) =>
+						this.put(JSON.parse(event.data) as ConversationDelta),
+					removed: (event) => this.drop(event.data),
+					settings: () => void this.list(),
+				},
+				// Back after the stream dropped, as when `splates server` restarts or the
+				// machine wakes: what the page holds may have moved meanwhile, so it
+				// is read again whole.
+				open: (again) => {
+					this.streamed.clear();
+					void this.reopened(again);
+				},
 			},
-			named: {
-				delta: (event) => this.put(JSON.parse(event.data) as ConversationDelta),
-				removed: (event) => this.drop(event.data),
-				settings: () => void this.list(),
-			},
-			// Back after the stream dropped, as when `splates server` restarts or the
-			// machine wakes: what the page holds may have moved meanwhile, so it
-			// is read again whole.
-			open: (again) => {
-				this.streamed.clear();
-				void this.reopened(again);
-			},
-		});
+		);
 	}
 
 	/**
@@ -542,9 +552,9 @@ export class ConversationFeed
 	 * then reads the agents afresh, so the page shows what they said.
 	 */
 	async refreshLimits(): Promise<void> {
-		await fetch(scoped("/api/conversations/limits"), { method: "POST" }).catch(
-			() => null,
-		);
+		await fetch(scoped("/api/conversations/limits", this.project), {
+			method: "POST",
+		}).catch(() => null);
 		await this.list();
 	}
 
@@ -553,14 +563,22 @@ export class ConversationFeed
 		const since = this.changes;
 		const read = this.reads++;
 		const response = await EARLY_READS.fetch(
-			scoped("/api/conversations"),
+			scoped("/api/conversations", this.project),
 		).catch(() => null);
 		// Off, or a host that may not have them: either way, nothing to show.
 		if (response === null || !response.ok) {
 			this.loading = false;
+			if (this.seeded) {
+				// Off after all: what stood in for them goes.
+				this.seeded = false;
+				this.available = false;
+				this.show([]);
+				return false;
+			}
 			this.dispatcher.dispatch("changed");
 			return false;
 		}
+		this.seeded = false;
 		const { agents, conversations } = (await response.json()) as {
 			agents: AgentChoice[];
 			conversations: ConversationState[];
@@ -612,36 +630,6 @@ export function agentName(agents: AgentChoice[], id: string): string {
 	return agents.find((agent) => agent.id === id)?.name ?? id;
 }
 
-/** `message` as the thread shows it, from the page's own copies of its files. */
-export function messageOf(message: Sending, now = message.at): Message {
-	return {
-		id: message.id,
-		role: "user",
-		parts: [
-			...message.images.map((image) => ({ type: "image" as const, ...image })),
-			...message.files.map((file) => ({ type: "file" as const, ...file })),
-			...(message.text === ""
-				? []
-				: [{ type: "text" as const, text: message.text }]),
-		],
-		plan: null,
-		at: null,
-		until: null,
-		...(message.queued ? { queued: true as const } : {}),
-		...(now - message.at >= STILL_SENDING.ms
-			? {
-					sending: Math.max(
-						0,
-						Math.ceil(
-							(SEND_TIMEOUT.ms - (now - message.at)) / Duration.secs(1).ms,
-						),
-					),
-				}
-			: {}),
-		...(message.dictated ? { dictated: true as const } : {}),
-	};
-}
-
 /** The images an agent that takes images is sent as such, as the server keeps them. */
 export const SEEN = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
@@ -663,13 +651,4 @@ function holds(
 			patched[key] === state[key] ||
 			JSON.stringify(patched[key]) === JSON.stringify(state[key]),
 	);
-}
-
-/** Lets go of the page's copies of `message`'s files. */
-function forget(message: Sending): void {
-	for (const image of [...message.images, ...message.files]) {
-		if (image.url !== undefined) {
-			URL.revokeObjectURL(image.url);
-		}
-	}
 }

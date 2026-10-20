@@ -146,6 +146,7 @@ describe("App on a phone", () => {
 				trunk: "main",
 				tasks: [],
 				laneNames: [],
+				worktreeRoot: "/code/worktrees",
 				lanesTaken: {},
 				conversations: [
 					conversation({ id: "z1", title: "Stripes", status: "running" }),

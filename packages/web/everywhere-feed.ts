@@ -61,9 +61,13 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	private readonly streamed = new Map<string, ConversationState>();
 	private readonly tagged = new WeakMap<object, object>();
 
-	/** Streams until the last holder disposes what this returns. */
+	/**
+	 * Streams until the last holder disposes what this returns, and a held
+	 * again in the same turn, as by a page drawn afresh for another project,
+	 * keeps it streaming rather than reading every project again.
+	 */
 	hold(): Resource {
-		if (this.holders++ === 0) {
+		if (this.holders++ === 0 && this.stream === null) {
 			this.start();
 		}
 		let held = true;
@@ -72,8 +76,12 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 				if (held) {
 					held = false;
 					if (--this.holders === 0) {
-						this.stream?.dispose();
-						this.stream = null;
+						queueMicrotask(() => {
+							if (this.holders === 0) {
+								this.stream?.dispose();
+								this.stream = null;
+							}
+						});
 					}
 				}
 			},
@@ -83,6 +91,14 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	/** The project `slug` names, or undefined for one the feed has not heard of. */
 	project(slug: string): EverywhereSummary | undefined {
 		return this.projects.find((each) => each.project === slug);
+	}
+
+	/**
+	 * The project `slug` names with its tasks and conversations, or undefined
+	 * for one the feed has not heard of.
+	 */
+	listed(slug: string): EverywhereProject | undefined {
+		return this.held.get(slug);
 	}
 
 	private start(): void {

@@ -21,12 +21,9 @@ import {
 	promptConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import {
-	type ConversationFeed,
-	SEND_TIMEOUT,
-	type Sending,
-} from "./conversation-feed";
+import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import { SEND_TIMEOUT, type Sending } from "./sending";
 import type { ThreadMessages } from "./thread-messages";
 
 /**
