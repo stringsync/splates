@@ -72,6 +72,11 @@ splatesServer
 		description:
 			"how many agents that other agents started (with `splates add --agent`, or a lane's orchestrator handing out tasks) this machine's worker runs at once; past them, each new or resumed one waits in the queue, first come, first served, which `splates worker queue` shows and reorders. An agent you start runs at once on any worker up, taking no slot. Read as the server starts its worker, which a restart from the page leaves running",
 	})
+	.option("macos", z.boolean(), {
+		default: false,
+		description:
+			"keep the server up on a Mac left to serve: `caffeinate` keeps the Mac from sleeping while it runs, on power or idle, and a server that exits other than by Ctrl-C, a stop or a restart from the page, as on a crash, starts again after 2s, waiting twice as long after each quick failure, up to a minute. Refused on other platforms",
+	})
 	.option("slot", z.boolean(), {
 		default: false,
 		description:

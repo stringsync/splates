@@ -1,5 +1,12 @@
+import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import { Duration, SystemTimer, type Timer } from "webappwiz/time";
+import {
+	type Clock,
+	Duration,
+	SystemClock,
+	SystemTimer,
+	type Timer,
+} from "webappwiz/time";
 import { SUPERVISOR } from "../workers";
 
 /** What a server exits with to be started again as it was. */
@@ -31,7 +38,10 @@ const NEWEST = ["bunx", "@stringsync/splates@latest"];
  * child with a SIGTERM and ends this, since the child would otherwise outlive
  * it, listening on its port. A `worker` runs beside it as a second child,
  * told this process's pid so it ends once this is gone. Both stop, ending
- * this with 0, once the `checkout` it runs from is deleted.
+ * this with 0, once the `checkout` it runs from is deleted. When it is to
+ * `keepUp`, a child that ends any other way than Ctrl-C or a stop is started
+ * again after a pause that doubles with each quick failure; with `awake`,
+ * `caffeinate` keeps the Mac from sleeping while this runs.
  * Answers with the exit code to end on.
  */
 export async function supervise(
@@ -42,15 +52,23 @@ export async function supervise(
 		cwd,
 		worker = null,
 		checkout = null,
+		keepUp = false,
+		awake = false,
+		log = null,
 		timer = new SystemTimer(),
+		clock = new SystemClock(),
 	}: SuperviseOptions = {},
 ): Promise<number> {
 	let splates = ps.self;
 	let argv = [...splates, ...ps.args];
 	// Built until it updates: npm's splates ships its page.
 	let building = build;
-	// Ctrl-C is the child's to end on, and its exit then ends this.
-	const quiet = ps.on("SIGINT", () => {});
+	// Ctrl-C is the child's to end on, and its exit then ends this, even
+	// when it is kept up.
+	let interrupted = false;
+	const quiet = ps.on("SIGINT", () => {
+		interrupted = true;
+	});
 	const stopping = new AbortController();
 	let stopped = 0;
 	const stopOn = (signal: string, code: number) =>
@@ -71,6 +89,11 @@ export async function supervise(
 			timer,
 		});
 	}
+	// It waits on this process, so it ends with it however this ends.
+	const caffeinate = awake
+		? ps.start(["caffeinate", "-ims", "-w", String(ps.pid)])
+		: null;
+	let pause = FIRST_PAUSE;
 	try {
 		for (;;) {
 			// A failed build has said why on the terminal, and the page it left
@@ -82,6 +105,7 @@ export async function supervise(
 				return stopped;
 			}
 			let exitCode: number;
+			const began = clock.now();
 			try {
 				({ exitCode } = await ps.spawn(argv, {
 					env: {
@@ -104,10 +128,25 @@ export async function supervise(
 				argv = [...splates, ...ps.args];
 				building = null;
 			} else if (exitCode !== RESTART) {
-				return exitCode;
+				if (!keepUp || interrupted) {
+					return exitCode;
+				}
+				// One that served a while failed afresh, not again.
+				if (clock.now().subtract(began).isGreaterThanOrEqual(LAST_PAUSE)) {
+					pause = FIRST_PAUSE;
+				}
+				log?.error(
+					`splates server exited (${exitCode}), starting it again in ${pause.human()}`,
+				);
+				await sleep(pause, timer, stopping.signal);
+				if (stopping.signal.aborted || interrupted) {
+					return stopping.signal.aborted ? stopped : exitCode;
+				}
+				pause = Duration.min(pause.multiply(2), LAST_PAUSE);
 			}
 		}
 	} finally {
+		caffeinate?.kill();
 		working.abort();
 		watching?.dispose();
 		quiet.dispose();
@@ -142,8 +181,27 @@ export interface SuperviseOptions {
 	 * installed from npm.
 	 */
 	checkout?: { path: string; fs: Pick<Fs, "exists"> } | null;
+	/**
+	 * Whether to start the server again whenever it ends other than on a
+	 * restart, Ctrl-C or a stop, as after a crash, waiting between starts.
+	 */
+	keepUp?: boolean;
+	/** Whether to keep the Mac awake with `caffeinate` while this runs. */
+	awake?: boolean;
+	/** Where a kept-up server's failures are told; null to tell no one. */
+	log?: Logger | null;
 	timer?: Timer;
+	clock?: Clock;
 }
+
+/** How long a server that ended is first waited on before it starts again. */
+const FIRST_PAUSE = Duration.secs(2);
+
+/**
+ * The longest wait between starts of a failing server, and how long one must
+ * have served for its next failure to wait only `FIRST_PAUSE` again.
+ */
+const LAST_PAUSE = Duration.mins(1);
 
 /** How often a server run from a checkout looks for the checkout. */
 const CHECKOUT_POLL = Duration.secs(5);
@@ -178,18 +236,27 @@ async function keep(
 	while (!opts.signal.aborted) {
 		// An abort rejects the spawn once the worker is gone.
 		await ps.spawn(argv(), opts).catch(() => {});
-		await new Promise<void>((resolve) => {
-			const pause = timer.setTimeout(resolve, WORKER_PAUSE);
-			opts.signal.addEventListener(
-				"abort",
-				() => {
-					pause.dispose();
-					resolve();
-				},
-				{ once: true },
-			);
-		});
+		await sleep(WORKER_PAUSE, timer, opts.signal);
 	}
+}
+
+/** Waits `pause`, or until `signal` aborts. */
+function sleep(
+	pause: Duration,
+	timer: Timer,
+	signal: AbortSignal,
+): Promise<void> {
+	return new Promise<void>((resolve) => {
+		const waiting = timer.setTimeout(resolve, pause);
+		signal.addEventListener(
+			"abort",
+			() => {
+				waiting.dispose();
+				resolve();
+			},
+			{ once: true },
+		);
+	});
 }
 
 /** What `keep` runs its child with, and stops it on. */

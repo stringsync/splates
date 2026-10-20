@@ -86,6 +86,13 @@ export async function serveDev(
 			{},
 		);
 	}
+	if (opts.macos && ctx.ps.platform !== "darwin") {
+		fail(
+			"usage",
+			"--macos keeps a Mac awake with caffeinate: run it on macOS",
+			{},
+		);
+	}
 	// Served from a child, so the page can restart it.
 	if (ctx.ps.env(SERVING) === undefined) {
 		// Before the worker or a slot reads the home, once for the machine.
@@ -125,6 +132,9 @@ export async function serveDev(
 				env: slot?.env,
 				worker,
 				checkout: build === null ? null : { path: build.cwd, fs: ctx.fs },
+				keepUp: opts.macos,
+				awake: opts.macos,
+				log: ctx.log,
 			}),
 		);
 		return;
@@ -345,5 +355,6 @@ export interface DevFlags {
 	"tunnel-name": string;
 	"ports-host": string;
 	"worker-slots": number;
+	macos: boolean;
 	slot: boolean;
 }
