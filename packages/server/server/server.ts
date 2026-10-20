@@ -927,6 +927,8 @@ export async function dev(
 			}
 		}
 	});
+	// Last, so it runs first: a restart under way writes before all else goes.
+	disposer.defer(() => restarts.disposeAsync());
 	return {
 		port,
 		disposeAsync: disposer.disposeAsync,

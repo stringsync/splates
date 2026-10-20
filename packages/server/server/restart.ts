@@ -87,6 +87,13 @@ export class Restarts {
 	// Projects read for their tasks alone, by root: opened, never served, so
 	// listing them starts none of their agents.
 	private readonly peeked = new Map<string, Promise<Project>>();
+	/**
+	 * The restart under way once its checkpoint is answered, until it has
+	 * written what the next run reopens and handed over; disposing waits on
+	 * it, so nothing is written after the server is gone.
+	 */
+	private leaving: Promise<boolean> = Promise.resolve(false);
+	private disposed = false;
 
 	constructor(
 		private readonly home: RestartsHome,
@@ -434,44 +441,66 @@ export class Restarts {
 			shutdown = false,
 		}: { reopens?: boolean; shutdown?: boolean } = {},
 	): void {
-		const { log, served, server } = this.home;
+		const { log, server } = this.home;
 		this.restarting = { resume: reopens, shutdown };
 		void Promise.all(asked).then(async () => {
-			if (this.restarting === null) {
+			if (this.restarting === null || this.disposed) {
 				return;
 			}
-			if (reopens) {
-				const roots: string[] = [];
-				for (const [root, opened] of served.served) {
-					const project = await opened.catch(() => null);
-					const all = (await project?.conversations?.list()) ?? [];
-					if (
-						all.some(
-							(each) =>
-								each.stoppedByCheckpoint && each.state.budgetStop === null,
-						)
-					) {
-						roots.push(root);
-					}
-				}
-				await this.reopen.write({ roots });
-			}
-			const { release } = this.versions;
-			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
-			log.info(
-				shutdown
-					? "splates server shutting down"
-					: release === null
-						? "splates server restarting"
-						: `splates server restarting on splates ${release.newest}`,
-			);
-			// A shutdown ends the worker too: its agents stop, as ever.
-			if (!shutdown) {
-				await this.home.handOver();
+			this.leaving = this.leave(reopens, shutdown).catch((error) => {
+				log.error(`splates server did not restart: ${String(error)}`);
+				return false;
+			});
+			if (!(await this.leaving)) {
+				return;
 			}
 			await server.disposeAsync();
-			this.opts.exit?.(code);
+			const { release } = this.versions;
+			this.opts.exit?.(shutdown ? 0 : release === null ? RESTART : UPDATE);
 		});
+	}
+
+	/**
+	 * Writes what the next run reopens and hands over, as a restart leaves;
+	 * says whether to go on and exit, which a dispose meanwhile stops.
+	 */
+	private async leave(reopens: boolean, shutdown: boolean): Promise<boolean> {
+		const { log, served } = this.home;
+		if (reopens) {
+			const roots: string[] = [];
+			for (const [root, opened] of served.served) {
+				const project = await opened.catch(() => null);
+				const all = (await project?.conversations?.list()) ?? [];
+				if (
+					all.some(
+						(each) =>
+							each.stoppedByCheckpoint && each.state.budgetStop === null,
+					)
+				) {
+					roots.push(root);
+				}
+			}
+			await this.reopen.write({ roots });
+		}
+		const { release } = this.versions;
+		log.info(
+			shutdown
+				? "splates server shutting down"
+				: release === null
+					? "splates server restarting"
+					: `splates server restarting on splates ${release.newest}`,
+		);
+		// A shutdown ends the worker too: its agents stop, as ever.
+		if (!shutdown) {
+			await this.home.handOver();
+		}
+		return !this.disposed;
+	}
+
+	/** Stops any restart not yet begun, and waits out the one under way. */
+	async disposeAsync(): Promise<void> {
+		this.disposed = true;
+		await this.leaving;
 	}
 
 	/**
