@@ -254,7 +254,7 @@ export function QuestionCards({
 		// The whole question in view, not just its first stop, which the
 		// browser would leave at the very foot of the thread.
 		focusStop(following, { preventScroll: true });
-		following?.closest("li, footer")?.scrollIntoView({ block: "nearest" });
+		following?.closest("li, [data-more]")?.scrollIntoView({ block: "nearest" });
 		toEnd(following);
 	};
 	// The page turned to, its question's first stop; the sheet keeps it in view.
@@ -359,6 +359,51 @@ export function QuestionCards({
 						)}
 					</ol>
 				)}
+				{!paging && (live ? answer === null : more !== "") && (
+					// Below the questions, lined up with their answers, as one more
+					// thing to say: barred while it has the focus, as each question is.
+					<div
+						data-more
+						className={cn(
+							"relative flex gap-3 border-t px-4 py-4",
+							live &&
+								"transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
+						)}
+					>
+						<span aria-hidden className="size-5 shrink-0" />
+						<div className="min-w-0 flex-1">
+							{live ? (
+								<CardBox
+									data-stop="more"
+									aria-label="Anything else"
+									value={written.more}
+									placeholder="Anything else?"
+									onValue={(more) => write({ ...written, more })}
+									files={files?.of(MORE) ?? null}
+									onKeyDown={(event) => {
+										// Enter sends, as in the composer; Shift+Enter is a new line.
+										if (event.key === "Enter" && !event.shiftKey) {
+											event.preventDefault();
+											submit();
+										}
+									}}
+									className="min-h-9 pointer-coarse:min-h-11"
+								/>
+							) : (
+								// What else the person said, as it was sent: its box, frozen.
+								<fieldset
+									aria-label="Anything else"
+									className="min-w-0 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+								>
+									<Markdown
+										text={more}
+										className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+									/>
+								</fieldset>
+							)}
+						</div>
+					</div>
+				)}
 				{paging && page === end - 1 && (
 					<div className="px-5 pb-5">
 						<button
@@ -437,24 +482,6 @@ export function QuestionCards({
 					</footer>
 				) : live ? (
 					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
-						{answer === null && (
-							<CardBox
-								data-stop="more"
-								aria-label="Anything else"
-								value={written.more}
-								placeholder="Anything else?"
-								onValue={(more) => write({ ...written, more })}
-								files={files?.of(MORE) ?? null}
-								onKeyDown={(event) => {
-									// Enter sends, as in the composer; Shift+Enter is a new line.
-									if (event.key === "Enter" && !event.shiftKey) {
-										event.preventDefault();
-										submit();
-									}
-								}}
-								className="min-h-9 pointer-coarse:min-h-11"
-							/>
-						)}
 						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 								{!touch && (
@@ -491,22 +518,7 @@ export function QuestionCards({
 						</div>
 						<Refusal refusal={refusal} className="text-right" />
 					</footer>
-				) : (
-					more !== "" && (
-						// What else the person said, as it was sent: its box, frozen.
-						<footer className="border-t bg-muted/20 px-4 py-3">
-							<fieldset
-								aria-label="Anything else"
-								className="min-w-0 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-							>
-								<Markdown
-									text={more}
-									className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-								/>
-							</fieldset>
-						</footer>
-					)
-				)}
+				) : null}
 			</div>
 		</CardShell>
 	);
