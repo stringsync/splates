@@ -21,11 +21,21 @@ export function useViewport(): Viewport {
 // would render forever.
 let last: Viewport = { top: 0, height: 0, keyboard: false };
 
+// The tallest the page has shown at a width, so turning the phone starts
+// over: newer iOS shrinks `innerHeight` with the keyboard too, so it alone
+// would never see the keyboard, and the screen would stay put as Safari pans
+// past it to what is focused.
+let tallest = { width: 0, height: 0 };
+
 function read(): Viewport {
 	const offset = window.visualViewport?.offsetTop ?? 0;
 	const height = window.visualViewport?.height ?? innerHeight;
+	if (tallest.width !== innerWidth) {
+		tallest = { width: innerWidth, height: 0 };
+	}
+	tallest.height = Math.max(tallest.height, height, innerHeight);
 	// A keyboard takes far more than Safari's bars ever do.
-	const keyboard = innerHeight - height > 120;
+	const keyboard = tallest.height - height > 120;
 	// Only a keyboard's pan moves the screen. Safari's rubber band at either
 	// end of the page also moves the visual viewport, and a screen that
 	// followed it would slide with the page, so a drag seems to run backwards.
