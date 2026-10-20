@@ -355,7 +355,11 @@ export function Home({
 							}
 							below={
 								<>
-									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
+									{!auto && (
+										<PlanLimits
+											limits={limitsOf(agents, conversations, agent)}
+										/>
+									)}
 									{recent.length > 0 && (
 										<section
 											aria-label="recent conversations"
