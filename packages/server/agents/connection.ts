@@ -919,8 +919,9 @@ export class AgentConnection {
 					!this.suppressReplay
 				) {
 					const update = params.update as AsyncTaskUpdate;
-					host.log.write({ kind: "background", update });
-					foldBackground(host.state, update);
+					const at = host.now();
+					host.log.write({ kind: "background", update, at });
+					foldBackground(host.state, update, at);
 					host.changed();
 				}
 			},

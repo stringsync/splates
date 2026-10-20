@@ -49,6 +49,7 @@ export type {
 	Asked,
 	Attached,
 	Background,
+	Backgrounded,
 	BackgroundState,
 	Checkpoint,
 	Command,

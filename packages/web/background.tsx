@@ -1,6 +1,8 @@
+import { makeAssistantDataUI } from "@assistant-ui/react";
 import type {
 	Background,
 	BackgroundState,
+	Tool,
 } from "@stringsync/splates-server/conversations";
 import {
 	CheckIcon,
@@ -12,7 +14,6 @@ import {
 } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { lineCard } from "./board";
 
 /**
  * Opens what a conversation's background command printed in the pane beside
@@ -121,52 +122,92 @@ export function BackgroundCard({
 }
 
 /**
- * A bar above the composer while the agent has commands running in the
- * background, each command a chip opening what it printed in the pane, as
- * its row in the card beside the thread does: so a conversation that looks
- * idle says what it is waiting on. Nothing once none run.
+ * The conversation a thread shows and the commands its agent lists in the
+ * background, so a line for one opens what it printed while it still can.
  */
-export function RunningBar({
-	conversation,
-	background,
-}: {
+export const ListedBackground = createContext<{
 	conversation: string;
 	background: Background[];
-}): JSX.Element | null {
+} | null>(null);
+
+/**
+ * Renders a `data-background` part: the line in the thread where the agent
+ * left a command running in the background, one per command, saying how it
+ * ended once it has.
+ */
+export const BackgroundUI = makeAssistantDataUI<{ tool: Tool }>({
+	name: "background",
+	render: ({ data }) => <BackgroundLine tool={data.tool} />,
+});
+
+/** How each way a command ends reads on its line. */
+const ENDED: Record<BackgroundState, string> = {
+	running: "Running in the background",
+	completed: "Ran in the background",
+	failed: "Failed in the background",
+	stopped: "Stopped in the background",
+};
+
+function BackgroundLine({ tool }: { tool: Tool }): JSX.Element | null {
 	const watch = useContext(WatchBackground);
-	const running = background.filter((each) => each.state === "running");
-	if (running.length === 0 || watch === null) {
+	const listed = useContext(ListedBackground);
+	const { background } = tool;
+	if (background === undefined) {
 		return null;
 	}
+	const { id, state, exitCode } = background;
+	const command = tool.command ?? tool.title;
+	const shown = listed?.background.find((each) => each.id === id);
+	const chip = cn(
+		"min-w-0 max-w-80 truncate rounded-md border bg-background px-1.5 py-0.5 font-mono text-foreground",
+	);
 	return (
-		<aside
-			aria-label="Running in the background"
-			className={cn(
-				"flex items-center gap-2 rounded-lg border bg-card pl-3 text-sm shadow-xs",
-				lineCard,
-			)}
+		<div
+			role="note"
+			aria-label="background command"
+			data-slot="background"
+			className="my-6 text-muted-foreground text-xs"
 		>
-			<RunningSpinner />
-			<span className="shrink-0 text-muted-foreground">Running</span>
-			<ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-				{running.map((each) => (
-					<li key={each.id} className="min-w-0 max-w-full">
+			<div className="flex items-center gap-3">
+				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+				<p className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+					{state === "running" ? (
+						<RunningSpinner />
+					) : (
+						<StateMark state={state} />
+					)}
+					<span>{ENDED[state]}</span>
+					{watch !== null && listed !== null && shown !== undefined ? (
 						<button
 							type="button"
-							title={
-								each.subagent === null
-									? each.name
-									: `${each.name}\nStarted by ${each.subagent.title}`
-							}
-							onClick={() => watch(conversation, each.id)}
-							className="flex h-7 max-w-full items-center rounded-md border bg-background px-2 font-mono text-xs shadow-xs transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none pointer-coarse:h-10 pointer-coarse:px-3"
+							title={shown.name}
+							onClick={() => watch(listed.conversation, id)}
+							className={cn(
+								chip,
+								"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
+							)}
 						>
-							<span className="truncate">{each.command ?? each.name}</span>
+							{command}
 						</button>
-					</li>
-				))}
-			</ul>
-		</aside>
+					) : (
+						<code title={command} className={chip}>
+							{command}
+						</code>
+					)}
+					{exitCode !== null && (
+						<span
+							className={cn(
+								"tabular-nums",
+								exitCode !== 0 && "text-destructive",
+							)}
+						>
+							exit {exitCode}
+						</span>
+					)}
+				</p>
+				<span aria-hidden className="h-px min-w-3 flex-1 bg-border" />
+			</div>
+		</div>
 	);
 }
 

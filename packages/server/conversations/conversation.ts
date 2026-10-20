@@ -4,7 +4,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration } from "webappwiz/time";
 import type { Agent, AgentProcess, ProcessHandle } from "../agents";
-import { AgentConnection, fold, heard } from "../agents";
+import { AgentConnection, endBackground, fold, heard } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
@@ -1013,6 +1013,7 @@ export class Conversation
 		}
 		this.log.write({ kind: "end", error });
 		await this.log.flush();
+		endBackground(this.state, this.now());
 		this.set({
 			status: error === null ? "stopped" : "failed",
 			error,

@@ -1,5 +1,5 @@
 export type { AsyncTaskUpdate } from "./acp-extensions";
-export { foldBackground } from "./acp-extensions";
+export { endBackground, foldBackground } from "./acp-extensions";
 export { agents } from "./agents";
 export { AgentConnection } from "./connection";
 export { agentError, requestError } from "./errors";

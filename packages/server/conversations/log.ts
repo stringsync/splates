@@ -5,6 +5,7 @@ import type { Flag, ProcessHandle } from "../agents";
 import {
 	type AsyncTaskUpdate,
 	agentTurn,
+	endBackground,
 	fold,
 	foldBackground,
 	heard,
@@ -254,7 +255,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				ask = entry.ask === null ? null : { rpc: entry.rpc, ask: entry.ask };
 				state.ask = entry.ask;
 			} else if (entry.kind === "background") {
-				foldBackground(state, entry.update);
+				foldBackground(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 				launched = null;
@@ -340,7 +341,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		state.status = state.error === null ? "stopped" : "failed";
 		state.ask = null;
 		// Its commands ended with its process, though a crash said nothing.
-		state.background = [];
+		endBackground(state, replayed.last ?? null);
 		// Its process ended before the agent answered.
 		if (state.checkpoint === "asked") {
 			state.checkpoint = "unanswered";
@@ -558,5 +559,5 @@ type Said =
 	| { kind: "ask"; rpc: acp.JsonRpcId | null; ask: Ask }
 	| { kind: "ask"; ask: null }
 	/** Word of a command the agent left running in the background. */
-	| { kind: "background"; update: AsyncTaskUpdate }
+	| { kind: "background"; update: AsyncTaskUpdate; at?: string }
 	| { kind: "end"; error: string | null };

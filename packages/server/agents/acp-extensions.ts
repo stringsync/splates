@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Tool } from "../conversations";
 import { toolIn } from "./tool-calls";
 
 /**
@@ -69,6 +69,8 @@ export interface AsyncTaskState {
 	sessionUpdate: typeof ASYNC_TASK_STATE;
 	asyncTaskId: string;
 	state: "running" | "paused" | "completed" | "failed" | "stopped";
+	/** What the agent says of how it ended, as Claude's `... (exit code 0)`. */
+	summary?: string;
 	outputFilePath?: string;
 }
 
@@ -167,10 +169,14 @@ export function finalAnswer(update: acp.SessionUpdate): boolean {
 	return air?.phase === "final_answer";
 }
 
-/** Folds an update on a background command into those the agent left. */
+/**
+ * Folds an update on a background command into those the agent left, and
+ * into the tool call that started it, at `at`.
+ */
 export function foldBackground(
 	state: ConversationState,
 	update: AsyncTaskUpdate,
+	at: string | null,
 ): void {
 	if (update.sessionUpdate === ASYNC_TASK_SPAWNED) {
 		if (update.taskType === "shell") {
@@ -178,6 +184,14 @@ export function foldBackground(
 				update.toolCallId === undefined
 					? null
 					: toolIn(state, update.toolCallId);
+			if (tool !== null) {
+				tool.background ??= {
+					id: update.asyncTaskId,
+					state: "running",
+					exitCode: null,
+					until: null,
+				};
+			}
 			const parent = tool?.parent ?? null;
 			const previous = state.background.find(
 				(each) => each.id === update.asyncTaskId,
@@ -203,6 +217,22 @@ export function foldBackground(
 		}
 		return;
 	}
+	if (
+		update.sessionUpdate === ASYNC_TASK_STATE &&
+		update.state !== "running" &&
+		update.state !== "paused"
+	) {
+		const tool = backgroundedBy(state, update.asyncTaskId);
+		if (tool?.background !== undefined) {
+			const code = update.summary?.match(/exit code (-?\d+)/i)?.[1];
+			tool.background = {
+				...tool.background,
+				state: update.state,
+				exitCode: code === undefined ? tool.background.exitCode : Number(code),
+				until: tool.background.until ?? at,
+			};
+		}
+	}
 	state.background = state.background.map((each) =>
 		each.id !== update.asyncTaskId
 			? each
@@ -217,4 +247,34 @@ export function foldBackground(
 							: each.state,
 				},
 	);
+}
+
+/**
+ * Ends every command the agent left running, as its process ending does,
+ * though it said nothing of them: stopped at `at`, and off the list.
+ */
+export function endBackground(
+	state: ConversationState,
+	at: string | null,
+): void {
+	for (const message of state.messages) {
+		for (const part of message.parts) {
+			if (part.type === "tool" && part.background?.state === "running") {
+				part.background = { ...part.background, state: "stopped", until: at };
+			}
+		}
+	}
+	state.background = [];
+}
+
+/** The tool call that left background command `id` running; null when unknown. */
+function backgroundedBy(state: ConversationState, id: string): Tool | null {
+	for (const message of state.messages) {
+		for (const part of message.parts) {
+			if (part.type === "tool" && part.background?.id === id) {
+				return part;
+			}
+		}
+	}
+	return null;
 }

@@ -10,6 +10,7 @@ import {
 	openRow,
 	Testing,
 	todo,
+	tool,
 	waitFor,
 	within,
 } from "./testing";
@@ -405,40 +406,66 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
-	it("says above the composer which commands run in the background, each opening its output", async () => {
-		const running = {
-			id: "b1",
-			name: "Start the dev server",
-			command: "bun dev",
-			subagent: null,
-			state: "running" as const,
-			output: "/tmp/b1.output",
-		};
+	it("puts a line in the thread where it left each command in the background, saying how each ended", async () => {
+		const left = (id: string, command: string, exitCode: number | null) =>
+			tool({
+				id: `t-${id}`,
+				title: command,
+				command,
+				background: {
+					id,
+					state:
+						exitCode === null
+							? "running"
+							: exitCode === 0
+								? "completed"
+								: "failed",
+					exitCode,
+					until: null,
+				},
+			});
 		const view = await testing.openConversations([
 			conversation({
 				id: "c1",
 				title: "Serve it",
+				messages: [
+					message("user", "serve it and test it"),
+					message(
+						"agent",
+						left("b1", "bun dev", null),
+						left("b2", "bun test", 1),
+						left("b3", "bun run lint", 0),
+						"Started them.",
+					),
+				],
 				background: [
-					running,
-					{ ...running, id: "b2", name: "Lint", command: null },
-					{ ...running, id: "b3", command: "bun test", state: "completed" },
+					{
+						id: "b1",
+						name: "Start the dev server",
+						command: "bun dev",
+						subagent: null,
+						state: "running",
+						output: "/tmp/b1.output",
+					},
 				],
 			}),
 		]);
-		const bar = view.getByRole("complementary", {
-			name: "Running in the background",
-		});
-		expect(
-			within(bar)
-				.getAllByRole("button")
-				.map((chip) => [chip.textContent, chip.title]),
-		).toEqual([
-			["bun dev", "Start the dev server"],
-			["Lint", "Lint"],
+
+		const lines = view.getAllByRole("note", { name: "background command" });
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Running in the backgroundbun dev",
+			"Failed in the backgroundbun testexit 1",
+			"Ran in the backgroundbun run lintexit 0",
 		]);
+		// Only one the agent still lists opens what it printed.
+		expect(within(lines[1] as HTMLElement).queryByRole("button")).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(within(bar).getByRole("button", { name: "bun dev" })),
+			fireEvent.click(
+				within(lines[0] as HTMLElement).getByRole("button", {
+					name: "bun dev",
+				}),
+			),
 		);
 		const pane = await waitFor(() =>
 			view.getByRole("complementary", { name: "background command" }),
@@ -446,17 +473,6 @@ describe("App's conversation header", () => {
 		expect(within(pane).getByRole("heading").textContent).toBe(
 			"Start the dev server",
 		);
-
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Serve it",
-				background: [{ ...running, state: "completed" }],
-			}),
-		);
-		expect(
-			view.queryByRole("complementary", { name: "Running in the background" }),
-		).toBeNull();
 	});
 
 	it("nests each command it left running under it in the sidebar, opening its output from there", async () => {

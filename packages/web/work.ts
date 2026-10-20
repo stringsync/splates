@@ -43,6 +43,8 @@ export type Stretch =
 	| { type: "event"; event: Event; also?: Event[] }
 	/** The agent folded its context into a summary, between the work before and after. */
 	| { type: "compaction"; compaction: Compaction }
+	/** A tool call that left a command running in the background, on a line of its own. */
+	| { type: "background"; tool: Tool }
 	| { type: "work"; work: Work };
 
 /** A stretch before its work is summed up: the work still its parts. */
@@ -103,13 +105,14 @@ export function stretchesOf(
 		pieces.push(after);
 	}
 	const ordered = folded(placed(pieces, events));
-	// Keep live work below an event even before the agent sends another part.
+	// Keep live work below an event, or a command left in the background,
+	// even before the agent sends another part.
 	const tail = ordered.at(-1);
 	if (
 		going &&
 		tail !== undefined &&
 		!Array.isArray(tail) &&
-		tail.type === "event"
+		(tail.type === "event" || tail.type === "background")
 	) {
 		ordered.push([]);
 	}
@@ -150,7 +153,9 @@ export function stretchesOf(
 					? following.event.at
 					: following.type === "compaction"
 						? following.compaction.at
-						: null;
+						: following.type === "background"
+							? following.tool.at
+							: null;
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
 			(part.type === "tool" || part.type === "compaction") &&
@@ -181,7 +186,9 @@ export function stretchesOf(
 									? previous.event.at
 									: previous.type === "compaction"
 										? previous.compaction.until
-										: null)),
+										: previous.type === "background"
+											? previous.tool.until
+											: null)),
 				until:
 					index === end
 						? message.until
@@ -316,11 +323,18 @@ function cut(run: Part[]): Piece[] {
 	const pieces: Piece[] = [];
 	let from = 0;
 	run.forEach((part, at) => {
-		if (part.type === "compaction") {
+		if (
+			part.type === "compaction" ||
+			(part.type === "tool" && part.background !== undefined)
+		) {
 			if (at > from) {
 				pieces.push(run.slice(from, at));
 			}
-			pieces.push({ type: "compaction", compaction: part });
+			pieces.push(
+				part.type === "compaction"
+					? { type: "compaction", compaction: part }
+					: { type: "background", tool: part },
+			);
 			from = at + 1;
 		}
 	});

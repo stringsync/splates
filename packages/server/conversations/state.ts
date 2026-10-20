@@ -344,6 +344,23 @@ export interface Tool {
 	flags: Flag[];
 	/** How the person answered the agent asking to make it; null when it never asked. */
 	decision: Decision | null;
+	/**
+	 * For a call that left its command running in the background, as Claude's
+	 * Bash with `run_in_background`, how that command went: kept once it ends,
+	 * as the thread's line for it says.
+	 */
+	background?: Backgrounded;
+}
+
+/** How a command a tool call left in the background went. */
+export interface Backgrounded {
+	/** The agent's id for it, as the conversation's `Background` names it. */
+	id: string;
+	state: BackgroundState;
+	/** What it exited with, once the agent says; null until then, or when it never does. */
+	exitCode: number | null;
+	/** When it ended; null until it has, or in a log too old to say. */
+	until: string | null;
 }
 
 /**

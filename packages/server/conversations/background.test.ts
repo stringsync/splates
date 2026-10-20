@@ -10,7 +10,7 @@ import {
 	backgroundWrites,
 	FakeAgent,
 } from "../agents/testing";
-import { Conversations } from "./index";
+import { type ConversationState, Conversations } from "./index";
 import { eventually, until } from "./testing";
 
 describe("Conversation background", () => {
@@ -85,6 +85,29 @@ describe("Conversation background", () => {
 			}
 			return "end_turn";
 		};
+	};
+
+	/** How each command a tool call left in the background went, as `state` has it. */
+	const marked = (state: ConversationState) =>
+		state.messages
+			.flatMap((message) => message.parts)
+			.flatMap((part) =>
+				part.type === "tool" && part.background !== undefined
+					? [part.background]
+					: [],
+			);
+
+	/** The conversation as a server started again reads it back from its log. */
+	const readBack = async (): Promise<ConversationState | undefined> => {
+		const reread = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		);
+		const [back] = await reread.list();
+		const state = back?.state;
+		await reread.disposeAsync();
+		return state;
 	};
 
 	it("asks Claude to say when one starts and ends", async () => {
@@ -174,6 +197,33 @@ describe("Conversation background", () => {
 		).toEqual([["b1", "failed"]]);
 	});
 
+	it("marks the call that started one with how it ended and its exit code, as the log reads back", async () => {
+		leaves("b1", "bun test", {
+			...backgroundEnded("b1", "failed"),
+			summary: 'Background command "Run bun test" failed with exit code 1',
+		} as unknown as acp.SessionUpdate);
+		const conversation = await started();
+
+		await conversation.prompt("test it");
+		await until(conversation, "idle");
+
+		expect(marked(conversation.state)).toEqual([
+			{
+				id: "b1",
+				state: "failed",
+				exitCode: 1,
+				until: "2026-10-11T10:00:00.000Z",
+			},
+		]);
+		// Written out as its process ends, and an ended command stays as it ended.
+		await conversation.stop();
+		expect(marked(conversation.state)).toMatchObject([{ state: "failed" }]);
+		const back = await readBack();
+		expect(back === undefined ? [] : marked(back)).toEqual(
+			marked(conversation.state),
+		);
+	});
+
 	it("does not revive an exited command when its spawn is announced again", async () => {
 		leaves(
 			"b1",
@@ -254,13 +304,8 @@ describe("Conversation background", () => {
 		await conversation.stop();
 
 		expect(conversation.state.background).toEqual([]);
-		const reread = new Conversations(
-			"/repo/.git/splates/conversations",
-			[AGENT],
-			{ fs, timer, launch: agent.launch },
-		);
-		const [back] = await reread.list();
-		expect(back?.state.background).toEqual([]);
-		await reread.disposeAsync();
+		// Its line in the thread says it stopped with the process.
+		expect(marked(conversation.state)).toMatchObject([{ state: "stopped" }]);
+		expect((await readBack())?.background).toEqual([]);
 	});
 });

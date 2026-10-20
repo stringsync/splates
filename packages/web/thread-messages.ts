@@ -414,13 +414,20 @@ function convert(
 											data: { compaction: stretch.compaction, going },
 										},
 									]
-								: at === reply
-									? replied(stretch.text, !going, {
-											task,
-											began,
-											until: message.until,
-										})
-									: [{ type: "text", text: stretch.text }],
+								: stretch.type === "background"
+									? [
+											{
+												type: "data-background",
+												data: { tool: stretch.tool },
+											},
+										]
+									: at === reply
+										? replied(stretch.text, !going, {
+												task,
+												began,
+												until: message.until,
+											})
+										: [{ type: "text", text: stretch.text }],
 				),
 			),
 			...(message.stopped === undefined
