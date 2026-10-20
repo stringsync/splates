@@ -21,6 +21,8 @@ interface Entry {
 	back?: string;
 	/** How far the window was scrolled when the page left this entry. */
 	scroll?: number;
+	/** Set on the entry pushed above the inbox by `holdHome`. */
+	held?: boolean;
 }
 
 /**
@@ -185,6 +187,30 @@ export function backTo(hash: string): boolean {
 	}
 	history.back();
 	return true;
+}
+
+/**
+ * Holds the inbox as the bottom of history: an entry is pushed above it, so a
+ * back from the inbox, as a phone's swipe from the edge, lands on the entry
+ * below, which `onBack` is told of as the entry above is put back. Returns
+ * the stop.
+ */
+export function holdHome(onBack: () => void): () => void {
+	const hold = () => {
+		const here = entry();
+		if (here?.held !== true) {
+			history.pushState({ ...here, held: true } satisfies Entry, "");
+		}
+	};
+	const back = () => {
+		if (entry()?.held !== true) {
+			hold();
+			onBack();
+		}
+	};
+	hold();
+	window.addEventListener("popstate", back);
+	return () => window.removeEventListener("popstate", back);
 }
 
 /** Whether the address names one of the main tree's terminals. */
