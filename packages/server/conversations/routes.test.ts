@@ -184,12 +184,13 @@ describe("dev conversations", () => {
 		]);
 	});
 
-	it("starts each connection whole and streams later metadata as deltas", async () => {
+	it("starts each connection in summary and streams later metadata as deltas", async () => {
 		const { id, conversation } = await opened();
 		const events = await get(port, "/api/conversations/events");
 		const reader = (events.body as ReadableStream<Uint8Array>).getReader();
 		const initial = await readUntil(reader, `"id":"${id}"`);
 		expect(initial).toContain('"messages":[]');
+		expect(initial).toContain('"summary":true');
 		conversation.state.name = "delta-name";
 		conversation.changed();
 		const delta = await readUntil(reader, '"name":"delta-name"');
@@ -274,41 +275,47 @@ describe("dev conversations", () => {
 		expect(groomer.state.archived).toBe(false);
 	});
 
-	it("lists an archived one without its tool calls, and serves it whole", async () => {
-		agent.turn = async (client, sessionId) => {
-			await client.sessionUpdate({
-				sessionId,
-				update: {
-					sessionUpdate: "tool_call",
-					toolCallId: "t1",
-					title: "Run ls",
-					kind: "execute",
-					status: "completed",
-				},
+	it.each([false, true])(
+		"lists a summary with archived=%s, and serves it whole",
+		async (archived) => {
+			agent.turn = async (client, sessionId) => {
+				await client.sessionUpdate({
+					sessionId,
+					update: {
+						sessionUpdate: "tool_call",
+						toolCallId: "t1",
+						title: "Run ls",
+						kind: "execute",
+						status: "completed",
+					},
+				});
+				await client.sessionUpdate({ sessionId, update: say("Done.") });
+				return "end_turn";
+			};
+			const { id, conversation } = await opened();
+			await conversation.prompt("go");
+			// The turn ends when the agent says so, not when its last words have
+			// been taken in: archive once the reply is in the conversation.
+			await eventually(
+				async () => types(conversation.state).length === 3,
+				5_000,
+			);
+			await json(port, `/api/conversations/${id}/archived`, "PUT", {
+				archived,
 			});
-			await client.sessionUpdate({ sessionId, update: say("Done.") });
-			return "end_turn";
-		};
-		const { id, conversation } = await opened();
-		await conversation.prompt("go");
-		// The turn ends when the agent says so, not when its last words have
-		// been taken in: archive once the reply is in the conversation.
-		await eventually(async () => types(conversation.state).length === 3, 5_000);
-		await json(port, `/api/conversations/${id}/archived`, "PUT", {
-			archived: true,
-		});
-		const { conversations: listed } = (await (
-			await get(port, `/api/conversations`)
-		).json()) as { conversations: ConversationState[] };
-		const whole = (await (
-			await get(port, `/api/conversations/${id}`)
-		).json()) as ConversationState;
+			const { conversations: listed } = (await (
+				await get(port, `/api/conversations`)
+			).json()) as { conversations: ConversationState[] };
+			const whole = (await (
+				await get(port, `/api/conversations/${id}`)
+			).json()) as ConversationState;
 
-		expect(listed[0]?.summary).toBe(true);
-		expect(types(listed[0] as ConversationState)).toEqual(["text", "text"]);
-		expect(whole.summary).toBeUndefined();
-		expect(types(whole)).toEqual(["text", "tool", "text"]);
-	});
+			expect(listed[0]?.summary).toBe(true);
+			expect(types(listed[0] as ConversationState)).toEqual(["text", "text"]);
+			expect(whole.summary).toBeUndefined();
+			expect(types(whole)).toEqual(["text", "tool", "text"]);
+		},
+	);
 
 	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {
 		const { id, conversation } = await opened();

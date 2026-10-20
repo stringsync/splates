@@ -134,7 +134,7 @@ export class ConversationRoutes {
 		return Response.json(await listing(this.held()));
 	};
 
-	/** One conversation whole, as a listing sends an archived one only in summary. */
+	/** One conversation whole, as a listing sends only summaries. */
 	readonly showConversation = async (request: Request): Promise<Response> => {
 		return Response.json((await this.conversationAt(request)).state);
 	};

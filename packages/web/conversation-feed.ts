@@ -160,7 +160,7 @@ export class ConversationFeed
 
 	/**
 	 * Reads conversation `id` whole when the page holds only its summary, as
-	 * a listing sends an archived one, so its thread shows its tool calls.
+	 * listings send, so its thread shows its tool calls and event details.
 	 */
 	async whole(id: string): Promise<void> {
 		const held = this.recorded.find((each) => each.id === id);
@@ -171,10 +171,17 @@ export class ConversationFeed
 		try {
 			const since = this.changes;
 			const response = await fetch(
-				`/api/conversations/${encodeURIComponent(id)}`,
+				scoped(`/api/conversations/${encodeURIComponent(id)}`),
 			).catch(() => null);
-			if (response?.ok && (this.changedAt.get(id) ?? -1) < since) {
-				this.put((await response.json()) as ConversationState);
+			if (response?.ok) {
+				const state = (await response.json()) as ConversationState;
+				if ((this.changedAt.get(id) ?? -1) < since) {
+					this.put(state);
+				} else if (this.recorded.find((each) => each.id === id)?.summary) {
+					// A newer summary won the race. Retry so an open thread still fills in.
+					this.reading.delete(id);
+					await this.whole(id);
+				}
 			}
 		} finally {
 			this.reading.delete(id);
@@ -190,15 +197,9 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `expectation` over conversation `id` at once, while `write`, the
-	 * request that makes it, is on its way, so an action shows at the click
-	 * rather than on the server's push. It stays over whatever the server
-	 * streams meanwhile, and goes once `write` lands and the server's copy
-	 * holds it, or the next copy streams: the server streams its state before
-	 * it answers, so that copy is there or on its way. Refused, it goes at once
-	 * and the promise rejects with why, for the caller to say. Every page
-	 * action on a conversation's own state goes through here, so each shows
-	 * the same way; `recorded` stays the server's word.
+	 * Shows `expectation` over conversation `id` immediately while `write` is
+	 * pending. Use this for changes to a conversation's state. If the server
+	 * refuses the write, the preview disappears and the promise rejects.
 	 */
 	async expect(
 		id: string,

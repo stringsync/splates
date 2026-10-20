@@ -2,7 +2,7 @@ import { Disposer, type Resource } from "webappwiz/disposable";
 import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import { type EventSink, eventStream } from "../server/shared";
 import type { Conversations } from "./conversations";
-import type { ConversationState } from "./state";
+import { type ConversationState, listed } from "./state";
 import { ConversationUpdates } from "./updates";
 
 /** What a listener hears of a project's conversations. */
@@ -17,7 +17,7 @@ export interface ConversationsHeard {
 
 /**
  * Streams each project's conversations at most once per beat. Pages receive
- * full copies when they connect, then deltas; other listeners receive states.
+ * summaries when they connect, then deltas; other listeners receive states.
  */
 export class ConversationStream implements Resource {
 	private readonly pages = new Set<EventSink>();
@@ -91,7 +91,7 @@ export class ConversationStream implements Resource {
 					void this.conversations.list().then((all) => {
 						if (this.pages.has(sink)) {
 							for (const { state } of all) {
-								this.write(sink, state);
+								this.write(sink, listed(state));
 							}
 						}
 					});

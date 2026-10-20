@@ -24,7 +24,7 @@ export interface EverywhereListing {
 /** One project as the every-project feed carries it. */
 export interface EverywhereProject extends EverywhereBoard {
 	/**
-	 * Newest first, as its own page lists them, the archived ones as
+	 * Newest first, as its own page lists them, all as
 	 * summaries; none while they are off.
 	 */
 	conversations: ConversationState[];

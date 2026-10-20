@@ -248,26 +248,59 @@ describe("ConversationFeed", () => {
 		expect(feed.conversations).toEqual([after]);
 	});
 
-	it("reads a conversation it holds only in summary whole, once", async () => {
-		const summary = conversation({ id: "c1", archived: true, summary: true });
-		const whole = conversation({
-			id: "c1",
-			archived: true,
-			messages: [message("agent", "Done.")],
-		});
+	it("retries hydration when another summary arrives while the body is being read", async () => {
+		const summary = conversation({ summary: true });
 		feed.start();
-		await list([summary, conversation({ id: "c2" })]);
-		const asked: string[] = [];
-		globalThis.fetch = ((url: string) => {
-			asked.push(url);
-			return Promise.resolve(Response.json(whole));
+		await list([summary]);
+		let answer: ((state: ConversationState) => void) | undefined;
+		const whole = conversation({ messages: [message("agent", "Whole")] });
+		let requests = 0;
+		globalThis.fetch = (() => {
+			requests++;
+			return Promise.resolve(
+				requests === 1
+					? {
+							ok: true,
+							json: () =>
+								new Promise<ConversationState>((resolve) => {
+									answer = resolve;
+								}),
+						}
+					: Response.json(whole),
+			);
 		}) as unknown as typeof fetch;
-
-		await Promise.all([feed.whole("c1"), feed.whole("c1"), feed.whole("c2")]);
-
-		expect(asked).toEqual(["/api/conversations/c1"]);
+		const reading = feed.whole("c1");
+		await waitUntil(() => answer !== undefined);
+		say({ ...summary, name: "new summary" });
+		answer?.(whole);
+		await reading;
+		expect(requests).toBe(2);
 		expect(feed.conversations[0]).toEqual(whole);
 	});
+
+	it.each([false, true])(
+		"reads a summary whole once, with archived=%s",
+		async (archived) => {
+			const summary = conversation({ id: "c1", archived, summary: true });
+			const whole = conversation({
+				id: "c1",
+				archived,
+				messages: [message("agent", "Done.")],
+			});
+			feed.start();
+			await list([summary, conversation({ id: "c2" })]);
+			const asked: string[] = [];
+			globalThis.fetch = ((url: string) => {
+				asked.push(url);
+				return Promise.resolve(Response.json(whole));
+			}) as unknown as typeof fetch;
+
+			await Promise.all([feed.whole("c1"), feed.whole("c1"), feed.whole("c2")]);
+
+			expect(asked).toEqual(["/api/conversations/c1"]);
+			expect(feed.conversations[0]).toEqual(whole);
+		},
+	);
 });
 
 async function settled(): Promise<void> {

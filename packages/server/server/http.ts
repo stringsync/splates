@@ -56,7 +56,10 @@ export class HostGate {
 				}
 			}
 			try {
-				return await handle(request);
+				const response = await handle(request);
+				return response === undefined
+					? response
+					: await compressedJson(request, response);
 			} catch (error) {
 				if (error instanceof Exit) {
 					return refuse(
@@ -102,6 +105,51 @@ export class HostGate {
 				? handle(request)
 				: refuse(403, "forbidden", verified.refused);
 		};
+}
+
+/** Packs finite JSON responses, leaving event streams and file responses alone. */
+async function compressedJson(
+	request: Request,
+	response: Response,
+): Promise<Response> {
+	if (
+		!response.headers.get("content-type")?.startsWith("application/json") ||
+		response.headers.has("content-encoding") ||
+		response.body === null
+	) {
+		return response;
+	}
+	response.headers.append("vary", "Accept-Encoding");
+	const accepts = (request.headers.get("accept-encoding") ?? "")
+		.split(",")
+		.map((part) => {
+			const [name, ...parameters] = part.trim().split(";");
+			const quality = parameters.find((parameter) =>
+				parameter.trim().startsWith("q="),
+			);
+			return {
+				name: name?.trim().toLowerCase(),
+				quality: quality === undefined ? 1 : Number(quality.trim().slice(2)),
+			};
+		});
+	const gzip =
+		accepts.find(({ name }) => name === "gzip") ??
+		accepts.find(({ name }) => name === "*");
+	if (gzip === undefined || !(gzip.quality > 0)) {
+		return response;
+	}
+	const bytes = new Uint8Array(await response.arrayBuffer());
+	const packed = bytes.length >= 1024 ? Bun.gzipSync(bytes) : bytes;
+	const headers = new Headers(response.headers);
+	headers.delete("content-length");
+	if (packed !== bytes) {
+		headers.set("content-encoding", "gzip");
+	}
+	return new Response(packed, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
 }
 
 function isLocal(host: string): boolean {
