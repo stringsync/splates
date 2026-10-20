@@ -103,17 +103,17 @@ describe("App's waits", () => {
 		expect(within(found).getByLabelText("Failed")).toBeTruthy();
 	});
 
-	it("shows as cut off once its turn ended without it", async () => {
+	it("explains that the wait was interrupted once its turn ended without it", async () => {
 		const found = await line([began("alpha", inMins(9))], false);
 
-		expect(found.textContent).toBe("Wait cut offalpha");
+		expect(found.textContent).toBe("Wait interruptedalpha");
 		expect(found.dataset.live).toBeUndefined();
 	});
 
-	it("shows as cut off once past its time with no end", async () => {
+	it("explains that the wait was interrupted once past its time with no end", async () => {
 		const found = await line([began("alpha", inMins(-1))]);
 
-		expect(found.textContent).toBe("Wait cut offalpha");
+		expect(found.textContent).toBe("Wait interruptedalpha");
 	});
 });
 

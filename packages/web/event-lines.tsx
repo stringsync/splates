@@ -355,7 +355,7 @@ function waitLine(
 	if (end === null) {
 		return going && now <= Date.parse(until) + CUT_OFF_AFTER_MS
 			? { words: ["Waiting on", thing], at, deadline: { until } }
-			: { words: ["Wait cut off", thing], at };
+			: { words: ["Wait interrupted", thing], at };
 	}
 	if (end.reason === null || end.reason === "dismissed") {
 		return {
