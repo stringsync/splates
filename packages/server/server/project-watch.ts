@@ -109,8 +109,8 @@ export class ProjectWatch implements StreamWatcher {
 		this.changed();
 	};
 
-	private readonly edited = (): void => {
-		this.details.moved();
+	private readonly edited = (worktree: string): void => {
+		this.details.moved(worktree);
 		this.edits.call(this.changed);
 	};
 
@@ -257,15 +257,20 @@ export class ProjectWatch implements StreamWatcher {
 		const { fs, splatesDir, service, log } = this.project;
 		const gitDir = dirname(splatesDir);
 		const conversationsDir = `${splatesDir}/conversations`;
+		const logDir = `${splatesDir}/log`;
+		const logFile = `${splatesDir}/log.jsonl`;
 		try {
 			this.watches = [
 				fs.watch(
 					splatesDir,
 					(path) => {
 						// An agent's turn streams into its log: nothing a page shows.
+						const under = (dir: string) =>
+							path === dir || path.startsWith(`${dir}/`);
 						if (
-							path !== conversationsDir &&
-							!path.startsWith(`${conversationsDir}/`)
+							!under(conversationsDir) &&
+							!under(logDir) &&
+							path !== logFile
 						) {
 							this.changed();
 						}
@@ -346,7 +351,7 @@ export class ProjectWatch implements StreamWatcher {
 						if ([PLAN_FILE, LEGACY_PLAN_FILE].includes(basename(file))) {
 							this.changed();
 						} else if (!file.includes("/node_modules/")) {
-							this.edited();
+							this.edited(path);
 						}
 					},
 					{ recursive: deep },

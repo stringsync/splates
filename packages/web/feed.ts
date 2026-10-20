@@ -49,6 +49,10 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	private recorded: Snapshot | null = null;
 	/** How many snapshot reads have started, so a read knows which writes it follows. */
 	private reads = 0;
+	/** The snapshot read in flight, if any. */
+	private loading: Promise<void> | null = null;
+	/** Whether a call came while it was, so another read follows. */
+	private trailing = false;
 	/** Counting down to `offline` while the server is unreachable. */
 	private unreachable: Resource | null = null;
 
@@ -133,7 +137,28 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		this.dispatcher.dispatch("changed");
 	}
 
-	private async load(): Promise<void> {
+	/**
+	 * Reads the snapshot, one read at a time: a call while one is in flight
+	 * leaves a single trailing read, which asks after the move that called it.
+	 */
+	private load(): Promise<void> {
+		if (this.loading !== null) {
+			this.trailing = true;
+			return this.loading;
+		}
+		const loading = (async () => {
+			do {
+				this.trailing = false;
+				await this.read();
+			} while (this.trailing && this.stream !== null);
+		})().finally(() => {
+			this.loading = null;
+		});
+		this.loading = loading;
+		return loading;
+	}
+
+	private async read(): Promise<void> {
 		const read = this.reads++;
 		try {
 			const response = await fetch(scoped("/api/snapshot"));

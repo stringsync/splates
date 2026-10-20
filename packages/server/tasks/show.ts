@@ -131,6 +131,8 @@ export class TaskDetails {
 	private readonly kept = new Map<string, Promise<GitFacts>>();
 	/** Bumped by {@link moved}, so a read begun before it is not kept. */
 	private generation = 0;
+	/** As `generation`, for the worktrees {@link moved} named, by path. */
+	private readonly generations = new Map<string, number>();
 
 	constructor(opts: TaskDetailsOptions = {}) {
 		this.fs = opts.fs ?? new NodeFs();
@@ -140,9 +142,19 @@ export class TaskDetails {
 	 * Forgets what git said of every task: a branch, its base, or a
 	 * worktree's files may have moved.
 	 */
-	moved(): void {
-		this.generation++;
-		this.kept.clear();
+	moved(worktree?: string): void {
+		if (worktree === undefined) {
+			this.generation++;
+			this.kept.clear();
+			return;
+		}
+		// Only the files of that worktree changed: the others' facts stand.
+		this.generations.set(worktree, (this.generations.get(worktree) ?? 0) + 1);
+		for (const key of this.kept.keys()) {
+			if (keyPath(key) === worktree) {
+				this.kept.delete(key);
+			}
+		}
 	}
 
 	async get(worktree: Worktree): Promise<Details> {
@@ -191,13 +203,15 @@ export class TaskDetails {
 		if (kept !== undefined) {
 			return kept;
 		}
-		const generation = this.generation;
+		const stamp = () =>
+			`${this.generation}:${this.generations.get(worktree.path) ?? 0}`;
+		const generation = stamp();
 		const read = this.readGit(worktree);
 		this.kept.set(key, read);
 		// A failed read, or one git moved under, is read again next time.
 		read.then(
 			() => {
-				if (this.generation !== generation) {
+				if (stamp() !== generation) {
 					this.forget(key, read);
 				}
 			},
@@ -290,6 +304,11 @@ function gitKey(worktree: Worktree): string {
 		worktree.exists,
 		worktree.hasBranch,
 	]);
+}
+
+/** The worktree path a {@link gitKey} was made of. */
+function keyPath(key: string): string {
+	return (JSON.parse(key) as string[])[1] ?? "";
 }
 
 /**
