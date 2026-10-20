@@ -182,7 +182,13 @@ export function Swipeable({
 }
 
 /** How wide the strip along the right edge is, in pixels, that starts a swipe. */
-const EDGE_PX = 16;
+const EDGE_PX = 24;
+
+/** How fast a flick is, in pixels per ms, that archives from a shorter pull. */
+const FLICK_PX_MS = 0.5;
+
+/** The shortest pull a flick archives from, in pixels. */
+const FLICK_MIN_PX = 40;
 
 /**
  * A strip along the right edge of a screen whose finger, pulled left, slides
@@ -203,6 +209,8 @@ export function EdgeSwipe({
 	const label = useRef<HTMLDivElement>(null);
 	// Whether the pull is past SWIPE_PX, so letting go would archive.
 	const past = useRef(false);
+	// When the finger went down, to tell a flick.
+	const began = useRef(0);
 	const start = useRef<{ x: number; y: number } | null>(null);
 	const swiping = useRef(false);
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -255,10 +263,14 @@ export function EdgeSwipe({
 			<div
 				data-testid="edge-swipe"
 				// Below the bar and above the composer, whose buttons sit near the edge.
-				className="fixed right-0 bottom-24 top-[calc(env(safe-area-inset-top)+var(--top-bar-height))] z-20 touch-pan-y"
+				className="fixed right-0 bottom-24 top-[calc(env(safe-area-inset-top)+var(--top-bar-height))] z-20 touch-none"
 				style={{ width: EDGE_PX }}
 				onPointerDown={(event: PointerEvent) => {
 					start.current = { x: event.clientX, y: event.clientY };
+					began.current = event.timeStamp;
+					// Taken at once, so the browser cannot claim the touch for its own
+					// and cancel the pull, which snapped the screen back.
+					event.currentTarget.setPointerCapture?.(event.pointerId);
 				}}
 				onPointerMove={(event: PointerEvent) => {
 					if (start.current === null) {
@@ -270,7 +282,8 @@ export function EdgeSwipe({
 						if (Math.hypot(dx, dy) <= DRIFT_PX) {
 							return;
 						}
-						if (dx >= 0 || Math.abs(dy) >= Math.abs(dx)) {
+						// The strip scrolls nothing, so a pull that drifts down is still ours.
+						if (dx >= 0 && Math.abs(dy) < Math.abs(dx)) {
 							start.current = null;
 							return;
 						}
@@ -287,10 +300,13 @@ export function EdgeSwipe({
 					slide(Math.min(0, dx), "none");
 				}}
 				onPointerUp={(event: PointerEvent) => {
-					const far =
-						swiping.current &&
-						start.current !== null &&
-						start.current.x - event.clientX >= SWIPE_PX;
+					const pulled =
+						start.current === null ? 0 : start.current.x - event.clientX;
+					const flicked =
+						pulled >= FLICK_MIN_PX &&
+						pulled / Math.max(1, event.timeStamp - began.current) >=
+							FLICK_PX_MS;
+					const far = swiping.current && (pulled >= SWIPE_PX || flicked);
 					end();
 					if (!far || archive.asks()) {
 						settle();
