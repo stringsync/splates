@@ -269,6 +269,7 @@ export class ProjectWatch implements StreamWatcher {
 						const under = (dir: string) =>
 							path === dir || path.startsWith(`${dir}/`);
 						if (
+							!LOCK_PATH.test(path) &&
 							!under(conversationsDir) &&
 							!under(logDir) &&
 							path !== logFile
@@ -365,6 +366,12 @@ export class ProjectWatch implements StreamWatcher {
 		}
 	}
 }
+
+/**
+ * A lock's directory or what is in it: readers take it too, so it says
+ * nothing a page shows, and reading again for it would take it again.
+ */
+const LOCK_PATH = /\.lock(\/|$)/;
 
 /** A snapshot kept, with the move count and the time its read began. */
 interface Kept {

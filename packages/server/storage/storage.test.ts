@@ -276,12 +276,38 @@ describe.each([
 			void told.then(() => {
 				settled = true;
 			});
+			// scry-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
 			for (let i = 0; !settled && i < 100; i++) {
 				await tasks.write("1.md", `again ${i}`);
 				await Bun.sleep(50);
 			}
 
 			expect(await told).toBe("tasks/1.md");
+			watch.dispose();
+		});
+
+		// scry-ignore simple-test-setup: only the watch cases subscribe before writing; the others take no subscription
+		it("does not tell of a lock taken beside the key", async () => {
+			const storage = await open();
+			const tasks = storage.collection("tasks");
+			await tasks.write("1.md", "first");
+			const watch = storage.watch("tasks");
+			const keys: string[] = [];
+			watch.events.on("changed", (key) => keys.push(key));
+			const lock = storage.lock("tasks.lock");
+
+			// Write until the watcher is ready, taking the lock each time, so
+			// the write is told and the lock is seen if it ever will be.
+			// scry-ignore matchers-over-test-logic: a native watcher has no ready signal, so the write repeats until it tells
+			for (let i = 0; !keys.includes("tasks/1.md") && i < 100; i++) {
+				await lock.acquire();
+				await tasks.write("1.md", `again ${i}`);
+				await lock.release();
+				await Bun.sleep(50);
+			}
+
+			expect(keys).toContain("tasks/1.md");
+			expect(keys.filter((key) => key.includes(".lock"))).toEqual([]);
 			watch.dispose();
 		});
 	});

@@ -26,6 +26,13 @@ export interface FsStorageOptions {
  * Storage kept as files under `root`, each key the path of its file there,
  * so it reads and writes the very files splates kept before it had storage.
  */
+/**
+ * A lock's directory or what is in it. A lock sits beside what it guards, so
+ * a watch on that sees every acquire and release, and a reader that takes the
+ * lock would wake the watcher that called it, again and again.
+ */
+const LOCK_PATH = /\.lock(\/|$)/;
+
 export class FsStorage implements Storage {
 	private readonly locks: Locks;
 
@@ -119,7 +126,11 @@ export class FsStorage implements Storage {
 		const changes = new Dispatcher<StorageChanges>();
 		const watching = this.fs.watch(
 			this.path(key),
-			(changed) => changes.dispatch("changed", relative(this.root, changed)),
+			(changed) => {
+				if (!LOCK_PATH.test(changed)) {
+					changes.dispatch("changed", relative(this.root, changed));
+				}
+			},
 			opts,
 		);
 		return {
