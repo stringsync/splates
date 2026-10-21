@@ -22,6 +22,7 @@ export type { Details } from "./show";
 export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";
 export { fingerprint, snapshot, tasksOf } from "./snapshot";
+export { rescueStranded } from "./stranded";
 export { DEFAULT_TIMEOUT, taskWait, untilAfter, wait } from "./wait";
 export type {
 	DiffSize,
@@ -29,6 +30,8 @@ export type {
 	GateFailure,
 	MergeFailure,
 	RemoveReason,
+	RescuedTree,
+	StrandedTree,
 	TaskState,
 	Worktree,
 } from "./worktree";

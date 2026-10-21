@@ -39,6 +39,8 @@ export interface AppSource {
 export interface BranchOptions {
 	/** The repository the branch is in: the main tree's by default, or a clone's. */
 	at?: Git;
+	/** Push to `splates/<as>` rather than `splates/<task>`; a `push` only. */
+	as?: string;
 }
 
 /** What `TaskBranches.of` reaches GitHub through; the global `fetch` by default. */
@@ -128,7 +130,7 @@ export class TaskBranches {
 		if (this.config.remote === null) {
 			return { status: "off" };
 		}
-		const name = checkedName(task);
+		const name = checkedName(opts.as ?? task);
 		if (name !== null) {
 			return { status: "refused", why: name };
 		}
@@ -148,10 +150,15 @@ export class TaskBranches {
 				"--force",
 				"--no-verify",
 				"--",
-				`refs/heads/${branch}:refs/heads/${this.pushedBranch(task)}`,
+				`refs/heads/${branch}:refs/heads/${this.pushedBranch(opts.as ?? task)}`,
 			],
 			at,
 		);
+		if (opts.as !== undefined) {
+			return pushed.status === "pushed"
+				? { status: "pushed", branch: this.pushedBranch(opts.as) }
+				: pushed;
+		}
 		// Only a push from a task's own checkout carries its plan: the main
 		// tree's would be another plan's.
 		if (pushed.status === "pushed" && opts.at !== undefined) {

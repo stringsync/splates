@@ -29,6 +29,7 @@ import {
 } from "../setup";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
+import { rescueStranded } from "../tasks";
 import { Terminals } from "../terminal";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
@@ -295,15 +296,23 @@ export async function dev(
 	// Each project reads a task cloned on a worker through that worker.
 	const open =
 		givenOpen ??
-		(async (root: string) => ({
-			ps: deps.ps,
-			log: deps.log,
-			...(await openRepository(deps, {
+		(async (root: string) => {
+			const repository = await openRepository(deps, {
 				at: root,
 				migrates: true,
 				machines: workers,
-			})),
-		}));
+			});
+			// A worker back from being away has commits its tasks went on without.
+			workers.joined((machine) => {
+				void rescueStranded(machine, {
+					service: repository.service,
+					machines: workers,
+					branches: repository.branches,
+					log: deps.log,
+				}).catch((error: unknown) => deps.log.error(String(error)));
+			});
+			return { ps: deps.ps, log: deps.log, ...repository };
+		});
 	if (
 		(coordinator?.roots.length ?? 0) > 0 ||
 		(coordinator?.terminals.length ?? 0) > 0

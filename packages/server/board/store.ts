@@ -193,4 +193,6 @@ const STARTED = {
 	dispatch: true,
 	caller: true,
 	machine: true,
+	stranded: true,
+	rescued: true,
 } satisfies Record<keyof Started, true>;

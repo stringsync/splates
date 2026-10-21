@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: one service over a task's record, tree and checkout, which resuming a clone elsewhere and amending its record share
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Attachments } from "../artifacts";
@@ -270,6 +271,19 @@ export class WorktreeService {
 		});
 	}
 
+	/** Changes task `task`'s started record as `StartedRecords.amend` does. */
+	amend(
+		task: string,
+		change: (state: TaskState) => TaskState | null,
+	): Promise<void> {
+		return this.records.amend(task, change);
+	}
+
+	/** Every started task's record, as it stands. */
+	states(): Promise<TaskState[]> {
+		return this.records.all();
+	}
+
 	async list(): Promise<Worktree[]> {
 		const states = (await this.records.all()).sort((left, right) =>
 			left.task.localeCompare(right.task),
@@ -324,7 +338,24 @@ export class WorktreeService {
 			worktree.base,
 		);
 		if (resumed.code === 0) {
-			await worktree.save({ worktree: path, machine: this.clones.machine });
+			// The clone it leaves may hold commits its last push does not.
+			const left =
+				worktree.machine !== null && worktree.machine !== this.clones.machine
+					? [
+							{
+								machine: worktree.machine,
+								path: worktree.path,
+								branch: worktree.branch,
+							},
+						]
+					: [];
+			await worktree.save({
+				worktree: path,
+				machine: this.clones.machine,
+				...(left.length === 0
+					? {}
+					: { stranded: [...(worktree.state?.stranded ?? []), ...left] }),
+			});
 		}
 		return resumed;
 	}
@@ -621,6 +652,8 @@ interface Ending {
 export interface WorkerMachines {
 	/** The worker `id`, or null when none by that id has joined. */
 	machine(id: string): WorkerMachine | null;
+	/** Calls `listener` with the id of each worker that connects; answers how to stop. */
+	joined(listener: (id: string) => void): () => void;
 }
 
 /** Where a task's checkout is, and how to read it there. */

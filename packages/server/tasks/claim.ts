@@ -68,7 +68,11 @@ export async function claim(
 	// A worktree with no readable record is still work: `save` writes a fresh
 	// one rather than refusing the resume.
 	const rebuilt = found.state === null;
-	const worktree = await found.take({});
+	// Told once: the claim that hears of them clears them.
+	const rescued = found.state?.rescued ?? [];
+	const worktree = await found.take(
+		rescued.length === 0 ? {} : { rescued: [] },
+	);
 
 	const interrupted = await worktree.interruptedOps();
 	const changes = await worktree.uncommitted();
@@ -93,6 +97,12 @@ export async function claim(
 			? "  uncommitted: none"
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
+	for (const { machine, branch, commits } of rescued) {
+		lines.push(
+			`  ${color.yellow(`note: worker ${machine} rejoined with ${commits} commit${commits === 1 ? "" : "s"} this task carried on without, pushed as ${branch}`)}`,
+			`  look at them: git fetch, then git log HEAD..<remote>/${branch}`,
+		);
+	}
 	const notes = await new Notes(fs).list(worktree.path, service.config);
 	if (notes.length > 0) {
 		lines.push(`  notes: ${notes.length}, splates notes lists them`);

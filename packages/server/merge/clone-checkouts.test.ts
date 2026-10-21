@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import type { Config } from "../config";
 import { Git } from "../git";
 import { PLAN_FILE, PlanStore } from "../plans";
-import { add, claim, WorktreeService } from "../tasks";
+import { add, claim, rescueStranded, WorktreeService } from "../tasks";
 import { Testing } from "../testing";
 import { LocalWorkerMachine } from "../workers";
 import { TaskBranches } from "./branches";
@@ -76,7 +76,10 @@ describe("CloneCheckouts", () => {
 		new WorktreeService(deps.git, deps.config, deps.splatesDir, {
 			fs: deps.fs,
 			ps: deps.ps,
-			machines: { machine: (id) => machines.get(id) ?? null },
+			machines: {
+				machine: (id) => machines.get(id) ?? null,
+				joined: () => () => {},
+			},
 		});
 
 	/** The commit the remote has as `ref`, or null when it has none. */
@@ -187,6 +190,53 @@ describe("CloneCheckouts", () => {
 
 		// A worker that has not joined is taken to hold it still.
 		expect((await coordinator(new Map()).find("alpha")).status).toBe("working");
+	});
+
+	// scry-ignore simple-test-setup: w2 is this one test's alone; the others never reach a second worker
+	it("pushes the commits a worker made while away once it rejoins, for the agent that carried on to hear of", async () => {
+		const alpha = await worker.service.find("alpha");
+		await worker.branches.push("alpha", alpha.branch, { at: alpha.git });
+		// Made after the last push, on a worker then out of reach.
+		await deps.commit(alpha.path, "late.txt", "late\n", "late");
+		const late = await deps.gitCli(alpha.path, "rev-parse", "HEAD");
+		// The task carries on from that push on w2, whose clones sit elsewhere.
+		const config = {
+			...worker.config,
+			worktreeRoot: resolve(worker.clone, "..", "w2.noindex"),
+		};
+		const carried = new WorktreeService(worker.git, config, deps.splatesDir, {
+			fs: deps.fs,
+			ps: deps.ps,
+			clones: {
+				checkouts: new CloneCheckouts(
+					worker.git,
+					config,
+					worker.branches,
+					deps.fs,
+				),
+				machine: "w2",
+			},
+		});
+		await carried.resume(await carried.find("alpha"));
+		expect((await carried.find("alpha")).machine).toBe("w2");
+		expect((await carried.states())[0]?.stranded).toHaveLength(1);
+
+		await rescueStranded("w1", {
+			service: coordinator(new Map([["w1", worker.machine]])),
+			machines: {
+				machine: (id) => (id === "w1" ? worker.machine : null),
+				joined: () => () => {},
+			},
+			branches: worker.branches,
+			log: deps.log,
+		});
+
+		expect(await onRemote("refs/heads/splates/alpha-w1")).toBe(late);
+		const [state] = await carried.states();
+		expect(state?.stranded).toBeUndefined();
+		expect(state?.rescued).toEqual([
+			{ machine: "w1", branch: "splates/alpha-w1", commits: 1 },
+		]);
 	});
 
 	it("takes a clone away on removal, and refuses a path that is none", async () => {

@@ -211,6 +211,11 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		return id !== LOCAL_WORKER || this.records.localOn;
 	}
 
+	/** As `WorkerMachines.joined`. */
+	joined(listener: (id: string) => void): () => void {
+		return this.registry.events.on("joined", (worker) => listener(worker.id));
+	}
+
 	/** The worker `id`, as a project reads a task cloned there through it. */
 	machine(id: string): RemoteWorker | null {
 		return this.registry.worker(id) ?? null;

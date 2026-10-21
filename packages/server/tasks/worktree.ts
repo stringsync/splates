@@ -434,10 +434,36 @@ export interface TaskState {
 	 */
 	machine?: string;
 	/**
+	 * The clones on other workers this task carried on from, left behind
+	 * when their worker was away too long. Each is looked at once that
+	 * worker rejoins, for commits it made after the push the task resumed
+	 * from.
+	 */
+	stranded?: StrandedTree[];
+	/**
+	 * What was pushed from those clones, for the agent to hear of on its
+	 * next claim, which then clears it.
+	 */
+	rescued?: RescuedTree[];
+	/**
 	 * The last Auto pick for it, as its record keeps it beside what it was
 	 * queued as: read with the rest, never written back through it.
 	 */
 	autoPick?: AutoPicked;
+}
+
+/** A clone of a task on a worker it no longer runs on. */
+export interface StrandedTree {
+	machine: string;
+	path: string;
+	branch: string;
+}
+
+/** Commits found in a stranded clone and pushed as `branch` on the remote. */
+export interface RescuedTree {
+	machine: string;
+	branch: string;
+	commits: number;
 }
 
 /**
@@ -462,10 +488,9 @@ export interface Dispatched {
 	held?: string;
 	/**
 	 * Whether the postCheckout hook is still readying the tree: `splates
-	 * server` starts the agent once it is not.
+	 * server` starts the agent once it is not. Recorded from the start, so
+	 * the task reads as handed over rather than an external agent's.
 	 */
-	// Recorded from the start, so the task reads as handed over rather than
-	// an external agent's.
 	pending?: true;
 }
 

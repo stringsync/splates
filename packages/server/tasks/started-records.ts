@@ -57,23 +57,44 @@ export class StartedRecords {
 	 * its own, off the list.
 	 */
 	async save(state: TaskState): Promise<void> {
+		await this.store.locked(() => this.write(state));
+	}
+
+	/**
+	 * Changes started task `task`'s record from what it holds now, under
+	 * the lock, so a change made from a stale read cannot undo another's.
+	 * `change` answers the record to keep, or null to leave it; a task
+	 * with no record is left.
+	 */
+	async amend(
+		task: string,
+		change: (state: TaskState) => TaskState | null,
+	): Promise<void> {
 		await this.store.locked(async () => {
-			const record =
-				(await this.store.find(state.task)) ??
-				(await this.numbered(state.task));
-			// Its Auto pick is the record's own, which a stale read must not undo.
-			const { id: _, createdAt, status, autoPick: __, ...started } = state;
-			await this.store.write({
-				...queuedOf(record),
-				...(record.listed === false ? { listed: false } : {}),
-				...started,
-				stage: "running",
-				startedAt: createdAt,
-				startedFrom:
-					record.startedFrom ??
-					(record.stage === "running" ? "backlog" : record.stage),
-				status,
-			});
+			const record = await this.store.find(task);
+			const next = record === null ? null : change(stateOf(record));
+			if (next !== null) {
+				await this.write(next);
+			}
+		});
+	}
+
+	/** Writes `state` into its task's record. Call it under the store's lock. */
+	private async write(state: TaskState): Promise<void> {
+		const record =
+			(await this.store.find(state.task)) ?? (await this.numbered(state.task));
+		// Its Auto pick is the record's own, which a stale read must not undo.
+		const { id: _, createdAt, status, autoPick: __, ...started } = state;
+		await this.store.write({
+			...queuedOf(record),
+			...(record.listed === false ? { listed: false } : {}),
+			...started,
+			stage: "running",
+			startedAt: createdAt,
+			startedFrom:
+				record.startedFrom ??
+				(record.stage === "running" ? "backlog" : record.stage),
+			status,
 		});
 	}
 
