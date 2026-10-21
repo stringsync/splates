@@ -11,10 +11,12 @@ export type EvalStatus =
 
 /** An agent a batch ran on: its adapter, as `claude@1`, and model. */
 export interface EvalTarget {
-	/** `<adapterVersion>/<model>`, what a cell names it by. */
+	/** `<adapterVersion>/<model>`, then `@<effort>` when one was set, what a cell names it by. */
 	key: string;
 	agent: string;
 	model: string | null;
+	/** The thinking level it ran at; null for the agent's default. */
+	effort: string | null;
 }
 
 /** One `splates dev eval` invocation, or the runs saved loose on one day before batches. */

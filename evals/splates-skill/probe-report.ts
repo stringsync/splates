@@ -27,7 +27,7 @@ export function probeReport(values: StoredRun[]): string {
 	for (const [key, group] of groups) {
 		const models = new Map<string, StoredRun[]>();
 		for (const value of group) {
-			const label = `${value.run.identity.adapterVersion}/${value.run.identity.model ?? "none"} [${value.run.identity.configHash.slice(0, 8)}/${hash(value.adapter.runtime).slice(0, 8)}]`;
+			const label = `${value.run.identity.adapterVersion}/${value.run.identity.model ?? "none"}${value.run.identity.effort ? `@${value.run.identity.effort}` : ""} [${value.run.identity.configHash.slice(0, 8)}/${hash(value.adapter.runtime).slice(0, 8)}]`;
 			models.set(label, [...(models.get(label) ?? []), value]);
 		}
 		for (const [model, runs] of models) {

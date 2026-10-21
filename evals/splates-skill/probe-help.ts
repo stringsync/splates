@@ -3,7 +3,8 @@ export const HELP = `splates dev eval [fast|list|plan|report] [options]
   --kind cli|agent        select local CLI checks or agent probes
   --module PATH            explicit ProbeModule; default discovers *.probes.ts
   budgets [set <tokens/window|nothing>|reset] [--format json]  free shared token budget controls
-  --target agent:model     native claude:MODEL, codex:MODEL, opencode:PROVIDER/MODEL (repeat)
+  --target agent:model     native claude:MODEL, codex:MODEL, opencode:PROVIDER/MODEL, each optionally
+                           MODEL@EFFORT for a thinking level (repeat)
   --skill-mode discovery|explicit  native skill loading (default discovery)
   --codex-fixture-writes  opt in to validated isolated decision task/metadata writes
   --codex-home PATH        existing native auth/config in place; may write runtime metadata

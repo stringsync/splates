@@ -350,7 +350,7 @@ function RuleRow({
 					</>
 				)}
 			</div>
-			<PickChips editor={editor} rule={index} picks={picks} />
+			<PickChips list={editor.picksOf(index)} picks={picks} />
 			{onLog !== undefined && made > 0 && (
 				<button
 					type="button"

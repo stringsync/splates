@@ -21,6 +21,7 @@ import {
 	resetAutoPickRules,
 	saveAutoPickRules,
 } from "./auto-pick-api";
+import type { PickList } from "./auto-pick-pick-chips";
 
 /** Where the editor reads and writes the machine's rules. */
 export interface RulesStore {
@@ -251,6 +252,23 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.editPick(index, pick, ({ effort: _, ...rest }) =>
 			effort === undefined ? rest : { ...rest, effort },
 		);
+	}
+
+	/** Rule `index`'s picks as a list the chips edit. */
+	picksOf(index: number): PickList {
+		return {
+			label: `rule ${index + 1}`,
+			agents: this.agents,
+			note: "Tried left to right; the next is used once a plan is nearly spent.",
+			least: 1,
+			efforts: (agent) => this.efforts(agent),
+			has: (agent, model, except) => this.has(index, agent, model, except),
+			add: (agent, model) => this.addPick(index, agent, model),
+			remove: (pick) => this.removePick(index, pick),
+			move: (from, to) => this.movePick(index, from, to),
+			setModel: (pick, model) => this.setModel(index, pick, model),
+			setEffort: (pick, effort) => this.setEffort(index, pick, effort),
+		};
 	}
 
 	/** The model ids a pick of `agent` can name: the roster's for it. */

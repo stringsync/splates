@@ -218,7 +218,7 @@ export interface ProbeIsolation {
 	outputs: string;
 	ports: number[];
 }
-/** Keep alongside raw evidence; incompatible identities must not share cached grades. */
+/** One probe run saved with its evidence; its identity says which runs may share a grade. */
 export interface ProbeRun {
 	schema: 1;
 	identity: {
@@ -230,6 +230,8 @@ export interface ProbeRun {
 		cliHash: string;
 		adapterVersion: string;
 		model: string | null;
+		/** The thinking level it ran at; left out for the agent's default. */
+		effort?: string;
 		configHash: string;
 		repetition: number;
 	};

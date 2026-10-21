@@ -9,11 +9,14 @@ import type { Target } from "./runner";
 /** Native commands are independent of the ACP roster and never initiate login. */
 export function nativeTarget(value: string, opts: NativeTargetOptions): Target {
 	const [id, ...parts] = value.split(":");
-	const model = parts.join(":");
+	const [model = "", effort = null] = splitEffort(parts.join(":"));
 	if (!model || !["claude", "codex", "opencode"].includes(id ?? "")) {
 		throw new Error(
-			"--target requires claude:MODEL, codex:MODEL or opencode:PROVIDER/MODEL; ACP roster commands are not native transports",
+			"--target requires claude:MODEL[@EFFORT], codex:MODEL[@EFFORT] or opencode:PROVIDER/MODEL[@EFFORT]; ACP roster commands are not native transports",
 		);
+	}
+	if (effort === "") {
+		throw new Error("--target names a thinking level after @, but none");
 	}
 	if (id === "opencode" && !/^[^/]+\/.+$/.test(model)) {
 		throw new Error("OpenCode requires provider/model");
@@ -45,13 +48,24 @@ export function nativeTarget(value: string, opts: NativeTargetOptions): Target {
 	};
 	return {
 		selector: id,
-		adapter: nativeAdapter(driver, {
-			source: opts.source,
-			mode: opts.mode,
-			...(opts.expectedHash ? { expectedHash: opts.expectedHash } : {}),
-		}),
+		adapter: nativeAdapter(
+			driver,
+			{
+				source: opts.source,
+				mode: opts.mode,
+				...(opts.expectedHash ? { expectedHash: opts.expectedHash } : {}),
+			},
+			effort,
+		),
 		model,
+		effort,
 	};
+}
+
+/** `MODEL@EFFORT` as its model and thinking level; the level is null when it names none. */
+function splitEffort(value: string): [string, string | null] {
+	const at = value.lastIndexOf("@");
+	return at === -1 ? [value, null] : [value.slice(0, at), value.slice(at + 1)];
 }
 
 interface NativeTargetOptions {

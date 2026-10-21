@@ -5,7 +5,7 @@ import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
-import { EvalRoutes } from "../evals";
+import { EvalAgentsRoutes, EvalRoutes } from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
 import { RESUME } from "../plans";
@@ -532,6 +532,7 @@ export async function dev(
 	});
 
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
+	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
 
 	const coordinatorMove = new CoordinatorMoveRoutes({
 		fs,
@@ -591,6 +592,10 @@ export async function dev(
 					"/api/focus": { PUT: guarded(picker.focus) },
 					"/api/stats": guarded(ended.stats),
 					"/api/evals": guarded(evals.list),
+					"/api/evals/agents": {
+						GET: guarded(evalAgents.read),
+						PUT: guarded(evalAgents.save),
+					},
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
 					"/api/identity": guarded(async (request) =>

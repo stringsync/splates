@@ -15,7 +15,13 @@ export {
 	removeCred,
 	saveCred,
 } from "./creds";
-export { evalBatch, evalBatches, evalRun } from "./evals";
+export {
+	evalAgents,
+	evalBatch,
+	evalBatches,
+	evalRun,
+	saveEvalAgents,
+} from "./evals";
 export {
 	addLane,
 	addTodo,

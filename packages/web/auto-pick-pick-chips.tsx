@@ -15,6 +15,7 @@ import {
 	useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { AutoPickAgent } from "@stringsync/splates-server/auto-pick";
 import type { AgentPick } from "@stringsync/splates-server/models";
 import { PlusIcon, XIcon } from "lucide-react";
 import type { JSX } from "react";
@@ -38,7 +39,28 @@ import {
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
-import type { RulesEditor } from "./auto-pick-rules";
+
+/**
+ * A list of picks the chips edit: a rule's, or the Evals page's agents. Its
+ * `label` names it in the chips' own labels, such as "rule 1".
+ */
+export interface PickList {
+	label: string;
+	/** What a pick may name. */
+	agents: readonly AutoPickAgent[];
+	/** Shown under two or more picks, or null for none. */
+	note: string | null;
+	/** How few picks the list may hold; a pick is not removed below it. */
+	least: number;
+	efforts(agent: string): string[];
+	/** Whether the list names `agent` on `model` already, apart from its pick `except`. */
+	has(agent: string, model: string | undefined, except?: number): boolean;
+	add(agent: string, model: string | undefined): void;
+	remove(pick: number): void;
+	move(from: number, to: number): void;
+	setModel(pick: number, model: string | undefined): void;
+	setEffort(pick: number, effort: string | undefined): void;
+}
 
 /**
  * A rule's picks as chips in the order they are tried: dragged, or moved with
@@ -47,12 +69,10 @@ import type { RulesEditor } from "./auto-pick-rules";
  * the rule does not name yet.
  */
 export function PickChips({
-	editor,
-	rule,
+	list,
 	picks,
 }: {
-	editor: RulesEditor;
-	rule: number;
+	list: PickList;
 	picks: readonly AgentPick[];
 }): JSX.Element {
 	const sensors = useSensors(
@@ -72,35 +92,32 @@ export function PickChips({
 			modifiers={[restrictToHorizontalAxis]}
 			onDragEnd={({ active, over }) => {
 				if (over !== null && active.id !== over.id) {
-					editor.movePick(rule, Number(active.id), Number(over.id));
+					list.move(Number(active.id), Number(over.id));
 				}
 			}}
 		>
 			<SortableContext items={ids} strategy={horizontalListSortingStrategy}>
 				<ol
-					aria-label={`rule ${rule + 1} picks`}
+					aria-label={`${list.label} picks`}
 					className="flex flex-wrap items-center gap-2 pl-7"
 				>
 					{picks.map((pick, at) => (
 						<PickChip
 							// biome-ignore lint/suspicious/noArrayIndexKey: a pick is its place on the rule
 							key={at}
-							editor={editor}
-							rule={rule}
+							list={list}
 							index={at}
 							pick={pick}
 							count={picks.length}
 						/>
 					))}
 					<li>
-						<AddPick editor={editor} rule={rule} />
+						<AddPick list={list} />
 					</li>
 				</ol>
 			</SortableContext>
-			{picks.length > 1 && (
-				<p className="pl-7 text-muted-foreground text-xs">
-					Tried left to right; the next is used once a plan is nearly spent.
-				</p>
+			{picks.length > 1 && list.note !== null && (
+				<p className="pl-7 text-muted-foreground text-xs">{list.note}</p>
 			)}
 		</DndContext>
 	);
@@ -108,19 +125,17 @@ export function PickChips({
 
 /** One pick as a chip: its place, agent, model and thinking, with a menu to edit it. */
 function PickChip({
-	editor,
-	rule,
+	list,
 	index,
 	pick,
 	count,
 }: {
-	editor: RulesEditor;
-	rule: number;
+	list: PickList;
 	index: number;
 	pick: AgentPick;
 	count: number;
 }): JSX.Element {
-	const name = `rule ${rule + 1} pick ${index + 1}`;
+	const name = `${list.label} pick ${index + 1}`;
 	const {
 		attributes,
 		listeners,
@@ -129,9 +144,9 @@ function PickChip({
 		transition,
 		isDragging,
 	} = useSortable({ id: String(index) });
-	const agent = editor.agents.find((each) => each.id === pick.agent);
+	const agent = list.agents.find((each) => each.id === pick.agent);
 	const model = agent?.models.find((each) => each.id === pick.model);
-	const efforts = editor.efforts(pick.agent);
+	const efforts = list.efforts(pick.agent);
 	const detail = [
 		pick.model === undefined ? "default model" : (model?.name ?? pick.model),
 		pick.effort,
@@ -189,16 +204,12 @@ function PickChip({
 							aria-label={`${name} model`}
 							value={pick.model ?? ""}
 							onChange={(event) =>
-								editor.setModel(
-									rule,
-									index,
-									event.currentTarget.value || undefined,
-								)
+								list.setModel(index, event.currentTarget.value || undefined)
 							}
 						>
 							<NativeSelectOption
 								value=""
-								disabled={editor.has(rule, pick.agent, undefined, index)}
+								disabled={list.has(pick.agent, undefined, index)}
 							>
 								Default model
 							</NativeSelectOption>
@@ -213,7 +224,7 @@ function PickChip({
 								<NativeSelectOption
 									key={each.id}
 									value={each.id}
-									disabled={editor.has(rule, pick.agent, each.id, index)}
+									disabled={list.has(pick.agent, each.id, index)}
 								>
 									{each.name}
 								</NativeSelectOption>
@@ -229,11 +240,7 @@ function PickChip({
 							aria-label={`${name} thinking`}
 							value={pick.effort ?? ""}
 							onChange={(event) =>
-								editor.setEffort(
-									rule,
-									index,
-									event.currentTarget.value || undefined,
-								)
+								list.setEffort(index, event.currentTarget.value || undefined)
 							}
 						>
 							<NativeSelectOption value="">Default thinking</NativeSelectOption>
@@ -257,8 +264,8 @@ function PickChip({
 				size="icon-xs"
 				className="rounded-full"
 				aria-label={`Remove ${name}`}
-				disabled={count === 1}
-				onClick={() => editor.removePick(rule, index)}
+				disabled={count <= list.least}
+				onClick={() => list.remove(index)}
 			>
 				<XIcon />
 			</Button>
@@ -267,13 +274,7 @@ function PickChip({
 }
 
 /** The dashed chip: a menu of each agent's models, those the rule names already shown but off. */
-function AddPick({
-	editor,
-	rule,
-}: {
-	editor: RulesEditor;
-	rule: number;
-}): JSX.Element {
+function AddPick({ list }: { list: PickList }): JSX.Element {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -282,7 +283,7 @@ function AddPick({
 						type="button"
 						variant="outline"
 						size="sm"
-						aria-label={`Add an agent to rule ${rule + 1}`}
+						aria-label={`Add an agent to ${list.label}`}
 						className="rounded-full border-dashed text-muted-foreground"
 					/>
 				}
@@ -290,17 +291,17 @@ function AddPick({
 				<PlusIcon data-icon="inline-start" /> Add agent
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-60">
-				{editor.agents.map((agent) => (
+				{list.agents.map((agent) => (
 					<DropdownMenuGroup key={agent.id}>
 						<DropdownMenuLabel>{agent.name}</DropdownMenuLabel>
 						{[{ id: undefined, name: "Default model" }, ...agent.models].map(
 							(model) => {
-								const named = editor.has(rule, agent.id, model.id);
+								const named = list.has(agent.id, model.id);
 								return (
 									<DropdownMenuItem
 										key={model.id ?? "default"}
 										disabled={named}
-										onClick={() => editor.addPick(rule, agent.id, model.id)}
+										onClick={() => list.add(agent.id, model.id)}
 									>
 										{model.name}
 										{named && (

@@ -79,21 +79,29 @@ export class AutoPickRulesRoutes {
 			}
 			problem = error.message;
 		}
-		const machine = new FsStorage(this.#home, this.#fs);
-		const offered = await new Offered(machine.document("offered.json")).all();
-		const roster = await Roster.in(machine).agents();
 		return {
 			rules,
 			problem,
-			agents: roster.map((agent) => ({
-				id: agent.id,
-				name: agent.name,
-				models: agent.models.map(({ id, name }) => ({ id, name })),
-				efforts:
-					offered[agent.id] === undefined
-						? null
-						: effortsOf(offered[agent.id] ?? []),
-			})),
+			agents: await pickableAgents(this.#fs, this.#home),
 		};
 	}
+}
+
+/** The roster's agents in its order, each with the models and thinking levels a pick can name. */
+export async function pickableAgents(
+	fs: Fs,
+	home: string,
+): Promise<AutoPickAgent[]> {
+	const machine = new FsStorage(home, fs);
+	const offered = await new Offered(machine.document("offered.json")).all();
+	const roster = await Roster.in(machine).agents();
+	return roster.map((agent) => ({
+		id: agent.id,
+		name: agent.name,
+		models: agent.models.map(({ id, name }) => ({ id, name })),
+		efforts:
+			offered[agent.id] === undefined
+				? null
+				: effortsOf(offered[agent.id] ?? []),
+	}));
 }

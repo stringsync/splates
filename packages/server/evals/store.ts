@@ -50,7 +50,11 @@ export class EvalStore {
 			aspect: probe.aspect,
 			requirement: probe.requirement.id,
 			requirementText: probe.requirement.text,
-			target: targetOf(identity.adapterVersion, identity.model),
+			target: targetOf(
+				identity.adapterVersion,
+				identity.model,
+				identity.effort ?? null,
+			),
 			repetition: identity.repetition,
 			input: probe.input.text,
 			termination: evidence.termination,
@@ -156,6 +160,7 @@ export interface SavedRun {
 		identity: {
 			adapterVersion: string;
 			model: string | null;
+			effort?: string;
 			repetition: number;
 		};
 		evidence: {
@@ -196,6 +201,7 @@ interface Planned {
 	requirement: string;
 	adapterVersion: string;
 	model: string | null;
+	effort: string | null;
 	repetition: number;
 }
 
@@ -218,9 +224,14 @@ async function manifestOf(path: string): Promise<{
 		const { skill, startedAt, cells } = batch as {
 			skill: string;
 			startedAt: string;
-			cells: Planned[];
+			cells: (Omit<Planned, "effort"> & { effort?: string })[];
 		};
-		return { kind: "batch", skill, startedAt, planned: cells };
+		return {
+			kind: "batch",
+			skill,
+			startedAt,
+			planned: cells.map((cell) => ({ ...cell, effort: cell.effort ?? null })),
+		};
 	}
 	const experiment = (await json(join(path, "experiment.json"))) as {
 		experiment?: { kind?: string };
@@ -229,6 +240,7 @@ async function manifestOf(path: string): Promise<{
 			adapterVersion: string;
 			agent: string;
 			requestedModel: string | null;
+			requestedEffort?: string;
 			repetition: number;
 		}[];
 	} | null;
@@ -245,6 +257,7 @@ async function manifestOf(path: string): Promise<{
 			requirement: job.probe.requirement.id,
 			adapterVersion: `${job.agent}@${job.adapterVersion}`,
 			model: job.requestedModel,
+			effort: job.requestedEffort ?? null,
 			repetition: job.repetition,
 		})),
 	};
@@ -266,7 +279,7 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 		planned.map((cell) =>
 			cellKey(
 				cell.probe,
-				targetKey(cell.adapterVersion, cell.model),
+				targetKey(cell.adapterVersion, cell.model, cell.effort),
 				cell.repetition,
 			),
 		),
@@ -293,7 +306,11 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 			continue;
 		}
 		const { identity } = saved.run;
-		const target = targetKey(identity.adapterVersion, identity.model);
+		const target = targetKey(
+			identity.adapterVersion,
+			identity.model,
+			identity.effort ?? null,
+		);
 		const key = cellKey(saved.probe.id, target, identity.repetition);
 		const run = summaryOf(id, saved);
 		if (plannedKeys.has(key)) {
@@ -311,7 +328,7 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 	}
 	const grid: EvalCell[] = [
 		...planned.map((cell) => {
-			const target = targetKey(cell.adapterVersion, cell.model);
+			const target = targetKey(cell.adapterVersion, cell.model, cell.effort);
 			return {
 				probe: cell.probe,
 				aspect: cell.aspect,
@@ -326,8 +343,10 @@ function gridOf({ batch, planned, runs }: Read, directory: string): EvalGrid {
 	const targets = new Map<string, EvalTarget>();
 	for (const cell of grid) {
 		if (cell.target !== "unknown" && !targets.has(cell.target)) {
-			const [adapterVersion = "", model = null] = splitKey(cell.target);
-			targets.set(cell.target, targetOf(adapterVersion, model));
+			const [adapterVersion = "", model = null, effort = null] = splitKey(
+				cell.target,
+			);
+			targets.set(cell.target, targetOf(adapterVersion, model, effort));
 		}
 	}
 	const tally: EvalBatch["tally"] = {};
@@ -394,20 +413,37 @@ function judgedStatus(saved: SavedRun): {
 	};
 }
 
-function targetKey(adapterVersion: string, model: string | null): string {
-	return model === null ? adapterVersion : `${adapterVersion}/${model}`;
+function targetKey(
+	adapterVersion: string,
+	model: string | null,
+	effort: string | null,
+): string {
+	const named = model === null ? adapterVersion : `${adapterVersion}/${model}`;
+	return effort === null ? named : `${named}@${effort}`;
 }
 
-function splitKey(key: string): [string, string | null] {
+function splitKey(key: string): [string, string | null, string | null] {
 	const at = key.indexOf("/");
-	return at === -1 ? [key, null] : [key.slice(0, at), key.slice(at + 1)];
+	if (at === -1) {
+		return [key, null, null];
+	}
+	const rest = key.slice(at + 1);
+	const level = rest.lastIndexOf("@");
+	return level === -1
+		? [key.slice(0, at), rest, null]
+		: [key.slice(0, at), rest.slice(0, level), rest.slice(level + 1)];
 }
 
-function targetOf(adapterVersion: string, model: string | null): EvalTarget {
+function targetOf(
+	adapterVersion: string,
+	model: string | null,
+	effort: string | null,
+): EvalTarget {
 	return {
-		key: targetKey(adapterVersion, model),
+		key: targetKey(adapterVersion, model, effort),
 		agent: adapterVersion.split("@")[0] ?? adapterVersion,
 		model,
+		effort,
 	};
 }
 

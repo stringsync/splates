@@ -119,7 +119,7 @@ class CodexSession implements NativeSession {
 	}
 	async run(emit: (update: NativeUpdate) => void) {
 		this.emit = emit;
-		const { context, model, tools, skill } = this.request;
+		const { context, model, effort = null, tools, skill } = this.request;
 		if (this.cancelled) {
 			return;
 		}
@@ -293,7 +293,10 @@ class CodexSession implements NativeSession {
 					approvalPolicy: "never",
 					approvalsReviewer: "user",
 					sandbox: "workspace-write",
-					config: overrides,
+					config:
+						effort === null
+							? overrides
+							: { ...overrides, model_reasoning_effort: effort },
 					ephemeral: true,
 					allowProviderModelFallback: false,
 				}),
@@ -302,6 +305,7 @@ class CodexSession implements NativeSession {
 			const sandbox = object(started.sandbox);
 			if (
 				started.model !== model ||
+				(effort !== null && started.reasoningEffort !== effort) ||
 				started.cwd !== cwd ||
 				started.approvalPolicy !== "never" ||
 				started.approvalsReviewer !== "user" ||
@@ -319,7 +323,7 @@ class CodexSession implements NativeSession {
 				requestedModel: model,
 				model: started.model,
 				reasoning: started.reasoningEffort ?? null,
-				requestedReasoning: null,
+				requestedReasoning: effort,
 				instructionSources: started.instructionSources ?? [],
 				skill: skillPath,
 				permissions: sandbox,

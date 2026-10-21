@@ -192,7 +192,7 @@ function rowsOf(cells: EvalCell[], aspect: string | null): Row[] {
 }
 
 export function targetLabel(target: EvalTarget): string {
-	return target.model === null
-		? target.agent
-		: `${target.agent} ${target.model}`;
+	return [target.agent, target.model, target.effort]
+		.filter((part) => part !== null)
+		.join(" ");
 }

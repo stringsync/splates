@@ -1,9 +1,10 @@
 import type {
+	EvalAgentsView,
 	EvalBatch,
 	EvalDetail,
 	EvalGrid,
 } from "@stringsync/splates-server/evals/browser";
-import { ApiError } from "./request";
+import { ApiError, sendJson } from "./request";
 
 /**
  * Every saved eval batch, newest first; null when this server runs from a
@@ -36,4 +37,22 @@ export async function evalRun(id: string): Promise<EvalDetail> {
 		throw new ApiError("error", `/api/evals/run: ${response.status}`);
 	}
 	return (await response.json()) as EvalDetail;
+}
+
+/** The agents evals run on, and what a pick of them can name. */
+export async function evalAgents(): Promise<EvalAgentsView> {
+	const response = await fetch("/api/evals/agents");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/agents: ${response.status}`);
+	}
+	return (await response.json()) as EvalAgentsView;
+}
+
+/** Saves the agents evals run on, throwing the server's refusal when they do not check out. */
+export async function saveEvalAgents(
+	agents: EvalAgentsView["agents"],
+): Promise<EvalAgentsView> {
+	return (await sendJson("/api/evals/agents", "PUT", {
+		agents,
+	})) as EvalAgentsView;
 }

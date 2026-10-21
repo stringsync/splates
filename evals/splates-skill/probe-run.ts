@@ -79,6 +79,9 @@ export async function runOne(
 			cliHash: opts.cliHash,
 			adapterVersion: `${target.adapter.id}@${target.adapter.version}`,
 			model: probe.execution.kind === "cli" ? null : target.model,
+			...(probe.execution.kind === "cli" || !target.effort
+				? {}
+				: { effort: target.effort }),
 			configHash: configurationHash(
 				probe,
 				target,
@@ -96,7 +99,7 @@ export async function runOne(
 					...(probe.execution.kind === "agent"
 						? [
 								"--target",
-								`${target.selector ?? target.adapter.id}:${target.model}`,
+								`${target.selector ?? target.adapter.id}:${target.model}${target.effort ? `@${target.effort}` : ""}`,
 							]
 						: []),
 					"--probe",

@@ -13,6 +13,7 @@
 @source "./evals-page.tsx";
 @source "./evals-reply.tsx";
 @source "./eval-report.tsx";
+@source "./eval-agents-view.tsx";
 @source "./eval-debug.tsx";
 @source "./eval-status.tsx";
 @source "./conversation-checkpoint.tsx";

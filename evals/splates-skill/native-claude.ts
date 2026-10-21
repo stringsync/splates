@@ -95,7 +95,7 @@ function session(
 	launch: ClaudeLaunch,
 	login?: ClaudeLogin,
 ) {
-	const { context, model, tools, skill, allowance } = request;
+	const { context, model, effort = null, tools, skill, allowance } = request;
 	const owned: ClaudeProcess[] = [];
 	let prefix: string[] = [];
 	let env = context.env;
@@ -204,7 +204,7 @@ function session(
 				"configuration",
 			);
 		}
-		context.runtime.claudeReasoning = { requested: null, effective: null };
+		context.runtime.claudeReasoning = { requested: effort, effective: null };
 		context.runtime.claudeRequestedModel = model;
 		let help = "";
 		if (
@@ -225,6 +225,7 @@ function session(
 			"--setting-sources",
 			"--strict-mcp-config",
 			"--no-session-persistence",
+			...(effort === null ? [] : ["--effort"]),
 		]) {
 			if (!help.includes(flag)) {
 				return unsupported(`Claude missing native capability ${flag}`);
@@ -271,6 +272,7 @@ function session(
 			"stream-json",
 			"--model",
 			model,
+			...(effort === null ? [] : ["--effort", effort]),
 			"--tools",
 			[...native].join(","),
 			"--permission-mode",

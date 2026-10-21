@@ -363,6 +363,9 @@ class OpenCodeSession implements NativeSession {
 					{
 						model: { providerID, modelID },
 						agent: "build",
+						...((this.request.effort ?? null) === null
+							? {}
+							: { variant: this.request.effort }),
 						parts: [{ type: "text", text }],
 					},
 				),

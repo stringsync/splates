@@ -320,7 +320,9 @@ export async function fastCli(
 		if (
 			targets.some(
 				(each) =>
-					each.adapter.id === target.adapter.id && each.model === target.model,
+					each.adapter.id === target.adapter.id &&
+					each.model === target.model &&
+					(each.effort ?? null) === (target.effort ?? null),
 			)
 		) {
 			throw new Error(`duplicate target: ${value}`);
@@ -449,6 +451,7 @@ export async function fastCli(
 					(run) =>
 						run.probe.id === probe.id &&
 						run.run.identity.model === target.model &&
+						(run.run.identity.effort ?? null) === (target.effort ?? null) &&
 						run.run.identity.adapterVersion ===
 							`${target.adapter.id}@${target.adapter.version}` &&
 						run.run.identity.fixtureHash ===

@@ -18,6 +18,8 @@ export type NativeUpdate =
 export interface NativeRequest {
 	context: RunContext;
 	model: string | null;
+	/** The thinking level to run at, in the agent's own words; null for its default. */
+	effort?: string | null;
 	allowance: Readonly<Allowance>;
 	skill: {
 		source: string;
@@ -51,11 +53,18 @@ export interface NativeDriver {
 export function nativeAdapter(
 	driver: NativeDriver,
 	skill: NativeRequest["skill"],
+	effort: string | null = null,
 ): Adapter {
 	return {
 		id: driver.id,
 		version: driver.version,
-		config: { driver: driver.config, skill, limits: driver.limits },
+		// Effort joins the config only when set, so runs at the default level keep their hash.
+		config: {
+			driver: driver.config,
+			skill,
+			limits: driver.limits,
+			...(effort === null ? {} : { effort }),
+		},
 		tokenBound: driver.limits.tokens === "hard",
 		async run() {
 			throw new Error("Native execution requires an admitted allowance");
@@ -74,6 +83,7 @@ export function nativeAdapter(
 				const session = driver.create({
 					context,
 					model,
+					effort,
 					allowance,
 					skill,
 					tools: context.probe.tools,

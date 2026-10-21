@@ -7,6 +7,8 @@ import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#web/components/ui/button.tsx";
 import { evalBatch, evalBatches } from "./api";
+import { EvalAgentsEditor } from "./eval-agents";
+import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
 import { EvalReport, targetLabel } from "./eval-report";
 import { ORDER, StatusChip, spent } from "./eval-status";
@@ -29,6 +31,7 @@ export function EvalsPage({
 	open: EvalsOpen;
 	onOpen: (batch: string | null, run?: string | null) => void;
 }): JSX.Element {
+	const [agents] = useState(() => new EvalAgentsEditor());
 	const [batches, setBatches] = useState<EvalBatch[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	// Read each time the list is shown: batches land while it is away.
@@ -50,6 +53,7 @@ export function EvalsPage({
 					{error}
 				</p>
 			)}
+			{open === null && <EvalAgentsView editor={agents} />}
 			{open !== null && run !== null ? (
 				<EvalDebug id={run} onBack={() => onOpen(open)} />
 			) : open !== null ? (

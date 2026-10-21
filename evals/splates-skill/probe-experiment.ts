@@ -25,6 +25,7 @@ export interface Batch {
 		agent: string;
 		adapterVersion: string;
 		model: string | null;
+		effort?: string;
 		repetition: number;
 	}[];
 }
@@ -46,6 +47,7 @@ export async function saveBatch(
 			agent: target.adapter.id,
 			adapterVersion: `${target.adapter.id}@${target.adapter.version}`,
 			model: target.model,
+			...(target.effort ? { effort: target.effort } : {}),
 			repetition,
 		})),
 	};
@@ -91,6 +93,7 @@ export async function saveExperiment(
 					adapterVersion: target.adapter.version,
 					config: target.adapter.config,
 					requestedModel: target.model,
+					...(target.effort ? { requestedEffort: target.effort } : {}),
 					effectiveModel: null,
 					nativeVersion: null,
 					reasoning: null,
@@ -123,6 +126,8 @@ export async function checkPairedControls(
 			run.agent === value.agent &&
 			run.probe.id === value.probe.id &&
 			run.run.identity.model === value.run.identity.model &&
+			(run.run.identity.effort ?? null) ===
+				(value.run.identity.effort ?? null) &&
 			run.run.identity.repetition === value.run.identity.repetition &&
 			run.run.identity.skillHash !== value.run.identity.skillHash,
 	);

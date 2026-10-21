@@ -185,6 +185,8 @@ export interface Target {
 	selector?: string;
 	adapter: Adapter;
 	model: string | null;
+	/** The thinking level it runs at; left out or null for the agent's default. */
+	effort?: string | null;
 }
 export interface RunContext {
 	probe: Probe;
