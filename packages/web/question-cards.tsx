@@ -305,22 +305,6 @@ export function QuestionCards({
 			{...questionHeading(questions.length, escalation, proposal)}
 			// Each question marks itself while it has the focus.
 			ringed={false}
-			// Paging, its footer says it, so a narrow header never wraps.
-			aside={
-				paging || questions.length === 0 ? undefined : (
-					<span className="flex items-center gap-2">
-						<span
-							aria-hidden
-							className="block h-1 w-14 overflow-hidden rounded-full bg-border"
-						>
-							<span
-								className="block h-full rounded-full bg-success transition-[width] duration-300 ease-out"
-								style={{ width: `${(answered / questions.length) * 100}%` }}
-							/>
-						</span>
-					</span>
-				)
-			}
 		>
 			<div
 				ref={panel}
