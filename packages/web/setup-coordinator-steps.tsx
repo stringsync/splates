@@ -54,14 +54,16 @@ export class MoveWatch implements Eventful<MoveWatchEvents> {
 		let host = read.host;
 		let away: number | null = null;
 		for (;;) {
-			if (read.moved) {
+			if (read.moved && !read.unfinished) {
 				this.set({ kind: "idle" });
 				return;
 			}
 			if (read.exitCode !== null && read.exitCode !== 0) {
 				this.set({ kind: "failed", log: read.log });
 				throw new Error(
-					"The deploy stopped before this server did, so nothing here changed: what it said is below.",
+					read.unfinished
+						? "The deploy stopped once the server ran on its box, before this Mac joined it as a worker: what it said is below. Once that is fixed, Next finishes it."
+						: "The deploy stopped before this server did, so nothing here changed: what it said is below.",
 				);
 			}
 			this.set({ kind: "here", line: read.log.at(-1) ?? null });

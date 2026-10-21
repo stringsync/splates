@@ -22,7 +22,7 @@ import {
 	cloudTokenFields,
 	requireCloudToken,
 } from "./cloud";
-import { coordinatorMoved } from "./coordinator-move";
+import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
@@ -198,7 +198,12 @@ export function coordinatorArea(
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
 		optional: true,
 		after: [keysStep],
-		check: coordinatorMoved,
+		check: async (machine) =>
+			(await coordinatorMoved(machine)) && !(await moveUnfinished(machine)),
+		detail: async (machine) =>
+			(await moveUnfinished(machine))
+				? "The server runs on its box, but this Mac has not joined it as a worker yet: the deploy stopped on its way. Next, or `splates server deploy`, finishes it."
+				: null,
 		notDone:
 			"The server is not deployed yet: press Next to deploy it, or run `splates server deploy`.",
 		// Done only once moved, which refuses every undo.

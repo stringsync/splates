@@ -54,6 +54,7 @@ describe("CoordinatorMoveRoutes", () => {
 
 		expect(await progress()).toEqual({
 			moved: false,
+			unfinished: false,
 			running: true,
 			exitCode: null,
 			log: ["bringing splates on the box", "readying each clone"],
@@ -79,6 +80,21 @@ describe("CoordinatorMoveRoutes", () => {
 
 		expect((await progress()).moved).toBe(true);
 		expect((await routes.start()).status).toBe(409);
+	});
+
+	it("starts again a move that stopped once the box served, to finish it", async () => {
+		await fs.write(
+			`${HOME}/coordinator/moved.json`,
+			JSON.stringify({
+				host: "splates.example.com",
+				stamp: "2026-10-18T12-00-00-000Z",
+				roots: ["/code/app"],
+				finished: false,
+			}),
+		);
+
+		expect(await progress()).toMatchObject({ moved: true, unfinished: true });
+		expect((await routes.start()).status).toBe(200);
 	});
 
 	it("clears what the last move left before starting again", async () => {

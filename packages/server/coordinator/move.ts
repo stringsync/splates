@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { SecretStores } from "../creds";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
+import { accessHeaders, joinAccess } from "../workers";
 import type { BoxStanding } from "./box";
 import { MovedCreds } from "./creds";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
@@ -33,7 +34,8 @@ import { MOVED_HOME, stage } from "./stage";
  * it as a worker, which carries on each task in its worktree here. This
  * machine's own records go aside, kept. With `dryRun`, stops before
  * anything changes here. Once the coordinator runs on the box, it brings
- * the box's splates to this release and restarts it there instead.
+ * the box's splates to this release and restarts it there instead,
+ * finishing first what a move that failed once the box served left undone.
  */
 export class CoordinatorMove {
 	private readonly fetch: typeof fetch;
@@ -85,11 +87,15 @@ export class CoordinatorMove {
 				}
 			}
 		}
+		let token: string;
 		try {
 			await this.carry(shell, repos, projects);
 			log.info(`starting splates server on the box`);
 			await shell.run(startScript());
-			await this.served(host);
+			// Minted before anything here goes aside: the token the cloud
+			// API takes may lack the scope a worker's service token needs.
+			token = await this.invite(shell);
+			await this.served(host, token);
 		} catch (error) {
 			await shell
 				.run("systemctl disable --now splates-coordinator || true\n")
@@ -98,14 +104,50 @@ export class CoordinatorMove {
 				`${error instanceof Error ? error.message : String(error)}\nNothing here changed: start \`splates server\` on this machine again, and move once that is fixed`,
 			);
 		}
-		const aside = await this.putAside(repos);
-		const coordinator = `https://${host}`;
-		const { token } = Invited.parse(
-			JSON.parse(await shell.run(inviteScript())),
-		);
-		await this.opts.join(coordinator, token);
+		const record: MoveRecord = {
+			host,
+			stamp: (this.opts.now?.() ?? new Date())
+				.toISOString()
+				.replace(/[:.]/g, "-"),
+			roots: repos.map((each) => each.root),
+			finished: false,
+		};
+		await this.keep(record);
+		return this.finish(shell, record, token).catch((error: unknown) => {
+			throw new Error(
+				`${error instanceof Error ? error.message : String(error)}\nThe server runs on the box at https://${host} now: once that is fixed, \`splates server deploy\` again finishes the move`,
+			);
+		});
+	}
+
+	/**
+	 * The move's steps once the box serves: this machine's records go
+	 * aside, and it joins the box as its worker, kept up by its LaunchAgent.
+	 * Each may run again, so a deploy after one failed finishes the rest.
+	 */
+	private async finish(
+		shell: BoxShell,
+		record: MoveRecord,
+		token?: string,
+	): Promise<Moved> {
+		const aside = await this.putAside(record);
+		const coordinator = `https://${record.host}`;
+		await this.opts.join(coordinator, token ?? (await this.invite(shell)));
 		const worker = await this.opts.keepWorker(coordinator);
-		return { status: "moved", host, aside, worker };
+		await this.keep({ ...record, finished: true });
+		return { status: "moved", host: record.host, aside, worker };
+	}
+
+	/** A join token from the box's server. */
+	private async invite(shell: BoxShell): Promise<string> {
+		return Invited.parse(JSON.parse(await shell.run(inviteScript()))).token;
+	}
+
+	private async keep(record: MoveRecord): Promise<void> {
+		const { fs, home } = this.opts;
+		const path = moveRecordPath(home);
+		await fs.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+		await fs.write(path, `${JSON.stringify(record, null, "\t")}\n`);
 	}
 
 	/**
@@ -118,7 +160,7 @@ export class CoordinatorMove {
 		box: BoxStanding,
 		{ dryRun }: { dryRun: boolean },
 	): Promise<Moved | null> {
-		const { log, version } = this.opts;
+		const { fs, home, log, version } = this.opts;
 		const shell = this.shell(box);
 		const active = await shell.run(
 			`systemctl is-active ${COORDINATOR_UNIT} || true\n`,
@@ -133,6 +175,11 @@ export class CoordinatorMove {
 		await shell.run(upgradeScript(version));
 		log.info("restarting splates server on the box");
 		await shell.run(restartScript());
+		const record = await moveRecord(fs, home);
+		if (record !== null && !record.finished) {
+			log.info("finishing the move the last deploy left undone");
+			return this.finish(shell, record);
+		}
 		return { status: "updated", ipv4: box.ipv4, version };
 	}
 
@@ -280,23 +327,40 @@ export class CoordinatorMove {
 	}
 
 	/**
-	 * Waits until the tunnel's host is carried to the box: Cloudflare
-	 * answers 502 or 530 while no connector serves it, and Access a sign-in
-	 * once one does.
+	 * Waits until the tunnel's host reaches the box's server: an empty join,
+	 * past Access with the service token `token` carries, as a worker joins,
+	 * is refused by splates itself. Cloudflare answers 502 or 530 while no
+	 * connector serves the host, and Access a sign-in either way.
 	 */
-	private async served(host: string): Promise<void> {
-		const until = Date.now() + Duration.mins(2).ms;
+	private async served(host: string, token: string): Promise<void> {
+		const within = this.opts.servedWithin ?? Duration.mins(2);
+		const until = Date.now() + within.ms;
 		for (;;) {
-			const status = await this.fetch(`https://${host}/`, {
+			const status = await this.fetch(`https://${host}/api/workers/join`, {
+				method: "POST",
 				redirect: "manual",
+				headers: {
+					...accessHeaders(joinAccess(token)),
+					"content-type": "application/json",
+				},
+				body: "{}",
 			})
-				.then((response) => response.status)
-				.catch(() => 0);
-			if (status !== 0 && status !== 502 && status !== 530) {
+				.then(async (response) =>
+					response.status === 400 &&
+					Refused.safeParse(await response.json().catch(() => null)).success
+						? "served"
+						: String(response.status),
+				)
+				.catch((error: unknown) =>
+					error instanceof Error ? error.message : String(error),
+				);
+			if (status === "served") {
 				return;
 			}
 			if (Date.now() > until) {
-				throw new Error(`${host} is not carried to the box after two minutes`);
+				throw new Error(
+					`${host} does not reach splates server on the box after ${within.human()} (last ${status})`,
+				);
 			}
 			await sleep(this.pause);
 		}
@@ -307,11 +371,8 @@ export class CoordinatorMove {
 	 * into `moved-<date>`, each project's `.git/splates` to
 	 * `.git/splates.moved`. Its checkouts' `splates` then reach the box.
 	 */
-	private async putAside(repos: MoveRepo[]): Promise<string> {
+	private async putAside({ stamp, roots }: MoveRecord): Promise<string> {
 		const { fs, home } = this.opts;
-		const stamp = (this.opts.now?.() ?? new Date())
-			.toISOString()
-			.replace(/[:.]/g, "-");
 		const aside = asideOf(home, stamp);
 		for (const name of MOVED_HOME) {
 			if (await fs.exists(`${home}/${name}`)) {
@@ -320,8 +381,8 @@ export class CoordinatorMove {
 				await fs.rename(`${home}/${name}`, to);
 			}
 		}
-		for (const repo of repos) {
-			const records = `${repo.root}/.git/splates`;
+		for (const root of roots) {
+			const records = `${root}/.git/splates`;
 			if (await fs.exists(records)) {
 				const to = (await fs.exists(`${records}.moved`))
 					? `${records}.moved-${stamp}`
@@ -384,6 +445,8 @@ export interface CoordinatorMoveOptions {
 	pause?: Duration;
 	/** How long this machine's agents have to checkpoint. */
 	checkpointWithin?: Duration;
+	/** How long the tunnel's host has to reach the box's server once it starts. */
+	servedWithin?: Duration;
 	now?: () => Date;
 }
 
@@ -406,6 +469,39 @@ export interface DeployKey {
 }
 
 const Invited = z.object({ token: z.string() });
+
+/** How splates refuses a request, as `refuse` answers. */
+const Refused = z.object({ reason: z.string(), message: z.string() });
+
+/**
+ * What a move keeps here once the box serves, so a deploy after a failed
+ * step finishes it: the tunnel's host, the stamp its records went aside
+ * under, each project's root, and whether this machine has joined the box
+ * and kept its worker up.
+ */
+const MoveRecord = z.object({
+	host: z.string(),
+	stamp: z.string(),
+	roots: z.array(z.string()),
+	finished: z.boolean(),
+});
+export type MoveRecord = z.infer<typeof MoveRecord>;
+
+/** Where a move keeps its `MoveRecord`, under splates's home. */
+export function moveRecordPath(home: string): string {
+	return `${home}/coordinator/moved.json`;
+}
+
+/** The record of the move this machine made onto its box; null for none. */
+export async function moveRecord(
+	fs: Fs,
+	home: string,
+): Promise<MoveRecord | null> {
+	const path = moveRecordPath(home);
+	return (await fs.exists(path))
+		? MoveRecord.parse(JSON.parse(await fs.read(path)))
+		: null;
+}
 
 /**
  * What keeps the box from cloning and pushing `repo` with a deploy key: no

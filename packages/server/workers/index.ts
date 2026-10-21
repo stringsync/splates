@@ -1,5 +1,5 @@
 export type { ServiceToken, WorkerAccess } from "./access";
-export { joinAccess } from "./access";
+export { accessHeaders, joinAccess } from "./access";
 export {
 	addWorker,
 	drainWorker,

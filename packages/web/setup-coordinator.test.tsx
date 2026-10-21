@@ -20,6 +20,7 @@ const KEY = {
 
 const RUNNING: MoveProgress = {
 	moved: false,
+	unfinished: false,
 	running: true,
 	exitCode: null,
 	log: ["bringing splates on the box at 203.0.113.7 to 1.2.3"],

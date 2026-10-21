@@ -1,7 +1,12 @@
 import { dirname } from "node:path";
 import type { SecretStore } from "webappwiz/creds";
 import type { Fs, Ps } from "webappwiz/system";
-import { COORDINATOR_UNIT, shellQuoted, WORKER_AGENT } from "../coordinator";
+import {
+	COORDINATOR_UNIT,
+	moveRecord,
+	shellQuoted,
+	WORKER_AGENT,
+} from "../coordinator";
 import { refuse, SERVING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { SavedTunnel } from "../tunnel";
@@ -9,8 +14,8 @@ import { SavedTunnel } from "../tunnel";
 /**
  * Whether the coordinator has moved onto its box, read on either side of
  * the move: the box runs `splates server` under its systemd unit, and this
- * Mac carries on as its worker under a LaunchAgent. Both are the move's
- * last steps, so neither is there before it succeeds.
+ * Mac keeps the move's record from the moment the box served, whether or
+ * not it went on to join the box as a worker under a LaunchAgent.
  */
 export async function coordinatorMoved({
 	fs,
@@ -25,8 +30,23 @@ export async function coordinatorMoved({
 	const user = ps?.env("HOME") ?? dirname(home);
 	return (
 		(await fs.exists(`/etc/systemd/system/${COORDINATOR_UNIT}.service`)) ||
+		(await moveRecord(fs, home)) !== null ||
 		(await fs.exists(`${user}/Library/LaunchAgents/${WORKER_AGENT}.plist`))
 	);
+}
+
+/**
+ * Whether a move from this Mac stopped once the box served, before the Mac
+ * joined it as a worker: deploying again finishes it.
+ */
+export async function moveUnfinished({
+	fs,
+	home,
+}: {
+	fs: Fs;
+	home: string;
+}): Promise<boolean> {
+	return (await moveRecord(fs, home))?.finished === false;
 }
 
 /** Where a move the page started writes what it says, its pid, and its exit code. */
@@ -47,6 +67,8 @@ export function moveFiles(home: string): {
 export interface MoveProgress {
 	/** Whether the coordinator has moved, as `coordinatorMoved` reads it here. */
 	moved: boolean;
+	/** Whether that move left this Mac to finish joining the box, as `moveUnfinished` reads it. */
+	unfinished: boolean;
 	/** Whether a move the page started still runs here. */
 	running: boolean;
 	/** How the last one ended, or null while it runs or when none was started. */
@@ -77,7 +99,7 @@ export class CoordinatorMoveRoutes {
 	readonly start = async (): Promise<Response> => {
 		const { fs, ps, home } = this.opts;
 		const read = await this.read();
-		if (read.moved) {
+		if (read.moved && !read.unfinished) {
 			return refuse(409, "moved", "The coordinator has moved onto its box.");
 		}
 		if (read.running) {
@@ -117,6 +139,7 @@ export class CoordinatorMoveRoutes {
 			.catch(() => null);
 		return {
 			moved: await coordinatorMoved({ fs, ps, home }),
+			unfinished: await moveUnfinished({ fs, home }),
 			running: exit === null && pid > 0 && ps.alive(pid),
 			exitCode: exit === null || exit === "" ? null : Number(exit),
 			log: log === "" ? [] : log.split("\n").slice(-LOG_LINES),

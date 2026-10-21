@@ -7,6 +7,7 @@ import type { SetupMachine, SetupStep } from "./setup";
 
 const HOME = "/home/.splates";
 const PLIST = "/home/Library/LaunchAgents/dev.splates.worker.plist";
+const RECORD = `${HOME}/coordinator/moved.json`;
 
 describe("COORDINATOR_AREA's move steps", () => {
 	let fs: FakeFs;
@@ -124,4 +125,32 @@ describe("COORDINATOR_AREA's move steps", () => {
 		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
 		expect(await steps["coordinator-move"]?.check(machine)).toBe(true);
 	});
+
+	it("reads the move done from its record once the box serves, with no worker here", async () => {
+		projects = [];
+		await fs.write(RECORD, record(true));
+
+		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
+		expect(await steps["coordinator-move"]?.check(machine)).toBe(true);
+	});
+
+	it("reads the move not done while this Mac has yet to finish joining the box", async () => {
+		projects = [];
+		await fs.write(RECORD, record(false));
+
+		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
+		expect(await steps["coordinator-move"]?.check(machine)).toBe(false);
+		expect(await steps["coordinator-move"]?.detail?.(machine)).toContain(
+			"finishes it",
+		);
+	});
 });
+
+function record(finished: boolean): string {
+	return JSON.stringify({
+		host: "splates.example.com",
+		stamp: "2026-10-18T12-00-00-000Z",
+		roots: ["/code/app"],
+		finished,
+	});
+}

@@ -8,6 +8,7 @@ import {
 	CoordinatorMove,
 	type CoordinatorMoveOptions,
 	type MoveRepo,
+	moveRecord,
 } from "./move";
 
 const HOME = "/Users/me/.splates";
@@ -91,6 +92,7 @@ describe("CoordinatorMove", () => {
 			},
 			fetch: net.fetch,
 			pause: Duration.ms(1),
+			servedWithin: Duration.ms(20),
 			now: () => new Date("2026-10-18T12:00:00Z"),
 		};
 	});
@@ -212,6 +214,117 @@ describe("CoordinatorMove", () => {
 		).toBe(true);
 		expect(await fs.exists(`${HOME}/slots.json`)).toBe(true);
 		expect(await fs.exists(`${HOME}/move`)).toBe(false);
+		expect(await moveRecord(fs, HOME)).toEqual({
+			host: HOST,
+			stamp: "2026-10-18T12-00-00-000Z",
+			roots: [ROOT],
+			finished: true,
+		});
+	});
+
+	it("passes Access with the invite's service token to find the box's server through the tunnel", async () => {
+		ps.access = { clientId: "id", clientSecret: "secret" };
+
+		await new CoordinatorMove(opts).run();
+
+		expect(net.joins.at(-1)).toEqual({
+			"cf-access-client-id": "id",
+			"cf-access-client-secret": "secret",
+		});
+	});
+
+	it("takes the box's server down again while the tunnel's host answers only Access's sign-in", async () => {
+		net.served = false;
+
+		const refused = await new CoordinatorMove(opts)
+			.run()
+			.catch((error: Error) => error.message);
+
+		expect(refused).toContain(`${HOST} does not reach splates server`);
+		expect(refused).toContain("last 302");
+		expect(ps.scripts.at(-1)).toContain("systemctl disable --now");
+		expect(await fs.exists(`${ROOT}/.git/splates/format`)).toBe(true);
+		expect(await moveRecord(fs, HOME)).toBeNull();
+	});
+
+	it("mints the worker's invite before anything here goes aside, taking the box down when it cannot", async () => {
+		ps.invites = false;
+
+		const refused = await new CoordinatorMove(opts)
+			.run()
+			.catch((error: Error) => error.message);
+
+		expect(refused).toContain("could not mint");
+		expect(refused).toContain("start `splates server` on this machine again");
+		expect(ps.scripts.at(-1)).toContain("systemctl disable --now");
+		expect(await fs.exists(`${ROOT}/.git/splates/format`)).toBe(true);
+		expect(await fs.exists(`${HOME}/projects.json`)).toBe(true);
+		expect(await moveRecord(fs, HOME)).toBeNull();
+	});
+
+	/** The deploy after one that failed: the box runs, this machine's projects and tunnel are aside. */
+	const again = () => {
+		ps.active = true;
+		opts.repos = async () => [];
+		opts.tunnelHost = async () => null;
+		return new CoordinatorMove(opts).run();
+	};
+
+	it("finishes the join on the next deploy when it failed", async () => {
+		const join = opts.join;
+		opts.join = async () => {
+			throw new Error("the coordinator did not let this worker join");
+		};
+		const refused = await new CoordinatorMove(opts)
+			.run()
+			.catch((error: Error) => error.message);
+		expect(refused).toContain("did not let this worker join");
+		expect(refused).toContain(
+			"`splates server deploy` again finishes the move",
+		);
+		expect(await fs.exists(`${ROOT}/.git/splates`)).toBe(false);
+		expect((await moveRecord(fs, HOME))?.finished).toBe(false);
+		opts.join = join;
+
+		const moved = await again();
+
+		expect(moved).toEqual({
+			status: "moved",
+			host: HOST,
+			aside: `${HOME}/moved-2026-10-18T12-00-00-000Z`,
+			worker: "dev.splates.worker",
+		});
+		expect(ps.scripts.some((each) => each.includes("systemctl restart"))).toBe(
+			true,
+		);
+		expect(joined).toEqual([`https://${HOST} join-token`]);
+		expect(kept).toEqual([`https://${HOST}`]);
+		expect((await moveRecord(fs, HOME))?.finished).toBe(true);
+	});
+
+	it("finishes the LaunchAgent on the next deploy when it failed", async () => {
+		const keepWorker = opts.keepWorker;
+		opts.keepWorker = async () => {
+			throw new Error("launchctl could not load it");
+		};
+		await new CoordinatorMove(opts).run().catch(() => {});
+		opts.keepWorker = keepWorker;
+
+		const moved = await again();
+
+		expect(moved.status).toBe("moved");
+		expect(joined).toHaveLength(2);
+		expect(kept).toEqual([`https://${HOST}`]);
+		expect((await moveRecord(fs, HOME))?.finished).toBe(true);
+	});
+
+	it("only updates on the deploy after one that finished", async () => {
+		await new CoordinatorMove(opts).run();
+
+		const moved = await again();
+
+		expect(moved.status).toBe("updated");
+		expect(joined).toHaveLength(1);
 	});
 
 	it("takes the box's server down again when it does not come up, leaving this machine's records", async () => {
@@ -237,6 +350,9 @@ class SshPs extends FakePs {
 	clones = "ready splates\n";
 	active = false;
 	starts = true;
+	invites = true;
+	/** The service token each invite carries, when Access stands in front. */
+	access: { clientId: string; clientSecret: string } | null = null;
 
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
@@ -262,7 +378,20 @@ class SshPs extends FakePs {
 			return ok(this.active ? "active\n" : "inactive\n");
 		}
 		if (script.includes("/api/workers/invite")) {
-			return ok(JSON.stringify({ token: "join-token", expiresAt: 0 }));
+			if (!this.invites) {
+				return {
+					exitCode: 22,
+					stdout: "",
+					stderr: "could not mint the worker a Cloudflare Access service token",
+				};
+			}
+			const carried =
+				this.access === null
+					? ""
+					: `.${Buffer.from(`${this.access.clientId}\n${this.access.clientSecret}`).toString("base64url")}`;
+			return ok(
+				JSON.stringify({ token: `join-token${carried}`, expiresAt: 0 }),
+			);
 		}
 		if (script.includes("enable --now") && !this.starts) {
 			return { exitCode: 1, stdout: "", stderr: "did not answer" };
@@ -271,10 +400,16 @@ class SshPs extends FakePs {
 	}
 }
 
-/** This machine's server, up until its checkpoint stops it, and the tunnel's host. */
+/**
+ * This machine's server, up until its checkpoint stops it, and the
+ * tunnel's host, which refuses an empty join once it reaches the box's
+ * server and answers Access's sign-in until then.
+ */
 function fakeNet(): FakeNet {
 	const posted: unknown[] = [];
+	const joins: Record<string, string>[] = [];
 	let up = true;
+	const net: FakeNet = { posted, joins, served: true, fetch: fetch };
 	const answer = (async (input: string | URL, init?: RequestInit) => {
 		const url = new URL(String(input));
 		if (url.origin === DEV) {
@@ -287,13 +422,30 @@ function fakeNet(): FakeNet {
 			}
 			return new Response("{}");
 		}
+		if (net.served && url.pathname === "/api/workers/join") {
+			const headers = new Headers(init?.headers);
+			joins.push(
+				Object.fromEntries(
+					[...headers].filter(([name]) => name.startsWith("cf-access")),
+				),
+			);
+			return Response.json(
+				{ reason: "usage", message: "send the join token" },
+				{ status: 400 },
+			);
+		}
 		return new Response(null, { status: 302 });
 	}) as typeof fetch;
-	return { posted, fetch: answer };
+	net.fetch = answer;
+	return net;
 }
 
 interface FakeNet {
 	/** The bodies posted to this machine's server. */
 	posted: unknown[];
+	/** The Access headers each empty join through the tunnel carried. */
+	joins: Record<string, string>[];
+	/** Whether the tunnel's host reaches the box's server. */
+	served: boolean;
 	fetch: typeof fetch;
 }

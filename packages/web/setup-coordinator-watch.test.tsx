@@ -6,6 +6,7 @@ import { Testing, waitFor } from "./testing";
 
 const RUNNING: MoveProgress = {
 	moved: false,
+	unfinished: false,
 	running: true,
 	exitCode: null,
 	log: ["bringing splates on the box at 203.0.113.7 to 1.2.3"],
@@ -42,6 +43,21 @@ describe("MoveWatch", () => {
 		await moving;
 		expect(watch.state.kind).toBe("idle");
 		expect(seen).toContain("away");
+	});
+
+	it("says a move that stopped once the box served is left to finish, not undone", async () => {
+		const watch = new MoveWatch({ pause: Duration.ms(1) });
+		testing.coordinatorMove = {
+			...RUNNING,
+			moved: true,
+			unfinished: true,
+			running: false,
+			exitCode: 1,
+			log: ["launchctl could not load it"],
+		};
+
+		await expect(watch.run()).rejects.toThrow("Next finishes it");
+		expect(watch.state.kind).toBe("failed");
 	});
 
 	it("says the move failed with what it said, once it stops before this server did", async () => {
