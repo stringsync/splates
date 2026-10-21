@@ -4,13 +4,12 @@ import type { Tool } from "@stringsync/splates-server/conversations";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import { linkNotes, noteIn, notesRead } from "./note-references";
+import { linkNotes, noteIn } from "./note-references";
 import { TimelineItem } from "./work-timeline";
 
 describe("note references", () => {
 	let notes: { path: string; description: string }[];
 	let named: import("./mentioned").Named;
-	let tool: Tool;
 	beforeEach(() => {
 		notes = [
 			{
@@ -25,23 +24,6 @@ describe("note references", () => {
 			projects: [],
 			paths: new Set<string>(),
 			resolving: { paths: false, projects: false },
-		};
-		tool = {
-			type: "tool",
-			id: "read",
-			title: "Read",
-			kind: "read",
-			command: null,
-			target: null,
-			paths: ["/tasks/fix/notes/retries.md"],
-			output: "",
-			status: "completed",
-			edits: [],
-			parent: null,
-			at: null,
-			until: null,
-			flags: [],
-			decision: null,
 		};
 	});
 	it("links known paths and filenames in prose and inline code", () => {
@@ -74,61 +56,24 @@ describe("note references", () => {
 		expect(noteIn("#note=%broken")).toBeNull();
 	});
 
-	it("finds file reads in worktrees and cat commands, without matching mentions in echo or edits", () => {
-		expect(notesRead(tool, notes, "/repo", "/tasks/fix")).toEqual(notes);
-		expect(
-			notesRead(
-				{
-					...tool,
-					kind: "execute",
-					command: "cat 'notes/retries.md' notes/retries.md",
-					paths: [],
-				},
-				notes,
-				"/repo",
-				"/repo",
-			),
-		).toEqual(notes);
-		expect(
-			notesRead(
-				{
-					...tool,
-					kind: "execute",
-					command: "pwd && cat notes/retries.md",
-					paths: [],
-				},
-				notes,
-				"/repo",
-				"/repo",
-			),
-		).toEqual(notes);
-		expect(
-			notesRead(
-				{
-					...tool,
-					kind: "execute",
-					command: "head -20 /repo/notes/retries.md",
-					paths: [],
-				},
-				notes,
-				"/repo",
-				"/repo",
-			),
-		).toEqual(notes);
-		expect(
-			notesRead({ ...tool, kind: "edit" }, notes, "/repo", "/tasks/fix"),
-		).toEqual([]);
-		expect(
-			notesRead(
-				{ ...tool, kind: "execute", command: 'echo "cat notes/retries.md"' },
-				notes,
-				"/repo",
-				"/repo",
-			),
-		).toEqual([]);
-	});
-
 	it("renders prose and tool read references as reader buttons", () => {
+		const tool: Tool = {
+			type: "tool",
+			id: "read",
+			title: "Read",
+			kind: "read",
+			command: null,
+			target: null,
+			paths: ["/tasks/fix/notes/retries.md"],
+			output: "",
+			status: "completed",
+			edits: [],
+			parent: null,
+			at: null,
+			until: null,
+			flags: [],
+			decision: null,
+		};
 		const page = render(
 			<NamedContext value={named}>
 				<Markdown text="Read `notes/retries.md`." />

@@ -43,6 +43,7 @@
 		"./tasks": "./tasks/index.ts",
 		"./tasks/browser": "./tasks/browser.ts",
 		"./notes": "./notes/index.ts",
+		"./notes/browser": "./notes/browser.ts",
 		"./models": "./models/index.ts",
 		"./models/browser": "./models/browser.ts",
 		"./artifacts": "./artifacts/index.ts",

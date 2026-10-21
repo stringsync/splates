@@ -4,7 +4,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
 import type { Limits, Offered } from "../models";
-import type { NoteUses } from "../notes";
+import type { NoteReads } from "../notes";
 import type { Prices } from "../prices";
 import type { Spend } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
@@ -59,8 +59,8 @@ export interface ConversationsOptions {
 	 * projects, judged as each turn ends; nowhere by default.
 	 */
 	adherence?: Adherence | null;
-	/** Where the notes each conversation read are counted; nowhere by default. */
-	noteUses?: NoteUses | null;
+	/** What hears each note a conversation reads as it reads it; nothing by default. */
+	noteReads?: NoteReads | null;
 	/**
 	 * Where how each task ended is kept across projects, credited with the
 	 * turn it ended in once that turn ends; nowhere by default.

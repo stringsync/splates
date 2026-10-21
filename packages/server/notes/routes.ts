@@ -11,7 +11,7 @@ export class NotesRoutes {
 	readonly listNotes = async (): Promise<Response> => {
 		const { service, fs, storage } = this.project;
 		const root = service.git.root;
-		const counts = await new NoteUses(storage, fs).counts();
+		const counts = await new NoteUses(storage).counts();
 		const listed: ListedNote[] = (
 			await new Notes(fs).list(root, service.config)
 		).map((note) => ({

@@ -20,7 +20,7 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
-import type { NoteUses } from "../notes";
+import type { NoteReads } from "../notes";
 import { installedVersion } from "../server/shared";
 import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
@@ -75,7 +75,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
 	private readonly adherence: Adherence | null;
-	private readonly noteUses: NoteUses | null;
+	private readonly noteReads: NoteReads | null;
 	private readonly outcomes: Outcomes | null;
 	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
@@ -121,7 +121,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
 		this.adherence = opts.adherence ?? null;
-		this.noteUses = opts.noteUses ?? null;
+		this.noteReads = opts.noteReads ?? null;
 		this.outcomes = opts.outcomes ?? null;
 		this.spend = opts.spend ?? null;
 		this.readLimits = opts.readLimits ?? null;
@@ -498,6 +498,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		let archived = conversation.state.archived;
 		let limits = conversation.state.usage.limits;
 		let status = conversation.state.status;
+		this.noteReads?.follow(conversation.state);
 		// When the running turn began; null when it began before this server.
 		let turnStarted: string | null = null;
 		// What it had used as the running turn began, for the ledger.
@@ -508,6 +509,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			.catch(() => {});
 		conversation.events.on("changed", () => {
 			const { agent } = conversation.state;
+			this.noteReads?.hear(conversation.state, conversation.cwd);
 			// A turn ended: what the agent does not send is asked for.
 			if (status === "running" && conversation.state.status === "idle") {
 				this.askLimits(conversation);
@@ -520,9 +522,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// A turn ended, however it did: how it followed the skill may have
 			// changed.
 			if (status === "running" && conversation.state.status !== "running") {
-				void this.noteUses
-					?.record(conversation.state, this.root ?? conversation.cwd)
-					.catch(() => {});
 				void this.adherence
 					?.judge(
 						conversation.state,

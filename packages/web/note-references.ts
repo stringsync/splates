@@ -1,20 +1,8 @@
-import type { Tool } from "@stringsync/splates-server/conversations";
 import type { ProjectNote } from "@stringsync/splates-server/notes";
-
-/** A note's exact path, relative path or unambiguous filename. */
-export function noteCalled(
-	called: string,
-	notes: readonly ProjectNote[],
-	tree: string | null,
-	worktree: string | null,
-): ProjectNote | undefined {
-	called = (
-		worktree && called.startsWith(`${worktree}/`)
-			? called.slice(worktree.length + 1)
-			: called
-	).replace(/^\.\//, "");
-	return spellings(notes, tree).find(([name]) => name === called)?.[1][0];
-}
+import {
+	noteCalled,
+	noteSpellings,
+} from "@stringsync/splates-server/notes/browser";
 
 /** Links note names in prose and inline code alone, leaving links and code blocks intact. */
 export function linkNotes(
@@ -25,7 +13,7 @@ export function linkNotes(
 	if (notes.length === 0) {
 		return text;
 	}
-	const names = spellings(notes, tree);
+	const names = noteSpellings(notes, tree);
 	const pattern = new RegExp(
 		`(?<![\\w/\\\\@#=.-])(${names.map(([name]) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\w/\\\\-]|\\.\\w)`,
 		"g",
@@ -63,54 +51,4 @@ export function noteIn(href: string | undefined): string | null {
 	} catch {
 		return null;
 	}
-}
-
-/** Notes a file read or a shell cat reads, once each in catalogue order. */
-export function notesRead(
-	tool: Tool,
-	notes: readonly ProjectNote[],
-	tree: string | null,
-	worktree: string | null,
-): ProjectNote[] {
-	const paths = tool.kind === "read" ? tool.paths : [];
-	const commands =
-		tool.command?.match(
-			/(?:^|[;&|\n])\s*(?:cat|head|tail|less|more)\s+([^;&|\n]+)/g,
-		) ?? [];
-	const arguments_ = commands.flatMap(
-		(command) =>
-			command
-				.replace(/^[;&|\n]\s*/, "")
-				.trim()
-				.match(/"[^"]*"|'[^']*'|[^\s]+/g)
-				?.slice(1)
-				.map((word) => word.replace(/^["']|["']$/g, "")) ?? [],
-	);
-	const found = new Set(
-		[...paths, ...arguments_].map(
-			(path) => noteCalled(path, notes, tree, worktree)?.path,
-		),
-	);
-	return notes.filter((note) => found.has(note.path));
-}
-
-/** Known spellings of a note, longest first so a path wins over its filename. */
-function spellings(notes: readonly ProjectNote[], tree: string | null) {
-	const names = new Map<string, ProjectNote[]>();
-	for (const note of notes) {
-		const relative =
-			tree && note.path.startsWith(`${tree}/`)
-				? note.path.slice(tree.length + 1)
-				: note.path;
-		for (const name of new Set([
-			note.path,
-			relative,
-			note.path.split("/").at(-1) ?? "",
-		])) {
-			names.set(name, [...(names.get(name) ?? []), note]);
-		}
-	}
-	return [...names]
-		.filter(([name, found]) => name !== "" && found.length === 1)
-		.sort(([left], [right]) => right.length - left.length);
 }

@@ -171,6 +171,16 @@ const LINES: {
 				}
 			: null,
 	auto: (event) => (event.reason === null ? autoLine(event) : null),
+	"note read": (event) =>
+		event.reason === null
+			? {
+					words: [
+						event.subagent ? "A subagent read" : "Read",
+						{ kind: "note", path: event.path },
+					],
+					at: event.at,
+				}
+			: null,
 	// One that went through is a card, which `EventUI` draws in its place.
 	escalate: (event) =>
 		event.reason === null

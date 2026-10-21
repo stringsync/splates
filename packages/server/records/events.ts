@@ -228,6 +228,23 @@ export interface Facts {
 	};
 	"tunnel setup": None;
 	"tunnel remove": None;
+	/**
+	 * An agent of a `splates server` conversation reading a project note, as
+	 * its tool call came: splates's own line, with no command behind it.
+	 */
+	"note read": {
+		/** The note, by its path from the project root. */
+		path: string;
+		/**
+		 * The note's content as the agent read it, a SHA-256 in hex, so a later
+		 * reader can tell a note edited since; null when it was gone by then.
+		 */
+		hash: string | null;
+		/** The tool call that read it, by its id. */
+		tool: string;
+		/** Whether a subagent read it, into its own context rather than the conversation's. */
+		subagent: boolean;
+	};
 	/** `splates server` starting a task on what Auto pick decided, or, before it, a first prompt on what Auto picked. */
 	auto: {
 		/** The roster agent it picked, by its id. */
@@ -331,6 +348,7 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
+	"note read": ["path", "hash", "tool", "subagent"],
 	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 

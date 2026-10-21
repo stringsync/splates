@@ -1,4 +1,5 @@
 import {
+	BookOpenIcon,
 	CheckIcon,
 	FileIcon,
 	GitBranchIcon,
@@ -14,6 +15,8 @@ import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
+import { NamedContext } from "./mentioned";
+import { NoteChip } from "./note-chip";
 import { OpenerContext } from "./openers";
 
 import { credAddress } from "./page-address";
@@ -102,7 +105,9 @@ export type Named =
 			name: string;
 			version: number;
 	  }
-	| { kind: "cred"; name: string };
+	| { kind: "cred"; name: string }
+	/** A project note, by its path from the project root. */
+	| { kind: "note"; path: string };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -251,6 +256,7 @@ function NamedChip({
 	const board = useContext(Board);
 	const openArtifact = useOpenArtifact();
 	const opener = use(OpenerContext);
+	const { notesRoot, tree } = use(NamedContext);
 	switch (named.kind) {
 		case "task": {
 			const { task, goal = "", note } = named;
@@ -335,6 +341,18 @@ function NamedChip({
 					{distinctNames([named.path]).get(named.path)}
 				</Chip>
 			);
+		case "note": {
+			const root = notesRoot ?? tree;
+			return root === null ? (
+				<Chip Icon={BookOpenIcon} title={named.path} className={GIVES_WAY}>
+					{named.path.split("/").at(-1)}
+				</Chip>
+			) : (
+				<span className={cn("min-w-0", GIVES_WAY)}>
+					<NoteChip path={`${root}/${named.path}`} />
+				</span>
+			);
+		}
 		case "artifact": {
 			const { conversation, name, version } = named;
 			return (

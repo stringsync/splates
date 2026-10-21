@@ -7,6 +7,7 @@ import type { Creds } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { Git } from "../git";
 import type { Slot } from "../ports";
+import type { Journal } from "../records";
 import type { Storage } from "../storage";
 import type { WorktreeService } from "../tasks";
 import type { AccessConfig, TunnelConfig } from "../tunnel";
@@ -84,6 +85,8 @@ export interface DevOptions {
 				creds: Creds;
 				/** Its tasks, for where its agents start on a remote worker. */
 				service: WorktreeService;
+				/** Where what its agents do is logged. */
+				journal: Journal;
 		  }) => Conversations)
 		| null;
 	/**

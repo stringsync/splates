@@ -16,7 +16,7 @@ import { fail } from "../exit";
 import { Git } from "../git";
 import { pushOnMove, TaskBranches } from "../merge";
 import { codexLimits, isCodex, Limits, Offered, splatesHome } from "../models";
-import { NoteUses } from "../notes";
+import { NoteReads, NoteUses } from "../notes";
 import { PlanStore } from "../plans";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
@@ -282,7 +282,15 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ splatesDir, storage, git, config, creds, service }) => {
+			conversations: ({
+				splatesDir,
+				storage,
+				git,
+				config,
+				creds,
+				service,
+				journal,
+			}) => {
 				const branches = TaskBranches.of({
 					git,
 					config,
@@ -307,7 +315,12 @@ export async function serveDev(
 					offered,
 					limits,
 					adherence,
-					noteUses: new NoteUses(storage, ctx.fs),
+					noteReads: new NoteReads({
+						fs: ctx.fs,
+						journal,
+						uses: new NoteUses(storage),
+						root: git.root,
+					}),
 					outcomes,
 					spend: { ledger: spend, prices: outcomes.prices },
 					readLimits: async (agent) =>

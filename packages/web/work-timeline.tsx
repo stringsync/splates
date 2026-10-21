@@ -1,4 +1,8 @@
 import type { Edit, Tool } from "@stringsync/splates-server/conversations";
+import {
+	noteCalled,
+	notesRead,
+} from "@stringsync/splates-server/notes/browser";
 import { editLines } from "@stringsync/splates-server/tasks/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, use, useState } from "react";
@@ -12,7 +16,6 @@ import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { NoteChip } from "./note-chip";
-import { noteCalled, notesRead } from "./note-references";
 import { decided, type Item } from "./timeline";
 import { files, resource, type State, span, stateOf, verb } from "./work";
 
