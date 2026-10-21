@@ -105,28 +105,28 @@ card for the user to queue it now or later.
 
 ## Directives
 
-A prompt that starts with `[SPLATES ...]` comes from the `splates server` page or
+A prompt that has `[SPLATES ...]` comes from the `splates server` page or
 from splates itself, and asks what the table says. A row that names a file
 asks you to read it as Reference files says.
 
-| Directive | What it asks | What to do |
-| --- | --- | --- |
-| `[SPLATES TASK #N]` | Take queued task N | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; then [queue.md](references/queue.md), Taking a queued task |
-| `[SPLATES TASK <task>]` | Resume a task | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands |
-| `[SPLATES SETUP <step>]` | Walk the user through one step of setting splates up, from the Setup page | [setup.md](references/setup.md) |
-| `[SPLATES MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": [merge.md](references/merge.md), Merge or review |
-| `[SPLATES APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": [proposing.md](references/proposing.md) |
-| `[SPLATES KEEP]` | Draft a new or updated project note from this conversation; present the draft and merge only once the user approves | [notes.md](references/notes.md), Keeping a conversation |
-| `[SPLATES DEFER]` | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop | [queue.md](references/queue.md), Deferring |
-| `[SPLATES AUDIT]` | The notes audit the user turned on came due: check each project note listed after it, never fixing one | [audit.md](references/audit.md) |
-| `[SPLATES GROOM #N]` | You are the project's groomer: organize backlog task N and mark it ready, never doing it | [groom.md](references/groom.md) |
-| `[SPLATES SORT #N ...]` | You are the project's groomer: find lanes for the Untriaged tasks named, never doing them | [groom.md](references/groom.md), Sorting Untriaged |
-| `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change |
-| `[SPLATES SCHEDULE <n>]` | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change |
-| `[SPLATES DEMO <task> <point>]` | The user asked to see a task's demo: Demo with an agent in its task dialog sends `after`, and `before` or `main` come only when asked for by hand | [demos.md](references/demos.md), Running a demo |
-| `[SPLATES CHECKPOINT]` | Bring `SPLATES.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
-| `[SPLATES RESUME]` | Carry on from where `SPLATES.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
-| `[SPLATES RECONNECT]` | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
+| Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[SPLATES TASK #N]`                 | Take queued task N                                                                                                                                | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; then [queue.md](references/queue.md), Taking a queued task |
+| `[SPLATES TASK <task>]`             | Resume a task                                                                                                                                     | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands                                                                                                                                                                                                                                                                                                                                                                               |
+| `[SPLATES SETUP <step>]`            | Walk the user through one step of setting splates up, from the Setup page                                                                         | [setup.md](references/setup.md)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `[SPLATES MERGE]`                   | The user approved your review, from the Ready to merge card                                                                                       | As for a reply of "merge": [merge.md](references/merge.md), Merge or review                                                                                                                                                                                                                                                                                                                                                                                    |
+| `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `[SPLATES KEEP]`                    | Draft a new or updated project note from this conversation; present the draft and merge only once the user approves                               | [notes.md](references/notes.md), Keeping a conversation                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `[SPLATES DEFER]`                   | Queue the request after it as a task rather than do it; alone, make the user's message before it one, and stop                                    | [queue.md](references/queue.md), Deferring                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `[SPLATES AUDIT]`                   | The notes audit the user turned on came due: check each project note listed after it, never fixing one                                            | [audit.md](references/audit.md)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `[SPLATES GROOM #N]`                | You are the project's groomer: organize backlog task N and mark it ready, never doing it                                                          | [groom.md](references/groom.md)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `[SPLATES SORT #N ...]`             | You are the project's groomer: find lanes for the Untriaged tasks named, never doing them                                                         | [groom.md](references/groom.md), Sorting Untriaged                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `[SPLATES EVENT <event> #N <task>]` | A hook the user set on a task event (`task.created`, `task.done`, ...) started you for it                                                         | Do what the prompt after it asks, about task N; `splates task show N` prints it. Start a task of your own only when that prompt asks for a code change                                                                                                                                                                                                                                                                                                         |
+| `[SPLATES SCHEDULE <n>]`            | An automation the user set on a schedule (`splates hook add --every` or `--cron`) came due and started you                                        | Do what the prompt after it asks. Start a task of your own only when that prompt asks for a code change                                                                                                                                                                                                                                                                                                                                                        |
+| `[SPLATES DEMO <task> <point>]`     | The user asked to see a task's demo: Demo with an agent in its task dialog sends `after`, and `before` or `main` come only when asked for by hand | [demos.md](references/demos.md), Running a demo                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `[SPLATES CHECKPOINT]`              | Bring `SPLATES.md` up to date and stop, as before a restart                                                                                       | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `[SPLATES RESUME]`                  | Carry on from where `SPLATES.md` says you stopped                                                                                                 | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `[SPLATES RECONNECT]`               | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on                                        | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop                                                                                                                                                              |
 
 ## Reference files
 
@@ -151,7 +151,7 @@ which remembers none of it. These come up in most tasks:
   `--lane`, `--position` or `--blocked-by`: [references/queue.md](references/queue.md), writing,
   deferring, linking, placing and ordering tasks.
 - Before `splates task add` or `--ready`, when you take a task `splates task
-  show` says is `groomed: no`, and as the project's groomer:
+show` says is `groomed: no`, and as the project's groomer:
   [references/groom.md](references/groom.md), everything grooming checks
   and who does it when.
 - Before making a demo, starting a server for the user to try, attaching
@@ -169,7 +169,7 @@ These only when their moment comes:
 - When your work needs a secret only the user can get, such as an API token:
   [references/creds.md](references/creds.md).
 - When work here needs another splates project, or you run `splates
-  --project`: [references/projects.md](references/projects.md).
+--project`: [references/projects.md](references/projects.md).
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
 
@@ -233,7 +233,7 @@ reading just the notes that fit.
    `splates task add` any step you will not do, then check it off, `splates task add` or
    `defer` each follow-up you would otherwise offer or ask about once it
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
-   "<message>"` (see Committing), or ask for a review first (see
+"<message>"` (see Committing), or ask for a review first (see
    [merge.md](references/merge.md)). On failure, do what stderr says and merge again, with the
    real message, since a merge whose gate passes this time lands. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
@@ -267,7 +267,7 @@ Your session can die at any moment; `SPLATES.md` is what lets a stranger
 `splates claim` the task and continue. Size it to the task: a few lines for a
 small change, a full record for a long one.
 
-````markdown
+```markdown
 # <task>
 
 ## Goal
@@ -277,7 +277,7 @@ One or two lines on what done means.
 ## Next
 
 - [ ] for work of several commits: every step you can foresee,
-  roughly one commit each, checked off as it lands
+      roughly one commit each, checked off as it lands
 - [ ] also keep a step for a checkpoint or user review when needed
 
 ## Verification
@@ -294,7 +294,7 @@ with it in.
 ## Blocked
 
 - [ ] questions the user must answer before the task merges
-````
+```
 
 The Goal's first line is what other agents see of your task in `splates list
 --files`, so make it say what you are changing. `splates add` writes the
