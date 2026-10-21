@@ -33,24 +33,19 @@ followAppearance(
 	matchMedia("(prefers-color-scheme: dark)"),
 );
 
-// Every spinner, and every running lane's header glint, runs on one clock:
-// each starts at the document timeline's origin rather than when its element
-// mounted, so all of them stand at the same angle at every frame, however many
-// come and go. The glint animates an ::after, which the subtree option reaches.
-const sharedClock = new Set(["spin", "running-sweep"]);
+// Every spinner runs on one clock: each spin starts at the document timeline's
+// origin rather than when its element mounted, so all of them stand at the
+// same angle at every frame, however many come and go.
 document.addEventListener(
 	"animationstart",
 	(event) => {
-		if (!sharedClock.has(event.animationName)) {
+		if (event.animationName !== "spin" || !(event.target instanceof Element)) {
 			return;
 		}
-		if (!(event.target instanceof Element)) {
-			return;
-		}
-		for (const animation of event.target.getAnimations({ subtree: true })) {
+		for (const animation of event.target.getAnimations()) {
 			if (
 				animation instanceof CSSAnimation &&
-				sharedClock.has(animation.animationName)
+				animation.animationName === "spin"
 			) {
 				animation.startTime = 0;
 			}
