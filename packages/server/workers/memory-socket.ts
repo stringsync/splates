@@ -12,16 +12,17 @@ export class MemoryWorkerSocket implements WorkerSocket {
 	private open = true;
 	private cut = false;
 
-	send(frame: string | Uint8Array): void {
+	send(frame: string | Uint8Array): boolean {
 		const peer = this.peer;
 		if (!this.open || !peer) {
-			return;
+			return false;
 		}
 		queueMicrotask(() => {
 			if (!this.cut) {
 				peer.dispatcher.dispatch("frame", frame);
 			}
 		});
+		return true;
 	}
 
 	/** Hangs up after what was sent arrives, as a WebSocket close does. */

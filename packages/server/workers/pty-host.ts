@@ -3,6 +3,7 @@ import type { Ps } from "webappwiz/system";
 import { z } from "zod";
 import { Pty } from "../terminal";
 import type { WorkerChannel } from "./channel";
+import type { WorkerSession } from "./session";
 
 /** What a coordinator opens a `pty` channel with. */
 export const PtyParams = z.object({
@@ -41,15 +42,18 @@ export class WorkerPtyHost implements Resource {
 
 	constructor(
 		readonly channel: WorkerChannel,
+		session: Pick<WorkerSession, "drained">,
 		ps: Ps,
 	) {
 		this.pty = new Pty({ ...PtyParams.parse(channel.params), ps });
 		channel.send({ type: "started", pid: this.pty.pid });
-		// A terminal is typed at, so its output comes at a human pace, and a
-		// `Pty` cannot pause: what it says is kept even past the session's bound.
 		this.pty.events.on("data", (bytes) => {
 			this.keep(bytes);
-			channel.write(bytes);
+			// Past the session's bound the shell waits on a full pipe, as a
+			// process does, rather than the replay growing through an outage.
+			if (!channel.write(bytes)) {
+				this.pty.hold(session.drained());
+			}
 		});
 		this.pty.events.on("exit", (code) => {
 			if (!channel.closed) {

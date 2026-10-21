@@ -20,15 +20,21 @@ export class ServerWorkerSocket implements WorkerSocket, Connection {
 		private readonly identity: string,
 	) {}
 
-	send(frame: string | Uint8Array): void {
+	send(frame: string | Uint8Array): boolean {
 		if (!this.live || !this.socket) {
-			return;
+			return false;
 		}
-		if (typeof frame === "string") {
-			this.socket.send(frame);
-		} else {
-			this.socket.sendBinary(frame);
+		// Bun answers -1 for a frame it queued behind a full buffer, which still
+		// arrives in order, and 0 for one it dropped, which never will.
+		const sent =
+			typeof frame === "string"
+				? this.socket.send(frame)
+				: this.socket.sendBinary(frame);
+		if (sent === 0) {
+			this.dispose();
+			return false;
 		}
+		return true;
 	}
 
 	dispose(): void {

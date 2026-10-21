@@ -1,6 +1,10 @@
 import { Dispatcher } from "webappwiz/events";
 import { Duration } from "webappwiz/time";
+import { WorkerProtocol } from "./protocol";
 import type { WorkerSocket, WorkerSocketEvents } from "./socket";
+
+/** How much a socket may hold unsent before it is given up on. */
+const MAX_BUFFERED = 2 * WorkerProtocol.maxPayloadBytes;
 
 /**
  * A `WorkerSocket` over a WebSocket the worker dials, as a remote worker
@@ -58,11 +62,19 @@ export class WebSocketWorkerSocket implements WorkerSocket {
 		});
 	}
 
-	send(frame: string | Uint8Array): void {
-		if (this.open) {
-			// Every frame the protocol makes is backed by a plain ArrayBuffer.
-			this.socket.send(frame as string | Uint8Array<ArrayBuffer>);
+	send(frame: string | Uint8Array): boolean {
+		if (!this.open) {
+			return false;
 		}
+		// A coordinator that stops reading leaves frames piling up here; past
+		// the most a session holds unacked, hang up and replay on a new link.
+		if (this.socket.bufferedAmount > MAX_BUFFERED) {
+			this.dispose();
+			return false;
+		}
+		// Every frame the protocol makes is backed by a plain ArrayBuffer.
+		this.socket.send(frame as string | Uint8Array<ArrayBuffer>);
+		return true;
 	}
 
 	dispose(): void {

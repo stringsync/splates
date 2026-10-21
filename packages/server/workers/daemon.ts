@@ -305,7 +305,7 @@ export class WorkerDaemon implements AsyncResource {
 					});
 					break;
 				case "pty":
-					host = new WorkerPtyHost(channel, ps);
+					host = new WorkerPtyHost(channel, this.session, ps);
 					break;
 				case "calls":
 					host = new WorkerCallHost(

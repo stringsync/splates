@@ -29,6 +29,7 @@ export class Pty implements AsyncResource, Eventful<PtyEvents> {
 	private readonly dispatcher = new Dispatcher<PtyEvents>();
 	readonly events = this.dispatcher.events;
 	private readonly child: TerminalChild;
+	private held: Promise<void> | undefined;
 
 	constructor({
 		argv,
@@ -51,6 +52,7 @@ export class Pty implements AsyncResource, Eventful<PtyEvents> {
 		void (async () => {
 			for await (const bytes of child.output) {
 				this.dispatcher.dispatch("data", bytes);
+				await this.held;
 			}
 		})();
 		void child.exited.then((code) => this.dispatcher.dispatch("exit", code));
@@ -59,6 +61,19 @@ export class Pty implements AsyncResource, Eventful<PtyEvents> {
 	/** The shell's pid, for the job it runs. */
 	get pid(): number {
 		return this.child.pid;
+	}
+
+	/**
+	 * Stops reading the shell's output until `until` settles, so a full pipe
+	 * makes the shell wait; call it from a `data` handler.
+	 */
+	hold(until: Promise<void>): void {
+		const held = until.then(() => {
+			if (this.held === held) {
+				this.held = undefined;
+			}
+		});
+		this.held = held;
 	}
 
 	/** Types `data` at the program, keys and pastes alike. */

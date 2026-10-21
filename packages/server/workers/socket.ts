@@ -13,5 +13,11 @@ export interface WorkerSocketEvents extends Record<string, unknown> {
  * framing. Disposing it hangs up, and both ends then hear `close`.
  */
 export interface WorkerSocket extends Eventful<WorkerSocketEvents>, Resource {
-	send(frame: string | Uint8Array): void;
+	/**
+	 * Queues `frame` and says whether the socket still carries it. False means
+	 * it is gone or dropped the frame, in which case it hangs up itself, so
+	 * both ends hear `close` and the session replays the frame on the next
+	 * connection.
+	 */
+	send(frame: string | Uint8Array): boolean;
 }

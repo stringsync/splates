@@ -243,6 +243,21 @@ describe("the worker link through a faulty network", () => {
 		void received;
 	});
 
+	it("keeps 20 MB of output through a stall that outlasts the replay bound", async () => {
+		const child = worker.start(
+			["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' z`],
+			dir,
+		);
+		const received = printed(child);
+		await sleep(Duration.ms(50));
+
+		proxy.stall();
+		await sleep(Duration.secs(1));
+		proxy.resume();
+
+		expect((await received).length).toBe(BIG);
+	});
+
 	it("carries 20 MB of an agent's output", async () => {
 		const child = worker.start(
 			["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' x`],

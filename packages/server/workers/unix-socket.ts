@@ -47,9 +47,9 @@ export class UnixWorkerSocket implements WorkerSocket {
 		this.flush();
 	}
 
-	send(frame: string | Uint8Array): void {
+	send(frame: string | Uint8Array): boolean {
 		if (!this.open) {
-			return;
+			return false;
 		}
 		const body = typeof frame === "string" ? TEXT.encode(frame) : frame;
 		const framed = new Uint8Array(HEADER + body.byteLength);
@@ -58,6 +58,7 @@ export class UnixWorkerSocket implements WorkerSocket {
 		framed.set(body, HEADER);
 		this.unsent.push(framed);
 		this.flush();
+		return true;
 	}
 
 	dispose(): void {
