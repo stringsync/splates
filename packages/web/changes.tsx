@@ -49,11 +49,6 @@ export function ChangesPane({
 	const [files, setFiles] = useState<FileDiff[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [reads, setReads] = useState(0);
-	const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
-	const allOpen =
-		files !== null &&
-		files.length > 0 &&
-		files.every((file) => opened.has(file.path));
 	useEffect(() => {
 		const close = (event: globalThis.KeyboardEvent) => {
 			// A dialog or menu open over the page takes its Escape first.
@@ -123,51 +118,62 @@ export function ChangesPane({
 				) : files.length === 0 ? (
 					<p className="text-muted-foreground">No changes yet.</p>
 				) : (
-					<>
-						<div className="flex items-center justify-between gap-2">
-							<p className="text-muted-foreground text-xs">
-								{files.length} file{files.length === 1 ? "" : "s"}
-							</p>
-							<Button
-								variant="ghost"
-								size="xs"
-								onClick={() =>
-									setOpened(
-										allOpen
-											? new Set()
-											: new Set(files.map((file) => file.path)),
-									)
-								}
-							>
-								{allOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
-								{allOpen ? "Collapse all" : "Expand all"}
-							</Button>
-						</div>
-						<ul className="flex flex-col gap-1">
-							{files.map((file) => (
-								<li key={file.path}>
-									<File
-										file={file}
-										open={opened.has(file.path)}
-										onOpen={(open) =>
-											setOpened((was) => {
-												const now = new Set(was);
-												if (open) {
-													now.add(file.path);
-												} else {
-													now.delete(file.path);
-												}
-												return now;
-											})
-										}
-									/>
-								</li>
-							))}
-						</ul>
-					</>
+					<DiffFiles files={files} />
 				)}
 			</div>
 		</aside>
+	);
+}
+
+/**
+ * Each file of a diff, a line each that opens to its hunks, with a count
+ * and Expand all.
+ */
+export function DiffFiles({ files }: { files: FileDiff[] }): JSX.Element {
+	const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+	const allOpen =
+		files.length > 0 && files.every((file) => opened.has(file.path));
+	return (
+		<>
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-muted-foreground text-xs">
+					{files.length} file{files.length === 1 ? "" : "s"}
+				</p>
+				<Button
+					variant="ghost"
+					size="xs"
+					onClick={() =>
+						setOpened(
+							allOpen ? new Set() : new Set(files.map((file) => file.path)),
+						)
+					}
+				>
+					{allOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
+					{allOpen ? "Collapse all" : "Expand all"}
+				</Button>
+			</div>
+			<ul className="flex flex-col gap-1">
+				{files.map((file) => (
+					<li key={file.path}>
+						<File
+							file={file}
+							open={opened.has(file.path)}
+							onOpen={(open) =>
+								setOpened((was) => {
+									const now = new Set(was);
+									if (open) {
+										now.add(file.path);
+									} else {
+										now.delete(file.path);
+									}
+									return now;
+								})
+							}
+						/>
+					</li>
+				))}
+			</ul>
+		</>
 	);
 }
 

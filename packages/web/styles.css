@@ -214,6 +214,7 @@
 @source "./auto-pick-overrides.tsx";
 @source "./auto-pick-page.tsx";
 @source "./notes-page.tsx";
+@source "./garden-draft.tsx";
 @source "./notes-popover.tsx";
 @source "./meter.tsx";
 @source "./work-row.tsx";

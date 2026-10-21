@@ -11,6 +11,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import type { ConversationFeed } from "./conversation-feed";
+import { GardenDraft } from "./garden-draft";
 import { Markdown } from "./markdown";
 import { NoteEditing } from "./note-editing";
 import { NoteEditor, NoteLanding } from "./note-editor";
@@ -185,42 +186,45 @@ export function NotesPage({
 					</EmptyHeader>
 				</Empty>
 			) : (
-				<ul className="flex max-w-3xl flex-col divide-y">
-					{notes.map((note) => (
-						<li key={note.path}>
-							<button
-								type="button"
-								className="flex w-full flex-col gap-0.5 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-ring"
-								onClick={() => {
-									void reading.open(note.path);
-								}}
-							>
-								<span className="break-words font-medium text-sm">
-									{note.description}
-								</span>
-								<span className="break-all text-muted-foreground text-xs">
-									{note.path}
-								</span>
-								<span className="mt-1 flex flex-wrap gap-1.5">
-									<span
-										className={
-											note.uses === 0
-												? "rounded-full bg-destructive/10 px-2 py-0.5 text-destructive text-xs"
-												: "rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs"
-										}
-									>
-										{note.uses === 0
-											? "Never read"
-											: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
+				<>
+					<GardenDraft feed={feed} onOpen={onOpen} />
+					<ul className="flex max-w-3xl flex-col divide-y">
+						{notes.map((note) => (
+							<li key={note.path}>
+								<button
+									type="button"
+									className="flex w-full flex-col gap-0.5 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-ring"
+									onClick={() => {
+										void reading.open(note.path);
+									}}
+								>
+									<span className="break-words font-medium text-sm">
+										{note.description}
 									</span>
-									<span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-										{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+									<span className="break-all text-muted-foreground text-xs">
+										{note.path}
 									</span>
-								</span>
-							</button>
-						</li>
-					))}
-				</ul>
+									<span className="mt-1 flex flex-wrap gap-1.5">
+										<span
+											className={
+												note.uses === 0
+													? "rounded-full bg-destructive/10 px-2 py-0.5 text-destructive text-xs"
+													: "rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs"
+											}
+										>
+											{note.uses === 0
+												? "Never read"
+												: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
+										</span>
+										<span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+											{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+										</span>
+									</span>
+								</button>
+							</li>
+						))}
+					</ul>
+				</>
 			)}
 		</section>
 	);

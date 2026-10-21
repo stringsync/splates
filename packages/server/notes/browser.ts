@@ -7,4 +7,5 @@
 // The index brings in the journal and the filesystem with it, so these are
 // re-exported from the file that brings in neither.
 
+export { GARDEN_TASK } from "./garden-task";
 export { noteCalled, noteSpellings, notesRead } from "./match";

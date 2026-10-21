@@ -1,5 +1,6 @@
 export { weighing } from "./applied";
-export { GARDEN_TASK, unclaimed } from "./garden";
+export { unclaimed } from "./garden";
+export { GARDEN_TASK } from "./garden-task";
 export { noteCalled, noteSpellings, notesRead, readsMarkdown } from "./match";
 export {
 	type ListedNote,

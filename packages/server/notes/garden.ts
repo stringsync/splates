@@ -1,8 +1,6 @@
 import { relative, sep } from "node:path";
+import { GARDEN_TASK } from "./garden-task";
 import type { ProjectNote } from "./notes";
-
-/** The task the gardener drafts its fixes in: while it is open, the gardener waits for its review rather than drafting more. */
-export const GARDEN_TASK = "notes-garden";
 
 /**
  * The notes the gardener reads, by their paths from `root`: each one no
