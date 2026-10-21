@@ -6,14 +6,10 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 
-import {
-	AwsApi,
-	AwsError,
-	type AwsInstance,
-	awsRules,
-	type NewInstance,
-} from "./aws-api";
+import { AwsApi } from "./aws-api";
 import { AwsCredentialSource } from "./aws-credentials";
+import { AwsError } from "./aws-error";
+import { type AwsInstance, awsRules, type NewInstance } from "./aws-shapes";
 import type {
 	CloudDefaults,
 	CloudMachine,
