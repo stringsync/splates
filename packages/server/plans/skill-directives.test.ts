@@ -2,43 +2,28 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
-	AUDIT,
 	CHECKPOINT,
-	DEFER,
-	demoReference,
-	eventReference,
 	groomReference,
-	KEEP,
 	MERGE,
 	RECONNECT,
 	RESUME,
-	scheduleReference,
-	setupReference,
-	sortReference,
 	taskNumberReference,
 	taskReference,
 } from "./prompts";
 
 describe("the splates skill's Directives table", () => {
-	it("has one row for each directive, as the skill writes its placeholders", async () => {
+	it("has one row for each directive in regular use, as the skill writes its placeholders", async () => {
 		expect((await rows()).toSorted()).toEqual(
 			[
 				taskNumberReference(0).replace("0", "N"),
 				taskReference("<task>"),
-				setupReference("<step>"),
 				MERGE,
 				APPROVE,
-				DEFER,
-				KEEP,
-				demoReference("<task>", "before").replace("before", "<point>"),
 				CHECKPOINT,
 				RESUME,
 				RECONNECT,
-				eventReference("<event>", [0], "<task>").replace("0", "N"),
-				scheduleReference("<n>"),
 				groomReference(0).replace("0", "N"),
-				sortReference([0]).replace("0", "N ..."),
-				AUDIT,
+				"[SPLATES LANE N]",
 			].toSorted(),
 		);
 	});
@@ -53,7 +38,7 @@ async function rows(): Promise<string[]> {
 		skill.indexOf("## Directives\n"),
 		skill.indexOf("## Workflow\n"),
 	);
-	return [...section.matchAll(/^\| `(\[SPLATES [^\]]+\])` \|/gm)].map(
+	return [...section.matchAll(/^\| `(\[SPLATES [^\]]+\])` *\|/gm)].map(
 		(row) => row[1] as string,
 	);
 }
