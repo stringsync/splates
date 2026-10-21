@@ -10,7 +10,7 @@ import {
 	lostLine,
 	mentioned,
 } from "./lanes";
-import { cameFrom, type TaskRecord } from "./task";
+import { byHandLine, cameFrom, type TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskListOptions {
@@ -130,6 +130,7 @@ export async function taskShow(
 		...(task.state.grooming === undefined
 			? []
 			: [`  grooming:  the groomer has it, until it is groomed or taken`]),
+		...(task.state.manual ? [`  queue:     ${byHandLine(task.state)}`] : []),
 		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,
 		`  taken by:  ${task.takenBy ?? "nobody yet"}`,
 		...(task.state.assignee === undefined

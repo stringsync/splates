@@ -18,6 +18,14 @@ export function assigned(id: number, assignee: AgentPick | null) {
 		);
 }
 
+/** Todo `id` queued only by hand when `manual`, by a queued lane too when not. */
+export function manualOf(id: number, manual: boolean) {
+	return (snapshot: Snapshot): Snapshot =>
+		changed(snapshot, id, ({ manual: _, ...todo }) =>
+			manual ? { ...todo, manual: true as const } : todo,
+		);
+}
+
 /**
  * Todo `id` blocked by `blockedBy`, sorted as the server keeps them; a
  * blocker removed without merging that it leaves out is let go of.

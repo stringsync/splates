@@ -411,6 +411,7 @@ export interface Served extends AsyncResource {
 	linkQueued: Handler;
 	arrangeQueued: Handler;
 	assignQueued: Handler;
+	manualQueued: Handler;
 	queueQueued: Handler;
 	moveInQueue: Handler;
 	/** Tries a queued task's refused start again. */

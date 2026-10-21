@@ -164,6 +164,8 @@ export interface Facts {
 			assignee?: { agent: string; model?: string; effort?: string } | null;
 			/** Whether it was groomed, from the backlog to ready. */
 			ready?: true;
+			/** Whether only the person queues it now, a queued lane passing over it. */
+			manual?: boolean;
 		};
 	};
 	"task take": TasksFacts;

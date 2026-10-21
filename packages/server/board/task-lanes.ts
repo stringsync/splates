@@ -218,7 +218,8 @@ export class TaskLanes {
 
 	/**
 	 * Queues each task of a queued lane that can start now: nobody has it,
-	 * nothing blocks it, and the person has not taken it out of the queue.
+	 * nothing blocks it, the person has not taken it out of the queue, and
+	 * it is not one only they queue (`TaskRecord.manual`).
 	 * A queued lane no task is left in is queued no more. Gives back the
 	 * tasks it queued.
 	 */
@@ -254,6 +255,7 @@ export class TaskLanes {
 					if (
 						state.lane === record.id &&
 						state.stage !== "queued" &&
+						state.manual !== true &&
 						isReady(state) &&
 						!(record.skip ?? []).includes(state.id)
 					) {

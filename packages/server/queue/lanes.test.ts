@@ -60,6 +60,50 @@ describe.concurrent("a lane queued whole", () => {
 		});
 	});
 
+	it("passes over a task only the person queues, which starts once they queue it", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "store licenses", null, { lane: 1 });
+		await taskAdd(deps, "check them", null, { lane: 1 });
+		await taskUpdate(deps, 1, { manual: true });
+
+		await laneUpdate(deps, 1, { queued: true });
+		expect(await deps.tasks.queueFromLanes()).toMatchObject([{ id: 2 }]);
+		expect((await deps.tasks.find(1)).state).toMatchObject({
+			stage: "backlog",
+			manual: true,
+		});
+
+		await queueAdd(deps, [1]);
+		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
+		await queueRemove(deps, [1]);
+		await taskUpdate(deps, 1, { manual: false });
+		await queueAdd(deps, [1]);
+		await queueRemove(deps, [1]);
+		await queueAdd(deps, [1]);
+		expect((await deps.tasks.find(1)).state.manual).toBeUndefined();
+	});
+
+	it("never queues again a task whose start was removed, until the person queues it", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await taskAdd(deps, "store licenses", null, { lane: 1 });
+		await laneUpdate(deps, 1, { queued: true });
+		await deps.tasks.queueFromLanes();
+		await add(deps, "store-licenses", { tasks: [1] });
+
+		// An agent finds it moot and removes its task, as a lane's agents can, each time.
+		await remove(deps, "store-licenses", { reason: "moot" });
+
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+		expect((await deps.tasks.find(1)).state).toMatchObject({
+			stage: "backlog",
+			takenBy: null,
+		});
+		await queueAdd(deps, [1]);
+		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
+	});
+
 	it("unqueues what it holds once stopped, taken or not", async () => {
 		await using deps = await Testing.open();
 		await laneAdd(deps, "Licensing");

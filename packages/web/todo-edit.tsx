@@ -16,10 +16,11 @@ import {
 	InputGroupAddon,
 	InputGroupTextarea,
 } from "#web/components/ui/input-group.tsx";
+import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { assignTodo } from "./api";
+import { assignTodo, manualTodo } from "./api";
 import { Board as BoardContext } from "./board";
-import { assigned } from "./board-expectations";
+import { assigned, manualOf } from "./board-expectations";
 import { CopyLink } from "./card";
 import { AttachPlus } from "./card-box";
 import { AssigneeMenu, OnIt } from "./dispatching";
@@ -197,6 +198,21 @@ export function Edit({
 										).catch((error: unknown) => refuse("Not assigned", error))
 									}
 									className="-ml-2"
+								/>
+							</Property>
+						)}
+						{todo.takenBy === null && (
+							<Property title="Lane queues it">
+								{/* Off, a queued lane passes over it: only Queue starts it. */}
+								<Switch
+									aria-label="Lane queues it"
+									checked={todo.manual !== true}
+									onCheckedChange={(checked) =>
+										void expect(
+											manualOf(todo.id, !checked),
+											manualTodo(todo.id, !checked),
+										).catch((error: unknown) => refuse("Not changed", error))
+									}
 								/>
 							</Property>
 						)}

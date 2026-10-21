@@ -97,6 +97,34 @@ describe("App's queue", () => {
 		expect(header?.textContent).not.toContain("ready");
 	});
 
+	it("has only the person queue a todo from its dialog, marking its card at once", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "retry the upload" })],
+		});
+		testing.holdWrites();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
+		);
+		const lets = within(dialog).getByRole("switch", { name: "Lane queues it" });
+		expect(lets.getAttribute("aria-checked")).toBe("true");
+
+		await act(async () => fireEvent.click(lets));
+
+		expect(testing.posted("/api/todos/1/manual")).toEqual([
+			{ method: "PUT", body: { manual: true } },
+		]);
+		expect(
+			within(dialog)
+				.getByRole("switch", { name: "Lane queues it" })
+				.getAttribute("aria-checked"),
+		).toBe("false");
+		expect(cards(view).join("")).toContain("By hand");
+	});
+
 	it("queues and unqueues from the card, its dialog saying so at the click", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "retry the upload" })],

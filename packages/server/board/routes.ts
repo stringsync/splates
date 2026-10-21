@@ -186,6 +186,30 @@ export class BoardRoutes {
 	};
 
 	/**
+	 * Has only the person queue the task, `{manual: true}`, a queued lane
+	 * passing over it, or lets a lane queue it again, as `splates task update
+	 * --manual` and `--auto` do.
+	 */
+	readonly manualQueued = async (request: Request): Promise<Response> => {
+		const found = await this.taskAt(request);
+		const { manual } = (await request.json()) as { manual?: unknown };
+		if (typeof manual !== "boolean") {
+			fail(
+				"usage",
+				"say whether only you queue it, as `manual: true` or `false`",
+			);
+		}
+		const task = await recordUpdate(
+			this.#project.journal,
+			this.#project.tasks,
+			found.id,
+			() => found.update({ manual }),
+		);
+		this.#watch.tick();
+		return Response.json(task.state);
+	};
+
+	/**
 	 * Puts the task in the queue, `{queued: true}`, or takes it out, as
 	 * `splates queue add` and `remove` do.
 	 */

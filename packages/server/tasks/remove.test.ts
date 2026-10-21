@@ -86,29 +86,37 @@ describe("remove", () => {
 		expect(await remove(deps, "alpha")).toEqual({ released: [] });
 	});
 
-	it("puts the queued task it started from back in the queue, to redo", async () => {
-		const queued = await deps.tasks.add("Retry on 413", null);
-		await queueAdd(deps, [queued.id]);
-		await add(deps, "alpha", { tasks: [queued.id] });
-
-		await remove(deps, "alpha", { reason: "redo" });
-
-		expect((await deps.tasks.find(queued.id)).state.stage).toBe("queued");
-	});
-
-	it("takes what it took out of the queue when the person removes it", async () => {
+	it("takes what it took out of the queue, so the runner does not start it again", async () => {
 		const started = await deps.tasks.add("Retry on 413", null);
 		const taken = await deps.tasks.add("Log the retries", null);
 		await queueAdd(deps, [started.id, taken.id]);
 		await add(deps, "alpha", { tasks: [started.id] });
 		await (await deps.tasks.find(taken.id)).take("alpha");
 
-		await remove(deps, "alpha", { unqueue: true });
+		await remove(deps, "alpha", { reason: "redo" });
 
 		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
 			{ id: started.id, stage: "backlog", takenBy: null },
 			{ id: taken.id, stage: "backlog", takenBy: null },
 		]);
+	});
+
+	it("leaves what it took out of its queued lane, so the lane does not queue it again", async () => {
+		const lane = await deps.tasks.addLane("Fixes");
+		const started = await deps.tasks.add("Retry on 413", null, {
+			lane: lane.id,
+			ready: true,
+		});
+		await deps.tasks.queueLane(lane.id, true);
+		expect(await deps.tasks.queueFromLanes()).toMatchObject([
+			{ id: started.id },
+		]);
+		await add(deps, "alpha", { tasks: [started.id] });
+
+		await remove(deps, "alpha", { reason: "moot" });
+
+		expect(await deps.tasks.queueFromLanes()).toEqual([]);
+		expect((await deps.tasks.find(started.id)).state.stage).toBe("ready");
 	});
 
 	it("tells 'already removed' apart from 'never existed'", async () => {

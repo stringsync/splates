@@ -13,11 +13,6 @@ export interface RemoveOptions {
 	conversation?: string;
 	/** Why, kept in its outcome for the Stats page. */
 	reason?: RemoveReason;
-	/**
-	 * Take what it took out of the queue rather than put it back there, as
-	 * when the person removes it.
-	 */
-	unqueue?: boolean;
 }
 
 /**
@@ -26,6 +21,11 @@ export interface RemoveOptions {
  *
  * Throwing a task away and redoing it against current trunk is usually cheaper
  * than a hard rebase, so this is meant to be used freely.
+ *
+ * What it took goes back to ready, or the backlog, never the queue, and a
+ * queued lane leaves it out until the person queues it again: queued, the
+ * runner would start it again at once, and an agent that removes each start
+ * of it, finding it done or moot, would work it forever.
  */
 export async function remove(
 	{
@@ -42,7 +42,7 @@ export async function remove(
 		branches: TaskBranches;
 	},
 	task: string,
-	{ force = false, conversation, reason, unqueue }: RemoveOptions = {},
+	{ force = false, conversation, reason }: RemoveOptions = {},
 ): Promise<{ released: { id: number; subject: string }[] }> {
 	const worktree = await service.find(task);
 
@@ -78,7 +78,7 @@ export async function remove(
 	const discarded = await worktree.discard("removed", {
 		conversation,
 		reason,
-		unqueue,
+		unqueue: true,
 	});
 	if (discarded.code !== 0) {
 		fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
@@ -92,8 +92,12 @@ export async function remove(
 	// The work was thrown away, not done, so what it took up is open again.
 	const released = await queue.takenBy(task);
 	for (const each of released) {
-		await each.release({ unqueue });
+		await each.release({ unqueue: true });
 	}
+	await queue.skipInLanes(
+		released.map(({ id }) => id),
+		true,
+	);
 
 	const lines = [
 		`${color.green("removed")} ${task}`,
@@ -115,7 +119,9 @@ export async function remove(
 		lines.push(deleted);
 	}
 	for (const each of released) {
-		lines.push(`  task ${each.id} is open again: ${each.subject}`);
+		lines.push(
+			`  task ${each.id} is open again, out of the queue until queued by hand: ${each.subject}`,
+		);
 	}
 	log.info(lines.join("\n"));
 	return {

@@ -26,6 +26,7 @@ export {
 	fileUrl,
 	joinLanes,
 	linkTodo,
+	manualTodo,
 	moveLane,
 	moveTodo,
 	queueLane,

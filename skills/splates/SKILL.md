@@ -250,7 +250,8 @@ left behind; one waiting on the user's answers is not done, so leave it for
 work is moot, or it is better redone against current trunk, `splates task
 remove` each queued task it took that is done or moot, `splates task update` the rest
 with what you learned, then `cd "$(splates path)"` and `splates remove <task>
---reason <why>`, which puts them back in the queue. The reason is `nothing`
+--reason <why>`, which puts them back on the list, out of the queue and
+any queued lane until the user queues them again. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way) or `redo`
 (better redone against current trunk); the Stats page counts them.
 

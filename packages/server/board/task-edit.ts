@@ -5,7 +5,7 @@ import { readFiles } from "../artifacts";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Facts } from "../records";
-import type { Task, TaskOrigin } from "./task";
+import { byHandLine, type Task, type TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskFileOptions {
@@ -103,6 +103,8 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	assignee?: AgentPick | null;
 	/** Marks it groomed, moving it from the backlog to ready. */
 	ready?: boolean;
+	/** Whether only the person queues it, as `TaskRecord.manual`; absent leaves it as it is. */
+	manual?: boolean;
 }
 
 export async function taskUpdate(
@@ -120,6 +122,7 @@ export async function taskUpdate(
 		lane,
 		assignee,
 		ready,
+		manual,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.find(id);
@@ -172,6 +175,7 @@ export async function taskUpdate(
 		lane,
 		assignee,
 		ready,
+		manual,
 	});
 	deps.log.info(
 		[
@@ -182,6 +186,7 @@ export async function taskUpdate(
 				: [
 						`  blocked by: ${updated.blockedBy.map((each) => `task ${each}`).join(", ")}`,
 					]),
+			...(manual === undefined ? [] : [`  ${byHandLine(updated.state)}`]),
 		].join("\n"),
 	);
 	return updated;

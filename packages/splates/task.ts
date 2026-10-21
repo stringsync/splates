@@ -241,7 +241,19 @@ splatesTask
 		description:
 			"mark it groomed, moving it from the backlog to ready: no task already asks it, and what blocks it is linked",
 	})
+	.option("manual", z.boolean(), {
+		default: false,
+		description:
+			"queue it by hand only: a queued lane passes over it, and it starts once you `splates queue add` it",
+	})
+	.option("auto", z.boolean(), {
+		default: false,
+		description: "let a queued lane queue it again, undoing --manual",
+	})
 	.action(async (opts, ctx) => {
+		if (opts.manual && opts.auto) {
+			fail("usage", "pass --manual or --auto, not both", { number: opts.id });
+		}
 		await refuseGroomer(
 			ctx.service,
 			"task update",
@@ -261,6 +273,7 @@ splatesTask
 				lane: laneIn(opts.lane),
 				assignee,
 				ready: opts.ready,
+				manual: opts.manual ? true : opts.auto ? false : undefined,
 			}),
 		);
 	});

@@ -75,6 +75,11 @@ export async function assignTodo(
 	);
 }
 
+/** Has only the person queue todo `id`, a queued lane passing over it, or lets a lane queue it. */
+export async function manualTodo(id: number, manual: boolean): Promise<void> {
+	await sendJson(`/api/todos/${id}/manual`, "PUT", { manual });
+}
+
 /**
  * Puts todo `id` in the queue, for a worker to start once nothing it is
  * blocked by is open, or takes it out, back to the backlog.
