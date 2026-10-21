@@ -194,19 +194,32 @@ export class CoordinatorBox {
 		);
 		if (ran.exitCode !== 0) {
 			throw new Error(
-				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(ran.stderr || ran.stdout)}`,
+				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(`${ran.stdout}\n${ran.stderr}`)}`,
 			);
 		}
 		return ran.stdout;
 	}
 }
 
-/** The line that says what a failed `pulumi` run failed on: its last `error:` line, else its last. */
+/**
+ * The line that says what a failed `pulumi` run failed on: the first
+ * resource's error under Diagnostics, after the resource it names, since
+ * the run's own `error: update failed` says only that it failed; else its
+ * last `error:` line, else its last.
+ */
 export function failureLine(output: string): string {
 	const lines = output
 		.split("\n")
 		.map((line) => line.trim())
 		.filter((line) => line !== "");
+	const at = lines.findIndex(
+		(line) => line.startsWith("error:") && !/^error: \w+ failed$/.test(line),
+	);
+	if (at !== -1) {
+		const error = lines[at]?.replace(/^error:\s*/, "").replace(/\s*\{$/, "");
+		const resource = lines[at - 1]?.match(/^(\S+ \(.+\)):$/)?.[1];
+		return resource === undefined ? `error: ${error}` : `${resource}: ${error}`;
+	}
 	return (
 		lines.findLast((line) => line.startsWith("error:")) ?? lines.at(-1) ?? ""
 	);
