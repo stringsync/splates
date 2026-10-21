@@ -1,4 +1,4 @@
-import type { Scope } from "@stringsync/splates-server/creds";
+import type { Provider, Scope } from "@stringsync/splates-server/creds";
 import { EllipsisIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -14,7 +14,7 @@ import { removeCred, saveCred } from "./api";
 import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { Paste } from "./cred-paste";
-import { ScopeChip, scopeLabel } from "./cred-scope";
+import { ProviderPicker, ScopeChip, scopeLabel } from "./cred-scope";
 import { PHONE_TILE } from "./phone-rows";
 
 /**
@@ -25,6 +25,7 @@ import { PHONE_TILE } from "./phone-rows";
 export function KeptRow({
 	name,
 	scope,
+	provider = "system",
 	savedBy,
 	project,
 	picked = false,
@@ -32,6 +33,7 @@ export function KeptRow({
 }: {
 	name: string;
 	scope: Scope;
+	provider?: Provider;
 	savedBy: string | null;
 	project: string;
 	/** Whether the address set the page on it. */
@@ -43,7 +45,7 @@ export function KeptRow({
 	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const remove = () =>
-		removeCred(name, scope)
+		removeCred(name, scope, provider)
 			.then(onChanged)
 			.catch((caught: Error) => setError(caught.message));
 	const keep = (
@@ -67,7 +69,7 @@ export function KeptRow({
 			{wide ? (
 				<div className="flex flex-wrap items-center gap-3">
 					<code className="font-mono text-[13px]">{name}</code>
-					<ScopeChip scope={scope} project={project} />
+					<ScopeChip scope={scope} project={project} provider={provider} />
 					{saved}
 					<span className="ml-auto flex gap-1">
 						{removing ? (
@@ -112,7 +114,7 @@ export function KeptRow({
 					<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 						<code className="truncate font-mono text-[13px]">{name}</code>
 						<span className="flex min-w-0 items-center gap-2">
-							<ScopeChip scope={scope} project={project} />
+							<ScopeChip scope={scope} project={project} provider={provider} />
 							{saved}
 						</span>
 					</span>
@@ -168,7 +170,7 @@ export function KeptRow({
 			{replacing && (
 				<Paste
 					name={name}
-					save={(value) => saveCred(name, value, scope)}
+					save={(value) => saveCred(name, value, scope, provider)}
 					onSaved={() => {
 						setReplacing(false);
 						onChanged();
@@ -202,15 +204,19 @@ export function KeptRow({
  */
 export function AddCred({
 	project,
+	providers,
 	onAdded,
 	onRemoved,
 }: {
 	project: string;
+	/** Who can keep it, the system's first. */
+	providers: Provider[];
 	onAdded: () => void;
 	onRemoved: () => void;
 }): JSX.Element {
 	const [name, setName] = useState("");
 	const [scope, setScope] = useState<Scope>("project");
+	const [provider, setProvider] = useState<Provider>("system");
 	return (
 		<div className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3">
 			<div className="flex flex-wrap items-center gap-2">
@@ -235,6 +241,11 @@ export function AddCred({
 						</button>
 					))}
 				</fieldset>
+				<ProviderPicker
+					providers={providers}
+					provider={provider}
+					onPick={setProvider}
+				/>
 				<Button
 					variant="ghost"
 					size="sm"
@@ -246,9 +257,9 @@ export function AddCred({
 			</div>
 			{name !== "" && (
 				<Paste
-					key={`${name}:${scope}`}
+					key={`${name}:${scope}:${provider}`}
 					name={name}
-					save={(value) => saveCred(name, value, scope)}
+					save={(value) => saveCred(name, value, scope, provider)}
 					onSaved={() => {
 						setName("");
 						onAdded();

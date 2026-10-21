@@ -192,10 +192,16 @@ describe("creds", () => {
 		});
 
 		expect(await deps.creds.kept()).toEqual([
-			{ name: "DATABASE_URL", scope: "project", savedBy: null },
+			{
+				name: "DATABASE_URL",
+				scope: "project",
+				provider: "system",
+				savedBy: null,
+			},
 			{
 				name: "TUNNEL_TOKEN",
 				scope: "device",
+				provider: "system",
 				savedBy: "splates tunnel setup",
 			},
 		]);

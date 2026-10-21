@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { SCOPES, type Scope } from "./stores";
+import { PROVIDERS, type Provider, SCOPES, type Scope } from "./stores";
 
 export const REQUEST = z.object({
 	name: z.string(),
 	scope: z.enum(SCOPES),
+	/** Who keeps it once saved; the system's in a record from before providers. */
+	provider: z.enum(PROVIDERS).default("system"),
 	/** Why it is needed and what for; empty in a record from before requests said. */
 	purpose: z.string().default(""),
 	/** How to get it, as markdown, from the agent that asked. */
@@ -31,6 +33,7 @@ export type CredsFile = z.infer<typeof FILE>;
 export interface KeptCred {
 	name: string;
 	scope: Scope;
+	provider: Provider;
 	/** The tool that saved it, when one said so; null when a person did. */
 	savedBy: string | null;
 }

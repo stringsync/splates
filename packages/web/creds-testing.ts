@@ -6,6 +6,7 @@ import { act, fireEvent, type Testing, waitFor } from "./testing";
 export const REQUEST: CredRequest = {
 	name: "CLOUDFLARE_TOKEN",
 	scope: "device",
+	provider: "system",
 	purpose: "To route `splates.example.com` to `splates server`.",
 	instructions: "Open **API Tokens** and create one.",
 	task: "alpha",

@@ -1,10 +1,16 @@
-import type { KeptCred, Scope } from "@stringsync/splates-server/creds";
+import type {
+	KeptCred,
+	Provider,
+	Scope,
+} from "@stringsync/splates-server/creds";
 import { ApiError, scoped, send, sendJson } from "./request";
 
 /** What the project's store and the device's keep, by name, and what each store is called. */
 export interface KeptCreds {
 	kept: KeptCred[];
-	labels: Record<Scope, string>;
+	/** Who can keep a cred here, the system's first. */
+	providers: Provider[];
+	labels: Record<Provider, Record<Scope, string>>;
 }
 
 /** The creds kept for this project and this device; never a value. */
@@ -24,23 +30,29 @@ export async function keptCreds(): Promise<KeptCreds> {
 }
 
 /**
- * Keeps `value` as `name`: in the scope its open request asked for, else in
- * `scope`. The value goes to the store and never comes back.
+ * Keeps `value` as `name`: in the scope and provider its open request asked
+ * for, else in `scope` and `provider`. The value goes to the store and never comes back.
  */
 export async function saveCred(
 	name: string,
 	value: string,
 	scope?: Scope,
+	provider?: Provider,
 ): Promise<void> {
 	await sendJson(`/api/creds/${encodeURIComponent(name)}`, "PUT", {
 		value,
 		scope,
+		provider,
 	});
 }
 
-export async function removeCred(name: string, scope: Scope): Promise<void> {
+export async function removeCred(
+	name: string,
+	scope: Scope,
+	provider: Provider = "system",
+): Promise<void> {
 	await send(
-		`/api/creds/${encodeURIComponent(name)}?${new URLSearchParams({ scope })}`,
+		`/api/creds/${encodeURIComponent(name)}?${new URLSearchParams({ scope, provider })}`,
 		{ method: "DELETE" },
 	);
 }

@@ -111,9 +111,16 @@ export class Testing implements Resource {
 	/** What `/api/creds` says the stores keep. */
 	kept: KeptCreds = {
 		kept: [],
+		providers: ["system"],
 		labels: {
-			project: 'the macOS Keychain as "webappwiz:webappwiz"',
-			device: 'the macOS Keychain as "webappwiz"',
+			system: {
+				project: 'the macOS Keychain as "webappwiz:webappwiz"',
+				device: 'the macOS Keychain as "webappwiz"',
+			},
+			ssm: {
+				project: "AWS Parameter Store /splates/projects/webappwiz/",
+				device: "AWS Parameter Store /splates/device/",
+			},
 		},
 	};
 	/** What `/api/workers/keys` says workers hold. */

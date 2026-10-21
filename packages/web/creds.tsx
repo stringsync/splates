@@ -1,11 +1,11 @@
-import type { CredRequest } from "@stringsync/splates-server/creds";
+import type { CredRequest, Provider } from "@stringsync/splates-server/creds";
 import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { dismissCred, type KeptCreds, keptCreds, saveCred } from "./api";
 import { Paste } from "./cred-paste";
-import { ScopeChip } from "./cred-scope";
+import { ProviderPicker, ScopeChip } from "./cred-scope";
 import { AddCred, KeptRow } from "./kept-creds";
 import { Markdown } from "./markdown";
 import { PHONE_HEADING } from "./phone-rows";
@@ -41,16 +41,20 @@ function RequestBody({ request }: { request: CredRequest }): JSX.Element {
 function RequestRow({
 	request,
 	project,
+	providers,
 	picked,
 	onChanged,
 }: {
 	request: CredRequest;
 	project: string;
+	/** Who can keep it, for the person to pick from. */
+	providers: Provider[];
 	/** Whether the address set the page on it. */
 	picked: boolean;
 	onChanged: () => void;
 }): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
+	const [provider, setProvider] = useState<Provider>(request.provider);
 	return (
 		<li
 			aria-label={`requested ${request.name}`}
@@ -65,7 +69,16 @@ function RequestRow({
 				<code className="font-medium font-mono text-[13px]">
 					{request.name}
 				</code>
-				<ScopeChip scope={request.scope} project={project} />
+				<ScopeChip
+					scope={request.scope}
+					project={project}
+					provider={request.provider}
+				/>
+				<ProviderPicker
+					providers={providers}
+					provider={provider}
+					onPick={setProvider}
+				/>
 				{request.task !== null && (
 					<span className="ml-auto flex items-center gap-1.5 text-muted-foreground text-xs">
 						for <TaskChip task={request.task} inline />
@@ -76,7 +89,7 @@ function RequestRow({
 			<div className="px-4 pb-4">
 				<Paste
 					name={request.name}
-					save={(value) => saveCred(request.name, value)}
+					save={(value) => saveCred(request.name, value, undefined, provider)}
 					onSaved={onChanged}
 					besides={
 						<Button
@@ -151,7 +164,7 @@ export function CredsPage({
 			preventScroll: true,
 		});
 	}, [cred, kept]);
-	const system = kept?.labels.device.replace(/ as ".*"$/, "") ?? null;
+	const system = kept?.labels.system.device.replace(/ as ".*"$/, "") ?? null;
 
 	return (
 		<section
@@ -176,6 +189,7 @@ export function CredsPage({
 								key={`${request.name}:${request.requestedAt}`}
 								request={request}
 								project={project}
+								providers={kept?.providers ?? [request.provider]}
 								picked={request.name === cred}
 								onChanged={read}
 							/>
@@ -205,6 +219,7 @@ export function CredsPage({
 				{adding && (
 					<AddCred
 						project={project}
+						providers={kept?.providers ?? ["system"]}
 						onAdded={() => {
 							setAdding(false);
 							read();
@@ -229,7 +244,7 @@ export function CredsPage({
 								.filter((each) => !workers.includes(each.name))
 								.map((each) => (
 									<KeptRow
-										key={`${each.scope}:${each.name}`}
+										key={`${each.provider}:${each.scope}:${each.name}`}
 										{...each}
 										picked={each.name === cred}
 										project={project}

@@ -9,7 +9,7 @@ import {
 	FILE,
 	type KeptCred,
 } from "./requests";
-import { SCOPES, type Scope, type SecretStores } from "./stores";
+import { type Provider, SCOPES, type Scope, type SecretStores } from "./stores";
 
 const FILE_KEY = "creds.json";
 
@@ -34,6 +34,8 @@ export class Creds {
 		/** The project's, holding `creds.json`. */
 		storage: Storage,
 		private readonly stores: Record<Scope, SecretStore>,
+		/** Parameter Store by name, when the system's store is not it. */
+		private readonly ssm?: Record<Scope, SecretStore>,
 	) {
 		this.#record = storage.document(FILE_KEY, {
 			schema: FILE,
@@ -47,18 +49,36 @@ export class Creds {
 		root: string,
 		stores: SecretStores,
 	): Promise<Creds> {
-		return new Creds(storage, {
-			project: await stores.project(root),
-			device: stores.device,
-		});
+		return new Creds(
+			storage,
+			{ project: await stores.project(root), device: stores.device },
+			stores.ssm && {
+				project: await stores.ssm.project(root),
+				device: stores.ssm.device,
+			},
+		);
 	}
 
 	/**
-	 * Where code reads a cred's value: the project's store, then the device's.
-	 * Never the environment, so a stray export is not what splates reads.
+	 * Where code reads a cred's value: Parameter Store's, when it is a provider
+	 * and reachable, then the project's store, then the device's. Never the
+	 * environment, so a stray export is not what splates reads.
 	 */
 	get credentials(): Credentials {
-		return new Credentials([this.stores.project, this.stores.device]);
+		const ssm = this.ssm && [
+			new Unreachable(this.ssm.project),
+			new Unreachable(this.ssm.device),
+		];
+		return new Credentials([
+			...(ssm ?? []),
+			this.stores.project,
+			this.stores.device,
+		]);
+	}
+
+	/** Who can keep a cred here, the system's first. */
+	get providers(): Provider[] {
+		return this.ssm ? ["system", "ssm"] : ["system"];
 	}
 
 	/** Every request, open or not, the latest first. */
@@ -79,12 +99,14 @@ export class Creds {
 		name: string,
 		{
 			scope,
+			provider = "system",
 			purpose,
 			instructions,
 			task,
 			replace = false,
 		}: {
 			scope: Scope;
+			provider?: Provider;
 			purpose: string;
 			instructions: string;
 			task: string | null;
@@ -113,12 +135,13 @@ export class Creds {
 				{ name },
 			);
 		}
-		if (!replace && (await this.has(scope, name))) {
+		if (!replace && (await this.has(provider, scope, name))) {
 			return null;
 		}
 		const request: CredRequest = {
 			name,
 			scope,
+			provider,
 			purpose: purpose.trim(),
 			instructions: instructions.trim(),
 			task,
@@ -172,32 +195,42 @@ export class Creds {
 
 	/**
 	 * Keeps `value` as `name`, filling its request if one is open, in the
-	 * request's scope, else in `scope`. `by` names the tool saving it, for
+	 * request's scope, in `provider` if given, else the request's, and else
+	 * `scope` and the system's. `by` names the tool saving it, for
 	 * the page to say; a person's own save says nothing.
 	 */
 	async save(
 		name: string,
 		value: string,
-		{ scope, by = null }: { scope?: Scope; by?: string | null } = {},
+		{
+			scope,
+			provider,
+			by = null,
+		}: { scope?: Scope; provider?: Provider; by?: string | null } = {},
 	): Promise<Scope> {
 		usable(name);
 		if (value.trim() === "") {
 			fail("usage", `no value given for ${name}: nothing saved`, { name });
 		}
 		let kept: Scope = scope ?? "project";
+		let keptBy: Provider = "system";
 		await this.change(async (file) => {
 			const open = file.requests.find(
 				(each) => each.name === name && each.status === "open",
 			);
 			kept = open?.scope ?? kept;
-			await reach(this.stores[kept], (store) => store.set(name, value.trim()));
+			keptBy = provider ?? open?.provider ?? "system";
+			await reach(this.store(keptBy, kept), (store) =>
+				store.set(name, value.trim()),
+			);
 			if (open !== undefined) {
 				open.status = "saved";
 			}
+			const key = savedKey(keptBy, kept, name);
 			if (by === null) {
-				delete file.savedBy[`${kept}:${name}`];
+				delete file.savedBy[key];
 			} else {
-				file.savedBy[`${kept}:${name}`] = by;
+				file.savedBy[key] = by;
 			}
 		});
 		return kept;
@@ -216,13 +249,19 @@ export class Creds {
 		});
 	}
 
-	/** Deletes `name` from `scope`'s store; whether there was one. */
-	async remove(name: string, scope: Scope): Promise<boolean> {
+	/** Deletes `name` from `provider`'s `scope` store; whether there was one. */
+	async remove(
+		name: string,
+		scope: Scope,
+		provider: Provider = "system",
+	): Promise<boolean> {
 		usable(name);
 		let deleted = false;
 		await this.change(async (file) => {
-			deleted = await reach(this.stores[scope], (store) => store.delete(name));
-			delete file.savedBy[`${scope}:${name}`];
+			deleted = await reach(this.store(provider, scope), (store) =>
+				store.delete(name),
+			);
+			delete file.savedBy[savedKey(provider, scope, name)];
 		});
 		return deleted;
 	}
@@ -234,7 +273,7 @@ export class Creds {
 	 */
 	async copyLegacy(): Promise<void> {
 		for (const scope of SCOPES) {
-			await reach(this.stores[scope], async (store) => {
+			await reach(this.store("system", scope), async (store) => {
 				const names = await store.names();
 				for (const old of names) {
 					const name = renamed(old);
@@ -250,32 +289,55 @@ export class Creds {
 		}
 	}
 
-	/** Every cred either store keeps, the project's first, by name. */
+	/**
+	 * Every cred the stores keep, each provider's project store first, by name.
+	 * Parameter Store out of reach lists nothing rather than hide the rest.
+	 */
 	async kept(): Promise<KeptCred[]> {
 		const { savedBy } = await this.read();
 		const kept: KeptCred[] = [];
-		for (const scope of SCOPES) {
-			for (const name of await reach(this.stores[scope], (store) =>
-				store.names(),
-			)) {
-				kept.push({
-					name,
-					scope,
-					savedBy: savedBy[`${scope}:${name}`] ?? null,
-				});
+		for (const provider of this.providers) {
+			for (const scope of SCOPES) {
+				const store = this.store(provider, scope);
+				const names =
+					provider === "system"
+						? await reach(store, (each) => each.names())
+						: await store.names().catch(() => []);
+				for (const name of names) {
+					kept.push({
+						name,
+						scope,
+						provider,
+						savedBy: savedBy[savedKey(provider, scope, name)] ?? null,
+					});
+				}
 			}
 		}
 		return kept;
 	}
 
-	/** What a person calls `scope`'s store, as in "the macOS Keychain". */
-	label(scope: Scope): string {
-		return this.stores[scope].label;
+	/** What a person calls a store, as in "the macOS Keychain". */
+	label(scope: Scope, provider: Provider = "system"): string {
+		return this.store(provider, scope).label;
 	}
 
-	private async has(scope: Scope, name: string): Promise<boolean> {
+	private store(provider: Provider, scope: Scope): SecretStore {
+		const stores = provider === "ssm" ? this.ssm : this.stores;
+		if (stores === undefined) {
+			fail("usage", `${provider} is not a provider of creds here`, {
+				provider,
+			});
+		}
+		return stores[scope];
+	}
+
+	private async has(
+		provider: Provider,
+		scope: Scope,
+		name: string,
+	): Promise<boolean> {
 		return (
-			(await reach(this.stores[scope], (store) => store.get(name))) !==
+			(await reach(this.store(provider, scope), (store) => store.get(name))) !==
 			undefined
 		);
 	}
@@ -292,6 +354,34 @@ export class Creds {
 			await edit(file);
 			return file;
 		});
+	}
+}
+
+/** Where `savedBy` notes who saved a cred; the system's keep their old keys. */
+function savedKey(provider: Provider, scope: Scope, name: string): string {
+	return provider === "system"
+		? `${scope}:${name}`
+		: `${provider}:${scope}:${name}`;
+}
+
+/** A store read as keeping nothing when it cannot be reached, so the others still answer. */
+class Unreachable implements SecretStore {
+	constructor(private readonly inner: SecretStore) {}
+
+	get label(): string {
+		return this.inner.label;
+	}
+	get(name: string): Promise<string | undefined> {
+		return this.inner.get(name).catch(() => undefined);
+	}
+	set(name: string, value: string): Promise<void> {
+		return this.inner.set(name, value);
+	}
+	delete(name: string): Promise<boolean> {
+		return this.inner.delete(name);
+	}
+	names(): Promise<string[]> {
+		return this.inner.names().catch(() => []);
 	}
 }
 

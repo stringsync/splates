@@ -76,10 +76,20 @@ describe("dev creds", () => {
 			).text();
 
 			expect(JSON.parse(listed)).toEqual({
-				kept: [{ name: "DATABASE_URL", scope: "project", savedBy: null }],
+				kept: [
+					{
+						name: "DATABASE_URL",
+						scope: "project",
+						provider: "system",
+						savedBy: null,
+					},
+				],
+				providers: ["system"],
 				labels: {
-					project: "the project's store",
-					device: "the device's store",
+					system: {
+						project: "the project's store",
+						device: "the device's store",
+					},
 				},
 			});
 			expect(listed).not.toContain("postgres://secret");

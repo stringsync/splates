@@ -91,7 +91,7 @@ class FakeAws {
 function open(aws: FakeAws, prefix = "/splates/device/") {
 	return new SsmSecretStore(prefix, {
 		fetch: aws.fetch,
-		imds: aws.imdsClient(),
+		source: aws.imdsClient(),
 		now: () => aws.clock,
 	});
 }
@@ -142,7 +142,7 @@ describe("SsmSecretStore", () => {
 	test("fails loudly on other errors", async () => {
 		const store = new SsmSecretStore("/splates/device/", {
 			region: "eu-west-1",
-			imds: new FakeAws().imdsClient(),
+			source: new FakeAws().imdsClient(),
 			fetch: (async (input: RequestInfo | URL) =>
 				String(input).includes("169.254")
 					? Response.json({

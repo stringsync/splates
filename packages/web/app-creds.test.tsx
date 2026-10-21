@@ -64,7 +64,7 @@ describe("App's creds", () => {
 		);
 
 		expect(testing.posted("/api/creds/CLOUDFLARE_TOKEN")).toEqual([
-			{ method: "PUT", body: { value: "cf-secret" } },
+			{ method: "PUT", body: { value: "cf-secret", provider: "system" } },
 		]);
 		await waitFor(() =>
 			expect(
@@ -99,10 +99,16 @@ describe("App's creds", () => {
 		testing.kept = {
 			...testing.kept,
 			kept: [
-				{ name: "DATABASE_URL", scope: "project", savedBy: null },
+				{
+					name: "DATABASE_URL",
+					scope: "project",
+					provider: "system",
+					savedBy: null,
+				},
 				{
 					name: "TUNNEL_TOKEN",
 					scope: "device",
+					provider: "system",
 					savedBy: "splates tunnel setup",
 				},
 			],
@@ -124,9 +130,9 @@ describe("App's creds", () => {
 			),
 		);
 
-		expect(testing.posted("/api/creds/TUNNEL_TOKEN?scope=device")).toEqual([
-			{ method: "DELETE", body: {} },
-		]);
+		expect(
+			testing.posted("/api/creds/TUNNEL_TOKEN?scope=device&provider=system"),
+		).toEqual([{ method: "DELETE", body: {} }]);
 	});
 
 	it("removes a cred being added without saving it", async () => {
@@ -163,7 +169,14 @@ describe("App's creds", () => {
 	it("keeps a replaced value to its store alone", async () => {
 		testing.kept = {
 			...testing.kept,
-			kept: [{ name: "DATABASE_URL", scope: "project", savedBy: null }],
+			kept: [
+				{
+					name: "DATABASE_URL",
+					scope: "project",
+					provider: "system",
+					savedBy: null,
+				},
+			],
 		};
 		const view = await openCreds([]);
 
@@ -194,5 +207,44 @@ describe("App's creds", () => {
 			view.getByLabelText("Value of STRIPE_KEY"),
 			"sk-added-secret",
 		);
+	});
+
+	it("offers no provider where there is only one", async () => {
+		const view = await openCreds([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+
+		expect(
+			view.queryByRole("button", { name: "AWS Parameter Store" }),
+		).toBeNull();
+	});
+
+	it("keeps an added cred with the provider picked", async () => {
+		testing.kept = { ...testing.kept, providers: ["system", "ssm"] };
+		const view = await openCreds([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+		fireEvent.change(view.getByLabelText("Name"), {
+			target: { value: "STRIPE_KEY" },
+		});
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "AWS Parameter Store" }),
+			),
+		);
+		const field = view.getByLabelText("Value of STRIPE_KEY");
+		fireEvent.change(field, { target: { value: "sk-ssm" } });
+		await act(async () =>
+			fireEvent.submit(field.closest("form") as HTMLFormElement),
+		);
+
+		expect(testing.posted("/api/creds/STRIPE_KEY")).toEqual([
+			{
+				method: "PUT",
+				body: { value: "sk-ssm", scope: "project", provider: "ssm" },
+			},
+		]);
 	});
 });

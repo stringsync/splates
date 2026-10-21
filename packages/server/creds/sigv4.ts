@@ -26,7 +26,9 @@ export function signed(opts: {
 		...opts.headers,
 		host: url.host,
 		"x-amz-date": stamp,
-		"x-amz-security-token": credentials.sessionToken,
+		...(credentials.sessionToken
+			? { "x-amz-security-token": credentials.sessionToken }
+			: {}),
 	};
 	const names = Object.keys(headers)
 		.map((name) => name.toLowerCase())

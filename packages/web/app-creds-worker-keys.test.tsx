@@ -36,8 +36,13 @@ describe("App's worker keys", () => {
 		testing.kept = {
 			...testing.kept,
 			kept: [
-				{ name: HELD.cred, scope: "device", savedBy: null },
-				{ name: "OTHER_TOKEN", scope: "project", savedBy: null },
+				{ name: HELD.cred, scope: "device", provider: "system", savedBy: null },
+				{
+					name: "OTHER_TOKEN",
+					scope: "project",
+					provider: "system",
+					savedBy: null,
+				},
 			],
 		};
 	});

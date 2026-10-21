@@ -51,6 +51,7 @@ describe("tunnelSetup", () => {
 		expect(await creds.kept()).toContainEqual({
 			name: TUNNEL_TOKEN,
 			scope: "device",
+			provider: "system",
 			savedBy: "splates tunnel setup",
 		});
 		expect([...cloudflare.tokens]).toEqual(["Bearer api-token"]);

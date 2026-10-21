@@ -3,6 +3,7 @@ import {
 	type SecretStore,
 	SystemSecretStore,
 } from "webappwiz/creds";
+import { AwsKeys, type AwsSource } from "./aws";
 import { Imds } from "./imds";
 import { SsmSecretStore } from "./ssm";
 
@@ -10,11 +11,27 @@ import { SsmSecretStore } from "./ssm";
 export const SCOPES = ["project", "device"] as const;
 export type Scope = (typeof SCOPES)[number];
 
-/** The two stores a cred can be kept in, the system's unless a test says otherwise. */
-export interface SecretStores {
+/**
+ * Who keeps a cred: the machine's own store (the keyring, or Parameter Store
+ * on a box under an instance role), or AWS Parameter Store by name.
+ */
+export const PROVIDERS = ["system", "ssm"] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
+/** The two stores of one provider. */
+export interface StoreSet {
 	/** The store of the project whose main tree is at `root`. */
 	project(root: string): Promise<SecretStore>;
 	device: SecretStore;
+}
+
+/** The stores a cred can be kept in, the system's unless a test says otherwise. */
+export interface SecretStores extends StoreSet {
+	/**
+	 * Parameter Store by name, signed with AWS keys or the instance role. Left
+	 * off where the system's store already is Parameter Store.
+	 */
+	ssm?: StoreSet;
 }
 
 /** A store settled on first use, once it is known which one this machine has. */
@@ -72,9 +89,30 @@ export function systemStores(opts: SystemStoresOptions = {}): SecretStores {
 			: platform === "linux"
 				? imds.available()
 				: Promise.resolve(false));
+	const keys = new AwsKeys();
+	// The person's own keys first, else the instance role.
+	const source: AwsSource = {
+		credentials: async () =>
+			(await keys.available()) ? keys.credentials() : imds.credentials(),
+		region: async () =>
+			(await keys.available()) ? keys.region() : imds.region(),
+	};
 	const store = (prefix: string) =>
-		new SsmSecretStore(prefix, { ...opts.ssm, imds });
+		new SsmSecretStore(prefix, { ...opts.ssm, source: imds });
+	const named = (prefix: string) =>
+		new SsmSecretStore(prefix, { ...opts.ssm, source });
+	// Where the system's store is Parameter Store already, a second would list it twice.
+	const separate = choice !== "ssm" && !(!choice && platform === "linux");
 	return {
+		...(separate
+			? {
+					ssm: {
+						project: async (root: string) =>
+							named(`/splates/projects/${await projectName(root)}/`),
+						device: named("/splates/device/"),
+					},
+				}
+			: {}),
 		project: async (root) => {
 			if (!(await useSsm())) {
 				return SystemSecretStore.forProject(root);

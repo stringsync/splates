@@ -1,4 +1,4 @@
-import { DEFAULT_TIMEOUT } from "@stringsync/splates-server/creds";
+import { DEFAULT_TIMEOUT, PROVIDERS } from "@stringsync/splates-server/creds";
 import { fail } from "@stringsync/splates-server/exit";
 import { repository } from "@stringsync/splates-server/records";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -38,6 +38,10 @@ splatesCreds
 		description:
 			"keep it for every project on this device, as for a person's own account, rather than this project alone",
 	})
+	.option("provider", z.optional(z.enum(PROVIDERS)), {
+		description:
+			"who keeps it: `system`, the machine's own store, or `ssm`, AWS Parameter Store, where that is offered",
+	})
 	.option("replace", z.boolean(), {
 		default: false,
 		description:
@@ -45,12 +49,14 @@ splatesCreds
 	})
 	.action(async (opts, ctx) => {
 		const scope = opts.device ? "device" : "project";
+		const provider = opts.provider ?? "system";
 		const request = await ctx.journal.record(
 			"creds request",
 			null,
 			async () =>
 				ctx.creds.request(opts.name, {
 					scope,
+					provider,
 					purpose: opts.purpose,
 					instructions: opts.instructions,
 					task: await here(ctx),
@@ -60,7 +66,7 @@ splatesCreds
 		);
 		if (request === null) {
 			ctx.log.info(
-				`${color.green("kept")} ${opts.name} in ${ctx.creds.label(scope)}: nothing to ask`,
+				`${color.green("kept")} ${opts.name} in ${ctx.creds.label(scope, provider)}: nothing to ask`,
 			);
 			return;
 		}
@@ -129,7 +135,7 @@ splatesCreds
 		}
 		for (const each of kept) {
 			ctx.log.info(
-				`${color.green("kept")}      ${each.name}  ${color.dim(each.scope)}${each.savedBy === null ? "" : color.dim(`  saved by ${each.savedBy}`)}`,
+				`${color.green("kept")}      ${each.name}  ${color.dim(`${each.provider} ${each.scope}`)}${each.savedBy === null ? "" : color.dim(`  saved by ${each.savedBy}`)}`,
 			);
 		}
 		if (open.length === 0 && kept.length === 0) {

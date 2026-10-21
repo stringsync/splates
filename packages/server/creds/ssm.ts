@@ -1,6 +1,7 @@
 import type { SecretStore } from "webappwiz/creds";
 import { credentialName } from "webappwiz/creds";
 import { z } from "zod";
+import type { AwsSource } from "./aws";
 import { Imds } from "./imds";
 import { signed } from "./sigv4";
 
@@ -14,8 +15,8 @@ const FAILURE = z.object({ __type: z.string().optional() });
 export interface SsmSecretStoreOptions {
 	/** Defaults to the instance's own region. */
 	region?: string;
-	/** Defaults to the instance role's credentials through IMDSv2. */
-	imds?: Imds;
+	/** What signs the requests; defaults to the instance role's through IMDSv2. */
+	source?: AwsSource;
 	fetch?: typeof fetch;
 	/** Where SSM is reached, such as a fake in a test. */
 	endpoint?: string;
@@ -52,7 +53,7 @@ export interface SsmSecretStoreOptions {
 export class SsmSecretStore implements SecretStore {
 	readonly label: string;
 	private readonly prefix: string;
-	private readonly imds: Imds;
+	private readonly source: AwsSource;
 	private readonly fetch: typeof fetch;
 	private readonly now: () => number;
 	private region?: string;
@@ -63,7 +64,7 @@ export class SsmSecretStore implements SecretStore {
 		this.label = `AWS Parameter Store ${this.prefix}`;
 		this.fetch = opts.fetch ?? fetch;
 		this.now = opts.now ?? Date.now;
-		this.imds = opts.imds ?? new Imds({ fetch: this.fetch, now: this.now });
+		this.source = opts.source ?? new Imds({ fetch: this.fetch, now: this.now });
 		this.region = opts.region;
 		this.endpoint = opts.endpoint;
 	}
@@ -121,7 +122,7 @@ export class SsmSecretStore implements SecretStore {
 		target: string,
 		payload: Record<string, unknown>,
 	): Promise<unknown> {
-		this.region ??= await this.imds.region();
+		this.region ??= await this.source.region();
 		const region = this.region;
 		const url = new URL(
 			this.endpoint ?? `https://ssm.${region}.amazonaws.com/`,
@@ -139,7 +140,7 @@ export class SsmSecretStore implements SecretStore {
 					"content-type": "application/x-amz-json-1.1",
 					"x-amz-target": `AmazonSSM.${target}`,
 				},
-				credentials: await this.imds.credentials(),
+				credentials: await this.source.credentials(),
 				at: new Date(this.now()),
 			}),
 		});

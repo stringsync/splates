@@ -60,7 +60,14 @@ describe("App's creds on a phone", () => {
 	it("keeps a kept cred's actions in a menu, and removes one only once confirmed", async () => {
 		testing.kept = {
 			...testing.kept,
-			kept: [{ name: "TUNNEL_TOKEN", scope: "device", savedBy: null }],
+			kept: [
+				{
+					name: "TUNNEL_TOKEN",
+					scope: "device",
+					provider: "system",
+					savedBy: null,
+				},
+			],
 		};
 		const view = await openCreds([]);
 
@@ -84,15 +91,22 @@ describe("App's creds on a phone", () => {
 			),
 		);
 
-		expect(testing.posted("/api/creds/TUNNEL_TOKEN?scope=device")).toEqual([
-			{ method: "DELETE", body: {} },
-		]);
+		expect(
+			testing.posted("/api/creds/TUNNEL_TOKEN?scope=device&provider=system"),
+		).toEqual([{ method: "DELETE", body: {} }]);
 	});
 
 	it("replaces a kept cred from its menu, with Cancel to put the field away", async () => {
 		testing.kept = {
 			...testing.kept,
-			kept: [{ name: "DATABASE_URL", scope: "project", savedBy: null }],
+			kept: [
+				{
+					name: "DATABASE_URL",
+					scope: "project",
+					provider: "system",
+					savedBy: null,
+				},
+			],
 		};
 		const view = await openCreds([]);
 
