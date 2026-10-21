@@ -244,7 +244,21 @@ export interface Facts {
 		 * answered, the first reason after the pick then saying why.
 		 */
 		signs: string[] | null;
+		/**
+		 * For a pick that moved the conversation up for what the person said
+		 * later, what it moved off; null for one it started on, and missing
+		 * from lines written before Auto pick looked again.
+		 */
+		lifted: Lifted | null;
 	};
+}
+
+/** What an Auto pick that moved a conversation up moved it off. */
+export interface Lifted {
+	/** The pick it was on, in words: `Sonnet 5.5, low effort`. */
+	from: string;
+	/** Each setting it changed, by id, and what it was before, for an Undo to set back. */
+	undo: Record<string, string>;
 }
 
 type None = Record<never, never>;
@@ -317,7 +331,7 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
-	auto: ["agent", "model", "effort", "reasons", "signs"],
+	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 
 /** Each action's facts `FACTS` leaves out, which must be none. */
@@ -389,7 +403,8 @@ export function isCurrent(event: Event): boolean {
 					"gateMs",
 					"capacityWaitMs",
 					"retests",
-				].includes(fact)),
+				].includes(fact)) ||
+			(event.action === "auto" && fact === "lifted"),
 	);
 }
 

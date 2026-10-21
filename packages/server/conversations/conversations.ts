@@ -14,30 +14,32 @@ import {
 	type Launcher,
 	launch,
 	launcherOf,
-	listSessions,
 	type Session,
 } from "../agents";
 import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
-import { modelValue } from "../models";
 import type { NoteUses } from "../notes";
 import { installedVersion } from "../server/shared";
-import { turnSpend, type Used } from "../spend";
+import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
+import { archivedNewestFirst } from "./archive";
 import { Conversation, type Picked } from "./conversation";
 import type {
 	ConversationDeps,
 	ConversationSlots,
 	ConversationsEvents,
+	Lift,
 	PlacedCheckouts,
 	ProjectRoster,
 } from "./host";
 import type { ConversationsOptions } from "./options";
-import type { ConversationState, Limit, Setting } from "./state";
+import { outside } from "./outside";
+import { spent, usedOf } from "./spent";
+import type { Limit, Setting } from "./state";
 
 /** A conversation id as `UuidProvider` makes it, which a page may pick. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -75,7 +77,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly adherence: Adherence | null;
 	private readonly noteUses: NoteUses | null;
 	private readonly outcomes: Outcomes | null;
-	private readonly spend: ConversationsOptions["spend"] | null;
+	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster | null;
@@ -91,6 +93,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly asked = new Map<string, number>();
 	/** Where `splates server` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
+	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
+	lift: Lift | null = null;
 
 	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
 	refreshRoster(agents: Agent[]): void {
@@ -144,6 +148,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// opens, which reads back every conversation from before a restart.
 			get url() {
 				return conversations.url;
+			},
+			// Set once the project opens too, as Auto pick reads the project.
+			get lift() {
+				return conversations.lift;
 			},
 			fs: this.fs,
 			storage: this.storage,
@@ -380,28 +388,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	 */
 	async sessions(cwd: string): Promise<Session[]> {
 		await this.load();
-		const held = new Set(
-			[...this.known.values()].map(
-				(each) => `${each.state.agent} ${each.sessionId}`,
-			),
-		);
-		const listed = await Promise.all(
-			this.agents.map((agent) =>
-				listSessions(
-					agent,
-					cwd,
-					this.launcher.launch,
-					this.timer,
-					this.starting,
-				).catch((): Session[] => []),
-			),
-		);
-		return listed
-			.flat()
-			.filter((each) => !held.has(`${each.agent} ${each.session}`))
-			.sort((one, other) =>
-				(other.updatedAt ?? "").localeCompare(one.updatedAt ?? ""),
-			);
+		return outside([...this.known.values()], this.agents, cwd, {
+			launch: this.launcher.launch,
+			timer: this.timer,
+			starting: this.starting,
+		});
 	}
 
 	/**
@@ -551,10 +542,14 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 						)
 						.catch(() => {});
 				}
-				if (usedBefore !== null) {
-					void this.spent(conversation, usedBefore, tokensBefore).catch(
-						() => {},
-					);
+				const { spend } = this;
+				if (usedBefore !== null && spend !== null) {
+					void spent(spend, conversation, {
+						before: usedBefore,
+						turnsBefore: tokensBefore,
+						root: this.root,
+						projects: this.projects,
+					}).catch(() => {});
 				}
 				turnStarted = null;
 				usedBefore = null;
@@ -579,59 +574,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.dispatcher.dispatch("changed", conversation.id);
 	}
 
-	/** Adds the dollars the turn that took `conversation` from `before` cost to the ledger. */
-	private async spent(
-		conversation: Conversation,
-		before: Used,
-		turnsBefore: number,
-	): Promise<void> {
-		if (this.spend === null) {
-			return;
-		}
-		const { state } = conversation;
-		const observed = (state.usage.opencode?.turns ?? [])
-			.slice(turnsBefore)
-			.flatMap((turn) =>
-				turn.tokens === null
-					? []
-					: [
-							{
-								model: turn.confirmed ?? turn.requested,
-								input: turn.tokens.input ?? 0,
-								cachedRead: turn.tokens.cachedRead ?? 0,
-								cachedWrite: turn.tokens.cachedWrite ?? 0,
-								output: turn.tokens.output ?? 0,
-							},
-						],
-			);
-		const model = modelValue(state.settings);
-		const spent = turnSpend(
-			state.agent,
-			model,
-			before,
-			usedOf(state),
-			await this.spend.prices.catalog(),
-			observed,
-		);
-		if (spent === null) {
-			return;
-		}
-		const root = this.root ?? conversation.cwd;
-		const project =
-			(await this.projects?.list())?.find((each) => each.root === root)?.slug ??
-			null;
-		await this.spend.ledger.record({
-			at: conversation.now(),
-			provider: state.agent,
-			service: model ?? "unknown",
-			kind: spent.kind,
-			dollars: spent.dollars,
-			project,
-			task: state.task,
-			conversation: conversation.id,
-		});
-	}
-
 	/** Asks for `conversation`'s agent's limits, when it does not send them. */
 	private askLimits(conversation: Conversation): void {
 		const agent = this.agents.find(
@@ -652,24 +594,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	}
 
 	private async trim(): Promise<void> {
-		// The newest of each persistent agent's role holds its row, so is kept.
-		const roles = new Set<string>();
-		const holding = new Set<Conversation>();
-		const newest = [...this.known.values()].sort((one, other) =>
-			other.state.createdAt.localeCompare(one.state.createdAt),
-		);
-		for (const each of newest) {
-			const role = each.state.persistent;
-			if (role !== undefined && !roles.has(role)) {
-				roles.add(role);
-				holding.add(each);
-			}
-		}
-		const archived = [...this.known.values()]
-			.filter((each) => each.state.archived && !holding.has(each))
-			.sort((one, other) =>
-				(other.archivedSince ?? "").localeCompare(one.archivedSince ?? ""),
-			);
+		const archived = archivedNewestFirst([...this.known.values()]);
 		for (const each of archived.slice(ARCHIVED_KEPT)) {
 			this.known.delete(each.id);
 			await each.delete();
@@ -694,16 +619,4 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 		}
 	}
-}
-
-/** What `state` has used so far, for pricing the turn between two such readings. */
-function usedOf(state: ConversationState): Used {
-	const { usage } = state;
-	return {
-		input: usage.input,
-		cached: usage.cached,
-		output: usage.output,
-		cost: usage.cost?.currency === "USD" ? usage.cost.amount : null,
-		context: usage.context?.used ?? null,
-	};
 }

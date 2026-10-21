@@ -125,6 +125,11 @@ export interface ConversationState {
 	 */
 	picking: boolean;
 	/**
+	 * What Auto pick set it to, and on what rule, once it has; null for one
+	 * it did not start, or before it decided.
+	 */
+	autoPick: AutoPickMark | null;
+	/**
 	 * Started by the server's queue or a hook, so its agent holds one of the
 	 * workers' slots; the person's own conversations take none.
 	 */
@@ -194,6 +199,25 @@ export interface ConversationState {
  * Where the agent is: `stopped` and `failed` have no process, and the next
  * prompt resumes the session in a new one.
  */
+/** What Auto pick set a conversation to, and why, as its log keeps it. */
+export interface AutoPickSet {
+	/** The index in the rules of the rule it took. */
+	rule: number;
+	/** The kind and depth it was taken for; null when the judge was unsure. */
+	kind: string | null;
+	depth: string | null;
+	agent: string;
+	/** By the roster's id; null for the agent's own. */
+	model: string | null;
+	effort: string | null;
+}
+
+/** A conversation's Auto pick, and whether the person has moved off it since. */
+export interface AutoPickMark extends AutoPickSet {
+	/** The person set the model or effort since, which then stands. */
+	overridden: boolean;
+}
+
 export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
 
 /**
@@ -572,6 +596,7 @@ export function blank(
 		skill: null,
 		assigned,
 		picking: false,
+		autoPick: null,
 		capped: false,
 		queued: null,
 		unread: false,

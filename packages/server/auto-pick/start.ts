@@ -1,9 +1,15 @@
 import type { StoredTask } from "../board";
-import type { Conversation, Conversations, Picked } from "../conversations";
+import type {
+	AutoPickSet,
+	Conversation,
+	Conversations,
+	Picked,
+} from "../conversations";
 import { fail } from "../exit";
 import { effortSettings, Roster, splatesHome } from "../models";
 import { goalOf, Plans } from "../plans";
 import { Prices } from "../prices";
+import type { Journal, Lifted } from "../records";
 import type { Project } from "../server/shared";
 import { FsStorage } from "../storage";
 import { DEPTHS, KINDS, type TaskClass } from "./classes";
@@ -265,8 +271,9 @@ async function keep(
 }
 
 /**
- * Logs the pick in the conversation, and, when `asking` names the judge's
- * key for want of a judge, the request for it.
+ * Logs the pick in the conversation, which keeps it to look again at what
+ * the person says later, and, when `asking` names the judge's key for want
+ * of a judge, the request for it.
  */
 async function logPick(
 	project: Project,
@@ -274,8 +281,41 @@ async function logPick(
 	picked: AutoPicked,
 	asking: string | null,
 ): Promise<void> {
+	conversation.autoPicked(setOf(picked));
 	const journal = project.journal.in(conversation.id);
-	const task = conversation.state.task;
+	await journalPick(journal, conversation.state.task, picked);
+	if (asking !== null) {
+		await offerJudge(project, journal, conversation.state.task, asking);
+	}
+}
+
+/** What a conversation keeps of `decision`. */
+export function setOf({
+	pick,
+	rule,
+	kind,
+	depth,
+}: AutoPickDecision): AutoPickSet {
+	return {
+		rule,
+		kind,
+		depth,
+		agent: pick.agent,
+		model: pick.model ?? null,
+		effort: pick.effort ?? null,
+	};
+}
+
+/**
+ * Writes `picked` in `journal` as splates's own line in its conversation,
+ * with, for a pick that moved it up later, what it moved off.
+ */
+export async function journalPick(
+	journal: Journal,
+	task: string | null,
+	picked: AutoPicked,
+	lifted?: Lifted,
+): Promise<void> {
 	const classification = picked.classified?.classification;
 	await journal.record("auto", task, async () => {}, {
 		agent: picked.pick.agent,
@@ -289,10 +329,8 @@ async function logPick(
 						likeliest(KINDS, classification.kinds),
 						likeliest(DEPTHS, classification.depth),
 					],
+		lifted: lifted ?? null,
 	});
-	if (asking !== null) {
-		await offerJudge(project, journal, task, asking);
-	}
 }
 
 /** The likeliest of `classes` in words: `Mechanical 80%`. */

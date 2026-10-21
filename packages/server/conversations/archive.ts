@@ -1,3 +1,4 @@
+import type { Conversation } from "./conversation";
 import type { ConversationHost } from "./host";
 
 /**
@@ -40,4 +41,30 @@ export async function put(
 		archivedWith: archived ? (withConversation ?? null) : null,
 		resting,
 	});
+}
+
+/**
+ * The archived of `conversations`, the latest archived first, but for the
+ * newest of each persistent agent's role, which holds its row, so is kept.
+ */
+export function archivedNewestFirst(
+	conversations: readonly Conversation[],
+): Conversation[] {
+	const roles = new Set<string>();
+	const holding = new Set<Conversation>();
+	const newest = conversations.toSorted((one, other) =>
+		other.state.createdAt.localeCompare(one.state.createdAt),
+	);
+	for (const each of newest) {
+		const role = each.state.persistent;
+		if (role !== undefined && !roles.has(role)) {
+			roles.add(role);
+			holding.add(each);
+		}
+	}
+	return conversations
+		.filter((each) => each.state.archived && !holding.has(each))
+		.toSorted((one, other) =>
+			(other.archivedSince ?? "").localeCompare(one.archivedSince ?? ""),
+		);
 }

@@ -1,0 +1,214 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { AGENT, FakeAgent, ROSTERED } from "../agents/testing";
+import { type Conversation, Conversations } from "../conversations";
+import { until } from "../conversations/testing";
+import type { RosterAgent } from "../models";
+import { Testing } from "../testing";
+import { startAutoPick } from "./index";
+import { lifting } from "./lift";
+import { FakeJudge } from "./testing";
+
+describe("lifting", () => {
+	let deps: Testing;
+	let agent: FakeAgent;
+	let conversations: Conversations;
+	let judge: FakeJudge;
+	/** The model the agent was on as each prompt reached it. */
+	let on: string[];
+
+	const start = async (words = "Rename foo\nIn src only.") => {
+		const conversation = await startAutoPick({
+			project: deps,
+			conversations,
+			target: { words },
+			judge: async () => judge,
+			start: (picked, { model, settings, picking }) =>
+				conversations.start(picked, {
+					task: null,
+					cwd: deps.root,
+					model,
+					settings,
+					assigned: true,
+					picking,
+				}),
+		});
+		await until(conversation, "idle");
+		await conversation.prompt(words);
+		await until(conversation, "idle");
+		return conversation;
+	};
+	const say = async (conversation: Conversation, words: string) => {
+		await conversation.prompt(words);
+		await until(conversation, "idle");
+	};
+	const autoLines = async () =>
+		(await deps.journal.tail(20)).filter((each) => each.action === "auto");
+
+	beforeEach(async () => {
+		deps = await Testing.open();
+		agent = new FakeAgent();
+		on = [];
+		agent.turn = async () => {
+			on.push(
+				String(agent.options.find((each) => each.id === "model")?.currentValue),
+			);
+			return "end_turn";
+		};
+		conversations = new Conversations(
+			`${deps.splatesDir}/conversations`,
+			[AGENT],
+			{ launch: agent.launch },
+		);
+		judge = new FakeJudge(LIGHT_EDIT);
+		conversations.lift = lifting(deps, conversations, {
+			judge: async () => judge,
+		});
+		await deps.fs.write(
+			`${deps.splatesHome}/agents.json`,
+			JSON.stringify({
+				agents: [RANKED],
+			}),
+		);
+		await deps.fs.write(
+			`${deps.splatesHome}/auto-pick.json`,
+			JSON.stringify({
+				format: 2,
+				threshold: 0.5,
+				rules: [
+					{
+						kind: "bugfix",
+						depth: "shallow",
+						picks: [{ agent: "fake", model: "small" }],
+					},
+					{
+						kind: "*",
+						depth: "*",
+						picks: [{ agent: "fake", model: "big" }],
+					},
+				],
+			}),
+		);
+	});
+
+	afterEach(async () => {
+		await conversations.disposeAsync();
+		await deps.disposeAsync();
+	});
+
+	it("moves the conversation up before the agent reads a message that widens it", async () => {
+		const conversation = await start();
+		expect(on).toEqual(["small"]);
+
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+
+		expect(on).toEqual(["small", "big"]);
+		expect(judge.asked[0]?.state).toMatchObject({
+			subject: WIDENING,
+		});
+		expect(conversation.state.autoPick).toMatchObject({
+			rule: 1,
+			model: "big",
+			kind: "open",
+			depth: "deep",
+			overridden: false,
+		});
+		expect((await autoLines()).at(-1)).toMatchObject({
+			conversation: conversation.id,
+			model: "big",
+			lifted: { from: "Small", undo: { model: "small" } },
+		});
+	});
+
+	it("moves nothing for a message the judge finds no bigger", async () => {
+		const conversation = await start();
+		const asked = judge.asked.length;
+		await say(conversation, "Also rename baz to qux, in the same file please.");
+
+		expect(judge.asked.length).toBeGreaterThan(asked);
+		expect(on).toEqual(["small", "small"]);
+		expect(await autoLines()).toHaveLength(1);
+	});
+
+	it("asks the judge nothing of a short message", async () => {
+		const conversation = await start();
+		judge = new FakeJudge(WIDE);
+		await say(conversation, "go");
+
+		expect(judge.asked).toEqual([]);
+		expect(on).toEqual(["small", "small"]);
+	});
+
+	it("leaves a conversation alone once the person moved its model", async () => {
+		const conversation = await start();
+		await conversation.choose("model", "small");
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+
+		expect(judge.asked).toEqual([]);
+		expect(conversation.state.autoPick?.overridden).toBe(true);
+	});
+
+	it("keeps the move and the person's override across a restart", async () => {
+		const conversation = await start();
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+		await conversation.choose("model", "small");
+		await conversations.disposeAsync();
+
+		conversations = new Conversations(
+			`${deps.splatesDir}/conversations`,
+			[AGENT],
+			{ launch: agent.launch },
+		);
+		const back = await conversations.find(conversation.id);
+		expect(back.state.autoPick).toMatchObject({
+			model: "big",
+			overridden: true,
+		});
+	});
+});
+
+/** A judge sure the task is easy mechanical work. */
+const LIGHT_EDIT = {
+	"kind:bugfix": 0.9,
+	"kind:open": 0.1,
+	"depth:shallow": 0.8,
+	"depth:deep": 0.1,
+};
+
+/** A judge sure the work is open-ended and deep. */
+const WIDE = {
+	"kind:bugfix": 0.1,
+	"kind:open": 0.9,
+	"depth:shallow": 0.1,
+	"depth:deep": 0.8,
+};
+
+const WIDENING =
+	"Let's take this a different direction: propose a few variants.";
+
+/** The fake agent, its models ranked: Big above Small. */
+const RANKED: RosterAgent = {
+	...ROSTERED,
+	models: [
+		{
+			id: "big",
+			name: "Big",
+			strengths: "",
+			cost: "high",
+			tier: 4,
+			speed: "medium",
+			costRank: 2,
+		},
+		{
+			id: "small",
+			name: "Small",
+			strengths: "",
+			cost: "low",
+			tier: 1,
+			speed: "fast",
+			costRank: 1,
+		},
+	],
+};

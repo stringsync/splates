@@ -32,6 +32,7 @@ describe("fold", () => {
 		skill: null,
 		assigned: false,
 		picking: false,
+		autoPick: null,
 		capped: false,
 		queued: null,
 		unread: false,

@@ -8,7 +8,12 @@ import type { Reach } from "../projects";
 import type { Storage } from "../storage";
 import type { Grant, WorkerMachine } from "../workers";
 import type { ConversationLog } from "./log";
-import type { ConversationState, QueueSpot } from "./state";
+import type {
+	AutoPickSet,
+	ConversationState,
+	Message,
+	QueueSpot,
+} from "./state";
 
 /**
  * What a conversation's parts, its connection, its turns and its background
@@ -44,7 +49,19 @@ export interface ConversationHost {
 	unarchive(): Promise<void>;
 	/** Marks it `unread` or not. */
 	flag(unread: boolean): void;
+	/** Sets `settings`, by id, as Auto pick moves it up to `pick`. */
+	lift(settings: Record<string, string>, pick: AutoPickSet): Promise<void>;
 }
+
+/**
+ * Auto pick's second look at `said`, what the person says next in
+ * `conversation`, before its agent reads it: it may move the conversation
+ * up with `lift`.
+ */
+export type Lift = (
+	conversation: ConversationHost,
+	said: readonly Message[],
+) => Promise<void>;
 
 export type ConversationEvents = { changed: undefined; chosen: string };
 
@@ -101,6 +118,8 @@ export interface ConversationDeps {
 	projects: ProjectRoster | null;
 	/** The MCP servers each session is offered, beyond the agent's own; null for none. */
 	servers: SessionServers | null;
+	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
+	lift?: Lift | null;
 }
 
 /** A project's way into the machine's queue for worker slots (`Scheduler`). */

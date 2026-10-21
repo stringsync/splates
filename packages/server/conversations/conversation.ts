@@ -28,6 +28,7 @@ import {
 	type Answer,
 	type Ask,
 	type Attached,
+	type AutoPickSet,
 	blank,
 	type ConversationState,
 	callerAfter,
@@ -565,6 +566,23 @@ export class Conversation
 		await this.opening;
 		await choose(this, this.connection, id, value);
 		this.dispatcher.dispatch("chosen", id);
+	}
+
+	/** Keeps what Auto pick set it to, as it started. */
+	autoPicked(pick: AutoPickSet): void {
+		this.log.write({ kind: "auto-pick", pick, at: this.now() });
+		this.set({ autoPick: { ...pick, overridden: false } });
+	}
+
+	async lift(
+		settings: Record<string, string>,
+		pick: AutoPickSet,
+	): Promise<void> {
+		for (const [id, value] of Object.entries(settings)) {
+			await choose(this, this.connection, id, value, true);
+		}
+		this.log.write({ kind: "auto-pick", pick, lifted: true, at: this.now() });
+		this.set({ autoPick: { ...pick, overridden: false } });
 	}
 
 	/**

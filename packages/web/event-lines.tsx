@@ -1,11 +1,13 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Action, Event } from "@stringsync/splates-server/records";
+import type { Action, Event, Lifted } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
-import type { JSX } from "react";
+import { type JSX, useState } from "react";
 import { AddedLine } from "./added-line";
+import { chooseSetting } from "./conversation-api";
 import { type Start, useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
+import { Refusal, useRefusal } from "./refusal";
 import {
 	type Named,
 	SplatesEvent,
@@ -184,7 +186,9 @@ const LINES: {
 /**
  * What Auto pick started a task on, and what the judge found in it, or why
  * it found nothing: `Auto picked Haiku 5.5, low effort: Lookup 91%, Light
- * 80%`. Every reason shows on hover.
+ * 80%`. One that moved the conversation up for what the person said later
+ * says so: `Auto moved up to Opus 5.5, medium effort: Open 80%, Deep 70%`.
+ * Every reason shows on hover, after what it moved off.
  */
 function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 	const [picked = event.agent, ...why] = event.reasons;
@@ -194,11 +198,64 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 			: event.signs.length === 0
 				? "nothing hard in it"
 				: event.signs.join(", ");
+	const lifted = event.lifted ?? null;
 	return {
-		words: [`Auto picked ${picked}: ${found}`],
-		title: why.join("\n"),
+		words: [
+			`${lifted === null ? "Auto picked" : "Auto moved up to"} ${picked}: ${found}`,
+		],
+		title: [...(lifted === null ? [] : [`from ${lifted.from}`]), ...why].join(
+			"\n",
+		),
 		at: event.at,
 	};
+}
+
+/**
+ * The line of an Auto pick that moved the conversation up, with an Undo
+ * that sets it back on what it moved off: said done at once, and refused
+ * after should the server not take it.
+ */
+function LiftedLine({
+	conversation,
+	lifted,
+	view,
+}: {
+	conversation: string;
+	lifted: Lifted;
+	view: SplatesEventView;
+}): JSX.Element {
+	const [undone, setUndone] = useState(false);
+	const { refusal, attempt } = useRefusal();
+	const undo = (): void => {
+		setUndone(true);
+		void attempt(
+			Promise.all(
+				Object.entries(lifted.undo).map(([id, value]) =>
+					chooseSetting(conversation, id, value),
+				),
+			).then(() => {}),
+			"Not undone",
+		).then((landed) => {
+			if (!landed) {
+				setUndone(false);
+			}
+		});
+	};
+	return (
+		<div>
+			<SplatesEvent
+				event={{
+					...view,
+					act: {
+						label: "Undo",
+						run: undo,
+						done: undone ? `Back on ${lifted.from}` : null,
+					},
+				}}
+			/>
+			<Refusal refusal={refusal} className="text-center" />
+		</div>
+	);
 }
 
 /** The line a command on todos draws, none when it was refused. */
@@ -256,6 +313,20 @@ function EventLine({
 	}
 	if (event.action === "task add" && event.reason === null) {
 		return <AddedLine view={view} id={event.number} />;
+	}
+	if (
+		event.action === "auto" &&
+		event.reason === null &&
+		event.lifted &&
+		event.conversation !== null
+	) {
+		return (
+			<LiftedLine
+				conversation={event.conversation}
+				lifted={event.lifted}
+				view={view}
+			/>
+		);
 	}
 	const start = startOf(event);
 	return start === null ? (

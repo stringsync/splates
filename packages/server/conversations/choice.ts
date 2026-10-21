@@ -3,12 +3,16 @@ import { fail } from "../exit";
 import type { ConversationHost } from "./host";
 import type { Setting } from "./state";
 
-/** Applies a validated user choice to the session and its log. */
+/**
+ * Applies a validated choice to the session and its log: the person's, or,
+ * `byAutoPick`, Auto pick's own, which overrides nothing.
+ */
 export async function choose(
 	host: ConversationHost,
 	connection: AgentConnection,
 	id: string,
 	value: string,
+	byAutoPick = false,
 ): Promise<void> {
 	const setting = host.state.settings.find((each) => each.id === id);
 	if (setting === undefined) {
@@ -24,7 +28,11 @@ export async function choose(
 		);
 	}
 	const aspect = overridden(setting);
-	if (host.state.assigned && aspect !== null) {
+	if (host.state.assigned && aspect !== null && !byAutoPick) {
+		const { autoPick } = host.state;
+		if (autoPick !== null) {
+			host.state.autoPick = { ...autoPick, overridden: true };
+		}
 		host.log.write({
 			kind: "override",
 			setting: id,

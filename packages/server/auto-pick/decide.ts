@@ -330,7 +330,7 @@ function withEffort(
 }
 
 /** The pick in words: `Sonnet 5.5, low effort`. */
-function headline(pick: AgentPick, agent: RosterAgent): string {
+export function headline(pick: AgentPick, agent: RosterAgent): string {
 	const model =
 		pick.model === undefined
 			? `${agent.name} on its default model`

@@ -19,6 +19,7 @@ export { DEFAULT_RULES } from "./defaults";
 export { Jev } from "./jev";
 export { JUDGE_CREDS, judgeFrom } from "./judge";
 export { classificationKey } from "./key";
+export { lifting } from "./lift";
 export { QueueAutoPick } from "./queue";
 export type { AutoPicked } from "./record";
 export { AutoPickRoutes } from "./routes";

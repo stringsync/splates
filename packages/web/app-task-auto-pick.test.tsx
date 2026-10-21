@@ -164,6 +164,40 @@ describe("App's Auto pick", () => {
 		);
 	});
 
+	it("says when it moved the conversation up, and undoes the move at once", async () => {
+		const view = await testing.openConversations([
+			{
+				...turn(["On it."]),
+				events: [
+					{
+						...picked(["Open 90%", "Deep 80%"], "judged: Open 90%, Deep 80%"),
+						model: "big",
+						reasons: ["Big", "judged: Open 90%, Deep 80%"],
+						lifted: { from: "Haiku, low effort", undo: { model: "haiku" } },
+					} as Event,
+				],
+			},
+		]);
+		const line = await waitFor(() =>
+			view.getByRole("note", { name: "splates" }),
+		);
+		expect(line.textContent).toBe(
+			"Auto moved up to Big: Open 90%, Deep 80%Undo",
+		);
+		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
+			"from Haiku, low effort\njudged: Open 90%, Deep 80%",
+		);
+
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Undo" })),
+		);
+
+		expect(line.textContent).toContain("Back on Haiku, low effort");
+		expect(testing.posted("/api/conversations/c1/setting")).toEqual([
+			{ method: "PUT", body: { id: "model", value: "haiku" } },
+		]);
+	});
+
 	it("says why the judge found nothing when it did not answer", async () => {
 		const line = await lineFor(null, "the judge took over 5s");
 		expect(line.textContent).toBe(
@@ -186,6 +220,7 @@ function picked(signs: string[] | null, judged: string): Event {
 		effort: "low",
 		reasons: ["Haiku, low effort", judged, "rule 2: Bugfix, Shallow"],
 		signs,
+		lifted: null,
 	};
 }
 

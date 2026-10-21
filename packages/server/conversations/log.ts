@@ -20,6 +20,7 @@ import { delivered, said, sent, takeBack } from "./messages";
 import {
 	type Ask,
 	type Attached,
+	type AutoPickSet,
 	blank,
 	type Checkpoint,
 	type ConversationState,
@@ -183,6 +184,12 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.usage.limits = heard(state.usage.limits, entry.limits);
 			} else if (entry.kind === "model-request") {
 				replayed.model = entry.model;
+			} else if (entry.kind === "auto-pick") {
+				state.autoPick = { ...entry.pick, overridden: false };
+			} else if (entry.kind === "override") {
+				if (state.autoPick !== null) {
+					state.autoPick = { ...state.autoPick, overridden: true };
+				}
 			} else if (entry.kind === "picks-request") {
 				requested = entry.picks;
 			} else if (entry.kind === "agent") {
@@ -490,6 +497,11 @@ type Said =
 			value: string;
 			at: string;
 	  }
+	/**
+	 * What Auto pick set it to: at its start, or `lifted` when it moved it up
+	 * for what the person said later.
+	 */
+	| { kind: "auto-pick"; pick: AutoPickSet; lifted?: true; at: string }
 	/** Settings to set once the session opens, by id, as Auto pick chose them. */
 	| { kind: "picks-request"; picks: Record<string, string> }
 	/** Auto picked another agent than the one it started on, before any session opened. */

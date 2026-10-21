@@ -22,6 +22,7 @@ export type {
 	ConversationHost,
 	ConversationSlots,
 	ConversationsEvents,
+	Lift,
 	PlacedCheckouts,
 	ProjectRef,
 	SlotAsk,
@@ -29,7 +30,7 @@ export type {
 export { listing } from "./listing";
 export type { Entry, Live } from "./log";
 export { ConversationLog, LOG_FORMAT } from "./log";
-export { messageOf, paused, said } from "./messages";
+export { messageOf, paused, said, textOf } from "./messages";
 export {
 	GROOMER_ROLE,
 	grooms,
@@ -48,6 +49,8 @@ export type {
 	Ask,
 	Asked,
 	Attached,
+	AutoPickMark,
+	AutoPickSet,
 	Background,
 	Backgrounded,
 	BackgroundState,

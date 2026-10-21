@@ -578,6 +578,7 @@ export class ConversationTurns {
 		host.set({ status: "running", error: null });
 		void host.log
 			.flush()
+			.then(() => this.lifting([...waiting, ...fresh]))
 			.then(() => this.content([...waiting, ...fresh]))
 			.then((prompt) => this.connection.prompt(prompt))
 			.then(
@@ -594,6 +595,24 @@ export class ConversationTurns {
 				},
 				(error: unknown) => this.ended(requestError(error)),
 			);
+	}
+
+	/**
+	 * Lets Auto pick look again at what the person says in `messages`, in a
+	 * conversation it started, before the agent reads them; one that fails
+	 * moves nothing.
+	 */
+	private async lifting(messages: Message[]): Promise<void> {
+		const { lift } = this.deps;
+		const said = messages.filter((each) => each.told === undefined);
+		if (
+			lift == null ||
+			said.length === 0 ||
+			this.host.state.autoPick === null
+		) {
+			return;
+		}
+		await lift(this.host, said).catch(() => {});
 	}
 
 	/** What `messages` say, as one prompt, for the tree the agent runs in. */

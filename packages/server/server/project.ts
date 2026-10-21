@@ -5,7 +5,7 @@ import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
-import { AutoPickRoutes, QueueAutoPick } from "../auto-pick";
+import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { LaneRecord } from "../board";
 import { BoardRoutes } from "../board";
 import type {
@@ -111,6 +111,7 @@ export async function serveProject(
 		});
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
+		conversations.lift = lifting(project, conversations);
 		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
