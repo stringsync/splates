@@ -15,6 +15,10 @@ export class FakeNotes {
 				})),
 			);
 		}
+		// No judgments recorded, so the Stats page shows no Notes section.
+		if (url.pathname === "/api/stats/notes") {
+			return Response.json({ reason: "not_found" }, { status: 404 });
+		}
 		if (url.pathname !== "/api/notes/read") {
 			return null;
 		}

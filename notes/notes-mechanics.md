@@ -26,3 +26,9 @@ a journal event for the Stats page: before a message reaches the agent,
 (`notes/applied.ts`) asks whether the turn's actions applied it (`note
 applied`, with the tier its pointer had or `unprompted`). With no judge
 neither runs.
+
+The Stats page's Notes section (`stats/notes.ts`, served per project at
+`/api/stats/notes`) reads those events from the project's journal beside the
+machine's outcomes and adherence: conversations with pointers against the
+holdout, a conversation's arm being what its first `notes attached` said, and
+per note the reads after its pointers, applied rate and unprompted reads.

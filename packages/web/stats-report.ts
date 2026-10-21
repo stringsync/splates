@@ -1,5 +1,6 @@
 import {
 	combine,
+	type NoteStats,
 	type PeriodId,
 	type Stats,
 	type Tally,
@@ -23,6 +24,8 @@ export type StatsReportEvents = { changed: undefined };
 /** Where the summary comes from: `splates server`, or a test's own. */
 export interface StatsSource {
 	stats(period: PeriodId, project?: string): Promise<Stats>;
+	/** How note pointers did in the page's project; a source with none shows no Notes section. */
+	notes?(): Promise<NoteStats>;
 }
 
 /** A span of time the page can look at, as its control names it. */
@@ -71,6 +74,8 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	readonly events = this.dispatcher.events;
 
 	stats: Stats | null = null;
+	/** How note pointers did, null until loaded or when there is none to show. */
+	notes: NoteStats | null = null;
 	/** Why the last load failed, until one succeeds. */
 	error: string | null = null;
 	/** What the page looks at: 7 days, until the person picks another. */
@@ -112,6 +117,7 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 				return;
 			}
 			this.stats = stats;
+			this.notes = (await this.source.notes?.().catch(() => null)) ?? null;
 			if (this.project === null) {
 				this.choices = stats.projects.map((each) => each.project);
 			}

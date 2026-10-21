@@ -2,6 +2,7 @@ export { Adherence } from "./adherence";
 export { BudgetRoutes } from "./budget-routes";
 export { addFactTasks } from "./fact-tasks";
 export { findings } from "./findings";
+export { NoteStatsRoutes } from "./notes-routes";
 export type { Outcome } from "./outcomes";
 export { Outcomes, promptsFrom } from "./outcomes";
 export type { RuleOverrides } from "./overrides";

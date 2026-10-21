@@ -178,6 +178,7 @@
 @source "./stamp.tsx";
 @source "./stats-decisions.tsx";
 @source "./stats-cost.tsx";
+@source "./stats-notes.tsx";
 @source "./stats-project-filter.tsx";
 @source "./stats.tsx";
 @source "./cred-paste.tsx";

@@ -56,6 +56,7 @@ export { pushKey, subscribePush, unsubscribePush } from "./push";
 export { ApiError, scoped, send, sendJson } from "./request";
 export { billing, pullBilling, setCurrency, spend } from "./spend";
 export {
+	noteStats,
 	openFile,
 	paths,
 	removeTask,

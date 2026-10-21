@@ -1,5 +1,6 @@
 import type {
 	Landed,
+	NoteStats,
 	PeriodId,
 	Stats,
 } from "@stringsync/splates-server/stats/browser";
@@ -75,6 +76,11 @@ export async function stats(
 		throw new ApiError("error", `${path}: ${response.status}`);
 	}
 	return (await response.json()) as Stats;
+}
+
+/** How note pointers did in this page's project: the Notes section of the Stats page. */
+export async function noteStats(): Promise<NoteStats> {
+	return (await send("/api/stats/notes", { method: "GET" })) as NoteStats;
 }
 
 /**

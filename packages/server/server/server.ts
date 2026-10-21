@@ -812,6 +812,9 @@ export async function dev(
 						POST: talk(scoped((project) => project.dismissCred)),
 					},
 					"/api/notes": { GET: scoped((project) => project.listNotes) },
+					"/api/stats/notes": {
+						GET: scoped((project) => project.noteStats),
+					},
 					"/api/notes/read": { GET: scoped((project) => project.readNote) },
 					// Through a tunnel only once Access verified who is asking: a save
 					// lands on trunk.
