@@ -1,4 +1,7 @@
-import type { AreaProgress } from "@stringsync/splates-server/setup";
+import type {
+	AreaProgress,
+	FieldProgress,
+} from "@stringsync/splates-server/setup";
 import {
 	BotIcon,
 	CheckIcon,
@@ -16,7 +19,13 @@ import {
 	FieldLabel,
 } from "#web/components/ui/field.tsx";
 import { Input } from "#web/components/ui/input.tsx";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "#web/components/ui/native-select.tsx";
+import { Switch } from "#web/components/ui/switch.tsx";
 import { CredPrivacy } from "./cred-privacy";
+import { Markdown } from "./markdown";
 
 /** The agents' areas, which the index lists first, in this order. */
 export const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
@@ -308,4 +317,54 @@ export function JourneyDone({
 			</div>
 		</div>
 	);
+}
+
+/** One field a step's shape asks, as the page's form sends it. */
+export function StepField({ field }: { field: FieldProgress }): JSX.Element {
+	switch (field.kind) {
+		case "cred":
+			return (
+				<CredField
+					name={field.name}
+					label={field.label}
+					help={
+						field.help === null ? undefined : (
+							<Markdown text={field.help} inline />
+						)
+					}
+					saved={field.saved}
+				/>
+			);
+		case "text":
+			return (
+				<Field>
+					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
+					<Input
+						id={field.name}
+						name={field.name}
+						placeholder={field.placeholder ?? undefined}
+					/>
+				</Field>
+			);
+		case "choice":
+			return (
+				<Field>
+					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
+					<NativeSelect id={field.name} name={field.name}>
+						{field.options.map((option) => (
+							<NativeSelectOption key={option.value} value={option.value}>
+								{option.label}
+							</NativeSelectOption>
+						))}
+					</NativeSelect>
+				</Field>
+			);
+		case "yes-no":
+			return (
+				<Field orientation="horizontal">
+					<Switch id={field.name} name={field.name} />
+					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
+				</Field>
+			);
+	}
 }

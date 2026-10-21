@@ -1,3 +1,14 @@
+export {
+	ACCESS_ENVIRONMENT,
+	ACCESS_ROLE,
+	accessCommand,
+	accessEnvironmentExists,
+	accessEnvironmentIn,
+	accessEnvironmentSignsIn,
+	CLOUDSHELL_URL,
+	pulumiOrg,
+	writeAccessEnvironment,
+} from "./access";
 export type { BoxStanding, CoordinatorBoxOptions } from "./box";
 export { BOX_USER, CoordinatorBox } from "./box";
 export { deployKey, neededCreds } from "./creds";

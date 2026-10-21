@@ -1,18 +1,8 @@
 import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
-import type {
-	AreaProgress,
-	FieldProgress,
-} from "@stringsync/splates-server/setup";
+import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useContext, useEffect, useState } from "react";
-import { Field, FieldLabel } from "#web/components/ui/field.tsx";
-import { Input } from "#web/components/ui/input.tsx";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "#web/components/ui/native-select.tsx";
-import { Switch } from "#web/components/ui/switch.tsx";
 import { RulesEditor } from "./auto-pick-rules";
 import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
@@ -27,7 +17,7 @@ import {
 	MoveWatch,
 	MoveWatchContext,
 } from "./setup-coordinator-steps";
-import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
+import { JourneyDone, SetupIndex, StepField, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
 import { JOURNEY_ENDS, STEP_BODIES, STEP_STOPS } from "./setup-steps";
@@ -201,54 +191,4 @@ function Journey({
 			</RulesEditorContext>
 		</MoveWatchContext>
 	);
-}
-
-/** One field a step's shape asks, as the page's form sends it. */
-function StepField({ field }: { field: FieldProgress }): JSX.Element {
-	switch (field.kind) {
-		case "cred":
-			return (
-				<CredField
-					name={field.name}
-					label={field.label}
-					help={
-						field.help === null ? undefined : (
-							<Markdown text={field.help} inline />
-						)
-					}
-					saved={field.saved}
-				/>
-			);
-		case "text":
-			return (
-				<Field>
-					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
-					<Input
-						id={field.name}
-						name={field.name}
-						placeholder={field.placeholder ?? undefined}
-					/>
-				</Field>
-			);
-		case "choice":
-			return (
-				<Field>
-					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
-					<NativeSelect id={field.name} name={field.name}>
-						{field.options.map((option) => (
-							<NativeSelectOption key={option.value} value={option.value}>
-								{option.label}
-							</NativeSelectOption>
-						))}
-					</NativeSelect>
-				</Field>
-			);
-		case "yes-no":
-			return (
-				<Field orientation="horizontal">
-					<Switch id={field.name} name={field.name} />
-					<FieldLabel htmlFor={field.name}>{field.label}</FieldLabel>
-				</Field>
-			);
-	}
 }

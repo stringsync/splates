@@ -1,5 +1,6 @@
 export type { CoordinatorNeeds } from "./area-coordinator";
 export { SETUP_AREAS } from "./areas";
+export type { AwsAccess } from "./aws-access";
 export {
 	CoordinatorMoveRoutes,
 	coordinatorMoved,

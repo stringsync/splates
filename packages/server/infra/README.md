@@ -28,24 +28,49 @@ who prefer CDK constructs, but it is newer and TypeScript-only.
 
 ## Short-lived AWS credentials with Pulumi ESC
 
-An environment (`pulumi env init <org>/splates-aws`) that logs `pulumi up` in
-over OIDC, then `imports: [<org>/splates-aws]` under the stack's
-`environment:`:
+The setup step `coordinator-access` signs `pulumi up` and splates in to AWS
+with no long-lived key. In AWS CloudShell, one line deploys
+`pulumi-access.yaml` as the CloudFormation stack `splates-pulumi`: an OIDC
+provider for `api.pulumi.com/oidc` (audience `aws:<org>`) and the role
+`splates-pulumi`, which only that Pulumi organization's ESC environments may
+assume, for an hour, and whose policy covers what this stack makes, the box's
+console and Parameter Store, and cloud workers:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/stringsync/splates/main/packages/server/infra/pulumi-access.yaml -o splates-pulumi.yaml && aws cloudformation deploy --stack-name splates-pulumi --template-file splates-pulumi.yaml --capabilities CAPABILITY_NAMED_IAM --parameter-overrides PulumiOrg=<org>
+```
+
+An account that already has the OIDC provider passes its ARN as
+`ProviderArn=<arn>` too. The step then makes the environment
+`<org>/splates/aws` (`pulumi env init <org>/splates/aws -f -`) and has the
+stack import it, as `splates server infra init` also writes once it is
+there:
 
 ```yaml
+# Pulumi.<stack>.yaml
+environment:
+  - splates/aws
+```
+
+```yaml
+# <org>/splates/aws
 values:
   aws:
     login:
       fn::open::aws-login:
         oidc:
           duration: 1h
-          roleArn: arn:aws:iam::<account>:role/pulumi-deploy
-          sessionName: pulumi-esc
+          roleArn: arn:aws:iam::<account>:role/splates-pulumi
+          sessionName: splates
   environmentVariables:
     AWS_ACCESS_KEY_ID: ${aws.login.accessKeyId}
     AWS_SECRET_ACCESS_KEY: ${aws.login.secretAccessKey}
     AWS_SESSION_TOKEN: ${aws.login.sessionToken}
 ```
+
+`pulumi env run <org>/splates/aws -- aws sts get-caller-identity` checks it.
+ESC needs the stack in Pulumi Cloud; with state in S3, `aws configure` a
+profile instead.
 
 ## State outside Pulumi Cloud
 

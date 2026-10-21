@@ -1,10 +1,16 @@
-import type { CoordinatorNeeds } from "@stringsync/splates-server/setup";
+import type {
+	AwsAccess,
+	CoordinatorNeeds,
+} from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
 import { createContext, type JSX, useContext } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, sleep } from "webappwiz/time";
+import { Button } from "#web/components/ui/button.tsx";
+import { copiedLabel, useCopy } from "./card";
 import { Markdown } from "./markdown";
 import { coordinatorMoveProgress, startCoordinatorMove } from "./setup-api";
+import { StepField } from "./setup-form";
 import type { BrowserSteps } from "./setup-journey";
 import type { StepBodies } from "./setup-steps";
 
@@ -112,8 +118,22 @@ export function coordinatorBrowserSteps(watch: MoveWatch): BrowserSteps {
 	return { "coordinator-move": () => watch.run() };
 }
 
-/** The creds page, listing each cred the box lacks, and the move's page, following it. */
+/**
+ * The sign-in page, with CloudShell's line to copy; the creds page, listing
+ * each cred the box lacks; and the move's page, following it.
+ */
 export const COORDINATOR_STEPS: StepBodies = {
+	"coordinator-access": ({ step }) => (
+		<>
+			<p>
+				<Markdown text={step.user} inline />
+			</p>
+			<AccessLine access={step.data as AwsAccess | null} />
+			{step.fields.map((field) => (
+				<StepField key={field.name} field={field} />
+			))}
+		</>
+	),
 	"coordinator-creds": ({ step }) => {
 		const needs = (step.data as CoordinatorNeeds | null)?.needs ?? [];
 		return (
@@ -135,6 +155,47 @@ export const COORDINATOR_STEPS: StepBodies = {
 	},
 	"coordinator-move": ({ step }) => <MoveBody user={step.user} />,
 };
+
+/**
+ * CloudShell's link and the line to paste there, or, before Pulumi is
+ * logged in to an organization, what to do first.
+ */
+function AccessLine({ access }: { access: AwsAccess | null }): JSX.Element {
+	const { copied, copy } = useCopy();
+	if (access === null) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				Log Pulumi in to Pulumi Cloud first (the step before), and the line to
+				paste shows here.
+			</p>
+		);
+	}
+	return (
+		<div className="flex flex-col gap-2">
+			<a
+				href={access.cloudShell}
+				target="_blank"
+				rel="noreferrer"
+				className="text-sm underline underline-offset-4"
+			>
+				Open AWS CloudShell
+			</a>
+			<pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md border bg-muted px-2 py-1 font-mono text-[12px]">
+				{access.command}
+			</pre>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="self-start"
+				title={copied.state === "failed" ? copied.error : undefined}
+				onClick={() => copy(access.command)}
+			>
+				<span aria-live="polite">{copiedLabel(copied, "Copy the line")}</span>
+			</Button>
+		</div>
+	);
+}
 
 /** The move's page: what to expect, then where the move stands once Next starts it. */
 function MoveBody({ user }: { user: string }): JSX.Element {

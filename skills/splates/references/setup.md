@@ -111,11 +111,15 @@ through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
 When the user asks for an always-on server, that is the Cloud server setup
-area, the AWS path, each step checked from real state: `coordinator-access`
-(how `pulumi up` and splates sign in to AWS: a Pulumi ESC environment with OIDC
-recommended, an AWS profile the fallback; done when `aws sts get-caller-identity`
-succeeds), `coordinator-pulumi` (Pulumi installed and logged in to Pulumi Cloud
-or an S3 backend of the user's own; done when `pulumi whoami` answers),
+area, the AWS path, each step checked from real state: `coordinator-pulumi`
+(Pulumi installed and logged in to Pulumi Cloud or an S3 backend of the
+user's own; done when `pulumi whoami` answers), `coordinator-access` (how
+`pulumi up` and splates sign in to AWS with no long-lived key: the user pastes
+the page's line into AWS CloudShell, which makes the role `splates-pulumi`
+and prints the account id, then gives the page the id, whose Next makes the
+Pulumi ESC environment `<org>/splates/aws` and has the infra stack import it;
+an AWS profile the fallback; done when either signs in, and then the user
+deletes any root access keys),
 `coordinator-infra` (`splates server infra init <dir>` has written the project
 and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
 `coordinator-up` (the user runs `pulumi up`; done when `pulumi stack output

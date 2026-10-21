@@ -9,6 +9,8 @@ export interface InfraInitOptions {
 	email: string;
 	region: string;
 	projects: DeployKeyProject[];
+	/** A Pulumi ESC environment the stack imports, as `splates/aws`; none imports none. */
+	environment?: string;
 	fs: Fs;
 }
 
@@ -28,6 +30,62 @@ export const SECRETS = [
 
 /** The Cloudflare ids of the account and zone, which only its dashboard shows. */
 const IDS = ["splates:accountId", "splates:zoneId"] as const;
+
+/**
+ * Writes the user's own Pulumi project, which imports the components of
+ * `@stringsync/splates-server/infra`, with what setup knows in the stack's
+ * config. Run again, it writes only what is not so already: the program and
+ * `Pulumi.yaml` as given, and in the stack's config only the keys it lacks,
+ * so values the user changed stay.
+ */
+export async function infraInit(
+	opts: InfraInitOptions,
+): Promise<InfraInitResult> {
+	const { dir, fs } = opts;
+	const written: string[] = [];
+	const put = async (name: string, text: string) => {
+		const path = `${dir}/${name}`;
+		if ((await fs.exists(path)) && (await fs.read(path)) === text) {
+			return;
+		}
+		await fs.write(path, text);
+		written.push(name);
+	};
+	await fs.mkdir(dir, { recursive: true });
+	await put("Pulumi.yaml", PULUMI_YAML);
+	await put("index.ts", INDEX_TS);
+
+	const stackFile = `Pulumi.${opts.stack}.yaml`;
+	const stack = await readStack(fs, `${dir}/${stackFile}`);
+	const wanted: Record<string, unknown> = {
+		"aws:region": opts.region,
+		"splates:host": opts.host,
+		"splates:email": opts.email,
+		"splates:projects": opts.projects,
+	};
+	const config = { ...stack.config };
+	for (const [key, value] of Object.entries(wanted)) {
+		if (!(key in config)) {
+			config[key] = value;
+		}
+	}
+	await put(
+		stackFile,
+		stackText(withEnvironment({ ...stack, config }, opts.environment)),
+	);
+
+	return {
+		written,
+		todo: [
+			...IDS.filter((key) => !(key in config)).map(
+				(key) => `pulumi config set ${key} <id>`,
+			),
+			...SECRETS.filter((key) => !(key in config)).map(
+				(key) => `pulumi config set --secret ${key}`,
+			),
+		],
+	};
+}
 
 const PULUMI_YAML = `name: splates
 runtime:
@@ -73,61 +131,58 @@ export const tunnelRecord = {
 `;
 
 /**
- * Writes the user's own Pulumi project, which imports the components of
- * `@stringsync/splates-server/infra`, with what setup knows in the stack's
- * config. Run again, it writes only what is not so already: the program and
- * `Pulumi.yaml` as given, and in the stack's config only the keys it lacks,
- * so values the user changed stay.
+ * Has the stack in `path` import ESC environment `environment`, as
+ * `Pulumi.<stack>.yaml`'s `environment:` lists it, keeping the rest of the
+ * file; answers whether it changed anything.
  */
-export async function infraInit(
-	opts: InfraInitOptions,
-): Promise<InfraInitResult> {
-	const { dir, fs } = opts;
-	const written: string[] = [];
-	const put = async (name: string, text: string) => {
-		const path = `${dir}/${name}`;
-		if ((await fs.exists(path)) && (await fs.read(path)) === text) {
-			return;
-		}
-		await fs.write(path, text);
-		written.push(name);
-	};
-	await fs.mkdir(dir, { recursive: true });
-	await put("Pulumi.yaml", PULUMI_YAML);
-	await put("index.ts", INDEX_TS);
-
-	const stackFile = `Pulumi.${opts.stack}.yaml`;
-	const path = `${dir}/${stackFile}`;
-	const existing = (await fs.exists(path))
-		? ((
-				Bun.YAML.parse(await fs.read(path)) as {
-					config?: Record<string, unknown>;
-				} | null
-			)?.config ?? {})
-		: {};
-	const wanted: Record<string, unknown> = {
-		"aws:region": opts.region,
-		"splates:host": opts.host,
-		"splates:email": opts.email,
-		"splates:projects": opts.projects,
-	};
-	const config = { ...existing };
-	for (const [key, value] of Object.entries(wanted)) {
-		if (!(key in config)) {
-			config[key] = value;
-		}
+export async function importEnvironment(
+	fs: Fs,
+	path: string,
+	environment: string,
+): Promise<boolean> {
+	const stack = await readStack(fs, path);
+	const imported = withEnvironment(stack, environment);
+	if (imported === stack) {
+		return false;
 	}
-	await put(stackFile, `${Bun.YAML.stringify({ config }, null, 2)}\n`);
+	await fs.write(path, stackText(imported));
+	return true;
+}
 
+/** A stack's settings file as YAML reads it: its config, and whatever else the user put there. */
+type StackFile = Record<string, unknown> & { config: Record<string, unknown> };
+
+async function readStack(fs: Fs, path: string): Promise<StackFile> {
+	const parsed = (await fs.exists(path))
+		? (Bun.YAML.parse(await fs.read(path)) as Record<string, unknown> | null)
+		: null;
+	const config = parsed?.config;
 	return {
-		written,
-		todo: [
-			...IDS.filter((key) => !(key in config)).map(
-				(key) => `pulumi config set ${key} <id>`,
-			),
-			...SECRETS.filter((key) => !(key in config)).map(
-				(key) => `pulumi config set --secret ${key}`,
-			),
-		],
+		...parsed,
+		config:
+			typeof config === "object" && config !== null
+				? (config as Record<string, unknown>)
+				: {},
 	};
+}
+
+/** `stack` importing `environment` too, itself when it already does or there is none. */
+function withEnvironment(
+	stack: StackFile,
+	environment: string | undefined,
+): StackFile {
+	const listed = stack.environment ?? [];
+	// Any other shape is the user's own, to edit by hand.
+	if (
+		environment === undefined ||
+		!Array.isArray(listed) ||
+		listed.includes(environment)
+	) {
+		return stack;
+	}
+	return { ...stack, environment: [...listed, environment] };
+}
+
+function stackText(stack: StackFile): string {
+	return `${Bun.YAML.stringify(stack, null, 2)}\n`;
 }

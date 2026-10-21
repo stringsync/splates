@@ -11,7 +11,7 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
-import { AWS_ACCESS_STEP } from "./aws-access";
+import { awsAccessStep } from "./aws-access";
 import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
@@ -52,7 +52,7 @@ export function coordinatorArea(
 	const pulumiStep: SetupStep = {
 		id: "coordinator-pulumi",
 		title: "Install Pulumi and log in",
-		why: "Pulumi makes and keeps the box as code in your account. It keeps the stack's state in Pulumi Cloud or in an S3 bucket of your own.",
+		why: "Pulumi makes and keeps the box as code in your account. It keeps the stack's state in Pulumi Cloud, whose ESC environments sign in to AWS with no long-lived key, or in an S3 bucket of your own.",
 		user: "Install Pulumi (`brew install pulumi`), then `pulumi login` to Pulumi Cloud, or `pulumi login s3://<bucket>` for a backend of your own, and press Next.",
 		agent:
 			"Have the user install Pulumi and log in to Pulumi Cloud or an S3 backend of their own. The step is done when `pulumi whoami` answers.",
@@ -71,6 +71,8 @@ export function coordinatorArea(
 			run: async () => {},
 		},
 	};
+
+	const accessStep = awsAccessStep([pulumiStep]);
 
 	const infraStep: SetupStep = {
 		id: "coordinator-infra",
@@ -148,7 +150,7 @@ export function coordinatorArea(
 		agent:
 			"Have the user set the stack's config and secrets and run `pulumi up` in the infra project's directory. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address.",
 		optional: true,
-		after: [AWS_ACCESS_STEP, pulumiStep, infraStep],
+		after: [accessStep, pulumiStep, infraStep],
 		detail: async () =>
 			"The Pulumi stack makes the instance, its role, snapshots and creds.",
 		notDone:
@@ -247,8 +249,8 @@ export function coordinatorArea(
 		id: "coordinator",
 		title: "Cloud server",
 		steps: [
-			AWS_ACCESS_STEP,
 			pulumiStep,
+			accessStep,
 			infraStep,
 			remotesStep,
 			upStep,

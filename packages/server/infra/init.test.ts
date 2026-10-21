@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { FakeFs } from "webappwiz/system/testing";
-import { infraInit } from "./init";
+import { importEnvironment, infraInit } from "./init";
 
 const options = (fs: FakeFs) => ({
 	dir: "/p",
@@ -32,4 +32,36 @@ test("run again, it writes nothing and keeps what the user changed", async () =>
 	const again = await infraInit(options(fs));
 	expect(again.written).toEqual([]);
 	expect(await fs.read("/p/Pulumi.prod.yaml")).toContain("eu-west-1");
+});
+
+test("has the stack import the ESC environment it is given, once", async () => {
+	const fs = new FakeFs();
+	await infraInit({ ...options(fs), environment: "splates/aws" });
+	await infraInit({ ...options(fs), environment: "splates/aws" });
+	const stack = Bun.YAML.parse(await fs.read("/p/Pulumi.prod.yaml")) as {
+		environment: string[];
+		config: Record<string, unknown>;
+	};
+	expect(stack.environment).toEqual(["splates/aws"]);
+	expect(stack.config["splates:host"]).toBe("splates.example.com");
+});
+
+test("imports an environment into a stack written already, keeping the rest", async () => {
+	const fs = new FakeFs();
+	await infraInit(options(fs));
+	await fs.write(
+		"/p/Pulumi.prod.yaml",
+		`${await fs.read("/p/Pulumi.prod.yaml")}environment:\n  - me/other\n`,
+	);
+	expect(
+		await importEnvironment(fs, "/p/Pulumi.prod.yaml", "splates/aws"),
+	).toBe(true);
+	expect(
+		await importEnvironment(fs, "/p/Pulumi.prod.yaml", "splates/aws"),
+	).toBe(false);
+	const text = await fs.read("/p/Pulumi.prod.yaml");
+	expect(Bun.YAML.parse(text)).toMatchObject({
+		environment: ["me/other", "splates/aws"],
+		config: { "aws:region": "us-east-1" },
+	});
 });

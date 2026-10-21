@@ -37,10 +37,10 @@ describe("COORDINATOR_AREA's up step", () => {
 		expect(step?.fields).toBeUndefined();
 	});
 
-	it("walks access, Pulumi, the infra project, remotes, up, creds, move", () => {
+	it("walks Pulumi, access, the infra project, remotes, up, creds, move", () => {
 		expect(COORDINATOR_AREA.steps.map((each) => each.id)).toEqual([
-			"coordinator-access",
 			"coordinator-pulumi",
+			"coordinator-access",
 			"coordinator-infra",
 			"coordinator-remotes",
 			"coordinator-up",

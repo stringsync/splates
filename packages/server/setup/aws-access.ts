@@ -1,30 +1,124 @@
-import { CLOUD_ACCESS_MISSING, cloudAccepted } from "./cloud";
+import {
+	ACCESS_ENVIRONMENT,
+	ACCESS_ROLE,
+	accessCommand,
+	accessEnvironmentIn,
+	accessEnvironmentSignsIn,
+	CLOUDSHELL_URL,
+	CoordinatorBox,
+	pulumiOrg,
+	writeAccessEnvironment,
+} from "../coordinator";
+import { importEnvironment } from "../infra/init";
+import { cloudAccepted } from "./cloud";
 import { coordinatorMoved } from "./coordinator-move";
 import type { SetupStep } from "./setup";
 
+/** What the access step hands its page: the CloudShell line to paste, filled in for the user's Pulumi organization. */
+export interface AwsAccess extends Record<string, unknown> {
+	/** Where AWS CloudShell opens. */
+	cloudShell: string;
+	/** The line that makes the role and prints the account id. */
+	command: string;
+	/** The ESC environment Next makes, as `pulumi env` names it. */
+	environment: string;
+}
+
+/** Why the step is not done yet. */
+const ACCESS_MISSING =
+	"AWS takes no sign-in found here: paste the account id CloudShell printed, or `aws configure` a profile, then press Next.";
+
+/** The field the account id goes in. */
+const ACCOUNT = "account";
+
 /**
- * How `pulumi up` and splates sign in to AWS, one step both the Cloud server
- * and the Workers areas read, so a user signs in once.
+ * How `pulumi up` and splates sign in to AWS, with no long-lived key: a
+ * line in AWS CloudShell makes an OIDC provider for Pulumi Cloud and the
+ * role `splates-pulumi`, then Next makes the Pulumi ESC environment that
+ * assumes it for an hour at a time and has the infra stack import it.
+ * An AWS profile here does as well. `after` is the Pulumi login, whose
+ * organization the role trusts.
  */
-export const AWS_ACCESS_STEP: SetupStep = {
-	id: "coordinator-access",
-	title: "Sign in to AWS",
-	why: "`pulumi up` makes the server's box in your AWS account, and splates reads Parameter Store and makes cloud workers there. Both sign in the same way, so you do it once.",
-	user: "Recommended: a Pulumi ESC environment with AWS OIDC login, which `pulumi up` runs under and gives no long-lived keys. Otherwise `aws configure` an AWS profile. Then press Next.",
-	agent:
-		"Have the user sign in to AWS: a Pulumi ESC environment with OIDC is best (`pulumi env run <env> -- aws sts get-caller-identity` checks it), an AWS profile (`aws configure`, or `aws sso login`) the fallback. The step is done when `aws sts get-caller-identity` succeeds here.",
-	optional: true,
-	after: [],
-	check: async (machine) =>
-		(await coordinatorMoved(machine)) ||
-		// With no way to run the AWS CLI here, there is no sign-in to find.
-		(machine.ps !== undefined && (await cloudAccepted(machine))),
-	notDone: CLOUD_ACCESS_MISSING,
-	undo: {
-		removes: async () => [],
-		leaves: async () => [
-			"Your AWS sign-in, the profile or the Pulumi ESC environment: splates only reads it.",
+export function awsAccessStep(after: readonly SetupStep[]): SetupStep {
+	return {
+		id: "coordinator-access",
+		title: "Sign in to AWS",
+		why: "`pulumi up` makes the server's box in your AWS account, and splates reads the box's console and Parameter Store and makes cloud workers there. A Pulumi ESC environment signs both in for an hour at a time, so no AWS key is kept anywhere.",
+		user: `Open AWS CloudShell, signed in to the console as you are, paste the line below and press Enter. It makes the role \`${ACCESS_ROLE}\` that Pulumi ESC signs in as, and prints your account id: paste that here and press Next. Once it signs in, delete any root access keys (IAM, Security credentials). Rather keep an AWS profile? \`aws configure\` one, leave the id empty and press Next.`,
+		agent: `Have the user open AWS CloudShell, paste the line the step's page shows (it deploys the CloudFormation stack \`${ACCESS_ROLE}\` from \`packages/server/infra/pulumi-access.yaml\` and prints the account id), and give the account id to the page, whose Next makes the ESC environment \`<org>/${ACCESS_ENVIRONMENT}\` and has the infra stack import it. When the account already has an OIDC provider for \`api.pulumi.com/oidc\`, the deploy fails: add \`ProviderArn=<its arn>\` to the line's overrides. \`pulumi env run <org>/${ACCESS_ENVIRONMENT} -- aws sts get-caller-identity\` checks it. Then have them delete any root access keys (IAM, Security credentials). The fallback is an AWS profile (\`aws configure\`, or \`aws sso login\`): the step is done when either signs in.`,
+		optional: true,
+		after,
+		fields: [
+			{
+				kind: "text",
+				name: ACCOUNT,
+				label: "AWS account id",
+				placeholder: "123456789012",
+				optional: true,
+			},
 		],
-		run: async () => {},
-	},
-};
+		doing: "Making the Pulumi ESC environment…",
+		data: async (machine): Promise<AwsAccess | null> => {
+			const org = machine.ps && (await pulumiOrg(machine.ps));
+			return org
+				? {
+						cloudShell: CLOUDSHELL_URL,
+						command: accessCommand(org),
+						environment: accessEnvironmentIn(org),
+					}
+				: null;
+		},
+		submit: async (machine, answers) => {
+			const account = String(answers[ACCOUNT] ?? "").trim();
+			if (account === "") {
+				return;
+			}
+			if (!/^\d{12}$/.test(account)) {
+				throw new Error(
+					"An AWS account id is 12 digits, as CloudShell's last line prints.",
+				);
+			}
+			const { ps } = machine;
+			const org = ps && (await pulumiOrg(ps));
+			if (!ps || !org) {
+				throw new Error("Pulumi is not logged in here: `pulumi login` first.");
+			}
+			await writeAccessEnvironment(ps, org, account);
+			const infra = await new CoordinatorBox({
+				ps,
+				fs: machine.fs,
+				home: machine.home,
+			}).infra();
+			if (infra !== null) {
+				await importEnvironment(
+					machine.fs,
+					`${infra.dir}/Pulumi.${infra.stack ?? "prod"}.yaml`,
+					ACCESS_ENVIRONMENT,
+				);
+			}
+		},
+		check: async (machine) => {
+			if (await coordinatorMoved(machine)) {
+				return true;
+			}
+			// With no way to run the AWS CLI here, there is no sign-in to find.
+			const { ps } = machine;
+			if (ps === undefined) {
+				return false;
+			}
+			if (await cloudAccepted(machine)) {
+				return true;
+			}
+			const org = await pulumiOrg(ps);
+			return org !== null && (await accessEnvironmentSignsIn(ps, org));
+		},
+		notDone: ACCESS_MISSING,
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				`Your AWS sign-in: the role, which \`aws cloudformation delete-stack --stack-name ${ACCESS_ROLE}\` in CloudShell removes, and the ESC environment, which \`pulumi env rm <org>/${ACCESS_ENVIRONMENT}\` removes; or the profile. splates only reads them.`,
+			],
+			run: async () => {},
+		},
+	};
+}

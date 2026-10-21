@@ -92,12 +92,45 @@ describe("Cloud server journey", () => {
 		"coordinator-remotes": "done",
 	};
 
-	it("opens on signing in to AWS, asking for no token", async () => {
+	it("opens on Pulumi, asking for no token", async () => {
 		const view = open(progress);
 		await click(view, "Set up Cloud server");
 
-		expect(view.getByRole("form", { name: "Sign in to AWS" }));
+		expect(view.getByRole("form", { name: "Install Pulumi and log in" }));
 		expect(view.queryByLabelText(/API token/)).toBeNull();
+	});
+
+	it("signs in to AWS with CloudShell's line and the account id it prints", async () => {
+		const at = with_({ "coordinator-pulumi": "done" });
+		const view = open({
+			...at,
+			areas: at.areas.map((area) => ({
+				...area,
+				steps: area.steps.map((step) =>
+					step.id === "coordinator-access"
+						? {
+								...step,
+								data: {
+									cloudShell: "https://console.aws.amazon.com/cloudshell/home",
+									command: "aws cloudformation deploy PulumiOrg=acme",
+									environment: "acme/splates/aws",
+								},
+							}
+						: step,
+				),
+			})),
+		});
+		await click(view, "Set up Cloud server");
+
+		expect(view.getByRole("form", { name: "Sign in to AWS" }));
+		expect(
+			view
+				.getByRole("link", { name: "Open AWS CloudShell" })
+				.getAttribute("href"),
+		).toBe("https://console.aws.amazon.com/cloudshell/home");
+		expect(view.getByText("aws cloudformation deploy PulumiOrg=acme"));
+		expect(view.getByRole("button", { name: "Copy the line" }));
+		expect(view.getByLabelText("AWS account id"));
 	});
 
 	it("lists each cred the box lacks after a failed Next", async () => {

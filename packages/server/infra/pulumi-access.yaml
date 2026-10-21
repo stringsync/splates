@@ -1,0 +1,180 @@
+# What `coordinator-access` has the user make in AWS CloudShell: an OIDC
+# provider for Pulumi Cloud and the role `splates-pulumi` that the Pulumi ESC
+# environment `<org>/splates/aws` assumes, for an hour at a time, so neither
+# `pulumi up` nor splates holds a long-lived AWS key. Its policy is what the
+# infra project's stack makes and what splates does with AWS from the Mac:
+# the box's console, its Parameter Store and cloud workers.
+#
+# Long-form intrinsics (`Fn::Sub:`) keep it plain YAML, which its test reads.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Short-lived AWS access for splates's Pulumi stack, through Pulumi ESC
+Parameters:
+  PulumiOrg:
+    Type: String
+    Description: The Pulumi organization whose ESC environments may assume the role
+    AllowedPattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+  ProviderArn:
+    Type: String
+    Default: ""
+    Description: An OIDC provider for api.pulumi.com/oidc the account already has; empty makes one
+Conditions:
+  MakeProvider:
+    Fn::Equals: [{ Ref: ProviderArn }, ""]
+Resources:
+  PulumiOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeProvider
+    Properties:
+      Url: https://api.pulumi.com/oidc
+      ClientIdList:
+        - Fn::Sub: aws:${PulumiOrg}
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: splates-pulumi
+      Description: What splates's Pulumi ESC environment signs in to AWS as
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated:
+                Fn::If:
+                  - MakeProvider
+                  - Ref: PulumiOidc
+                  - Ref: ProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                api.pulumi.com/oidc:aud:
+                  Fn::Sub: aws:${PulumiOrg}
+              StringLike:
+                api.pulumi.com/oidc:sub:
+                  Fn::Sub: pulumi:environments:org:${PulumiOrg}:env:*
+      Policies:
+        - PolicyName: splates-stack
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The box's VPC, subnet, routes, security groups, key pair,
+              # instance and image lookup, and the workers splates makes.
+              - Sid: Ec2
+                Effect: Allow
+                Action:
+                  - ec2:Describe*
+                  - ec2:Get*
+                  - ec2:CreateTags
+                  - ec2:DeleteTags
+                  - ec2:CreateVpc
+                  - ec2:DeleteVpc
+                  - ec2:ModifyVpcAttribute
+                  - ec2:CreateSubnet
+                  - ec2:DeleteSubnet
+                  - ec2:ModifySubnetAttribute
+                  - ec2:CreateInternetGateway
+                  - ec2:DeleteInternetGateway
+                  - ec2:AttachInternetGateway
+                  - ec2:DetachInternetGateway
+                  - ec2:CreateRouteTable
+                  - ec2:DeleteRouteTable
+                  - ec2:AssociateRouteTable
+                  - ec2:DisassociateRouteTable
+                  - ec2:CreateRoute
+                  - ec2:DeleteRoute
+                  - ec2:ReplaceRoute
+                  - ec2:CreateSecurityGroup
+                  - ec2:DeleteSecurityGroup
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:ImportKeyPair
+                  - ec2:DeleteKeyPair
+                  - ec2:RunInstances
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                  - ec2:TerminateInstances
+                  - ec2:ModifyInstanceAttribute
+                  - ec2:ModifyInstanceMetadataOptions
+                  - ec2:AssociateIamInstanceProfile
+                  - ec2:CreateImage
+                  - ec2:DeregisterImage
+                  - ec2:DeleteSnapshot
+                Resource: "*"
+              # The box's and the workers' roles and instance profiles, and
+              # the snapshots' role, by the names the stack gives them.
+              - Sid: Iam
+                Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:UpdateRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:GetRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListInstanceProfilesForRole
+                  - iam:PassRole
+                  - iam:GetInstanceProfile
+                  - iam:CreateInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:TagInstanceProfile
+                  - iam:AddRoleToInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                Resource:
+                  - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/splates-*
+                  - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/AWSDataLifecycleManagerDefaultRole
+                  - Fn::Sub: arn:aws:iam::${AWS::AccountId}:instance-profile/splates-*
+              # The box's daily snapshots.
+              - Sid: Snapshots
+                Effect: Allow
+                Action:
+                  - dlm:GetLifecyclePolicy
+                  - dlm:GetLifecyclePolicies
+                  - dlm:CreateLifecyclePolicy
+                  - dlm:UpdateLifecyclePolicy
+                  - dlm:DeleteLifecyclePolicy
+                  - dlm:TagResource
+                  - dlm:UntagResource
+                  - dlm:ListTagsForResource
+                Resource: "*"
+              # The creds the stack puts in the box's Parameter Store.
+              - Sid: Parameters
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:AddTagsToResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:ListTagsForResource
+                Resource:
+                  Fn::Sub: arn:aws:ssm:*:${AWS::AccountId}:parameter/splates/*
+              - Sid: DescribeParameters
+                Effect: Allow
+                Action: ssm:DescribeParameters
+                Resource: "*"
+              - Sid: SecureStrings
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Encrypt
+                Resource: "*"
+                Condition:
+                  StringLike:
+                    kms:ViaService: ssm.*.amazonaws.com
+Outputs:
+  RoleArn:
+    Description: The role's ARN, which the ESC environment's `roleArn` names
+    Value:
+      Fn::GetAtt: [Role, Arn]

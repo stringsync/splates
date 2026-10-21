@@ -46,8 +46,8 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 	it("lists the steps after the box in the order they are done", () => {
 		expect(Object.keys(steps)).toEqual([
-			"coordinator-access",
 			"coordinator-pulumi",
+			"coordinator-access",
 			"coordinator-infra",
 			"coordinator-remotes",
 			"coordinator-up",
