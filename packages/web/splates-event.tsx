@@ -17,6 +17,7 @@ import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { NamedContext } from "./mentioned";
 import { NoteChip } from "./note-chip";
+import { type ListedPath, NotesPopover } from "./notes-popover";
 import { OpenerContext } from "./openers";
 
 import { credAddress } from "./page-address";
@@ -107,7 +108,9 @@ export type Named =
 	  }
 	| { kind: "cred"; name: string }
 	/** A project note, by its path from the project root. */
-	| { kind: "note"; path: string };
+	| { kind: "note"; path: string }
+	/** Project notes, by their paths from the project root, as one pill. */
+	| { kind: "notes"; notes: readonly ListedPath[] };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -353,6 +356,12 @@ function NamedChip({
 				</span>
 			);
 		}
+		case "notes":
+			return (
+				<span className={cn("min-w-0", GIVES_WAY)}>
+					<NotesPopover title="Read this turn" notes={named.notes} />
+				</span>
+			);
 		case "artifact": {
 			const { conversation, name, version } = named;
 			return (

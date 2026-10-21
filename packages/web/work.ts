@@ -252,11 +252,13 @@ function placed(
 
 /**
  * `pieces` with each run of successful `todo update` events, with nothing
- * between, folded into the first, so a groom reads as one line, and each
- * wait's end folded into its beginning, so it is one line that changes.
+ * between, folded into the first, so a groom reads as one line, each wait's
+ * end folded into its beginning, so it is one line that changes, and every
+ * note read in the turn folded into its first, so reads make one quiet line.
  */
 function folded(pieces: Piece[]): Piece[] {
 	const out: Piece[] = [];
+	let read: Extract<Piece, { type: "event" }> | undefined;
 	for (const piece of pieces) {
 		const last = out.at(-1);
 		const event =
@@ -264,6 +266,8 @@ function folded(pieces: Piece[]): Piece[] {
 		const began = event === null ? undefined : beganWith(out, event);
 		if (event !== null && began !== undefined) {
 			began.also = [...(began.also ?? []), event];
+		} else if (event !== null && isRead(event) && read !== undefined) {
+			read.also = [...(read.also ?? []), event];
 		} else if (
 			!Array.isArray(piece) &&
 			piece.type === "event" &&
@@ -274,6 +278,9 @@ function folded(pieces: Piece[]): Piece[] {
 			isUpdate(last.event)
 		) {
 			last.also = [...(last.also ?? []), piece.event];
+		} else if (event !== null && isRead(event)) {
+			read = { type: "event", event };
+			out.push(read);
 		} else {
 			out.push(
 				!Array.isArray(piece) && piece.type === "event" ? { ...piece } : piece,
@@ -298,6 +305,10 @@ function beganWith(
 			piece.type === "event" &&
 			piece.event.id === began,
 	);
+}
+
+function isRead(event: Event): boolean {
+	return event.action === "note read" && event.reason === null;
 }
 
 function isUpdate(event: Event): boolean {

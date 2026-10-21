@@ -54,8 +54,8 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { NoteChip } from "#web/note-chip.tsx";
-import type { Chip } from "#web/notes-attached.ts";
+import { type Chip, listedOf } from "#web/notes-attached.ts";
+import { NotesPopover } from "#web/notes-popover.tsx";
 import { useLongPress } from "#web/phone-row-menu.tsx";
 import {
 	type Sent,
@@ -274,15 +274,10 @@ export const UserMessage: FC = () => {
 					data-slot="aui_user-message-notes"
 					className="flex flex-wrap gap-1 max-sm:justify-end"
 				>
-					{notes.map((note) => (
-						<NoteChip
-							key={note.path}
-							path={note.path}
-							tier={note.tier ?? "optional"}
-							inContext={note.inContext && note.tier === null}
-							updated={note.updated}
-						/>
-					))}
+					<NotesPopover
+						title="Pointed to for this message"
+						notes={listedOf(notes)}
+					/>
 				</div>
 			)}
 			{typeof sending === "number" && <SendingLine seconds={sending} />}

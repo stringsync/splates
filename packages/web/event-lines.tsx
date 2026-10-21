@@ -171,16 +171,7 @@ const LINES: {
 				}
 			: null,
 	auto: (event) => (event.reason === null ? autoLine(event) : null),
-	"note read": (event) =>
-		event.reason === null
-			? {
-					words: [
-						event.subagent ? "A subagent read" : "Read",
-						{ kind: "note", path: event.path },
-					],
-					at: event.at,
-				}
-			: null,
+	"note read": (event) => readLine(event),
 	// One that went through is a card, which `EventUI` draws in its place.
 	escalate: (event) =>
 		event.reason === null
@@ -245,6 +236,9 @@ function lineOfRun(
 	if (isWait(event)) {
 		return waitLine(event, also.find(isWait) ?? null, going, now);
 	}
+	if (event.action === "note read") {
+		return readLine(event, also);
+	}
 	if (also.length === 0 || event.action !== "task update") {
 		return lineOf(event);
 	}
@@ -254,6 +248,34 @@ function lineOfRun(
 			: [],
 	);
 	return { words: ["Updated", { kind: "todos", todos }], at: event.at };
+}
+
+/**
+ * The one line for the notes read in a turn, `Read 3 notes`, which opens to
+ * list them, each once, a subagent's marked so.
+ */
+function readLine(event: Event, also: Event[] = []): SplatesEventView | null {
+	const notes = new Map<string, boolean>();
+	for (const each of [event, ...also]) {
+		if (each.action === "note read" && each.reason === null) {
+			notes.set(each.path, (notes.get(each.path) ?? true) && each.subagent);
+		}
+	}
+	return notes.size === 0
+		? null
+		: {
+				words: [
+					"Read",
+					{
+						kind: "notes",
+						notes: [...notes].map(([path, subagent]) => ({
+							path,
+							marks: subagent ? ["by a subagent"] : [],
+						})),
+					},
+				],
+				at: event.at,
+			};
 }
 
 function EventLine({

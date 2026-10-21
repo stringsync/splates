@@ -1,5 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import type { Event, JudgedNote } from "@stringsync/splates-server/records";
+import type { ListedPath } from "./notes-popover";
 
 /** The probability a note needs to have been worth attaching, as the router tiers it. */
 const WORTH = 0.5;
@@ -54,4 +55,23 @@ export function withChips(
 				...message,
 				metadata: { custom: { ...message.metadata?.custom, notes: chips } },
 			};
+}
+
+/**
+ * A message's chips as its notes popover lists them: those the agent was told
+ * to read first, then those only pointed to, then those it held already.
+ */
+export function listedOf(chips: readonly Chip[]): ListedPath[] {
+	const rank = (chip: Chip): number =>
+		chip.tier === "now" ? 0 : chip.tier === "optional" ? 1 : 2;
+	return [...chips]
+		.sort((one, other) => rank(one) - rank(other))
+		.map((chip) => ({
+			path: chip.path,
+			marks: [
+				...(chip.tier === "optional" ? ["maybe relevant"] : []),
+				...(chip.tier === null && chip.inContext ? ["in context"] : []),
+				...(chip.updated ? ["updated"] : []),
+			],
+		}));
 }

@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { Event, JudgedNote } from "@stringsync/splates-server/records";
-import { cleanup, second, Testing, turn, waitFor, within } from "./testing";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	second,
+	Testing,
+	turn,
+	waitFor,
+	within,
+} from "./testing";
 
 const judged = (path: string, more: Partial<JudgedNote> = {}): JudgedNote => ({
 	path,
@@ -31,16 +40,24 @@ describe("App's note chips", () => {
 		testing.dispose();
 	});
 
-	it("shows the notes a message came with under it, marking those held or edited", async () => {
+	it("shows the notes a message came with as one pill that lists them and opens each", async () => {
 		testing = new Testing();
+		testing.notes.items = [
+			{
+				path: "/repo/notes/retries.md",
+				description: "When uploads retry",
+				text: "",
+				body: "Retry twice.",
+			},
+		];
 		const view = await testing.openConversations([
 			{
 				...turn(["On it."]),
 				events: [
 					attached([
-						judged("notes/retries.md"),
 						judged("notes/merging.md", { tier: "optional", updated: true }),
 						judged("notes/queue.md", { tier: null, inContext: true }),
+						judged("notes/retries.md"),
 						judged("notes/billing.md", { tier: null, probability: 0.1 }),
 					]),
 				],
@@ -49,17 +66,26 @@ describe("App's note chips", () => {
 		const thread = await waitFor(() =>
 			view.getByRole("region", { name: "Tests" }),
 		);
-		const chips = await waitFor(() => {
+		const pill = await waitFor(() => {
 			const found = thread.querySelector("[data-slot=aui_user-message-notes]");
 			expect(found).not.toBeNull();
-			return found as HTMLElement;
+			return within(found as HTMLElement).getByRole("button");
 		});
-		expect(
-			[...chips.querySelectorAll("button")].map((chip) => chip.textContent),
-		).toEqual(["retries.md", "merging.mdupdated", "queue.mdin context"]);
-		expect(
-			within(chips).getByTitle("notes/queue.md (in context)"),
-		).toBeTruthy();
+		expect(pill.textContent).toBe("3 notes");
+		await act(async () => fireEvent.click(pill));
+		const list = await waitFor(() =>
+			view.getByRole("list", { name: "Pointed to for this message" }),
+		);
+		const rows = within(list).getAllByRole("button");
+		expect(rows.map((row) => row.textContent)).toEqual([
+			"retries.mdWhen uploads retry",
+			"merging.mdmaybe relevantupdated",
+			"queue.mdin context",
+		]);
+		await act(async () => fireEvent.click(rows[0] as HTMLElement));
+		await waitFor(() =>
+			expect(view.getByRole("dialog").textContent).toContain("Retry twice."),
+		);
 	});
 
 	it("shows nothing for a conversation held out from pointers", async () => {
