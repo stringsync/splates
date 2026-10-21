@@ -6,6 +6,7 @@ import { FsStorage } from "../storage";
 import { Adherence } from "./adherence";
 import { landed } from "./landed";
 import { Outcomes } from "./outcomes";
+import { overridesByRule } from "./overrides";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /**
@@ -44,6 +45,18 @@ export class DevOutcomes {
 				project: params.get("project") ?? undefined,
 				judged: await this.adherence.list(),
 			}),
+		);
+	};
+
+	/** `?project=` narrows it to that main tree. */
+	readonly overrides: Handler = async (request) => {
+		const project = new URL(request.url).searchParams.get("project");
+		return Response.json(
+			overridesByRule(
+				(await this.outcomes.list()).filter(
+					(each) => project === null || each.project === project,
+				),
+			),
 		);
 	};
 

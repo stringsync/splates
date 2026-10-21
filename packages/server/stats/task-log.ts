@@ -56,6 +56,8 @@ export interface TaskLog {
 	 * they said, or the task's end.
 	 */
 	waitedMs: number;
+	/** What the person set the model or effort to after Auto pick, in order. */
+	overrides: { aspect: "model" | "effort"; value: string; at: string }[];
 }
 
 /**
@@ -83,6 +85,7 @@ export async function taskLog(
 	// The task's turns, each with the model it ran on, for pricing.
 	const turns: { model: string | null; tokens: TurnTokens }[] = [];
 	let requested: string | null = null;
+	const overrides: TaskLog["overrides"] = [];
 	for (const entry of entries) {
 		const at = "at" in entry && typeof entry.at === "string" ? entry.at : null;
 		if (at !== null && at > until) {
@@ -104,6 +107,14 @@ export async function taskLog(
 			}
 		} else if (entry.kind === "settings") {
 			state.settings = entry.settings;
+		} else if (entry.kind === "override") {
+			if (entry.at >= since) {
+				overrides.push({
+					aspect: entry.aspect,
+					value: entry.value,
+					at: entry.at,
+				});
+			}
 		} else if (entry.kind === "model-request") {
 			requested = entry.model;
 		} else if (entry.kind === "observed-turn") {
@@ -127,13 +138,15 @@ export async function taskLog(
 		}
 	}
 	turns.push(...observedTurns(state, since, until));
-	return summed(state, before ?? state.usage, since, until, {
+	const result = summed(state, before ?? state.usage, since, until, {
 		turns,
 		catalog:
 			LISTED.includes(state.agent) && opts.catalog !== undefined
 				? await opts.catalog()
 				: null,
 	});
+	result.overrides = overrides;
+	return result;
 }
 
 export interface TaskLogOptions {
@@ -262,6 +275,7 @@ function summed(
 		questionRounds: 0,
 		reviewRounds: 0,
 		waitedMs: 0,
+		overrides: [],
 	};
 	for (const [at, message] of state.messages.entries()) {
 		if (message.stopped !== undefined && message.stopped >= since) {

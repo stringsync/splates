@@ -1,6 +1,7 @@
 import type { AgentConnection } from "../agents";
 import { fail } from "../exit";
 import type { ConversationHost } from "./host";
+import type { Setting } from "./state";
 
 /** Applies a validated user choice to the session and its log. */
 export async function choose(
@@ -22,7 +23,27 @@ export async function choose(
 			{ conversation: host.state.id },
 		);
 	}
+	const aspect = overridden(setting);
+	if (host.state.assigned && aspect !== null) {
+		host.log.write({
+			kind: "override",
+			setting: id,
+			aspect,
+			value,
+			at: new Date().toISOString(),
+		});
+	}
 	const settings = await connection.choose(setting, value);
 	host.log.write({ kind: "settings", settings });
 	host.set({ settings });
+}
+
+/** Whether `setting` is the model or the effort, the two Auto pick chooses. */
+function overridden(setting: Setting): "model" | "effort" | null {
+	if (setting.category === "model" || setting.id === "model") {
+		return "model";
+	}
+	return setting.category === "thought_level" || setting.id === "effort"
+		? "effort"
+		: null;
 }

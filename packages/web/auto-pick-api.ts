@@ -3,7 +3,17 @@ import type {
 	AutoPickRulesView,
 	AutoPickTrial,
 } from "@stringsync/splates-server/auto-pick";
+import type { RuleOverrides } from "@stringsync/splates-server/stats/browser";
 import { ApiError, sendJson } from "./api";
+
+/** How often the person overrode each rule's pick, across this machine's projects. */
+export async function autoPickOverrides(): Promise<RuleOverrides[]> {
+	const response = await fetch("/api/auto-pick/overrides");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/auto-pick/overrides: ${response.status}`);
+	}
+	return (await response.json()) as RuleOverrides[];
+}
 
 /** This machine's Auto pick rules, and the agents a pick can name. */
 export async function autoPickRules(): Promise<AutoPickRulesView> {

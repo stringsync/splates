@@ -19,7 +19,10 @@ import type {
 	SetupProgress,
 	UndoPlan,
 } from "@stringsync/splates-server/setup";
-import type { Landed } from "@stringsync/splates-server/stats/browser";
+import type {
+	Landed,
+	RuleOverrides,
+} from "@stringsync/splates-server/stats/browser";
 import type {
 	FileDiff,
 	FinishedPlan,
@@ -245,6 +248,8 @@ export class Testing implements Resource {
 	undoPlan: UndoPlan | null = null;
 	/** What `/api/auto-pick/rules` reads, or null for it to fail. */
 	autoPickRules: AutoPickRulesView | null = null;
+	/** What `/api/auto-pick/overrides` reads. */
+	autoPickOverrides: RuleOverrides[] = [];
 	/** What `/api/setup/coordinator/move` reads, or null for it to fail. */
 	coordinatorMove: MoveProgress | null = null;
 	/** The ports `/api/ports` says tasks serve. */
@@ -353,6 +358,9 @@ export class Testing implements Resource {
 				return this.undoPlan === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.undoPlan);
+			}
+			if (route === "/api/auto-pick/overrides") {
+				return Response.json(this.autoPickOverrides);
 			}
 			if (route === "/api/auto-pick/rules") {
 				return this.autoPickRules === null

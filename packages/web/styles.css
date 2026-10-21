@@ -206,6 +206,7 @@
 @source "./groomer-card.tsx";
 @source "./notes-audit-card.tsx";
 @source "./auto-pick-log.tsx";
+@source "./auto-pick-overrides.tsx";
 @source "./auto-pick-page.tsx";
 @source "./notes-page.tsx";
 @source "./meter.tsx";

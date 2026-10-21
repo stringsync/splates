@@ -4,6 +4,7 @@ export type { Fact, FoundFacts } from "./finding-facts";
 export { foundFacts } from "./finding-facts";
 export type { Landed } from "./landed";
 export type { Outcome } from "./outcomes";
+export type { RuleOverrides } from "./overrides";
 export type {
 	PeriodId,
 	SkillVersion,

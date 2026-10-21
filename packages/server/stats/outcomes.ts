@@ -248,6 +248,12 @@ export interface Outcome {
 	/** Of `picksAsked`, those answered with the agent's choice but with words added. */
 	picksAmended?: number;
 	/**
+	 * Each time the person set the model or effort of a conversation Auto pick
+	 * started, with the pick it overrode. Absent from older lines, and for a
+	 * task Auto pick did not start.
+	 */
+	overrides?: PickOverride[];
+	/**
 	 * Each question its plan asked, with its size and what became of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
 	decisions?: Decision[];
@@ -292,6 +298,21 @@ export interface Outcome {
 	agent: string | null;
 	/** The model it was handed over with, if any. */
 	model: string | null;
+}
+
+/** One time the person moved a conversation off what Auto pick set. */
+export interface PickOverride {
+	/** What they changed. */
+	aspect: "model" | "effort";
+	/** What they set it to. */
+	to: string;
+	/** When, as an ISO timestamp. */
+	at: string;
+	/** The index in the rules of the rule whose pick it overrode. */
+	rule: number;
+	/** The kind and depth the task was taken for; null when unsure. */
+	kind: string | null;
+	depth: string | null;
 }
 
 /** What made workers cost one task. */

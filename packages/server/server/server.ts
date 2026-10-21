@@ -638,6 +638,7 @@ export async function dev(
 					},
 					"/api/focus": { PUT: guarded(picker.focus) },
 					"/api/stats": guarded(ended.stats),
+					"/api/auto-pick/overrides": guarded(ended.overrides),
 					"/api/evals": guarded(evals.list),
 					"/api/evals/agents": {
 						GET: guarded(evalAgents.read),

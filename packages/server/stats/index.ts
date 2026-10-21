@@ -4,6 +4,7 @@ export { addFactTasks } from "./fact-tasks";
 export { findings } from "./findings";
 export type { Outcome } from "./outcomes";
 export { Outcomes, promptsFrom } from "./outcomes";
+export type { RuleOverrides } from "./overrides";
 export { DevOutcomes } from "./routes";
 export type { Beat, EndState, Transcript, Verdict } from "./skill-checks";
 export { CHECKS, splatesCalls } from "./skill-checks";

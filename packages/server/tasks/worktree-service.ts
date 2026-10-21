@@ -553,6 +553,18 @@ export class WorktreeService {
 			picksOverturned: asked.overturned,
 			picksAmended: asked.amended,
 			decisions: decisions(ending.plan),
+			...(state.autoPick === undefined || !worked?.overrides.length
+				? {}
+				: {
+						overrides: worked.overrides.map((each) => ({
+							aspect: each.aspect,
+							to: each.value,
+							at: each.at,
+							rule: state.autoPick?.rule ?? 0,
+							kind: state.autoPick?.kind ?? null,
+							depth: state.autoPick?.depth ?? null,
+						})),
+					}),
 			...(outcomeOf(ending.plan) === ""
 				? {}
 				: { outcome: outcomeOf(ending.plan) }),

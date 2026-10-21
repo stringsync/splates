@@ -53,6 +53,27 @@ describe("App's Auto pick page", () => {
 		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
 	});
 
+	it("lists the rules whose picks were overridden, with where they moved to", async () => {
+		testing.autoPickOverrides = [
+			{
+				rule: 1,
+				count: 3,
+				moves: [{ aspect: "model", to: "opus", count: 3 }],
+			},
+		];
+		// The page read none on opening; leave it and come back.
+		for (const hash of ["#automations", "#automations/auto-pick"]) {
+			await act(async () => {
+				location.hash = hash;
+				window.dispatchEvent(new HashChangeEvent("hashchange"));
+			});
+		}
+		await waitFor(() => view.getByText("Rule 2"));
+		const overrides = view.getByRole("region", { name: "Overrides" });
+		expect(overrides.textContent).toContain("3 times");
+		expect(overrides.textContent).toContain("model to opus ×3");
+	});
+
 	it("opens from its card on Automations, which the nav marks, and goes back there", async () => {
 		expect(view.queryByRole("tab", { name: /Auto pick/ })).toBeNull();
 		const automations = view.getByRole("tab", { name: /Automations/ });

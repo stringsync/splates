@@ -328,6 +328,12 @@ describe("Conversations", () => {
 		await until(assigned, "idle");
 		await assigned.choose("model", "big");
 		await Bun.sleep(10);
+		await assigned.log.flush();
+		expect(
+			(await assigned.log.log.replay()).filter(
+				(each) => each.kind === "override",
+			),
+		).toMatchObject([{ aspect: "model", setting: "model", value: "big" }]);
 		expect(
 			(await offered.all()).fake?.find((each) => each.id === "model")?.current,
 		).toBe("big");

@@ -3,6 +3,7 @@ import type { Details } from "@stringsync/splates-server/tasks";
 import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { AutoPickLog, AutoPickMark } from "./auto-pick-log";
+import { AutoPickOverrides } from "./auto-pick-overrides";
 import { RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";
 import { autoPickRuns } from "./auto-pick-runs";
@@ -76,6 +77,12 @@ export function AutoPickPage({
 					<AutoPickLog tasks={tasks} todos={todos} opens={opens} only={only} />
 				</div>
 			</details>
+			<AutoPickOverrides
+				onRule={(rule) => {
+					setOnly(rule);
+					setLogOpen(true);
+				}}
+			/>
 			<RulesEditorView
 				editor={editor}
 				mark={mark}

@@ -482,6 +482,14 @@ type Said =
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }
+	/** The person set a model or effort after Auto pick chose it, by the setting's id and what it was set to. */
+	| {
+			kind: "override";
+			setting: string;
+			aspect: "model" | "effort";
+			value: string;
+			at: string;
+	  }
 	/** Settings to set once the session opens, by id, as Auto pick chose them. */
 	| { kind: "picks-request"; picks: Record<string, string> }
 	/** Auto picked another agent than the one it started on, before any session opened. */
