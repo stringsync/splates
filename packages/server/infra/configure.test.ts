@@ -8,9 +8,10 @@ import { Exit } from "../exit";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { API_TOKEN, SavedTunnel } from "../tunnel";
+import { CloudflareApi } from "../tunnel/cloudflare-api";
 import { tunnelSetup } from "../tunnel/setup";
 import { FakeCloudflare } from "../tunnel/testing";
-import { infraConfigure, repositoryOf } from "./configure";
+import { infraConfigure, missingPermissions, repositoryOf } from "./configure";
 
 describe("infraConfigure", () => {
 	it("reads owner/repo off SSH and HTTPS GitHub remotes", () => {
@@ -53,6 +54,43 @@ describe("infraConfigure", () => {
 		const names = (await box.creds.requests()).map((each) => each.name);
 		expect(names).toContain("SPLATES_DEPLOY_GITHUB_TOKEN");
 		expect(names).toContain("ANTHROPIC_API_KEY");
+	});
+});
+
+describe("missingPermissions", () => {
+	const answer = (status: number) =>
+		new Response(
+			JSON.stringify({
+				success: false,
+				errors: [{ message: "x", code: 1 }],
+				result: null,
+			}),
+			{ status },
+		);
+
+	it("posts an empty body to each, counting a 403 as missing and a 400 as held", async () => {
+		const seen: string[] = [];
+		const fetcher = (async (url: string, init: RequestInit) => {
+			seen.push(`${init.method} ${url} ${init.body}`);
+			return answer(url.includes("service_tokens") ? 403 : 400);
+		}) as unknown as typeof fetch;
+		const api = new CloudflareApi("t", { fetch: fetcher });
+		expect(await missingPermissions(api, "acct", "zone")).toEqual([
+			"Account · Access: Service Tokens · Edit",
+		]);
+		expect(seen).toHaveLength(4);
+		expect(
+			seen.every((each) => each.startsWith("POST ") && each.endsWith(" {}")),
+		).toBe(true);
+	});
+
+	it("stops on an answer that is not Cloudflare's", async () => {
+		const api = new CloudflareApi("t", {
+			fetch: (async () => {
+				throw new Error("offline");
+			}) as unknown as typeof fetch,
+		});
+		await expect(missingPermissions(api, "a", "z")).rejects.toThrow("offline");
 	});
 });
 

@@ -105,17 +105,18 @@ async function accessEmails(
 		);
 }
 
-/** What the API token cannot do that the stack needs, as the dashboard names it. */
+/**
+ * What the API token cannot do that the stack needs, as the dashboard names it.
+ * Each is probed with a POST of an empty body, which makes nothing: a token
+ * that can edit gets a 400 for the missing fields, one that can only read a 403.
+ */
 export async function missingPermissions(
 	api: CloudflareApi,
 	account: string,
 	zone: string,
 ): Promise<string[]> {
 	const probes: [string, string][] = [
-		[
-			"Account · Cloudflare Tunnel · Edit",
-			`/accounts/${account}/cfd_tunnel?is_deleted=false`,
-		],
+		["Account · Cloudflare Tunnel · Edit", `/accounts/${account}/cfd_tunnel`],
 		[
 			"Account · Access: Apps and Policies · Edit",
 			`/accounts/${account}/access/apps`,
@@ -129,16 +130,14 @@ export async function missingPermissions(
 	const missing: string[] = [];
 	for (const [permission, path] of probes) {
 		try {
-			await api.get(path, z.unknown());
+			await api.post(path, {}, z.unknown());
 		} catch (error) {
-			if (
-				error instanceof CloudflareError &&
-				(error.status === 401 || error.status === 403)
-			) {
-				missing.push(permission);
-				continue;
+			if (!(error instanceof CloudflareError)) {
+				throw error;
 			}
-			throw error;
+			if (error.status === 401 || error.status === 403) {
+				missing.push(permission);
+			}
 		}
 	}
 	return missing;
