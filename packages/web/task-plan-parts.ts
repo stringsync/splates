@@ -10,6 +10,8 @@ export interface PlanParts {
 	verification: string;
 	/** `## Demo`, how to set a demo up; "" when it says none. */
 	demo: string;
+	/** `## Outcome`, what came of the task; "" when it says none. */
+	outcome: string;
 	/**
 	 * Legacy `## Notes`, still shown for finished tasks, then any other
 	 * section under its heading, or the whole of
@@ -25,6 +27,7 @@ export function planParts(plan: string | null): PlanParts {
 			steps: "",
 			verification: "",
 			demo: "",
+			outcome: "",
 			notes: "",
 		};
 	}
@@ -35,7 +38,15 @@ export function planParts(plan: string | null): PlanParts {
 		sections
 			.find((section) => section.heading.toLowerCase() === name)
 			?.body.trim() ?? "";
-	const known = ["goal", "next", "notes", "blocked", "verification", "demo"];
+	const known = [
+		"goal",
+		"next",
+		"notes",
+		"blocked",
+		"verification",
+		"demo",
+		"outcome",
+	];
 	const others = sections.filter(
 		(section) => !known.includes(section.heading.toLowerCase()),
 	);
@@ -55,6 +66,7 @@ export function planParts(plan: string | null): PlanParts {
 		steps: named("next"),
 		verification: named("verification"),
 		demo: named("demo"),
+		outcome: named("outcome"),
 		notes,
 	};
 }

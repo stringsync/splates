@@ -73,4 +73,27 @@ describe("App's merged card actions", () => {
 		expect(within(went).getByText("2 by you")).not.toBeNull();
 		expect(within(went).queryByText(/by agent/)).toBeNull();
 	});
+
+	it("shows the outcome the plan ended on, with a demo button", async () => {
+		testing.landed.header = {
+			outcome: {
+				...header(),
+				outcome: "Moved the header.\n\n### Demo\n\nOpen the page.",
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
+			}),
+		]);
+		const outcome = await waitFor(() =>
+			view.getByRole("region", { name: "outcome" }),
+		);
+
+		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
+		expect(
+			within(outcome).getByRole("button", { name: "Demo with an agent" }),
+		).not.toBeNull();
+	});
 });

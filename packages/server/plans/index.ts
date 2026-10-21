@@ -31,6 +31,7 @@ export {
 	goalLine,
 	goalOf,
 	openQuestions,
+	outcomeOf,
 	PLAN_FILE,
 	Plans,
 	picks,

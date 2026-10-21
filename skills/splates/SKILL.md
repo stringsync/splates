@@ -312,6 +312,12 @@ with it in.
 ## Blocked
 
 - [ ] questions the user must answer before the task merges
+
+## Outcome
+
+What came of it, written just before you merge: a summary of what changed
+and any pivot from the original Goal, then `### Demo` (how to trigger it)
+and `### Verification` (checks run, screenshots as `![what](/abs/path.png)`).
 ```
 
 The Goal's first line is what other agents see of your task in `splates list
@@ -324,7 +330,9 @@ the shape. It is excluded from git, so leave it out of commit messages.
 The page's task dialog shows `## Verification`, for an open task and once it
 has finished, as the evidence: what you checked and its screenshots, with,
 when there is a `## Demo`, Demo with an agent among its actions, which starts
-a conversation for an agent to show the change. Fill it in before you merge:
+a conversation for an agent to show the change. The merged card shows `## Outcome`, kept
+with the merge record, with a Demo with an agent button when it has a
+`### Demo`: write it last, before `splates merge`. Fill in Verification before you merge:
 it is what the user reads instead of a demo. Write `## Demo` for any change the user can see or try, and leave it
 out otherwise. Keep it to what an agent needs to set the demo up later
 against the code of the day (what to run, the throwaway data to make, where

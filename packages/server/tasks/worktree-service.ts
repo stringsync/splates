@@ -8,7 +8,7 @@ import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import type { Checkouts } from "../merge";
 import { ranWith } from "../models";
-import { decisions, goalLine, Plans, picks } from "../plans";
+import { decisions, goalLine, outcomeOf, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
 import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
 import {
@@ -522,6 +522,9 @@ export class WorktreeService {
 			picksOverturned: asked.overturned,
 			picksAmended: asked.amended,
 			decisions: decisions(ending.plan),
+			...(outcomeOf(ending.plan) === ""
+				? {}
+				: { outcome: outcomeOf(ending.plan) }),
 			waitedMs: legacy
 				? // Each escalation waits until claimed, or until the task
 					// ended while it still waited.

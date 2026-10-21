@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan } from "./plan";
+import { checkPlan, outcomeOf } from "./plan";
 
 const GOOD = `# alpha
 
@@ -42,7 +42,7 @@ describe("checkPlan", () => {
 	it("flags a ## Done left from before the git log kept steps done", () => {
 		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
 		expect(checkPlan(old, { task: "alpha" })).toEqual([
-			'unexpected section "## Done" (line 6): keep to Goal, Next, Verification, Demo, Blocked',
+			'unexpected section "## Done" (line 6): keep to Goal, Next, Verification, Demo, Blocked, Outcome',
 		]);
 	});
 
@@ -81,5 +81,24 @@ describe("checkPlan", () => {
 		expect(checkPlan(copied, { task: "alpha" })).toContain(
 			"1 numbered twice under ## Blocked: new questions continue from the highest",
 		);
+	});
+
+	it("reads all of ## Outcome, and accepts the section", () => {
+		const plan = `${GOOD}## Outcome
+
+Landed the card.
+
+### Demo
+
+Open the card.
+`;
+		expect(outcomeOf(plan)).toBe(
+			"Landed the card.\n\n### Demo\n\nOpen the card.",
+		);
+		expect(checkPlan(plan, { task: "alpha" })).toEqual([]);
+	});
+
+	it("reads no outcome from a plan without the section", () => {
+		expect(outcomeOf(GOOD)).toBe("");
 	});
 });

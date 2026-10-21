@@ -51,7 +51,7 @@ export const STUB_STEPS = [
 ];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Next", "Verification", "Demo", "Blocked"];
+const SECTIONS = ["Goal", "Next", "Verification", "Demo", "Blocked", "Outcome"];
 // Steps are for work of several commits: for one, the Goal says it all.
 const REQUIRED = ["Goal"];
 // A `Q` before the number is how plans were numbered once, and still reads.
@@ -101,6 +101,16 @@ export function sectionApart(
 		section: lines.slice(start, end).join("\n").trim(),
 		rest: [...lines.slice(0, start), ...lines.slice(end)].join("\n"),
 	};
+}
+
+/**
+ * What an `SPLATES.md` says came of its task: all of `## Outcome`, as
+ * markdown, or "" when it says nothing. The merge record keeps it, since the
+ * plan goes with the worktree.
+ */
+export function outcomeOf(text: string): string {
+	const md = Markdown.parse(text);
+	return md.has("Outcome") ? md.section("Outcome").body.trim() : "";
 }
 
 /**

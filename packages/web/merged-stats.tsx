@@ -1,14 +1,22 @@
 import type { Fact, Landed } from "@stringsync/splates-server/stats/browser";
 import {
 	ArrowUpIcon,
+	BotMessageSquareIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
 	UserIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
 import { taskOutcome } from "./api";
+import { Dispatching } from "./dispatching";
 import { Markdown } from "./markdown";
 import { type Decided, mergedFacts } from "./merged-facts";
 
@@ -34,6 +42,53 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	if (landed === null) {
 		return null;
 	}
+	return (
+		<>
+			{landed.outcome.outcome !== undefined && (
+				<OutcomeNotes task={task} text={landed.outcome.outcome} />
+			)}
+			<Went landed={landed} />
+		</>
+	);
+}
+
+/**
+ * What came of a merged task, as its `## Outcome` said: a summary with any
+ * pivot, and its verification and screenshots, with a button that starts
+ * an agent to demo it when the outcome names a demo.
+ */
+function OutcomeNotes({
+	task,
+	text,
+}: {
+	task: string;
+	text: string;
+}): JSX.Element {
+	const context = useContext(Dispatching);
+	const demo = /^#{3,4}\s+demo\b/im.test(text);
+	return (
+		<section
+			aria-label="outcome"
+			className="flex flex-col gap-2 border-t px-4 py-3 text-sm"
+		>
+			<Markdown text={text} />
+			{demo && context !== null && (
+				<button
+					type="button"
+					className="flex w-fit items-center gap-1.5 text-xs font-medium"
+					onClick={() => {
+						void context.dispatch.demo(task, "after").then(context.open);
+					}}
+				>
+					<BotMessageSquareIcon aria-hidden className="size-3.5" />
+					Demo with an agent
+				</button>
+			)}
+		</section>
+	);
+}
+
+function Went({ landed }: { landed: Landed }): JSX.Element {
 	const facts = mergedFacts(landed);
 	return (
 		<section

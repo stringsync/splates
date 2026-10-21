@@ -251,6 +251,12 @@ export interface Outcome {
 	 * Each question its plan asked, with its size and what became of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
 	decisions?: Decision[];
+	/**
+	 * The `## Outcome` its plan ended on, as markdown: a summary of what
+	 * changed and any pivot from the goal, a demo to trigger and its
+	 * verification. Absent from older lines and for a plan with none.
+	 */
+	outcome?: string;
 	/** How long it waited on a person to answer, in milliseconds. Absent from older lines. */
 	waitedMs?: number;
 	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */
