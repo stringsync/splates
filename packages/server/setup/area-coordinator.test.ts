@@ -1,63 +1,57 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
-import { FakeAws } from "../cloud/testing";
-import { KeygenPs } from "../coordinator/testing";
+import type { SpawnOptions } from "webappwiz/system";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { writeInfraConfig } from "../coordinator";
 import { COORDINATOR_AREA } from "./area-coordinator";
 import type { SetupMachine } from "./setup";
 
 const HOME = "/home/.splates";
 const UNIT = "/etc/systemd/system/splates-coordinator.service";
 
+/** `pulumi stack output --json`, answering what the stack has made. */
+class PulumiPs extends FakePs {
+	outputs = "{}";
+
+	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
+		await super.spawnCapture(argv, opts);
+		return { exitCode: 0, stdout: this.outputs, stderr: "" };
+	}
+}
+
 describe("COORDINATOR_AREA's box step", () => {
 	const step = COORDINATOR_AREA.steps.find(
 		(each) => each.id === "coordinator-box",
 	);
 	let fs: FakeFs;
-	let aws: FakeAws;
-	let ps: KeygenPs;
+	let ps: PulumiPs;
 	let machine: SetupMachine;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		fs = new FakeFs();
-		aws = new FakeAws();
-		aws.stock = ["t3.medium"];
-		ps = new KeygenPs(fs);
-		ps.setEnv({
-			AWS_ACCESS_KEY_ID: "AKIAEXAMPLE",
-			AWS_SECRET_ACCESS_KEY: "secret",
-		});
-		machine = {
-			fs,
-			ps,
-			home: HOME,
-			device: new FakeSecretStore(),
-			fetch: aws.fetch,
-		};
+		ps = new PulumiPs();
+		machine = { fs, ps, home: HOME, device: new FakeSecretStore() };
 	});
 
-	it("asks for no token: AWS is read from the CLI's sign-in or the instance role", async () => {
+	it("asks for no token", () => {
 		expect(step?.after).toEqual([]);
 		expect(step?.fields).toBeUndefined();
 	});
 
-	it("makes no box with an AWS sign-in AWS refuses", async () => {
-		ps.setEnv({
-			AWS_ACCESS_KEY_ID: "AKIAWRONG",
-			AWS_SECRET_ACCESS_KEY: "secret",
-		});
-
-		await expect(step?.submit?.(machine, {})).rejects.toThrow(
-			"AWS takes no sign-in found here",
-		);
+	it("is not done without an infra project", async () => {
 		expect(await step?.check(machine)).toBe(false);
-		expect(aws.requests).toEqual([]);
 	});
 
-	it("is done once its submit made the box", async () => {
+	it("is done once the stack has made the box", async () => {
+		await writeInfraConfig(fs, HOME, { dir: "/code/infra" });
 		expect(await step?.check(machine)).toBe(false);
 
-		await step?.submit?.(machine, {});
+		ps.outputs = JSON.stringify({
+			instanceId: "i-0abc",
+			ipv4: "203.0.113.7",
+			roleName: "role",
+			tunnelHost: "splates.example.com",
+		});
 
 		expect(await step?.check(machine)).toBe(true);
 	});
@@ -66,6 +60,5 @@ describe("COORDINATOR_AREA's box step", () => {
 		await fs.write(UNIT, "");
 
 		expect(await step?.check(machine)).toBe(true);
-		expect(aws.requests).toEqual([]);
 	});
 });

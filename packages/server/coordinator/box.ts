@@ -1,289 +1,210 @@
-import type { SecretStore } from "webappwiz/creds";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import type { Duration } from "webappwiz/time";
-import { type CloudProvider, type FirewallRule, machineCloud } from "../cloud";
+import { Duration, sleep } from "webappwiz/time";
+import { z } from "zod";
+import { AwsCloud } from "../cloud";
 import { splatesHome } from "../models";
+import { type InfraConfig, readInfraConfig } from "./infra";
 
 /**
- * The coordinator's always-on box in the user's own cloud account, made
- * through its API as the workers are, with the token the setup keeps: a
- * machine tagged `splates-coordinator`, and the SSH key and firewall of that
- * name. The box has splates installed and serves nothing until
- * `CoordinatorMove` moves the coordinator onto it.
+ * The coordinator's always-on box in the user's AWS account, which the
+ * user's Pulumi project made (`splates server infra init`): this reads the
+ * stack's outputs for where it is, and gets what the deploy needs to reach
+ * it, its SSH key and its host key. It makes and destroys nothing:
+ * `pulumi up` and `pulumi destroy` do.
  */
 export class CoordinatorBox {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
 	/** splates's home, under whose `coordinator` the box's SSH files are kept. */
 	readonly home: string;
-	/** Where its SSH key pair is kept: the private key, with `.pub` beside it. */
+	/** Where its SSH key is kept, read once from the stack. */
 	readonly key: string;
-	/** Where the host key the box is given is kept: the private key, with `.pub` beside it. */
-	readonly hostKey: string;
-	/** Where the box's address is kept with that host key, for `ssh` to hold it to. */
+	/** Where the box's address is kept with its host key, for `ssh` to hold it to. */
 	readonly knownHosts: string;
-	#cloud: Promise<CloudProvider> | undefined;
 
-	constructor(private readonly opts: CoordinatorBoxOptions) {
+	constructor(private readonly opts: CoordinatorBoxOptions = {}) {
 		this.ps = opts.ps ?? new NodePs();
 		this.fs = opts.fs ?? new NodeFs();
 		this.home = opts.home ?? splatesHome(this.ps);
 		this.key = `${this.home}/coordinator/id_ed25519`;
-		this.hostKey = `${this.home}/coordinator/host_ed25519`;
 		this.knownHosts = `${this.home}/coordinator/known_hosts`;
 	}
 
-	/** The cloud it is made in: `cloud`, or AWS. */
-	cloud(): Promise<CloudProvider> {
-		const { opts } = this;
-		this.#cloud ??=
-			opts.cloud === undefined
-				? Promise.resolve(
-						machineCloud({
-							ps: this.ps,
-							...(opts.store === undefined ? {} : { store: opts.store }),
-							...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
-							...(opts.wait === undefined ? {} : { wait: opts.wait }),
-						}),
-					)
-				: Promise.resolve(opts.cloud);
-		return this.#cloud;
+	/** The recorded infra project; null when `splates server infra init` has not run here. */
+	infra(): Promise<InfraConfig | null> {
+		return readInfraConfig(this.fs, this.home);
 	}
 
-	/**
-	 * Makes the box, or puts right what is not so already: its key, its
-	 * firewall's rules, its backups and its protection. An existing box keeps
-	 * its type, location and install script, which runs only on first boot.
-	 */
-	async up(): Promise<BoxStanding> {
-		const cloud = await this.cloud();
-		const keyId = await cloud.ensureSshKey(BOX_NAME, await this.publicKey());
-		const firewall = await cloud.ensureFirewall(BOX_NAME, BOX_RULES);
-		let machine = (await cloud.machines(BOX_TAG))[0];
-		if (machine === undefined) {
-			const type = this.opts.type ?? cloud.defaults.box.type;
-			machine = await cloud.create({
-				name: BOX_NAME,
-				type,
-				image: cloud.defaults.image,
-				location: this.opts.location ?? (await this.where(cloud, type)),
-				userData: installScript(
-					this.opts.version,
-					await this.privateKey(this.hostKey),
-				),
-				tags: { [BOX_TAG]: "coordinator" },
-				sshKeys: [keyId],
-				firewalls: [firewall],
-			});
-		}
-		if (!machine.backups) {
-			await cloud.enableBackups(machine.id);
-		}
-		if (!machine.protected) {
-			await cloud.protect(machine.id, true);
-		}
-		const standing = await this.status();
-		if (standing === null) {
-			throw new Error(
-				`${cloud.name} made the coordinator's box but did not say its address`,
-			);
-		}
-		await this.trust(standing.ipv4);
-		return standing;
-	}
-
-	/** The box as its cloud has it, or null when there is none. */
+	/** The box as the stack's outputs have it, or null when there is none. */
 	async status(): Promise<BoxStanding | null> {
-		const [machine] = await (await this.cloud()).machines(BOX_TAG);
-		if (machine === undefined || machine.ipv4 === null) {
+		const infra = await this.infra();
+		if (infra === null) {
 			return null;
 		}
+		const outputs = Outputs.safeParse(
+			JSON.parse(await this.pulumi(infra, ["stack", "output", "--json"])),
+		);
+		if (!outputs.success) {
+			return null;
+		}
+		const { instanceId, ipv4, roleName, tunnelHost } = outputs.data;
 		return {
-			ipv4: machine.ipv4,
-			serverId: machine.id,
-			serverType: machine.type,
-			location: machine.location,
-			key: this.key,
+			ipv4,
+			instanceId,
+			roleName,
+			host: tunnelHost,
+			key: infra.key ?? this.key,
 		};
 	}
 
 	/**
-	 * Destroys the box, its backups with it, then its firewall and key: first
-	 * lifting the protection that keeps a stray delete off it.
+	 * The box, with a login: its key kept from the stack when it is not yet,
+	 * and its host key, which the box printed to its console on first boot,
+	 * recorded for its address. Waits for the console to say it.
 	 */
-	async remove(): Promise<void> {
-		const cloud = await this.cloud();
-		for (const machine of await cloud.machines(BOX_TAG)) {
-			await cloud.protect(machine.id, false);
-			await cloud.delete(machine.id);
-		}
-		await cloud.removeFirewall(BOX_NAME);
-		await cloud.removeSshKey(BOX_NAME);
-	}
-
-	/** The first of the cloud's box locations where `type` can be ordered now. */
-	private async where(cloud: CloudProvider, type: string): Promise<string> {
-		const { locations } = cloud.defaults.box;
-		const at = (await cloud.orderable()).get(type);
-		const location = locations.find((each) => at?.has(each));
-		if (location === undefined) {
+	async ready(): Promise<BoxStanding> {
+		const standing = await this.status();
+		if (standing === null) {
+			const infra = await this.infra();
 			throw new Error(
-				`${cloud.name} cannot make a ${type} in ${locations.join(", ")} right now`,
+				infra === null
+					? "no infra project here: `splates server infra init <dir>` writes one, and `pulumi up` in it makes the box"
+					: `the stack in ${infra.dir} has no box yet: \`pulumi up\` there makes it`,
 			);
 		}
-		return location;
+		await this.keep();
+		await this.trust(standing);
+		return standing;
 	}
 
-	/** Its SSH public key, making the pair first when there is none. */
-	private publicKey(): Promise<string> {
-		return this.publicOf(this.key);
-	}
-
-	/** Makes the pair at `key` when there is none, answering its public half. */
-	private async publicOf(key: string): Promise<string> {
-		const pub = `${key}.pub`;
-		if (!(await this.fs.exists(pub))) {
-			await this.fs.mkdir(key.slice(0, key.lastIndexOf("/")), {
-				recursive: true,
-			});
-			const made = await this.ps.spawnCapture([
-				"ssh-keygen",
-				"-q",
-				"-t",
-				"ed25519",
-				"-N",
-				"",
-				"-C",
-				"splates-coordinator",
-				"-f",
-				key,
-			]);
-			if (made.exitCode !== 0) {
-				throw new Error(
-					`ssh-keygen could not make the coordinator's key: ${made.stderr.trim()}`,
-				);
-			}
+	/** Keeps the stack's `sshKey` at `this.key`, unless the user named a key of their own or it is kept. */
+	private async keep(): Promise<void> {
+		const infra = await this.infra();
+		if (infra?.key !== undefined || (await this.fs.exists(this.key))) {
+			return;
 		}
-		return (await this.fs.read(pub)).trim();
-	}
-
-	/** The private half of the pair at `key`, made first when there is none. */
-	private async privateKey(key: string): Promise<string> {
-		await this.publicOf(key);
-		return (await this.fs.read(key)).trim();
+		const key = await this.pulumi(infra as InfraConfig, [
+			"stack",
+			"output",
+			"sshKey",
+			"--show-secrets",
+		]);
+		await this.fs.mkdir(this.key.slice(0, this.key.lastIndexOf("/")), {
+			recursive: true,
+		});
+		await this.fs.write(this.key, `${key.trim()}\n`);
+		await this.fs.chmod(this.key, 0o600);
 	}
 
 	/**
-	 * Records the box at `ipv4` as holding the host key made here, which its
-	 * first-boot script installed, so `ssh` knows it before first connecting
-	 * and refuses any other key.
+	 * Records the box at its address as holding the host keys its console
+	 * printed, so `ssh` knows them before first connecting and refuses any
+	 * other. An address already recorded stays as it was.
 	 */
-	private async trust(ipv4: string): Promise<void> {
-		const pub = await this.publicOf(this.hostKey);
-		const [type, data] = pub.split(/\s+/);
+	private async trust(standing: BoxStanding): Promise<void> {
+		const { ipv4, instanceId } = standing;
+		const known = (await this.fs.exists(this.knownHosts))
+			? await this.fs.read(this.knownHosts)
+			: "";
+		if (known.split("\n").some((line) => line.startsWith(`${ipv4} `))) {
+			return;
+		}
+		const cloud = this.opts.cloud ?? new AwsCloud();
+		const until = Date.now() + (this.opts.within ?? Duration.mins(10)).ms;
+		let keys: string[] = [];
+		for (;;) {
+			keys = hostKeys(await cloud.consoleOutput(instanceId));
+			if (keys.length > 0) {
+				break;
+			}
+			if (Date.now() > until) {
+				throw new Error(
+					`the box at ${ipv4} has not printed its host keys to its console yet: it is still booting, so deploy again in a minute or two`,
+				);
+			}
+			await (this.opts.wait ?? sleep)(Duration.secs(10));
+		}
 		await this.fs.mkdir(
 			this.knownHosts.slice(0, this.knownHosts.lastIndexOf("/")),
 			{
 				recursive: true,
 			},
 		);
-		await this.fs.write(this.knownHosts, `${ipv4} ${type} ${data}\n`);
+		await this.fs.write(
+			this.knownHosts,
+			`${known}${keys.map((key) => `${ipv4} ${key}\n`).join("")}`,
+		);
 	}
+
+	private async pulumi(infra: InfraConfig, args: string[]): Promise<string> {
+		const ran = await this.ps.spawnCapture(
+			[
+				"pulumi",
+				...args,
+				...(infra.stack === undefined ? [] : ["--stack", infra.stack]),
+			],
+			{ cwd: infra.dir },
+		);
+		if (ran.exitCode !== 0) {
+			throw new Error(
+				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${ran.stderr.trim()}`,
+			);
+		}
+		return ran.stdout;
+	}
+}
+
+/** The host keys an Ubuntu box prints to its console, as `type data` lines for a known_hosts file. */
+export function hostKeys(output: string): string[] {
+	const block = output.match(
+		/-----BEGIN SSH HOST KEY KEYS-----\n([\s\S]*?)-----END SSH HOST KEY KEYS-----/,
+	);
+	return (block?.[1] ?? "").split("\n").flatMap((line) => {
+		const [type, data] = line.trim().split(/\s+/);
+		return type?.startsWith("ssh-") || type?.startsWith("ecdsa-")
+			? [`${type} ${data}`]
+			: [];
+	});
 }
 
 /** What a `CoordinatorBox` runs on; the real ones by default. */
 export interface CoordinatorBoxOptions {
-	/** The splates the box installs, the coordinator's own release. */
-	version: string;
-	/** The cloud it is made in; AWS by default, made with `store`, `fetch` and `wait`. */
-	cloud?: CloudProvider;
-	/** Its machine type; the cloud's default box type unless set. */
-	type?: string;
-	/** Its location; the cloud's default box location unless set. */
-	location?: string;
 	ps?: Ps;
 	fs?: Fs;
-	/** splates's home, where the box's SSH key is. */
+	/** splates's home, where the infra project is recorded and the box's SSH files are. */
 	home?: string;
-	/** Where the cloud's token is kept: the device's creds. */
-	store?: SecretStore;
-	fetch?: typeof globalThis.fetch;
-	/** How it waits between looks at the cloud's actions. */
+	/** Reads an instance's console, as AWS here does by default. */
+	cloud?: { consoleOutput(id: string): Promise<string> };
+	/** How long the box has to print its host keys. */
+	within?: Duration;
+	/** How it waits between looks at the console. */
 	wait?: (duration: Duration) => Promise<void>;
 }
 
-/** The box as its cloud says it stands. */
+/** The box as its stack says it stands. */
 export interface BoxStanding {
 	ipv4: string;
-	/** The cloud's id for its machine. */
-	serverId: string;
-	serverType: string;
-	location: string;
-	/** The private key that logs in as root, its public half beside it as `.pub`. */
+	/** The EC2 instance's id. */
+	instanceId: string;
+	/** Its instance role, whose Parameter Store it reads its creds from. */
+	roleName: string;
+	/** The host the tunnel serves it through. */
+	host: string;
+	/** The private key that logs in as root. */
 	key: string;
 }
 
-/** The password that unlocks the box's keyring, readable by root alone. */
-export const KEYRING_PASSWORD = "/root/splates-keyring";
+/** The stack outputs `splates server infra init`'s program exports. */
+const Outputs = z.object({
+	instanceId: z.string(),
+	ipv4: z.string(),
+	roleName: z.string(),
+	tunnelHost: z.string(),
+});
 
 /** The user splates runs as on the box, as on a worker. */
 export const BOX_USER = "splates";
 
-/** What the box, its SSH key and its firewall are named. */
-export const BOX_NAME = "splates-coordinator";
-
-/** The tag the box carries, which is how splates finds it. */
-const BOX_TAG = "splates-coordinator";
-
-/** The box's firewall: SSH in, and nothing else. */
-const BOX_RULES: FirewallRule[] = [
-	{
-		direction: "in",
-		protocol: "tcp",
-		port: "22",
-		sourceIps: ["0.0.0.0/0", "::/0"],
-	},
-];
-
-/** Where the latest cloudflared for the box's Debian comes from. */
+/** Where the latest cloudflared for the box's Ubuntu comes from. */
 export const CLOUDFLARED_DEB =
 	"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb";
-
-/**
- * The box's first-boot script: git, bun and splates `version` for
- * `BOX_USER`; cloudflared, which carries the saved tunnel to the
- * coordinator once it runs here; and GNOME Keyring, the Secret Service
- * `Bun.secrets` keeps creds in on Linux, with the password that unlocks it
- * at boot made now, readable by root alone, for the service to be handed.
- * First of all it takes `hostKey`, the private SSH host key made on the
- * deploying machine, in place of the one the box made for itself, so the
- * deploy knows the key before it connects. The cloud keeps user-data
- * readable on the box, so the script is the only copy it holds: the key
- * leaves the script's own file as soon as it is installed. No credentials:
- * those come with the move.
- */
-export function installScript(version: string, hostKey: string): string {
-	const as = (command: string) => `su - ${BOX_USER} -c '${command}'`;
-	const bun = `/home/${BOX_USER}/.bun/bin`;
-	return [
-		"#!/bin/sh",
-		"set -eu",
-		"export DEBIAN_FRONTEND=noninteractive",
-		"rm -f /etc/ssh/ssh_host_*",
-		`(umask 077 && cat > /etc/ssh/ssh_host_ed25519_key <<'SPLATES_HOST_KEY'\n${hostKey}\nSPLATES_HOST_KEY\n)`,
-		"ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key > /etc/ssh/ssh_host_ed25519_key.pub",
-		"(systemctl restart ssh || systemctl restart sshd)",
-		"apt-get update",
-		"apt-get install -y --no-install-recommends ca-certificates curl git unzip dbus-user-session gnome-keyring libsecret-1-0",
-		`curl -fsSL -o /tmp/cloudflared.deb ${CLOUDFLARED_DEB}`,
-		"dpkg -i /tmp/cloudflared.deb",
-		"rm /tmp/cloudflared.deb",
-		`test -s ${KEYRING_PASSWORD} || (umask 077 && head -c 32 /dev/urandom | base64 > ${KEYRING_PASSWORD})`,
-		`id ${BOX_USER} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ${BOX_USER}`,
-		as("curl -fsSL https://bun.sh/install | bash"),
-		as(`${bun}/bun add -g @stringsync/splates@${version}`),
-		"apt-get clean",
-		"rm -rf /var/lib/apt/lists/*",
-		"",
-	].join("\n");
-}

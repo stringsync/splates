@@ -1,6 +1,8 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as pulumi from "@pulumi/pulumi";
+import * as tls from "@pulumi/tls";
+import { userData } from "./user-data";
 
 export interface CoordinatorBoxArgs {
 	/** The box's public host name, which `splates server deploy` serves through the tunnel. */
@@ -96,13 +98,15 @@ const ASSUME_EC2 = JSON.stringify({
  * Everything the coordinator's EC2 box needs in AWS: a one-subnet VPC with
  * no NAT gateway, a `t3.medium` with a public IPv4 that only SSH reaches, a
  * role that reads its creds from Parameter Store and makes workers, daily
- * snapshots, and the creds' parameters. `splates server deploy` then installs
- * splates on it and starts it.
+ * snapshots, the creds' parameters, and the key pair that logs in as root.
+ * `splates server deploy` then installs splates on it and starts it.
  */
 export class CoordinatorBox extends pulumi.ComponentResource {
 	readonly instanceId: pulumi.Output<string>;
 	readonly ipv4: pulumi.Output<string>;
 	readonly roleName: pulumi.Output<string>;
+	/** The private half of the key pair that logs in as root, a secret output. */
+	readonly sshKey: pulumi.Output<string>;
 	readonly host: pulumi.Output<string>;
 	readonly workerProfileName: pulumi.Output<string>;
 
@@ -224,6 +228,17 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 			],
 		});
 
+		const login = new tls.PrivateKey(
+			`${name}-login`,
+			{ algorithm: "ED25519" },
+			child,
+		);
+		const keyPair = new aws.ec2.KeyPair(
+			`${name}-login`,
+			{ publicKey: login.publicKeyOpenssh },
+			child,
+		);
+
 		const instance = new aws.ec2.Instance(
 			`${name}-instance`,
 			{
@@ -232,6 +247,8 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 				subnetId: vpc.publicSubnetIds.apply((ids) => ids[0] as string),
 				vpcSecurityGroupIds: [group.id],
 				iamInstanceProfile: profile.name,
+				keyName: keyPair.keyName,
+				userData: userData(),
 				associatePublicIpAddress: true,
 				disableApiTermination: true,
 				rootBlockDevice: { volumeType: "gp3", volumeSize: args.diskGb ?? 50 },
@@ -286,12 +303,14 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 		this.instanceId = instance.id;
 		this.ipv4 = instance.publicIp;
 		this.roleName = role.name;
+		this.sshKey = pulumi.secret(login.privateKeyOpenssh);
 		this.host = pulumi.output(args.host);
 		this.workerProfileName = workerProfile.name;
 		this.registerOutputs({
 			instanceId: this.instanceId,
 			ipv4: this.ipv4,
 			roleName: this.roleName,
+			sshKey: this.sshKey,
 			host: this.host,
 			workerProfileName: this.workerProfileName,
 		});

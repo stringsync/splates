@@ -129,6 +129,11 @@ export class AwsCloud implements CloudProvider {
 		}
 	}
 
+	/** What instance `id` has printed to its console, as the host keys a box announces on first boot. */
+	async consoleOutput(id: string): Promise<string> {
+		return this.api().consoleOutput(id);
+	}
+
 	async delete(id: string): Promise<void> {
 		await this.api().terminate(id);
 	}

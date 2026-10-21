@@ -6,7 +6,6 @@ import { splatesHome } from "../models";
 import { Projects } from "../projects";
 import { openRepository } from "../records";
 import { FsStorage } from "../storage";
-import { SavedTunnel } from "../tunnel";
 import { WorkerBudget, WorkerRecords, workerJoin } from "../workers";
 import { CoordinatorBox } from "./box";
 import { installWorkerAgent } from "./launch-agent";
@@ -24,23 +23,15 @@ export function machineMove(opts: MachineMoveOptions): CoordinatorMove {
 		fs,
 		log,
 		home,
-		stores,
 		version,
 		dev: opts.dev,
 		worker: ps.hostname,
 		here: ps.cwd(),
 		...(opts.fetch === undefined ? {} : { fetch: opts.fetch }),
-		box: () =>
-			new CoordinatorBox({
-				version,
-				ps,
-				fs,
-				home,
-				store: stores.device,
-			}).status(),
-		tunnelHost: async () =>
-			(await SavedTunnel.in(new FsStorage(`${home}`, fs), stores.device).read())
-				?.host ?? null,
+		box: async () => {
+			const box = new CoordinatorBox({ ps, fs, home });
+			return (await box.status()) === null ? null : box.ready();
+		},
 		repos: async () => {
 			const listed = await Projects.ofMachine({ fs, ps, log }).list();
 			return Promise.all(

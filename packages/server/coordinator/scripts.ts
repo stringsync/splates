@@ -1,4 +1,4 @@
-import { BOX_USER, CLOUDFLARED_DEB, KEYRING_PASSWORD } from "./box";
+import { BOX_USER, CLOUDFLARED_DEB } from "./box";
 import type { MovedProject } from "./paths";
 
 /** The unit that keeps `splates server` running on the box. */
@@ -10,11 +10,11 @@ export const BUNDLE = "/root/splates-move.tgz";
 /** The port the box's `splates server` listens on, on its loopback alone. */
 export const BOX_PORT = 4310;
 
-/** Runs a command in a D-Bus session whose GNOME Keyring the password in a file unlocked. */
-export const KEYRING_RUN = "/usr/local/lib/splates/keyring-run";
-
 const HOME = `/home/${BOX_USER}`;
 const SPLATES = `${HOME}/.bun/bin/splates`;
+
+/** Makes the box's `splates` read its creds from Parameter Store under the instance role. */
+const SSM = "SPLATES_SECRET_STORE=ssm";
 
 /** A project's clone on the box, and how it signs in to push: its own deploy key. */
 export interface BoxProject extends MovedProject {
@@ -53,10 +53,21 @@ export function upgradeScript(version: string): string {
 }
 
 /**
- * For each project: a deploy key of its own, made once; its clone, made
- * once with that key; and a dry-run push of trunk, which GitHub refuses
- * for a key without write access. Prints `ready <slug>` for each that
- * pushes, else `key <slug> <public key>`.
+ * What the box lacks of its creds: the device's tunnel token and each
+ * project's deploy key, by the Parameter Store name each is kept under.
+ * Prints one name per line, nothing when all are there.
+ */
+export function needsScript(projects: BoxProject[]): string {
+	const roots = projects.map((project) => shellQuoted(project.boxRoot));
+	return `${asUser(`${SSM} ${SPLATES} server needs ${roots.join(" ")}`)}\n`;
+}
+
+/**
+ * For each project: its deploy key, read from Parameter Store under the
+ * instance role into the user's `~/.ssh`; its clone, made once with that
+ * key; and a dry-run push of trunk, which GitHub refuses for a key without
+ * write access. Prints `ready <slug>` for each that pushes, else
+ * `refused <slug>`.
  */
 export function clonesScript(projects: BoxProject[]): string {
 	const lines = ["set -u", `mkdir -p ${HOME}/.ssh ${HOME}/projects`];
@@ -65,13 +76,13 @@ export function clonesScript(projects: BoxProject[]): string {
 		const ssh = `ssh -i ${key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new`;
 		const root = shellQuoted(project.boxRoot);
 		lines.push(
-			`test -f ${key} || ssh-keygen -q -t ed25519 -N '' -C ${shellQuoted(`splates-coordinator ${project.slug}`)} -f ${key}`,
-			`if ( test -d ${root}/.git || GIT_SSH_COMMAND=${shellQuoted(ssh)} git clone --quiet --branch ${shellQuoted(project.trunk)} -- ${shellQuoted(project.url)} ${root} ) >/dev/null 2>&1 \\`,
+			`if ( umask 077 && ${SSM} ${SPLATES} server deploy-key ${root} > ${key}.new && mv ${key}.new ${key} ) \\`,
+			`  && ( test -d ${root}/.git || GIT_SSH_COMMAND=${shellQuoted(ssh)} git clone --quiet --branch ${shellQuoted(project.trunk)} -- ${shellQuoted(project.url)} ${root} ) >/dev/null 2>&1 \\`,
 			`  && git -C ${root} config core.sshCommand ${shellQuoted(ssh)} \\`,
 			`  && git -C ${root} push --dry-run --quiet origin ${shellQuoted(`HEAD:refs/heads/${project.trunk}`)} >/dev/null 2>&1; then`,
 			`  echo ready ${shellQuoted(project.slug)}`,
 			"else",
-			`  echo key ${shellQuoted(project.slug)} "$(cat ${key}.pub)"`,
+			`  echo refused ${shellQuoted(project.slug)}`,
 			"fi",
 		);
 	}
@@ -79,29 +90,28 @@ export function clonesScript(projects: BoxProject[]): string {
 	return asUser(lines.join("\n"));
 }
 
-/** What `clonesScript` printed: each project that pushes, and each one's key that does not yet. */
+/** What `clonesScript` printed: each project that pushes, and each that does not. */
 export function readClones(stdout: string): {
 	ready: string[];
-	keys: { slug: string; key: string }[];
+	refused: string[];
 } {
 	const ready: string[] = [];
-	const keys: { slug: string; key: string }[] = [];
+	const refused: string[] = [];
 	for (const line of stdout.split("\n")) {
-		const [kind, slug, ...rest] = line.trim().split(" ");
+		const [kind, slug] = line.trim().split(" ");
 		if (kind === "ready" && slug !== undefined) {
 			ready.push(slug);
-		} else if (kind === "key" && slug !== undefined) {
-			keys.push({ slug, key: rest.join(" ") });
+		} else if (kind === "refused" && slug !== undefined) {
+			refused.push(slug);
 		}
 	}
-	return { ready, keys };
+	return { ready, refused };
 }
 
 /**
- * The unit: `splates server` as `BOX_USER`, in a D-Bus session whose
- * keyring the password systemd hands it unlocked, from the project the move
- * ran in, whose config names the worker provider; started again whenever it
- * stops.
+ * The unit: `splates server` as `BOX_USER`, its creds read from Parameter
+ * Store under the instance role, from the project the move ran in, whose
+ * config names the worker provider; started again whenever it stops.
  */
 export function unitText(cwd: string): string {
 	return [
@@ -114,8 +124,8 @@ export function unitText(cwd: string): string {
 		`User=${BOX_USER}`,
 		`WorkingDirectory=${cwd}`,
 		`Environment=PATH=${HOME}/.bun/bin:/usr/local/bin:/usr/bin:/bin`,
-		`LoadCredential=keyring:${KEYRING_PASSWORD}`,
-		`ExecStart=${KEYRING_RUN} %d/keyring ${SPLATES} server --port ${BOX_PORT}`,
+		`Environment=${SSM}`,
+		`ExecStart=${SPLATES} server --port ${BOX_PORT}`,
 		"Restart=always",
 		"RestartSec=5",
 		"",
@@ -124,20 +134,6 @@ export function unitText(cwd: string): string {
 		"",
 	].join("\n");
 }
-
-/**
- * `keyring-run <password file> <command...>`: a D-Bus session of its own,
- * GNOME Keyring started in it and unlocked by the password, its login
- * keyring made with it the first time, then the command.
- */
-export const KEYRING_RUN_SCRIPT = [
-	"#!/bin/sh",
-	"set -eu",
-	'password="$1"',
-	"shift",
-	`exec dbus-run-session -- sh -c 'gnome-keyring-daemon --unlock --components=secrets <"$0" >/dev/null && exec "$@"' "$password" "$@"`,
-	"",
-].join("\n");
 
 /**
  * The root script that puts the bundle at `BUNDLE` in place on the box,
@@ -163,11 +159,6 @@ export function placeScript(projects: BoxProject[], cwd: string): string {
 		]),
 		`chown -R ${BOX_USER}:${BOX_USER} ${HOME}/.splates ${records.join(" ")}`,
 		`rm -rf "$dir" ${BUNDLE}`,
-		`mkdir -p ${KEYRING_RUN.slice(0, KEYRING_RUN.lastIndexOf("/"))}`,
-		`cat > ${KEYRING_RUN} <<'SPLATES_KEYRING_RUN'`,
-		KEYRING_RUN_SCRIPT.trimEnd(),
-		"SPLATES_KEYRING_RUN",
-		`chmod 755 ${KEYRING_RUN}`,
 		`cat > /etc/systemd/system/${COORDINATOR_UNIT}.service <<'SPLATES_UNIT'`,
 		unitText(cwd).trimEnd(),
 		"SPLATES_UNIT",
@@ -178,9 +169,9 @@ export function placeScript(projects: BoxProject[], cwd: string): string {
 
 /**
  * The root script that brings what a release installs outside bun up to
- * its text: `keyring-run` and the unit, each rewritten only when it
- * differs, the unit keeping the `WorkingDirectory` it has, then
- * `systemctl daemon-reload` when the unit changed; and cloudflared, from
+ * its text: the unit, rewritten only when it differs, keeping the
+ * `WorkingDirectory` it has, then `systemctl daemon-reload` when it
+ * changed; and cloudflared, from
  * the latest .deb, which a deploy that cannot fetch it only says so about.
  */
 export function refreshScript(): string {
@@ -195,9 +186,6 @@ export function refreshScript(): string {
 		"set -eu",
 		"dir=$(mktemp -d)",
 		`trap 'rm -rf "$dir"' EXIT`,
-		`mkdir -p ${KEYRING_RUN.slice(0, KEYRING_RUN.lastIndexOf("/"))}`,
-		...fresh(KEYRING_RUN_SCRIPT, "SPLATES_KEYRING_RUN"),
-		`cmp -s "$dir/next" ${KEYRING_RUN} || install -m 755 "$dir/next" ${KEYRING_RUN}`,
 		`dir_of_unit=$(sed -n 's/^WorkingDirectory=//p' ${unit})`,
 		...fresh(unitText(cwd), "SPLATES_UNIT"),
 		`sed "s|${cwd}|$dir_of_unit|" "$dir/next" > "$dir/unit"`,
@@ -206,22 +194,6 @@ export function refreshScript(): string {
 		"  systemctl daemon-reload",
 		"fi",
 		`( curl -fsSL -o "$dir/cloudflared.deb" ${CLOUDFLARED_DEB} && dpkg -i "$dir/cloudflared.deb" >/dev/null ) || echo "could not upgrade cloudflared: it stays as it was" >&2`,
-		"",
-	].join("\n");
-}
-
-/**
- * Keeps the creds on stdin, as `splates server keep-creds` reads them,
- * in `BOX_USER`'s keyring, unlocked by a copy of its password only that user
- * may read while it runs.
- */
-export function credsScript(): string {
-	const copy = "/run/splates-keyring";
-	return [
-		"set -eu",
-		`install -o ${BOX_USER} -m 0400 ${KEYRING_PASSWORD} ${copy}`,
-		`trap 'rm -f ${copy}' EXIT`,
-		asUser(`${KEYRING_RUN} ${copy} ${SPLATES} server keep-creds`),
 		"",
 	].join("\n");
 }

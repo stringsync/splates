@@ -82,21 +82,17 @@ describe("COORDINATOR_AREA's move steps", () => {
 		expect(await steps["coordinator-remotes"]?.check(machine)).toBe(false);
 	});
 
-	it("shows each key a dry run asks to add, and reads done once one is ready", async () => {
+	it("lists each cred a dry run finds the box lacking, and reads done once one is ready", async () => {
 		const keys = steps["coordinator-keys"] as SetupStep;
 		expect(await keys.check(machine)).toBe(false);
 		expect(await keys.data?.(machine)).toBeNull();
 
-		const key = {
-			slug: "app",
-			key: "ssh-ed25519 AAAA splates-coordinator app",
-			add: "https://github.com/me/app/settings/keys/new",
-		};
-		answers.push({ status: "keys", keys: [key] });
+		const needs = ["/splates/device/SPLATES_TUNNEL_TOKEN"];
+		answers.push({ status: "blocked", needs });
 		await keys.submit?.(machine, {});
 
 		expect(await keys.check(machine)).toBe(false);
-		expect(await keys.data?.(machine)).toEqual({ keys: [key] });
+		expect(await keys.data?.(machine)).toEqual({ needs });
 
 		answers.push({
 			status: "ready",

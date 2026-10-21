@@ -1,66 +1,52 @@
 import { describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import { MovedCreds } from "./creds";
-import { movedProjects } from "./paths";
+import { deployKey, neededCreds } from "./creds";
 
-describe("MovedCreds", () => {
-	it("carries the device's, and each project's by its box root", async () => {
-		const creds = new MovedCreds({
-			device: new FakeSecretStore({
-				SPLATES_TUNNEL_TOKEN: "tunnel",
-			}),
-			project: async (root) =>
-				new FakeSecretStore(
-					root.endsWith("splates") ? { TYPESAFE_API_KEY: "typesafe" } : {},
-				),
-		});
+/** Stores whose project creds are by the clone's name. */
+function stores(
+	device: Record<string, string>,
+	projects: Record<string, Record<string, string>>,
+) {
+	return {
+		device: new FakeSecretStore(device),
+		project: async (root: string) =>
+			new FakeSecretStore(
+				projects[root.slice(root.lastIndexOf("/") + 1)] ?? {},
+			),
+	};
+}
 
-		const carried = await creds.carried(
-			movedProjects([
-				{ slug: "splates", root: "/Users/me/Projects/splates" },
-				{ slug: "mdom", root: "/Users/me/Projects/mdom" },
-			]),
+describe("the creds the box needs", () => {
+	it("names none once the tunnel token and every deploy key are there", async () => {
+		const kept = stores(
+			{ SPLATES_TUNNEL_TOKEN: "t" },
+			{ splates: { SPLATES_DEPLOY_KEY: "key" } },
 		);
 
-		expect(carried).toEqual({
-			device: { SPLATES_TUNNEL_TOKEN: "tunnel" },
-			projects: {
-				"/home/splates/projects/splates": { TYPESAFE_API_KEY: "typesafe" },
-			},
-		});
-	});
-
-	it("carries the device creds the box makes workers with", async () => {
-		const creds = new MovedCreds({
-			device: new FakeSecretStore({
-				EXAMPLE_TOKEN: "example",
-			}),
-			project: async () => new FakeSecretStore(),
-		});
-
-		const { device } = await creds.carried([]);
-
-		expect(device).toEqual({ EXAMPLE_TOKEN: "example" });
-	});
-
-	it("keeps what it carried in the box's stores", async () => {
-		const device = new FakeSecretStore();
-		const project = new FakeSecretStore();
-
-		const kept = await new MovedCreds({
-			device,
-			project: async () => project,
-		}).keep({
-			device: { SPLATES_TUNNEL_TOKEN: "tunnel" },
-			projects: {
-				"/home/splates/projects/splates": { TYPESAFE_API_KEY: "typesafe" },
-			},
-		});
-
-		expect(kept).toBe(2);
-		expect(device.values).toEqual(
-			new Map([["SPLATES_TUNNEL_TOKEN", "tunnel"]]),
+		expect(await neededCreds(kept, ["/home/splates/projects/splates"])).toEqual(
+			[],
 		);
-		expect(project.values).toEqual(new Map([["TYPESAFE_API_KEY", "typesafe"]]));
+	});
+
+	it("names the tunnel token and each project's deploy key it lacks", async () => {
+		const kept = stores({}, { splates: { SPLATES_DEPLOY_KEY: "key" } });
+
+		const missing = await neededCreds(kept, [
+			"/home/splates/projects/splates",
+			"/home/splates/projects/mdom",
+		]);
+
+		expect(missing[0]).toBe("/splates/device/SPLATES_TUNNEL_TOKEN");
+		expect(missing).toHaveLength(2);
+		expect(missing[1]).toStartWith("SPLATES_DEPLOY_KEY in ");
+	});
+
+	it("reads a project's deploy key", async () => {
+		const kept = stores({}, { splates: { SPLATES_DEPLOY_KEY: "key" } });
+
+		expect(await deployKey(kept, "/home/splates/projects/splates")).toBe("key");
+		expect(
+			await deployKey(kept, "/home/splates/projects/mdom"),
+		).toBeUndefined();
 	});
 });

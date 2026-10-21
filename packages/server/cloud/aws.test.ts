@@ -195,6 +195,34 @@ describe("AwsCloud", () => {
 		});
 	});
 
+	it("reads what an instance printed to its console", async () => {
+		const id = "i-0box";
+		aws.instances.set(id, {
+			id,
+			state: "running",
+			type: "t3.medium",
+			imageId: "ami-1",
+			subnetId: "subnet-1",
+			zone: "us-east-1a",
+			ip: "203.0.113.7",
+			tags: {},
+			userData: "",
+			keyName: null,
+			securityGroupIds: [],
+			profile: null,
+			diskGb: 50,
+			launchedAt: new Date(0).toISOString(),
+			spot: false,
+			terminationProtected: false,
+		});
+		aws.console.set(id, "-----BEGIN SSH HOST KEY KEYS-----\n");
+
+		expect(await cloud.consoleOutput(id)).toBe(
+			"-----BEGIN SSH HOST KEY KEYS-----\n",
+		);
+		await expect(cloud.consoleOutput("i-nope")).rejects.toThrow();
+	});
+
 	it("keeps a firewall's rules exactly, adding before it takes away", async () => {
 		const id = await cloud.ensureFirewall("splates-box", [
 			{

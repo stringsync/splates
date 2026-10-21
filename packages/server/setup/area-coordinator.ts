@@ -1,9 +1,7 @@
 import { MemoryLogger } from "webappwiz/log";
 import {
-	BOX_NAME,
 	CoordinatorBox,
 	type CoordinatorMove,
-	type DeployKey,
 	type Moved,
 	machineMove,
 	remoteProblem,
@@ -13,19 +11,13 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
-import {
-	CLOUD_ACCESS_MISSING,
-	cloudAccepted,
-	cloudOf,
-	requireCloudAccess,
-} from "./cloud";
 import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
 
-/** What the keys step hands its page: each deploy key GitHub does not let push yet. */
-export interface CoordinatorKeys extends Record<string, unknown> {
-	keys: DeployKey[];
+/** What the creds step hands its page: each cred the box's Parameter Store still lacks. */
+export interface CoordinatorNeeds extends Record<string, unknown> {
+	needs: string[];
 }
 
 /** What the Cloud server area runs on beyond the machine. */
@@ -59,49 +51,33 @@ export function coordinatorArea(
 	const boxStep: SetupStep = {
 		id: "coordinator-box",
 		title: "Make the server's box",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small machine in your account in AWS, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Sign in to AWS (`aws configure`), and Next makes the box in that account.",
+		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your own Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
+		user: "Run `splates server infra init <dir> --host <host> --email <email>`, then `pulumi up` in that directory, and press Next.",
 		agent:
-			"Have the user sign in to AWS with `aws configure`, never pasting keys in chat. Then press Next on the page, or run `splates server deploy --dry-run`, which makes the box, then stops once it is ready or says what the deploy still needs; `splates server status` prints its address.",
+			"Run `splates server infra init` for the user, then have them set the stack's config and secrets and run `pulumi up` in that directory. `splates server status` prints the box's address once the stack has made it.",
 		optional: true,
 		after: [],
-		detail: async (machine) => {
-			const cloud = cloudOf(machine);
-			return `In ${cloud.name}, it is ${cloud.defaults.box.about}.`;
-		},
-		doing: "Making the coordinator's box, a few minutes…",
-		notDone: CLOUD_ACCESS_MISSING,
+		detail: async () =>
+			"The Pulumi stack makes the instance, its role, snapshots and creds.",
+		notDone:
+			"The stack has made no box yet: `splates server infra init`, then `pulumi up` in its directory.",
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
-			// Without a sign-in the cloud takes there is no box to ask it about.
-			if (!(await cloudAccepted(machine))) {
-				return false;
-			}
-			return (await (await box(machine)).status()) !== null;
-		},
-		submit: async (machine) => {
-			await requireCloudAccess(machine);
-			await (await box(machine)).up();
+			return (
+				(await box(machine)
+					.status()
+					.catch(() => null)) !== null
+			);
 		},
 		undo: {
-			removes: async (machine) => {
-				const { name } = cloudOf(machine);
-				return [
-					`The ${name} server \`${BOX_NAME}\`, and with it every backup ${name} keeps of it`,
-					`The ${name} firewall \`${BOX_NAME}\``,
-					`The ${name} SSH key \`${BOX_NAME}\`, and its key pair here, \`~/.splates/coordinator/id_ed25519\``,
-				];
-			},
+			removes: async () => [],
+			leaves: async () => [
+				"The box and everything the Pulumi stack made: `pulumi destroy` in its directory unmakes them.",
+			],
 			refused: movedRefusal,
-			confirm: async () => BOX_NAME,
-			run: async (machine) => {
-				const made = await box(machine);
-				await made.remove();
-				await machine.fs.rm(made.key, { force: true });
-				await machine.fs.rm(`${made.key}.pub`, { force: true });
-			},
+			run: async () => {},
 		},
 	};
 
@@ -139,51 +115,41 @@ export function coordinatorArea(
 	const keysStep: SetupStep = {
 		id: "coordinator-keys",
 		title: "Let the box push each project",
-		why: "The box gives each project a deploy key of its own, which merges push trunk with once the server runs there. GitHub lets a key push only once it is added to its repository with write access.",
-		user: "Press Next to ready each project's clone on the box. Add each key it shows to its repository with **Allow write access** ticked, then press Next again.",
+		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
+		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each (the stack makes them: `pulumi up`), then press Next again.",
 		agent:
-			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, gives each project a clone there and a deploy key, and exits `blocked` printing each key that cannot push yet with where to add it. Show the user each key and link, to add with **Allow write access** ticked, and run it again until it says the box is ready.",
+			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. Have the user fix the stack and `pulumi up`, and run it again until it says the box is ready.",
 		optional: true,
 		after: [boxStep, remotesStep, tunnelStep],
 		doing: "Readying each project's clone on the box, a minute or two…",
 		check: async (machine) =>
 			(await coordinatorMoved(machine)) ||
 			dryRuns.get(machine.home)?.status === "ready",
-		data: async (machine): Promise<CoordinatorKeys | null> => {
+		data: async (machine): Promise<CoordinatorNeeds | null> => {
 			const last = dryRuns.get(machine.home);
-			return last?.status === "keys" ? { keys: last.keys } : null;
+			return last?.status === "blocked" ? { needs: last.needs } : null;
 		},
 		submit: async (machine) => {
 			dryRuns.set(machine.home, await deps.move(machine).run({ dryRun: true }));
 		},
 		undo: {
 			removes: async () => [],
-			leaves: async (machine) => {
-				const slugs = await deps
-					.projects(machine)
-					.then((projects) => projects.map((project) => project.slug))
-					.catch(() => []);
-				const where =
-					"in the repository's **Settings → Deploy keys** on GitHub";
-				return slugs.length === 0
-					? [`Each project's deploy key for the box ${where}.`]
-					: slugs.map(
-							(slug) => `\`${slug}\`'s deploy key for the box ${where}.`,
-						);
-			},
+			leaves: async () => [
+				"The deploy keys and creds the Pulumi stack put in the box's Parameter Store.",
+			],
 			refused: movedRefusal,
 			run: async (machine) => {
 				dryRuns.delete(machine.home);
 			},
 		},
 		notDone:
-			"GitHub does not let each deploy key push yet: add each one below with Allow write access ticked, then press Next.",
+			"The box lacks creds in its Parameter Store: see the list below, fix the stack, `pulumi up`, then press Next.",
 	};
 
 	const moveStep: SetupStep = {
 		id: "coordinator-move",
 		title: "Deploy the server to its box",
-		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records and creds to the box, and starts the server there for good on your tunnel's host. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
+		why: "The deploy asks every agent here to checkpoint and stops this machine's `splates server`, carries its records to the box (it reads its own creds), and starts the server there for good on your tunnel's host. This Mac then carries on as the box's worker, each task in its worktree here, and its own records go aside, kept.",
 		user: "Press Next to deploy. This page goes away while the deploy runs, a few minutes, and comes back served from the box.",
 		agent:
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
@@ -260,10 +226,8 @@ async function machineProjects(
 	return moving;
 }
 
-async function box(machine: SetupMachine): Promise<CoordinatorBox> {
+function box(machine: SetupMachine): CoordinatorBox {
 	return new CoordinatorBox({
-		version: RUNNING,
-		cloud: cloudOf(machine),
 		ps: machine.ps,
 		fs: machine.fs,
 		home: machine.home,

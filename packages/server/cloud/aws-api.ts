@@ -167,6 +167,12 @@ export class AwsApi {
 		return instanceOf(made);
 	}
 
+	/** What instance `id` has printed to its console, decoded; "" before it has printed any. */
+	async consoleOutput(id: string): Promise<string> {
+		const answer = await this.ec2("GetConsoleOutput", { InstanceId: id });
+		return Buffer.from(AwsXml.str(answer.output), "base64").toString("utf8");
+	}
+
 	/** Terminates instance `id`; silent when it is already gone. */
 	async terminate(id: string): Promise<void> {
 		try {

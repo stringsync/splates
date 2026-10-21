@@ -15,7 +15,9 @@ pulumi.runtime.setMocks({
 		const state =
 			args.type === "awsx:ec2:Vpc"
 				? { ...args.inputs, vpcId: "vpc-1", publicSubnetIds: ["subnet-1"] }
-				: args.inputs;
+				: args.type === "aws:ec2/keyPair:KeyPair"
+					? { ...args.inputs, keyName: args.name }
+					: args.inputs;
 		return { id: `${args.name}-id`, state };
 	},
 	call: (args) =>
@@ -48,6 +50,10 @@ test("the box is one hardened instance with its creds as secure parameters", asy
 		disableApiTermination: true,
 		metadataOptions: { httpTokens: "required", httpPutResponseHopLimit: 1 },
 	});
+	// The deploy logs in as root with the stack's key, on a box that installs bun itself.
+	expect(instance?.inputs.keyName).toBeDefined();
+	expect(instance?.inputs.userData).toContain("bun.sh/install");
+	expect(await ofType("aws:ec2/keyPair:KeyPair")).toHaveLength(1);
 	const [parameter] = await ofType("aws:ssm/parameter:Parameter");
 	expect(parameter?.inputs).toMatchObject({
 		name: "/splates/device/SPLATES_TUNNEL_TOKEN",

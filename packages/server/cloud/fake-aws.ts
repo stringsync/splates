@@ -57,6 +57,8 @@ export class FakeAws {
 	/** Instance types orderable now. */
 	stock: string[] = [];
 	readonly instances = new Map<string, FakeInstance>();
+	/** What each instance has printed to its console, by id. */
+	readonly console = new Map<string, string>();
 	readonly images = new Map<string, FakeImage>();
 	readonly snapshots = new Set<string>();
 	readonly keys = new Map<string, { tags: Record<string, string> }>();
@@ -223,6 +225,20 @@ export class FakeAws {
 					tags,
 				});
 				return xml(action, { instancesSet: [instanceXml(instance)] });
+			}
+			case "GetConsoleOutput": {
+				const id = params.InstanceId ?? "";
+				if (!this.instances.has(id)) {
+					return error(
+						400,
+						"InvalidInstanceID.NotFound",
+						`The instance ID '${id}' does not exist`,
+					);
+				}
+				return xml(action, {
+					instanceId: id,
+					output: Buffer.from(this.console.get(id) ?? "").toString("base64"),
+				});
 			}
 			case "TerminateInstances": {
 				for (const id of list(params, "InstanceId")) {

@@ -2,20 +2,18 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { z } from "zod";
-import type { SecretStores } from "../creds";
 import type { Pushed } from "../merge";
 import { asideOf } from "../tunnel";
 import { accessHeaders, joinAccess } from "../workers";
 import type { BoxStanding } from "./box";
-import { MovedCreds } from "./creds";
 import { BOX_PROJECTS, type MovedProject, movedProjects } from "./paths";
 import {
 	type BoxProject,
 	BUNDLE,
 	COORDINATOR_UNIT,
 	clonesScript,
-	credsScript,
 	inviteScript,
+	needsScript,
 	placeScript,
 	readClones,
 	refreshScript,
@@ -29,12 +27,13 @@ import { MOVED_HOME, stage } from "./stage";
 import type { WorkersWithout } from "./without";
 
 /**
- * Moves the coordinator onto its box: checks what it needs, readies the
- * box's clones, each with a deploy key that pushes trunk, and stops at
- * `keys` until GitHub lets each push; then stops this machine's
- * `splates server` once its agents checkpoint, carries its records and
- * creds over, starts the server there for good, and joins this machine to
- * it as a worker, which carries on each task in its worktree here. This
+ * Moves the coordinator onto its box, the one the user's Pulumi stack made:
+ * checks what it needs, stops at `blocked` until the box's Parameter Store
+ * holds the creds it reads (the stack puts them there), readies the box's
+ * clones with each project's deploy key, which must push trunk; then stops
+ * this machine's `splates server` once its agents checkpoint, carries its
+ * records over (no creds go: the box reads its own), starts the server
+ * there for good, and joins this machine to it as a worker, which carries on each task in its worktree here. This
  * machine's own records go aside, kept. With `dryRun`, stops before
  * anything changes here. Once the coordinator runs on the box, it brings
  * the box's splates to this release and restarts it there instead,
@@ -57,7 +56,8 @@ export class CoordinatorMove {
 		if (updated !== null) {
 			return updated;
 		}
-		const { box, host, repos } = await this.check(standing);
+		const { box, repos } = await this.check(standing);
+		const host = box.host;
 		const without = await this.opts.workersWithout();
 		log.info(without.said);
 		const shell = this.shell(box);
@@ -65,16 +65,18 @@ export class CoordinatorMove {
 		log.info(`bringing splates on the box at ${box.ipv4} to ${version}`);
 		await shell.run(upgradeScript(version));
 		log.info("readying each project's clone on the box");
-		const { keys } = readClones(await shell.run(clonesScript(projects)));
-		if (keys.length > 0) {
-			return {
-				status: "keys",
-				keys: keys.map(({ slug, key }) => ({
-					slug,
-					key,
-					add: addKeyUrl(projects.find((each) => each.slug === slug)?.url),
-				})),
-			};
+		const needs = (await shell.run(needsScript(projects)))
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line !== "");
+		if (needs.length > 0) {
+			return { status: "blocked", needs };
+		}
+		const { refused } = readClones(await shell.run(clonesScript(projects)));
+		if (refused.length > 0) {
+			throw new Error(
+				`the box cannot clone or push trunk of ${refused.join(", ")} with its deploy key: check that the stack's key is on the repository with write access, and that the box can reach it`,
+			);
 		}
 		if (dryRun) {
 			return {
@@ -220,19 +222,12 @@ export class CoordinatorMove {
 	/** What the move needs, all of it said at once when any is missing. */
 	private async check(box: BoxStanding | null): Promise<{
 		box: BoxStanding;
-		host: string;
 		repos: MoveRepo[];
 	}> {
 		const missing: string[] = [];
 		if (box === null) {
 			missing.push(
-				"no coordinator's box: make it with `splates server deploy`",
-			);
-		}
-		const host = await this.opts.tunnelHost();
-		if (host === null) {
-			missing.push(
-				"no saved tunnel, which the box carries the page through: set one up with `splates tunnel setup`",
+				"no coordinator's box: `splates server infra init` writes the Pulumi project and `pulumi up` there makes it",
 			);
 		}
 		const repos = await this.opts.repos();
@@ -245,12 +240,12 @@ export class CoordinatorMove {
 				missing.push(problem);
 			}
 		}
-		if (box === null || host === null || missing.length > 0) {
+		if (box === null || missing.length > 0) {
 			throw new Error(
 				`cannot move yet:\n${missing.map((each) => `- ${each}`).join("\n")}`,
 			);
 		}
-		return { box, host, repos };
+		return { box, repos };
 	}
 
 	private async boxProjects(repos: MoveRepo[]): Promise<BoxProject[]> {
@@ -300,13 +295,13 @@ export class CoordinatorMove {
 		}
 	}
 
-	/** Lays out the records, sends them, puts them in place, and keeps the creds in the box's keyring. */
+	/** Lays out the records, sends them and puts them in place. */
 	private async carry(
 		shell: BoxShell,
 		repos: MoveRepo[],
 		projects: BoxProject[],
 	): Promise<void> {
-		const { fs, ps, home, log, stores } = this.opts;
+		const { fs, ps, home, log } = this.opts;
 		const staging = `${home}/move`;
 		await fs.rm(staging, { recursive: true, force: true });
 		try {
@@ -332,11 +327,6 @@ export class CoordinatorMove {
 			log.info("sending the records to the box");
 			await shell.copy(bundle, BUNDLE);
 			await shell.run(placeScript(projects, this.boxHere(projects)));
-			log.info("keeping the creds in the box's keyring");
-			await shell.run(
-				credsScript(),
-				JSON.stringify(await new MovedCreds(stores).carried(projects)),
-			);
 		} finally {
 			await fs.rm(staging, { recursive: true, force: true });
 		}
@@ -446,13 +436,10 @@ export interface CoordinatorMoveOptions {
 	log: Logger;
 	/** splates's home here. */
 	home: string;
-	stores: SecretStores;
 	/** The splates release the box runs, and the Mac's worker. */
 	version: string;
 	/** The box as `splates server status` says it stands, or null for none. */
 	box: () => Promise<BoxStanding | null>;
-	/** The host the saved tunnel carries, or null when none is saved. */
-	tunnelHost: () => Promise<string | null>;
 	/** Each project this machine's coordinator keeps. */
 	repos: () => Promise<MoveRepo[]>;
 	/** Where the move runs: the box's server starts in the clone of the project there, whose config names the worker provider. */
@@ -485,15 +472,8 @@ export type Moved =
 	| { status: "updated"; ipv4: string; version: string }
 	/** On a dry run, the coordinator runs on the box already, which a deploy brings to `version`. */
 	| { status: "deployed"; ipv4: string; version: string }
-	| { status: "keys"; keys: DeployKey[] };
-
-/** A deploy key the box made that GitHub does not yet let push. */
-export interface DeployKey {
-	slug: string;
-	key: string;
-	/** Where on GitHub to add it, when its origin is there. */
-	add: string | null;
-}
+	/** The box's Parameter Store lacks creds its stack should have put there, each named. */
+	| { status: "blocked"; needs: string[] };
 
 const Invited = z.object({ token: z.string() });
 
@@ -552,12 +532,4 @@ export function remoteProblem(
 /** Whether git reaches `url` over SSH, as a deploy key signs in. */
 function sshUrl(url: string): boolean {
 	return /^ssh:\/\//.test(url) || /^[\w.-]+@[\w.-]+:/.test(url);
-}
-
-/** Where on GitHub a deploy key is added for the repository at `url`; null elsewhere. */
-export function addKeyUrl(url: string | undefined): string | null {
-	const repo = url?.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/);
-	return repo
-		? `https://github.com/${repo[1]}/${repo[2]}/settings/keys/new`
-		: null;
 }

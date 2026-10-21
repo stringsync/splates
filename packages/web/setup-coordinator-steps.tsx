@@ -1,11 +1,8 @@
-import type { CoordinatorKeys } from "@stringsync/splates-server/setup";
+import type { CoordinatorNeeds } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
-import { CopyIcon, ExternalLinkIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration, sleep } from "webappwiz/time";
-import { Button } from "#web/components/ui/button.tsx";
-import { copiedLabel, useCopy } from "./card";
 import { Markdown } from "./markdown";
 import { coordinatorMoveProgress, startCoordinatorMove } from "./setup-api";
 import type { BrowserSteps } from "./setup-journey";
@@ -115,24 +112,21 @@ export function coordinatorBrowserSteps(watch: MoveWatch): BrowserSteps {
 	return { "coordinator-move": () => watch.run() };
 }
 
-/** The keys page, listing each deploy key with a copy button and where to add it, and the move's page, following it. */
+/** The creds page, listing each cred the box lacks, and the move's page, following it. */
 export const COORDINATOR_STEPS: StepBodies = {
 	"coordinator-keys": ({ step }) => {
-		const keys = (step.data as CoordinatorKeys | null)?.keys ?? [];
+		const needs = (step.data as CoordinatorNeeds | null)?.needs ?? [];
 		return (
 			<>
 				<p>
 					<Markdown text={step.user} inline />
 				</p>
-				{keys.length > 0 && (
-					<ul aria-label="deploy keys" className="flex flex-col gap-4">
-						{keys.map((key) => (
-							<DeployKeyRow
-								key={key.slug}
-								slug={key.slug}
-								publicKey={key.key}
-								add={key.add}
-							/>
+				{needs.length > 0 && (
+					<ul aria-label="missing creds" className="flex flex-col gap-1">
+						{needs.map((name) => (
+							<li key={name}>
+								<code className="font-mono text-[12px]">{name}</code>
+							</li>
 						))}
 					</ul>
 				)}
@@ -141,50 +135,6 @@ export const COORDINATOR_STEPS: StepBodies = {
 	},
 	"coordinator-move": ({ step }) => <MoveBody user={step.user} />,
 };
-
-function DeployKeyRow({
-	slug,
-	publicKey,
-	add,
-}: {
-	slug: string;
-	publicKey: string;
-	add: string | null;
-}): JSX.Element {
-	const { copied, copy } = useCopy();
-	return (
-		<li aria-label={slug} className="flex min-w-0 flex-col gap-1">
-			<div className="flex items-center justify-between gap-2">
-				<span className="font-medium">{slug}</span>
-				{add !== null && (
-					<a
-						href={add}
-						target="_blank"
-						rel="noreferrer"
-						className="flex items-center gap-1 text-sm underline underline-offset-4"
-					>
-						Add it on GitHub <ExternalLinkIcon className="size-3.5" />
-					</a>
-				)}
-			</div>
-			<div className="flex items-center gap-2">
-				<code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-md border bg-muted px-2 py-1 font-mono text-[12px]">
-					{publicKey}
-				</code>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					aria-label={`Copy ${slug}'s key`}
-					onClick={() => copy(publicKey)}
-				>
-					<CopyIcon />
-					{copiedLabel(copied, "Copy")}
-				</Button>
-			</div>
-		</li>
-	);
-}
 
 /** The move's page: what to expect, then where the move stands once Next starts it. */
 function MoveBody({ user }: { user: string }): JSX.Element {

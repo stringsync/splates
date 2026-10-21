@@ -62,6 +62,7 @@ const box = new CoordinatorBox("splates", {
 export const instanceId = box.instanceId;
 export const ipv4 = box.ipv4;
 export const roleName = box.roleName;
+export const sshKey = box.sshKey;
 export const tunnelHost = box.host;
 `;
 

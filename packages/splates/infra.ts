@@ -1,4 +1,9 @@
+import { resolve } from "node:path";
 import { commaList } from "@stringsync/splates-server/comma-list";
+import {
+	CoordinatorBox,
+	writeInfraConfig,
+} from "@stringsync/splates-server/coordinator";
 import { fail } from "@stringsync/splates-server/exit";
 import { infraInit } from "@stringsync/splates-server/infra/init";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
@@ -13,7 +18,7 @@ export const splatesInfra = cli<SplatesDeps>("infra").description(
 splatesInfra
 	.command("init")
 	.description(
-		"write a Pulumi project in <dir>, its program a dozen lines using the components of @stringsync/splates-server/infra, and the stack's config from the flags; run again, it writes only what is not so already and keeps values you changed. It prints each id and secret left to set with `pulumi config set`. Then `bun add @stringsync/splates-server @pulumi/pulumi @pulumi/aws @pulumi/awsx @pulumi/cloudflare @pulumi/github @pulumi/tls @pulumi/random` there and `pulumi up`",
+		"write a Pulumi project in <dir>, its program a dozen lines using the components of @stringsync/splates-server/infra, and the stack's config from the flags; run again, it writes only what is not so already and keeps values you changed. It prints each id and secret left to set with `pulumi config set`. It records the directory in ~/.splates/coordinator/infra.json, where `splates server deploy` finds the stack. Then `bun add @stringsync/splates-server @pulumi/pulumi @pulumi/aws @pulumi/awsx @pulumi/cloudflare @pulumi/github @pulumi/tls @pulumi/random` there and `pulumi up`",
 	)
 	.arg("dir", z.string(), { description: "where the Pulumi project goes" })
 	.option("stack", z.string(), { default: "prod", description: "the stack" })
@@ -51,6 +56,11 @@ splatesInfra
 			projects,
 			fs: ctx.fs,
 		});
+		await writeInfraConfig(
+			ctx.fs,
+			new CoordinatorBox({ ps: ctx.ps, fs: ctx.fs }).home,
+			{ dir: resolve(opts.dir), stack: opts.stack },
+		);
 		ctx.log.info(
 			written.length === 0
 				? "already so: nothing written"

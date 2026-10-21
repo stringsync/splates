@@ -12,11 +12,7 @@ import { SetupPage } from "./setup-page";
 import { SetupContext } from "./setup-state";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
-const KEY = {
-	slug: "app",
-	key: "ssh-ed25519 AAAA splates-coordinator app",
-	add: "https://github.com/me/app/settings/keys/new",
-};
+const NEEDS = ["/splates/device/SPLATES_TUNNEL_TOKEN"];
 
 const RUNNING: MoveProgress = {
 	moved: false,
@@ -44,10 +40,10 @@ describe("Cloud server journey", () => {
 		testing.dispose();
 	});
 
-	/** `progress` with the coordinator steps `statuses` names set so, and the keys step showing `keys`. */
+	/** `progress` with the coordinator steps `statuses` names set so, and the creds step listing `needs`. */
 	function with_(
 		statuses: Record<string, StepStatus>,
-		keys: (typeof KEY)[] | null = null,
+		needs: string[] | null = null,
 	): SetupProgress {
 		return {
 			...progress,
@@ -57,8 +53,8 @@ describe("Cloud server journey", () => {
 					...step,
 					status: statuses[step.id] ?? step.status,
 					data:
-						step.id === "coordinator-keys" && keys !== null
-							? { keys }
+						step.id === "coordinator-keys" && needs !== null
+							? { needs }
 							: step.data,
 				})),
 			})),
@@ -98,31 +94,27 @@ describe("Cloud server journey", () => {
 		await click(view, "Set up Cloud server");
 
 		expect(view.getByRole("form", { name: "Make the server's box" }));
-		expect(view.queryByLabelText("API token")).toBeNull();
+		expect(view.queryByLabelText(/API token/)).toBeNull();
 	});
 
-	it("shows each deploy key a failed Next found, to copy and add on GitHub", async () => {
+	it("lists each cred the box lacks after a failed Next", async () => {
 		const view = open(with_(before));
 		await click(view, "Set up Cloud server");
 		expect(view.getByRole("form", { name: "Let the box push each project" }));
-		expect(view.queryByRole("list", { name: "deploy keys" })).toBeNull();
+		expect(view.queryByRole("list", { name: "missing creds" })).toBeNull();
 		testing.refuseWrites = {
 			reason: "step",
-			message: "GitHub does not let each deploy key push yet.",
+			message: "The box lacks creds in its Parameter Store.",
 		};
-		testing.setup = with_(before, [KEY]);
+		testing.setup = with_(before, NEEDS);
 
 		await click(view, "Next");
 
-		await waitFor(() => view.getByRole("list", { name: "deploy keys" }));
+		await waitFor(() => view.getByRole("list", { name: "missing creds" }));
 		expect(view.getByRole("alert").textContent).toBe(
-			"GitHub does not let each deploy key push yet.",
+			"The box lacks creds in its Parameter Store.",
 		);
-		expect(view.getByText(KEY.key)).toBeTruthy();
-		expect(
-			view.getByRole("link", { name: "Add it on GitHub" }).getAttribute("href"),
-		).toBe(KEY.add);
-		expect(view.getByRole("button", { name: "Copy app's key" })).toBeTruthy();
+		expect(view.getByText(NEEDS[0] as string)).toBeTruthy();
 	});
 
 	it("starts the move on Next and says what it is doing", async () => {

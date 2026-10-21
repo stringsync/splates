@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
 import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
@@ -17,9 +16,9 @@ const DEV = "http://localhost:4310";
 const HOST = "splates.example.com";
 const BOX = {
 	ipv4: "203.0.113.7",
-	serverId: "42",
-	serverType: "cpx21",
-	location: "ash",
+	instanceId: "i-0abc",
+	roleName: "splates-role",
+	host: HOST,
 	key: `${HOME}/coordinator/id_ed25519`,
 };
 
@@ -70,15 +69,8 @@ describe("CoordinatorMove", () => {
 			fs,
 			log: new MemoryLogger(),
 			home: HOME,
-			stores: {
-				device: new FakeSecretStore({
-					SPLATES_TUNNEL_TOKEN: "tunnel",
-				}),
-				project: async () => new FakeSecretStore(),
-			},
 			version: "1.2.3",
 			box: async () => BOX,
-			tunnelHost: async () => HOST,
 			repos: async () => [repo],
 			here: `${ROOT}/packages`,
 			dev: DEV,
@@ -105,7 +97,6 @@ describe("CoordinatorMove", () => {
 		const move = new CoordinatorMove({
 			...opts,
 			box: async () => null,
-			tunnelHost: async () => null,
 			repos: async () => [
 				{ ...repo, remote: null },
 				{ ...repo, slug: "web", url: "https://github.com/me/web.git" },
@@ -114,8 +105,7 @@ describe("CoordinatorMove", () => {
 
 		const refused = await move.run().catch((error: Error) => error.message);
 
-		expect(refused).toContain("splates server deploy");
-		expect(refused).toContain("splates tunnel setup");
+		expect(refused).toContain("pulumi up");
 		expect(refused).toContain(
 			`add \`remote: "origin"\` to ${ROOT}/splates.config.ts`,
 		);
@@ -123,21 +113,30 @@ describe("CoordinatorMove", () => {
 		expect(ps.scripts).toEqual([]);
 	});
 
-	it("stops at the deploy keys GitHub does not let push yet, having changed nothing here", async () => {
-		ps.clones = "key splates ssh-ed25519 AAAA splates-coordinator splates\n";
+	it("stops, having changed nothing here, while the box's Parameter Store lacks creds", async () => {
+		ps.needs = "/splates/device/SPLATES_TUNNEL_TOKEN\n";
 
 		const moved = await new CoordinatorMove(opts).run();
 
 		expect(moved).toEqual({
-			status: "keys",
-			keys: [
-				{
-					slug: "splates",
-					key: "ssh-ed25519 AAAA splates-coordinator splates",
-					add: "https://github.com/me/splates/settings/keys/new",
-				},
-			],
+			status: "blocked",
+			needs: ["/splates/device/SPLATES_TUNNEL_TOKEN"],
 		});
+		expect(ps.scripts.some((each) => each.includes("push --dry-run"))).toBe(
+			false,
+		);
+		expect(net.posted).toEqual([]);
+		expect(await fs.exists(`${ROOT}/.git/splates`)).toBe(true);
+	});
+
+	it("refuses, having changed nothing here, a project the box's deploy key cannot push", async () => {
+		ps.clones = "refused splates\n";
+
+		const refused = await new CoordinatorMove(opts)
+			.run()
+			.catch((error: Error) => error.message);
+
+		expect(refused).toContain("cannot clone or push trunk of splates");
 		expect(net.posted).toEqual([]);
 		expect(await fs.exists(`${ROOT}/.git/splates`)).toBe(true);
 	});
@@ -172,7 +171,6 @@ describe("CoordinatorMove", () => {
 		ps.active = true;
 		// A move put this machine's projects and tunnel aside.
 		opts.repos = async () => [];
-		opts.tunnelHost = async () => null;
 
 		const moved = await new CoordinatorMove(opts).run();
 
@@ -219,13 +217,11 @@ describe("CoordinatorMove", () => {
 		});
 		expect(net.posted).toEqual([{ projects: ["splates"], after: "shutdown" }]);
 		expect(pushed).toEqual(["fix"]);
-		expect(ps.copied).toEqual(["/root/splates-move.tgz"]);
 		const place = ps.scripts.find((each) => each.includes("tar -xzf"));
 		expect(place).toContain("WorkingDirectory=/home/splates/projects/splates");
-		expect(JSON.parse(ps.creds ?? "")).toEqual({
-			device: { SPLATES_TUNNEL_TOKEN: "tunnel" },
-			projects: {},
-		});
+		// No creds go: the box reads its own through its instance role.
+		expect(ps.scripts.some((each) => each.includes("keep-creds"))).toBe(false);
+		expect(ps.copied).toEqual(["/root/splates-move.tgz"]);
 		expect(ps.scripts.some((each) => each.includes("enable --now"))).toBe(true);
 		expect(joined).toEqual([`https://${HOST} join-token`]);
 		expect(kept).toEqual([`https://${HOST}`]);
@@ -293,7 +289,6 @@ describe("CoordinatorMove", () => {
 	const again = () => {
 		ps.active = true;
 		opts.repos = async () => [];
-		opts.tunnelHost = async () => null;
 		return new CoordinatorMove(opts).run();
 	};
 
@@ -373,7 +368,7 @@ describe("CoordinatorMove", () => {
 class SshPs extends FakePs {
 	readonly scripts: string[] = [];
 	readonly copied: string[] = [];
-	creds: string | undefined;
+	needs = "";
 	clones = "ready splates\n";
 	active = false;
 	starts = true;
@@ -396,10 +391,10 @@ class SshPs extends FakePs {
 		}
 		const stdin = opts?.stdin ?? "";
 		const script = argv.at(-2) === "-c" ? (argv.at(-1) ?? "") : stdin;
-		if (script !== stdin) {
-			this.creds = stdin;
-		}
 		this.scripts.push(script);
+		if (script.includes("server needs")) {
+			return ok(this.needs);
+		}
 		if (script.includes("push --dry-run")) {
 			return ok(this.clones);
 		}

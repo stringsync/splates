@@ -12,8 +12,10 @@ writes a Pulumi project that imports these components; edit it from there:
 - `DeployKeys`: a write deploy key per project on GitHub, its private half in
   `/splates/projects/<slug>/SPLATES_DEPLOY_KEY`.
 
-The program exports `instanceId`, `ipv4`, `roleName` and `tunnelHost`, which
-`splates server deploy` takes.
+The program exports `instanceId`, `ipv4`, `roleName`, `tunnelHost` and `sshKey`
+(a secret: the private half of the key pair that logs in as root), which
+`splates server deploy` takes. `splates server infra init` records the directory in
+`~/.splates/coordinator/infra.json`, which is how the deploy finds the stack.
 
 The Pulumi packages are optional peer dependencies of
 `@stringsync/splates-server`: the project `infra init` writes installs

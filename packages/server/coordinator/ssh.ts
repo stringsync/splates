@@ -3,7 +3,7 @@ import { shellQuoted } from "./scripts";
 
 /**
  * A root shell on the coordinator's box over SSH, signed in with the key
- * `splates server deploy` made, holding the box to the host key `CoordinatorBox`
+ * its Pulumi stack made, holding the box to the host key `CoordinatorBox`
  * recorded for it in a file of splates's own, and refusing any other.
  */
 export class BoxShell {

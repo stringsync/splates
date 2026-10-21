@@ -1,4 +1,4 @@
-export type { CoordinatorKeys } from "./area-coordinator";
+export type { CoordinatorNeeds } from "./area-coordinator";
 export { SETUP_AREAS } from "./areas";
 export {
 	CoordinatorMoveRoutes,
