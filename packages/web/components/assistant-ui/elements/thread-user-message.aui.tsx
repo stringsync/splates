@@ -54,6 +54,8 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { NoteChip } from "#web/note-chip.tsx";
+import type { Chip } from "#web/notes-attached.ts";
 import { useLongPress } from "#web/phone-row-menu.tsx";
 import {
 	type Sent,
@@ -159,6 +161,9 @@ export const UserMessage: FC = () => {
 		return typeof at === "number" ? at : null;
 	});
 	const sending = useAuiState((s) => s.message.metadata.custom.sending);
+	const notes = useAuiState((s) => s.message.metadata.custom.notes) as
+		| readonly Chip[]
+		| undefined;
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -262,6 +267,22 @@ export const UserMessage: FC = () => {
 							Steered into the running turn
 						</span>
 					)}
+				</div>
+			)}
+			{notes !== undefined && (
+				<div
+					data-slot="aui_user-message-notes"
+					className="flex flex-wrap gap-1 max-sm:justify-end"
+				>
+					{notes.map((note) => (
+						<NoteChip
+							key={note.path}
+							path={note.path}
+							tier={note.tier ?? "optional"}
+							inContext={note.inContext && note.tier === null}
+							updated={note.updated}
+						/>
+					))}
 				</div>
 			)}
 			{typeof sending === "number" && <SendingLine seconds={sending} />}

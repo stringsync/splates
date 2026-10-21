@@ -12,9 +12,11 @@ import { Duration } from "webappwiz/time";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
+import { chipsOf, withChips } from "./notes-attached";
 import { heldPrompt, queuedReply, working } from "./queued-time";
 import { messageOf } from "./sending";
 import { replied, withEscalation } from "./thread-reply";
+import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
 import { workingTimes } from "./working-report-time";
 
@@ -90,24 +92,28 @@ export function useThreadMessages(
 		const resumed = starting
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
+		const chips = chipsOf(said, conversation.events);
 		const liked = workingTimes(
 			said.map((message, index) =>
 				queuedReply(
-					like(
-						message,
-						index,
-						conversation.id,
-						!writing || index < said.length - 1,
-						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
-						now,
-						conversation.lastTask,
-						happened[index],
-						writing &&
-							index === said.length - 1 &&
-							conversation.ask?.type === "permission"
-							? conversation.ask.at
-							: null,
-						said[index + 1]?.steered === true || index === resumed,
+					withChips(
+						like(
+							message,
+							index,
+							conversation.id,
+							!writing || index < said.length - 1,
+							said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+							now,
+							conversation.lastTask,
+							happened[index],
+							writing &&
+								index === said.length - 1 &&
+								conversation.ask?.type === "permission"
+								? conversation.ask.at
+								: null,
+							said[index + 1]?.steered === true || index === resumed,
+						),
+						chips.get(index),
 					),
 					said[index - 1],
 				),
@@ -530,28 +536,6 @@ function rested(thread: ThreadMessageLike[]): ThreadMessageLike[] {
 			content: [...last.content, { type: "data-rested", data: {} }],
 		},
 	];
-}
-
-function turnsOf(
-	said: Message[],
-	events: readonly Event[],
-): Record<number, Event[]> {
-	const turns: Record<number, Event[]> = {};
-	for (const event of events) {
-		const last = said.findLastIndex(
-			(message) => message.at !== null && message.at <= event.at,
-		);
-		// Before anything was said, as Auto's pick is, it goes with the reply
-		// to the first prompt, which it was made for.
-		const turn =
-			said[last]?.role === "agent"
-				? last
-				: last === -1 && said[0]?.role === "user"
-					? 1
-					: last + 1;
-		turns[turn] = [...(turns[turn] ?? []), event];
-	}
-	return turns;
 }
 
 /**
