@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
-import { FakeHetzner } from "../cloud/testing";
+import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
+import { FakeDigitalOcean } from "../cloud/testing";
 import type { Moved } from "../coordinator";
 import { KeygenPs } from "../coordinator/testing";
 import { coordinatorArea } from "./area-coordinator";
@@ -15,23 +15,24 @@ const KEY = `${HOME}/coordinator/id_ed25519`;
 
 describe("undoing COORDINATOR_AREA", () => {
 	let fs: FakeFs;
-	let hetzner: FakeHetzner;
+	let digitalocean: FakeDigitalOcean;
 	let machine: SetupMachine;
 	let area: ReturnType<typeof coordinatorArea>;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
-		hetzner = new FakeHetzner();
-		hetzner.stock = { ash: ["cpx21"] };
+		digitalocean = new FakeDigitalOcean();
+		digitalocean.actionsRun = true;
+		digitalocean.stock = { nyc3: ["s-2vcpu-4gb-intel"] };
 		machine = {
 			fs,
 			ps: new KeygenPs(fs),
 			home: HOME,
 			device: new FakeSecretStore(),
-			fetch: hetzner.fetch,
+			fetch: digitalocean.fetch,
 		};
-		await machine.device.set(HCLOUD_TOKEN, "token");
-		await new ChosenCloud(HOME, fs).choose("hetzner");
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
+		await new ChosenCloud(HOME, fs).choose("digitalocean");
 		const dryRun: Moved = {
 			status: "ready",
 			host: "splates.example.com",
@@ -86,9 +87,9 @@ describe("undoing COORDINATOR_AREA", () => {
 				title: "Make the server's box",
 				done: true,
 				removes: [
-					"The Hetzner Cloud server `splates-coordinator`, and with it every backup Hetzner Cloud keeps of it",
-					"The Hetzner Cloud firewall `splates-coordinator`",
-					"The Hetzner Cloud SSH key `splates-coordinator`, and its key pair here, `~/.splates/coordinator/id_ed25519`",
+					"The DigitalOcean server `splates-coordinator`, and with it every backup DigitalOcean keeps of it",
+					"The DigitalOcean firewall `splates-coordinator`",
+					"The DigitalOcean SSH key `splates-coordinator`, and its key pair here, `~/.splates/coordinator/id_ed25519`",
 				],
 				leaves: [],
 			},
@@ -101,7 +102,7 @@ describe("undoing COORDINATOR_AREA", () => {
 			},
 		]);
 		expect(plan.confirm).toBe("splates-coordinator");
-		expect(plan.creds).toEqual([{ name: HCLOUD_TOKEN, keptFor: null }]);
+		expect(plan.creds).toEqual([{ name: DIGITALOCEAN_TOKEN, keptFor: null }]);
 		expect(plan.refused).toBeNull();
 	});
 
@@ -115,9 +116,9 @@ describe("undoing COORDINATOR_AREA", () => {
 		await box.undo?.run(machine);
 		await box.undo?.run(machine);
 
-		expect(hetzner.servers.size).toBe(0);
-		expect(hetzner.firewalls.size).toBe(0);
-		expect(hetzner.sshKeys.size).toBe(0);
+		expect(digitalocean.droplets.size).toBe(0);
+		expect(digitalocean.firewalls.size).toBe(0);
+		expect(digitalocean.sshKeys.size).toBe(0);
 		expect(await fs.exists(KEY)).toBe(false);
 		expect(await fs.exists(`${KEY}.pub`)).toBe(false);
 		expect(await box.check(machine)).toBe(false);
@@ -129,7 +130,7 @@ describe("undoing COORDINATOR_AREA", () => {
 
 		await setup().undo("coordinator", "splates-coordinator");
 
-		expect(await machine.device.get(HCLOUD_TOKEN)).toBeUndefined();
+		expect(await machine.device.get(DIGITALOCEAN_TOKEN)).toBeUndefined();
 		expect(await new ChosenCloud(HOME, fs).read()).toBeNull();
 		expect(await step("coordinator-keys").check(machine)).toBe(false);
 		expect(await step("coordinator-box").check(machine)).toBe(false);
@@ -144,6 +145,6 @@ describe("undoing COORDINATOR_AREA", () => {
 		await expect(
 			setup().undo("coordinator", "splates-coordinator"),
 		).rejects.toThrow(refusal);
-		expect(hetzner.requests).toEqual([]);
+		expect(digitalocean.requests).toEqual([]);
 	});
 });

@@ -6,12 +6,12 @@ import { ChosenCloud } from "./index";
 const HOME = "/home/.splates";
 
 describe("ChosenCloud", () => {
-	it("takes Hetzner, where boxes were made before setup asked, until one is chosen", async () => {
+	it("takes DigitalOcean, where boxes were made before setup asked, until one is chosen", async () => {
 		const chosen = new ChosenCloud(HOME, new FakeFs());
 
 		expect(await chosen.read()).toBeNull();
 		expect((await chosen.cloud({ store: new FakeSecretStore() })).name).toBe(
-			"Hetzner Cloud",
+			"DigitalOcean",
 		);
 	});
 
@@ -22,15 +22,15 @@ describe("ChosenCloud", () => {
 		await expect(chosen.choose("aws")).rejects.toThrow(
 			"splates offers no cloud 'aws'",
 		);
-		await chosen.choose("hetzner");
+		await chosen.choose("digitalocean");
 
-		expect(await new ChosenCloud(HOME, fs).read()).toBe("hetzner");
+		expect(await new ChosenCloud(HOME, fs).read()).toBe("digitalocean");
 	});
 
 	it("forgets the cloud chosen once cleared, and clears none twice", async () => {
 		const fs = new FakeFs();
 		const chosen = new ChosenCloud(HOME, fs);
-		await chosen.choose("hetzner");
+		await chosen.choose("digitalocean");
 
 		await chosen.clear();
 		await chosen.clear();

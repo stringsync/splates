@@ -42,16 +42,21 @@ const PLANS: Record<string, unknown> = {
 				id: "coordinator-box",
 				title: "Make the server's box",
 				removes: [
-					"The Hetzner server `splates-coordinator` in Ashburn and its daily backups",
+					"The DigitalOcean droplet `splates-coordinator` and its daily backups",
 					"Its firewall `splates-coordinator`",
-					"Its SSH key `splates-coordinator`, in Hetzner and at `~/.splates/coordinator/id_ed25519`",
+					"Its SSH key `splates-coordinator`, in DigitalOcean and at `~/.splates/coordinator/id_ed25519`",
 				],
 				leaves: [
-					"The Hetzner API token itself: delete it in the [Hetzner console](https://console.hetzner.cloud) under Security → API tokens",
+					"The DigitalOcean API token itself: delete it in the [DigitalOcean control panel](https://cloud.digitalocean.com/account/api/tokens) under API → Tokens",
 				],
 			},
 		],
-		creds: [{ name: "HCLOUD_TOKEN", keptFor: "Give splates a Hetzner token" }],
+		creds: [
+			{
+				name: "DIGITALOCEAN_TOKEN",
+				keptFor: "Give splates a DigitalOcean token",
+			},
+		],
 		confirm: "splates-coordinator",
 		refused: null,
 	},

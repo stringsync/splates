@@ -34,7 +34,10 @@ describe("Cloud server journey", () => {
 		testing = new Testing();
 		const fs = new FakeFs();
 		await fs.mkdir("/fixture", { recursive: true });
-		await fs.write("/fixture/cloud.json", '{"format":1,"cloud":"hetzner"}');
+		await fs.write(
+			"/fixture/cloud.json",
+			'{"format":1,"cloud":"digitalocean"}',
+		);
 		progress = await new Setup(
 			{ fs, home: "/fixture", device: new FakeSecretStore() },
 			SETUP_AREAS,
@@ -100,7 +103,7 @@ describe("Cloud server journey", () => {
 		await click(view, "Set up Cloud server");
 
 		expect(view.getByRole("form", { name: "Choose a cloud provider" }));
-		expect(view.getByText("Hetzner Cloud")).toBeTruthy();
+		expect(view.getByText("DigitalOcean")).toBeTruthy();
 	});
 
 	it("asks for the chosen cloud's token by name on the box's page", async () => {
@@ -109,8 +112,8 @@ describe("Cloud server journey", () => {
 
 		expect(view.getByRole("form", { name: "Make the server's box" }));
 		expect(
-			view.getByLabelText("Hetzner Cloud API token").getAttribute("name"),
-		).toBe("HCLOUD_TOKEN");
+			view.getByLabelText("DigitalOcean API token").getAttribute("name"),
+		).toBe("DIGITALOCEAN_TOKEN");
 	});
 
 	it("shows each deploy key a failed Next found, to copy and add on GitHub", async () => {

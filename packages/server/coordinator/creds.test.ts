@@ -30,17 +30,17 @@ describe("MovedCreds", () => {
 		});
 	});
 
-	it("carries the Hetzner token the box makes workers with", async () => {
+	it("carries the DigitalOcean token the box makes workers with", async () => {
 		const creds = new MovedCreds({
 			device: new FakeSecretStore({
-				HCLOUD_TOKEN: "hcloud",
+				DIGITALOCEAN_TOKEN: "do",
 			}),
 			project: async () => new FakeSecretStore(),
 		});
 
 		const { device } = await creds.carried([]);
 
-		expect(device).toEqual({ HCLOUD_TOKEN: "hcloud" });
+		expect(device).toEqual({ DIGITALOCEAN_TOKEN: "do" });
 	});
 
 	it("keeps what it carried in the box's stores", async () => {

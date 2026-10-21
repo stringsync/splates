@@ -264,7 +264,7 @@ import type { ConfigFile } from "@stringsync/splates-server/config";
 export default { cloud: new DigitalOceanCloud() } satisfies ConfigFile;
 ```
 
-`DigitalOceanCloud` and `HetznerCloud` come with splates; setup's Choose a
+`DigitalOceanCloud` comes with splates; setup's Choose a
 cloud provider step picks which one this machine's token and coordinator's
 box are for. Another is a class that implements
 `CloudProvider` from `@stringsync/splates-server/cloud`: making, listing and

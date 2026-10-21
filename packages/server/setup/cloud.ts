@@ -3,7 +3,6 @@ import {
 	CLOUDS,
 	type CloudProvider,
 	DIGITALOCEAN_TOKEN,
-	HCLOUD_TOKEN,
 } from "../cloud";
 import type { StepField } from "./fields";
 import type { SetupMachine, SetupStep } from "./setup";
@@ -18,11 +17,7 @@ export const CLOUD_CHOICE = "cloud.json";
  * What a step that makes or reads machines in the chosen cloud `uses`: the
  * choice, and whichever cloud's token is kept.
  */
-export const CLOUD_USES: readonly string[] = [
-	CLOUD_CHOICE,
-	DIGITALOCEAN_TOKEN,
-	HCLOUD_TOKEN,
-];
+export const CLOUD_USES: readonly string[] = [CLOUD_CHOICE, DIGITALOCEAN_TOKEN];
 
 /** The cloud chosen on this machine, reading its token from the machine's device creds. */
 export function cloudOf(machine: SetupMachine): Promise<CloudProvider> {

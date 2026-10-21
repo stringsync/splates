@@ -3,14 +3,13 @@ import type { Fs } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { DigitalOceanCloud } from "./digitalocean";
-import { HetznerCloud } from "./hetzner";
 import type { CloudProvider } from "./provider";
 
 /** A cloud this machine can make the coordinator's box in, as setup offers it. */
 export interface CloudChoice {
 	/** How `cloud.json` and setup's answer name it, lowercase. */
 	readonly id: string;
-	/** What the user knows it as, as "Hetzner Cloud". */
+	/** What the user knows it as, as "DigitalOcean". */
 	readonly name: string;
 	make(opts: MachineCloudOptions): CloudProvider;
 }
@@ -22,18 +21,13 @@ export const CLOUDS: readonly CloudChoice[] = [
 		name: "DigitalOcean",
 		make: (opts) => new DigitalOceanCloud(opts),
 	},
-	{
-		id: "hetzner",
-		name: "Hetzner Cloud",
-		make: (opts) => new HetznerCloud(opts),
-	},
 ];
 
 /**
  * The cloud this machine makes the coordinator's box in, and whose token
  * its setup asks for: the one place outside a project's `splates.config.ts`
  * that picks a cloud. `opts.choice` names it, as `ChosenCloud` reads it;
- * none, or one no longer offered, takes Hetzner, where every box was made
+ * none, or one no longer offered, takes DigitalOcean, where every box was made
  * before setup asked which cloud to use.
  */
 export function machineCloud(opts: MachineCloudOptions = {}): CloudProvider {
@@ -48,11 +42,11 @@ export function machineCloud(opts: MachineCloudOptions = {}): CloudProvider {
 }
 
 /** The cloud taken before one is chosen. */
-const BEFORE_CHOOSING = "hetzner";
+const BEFORE_CHOOSING = "digitalocean";
 
 /** What `machineCloud` runs on; the real ones by default. */
 export interface MachineCloudOptions {
-	/** The id of the cloud to make, from `CLOUDS`; Hetzner by default. */
+	/** The id of the cloud to make, from `CLOUDS`; DigitalOcean by default. */
 	choice?: string;
 	/** Where the cloud's token is kept: the device's creds. */
 	store?: SecretStore;
@@ -109,7 +103,7 @@ export class ChosenCloud {
 		await this.#fs.rm(this.#path, { force: true });
 	}
 
-	/** The chosen cloud, or Hetzner before one is chosen. */
+	/** The chosen cloud, or DigitalOcean before one is chosen. */
 	async cloud(
 		opts: Omit<MachineCloudOptions, "choice"> = {},
 	): Promise<CloudProvider> {

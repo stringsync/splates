@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
-import { ChosenCloud, HCLOUD_TOKEN } from "../cloud";
-import { FakeHetzner } from "../cloud/testing";
+import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
+import { FakeDigitalOcean } from "../cloud/testing";
 import { FakeWorkerProvider } from "../workers/testing";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { WORKERS_AREA } from "./area-workers";
@@ -55,20 +55,17 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 				kind: "choice",
 				name: "cloud",
 				label: "Cloud provider",
-				options: [
-					{ value: "digitalocean", label: "DigitalOcean" },
-					{ value: "hetzner", label: "Hetzner Cloud" },
-				],
+				options: [{ value: "digitalocean", label: "DigitalOcean" }],
 			},
 		]);
 		await expect(
 			setup().submit("cloud-choice", { cloud: "aws" }),
 		).rejects.toThrow("Pick one of the choices");
 
-		await setup().submit("cloud-choice", { cloud: "hetzner" });
+		await setup().submit("cloud-choice", { cloud: "digitalocean" });
 
 		expect((await choice())?.status).toBe("done");
-		expect(await new ChosenCloud(HOME, machine.fs).read()).toBe("hetzner");
+		expect(await new ChosenCloud(HOME, machine.fs).read()).toBe("digitalocean");
 	});
 
 	it("takes the cloud's token only once the cloud accepts it", async () => {
@@ -77,14 +74,14 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 				(step) => step.id === "cloud-token",
 			)?.status;
 		expect(await status()).toBe("waiting");
-		await setup().submit("cloud-choice", { cloud: "hetzner" });
+		await setup().submit("cloud-choice", { cloud: "digitalocean" });
 		expect(await status()).toBe("ready");
 
-		await machine.device.set(HCLOUD_TOKEN, "token");
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
 		tokenStatus = 401;
 		expect(await status()).toBe("ready");
 		await expect(setup().submit("cloud-token", {})).rejects.toThrow(
-			"Hetzner does not take that token",
+			"DigitalOcean does not take that token",
 		);
 
 		tokenStatus = 200;
@@ -92,8 +89,8 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 	});
 
 	it("turns cloud workers on once the project names a provider, then builds the snapshot through it", async () => {
-		await new ChosenCloud(HOME, machine.fs).choose("hetzner");
-		await machine.device.set(HCLOUD_TOKEN, "token");
+		await new ChosenCloud(HOME, machine.fs).choose("digitalocean");
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
 		await expect(setup().submit("cloud-provider", {})).rejects.toThrow(
 			"names no `cloud` yet",
 		);
@@ -109,9 +106,9 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 	});
 
 	it("forgets the cloud chosen and its token once undone, leaving the token to revoke and the config to edit", async () => {
-		await machine.device.set(HCLOUD_TOKEN, "token");
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
 		provider = new FakeWorkerProvider();
-		await setup().submit("cloud-choice", { cloud: "hetzner" });
+		await setup().submit("cloud-choice", { cloud: "digitalocean" });
 
 		const plan = await setup().undoPlan("workers");
 
@@ -125,20 +122,20 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		expect(plan.steps[2]?.removes).toEqual([
 			"The cloud provider chosen, kept in `~/.splates/cloud.json`",
 		]);
-		expect(plan.creds).toEqual([{ name: HCLOUD_TOKEN, keptFor: null }]);
+		expect(plan.creds).toEqual([{ name: DIGITALOCEAN_TOKEN, keptFor: null }]);
 
 		await setup().undo("workers", null);
 		await setup().undo("workers", null);
 
 		expect(await new ChosenCloud(HOME, machine.fs).read()).toBeNull();
-		expect(await machine.device.get(HCLOUD_TOKEN)).toBeUndefined();
+		expect(await machine.device.get(DIGITALOCEAN_TOKEN)).toBeUndefined();
 	});
 
 	it("deletes the kept snapshot in the cloud and forgets it", async () => {
-		const hetzner = new FakeHetzner();
-		hetzner.images.set(7, { id: 7, labels: {} });
-		machine.fetch = hetzner.fetch;
-		await machine.device.set(HCLOUD_TOKEN, "token");
+		const digitalocean = new FakeDigitalOcean();
+		digitalocean.images.set(7, { id: 7, labels: {} });
+		machine.fetch = digitalocean.fetch;
+		await machine.device.set(DIGITALOCEAN_TOKEN, "token");
 		await machine.fs.write(
 			`${HOME}/snapshots.json`,
 			JSON.stringify({ linux: { id: "7", version: "1.0.0", builtAt: 0 } }),
@@ -148,12 +145,12 @@ describe("WORKERS_AREA's cloud worker steps", () => {
 		);
 
 		expect(await snapshot?.undo?.removes(machine)).toEqual([
-			"The worker snapshot `7` in Hetzner Cloud, of splates 1.0.0",
+			"The worker snapshot `7` in DigitalOcean, of splates 1.0.0",
 		]);
 		await snapshot?.undo?.run(machine);
 		await snapshot?.undo?.run(machine);
 
-		expect(hetzner.images.size).toBe(0);
+		expect(digitalocean.images.size).toBe(0);
 		expect(await snapshot?.check(machine)).toBe(false);
 		expect(await snapshot?.undo?.removes(machine)).toEqual([]);
 	});

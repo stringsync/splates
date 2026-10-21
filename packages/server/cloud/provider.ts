@@ -9,11 +9,11 @@ import type { WorkerType } from "../workers";
  * splates finds what it made: it keeps no state of its own about them.
  */
 export interface CloudProvider {
-	/** What the user knows it as, as "Hetzner Cloud". */
+	/** What the user knows it as, as "DigitalOcean". */
 	readonly name: string;
 	/**
 	 * How a `splates.config.ts` names it as its `cloud`, as
-	 * `new HetznerCloud()`, imported from `@stringsync/splates-server/cloud`.
+	 * `new DigitalOceanCloud()`, imported from `@stringsync/splates-server/cloud`.
 	 */
 	readonly configSource: string;
 	/** The API token it reads from the device's creds, and how the user gets one. */

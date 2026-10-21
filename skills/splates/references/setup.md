@@ -101,11 +101,10 @@ started at each boot, shown as `linux (wsl2)`) and `wake-on-lan` (Wake-on-LAN
 on in its BIOS and adapter, so splates wakes it when agents queue, before
 making a worker; `splates worker wake <id>` wakes one by hand). Workers
 in their own cloud account start with `cloud-choice` (the cloud provider,
-DigitalOcean or Hetzner Cloud, picked on the page and kept in
+DigitalOcean, picked on the page and kept in
 `~/.splates/cloud.json`), `cloud-token` (that cloud's API token, the cred the
-step names: `DIGITALOCEAN_TOKEN` or `HCLOUD_TOKEN`), `cloud-provider`
-(a task adding the `cloud` the step shows, `new DigitalOceanCloud()` or
-`new HetznerCloud()`, from `@stringsync/splates-server/cloud`, to
+step names: `DIGITALOCEAN_TOKEN`), `cloud-provider`
+(a task adding the `cloud` the step shows, `new DigitalOceanCloud()`, from `@stringsync/splates-server/cloud`, to
 `splates.config.ts`) and
 `worker-snapshot` (builds the snapshot workers boot from); and, only when
 `splates.config.ts` names a `cloud` or a `workerProvider`, `worker-budget` (what made
@@ -118,8 +117,8 @@ When the user asks for an always-on server, that is the Cloud server setup
 area, all of it `splates server deploy`: it makes the box when there is none
 (the `coordinator-cloud` step picks the cloud provider, as `cloud-choice` does,
 then the `coordinator-box` step asks for its token on its own page, so
-request it there as for `cloud-token`: in DigitalOcean, a 2 vCPU, 4 GB
-droplet in New York, in Hetzner Cloud a CPX21 in Ashburn, with daily backups,
+request it there as for `cloud-token`: a 2 vCPU, 4 GB
+droplet in New York, with daily backups,
 SSH alone open, its key under `~/.splates/coordinator`), then deploys the server onto it. That needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the
 `coordinator-remotes` step): the box gives each project a deploy key, and

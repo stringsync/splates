@@ -3,7 +3,7 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
 import { ChosenCloud, DIGITALOCEAN_TOKEN } from "../cloud";
 import { FakeDigitalOcean } from "../cloud/testing";
-import { CoordinatorBox } from "./index";
+import { CoordinatorBox, installScript } from "./index";
 import { KeygenPs } from "./testing";
 
 const HOME = "/home/.splates";
@@ -12,6 +12,7 @@ const KEY = `${HOME}/coordinator/id_ed25519`;
 describe("CoordinatorBox in DigitalOcean", () => {
 	let fs: FakeFs;
 	let digitalocean: FakeDigitalOcean;
+	let store: FakeSecretStore;
 	let box: CoordinatorBox;
 
 	beforeEach(async () => {
@@ -22,7 +23,7 @@ describe("CoordinatorBox in DigitalOcean", () => {
 			nyc3: ["s-2vcpu-4gb-intel"],
 			sfo3: ["s-2vcpu-4gb-intel"],
 		};
-		const store = new FakeSecretStore();
+		store = new FakeSecretStore();
 		await store.set(DIGITALOCEAN_TOKEN, "token");
 		await new ChosenCloud(HOME, fs).choose("digitalocean");
 		box = new CoordinatorBox({
@@ -120,5 +121,55 @@ describe("CoordinatorBox in DigitalOcean", () => {
 		expect(digitalocean.firewalls.size).toBe(0);
 		expect(digitalocean.sshKeys.size).toBe(0);
 		expect(await box.status()).toBeNull();
+	});
+
+	it("says there is no box before one is made", async () => {
+		expect(await box.status()).toBeNull();
+	});
+
+	it("does nothing to remove when there is no box", async () => {
+		await box.remove();
+
+		expect(
+			digitalocean.calls().filter((call) => !call.startsWith("GET")),
+		).toEqual([]);
+	});
+
+	it("installs splates on the box for its own user, and cloudflared, with no credentials", () => {
+		const script = installScript("1.2.3", "HOSTKEY");
+
+		expect(script).toContain("useradd --create-home --shell /bin/bash splates");
+		expect(script).toContain(
+			"su - splates -c '/home/splates/.bun/bin/bun add -g @stringsync/splates@1.2.3'",
+		);
+		expect(script).toContain("dpkg -i /tmp/cloudflared.deb");
+		expect(script).toContain("gnome-keyring");
+		expect(script).toContain(
+			"test -s /root/splates-keyring || (umask 077 && head -c 32 /dev/urandom | base64 > /root/splates-keyring)",
+		);
+	});
+
+	it("gives the box a host key made here and records it for the box's address", async () => {
+		const standing = await box.up();
+
+		const made = droplet();
+		expect(made?.user_data).toContain("PRIVATE KEY");
+		expect(made?.user_data).toContain("/etc/ssh/ssh_host_ed25519_key");
+		expect(await fs.read(`${HOME}/coordinator/known_hosts`)).toBe(
+			`${standing.ipv4} ssh-ed25519 AAAA\n`,
+		);
+	});
+
+	it("puts the host key in place before anything is installed", () => {
+		const script = installScript("1.2.3", "HOSTKEY");
+
+		expect(script).toContain("\nHOSTKEY\n");
+		expect(script.indexOf("HOSTKEY")).toBeLessThan(script.indexOf("apt-get"));
+	});
+
+	it("asks for the cloud token's setup step without one", async () => {
+		await store.delete(DIGITALOCEAN_TOKEN);
+
+		await expect(box.up()).rejects.toThrow("cloud-token");
 	});
 });
