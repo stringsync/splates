@@ -1,6 +1,6 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
 import { type JSX, useState } from "react";
-import { AutoIcon } from "./auto-brand";
+import { AutoAgentMark } from "./auto-brand";
 import { Button } from "./components/ui/button";
 import {
 	Popover,
@@ -13,7 +13,7 @@ import { Refusal, useRefusal } from "./refusal";
 type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
 
 /**
- * Auto pick's line in a conversation, led by its mark: what it picked, or
+ * Auto pick's line in a conversation, led by its mark, split with the picked agent's: what it picked, or
  * moved up to, then the likeliest kind and depth, or why the judge found
  * none, which open a popover of everything it found, and for a move up, an
  * Undo.
@@ -41,7 +41,7 @@ export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 			<div className="flex items-center gap-3">
 				<Rule />
 				<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
-					<AutoIcon colored className="size-3.5 shrink-0" />
+					<AutoAgentMark agent={event.agent} className="size-3.5" />
 					<span className="min-w-0 truncate">
 						{verb} {params.picked}
 					</span>
