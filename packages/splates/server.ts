@@ -17,6 +17,7 @@ import { coordinatorMoved } from "@stringsync/splates-server/setup";
 import { LOCAL_SLOTS } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
+import { splatesInfra } from "./infra";
 
 /**
  * `splates server`, which the root cli mounts after `splates log`: bare, it
@@ -83,6 +84,8 @@ splatesServer
 			"serve this checkout's splates at https://<word>.<zone>, a slot of its own on the zone `splates tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: a task's worktree keeps its word, as fox, until the task merges or is removed, which stops its server; run again, it stops the tree's last server first. Refused in a splates repository's main tree, which every agent shares. A slot keeps its own projects in ~/.splates/slots/<word>, apart from yours, starting with a throwaway project there; not with the tunnel and Access flags",
 	})
 	.action((opts, ctx) => serveDev(ctx, opts));
+
+splatesServer.mount("infra", splatesInfra);
 
 splatesServer
 	.command("deploy")
