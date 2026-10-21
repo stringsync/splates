@@ -321,6 +321,39 @@ describe("App's conversation thread", () => {
 		]);
 	});
 
+	it("opens a menu to copy a message from when a finger holds it", async () => {
+		const written: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void written.push(text) },
+		});
+		const view = await testing.openConversations([
+			conversation({ title: "Copy", messages: [message("user", "ok thanks")] }),
+		]);
+		const thread = view.getByRole("region", { name: "Copy" });
+		const box = await waitFor(() => {
+			const found = thread.querySelector(".aui-user-message-content");
+			expect(found).not.toBeNull();
+			return found as HTMLElement;
+		});
+		const hold = async (pointerType: string) => {
+			fireEvent.pointerDown(box, { pointerType });
+			await act(() => new Promise((done) => setTimeout(done, 600)));
+			fireEvent.pointerUp(box, { pointerType });
+		};
+
+		// A mouse's press opens nothing.
+		await hold("mouse");
+		expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull();
+
+		await hold("touch");
+		fireEvent.click(await view.findByRole("menuitem", { name: "Copy" }));
+		await waitFor(() => expect(written).toEqual(["ok thanks"]));
+		await waitFor(() =>
+			expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull(),
+		);
+	});
+
 	it("keeps a message of a skill alone in the turn it comes in, unstuck, so it takes none of a turn's scroll", async () => {
 		const view = await testing.openConversations([
 			conversation({

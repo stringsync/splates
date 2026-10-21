@@ -29,7 +29,6 @@ import {
 	useState,
 } from "react";
 import { linkAttachments } from "#web/attachment-chips.tsx";
-import { lineCardHeight } from "#web/board.ts";
 import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
@@ -37,6 +36,11 @@ import {
 	useOpenAt,
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+} from "#web/components/ui/dropdown-menu.tsx";
 import { SEEN } from "#web/conversation-feed.ts";
 import { useNameOf } from "#web/conversation-names.ts";
 import {
@@ -50,6 +54,7 @@ import {
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { useLongPress } from "#web/phone-row-menu.tsx";
 import {
 	type Sent,
 	SentAttachmentChip,
@@ -214,13 +219,7 @@ export const UserMessage: FC = () => {
 	}
 	const body = (
 		<>
-			{/* On a phone, as tall at one line as a card that spans one. */}
-			<div
-				className={cn(
-					"aui-user-message-content-wrapper group/user relative min-w-0",
-					lineCardHeight,
-				)}
-			>
+			<Bubble>
 				<Clamped watch={id} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
 				their chips. */}
@@ -229,8 +228,7 @@ export const UserMessage: FC = () => {
 						<MessagePrimitive.Parts components={{ Text: UserText }} />
 					</SentAttachments>
 				</Clamped>
-				<UserCopy />
-			</div>
+			</Bubble>
 			{(steered || at !== null || told !== null) && (
 				<div className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs">
 					{at !== null && <Stamp at={at} />}
@@ -278,7 +276,7 @@ export const UserMessage: FC = () => {
 			<div
 				data-slot="aui_user-message-root"
 				data-message-id={id}
-				className="mb-2 flex flex-col gap-y-2 px-2"
+				className="mb-2 flex flex-col gap-y-2 px-2 max-sm:items-end"
 				data-role="user"
 			>
 				{body}
@@ -295,7 +293,7 @@ export const UserMessage: FC = () => {
 			className={cn(
 				// No entrance: the thread jumps to it as it comes, with nothing
 				// else in view, so a fade would show an empty thread for a frame.
-				"flex flex-col gap-y-2 px-2",
+				"flex flex-col gap-y-2 px-2 max-sm:items-end",
 				// Stuck atop the thread for as long as its turn is in view. Opaque,
 				// so the reply cannot show past its rounded corners, then fading
 				// the reply out over the 2rem below it, which its turn keeps clear
@@ -338,11 +336,94 @@ const sentOf = (
 				: [],
 		),
 	);
+/** How long after a hold's finger lifts its click may still come. */
+const LIFT_MS = 400;
+/**
+ * The box of what the person said, with its copy button. On a phone, a
+ * bubble at the thread's end, with no copy button: a finger held on it opens
+ * a menu below it to copy from, as Claude's app does, the bubble raised
+ * while it is open.
+ */
+const Bubble: FC<PropsWithChildren> = ({ children }) => {
+	const box = useRef<HTMLDivElement>(null);
+	const [held, setHeld] = useState(false);
+	const press = useLongPress(() => setHeld(true));
+	// A finger's, as a mouse's right button keeps the browser's own menu.
+	const touched = useRef(false);
+	// When the finger that opened the menu lifted: the click the browser
+	// sends for it lands outside the menu, which would close it at once.
+	const lifted = useRef(Number.NEGATIVE_INFINITY);
+	const text = useAuiState((s) =>
+		s.message.parts
+			.flatMap((part) => (part.type === "text" ? [part.text] : []))
+			.join("\n"),
+	);
+	return (
+		<>
+			<div
+				ref={box}
+				className="aui-user-message-content-wrapper group/user relative min-w-0 max-sm:flex max-sm:max-w-[85%] max-sm:flex-col max-sm:items-end max-sm:transition-transform max-sm:data-held:scale-[1.03]"
+				data-held={held || undefined}
+				onPointerDown={(event) => {
+					touched.current = event.pointerType === "touch";
+					if (touched.current) {
+						press.onPointerDown(event);
+					}
+				}}
+				onPointerMove={press.onPointerMove}
+				onPointerUp={() => {
+					press.onPointerUp();
+					if (held) {
+						lifted.current = performance.now();
+					}
+				}}
+				onPointerCancel={press.onPointerCancel}
+				onContextMenu={(event) => touched.current && press.onContextMenu(event)}
+				onClickCapture={press.onClickCapture}
+			>
+				{children}
+				<UserCopy />
+			</div>
+			{/* Beside the bubble, not in it: React carries the menu's clicks up
+			through its portal, which the bubble would take as its own. */}
+			<DropdownMenu
+				open={held}
+				onOpenChange={(open, { reason }) => {
+					if (
+						open ||
+						reason !== "outside-press" ||
+						performance.now() - lifted.current > LIFT_MS
+					) {
+						setHeld(open);
+					}
+				}}
+			>
+				<DropdownMenuContent
+					anchor={box}
+					align="end"
+					sideOffset={8}
+					className="w-auto min-w-44"
+				>
+					{/* Within the tap, as iOS lets the page write the clipboard
+					only then. */}
+					<DropdownMenuItem
+						className="py-2.5 text-base"
+						onClick={() => void navigator.clipboard?.writeText(text)}
+					>
+						<CopyIcon />
+						Copy
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</>
+	);
+};
 /**
  * Copies what the person said, from the message's top corner: there only
  * while the message is hovered or the button has focus, or always under a
- * finger, which cannot hover, and a check once it has copied. Beside the box rather than in it, since the box is itself a
- * button.
+ * finger, which cannot hover, and a check once it has copied. Beside the box
+ * rather than in it, since the box is itself a button. Not on a phone, where
+ * holding the bubble opens a menu to copy from instead.
  */
 const UserCopy: FC = () => (
 	<ActionBarPrimitive.Copy
@@ -351,9 +432,7 @@ const UserCopy: FC = () => (
 				tooltip="Copy"
 				className={cn(
 					"aui-user-action-copy text-muted-foreground absolute end-(--copy-at) top-(--copy-at) size-6 pointer-coarse:size-10 [--copy-at:0.375rem] pointer-coarse:[--copy-at:0px]",
-					// On a phone, set in from the box's end as far as from its top
-					// and bottom at one line, as a one-line card's call to action.
-					"max-sm:[--copy-at:calc((var(--line-card)-1.5rem)/2)] max-sm:pointer-coarse:[--copy-at:calc((var(--line-card)-2.5rem)/2)]",
+					"max-sm:hidden",
 					"opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100 data-copied:opacity-100 pointer-coarse:opacity-100",
 				)}
 			/>
@@ -370,44 +449,30 @@ const UserCopy: FC = () => (
 /**
  * What the person said, across the thread's full width like the reply: the
  * theme's muted fill, set apart from the page, with room at its end for the
- * copy button. Smaller on a phone, where it sits atop a short screen, and at
- * one line as tall as a card that spans one (`--line-card`), its line or
- * row of chips centered in it.
+ * copy button. On a phone, a chat bubble instead: as wide as its words up
+ * to most of the thread, at its end, rounded and unbordered, the copy
+ * button below it.
  */
 const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:ps-3 max-sm:pe-11 max-sm:pointer-coarse:pe-16 max-sm:text-sm max-sm:leading-relaxed max-sm:py-[calc((var(--line-card)-2px-1lh)/2)] max-sm:has-[.aui-user-message-directives]:py-[calc((var(--line-card)-2px-1.75rem)/2)] wrap-break-word";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:pe-4 max-sm:leading-relaxed wrap-break-word";
 /**
  * Room at the box's start for the mic a dictated message shows, in the top
- * corner by its first line, which stays in view on a phone's one, centered
- * on it there.
+ * corner by its first line.
  */
-const DICTATED_BOX = "ps-9 max-sm:ps-8";
+const DICTATED_BOX = "ps-9";
 const DICTATED_MIC =
-	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-2.5 max-sm:top-[calc((var(--line-card)-2px-0.875rem)/2)] max-sm:size-3.5";
+	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:top-4 max-sm:size-3.5";
 /**
- * Lines of a message shown before it is clicked open: one on a phone, four
- * on a wider screen. On a phone it sets the words' line height, so `1lh` is
- * one line of them, or shows the row of chips a message starts with, which
- * stands taller than a line. Keep two lines of words below leading chips so
- * the collapsed message still says what the person asked.
+ * Lines of a message shown before it is clicked open: four on a wider
+ * screen, where it sticks atop the thread, and twelve in a phone's bubble,
+ * which scrolls away with the rest.
  */
-const CLAMP =
-	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-[calc(2.25rem+2lh)]";
-/**
- * Where a cut message fades: its last lines on a wider screen. On a phone its
- * one line ends in an ellipsis instead (`CUT_LINE`), since a fade at its end
- * reads as a shadow over the copy button.
- */
+const CLAMP = "max-h-24 max-sm:max-h-[12lh]";
+/** Where a cut message fades: its last lines. */
 const CUT_FADE =
-	"sm:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
+	"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
 /**
- * A message cut to one line on a phone, ending in an ellipsis. Not one that
- * starts with a row of chips: WebKit takes the first line inside a chip as
- * the one to clamp, cutting the chip short with an ellipsis in its label.
- */
-const CUT_LINE = "max-sm:not-has-[.aui-user-message-directives]:line-clamp-1";
-/**
- * A message cut to four lines (one on a phone), fading out where it is cut,
+ * A message cut to four lines (twelve on a phone), fading out where it is cut,
  * and opened or closed again by a click (or Enter) when there is more than
  * fits.
  */
@@ -458,6 +523,9 @@ const Clamped: FC<
 				"aui-user-message-content outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				USER_BOX,
 				dictated && ["relative", DICTATED_BOX],
+				// Held for its menu on a phone, rather than iOS selecting
+				// a word with its own menu.
+				"max-sm:pointer-coarse:select-none max-sm:pointer-coarse:[-webkit-touch-callout:none]",
 				// Raised by a shadow while its message is stuck atop the thread.
 				"[@container_scroll-state(stuck:top)]:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
 				(more || open) && "cursor-pointer",
@@ -479,7 +547,6 @@ const Clamped: FC<
 					// half the screen rather than hide the reply.
 					open && "md:max-h-[50dvh] md:overflow-y-auto",
 					!open && more && CUT_FADE,
-					!open && CUT_LINE,
 				)}
 			>
 				{children}
