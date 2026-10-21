@@ -50,10 +50,17 @@ export interface WorkerSpec {
 	/** The snapshot it boots from, as `snapshot` answered it. */
 	snapshot: string;
 	/**
-	 * What the machine runs once booted, and runs again if it stops: the
-	 * worker, dialing its coordinator with a join token, single use and
-	 * short-lived. The token is a secret: put it where only the machine
-	 * reads it, never in a log.
+	 * What the machine runs once booted, until it succeeds and before
+	 * `boot`, with `SPLATES_HOME` a directory only root reads: it spends a
+	 * join token, single use and short-lived, and keeps the key it answers
+	 * there in `worker.env`, as `NAME=value` lines. The token is a secret:
+	 * put it where only the machine reads it, never in a log.
+	 */
+	join: string[];
+	/**
+	 * What the machine runs once `join` has, and runs again if it stops:
+	 * the worker, dialing its coordinator with the key `join` kept, handed
+	 * it in its environment, so a restart needs no token.
 	 */
 	boot: string[];
 }

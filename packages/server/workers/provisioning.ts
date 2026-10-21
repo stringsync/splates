@@ -22,7 +22,7 @@ import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
 import { type ProvisionOptions, pickType } from "./pick-type";
 import type { WorkerProvider, WorkerType } from "./provider";
 import { ProviderReconciler, SWEEP_EVERY } from "./reconcile";
-import type { WorkerRecords } from "./records";
+import { JOIN_WITHIN, type WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
 import type { HeldSlot, Scheduler } from "./scheduler";
 import { SNAPSHOT_SPLATES, type Snapshots } from "./snapshot";
@@ -149,6 +149,18 @@ export class WorkerProvisioning
 					id,
 					type: type.name,
 					snapshot: snapshot.id,
+					join: [
+						SNAPSHOT_SPLATES,
+						"worker",
+						"join",
+						"--coordinator",
+						coordinator,
+						"--id",
+						id,
+						"--join",
+						token,
+						"--key-file",
+					],
 					boot: [
 						SNAPSHOT_SPLATES,
 						"worker",
@@ -159,9 +171,7 @@ export class WorkerProvisioning
 						id,
 						"--slots",
 						String(type.slots),
-						"--join",
-						token,
-						"--ephemeral",
+						"--key-file",
 					],
 				}),
 			);
@@ -256,7 +266,11 @@ export class WorkerProvisioning
 		await this.fill(scheduler);
 	}
 
-	/** Destroys each made worker idle past its provider's `idleAfter`, as `IdleWorkers.due` says. */
+	/**
+	 * Destroys each made worker that has not joined by the time its join
+	 * token ran out, so placement makes another in its place, and each idle
+	 * past its provider's `idleAfter`, as `IdleWorkers.due` says.
+	 */
 	private async retire(scheduler: Scheduler): Promise<void> {
 		const { provider, retire, log } = this.opts;
 		if (retire === undefined) {
@@ -268,12 +282,36 @@ export class WorkerProvisioning
 			// A type no longer offered keeps the platform last seen.
 		}
 		this.idle.track(scheduler);
-		const due = this.idle.due(provider.idleAfter ?? DEFAULT_IDLE_AFTER);
-		if (due.length === 0) {
-			return;
+		const unjoined = this.unjoined();
+		if (unjoined.length > 0) {
+			log.error(
+				`made workers ${unjoined.join(", ")} did not join within ${JOIN_WITHIN.mins} minutes, so their join tokens ran out: destroying them`,
+			);
 		}
-		log.info(`idle made workers ${due.join(", ")}: destroying them`);
-		await retire(due);
+		const idle = this.idle
+			.due(provider.idleAfter ?? DEFAULT_IDLE_AFTER)
+			.filter((id) => !unjoined.includes(id));
+		if (idle.length > 0) {
+			log.info(`idle made workers ${idle.join(", ")}: destroying them`);
+		}
+		const due = [...unjoined, ...idle];
+		if (due.length > 0) {
+			await retire(due);
+		}
+	}
+
+	/** The made workers asked for `JOIN_WITHIN` ago or more that have yet to join, which now never can. */
+	private unjoined(): string[] {
+		const now = this.wall.now();
+		return this.opts.records.all
+			.filter(
+				(record) =>
+					record.joinedAt === null &&
+					!record.removing &&
+					record.provisioned?.createdAt != null &&
+					now - record.provisioned.createdAt >= JOIN_WITHIN.ms,
+			)
+			.map((record) => record.id);
 	}
 
 	/** Makes one worker when the queue has more waiting than is on its way, then looks again. */

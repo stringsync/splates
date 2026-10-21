@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import { FakeWallClock } from "webappwiz/time/testing";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { FakeWorkerProvider } from "../workers/testing";
 import {
@@ -10,6 +11,8 @@ import {
 	WebSocketWorkerSocket,
 	WorkerBudget,
 	WorkerDaemon,
+	WorkerRecords,
+	type WorkerSpec,
 } from "./index";
 import { DevWorkers, workerAuthorization } from "./routes";
 
@@ -25,9 +28,11 @@ describe("DevWorkers with a worker provider", () => {
 	let provider: FakeWorkerProvider;
 	let workers: DevWorkers;
 	let server: Bun.Server<Connection>;
+	let wall: FakeWallClock;
 
 	beforeEach(async () => {
 		provider = new FakeWorkerProvider();
+		wall = new FakeWallClock();
 		server = Bun.serve<Connection>({
 			port: 0,
 			hostname: "127.0.0.1",
@@ -37,7 +42,9 @@ describe("DevWorkers with a worker provider", () => {
 				new Response("not found", { status: 404 }),
 		});
 		workers = new DevWorkers(new MemoryLogger(), {
+			records: WorkerRecords.memory(wall),
 			provider: {
+				wall,
 				provider,
 				snapshots: await Snapshots.open(provider, {
 					version: "1.0.0",
@@ -62,7 +69,7 @@ describe("DevWorkers with a worker provider", () => {
 		await Bun.sleep(10);
 		const [spec] = provider.specs;
 		const id = spec?.id ?? "";
-		const daemon = await booted(server, workers, spec?.boot ?? []);
+		const daemon = await booted(server, workers, spec);
 		void daemon.run();
 
 		expect((await placed).worker).toBe(id);
@@ -78,7 +85,7 @@ describe("DevWorkers with a worker provider", () => {
 		workers.slots.scheduler.want("/repo", [request("#3")]);
 		await until(() => provider.specs.length > 0);
 		const [spec] = provider.specs;
-		const daemon = await booted(server, workers, spec?.boot ?? []);
+		const daemon = await booted(server, workers, spec);
 		void daemon.run();
 		await until(() => workers.slots.scheduler.room() > 0);
 
@@ -86,6 +93,38 @@ describe("DevWorkers with a worker provider", () => {
 			`create ${spec?.id ?? ""} small snap-1`,
 		);
 		expect(workers.slots.scheduler.room()).toBeGreaterThan(0);
+		await daemon.disposeAsync();
+	});
+
+	it("replaces a made worker that has not joined once its join token runs out", async () => {
+		void workers.slots.scheduler.take(request("one")).catch(() => {});
+		await until(() => provider.specs.length > 0);
+		const id = provider.specs[0]?.id ?? "";
+
+		wall.advance(Duration.mins(14));
+		await workers.provisioning?.look(workers.slots.scheduler);
+		expect(provider.getCalls()).not.toContain(`destroy ${id}`);
+		wall.advance(Duration.mins(1));
+		await workers.provisioning?.look(workers.slots.scheduler);
+
+		expect(provider.getCalls()).toContain(`destroy ${id}`);
+		expect(workers.registry.worker(id)).toBeUndefined();
+		expect(workers.records.of(id)).toBeUndefined();
+		await until(() => provider.specs.length > 1);
+		expect(provider.specs).toHaveLength(2);
+		const daemon = await booted(server, workers, provider.specs[1]);
+		void daemon.run();
+		await until(
+			() =>
+				workers.registry.worker(provider.specs[1]?.id ?? "")?.connected ===
+				true,
+		);
+		wall.advance(Duration.mins(15));
+		await workers.provisioning?.look(workers.slots.scheduler);
+
+		expect(provider.getCalls()).not.toContain(
+			`destroy ${provider.specs[1]?.id}`,
+		);
 		await daemon.disposeAsync();
 	});
 
@@ -123,7 +162,7 @@ describe("DevWorkers with a worker provider", () => {
 	it("holds the agents a stop checkpoints, and carries them on once the budget allows", async () => {
 		const placed = workers.slots.scheduler.take(request("one"));
 		await Bun.sleep(10);
-		const daemon = await booted(server, workers, provider.specs[0]?.boot ?? []);
+		const daemon = await booted(server, workers, provider.specs[0]);
 		void daemon.run();
 		await placed;
 		const budget = workers.provisioning?.budget;
@@ -176,15 +215,16 @@ describe("DevWorkers with a worker provider", () => {
 });
 
 /**
- * Boots the worker `boot` describes as its machine would: spends its join
+ * Boots the worker `spec` describes as its machine would: spends its join
  * token, then dials with the key that answers.
  */
 async function booted(
 	server: Bun.Server<Connection>,
 	workers: DevWorkers,
-	boot: string[],
+	spec: WorkerSpec | undefined,
 ): Promise<WorkerDaemon> {
-	const flag = (name: string) => boot[boot.indexOf(name) + 1] ?? "";
+	const args = [...(spec?.join ?? []), ...(spec?.boot ?? [])];
+	const flag = (name: string) => args[args.indexOf(name) + 1] ?? "";
 	const id = flag("--id");
 	const joined = await workers.join(
 		new Request("http://127.0.0.1/api/workers/join", {

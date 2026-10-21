@@ -6,6 +6,7 @@ import {
 } from "webappwiz/time";
 import {
 	type ProvisionedMachine,
+	SNAPSHOT_SPLATES,
 	SNAPSHOT_USER,
 	type Snapshot,
 	type SnapshotRecipe,
@@ -106,7 +107,7 @@ export class CloudWorkers implements WorkerProvider {
 				image: spec.snapshot,
 				location,
 				// In the request's body alone, so the join token never reaches an argv or a log.
-				userData: bootScript(spec.boot),
+				userData: bootScript(spec),
 				tags: { [WORKER_TAG]: spec.id },
 			});
 		} catch (error) {
@@ -212,16 +213,35 @@ function buildScript(recipe: string): string {
 	].join("\n");
 }
 
+/** Where a worker's `join` keeps its key, readable by root alone, for systemd to hand its service. */
+const WORKER_HOME = "/etc/splates-worker";
+
+/** How many times, a while apart, a worker tries `join` before giving up, within its token's 15 minutes. */
+const JOIN_TRIES = 60;
+const JOIN_APART = Duration.secs(10);
+
 /**
- * A worker's user data: `boot` as a systemd service of the snapshot's user,
- * started now and again whenever it stops, its unit readable by root alone
- * since it holds the join token.
+ * A worker's user data: `join` as root, tried until the coordinator
+ * answers, keeping its key in `WORKER_HOME`; then `boot` as a systemd
+ * service of the snapshot's user, started now and again whenever it
+ * stops, with that key in its environment, so a restart dials with the key
+ * rather than the token `join` spent. A machine that cannot join runs no
+ * worker, and placement replaces it once its token has run out.
  */
-function bootScript(boot: string[]): string {
+function bootScript({ join, boot }: WorkerSpec): string {
+	// The snapshot's splates is a bun script, which root's PATH cannot run.
+	const bin = SNAPSHOT_SPLATES.slice(0, SNAPSHOT_SPLATES.lastIndexOf("/"));
 	return [
 		"#!/bin/sh",
 		"set -eu",
 		"umask 077",
+		`mkdir -p ${WORKER_HOME}`,
+		"tries=0",
+		`until env PATH="${bin}:$PATH" SPLATES_HOME=${WORKER_HOME} ${join.map(shellQuoted).join(" ")}; do`,
+		"  tries=$((tries + 1))",
+		`  [ "$tries" -lt ${JOIN_TRIES} ] || exit 1`,
+		`  sleep ${JOIN_APART.secs}`,
+		"done",
 		"cat > /etc/systemd/system/splates-worker.service <<'SPLATES_UNIT'",
 		"[Unit]",
 		"Description=splates worker",
@@ -230,6 +250,7 @@ function bootScript(boot: string[]): string {
 		"",
 		"[Service]",
 		`User=${SNAPSHOT_USER}`,
+		`EnvironmentFile=${WORKER_HOME}/worker.env`,
 		`ExecStart=${boot.map(systemdQuoted).join(" ")}`,
 		"Restart=always",
 		"RestartSec=5",
@@ -241,6 +262,11 @@ function bootScript(boot: string[]): string {
 		"systemctl enable --now splates-worker.service",
 		"",
 	].join("\n");
+}
+
+/** `word` as one argument of a shell command. */
+function shellQuoted(word: string): string {
+	return `'${word.replaceAll("'", "'\\''")}'`;
 }
 
 /** `word` as one argument of a systemd `ExecStart`, which expands `%` and `$` itself. */

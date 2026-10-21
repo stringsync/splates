@@ -48,12 +48,13 @@ describe("CloudWorkers in Hetzner", () => {
 		]);
 	});
 
-	it("makes a worker labelled with its id, in the first location with stock, its boot in its user data", async () => {
+	it("makes a worker labelled with its id, in the first location with stock, its join and boot in its user data", async () => {
 		const made = await provider.create({
 			id: "cx53-abc123",
 			type: "cx53",
 			snapshot: "77",
-			boot: ["splates", "worker", "run", "--join", "secret-token"],
+			join: ["splates", "worker", "join", "--join", "secret-token"],
+			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
 		expect(made).toEqual({ id: "cx53-abc123", type: "cx53" });
@@ -65,12 +66,18 @@ describe("CloudWorkers in Hetzner", () => {
 			datacenter: { location: { name: "fsn1" } },
 		});
 		expect(server?.user_data).toContain(
-			'ExecStart="splates" "worker" "run" "--join" "secret-token"',
+			"SPLATES_HOME=/etc/splates-worker 'splates' 'worker' 'join' '--join' 'secret-token'; do",
+		);
+		expect(server?.user_data).toContain(
+			"EnvironmentFile=/etc/splates-worker/worker.env",
+		);
+		expect(server?.user_data).toContain(
+			'ExecStart="splates" "worker" "run" "--key-file"',
 		);
 	});
 
 	it("makes a worker once, however often it is asked", async () => {
-		const spec = { id: "w", type: "cpx62", snapshot: "1", boot: [] };
+		const spec = { id: "w", type: "cpx62", snapshot: "1", join: [], boot: [] };
 		await provider.create(spec);
 		await provider.create(spec);
 
@@ -80,19 +87,43 @@ describe("CloudWorkers in Hetzner", () => {
 	it("refuses a type no location can make, and says why Hetzner refused one", async () => {
 		hetzner.stock = { nbg1: ["cpx62"] };
 		await expect(
-			provider.create({ id: "w", type: "cx53", snapshot: "1", boot: [] }),
+			provider.create({
+				id: "w",
+				type: "cx53",
+				snapshot: "1",
+				join: [],
+				boot: [],
+			}),
 		).rejects.toThrow("Hetzner Cloud cannot make a cx53 in nbg1, fsn1, hel1");
 
 		hetzner.refuseCreate = "server limit reached";
 		await expect(
-			provider.create({ id: "w", type: "cpx62", snapshot: "1", boot: [] }),
+			provider.create({
+				id: "w",
+				type: "cpx62",
+				snapshot: "1",
+				join: [],
+				boot: [],
+			}),
 		).rejects.toThrow("server limit reached");
 		expect(hetzner.servers.size).toBe(0);
 	});
 
 	it("destroys a worker's server, and nothing for a worker it never made", async () => {
-		await provider.create({ id: "w", type: "cpx62", snapshot: "1", boot: [] });
-		await provider.create({ id: "v", type: "cpx62", snapshot: "1", boot: [] });
+		await provider.create({
+			id: "w",
+			type: "cpx62",
+			snapshot: "1",
+			join: [],
+			boot: [],
+		});
+		await provider.create({
+			id: "v",
+			type: "cpx62",
+			snapshot: "1",
+			join: [],
+			boot: [],
+		});
 
 		await provider.destroy("w");
 		await provider.destroy("gone");
@@ -105,6 +136,7 @@ describe("CloudWorkers in Hetzner", () => {
 			id: "cpx62-aaaaaa",
 			type: "cpx62",
 			snapshot: "1",
+			join: [],
 			boot: [],
 		});
 

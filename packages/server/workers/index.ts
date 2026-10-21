@@ -105,6 +105,7 @@ export {
 	forgetSnapshot,
 	type KeptSnapshots,
 	keptSnapshot,
+	SNAPSHOT_SPLATES,
 	SNAPSHOT_USER,
 	Snapshots,
 	snapshotRecipe,

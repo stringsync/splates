@@ -55,7 +55,8 @@ describe("CloudWorkers in DigitalOcean", () => {
 			id: "s-8vcpu-16gb-abc123",
 			type: "s-8vcpu-16gb",
 			snapshot: "77",
-			boot: ["splates", "worker", "run", "--join", "secret-token"],
+			join: ["splates", "worker", "join", "--join", "secret-token"],
+			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
 		const [droplet] = digitalocean.tagged("splates-worker:s-8vcpu-16gb-abc123");
@@ -66,15 +67,19 @@ describe("CloudWorkers in DigitalOcean", () => {
 			region: { slug: "nyc1" },
 		});
 		expect(droplet?.user_data).toContain(
-			'ExecStart="splates" "worker" "run" "--join" "secret-token"',
+			"'splates' 'worker' 'join' '--join' 'secret-token'; do",
 		);
+		expect(droplet?.user_data).toContain(
+			'ExecStart="splates" "worker" "run" "--key-file"',
+		);
+		expect(droplet?.user_data).not.toMatch(/ExecStart=.*secret-token/);
 		expect(await provider.list()).toEqual([
 			{ id: "s-8vcpu-16gb-abc123", type: "s-8vcpu-16gb" },
 		]);
 	});
 
 	it("destroys a worker's droplet alone, and says why DigitalOcean refused one", async () => {
-		const spec = { type: "s-8vcpu-16gb", snapshot: "1", boot: [] };
+		const spec = { type: "s-8vcpu-16gb", snapshot: "1", join: [], boot: [] };
 		await provider.create({ id: "w", ...spec });
 		await provider.create({ id: "v", ...spec });
 

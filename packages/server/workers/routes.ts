@@ -8,14 +8,15 @@ import { RUNNING, refuse } from "../server/shared";
 import type { WorkerMachines } from "../tasks";
 import { API_TOKEN } from "../tunnel";
 import type { ServiceToken, WorkerAccess } from "./access";
-import type { WorkerBudget } from "./budget";
 import { KeyDelivery } from "./key-delivery";
 import { WorkerKeyRoutes } from "./key-routes";
 import type { WorkerKeys } from "./keys";
 import type { WorkerPool } from "./list";
 import { workerList } from "./list";
-import type { WorkerProvider } from "./provider";
-import { WorkerProvisioning } from "./provisioning";
+import {
+	WorkerProvisioning,
+	type WorkerProvisioningOptions,
+} from "./provisioning";
 import { queueListing } from "./queue";
 import { WorkerRecords } from "./records";
 import { WorkerRegistry } from "./registry";
@@ -24,7 +25,6 @@ import { WorkerRollout } from "./rollout";
 import type { HeldSlot } from "./scheduler";
 import { ServerWorkerSocket } from "./server-socket";
 import { WorkerSlots } from "./slots";
-import type { Snapshots } from "./snapshot";
 import { UnixWorkerListener } from "./unix-listener";
 import { WakeRelay } from "./wake-relay";
 import type { WorkerWaking } from "./waking";
@@ -645,14 +645,10 @@ function workerId(request: Request): string {
 }
 
 /** The `workerProvider` the server makes workers with, and what it needs to. */
-export interface DevWorkerProvider {
-	provider: WorkerProvider;
-	snapshots: Snapshots;
-	/** The URL a made worker dials, the page's tunnel host; null for none. */
-	coordinator: () => string | null;
-	/** What made workers may cost, which placement makes none past. */
-	budget: WorkerBudget;
-}
+export type DevWorkerProvider = Pick<
+	WorkerProvisioningOptions,
+	"provider" | "snapshots" | "coordinator" | "budget" | "wall"
+>;
 
 /** How a `DevWorkers` is set up: the session it answers workers with, what it keeps of them, and what makes them. */
 export interface DevWorkersOptions {
