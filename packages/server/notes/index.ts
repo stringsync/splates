@@ -1,3 +1,4 @@
+export { weighing } from "./applied";
 export { GARDEN_TASK, unclaimed } from "./garden";
 export { noteCalled, noteSpellings, notesRead, readsMarkdown } from "./match";
 export {

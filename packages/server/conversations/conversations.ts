@@ -36,11 +36,13 @@ import type {
 	PlacedCheckouts,
 	ProjectRoster,
 	Route,
+	Weigh,
 } from "./host";
 import type { ConversationsOptions } from "./options";
 import { outside } from "./outside";
-import { spent, usedOf } from "./spent";
+import { usedOf } from "./spent";
 import type { Limit, Setting } from "./state";
+import { lookBack } from "./turn-end";
 
 /** A conversation id as `UuidProvider` makes it, which a page may pick. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -98,6 +100,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	lift: Lift | null = null;
 	/** What points each agent at the project notes that bear on what the person says; null for nothing. */
 	route: Route | null = null;
+	/** What judges, after each turn, whether its agent applied the notes it read; null for nothing. */
+	weigh: Weigh | null = null;
 
 	/** New starts use the refreshed roster; existing conversations retain their snapshot. */
 	refreshRoster(agents: Agent[]): void {
@@ -525,37 +529,20 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				usedBefore = usedOf(conversation.state);
 				tokensBefore = conversation.state.usage.opencode?.turns.length ?? 0;
 			}
-			// A turn ended, however it did: how it followed the skill may have
-			// changed.
 			if (status === "running" && conversation.state.status !== "running") {
-				void this.adherence
-					?.judge(
-						conversation.state,
-						this.root ?? conversation.cwd ?? "",
-						conversation.now(),
-					)
-					.catch(() => {});
-				// A task it merged wrote its outcome before the turn said its usage.
-				const { outcomes } = this;
-				if (outcomes !== null && turnStarted !== null) {
-					void outcomes
-						.creditSaved(
-							conversation,
-							this.storage.log(`${conversation.id}.jsonl`),
-							turnStarted,
-							conversation.now(),
-						)
-						.catch(() => {});
-				}
-				const { spend } = this;
-				if (usedBefore !== null && spend !== null) {
-					void spent(spend, conversation, {
-						before: usedBefore,
-						turnsBefore: tokensBefore,
+				lookBack(
+					conversation,
+					{
+						adherence: this.adherence,
+						outcomes: this.outcomes,
+						weigh: this.weigh,
+						spend: this.spend,
+						storage: this.storage,
 						root: this.root,
 						projects: this.projects,
-					}).catch(() => {});
-				}
+					},
+					{ at: turnStarted, used: usedBefore, turnsBefore: tokensBefore },
+				);
 				turnStarted = null;
 				usedBefore = null;
 			}

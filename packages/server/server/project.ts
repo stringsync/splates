@@ -25,7 +25,7 @@ import type { TranscriberFor } from "../dictate";
 import { fail } from "../exit";
 import type { InstallationToken, Landed, LandRequest } from "../merge";
 import type { AgentPick } from "../models";
-import { NotesRoutes, routing } from "../notes";
+import { NotesRoutes, routing, weighing } from "../notes";
 import { type Needing, needs } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -119,6 +119,9 @@ export async function serveProject(
 		conversations.url = context.url;
 		conversations.lift = lifting(project, conversations, { slug });
 		conversations.route = routing(project, {
+			judge: (who) => projectJudge(project, slug, who),
+		});
+		conversations.weigh = weighing(project, {
 			judge: (who) => projectJudge(project, slug, who),
 		});
 		const startAll = (): void => {

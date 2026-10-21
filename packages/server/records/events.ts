@@ -258,6 +258,12 @@ export interface Facts {
 		/** How long the judge took, in milliseconds. */
 		ms: number;
 	};
+	/**
+	 * What the judge made, after a turn, of whether the agent applied a note
+	 * it read in it: splates's own, shown as no line, for the Stats page's
+	 * applied rate per note.
+	 */
+	"note applied": NoteApplied;
 	/** `splates server` starting a task on what Auto pick decided, or, before it, a first prompt on what Auto picked. */
 	auto: {
 		/** The roster agent it picked, by its id. */
@@ -295,6 +301,19 @@ export interface JudgedNote {
 	inContext: boolean;
 	/** Read earlier, but edited since, so attached again as updated. */
 	updated: boolean;
+}
+
+/** Whether a note the agent read in a turn was applied in it. */
+export interface NoteApplied {
+	/** The note, by its path from the project root. */
+	path: string;
+	/** The judge's probability that the turn's actions apply what the note says. */
+	probability: number;
+	/**
+	 * The tier its pointer was last attached at in the conversation, or
+	 * `unprompted` when the agent read it with none attached.
+	 */
+	tier: NonNullable<JudgedNote["tier"]> | "unprompted";
 }
 
 /** What an Auto pick that moved a conversation up moved it off. */
@@ -377,6 +396,7 @@ export const FACTS = {
 	"tunnel remove": [],
 	"note read": ["path", "hash", "tool", "subagent"],
 	"notes attached": ["notes", "holdout", "ms"],
+	"note applied": ["path", "probability", "tier"],
 	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 

@@ -5,6 +5,7 @@ export type {
 	Facts,
 	JudgedNote,
 	Lifted,
+	NoteApplied,
 } from "./events";
 export { isEscalation } from "./events";
 export { FORMAT, Format } from "./format";

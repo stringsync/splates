@@ -72,6 +72,15 @@ export type Route = (
 	said: readonly Message[],
 ) => Promise<string | null>;
 
+/**
+ * What looks back, once a turn of `conversation` that began at `since` has
+ * ended, at what its agent did with the notes it read in it.
+ */
+export type Weigh = (
+	conversation: Pick<ConversationHost, "state" | "cwd">,
+	since: string,
+) => Promise<void>;
+
 export type ConversationEvents = { changed: undefined; chosen: string };
 
 /** What every conversation in a repo is made with. */

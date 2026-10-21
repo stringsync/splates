@@ -27,6 +27,7 @@ export type {
 	ProjectRef,
 	Route,
 	SlotAsk,
+	Weigh,
 } from "./host";
 export { listing } from "./listing";
 export type { Entry, Live } from "./log";

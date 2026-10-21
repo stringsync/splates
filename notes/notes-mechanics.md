@@ -1,5 +1,5 @@
 ---
-description: How project notes are read by splates: flat .md files in notesDir with a required one-line description, listed by splates notes, printed at every merge, and reads counted in note-uses.jsonl
+description: How project notes are read by splates: flat .md files in notesDir with a required one-line description, listed by splates notes, printed at every merge, reads counted in note-uses.jsonl, and judged per message and turn when the project has a judge
 ---
 
 `Notes.list` (`packages/server/notes/notes.ts`) reads the flat
@@ -18,3 +18,11 @@ page lists notes from the main tree through `/api/notes`, and its New, Edit
 and Remove start an agent conversation holding the note, so a note changes
 through a task and a merge, with history, never a page commit. The
 `notes-audit` automation reads only notes no open task names.
+
+Under `splates server` the project's judge weighs notes twice, each judgment
+a journal event for the Stats page: before a message reaches the agent,
+`routing` (`notes/route.ts`) attaches pointers to the notes that bear on it
+(`notes attached`), and after each turn that read a note, `weighing`
+(`notes/applied.ts`) asks whether the turn's actions applied it (`note
+applied`, with the tier its pointer had or `unprompted`). With no judge
+neither runs.
