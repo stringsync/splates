@@ -1,7 +1,9 @@
+import { splatesHome } from "@stringsync/splates-server/models";
 import type { SplatesDeps } from "@stringsync/splates-server/server";
 import {
 	addWorker,
 	drainWorker,
+	FileLogger,
 	listWorkers,
 	removeWorker,
 	setWorkerSlots,
@@ -11,6 +13,7 @@ import {
 	workerRun,
 } from "@stringsync/splates-server/workers";
 import { cli } from "webappwiz/cmd";
+import { CompositeLogger } from "webappwiz/log";
 import { z } from "zod";
 import { splatesWaiting } from "./waiting";
 
@@ -62,7 +65,7 @@ splatesWorker
 	.option("quiet", z.boolean(), {
 		default: false,
 		description:
-			"say only what went wrong, not each time it joins or loses its server, as the worker `splates server` starts beside itself does",
+			"say only what went wrong, not each time it joins or loses its server, as the worker `splates server` starts beside itself does; all of it still goes to worker.log in ~/.splates, the one before it kept as worker.log.1",
 	})
 	.action((opts, ctx) =>
 		workerRun({
@@ -72,9 +75,7 @@ splatesWorker
 			join: opts.join,
 			ephemeral: opts.ephemeral,
 			keyFile: opts["key-file"],
-			log: opts.quiet
-				? { info: () => {}, error: (...said) => ctx.log.error(...said) }
-				: ctx.log,
+			log: opts.quiet ? quietLog(ctx) : ctx.log,
 			ps: ctx.ps,
 			fs: ctx.fs,
 		}),
@@ -275,3 +276,16 @@ splatesWorker
 	);
 
 splatesWorker.mount("queue", splatesWaiting);
+
+/**
+ * What a quiet worker says: what went wrong on the terminal, and everything
+ * in `worker.log` in the splates home, which is all a worker `splates
+ * server` started leaves of how it joined and lost its server.
+ */
+function quietLog(ctx: SplatesDeps) {
+	const file = new FileLogger(ctx.fs, `${splatesHome(ctx.ps)}/worker.log`);
+	return new CompositeLogger([
+		{ info: () => {}, error: (...said) => ctx.log.error(...said) },
+		file,
+	]);
+}

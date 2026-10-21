@@ -97,7 +97,8 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private readonly timeout: Duration;
 	private readonly ackDelay: Duration;
 	private readonly acks: "delivery" | "manual";
-	private readonly timer: Timer;
+	/** What its heartbeats and bounds run on, which what rides on it shares. */
+	readonly timer: Timer;
 	private readonly clock: Clock;
 	private readonly wall: WallClock;
 	private readonly link: WorkerChannelLink;

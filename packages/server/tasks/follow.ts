@@ -3,6 +3,12 @@ import type { Ps } from "webappwiz/system";
 import type { Git } from "../git";
 import type { Projects } from "../projects";
 
+/**
+ * How long a server is waited on before it counts as unreachable: one that
+ * stalled would otherwise hold the task command for fetch's own five minutes.
+ */
+export const SERVER_WAIT_MS = 30_000;
+
 /** What `fetch` is used for here, so a test can stand in for it. */
 type Send = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -41,6 +47,7 @@ export async function follow(
 			// The server refuses a write from any other origin than its own.
 			headers: { "content-type": "application/json", origin: url },
 			body: JSON.stringify({ task, from, base }),
+			signal: AbortSignal.timeout(SERVER_WAIT_MS),
 		});
 		if (!response.ok) {
 			log.error(
@@ -84,6 +91,7 @@ export async function serveProject({
 		const response = await send(`${url}/api/projects/${slug}/serve`, {
 			method: "POST",
 			headers: { origin: url },
+			signal: AbortSignal.timeout(SERVER_WAIT_MS),
 		});
 		if (!response.ok) {
 			log.error(`splates server did not serve ${slug}: ${response.status}`);

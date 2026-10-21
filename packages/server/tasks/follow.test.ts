@@ -56,6 +56,28 @@ describe("follow", () => {
 		expect(log.entries).toEqual([]);
 	});
 
+	it("waits on the server only so long, so a stalled one cannot hold the task command", async () => {
+		ps.setEnv({
+			SPLATES_CONVERSATION: "c1",
+			SPLATES_DEV: "http://localhost:4270",
+		});
+		let signal: AbortSignal | null | undefined;
+
+		await follow(
+			{
+				ps,
+				log,
+				send: async (_url, init) => {
+					signal = init.signal;
+					return new Response("{}");
+				},
+			},
+			"alpha",
+		);
+
+		expect(signal).toBeInstanceOf(AbortSignal);
+	});
+
 	it("says nothing outside a conversation", async () => {
 		await follow({ ps, log, send }, "alpha");
 
@@ -98,13 +120,18 @@ describe("follow", () => {
 			expect(testing.ps.env("SPLATES_CONVERSATION")).toBeUndefined();
 			expect(testing.ps.env("SPLATES_DEV")).toBeUndefined();
 		} finally {
-			for (const [name, value] of Object.entries(outer)) {
-				if (value === undefined) {
-					delete process.env[name];
-				} else {
-					process.env[name] = value;
-				}
-			}
+			restoreEnv(outer);
 		}
 	});
 });
+
+/** Puts each of `outer` back in the process's env as it was, unset where it was. */
+function restoreEnv(outer: Record<string, string | undefined>): void {
+	for (const [name, value] of Object.entries(outer)) {
+		if (value === undefined) {
+			delete process.env[name];
+		} else {
+			process.env[name] = value;
+		}
+	}
+}

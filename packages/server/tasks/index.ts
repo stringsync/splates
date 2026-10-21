@@ -9,7 +9,7 @@ export { startDispatched } from "./dispatched";
 export type { Editor } from "./editors";
 export { EDITORS, ZED } from "./editors";
 export type { FinishedPlan, FinishedTask } from "./finished";
-export { follow, serveProject } from "./follow";
+export { follow, SERVER_WAIT_MS, serveProject } from "./follow";
 export { LeaseBeat } from "./lease-beat";
 export { list } from "./list";
 export { overlapWarnings, TaskOverlaps } from "./overlaps";

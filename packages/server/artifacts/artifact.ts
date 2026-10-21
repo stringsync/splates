@@ -4,7 +4,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { ConversationLog } from "../conversations";
 import { EXIT, fail, type Reason } from "../exit";
-import type { WorktreeService } from "../tasks";
+import { SERVER_WAIT_MS, type WorktreeService } from "../tasks";
 import {
 	type Artifact,
 	Artifacts,
@@ -148,7 +148,12 @@ async function serverAdd(
 	);
 	const response = await (deps.send ?? fetch)(
 		`${url}/api/conversations/${id}/artifacts`,
-		{ method: "POST", headers: { origin: url }, body: form },
+		{
+			method: "POST",
+			headers: { origin: url },
+			body: form,
+			signal: AbortSignal.timeout(SERVER_WAIT_MS),
+		},
 	).catch(() => null);
 	return response === null
 		? null
@@ -164,7 +169,11 @@ async function serverRemove(
 ): Promise<boolean> {
 	const response = await (deps.send ?? fetch)(
 		`${url}/api/conversations/${id}/artifacts/${encodeURIComponent(name)}`,
-		{ method: "DELETE", headers: { origin: url } },
+		{
+			method: "DELETE",
+			headers: { origin: url },
+			signal: AbortSignal.timeout(SERVER_WAIT_MS),
+		},
 	).catch(() => null);
 	if (response === null) {
 		return false;

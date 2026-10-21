@@ -58,6 +58,8 @@ export const WORKER_CAPABILITIES = [
 export class WorkerDaemon implements AsyncResource {
 	readonly session: WorkerSession;
 	private readonly hosts = new Set<Resource>();
+	/** The agents and terminals among `hosts`. */
+	private running = 0;
 	private readonly timer: Timer;
 	private readonly backoff: { min: Duration; max: Duration };
 	private readonly machine: LocalWorkerMachine;
@@ -167,7 +169,9 @@ export class WorkerDaemon implements AsyncResource {
 					};
 				}
 				if (negotiated.ok) {
-					log.info(`worker ${this.opts.id} joined ${this.dialer.where}`);
+					log.info(
+						`worker ${this.opts.id} joined ${this.dialer.where}, running ${this.running} agents and terminals`,
+					);
 					wait = this.backoff.min;
 					said = false;
 					const ended = await Promise.race([
@@ -274,15 +278,22 @@ export class WorkerDaemon implements AsyncResource {
 			return;
 		}
 		this.hosts.add(host);
-		// An agent or a terminal keeps the machine up; a call or a port is
+		// An agent or a terminal keeps the machine up, and is told of in the
+		// log, which says what a restart left running; a call or a port is
 		// over in a moment.
-		const busy =
-			channel.kind === "process" || channel.kind === "pty"
-				? this.busy.busy()
-				: null;
+		const lasting = channel.kind === "process" || channel.kind === "pty";
+		const busy = lasting ? this.busy.busy() : null;
+		if (lasting) {
+			this.running++;
+			log.info(`started ${channel.kind} channel ${channel.id}`);
+		}
 		channel.events.on("close", () => {
 			this.hosts.delete(host);
 			busy?.dispose();
+			if (lasting) {
+				this.running--;
+				log.info(`ended ${channel.kind} channel ${channel.id}`);
+			}
 		});
 	}
 

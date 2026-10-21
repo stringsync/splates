@@ -5,7 +5,7 @@ import type { AgentFrame } from "../agents";
 import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
 import { RemoteWorker } from "./remote";
-import type { RemoteProcess } from "./remote-process";
+import { ANSWER_WITHIN, type RemoteProcess } from "./remote-process";
 import { WorkerSession } from "./session";
 import { WorkerSocketPair } from "./testing";
 
@@ -116,6 +116,24 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		expect(child?.signals).toEqual([]);
 	});
 
+	it("keeps a process taken back once its worker answers for it, past the bound on an answer", async () => {
+		await eventually(() => before.pid !== null);
+
+		await restart();
+		const after = remote.resume(before.handle, null);
+		await accept();
+		await eventually(() => after.pid !== null);
+		fireAnswerBound(timer);
+		await Bun.sleep(0);
+
+		const ended = await Promise.race([
+			after.exited,
+			Bun.sleep(5).then(() => null),
+		]);
+		expect(ended).toBeNull();
+		expect(child?.signals).toEqual([]);
+	});
+
 	it("kills a process nobody took back", async () => {
 		await eventually(() => before.pid !== null);
 
@@ -132,3 +150,12 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		);
 	});
 });
+
+/** Fires each timeout of `ANSWER_WITHIN`, the bound on a worker's answer for a process taken back. */
+function fireAnswerBound(timer: FakeTimer): void {
+	timer.timeouts.forEach((entry, index) => {
+		if (entry.delay.secs === ANSWER_WITHIN.secs) {
+			timer.fireTimeout(index);
+		}
+	});
+}

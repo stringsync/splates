@@ -1,3 +1,4 @@
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import type { AgentFrame, AgentProcess, ProcessHandle } from "../agents";
 import type { WorkerChannel } from "./channel";
@@ -10,6 +11,9 @@ const Said = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("exit"), code: z.number() }),
 	z.object({ type: z.literal("failed"), reason: z.string() }),
 ]);
+
+/** How long a worker has to say anything of a process taken back, once it rejoins. */
+export const ANSWER_WITHIN = Duration.mins(1);
 
 /** How much of stderr is kept to explain how a process died, as for a local one. */
 const STDERR_CHARS = 2_000;
@@ -37,7 +41,14 @@ export class RemoteProcess implements AgentProcess {
 		private readonly channel: WorkerChannel,
 		session: WorkerSession,
 		private readonly worker: string,
-		{ resumed = false }: { resumed?: boolean } = {},
+		{
+			resumed = false,
+			answerWithin = ANSWER_WITHIN,
+		}: {
+			resumed?: boolean;
+			/** How long a worker has to answer for a process taken back, once it rejoins. */
+			answerWithin?: Duration;
+		} = {},
 	) {
 		const exit = Promise.withResolvers<number>();
 		this.exited = exit.promise;
@@ -60,8 +71,14 @@ export class RemoteProcess implements AgentProcess {
 				}
 			},
 		});
-		channel.events.on("data", (frame) => stdout?.enqueue(frame));
+		// Whether the worker has said anything on it since this end began.
+		let heard = false;
+		channel.events.on("data", (frame) => {
+			heard = true;
+			stdout?.enqueue(frame);
+		});
 		channel.events.on("message", ({ body }) => {
+			heard = true;
 			const said = Said.safeParse(body);
 			if (!said.success) {
 				return;
@@ -89,9 +106,27 @@ export class RemoteProcess implements AgentProcess {
 			// Sent once the handshake has said where this end's seqs carry on
 			// from, since a frame numbered before that the worker drops.
 			const describe = () => {
-				if (!channel.closed) {
-					channel.send({ type: "describe" });
+				if (channel.closed) {
+					return;
 				}
+				channel.send({ type: "describe" });
+				// A worker holding the process answers at once. One silent past
+				// `answerWithin` lost it in the restart, and would leave the
+				// conversation on a turn that never ends: this ends it as a
+				// lost process ends, which the conversation reconnects from,
+				// and closes the channel, which ends it on the worker too.
+				const unanswered = session.timer.setTimeout(() => {
+					if (heard || channel.closed) {
+						return;
+					}
+					this.tail ||= `the worker did not answer for it within ${answerWithin.secs}s of rejoining`;
+					stdout?.close();
+					// Whatever the worker says after it, as its close, is too late.
+					stdout = undefined;
+					exit.resolve(127);
+					channel.dispose();
+				}, answerWithin);
+				void this.exited.finally(() => unanswered.dispose());
 			};
 			if (session.connected) {
 				describe();

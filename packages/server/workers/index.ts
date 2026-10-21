@@ -56,6 +56,7 @@ export type { WorkerListing, WorkerListings, WorkerPool } from "./list";
 export { fetchWorkers, listWorkers, workerList } from "./list";
 export type { MachineReading, MachineSensors } from "./load";
 export { Machine, osSensors } from "./load";
+export { FileLogger, LOG_FILE_BYTES } from "./log-file";
 export type { WorkerMachine } from "./machine";
 export { LocalWorkerMachine } from "./machine";
 export { WorkerPlacement } from "./placement";
