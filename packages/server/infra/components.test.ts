@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { mockPulumi } from "./testing";
 
-process.env.PULUMI_CONFIG = JSON.stringify({ "github:token": "tok" });
+process.env.PULUMI_CONFIG = JSON.stringify({
+	"splates:githubToken-me": "tok-me",
+	"splates:githubToken-one": "tok-one",
+	"splates:githubToken-two": "tok-two",
+});
 
 const ofType = mockPulumi();
 
@@ -100,9 +104,12 @@ test("projects under two owners each get a deploy key on their owner's provider"
 	// Resources register as the engine gets to them, after the first provider of the earlier test is found.
 	await new Promise((resolve) => setTimeout(resolve, 200));
 	const providers = await ofType("pulumi:providers:github");
-	expect(providers.map((provider) => provider.inputs.owner).sort()).toEqual([
-		"me",
-		"one",
-		"two",
-	]);
+	expect(
+		providers
+			.map(
+				(provider) =>
+					`${provider.inputs.owner} ${(provider.inputs.token as { value: string }).value}`,
+			)
+			.sort(),
+	).toEqual(["me tok-me", "one tok-one", "two tok-two"]);
 });

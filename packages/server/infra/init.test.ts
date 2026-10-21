@@ -18,7 +18,25 @@ test("writes the program and the stack's config, naming what is left to set", as
 	expect(written).toEqual(["Pulumi.yaml", "index.ts", "Pulumi.prod.yaml"]);
 	expect(await fs.read("/p/index.ts")).toContain("new CoordinatorBox");
 	expect(await fs.read("/p/Pulumi.prod.yaml")).toContain("splates:host");
-	expect(todo).toContain("pulumi config set --secret github:token");
+	expect(todo).toContain("pulumi config set --secret splates:githubToken-me");
+});
+
+test("names a GitHub token to set for each owner the projects are under, once", async () => {
+	const fs = new FakeFs();
+	const { secrets } = await infraInit({
+		...options(fs),
+		projects: [
+			{ slug: "a", repository: "one/a" },
+			{ slug: "b", repository: "two/b" },
+			{ slug: "c", repository: "one/c" },
+		],
+	});
+	expect(secrets).toEqual([
+		"cloudflare:apiToken",
+		"splates:githubToken-one",
+		"splates:githubToken-two",
+		"splates:anthropicKey",
+	]);
 });
 
 test("run again, it writes nothing and keeps what the user changed", async () => {

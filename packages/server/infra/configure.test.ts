@@ -12,6 +12,7 @@ import { CloudflareApi } from "../tunnel/cloudflare-api";
 import { tunnelSetup } from "../tunnel/setup";
 import { FakeCloudflare } from "../tunnel/testing";
 import { infraConfigure, missingPermissions, repositoryOf } from "./configure";
+import type { DeployKeyProject } from "./deploy-keys";
 
 describe("infraConfigure", () => {
 	it("reads owner/repo off SSH and HTTPS GitHub remotes", () => {
@@ -22,7 +23,7 @@ describe("infraConfigure", () => {
 
 	it("fills the project from the registry, the tunnel and the creds", async () => {
 		const box = await machine({
-			SPLATES_DEPLOY_GITHUB_TOKEN: "gh",
+			SPLATES_DEPLOY_GITHUB_TOKEN_ME: "gh",
 			ANTHROPIC_API_KEY: "sk",
 		});
 		const { written } = await box.configure();
@@ -37,7 +38,7 @@ describe("infraConfigure", () => {
 		const sets = box.calls.filter((call) => call.argv.includes("set"));
 		expect(sets.map((call) => call.argv.at(-1))).toEqual([
 			"cloudflare:apiToken",
-			"github:token",
+			"splates:githubToken-me",
 			"splates:anthropicKey",
 		]);
 		expect(sets.map((call) => call.stdin)).toEqual(["api-token", "gh", "sk"]);
@@ -52,8 +53,35 @@ describe("infraConfigure", () => {
 		expect(error).toBeInstanceOf(Exit);
 		expect((error as Exit).reason).toBe("requested");
 		const names = (await box.creds.requests()).map((each) => each.name);
-		expect(names).toContain("SPLATES_DEPLOY_GITHUB_TOKEN");
+		expect(names).toContain("SPLATES_DEPLOY_GITHUB_TOKEN_ME");
 		expect(names).toContain("ANTHROPIC_API_KEY");
+	});
+
+	it("requests a token for each owner the projects are under, naming its repositories", async () => {
+		const box = await machine({
+			SPLATES_DEPLOY_GITHUB_TOKEN_ACME: "gh-acme",
+			ANTHROPIC_API_KEY: "sk",
+		});
+		const error = await box
+			.configure([
+				{ slug: "app", repository: "acme/app" },
+				{ slug: "lib", repository: "my-name/lib" },
+				{ slug: "web", repository: "my-name/web" },
+			])
+			.catch((cause: unknown) => cause);
+		expect((error as Exit).reason).toBe("requested");
+		const requests = await box.creds.requests();
+		expect(requests.map((each) => each.name)).toEqual([
+			"SPLATES_DEPLOY_GITHUB_TOKEN_MY_NAME",
+		]);
+		expect(requests[0]?.instructions).toContain("**my-name**");
+		expect(requests[0]?.instructions).toContain("`my-name/lib`, `my-name/web`");
+		const sets = box.calls.filter((call) => call.argv.includes("set"));
+		expect(sets.map((call) => [call.argv.at(-1), call.stdin])).toEqual([
+			["cloudflare:apiToken", "api-token"],
+			["splates:githubToken-acme", "gh-acme"],
+			["splates:anthropicKey", "sk"],
+		]);
 	});
 });
 
@@ -125,14 +153,14 @@ async function machine(kept: Record<string, string>) {
 			};
 		},
 	} as unknown as Ps;
-	const configure = () =>
+	const configure = (projects: DeployKeyProject[] | null = null) =>
 		infraConfigure({
 			dir: "/infra",
 			stack: "prod",
 			region: "us-east-1",
 			host: "",
 			email: "",
-			projects: null,
+			projects,
 			registered: async () => [{ slug: "app", root: "/code/app" }],
 			creds,
 			saved,

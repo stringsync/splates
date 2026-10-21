@@ -2,6 +2,7 @@ import * as aws from "@pulumi/aws";
 import * as github from "@pulumi/github";
 import * as pulumi from "@pulumi/pulumi";
 import * as tls from "@pulumi/tls";
+import { githubTokenName, ownerOf } from "./init";
 
 /** A project the box clones and pushes trunk of. */
 export interface DeployKeyProject {
@@ -37,8 +38,8 @@ export class DeployKeys extends pulumi.ComponentResource {
 		super("splates:infra:DeployKeys", name, {}, opts);
 		const child = { parent: this };
 		this.parameters = {};
-		// The resource takes a repository name alone, so each owner gets its own provider.
-		const token = new pulumi.Config("github").requireSecret("token");
+		// The resource takes a repository name alone, so each owner gets its own provider, with its own token.
+		const config = new pulumi.Config("splates");
 		const providers = new Map<string, github.Provider>();
 		for (const { slug, repository } of args.projects) {
 			const key = new tls.PrivateKey(
@@ -46,14 +47,16 @@ export class DeployKeys extends pulumi.ComponentResource {
 				{ algorithm: "ED25519" },
 				child,
 			);
-			const slash = repository.indexOf("/");
-			const owner = repository.slice(0, slash);
-			const repo = repository.slice(slash + 1);
+			const owner = ownerOf(repository);
+			const repo = repository.slice(owner.length + 1);
 			let provider = providers.get(owner);
 			if (!provider) {
 				provider = new github.Provider(
 					`${name}-${owner}`,
-					{ owner, token },
+					{
+						owner,
+						token: config.requireSecret(githubTokenName(owner)),
+					},
 					child,
 				);
 				providers.set(owner, provider);

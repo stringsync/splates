@@ -13,14 +13,31 @@ import {
 } from "../tunnel";
 import type { TunnelCreds } from "../tunnel/setup";
 import type { DeployKeyProject } from "./deploy-keys";
-import { type InfraInitResult, infraInit } from "./init";
+import {
+	githubOwnerOf,
+	type InfraInitResult,
+	infraInit,
+	ownerOf,
+} from "./init";
 
-/** Where each stack secret comes from in the creds store. */
-export const SECRET_CREDS: Record<string, string> = {
+/** Where each stack secret but the GitHub tokens comes from in the creds store. */
+const SECRET_CREDS: Record<string, string> = {
 	"cloudflare:apiToken": API_TOKEN,
-	"github:token": "SPLATES_DEPLOY_GITHUB_TOKEN",
 	"splates:anthropicKey": "ANTHROPIC_API_KEY",
 };
+
+/** The cred keeping the GitHub token for `owner`'s repositories. */
+export function githubTokenCred(owner: string): string {
+	return `SPLATES_DEPLOY_GITHUB_TOKEN_${owner.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
+}
+
+/** Where stack secret `key` comes from in the creds store. */
+export function secretCred(key: string): string {
+	const owner = githubOwnerOf(key);
+	return owner === null
+		? (SECRET_CREDS[key] as string)
+		: githubTokenCred(owner);
+}
 
 export interface InfraConfigureOptions {
 	dir: string;
@@ -238,11 +255,20 @@ export async function infraConfigure(
 	const values = new Map<string, string>();
 	const lacking: string[] = [];
 	for (const key of result.secrets) {
-		const name = SECRET_CREDS[key] as string;
+		const name = secretCred(key);
 		const value = await creds.credentials.get(name);
 		if (value === undefined) {
 			lacking.push(key);
-			const help = SECRET_HELP[key];
+			const owner = githubOwnerOf(key);
+			const help =
+				owner === null
+					? SECRET_HELP[key]
+					: githubTokenHelp(
+							owner,
+							projects.filter(
+								({ repository }) => ownerOf(repository) === owner,
+							),
+						);
 			if (help !== undefined) {
 				await creds.request(name, {
 					scope: "device",
@@ -277,27 +303,39 @@ export async function infraConfigure(
 		}
 	}
 	if (lacking.length > 0) {
-		const names = lacking.map((key) => SECRET_CREDS[key]).join(", ");
+		const names = lacking.map(secretCred).join(", ");
 		fail(
 			"requested",
 			`still needed: ${names}, requested on the Creds page of \`splates server\` where the setup can. Save them (\`splates creds wait <NAME>\`), then run this again.`,
-			{ names: lacking.map((key) => SECRET_CREDS[key]) },
+			{ names: lacking.map(secretCred) },
 		);
 	}
 	return { ...result, secrets: lacking, todo: [] };
 }
 
-/** How to get each cred a stack secret is kept as, as its request shows. */
-const SECRET_HELP: Record<string, { purpose: string; instructions: string }> = {
-	"github:token": {
-		purpose:
-			"For the infra stack to make a deploy key on each project's GitHub repository, so the coordinator's box can clone and push trunk.",
+interface SecretHelp {
+	purpose: string;
+	instructions: string;
+}
+
+/** How to get the GitHub token for `owner`, whose repositories `projects` are, as its request shows. */
+function githubTokenHelp(
+	owner: string,
+	projects: DeployKeyProject[],
+): SecretHelp {
+	const repositories = projects.map(({ repository }) => `\`${repository}\``);
+	return {
+		purpose: `For the infra stack to make a deploy key on each of ${owner}'s GitHub repositories that splates pushes (${repositories.join(", ")}), so the coordinator's box can clone and push trunk.`,
 		instructions: [
 			"1. Open [Fine-grained tokens](https://github.com/settings/personal-access-tokens/new).",
-			"2. Pick every owner and repository your splates projects are on (one token per owner if they differ), and give **Administration: Read and write**.",
+			`2. Pick **${owner}** as the resource owner, then **Only select repositories** and ${repositories.join(", ")}, and give **Administration: Read and write**.`,
 			"3. Generate it and paste it here.",
 		].join("\n"),
-	},
+	};
+}
+
+/** How to get each other cred a stack secret is kept as, as its request shows. */
+const SECRET_HELP: Record<string, SecretHelp> = {
 	"splates:anthropicKey": {
 		purpose:
 			"For the coordinator's box, so agents that run there can reach Anthropic.",

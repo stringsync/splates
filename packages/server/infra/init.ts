@@ -27,12 +27,38 @@ export interface InfraInitResult {
 	secrets: string[];
 }
 
-/** What the user sets themselves, since it is theirs to look up or to keep. */
-export const SECRETS = [
-	"cloudflare:apiToken",
-	"github:token",
-	"splates:anthropicKey",
-] as const;
+/** The GitHub owner of `owner/repo`. */
+export function ownerOf(repository: string): string {
+	return repository.slice(0, repository.indexOf("/"));
+}
+
+/**
+ * The `splates` config name of the secret holding the GitHub token for
+ * `owner`'s repositories: a fine-grained token covers one owner, so each
+ * gets its own.
+ */
+export function githubTokenName(owner: string): string {
+	return `githubToken-${owner}`;
+}
+
+/** The GitHub owner whose token stack secret `key` holds, or null for any other. */
+export function githubOwnerOf(key: string): string | null {
+	const prefix = `splates:${githubTokenName("")}`;
+	return key.startsWith(prefix) ? key.slice(prefix.length) : null;
+}
+
+/**
+ * What the user sets themselves, since it is theirs to look up or to keep:
+ * a GitHub token for each owner the projects are under.
+ */
+export function secretsOf(projects: DeployKeyProject[]): string[] {
+	const owners = new Set(projects.map(({ repository }) => ownerOf(repository)));
+	return [
+		"cloudflare:apiToken",
+		...[...owners].map((owner) => `splates:${githubTokenName(owner)}`),
+		"splates:anthropicKey",
+	];
+}
 
 /** The Cloudflare ids of the account and zone, which only its dashboard shows. */
 const IDS = ["splates:accountId", "splates:zoneId"] as const;
@@ -84,7 +110,7 @@ export async function infraInit(
 		stackText(withEnvironment({ ...stack, config }, opts.environment)),
 	);
 
-	const secrets = SECRETS.filter((key) => !(key in config));
+	const secrets = secretsOf(opts.projects).filter((key) => !(key in config));
 	return {
 		written,
 		secrets,
