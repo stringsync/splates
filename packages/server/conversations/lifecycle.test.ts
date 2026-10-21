@@ -469,6 +469,21 @@ describe("Conversation lifecycle", () => {
 		expect(agent.launched).toHaveLength(2);
 	});
 
+	it("fails a start whose agent never answers initialize, killing it so the person can retry", async () => {
+		agent.hold = new Promise<void>(() => {});
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await eventually(() => {
+			timer.fireTimeouts();
+			return conversation.state.status === "failed";
+		});
+
+		expect(conversation.state.error).toContain("did not answer initialize");
+		expect(agent.killed).toBe(1);
+	});
+
 	it("starts the next agent only once the one before opens its session", async () => {
 		const { promise: open, resolve: opened } = Promise.withResolvers<void>();
 		agent.holdSession = open;

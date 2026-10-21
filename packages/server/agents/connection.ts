@@ -46,6 +46,9 @@ import type { Watched } from "./watched";
 /** How long an agent starting holds up the next before it may start too. */
 const START_WAIT = Duration.secs(30);
 
+/** How long an agent has to answer `initialize` or open a session before it is given up on. */
+const ANSWER_WAIT = Duration.secs(60);
+
 /** How long a failed start waits for its process to exit, to say why it died. */
 const DEATH_WAIT = Duration.secs(1);
 
@@ -224,27 +227,33 @@ export class AgentConnection {
 			const launched = process;
 			void launched.exited.then(started, started);
 			const connection = this.attach(agent, launched, {});
-			const initialized = await connection.initialize({
-				protocolVersion: acp.PROTOCOL_VERSION,
-				// A form is how an agent asks the person something, as an MCP
-				// server or a refusal's fallback does, though never a question
-				// (see `SESSION_META`).
-				clientCapabilities: {
-					elicitation: { form: {} },
-					session: { configOptions: { boolean: {} }, compaction: {} },
-					// Claude says when a command it left in the background
-					// starts and ends only to a client that asks, and stops one
-					// on `ASYNC_TASK_STOP`; Codex lists its sessions' turns only
-					// to one that declares `sessionIndex`.
-					_meta: {
-						// AIR clients must explicitly request command output chunks.
-						terminal_output_delta: true,
-						jetbrains: {
-							air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
+			const initialized = await this.answered(
+				"initialize",
+				connection.initialize({
+					protocolVersion: acp.PROTOCOL_VERSION,
+					// A form is how an agent asks the person something, as an MCP
+					// server or a refusal's fallback does, though never a question
+					// (see `SESSION_META`).
+					clientCapabilities: {
+						elicitation: { form: {} },
+						session: { configOptions: { boolean: {} }, compaction: {} },
+						// Claude says when a command it left in the background
+						// starts and ends only to a client that asks, and stops one
+						// on `ASYNC_TASK_STOP`; Codex lists its sessions' turns only
+						// to one that declares `sessionIndex`.
+						_meta: {
+							// AIR clients must explicitly request command output chunks.
+							terminal_output_delta: true,
+							jetbrains: {
+								air: {
+									version: 1,
+									capabilities: ["asyncTasks", "sessionIndex"],
+								},
+							},
 						},
 					},
-				},
-			});
+				}),
+			);
 			if (initialized.protocolVersion !== acp.PROTOCOL_VERSION) {
 				throw new Error(
 					`Unsupported ACP protocol version ${initialized.protocolVersion}; expected ${acp.PROTOCOL_VERSION}.`,
@@ -264,11 +273,14 @@ export class AgentConnection {
 					? ((await offering?.servers()) ?? [])
 					: [];
 			if (this.session === null) {
-				const session = await connection.newSession({
-					cwd,
-					mcpServers,
-					_meta: SESSION_META,
-				});
+				const session = await this.answered(
+					"session/new",
+					connection.newSession({
+						cwd,
+						mcpServers,
+						_meta: SESSION_META,
+					}),
+				);
 				this.session = session.sessionId;
 				this.sessionCwd = cwd;
 				host.log.write({ kind: "session", session: session.sessionId, cwd });
@@ -294,12 +306,15 @@ export class AgentConnection {
 				this.logHeard();
 				host.state.settings = settingsIn(session.configOptions);
 			} else {
-				const session = await connection.resumeSession({
-					sessionId: this.session,
-					cwd,
-					mcpServers,
-					_meta: SESSION_META,
-				});
+				const session = await this.answered(
+					"session/resume",
+					connection.resumeSession({
+						sessionId: this.session,
+						cwd,
+						mcpServers,
+						_meta: SESSION_META,
+					}),
+				);
 				host.state.settings = settingsIn(session.configOptions);
 			}
 			// Held until the session opens, not just the process: opening one
@@ -544,6 +559,35 @@ export class AgentConnection {
 			}
 		});
 		return connection;
+	}
+
+	/**
+	 * What `request` answers, or a failure once the agent has had `ANSWER_WAIT`
+	 * and not: the start then closes the conversation with it, and the process
+	 * with it, so the person sees an error to retry, not a message queued for
+	 * an agent that never answers. A session loaded is left unbounded, since
+	 * it answers only once the agent has replayed it.
+	 */
+	private async answered<T>(method: string, request: Promise<T>): Promise<T> {
+		let giveUp: { dispose(): void } | undefined;
+		try {
+			return await Promise.race([
+				request,
+				new Promise<never>((_, reject) => {
+					giveUp = this.deps.timer.setTimeout(
+						() =>
+							reject(
+								new Error(
+									`The agent did not answer ${method} within ${ANSWER_WAIT.secs} seconds.`,
+								),
+							),
+						ANSWER_WAIT,
+					);
+				}),
+			]);
+		} finally {
+			giveUp?.dispose();
+		}
 	}
 
 	/** What `process` said on stderr if it exits within `DEATH_WAIT`, else null. */
