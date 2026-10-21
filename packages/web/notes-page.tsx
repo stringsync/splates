@@ -190,7 +190,7 @@ export function NotesPage({
 						<li key={note.path}>
 							<button
 								type="button"
-								className="flex w-full flex-col gap-1 rounded-md px-2 py-4 text-left hover:bg-muted focus-visible:outline-ring"
+								className="flex w-full flex-col gap-0.5 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-ring"
 								onClick={() => {
 									void reading.open(note.path);
 								}}
@@ -201,19 +201,21 @@ export function NotesPage({
 								<span className="break-all text-muted-foreground text-xs">
 									{note.path}
 								</span>
-								<span
-									className={
-										note.uses === 0
-											? "text-destructive text-xs"
-											: "text-muted-foreground text-xs"
-									}
-								>
-									{note.uses === 0
-										? "Never read"
-										: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
-								</span>
-								<span className="text-muted-foreground text-xs">
-									{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+								<span className="mt-1 flex flex-wrap gap-1.5">
+									<span
+										className={
+											note.uses === 0
+												? "rounded-full bg-destructive/10 px-2 py-0.5 text-destructive text-xs"
+												: "rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs"
+										}
+									>
+										{note.uses === 0
+											? "Never read"
+											: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
+									</span>
+									<span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+										{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+									</span>
 								</span>
 							</button>
 						</li>
