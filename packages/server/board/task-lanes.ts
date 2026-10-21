@@ -225,6 +225,9 @@ export class TaskLanes {
 	 */
 	async queueFromLanes(): Promise<TaskRecord[]> {
 		return this.tasks.locked(async () => {
+			// A listing that fails reads as no tasks, which would end every queued
+			// lane below, so it is checked to work first.
+			await this.tasks.store.records.list();
 			const states = await this.tasks.stored();
 			const records = await this.records(states);
 			const queued: TaskRecord[] = [];

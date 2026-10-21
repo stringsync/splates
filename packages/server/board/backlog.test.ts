@@ -50,4 +50,18 @@ describe("the permanent Backlog lane", () => {
 		]);
 		expect(deps.out()).not.toContain("so it is gone");
 	});
+
+	it("keeps a lane queued when the tasks cannot be listed, rather than ending it as empty", async () => {
+		await using deps = await Testing.open();
+		const lane = await deps.tasks.addLane("Editor");
+		await deps.tasks.add("work", null, { lane: lane.id });
+		await deps.tasks.queueLane(lane.id, true);
+		const list = deps.tasks.store.records.list.bind(deps.tasks.store.records);
+		deps.tasks.store.records.list = () => Promise.reject(new Error("busy"));
+		await expect(deps.tasks.queueFromLanes()).rejects.toThrow("busy");
+		deps.tasks.store.records.list = list;
+		expect(
+			(await deps.tasks.lanes()).find((each) => each.id === lane.id),
+		).toMatchObject({ queued: true });
+	});
 });
