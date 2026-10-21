@@ -33,19 +33,24 @@ followAppearance(
 	matchMedia("(prefers-color-scheme: dark)"),
 );
 
-// Every spinner runs on one clock: each spin starts at the document timeline's
-// origin rather than when its element mounted, so all of them stand at the
-// same angle at every frame, however many come and go.
+// Every spinner, and every running lane's border glint, runs on one clock:
+// each starts at the document timeline's origin rather than when its element
+// mounted, so all of them stand at the same angle at every frame, however many
+// come and go. The glint animates a ::before, which the subtree option reaches.
+const sharedClock = new Set(["spin", "running-turn"]);
 document.addEventListener(
 	"animationstart",
 	(event) => {
-		if (event.animationName !== "spin" || !(event.target instanceof Element)) {
+		if (!sharedClock.has(event.animationName)) {
 			return;
 		}
-		for (const animation of event.target.getAnimations()) {
+		if (!(event.target instanceof Element)) {
+			return;
+		}
+		for (const animation of event.target.getAnimations({ subtree: true })) {
 			if (
 				animation instanceof CSSAnimation &&
-				animation.animationName === "spin"
+				sharedClock.has(animation.animationName)
 			) {
 				animation.startTime = 0;
 			}
