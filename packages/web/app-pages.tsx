@@ -7,7 +7,7 @@ import type { Drafts } from "./drafts";
 import {
 	AutomationsPage,
 	AutoPickPage,
-	BudgetPage,
+	BillingPage,
 	EvalsPage,
 	NotesPage,
 	SetupPage,
@@ -114,7 +114,7 @@ export function useAppPages({
 								cred={cred}
 							/>
 						),
-						budget: <BudgetPage talk={talk} />,
+						billing: <BillingPage talk={talk} />,
 						workers: (
 							<WorkersPage
 								tasks={workerTasks}

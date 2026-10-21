@@ -22,8 +22,8 @@ function onDemand<Props extends object>(
 export const AutomationsPage = onDemand(async () => ({
 	default: (await import("./automations")).AutomationsPage,
 }));
-export const BudgetPage = onDemand(async () => ({
-	default: (await import("./budget")).BudgetPage,
+export const BillingPage = onDemand(async () => ({
+	default: (await import("./billing")).BillingPage,
 }));
 export const SetupPage = onDemand(async () => ({
 	default: (await import("./setup-page")).SetupPage,

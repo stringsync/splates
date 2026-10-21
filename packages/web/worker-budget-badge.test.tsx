@@ -22,7 +22,7 @@ describe("WorkerBudgetBadge", () => {
 
 		const badge = page.getByRole("link");
 		expect(badge.textContent).toBe("Workers: 90% of today's $5.00");
-		expect(badge.getAttribute("href")).toBe("#budget");
+		expect(badge.getAttribute("href")).toBe("#billing");
 		expect(badge.className).toContain("amber");
 	});
 

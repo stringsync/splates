@@ -18,7 +18,7 @@ describe("App's budget", () => {
 	const openBudget = async () => {
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Budget/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		return view;
 	};
@@ -54,7 +54,7 @@ describe("App's budget", () => {
 		testing.readingBudgets = new Promise(() => {});
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Budget/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 
 		expect((await card(view, "som")).textContent).toContain("4.2m of 7m");

@@ -137,3 +137,25 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 	expect(row?.billed).toBeCloseTo(2.2);
 	expect((await spend.entries())[0]?.original?.currency).toBe("EUR");
 });
+
+test("a report totals the range by service and by provider's day", async () => {
+	const { spendReport } = await import("./report");
+	const spend = new Spend(new MemoryStorage());
+	await spend.record(
+		entry(),
+		entry({ at: "2026-10-22T10:00:00.000Z", dollars: 2 }),
+		entry({ at: "2026-09-01T10:00:00.000Z", dollars: 8 }),
+	);
+	const report = await spendReport(spend, {
+		since: "2026-10-01T00:00:00.000Z",
+		now: "2026-10-22T12:00:00.000Z",
+	});
+	expect(report.updated).toBe("2026-10-22T12:00:00.000Z");
+	expect(report.services.map((row) => [row.service, row.equivalent])).toEqual([
+		["opus", 3],
+	]);
+	expect(report.days.map((row) => [row.period, row.equivalent])).toEqual([
+		["2026-10-21", 1],
+		["2026-10-22", 2],
+	]);
+});

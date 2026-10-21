@@ -27,6 +27,7 @@ import {
 	SetupRoutes,
 	setupProjectAt,
 } from "../setup";
+import { Spend, spendReport } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
 import { rescueStranded } from "../tasks";
@@ -410,6 +411,7 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
+	const ledger = new Spend(FsStorage.ofMachine({ fs, ps, log }));
 	const budget = new WorkerBudgetRoutes(
 		workers.provisioning?.budget ?? null,
 		workers.slots.scheduler,
@@ -417,7 +419,7 @@ export async function dev(
 	);
 	// Loud, whatever a device asks to hear: a limit nearing costs money.
 	workers.provisioning?.events.on("alert", (alert) => {
-		void pushes.announce({ ...alertNotice(alert), url: "#budget" });
+		void pushes.announce({ ...alertNotice(alert), url: "#billing" });
 	});
 	// A reached limit stops the agents on made workers at their checkpoint.
 	workers.provisioning?.events.on("stopping", ({ reason, held }) => {
@@ -648,6 +650,17 @@ export async function dev(
 							email: (await gate.identity(request))?.email ?? null,
 						}),
 					),
+					// Every project's, as the ledger is the machine's.
+					"/api/spend": guarded(async (request) => {
+						const { searchParams } = new URL(request.url);
+						return Response.json(
+							await spendReport(ledger, {
+								since: searchParams.get("since") ?? undefined,
+								until: searchParams.get("until") ?? undefined,
+								now: new Date().toISOString(),
+							}),
+						);
+					}),
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),

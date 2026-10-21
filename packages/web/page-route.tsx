@@ -75,7 +75,7 @@ export function usePageRoute(): PageRoute {
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
  * for it with todo N open, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
- * `#creds`, `#budget`, `#workers`, `#automations`,
+ * `#creds`, `#billing` (`#budget` too), `#workers`, `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
  */
@@ -86,7 +86,7 @@ export type Page =
 	| "stats"
 	| "evals"
 	| "creds"
-	| "budget"
+	| "billing"
 	| "workers"
 	| "automations"
 	| "auto-pick"
@@ -113,7 +113,7 @@ export const PAGES: {
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "evals", label: "Evals", Icon: FlaskConicalIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
-	{ value: "budget", label: "Budget", Icon: GaugeIcon },
+	{ value: "billing", label: "Billing", Icon: GaugeIcon },
 	{ value: "workers", label: "Workers", Icon: ServerIcon },
 	{ value: "automations", label: "Automations", Icon: ZapIcon },
 	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
@@ -138,7 +138,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	stats: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
-	budget: "min-w-0 px-4 py-6",
+	billing: "min-w-0 px-4 py-6",
 	workers: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",

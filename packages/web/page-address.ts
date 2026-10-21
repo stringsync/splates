@@ -255,8 +255,8 @@ function pageIn(hash: string): Page {
 	if (hash === "#creds" || hash.startsWith("#creds/")) {
 		return "creds";
 	}
-	if (hash === "#budget") {
-		return "budget";
+	if (hash === "#billing" || hash === "#budget") {
+		return "billing";
 	}
 	if (hash === "#workers") {
 		return "workers";

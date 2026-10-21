@@ -19,6 +19,7 @@ import {
 	resumeBudget,
 	setBudget,
 } from "./api";
+import { SpendSection } from "./billing-spend";
 import { EditForm, ends, PauseForm, RaiseForm } from "./budget-forms";
 import { BudgetReading } from "./budget-reading";
 import type { ConversationFeed } from "./conversation-feed";
@@ -44,14 +45,15 @@ const PLANS = [
 ];
 
 /**
- * The Budget page: how much of the agent plans is used, then what
+ * The Billing page: the dollars spent by provider and service, then how
+ * much of the agent plans is used, then what
  * scry's checks may spend on each model in this project, with how much of
  * each window is gone and a form to change it, raise it or pause it for a
  * while, then what made workers may cost. Plan limits come first since their cards keep one shape, while the
  * budgets arrive from the CLI a moment later and would shift anything below
  * them.
  */
-export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
+export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	const reading = useReading("budgets", () => new BudgetReading());
 	const { budgets, error } = useReactive(
 		reading,
@@ -62,8 +64,9 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	useEffect(() => void reading.refresh(), [reading]);
 	const changed = (change: Promise<Budgets>) => reading.changed(change);
 	return (
-		<section aria-label="budget" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Budget" />
+		<section aria-label="billing" className="flex min-w-0 flex-col gap-8">
+			<TopBar title="Billing" />
+			<SpendSection />
 			<PlanSection talk={talk} />
 			<div className="flex flex-col gap-3">
 				<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

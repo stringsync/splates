@@ -196,7 +196,8 @@
 @source "./project-app.tsx";
 @source "./project-chip.tsx";
 @source "./project-folder-list.tsx";
-@source "./budget.tsx";
+@source "./billing.tsx";
+@source "./billing-spend.tsx";
 @source "./budget-forms.tsx";
 @source "./automation-face.tsx";
 @source "./automation-form.tsx";

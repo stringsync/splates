@@ -1,3 +1,4 @@
+import type { SpendReport } from "@stringsync/splates-server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
 // before anything below loads react-dom.
 import "./testing-dom";
@@ -125,6 +126,12 @@ export class Testing implements Resource {
 	readonly notes = new FakeNotes();
 	/** What `/api/budgets` says of the project's scry budgets. */
 	budgets: Budgets = { declared: false, roles: [] };
+	/** What `/api/spend` says of the dollars spent. */
+	spendReport: SpendReport = {
+		updated: "2026-10-21T12:00:00.000Z",
+		services: [],
+		days: [],
+	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();
 	/** What the page reads; a test sets it before the page fetches again. */
@@ -297,6 +304,9 @@ export class Testing implements Resource {
 			const note = this.notes.respond(path);
 			if (note !== null) {
 				return note;
+			}
+			if (route === "/api/spend") {
+				return Response.json(this.spendReport);
 			}
 			if (route === "/api/budgets") {
 				await this.readingBudgets;

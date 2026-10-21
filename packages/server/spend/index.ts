@@ -2,6 +2,8 @@ export type { BillingOptions, ProviderStatus } from "./billing";
 export { pullBilling } from "./billing";
 export { PROVIDERS } from "./providers";
 export { Rates } from "./rates";
+export type { SpendReport } from "./report";
+export { spendReport } from "./report";
 export { Spend } from "./spend";
 export type {
 	Period,

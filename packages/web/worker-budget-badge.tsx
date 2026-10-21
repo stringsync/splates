@@ -28,7 +28,7 @@ export function WorkerBudgetBadge({
 	const reached = worst.tier === 100;
 	return (
 		<a
-			href="#budget"
+			href="#billing"
 			title={`Made workers: ${dollars(worst.spent)}${unit} of ${dollars(worst.dollars)}${unit} ${worst.window}, an estimate at list price.${budget.stopped === null ? "" : ` Stopped: ${budget.stopped}; made workers take nothing new.`} Raise it with \`splates budget raise\`.`}
 			className={cn(
 				"flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium text-[11px] leading-none",

@@ -54,6 +54,7 @@ export {
 } from "./planning";
 export { pushKey, subscribePush, unsubscribePush } from "./push";
 export { ApiError, scoped, send, sendJson } from "./request";
+export { spend } from "./spend";
 export {
 	openFile,
 	paths,

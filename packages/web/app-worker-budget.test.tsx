@@ -58,7 +58,7 @@ describe("App's worker budget", () => {
 	const openCard = async () => {
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Budget/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		return waitFor(() => view.getByRole("region", { name: "workers budget" }));
 	};
@@ -137,7 +137,7 @@ describe("App's worker budget", () => {
 		testing.workerBudget = null;
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Budget/ })),
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		await waitFor(() => expect(testing.asked).toContain("/api/worker-budget"));
 

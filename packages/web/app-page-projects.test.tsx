@@ -58,7 +58,7 @@ describe("App's pages and the project switcher", () => {
 		const switchers = [
 			await switcherOn(view, "Board"),
 			await switcherOn(view, "Tasks"),
-			await switcherOn(view, "Budget"),
+			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
 		];
 		expect(switchers).toEqual([null, null, null, null]);

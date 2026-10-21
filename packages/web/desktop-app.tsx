@@ -30,7 +30,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	budget: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	workers: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	automations: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	"auto-pick": "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
