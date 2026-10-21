@@ -20,3 +20,9 @@ in `packages/server/infra/`, Pulumi packages as optional peers kept out of
 the CLI and page bundles, and `splates server infra init` writes the user's
 own Pulumi project. Pulumi signs in to AWS through an ESC environment over
 OIDC, never long-lived keys; the box's creds are SSM `SecureString`s.
+
+Setup writes that project into the repo it is opened from, as the package
+`packages/infra` (`infra` where there is no `packages/`), not a repository of
+its own. Its runtime is `bun` in `Pulumi.yaml`: Pulumi's `nodejs` runtime
+compiles with a vendored ts-node that reads `ts.sys`, which TypeScript 7 no
+longer has, and cannot load the workspace's extensionless TypeScript imports.

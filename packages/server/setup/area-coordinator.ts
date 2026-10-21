@@ -94,29 +94,35 @@ export function coordinatorArea(
 		id: "coordinator-infra",
 		title: "Write the infra project",
 		why: "The box is a Pulumi project of your own that uses splates's components, so you can read, change and destroy exactly what it makes.",
-		user: "Name a directory for the project and press Next: it is filled from your projects, your tunnel and the creds kept here. Or run `splates server infra init <dir>`.",
+		user: "Press Next to write the project as a package of this repo (`packages/infra`), or name another directory: it is filled from your projects, your tunnel and the creds kept here. Or run `splates server infra init <dir>`.",
 		agent:
-			"Run `splates server infra init <dir>` for the user, in a directory of their choice. It fills the host, email, projects, Cloudflare ids and secrets from what splates keeps, requests any cred not kept, and records the directory in splates's home.",
+			"Run `splates server infra init <dir>` for the user, in the repo's `packages/infra` unless they name another directory. It fills the host, email, projects, Cloudflare ids and secrets from what splates keeps, requests any cred not kept, and records the directory in splates's home.",
 		optional: true,
 		after: [],
-		fields: [
-			{
-				kind: "text",
-				name: "dir",
-				label: "Directory for the infra project",
-				placeholder: "~/splates-infra",
-			},
-		],
+		fields: async (machine) => {
+			const placeholder = await infraDir(machine);
+			return [
+				{
+					kind: "text",
+					name: "dir",
+					label: "Directory for the infra project",
+					placeholder,
+					optional: placeholder !== undefined,
+				},
+			];
+		},
 		doing: "Writing the project and setting its config…",
 		submit: async (machine, answers) => {
 			if (machine.ps === undefined) {
 				throw new Error("setup cannot run Pulumi here");
 			}
 			const { fs, ps, home, device } = machine;
-			const dir = String(answers.dir).replace(
-				/^~(?=\/)/,
-				ps.env("HOME") ?? "~",
-			);
+			const named = String(answers.dir ?? "").trim();
+			const chosen = named === "" ? await infraDir(machine) : named;
+			if (chosen === undefined) {
+				throw new Error("name a directory for the infra project");
+			}
+			const dir = chosen.replace(/^~(?=\/)/, ps.env("HOME") ?? "~");
 			try {
 				await infraConfigure({
 					dir,
@@ -429,4 +435,19 @@ async function pulumiAnswers(machine: SetupMachine): Promise<boolean> {
 		({ exitCode }) => exitCode === 0,
 		() => false,
 	);
+}
+
+/**
+ * Where the infra project goes unless the user names a directory: a package
+ * of the project setup is opened from, so the box is code in the repo, not a
+ * repository of its own; none outside a project.
+ */
+async function infraDir(machine: SetupMachine): Promise<string | undefined> {
+	const root = machine.project?.root;
+	if (root === undefined) {
+		return undefined;
+	}
+	return (await machine.fs.exists(`${root}/packages`))
+		? `${root}/packages/infra`
+		: `${root}/infra`;
 }

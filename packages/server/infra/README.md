@@ -1,6 +1,6 @@
 # Splates infrastructure, as Pulumi components
 
-`splates server infra init <dir>` writes a Pulumi project that imports these
+`splates server infra init <dir>` writes a Pulumi project (setup puts it in the repo, as the package `packages/infra`) that imports these
 components; edit it from there. It fills the stack's config from what splates
 keeps: `--projects` from the projects registered here (GitHub origins), `--host`
 and `--email` from the saved tunnel and its Access application, the Cloudflare
@@ -27,7 +27,8 @@ worker service tokens goes to the box's parameters from the stack's
 `~/.splates/coordinator/infra.json`, which is how the deploy finds the stack.
 
 The Pulumi packages are optional peer dependencies of
-`@stringsync/splates-server`: the project `infra init` writes installs
+`@stringsync/splates-server`: the project `infra init` writes (its runtime is bun, so
+Pulumi needs no TypeScript of its own) needs
 `@pulumi/pulumi`, `aws`, `awsx`, `cloudflare`, `github`, `tls` and `random`. The
 program uses `awsx` and these components; `@pulumi/cdk` is an option for those
 who prefer CDK constructs, but it is newer and TypeScript-only.

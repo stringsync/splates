@@ -99,9 +99,7 @@ export async function infraInit(
 
 const PULUMI_YAML = `name: splates
 runtime:
-  name: nodejs
-  options:
-    packagemanager: bun
+  name: bun
 description: The box \`splates server deploy\` installs splates on
 `;
 

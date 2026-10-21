@@ -4,7 +4,7 @@ import type { SpawnOptions } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { writeInfraConfig } from "../coordinator";
 import { COORDINATOR_AREA } from "./area-coordinator";
-import type { SetupMachine } from "./setup";
+import type { SetupMachine, SetupProject } from "./setup";
 
 const HOME = "/home/.splates";
 const UNIT = "/etc/systemd/system/splates-coordinator.service";
@@ -65,6 +65,25 @@ describe("COORDINATOR_AREA's up step", () => {
 		expect(await infra?.check(machine)).toBe(false);
 		await fs.write("/code/infra/Pulumi.yaml", "name: x\n");
 		expect(await infra?.check(machine)).toBe(true);
+	});
+
+	it("puts the infra project in the repo's packages unless a directory is named", async () => {
+		const infra = COORDINATOR_AREA.steps.find(
+			(each) => each.id === "coordinator-infra",
+		);
+		const fields = async (root: string) => {
+			const project = { root } as SetupProject;
+			const list = infra?.fields;
+			return typeof list === "function" ? list({ ...machine, project }) : [];
+		};
+		await fs.mkdir("/code/packages", { recursive: true });
+
+		expect(await fields("/code")).toMatchObject([
+			{ name: "dir", placeholder: "/code/packages/infra", optional: true },
+		]);
+		expect(await fields("/other")).toMatchObject([
+			{ name: "dir", placeholder: "/other/infra", optional: true },
+		]);
 	});
 
 	it("is not done without an infra project", async () => {
