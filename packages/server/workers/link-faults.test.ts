@@ -16,6 +16,7 @@ import { printed } from "../agents/testing";
 import { eventually } from "../conversations/testing";
 import { CONNECTIONS, type Connection } from "../server/shared";
 import { WorkerDaemon } from "./daemon";
+import { FrameTooLarge, WorkerProtocol } from "./protocol";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
 import { ServerWorkerSocket } from "./server-socket";
@@ -215,5 +216,66 @@ describe("the worker link through a faulty network", () => {
 		expect(new NodePs().alive(pid)).toBe(true);
 		expect(daemon.session.writable).toBe(true);
 		void received;
+	});
+
+	describe("with more than the link carries in one frame", () => {
+		const BIG = 20 * 1024 * 1024;
+
+		it("carries 20 MB of an agent's output", async () => {
+			const child = worker.start(
+				["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' x`],
+				dir,
+			);
+
+			expect((await printed(child)).length).toBe(BIG);
+			expect(joins).toBe(1);
+		});
+
+		it("reads a 20 MB file whole", async () => {
+			const path = join(dir, "big");
+			await Bun.write(path, "y".repeat(BIG));
+
+			const { size, bytes } = await worker.read(path, 0);
+			const tail = await worker.read(path, BIG - 5);
+
+			expect(size).toBe(BIG);
+			expect(bytes.byteLength).toBe(BIG);
+			expect(tail.bytes.byteLength).toBe(5);
+			expect(joins).toBe(1);
+		});
+
+		it("answers a git call with 20 MB of output", async () => {
+			const git = (...args: string[]) => worker.git(dir, args);
+			await git("init", "-q");
+			await Bun.write(join(dir, "big"), "z".repeat(BIG));
+			await git("add", "big");
+			await git(
+				"-c",
+				"user.name=t",
+				"-c",
+				"user.email=t@t",
+				"commit",
+				"-qm",
+				"big",
+			);
+
+			const shown = await git("show", "HEAD:big");
+
+			expect(shown.stdout.length).toBe(BIG);
+			expect(joins).toBe(1);
+		});
+
+		it("refuses a frame over the limit at send, leaving the link up", async () => {
+			const calls = worker.session.open("noise");
+
+			expect(() =>
+				calls.send({ big: "q".repeat(WorkerProtocol.maxFrameBytes) }),
+			).toThrow(FrameTooLarge);
+			expect(joins).toBe(1);
+		});
+
+		it("takes the payload the protocol says on the server", () => {
+			expect(CONNECTIONS.maxPayloadLength).toBe(WorkerProtocol.maxPayloadBytes);
+		});
 	});
 });

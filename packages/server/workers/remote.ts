@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
 import { RemotePty } from "../terminal";
-import { CallAnswer, type CallRequest, SERVERS } from "./call-host";
+import { CallAnswer, type CallRequest, READ_PART, SERVERS } from "./call-host";
 import type { WorkerChannel } from "./channel";
 import type { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine, WorkerRead } from "./machine";
@@ -44,6 +44,11 @@ export type WorkerKind = "local" | "registered" | "provisioned";
 export class RemoteWorker implements WorkerMachine {
 	private calls: WorkerChannel | undefined;
 	private nextCall = 1;
+	/** The pieces of a git call's output heard so far, by call. */
+	private readonly parts = new Map<
+		number,
+		{ stdout: string; stderr: string }
+	>();
 	private readonly pending = new Map<
 		number,
 		{ resolve(result: unknown): void; reject(error: Error): void }
@@ -153,6 +158,7 @@ export class RemoteWorker implements WorkerMachine {
 				method: "git",
 				cwd,
 				args,
+				chunked: true,
 				...(env === undefined ? {} : { env }),
 			}),
 		);
@@ -171,10 +177,28 @@ export class RemoteWorker implements WorkerMachine {
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {
-		const { size, bytes } = ReadAnswer.parse(
-			await this.call({ method: "read", path, from }),
-		);
-		return { size, bytes: new Uint8Array(Buffer.from(bytes, "base64")) };
+		// In pieces a frame holds, until what is there is read.
+		const pieces: Uint8Array[] = [];
+		let size = 0;
+		let have = 0;
+		do {
+			const answer = ReadAnswer.parse(
+				await this.call({
+					method: "read",
+					path,
+					from: from + have,
+					limit: READ_PART,
+				}),
+			);
+			const piece = new Uint8Array(Buffer.from(answer.bytes, "base64"));
+			pieces.push(piece);
+			have += piece.byteLength;
+			size = answer.size;
+			if (piece.byteLength === 0) {
+				break;
+			}
+		} while (from + have < size);
+		return { size, bytes: Buffer.concat(pieces) };
 	}
 
 	async checkout(request: ProjectCheckout): Promise<string> {
@@ -237,12 +261,32 @@ export class RemoteWorker implements WorkerMachine {
 			if (!answer.success) {
 				return;
 			}
+			if ("part" in answer.data) {
+				const parts = this.parts.get(answer.data.id) ?? {
+					stdout: "",
+					stderr: "",
+				};
+				parts[answer.data.part] += answer.data.text;
+				this.parts.set(answer.data.id, parts);
+				return;
+			}
 			const waiting = this.pending.get(answer.data.id);
 			this.pending.delete(answer.data.id);
 			if ("error" in answer.data) {
+				this.parts.delete(answer.data.id);
 				waiting?.reject(new Error(`worker ${this.id}: ${answer.data.error}`));
 			} else {
-				waiting?.resolve(answer.data.result);
+				const parts = this.parts.get(answer.data.id);
+				this.parts.delete(answer.data.id);
+				waiting?.resolve(
+					parts === undefined
+						? answer.data.result
+						: {
+								...(answer.data.result as object),
+								stdout: parts.stdout + (answer.data.result as GitResult).stdout,
+								stderr: parts.stderr + (answer.data.result as GitResult).stderr,
+							},
+				);
 			}
 		});
 		calls.events.on("close", () => {
@@ -250,6 +294,7 @@ export class RemoteWorker implements WorkerMachine {
 				waiting.reject(new Error(`worker ${this.id} closed its calls`));
 			}
 			this.pending.clear();
+			this.parts.clear();
 		});
 		this.calls = calls;
 		return calls;

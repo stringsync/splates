@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Json } from "./protocol";
+import { type Json, WorkerProtocol } from "./protocol";
 
 /** The capability, and the channel kind, a relayed connection goes by. */
 export const RELAY = "relay";
@@ -73,7 +73,16 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 	 */
 	write(bytes: Uint8Array): boolean {
 		this.assertOpen();
-		return this.link.send(this.id, { type: "data", bytes });
+		const most = WorkerProtocol.maxDataBytes;
+		let room = true;
+		for (let at = 0; at === 0 || at < bytes.byteLength; at += most) {
+			room =
+				this.link.send(this.id, {
+					type: "data",
+					bytes: bytes.subarray(at, at + most),
+				}) && room;
+		}
+		return room;
 	}
 
 	/** As `write`, for JSON. */

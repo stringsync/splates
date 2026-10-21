@@ -16,6 +16,7 @@ import { WorkerConnection } from "./connection";
 import {
 	type ChannelFrame,
 	type Frame,
+	FrameTooLarge,
 	type Held,
 	type Json,
 	type Negotiated,
@@ -140,13 +141,14 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.nextChannel = role === "worker" ? 1 : 2;
 		this.link = {
 			send: (channel, frame) =>
-				this.taken.has(channel) || this.isProvisional(channel)
+				this.checkSize({ ...frame, channel, seq: 0 }) &&
+				(this.taken.has(channel) || this.isProvisional(channel)
 					? this.defer({ ...frame, channel })
 					: this.sendOnChannel({
 							...frame,
 							channel,
 							seq: this.nextSeq(channel),
-						}),
+						})),
 			ack: (channel, seq) => this.ack(channel, seq),
 			done: (channel) => this.channelDone(channel),
 		};
@@ -716,6 +718,15 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		kept.push(frame);
 		this.deferred.set(frame.channel, kept);
 		return !this.replay.full;
+	}
+
+	/** Throws on a frame over the link's limit, true otherwise. */
+	private checkSize(frame: ChannelFrame): true {
+		const bytes = WorkerProtocol.size(frame);
+		if (bytes > WorkerProtocol.maxFrameBytes) {
+			throw new FrameTooLarge(bytes);
+		}
+		return true;
 	}
 
 	private sendOnChannel(frame: ChannelFrame): boolean {

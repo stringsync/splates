@@ -14,6 +14,26 @@ export class WorkerProtocol {
 
 	static readonly headerBytes = 8;
 
+	/**
+	 * The most one frame may hold, encoded. Each frame is one WebSocket
+	 * message and a message past the receiver's limit closes the socket, so
+	 * a larger one is split by whoever makes it, or refused at send.
+	 */
+	static readonly maxFrameBytes = 4 * 1024 * 1024;
+
+	/** The most a data frame carries; `write` splits what is longer. */
+	static readonly maxDataBytes = 1024 * 1024;
+
+	/** What a server's WebSocket takes in a message, well above `maxFrameBytes`. */
+	static readonly maxPayloadBytes = 32 * 1024 * 1024;
+
+	/** How many bytes `frame` takes encoded. */
+	static size(frame: Frame): number {
+		return frame.type === "data"
+			? WorkerProtocol.headerBytes + frame.bytes.byteLength
+			: Buffer.byteLength(JSON.stringify(frame));
+	}
+
 	static encode(frame: Frame): string | Uint8Array {
 		// Control frames go as JSON text; data goes as binary, a channel id and
 		// seq (big-endian u32 each) ahead of the bytes, so output streams
@@ -83,6 +103,15 @@ export class WorkerProtocol {
 
 /** The capability of a worker that restarts on another build when its coordinator sends `update`. */
 export const UPDATE = "update";
+
+/** A frame the far end could never take, refused at send rather than replayed for ever. */
+export class FrameTooLarge extends Error {
+	constructor(readonly bytes: number) {
+		super(
+			`a frame of ${bytes} bytes is over the ${WorkerProtocol.maxFrameBytes} the link carries`,
+		);
+	}
+}
 
 /** A JSON value, as control frames carry them. */
 export type Json =

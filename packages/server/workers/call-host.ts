@@ -5,11 +5,17 @@ import type { WorkerChannel } from "./channel";
 import { ProjectCheckout } from "./checkouts";
 import type { WorkerMachine } from "./machine";
 import { type WakeSender, WakeTarget } from "./magic-packet";
-import type { Json } from "./protocol";
+import { FrameTooLarge, type Json } from "./protocol";
 import { SentKey } from "./task-keys";
 
 /** The capability of a worker that answers `servers` (protocol 1.2). */
 export const SERVERS = "servers";
+
+/** The most of a git call's output in one part: characters, up to three bytes each. */
+const GIT_PART = 512 * 1024;
+
+/** The most of a file one read answers with, once the coordinator gives a limit. */
+export const READ_PART = 2 * 1024 * 1024;
 
 /**
  * Answers a coordinator's calls on the machine a task runs on, each request
@@ -61,10 +67,32 @@ export class WorkerCallHost implements Resource {
 
 	private async call(request: CallRequest): Promise<Json> {
 		switch (request.method) {
-			case "git":
-				return {
-					...(await this.machine.git(request.cwd, request.args, request.env)),
-				};
+			case "git": {
+				const result = await this.machine.git(
+					request.cwd,
+					request.args,
+					request.env,
+				);
+				if (request.chunked !== true) {
+					return { ...result };
+				}
+				// Past one frame's worth, the output goes ahead of the answer in parts.
+				for (const stream of ["stdout", "stderr"] as const) {
+					const text = result[stream];
+					if (text.length <= GIT_PART) {
+						continue;
+					}
+					for (let at = 0; at < text.length; at += GIT_PART) {
+						this.channel.send({
+							id: request.id,
+							part: stream,
+							text: text.slice(at, at + GIT_PART),
+						});
+					}
+					result[stream] = "";
+				}
+				return { ...result };
+			}
 			case "processes":
 				return (await this.machine.processes()).map((each) => ({ ...each }));
 			case "listening":
@@ -76,7 +104,12 @@ export class WorkerCallHost implements Resource {
 					request.path,
 					request.from,
 				);
-				return { size, bytes: Buffer.from(bytes).toString("base64") };
+				// A coordinator that sends a limit asks again for the rest.
+				const taken =
+					request.limit === undefined
+						? bytes
+						: bytes.subarray(0, request.limit);
+				return { size, bytes: Buffer.from(taken).toString("base64") };
 			}
 			case "checkout":
 				return await this.machine.checkout(request.request);
@@ -115,8 +148,17 @@ export class WorkerCallHost implements Resource {
 	private reply(
 		answer: { id: number; result: Json } | { id: number; error: string },
 	): void {
-		if (!this.channel.closed) {
+		if (this.channel.closed) {
+			return;
+		}
+		try {
 			this.channel.send(answer);
+		} catch (error) {
+			if (!(error instanceof FrameTooLarge) || "error" in answer) {
+				throw error;
+			}
+			// An answer the link would not carry is told as an error instead.
+			this.channel.send({ id: answer.id, error: error.message });
 		}
 	}
 }
@@ -129,6 +171,8 @@ export const CallRequest = z.discriminatedUnion("method", [
 		cwd: z.string(),
 		args: z.array(z.string()),
 		env: z.record(z.string(), z.string()).optional(),
+		/** Asks for output past one frame's worth in `part` answers ahead of the result; a worker before this sends it whole. */
+		chunked: z.boolean().optional(),
 	}),
 	z.object({ id: z.number().int(), method: z.literal("processes") }),
 	z.object({ id: z.number().int(), method: z.literal("listening") }),
@@ -142,6 +186,8 @@ export const CallRequest = z.discriminatedUnion("method", [
 		method: z.literal("read"),
 		path: z.string(),
 		from: z.number().int().nonnegative(),
+		/** At most this many bytes; a worker before this sends all of them. */
+		limit: z.number().int().positive().optional(),
 	}),
 	z.object({
 		id: z.number().int(),
@@ -171,6 +217,12 @@ export type CallRequest = z.infer<typeof CallRequest>;
 
 /** How a worker answers: `{ id, result }`, or `{ id, error }` saying what went wrong. */
 export const CallAnswer = z.union([
+	/** A piece of a git call's `stdout` or `stderr`, ahead of its result. */
+	z.object({
+		id: z.number().int(),
+		part: z.enum(["stdout", "stderr"]),
+		text: z.string(),
+	}),
 	z.object({ id: z.number().int(), result: z.unknown() }),
 	z.object({ id: z.number().int(), error: z.string() }),
 ]);
