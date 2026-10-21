@@ -62,6 +62,22 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 		return link(worker, next, pair);
 	};
 
+	/**
+	 * The coordinator started again, taking the shell back, and the worker
+	 * rejoined it, with each hang-up the new session made since.
+	 */
+	const rejoined = async () => {
+		const next = restarted();
+		next.resume(2, "pty", null, null);
+		const lost: string[] = [];
+		next.events.on("lost", ({ reason }) => lost.push(reason));
+		await relink(next);
+		await Bun.sleep(0);
+		timer.fireTimeouts();
+		await Bun.sleep(0);
+		return { next, lost };
+	};
+
 	it("keeps the worker's channels, replaying each from what the log held", async () => {
 		const claude = coordinator.open("process", { argv: ["claude"] });
 		let logged: WorkerChannel | undefined;
@@ -199,6 +215,45 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 			[2, false],
 			[4, true],
 		]);
+	});
+
+	it("stays joined to a worker replaying a channel it opened that the coordinator never answered", async () => {
+		// An agent's `splates` call through the worker's relay, its open acked
+		// but nothing yet said back when the coordinator went.
+		coordinator.events.on("channel", (channel) =>
+			channel.events.on("data", () => {}),
+		);
+		const relay = worker.open("relay");
+		relay.write(bytes("GET /api/tasks"));
+		await Bun.sleep(0);
+		timer.fireTimeouts();
+		await Bun.sleep(0);
+		relay.write(bytes("more"));
+		await Bun.sleep(0);
+
+		const { lost, next } = await rejoined();
+
+		expect(lost).toEqual([]);
+		expect(next.connected).toBe(true);
+		// Nobody here will answer it, so the worker hears it close.
+		expect(relay.closed).toBe(true);
+		expect(opened.map(({ closed }) => closed)).toEqual([false]);
+	});
+
+	it("stays joined to a worker replaying the open of a channel the coordinator answered before acking it", async () => {
+		// The coordinator acks an open a moment after it, and its relay can
+		// answer first.
+		coordinator.events.on("channel", (channel) =>
+			channel.send({ type: "connected" }),
+		);
+		const relay = worker.open("relay");
+		await Bun.sleep(0);
+
+		const { lost, next } = await rejoined();
+
+		expect(lost).toEqual([]);
+		expect(next.connected).toBe(true);
+		expect(relay.closed).toBe(true);
 	});
 
 	it("settles acked once the worker holds everything sent", async () => {

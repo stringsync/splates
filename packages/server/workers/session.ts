@@ -628,6 +628,21 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		// Taken back blind: the other end's replay starts where it starts.
 		if (this.unplaced.delete(frame.channel)) {
 			this.received.set(frame.channel, frame.seq - 1);
+			// Its open, which the session this one resumes heard and answered
+			// but had yet to ack: the channel here stands in for it already.
+			if (frame.type === "open") {
+				this.received.set(frame.channel, frame.seq);
+				this.ack(frame.channel, frame.seq);
+				return;
+			}
+		}
+		if (
+			frame.type !== "open" &&
+			!this.channels.has(frame.channel) &&
+			!this.received.has(frame.channel)
+		) {
+			this.unheard(frame);
+			return;
 		}
 		const last = this.received.get(frame.channel) ?? 0;
 		if (frame.seq <= last) {
@@ -671,6 +686,28 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		if (!heard || this.acks === "delivery") {
 			this.ack(frame.channel, frame.seq);
 		}
+	}
+
+	/**
+	 * A frame on a channel this end never heard of: one the other end opened
+	 * in the session this one resumes, its open acked but nothing said back,
+	 * so its hello did not name it. Closed, as one nobody took back is,
+	 * rather than hung up on, which it would replay at every reconnect.
+	 */
+	private unheard(frame: ChannelFrame): void {
+		this.ack(frame.channel, frame.seq);
+		if (frame.type === "close") {
+			return;
+		}
+		this.received.set(frame.channel, frame.seq);
+		const unclaimed = new WorkerChannel(
+			frame.channel,
+			"unclaimed",
+			null,
+			this.link,
+		);
+		this.channels.set(frame.channel, unclaimed);
+		unclaimed.dispose();
 	}
 
 	/** Holds `frame` for the handshake that says what seq it goes out as. */

@@ -225,6 +225,13 @@ export class WorkerRegistry
 			wall: this.wall,
 		});
 		session.events.on("channel", (channel) => this.serve(channel, session));
+		// Said, since a worker hung up on redials at once and says nothing.
+		session.events.on("lost", ({ reason }) => {
+			const worker = this.workers.find((each) => each.session === session);
+			if (!this.closed && worker !== undefined) {
+				this.log.info(`lost worker ${worker.id}: ${reason}`);
+			}
+		});
 		return session;
 	}
 
