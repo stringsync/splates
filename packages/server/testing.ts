@@ -175,12 +175,14 @@ export class Testing implements AsyncDisposable {
 		// refuses the test an `--agent`.
 		// Run from a slot's server, it leaves out the machine's home too, so no
 		// task ending here gives back a slot of the user's.
+		// Run on a worker, it leaves out that too, so a test is no worker until it says so.
 		// Nor does it wait on, or pass through, a heavy-job slot of the machine's.
 		const {
 			SPLATES_CONVERSATION,
 			SPLATES_STARTED_BY,
 			SPLATES_DEV,
 			SPLATES_PROJECT,
+			SPLATES_WORKER,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
 			SPLATES_HEAVY,

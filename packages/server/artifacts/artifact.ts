@@ -22,13 +22,19 @@ export interface ArtifactDeps {
 	fs: Fs;
 	ps: Ps;
 	send?: Send;
+	/** The wait between a worker's upload attempts; a test sets it to 0. */
+	retryMs?: number;
 }
+
+/** How many times a worker tries an upload or removal before it fails. */
+const WORKER_ATTEMPTS = 3;
 
 /**
  * Keeps `file` as the next version of the artifact of that name in the
  * conversation `id`, through the `splates server` serving this repository when
  * the agent has one in its env, so the page hears of it, else straight into
- * the conversation's log.
+ * the conversation's log. On a worker (`SPLATES_WORKER` set) that log is the
+ * worker's own disk, so an upload the server never took is retried, then fails.
  */
 export async function addArtifact(
 	deps: ArtifactDeps,
@@ -37,11 +43,23 @@ export async function addArtifact(
 ): Promise<ArtifactVersion> {
 	const mimeType = mimeTypeOf(file.name);
 	const url = deps.ps.env("SPLATES_DEV");
-	const served =
-		url === undefined
-			? null
-			: await serverAdd(deps, url, id, { ...file, mimeType });
-	let added = served;
+	const worker = deps.ps.env("SPLATES_WORKER") !== undefined;
+	let added: ArtifactVersion | null = null;
+	for (let attempt = 1; url !== undefined && added === null; attempt++) {
+		added = await serverAdd(deps, url, id, { ...file, mimeType });
+		if (added === null && worker && attempt < WORKER_ATTEMPTS) {
+			await Bun.sleep(deps.retryMs ?? 1000);
+		} else if (added === null) {
+			break;
+		}
+	}
+	if (added === null && worker) {
+		fail(
+			"timeout",
+			`could not upload ${file.name} to the splates server at ${url ?? "(none: SPLATES_DEV is unset)"}; a worker keeps no artifacts on its own disk, so run it again once the server is reachable`,
+			{ name: file.name },
+		);
+	}
 	if (added === null) {
 		const store = await open(deps, id);
 		added = await store.add({ ...file, mimeType });

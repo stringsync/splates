@@ -105,6 +105,46 @@ describe("artifact", () => {
 		expect(added.version).toBe(1);
 	});
 
+	it("retries on a worker, then fails rather than keep it on disk", async () => {
+		deps.proc.env.SPLATES_DEV = "http://dev";
+		deps.proc.env.SPLATES_WORKER = "w1";
+		let calls = 0;
+		const send = async () => {
+			calls++;
+			throw new Error("refused");
+		};
+
+		await expect(
+			addArtifact({ ...deps, send, retryMs: 0 }, ID, {
+				name: "a.png",
+				bytes: bytes("x"),
+			}),
+		).toBail("timeout");
+		expect(calls).toBe(3);
+		await listArtifacts(deps, ID);
+		expect(await deps.service.conversationLog(ID).replay()).not.toBeNull();
+	});
+
+	it("succeeds on a worker once a retry reaches the server", async () => {
+		deps.proc.env.SPLATES_DEV = "http://dev";
+		deps.proc.env.SPLATES_WORKER = "w1";
+		let calls = 0;
+		const send = async () => {
+			if (++calls < 2) {
+				throw new Error("refused");
+			}
+			return Response.json({ version: 1, bytes: 1, mimeType: "image/png" });
+		};
+
+		const added = await addArtifact({ ...deps, send, retryMs: 0 }, ID, {
+			name: "a.png",
+			bytes: bytes("x"),
+		});
+
+		expect(added.version).toBe(1);
+		expect(calls).toBe(2);
+	});
+
 	it("needs a conversation of this repository", async () => {
 		await expect(conversationOf(deps.service, "")).toBail("usage");
 		await expect(conversationOf(deps.service, "nope")).toBail("not_found");
