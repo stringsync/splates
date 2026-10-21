@@ -4,7 +4,7 @@ import type {
 	SpendTotal,
 } from "@stringsync/splates-server/spend";
 import { ChevronRightIcon } from "lucide-react";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { billing, pullBilling, setCurrency, spend } from "./api";
 import {
@@ -22,6 +22,7 @@ import {
 	whole,
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
+import { METER_COLUMNS, Meter } from "./meter";
 import { credAddress } from "./page-address";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
@@ -328,13 +329,17 @@ function Headline({
 	);
 }
 
-/** Each provider's share of the range, the costliest first, each opening onto its services. */
+/**
+ * Each provider's share of the range, the costliest first, each opening onto
+ * its services: laid out in `METER_COLUMNS`, so every bar has the page's
+ * other meters' x, width and thickness.
+ */
 function Breakdown({ providers }: { providers: ProviderSpend[] }): JSX.Element {
 	const all = providers.reduce((total, each) => total + whole(each), 0);
 	return (
 		<div className="flex flex-col rounded-xl border bg-card shadow-xs">
 			<h3 className="border-b px-4 py-2.5 font-medium text-sm">By provider</h3>
-			<ul className="flex flex-col divide-y">
+			<ul className={cn("grid gap-x-3 px-4 py-1", METER_COLUMNS)}>
 				{providers.map((each) => (
 					<ProviderRow key={each.provider} spent={each} all={all} />
 				))}
@@ -354,36 +359,43 @@ function ProviderRow({
 	const [open, setOpen] = useState(false);
 	const color = colorOf(spent.provider);
 	return (
-		<li>
+		<li className="col-span-full grid grid-cols-subgrid border-b last:border-b-0">
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={() => setOpen(!open)}
-				className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40"
+				className="col-span-full grid grid-cols-subgrid items-center py-3 text-left max-md:gap-y-2"
 			>
-				<ChevronRightIcon
-					aria-hidden
-					className={cn(
-						"size-4 shrink-0 text-muted-foreground transition-transform",
-						open && "rotate-90",
-					)}
-				/>
-				<span
-					aria-hidden
-					className="size-2.5 shrink-0 rounded-sm"
-					style={{ background: color }}
-				/>
-				<span className="flex min-w-0 flex-col sm:w-40 sm:shrink-0">
-					<span className="truncate font-medium text-sm">
-						{nameOf(spent.provider)}
+				<span className="flex min-w-0 items-center gap-2">
+					<span
+						aria-hidden
+						className="size-2.5 shrink-0 rounded-sm"
+						style={{ background: color }}
+					/>
+					<span className="flex min-w-0 flex-col">
+						<span className="truncate font-medium text-sm">
+							{nameOf(spent.provider)}
+						</span>
+						<Kind spent={spent} />
 					</span>
-					<Kind spent={spent} />
 				</span>
-				<Share part={whole(spent)} of={all} color={color} />
-				<Figures part={whole(spent)} of={all} />
+				<Meter
+					used={all === 0 ? 0 : whole(spent) / all}
+					color={color}
+					className="max-md:col-span-full max-md:row-start-2"
+				/>
+				<Figures part={whole(spent)} of={all}>
+					<ChevronRightIcon
+						aria-hidden
+						className={cn(
+							"size-4 shrink-0 self-center text-muted-foreground transition-transform",
+							open && "rotate-90",
+						)}
+					/>
+				</Figures>
 			</button>
 			{open && (
-				<ul className="flex flex-col pb-2">
+				<ul className="col-span-full grid grid-cols-subgrid pb-3">
 					{spent.services.map((row) => (
 						<ServiceRow
 							key={row.service}
@@ -408,13 +420,25 @@ function ServiceRow({
 	color: string;
 }): JSX.Element {
 	return (
-		<li className="flex items-center gap-3 py-1.5 pr-4 pl-[3.75rem]">
-			<span className="flex min-w-0 flex-col sm:w-[8.75rem] sm:shrink-0">
-				<code className="truncate font-mono text-[13px]">{row.service}</code>
+		<li className="col-span-full grid grid-cols-subgrid items-center py-1.5 max-md:gap-y-2">
+			<span className="flex min-w-0 flex-col pl-[1.125rem]">
+				<code
+					title={row.service ?? undefined}
+					className="truncate font-mono text-[13px]"
+				>
+					{row.service}
+				</code>
 				<Kind spent={row} />
 			</span>
-			<Share part={whole(row)} of={of} color={color} faint />
-			<Figures part={whole(row)} of={of} />
+			<Meter
+				used={of === 0 ? 0 : whole(row) / of}
+				color={color}
+				className="opacity-70 max-md:col-span-full max-md:row-start-2"
+			/>
+			<Figures part={whole(row)} of={of}>
+				{/* As wide as a provider's chevron, so the figures line up. */}
+				<span aria-hidden className="size-4 shrink-0" />
+			</Figures>
 		</li>
 	);
 }
@@ -434,45 +458,24 @@ function Kind({ spent }: { spent: Sum }): JSX.Element {
 	);
 }
 
-/** A bar as long as `part`'s share of `of`. */
-function Share({
+/** What `part` cost and its share of `of`, then `children`, in the meter's last column. */
+function Figures({
 	part,
 	of,
-	color,
-	faint = false,
+	children,
 }: {
 	part: number;
 	of: number;
-	color: string;
-	faint?: boolean;
+	children: ReactNode;
 }): JSX.Element {
-	return (
-		<span
-			aria-hidden
-			className="hidden h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted sm:block"
-		>
-			<span
-				className={cn("block h-full rounded-full", faint && "opacity-60")}
-				style={{
-					width: `${of === 0 ? 0 : (part / of) * 100}%`,
-					background: color,
-				}}
-			/>
-		</span>
-	);
-}
-
-/** What `part` cost, and its share of `of`. */
-function Figures({ part, of }: { part: number; of: number }): JSX.Element {
 	const dollars = useMoney(true);
 	return (
-		<span className="ml-auto flex shrink-0 items-baseline gap-3 tabular-nums">
-			<span className="w-24 text-right font-medium text-sm">
-				{dollars(part)}
-			</span>
+		<span className="flex items-baseline justify-end gap-2 tabular-nums max-md:col-start-2 max-md:row-start-1">
+			<span className="font-medium text-sm">{dollars(part)}</span>
 			<span className="w-9 text-right text-muted-foreground text-xs">
 				{of === 0 ? "" : `${Math.round((part / of) * 100)}%`}
 			</span>
+			{children}
 		</span>
 	);
 }

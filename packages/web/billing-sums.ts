@@ -134,9 +134,8 @@ const ORDER = [
 	"opencode",
 	"openai",
 	"cloudflare",
-	"digitalocean",
-	"hetzner",
 	"aws",
+	"typesafe",
 ];
 
 export function colorOf(provider: string): string {
@@ -150,8 +149,6 @@ const NAMES: Record<string, string> = {
 	opencode: "OpenCode",
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",
-	digitalocean: "DigitalOcean",
-	hetzner: "Hetzner",
 	aws: "AWS",
 	typesafe: "TypeSafe",
 };

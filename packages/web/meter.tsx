@@ -18,15 +18,20 @@ export function toneOf(used: number): "warning" | "destructive" | null {
 			: null;
 }
 
-/** A thin bar filled to `used`, 0 to 1, in its tone. */
+/**
+ * A thin bar filled to `used`, 0 to 1, in its tone, or in `color` for a
+ * share that names who it is, which has no tone.
+ */
 export function Meter({
 	used,
+	color,
 	className,
 }: {
 	used: number;
+	color?: string;
 	className?: string;
 }): JSX.Element {
-	const tone = toneOf(used);
+	const tone = color === undefined ? toneOf(used) : null;
 	return (
 		<span
 			aria-hidden
@@ -41,7 +46,10 @@ export function Meter({
 					tone === "warning" && "bg-warning",
 					tone === "destructive" && "bg-destructive",
 				)}
-				style={{ width: `${Math.min(Math.max(used, 0), 1) * 100}%` }}
+				style={{
+					width: `${Math.min(Math.max(used, 0), 1) * 100}%`,
+					background: color,
+				}}
 			/>
 		</span>
 	);

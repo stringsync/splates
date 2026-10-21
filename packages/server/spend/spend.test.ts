@@ -127,8 +127,6 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 	expect(statuses.map((each) => [each.provider, each.state])).toEqual([
 		["openai", "ok"],
 		["cloudflare", "unreachable"],
-		["digitalocean", "missing"],
-		["hetzner", "manual"],
 		["aws", "manual"],
 		["typesafe", "manual"],
 	]);
