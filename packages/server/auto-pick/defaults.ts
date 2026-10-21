@@ -8,7 +8,7 @@ export const DEFAULT_RULES: AutoPickRules = {
 	rules: [
 		rule("shallow", ["sonnet", "gpt-6.1-sol"], "low"),
 		rule("moderate", ["sonnet", "gpt-6.1-sol"], "medium"),
-		rule("deep", ["opus", "gpt-6-astra"], "high"),
+		deep(),
 		rule(ANY, ["opus", "gpt-6-astra"], "medium"),
 	],
 	pace: DEFAULT_PACE,
@@ -28,5 +28,22 @@ function rule(
 		kind: ANY,
 		depth,
 		picks,
+	};
+}
+
+/**
+ * Deep work starts on Fable, the top of Claude, then Astra, Codex's best; each
+ * is passed over when its plan is spent or used too fast, and Opus is what
+ * remains.
+ */
+function deep(): Rule {
+	return {
+		kind: ANY,
+		depth: "deep",
+		picks: [
+			{ agent: "claude", model: "fable", effort: "high" },
+			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
+			{ agent: "claude", model: "opus", effort: "high" },
+		],
 	};
 }

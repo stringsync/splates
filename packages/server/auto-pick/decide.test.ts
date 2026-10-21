@@ -23,7 +23,7 @@ describe("decide", () => {
 
 	it("matches a rule's * to any depth", () => {
 		expect(decide({ ...BASE, classification: DESIGN })).toMatchObject({
-			pick: { agent: "claude", model: "opus", effort: "high" },
+			pick: { agent: "claude", model: "fable", effort: "high" },
 			rule: 2,
 			kind: "design",
 			depth: "deep",
@@ -40,12 +40,12 @@ describe("decide", () => {
 			depth: { shallow: 0.1, moderate: 0.2, deep: 0.8 },
 		};
 		expect(decide({ ...BASE, classification: unsure })).toMatchObject({
-			pick: { agent: "claude", model: "opus", effort: "high" },
+			pick: { agent: "claude", model: "fable", effort: "high" },
 			rule: 2,
 			kind: null,
 			depth: "deep",
 			reasons: [
-				"Opus 5.5, high effort",
+				"Fable 5.1, high effort",
 				"judged: unsure (Design 40%), Deep 80%",
 				"rule 3: any kind, Deep",
 			],
@@ -148,7 +148,7 @@ describe("decide", () => {
 		};
 		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
 			agent: "claude",
-			model: "opus",
+			model: "fable",
 			effort: "high",
 		});
 	});
@@ -191,7 +191,7 @@ describe("decide", () => {
 		};
 		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
 			agent: "claude",
-			model: "opus",
+			model: "fable",
 			effort: "high",
 		});
 	});
@@ -240,9 +240,9 @@ describe("decide", () => {
 			codex: [{ window: "five_hour", used: 0.7, resets: LATER, at: null }],
 		};
 		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
-			pick: { agent: "claude", model: "opus" },
+			pick: { agent: "claude", model: "fable" },
 			reasons: [
-				"Opus 5.5, high effort",
+				"Fable 5.1, high effort",
 				expect.any(String),
 				expect.any(String),
 				"every pick with plan left is ahead of pace, so the first: Claude, 60% of five_hour used, 40% of it gone",
@@ -328,12 +328,14 @@ describe("decide", () => {
 				expect.any(String),
 				"rule 3: any kind, Deep",
 				"passed over Claude: can't run here",
+				"passed over Claude: can't run here",
 			],
 		});
 	});
 
 	it("passes over a pick that can't see the task's images, by what models.dev lists or the agent said", () => {
 		const blind = {
+			"anthropic/claude-fable-5-1": { ...PRICE, inputs: ["text"] },
 			"anthropic/claude-opus-5-5": { ...PRICE, inputs: ["text"] },
 		};
 		expect(
@@ -358,7 +360,7 @@ describe("decide", () => {
 				classification: DESIGN,
 			}),
 		).toMatchObject({
-			pick: { agent: "claude", model: "opus" },
+			pick: { agent: "claude", model: "fable" },
 			reasons: expect.arrayContaining([
 				"Claude stays a pick: image support unknown",
 				"passed over Codex: can't see images",
@@ -375,7 +377,7 @@ describe("decide", () => {
 				classification: DESIGN,
 			}),
 		).toMatchObject({
-			pick: { agent: "claude", model: "opus" },
+			pick: { agent: "claude", model: "fable" },
 			reasons: expect.arrayContaining([
 				"none of rule 3's picks can see images, so the first: Claude",
 			]),
@@ -389,7 +391,7 @@ describe("decide", () => {
 				sights: { claude: false },
 				classification: DESIGN,
 			}),
-		).toMatchObject({ pick: { agent: "claude", model: "opus" } });
+		).toMatchObject({ pick: { agent: "claude", model: "fable" } });
 	});
 
 	it("falls back on the first roster agent that runs when no pick of the rule does", () => {
@@ -412,9 +414,9 @@ describe("decide", () => {
 	it("drops an effort the agent does not offer, keeping the pick", () => {
 		const offered = { claude: [THOUGHT_LEVEL] };
 		expect(decide({ ...BASE, offered, classification: DESIGN })).toMatchObject({
-			pick: { agent: "claude", model: "opus" },
+			pick: { agent: "claude", model: "fable" },
 			reasons: [
-				"Opus 5.5",
+				"Fable 5.1",
 				expect.any(String),
 				expect.any(String),
 				"Claude offers no high thinking, so its own",
