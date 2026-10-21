@@ -11,6 +11,7 @@ import { Projects } from "../projects";
 import { DEFAULT_PORT, RUNNING } from "../server/shared";
 import { FsStorage } from "../storage";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
+import { AWS_ACCESS_STEP } from "./aws-access";
 import { coordinatorMoved, moveUnfinished } from "./coordinator-move";
 import { setupProjectAt } from "./project";
 import type { SetupArea, SetupMachine, SetupStep } from "./setup";
@@ -48,34 +49,61 @@ export function coordinatorArea(
 	// box's splates up and pushes to GitHub, too slow for each read of setup.
 	const dryRuns = new Map<string, Moved>();
 
-	const boxStep: SetupStep = {
-		id: "coordinator-box",
-		title: "Make the server's box",
-		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your own Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Run `splates server infra init <dir> --host <host> --email <email>`, then `pulumi up` in that directory, and press Next.",
+	const pulumiStep: SetupStep = {
+		id: "coordinator-pulumi",
+		title: "Install Pulumi and log in",
+		why: "Pulumi makes and keeps the box as code in your account. It keeps the stack's state in Pulumi Cloud or in an S3 bucket of your own.",
+		user: "Install Pulumi (`brew install pulumi`), then `pulumi login` to Pulumi Cloud, or `pulumi login s3://<bucket>` for a backend of your own, and press Next.",
 		agent:
-			"Run `splates server infra init` for the user, then have them set the stack's config and secrets and run `pulumi up` in that directory. `splates server status` prints the box's address once the stack has made it.",
+			"Have the user install Pulumi and log in to Pulumi Cloud or an S3 backend of their own. The step is done when `pulumi whoami` answers.",
 		optional: true,
 		after: [],
-		detail: async () =>
-			"The Pulumi stack makes the instance, its role, snapshots and creds.",
+		check: async (machine) =>
+			(await coordinatorMoved(machine)) || (await pulumiAnswers(machine)),
 		notDone:
-			"The stack has made no box yet: `splates server infra init`, then `pulumi up` in its directory.",
+			"Pulumi is not installed or logged in here: `pulumi login`, then press Next.",
+		undo: {
+			removes: async () => [],
+			leaves: async () => [
+				"Pulumi and its login: `pulumi logout` signs out, and nothing else here uses it.",
+			],
+			refused: movedRefusal,
+			run: async () => {},
+		},
+	};
+
+	const infraStep: SetupStep = {
+		id: "coordinator-infra",
+		title: "Write the infra project",
+		why: "The box is a Pulumi project of your own that uses splates's components, so you can read, change and destroy exactly what it makes.",
+		user: "Run `splates server infra init <dir>`, which writes the project, then press Next.",
+		agent:
+			"Run `splates server infra init <dir> --host <host> --email <email>` for the user, in a directory of their choice. It records the directory in splates's home.",
+		optional: true,
+		after: [],
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
 			}
+			const infra = await box(machine).infra();
 			return (
-				(await box(machine)
-					.status()
-					.catch(() => null)) !== null
+				infra !== null && (await machine.fs.exists(`${infra.dir}/Pulumi.yaml`))
 			);
 		},
+		detail: async (machine) => {
+			const infra = await box(machine).infra();
+			return infra === null ? null : `The project is in ${infra.dir}.`;
+		},
+		notDone:
+			"No infra project is written yet: run `splates server infra init <dir>`, then press Next.",
 		undo: {
 			removes: async () => [],
-			leaves: async () => [
-				"The box and everything the Pulumi stack made: `pulumi destroy` in its directory unmakes them.",
-			],
+			leaves: async (machine) => {
+				const infra = await box(machine).infra();
+				return [
+					`The project in ${infra?.dir ?? "its directory"}: delete it once \`pulumi destroy\` has unmade the stack.`,
+				];
+			},
 			refused: movedRefusal,
 			run: async () => {},
 		},
@@ -112,16 +140,60 @@ export function coordinatorArea(
 		},
 	};
 
-	const keysStep: SetupStep = {
-		id: "coordinator-keys",
-		title: "Let the box push each project",
+	const upStep: SetupStep = {
+		id: "coordinator-up",
+		title: "Bring the server's box up",
+		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
+		user: "Set the stack's config (`splates server infra init` prints what), run `pulumi up` in the project's directory, and press Next.",
+		agent:
+			"Have the user set the stack's config and secrets and run `pulumi up` in the infra project's directory. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address.",
+		optional: true,
+		after: [AWS_ACCESS_STEP, pulumiStep, infraStep],
+		detail: async () =>
+			"The Pulumi stack makes the instance, its role, snapshots and creds.",
+		notDone:
+			"The stack has made no box yet: `pulumi up` in the infra project's directory.",
+		check: async (machine) => {
+			if (await coordinatorMoved(machine)) {
+				return true;
+			}
+			return (
+				(await box(machine)
+					.status()
+					.catch(() => null)) !== null
+			);
+		},
+		undo: {
+			removes: async () => [],
+			leaves: async (machine) => {
+				const infra = await box(machine).infra();
+				return [
+					`The box and everything the stack made: \`pulumi destroy\`${infra === null ? "" : ` in ${infra.dir}`} unmakes them.`,
+				];
+			},
+			refused: movedRefusal,
+			run: async () => {},
+		},
+	};
+
+	const credsStep: SetupStep = {
+		id: "coordinator-creds",
+		title: "Give the box its creds",
 		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
-		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each (the stack makes them: `pulumi up`), then press Next again.",
+		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each with `pulumi config set --secret`, run `pulumi up`, then press Next again.",
 		agent:
 			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. Have the user fix the stack and `pulumi up`, and run it again until it says the box is ready.",
 		optional: true,
-		after: [boxStep, remotesStep, tunnelStep],
+		after: [upStep, remotesStep, tunnelStep],
 		doing: "Readying each project's clone on the box, a minute or two…",
+		detail: async (machine) => {
+			const last = dryRuns.get(machine.home);
+			return last?.status === "blocked"
+				? last.needs
+						.map((name) => `\`pulumi config set --secret ${name} <value>\``)
+						.join("\n")
+				: null;
+		},
 		check: async (machine) =>
 			(await coordinatorMoved(machine)) ||
 			dryRuns.get(machine.home)?.status === "ready",
@@ -154,7 +226,7 @@ export function coordinatorArea(
 		agent:
 			"Ask the user first: the deploy stops their `splates server` and every agent in it. Then run `splates server deploy` from a terminal on this Mac, not under `splates server`, which it stops. It prints the box's URL, where the page now is, and the LaunchAgent that keeps this Mac its worker. On a failure it says what to fix and that nothing here changed: start `splates server` again and deploy once it is fixed.",
 		optional: true,
-		after: [keysStep],
+		after: [credsStep],
 		check: async (machine) =>
 			(await coordinatorMoved(machine)) && !(await moveUnfinished(machine)),
 		detail: async (machine) =>
@@ -174,7 +246,15 @@ export function coordinatorArea(
 	return {
 		id: "coordinator",
 		title: "Cloud server",
-		steps: [boxStep, remotesStep, keysStep, moveStep],
+		steps: [
+			AWS_ACCESS_STEP,
+			pulumiStep,
+			infraStep,
+			remotesStep,
+			upStep,
+			credsStep,
+			moveStep,
+		],
 	};
 }
 
@@ -249,4 +329,15 @@ function defaultMove(machine: SetupMachine): Pick<CoordinatorMove, "run"> {
 		stores: { ...SYSTEM_STORES, device: machine.device },
 		...(machine.fetch === undefined ? {} : { fetch: machine.fetch }),
 	});
+}
+
+/** Whether Pulumi is installed and logged in here: `pulumi whoami` answers. */
+async function pulumiAnswers(machine: SetupMachine): Promise<boolean> {
+	if (machine.ps === undefined) {
+		throw new Error("setup cannot run Pulumi here");
+	}
+	return machine.ps.spawnCapture(["pulumi", "whoami"]).then(
+		({ exitCode }) => exitCode === 0,
+		() => false,
+	);
 }

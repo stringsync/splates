@@ -53,7 +53,7 @@ describe("Cloud server journey", () => {
 					...step,
 					status: statuses[step.id] ?? step.status,
 					data:
-						step.id === "coordinator-keys" && needs !== null
+						step.id === "coordinator-creds" && needs !== null
 							? { needs }
 							: step.data,
 				})),
@@ -85,22 +85,25 @@ describe("Cloud server journey", () => {
 	const click = (view: ReturnType<typeof open>, name: string) =>
 		act(async () => fireEvent.click(view.getByRole("button", { name })));
 	const before: Record<string, StepStatus> = {
-		"coordinator-box": "done",
+		"coordinator-access": "done",
+		"coordinator-pulumi": "done",
+		"coordinator-infra": "done",
+		"coordinator-up": "done",
 		"coordinator-remotes": "done",
 	};
 
-	it("opens on making the box, asking for no token", async () => {
+	it("opens on signing in to AWS, asking for no token", async () => {
 		const view = open(progress);
 		await click(view, "Set up Cloud server");
 
-		expect(view.getByRole("form", { name: "Make the server's box" }));
+		expect(view.getByRole("form", { name: "Sign in to AWS" }));
 		expect(view.queryByLabelText(/API token/)).toBeNull();
 	});
 
 	it("lists each cred the box lacks after a failed Next", async () => {
 		const view = open(with_(before));
 		await click(view, "Set up Cloud server");
-		expect(view.getByRole("form", { name: "Let the box push each project" }));
+		expect(view.getByRole("form", { name: "Give the box its creds" }));
 		expect(view.queryByRole("list", { name: "missing creds" })).toBeNull();
 		testing.refuseWrites = {
 			reason: "step",
@@ -118,7 +121,7 @@ describe("Cloud server journey", () => {
 	});
 
 	it("starts the move on Next and says what it is doing", async () => {
-		const view = open(with_({ ...before, "coordinator-keys": "done" }));
+		const view = open(with_({ ...before, "coordinator-creds": "done" }));
 		await click(view, "Set up Cloud server");
 		expect(view.getByRole("form", { name: "Deploy the server to its box" }));
 		testing.reply = RUNNING;

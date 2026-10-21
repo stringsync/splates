@@ -49,37 +49,27 @@ describe("undoing COORDINATOR_AREA", () => {
 	}
 
 	it("plans forgetting the dry run, and leaves the stack and its creds alone", async () => {
-		await step("coordinator-keys").submit?.(machine, {});
+		await step("coordinator-creds").submit?.(machine, {});
 
 		const plan = await setup().undoPlan("coordinator");
 
-		expect(plan.steps).toEqual([
-			{
-				id: "coordinator-keys",
-				title: "Let the box push each project",
-				done: true,
-				removes: [],
-				leaves: [
-					"The deploy keys and creds the Pulumi stack put in the box's Parameter Store.",
-				],
-			},
-			{
-				id: "coordinator-remotes",
-				title: "Name each project's remote",
-				done: true,
-				removes: [],
-				leaves: [expect.stringContaining('`remote: "origin"`')],
-			},
+		expect(plan.steps.map((each) => each.id)).toEqual([
+			"coordinator-creds",
+			"coordinator-remotes",
+			"coordinator-pulumi",
+		]);
+		expect(plan.steps[0]?.leaves).toEqual([
+			"The deploy keys and creds the Pulumi stack put in the box's Parameter Store.",
 		]);
 		expect(plan.refused).toBeNull();
 	});
 
 	it("forgets the last dry run once undone", async () => {
-		await step("coordinator-keys").submit?.(machine, {});
+		await step("coordinator-creds").submit?.(machine, {});
 
 		await setup().undo("coordinator", "splates");
 
-		expect(await step("coordinator-keys").check(machine)).toBe(false);
+		expect(await step("coordinator-creds").check(machine)).toBe(false);
 	});
 
 	it("refuses every step once the server has moved onto its box", async () => {

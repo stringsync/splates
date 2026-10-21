@@ -111,16 +111,27 @@ through it as the steps at the top say. Each checks
 `GET /api/workers` of the `splates server` in `SPLATES_DEV`.
 
 When the user asks for an always-on server, that is the Cloud server setup
-area, all of it `splates server deploy`: it makes the box when there is none
-(the `coordinator-box` step reads the AWS CLI sign-in: an EC2 instance with daily backups,
-SSH alone open, its key under `~/.splates/coordinator`), then deploys the server onto it. That needs
+area, the AWS path, each step checked from real state: `coordinator-access`
+(how `pulumi up` and splates sign in to AWS: a Pulumi ESC environment with OIDC
+recommended, an AWS profile the fallback; done when `aws sts get-caller-identity`
+succeeds), `coordinator-pulumi` (Pulumi installed and logged in to Pulumi Cloud
+or an S3 backend of the user's own; done when `pulumi whoami` answers),
+`coordinator-infra` (`splates server infra init <dir>` has written the project
+and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
+`coordinator-up` (the user runs `pulumi up`; done when `pulumi stack output
+--json` gives the instance id and tunnel host) and `coordinator-creds`, then
+`coordinator-move`. Undoing the AWS steps guides the user through `pulumi
+destroy`; splates never destroys the stack itself. The box is an EC2
+instance with daily backups, SSH alone open, its key under `~/.splates/coordinator`.
+The move needs
 `remote` set in every project's `splates.config.ts` and an SSH origin (the
-`coordinator-remotes` step): the box gives each project a deploy key, and
-until GitHub lets each push trunk the deploy exits `blocked`, printing each
-key and where to add it with write access; show the user those and run it
-again once they are added (`coordinator-keys`). `--dry-run` stops there, the
+`coordinator-remotes` step): the box reads a deploy key per project from its Parameter
+Store, and until each is set and GitHub lets it push trunk the deploy exits `blocked`,
+naming each cred the box lacks; show the user those with their `pulumi config set
+--secret` line, and run it again once `pulumi up` has put them in
+(`coordinator-creds`). `--dry-run` stops there, the
 box ready. Run for real (`coordinator-move`), it checkpoints every agent and
-stops this machine's `splates server`, carries the records and creds over,
+stops this machine's `splates server`, carries the records over,
 starts the server on the box under systemd with the saved tunnel, and joins
 this machine as a worker kept up by a LaunchAgent, where each task carries on
 in its worktree; this machine's records go aside, kept. It touches the user's

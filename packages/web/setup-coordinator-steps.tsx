@@ -114,7 +114,7 @@ export function coordinatorBrowserSteps(watch: MoveWatch): BrowserSteps {
 
 /** The creds page, listing each cred the box lacks, and the move's page, following it. */
 export const COORDINATOR_STEPS: StepBodies = {
-	"coordinator-keys": ({ step }) => {
+	"coordinator-creds": ({ step }) => {
 		const needs = (step.data as CoordinatorNeeds | null)?.needs ?? [];
 		return (
 			<>

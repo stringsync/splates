@@ -46,13 +46,16 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 	it("lists the steps after the box in the order they are done", () => {
 		expect(Object.keys(steps)).toEqual([
-			"coordinator-box",
+			"coordinator-access",
+			"coordinator-pulumi",
+			"coordinator-infra",
 			"coordinator-remotes",
-			"coordinator-keys",
+			"coordinator-up",
+			"coordinator-creds",
 			"coordinator-move",
 		]);
-		expect(steps["coordinator-keys"]?.after.map((each) => each.id)).toEqual([
-			"coordinator-box",
+		expect(steps["coordinator-creds"]?.after.map((each) => each.id)).toEqual([
+			"coordinator-up",
 			"coordinator-remotes",
 			"tunnel",
 		]);
@@ -83,7 +86,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 	});
 
 	it("lists each cred a dry run finds the box lacking, and reads done once one is ready", async () => {
-		const keys = steps["coordinator-keys"] as SetupStep;
+		const keys = steps["coordinator-creds"] as SetupStep;
 		expect(await keys.check(machine)).toBe(false);
 		expect(await keys.data?.(machine)).toBeNull();
 
@@ -107,7 +110,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 	it("says what the move is missing when the dry run refuses", async () => {
 		await expect(
-			steps["coordinator-keys"]?.submit?.(machine, {}) ?? Promise.resolve(),
+			steps["coordinator-creds"]?.submit?.(machine, {}) ?? Promise.resolve(),
 		).rejects.toThrow("no coordinator's box");
 	});
 
@@ -117,7 +120,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 		await fs.write(PLIST, "");
 
-		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
+		expect(await steps["coordinator-creds"]?.check(machine)).toBe(true);
 		expect(await steps["coordinator-move"]?.check(machine)).toBe(true);
 	});
 
@@ -125,7 +128,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 		projects = [];
 		await fs.write(RECORD, record(true));
 
-		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
+		expect(await steps["coordinator-creds"]?.check(machine)).toBe(true);
 		expect(await steps["coordinator-move"]?.check(machine)).toBe(true);
 	});
 
@@ -133,7 +136,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 		projects = [];
 		await fs.write(RECORD, record(false));
 
-		expect(await steps["coordinator-keys"]?.check(machine)).toBe(true);
+		expect(await steps["coordinator-creds"]?.check(machine)).toBe(true);
 		expect(await steps["coordinator-move"]?.check(machine)).toBe(false);
 		expect(await steps["coordinator-move"]?.detail?.(machine)).toContain(
 			"finishes it",

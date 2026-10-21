@@ -19,9 +19,9 @@ class PulumiPs extends FakePs {
 	}
 }
 
-describe("COORDINATOR_AREA's box step", () => {
+describe("COORDINATOR_AREA's up step", () => {
 	const step = COORDINATOR_AREA.steps.find(
-		(each) => each.id === "coordinator-box",
+		(each) => each.id === "coordinator-up",
 	);
 	let fs: FakeFs;
 	let ps: PulumiPs;
@@ -34,8 +34,37 @@ describe("COORDINATOR_AREA's box step", () => {
 	});
 
 	it("asks for no token", () => {
-		expect(step?.after).toEqual([]);
 		expect(step?.fields).toBeUndefined();
+	});
+
+	it("walks access, Pulumi, the infra project, remotes, up, creds, move", () => {
+		expect(COORDINATOR_AREA.steps.map((each) => each.id)).toEqual([
+			"coordinator-access",
+			"coordinator-pulumi",
+			"coordinator-infra",
+			"coordinator-remotes",
+			"coordinator-up",
+			"coordinator-creds",
+			"coordinator-move",
+		]);
+	});
+
+	it("has the pulumi step done once `pulumi whoami` answers", async () => {
+		const pulumi = COORDINATOR_AREA.steps.find(
+			(each) => each.id === "coordinator-pulumi",
+		);
+		expect(await pulumi?.check(machine)).toBe(true);
+	});
+
+	it("has the infra step done once the project's files are there", async () => {
+		const infra = COORDINATOR_AREA.steps.find(
+			(each) => each.id === "coordinator-infra",
+		);
+		expect(await infra?.check(machine)).toBe(false);
+		await writeInfraConfig(fs, HOME, { dir: "/code/infra" });
+		expect(await infra?.check(machine)).toBe(false);
+		await fs.write("/code/infra/Pulumi.yaml", "name: x\n");
+		expect(await infra?.check(machine)).toBe(true);
 	});
 
 	it("is not done without an infra project", async () => {

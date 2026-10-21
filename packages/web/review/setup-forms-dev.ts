@@ -23,8 +23,8 @@ const PLANS: Record<string, unknown> = {
 		title: "Cloud server",
 		steps: [
 			{
-				id: "coordinator-keys",
-				title: "Let the box push each project",
+				id: "coordinator-creds",
+				title: "Give the box its creds",
 				removes: [],
 				leaves: [
 					"The deploy key `splates-coordinator` on stringsync/splates: delete it under its repository's Settings → Deploy keys on GitHub",
@@ -39,7 +39,7 @@ const PLANS: Record<string, unknown> = {
 				],
 			},
 			{
-				id: "coordinator-box",
+				id: "coordinator-up",
 				title: "Make the server's box",
 				removes: [
 					"The AWS server `splates-coordinator` and its daily backups",
