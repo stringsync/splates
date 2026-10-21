@@ -152,8 +152,11 @@ it.each([
 				)?.status,
 			).toBe("uncovered");
 			expect(
-				result.run.evidence.events.filter((event) => event.actor === "agent"),
-			).toEqual([]);
+				result.run.evidence.events
+					.filter((event) => event.actor === "agent")
+					.map((event) => [event.name, ...event.args]),
+				// Only Claude's stream carries a tool call, and it never returned.
+			).toEqual(provider === "claude" ? [["splates", "claim", "pretend"]] : []);
 			expect(result.adapter.runtime.nativeUsageComplete).toBe(
 				provider === "claude",
 			);

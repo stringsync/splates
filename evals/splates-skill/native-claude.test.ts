@@ -52,7 +52,112 @@ it("preserves native skill bytes, selected model/tools and cumulative multi-mode
 		{ kind: "usage", tokens: 40, costUsd: 0.002, final: true },
 	]);
 	expect(updates.at(-1)).toEqual({ kind: "reply", text: "done" });
-	expect(updates.some((update) => update.kind === "event")).toBe(false);
+	// The fixture's one call never returned a result, so its events stay incomplete.
+	expect(updates.filter((update) => update.kind === "event")).toEqual([
+		{
+			kind: "event",
+			event: expect.objectContaining({
+				name: "splates",
+				args: ["claim", "pretend"],
+			}),
+		},
+	]);
+	expect(request.context.evidence.complete).toEqual([]);
+});
+
+const tool = (id: string, name: string, input: object) =>
+	JSON.stringify({
+		type: "assistant",
+		message: { id: `m${id}`, content: [{ type: "tool_use", id, name, input }] },
+	});
+const answer = (id: string, content: string, isError = false) =>
+	JSON.stringify({
+		type: "user",
+		message: {
+			content: [
+				{ type: "tool_result", tool_use_id: id, content, is_error: isError },
+			],
+		},
+	});
+async function withTools(...frames: string[]) {
+	const base = (await success())
+		.trimEnd()
+		.split("\n")
+		.filter((frame) => !frame.includes("tool_1"));
+	const output = `${[base[0], ...frames, ...base.slice(1)].join("\n")}\n`;
+	const transport = fixture(output);
+	const updates: NativeUpdate[] = [];
+	const session = claudeDriver({ allowance, launch: transport.launch }).create(
+		request,
+	);
+	await session.run((update) => updates.push(update));
+	await session.dispose();
+	return updates.flatMap((update) =>
+		update.kind === "event" ? [update.event] : [],
+	);
+}
+
+it("turns Bash, Read and Edit calls into events with their cwd and exit code", async () => {
+	const root = request.context.isolation.repository;
+	const events = await withTools(
+		tool("a", "Bash", { command: 'splates add sample --goal "Change it"' }),
+		answer("a", "ok"),
+		tool("b", "Read", { file_path: `${root}/value.txt` }),
+		answer("b", "one"),
+		tool("c", "Bash", { command: "splates merge" }),
+		answer("c", "Exit code 2\nconflict", true),
+		tool("d", "Edit", {
+			file_path: `${root}-splates.noindex/sample/value.txt`,
+		}),
+		answer("d", "denied", true),
+	);
+	expect(events.map(({ id: _, payload: __, ...rest }) => rest)).toEqual([
+		{
+			actor: "agent",
+			kind: "command",
+			name: "splates",
+			args: ["add", "sample", "--goal", "Change it"],
+			exitCode: 0,
+		},
+		{ actor: "agent", kind: "read", name: "value.txt", args: [] },
+		{
+			actor: "agent",
+			kind: "command",
+			name: "splates",
+			args: ["merge"],
+			exitCode: 2,
+		},
+		{ actor: "agent", kind: "write", name: "value.txt", args: [] },
+	]);
+	expect(events[0]?.payload).toEqual({ cwd: root });
+	expect(request.context.evidence.complete).toEqual(["events"]);
+});
+
+it.each([
+	["a subagent", tool("a", "Task", { prompt: "x" }), "ok"],
+	["a pipe", tool("a", "Bash", { command: "splates list | head" }), "ok"],
+	["a file reader", tool("a", "Bash", { command: "cat value.txt" }), "ok"],
+	["a search", tool("a", "Grep", { pattern: "x" }), "ok"],
+])("leaves events incomplete after %s", async (_, call, text) => {
+	await withTools(call, answer("a", text));
+	expect(request.context.evidence.complete).toEqual([]);
+	expect(String(request.context.runtime.claudeEvents)).toStartWith(
+		"incomplete",
+	);
+});
+
+it("follows cd through a shell line but gives its commands no exit code", async () => {
+	const root = request.context.isolation.repository;
+	const events = await withTools(
+		tool("a", "Bash", { command: "cd /tmp/x && splates claim sample" }),
+		answer("a", "ok"),
+	);
+	expect(events.map((event) => [event.name, event.exitCode])).toEqual([
+		["cd", undefined],
+		["splates", undefined],
+	]);
+	expect(events[1]?.payload).toEqual({ cwd: "/tmp/x" });
+	expect(events[0]?.payload).toEqual({ cwd: root });
 	expect(request.context.evidence.complete).toEqual([]);
 });
 

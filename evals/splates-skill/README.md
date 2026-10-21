@@ -23,7 +23,18 @@ the shared acceptance and comparison work.
 The first live run, 2026-10-21, ran the nine lifecycle agent probes on Claude
 Opus 5.5 in 92s at parallel three: 12-52s and 64k-217k reported tokens (mostly
 cache reads) each, USD 1.57 in all. Every observed assertion passed; event
-assertions stay uncovered, since the Claude driver records no tool events.
+assertions stayed uncovered, since the driver then recorded no tool events.
+
+The Claude driver now records them: each Bash, Read, Edit and Write call from
+the stream becomes a command, read or write event, with its cwd in the payload
+and, for a command alone on its line, its exit code. A run's events count as
+complete only when every call was one it could name. They stay incomplete, and
+their assertions uncovered, after a subagent, a Glob or Grep (files it does not
+name), a pipe, redirect or substitution, a call that never returned, or a
+command that can read or write files unseen (`cat`, `sed`, ...). Commands
+joined by `&&` or `;` are separate events without exit codes, and processes a
+command starts are never observed. The lifecycle run above is not yet repeated
+with them.
 
 ```sh
 splates dev eval plan --baseline BASE_COMMIT

@@ -1,20 +1,24 @@
-import { spawn } from "node:child_process";
 import { cp, mkdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type {
 	NativeDriver,
 	NativeRequest,
 	NativeUpdate,
 } from "./native-adapter";
+import { claudeEvents } from "./native-claude-events";
+import {
+	type ClaudeLaunch,
+	type ClaudeProcess,
+	launchClaude,
+} from "./native-claude-launch";
 import {
 	type ClaudeLogin,
 	claudeLoginEnvironment,
 } from "./native-claude-login";
 import type { Json } from "./probe";
 import type { Allowance } from "./probe-affordability";
-import { awaitProcessGroupExit } from "./process-group";
 
-/** Native Claude Code loop; no synthesized execution/read events or credential copying. */
+/** Native Claude Code loop; events come only from its own tool calls, with no credential copying. */
 export function claudeDriver(opts: ClaudeOptions): NativeDriver {
 	const executable = opts.executable ?? "claude";
 	const allowance = { ...opts.allowance };
@@ -28,7 +32,7 @@ export function claudeDriver(opts: ClaudeOptions): NativeDriver {
 	}
 	return {
 		id: "native-claude",
-		version: "3",
+		version: "4",
 		config: {
 			executable,
 			login: opts.login ? "existing-keychain-private-config" : "isolated",
@@ -48,18 +52,7 @@ export function claudeDriver(opts: ClaudeOptions): NativeDriver {
 	};
 }
 
-/** Injectable process boundary. Completion must include drained output and owned descendants. */
-export interface ClaudeProcess {
-	completed: Promise<number>;
-	cancel(): void;
-}
-export type ClaudeLaunch = (options: {
-	argv: string[];
-	cwd: string;
-	env: Record<string, string>;
-	input: string;
-	stdout(text: string): void;
-}) => ClaudeProcess;
+export type { ClaudeLaunch, ClaudeProcess };
 
 export interface ClaudeOptions {
 	/** Reuse native login with a private config and whole-process write boundary. */
@@ -71,47 +64,6 @@ export interface ClaudeOptions {
 	/** Supply a deterministic transport for free tests; omit for native execution. */
 	launch?: ClaudeLaunch;
 }
-
-const launchClaude: ClaudeLaunch = ({ argv, cwd, env, input, stdout }) => {
-	const child = spawn(argv[0] as string, argv.slice(1), {
-		cwd,
-		env,
-		detached: true,
-		stdio: "pipe",
-	});
-	let stopped = false;
-	const cancel = () => {
-		if (stopped) {
-			return;
-		}
-		stopped = true;
-		if (child.pid !== undefined) {
-			try {
-				process.kill(-child.pid, "SIGKILL");
-			} catch {
-				/* The process can exit between checking its pid and signalling it. */
-			}
-		}
-	};
-	child.stdout.setEncoding("utf8");
-	child.stdout.on("data", stdout);
-	// Drain stderr without persisting possible native auth diagnostics/secrets.
-	child.stderr.resume();
-	child.stdin.on("error", () => {});
-	child.stdin.end(input);
-	const completed = new Promise<number>((resolve) => {
-		child.once("error", () => {}); // close follows failed spawn as well
-		child.once("exit", cancel); // descendants may still hold the output pipes
-		child.once("close", (code) => {
-			cancel();
-			resolve(code ?? 127);
-		});
-	}).then(async (code) => {
-		await awaitProcessGroupExit(child.pid);
-		return code;
-	});
-	return { completed, cancel };
-};
 
 const record = (value: unknown): Record<string, unknown> | undefined =>
 	value !== null && typeof value === "object" && !Array.isArray(value)
@@ -339,6 +291,11 @@ function session(
 		if (allowed.size) {
 			args.push("--allowedTools", [...allowed].join(","));
 		}
+		const root = context.isolation.repository;
+		const events = claudeEvents({
+			repository: root,
+			worktrees: join(dirname(root), `${basename(root)}-splates.noindex`),
+		});
 		const messages = new Map<string, number>();
 		let buffer = "",
 			failure: Error | undefined,
@@ -374,6 +331,11 @@ function session(
 						throw new Error("Claude did not apply native permission mode");
 					}
 					context.runtime.claudeModel = actual;
+				}
+				if (frame.type === "assistant" || frame.type === "user") {
+					for (const event of events.frame(frame, root)) {
+						emit({ kind: "event", event });
+					}
 				}
 				if (frame.type === "assistant") {
 					const message = record(frame.message);
@@ -483,6 +445,16 @@ function session(
 		}
 		if (typeof result.result !== "string") {
 			throw new Error("Claude success missing reply");
+		}
+		for (const event of events.unfinished()) {
+			emit({ kind: "event", event });
+		}
+		const gaps = events.gaps();
+		context.runtime.claudeEvents = gaps.length
+			? `incomplete: ${gaps.join("; ")}`
+			: "every tool call mapped; processes a command starts are unobserved";
+		if (!gaps.length) {
+			context.evidence.complete.push("events");
 		}
 		emit({ kind: "reply", text: result.result });
 	}
