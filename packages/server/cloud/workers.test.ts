@@ -53,7 +53,8 @@ describe("CloudWorkers in Hetzner", () => {
 			id: "cx53-abc123",
 			type: "cx53",
 			snapshot: "77",
-			join: ["splates", "worker", "join", "--join", "secret-token"],
+			join: ["splates", "worker", "join"],
+			joinEnv: { SPLATES_WORKER_JOIN: "secret-token" },
 			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
@@ -66,7 +67,7 @@ describe("CloudWorkers in Hetzner", () => {
 			datacenter: { location: { name: "fsn1" } },
 		});
 		expect(server?.user_data).toContain(
-			"SPLATES_HOME=/etc/splates-worker 'splates' 'worker' 'join' '--join' 'secret-token'; do",
+			"SPLATES_HOME=/etc/splates-worker 'SPLATES_WORKER_JOIN=secret-token' 'splates' 'worker' 'join'; do",
 		);
 		expect(server?.user_data).toContain(
 			"EnvironmentFile=/etc/splates-worker/worker.env",
@@ -80,7 +81,14 @@ describe("CloudWorkers in Hetzner", () => {
 	});
 
 	it("makes a worker once, however often it is asked", async () => {
-		const spec = { id: "w", type: "cpx62", snapshot: "1", join: [], boot: [] };
+		const spec = {
+			id: "w",
+			type: "cpx62",
+			snapshot: "1",
+			join: [],
+			joinEnv: {},
+			boot: [],
+		};
 		await provider.create(spec);
 		await provider.create(spec);
 
@@ -95,6 +103,7 @@ describe("CloudWorkers in Hetzner", () => {
 				type: "cx53",
 				snapshot: "1",
 				join: [],
+				joinEnv: {},
 				boot: [],
 			}),
 		).rejects.toThrow("Hetzner Cloud cannot make a cx53 in nbg1, fsn1, hel1");
@@ -106,6 +115,7 @@ describe("CloudWorkers in Hetzner", () => {
 				type: "cpx62",
 				snapshot: "1",
 				join: [],
+				joinEnv: {},
 				boot: [],
 			}),
 		).rejects.toThrow("server limit reached");
@@ -118,6 +128,7 @@ describe("CloudWorkers in Hetzner", () => {
 			type: "cpx62",
 			snapshot: "1",
 			join: [],
+			joinEnv: {},
 			boot: [],
 		});
 		await provider.create({
@@ -125,6 +136,7 @@ describe("CloudWorkers in Hetzner", () => {
 			type: "cpx62",
 			snapshot: "1",
 			join: [],
+			joinEnv: {},
 			boot: [],
 		});
 
@@ -140,6 +152,7 @@ describe("CloudWorkers in Hetzner", () => {
 			type: "cpx62",
 			snapshot: "1",
 			join: [],
+			joinEnv: {},
 			boot: [],
 		});
 

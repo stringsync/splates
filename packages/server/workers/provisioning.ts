@@ -18,6 +18,7 @@ import type {
 } from "./budget";
 import { BUDGET_EVERY, lookAtBudget } from "./budget-stop";
 import { ComingWorkers } from "./coming";
+import { WORKER_JOIN } from "./creds";
 import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
 import { type ProvisionOptions, pickType } from "./pick-type";
 import type { WorkerProvider, WorkerType } from "./provider";
@@ -157,10 +158,9 @@ export class WorkerProvisioning
 						coordinator,
 						"--id",
 						id,
-						"--join",
-						token,
 						"--key-file",
 					],
+					joinEnv: { [WORKER_JOIN]: token },
 					boot: [
 						SNAPSHOT_SPLATES,
 						"worker",

@@ -55,7 +55,8 @@ describe("CloudWorkers in DigitalOcean", () => {
 			id: "s-8vcpu-16gb-abc123",
 			type: "s-8vcpu-16gb",
 			snapshot: "77",
-			join: ["splates", "worker", "join", "--join", "secret-token"],
+			join: ["splates", "worker", "join"],
+			joinEnv: { SPLATES_WORKER_JOIN: "secret-token" },
 			boot: ["splates", "worker", "run", "--key-file"],
 		});
 
@@ -67,7 +68,7 @@ describe("CloudWorkers in DigitalOcean", () => {
 			region: { slug: "nyc1" },
 		});
 		expect(droplet?.user_data).toContain(
-			"'splates' 'worker' 'join' '--join' 'secret-token'; do",
+			"'SPLATES_WORKER_JOIN=secret-token' 'splates' 'worker' 'join'; do",
 		);
 		expect(droplet?.user_data).toContain(
 			'ExecStart="splates" "worker" "run" "--key-file"',
@@ -79,7 +80,13 @@ describe("CloudWorkers in DigitalOcean", () => {
 	});
 
 	it("destroys a worker's droplet alone, and says why DigitalOcean refused one", async () => {
-		const spec = { type: "s-8vcpu-16gb", snapshot: "1", join: [], boot: [] };
+		const spec = {
+			type: "s-8vcpu-16gb",
+			snapshot: "1",
+			join: [],
+			joinEnv: {},
+			boot: [],
+		};
 		await provider.create({ id: "w", ...spec });
 		await provider.create({ id: "v", ...spec });
 

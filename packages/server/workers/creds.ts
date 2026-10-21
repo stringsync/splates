@@ -26,6 +26,13 @@ export function workerKeyFile(ps: Ps): string {
 export const WORKER_KEY = "SPLATES_WORKER_KEY";
 
 /**
+ * Where a join token may be given instead of `--join`: an argument is in
+ * `/proc/<pid>/cmdline` for every user of the machine to read, an
+ * environment only for its own user.
+ */
+export const WORKER_JOIN = "SPLATES_WORKER_JOIN";
+
+/**
  * What the two halves of the service token a worker passes Cloudflare
  * Access with are kept as, beside its key, when its join token carried one.
  */

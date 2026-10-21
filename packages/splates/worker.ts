@@ -7,6 +7,7 @@ import {
 	listWorkers,
 	removeWorker,
 	setWorkerSlots,
+	WORKER_JOIN,
 	wakeWorker,
 	workerJoin,
 	workerRecipe,
@@ -72,7 +73,7 @@ splatesWorker
 			coordinator: opts.server || opts.coordinator,
 			slots: opts.slots,
 			id: opts.id,
-			join: opts.join,
+			join: opts.join || ctx.ps.env(WORKER_JOIN) || "",
 			ephemeral: opts.ephemeral,
 			keyFile: opts["key-file"],
 			log: opts.quiet ? quietLog(ctx) : ctx.log,
@@ -95,7 +96,9 @@ splatesWorker
 		description: "the old name for --server",
 	})
 	.option("join", z.string(), {
-		description: "the join token `splates worker add` printed there",
+		default: "",
+		description:
+			"the join token `splates worker add` printed there; by default read from SPLATES_WORKER_JOIN, which keeps it out of the process list other users of the machine can read",
 	})
 	.option("id", z.string(), {
 		default: "",
@@ -110,7 +113,7 @@ splatesWorker
 	.action((opts, ctx) =>
 		workerJoin({
 			coordinator: opts.server || opts.coordinator,
-			join: opts.join,
+			join: opts.join || ctx.ps.env(WORKER_JOIN) || "",
 			id: opts.id,
 			keyFile: opts["key-file"],
 			log: ctx.log,

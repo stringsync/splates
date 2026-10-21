@@ -53,10 +53,16 @@ export interface WorkerSpec {
 	 * What the machine runs once booted, until it succeeds and before
 	 * `boot`, with `SPLATES_HOME` a directory only root reads: it spends a
 	 * join token, single use and short-lived, and keeps the key it answers
-	 * there in `worker.env`, as `NAME=value` lines. The token is a secret:
-	 * put it where only the machine reads it, never in a log.
+	 * there in `worker.env`, as `NAME=value` lines.
 	 */
 	join: string[];
+	/**
+	 * Added to the environment of `join`, where the join token is, since an
+	 * argument would show in the process list to every user of the machine.
+	 * It is a secret: put it where only the machine reads it, never in a
+	 * log.
+	 */
+	joinEnv: Record<string, string>;
 	/**
 	 * What the machine runs once `join` has, and runs again if it stops:
 	 * the worker, dialing its coordinator with the key `join` kept, handed

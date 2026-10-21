@@ -40,7 +40,7 @@ export { WorkerBudgetRoutes, workerBudgetReport } from "./budget-routes";
 export { WorkerChannel } from "./channel";
 export { CloudflareWorkerAccess } from "./cloudflare-access";
 export { CoordinatorState } from "./coordinator-state";
-export { WORKER_KEY, workerCreds, workerJoin } from "./creds";
+export { WORKER_JOIN, WORKER_KEY, workerCreds, workerJoin } from "./creds";
 export { WorkerDaemon } from "./daemon";
 export { workerGit } from "./git";
 export type { KeyHolder, KeyProvider, WorkerKey } from "./keys";

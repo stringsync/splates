@@ -26,10 +26,12 @@ describe("WorkerProvisioning", () => {
 			createdAt: expect.any(Number),
 		});
 		expect(registry.worker(worker.id)?.kind).toBe("provisioned");
-		const { join = [], boot = [] } = provider.specs[0] ?? {};
+		const { join = [], joinEnv, boot = [] } = provider.specs[0] ?? {};
 		expect(boot).toContain("https://splates.example.com");
 		expect(boot).not.toContain("--join");
-		const token = join[join.indexOf("--join") + 1] ?? "";
+		// The token is in the join's environment: an argument shows in the process list.
+		expect(join).not.toContain("--join");
+		const token = joinEnv?.SPLATES_WORKER_JOIN ?? "";
 		expect(joinAccess(token)).toEqual({
 			clientId: "client-1.access",
 			clientSecret: "secret-1",
@@ -175,8 +177,10 @@ function schedulerOn(id: string): Scheduler {
 
 /** The join token worker `id` was booted with. */
 function joinTokenOf(provider: FakeWorkerProvider, id: string): string {
-	const join = provider.specs.find((each) => each.id === id)?.join ?? [];
-	return join[join.indexOf("--join") + 1] ?? "";
+	return (
+		provider.specs.find((each) => each.id === id)?.joinEnv
+			.SPLATES_WORKER_JOIN ?? ""
+	);
 }
 
 /** What the provider makes: a Mac cheapest, which no snapshot boots yet. */

@@ -233,7 +233,7 @@ const JOIN_APART = Duration.secs(10);
  * metadata address, which serves all of this, is closed to the snapshot's
  * user first, agents included.
  */
-function bootScript({ join, boot }: WorkerSpec): string {
+function bootScript({ join, joinEnv, boot }: WorkerSpec): string {
 	// The snapshot's splates is a bun script, which root's PATH cannot run.
 	const bin = SNAPSHOT_SPLATES.slice(0, SNAPSHOT_SPLATES.lastIndexOf("/"));
 	return [
@@ -244,7 +244,11 @@ function bootScript({ join, boot }: WorkerSpec): string {
 		`iptables -I OUTPUT -d ${METADATA_ADDRESS} -m owner --uid-owner ${SNAPSHOT_USER} -j REJECT`,
 		`mkdir -p ${WORKER_HOME}`,
 		"tries=0",
-		`until env PATH="${bin}:$PATH" SPLATES_HOME=${WORKER_HOME} ${join.map(shellQuoted).join(" ")}; do`,
+		`until env PATH="${bin}:$PATH" SPLATES_HOME=${WORKER_HOME} ${Object.entries(
+			joinEnv,
+		)
+			.map(([name, value]) => shellQuoted(`${name}=${value}`))
+			.join(" ")} ${join.map(shellQuoted).join(" ")}; do`,
 		"  tries=$((tries + 1))",
 		`  [ "$tries" -lt ${JOIN_TRIES} ] || exit 1`,
 		`  sleep ${JOIN_APART.secs}`,

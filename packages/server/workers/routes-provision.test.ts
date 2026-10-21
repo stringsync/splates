@@ -229,7 +229,10 @@ async function booted(
 	const joined = await workers.join(
 		new Request("http://127.0.0.1/api/workers/join", {
 			method: "POST",
-			body: JSON.stringify({ token: flag("--join"), id }),
+			body: JSON.stringify({
+				token: spec?.joinEnv.SPLATES_WORKER_JOIN ?? "",
+				id,
+			}),
 		}),
 	);
 	const { key } = (await joined.json()) as { key: string };
