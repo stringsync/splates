@@ -15,12 +15,12 @@ import {
 	headline,
 } from "./decide";
 import { askedBack, wordsToJudge } from "./follow-up";
-import { projectJudge } from "./judge";
+import type { Attribution } from "./jev";
+import { type JudgeFor, projectJudge } from "./judge";
 import { autoPicked } from "./judged";
 import { classificationKey } from "./key";
 import { higher, pickOf } from "./rank";
 import { contextOf, journalPick, setOf } from "./start";
-import type { Judge } from "./system-one";
 
 /**
  * Auto pick's second look at what the person says in a conversation it
@@ -36,11 +36,14 @@ export function lifting(
 	project: Project,
 	conversations: Conversations,
 	{
-		judge = () => projectJudge(project),
+		slug = async () => null,
+		judge = (who) => projectJudge(project, slug, who),
 		now = () => new Date(),
 	}: {
 		/** The judge to ask; the one the project's creds give by default. */
-		judge?: () => Promise<Judge | null>;
+		judge?: JudgeFor;
+		/** The project's slug, to name it in the spend ledger; none when not given. */
+		slug?: () => Promise<string | null>;
 		now?: () => Date;
 	} = {},
 ): Lift {
@@ -56,7 +59,10 @@ export function lifting(
 			return;
 		}
 		const context = await contextOf(project, conversations, now());
-		const judged = await rejudged(words, context, judge);
+		const judged = await rejudged(words, context, judge, {
+			task: state.task,
+			conversation: state.id,
+		});
 		const decision =
 			judged !== null && higher(context.agents, on, judged.decision.pick)
 				? judged.decision
@@ -110,7 +116,8 @@ const ASKED_BACK = "its first answer asked back";
 async function rejudged(
 	words: { subject: string; detail: string } | null,
 	context: DecideContext,
-	judge: () => Promise<Judge | null>,
+	judge: JudgeFor,
+	who: Partial<Attribution>,
 ): Promise<{
 	decision: AutoPickDecision;
 	classification: Classification;
@@ -119,7 +126,7 @@ async function rejudged(
 	if (words === null) {
 		return null;
 	}
-	const classified = await classify({ ...words, judge: await judge() });
+	const classified = await classify({ ...words, judge: await judge(who) });
 	if (!classified.ok) {
 		return null;
 	}

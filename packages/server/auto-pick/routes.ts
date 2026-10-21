@@ -19,12 +19,15 @@ export class AutoPickRoutes {
 	readonly #project: Project;
 	readonly #conversations: Conversations | null;
 	readonly #watch: ProjectWatch;
+	readonly #slug: () => Promise<string | null>;
 
 	constructor(
 		project: Project,
 		conversations: Conversations | null,
 		watch: ProjectWatch,
+		slug: () => Promise<string | null> = async () => null,
 	) {
+		this.#slug = slug;
 		this.#project = project;
 		this.#conversations = conversations;
 		this.#watch = watch;
@@ -55,6 +58,7 @@ export class AutoPickRoutes {
 		);
 		const conversation = await startAutoPick({
 			project: this.#project,
+			slug: this.#slug,
 			conversations,
 			target,
 			// Not the person's pick, so the next start does not take its settings.
@@ -89,6 +93,7 @@ export class AutoPickRoutes {
 		return Response.json(
 			await tryAutoPick({
 				project: this.#project,
+				slug: this.#slug,
 				conversations,
 				target: targetOf(task, todo),
 			}),

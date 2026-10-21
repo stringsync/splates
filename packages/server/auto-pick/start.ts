@@ -20,12 +20,11 @@ import {
 	decide,
 	decideWithout,
 } from "./decide";
-import { JUDGE_CREDS, projectJudge } from "./judge";
+import { JUDGE_CREDS, type JudgeFor, projectJudge } from "./judge";
 import { autoPicked, cachedFor, decideFor } from "./judged";
 import { classificationKey } from "./key";
 import type { AutoPicked } from "./record";
 import { AutoPickStore } from "./store";
-import type { Judge } from "./system-one";
 
 /** The cred Auto pick asks for when no judge's is kept: Jev's, the one key. */
 const JUDGE_KEY = JUDGE_CREDS.jev[0];
@@ -72,7 +71,8 @@ export async function startAutoPick({
 	conversations,
 	target,
 	start,
-	judge = () => projectJudge(project),
+	slug = async () => null,
+	judge = (who) => projectJudge(project, slug, who),
 	now = () => new Date(),
 }: {
 	project: Project;
@@ -80,7 +80,9 @@ export async function startAutoPick({
 	target: AutoPickWords;
 	start: AutoPickStart;
 	/** The judge to ask; the one the project's creds give by default. */
-	judge?: () => Promise<Judge | null>;
+	judge?: JudgeFor;
+	/** The project's slug, to name it in the spend ledger; none when not given. */
+	slug?: () => Promise<string | null>;
 	now?: () => Date;
 }): Promise<Conversation> {
 	// Words typed in a new conversation belong to no task, so keep no record.
@@ -111,6 +113,10 @@ export async function startAutoPick({
 		attachments,
 		cached,
 		judge,
+		who:
+			"words" in target
+				? {}
+				: { task: "task" in target ? target.task : `#${target.todo}` },
 		context,
 	});
 	const opened = ({ pick }: AutoPickDecision): Picked<string> => ({

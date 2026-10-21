@@ -6,8 +6,9 @@ import {
 	decide,
 	decideWithout,
 } from "./decide";
+import type { Attribution } from "./jev";
+import type { JudgeFor } from "./judge";
 import type { AutoPicked } from "./record";
-import type { Judge } from "./system-one";
 
 /** What Auto pick decided for a task's words, and what the judge said of them. */
 export interface Judged {
@@ -29,13 +30,16 @@ export async function decideFor({
 	attachments,
 	cached,
 	judge,
+	who,
 	context,
 }: {
 	subject: string;
 	detail: string;
 	attachments?: readonly AttachmentInfo[];
 	cached: Classification | null;
-	judge: () => Promise<Judge | null>;
+	judge: JudgeFor;
+	/** Whose work the judgment is, for the spend ledger. */
+	who?: Partial<Attribution>;
 	context: DecideContext;
 }): Promise<Judged> {
 	if (cached !== null) {
@@ -45,7 +49,7 @@ export async function decideFor({
 			judged: true,
 		};
 	}
-	const asked = await judge();
+	const asked = await judge(who ?? {});
 	const classified = await classify({
 		subject,
 		detail,

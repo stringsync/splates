@@ -4,7 +4,7 @@ import type { Project } from "../server/shared";
 import { Spend } from "../spend";
 import { FsStorage } from "../storage";
 import { Clef } from "./clef";
-import { Jev, type JevOptions } from "./jev";
+import { type Attribution, Jev, type JevOptions } from "./jev";
 import type { Judge } from "./system-one";
 
 /** The creds each judge reads, named as `wiz creds` names them. */
@@ -30,9 +30,24 @@ export async function judgeFrom(
 	return id && token ? new Clef(id, token) : null;
 }
 
-/** The judge `project`'s creds give, Jev's calls recorded in the machine's ledger. */
-export function projectJudge(project: Project): Promise<Judge | null> {
+/** The judge for work done for `who`, as a caller asks it. */
+export type JudgeFor = (who: Partial<Attribution>) => Promise<Judge | null>;
+
+/**
+ * The judge `project`'s creds give, Jev's calls recorded in the machine's
+ * ledger under the project's `slug`, when it has one, and `who`.
+ */
+export async function projectJudge(
+	project: Project,
+	slug: () => Promise<string | null>,
+	who: Partial<Attribution> = {},
+): Promise<Judge | null> {
 	return judgeFrom(project.creds.credentials, {
 		spend: new Spend(new FsStorage(splatesHome(project.ps), project.fs)),
+		attribution: {
+			project: await slug(),
+			task: who.task ?? null,
+			conversation: who.conversation ?? null,
+		},
 	});
 }

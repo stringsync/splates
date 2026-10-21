@@ -5,11 +5,10 @@ import type { QueuePicked, QueuePicker } from "../queue";
 import type { Project } from "../server/shared";
 import type { AttachmentInfo } from "./classify";
 import { type DecideContext, decide, decideWithout } from "./decide";
-import { projectJudge } from "./judge";
+import { type JudgeFor, projectJudge } from "./judge";
 import { autoPicked, cachedFor, decideFor } from "./judged";
 import { classificationKey } from "./key";
 import { announce, contextOf, settle, wordsOf } from "./start";
-import type { Judge } from "./system-one";
 
 /**
  * Auto pick for the queue: a queued task that names no agent is judged as
@@ -22,7 +21,7 @@ import type { Judge } from "./system-one";
 export class QueueAutoPick implements QueuePicker {
 	readonly #project: Project;
 	readonly #conversations: Conversations;
-	readonly #judge: () => Promise<Judge | null>;
+	readonly #judge: JudgeFor;
 	readonly #now: () => Date;
 	/** Each task's judgment under way, by id, the next chained after it. */
 	readonly #judging = new Map<number, Promise<void>>();
@@ -37,11 +36,14 @@ export class QueueAutoPick implements QueuePicker {
 		project: Project,
 		conversations: Conversations,
 		{
-			judge = () => projectJudge(project),
+			slug = async () => null,
+			judge = (who) => projectJudge(project, slug, who),
 			now = () => new Date(),
 		}: {
 			/** The judge to ask; the one the project's creds give by default. */
-			judge?: () => Promise<Judge | null>;
+			judge?: JudgeFor;
+			/** The project's slug, to name it in the spend ledger; none when not given. */
+			slug?: () => Promise<string | null>;
 			now?: () => Date;
 		} = {},
 	) {
@@ -133,6 +135,7 @@ export class QueueAutoPick implements QueuePicker {
 				attachments,
 				cached: cachedFor(queued, key),
 				judge: this.#judge,
+				who: { task: `#${queued.id}` },
 				context,
 			});
 			const picked = autoPicked(judged, key, this.#now());
@@ -186,6 +189,7 @@ export class QueueAutoPick implements QueuePicker {
 				attachments,
 				cached: null,
 				judge: this.#judge,
+				who: { task: `#${id}` },
 				context: await this.#context(attachments),
 			});
 			await settle(this.#project, id, autoPicked(judged, key, this.#now()), {

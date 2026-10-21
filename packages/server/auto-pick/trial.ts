@@ -2,10 +2,9 @@ import type { Conversations } from "../conversations";
 import type { Project } from "../server/shared";
 import { type Classification, classify } from "./classify";
 import { type AutoPickDecision, decide, decideWithout } from "./decide";
-import { projectJudge } from "./judge";
+import { type JudgeFor, projectJudge } from "./judge";
 import { classificationKey } from "./key";
 import { type AutoPickTarget, contextOf, recordOf, wordsOf } from "./start";
-import type { Judge } from "./system-one";
 
 /** What Auto pick would do for a task, as Setup's "Try it on a task" shows it. */
 export interface AutoPickTrial {
@@ -28,14 +27,17 @@ export async function tryAutoPick({
 	project,
 	conversations,
 	target,
-	judge = () => projectJudge(project),
+	slug = async () => null,
+	judge = (who) => projectJudge(project, slug, who),
 	now = () => new Date(),
 }: {
 	project: Project;
 	conversations: Conversations;
 	target: AutoPickTarget;
 	/** The judge to ask; the one the project's creds give by default. */
-	judge?: () => Promise<Judge | null>;
+	judge?: JudgeFor;
+	/** The project's slug, to name it in the spend ledger; none when not given. */
+	slug?: () => Promise<string | null>;
 	now?: () => Date;
 }): Promise<AutoPickTrial> {
 	const record = await recordOf(project, target);
@@ -58,7 +60,9 @@ export async function tryAutoPick({
 		subject,
 		detail,
 		attachments,
-		judge: await judge(),
+		judge: await judge({
+			task: "task" in target ? target.task : `#${target.todo}`,
+		}),
 	});
 	return classified.ok
 		? {

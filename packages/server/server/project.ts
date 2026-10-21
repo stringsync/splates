@@ -50,6 +50,7 @@ export async function serveProject(
 	const { service, format, storage, fs, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
+	const slug = () => context.everywhere.slug(project.service.git.root);
 	const conflicts = new ConflictWatch(project, conversations);
 	await conflicts.start();
 	// A task `splates add --agent` handed to an agent starts it, whether or
@@ -90,7 +91,7 @@ export async function serveProject(
 						agent: pick.agent,
 					})),
 				),
-			picker: new QueueAutoPick(project, conversations),
+			picker: new QueueAutoPick(project, conversations, { slug }),
 			start: ({ task, queued, pick, prompt, held }) =>
 				startQueuedTask(project, context.url, {
 					task,
@@ -111,7 +112,7 @@ export async function serveProject(
 		});
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
-		conversations.lift = lifting(project, conversations);
+		conversations.lift = lifting(project, conversations, { slug });
 		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
@@ -158,7 +159,7 @@ export async function serveProject(
 		...new BudgetRoutes(project),
 		...new NotesRoutes(project),
 		...automations.routes,
-		...new AutoPickRoutes(project, conversations, watch),
+		...new AutoPickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
 			const raw = new URL(request.url).pathname.split("/")[3] ?? "";

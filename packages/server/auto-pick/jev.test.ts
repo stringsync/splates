@@ -53,6 +53,22 @@ describe("Jev", () => {
 		});
 	});
 
+	it("records whom each call was for", async () => {
+		const spend = new Spend(new MemoryStorage());
+		const server = serve({
+			answers: { lookup: 0.8 },
+			usage: { input_tokens: 1000, output_tokens: 5 },
+		});
+		await new Jev("key", {
+			fetch: server.fetch,
+			spend,
+			attribution: { project: "splates", task: "#812", conversation: "c1" },
+		}).judge(JUDGMENT);
+		expect(await spend.entries()).toMatchObject([
+			{ project: "splates", task: "#812", conversation: "c1" },
+		]);
+	});
+
 	it("records nothing for a reply that says no usage", async () => {
 		const spend = new Spend(new MemoryStorage());
 		const server = serve({ answers: { lookup: 0.8 } });

@@ -16,7 +16,7 @@ export type {
 } from "./decide";
 export { decide, decideWithout } from "./decide";
 export { DEFAULT_RULES } from "./defaults";
-export { Jev } from "./jev";
+export { type Attribution, Jev } from "./jev";
 export { JUDGE_CREDS, judgeFrom } from "./judge";
 export { classificationKey } from "./key";
 export { lifting } from "./lift";

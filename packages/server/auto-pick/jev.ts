@@ -17,9 +17,18 @@ const MODEL = "jev-latest";
  */
 export const JEV_INPUT_PRICE = 0.042;
 
+/** Whose work a judgment was for, as the ledger names them. */
+export interface Attribution {
+	project: string | null;
+	task: string | null;
+	conversation: string | null;
+}
+
 export interface JevOptions extends EndpointOptions {
 	/** Where each call's cost is recorded, priced from the tokens the reply says; nowhere when not given. */
 	spend?: Spend;
+	/** What each call's ledger entry says it was for; nothing when not given. */
+	attribution?: Attribution;
 	/** When a call was made, for its ledger entry. */
 	now?: () => Date;
 }
@@ -49,9 +58,9 @@ export class Jev implements Judge {
 					service: MODEL,
 					kind: "billed",
 					dollars: (verdict.usage.input * JEV_INPUT_PRICE) / 1_000_000,
-					project: null,
-					task: null,
-					conversation: null,
+					project: this.opts.attribution?.project ?? null,
+					task: this.opts.attribution?.task ?? null,
+					conversation: this.opts.attribution?.conversation ?? null,
 				})
 				.catch(() => {});
 		}
