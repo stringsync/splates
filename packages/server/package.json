@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates-server",
-	"version": "0.0.51",
+	"version": "0.0.52",
 	"description": "The Spinning Plates server and shared backend",
 	"license": "MIT",
 	"author": "stringsync LLC",
