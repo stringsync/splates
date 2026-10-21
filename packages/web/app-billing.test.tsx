@@ -53,7 +53,7 @@ describe("App's billing spend", () => {
 		await waitFor(() => view.getByText("Updated", { exact: false }));
 		expect(view.getAllByText("$12.50").length).toBeGreaterThan(0);
 		expect(view.queryByText("opus")).toBeNull();
-		fireEvent.click(view.getByRole("button", { name: /claude/ }));
+		fireEvent.click(view.getByRole("button", { name: /Claude/ }));
 		expect(view.getByText("opus")).toBeTruthy();
 		expect(view.getAllByText("estimate").length).toBeGreaterThan(0);
 	});

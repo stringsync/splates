@@ -198,6 +198,7 @@
 @source "./project-folder-list.tsx";
 @source "./billing.tsx";
 @source "./billing-spend.tsx";
+@source "./billing-trend.tsx";
 @source "./budget-forms.tsx";
 @source "./automation-face.tsx";
 @source "./automation-form.tsx";
@@ -284,6 +285,16 @@
 	/* The Stats page's decision line: the first slot of the dataviz
 	   reference palette, validated on each surface. */
 	--series-you: #2a78d6;
+	/* The Billing page's providers, the dataviz reference palette's
+	   categorical slots in its fixed order, validated on each surface. */
+	--series-1: #2a78d6;
+	--series-2: #eb6834;
+	--series-3: #1baf7a;
+	--series-4: #eda100;
+	--series-5: #e87ba4;
+	--series-6: #008300;
+	--series-7: #6250d6;
+	--series-8: #e34948;
 }
 
 .dark {
@@ -306,6 +317,14 @@
 	--border: oklch(1 0 0 / 9%);
 	--input: oklch(1 0 0 / 14%);
 	--series-you: #3987e5;
+	--series-1: #3987e5;
+	--series-2: #d95926;
+	--series-3: #199e70;
+	--series-4: #c98500;
+	--series-5: #d55181;
+	--series-6: #008300;
+	--series-7: #9085e9;
+	--series-8: #e66767;
 }
 
 /* Each accent, light then dark. A swatch carrying `data-accent` wears its
