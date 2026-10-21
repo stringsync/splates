@@ -245,7 +245,7 @@ export class WorkerDaemon implements AsyncResource {
 			switch (channel.kind) {
 				case "process":
 					host = new WorkerProcessHost(channel, this.session, ps, {
-						relay: this.relay?.url ?? null,
+						relay: this.relay,
 						timer: this.timer,
 						store: this.keys,
 						sandbox: this.opts.sandbox ?? null,

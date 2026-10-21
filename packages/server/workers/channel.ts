@@ -5,6 +5,18 @@ import { type Json, WorkerProtocol } from "./protocol";
 /** The capability, and the channel kind, a relayed connection goes by. */
 export const RELAY = "relay";
 
+/**
+ * What a worker opens a `relay` channel with: the project the agent that
+ * made the connection is limited to, absent for `splates` run by hand.
+ */
+export type RelayParams = { project?: string };
+
+/** Reads a relay channel's params, which a worker says. */
+export function relayParams(params: unknown): RelayParams {
+	const project = (params as { project?: unknown } | null)?.project;
+	return typeof project === "string" ? { project } : {};
+}
+
 /** What a `WorkerChannel` hears from the other end, each with its seq. */
 export interface WorkerChannelEvents extends Record<string, unknown> {
 	data: { bytes: Uint8Array; seq: number };

@@ -11,9 +11,10 @@ import {
 	timeouts,
 	type WallClock,
 } from "webappwiz/time";
-import { RELAY, type WorkerChannel } from "./channel";
+import { RELAY, relayParams, type WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import { WorkerPortHost } from "./port-host";
+import { RelayScopes } from "./relay-scopes";
 import { RemoteWorker, type WorkerKind } from "./remote";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
@@ -66,6 +67,8 @@ export class WorkerRegistry
 	private readonly wall: WallClock;
 	/** The port of the server a worker's relay reaches, once it listens. */
 	private relayPort: number | null = null;
+	/** The project each connection a worker's relay made is limited to. */
+	readonly scopes = new RelayScopes();
 	/**
 	 * Detached for a restart, or disposed: a worker that redials now is hung
 	 * up on, since a fresh session's welcome would have it end everything it
@@ -239,7 +242,13 @@ export class WorkerRegistry
 	// would fill the worker's buffer until it stopped.
 	private serve(channel: WorkerChannel, session: WorkerSession): void {
 		if (channel.kind === RELAY && this.relayPort !== null) {
-			new WorkerPortHost(channel, session, this.relayPort);
+			const { project } = relayParams(channel.params);
+			new WorkerPortHost(
+				channel,
+				session,
+				this.relayPort,
+				project === undefined ? null : { scopes: this.scopes, project },
+			);
 			return;
 		}
 		this.log.error(

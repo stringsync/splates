@@ -2,6 +2,7 @@ import type { Resource } from "webappwiz/disposable";
 import { z } from "zod";
 import { PIPE_HANDLERS, PortPipe } from "../ports";
 import type { WorkerChannel } from "./channel";
+import type { RelayScopes } from "./relay-scopes";
 import type { WorkerSession } from "./session";
 
 /** What a coordinator opens a `port` channel with. */
@@ -23,6 +24,7 @@ const LOOPBACKS = ["127.0.0.1", "::1"];
  */
 export class WorkerPortHost implements Resource {
 	private readonly pipe: PortPipe;
+	private held: Resource | null = null;
 
 	constructor(
 		private readonly channel: WorkerChannel,
@@ -32,12 +34,18 @@ export class WorkerPortHost implements Resource {
 		 * the channel's, as for a worker's relay into the coordinator's server.
 		 */
 		port: number = PortParams.parse(channel.params).port,
+		/** Who the connection is limited to, for a relayed one made by an agent. */
+		private readonly scope: {
+			scopes: RelayScopes;
+			project: string;
+		} | null = null,
 	) {
 		this.pipe = new PortPipe(channel, session);
 		void this.connect(port);
 	}
 
 	dispose(): void {
+		this.held?.dispose();
 		this.pipe.dispose();
 	}
 
@@ -45,12 +53,18 @@ export class WorkerPortHost implements Resource {
 		let refused = "";
 		for (const hostname of LOOPBACKS) {
 			try {
-				await Bun.connect<PortPipe | undefined>({
+				const socket = await Bun.connect<PortPipe | undefined>({
 					hostname,
 					port,
 					socket: PIPE_HANDLERS,
 					data: this.pipe,
 				});
+				if (this.scope !== null) {
+					this.held = this.scope.scopes.hold(
+						socket.localPort,
+						this.scope.project,
+					);
+				}
 				if (!this.channel.closed) {
 					this.channel.send({ type: "connected" });
 				}

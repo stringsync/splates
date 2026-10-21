@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Resource } from "webappwiz/disposable";
 import { PortPipe } from "../ports";
 import { LOOPBACK } from "../server/shared";
-import { RELAY } from "./channel";
+import { RELAY, type RelayParams } from "./channel";
 import type { WorkerSession } from "./session";
 
 /** The most of a request's head the relay reads while looking for its secret. */
@@ -28,11 +28,18 @@ interface Head {
  * served only when its first request carries the relay's secret: `splates`
  * sends its `SPLATES_DEV` as the `origin` header, and the secret is that
  * URL's password. A connection is as trusted as its first request.
+ *
+ * The relay's own secret, in `url`, is for `splates` run by hand, and
+ * reaches whatever the coordinator's server does. Each agent a worker runs
+ * gets a secret of its own from `issue`, which the coordinator is told the
+ * project of with every connection made by it, so the agent reaches that
+ * project's records alone and a secret it was never handed gets nowhere.
  */
 export class WorkerRelay implements Resource {
 	private constructor(
 		private readonly listener: Bun.TCPSocketListener<PortPipe | undefined>,
 		private readonly secret: string,
+		private readonly scopes: Map<string, string>,
 	) {}
 
 	/**
@@ -42,6 +49,8 @@ export class WorkerRelay implements Resource {
 	 */
 	static listen(session: WorkerSession): WorkerRelay {
 		const secret = randomBytes(24).toString("hex");
+		// Each agent's secret, and the project it is limited to.
+		const scopes = new Map<string, string>();
 		const heads = new WeakMap<Bun.Socket<PortPipe | undefined>, Head>();
 		return new WorkerRelay(
 			Bun.listen<PortPipe | undefined>({
@@ -72,15 +81,19 @@ export class WorkerRelay implements Resource {
 							return;
 						}
 						heads.delete(socket);
-						if (
-							end < 0 ||
-							!hasSecret(head.subarray(0, end).toString("latin1"), secret)
-						) {
+						const given =
+							end < 0
+								? null
+								: secretIn(head.subarray(0, end).toString("latin1"));
+						const scope = given === null ? undefined : scopeOf(given);
+						if (given === null || scope === undefined) {
 							socket.write(REFUSED);
 							socket.end();
 							return;
 						}
-						socket.data = new PortPipe(session.open(RELAY, {}), session);
+						const params: RelayParams =
+							scope === null ? {} : { project: scope };
+						socket.data = new PortPipe(session.open(RELAY, params), session);
 						socket.data.attach(socket);
 						socket.data.received(head);
 					},
@@ -90,12 +103,45 @@ export class WorkerRelay implements Resource {
 				},
 			}),
 			secret,
+			scopes,
 		);
+
+		/** The project `given` is limited to, null for the relay's own secret, undefined for none. */
+		function scopeOf(given: string): string | null | undefined {
+			if (same(given, secret)) {
+				return null;
+			}
+			for (const [each, project] of scopes) {
+				if (same(given, each)) {
+					return project;
+				}
+			}
+			return undefined;
+		}
+	}
+
+	/**
+	 * A relay URL for one agent, limited to `project`'s records, good until
+	 * disposed (when the agent ends).
+	 */
+	issue(project: string): { url: string } & Resource {
+		const secret = randomBytes(24).toString("hex");
+		this.scopes.set(secret, project);
+		return {
+			url: this.urlWith(secret),
+			dispose: () => {
+				this.scopes.delete(secret);
+			},
+		};
 	}
 
 	/** What a `splates` on this machine reaches the coordinator's server by. */
 	get url(): string {
-		return `http://splates:${this.secret}@${LOOPBACK}:${this.listener.port}`;
+		return this.urlWith(this.secret);
+	}
+
+	private urlWith(secret: string): string {
+		return `http://splates:${secret}@${LOOPBACK}:${this.listener.port}`;
 	}
 
 	dispose(): void {
@@ -109,22 +155,31 @@ export function relays(session: WorkerSession): boolean {
 	return negotiated?.ok === true && negotiated.capabilities.includes(RELAY);
 }
 
-/** Whether a request head's `origin` header carries `secret` as its URL's password. */
-export function hasSecret(head: string, secret: string): boolean {
+/** Whether two secrets are the same, without telling how much of one was right. */
+function same(given: string, secret: string): boolean {
+	const theirs = Buffer.from(given);
+	const ours = Buffer.from(secret);
+	return theirs.length === ours.length && timingSafeEqual(theirs, ours);
+}
+
+/** The password of a request head's `origin` header, which `splates` sends its `SPLATES_DEV` as; null when it has none. */
+export function secretIn(head: string): string | null {
 	for (const line of head.split("\r\n").slice(1)) {
 		const colon = line.indexOf(":");
 		if (colon < 0 || line.slice(0, colon).trim().toLowerCase() !== "origin") {
 			continue;
 		}
-		let given: string;
 		try {
-			given = new URL(line.slice(colon + 1).trim()).password;
+			return new URL(line.slice(colon + 1).trim()).password || null;
 		} catch {
-			return false;
+			return null;
 		}
-		const theirs = Buffer.from(given);
-		const ours = Buffer.from(secret);
-		return theirs.length === ours.length && timingSafeEqual(theirs, ours);
 	}
-	return false;
+	return null;
+}
+
+/** Whether a request head's `origin` header carries `secret` as its URL's password. */
+export function hasSecret(head: string, secret: string): boolean {
+	const given = secretIn(head);
+	return given !== null && same(given, secret);
 }

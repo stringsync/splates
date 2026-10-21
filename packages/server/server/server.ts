@@ -278,6 +278,19 @@ export async function dev(
 	});
 
 	const workers = givenWorkers ?? new DevWorkers(log);
+	// A call through an agent's relay reaches its own project alone: the
+	// connection it came in on says which.
+	const limited =
+		(handle: (request: Request, limit: string | null) => Promise<Response>) =>
+		(request: Request, server: Bun.Server<Connection>) =>
+			talk(
+				guarded((each) =>
+					handle(
+						each,
+						workers.registry.scopes.of(server.requestIP(request)?.port),
+					),
+				),
+			)(request);
 	// Each project reads a task cloned on a worker through that worker.
 	const open =
 		givenOpen ??
@@ -898,15 +911,15 @@ export async function dev(
 					"/api/ports": guarded(taskPorts.list),
 					// Through a worker's relay, which reaches only this machine's
 					// names: the records of a project its commands run on.
-					"/api/state": { POST: talk(guarded(state.answer)) },
+					"/api/state": { POST: limited(state.answer) },
 					// And a merge there holding the lease, which only this end
 					// lands on trunk.
-					"/api/land": { POST: talk(guarded(state.land)) },
+					"/api/land": { POST: limited(state.land) },
 					"/api/queue": guarded(workers.queue),
 					"/api/queue/:id/position": {
 						PUT: talk(guarded(workers.moveQueued)),
 					},
-					"/api/token": { POST: talk(guarded(state.token)) },
+					"/api/token": { POST: limited(state.token) },
 				},
 				taskPorts,
 			),

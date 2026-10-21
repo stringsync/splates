@@ -185,6 +185,7 @@ export const MEDIA_TYPES: Record<string, string> = {
 export const STATUS: Partial<Record<Reason, number>> = {
 	usage: 400,
 	not_found: 404,
+	not_granted: 403,
 	lease_held: 409,
 	exists: 409,
 	cycle: 409,

@@ -18,6 +18,22 @@ const LandBody = z.object({
 });
 
 /**
+ * Refuses a call on any project but `limit`, the one an agent's relay
+ * connection is limited to; none when `limit` is null. An agent names its
+ * project by slug, so a call by origin is refused too, since another
+ * project's checkout shares it as easily as its own.
+ */
+function within(limit: string | null, project: StateProject): void {
+	if (limit !== null && !("slug" in project && project.slug === limit)) {
+		fail(
+			"not_granted",
+			`this agent runs in project '${limit}' and may reach no other project's records`,
+			{},
+		);
+	}
+}
+
+/**
  * Answers `POST /api/state`: a command on a worker reading or writing its
  * project's records, which only the coordinator keeps. Each call names the
  * project by its slug or its origin URL, and reaches nothing outside that
@@ -38,7 +54,10 @@ export class StateRoutes {
 		},
 	) {}
 
-	readonly answer = async (request: Request): Promise<Response> => {
+	readonly answer = async (
+		request: Request,
+		limit: string | null = null,
+	): Promise<Response> => {
 		const parsed = StateRequest.safeParse(
 			await request.json().catch(() => null),
 		);
@@ -46,6 +65,7 @@ export class StateRoutes {
 			fail("usage", `not a call on a project's records: ${parsed.error}`, {});
 		}
 		const { project, call } = parsed.data;
+		within(limit, project);
 		const served = await this.served(project);
 		await served.format.check();
 		try {
@@ -67,12 +87,16 @@ export class StateRoutes {
 	 * Answers `POST /api/land`: a merge on a worker, holding the merge lease,
 	 * asking the coordinator to move trunk to the branch it tested.
 	 */
-	readonly land = async (request: Request): Promise<Response> => {
+	readonly land = async (
+		request: Request,
+		limit: string | null = null,
+	): Promise<Response> => {
 		const parsed = LandBody.safeParse(await request.json().catch(() => null));
 		if (!parsed.success) {
 			fail("usage", `not a landing: ${parsed.error}`, {});
 		}
 		const { project, request: landing } = parsed.data;
+		within(limit, project);
 		const served = await this.served(project);
 		await served.format.check();
 		return Response.json({ value: await served.land(landing) });
@@ -84,13 +108,17 @@ export class StateRoutes {
 	 * when the project keeps no GitHub App, and the worker signs in as its
 	 * machine does.
 	 */
-	readonly token = async (request: Request): Promise<Response> => {
+	readonly token = async (
+		request: Request,
+		limit: string | null = null,
+	): Promise<Response> => {
 		const parsed = TokenRequest.safeParse(
 			await request.json().catch(() => null),
 		);
 		if (!parsed.success) {
 			fail("usage", `not a token request: ${parsed.error}`, {});
 		}
+		within(limit, parsed.data.project);
 		const minted = await (await this.served(parsed.data.project)).mintToken();
 		return Response.json({
 			value:

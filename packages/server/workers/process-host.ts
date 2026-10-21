@@ -6,7 +6,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
-import { relays } from "./relay";
+import { relays, type WorkerRelay } from "./relay";
 import type { AgentSandbox } from "./sandbox";
 import type { WorkerSession } from "./session";
 import { TaskKey, TaskKeys } from "./task-keys";
@@ -47,6 +47,8 @@ export class WorkerProcessHost implements Resource {
 	private ended = false;
 	private watch: Resource | null = null;
 	private readonly keys: TaskKeys;
+	/** The relay URL only this process was given, when it was given one. */
+	private readonly issued: (Resource & { url: string }) | null;
 
 	constructor(
 		private readonly channel: WorkerChannel,
@@ -57,18 +59,28 @@ export class WorkerProcessHost implements Resource {
 		const { relay = null, timer = null, store = null, sandbox = null } = opts;
 		const { argv, cwd, env, keys } = ProcessParams.parse(channel.params);
 		this.keys = TaskKeys.start(keys, store);
+		// A process that names its project gets a relay URL of its own, limited to
+		// it; one that names none, such as a shell, shares the relay's.
+		const project = env.SPLATES_PROJECT;
+		this.issued =
+			relay !== null && env.SPLATES_DEV !== undefined && relays(session)
+				? project === undefined
+					? { url: relay.url, dispose: () => {} }
+					: relay.issue(project)
+				: null;
 		try {
 			this.child = ps.start(sandbox?.wrap(argv, cwd) ?? argv, {
 				cwd,
 				env: {
-					...(relay !== null && env.SPLATES_DEV !== undefined && relays(session)
-						? { ...env, SPLATES_DEV: relay }
-						: env),
+					...(this.issued === null
+						? env
+						: { ...env, SPLATES_DEV: this.issued.url }),
 					...this.keys.env,
 				},
 				unset: [SERVING],
 			});
 		} catch (error) {
+			this.issued?.dispose();
 			void this.keys.disposeAsync();
 			throw error;
 		}
@@ -86,7 +98,10 @@ export class WorkerProcessHost implements Resource {
 
 	dispose(): void {
 		this.watch?.dispose();
-		void this.end().finally(() => this.keys.disposeAsync());
+		void this.end().finally(() => {
+			this.issued?.dispose();
+			return this.keys.disposeAsync();
+		});
 	}
 
 	/** Remembers what runs under the child now. */
@@ -222,7 +237,7 @@ export interface WorkerProcessHostOptions {
 	 * reaches it through instead, since the coordinator's own address is
 	 * its machine's loopback; absent to leave its env as it is.
 	 */
-	relay?: string | null;
+	relay?: Pick<WorkerRelay, "url" | "issue"> | null;
 	/** What notes the child's descendants while it runs; absent to note none. */
 	timer?: Timer | null;
 	/** Where the keys this worker was sent are kept; absent for one that keeps none. */
