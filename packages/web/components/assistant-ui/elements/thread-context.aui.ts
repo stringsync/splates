@@ -62,6 +62,8 @@ export type ThreadProps = {
 	composer?: ReactNode | undefined;
 	/** The id of the message to open at, rather than the bottom. */
 	openAt?: string | undefined;
+	/** Told how many messages the person has read, as they scroll to their foot. */
+	onRead?: ((read: number) => void) | undefined;
 	/**
 	 * Whether the composer stays along the bottom while the thread is empty
 	 * too, the greeting centered above it, as a phone's chat apps have it,

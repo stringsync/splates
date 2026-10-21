@@ -145,6 +145,13 @@ export interface ConversationState {
 	 */
 	seen: number;
 	/**
+	 * How many of its messages, those not queued, the person has read, by
+	 * their reaching the foot of the page's view: it opens at the one after.
+	 * Null for one the page has yet to report on, which opens at the foot, or
+	 * at `seen` when unread.
+	 */
+	read: number | null;
+	/**
 	 * Where the last checkpoint asked stands, kept in the log so a restart
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
@@ -569,6 +576,7 @@ export function blank(
 		queued: null,
 		unread: false,
 		seen: 0,
+		read: null,
 		checkpoint: null,
 		pausing: false,
 		budgetStop: null,

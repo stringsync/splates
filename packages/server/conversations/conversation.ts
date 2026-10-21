@@ -1005,6 +1005,23 @@ export class Conversation
 		await this.log.flush();
 	}
 
+	/**
+	 * Keeps that the person has read `read` of its messages, never fewer than
+	 * before nor more than went out.
+	 */
+	async markRead(read: number): Promise<void> {
+		const count = Math.min(
+			Math.max(Math.floor(read), this.state.read ?? 0),
+			sent(this.state.messages),
+		);
+		if (count === this.state.read) {
+			return;
+		}
+		this.log.write({ kind: "read", read: count });
+		this.set({ read: count });
+		await this.log.flush();
+	}
+
 	/** Stops it and deletes its log and files, for good. */
 	async delete(): Promise<void> {
 		await this.stop();

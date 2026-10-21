@@ -477,6 +477,7 @@ export interface Served extends AsyncResource {
 	chooseSetting: Handler;
 	renameConversation: Handler;
 	markUnread: Handler;
+	markRead: Handler;
 	pinConversation: Handler;
 	reparentConversation: Handler;
 	archiveConversation: Handler;

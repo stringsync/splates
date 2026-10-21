@@ -853,6 +853,9 @@ export async function dev(
 					"/api/conversations/:id/unread": {
 						PUT: talk(owned((project) => project.markUnread)),
 					},
+					"/api/conversations/:id/read": {
+						PUT: talk(owned((project) => project.markRead)),
+					},
 					"/api/conversations/:id/pinned": {
 						PUT: talk(owned((project) => project.pinConversation)),
 					},

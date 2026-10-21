@@ -41,6 +41,7 @@ import {
 	useProjects,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
+import { markRead } from "./conversation-api";
 import { filable } from "./conversation-archive";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
@@ -160,6 +161,11 @@ function Conversation({
 	const choose = useChooseSetting(id, refused);
 	const thread = useThreadMessages(conversation, feed);
 	const { queued, openAt, asking, going } = thread;
+	// Nothing to tell anyone: the next scroll tries again.
+	const onRead = useCallback(
+		(read: number) => void markRead(id, read).catch(() => {}),
+		[id],
+	);
 	const {
 		runtime,
 		stopping,
@@ -336,6 +342,7 @@ function Conversation({
 																<ListedBackground value={listed}>
 																	<ThreadView
 																		openAt={openAt}
+																		onRead={onRead}
 																		autoFocus={!asking || typed}
 																		stopping={stopping}
 																		going={going}

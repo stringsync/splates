@@ -253,6 +253,26 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.unread).toBe(true);
 	});
 
+	it("keeps how many messages were read, never fewer nor more than went out", async () => {
+		const conversation = await started();
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+		const count = conversation.state.messages.length;
+		expect(conversation.state.read).toBeNull();
+
+		await conversation.markRead(1);
+		await conversation.markRead(0);
+		expect(conversation.state.read).toBe(1);
+		await conversation.markRead(count + 50);
+		expect(conversation.state.read).toBe(count);
+		const reread = await new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		).list();
+		expect(reread[0]?.state.read).toBe(count);
+	});
+
 	it("stays read as a persistent agent's turns end", async () => {
 		const conversation = await conversations.start("fake", {
 			task: null,

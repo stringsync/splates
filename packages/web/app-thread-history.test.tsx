@@ -76,7 +76,9 @@ describe("App's thread history window", () => {
 			expect(within(thread).queryByText("Answer number 10")).not.toBeNull(),
 		);
 		expect(within(thread).queryByText("Question number 10")).not.toBeNull();
-		expect(within(thread).queryByText("Question number 9")).toBeNull();
-		expect(thread.querySelectorAll('[data-slot="aui_turn"]').length).toBe(35);
+		// The turn before it too, for the peek above where it opens.
+		expect(within(thread).queryByText("Question number 9")).not.toBeNull();
+		expect(within(thread).queryByText("Question number 8")).toBeNull();
+		expect(thread.querySelectorAll('[data-slot="aui_turn"]').length).toBe(36);
 	});
 });

@@ -433,7 +433,9 @@ describe("App's sending messages", () => {
 		resize(390, 844);
 		await send("on a phone").finally(() => resize(1024, 768));
 
-		expect(testing.posts).toEqual([
+		// Not the reading the page reports as it scrolls.
+		const sent = testing.posts.filter((post) => !post.path.endsWith("/read"));
+		expect(sent).toEqual([
 			expect.objectContaining({ headers: { "splates-from": "desktop" } }),
 			expect.objectContaining({ headers: { "splates-from": "phone" } }),
 		]);

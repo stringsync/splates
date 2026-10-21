@@ -221,6 +221,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				if (!entry.unread) {
 					state.seen = sent(state.messages);
 				}
+			} else if (entry.kind === "read") {
+				state.read = entry.read;
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
 				state.budgetStop = entry.budget ?? null;
@@ -510,6 +512,7 @@ type Said =
 	  }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
+	| { kind: "read"; read: number }
 	| { kind: "pin"; pinned: boolean }
 	| { kind: "parent"; parent: { id: string | null } }
 	/** `at` is missing from logs written before the page showed how long things took. */

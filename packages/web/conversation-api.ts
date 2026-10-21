@@ -262,6 +262,11 @@ export async function markUnread(id: string, unread: boolean): Promise<void> {
 	await sendJson(`/api/conversations/${id}/unread`, "PUT", { unread });
 }
 
+/** Tells the server the person has read `read` messages of conversation `id`. */
+export async function markRead(id: string, read: number): Promise<void> {
+	await sendJson(`/api/conversations/${id}/read`, "PUT", { read });
+}
+
 /** Keeps conversation `id` atop the list, or lets it go back among the rest. */
 export async function pinConversation(
 	id: string,

@@ -20,8 +20,8 @@ describe("thread history window", () => {
 		expect(windowStart(messages, null, undefined, 20)).toBe(10);
 		expect(windowStart(messages, "10", undefined, 20)).toBe(0);
 	});
-	it("includes the prompt preceding an older unread reply", () => {
-		expect(windowStart(messages, null, "21")).toBe(20);
+	it("includes the prompt preceding an older unread reply, and the turn before it", () => {
+		expect(windowStart(messages, null, "21")).toBe(18);
 	});
 	it("keeps revealed history as more turns arrive", () => {
 		expect(

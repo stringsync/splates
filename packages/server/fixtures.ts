@@ -97,6 +97,7 @@ export function conversation(
 		queued: null,
 		unread: false,
 		seen: 0,
+		read: null,
 		messages: [],
 		events: [],
 		ask: null,

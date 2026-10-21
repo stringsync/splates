@@ -1,5 +1,6 @@
 import { type AssistantState, useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { WIDE } from "#web/app-nav.tsx";
 import { toCardTop } from "#web/card-shell.tsx";
 import { carriesOn } from "#web/directives.tsx";
 
@@ -78,6 +79,8 @@ function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
 		room.style.height = height;
 	}
 }
+/** How much of what comes before the place a thread opens at shows above it. */
+const PEEK = 56;
 /**
  * Opens `viewport` at the top of message `at`, the first the person has yet
  * to see, so they read on from where they left off, or else at the top of the
@@ -120,9 +123,14 @@ export function useOpenAt(
 				scroller.scrollTop = scroller.scrollHeight;
 			} else if (message === turn.firstElementChild) {
 				// The person's message that opens a turn reads from the turn's top.
-				scroller.scrollTop = layoutTop(turn, scroller);
+				scroller.scrollTop = Math.max(0, layoutTop(turn, scroller) - PEEK);
 			} else {
 				toCardTop(message);
+				// Beside a user message stuck atop its turn, that is the context;
+				// on a phone nothing sticks, so some of what came before shows.
+				if (!matchMedia(WIDE).matches) {
+					scroller.scrollTop = Math.max(0, scroller.scrollTop - PEEK);
+				}
 			}
 		};
 		place();
@@ -348,4 +356,74 @@ export function useHoldPlace(viewport: RefObject<HTMLDivElement | null>): void {
 			watching.disconnect();
 		};
 	}, [viewport]);
+}
+/**
+ * Reports how many messages the person has read, the most they have scrolled
+ * to the foot of in `viewport`: a message counts once its foot clears the
+ * composer, and every message before it with it. Settles a moment after the
+ * scrolling, and again as the thread unmounts. The last message does not
+ * count while it is still being written.
+ */
+export function useTrackRead(
+	viewport: RefObject<HTMLDivElement | null>,
+	report: ((read: number) => void) | undefined,
+): void {
+	const running = useAuiState((s) => s.thread.isRunning);
+	const loaded = useAuiState((s) => s.thread.messages.length > 0);
+	const last = useRef(0);
+	useEffect(() => {
+		const scroller = viewport.current;
+		if (!loaded || scroller == null || report === undefined) {
+			return;
+		}
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let pending = 0;
+		const flush = () => {
+			clearTimeout(timer);
+			timer = undefined;
+			if (pending > last.current) {
+				last.current = pending;
+				report(pending);
+			}
+		};
+		const measure = () => {
+			const bottom =
+				scroller.getBoundingClientRect().bottom -
+				(Number.parseFloat(scroller.style.scrollPaddingBottom) || 0);
+			const messages = [
+				...scroller.querySelectorAll<HTMLElement>("[data-message-id]"),
+			];
+			const final = messages.at(-1);
+			for (const message of messages.toReversed()) {
+				const index = /^\d+$/.test(message.dataset.messageId ?? "")
+					? Number(message.dataset.messageId)
+					: Number.NaN;
+				if (
+					Number.isNaN(index) ||
+					(running && message === final) ||
+					message.getBoundingClientRect().bottom > bottom + 1
+				) {
+					continue;
+				}
+				if (index + 1 > pending) {
+					pending = index + 1;
+					clearTimeout(timer);
+					timer = setTimeout(flush, 600);
+				}
+				return;
+			}
+		};
+		measure();
+		scroller.addEventListener("scroll", measure, { passive: true });
+		const content = scroller.firstElementChild;
+		const watching = new ResizeObserver(measure);
+		if (content !== null) {
+			watching.observe(content);
+		}
+		return () => {
+			scroller.removeEventListener("scroll", measure);
+			watching.disconnect();
+			flush();
+		};
+	}, [viewport, report, loaded, running]);
 }

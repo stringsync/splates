@@ -391,6 +391,13 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	readonly markRead = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { read } = await body(request);
+		await conversation.markRead(Number(read));
+		return Response.json(conversation.state);
+	};
+
 	readonly pinConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { pinned } = await body(request);

@@ -34,6 +34,7 @@ import {
 	useFollowWork,
 	useHoldPlace,
 	useOpenAt,
+	useTrackRead,
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#web/components/ui/button.tsx";
@@ -58,6 +59,7 @@ export const Thread: FC<ThreadProps> = ({
 	placeholder,
 	composer,
 	openAt,
+	onRead,
 	docked = false,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
@@ -82,6 +84,7 @@ export const Thread: FC<ThreadProps> = ({
 					isEmpty={isEmpty}
 					autoFocus={autoFocus}
 					openAt={openAt}
+					onRead={onRead}
 					docked={docked}
 					going={going}
 				/>
@@ -93,9 +96,10 @@ const ThreadRoot: FC<{
 	isEmpty: boolean;
 	autoFocus: boolean;
 	openAt: string | undefined;
+	onRead: ((read: number) => void) | undefined;
 	docked: boolean;
 	going: boolean;
-}> = ({ isEmpty, autoFocus, openAt, docked, going }) => {
+}> = ({ isEmpty, autoFocus, openAt, onRead, docked, going }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -128,6 +132,7 @@ const ThreadRoot: FC<{
 		};
 	}, []);
 	useOpenAt(viewport, openAt);
+	useTrackRead(viewport, onRead);
 	useAnchorAtOnce(viewport, going);
 	useFollowWork(viewport);
 	useHoldPlace(viewport);

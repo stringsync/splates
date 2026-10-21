@@ -226,13 +226,17 @@ export function useThreadMessages(
 		status,
 		id,
 	]);
-	// Where the person left off, as it opens: the first message they have yet
-	// to see, read on from there, else the bottom. Opening marks it read, so
-	// this holds what it was before.
+	// Where the person left off, as it opens: the first message whose foot
+	// they have yet to reach, read on from there, else the bottom. Reading
+	// moves it on, so this holds what it was before.
 	const { all: messages, last } = built;
-	const [openAt] = useState(() =>
-		conversation.unread ? String(conversation.seen) : undefined,
-	);
+	const [openAt] = useState(() => {
+		const count = conversation.messages.filter((each) => !each.queued).length;
+		if (conversation.read !== null) {
+			return conversation.read < count ? String(conversation.read) : undefined;
+		}
+		return conversation.unread ? String(conversation.seen) : undefined;
+	});
 	// Its last word asks questions, escalates, or asks for a review, or it
 	// asks as it works: the card takes the focus, not the composer, unless it
 	// holds a draft. What is queued after it asks nothing.
@@ -311,7 +315,10 @@ export function windowStart(
 	for (const id of [first, openAt]) {
 		const index = messages.findIndex((message) => message.id === id);
 		if (index >= 0) {
-			start = Math.min(start, turns.findLast((at) => at <= index) ?? 0);
+			const turn = turns.findLast((at) => at <= index) ?? 0;
+			// The turn before the one opened at, which the open shows a peek of.
+			const before = id === openAt ? turns.indexOf(turn) - 1 : -1;
+			start = Math.min(start, before >= 0 ? (turns[before] ?? 0) : turn);
 		}
 	}
 	return turns[Math.max(0, turns.indexOf(start) - earlier)] ?? 0;
