@@ -248,6 +248,16 @@ describe("App's lanes", () => {
 		expect(left.getAttribute("aria-disabled")).toBe("true");
 	});
 
+	it("marks a lane blocked when its next task waits on one in another lane", async () => {
+		const view = await testing.open({
+			todos: sound2score().map((todo) =>
+				todo.id === 200 ? { ...todo, blockedBy: [177] } : todo,
+			),
+			lanes: SOUND2SCORE_LANES,
+		});
+		expect(view.getByText("Blocked by #177")).toBeTruthy();
+	});
+
 	it("queues a lane whole from its menu, marking it at once", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

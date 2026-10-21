@@ -7,7 +7,7 @@ import {
 	BACKLOG_LANE,
 	BUDGET_LOW,
 } from "@stringsync/splates-server/board/browser";
-import { ListPlusIcon } from "lucide-react";
+import { ListPlusIcon, LockIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -135,6 +135,17 @@ export function Lane({
 	// Who is on which task shows on the cards; the lane says only that one is,
 	// and only while it is queued: a lane no longer queued is paused.
 	const running = lane.queued && lane.agents.length > 0;
+	// The lane's next task waits on one still open elsewhere, so playing the
+	// lane starts nothing until that lands.
+	const next = lane.todos.find((todo) => todo.takenBy === null);
+	const holdup = next
+		? todos.find(
+				(other) =>
+					next.blockedBy.includes(other.id) &&
+					(next.lane === null || other.lane !== next.lane),
+			)
+		: undefined;
+	const blocked = !running && holdup !== undefined;
 	return (
 		<Column
 			label={lane.name}
@@ -191,7 +202,7 @@ export function Lane({
 				{/* Always there, at the chips' height, so queueing or pausing the lane
 				    never moves what is below; it holds one line, clipped, on a narrow screen. */}
 				<span className="flex h-5 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
-					{(running || lane.queued) && (
+					{(running || lane.queued || blocked) && (
 						<>
 							{running && (
 								<span
@@ -206,6 +217,18 @@ export function Lane({
 										className="size-1.5 animate-pulse rounded-full bg-primary"
 									/>
 									Running
+								</span>
+							)}
+							{blocked && (
+								<span
+									className={cn(
+										"inline-flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-px font-medium text-xs",
+										TONES.waiting,
+									)}
+									title={`${next?.subject} waits on #${holdup?.id} ${holdup?.subject}, so the lane will not run until it lands`}
+								>
+									<LockIcon aria-hidden className="size-3 shrink-0" />
+									<span className="truncate">Blocked by #{holdup?.id}</span>
 								</span>
 							)}
 							{lane.queued && (
