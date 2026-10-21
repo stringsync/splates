@@ -3,15 +3,11 @@ import type { AutoPicked } from "@stringsync/splates-server/auto-pick";
 import { DEPTHS, KINDS } from "@stringsync/splates-server/auto-pick/browser";
 import type { TaskRecord } from "@stringsync/splates-server/board/browser";
 import type { Details } from "@stringsync/splates-server/tasks";
-import {
-	ChevronRightIcon,
-	PencilIcon,
-	SparklesIcon,
-	ZapIcon,
-} from "lucide-react";
+import { ChevronRightIcon, PencilIcon, ZapIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AutoIcon } from "./auto-brand";
 import { type AutoPickRun, autoPickRuns } from "./auto-pick-runs";
 import { ruleAddress } from "./page-address";
 import { ReferenceChip } from "./reference-chip";
@@ -64,7 +60,7 @@ export function AutoPickLog({
 	);
 }
 
-/** Auto pick's mark: a sparkles tile in amber, as the groomer's is violet. */
+/** Auto pick's mark: its gradient sparkles on a faint violet tile. */
 export function AutoPickMark({
 	className,
 }: {
@@ -74,11 +70,11 @@ export function AutoPickMark({
 		<span
 			aria-hidden
 			className={cn(
-				"flex shrink-0 items-center justify-center rounded-lg bg-amber-500/15",
+				"flex shrink-0 items-center justify-center rounded-lg bg-violet-500/15",
 				className,
 			)}
 		>
-			<SparklesIcon className="size-1/2 fill-amber-500/25 text-amber-600 dark:text-amber-400" />
+			<AutoIcon colored className="size-1/2" />
 		</span>
 	);
 }
