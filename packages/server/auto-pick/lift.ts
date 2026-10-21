@@ -6,9 +6,15 @@ import {
 	thinkingOf,
 } from "../models";
 import type { Project } from "../server/shared";
-import { classify } from "./classify";
-import { decide, headline } from "./decide";
-import { wordsToJudge } from "./follow-up";
+import { type Classification, classify } from "./classify";
+import {
+	type AutoPickDecision,
+	type DecideContext,
+	decide,
+	decideDeeper,
+	headline,
+} from "./decide";
+import { askedBack, wordsToJudge } from "./follow-up";
 import { judgeFrom } from "./judge";
 import { autoPicked } from "./judged";
 import { classificationKey } from "./key";
@@ -21,8 +27,10 @@ import type { Judge } from "./system-one";
  * started, unless they have moved its model or effort since: the judge reads
  * what they say, and when the rules give a stronger model, or a higher
  * thinking level on the same one, on the same agent, the conversation moves
- * up before the agent reads it, logged as splates's own line with an Undo. A
- * pick it judges lighter leaves it as it is.
+ * up before the agent reads it, logged as splates's own line with an Undo. So
+ * does an answer to the agent's first reply that ended on a bare question,
+ * to the rules' pick for the work one depth deeper. A pick it judges lighter
+ * leaves it as it is.
  */
 export function lifting(
 	project: Project,
@@ -43,20 +51,24 @@ export function lifting(
 			return;
 		}
 		const words = wordsToJudge(state.messages, said);
-		if (words === null) {
-			return;
-		}
-		const classified = await classify({ ...words, judge: await judge() });
-		if (!classified.ok) {
+		const asked = askedBack(state.messages, said);
+		if (words === null && !asked) {
 			return;
 		}
 		const context = await contextOf(project, conversations, now());
-		const decision = decide({
-			...context,
-			classification: classified.classification,
-		});
+		const judged = await rejudged(words, context, judge);
+		const decision =
+			judged !== null && higher(context.agents, on, judged.decision.pick)
+				? judged.decision
+				: asked
+					? decideDeeper(context, on, ASKED_BACK)
+					: null;
 		const agent = context.agents.find((each) => each.id === on.agent);
-		if (agent === undefined || !higher(context.agents, on, decision.pick)) {
+		if (
+			decision === null ||
+			agent === undefined ||
+			!higher(context.agents, on, decision.pick)
+		) {
 			return;
 		}
 		const settings = settingsFor(state.settings, decision.pick);
@@ -70,21 +82,54 @@ export function lifting(
 			}),
 		);
 		await conversation.lift(settings, setOf(decision));
-		const key = classificationKey(words.subject, words.detail, []);
 		await journalPick(
 			project.journal.in(state.id),
 			state.task,
 			autoPicked(
 				{
 					decision,
-					classification: classified.classification,
+					classification:
+						decision === judged?.decision ? judged.classification : null,
 					judged: true,
 				},
-				key,
+				judged?.key ?? "",
 				now(),
 			),
 			{ from: headline(pickOf(on), agent), undo },
 		).catch((error: unknown) => project.log.error(String(error)));
+	};
+}
+
+/** Why a first answer ending on a bare question moves the conversation up. */
+const ASKED_BACK = "its first answer asked back";
+
+/**
+ * What the rules give for `words`, as the judge reads them, with the key
+ * they are kept under; null for no words, or a judge that said nothing.
+ */
+async function rejudged(
+	words: { subject: string; detail: string } | null,
+	context: DecideContext,
+	judge: () => Promise<Judge | null>,
+): Promise<{
+	decision: AutoPickDecision;
+	classification: Classification;
+	key: string;
+} | null> {
+	if (words === null) {
+		return null;
+	}
+	const classified = await classify({ ...words, judge: await judge() });
+	if (!classified.ok) {
+		return null;
+	}
+	return {
+		decision: decide({
+			...context,
+			classification: classified.classification,
+		}),
+		classification: classified.classification,
+		key: classificationKey(words.subject, words.detail, []),
 	};
 }
 

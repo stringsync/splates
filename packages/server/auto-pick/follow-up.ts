@@ -50,3 +50,37 @@ function split(words: string): { subject: string; detail: string } {
 		detail: rest.join("\n").trim().slice(-DETAIL_CHARS),
 	};
 }
+
+/**
+ * Whether the agent's first answer, to what started the conversation,
+ * whoever said it, ended on a bare question, a prose one rather than a card,
+ * and the second message of `messages` is the person's answer, among `said`,
+ * what they say now. In the
+ * conversations looked at, the person moved four of five such answers up by
+ * hand, while nothing else in an answer told a weak one apart.
+ */
+export function askedBack(
+	messages: readonly Message[],
+	said: readonly Message[],
+): boolean {
+	const prompts = messages.flatMap((each, at) =>
+		each.role === "user" ? [at] : [],
+	);
+	const [first, answer] = prompts;
+	const reply = answer === undefined ? undefined : messages[answer];
+	if (
+		first === undefined ||
+		reply === undefined ||
+		reply.told !== undefined ||
+		!said.includes(reply)
+	) {
+		return false;
+	}
+	return messages
+		.slice(first, answer)
+		.filter((each) => each.role === "agent")
+		.map(textOf)
+		.join("")
+		.trim()
+		.endsWith("?");
+}

@@ -15,6 +15,8 @@ describe("lifting", () => {
 	let judge: FakeJudge;
 	/** The model the agent was on as each prompt reached it. */
 	let on: string[];
+	/** What the agent answers each prompt, in turn; nothing once they run out. */
+	let answers: string[];
 
 	const start = async (words = "Rename foo\nIn src only.") => {
 		const conversation = await startAutoPick({
@@ -48,10 +50,21 @@ describe("lifting", () => {
 		deps = await Testing.open();
 		agent = new FakeAgent();
 		on = [];
-		agent.turn = async () => {
+		answers = [];
+		agent.turn = async (client, sessionId) => {
 			on.push(
 				String(agent.options.find((each) => each.id === "model")?.currentValue),
 			);
+			const text = answers.shift();
+			if (text !== undefined) {
+				await client.sessionUpdate({
+					sessionId,
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						content: { type: "text", text },
+					},
+				});
+			}
 			return "end_turn";
 		};
 		conversations = new Conversations(
@@ -147,6 +160,45 @@ describe("lifting", () => {
 
 		expect(judge.asked).toEqual([]);
 		expect(conversation.state.autoPick?.overridden).toBe(true);
+	});
+
+	it("moves the conversation up for the answer to a first reply that asked back", async () => {
+		answers = ["I can rename it in src or everywhere. Which do you want?\n"];
+		const conversation = await start();
+		judge = new FakeJudge(WIDE);
+		await say(conversation, "src");
+
+		expect(judge.asked).toEqual([]);
+		expect(on).toEqual(["small", "big"]);
+		expect(conversation.state.autoPick).toMatchObject({
+			model: "big",
+			kind: "bugfix",
+			depth: "moderate",
+		});
+		const line = (await autoLines()).at(-1);
+		expect(line).toMatchObject({
+			model: "big",
+			lifted: { from: "Small", undo: { model: "small" } },
+		});
+		expect(line?.reasons).toContain("its first answer asked back, so moderate");
+	});
+
+	it("moves nothing for the answer to a first reply that ended otherwise", async () => {
+		answers = ["Renamed foo to bar in src."];
+		const conversation = await start();
+		await say(conversation, "thanks");
+
+		expect(on).toEqual(["small", "small"]);
+		expect(await autoLines()).toHaveLength(1);
+	});
+
+	it("looks only at the first reply, not a question asked later", async () => {
+		answers = ["Renamed foo to bar in src.", "Anything else?"];
+		const conversation = await start();
+		await say(conversation, "thanks");
+		await say(conversation, "no");
+
+		expect(on).toEqual(["small", "small", "small"]);
 	});
 
 	it("keeps the move and the person's override across a restart", async () => {

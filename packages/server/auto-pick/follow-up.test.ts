@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type Message, said } from "../conversations";
-import { LONG, READ_CHARS, wordsToJudge } from "./follow-up";
+import { askedBack, LONG, READ_CHARS, wordsToJudge } from "./follow-up";
 
 describe("wordsToJudge", () => {
 	const person = (text: string): Message => said(text, null);
@@ -44,3 +44,47 @@ describe("wordsToJudge", () => {
 
 const WIDENING =
 	"Let's take this a different direction: propose a few variants.";
+
+describe("askedBack", () => {
+	const person = (text: string): Message => said(text, null);
+	const told = (text: string): Message => ({ ...said(text, null), told: "x" });
+	const agent = (text: string): Message => ({
+		...said(text, null),
+		role: "agent",
+	});
+
+	it("is true of the person's answer to a first reply ending on a question", () => {
+		const answer = person("b");
+		const messages = [
+			person("Fix it"),
+			agent("Two ways. Which one?\n"),
+			answer,
+		];
+		expect(askedBack(messages, [answer])).toBe(true);
+	});
+
+	it("counts a first message splates said, as a queued task's", () => {
+		const answer = person("b");
+		const messages = [told("[SPLATES TASK #1]"), agent("Which one?"), answer];
+		expect(askedBack(messages, [answer])).toBe(true);
+	});
+
+	it("is false of a first reply ending otherwise, or one with a card's choices last", () => {
+		const answer = person("b");
+		const after = (reply: string) =>
+			askedBack([person("Fix it"), agent(reply), answer], [answer]);
+		expect([
+			after("Done."),
+			after("1. Which one?\n   - (a) This (chosen)"),
+		]).toEqual([false, false]);
+	});
+
+	it("is false of anything but the person's own second message, said now", () => {
+		const first = [person("Fix it"), agent("Which one?")];
+		const answer = person("b");
+		const later = person("c");
+		expect(askedBack([...first, answer, later], [later])).toBe(false);
+		const tell = told("[SPLATES MERGE]");
+		expect(askedBack([...first, tell], [tell])).toBe(false);
+	});
+});

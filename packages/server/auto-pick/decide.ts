@@ -97,6 +97,31 @@ export function decideWithout(input: DecideWithoutInput): AutoPickDecision {
 	return choose(input, null, null, input.reason);
 }
 
+/**
+ * A pick for the work of `set` taken one depth deeper, as when its first
+ * answer showed it was more than judged: the first rule matching its kind and
+ * that depth, saying `why`. A depth the judge was unsure of counts as
+ * shallow; null when it is deep already.
+ */
+export function decideDeeper(
+	input: DecideContext,
+	set: { kind: string | null; depth: string | null },
+	why: string,
+): AutoPickDecision | null {
+	const at = DEPTHS.findIndex((each) => each.id === set.depth);
+	const deeper = DEPTHS[Math.max(at, 0) + 1];
+	if (deeper === undefined) {
+		return null;
+	}
+	const kind = KINDS.find((each) => each.id === set.kind)?.id ?? null;
+	return choose(
+		input,
+		kind,
+		deeper.id,
+		`${why}, so ${deeper.label.toLowerCase()}`,
+	);
+}
+
 /** The first rule matching `kind` and `depth`, and the first of its picks with plan left. */
 function choose(
 	input: DecideContext,
