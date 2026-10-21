@@ -285,3 +285,58 @@ export function useAnchorAtOnce(
 		};
 	}, [id, viewport]);
 }
+/**
+ * Keeps what the person is reading where it is when the thread changes above
+ * it, as earlier messages load or a card above grows, which the browser's own
+ * scroll anchoring does not hold here. The first message in view is the
+ * mark: when the content resizes without the thread scrolling, it moves back
+ * to the offset it had. A scroll, by anyone, only takes a new mark.
+ */
+export function useHoldPlace(viewport: RefObject<HTMLDivElement | null>): void {
+	useLayoutEffect(() => {
+		const scroller = viewport.current;
+		const content = scroller?.firstElementChild;
+		if (scroller == null || content == null) {
+			return;
+		}
+		let mark: HTMLElement | null = null;
+		let offset = 0;
+		let top = scroller.scrollTop;
+		const offsetOf = (element: HTMLElement) =>
+			element.getBoundingClientRect().top -
+			scroller.getBoundingClientRect().top;
+		const take = () => {
+			top = scroller.scrollTop;
+			mark = null;
+			for (const message of scroller.querySelectorAll<HTMLElement>(
+				"[data-message-id]",
+			)) {
+				if (
+					message.getBoundingClientRect().bottom >
+					scroller.getBoundingClientRect().top
+				) {
+					mark = message;
+					offset = offsetOf(message);
+					return;
+				}
+			}
+		};
+		const resized = () => {
+			if (mark !== null && mark.isConnected && scroller.scrollTop === top) {
+				const shift = offsetOf(mark) - offset;
+				if (shift !== 0) {
+					scroller.scrollTop += shift;
+				}
+			}
+			take();
+		};
+		take();
+		scroller.addEventListener("scroll", take, { passive: true });
+		const watching = new ResizeObserver(resized);
+		watching.observe(content);
+		return () => {
+			scroller.removeEventListener("scroll", take);
+			watching.disconnect();
+		};
+	}, [viewport]);
+}
