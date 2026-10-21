@@ -60,6 +60,7 @@
 		"./ports": "./ports/index.ts",
 		"./prices": "./prices/index.ts",
 		"./probe-runtime": "./probe-runtime.ts",
+		"./spend": "./spend/index.ts",
 		"./projects": "./projects/index.ts",
 		"./plans": "./plans/index.ts",
 		"./plans/browser": "./plans/browser.ts",

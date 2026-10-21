@@ -21,8 +21,10 @@ import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
+import { modelValue } from "../models";
 import type { NoteUses } from "../notes";
 import { installedVersion } from "../server/shared";
+import { turnSpend, type Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
@@ -35,7 +37,7 @@ import type {
 	ProjectRoster,
 } from "./host";
 import type { ConversationsOptions } from "./options";
-import type { Limit, Setting } from "./state";
+import type { ConversationState, Limit, Setting } from "./state";
 
 /** A conversation id as `UuidProvider` makes it, which a page may pick. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -73,6 +75,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly adherence: Adherence | null;
 	private readonly noteUses: NoteUses | null;
 	private readonly outcomes: Outcomes | null;
+	private readonly spend: ConversationsOptions["spend"] | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster | null;
@@ -116,6 +119,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.adherence = opts.adherence ?? null;
 		this.noteUses = opts.noteUses ?? null;
 		this.outcomes = opts.outcomes ?? null;
+		this.spend = opts.spend ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 		this.projects = opts.projects ?? null;
@@ -505,6 +509,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		let status = conversation.state.status;
 		// When the running turn began; null when it began before this server.
 		let turnStarted: string | null = null;
+		// What it had used as the running turn began, for the ledger.
+		let usedBefore: Used | null = null;
+		let tokensBefore = 0;
 		void this.limited
 			?.remember(conversation.state.agent, limits)
 			.catch(() => {});
@@ -516,6 +523,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 			if (status !== "running" && conversation.state.status === "running") {
 				turnStarted = conversation.now();
+				usedBefore = usedOf(conversation.state);
+				tokensBefore = conversation.state.usage.opencode?.turns.length ?? 0;
 			}
 			// A turn ended, however it did: how it followed the skill may have
 			// changed.
@@ -542,7 +551,13 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 						)
 						.catch(() => {});
 				}
+				if (usedBefore !== null) {
+					void this.spent(conversation, usedBefore, tokensBefore).catch(
+						() => {},
+					);
+				}
 				turnStarted = null;
+				usedBefore = null;
 			}
 			const ended =
 				(status === "running" && conversation.state.status !== "running") ||
@@ -562,6 +577,59 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
+	}
+
+	/** Adds the dollars the turn that took `conversation` from `before` cost to the ledger. */
+	private async spent(
+		conversation: Conversation,
+		before: Used,
+		turnsBefore: number,
+	): Promise<void> {
+		if (this.spend === null) {
+			return;
+		}
+		const { state } = conversation;
+		const observed = (state.usage.opencode?.turns ?? [])
+			.slice(turnsBefore)
+			.flatMap((turn) =>
+				turn.tokens === null
+					? []
+					: [
+							{
+								model: turn.confirmed ?? turn.requested,
+								input: turn.tokens.input ?? 0,
+								cachedRead: turn.tokens.cachedRead ?? 0,
+								cachedWrite: turn.tokens.cachedWrite ?? 0,
+								output: turn.tokens.output ?? 0,
+							},
+						],
+			);
+		const model = modelValue(state.settings);
+		const spent = turnSpend(
+			state.agent,
+			model,
+			before,
+			usedOf(state),
+			await this.spend.prices.catalog(),
+			observed,
+		);
+		if (spent === null) {
+			return;
+		}
+		const root = this.root ?? conversation.cwd;
+		const project =
+			(await this.projects?.list())?.find((each) => each.root === root)?.slug ??
+			null;
+		await this.spend.ledger.record({
+			at: conversation.now(),
+			provider: state.agent,
+			service: model ?? "unknown",
+			kind: spent.kind,
+			dollars: spent.dollars,
+			project,
+			task: state.task,
+			conversation: conversation.id,
+		});
 	}
 
 	/** Asks for `conversation`'s agent's limits, when it does not send them. */
@@ -626,4 +694,16 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 		}
 	}
+}
+
+/** What `state` has used so far, for pricing the turn between two such readings. */
+function usedOf(state: ConversationState): Used {
+	const { usage } = state;
+	return {
+		input: usage.input,
+		cached: usage.cached,
+		output: usage.output,
+		cost: usage.cost?.currency === "USD" ? usage.cost.amount : null,
+		context: usage.context?.used ?? null,
+	};
 }

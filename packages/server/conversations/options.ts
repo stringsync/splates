@@ -5,12 +5,16 @@ import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
 import type { Limits, Offered } from "../models";
 import type { NoteUses } from "../notes";
+import type { Prices } from "../prices";
+import type { Spend } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import type { Storage } from "../storage";
 import type { WorkerMachine } from "../workers";
 import type { ConversationSlots, PlacedCheckouts, ProjectRoster } from "./host";
 import type { Limit } from "./state";
 export interface ConversationsOptions {
+	/** The ledger each finished turn's dollars are added to, priced at `prices`; none keeps no ledger. */
+	spend?: { ledger: Spend; prices: Prices };
 	fs?: Fs;
 	/** Where the conversations are kept; the files in `dir`, on `fs`, by default. */
 	storage?: Storage;

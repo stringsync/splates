@@ -20,6 +20,7 @@ import { NoteUses } from "../notes";
 import { PlanStore } from "../plans";
 import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
 import { Projects } from "../projects";
+import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
 import {
@@ -180,6 +181,7 @@ export async function serveDev(
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
 	const adherence = new Adherence(machine, outcomes, ctx.fs);
+	const spend = new Spend(machine);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.
 	const starting = StartLock.ofMachine(ctx);
@@ -307,6 +309,7 @@ export async function serveDev(
 					adherence,
 					noteUses: new NoteUses(storage, ctx.fs),
 					outcomes,
+					spend: { ledger: spend, prices: outcomes.prices },
 					readLimits: async (agent) =>
 						isCodex(agent)
 							? codexLimits({
