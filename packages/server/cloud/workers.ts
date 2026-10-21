@@ -100,21 +100,28 @@ export class CloudWorkers implements WorkerProvider {
 		if ((await cloud.machines(WORKER_TAG, spec.id)).length > 0) {
 			return { id: spec.id, type: spec.type };
 		}
+		let spot: boolean | undefined;
 		try {
-			await cloud.create({
+			const made = await cloud.create({
 				name: spec.id,
 				type: spec.type,
 				image: spec.snapshot,
 				location,
 				// In the request's body alone, so the join token never reaches an argv or a log.
-				userData: bootScript(spec),
+				userData: bootScript(spec, cloud.defaults.spot === true),
 				tags: { [WORKER_TAG]: spec.id },
+				...(cloud.defaults.spot === true ? { spot: true } : {}),
 			});
+			spot = made.spot;
 		} catch (error) {
 			await this.destroy(spec.id).catch(() => {});
 			throw error;
 		}
-		return { id: spec.id, type: spec.type };
+		return {
+			id: spec.id,
+			type: spec.type,
+			...(spot === undefined ? {} : { spot }),
+		};
 	}
 
 	async destroy(id: string): Promise<void> {
@@ -128,6 +135,7 @@ export class CloudWorkers implements WorkerProvider {
 		return (await this.cloud.machines(WORKER_TAG)).map((machine) => ({
 			id: machine.tags[WORKER_TAG] ?? machine.name,
 			type: machine.type,
+			...(machine.spot === undefined ? {} : { spot: machine.spot }),
 		}));
 	}
 
@@ -233,7 +241,10 @@ const JOIN_APART = Duration.secs(10);
  * metadata address, which serves all of this, is closed to the snapshot's
  * user first, agents included.
  */
-function bootScript({ join, joinEnv, boot }: WorkerSpec): string {
+function bootScript(
+	{ join, joinEnv, boot }: WorkerSpec,
+	spot: boolean,
+): string {
 	// The snapshot's splates is a bun script, which root's PATH cannot run.
 	const bin = SNAPSHOT_SPLATES.slice(0, SNAPSHOT_SPLATES.lastIndexOf("/"));
 	return [
@@ -269,10 +280,48 @@ function bootScript({ join, joinEnv, boot }: WorkerSpec): string {
 		"[Install]",
 		"WantedBy=multi-user.target",
 		"SPLATES_UNIT",
+		...(spot ? spotWatcher() : []),
 		"systemctl daemon-reload",
 		"systemctl enable --now splates-worker.service",
+		...(spot ? ["systemctl enable --now splates-spot-watch.service"] : []),
 		"",
 	].join("\n");
+}
+
+/**
+ * A root service that polls the instance metadata for a spot reclaim's
+ * notice, two minutes ahead, and signals the worker with USR1 when it comes:
+ * the worker, whose user the metadata address is closed to, tells its
+ * coordinator, which moves its agents off at once. On-demand machines
+ * answer 404 forever, which costs nothing.
+ */
+function spotWatcher(): string[] {
+	const imds = `http://${METADATA_ADDRESS}/latest`;
+	const token = `curl -fs -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' ${imds}/api/token`;
+	return [
+		"cat > /usr/local/bin/splates-spot-watch <<'SPLATES_WATCH'",
+		"#!/bin/sh",
+		"while sleep 5; do",
+		`  t=$(${token}) || continue`,
+		`  if curl -fs -H "X-aws-ec2-metadata-token: $t" ${imds}/meta-data/spot/instance-action >/dev/null; then`,
+		"    systemctl kill --signal=SIGUSR1 splates-worker.service",
+		"    sleep 120",
+		"  fi",
+		"done",
+		"SPLATES_WATCH",
+		"chmod +x /usr/local/bin/splates-spot-watch",
+		"cat > /etc/systemd/system/splates-spot-watch.service <<'SPLATES_WATCH_UNIT'",
+		"[Unit]",
+		"Description=splates spot interruption watcher",
+		"",
+		"[Service]",
+		"ExecStart=/usr/local/bin/splates-spot-watch",
+		"Restart=always",
+		"",
+		"[Install]",
+		"WantedBy=multi-user.target",
+		"SPLATES_WATCH_UNIT",
+	];
 }
 
 /** `word` as one argument of a shell command. */

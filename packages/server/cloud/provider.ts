@@ -77,6 +77,8 @@ export interface CloudToken {
 export interface CloudDefaults {
 	/** The types workers are made of, with what each costs. */
 	workerTypes: readonly WorkerType[];
+	/** Whether workers ask for spot machines first; false or absent for a cloud with none. */
+	spot?: boolean;
 	/** Where workers go, in the order tried. */
 	workerLocations: readonly string[];
 	/** The types a worker snapshot is built on, the first orderable taken. */
@@ -110,6 +112,8 @@ export interface CloudMachine {
 	backups: boolean;
 	/** When it was made, epoch milliseconds. */
 	createdAt: number;
+	/** Whether it runs on spare capacity the cloud may take back; absent for a cloud with none. */
+	spot?: boolean;
 }
 
 /** What `CloudProvider.create` makes. */
@@ -126,6 +130,12 @@ export interface NewMachine {
 	sshKeys?: string[];
 	/** Ids from `ensureFirewall`. */
 	firewalls?: string[];
+	/**
+	 * Asks for spare capacity at a discount that the cloud may take back, falling
+	 * back to a regular machine when none is to be had; `CloudMachine.spot`
+	 * says which it got. Ignored by a cloud with no such market.
+	 */
+	spot?: boolean;
 }
 
 /** One inbound rule of a firewall. */

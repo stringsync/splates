@@ -15,6 +15,7 @@ import { RELAY, relayParams, type WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import type { CoordinatorIdentity } from "./identity";
 import { WorkerPortHost } from "./port-host";
+import { LEAVING } from "./protocol";
 import { RelayScopes } from "./relay-scopes";
 import {
 	CALL_BOUNDS,
@@ -41,6 +42,8 @@ export interface WorkerRegistryEvents extends Record<string, unknown> {
 	/** A worker connected, for the first time or again. */
 	joined: RemoteWorker;
 	refused: RefusedWorker;
+	/** A worker said its machine is about to be taken away. */
+	leaving: { id: string; reason: string };
 }
 
 /** How a `WorkerRegistry` paces the sessions it keeps. */
@@ -273,12 +276,19 @@ export class WorkerRegistry
 		const session = new WorkerSession("coordinator", {
 			...this.opts.session,
 			// It sends keys to any worker that keeps them.
-			capabilities: [...WORKER_CAPABILITIES, KEYS],
+			capabilities: [...WORKER_CAPABILITIES, KEYS, LEAVING],
 			timer: this.timer,
 			clock: this.clock,
 			wall: this.wall,
 		});
 		session.events.on("channel", (channel) => this.serve(channel, session));
+		session.events.on("leaving", ({ reason }) => {
+			const worker = this.workers.find((each) => each.session === session);
+			if (worker !== undefined) {
+				this.log.info(`worker ${worker.id} is leaving: ${reason}`);
+				this.dispatcher.dispatch("leaving", { id: worker.id, reason });
+			}
+		});
 		// Said, since a worker hung up on redials at once and says nothing.
 		session.events.on("lost", ({ reason }) => {
 			const worker = this.workers.find((each) => each.session === session);

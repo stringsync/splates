@@ -36,6 +36,8 @@ export interface WorkerListing {
 	draining: boolean;
 	/** Is removed once its last agent ends. */
 	removing: boolean;
+	/** Runs on a spot machine the cloud may take back. */
+	spot: boolean;
 	/**
 	 * Whether the worker checked this coordinator's signing key before it
 	 * sent its own key; false for one that joined before join tokens carried
@@ -139,6 +141,7 @@ function listing(
 					: "away",
 		draining: record?.draining === true,
 		removing: record?.removing === true,
+		spot: record?.provisioned?.spot === true,
 		updating: record?.updating === true,
 		verified: worker.connected ? worker.verified : null,
 		lastHeard: session.lastHeard,
@@ -161,6 +164,7 @@ const Listings = z.object({
 			health: z.enum(["connected", "away", "asleep", "waking"]),
 			draining: z.boolean().default(false),
 			removing: z.boolean().default(false),
+			spot: z.boolean().default(false),
 			updating: z.boolean().default(false),
 			verified: z.boolean().nullable().default(null),
 			lastHeard: z.number().nullable(),
@@ -252,10 +256,11 @@ function health(
 			: worker.draining
 				? `${worker.health}, draining`
 				: worker.health;
+	const base = worker.spot ? `${state}, spot` : state;
 	const shown =
 		worker.verified === false
-			? `${state}, unverified: join it again to check the coordinator`
-			: state;
+			? `${base}, unverified: join it again to check the coordinator`
+			: base;
 	if (worker.lastHeard === null) {
 		return shown;
 	}

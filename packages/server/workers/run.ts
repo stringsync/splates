@@ -108,6 +108,11 @@ export async function workerRun(opts: WorkerRunOptions): Promise<void> {
 	const stopping = [
 		ps.on("SIGINT", () => void daemon.disposeAsync()),
 		ps.on("SIGTERM", () => void daemon.disposeAsync()),
+		// The spot watcher on a cloud machine sends this when its reclaim notice comes.
+		ps.on("SIGUSR1", () => {
+			log.info("the machine is being reclaimed: telling the coordinator");
+			daemon.leaving("spot interruption");
+		}),
 		endWithSupervisor(ps, new SystemTimer(), () => {
 			log.info("stopping: the server that started this worker is gone");
 			void daemon.disposeAsync();

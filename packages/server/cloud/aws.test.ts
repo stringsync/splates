@@ -44,6 +44,7 @@ describe("CloudWorkers in AWS", () => {
 				platform: "linux",
 				slots: 4,
 				dollarsPerHour: 0.2016,
+				spotDollarsPerHour: 0.08,
 				billing: "second",
 			},
 		]);
@@ -76,8 +77,31 @@ describe("CloudWorkers in AWS", () => {
 		);
 		expect(worker?.userData).not.toMatch(/ExecStart=.*secret-token/);
 		expect(await provider.list()).toEqual([
-			{ id: "m7i.xlarge-abc123", type: "m7i.xlarge" },
+			{ id: "m7i.xlarge-abc123", type: "m7i.xlarge", spot: true },
 		]);
+		expect(worker?.spot).toBe(true);
+		expect(worker?.userData).toContain("splates-spot-watch.service");
+	});
+
+	it("makes a worker on demand, and says so, when EC2 has no spot capacity", async () => {
+		aws.refuseSpot = "InsufficientInstanceCapacity";
+		const spec = {
+			type: "m7i.xlarge",
+			snapshot: "ami-1",
+			join: [],
+			joinEnv: {},
+			boot: [],
+		};
+		await provider.create({ id: "a", ...spec });
+		expect(aws.tagged("splates-worker", "a")[0]?.spot).toBe(false);
+		expect(await provider.list()).toEqual([
+			{ id: "a", type: "m7i.xlarge", spot: false },
+		]);
+		const asked = aws.requests.filter((each) => each.action === "RunInstances");
+		expect(asked).toHaveLength(2);
+
+		aws.refuseSpot = "UnauthorizedOperation";
+		await expect(provider.create({ id: "b", ...spec })).rejects.toThrow();
 	});
 
 	it("destroys a worker's instance alone, and says why AWS refused one", async () => {
@@ -94,7 +118,9 @@ describe("CloudWorkers in AWS", () => {
 		await provider.destroy("w");
 		await provider.destroy("gone");
 
-		expect(await provider.list()).toEqual([{ id: "v", type: "m7i.xlarge" }]);
+		expect(await provider.list()).toEqual([
+			{ id: "v", type: "m7i.xlarge", spot: true },
+		]);
 
 		aws.refuseRun = "vCPU limit reached";
 		await expect(provider.create({ id: "u", ...spec })).rejects.toThrow(

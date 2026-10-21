@@ -104,6 +104,9 @@ export class WorkerProtocol {
 /** The capability of a worker that restarts on another build when its coordinator sends `update`. */
 export const UPDATE = "update";
 
+/** The capability of a coordinator that frees what a worker runs when the worker sends `leaving`, as a spot reclaim's notice does. */
+export const LEAVING = "leaving";
+
 /** A JSON value, as control frames carry them. */
 export type Json =
 	| string
@@ -157,6 +160,8 @@ export type Frame =
 	  }
 	/** Asks a worker that offers `update` to restart on the coordinator's `build`, once nothing of its own runs on it. */
 	| { type: "update"; build: string }
+	/** Tells the coordinator the worker is about to be taken from under it, for it to carry its agents elsewhere at once. */
+	| { type: "leaving"; reason: string }
 	| { type: "open"; channel: number; seq: number; kind: string; params: Json }
 	| { type: "message"; channel: number; seq: number; body: Json }
 	| { type: "data"; channel: number; seq: number; bytes: Uint8Array }
@@ -220,6 +225,7 @@ const frameSchema = z.discriminatedUnion("type", [
 		update: z.string().optional(),
 	}),
 	z.object({ type: z.literal("update"), build: z.string() }),
+	z.object({ type: z.literal("leaving"), reason: z.string() }),
 	z.object({
 		type: z.literal("open"),
 		channel: id,

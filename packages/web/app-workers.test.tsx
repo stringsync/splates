@@ -342,6 +342,7 @@ function worker(
 ): WorkerListing {
 	return {
 		id,
+		spot: false,
 		kind: "registered",
 		platform: "linux",
 		host: null,

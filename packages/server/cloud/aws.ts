@@ -6,7 +6,13 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 
-import { AwsApi, type AwsInstance, awsRules } from "./aws-api";
+import {
+	AwsApi,
+	AwsError,
+	type AwsInstance,
+	awsRules,
+	type NewInstance,
+} from "./aws-api";
 import { AwsCredentialSource } from "./aws-credentials";
 import type {
 	CloudDefaults,
@@ -98,7 +104,7 @@ export class AwsCloud implements CloudProvider {
 		const api = this.api();
 		const subnet = await this.subnet(api);
 		const image = await this.imageId(api, spec.image);
-		const made = await api.runInstance({
+		const instance: NewInstance = {
 			imageId: image,
 			rootDevice: ROOT_DEVICE,
 			diskGb: this.diskGb,
@@ -109,8 +115,18 @@ export class AwsCloud implements CloudProvider {
 			profile: this.profile,
 			tags: { ...spec.tags, Name: spec.name },
 			...(spec.sshKeys?.[0] === undefined ? {} : { keyName: spec.sshKeys[0] }),
-		});
-		return this.machineOf(made);
+		};
+		if (spec.spot !== true) {
+			return this.machineOf(await api.runInstance(instance));
+		}
+		try {
+			return this.machineOf(await api.runInstance({ ...instance, spot: true }));
+		} catch (error) {
+			if (!(error instanceof AwsError && NO_SPOT.has(error.code))) {
+				throw error;
+			}
+			return this.machineOf(await api.runInstance(instance));
+		}
 	}
 
 	async delete(id: string): Promise<void> {
@@ -256,6 +272,7 @@ export class AwsCloud implements CloudProvider {
 			protected: guarded === "true",
 			backups: backed === BACKUP_VALUE,
 			createdAt: instance.launchedAt,
+			spot: instance.spot,
 		};
 	}
 }
@@ -280,6 +297,16 @@ export interface AwsCloudOptions {
 
 /** The tag of the public subnet the stack made, where workers go. */
 export const WORKER_SUBNET_TAG = "splates-worker-subnet";
+
+/** What EC2 answers a spot request with when it has none to give; an on-demand machine is asked for instead. */
+const NO_SPOT = new Set([
+	"InsufficientInstanceCapacity",
+	"SpotMaxPriceTooLow",
+	"MaxSpotInstanceCountExceeded",
+	"InsufficientFreeAddressesInSubnet",
+	"Unsupported",
+	"SpotInstanceRequestLimitExceeded",
+]);
 
 const WORKER_PROFILE = "splates-worker";
 const BACKUP_ROLE = "AWSDataLifecycleManagerDefaultRole";
@@ -309,6 +336,7 @@ const STATUS: Record<string, string> = {
  * minute; each worker's public IPv4 adds $0.005 an hour.
  */
 export const AWS_DEFAULTS: CloudDefaults = {
+	spot: true,
 	workerTypes: [
 		// 4 vCPU and 16 GB: four slots of 4 GB.
 		{
@@ -316,6 +344,8 @@ export const AWS_DEFAULTS: CloudDefaults = {
 			platform: "linux",
 			slots: 4,
 			dollarsPerHour: 0.2016,
+			// Typical m7i.xlarge spot price in us-east-1, about 40% of on demand.
+			spotDollarsPerHour: 0.08,
 			billing: "second",
 		},
 	],

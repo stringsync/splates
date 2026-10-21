@@ -16,6 +16,7 @@ export interface FakeInstance {
 	diskGb: number;
 	terminationProtected: boolean;
 	launchedAt: string;
+	spot: boolean;
 }
 
 /** An image as `FakeAws` keeps it. */
@@ -64,6 +65,8 @@ export class FakeAws {
 	readonly requests: FakeAwsRequest[] = [];
 	/** When set, running an instance is refused with it. */
 	refuseRun: string | null = null;
+	/** When set, asking for a spot instance is refused with this error code. */
+	refuseSpot: string | null = null;
 	/** Whether the stack's subnet exists. */
 	subnetTagged = true;
 	/** The state an instance is made in. */
@@ -134,6 +137,7 @@ export class FakeAws {
 			diskGb: 50,
 			terminationProtected: false,
 			launchedAt: new Date(0).toISOString(),
+			spot: false,
 			...fields,
 		};
 		this.instances.set(id, instance);
@@ -200,6 +204,10 @@ export class FakeAws {
 				if (this.refuseRun !== null) {
 					return error(400, "InstanceLimitExceeded", this.refuseRun);
 				}
+				const spot = params["InstanceMarketOptions.MarketType"] === "spot";
+				if (spot && this.refuseSpot !== null) {
+					return error(500, this.refuseSpot, "no spot capacity");
+				}
 				const tags = Object.assign({}, ...tagSpecs(params, "instance"));
 				const instance = this.put({
 					state: this.bootState,
@@ -211,6 +219,7 @@ export class FakeAws {
 					keyName: params.KeyName ?? null,
 					profile: params["IamInstanceProfile.Name"] ?? null,
 					diskGb: Number(params["BlockDeviceMapping.1.Ebs.VolumeSize"]),
+					spot,
 					tags,
 				});
 				return xml(action, { instancesSet: [instanceXml(instance)] });
@@ -534,6 +543,7 @@ function instanceXml(instance: FakeInstance): Fields {
 		placement: { availabilityZone: instance.zone },
 		...(instance.ip === null ? {} : { ipAddress: instance.ip }),
 		launchTime: instance.launchedAt,
+		...(instance.spot ? { instanceLifecycle: "spot" } : {}),
 		tagSet: tagXml(instance.tags),
 	};
 }

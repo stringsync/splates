@@ -21,7 +21,11 @@ import { ComingWorkers } from "./coming";
 import { WORKER_JOIN } from "./creds";
 import { DEFAULT_IDLE_AFTER, IdleWorkers } from "./idle";
 import { type ProvisionOptions, pickType } from "./pick-type";
-import type { WorkerProvider, WorkerType } from "./provider";
+import type {
+	ProvisionedMachine,
+	WorkerProvider,
+	WorkerType,
+} from "./provider";
 import { ProviderReconciler, SWEEP_EVERY } from "./reconcile";
 import { JOIN_WITHIN, type WorkerRecords } from "./records";
 import type { WorkerRegistry } from "./registry";
@@ -144,8 +148,9 @@ export class WorkerProvisioning
 			(await this.opts.access?.mint()) ?? null,
 		);
 		await this.opts.budget.started(id, type.name, type.dollarsPerHour);
+		let made: ProvisionedMachine;
 		try {
-			await this.reconciler.creating(id, () =>
+			made = await this.reconciler.creating(id, () =>
 				provider.create({
 					id,
 					type: type.name,
@@ -182,10 +187,25 @@ export class WorkerProvisioning
 			await this.opts.budget.ended(id);
 			throw error;
 		}
+		// Counted at the regular rate until the machine says it got spot.
+		let rate = type.dollarsPerHour;
+		if (made.spot === true) {
+			rate = type.spotDollarsPerHour ?? rate;
+			await records.set(id, {
+				provisioned: {
+					...provisioned,
+					dollarsPerHour: rate,
+					billing: type.billing,
+					createdAt: this.wall.now(),
+					spot: true,
+				},
+			});
+			await this.opts.budget.started(id, type.name, rate);
+		}
 		this.opts.log.info(
-			`provisioned ${id}, a ${type.name} at $${type.dollarsPerHour.toFixed(2)}/hour`,
+			`provisioned ${id}, a ${type.name} at $${rate.toFixed(2)}/hour${made.spot === true ? " on spot" : ""}`,
 		);
-		return { id, ...provisioned };
+		return { id, ...provisioned, dollarsPerHour: rate };
 	}
 
 	/** Destroys the machine of worker `id`, one a provider made. */

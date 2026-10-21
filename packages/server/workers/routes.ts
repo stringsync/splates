@@ -179,6 +179,12 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 					});
 		this.provisioning?.watch(this.slots.scheduler);
 		this.waking.events.on("missed", () => void this.provisioning?.refill());
+		// A spot machine told it is to be reclaimed: its agents move off now, and a replacement is made.
+		this.registry.events.on("leaving", ({ id }) => {
+			if (this.provisioning?.made(id)) {
+				void this.forget(id).then(() => this.provisioning?.refill());
+			}
+		});
 		this.rollout = new WorkerRollout({
 			registry: this.registry,
 			records,

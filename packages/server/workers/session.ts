@@ -19,6 +19,7 @@ import {
 	type Frame,
 	type Held,
 	type Json,
+	LEAVING,
 	type Negotiated,
 	UPDATE,
 	WorkerProtocol,
@@ -226,6 +227,25 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			return false;
 		}
 		this.write(connection.socket, { type: "update", build });
+		return true;
+	}
+
+	/**
+	 * Tells the coordinator this worker is about to go, answering whether it
+	 * could: connected to one that offers `leaving`.
+	 */
+	leaving(reason: string): boolean {
+		this.assertRole("worker");
+		const negotiated = this._negotiated;
+		const connection = this.connection;
+		if (
+			!connection?.live ||
+			negotiated?.ok !== true ||
+			!negotiated.capabilities.includes(LEAVING)
+		) {
+			return false;
+		}
+		this.write(connection.socket, { type: "leaving", reason });
 		return true;
 	}
 
@@ -600,6 +620,13 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 				}
 				this.lose("update came from a worker");
 				return;
+			case "leaving":
+				if (this.role === "coordinator") {
+					this.dispatcher.dispatch("leaving", { reason: frame.reason });
+					return;
+				}
+				this.lose("leaving came from a coordinator");
+				return;
 			default:
 				this.lose(`${frame.type} came after the handshake`);
 		}
@@ -922,4 +949,6 @@ export interface WorkerSessionEvents extends Record<string, unknown> {
 	acked: undefined;
 	/** The coordinator asks this worker to restart on its `build`. */
 	update: { build: string };
+	/** The worker says its machine is about to be taken away. */
+	leaving: { reason: string };
 }

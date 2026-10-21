@@ -10,6 +10,8 @@ export interface WorkerType {
 	slots: number;
 	/** What the user pays for one per hour, in US dollars. */
 	dollarsPerHour: number;
+	/** What one costs per hour on spot, in US dollars, for a provider with a spot market; absent for none. */
+	spotDollarsPerHour?: number;
 	/**
 	 * How the provider bills a worker of this type: `"hour"` for each started
 	 * hour in full from its creation until it is destroyed, so one idle past
@@ -76,6 +78,8 @@ export interface ProvisionedMachine {
 	/** The worker's id, as its `WorkerSpec` gave it. */
 	id: string;
 	type: string;
+	/** Whether its machine is on spare capacity that may be taken back; absent when the provider has no such kind. */
+	spot?: boolean;
 }
 
 /**

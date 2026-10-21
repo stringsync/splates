@@ -122,7 +122,8 @@ export class AwsApi {
 			MinCount: 1,
 			MaxCount: 1,
 			UserData: Buffer.from(spec.userData).toString("base64"),
-			InstanceInitiatedShutdownBehavior: "stop",
+			InstanceInitiatedShutdownBehavior:
+				spec.spot === true ? "terminate" : "stop",
 			MetadataOptions: { HttpTokens: "required", HttpEndpoint: "enabled" },
 			BlockDeviceMapping: [
 				{
@@ -142,6 +143,17 @@ export class AwsApi {
 					SecurityGroupId: spec.securityGroupIds,
 				},
 			],
+			...(spec.spot === true
+				? {
+						InstanceMarketOptions: {
+							MarketType: "spot",
+							SpotOptions: {
+								SpotInstanceType: "one-time",
+								InstanceInterruptionBehavior: "terminate",
+							},
+						},
+					}
+				: {}),
 			...(spec.keyName === undefined ? {} : { KeyName: spec.keyName }),
 			...(spec.profile === undefined
 				? {}
@@ -584,6 +596,8 @@ export interface AwsInstance {
 	tags: Record<string, string>;
 	/** When it launched, epoch milliseconds. */
 	launchedAt: number;
+	/** Whether it is a spot instance. */
+	spot: boolean;
 }
 
 /** What `AwsApi.runInstance` makes. */
@@ -600,6 +614,8 @@ export interface NewInstance {
 	/** The instance profile's name. */
 	profile?: string;
 	tags: Record<string, string>;
+	/** Asks for a one-time spot instance, terminated when AWS takes it back. */
+	spot?: boolean;
 }
 
 /** A security group and its inbound rules, one per source. */
@@ -689,6 +705,7 @@ function instanceOf(value: XmlValue | undefined): AwsInstance {
 		ipv4: ip === "" ? null : ip,
 		tags: tagsOf(AwsXml.field(value, "tagSet")),
 		launchedAt: Date.parse(AwsXml.str(AwsXml.field(value, "launchTime"))),
+		spot: AwsXml.str(AwsXml.field(value, "instanceLifecycle")) === "spot",
 	};
 }
 

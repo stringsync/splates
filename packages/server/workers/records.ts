@@ -284,6 +284,8 @@ const Record = z.object({
 			billing: z.enum(["hour", "second"]).default("second"),
 			/** When its machine was asked for, epoch milliseconds; null for a record from before this was kept. */
 			createdAt: z.number().nullable().default(null),
+			/** Whether its machine is on spot, at a discount the cloud may take back. */
+			spot: z.boolean().optional(),
 		})
 		.nullable()
 		.default(null),

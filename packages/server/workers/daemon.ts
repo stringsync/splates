@@ -274,6 +274,15 @@ export class WorkerDaemon implements AsyncResource {
 		return verdict ? await answer : `it did not answer within ${within.secs}s`;
 	}
 
+	/**
+	 * Tells the coordinator this worker's machine is going, as a spot
+	 * reclaim's notice says, so its agents carry on elsewhere at once;
+	 * answers whether it was told.
+	 */
+	leaving(reason: string): boolean {
+		return this.session.leaving(reason);
+	}
+
 	/** Stops dialing and everything this worker runs, and hangs up. */
 	async disposeAsync(): Promise<void> {
 		this.stopped = true;
