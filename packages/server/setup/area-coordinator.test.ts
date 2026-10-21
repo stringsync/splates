@@ -91,3 +91,68 @@ describe("COORDINATOR_AREA's up step", () => {
 		expect(await step?.check(machine)).toBe(true);
 	});
 });
+
+describe("COORDINATOR_AREA's up step running pulumi", () => {
+	const step = COORDINATOR_AREA.steps.find(
+		(each) => each.id === "coordinator-up",
+	);
+
+	it("shows the preview's summary and the cost, and runs pulumi up on Next", async () => {
+		const fs = new FakeFs();
+		const calls: string[][] = [];
+		class Ps extends FakePs {
+			override async spawnCapture(argv: string[], _opts?: SpawnOptions) {
+				calls.push(argv);
+				const stdout =
+					argv[1] === "preview" ? "Resources:\n    + 12 to create\n" : "{}";
+				return { exitCode: 0, stdout, stderr: "" };
+			}
+		}
+		const machine = {
+			fs,
+			ps: new Ps(),
+			home: HOME,
+			device: new FakeSecretStore(),
+		};
+		await writeInfraConfig(fs, HOME, { dir: "/code/infra", stack: "prod" });
+
+		const detail = await step?.detail?.(machine);
+		expect(detail).toContain("12 to create");
+		expect(detail).toContain("$35");
+
+		await step?.submit?.(machine, {});
+
+		expect(calls.at(-1)).toEqual([
+			"pulumi",
+			"up",
+			"--yes",
+			"--non-interactive",
+			"--stack",
+			"prod",
+		]);
+	});
+
+	it("fails with the line pulumi failed on", async () => {
+		const fs = new FakeFs();
+		class Ps extends FakePs {
+			override async spawnCapture() {
+				return {
+					exitCode: 1,
+					stdout: "",
+					stderr: "Diagnostics:\n  error: no credentials\n\nmore\n",
+				};
+			}
+		}
+		const machine = {
+			fs,
+			ps: new Ps(),
+			home: HOME,
+			device: new FakeSecretStore(),
+		};
+		await writeInfraConfig(fs, HOME, { dir: "/code/infra" });
+
+		await expect(
+			step?.submit?.(machine, {}) ?? Promise.resolve(),
+		).rejects.toThrow("error: no credentials");
+	});
+});

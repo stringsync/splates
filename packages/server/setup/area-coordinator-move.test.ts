@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "webappwiz/creds/testing";
-import { FakeFs } from "webappwiz/system/testing";
-import type { Moved } from "../coordinator";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { type Moved, writeInfraConfig } from "../coordinator";
 import { coordinatorArea, type MovingProject } from "./area-coordinator";
 import type { SetupMachine, SetupStep } from "./setup";
 
@@ -18,7 +18,12 @@ describe("COORDINATOR_AREA's move steps", () => {
 
 	beforeEach(() => {
 		fs = new FakeFs();
-		machine = { fs, home: HOME, device: new FakeSecretStore() };
+		machine = {
+			fs,
+			ps: new FakePs(),
+			home: HOME,
+			device: new FakeSecretStore(),
+		};
 		projects = [
 			{
 				slug: "app",
@@ -90,6 +95,7 @@ describe("COORDINATOR_AREA's move steps", () => {
 		expect(await keys.check(machine)).toBe(false);
 		expect(await keys.data?.(machine)).toBeNull();
 
+		await writeInfraConfig(fs, HOME, { dir: "/code/infra" });
 		const needs = ["/splates/device/SPLATES_TUNNEL_TOKEN"];
 		answers.push({ status: "blocked", needs });
 		await keys.submit?.(machine, {});

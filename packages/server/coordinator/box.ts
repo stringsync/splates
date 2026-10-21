@@ -69,6 +69,29 @@ export class CoordinatorBox {
 		};
 	}
 
+	/** What `pulumi preview` says the stack would change, as its summary line. */
+	async preview(): Promise<string> {
+		const infra = await this.infraOrThrow();
+		const out = await this.pulumi(infra, ["preview", "--non-interactive"]);
+		return summaryOf(out);
+	}
+
+	/** Makes what the stack describes, `pulumi up --yes`; throws the line `pulumi` failed with. */
+	async up(): Promise<void> {
+		const infra = await this.infraOrThrow();
+		await this.pulumi(infra, ["up", "--yes", "--non-interactive"]);
+	}
+
+	private async infraOrThrow(): Promise<InfraConfig> {
+		const infra = await this.infra();
+		if (infra === null) {
+			throw new Error(
+				"no infra project here: `splates server infra init <dir>` writes one",
+			);
+		}
+		return infra;
+	}
+
 	/**
 	 * The box, with a login: its key kept from the stack when it is not yet,
 	 * and its host key, which the box printed to its console on first boot,
@@ -159,11 +182,37 @@ export class CoordinatorBox {
 		);
 		if (ran.exitCode !== 0) {
 			throw new Error(
-				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${ran.stderr.trim()}`,
+				`pulumi ${args.slice(0, 2).join(" ")} in ${infra.dir} failed: ${failureLine(ran.stderr || ran.stdout)}`,
 			);
 		}
 		return ran.stdout;
 	}
+}
+
+/** The line that says what a failed `pulumi` run failed on: its last `error:` line, else its last. */
+export function failureLine(output: string): string {
+	const lines = output
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+	return (
+		lines.findLast((line) => line.startsWith("error:")) ?? lines.at(-1) ?? ""
+	);
+}
+
+/** The `Resources:` summary of a `pulumi preview`, as "3 to create". */
+export function summaryOf(output: string): string {
+	const lines = output.split("\n");
+	const at = lines.findIndex((line) => line.trim().startsWith("Resources:"));
+	const found =
+		at < 0
+			? []
+			: lines
+					.slice(at + 1)
+					.map((line) => line.trim())
+					.filter((line) => /^[+~-]\s*\d+ /.test(line))
+					.map((line) => line.replace(/^[+~-]\s*/, ""));
+	return found.length === 0 ? "nothing to change" : found.join(", ");
 }
 
 /** The host keys an Ubuntu box prints to its console, as `type data` lines for a known_hosts file. */

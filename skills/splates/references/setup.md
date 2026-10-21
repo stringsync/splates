@@ -123,7 +123,7 @@ deletes any root access keys),
 `coordinator-infra` (`splates server infra init <dir>` has written the project,
 filled from the projects, tunnel and creds splates keeps, requesting any cred
 not kept, and `~/.splates/coordinator/infra.json` names it), `coordinator-remotes`,
-`coordinator-up` (the user runs `pulumi up`; done when `pulumi stack output
+`coordinator-up` (the page shows `pulumi preview` and the monthly cost, and Next runs `pulumi up --yes`; done when `pulumi stack output
 --json` gives the instance id and tunnel host) and `coordinator-creds`, then
 `coordinator-move`. Undoing the AWS steps guides the user through `pulumi
 destroy`; splates never destroys the stack itself. The box is an EC2
@@ -133,8 +133,8 @@ The move needs
 `coordinator-remotes` step): the box reads a deploy key per project from its Parameter
 Store, and until each is set and GitHub lets it push trunk the deploy exits `blocked`,
 naming each cred the box lacks; show the user those with their `pulumi config set
---secret` line, and run it again once `pulumi up` has put them in
-(`coordinator-creds`). `--dry-run` stops there, the
+--secret` line, and run it again once set (`coordinator-creds`'s Next runs `pulumi up` itself
+after a blocked dry run). `--dry-run` stops there, the
 box ready. Run for real (`coordinator-move`), it checkpoints every agent and
 stops this machine's `splates server`, carries the records over,
 starts the server on the box under systemd with the saved tunnel, and joins

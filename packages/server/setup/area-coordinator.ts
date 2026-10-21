@@ -37,6 +37,9 @@ export interface CoordinatorAreaDeps {
 /** A project as the move checks its remote. */
 export type MovingProject = Parameters<typeof remoteProblem>[0];
 
+/** What the box costs a month in dollars: the t3.medium, its disk and 7 daily snapshots. */
+const BOX_MONTHLY_COST = 35;
+
 export const COORDINATOR_AREA: SetupArea = coordinatorArea();
 
 /**
@@ -53,6 +56,14 @@ export function coordinatorArea(
 	// The last dry run each splates home ran here: the dry run brings the
 	// box's splates up and pushes to GitHub, too slow for each read of setup.
 	const dryRuns = new Map<string, Moved>();
+	// What `pulumi preview` last said, per splates home, until `pulumi up` runs.
+	const previews = new Map<string, string>();
+
+	/** `pulumi up` in the infra project, under its ESC environment, then forgets the preview. */
+	const pulumiUp = async (machine: SetupMachine): Promise<void> => {
+		previews.delete(machine.home);
+		await box(machine).up();
+	};
 
 	const pulumiStep: SetupStep = {
 		id: "coordinator-pulumi",
@@ -198,15 +209,32 @@ export function coordinatorArea(
 		id: "coordinator-up",
 		title: "Bring the server's box up",
 		why: "An always-on box keeps the page, the queue and merging up while this machine sleeps. It is a small EC2 instance in your AWS account that your Pulumi project makes, reached by SSH alone; it serves nothing until the server is deployed to it.",
-		user: "Set the stack's config (`splates server infra init` prints what), run `pulumi up` in the project's directory, and press Next.",
+		user: "Read what the preview says it will make and what it costs a month, then press Next to make it.",
 		agent:
-			"Have the user set the stack's config and secrets and run `pulumi up` in the infra project's directory. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address.",
+			"Next runs `pulumi up --yes` in the infra project's directory, under its ESC environment. If it fails, the page says what failed: have the user fix the stack's config (`splates server infra init` prints what) and press Next again. The step is done when `pulumi stack output --json` gives the instance id and tunnel host; `splates server status` prints the box's address.",
 		optional: true,
 		after: [accessStep, pulumiStep, infraStep],
-		detail: async () =>
-			"The Pulumi stack makes the instance, its role, snapshots and creds.",
+		doing: "Making the box with `pulumi up`, a few minutes…",
+		detail: async (machine) => {
+			if (await coordinatorMoved(machine)) {
+				return null;
+			}
+			let preview = previews.get(machine.home);
+			if (preview === undefined) {
+				preview = await box(machine)
+					.preview()
+					.catch(() => "");
+				if (preview !== "") {
+					previews.set(machine.home, preview);
+				}
+			}
+			return `${preview === "" ? "The stack makes" : `The preview says ${preview}: the stack makes`} the instance, its role, snapshots and creds. That costs about $${BOX_MONTHLY_COST} a month: a t3.medium, its disk and 7 daily snapshots.`;
+		},
+		submit: async (machine) => {
+			await pulumiUp(machine);
+		},
 		notDone:
-			"The stack has made no box yet: `pulumi up` in the infra project's directory.",
+			"The stack has made no box yet: press Next to run `pulumi up` in the infra project's directory.",
 		check: async (machine) => {
 			if (await coordinatorMoved(machine)) {
 				return true;
@@ -234,7 +262,7 @@ export function coordinatorArea(
 		id: "coordinator-creds",
 		title: "Give the box its creds",
 		why: "The box reads a deploy key per project, and its tunnel token, from its Parameter Store, where the Pulumi stack put them, and clones and pushes trunk with them once the server runs there.",
-		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each with `pulumi config set --secret`, run `pulumi up`, then press Next again.",
+		user: "Press Next to ready each project's clone on the box. If it lists creds the box lacks, set each with `pulumi config set --secret`, then press Next again, which runs `pulumi up` itself.",
 		agent:
 			"Run `splates server deploy --dry-run`, which brings the box's splates to this release, and exits `blocked` naming each cred the box's Parameter Store lacks. Have the user fix the stack and `pulumi up`, and run it again until it says the box is ready.",
 		optional: true,
@@ -256,6 +284,10 @@ export function coordinatorArea(
 			return last?.status === "blocked" ? { needs: last.needs } : null;
 		},
 		submit: async (machine) => {
+			// A cred set since the last dry run reaches the box only through `pulumi up`.
+			if (dryRuns.get(machine.home)?.status === "blocked") {
+				await pulumiUp(machine);
+			}
 			dryRuns.set(machine.home, await deps.move(machine).run({ dryRun: true }));
 		},
 		undo: {
