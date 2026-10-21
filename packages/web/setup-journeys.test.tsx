@@ -98,9 +98,7 @@ describe("Setup journeys", () => {
 		await click(view, "Finish");
 		await waitFor(() => view.getByText("Claude is set up"));
 		await click(view, "Back to setup");
-		expect(
-			view.getByRole("button", { name: "Set up Claude Done" }),
-		).toBeTruthy();
+		expect(view.getByRole("button", { name: "Set up Claude" })).toBeTruthy();
 		expect(testing.asked).not.toContain("/api/setup/opencode");
 	});
 
@@ -134,7 +132,7 @@ describe("Setup journeys", () => {
 		await click(view, "Set up Codex");
 		expect(view.getByRole("form", { name: "Choose Codex models" }));
 		await click(view, "Setup");
-		await click(view, "Set up Dictation Done");
+		await click(view, "Set up Dictation");
 		expect(view.getByRole("form", { name: "Dictate prompts" }));
 	});
 
@@ -205,9 +203,9 @@ describe("Setup journeys", () => {
 			.getAllByRole("button", { name: /^Set up/ })
 			.map((row) => row.textContent);
 		expect(rows.slice(0, 3)).toEqual([
-			"Set up OpenCode",
-			"Set up Claude Done",
-			"Set up Codex",
+			"Set up OpenCode4 steps",
+			"Set up ClaudeAll steps done",
+			"Set up Codex0 of 2 steps done",
 		]);
 		expect(
 			view

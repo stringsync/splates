@@ -46,57 +46,78 @@ export function SetupIndex({
 	onUndo: (id: string) => void;
 }): JSX.Element {
 	return (
-		<nav
-			aria-label="setup areas"
-			className="mx-auto flex w-full max-w-lg flex-col gap-6"
-		>
+		<nav aria-label="setup areas" className="flex w-full flex-col gap-6">
 			{ordered(areas).map((group) => (
 				<ul
 					key={group[0]?.id}
 					className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
 				>
-					{group.map((area) => {
-						const done = area.done === area.steps.length;
-						return (
-							<li
-								key={area.id}
-								className="relative flex min-h-14 items-center justify-end gap-2 pr-4"
-							>
-								<button
-									type="button"
-									className={`absolute inset-0 flex cursor-pointer items-center gap-3 pl-4 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50 ${area.undoable ? "pr-28" : "pr-4"}`}
-									onClick={() => onSelect(area.id)}
-								>
-									<span className="flex-1">Set up {area.title}</span>
-									{done && (
-										<span className="flex items-center gap-1.5 text-sm text-success">
-											<CheckIcon className="size-4" aria-hidden /> Done
-										</span>
-									)}
-								</button>
-								{area.undoable && (
-									<Button
-										variant="ghost"
-										size="sm"
-										className="relative text-muted-foreground"
-										aria-label={`Undo ${area.title}`}
-										onClick={() => onUndo(area.id)}
-									>
-										<Undo2Icon aria-hidden /> Undo
-									</Button>
-								)}
-								{!done && (
-									<ChevronRightIcon
-										className="pointer-events-none relative size-4 text-muted-foreground"
-										aria-hidden
-									/>
-								)}
-							</li>
-						);
-					})}
+					{group.map((area) => (
+						<AreaRow
+							key={area.id}
+							area={area}
+							onSelect={onSelect}
+							onUndo={onUndo}
+						/>
+					))}
 				</ul>
 			))}
 		</nav>
+	);
+}
+
+/** How far an area is, as a line under its name. */
+function progressLine(area: AreaProgress): string {
+	if (area.done === area.steps.length) {
+		return "All steps done";
+	}
+	if (area.done === 0 && !area.undoable) {
+		return `${area.steps.length} steps`;
+	}
+	return `${area.done} of ${area.steps.length} steps done`;
+}
+
+function AreaRow({
+	area,
+	onSelect,
+	onUndo,
+}: {
+	area: AreaProgress;
+	onSelect: (id: string) => void;
+	onUndo: (id: string) => void;
+}): JSX.Element {
+	const done = area.done === area.steps.length;
+	return (
+		<li className="flex min-h-16 items-center gap-2 pr-3 hover:bg-muted/50">
+			<button
+				type="button"
+				aria-label={`Set up ${area.title}`}
+				className="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 pl-4 text-left outline-none focus-visible:bg-muted/50"
+				onClick={() => onSelect(area.id)}
+			>
+				<span className="flex min-w-0 flex-1 flex-col">
+					<span className="font-medium">Set up {area.title}</span>
+					<span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+						{done && (
+							<CheckIcon className="size-3.5 text-success" aria-hidden />
+						)}
+						{progressLine(area)}
+					</span>
+				</span>
+			</button>
+			{area.undoable && (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="text-muted-foreground"
+					aria-label={`Undo ${area.title}`}
+					onClick={() => onUndo(area.id)}
+				>
+					<Undo2Icon aria-hidden /> Undo
+				</Button>
+			)}
+			<ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+		</li>
 	);
 }
 
