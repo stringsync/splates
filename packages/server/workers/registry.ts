@@ -66,6 +66,12 @@ export class WorkerRegistry
 	private readonly wall: WallClock;
 	/** The port of the server a worker's relay reaches, once it listens. */
 	private relayPort: number | null = null;
+	/**
+	 * Detached for a restart, or disposed: a worker that redials now is hung
+	 * up on, since a fresh session's welcome would have it end everything it
+	 * kept for the next run.
+	 */
+	private closed = false;
 
 	constructor(
 		private readonly log: Logger,
@@ -140,6 +146,10 @@ export class WorkerRegistry
 			);
 			return;
 		}
+		if (this.closed) {
+			socket.dispose();
+			return;
+		}
 		const known = this.byId.get(said.id);
 		const session = known?.session ?? this.session();
 		const negotiated = session.accept(socket, said);
@@ -188,6 +198,7 @@ export class WorkerRegistry
 	 * `ACK_WAIT` is up.
 	 */
 	async detach(): Promise<void> {
+		this.closed = true;
 		await Promise.all(
 			this.workers.map(async ({ session }) => {
 				await timeouts.race(this.timer, session.acked(), ACK_WAIT);
@@ -231,6 +242,7 @@ export class WorkerRegistry
 	}
 
 	dispose(): void {
+		this.closed = true;
 		for (const worker of this.byId.values()) {
 			worker.session.dispose();
 		}

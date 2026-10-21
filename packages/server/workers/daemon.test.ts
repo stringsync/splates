@@ -6,6 +6,7 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { printed } from "../agents/testing";
+import { eventually } from "../conversations/testing";
 import { WorkerDaemon } from "./daemon";
 import { WorkerRegistry } from "./registry";
 import type { RemoteWorker } from "./remote";
@@ -243,6 +244,24 @@ describe("WorkerDaemon", () => {
 
 		expect((await received).length).toBe(20_000_000);
 		expect(await child.exited).toBe(0);
+	});
+
+	it("keeps its shell when it redials a coordinator that handed it over, while that one still listens", async () => {
+		const shell = worker.pty({
+			argv: ["sleep", "30"],
+			cwd: dir,
+			cols: 80,
+			rows: 24,
+		});
+		await eventually(() => shell.pid !== null, 10);
+		const pid = shell.pid as number;
+
+		await registry.detach();
+		registry.dispose();
+		// Past the worker's redial backoff, so it has dialed the listener again.
+		await sleep(Duration.ms(300));
+
+		expect(new NodePs().alive(pid)).toBe(true);
 	});
 
 	// scry-ignore simple-test-setup: it alone drops the coordinator for good, which is what it tests
