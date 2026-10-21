@@ -345,7 +345,10 @@ function session(
 			result: Record<string, unknown> | undefined;
 		let tokens: number | null = null,
 			costUsd: number | null = null;
-		const usage = () => emit({ kind: "usage", tokens, costUsd, final: false });
+		// A result frame carrying full per-model counts and a cost is the run's
+		// own final tally, so the reservation may settle at it.
+		const usage = (final = false) =>
+			emit({ kind: "usage", tokens, costUsd, final });
 		const line = (text: string) => {
 			if (!text.trim() || failure) {
 				return;
@@ -409,11 +412,11 @@ function session(
 								"cacheCreationInputTokens",
 							]),
 						);
-					if (
+					const counted =
 						!frame.startup_failure_reason &&
 						counts?.length &&
-						counts.every((count) => count !== null)
-					) {
+						counts.every((count) => count !== null);
+					if (counted) {
 						tokens = Math.max(
 							tokens ?? 0,
 							counts.reduce<number>((total, count) => total + (count ?? 0), 0),
@@ -423,7 +426,7 @@ function session(
 					if (!frame.startup_failure_reason && cost !== null) {
 						costUsd = Math.max(costUsd ?? 0, cost);
 					}
-					usage();
+					usage(Boolean(counted) && cost !== null);
 				}
 			} catch (error) {
 				failure = error instanceof Error ? error : new Error(String(error));

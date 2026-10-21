@@ -154,7 +154,9 @@ it.each([
 			expect(
 				result.run.evidence.events.filter((event) => event.actor === "agent"),
 			).toEqual([]);
-			expect(result.adapter.runtime.nativeUsageComplete).toBe(false);
+			expect(result.adapter.runtime.nativeUsageComplete).toBe(
+				provider === "claude",
+			);
 			expect(result.run.reproduction).toContain(
 				`${provider}:${result.run.identity.model}`,
 			);
@@ -167,17 +169,27 @@ it.each([
 			);
 			results.push(result);
 		}
-		expect((await sharedBudget.report()).windows[0]).toMatchObject({
-			reserved: 200,
-			remaining: 0,
-			consumed: 0,
-		});
-		await expect(sharedBudget.reserve([allowance])).rejects.toThrow(
-			"exhausted",
-		);
-		expect(probeReport(results)).toContain(
-			"Billing incomplete: shared reservation remains outstanding even on success",
-		);
+		// scry-ignore matchers-over-test-logic: Claude settles its reservation at the result frame while the other transports leave it outstanding.
+		if (provider === "claude") {
+			// A result frame settles the reservation at its reported usage.
+			const window = (await sharedBudget.report()).windows[0];
+			expect(window).toMatchObject({ reserved: 0 });
+			expect(window?.consumed).toBeGreaterThan(0);
+			expect((window?.consumed ?? 0) + (window?.remaining ?? 0)).toBe(200);
+			expect(probeReport(results)).not.toContain("Billing incomplete");
+		} else {
+			expect((await sharedBudget.report()).windows[0]).toMatchObject({
+				reserved: 200,
+				remaining: 0,
+				consumed: 0,
+			});
+			await expect(sharedBudget.reserve([allowance])).rejects.toThrow(
+				"exhausted",
+			);
+			expect(probeReport(results)).toContain(
+				"Billing incomplete: shared reservation remains outstanding even on success",
+			);
+		}
 		expect(probeReport(results)).toContain("monitored");
 	},
 	30000,

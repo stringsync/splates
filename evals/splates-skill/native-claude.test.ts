@@ -49,7 +49,7 @@ it("preserves native skill bytes, selected model/tools and cumulative multi-mode
 	expect(updates.filter((update) => update.kind === "usage")).toEqual([
 		{ kind: "usage", tokens: 20, costUsd: null, final: false },
 		{ kind: "usage", tokens: 22, costUsd: null, final: false },
-		{ kind: "usage", tokens: 40, costUsd: 0.002, final: false },
+		{ kind: "usage", tokens: 40, costUsd: 0.002, final: true },
 	]);
 	expect(updates.at(-1)).toEqual({ kind: "reply", text: "done" });
 	expect(updates.some((update) => update.kind === "event")).toBe(false);
