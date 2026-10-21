@@ -1,16 +1,18 @@
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { RUNNING } from "../server/shared";
 import { joinCommand, windowsJoinCommand } from "./join-command";
 import { LOCAL_WORKER } from "./routes";
+import { serverOf } from "./server-of";
 
 /** How a `splates worker` command reaches the running `splates server`. */
 export interface ServerCallOptions {
 	/** The `splates server` to ask; empty for the one this agent runs under. */
 	dev: string;
 	log: Logger;
+	fs?: Fs;
 	ps: Ps;
 	send?: typeof fetch;
 }
@@ -23,18 +25,18 @@ export async function callServer(
 	path: string,
 	opts: ServerCallOptions & { method?: string; body?: unknown },
 ): Promise<unknown> {
-	const { ps, send = fetch } = opts;
-	const url = opts.dev || ps.env("SPLATES_DEV");
-	if (!url) {
+	const server = await serverOf(opts);
+	if (server === null) {
 		fail(
 			"usage",
 			"no `splates server` to ask: give its URL with --dev, as in --dev http://localhost:4310",
 		);
 	}
+	const { url, send } = server;
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
-		response = await send(new URL(path, url), {
+		response = await send(new URL(path, url).toString(), {
 			method: opts.method ?? "GET",
 			headers: {
 				origin: url,

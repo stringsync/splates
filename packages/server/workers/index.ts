@@ -109,6 +109,8 @@ export {
 	Scheduler,
 	type SlotRequest,
 } from "./scheduler";
+export type { ServerOf } from "./server-of";
+export { serverOf } from "./server-of";
 export { ServerWorkerSocket } from "./server-socket";
 export { WorkerSession } from "./session";
 export { LOCAL_SLOTS, WorkerSlots } from "./slots";

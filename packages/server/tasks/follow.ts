@@ -1,7 +1,8 @@
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import type { Git } from "../git";
 import type { Projects } from "../projects";
+import { serverOf } from "../workers";
 
 /**
  * How long a server is waited on before it counts as unreachable: one that
@@ -21,7 +22,7 @@ type Send = (url: string, init: RequestInit) => Promise<Response>;
  * done its work.
  */
 export async function follow(
-	{ ps, log, send = fetch }: { ps: Ps; log: Logger; send?: Send },
+	{ ps, fs, log, send }: { ps: Ps; fs?: Fs; log: Logger; send?: Send },
 	task: string | null,
 	{
 		from,
@@ -37,12 +38,14 @@ export async function follow(
 	} = {},
 ): Promise<void> {
 	const id = ps.env("SPLATES_CONVERSATION");
-	const url = ps.env("SPLATES_DEV");
-	if (id === undefined || url === undefined) {
+	const server =
+		id === undefined ? null : await serverOf({ ps, fs, log, send });
+	if (id === undefined || server === null) {
 		return;
 	}
+	const { url } = server;
 	try {
-		const response = await send(`${url}/api/conversations/${id}/task`, {
+		const response = await server.send(`${url}/api/conversations/${id}/task`, {
 			method: "PUT",
 			// The server refuses a write from any other origin than its own.
 			headers: { "content-type": "application/json", origin: url },
@@ -69,26 +72,29 @@ export async function follow(
  */
 export async function serveProject({
 	ps,
+	fs,
 	log,
 	git,
 	projects,
-	send = fetch,
+	send,
 }: {
 	ps: Ps;
+	fs?: Fs;
 	log: Logger;
 	git: Git;
 	projects: Projects;
 	send?: Send;
 }): Promise<void> {
-	const url = ps.env("SPLATES_DEV");
+	const server = await serverOf({ ps, fs, log, send });
 	const slug = (await projects.list()).find(
 		(each) => each.root === git.root,
 	)?.slug;
-	if (url === undefined || slug === undefined) {
+	if (server === null || slug === undefined) {
 		return;
 	}
+	const { url } = server;
 	try {
-		const response = await send(`${url}/api/projects/${slug}/serve`, {
+		const response = await server.send(`${url}/api/projects/${slug}/serve`, {
 			method: "POST",
 			headers: { origin: url },
 			signal: AbortSignal.timeout(SERVER_WAIT_MS),

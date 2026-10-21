@@ -1,12 +1,13 @@
 import { basename } from "node:path";
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { z } from "zod";
 import { fail } from "../exit";
 import { table } from "../table";
 import { WORKER_LIMITS, type WorkerLimit } from "./budget";
 import { dollars } from "./budget-notice";
 import type { WorkerBudgetReport } from "./budget-routes";
+import { serverOf } from "./server-of";
 
 /** What `splates budget` is run with. */
 export interface BudgetCommandOptions {
@@ -14,6 +15,7 @@ export interface BudgetCommandOptions {
 	dev: string;
 	json: boolean;
 	log: Logger;
+	fs?: Fs;
 	ps: Ps;
 	send?: typeof fetch;
 }
@@ -117,19 +119,20 @@ function amount(text: string): number {
 async function ask(
 	path: string,
 	init: RequestInit,
-	{ dev, ps, send = fetch }: BudgetCommandOptions,
+	opts: BudgetCommandOptions,
 ): Promise<WorkerBudgetReport> {
-	const url = dev || ps.env("SPLATES_DEV");
-	if (!url) {
+	const server = await serverOf(opts);
+	if (server === null) {
 		fail(
 			"usage",
 			"no `splates server` to ask: give its URL with --dev, as in --dev http://localhost:4310",
 		);
 	}
+	const { url, send } = server;
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
-		response = await send(new URL(path, url), {
+		response = await send(new URL(path, url).toString(), {
 			...init,
 			headers: {
 				origin: url,

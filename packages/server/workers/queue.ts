@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import {
 	Duration,
 	SystemWallClock,
@@ -11,6 +11,7 @@ import { z } from "zod";
 import { fail } from "../exit";
 import { table } from "../table";
 import type { QueueEntry } from "./scheduler";
+import { serverOf } from "./server-of";
 
 /** One agent waiting for a slot, as `GET /api/queue` and `splates worker queue list` give it. */
 export interface QueueListing {
@@ -55,6 +56,7 @@ export interface QueueOptions {
 	dev: string;
 	json: boolean;
 	log: Logger;
+	fs?: Fs;
 	ps: Ps;
 	send?: typeof fetch;
 	wall?: WallClock;
@@ -110,19 +112,21 @@ export async function moveQueued(
 
 async function ask(
 	path: string,
-	{ dev, ps, send = fetch, init = {} }: QueueOptions & { init?: RequestInit },
+	opts: QueueOptions & { init?: RequestInit },
 ): Promise<z.infer<typeof Listings>> {
-	const url = dev || ps.env("SPLATES_DEV");
-	if (!url) {
+	const { init = {} } = opts;
+	const server = await serverOf(opts);
+	if (server === null) {
 		fail(
 			"usage",
 			"no `splates server` to ask: give its URL with --dev, as in --dev http://localhost:4310",
 		);
 	}
+	const { url, send } = server;
 	let response: Response;
 	try {
 		// The server refuses a request from any other origin than its own.
-		response = await send(new URL(path, url), {
+		response = await send(new URL(path, url).toString(), {
 			...init,
 			headers: {
 				origin: url,

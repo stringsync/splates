@@ -5,6 +5,7 @@ import { SystemTimer } from "webappwiz/time";
 import { ConversationLog } from "../conversations";
 import { EXIT, fail, type Reason } from "../exit";
 import { SERVER_WAIT_MS, type WorktreeService } from "../tasks";
+import { type ServerOf, serverOf } from "../workers";
 import {
 	type Artifact,
 	Artifacts,
@@ -42,11 +43,12 @@ export async function addArtifact(
 	file: { name: string; bytes: Uint8Array },
 ): Promise<ArtifactVersion> {
 	const mimeType = mimeTypeOf(file.name);
-	const url = deps.ps.env("SPLATES_DEV");
+	const server = await serverOf(deps);
+	const url = server?.url;
 	const worker = deps.ps.env("SPLATES_WORKER") !== undefined;
 	let added: ArtifactVersion | null = null;
-	for (let attempt = 1; url !== undefined && added === null; attempt++) {
-		added = await serverAdd(deps, url, id, { ...file, mimeType });
+	for (let attempt = 1; server !== null && added === null; attempt++) {
+		added = await serverAdd(server, id, { ...file, mimeType });
 		if (added === null && worker && attempt < WORKER_ATTEMPTS) {
 			await Bun.sleep(deps.retryMs ?? 1000);
 		} else if (added === null) {
@@ -77,8 +79,8 @@ export async function removeArtifact(
 	name: string,
 ): Promise<number> {
 	const held = (await read(deps, id)).find((each) => each.name === name);
-	const url = deps.ps.env("SPLATES_DEV");
-	if (url === undefined || !(await serverRemove(deps, url, id, name))) {
+	const server = await serverOf(deps);
+	if (server === null || !(await serverRemove(server, id, name))) {
 		await (await open(deps, id)).remove(name);
 	}
 	deps.log.info(`${color.green("removed")} ${name}: its versions are kept`);
@@ -152,8 +154,7 @@ async function open(deps: ArtifactDeps, id: string): Promise<Artifacts> {
 
 /** The server's answer to an add, or null when none could be reached. */
 async function serverAdd(
-	deps: ArtifactDeps,
-	url: string,
+	{ url, send }: ServerOf,
 	id: string,
 	file: { name: string; bytes: Uint8Array; mimeType: string },
 ): Promise<ArtifactVersion | null> {
@@ -164,15 +165,12 @@ async function serverAdd(
 		"file",
 		new File([file.bytes as Uint8Array<ArrayBuffer>], file.name),
 	);
-	const response = await (deps.send ?? fetch)(
-		`${url}/api/conversations/${id}/artifacts`,
-		{
-			method: "POST",
-			headers: { origin: url },
-			body: form,
-			signal: AbortSignal.timeout(SERVER_WAIT_MS),
-		},
-	).catch(() => null);
+	const response = await send(`${url}/api/conversations/${id}/artifacts`, {
+		method: "POST",
+		headers: { origin: url },
+		body: form,
+		signal: AbortSignal.timeout(SERVER_WAIT_MS),
+	}).catch(() => null);
 	return response === null
 		? null
 		: ((await answer(response)) as ArtifactVersion);
@@ -180,12 +178,11 @@ async function serverAdd(
 
 /** Whether the server removed it; false when none could be reached. */
 async function serverRemove(
-	deps: ArtifactDeps,
-	url: string,
+	{ url, send }: ServerOf,
 	id: string,
 	name: string,
 ): Promise<boolean> {
-	const response = await (deps.send ?? fetch)(
+	const response = await send(
 		`${url}/api/conversations/${id}/artifacts/${encodeURIComponent(name)}`,
 		{
 			method: "DELETE",

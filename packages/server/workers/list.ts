@@ -1,5 +1,5 @@
 import type { Logger } from "webappwiz/log";
-import type { Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import {
 	Duration,
 	SystemWallClock,
@@ -173,6 +173,7 @@ export interface ListWorkersOptions {
 	dev: string;
 	json: boolean;
 	log: Logger;
+	fs?: Fs;
 	ps: Ps;
 	send?: typeof fetch;
 	wall?: WallClock;
