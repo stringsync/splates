@@ -68,6 +68,13 @@ describe("splates across projects", () => {
 			"parser-export",
 		);
 
+		const thereSlug = (await here.projects.list()).find(
+			(each) => each.root === there.root,
+		)?.slug;
+		expect(String(here.log.entries.at(-1)?.message)).toContain(
+			`${thereSlug} #1 at`,
+		);
+
 		const [queued] = await there.tasks.all();
 		expect(queued?.state).toMatchObject({
 			subject: "Export the parser",
@@ -78,6 +85,9 @@ describe("splates across projects", () => {
 		expect(await here.tasks.all()).toEqual([]);
 
 		await onThere("task", "show", String(queued?.id));
+		expect(String(here.log.entries.at(-1)?.message)).toContain(
+			`${thereSlug} #${queued?.id}`,
+		);
 		expect(String(here.log.entries.at(-1)?.message)).toContain(
 			`from:      ${basename(here.root)}/alpha`,
 		);

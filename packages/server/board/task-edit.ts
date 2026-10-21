@@ -30,6 +30,8 @@ export interface TaskAddOptions extends TaskFileOptions {
 	origin?: TaskOrigin;
 	/** Whether whoever wrote it groomed it, for ready; the backlog by default. */
 	ready?: boolean;
+	/** This project's slug, when added from another: the task is then written `slug #N`. */
+	project?: string;
 }
 
 export async function taskAdd(
@@ -46,6 +48,7 @@ export async function taskAdd(
 		assignee,
 		origin,
 		ready,
+		project,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.add(subject, from, {
@@ -59,12 +62,14 @@ export async function taskAdd(
 		origin,
 		ready,
 	});
+	const named =
+		project === undefined ? `task ${task.id}` : `${project} #${task.id}`;
 	deps.log.info(
 		[
-			`${color.green("added")} task ${task.id} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
+			`${color.green("added")} ${named} at position ${task.position}${task.lane === null ? "" : ` in lane ${task.lane}`}, ${task.state.stage === "ready" ? "ready" : "in the backlog, for grooming"}`,
 			...task.files.map((path) => `  ${path}`),
 			task.blockedBy.length === 0
-				? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
+				? `  start it: splates ${project === undefined ? "" : `--project ${project} `}add ${task.state.slug ?? "<slug>"} --task ${task.id}`
 				: `  blocked by: ${task.blockedBy.map((id) => `task ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);

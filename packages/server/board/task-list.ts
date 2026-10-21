@@ -23,11 +23,13 @@ export interface TaskListOptions {
 	 * is blocked by is still open.
 	 */
 	ready?: boolean;
+	/** This project's slug, when listed from another: ids are then written `slug #N`. */
+	project?: string;
 }
 
 export async function taskList(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
-	{ json = false, open = false, ready = false }: TaskListOptions = {},
+	{ json = false, open = false, ready = false, project }: TaskListOptions = {},
 ): Promise<void> {
 	const every = await tasks.all();
 	const listed = every.filter(
@@ -72,7 +74,7 @@ export async function taskList(
 			],
 			listed.map((task) => [
 				String(task.position),
-				String(task.id),
+				project === undefined ? String(task.id) : `${project} #${task.id}`,
 				task.subject,
 				task.state.stage,
 				task.blockedBy.join(","),
@@ -91,13 +93,15 @@ export interface TaskShowOptions {
 	json?: boolean;
 	/** The other projects' slugs, whose tasks a `webappwiz #4` names, not this one's. */
 	others?: readonly string[];
+	/** This project's slug, when shown from another: the task is then written `slug #N`. */
+	project?: string;
 }
 
 /** One task in full: what `task list` shows of it, its files, and its detail. */
 export async function taskShow(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ json = false, others = [] }: TaskShowOptions = {},
+	{ json = false, others = [], project }: TaskShowOptions = {},
 ): Promise<void> {
 	const task = await tasks.find(id);
 	if (json) {
@@ -120,7 +124,7 @@ export async function taskShow(
 	const steps = record === undefined ? [] : lane(states, record).todos;
 	const step = steps.findIndex((other) => other.id === task.id);
 	const lines = [
-		`${color.bold(`task ${task.id}`)} ${task.subject}`,
+		`${color.bold(project === undefined ? `task ${task.id}` : `${project} #${task.id}`)} ${task.subject}`,
 		// The name to start it under: `splates add <slug> --task <n>`.
 		...(task.state.slug === undefined
 			? []

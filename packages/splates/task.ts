@@ -29,6 +29,23 @@ export const splatesTask = cli<SplatesDeps>("task").description(
 );
 
 /**
+ * This project's slug when the command is run from another with `--project`,
+ * so what it prints names a task as `webappwiz #12`, which the page links to
+ * this project; undefined from this project itself, where `#12` is bare.
+ */
+async function projectFrom(ctx: {
+	elsewhere: string | null;
+	git: { root: string };
+	projects: { list(): Promise<{ root: string; slug: string }[]> };
+}): Promise<string | undefined> {
+	if (ctx.elsewhere === null) {
+		return undefined;
+	}
+	return (await ctx.projects.list()).find((each) => each.root === ctx.git.root)
+		?.slug;
+}
+
+/**
  * `splates task add` or `defer`: one writes a task its agent groomed, for
  * ready, the other a rough one, for the backlog and whoever grooms it.
  */
@@ -109,6 +126,7 @@ function adding(name: string, description: string, ready: boolean) {
 											await ctx.git.currentBranch(ctx.ps.cwd()),
 										),
 						};
+			const project = await projectFrom(ctx);
 			await ctx.journal.record(
 				"task add",
 				from,
@@ -123,6 +141,7 @@ function adding(name: string, description: string, ready: boolean) {
 						assignee,
 						origin,
 						ready,
+						project,
 					}),
 				addedFacts,
 			);
@@ -158,11 +177,12 @@ splatesTask
 		description:
 			"only tasks free to start now: none has taken them, and nothing blocking them is still open",
 	})
-	.action((opts, ctx) =>
+	.action(async (opts, ctx) =>
 		taskList(ctx, {
 			json: opts.json,
 			open: opts.open,
 			ready: opts.ready,
+			project: await projectFrom(ctx),
 		}),
 	);
 
@@ -175,6 +195,7 @@ splatesTask
 	.action(async (opts, ctx) =>
 		taskShow(ctx, opts.id, {
 			json: opts.json,
+			project: await projectFrom(ctx),
 			others: (await ctx.projects.list())
 				.filter((project) => project.root !== ctx.git.root)
 				.map((project) => project.slug),
