@@ -11,8 +11,8 @@ import type { SpendEntry } from "./totals";
 /** How a provider's row on the Billing page reads after a pull. */
 export interface ProviderStatus {
 	provider: string;
-	/** `ok` pulled, `missing` has no cred, `unreachable` failed, `manual` has no cost API. */
-	state: "ok" | "missing" | "unreachable" | "manual";
+	/** `ok` pulled, `missing` has no cred, `unreachable` failed, `untracked` not counted yet. */
+	state: "ok" | "missing" | "unreachable" | "untracked";
 	/** What to tell the user; empty for `ok`. */
 	message: string;
 	/** How many new charges the pull added. */
@@ -38,37 +38,41 @@ export interface BillingOptions {
  */
 export async function pullBilling(
 	spend: Spend,
-	options: BillingOptions,
+	opts: BillingOptions,
 ): Promise<ProviderStatus[]> {
-	const fetcher = options.fetcher ?? fetch;
-	const rates = new Rates(options.currency, fetcher);
+	const fetcher = opts.fetcher ?? fetch;
+	const rates = new Rates(opts.currency, fetcher);
 	const since = new Date(
-		Date.parse(`${options.today}T00:00:00Z`) -
-			(options.days ?? 90) * 86_400_000,
+		Date.parse(`${opts.today}T00:00:00Z`) - (opts.days ?? 90) * 86_400_000,
 	)
 		.toISOString()
 		.slice(0, 10);
 	const sources: Sources = {
-		cred: options.cred,
+		cred: opts.cred,
 		fetcher,
-		today: options.today,
+		today: opts.today,
 		since,
 	};
 	const kept = new Set(
 		(await spend.entries()).flatMap((each) => (each.ref ? [each.ref] : [])),
 	);
 	const statuses: ProviderStatus[] = [];
-	for (const provider of options.providers ?? PROVIDERS) {
+	for (const provider of opts.providers ?? PROVIDERS) {
 		const status = (
 			state: ProviderStatus["state"],
 			message: string,
 			added = 0,
 		): ProviderStatus => ({ provider: provider.id, state, message, added });
 		if (provider.pull === undefined || provider.cred === null) {
-			statuses.push(status("manual", provider.manual ?? "no cost API"));
+			statuses.push(
+				status(
+					"untracked",
+					provider.untracked ?? "splates does not count it yet",
+				),
+			);
 			continue;
 		}
-		const token = await options.cred(provider.cred);
+		const token = await opts.cred(provider.cred);
 		if (token === undefined) {
 			statuses.push(
 				status("missing", `needs ${provider.cred}: add it on the Creds page`),
@@ -109,7 +113,7 @@ export async function pullBilling(
 			statuses.push(
 				status(
 					"unreachable",
-					`could not reach ${provider.id}: ${String(error)}`,
+					error instanceof Error ? error.message : String(error),
 				),
 			);
 		}

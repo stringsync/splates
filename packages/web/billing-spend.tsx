@@ -7,6 +7,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { billing, pullBilling, setCurrency, spend } from "./api";
+import { Sources } from "./billing-sources";
 import {
 	byProvider,
 	Currency,
@@ -23,7 +24,6 @@ import {
 } from "./billing-sums";
 import { SpendTrend } from "./billing-trend";
 import { METER_COLUMNS, Meter } from "./meter";
-import { credAddress } from "./page-address";
 import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
 
@@ -37,9 +37,6 @@ const RANGES: { range: Range; label: string }[] = [
 ];
 
 const DAY = 86_400_000;
-
-/** The UTC day `at` falls in, as `2026-10-21`, as the ledger's days are. */
-const dayOf = (at: number): string => new Date(at).toISOString().slice(0, 10);
 
 /** The span `range` covers ending at `now`, as ISO timestamps, `until` exclusive. */
 export function spanOf(
@@ -57,6 +54,11 @@ export function spanOf(
 		since: new Date(first).toISOString(),
 		until: new Date(today + DAY).toISOString(),
 	};
+}
+
+/** The UTC day `at` falls in, as `2026-10-21`, as the ledger's days are. */
+function dayOf(at: number): string {
+	return new Date(at).toISOString().slice(0, 10);
 }
 
 /**
@@ -101,17 +103,22 @@ export function SpendSection(): JSX.Element {
 					until: new Date(until + DAY).toISOString(),
 				};
 	}, [range, from, to]);
+	const pull = (isCurrent: () => boolean = () => true): void => {
+		setPulling(true);
+		setSourceError(null);
+		pullBilling()
+			.then((read) => isCurrent() && setSources(read))
+			.catch((caught: Error) => isCurrent() && setSourceError(caught.message))
+			.finally(() => isCurrent() && setPulling(false));
+	};
 	// Read what was last pulled at once, then pull again, so the figures catch up.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pulls once, on opening
 	useEffect(() => {
 		let current = true;
 		billing()
 			.then((read) => current && setSources(read))
 			.catch((caught: Error) => current && setSourceError(caught.message));
-		setPulling(true);
-		pullBilling()
-			.then((read) => current && setSources(read))
-			.catch((caught: Error) => current && setSourceError(caught.message))
-			.finally(() => current && setPulling(false));
+		pull(() => current);
 		return () => {
 			current = false;
 		};
@@ -141,7 +148,7 @@ export function SpendSection(): JSX.Element {
 		range === "custom"
 			? span === null
 				? "Custom range"
-				: `${shortDay(span.since.slice(0, 10))} – ${shortDay(
+				: `${shortDay(span.since.slice(0, 10))} to ${shortDay(
 						dayOf(Date.parse(span.until) - DAY),
 					)}`
 			: RANGES.find((each) => each.range === range)?.label;
@@ -232,7 +239,12 @@ export function SpendSection(): JSX.Element {
 						until={span.until}
 					/>
 				)}
-				<Sources sources={sources} pulling={pulling} error={sourceError} />
+				<Sources
+					sources={sources}
+					pulling={pulling}
+					error={sourceError}
+					onPull={() => pull()}
+				/>
 			</section>
 		</Currency.Provider>
 	);
@@ -277,7 +289,7 @@ function Headline({
 								? "Pick the first and last day to total."
 								: reading
 									? "Reading spend…"
-									: "—"}
+									: "Not read"}
 						</span>
 					) : (
 						<span className="font-semibold text-5xl leading-none tracking-tight">
@@ -477,70 +489,5 @@ function Figures({
 			</span>
 			{children}
 		</span>
-	);
-}
-
-/** Where billed amounts come from: each provider, its last pull, and the cred it needs. */
-function Sources({
-	sources,
-	pulling,
-	error,
-}: {
-	sources: BillingView | null;
-	pulling: boolean;
-	error: string | null;
-}): JSX.Element {
-	return (
-		<section aria-label="billing sources" className="flex flex-col gap-2">
-			<h3 className="flex items-baseline gap-2 font-medium text-sm">
-				Billing sources
-				<span
-					role={pulling ? "status" : undefined}
-					className="font-normal text-muted-foreground text-xs"
-				>
-					{pulling
-						? "Pulling…"
-						: sources?.pulledAt
-							? `pulled ${new Date(sources.pulledAt).toLocaleTimeString()}`
-							: ""}
-				</span>
-			</h3>
-			{error !== null && (
-				<p role="alert" className="text-destructive text-sm">
-					Could not read billing sources: {error}
-				</p>
-			)}
-			<ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
-				{(sources?.providers ?? []).map((each) => (
-					<li
-						key={each.provider}
-						className="flex min-w-0 items-baseline gap-2 text-sm"
-					>
-						<span className="shrink-0">{nameOf(each.provider)}</span>
-						{each.state === "ok" && (
-							<span className="text-muted-foreground text-xs">pulled</span>
-						)}
-						{each.state === "manual" && (
-							<span className="truncate text-muted-foreground text-xs">
-								{each.message}
-							</span>
-						)}
-						{each.state === "unreachable" && (
-							<span role="alert" className="text-destructive text-xs">
-								{each.message}
-							</span>
-						)}
-						{each.state === "missing" && each.cred !== null && (
-							<a
-								href={credAddress(each.cred)}
-								className="text-xs underline underline-offset-2"
-							>
-								Add {each.cred} on the Creds page
-							</a>
-						)}
-					</li>
-				))}
-			</ul>
-		</section>
 	);
 }

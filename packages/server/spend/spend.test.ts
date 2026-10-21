@@ -97,9 +97,11 @@ test("a turn is the agent's said cost, else its tokens at list price", () => {
 test("pulling billing converts, dedupes, and reports what it cannot reach", async () => {
 	const { pullBilling } = await import("./index");
 	const spend = new Spend(new MemoryStorage());
-	const fetcher = (async (url: string) => {
-		if (url.includes("openai.com")) {
-			return Response.json({
+	// What each host answers; any other, Cloudflare among them, answers 500.
+	const answers: [string, unknown][] = [
+		[
+			"openai.com",
+			{
 				data: [
 					{
 						start_time: Date.parse("2026-10-19T00:00:00Z") / 1000,
@@ -108,12 +110,15 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 						],
 					},
 				],
-			});
-		}
-		if (url.includes("frankfurter")) {
-			return Response.json({ date: "2026-10-19", rates: { USD: 1.1 } });
-		}
-		return new Response("no", { status: 500 });
+			},
+		],
+		["frankfurter", { date: "2026-10-19", rates: { USD: 1.1 } }],
+	];
+	const fetcher = (async (url: string) => {
+		const answer = answers.find(([host]) => url.includes(host));
+		return answer === undefined
+			? new Response("no", { status: 500 })
+			: Response.json(answer[1]);
 	}) as unknown as typeof fetch;
 	const options = {
 		cred: async (name: string) =>
@@ -127,9 +132,10 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 	expect(statuses.map((each) => [each.provider, each.state])).toEqual([
 		["openai", "ok"],
 		["cloudflare", "unreachable"],
-		["aws", "manual"],
-		["typesafe", "manual"],
+		["aws", "untracked"],
+		["typesafe", "untracked"],
 	]);
+	expect(statuses[1]?.message).toBe("api.cloudflare.com answered 500");
 	await pullBilling(spend, options);
 	const [row] = await spend.totals({ by: "service", provider: "openai" });
 	expect(row?.billed).toBeCloseTo(2.2);
