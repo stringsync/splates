@@ -48,7 +48,9 @@ export class Tunnel extends pulumi.ComponentResource {
 			`${name}-tunnel`,
 			{
 				accountId: args.accountId,
-				name,
+				// Not `name` alone: `splates tunnel setup` names this Mac's tunnel
+				// `splates`, which still serves until the box takes over.
+				name: `${name}-coordinator`,
 				tunnelSecret: secret.base64,
 				configSrc: "cloudflare",
 			},

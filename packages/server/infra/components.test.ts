@@ -55,6 +55,14 @@ test("a tunnel makes its DNS record, an Access application and a service token",
 	expect(
 		await new Promise<string>((resolve) => tunnel.tunnelId.apply(resolve)),
 	).toBe("t-tunnel-id");
+	// Apart from the name `splates tunnel setup` gives this Mac's tunnel.
+	expect(
+		(
+			await ofType(
+				"cloudflare:index/zeroTrustTunnelCloudflared:ZeroTrustTunnelCloudflared",
+			)
+		)[0]?.inputs.name,
+	).toBe("t-coordinator");
 	expect(await ofType("cloudflare:index/dnsRecord:DnsRecord")).toHaveLength(1);
 	expect(
 		await ofType(
