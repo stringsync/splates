@@ -1,5 +1,12 @@
 import { useReactive } from "@webappwiz/react";
-import { ArrowLeftIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import {
+	ArrowLeftIcon,
+	CheckIcon,
+	EyeIcon,
+	LightbulbIcon,
+	PlusIcon,
+	RefreshCwIcon,
+} from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -204,20 +211,24 @@ export function NotesPage({
 									<span className="break-all text-muted-foreground text-xs">
 										{note.path}
 									</span>
-									<span className="mt-1 flex flex-wrap gap-1.5">
+									<span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 										<span
 											className={
 												note.uses === 0
-													? "rounded-full bg-destructive/10 px-2 py-0.5 text-destructive text-xs"
-													: "rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs"
+													? "flex items-center gap-1 text-destructive"
+													: "flex items-center gap-1"
 											}
 										>
-											{note.uses === 0
-												? "Never read"
-												: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
+											<EyeIcon className="size-3.5" aria-hidden />
+											{note.uses === 0 ? "Never read" : `${note.uses} read`}
 										</span>
-										<span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-											{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+										<span className="flex items-center gap-1">
+											<LightbulbIcon className="size-3.5" aria-hidden />
+											{`${note.recommended} recommended`}
+										</span>
+										<span className="flex items-center gap-1">
+											<CheckIcon className="size-3.5" aria-hidden />
+											{`${note.followed} followed`}
 										</span>
 									</span>
 								</button>

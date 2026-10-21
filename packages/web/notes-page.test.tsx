@@ -41,10 +41,9 @@ describe("notes page", () => {
 	});
 
 	it("lists each note with how many conversations read it, then opens one as markdown and returns to the index", async () => {
-		expect(await page.findByText("Read in 3 conversations")).toBeTruthy();
-		expect(page.getAllByText("Recommended 5 times, followed 2")).toHaveLength(
-			2,
-		);
+		expect(await page.findByText("3 read")).toBeTruthy();
+		expect(page.getAllByText("5 recommended")).toHaveLength(2);
+		expect(page.getAllByText("2 followed")).toHaveLength(2);
 		expect(page.getByText("Never read")).toBeTruthy();
 		fireEvent.click(
 			await page.findByRole("button", { name: /Why named exports/ }),
