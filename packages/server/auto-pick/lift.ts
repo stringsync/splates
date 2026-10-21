@@ -1,4 +1,9 @@
-import type { Conversations, Lift, Setting } from "../conversations";
+import type {
+	ConversationHost,
+	Conversations,
+	Lift,
+	Setting,
+} from "../conversations";
 import {
 	type AgentPick,
 	effortSettings,
@@ -14,7 +19,7 @@ import {
 	decideDeeper,
 	headline,
 } from "./decide";
-import { askedBack, wordsToJudge } from "./follow-up";
+import { askedBack, wordsSoFar, wordsToJudge } from "./follow-up";
 import type { Attribution } from "./jev";
 import { type JudgeFor, projectJudge } from "./judge";
 import { autoPicked } from "./judged";
@@ -51,6 +56,15 @@ export function lifting(
 		const { state } = conversation;
 		const on = state.autoPick;
 		if (on === null || on.overridden || on.agent !== state.agent) {
+			return;
+		}
+		if (on.rejudge) {
+			await rejudging(conversation, {
+				project,
+				conversations,
+				judge,
+				now: now(),
+			});
 			return;
 		}
 		const words = wordsToJudge(state.messages, said);
@@ -104,6 +118,80 @@ export function lifting(
 			{ from: headline(pickOf(on), agent), undo },
 		).catch((error: unknown) => project.log.error(String(error)));
 	};
+}
+
+/**
+ * Auto pick's first look at a conversation the person switched it on for:
+ * the judge reads all they have said, and the conversation moves to the
+ * rules' pick for it on the agent it runs, up or down, logged with an Undo,
+ * or, already there, stays with a line that says so. A judge that says
+ * nothing leaves it to look again at the next message.
+ */
+async function rejudging(
+	conversation: ConversationHost,
+	{
+		project,
+		conversations,
+		judge,
+		now,
+	}: {
+		project: Project;
+		conversations: Conversations;
+		judge: JudgeFor;
+		now: Date;
+	},
+): Promise<void> {
+	const { state } = conversation;
+	const words = wordsSoFar(state.messages);
+	const context = await contextOf(project, conversations, now);
+	const judged = await rejudged(
+		words,
+		// Its agent runs on: only the model and effort can move.
+		{ ...context, runnable: [state.agent] },
+		judge,
+		{ task: state.task, conversation: state.id },
+	);
+	if (judged === null || judged.decision.pick.agent !== state.agent) {
+		return;
+	}
+	const { decision } = judged;
+	const settings = settingsFor(state.settings, decision.pick);
+	const undo = Object.fromEntries(
+		Object.keys(settings).flatMap((id) => {
+			const current = state.settings.find((each) => each.id === id)?.current;
+			return current === undefined ? [] : [[id, current]];
+		}),
+	);
+	const from = heldOn(state.settings);
+	await conversation.lift(settings, setOf(decision));
+	await journalPick(
+		project.journal.in(state.id),
+		state.task,
+		autoPicked(
+			{ decision, classification: judged.classification, judged: true },
+			judged.key,
+			now,
+		),
+		Object.keys(settings).length === 0
+			? undefined
+			: { from, undo, switched: true },
+	).catch((error: unknown) => project.log.error(String(error)));
+}
+
+/** The model and thinking level `settings` are on, in words: `Opus 5.5, high effort`. */
+function heldOn(settings: Setting[]): string {
+	const named = (setting: Setting | undefined): string | null =>
+		setting?.options.find((each) => each.value === setting.current)?.name ??
+		setting?.current ??
+		null;
+	const model = named(
+		settings.find((each) => each.category === "model" || each.id === "model"),
+	);
+	const effort = named(
+		settings.find((each) => each.category === "thought_level"),
+	);
+	const said = model ?? "its default model";
+	return effort === null ? said : `${said}, ${effort.toLowerCase()} effort`;
 }
 
 /** Why a first answer ending on a bare question moves the conversation up. */

@@ -85,6 +85,7 @@ export {
 	listed,
 	runOn,
 	SERVER_TOLD,
+	switched,
 	unused,
 } from "./state";
 export type { ConversationsHeard } from "./stream";

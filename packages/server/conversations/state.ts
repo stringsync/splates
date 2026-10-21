@@ -207,8 +207,8 @@ export interface ConversationState {
  */
 /** What Auto pick set a conversation to, and why, as its log keeps it. */
 export interface AutoPickSet {
-	/** The index in the rules of the rule it took. */
-	rule: number;
+	/** The index in the rules of the rule it took; null before it took one, as for a conversation switched on that it has yet to look at. */
+	rule: number | null;
 	/** The kind and depth it was taken for; null when the judge was unsure. */
 	kind: string | null;
 	depth: string | null;
@@ -220,8 +220,45 @@ export interface AutoPickSet {
 
 /** A conversation's Auto pick, and whether the person has moved off it since. */
 export interface AutoPickMark extends AutoPickSet {
-	/** The person set the model or effort since, which then stands. */
+	/** The person set the model or effort since, or switched it off, which then stands. */
 	overridden: boolean;
+	/**
+	 * The person switched it on: the next message they say is judged with
+	 * all they said before, and the conversation moves to the rules' pick
+	 * for it, down as well as up, on the agent it runs.
+	 */
+	rejudge?: true;
+}
+
+/**
+ * What Auto pick holds for `state` once the person switches it `on` or off:
+ * on, to judge their next message afresh, keeping what it picked before, if
+ * anything; off, what it picked, overridden, or nothing for a conversation it
+ * never picked for.
+ */
+export function switched(
+	state: Pick<ConversationState, "autoPick" | "agent">,
+	on: boolean,
+): AutoPickMark | null {
+	const { autoPick } = state;
+	if (!on) {
+		return autoPick === null ? null : { ...autoPick, overridden: true };
+	}
+	if (autoPick !== null && !autoPick.overridden) {
+		return autoPick;
+	}
+	return {
+		...(autoPick ?? {
+			rule: null,
+			kind: null,
+			depth: null,
+			model: null,
+			effort: null,
+		}),
+		agent: state.agent,
+		overridden: false,
+		rejudge: true,
+	};
 }
 
 export type Status = "starting" | "idle" | "running" | "stopped" | "failed";

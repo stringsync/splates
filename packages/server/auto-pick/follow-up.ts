@@ -42,6 +42,22 @@ export function wordsToJudge(
 	return latest.length < READ_CHARS ? null : split(latest);
 }
 
+/**
+ * What the judge reads of a conversation the person switched Auto pick on
+ * for: everything they have said in `messages`, the latest kept should it
+ * run long; null before they have said anything.
+ */
+export function wordsSoFar(
+	messages: readonly Message[],
+): { subject: string; detail: string } | null {
+	const person = messages
+		.filter((each) => each.role === "user" && each.told === undefined)
+		.map(textOf)
+		.filter((each) => !each.startsWith("[SPLATES"));
+	const words = person.join("\n\n").trim();
+	return words === "" ? null : split(words);
+}
+
 /** `words` as the judge reads them: the first line as the subject, the last of the rest as detail. */
 function split(words: string): { subject: string; detail: string } {
 	const [first = "", ...rest] = words.trim().split("\n");

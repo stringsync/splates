@@ -28,8 +28,19 @@ export async function choose(
 		);
 	}
 	const aspect = overridden(setting);
+	const { autoPick } = host.state;
+	if (aspect !== null && !byAutoPick && !host.state.assigned) {
+		// Auto pick switched on by the person: their own pick switches it off.
+		if (autoPick !== null && !autoPick.overridden) {
+			host.state.autoPick = { ...autoPick, overridden: true };
+			host.log.write({
+				kind: "auto-pick-switch",
+				on: false,
+				at: new Date().toISOString(),
+			});
+		}
+	}
 	if (host.state.assigned && aspect !== null && !byAutoPick) {
-		const { autoPick } = host.state;
 		if (autoPick !== null) {
 			host.state.autoPick = { ...autoPick, overridden: true };
 		}

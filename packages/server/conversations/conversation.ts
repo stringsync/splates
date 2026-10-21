@@ -38,6 +38,7 @@ import {
 	type QueueSpot,
 	runOn,
 	SERVER_TOLD,
+	switched,
 	type Upload,
 } from "./state";
 import { ConversationTurns, type PromptOptions } from "./turns";
@@ -572,6 +573,19 @@ export class Conversation
 	autoPicked(pick: AutoPickSet): void {
 		this.log.write({ kind: "auto-pick", pick, at: this.now() });
 		this.set({ autoPick: { ...pick, overridden: false } });
+	}
+
+	/**
+	 * Switches Auto pick `on` for its model and effort, to judge what the
+	 * person says next, or off, leaving them as they are.
+	 */
+	switchAutoPick(on: boolean): void {
+		const autoPick = switched(this.state, on);
+		if (autoPick === this.state.autoPick) {
+			return;
+		}
+		this.log.write({ kind: "auto-pick-switch", on, at: this.now() });
+		this.set({ autoPick });
 	}
 
 	async lift(

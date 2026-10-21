@@ -947,6 +947,9 @@ export async function dev(
 					"/api/conversations/:id/setting": {
 						PUT: talk(owned((project) => project.chooseSetting)),
 					},
+					"/api/conversations/:id/auto-pick": {
+						PUT: talk(owned((project) => project.switchAutoPick)),
+					},
 					"/api/conversations/:id/archived": {
 						PUT: talk(owned((project) => project.archiveConversation)),
 					},

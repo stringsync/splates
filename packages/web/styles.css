@@ -66,6 +66,7 @@
 @source "./task-auto-pick.tsx";
 @source "./auto-pick-pick-chips.tsx";
 @source "./auto-pick-rules-editor.tsx";
+@source "./auto-pick-switch.tsx";
 @source "./auto-pick-trial-view.tsx";
 @source "./setup-auto-pick-steps.tsx";
 @source "./dispatching.tsx";

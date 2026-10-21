@@ -24,6 +24,7 @@ export {
 	IDLE_STOP,
 	listed,
 	SERVER_TOLD,
+	switched,
 	unused,
 } from "./state";
 export type { ConversationDelta } from "./updates";

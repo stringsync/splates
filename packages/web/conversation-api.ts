@@ -236,6 +236,11 @@ export async function chooseSetting(
 	});
 }
 
+/** Switches Auto pick on or off for conversation `id`'s model and effort. */
+export async function switchAutoPick(id: string, on: boolean): Promise<void> {
+	await sendJson(`/api/conversations/${id}/auto-pick`, "PUT", { on });
+}
+
 /** Saves `value` for `agent`'s setting `setting` as what its new conversations start with. */
 export async function chooseDefault(
 	agent: string,

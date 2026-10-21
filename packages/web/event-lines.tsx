@@ -201,7 +201,7 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 	const lifted = event.lifted ?? null;
 	return {
 		words: [
-			`${lifted === null ? "Auto picked" : "Auto moved up to"} ${picked}: ${found}`,
+			`${lifted === null ? "Auto picked" : lifted.switched ? "Auto switched to" : "Auto moved up to"} ${picked}: ${found}`,
 		],
 		title: [...(lifted === null ? [] : [`from ${lifted.from}`]), ...why].join(
 			"\n",

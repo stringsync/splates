@@ -21,7 +21,12 @@ type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
 export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
-	const verb = lifted === null ? "Auto picked" : "Auto moved up to";
+	const verb =
+		lifted === null
+			? "Auto picked"
+			: lifted.switched
+				? "Auto switched to"
+				: "Auto moved up to";
 	const short = params.signals
 		.slice(0, 2)
 		.flatMap((each) => each.answers.slice(0, 1).map((best) => best.label))

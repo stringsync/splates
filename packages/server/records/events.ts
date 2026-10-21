@@ -334,12 +334,14 @@ export interface NoteApplied {
 	dollars?: number | null;
 }
 
-/** What an Auto pick that moved a conversation up moved it off. */
+/** What an Auto pick that moved a conversation up, or anywhere once switched on, moved it off. */
 export interface Lifted {
 	/** The pick it was on, in words: `Sonnet 5.5, low effort`. */
 	from: string;
 	/** Each setting it changed, by id, and what it was before, for an Undo to set back. */
 	undo: Record<string, string>;
+	/** Its first look after the person switched Auto pick on, which may move it down too. */
+	switched?: true;
 }
 
 type None = Record<never, never>;

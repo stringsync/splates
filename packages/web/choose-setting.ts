@@ -20,7 +20,22 @@ export function useChooseSetting(
 				settings: state.settings.map((each) =>
 					each.id === setting.id ? { ...each, current: value } : each,
 				),
+				// The person's own model or effort switches Auto pick off.
+				autoPick:
+					state.autoPick !== null && picksFor(setting)
+						? { ...state.autoPick, overridden: true }
+						: state.autoPick,
 			}),
 			chooseSetting(id, setting.id, value),
 		).catch((error: unknown) => refuse(`${setting.name} not switched`, error));
+}
+
+/** Whether `setting` is one Auto pick chooses: the model or the effort. */
+function picksFor(setting: Setting): boolean {
+	return (
+		setting.category === "model" ||
+		setting.id === "model" ||
+		setting.category === "thought_level" ||
+		setting.id === "effort"
+	);
 }

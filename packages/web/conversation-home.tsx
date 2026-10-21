@@ -275,6 +275,7 @@ export function useNewConversation({
 	// The agent is yet to be picked, so there are no settings to offer.
 	const controls = auto ? undefined : offered.length > 0 ? (
 		<SettingControls
+			agent={agent}
 			settings={offered}
 			current={current}
 			onChange={(setting, value) => {

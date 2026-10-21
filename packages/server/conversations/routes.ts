@@ -377,6 +377,13 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	readonly switchAutoPick = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { on } = await body(request);
+		conversation.switchAutoPick(on === true);
+		return Response.json(conversation.state);
+	};
+
 	readonly renameConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { name } = await body(request);

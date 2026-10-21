@@ -30,6 +30,7 @@ import { toWaiting, useArrived } from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
+import { useAutoPick } from "./auto-pick-switch";
 import { BackgroundCard, BackgroundUI, ListedBackground } from "./background";
 import { ReplyContext } from "./card-reply";
 import { useChooseSetting } from "./choose-setting";
@@ -159,6 +160,7 @@ function Conversation({
 		[refuseIn, id],
 	);
 	const choose = useChooseSetting(id, refused);
+	const autoPick = useAutoPick(conversation, refused);
 	const thread = useThreadMessages(conversation, feed);
 	const { queued, openAt, asking, going } = thread;
 	// Nothing to tell anyone: the next scroll tries again.
@@ -364,6 +366,8 @@ function Conversation({
 																						)}
 																					/>
 																					<SettingControls
+																						agent={conversation.agent}
+																						autoPick={autoPick}
 																						settings={settings}
 																						current={(setting) =>
 																							setting.current

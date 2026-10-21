@@ -10,7 +10,13 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "#web/components/ui/dialog.tsx";
-import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+} from "#web/components/ui/field.tsx";
 import {
 	Select,
 	SelectContent,
@@ -21,14 +27,20 @@ import {
 } from "#web/components/ui/select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AgentMark } from "./agent-icons";
 import { useWide } from "./app-nav";
+import { AutoIcon } from "./auto-brand";
+import type { AutoPickControl } from "./auto-pick-switch";
+
+/** The Model picker's value for Auto pick, among the models. */
+const AUTO = "\u0000auto-pick";
 
 /**
  * A picker in the composer's bottom row: quiet until hovered, as in Zed, and
  * small, so the row holds them all on one line; under a finger, tall enough
  * to tap.
  */
-const IN_COMPOSER =
+export const IN_COMPOSER =
 	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
 /**
@@ -41,10 +53,16 @@ export function SettingControls({
 	settings,
 	current,
 	onChange,
+	agent,
+	autoPick,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
+	/** The agent the settings are for, by its roster id, whose mark the settings button shows. */
+	agent?: string | undefined;
+	/** Auto pick's switch, for a conversation that offers it. */
+	autoPick?: AutoPickControl | undefined;
 }): JSX.Element | null {
 	const wide = useWide();
 	if (settings.length === 0) {
@@ -56,11 +74,19 @@ export function SettingControls({
 				settings={settings}
 				current={current}
 				onChange={onChange}
+				agent={agent}
+				autoPick={autoPick}
 			/>
 		);
 	}
 	return (
-		<InlineSettings settings={settings} current={current} onChange={onChange} />
+		<InlineSettings
+			settings={settings}
+			current={current}
+			onChange={onChange}
+			agent={agent}
+			autoPick={autoPick}
+		/>
 	);
 }
 
@@ -75,10 +101,14 @@ function InlineSettings({
 	settings,
 	current,
 	onChange,
+	agent,
+	autoPick,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
+	agent?: string | undefined;
+	autoPick?: AutoPickControl | undefined;
 }): JSX.Element {
 	const row = useRef<HTMLDivElement>(null);
 	const whole = useRef<HTMLDivElement>(null);
@@ -112,6 +142,7 @@ function InlineSettings({
 			setting={setting}
 			value={current(setting)}
 			onChange={(value) => onChange(setting, value)}
+			autoPick={autoPick}
 		/>
 	));
 	return (
@@ -136,6 +167,8 @@ function InlineSettings({
 						settings={settings}
 						current={current}
 						onChange={onChange}
+						agent={agent}
+						autoPick={autoPick}
 					/>
 				</div>
 			)}
@@ -146,18 +179,26 @@ function InlineSettings({
 /**
  * The settings behind one button that opens them in a dialog, as a phone's
  * row shows them; the button names the model, the setting that says the most
- * about how the next reply goes.
+ * about how the next reply goes, beside Auto pick's sparkles while it picks,
+ * else the agent's mark in its maker's colors. Auto pick's switch leads the
+ * dialog.
  */
 function SettingsDialog({
 	settings,
 	current,
 	onChange,
+	agent,
+	autoPick,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
+	agent?: string | undefined;
+	autoPick?: AutoPickControl | undefined;
 }): JSX.Element {
 	const model = settings.find((setting) => setting.category === "model");
+	const auto = autoPick?.on === true;
+	const switchId = useId();
 	return (
 		<Dialog>
 			<DialogTrigger
@@ -170,7 +211,14 @@ function SettingsDialog({
 					"inline-flex max-w-48 items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				)}
 			>
-				<SlidersHorizontalIcon className="shrink-0" />
+				{/* Who answers next in color: Auto pick, or the agent's maker. */}
+				{auto ? (
+					<AutoIcon colored className="shrink-0" />
+				) : agent !== undefined ? (
+					<AgentMark agent={agent} className="size-3 pointer-coarse:size-4" />
+				) : (
+					<SlidersHorizontalIcon className="shrink-0" />
+				)}
 				{/* The model says the most about how the next reply goes. */}
 				{model !== undefined && (
 					<span className="truncate">
@@ -187,12 +235,32 @@ function SettingsDialog({
 					<DialogDescription>Applies to your next message.</DialogDescription>
 				</DialogHeader>
 				<FieldGroup>
+					{autoPick !== undefined && (
+						<Field orientation="horizontal">
+							<FieldContent>
+								<FieldLabel htmlFor={switchId}>
+									<AutoIcon colored={auto} />
+									Auto pick
+								</FieldLabel>
+								<FieldDescription>
+									Chooses the model and effort from what you say. Picking either
+									yourself turns it off.
+								</FieldDescription>
+							</FieldContent>
+							<Switch
+								id={switchId}
+								checked={auto}
+								onCheckedChange={(checked) => autoPick.switch(checked)}
+							/>
+						</Field>
+					)}
 					{settings.map((setting) => (
 						<SettingControl
 							key={setting.id}
 							setting={setting}
 							value={current(setting)}
 							onChange={(value) => onChange(setting, value)}
+							autoPick={autoPick}
 							inDialog
 						/>
 					))}
@@ -208,13 +276,18 @@ function SettingControl({
 	setting,
 	value,
 	onChange,
+	autoPick,
 	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	autoPick?: AutoPickControl | undefined;
 	inDialog?: boolean;
 }): JSX.Element {
+	// Inline, Auto pick is the first of the models; the sheet has its own switch.
+	const withAuto =
+		setting.category === "model" && !inDialog ? autoPick : undefined;
 	const id = useId();
 	if (setting.type === "boolean" && inDialog) {
 		return (
@@ -262,12 +335,20 @@ function SettingControl({
 					setting={setting}
 					value={value}
 					onChange={onChange}
+					autoPick={withAuto}
 					inDialog
 				/>
 			</Field>
 		);
 	}
-	return <SettingSelect setting={setting} value={value} onChange={onChange} />;
+	return (
+		<SettingSelect
+			setting={setting}
+			value={value}
+			onChange={onChange}
+			autoPick={withAuto}
+		/>
+	);
 }
 
 /** The categories of setting a picker shows by value alone, effort among them. */
@@ -279,28 +360,39 @@ function SettingSelect({
 	setting,
 	value,
 	onChange,
+	autoPick,
 	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	/** Auto pick, offered first among the models. */
+	autoPick?: AutoPickControl | undefined;
 	inDialog?: boolean;
 	id?: string;
 }): JSX.Element {
 	const known = setting.options.some((option) => option.value === value);
+	const auto = autoPick?.on === true;
 	return (
 		<Select
 			// Base UI keeps a picker's items once it has them, and shows a
 			// value it cannot find as its text, "null" among them: a picker
 			// reused for another agent's options must start over.
 			key={JSON.stringify(setting.options)}
-			items={setting.options.map((option) => ({
-				value: option.value,
-				label: settingLabel(setting, option.value),
-			}))}
-			value={known ? value : null}
+			items={[
+				...(autoPick === undefined
+					? []
+					: [{ value: AUTO, label: "Auto pick" }]),
+				...setting.options.map((option) => ({
+					value: option.value,
+					label: settingLabel(setting, option.value),
+				})),
+			]}
+			value={auto ? AUTO : known ? value : null}
 			onValueChange={(value) => {
-				if (value !== null) {
+				if (value === AUTO) {
+					autoPick?.switch(true);
+				} else if (value !== null) {
 					onChange(String(value));
 				}
 			}}
@@ -322,6 +414,7 @@ function SettingSelect({
 				{!inDialog && !UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
+				{auto && <AutoIcon colored className="shrink-0" />}
 				<SelectValue
 					className={
 						inDialog
@@ -329,7 +422,9 @@ function SettingSelect({
 							: undefined
 					}
 				>
-					{settingLabel(setting, value)}
+					{auto
+						? `Auto · ${settingLabel(setting, value)}`
+						: settingLabel(setting, value)}
 				</SelectValue>
 			</SelectTrigger>
 			<SelectContent
@@ -339,6 +434,12 @@ function SettingSelect({
 				className="w-auto max-w-[calc(100vw-2rem)]"
 			>
 				<SelectGroup>
+					{autoPick !== undefined && (
+						<SelectItem className="min-h-9" value={AUTO}>
+							<AutoIcon colored />
+							Auto pick
+						</SelectItem>
+					)}
 					{setting.options.map((option) => (
 						<SelectItem
 							key={option.value}

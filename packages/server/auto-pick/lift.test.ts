@@ -43,6 +43,18 @@ describe("lifting", () => {
 		await conversation.prompt(words);
 		await until(conversation, "idle");
 	};
+	/** A conversation the person started on Big, their own pick, then said `words` to. */
+	const own = async (words = "Look at the failing build.") => {
+		const conversation = await conversations.start(AGENT.id, {
+			task: null,
+			cwd: deps.root,
+			model: "big",
+			assigned: false,
+		});
+		await until(conversation, "idle");
+		await say(conversation, words);
+		return conversation;
+	};
 	const autoLines = async () =>
 		(await deps.journal.tail(20)).filter((each) => each.action === "auto");
 
@@ -218,6 +230,110 @@ describe("lifting", () => {
 			model: "big",
 			overridden: true,
 		});
+	});
+
+	it("switched on by the person, moves to the rules' pick for all they said, down too, with an Undo", async () => {
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		expect(conversation.state.autoPick).toMatchObject({
+			agent: AGENT.id,
+			overridden: false,
+			rejudge: true,
+		});
+
+		await say(conversation, "go");
+
+		expect(on).toEqual(["big", "small"]);
+		expect(judge.asked[0]?.state).toMatchObject({
+			subject: "Look at the failing build.",
+		});
+		expect(conversation.state.autoPick).toMatchObject({
+			rule: 0,
+			model: "small",
+			overridden: false,
+		});
+		expect(conversation.state.autoPick?.rejudge).toBeUndefined();
+		expect((await autoLines()).at(-1)).toMatchObject({
+			model: "small",
+			lifted: { from: "Big", undo: { model: "big" }, switched: true },
+		});
+	});
+
+	it("switched on, stays on a pick the rules agree with, saying so without an Undo", async () => {
+		judge = new FakeJudge(WIDE);
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		await say(conversation, "go");
+
+		expect(on).toEqual(["big", "big"]);
+		expect(conversation.state.autoPick).toMatchObject({ model: "big" });
+		expect(conversation.state.autoPick?.rejudge).toBeUndefined();
+		expect((await autoLines()).at(-1)).toMatchObject({
+			model: "big",
+			lifted: null,
+		});
+	});
+
+	it("switched on, only moves up after its first look", async () => {
+		judge = new FakeJudge(WIDE);
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		await say(conversation, "go");
+		judge = new FakeJudge(LIGHT_EDIT);
+		await say(conversation, "Also rename baz to qux, in the same file please.");
+
+		expect(on).toEqual(["big", "big", "big"]);
+	});
+
+	it("switched on, looks again at the next message when the judge said nothing", async () => {
+		conversations.lift = lifting(deps, conversations, {
+			judge: async () => null,
+		});
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		await say(conversation, "go");
+
+		expect(on).toEqual(["big", "big"]);
+		expect(conversation.state.autoPick?.rejudge).toBe(true);
+	});
+
+	it("switched on, is switched off by the person's own model, and stays off across a restart", async () => {
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		await conversation.choose("model", "big");
+		expect(conversation.state.autoPick?.overridden).toBe(true);
+		await say(conversation, "go");
+		expect(judge.asked).toEqual([]);
+		await conversations.disposeAsync();
+
+		conversations = new Conversations(
+			`${deps.splatesDir}/conversations`,
+			[AGENT],
+			{ launch: agent.launch },
+		);
+		const back = await conversations.find(conversation.id);
+		expect(back.state.autoPick?.overridden).toBe(true);
+	});
+
+	it("switches off and on again, judging afresh", async () => {
+		const conversation = await start();
+		conversation.switchAutoPick(false);
+		expect(conversation.state.autoPick).toMatchObject({
+			model: "small",
+			overridden: true,
+		});
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+		expect(on).toEqual(["small", "small"]);
+
+		conversation.switchAutoPick(true);
+		expect(conversation.state.autoPick).toMatchObject({
+			model: "small",
+			overridden: false,
+			rejudge: true,
+		});
+		await say(conversation, "go");
+		expect(on).toEqual(["small", "small", "big"]);
 	});
 });
 

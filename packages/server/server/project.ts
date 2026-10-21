@@ -495,6 +495,7 @@ export interface Served extends AsyncResource {
 	unqueueConversation: Handler;
 	sendQueuedNow: Handler;
 	chooseSetting: Handler;
+	switchAutoPick: Handler;
 	renameConversation: Handler;
 	markUnread: Handler;
 	markRead: Handler;

@@ -31,6 +31,7 @@ import {
 	type Limit,
 	runOn,
 	type Setting,
+	switched,
 } from "./state";
 
 /** How often a live conversation's log is saved while the agent streams. */
@@ -188,6 +189,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.autoPick = { ...entry.pick, overridden: false };
 			} else if (entry.kind === "notes-holdout") {
 				state.notesHoldout = entry.holdout;
+			} else if (entry.kind === "auto-pick-switch") {
+				state.autoPick = switched(state, entry.on);
 			} else if (entry.kind === "override") {
 				if (state.autoPick !== null) {
 					state.autoPick = { ...state.autoPick, overridden: true };
@@ -504,6 +507,8 @@ type Said =
 	 * for what the person said later.
 	 */
 	| { kind: "auto-pick"; pick: AutoPickSet; lifted?: true; at: string }
+	/** The person switched Auto pick on or off for the conversation. */
+	| { kind: "auto-pick-switch"; on: boolean; at: string }
 	/** Whether note pointers are held back from it, chosen as its first message was routed. */
 	| { kind: "notes-holdout"; holdout: boolean }
 	/** Settings to set once the session opens, by id, as Auto pick chose them. */
