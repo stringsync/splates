@@ -23,77 +23,6 @@ export interface CoordinatorBoxArgs {
 	snapshots?: number;
 }
 
-/** The SSM policy of the box's creds, which the `SsmSecretStore` documents. */
-export function parameterPolicy(): string {
-	return JSON.stringify({
-		Version: "2012-10-17",
-		Statement: [
-			{
-				Effect: "Allow",
-				Action: [
-					"ssm:GetParameter",
-					"ssm:GetParametersByPath",
-					"ssm:PutParameter",
-					"ssm:DeleteParameter",
-				],
-				Resource: "arn:aws:ssm:*:*:parameter/splates/*",
-			},
-			{ Effect: "Allow", Action: "kms:Decrypt", Resource: "*" },
-		],
-	});
-}
-
-/** What the box needs to make and remove the workers `AwsCloud` runs, and to hand them a role. */
-export function workerPolicy(
-	workerRoleArn: string,
-	backupRoleArn: string,
-): string {
-	return JSON.stringify({
-		Version: "2012-10-17",
-		Statement: [
-			{
-				Effect: "Allow",
-				Action: [
-					"ec2:RunInstances",
-					"ec2:TerminateInstances",
-					"ec2:CreateImage",
-					"ec2:DeregisterImage",
-					"ec2:DeleteSnapshot",
-					"ec2:ModifyInstanceAttribute",
-					"ec2:Describe*",
-					"ec2:CreateTags",
-					"ec2:ImportKeyPair",
-					"ec2:DeleteKeyPair",
-					"ec2:CreateSecurityGroup",
-					"ec2:DeleteSecurityGroup",
-					"ec2:AuthorizeSecurityGroupIngress",
-					"ec2:RevokeSecurityGroupIngress",
-					"dlm:GetLifecyclePolicies",
-					"dlm:CreateLifecyclePolicy",
-					"dlm:TagResource",
-				],
-				Resource: "*",
-			},
-			{
-				Effect: "Allow",
-				Action: "iam:PassRole",
-				Resource: [workerRoleArn, backupRoleArn],
-			},
-		],
-	});
-}
-
-const ASSUME_EC2 = JSON.stringify({
-	Version: "2012-10-17",
-	Statement: [
-		{
-			Effect: "Allow",
-			Principal: { Service: "ec2.amazonaws.com" },
-			Action: "sts:AssumeRole",
-		},
-	],
-});
-
 /**
  * Everything the coordinator's EC2 box needs in AWS: a one-subnet VPC with
  * no NAT gateway, a `t3.medium` with a public IPv4 that only SSH reaches, a
@@ -265,7 +194,8 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 		new aws.dlm.LifecyclePolicy(
 			`${name}-snapshots`,
 			{
-				description: "Daily snapshots of the coordinator's root volume",
+				// DLM allows only letters, digits, spaces, hyphens and underscores here.
+				description: "Daily snapshots of the coordinator root volume",
 				executionRoleArn: lifecycleRole.arn,
 				state: "ENABLED",
 				policyDetails: {
@@ -316,3 +246,74 @@ export class CoordinatorBox extends pulumi.ComponentResource {
 		});
 	}
 }
+
+/** The SSM policy of the box's creds, which the `SsmSecretStore` documents. */
+export function parameterPolicy(): string {
+	return JSON.stringify({
+		Version: "2012-10-17",
+		Statement: [
+			{
+				Effect: "Allow",
+				Action: [
+					"ssm:GetParameter",
+					"ssm:GetParametersByPath",
+					"ssm:PutParameter",
+					"ssm:DeleteParameter",
+				],
+				Resource: "arn:aws:ssm:*:*:parameter/splates/*",
+			},
+			{ Effect: "Allow", Action: "kms:Decrypt", Resource: "*" },
+		],
+	});
+}
+
+/** What the box needs to make and remove the workers `AwsCloud` runs, and to hand them a role. */
+export function workerPolicy(
+	workerRoleArn: string,
+	backupRoleArn: string,
+): string {
+	return JSON.stringify({
+		Version: "2012-10-17",
+		Statement: [
+			{
+				Effect: "Allow",
+				Action: [
+					"ec2:RunInstances",
+					"ec2:TerminateInstances",
+					"ec2:CreateImage",
+					"ec2:DeregisterImage",
+					"ec2:DeleteSnapshot",
+					"ec2:ModifyInstanceAttribute",
+					"ec2:Describe*",
+					"ec2:CreateTags",
+					"ec2:ImportKeyPair",
+					"ec2:DeleteKeyPair",
+					"ec2:CreateSecurityGroup",
+					"ec2:DeleteSecurityGroup",
+					"ec2:AuthorizeSecurityGroupIngress",
+					"ec2:RevokeSecurityGroupIngress",
+					"dlm:GetLifecyclePolicies",
+					"dlm:CreateLifecyclePolicy",
+					"dlm:TagResource",
+				],
+				Resource: "*",
+			},
+			{
+				Effect: "Allow",
+				Action: "iam:PassRole",
+				Resource: [workerRoleArn, backupRoleArn],
+			},
+		],
+	});
+}
+
+const ASSUME_EC2 = JSON.stringify({
+	Version: "2012-10-17",
+	Statement: [
+		{
+			Effect: "Allow",
+			Principal: { Service: "ec2.amazonaws.com" },
+			Action: "sts:AssumeRole",
+		},
+	],
+});

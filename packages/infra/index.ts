@@ -1,4 +1,3 @@
-import * as github from "@pulumi/github";
 import * as pulumi from "@pulumi/pulumi";
 import {
 	CoordinatorBox,
@@ -15,28 +14,7 @@ const tunnel = new Tunnel("splates", {
 	accountId: config.require("accountId"),
 	zoneId: config.require("zoneId"),
 });
-// DeployKeys names each repository without its owner, so the projects of
-// each owner get their own GitHub provider.
-const projects =
-	config.requireObject<{ slug: string; repository: string }[]>("projects");
-const githubToken = new pulumi.Config("github").requireSecret("token");
-for (const owner of new Set(
-	projects.map((project) => project.repository.split("/")[0]),
-)) {
-	const provider = new github.Provider(`github-${owner}`, {
-		owner,
-		token: githubToken,
-	});
-	new DeployKeys(
-		`keys-${owner}`,
-		{
-			projects: projects.filter((project) =>
-				project.repository.startsWith(`${owner}/`),
-			),
-		},
-		{ providers: { github: provider } },
-	);
-}
+new DeployKeys("keys", { projects: config.requireObject("projects") });
 const box = new CoordinatorBox("splates", {
 	host,
 	secrets: {
