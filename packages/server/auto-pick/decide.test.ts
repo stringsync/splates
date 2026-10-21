@@ -24,8 +24,21 @@ describe("decide", () => {
 	it("matches a rule's * to any depth", () => {
 		expect(decide({ ...BASE, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "fable", effort: "high" },
-			rule: 2,
+			rule: 3,
 			kind: "design",
+			depth: "deep",
+		});
+	});
+
+	it("starts a deep bugfix on Opus, keeping Fable for other deep work", () => {
+		const bugfix: Classification = {
+			kinds: { bugfix: 0.9, design: 0.1, open: 0.1 },
+			depth: { shallow: 0.05, moderate: 0.1, deep: 0.85 },
+		};
+		expect(decide({ ...BASE, classification: bugfix })).toMatchObject({
+			pick: { agent: "claude", model: "opus", effort: "high" },
+			rule: 2,
+			kind: "bugfix",
 			depth: "deep",
 		});
 	});
@@ -41,13 +54,13 @@ describe("decide", () => {
 		};
 		expect(decide({ ...BASE, classification: unsure })).toMatchObject({
 			pick: { agent: "claude", model: "fable", effort: "high" },
-			rule: 2,
+			rule: 3,
 			kind: null,
 			depth: "deep",
 			reasons: [
 				"Fable 5.1, high effort",
 				"judged: unsure (Design 40%), Deep 80%",
-				"rule 3: any kind, Deep",
+				"rule 4: any kind, Deep",
 			],
 		});
 	});
@@ -56,7 +69,7 @@ describe("decide", () => {
 		const strict: AutoPickRules = { ...DEFAULT_RULES, threshold: 0.75 };
 		expect(
 			decide({ ...BASE, rules: strict, classification: SHALLOW }),
-		).toMatchObject({ rule: 3, kind: null, depth: null });
+		).toMatchObject({ rule: 4, kind: null, depth: null });
 	});
 
 	it("lets an earlier rule win over a more specific one below it", () => {
@@ -326,7 +339,7 @@ describe("decide", () => {
 			reasons: [
 				expect.any(String),
 				expect.any(String),
-				"rule 3: any kind, Deep",
+				"rule 4: any kind, Deep",
 				"passed over Claude: can't run here",
 				"passed over Claude: can't run here",
 			],
@@ -379,7 +392,7 @@ describe("decide", () => {
 		).toMatchObject({
 			pick: { agent: "claude", model: "fable" },
 			reasons: expect.arrayContaining([
-				"none of rule 3's picks can see images, so the first: Claude",
+				"none of rule 4's picks can see images, so the first: Claude",
 			]),
 		});
 	});
