@@ -19,6 +19,7 @@ export class KeygenPs extends FakePs {
 			`${argv[at + 1]}.pub`,
 			"ssh-ed25519 AAAA splates-coordinator\n",
 		);
+		await this.fs.write(argv[at + 1] ?? "", "PRIVATE KEY\n");
 		return { exitCode: 0, stdout: "", stderr: "" };
 	}
 }

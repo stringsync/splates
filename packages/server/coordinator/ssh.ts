@@ -3,8 +3,8 @@ import { shellQuoted } from "./scripts";
 
 /**
  * A root shell on the coordinator's box over SSH, signed in with the key
- * `splates server deploy` made, trusting the box's host key the first time
- * it is seen and holding it to that key after, in a file of splates's own.
+ * `splates server deploy` made, holding the box to the host key `CoordinatorBox`
+ * recorded for it in a file of splates's own, and refusing any other.
  */
 export class BoxShell {
 	constructor(private readonly opts: BoxShellOptions) {}
@@ -19,12 +19,23 @@ export class BoxShell {
 			[...this.ssh("ssh"), `root@${this.opts.ipv4}`, ...remote],
 			{ stdin: stdin ?? script },
 		);
+		this.refuseChangedKey(ran.stderr);
 		if (ran.exitCode !== 0) {
 			throw new Error(
 				`the box's shell failed (${ran.exitCode}): ${(ran.stderr || ran.stdout).trim()}`,
 			);
 		}
 		return ran.stdout;
+	}
+
+	private refuseChangedKey(stderr: string): void {
+		if (
+			/host key verification failed|host key for .* has changed/i.test(stderr)
+		) {
+			throw new Error(
+				`not connecting: the box at ${this.opts.ipv4} does not hold the host key splates gave it (${this.opts.knownHosts}), so something else may be answering at that address`,
+			);
+		}
 	}
 
 	/** Copies the file at `local` to `remote` on the box. */
@@ -35,6 +46,7 @@ export class BoxShell {
 			local,
 			`root@${this.opts.ipv4}:${remote}`,
 		]);
+		this.refuseChangedKey(ran.stderr);
 		if (ran.exitCode !== 0) {
 			throw new Error(
 				`could not copy ${local} to the box: ${(ran.stderr || ran.stdout).trim()}`,
@@ -62,7 +74,7 @@ export class BoxShell {
 			"-o",
 			"IdentitiesOnly=yes",
 			"-o",
-			"StrictHostKeyChecking=accept-new",
+			"StrictHostKeyChecking=yes",
 			"-o",
 			`UserKnownHostsFile=${this.opts.knownHosts}`,
 			"-o",
@@ -77,6 +89,6 @@ export interface BoxShellOptions {
 	ipv4: string;
 	/** The private key that logs in as root. */
 	key: string;
-	/** Where the box's host key is kept once seen. */
+	/** Where the box's host key is kept, written before the first connection. */
 	knownHosts: string;
 }

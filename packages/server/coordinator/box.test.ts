@@ -89,7 +89,7 @@ describe("CoordinatorBox", () => {
 
 		await box.up();
 
-		expect(ps.keygens).toBe(1);
+		expect(ps.keygens).toBe(2);
 		expect(hetzner.sshKeys.size).toBe(1);
 		expect(server()).toBeDefined();
 		expect(firewall?.rules).toHaveLength(1);
@@ -119,7 +119,7 @@ describe("CoordinatorBox", () => {
 	});
 
 	it("installs splates on the box for its own user, and cloudflared, with no credentials", () => {
-		const script = installScript("1.2.3");
+		const script = installScript("1.2.3", "HOSTKEY");
 
 		expect(script).toContain("useradd --create-home --shell /bin/bash splates");
 		expect(script).toContain(
@@ -130,6 +130,24 @@ describe("CoordinatorBox", () => {
 		expect(script).toContain(
 			"test -s /root/splates-keyring || (umask 077 && head -c 32 /dev/urandom | base64 > /root/splates-keyring)",
 		);
+	});
+
+	it("gives the box a host key made here and records it for the box's address", async () => {
+		const standing = await box.up();
+
+		const made = server();
+		expect(made?.user_data).toContain("PRIVATE KEY");
+		expect(made?.user_data).toContain("/etc/ssh/ssh_host_ed25519_key");
+		expect(await fs.read(`${HOME}/coordinator/known_hosts`)).toBe(
+			`${standing.ipv4} ssh-ed25519 AAAA\n`,
+		);
+	});
+
+	it("puts the host key in place before anything is installed", () => {
+		const script = installScript("1.2.3", "HOSTKEY");
+
+		expect(script).toContain("\nHOSTKEY\n");
+		expect(script.indexOf("HOSTKEY")).toBeLessThan(script.indexOf("apt-get"));
 	});
 
 	it("asks for the cloud token's setup step without one", async () => {

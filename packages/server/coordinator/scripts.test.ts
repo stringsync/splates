@@ -32,7 +32,7 @@ function parses(script: string): string {
 describe("the box's scripts", () => {
 	it("all parse as sh, quotes in a project's name and all", () => {
 		const scripts = [
-			installScript("1.2.3"),
+			installScript("1.2.3", "KEY"),
 			upgradeScript("1.2.3"),
 			clonesScript(PROJECTS),
 			placeScript(PROJECTS, "/home/splates/projects/splates"),

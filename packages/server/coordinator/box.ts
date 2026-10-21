@@ -18,6 +18,10 @@ export class CoordinatorBox {
 	readonly home: string;
 	/** Where its SSH key pair is kept: the private key, with `.pub` beside it. */
 	readonly key: string;
+	/** Where the host key the box is given is kept: the private key, with `.pub` beside it. */
+	readonly hostKey: string;
+	/** Where the box's address is kept with that host key, for `ssh` to hold it to. */
+	readonly knownHosts: string;
 	#cloud: Promise<CloudProvider> | undefined;
 
 	constructor(private readonly opts: CoordinatorBoxOptions) {
@@ -25,6 +29,8 @@ export class CoordinatorBox {
 		this.fs = opts.fs ?? new NodeFs();
 		this.home = opts.home ?? splatesHome(this.ps);
 		this.key = `${this.home}/coordinator/id_ed25519`;
+		this.hostKey = `${this.home}/coordinator/host_ed25519`;
+		this.knownHosts = `${this.home}/coordinator/known_hosts`;
 	}
 
 	/** The cloud it is made in: `cloud`, or the one chosen in setup. */
@@ -58,7 +64,10 @@ export class CoordinatorBox {
 				type,
 				image: cloud.defaults.image,
 				location: this.opts.location ?? (await this.where(cloud, type)),
-				userData: installScript(this.opts.version),
+				userData: installScript(
+					this.opts.version,
+					await this.privateKey(this.hostKey),
+				),
 				tags: { [BOX_TAG]: "coordinator" },
 				sshKeys: [keyId],
 				firewalls: [firewall],
@@ -76,6 +85,7 @@ export class CoordinatorBox {
 				`${cloud.name} made the coordinator's box but did not say its address`,
 			);
 		}
+		await this.trust(standing.ipv4);
 		return standing;
 	}
 
@@ -122,10 +132,15 @@ export class CoordinatorBox {
 	}
 
 	/** Its SSH public key, making the pair first when there is none. */
-	private async publicKey(): Promise<string> {
-		const pub = `${this.key}.pub`;
+	private publicKey(): Promise<string> {
+		return this.publicOf(this.key);
+	}
+
+	/** Makes the pair at `key` when there is none, answering its public half. */
+	private async publicOf(key: string): Promise<string> {
+		const pub = `${key}.pub`;
 		if (!(await this.fs.exists(pub))) {
-			await this.fs.mkdir(this.key.slice(0, this.key.lastIndexOf("/")), {
+			await this.fs.mkdir(key.slice(0, key.lastIndexOf("/")), {
 				recursive: true,
 			});
 			const made = await this.ps.spawnCapture([
@@ -138,7 +153,7 @@ export class CoordinatorBox {
 				"-C",
 				"splates-coordinator",
 				"-f",
-				this.key,
+				key,
 			]);
 			if (made.exitCode !== 0) {
 				throw new Error(
@@ -147,6 +162,29 @@ export class CoordinatorBox {
 			}
 		}
 		return (await this.fs.read(pub)).trim();
+	}
+
+	/** The private half of the pair at `key`, made first when there is none. */
+	private async privateKey(key: string): Promise<string> {
+		await this.publicOf(key);
+		return (await this.fs.read(key)).trim();
+	}
+
+	/**
+	 * Records the box at `ipv4` as holding the host key made here, which its
+	 * first-boot script installed, so `ssh` knows it before first connecting
+	 * and refuses any other key.
+	 */
+	private async trust(ipv4: string): Promise<void> {
+		const pub = await this.publicOf(this.hostKey);
+		const [type, data] = pub.split(/\s+/);
+		await this.fs.mkdir(
+			this.knownHosts.slice(0, this.knownHosts.lastIndexOf("/")),
+			{
+				recursive: true,
+			},
+		);
+		await this.fs.write(this.knownHosts, `${ipv4} ${type} ${data}\n`);
 	}
 }
 
@@ -210,15 +248,24 @@ const BOX_RULES: FirewallRule[] = [
  * coordinator once it runs here; and GNOME Keyring, the Secret Service
  * `Bun.secrets` keeps creds in on Linux, with the password that unlocks it
  * at boot made now, readable by root alone, for the service to be handed.
- * No credentials: those come with the move.
+ * First of all it takes `hostKey`, the private SSH host key made on the
+ * deploying machine, in place of the one the box made for itself, so the
+ * deploy knows the key before it connects. The cloud keeps user-data
+ * readable on the box, so the script is the only copy it holds: the key
+ * leaves the script's own file as soon as it is installed. No credentials:
+ * those come with the move.
  */
-export function installScript(version: string): string {
+export function installScript(version: string, hostKey: string): string {
 	const as = (command: string) => `su - ${BOX_USER} -c '${command}'`;
 	const bun = `/home/${BOX_USER}/.bun/bin`;
 	return [
 		"#!/bin/sh",
 		"set -eu",
 		"export DEBIAN_FRONTEND=noninteractive",
+		"rm -f /etc/ssh/ssh_host_*",
+		`(umask 077 && cat > /etc/ssh/ssh_host_ed25519_key <<'SPLATES_HOST_KEY'\n${hostKey}\nSPLATES_HOST_KEY\n)`,
+		"ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key > /etc/ssh/ssh_host_ed25519_key.pub",
+		"(systemctl restart ssh || systemctl restart sshd)",
 		"apt-get update",
 		"apt-get install -y --no-install-recommends ca-certificates curl git unzip dbus-user-session gnome-keyring libsecret-1-0",
 		"curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb",
