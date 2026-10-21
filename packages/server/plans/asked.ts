@@ -135,11 +135,16 @@ export interface Proposal {
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title them. */
-export type Ending = "merged" | "removed" | "escalated" | "working";
+export type Ending =
+	| "merged"
+	| "removed"
+	| "deferred"
+	| "escalated"
+	| "working";
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
- * <task>: <why>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
+ * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
  * Working <task>: on <agent>`.
  */
 export interface TaskReport {
@@ -208,7 +213,7 @@ const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
 
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const ENDED =
-	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+	/^## (?:(🛑) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
@@ -362,10 +367,15 @@ function keptAt(
 						source,
 					}
 				: {
-						ending: ended?.[1] === undefined ? "escalated" : "removed",
-						task: ended?.[2] as string,
+						ending:
+							ended?.[1] !== undefined
+								? "removed"
+								: ended?.[2] !== undefined
+									? "deferred"
+									: "escalated",
+						task: ended?.[3] as string,
 						base: null,
-						reason: ended?.[3] || null,
+						reason: ended?.[4] || null,
 						body,
 						source,
 					};

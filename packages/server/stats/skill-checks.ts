@@ -303,7 +303,7 @@ function acts(beat: Beat): boolean {
 /** What a task's report is titled, by how it ended. */
 const TITLES = {
 	merge: /^## ✅ Merged \S+ onto \S+$/,
-	remove: /^## 🛑 Removed \S+: .*[^.!?:]$/,
+	remove: /^## (?:🛑 Removed|⏸ Deferred) \S+: .*[^.!?:]$/,
 	review: /^## 🔍 Ready to merge \S+ onto \S+$/,
 };
 

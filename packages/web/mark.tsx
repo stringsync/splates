@@ -76,6 +76,9 @@ export function Mark({
 	if (reported === "removed" && shows) {
 		return <Dot role="img" aria-label="removed" color="bg-destructive" />;
 	}
+	if (reported === "deferred" && shows) {
+		return <Dot role="img" aria-label="deferred" color="bg-warning" />;
+	}
 	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
 		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}

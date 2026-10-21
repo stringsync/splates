@@ -321,6 +321,7 @@ export const REMOVE_REASONS = [
 	"moot",
 	"superseded",
 	"redo",
+	"blocked",
 ] as const;
 
 /** Why a task was removed rather than merged. */

@@ -214,6 +214,7 @@ export function statusOf(
 		const how = {
 			merged: `Merged onto ${report.base ?? "main"}`,
 			removed: "Removed",
+			deferred: "Deferred",
 			// From before escalating was retired.
 			escalated: "Escalated",
 			working: "Working",

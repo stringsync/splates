@@ -343,7 +343,7 @@ splates
 	})
 	.option("reason", z.optional(z.enum(REMOVE_REASONS)), {
 		description:
-			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk)",
+			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk), blocked (set aside until what it waits on lands, so back on the list)",
 	})
 	.action(async (opts, ctx) => {
 		await ctx.journal.record(

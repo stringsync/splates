@@ -103,6 +103,7 @@ describe("advise", () => {
 						superseded: 1,
 						moot: 0,
 						nothing: 0,
+						blocked: 0,
 					},
 				}),
 			),

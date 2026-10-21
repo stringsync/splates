@@ -32,6 +32,16 @@ Cards on a phone now drag on a long press. Restart `splates server` to pick it u
 The task set out to stop uploads retrying a 413.
 ```
 
+A task blocked on other work is deferred, not discarded: `splates remove
+<task> --reason blocked`, then the report below, so the user does not read it
+as lost. It keeps `## 🛑 Removed` for work that really ended.
+
+```markdown
+## ⏸ Deferred <task>: waiting on the upload rewrite
+
+The task set out to stop uploads retrying a 413; it is back on the list.
+```
+
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.
 

@@ -74,6 +74,16 @@ After a remove, why it went after the colon:
 The task set out to stop uploads retrying a 413.
 ```
 
+When the work is blocked and only set aside for later, remove it with
+`--reason blocked` and report it deferred, what it waits on after the colon,
+not removed:
+
+```markdown
+## ⏸ Deferred <task>: waiting on the upload rewrite
+
+The task set out to stop uploads retrying a 413; it is back on the list.
+```
+
 Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with a
 demo, a `Checks:` line and the last line `Reply "merge", or say what to
 change.`: copy its whole shape from
@@ -270,8 +280,9 @@ remove` each queued task it took that is done or moot, `splates task update` the
 with what you learned, then `cd "$(splates path)"` and `splates remove <task>
 --reason <why>`, which puts them back on the list, out of the queue and
 any queued lane until the user queues them again. The reason is `nothing`
-(nothing to change), `moot`, `superseded` (done some other way) or `redo`
-(better redone against current trunk); the Stats page counts them.
+(nothing to change), `moot`, `superseded` (done some other way), `redo`
+(better redone against current trunk) or `blocked` (set aside until other work
+lands: report it as Deferred); the Stats page counts them.
 
 `wait` ends on `removed` (landed or dropped: check for overlap again),
 waits on a person (the other task's questions are open: tell the user you

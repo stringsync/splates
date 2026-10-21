@@ -6,6 +6,7 @@ import {
 	GitMergeIcon,
 	HourglassIcon,
 	type LucideIcon,
+	PauseIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
@@ -146,6 +147,7 @@ export const ENDINGS: Record<
 > = {
 	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },
 	// From before escalating was retired.
 	escalated: {
 		title: "Escalated",

@@ -144,6 +144,18 @@ describe("stretches", () => {
 		});
 	});
 
+	it("reads the skill's deferred report as its own ending", async () => {
+		const deferred = await skillExample("## ⏸ Deferred");
+
+		expect(stretches(deferred)[0]).toMatchObject({
+			report: {
+				ending: "deferred",
+				task: "<task>",
+				reason: "waiting on the upload rewrite",
+			},
+		});
+	});
+
 	it("reads a working report, naming the task", () => {
 		expect(stretches("## ⏳ Working lanes-fix\n\nOut.")[0]).toMatchObject({
 			report: { ending: "working", task: "lanes-fix", reason: null },

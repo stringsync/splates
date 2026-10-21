@@ -285,7 +285,7 @@ function removals(period: Tally, before: Before): Advice {
 		detail:
 			removed === 0
 				? "None removed"
-				: `${removedFor.redo} to redo, ${removedFor.superseded} superseded, ${removedFor.moot} moot, ${removedFor.nothing} with nothing to change, ${removedFor.unsaid} unsaid`,
+				: `${removedFor.redo} to redo, ${removedFor.blocked} blocked, ${removedFor.superseded} superseded, ${removedFor.moot} moot, ${removedFor.nothing} with nothing to change, ${removedFor.unsaid} unsaid`,
 		act:
 			said < ENOUGH
 				? null
