@@ -18,6 +18,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "#web/components/ui/field.tsx";
 import { Textarea } from "#web/components/ui/textarea.tsx";
 import type { ConversationFeed } from "./conversation-feed";
+import { FileChip } from "./file-chip";
 import { GardenDraft } from "./garden-draft";
 import { Markdown } from "./markdown";
 import { NoteEditing } from "./note-editing";
@@ -175,8 +176,12 @@ export function NotesPage({
 							Ask an agent
 						</Button>
 					</div>
-					<h2 className="break-words font-medium">{note.description}</h2>
-					<p className="break-all text-muted-foreground text-xs">{note.path}</p>
+					<h2 className="flex min-w-0 flex-col items-start gap-1">
+						<FileChip path={note.path} className="font-medium text-sm" />
+						<span className="break-words text-muted-foreground text-sm">
+							{note.description}
+						</span>
+					</h2>
 					<Markdown
 						text={note.body}
 						className="min-w-0 break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto"
@@ -197,19 +202,20 @@ export function NotesPage({
 					<GardenDraft feed={feed} onOpen={onOpen} />
 					<ul className="flex max-w-3xl flex-col divide-y">
 						{notes.map((note) => (
-							<li key={note.path}>
+							<li
+								key={note.path}
+								className="flex flex-col items-start gap-0.5 rounded-md px-3 py-4 transition-colors hover:bg-muted"
+							>
+								<FileChip path={note.path} className="font-medium text-sm" />
 								<button
 									type="button"
-									className="flex w-full flex-col gap-0.5 rounded-md px-3 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-ring"
+									className="flex w-full flex-col gap-0.5 text-left focus-visible:outline-ring"
 									onClick={() => {
 										void reading.open(note.path);
 									}}
 								>
-									<span className="break-words font-medium text-sm">
+									<span className="break-words text-muted-foreground text-sm">
 										{note.description}
-									</span>
-									<span className="break-all text-muted-foreground text-xs">
-										{note.path}
 									</span>
 									<span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 										<span

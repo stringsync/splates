@@ -85,9 +85,9 @@ describe("notes page", () => {
 			force: false,
 		});
 		expect(
-			await page.findByRole("heading", { name: "How tests run" }),
+			await page.findByRole("heading", { name: /How tests run/ }),
 		).toBeTruthy();
-		expect(page.getByText(saved.path)).toBeTruthy();
+		expect(page.getByTitle(saved.path)).toBeTruthy();
 	});
 
 	it("edits a note from its blob and shows a conflict to save over", async () => {
