@@ -60,7 +60,7 @@ export class RunStore {
 	scheduled(id: string, at: string): Promise<void> {
 		return this.#change((all) => ({
 			...all,
-			[id]: { runs: [], ...all[id], scheduledAt: at },
+			[id]: { ...all[id], runs: all[id]?.runs ?? [], scheduledAt: at },
 		}));
 	}
 
