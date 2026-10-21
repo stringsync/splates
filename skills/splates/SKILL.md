@@ -342,8 +342,8 @@ The page's task dialog shows `## Verification`, for an open task and once it
 has finished, as the evidence: what you checked and its screenshots, with,
 when there is a `## Demo`, Demo with an agent among its actions, which starts
 a conversation for an agent to show the change. The merged card shows `## Outcome`, kept
-with the merge record, with a Demo with an agent button when it has a
-`### Demo`: write it last, before `splates merge`. Fill in Verification before you merge:
+with the merge record, and when it has a `### Demo`, a Demo it button
+that asks the agent of the conversation, you, for one: write it last, before `splates merge`. Fill in Verification before you merge:
 it is what the user reads instead of a demo. Write `## Demo` for any change the user can see or try, and leave it
 out otherwise. Keep it to what an agent needs to set the demo up later
 against the code of the day (what to run, the throwaway data to make, where

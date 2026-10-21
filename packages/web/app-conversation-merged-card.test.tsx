@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Outcome } from "@stringsync/splates-server/stats/browser";
 import {
+	act,
 	cleanup,
 	conversation,
+	fireEvent,
 	message,
 	Testing,
 	waitFor,
@@ -74,7 +76,7 @@ describe("App's merged card actions", () => {
 		expect(within(went).queryByText(/by agent/)).toBeNull();
 	});
 
-	it("shows the outcome the plan ended on, with a demo button", async () => {
+	it("shows the outcome the plan ended on, and asks the conversation's own agent to demo it from the card's foot", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -90,10 +92,67 @@ describe("App's merged card actions", () => {
 		const outcome = await waitFor(() =>
 			view.getByRole("region", { name: "outcome" }),
 		);
-
 		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
-		expect(
-			within(outcome).getByRole("button", { name: "Demo with an agent" }),
-		).not.toBeNull();
+		expect(within(outcome).queryByRole("button")).toBeNull();
+
+		// The bar above the composer offers it too while the card's foot is
+		// out of sight.
+		await waitFor(() =>
+			within(view.getByRole("region", { name: "archive" })).getByRole(
+				"button",
+				{ name: "Demo it" },
+			),
+		);
+		const card = view.getByRole("region", { name: "merged header" });
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					within(card).getByRole("button", { name: "Demo it" }),
+				),
+			),
+		);
+
+		await waitFor(() =>
+			expect(
+				testing
+					.posted("/api/conversations/c1/prompt")
+					.map((post) => JSON.stringify(post)),
+			).toEqual([expect.stringContaining("[SPLATES DEMO header after]")]),
+		);
+	});
+
+	it("offers no demo for an outcome that says none, nor on a merge the conversation carried on past", async () => {
+		testing.landed.header = {
+			outcome: { ...header(), outcome: "Moved the header." },
+			baseline: null,
+		};
+		testing.landed.footer = {
+			outcome: {
+				...header(),
+				task: "footer",
+				outcome: "Moved the footer.\n\n### Demo\n\nOpen the page.",
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("agent", "## ✅ Merged footer onto main\n\nDone."),
+					message("user", "now the header"),
+					message("agent", "## ✅ Merged header onto main\n\nDone."),
+				],
+			}),
+		]);
+		await waitFor(() =>
+			expect(view.getAllByRole("region", { name: "outcome" })).toHaveLength(2),
+		);
+		await waitFor(() =>
+			within(view.getByRole("region", { name: "merged header" })).getByRole(
+				"button",
+				{ name: "Archive" },
+			),
+		);
+
+		expect(view.queryByRole("button", { name: "Demo it" })).toBeNull();
 	});
 });

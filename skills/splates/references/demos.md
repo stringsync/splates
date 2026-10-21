@@ -54,11 +54,12 @@ otherwise ask the user.
 ## Running a demo
 
 `[SPLATES DEMO <task> <point>]` asks you to show `<task>`, open or finished,
-at one point: `after` its change, as the task dialog's Demo with an agent asks, or,
-when asked for by hand, `before` it or on `main` as it is now.
-It starts a new conversation, so read the task first with `splates show
-<task>`, which prints a finished task's facts and the `SPLATES.md` it ended
-on too.
+at one point: `after` its change, as the task dialog's Demo with an agent and
+the merged card's Demo it ask, or, when asked for by hand, `before` it or on
+`main` as it is now. The task dialog's starts a new conversation and the
+merged card's comes to the agent that merged it; either way, read the task
+first with `splates show <task>`, which prints a finished task's facts and
+the `SPLATES.md` it ended on too.
 
 1. `splates add demo-<task>-<point> --goal "Demo <task> at <point>"`, with
    `--base task/<task>` for `after` while the task is open, so the demo runs

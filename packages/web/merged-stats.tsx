@@ -1,34 +1,27 @@
 import type { Fact, Landed } from "@stringsync/splates-server/stats/browser";
 import {
 	ArrowUpIcon,
-	BotMessageSquareIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
 	UserIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { taskOutcome } from "./api";
-import { Dispatching } from "./dispatching";
 import { Markdown } from "./markdown";
 import { type Decided, mergedFacts } from "./merged-facts";
 
 /**
- * How `task` went once it merged, under its card's report: its time, cost,
- * size and the calls the person made beside its project's usual, what the gate made of it, and anything that
- * went worse than it could have. Nothing while it loads, or for a task whose
- * merge was never recorded here.
+ * What the page holds of `task`'s merge, for its card: null while it loads,
+ * for no task, or for one whose merge was never recorded here.
  */
-export function MergedStats({ task }: { task: string }): JSX.Element | null {
+export function useLanded(task: string | null): Landed | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
 	useEffect(() => {
+		if (task === null) {
+			return;
+		}
 		let current = true;
 		taskOutcome(task).then(
 			(read) => current && setLanded(read),
@@ -39,13 +32,31 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 			current = false;
 		};
 	}, [task]);
+	return landed;
+}
+
+/** Whether `landed`'s outcome says how to demo it, under a `### Demo`. */
+export function demoed(landed: Landed | null): boolean {
+	return /^#{3,4}\s+demo\b/im.test(landed?.outcome.outcome ?? "");
+}
+
+/**
+ * How a task went once it merged, under its card's report: its time, cost,
+ * size and the calls the person made beside its project's usual, what the gate made of it, and anything that
+ * went worse than it could have. Nothing while `landed` loads.
+ */
+export function MergedStats({
+	landed,
+}: {
+	landed: Landed | null;
+}): JSX.Element | null {
 	if (landed === null) {
 		return null;
 	}
 	return (
 		<>
 			{landed.outcome.outcome !== undefined && (
-				<OutcomeNotes task={task} text={landed.outcome.outcome} />
+				<OutcomeNotes text={landed.outcome.outcome} />
 			)}
 			<Went landed={landed} />
 		</>
@@ -54,36 +65,15 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 
 /**
  * What came of a merged task, as its `## Outcome` said: a summary with any
- * pivot, and its verification and screenshots, with a button that starts
- * an agent to demo it when the outcome names a demo.
+ * pivot, and its verification and screenshots.
  */
-function OutcomeNotes({
-	task,
-	text,
-}: {
-	task: string;
-	text: string;
-}): JSX.Element {
-	const context = useContext(Dispatching);
-	const demo = /^#{3,4}\s+demo\b/im.test(text);
+function OutcomeNotes({ text }: { text: string }): JSX.Element {
 	return (
 		<section
 			aria-label="outcome"
 			className="flex flex-col gap-2 border-t px-4 py-3 text-sm"
 		>
 			<Markdown text={text} />
-			{demo && context !== null && (
-				<button
-					type="button"
-					className="flex w-fit items-center gap-1.5 text-xs font-medium"
-					onClick={() => {
-						void context.dispatch.demo(task, "after").then(context.open);
-					}}
-				>
-					<BotMessageSquareIcon aria-hidden className="size-3.5" />
-					Demo with an agent
-				</button>
-			)}
 		</section>
 	);
 }

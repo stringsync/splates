@@ -37,7 +37,7 @@ import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard } from "./current-task";
 import { Markdown } from "./markdown";
-import { MergedStats } from "./merged-stats";
+import { demoed, MergedStats, useLanded } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
 import { ReportAside } from "./report-header";
 import { TaskIcon } from "./task-icon";
@@ -79,6 +79,7 @@ export function ReportCard({
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
+	const landed = useLanded(report.ending === "merged" ? report.task : null);
 	return (
 		<div ref={ended}>
 			<CardShell
@@ -112,8 +113,8 @@ export function ReportCard({
 								<CardBody text={text} lead={report.reason !== null} />
 							</Folded>
 						)}
-						{report.ending === "merged" && <MergedStats task={report.task} />}
-						<CardArchive report={report} />
+						{report.ending === "merged" && <MergedStats landed={landed} />}
+						<CardArchive report={report} demo={demoed(landed)} />
 					</>
 				)}
 			</CardShell>
