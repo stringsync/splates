@@ -213,6 +213,9 @@ function buildScript(recipe: string): string {
 	].join("\n");
 }
 
+/** Where the clouds' metadata service answers, serving a machine's user data to whoever asks. */
+const METADATA_ADDRESS = "169.254.169.254";
+
 /** Where a worker's `join` keeps its key, readable by root alone, for systemd to hand its service. */
 const WORKER_HOME = "/etc/splates-worker";
 
@@ -226,7 +229,9 @@ const JOIN_APART = Duration.secs(10);
  * service of the snapshot's user, started now and again whenever it
  * stops, with that key in its environment, so a restart dials with the key
  * rather than the token `join` spent. A machine that cannot join runs no
- * worker, and placement replaces it once its token has run out.
+ * worker, and placement replaces it once its token has run out. The
+ * metadata address, which serves all of this, is closed to the snapshot's
+ * user first, agents included.
  */
 function bootScript({ join, boot }: WorkerSpec): string {
 	// The snapshot's splates is a bun script, which root's PATH cannot run.
@@ -235,6 +240,8 @@ function bootScript({ join, boot }: WorkerSpec): string {
 		"#!/bin/sh",
 		"set -eu",
 		"umask 077",
+		// The metadata service serves this script, join token and all, to any process.
+		`iptables -I OUTPUT -d ${METADATA_ADDRESS} -m owner --uid-owner ${SNAPSHOT_USER} -j REJECT`,
 		`mkdir -p ${WORKER_HOME}`,
 		"tries=0",
 		`until env PATH="${bin}:$PATH" SPLATES_HOME=${WORKER_HOME} ${join.map(shellQuoted).join(" ")}; do`,

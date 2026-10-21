@@ -74,6 +74,9 @@ describe("CloudWorkers in Hetzner", () => {
 		expect(server?.user_data).toContain(
 			'ExecStart="splates" "worker" "run" "--key-file"',
 		);
+		expect(server?.user_data).toMatch(
+			/iptables -I OUTPUT -d 169\.254\.169\.254 -m owner --uid-owner \S+ -j REJECT/,
+		);
 	});
 
 	it("makes a worker once, however often it is asked", async () => {
