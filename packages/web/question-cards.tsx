@@ -309,9 +309,6 @@ export function QuestionCards({
 			aside={
 				paging || questions.length === 0 ? undefined : (
 					<span className="flex items-center gap-2">
-						<span className="text-muted-foreground text-xs tabular-nums">
-							{answered} of {questions.length} answered
-						</span>
 						<span
 							aria-hidden
 							className="block h-1 w-14 overflow-hidden rounded-full bg-border"

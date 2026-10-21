@@ -323,7 +323,6 @@ describe("App's question card keys", () => {
 		expect(
 			within(first).getByRole("button", { name: "Clear order" }),
 		).toBeTruthy();
-		expect(view.getByText("1 of 1 answered")).toBeTruthy();
 	});
 
 	it("shows questions replied to as a line of splates's, opening on the answers sent, never asking them again", async () => {

@@ -162,7 +162,6 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(card.textContent).toContain("Let the header wrap on phones.");
 		// The proposal's own calls, the chosen one answered already.
 		expect(card.textContent).toContain("Where should the header wrap?");
-		expect(within(card).getByText("1 of 2 answered")).toBeTruthy();
 		// Answering the open call approves the proposal, as from its own card.
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /Todos/ })),
@@ -362,7 +361,6 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		).toBe("true");
 		// The older card, asked again below, folds to its header.
 		expect(view.getAllByRole("list", { name: "questions" })).toHaveLength(1);
-		expect(within(card).getByText("1 of 2 answered")).toBeTruthy();
 	});
 });
 

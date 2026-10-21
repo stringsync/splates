@@ -64,7 +64,6 @@ describe("App's question cards when splates tells the agent of a task's end", ()
 				.getAllByRole("button", { pressed: true })
 				.map((each) => each.textContent),
 		).toEqual(["bA badge"]);
-		expect(view.getByText("1 of 2 answered")).toBeTruthy();
 		expect(
 			(view.getByRole("button", { name: "Send" }) as HTMLButtonElement)
 				.disabled,

@@ -250,9 +250,7 @@ describe("App's question cards", () => {
 		await typeIn(note("2"), "only on phones");
 		await typeIn(note("3"), "after a\nphone check");
 		expect(textIn(note("2"))).toBe("only on phones");
-		expect(view.getByText("3 of 3 answered")).toBeTruthy();
 		await typeIn(note("3"), "");
-		expect(view.getByText("2 of 3 answered")).toBeTruthy();
 		await typeIn(
 			view.getByRole("textbox", { name: "Anything else" }),
 			"Also the footer.",
