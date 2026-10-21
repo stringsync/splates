@@ -5,7 +5,8 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
 import { Board, NO_BOARD } from "./board";
-import { linkTasks, Markdown } from "./markdown";
+import { linkElsewhere, linkTasks, Markdown } from "./markdown";
+import { NamedContext } from "./mentioned";
 
 describe("Markdown", () => {
 	it("renders a heading at its own level", () => {
@@ -203,9 +204,6 @@ describe("Markdown", () => {
 		expect(container.querySelector("a")).toBeNull();
 		expect(container.textContent).toBe("See the docs");
 	});
-});
-
-describe("linkTasks", () => {
 	it("links a task's branch in prose or as inline code alone", () => {
 		expect(
 			linkTasks("Merged task/fix-login, then `task/fix-login-page`."),
@@ -220,9 +218,6 @@ describe("linkTasks", () => {
 
 		expect(linkTasks(text)).toBe(text);
 	});
-});
-
-describe("Markdown's task mentions", () => {
 	it("draws a task's branch as its chip, which opens a live or finished task", () => {
 		const opened: string[] = [];
 		const page = render(
@@ -245,4 +240,46 @@ describe("Markdown's task mentions", () => {
 		expect(opened).toEqual(["fix-login", "gone-now"]);
 		expect(page.container.querySelector("code")).toBeNull();
 	});
+	it("links a #N another project's slug names, however it is written", () => {
+		expect(
+			linkElsewhere(
+				"Waits on webappwiz task #404, Webappwiz#405 and #vexml #6.",
+				PROJECTS,
+			),
+		).toBe(
+			"Waits on [webappwiz \\#404](#todo-404&project=webappwiz), [webappwiz \\#405](#todo-405&project=webappwiz) and [vexml \\#6](#todo-6&project=vexml).",
+		);
+	});
+
+	it("leaves a bare #N, an unknown name and code", () => {
+		const text = "#12, other #13, `webappwiz #404`";
+
+		expect(linkElsewhere(text, PROJECTS)).toBe(text);
+	});
+	it("names the project in a link to that project's board, the todo open", () => {
+		const page = render(
+			<NamedContext
+				value={{
+					projects: [{ slug: "webappwiz", root: "/r/webappwiz" }],
+					paths: new Set(),
+					tree: null,
+					resolving: { paths: false, projects: false },
+				}}
+			>
+				<Board value={{ ...NO_BOARD, linked: true }}>
+					<Markdown text="Waits on webappwiz #404, then #12." />
+				</Board>
+			</NamedContext>,
+		);
+
+		const link = page.getByTitle("#404 in webappwiz, another project");
+		expect(link.textContent).toBe("webappwiz#404");
+		const href = new URL(link.getAttribute("href") ?? "");
+		expect(href.searchParams.get("project")).toBe("webappwiz");
+		expect(href.hash).toBe("#todos/404");
+		// This project's #12, archived since the board has no such todo.
+		expect(page.getByTitle("#12 is archived: merged or removed")).toBeTruthy();
+	});
 });
+
+const PROJECTS = [{ slug: "webappwiz" }, { slug: "vexml" }];

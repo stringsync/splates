@@ -73,6 +73,15 @@ describe("lanes", () => {
 			),
 		).toEqual([187, 191]);
 	});
+
+	it("leaves out a task another project's slug names", () => {
+		expect(
+			mentioned(
+				"Waits on webappwiz task #404, Webappwiz#405, #webappwiz #406 and webappwiz #407; then #12, and app #13.",
+				["webappwiz", "app-2"],
+			),
+		).toEqual([12, 13]);
+	});
 });
 
 function task(overrides: Partial<TaskRecord>): TaskRecord {

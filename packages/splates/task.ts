@@ -172,7 +172,14 @@ splatesTask
 	.description("one task in full: where it stands, its files, and its detail")
 	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) => taskShow(ctx, opts.id, { json: opts.json }));
+	.action(async (opts, ctx) =>
+		taskShow(ctx, opts.id, {
+			json: opts.json,
+			others: (await ctx.projects.list())
+				.filter((project) => project.root !== ctx.git.root)
+				.map((project) => project.slug),
+		}),
+	);
 
 splatesTask
 	.command("update")

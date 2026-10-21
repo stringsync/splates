@@ -22,9 +22,59 @@ import type { ShortcutKey } from "./settings";
 import { TaskIcon } from "./task-icon";
 
 /**
+ * Where the page is, as `PageAddress` keeps it in the address and the
+ * browser's history. Navigation actions retain their identity across renders.
+ */
+export function usePageRoute(): PageRoute {
+	const [address] = useState(() => new PageAddress());
+	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
+	const { page, open, task, lane, todo, cred, rule, evals } = useReactive(
+		address,
+		({ page, open, task, lane, todo, cred, rule, evals }) => ({
+			page,
+			open,
+			task,
+			lane,
+			todo,
+			cred,
+			rule,
+			evals,
+		}),
+		["changed"],
+	);
+	useLayoutEffect(() => {
+		const scroll = address.takeScroll();
+		if (scroll !== null) {
+			scrollTo(0, scroll);
+		}
+	});
+	return {
+		page,
+		open,
+		task,
+		lane,
+		todo,
+		cred,
+		rule,
+		evals,
+		go: useCallback(
+			(next, conversation, how) => address.go(next, conversation, how),
+			[address],
+		),
+		openTask: useCallback((name) => address.openTask(name), [address]),
+		openLane: useCallback((id) => address.openLane(id), [address]),
+		openEval: useCallback(
+			(batch, run) => address.openEval(batch, run),
+			[address],
+		),
+	};
+}
+
+/**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), `#lanes/<id>` for the board opened on a lane, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
+ * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
+ * for it with todo N open, `#stats`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#budget`, `#workers`, `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
@@ -69,53 +119,6 @@ export const PAGES: {
 	{ value: "notes", label: "Notes", Icon: BookOpenIcon },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon },
 ];
-
-/**
- * Where the page is, as `PageAddress` keeps it in the address and the
- * browser's history. Navigation actions retain their identity across renders.
- */
-export function usePageRoute(): PageRoute {
-	const [address] = useState(() => new PageAddress());
-	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, cred, rule, evals } = useReactive(
-		address,
-		({ page, open, task, lane, cred, rule, evals }) => ({
-			page,
-			open,
-			task,
-			lane,
-			cred,
-			rule,
-			evals,
-		}),
-		["changed"],
-	);
-	useLayoutEffect(() => {
-		const scroll = address.takeScroll();
-		if (scroll !== null) {
-			scrollTo(0, scroll);
-		}
-	});
-	return {
-		page,
-		open,
-		task,
-		lane,
-		cred,
-		rule,
-		evals,
-		go: useCallback(
-			(next, conversation, how) => address.go(next, conversation, how),
-			[address],
-		),
-		openTask: useCallback((name) => address.openTask(name), [address]),
-		openLane: useCallback((id) => address.openLane(id), [address]),
-		openEval: useCallback(
-			(batch, run) => address.openEval(batch, run),
-			[address],
-		),
-	};
-}
 
 /**
  * The page in the nav that `page` sits under, so the nav marks it: Auto pick
@@ -192,6 +195,8 @@ export interface PageRoute {
 	openTask: (name: string | null) => void;
 	/** The lane the board was opened on, by id, or null. */
 	lane: number | null;
+	/** The todo `#todos/<N>` asks the board to open, or null. */
+	todo: number | null;
 	/** Opens the board on lane `id`, scrolled to its column. */
 	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */

@@ -1,5 +1,8 @@
-import { MENTION } from "@stringsync/splates-server/board/browser";
-import { ArchiveIcon } from "lucide-react";
+import {
+	elsewhereMention,
+	MENTION,
+} from "@stringsync/splates-server/board/browser";
+import { ArchiveIcon, FolderGit2Icon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
 import { type ComponentProps, type JSX, memo, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -9,6 +12,8 @@ import { Alt, Media } from "./media";
 import { NamedContext } from "./mentioned";
 import { NoteChip } from "./note-chip";
 import { linkNotes, noteIn } from "./note-references";
+import { todoAddress } from "./page-address";
+import { placeKey, projectUrl, shownProject } from "./project-places";
 import { TaskChip } from "./reference-chip";
 
 export interface MarkdownProps {
@@ -45,8 +50,11 @@ export const Markdown = memo(function Markdown({
 }: MarkdownProps): JSX.Element {
 	const named = useContext(NamedContext);
 	const linked = linkMentions(
-		linkTasks(
-			linkNotes(text, named.notes ?? [], named.notesRoot ?? named.tree),
+		linkElsewhere(
+			linkTasks(
+				linkNotes(text, named.notes ?? [], named.notesRoot ?? named.tree),
+			),
+			named.projects,
 		),
 	);
 	if (inline) {
@@ -162,6 +170,46 @@ export function linkMentions(text: string): string {
 	return outsideCode(text, (prose) =>
 		prose.replace(MENTION, "[#$1](#todo-$1)"),
 	);
+}
+
+/** Where a mention of another project's task links to, read back by `elsewhereIn`. */
+const ELSEWHERE_LINK = /^#todo-(\d+)&project=([^&]+)$/;
+
+/**
+ * `text` with each `#N` outside code that names the task of another project
+ * among `projects`, as `webappwiz #404` does, made a link that `elsewhereIn`
+ * reads back, its `#` escaped so `linkMentions` leaves it to this one.
+ */
+export function linkElsewhere(
+	text: string,
+	projects: readonly { slug: string }[],
+): string {
+	const own = placeKey(shownProject());
+	const others = projects
+		.map((project) => project.slug)
+		.filter((slug) => slug !== own);
+	const elsewhere = elsewhereMention(others);
+	if (elsewhere === null) {
+		return text;
+	}
+	return outsideCode(text, (prose) =>
+		prose.replace(elsewhere, (_, called: string, id: string) => {
+			const slug =
+				others.find((each) => each.toLowerCase() === called.toLowerCase()) ??
+				called;
+			return `[${slug} \\#${id}](#todo-${id}&project=${encodeURIComponent(slug)})`;
+		}),
+	);
+}
+
+/** The other project's task a link written by `linkElsewhere` names, or null. */
+export function elsewhereIn(
+	href: string | undefined,
+): { project: string; id: number } | null {
+	const link = ELSEWHERE_LINK.exec(href ?? "");
+	return link === null
+		? null
+		: { project: decodeURIComponent(link[2] ?? ""), id: Number(link[1]) };
 }
 
 /** A fenced block or inline code, kept by a split as its odd parts. */
@@ -287,6 +335,36 @@ export function Mention({ id }: { id: number }): JSX.Element {
 	);
 }
 
+/**
+ * A task of another project, mentioned as `webappwiz #404`: the project's
+ * name before its number, and a tap opens it on that project's board.
+ */
+export function ElsewhereMention({
+	project,
+	id,
+}: {
+	project: string;
+	id: number;
+}): JSX.Element {
+	const url = new URL(projectUrl({ slug: project }));
+	url.hash = todoAddress(id);
+	return (
+		<a
+			href={url.toString()}
+			{...still}
+			onClick={(event) => event.stopPropagation()}
+			title={`#${id} in ${project}, another project`}
+			className="inline-flex items-baseline gap-1 font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid"
+		>
+			<FolderGit2Icon
+				aria-hidden
+				className="size-3 self-center text-muted-foreground"
+			/>
+			<span className="text-muted-foreground">{project}</span>#{id}
+		</a>
+	);
+}
+
 /** A link opens in a new tab, so the page keeps its place. */
 function Link(props: ComponentProps<"a">): JSX.Element {
 	const note = noteIn(props.href);
@@ -296,6 +374,10 @@ function Link(props: ComponentProps<"a">): JSX.Element {
 	const mention = mentionIn(props.href);
 	if (mention !== null) {
 		return <Mention id={mention} />;
+	}
+	const elsewhere = elsewhereIn(props.href);
+	if (elsewhere !== null) {
+		return <ElsewhereMention {...elsewhere} />;
 	}
 	const task = taskIn(props.href);
 	if (task !== null) {

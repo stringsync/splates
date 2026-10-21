@@ -46,7 +46,7 @@ import {
 import { usePageVisits } from "./page-visits";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
-import { useProjectName } from "./project-places";
+import { shownProject, useProjectName } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
@@ -182,6 +182,7 @@ export function App({
 		open,
 		task,
 		lane,
+		todo,
 		go,
 		openTask,
 		openLane,
@@ -211,6 +212,19 @@ export function App({
 		},
 		[snapshot?.todos, tasks, go, todoView, openTask],
 	);
+	// A link on another project's page opens a todo here as `#todos/<N>`, once
+	// the snapshot is this project's own, not the last one's kept past the
+	// switch, and has its todos.
+	const arrived =
+		snapshot !== null &&
+		!seeded &&
+		snapshot.project === (shownProject() ?? snapshot.project);
+	useEffect(() => {
+		if (todo !== null && arrived) {
+			go("todos", null, "replace");
+			openTodo(todo);
+		}
+	}, [todo, arrived, go, openTodo]);
 	// What a run of an automation or a pick opens: its todo or its task.
 	const opens = useMemo(
 		() => ({ todo: openTodo, task: openTask }),

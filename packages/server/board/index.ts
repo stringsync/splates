@@ -15,6 +15,7 @@ export {
 	BUDGET_LOW,
 	blockerLabel,
 	cycle,
+	elsewhereMention,
 	followers,
 	isReady,
 	lane,

@@ -274,17 +274,44 @@ export function aptName(tasks: TaskRecord[], taken: string[]): string {
 /**
  * The tasks a markdown text mentions as `#N`, once each, in the order
  * mentioned. Code spans and blocks are left out, where `#3` means something
- * else, as is `#N` inside a word or a link like `page#2`.
+ * else, as is `#N` inside a word or a link like `page#2`, and one named as
+ * the task of a project among `others`, by slug (see `elsewhereMention`).
  */
-export function mentioned(text: string): number[] {
+export function mentioned(
+	text: string,
+	others: readonly string[] = [],
+): number[] {
 	const prose = text.replace(/```[\s\S]*?(```|$)|`[^`\n]*`/g, " ");
+	const elsewhere = elsewhereMention(others);
+	const own = elsewhere === null ? prose : prose.replace(elsewhere, " ");
 	return [
-		...new Set([...prose.matchAll(MENTION)].map((match) => Number(match[1]))),
+		...new Set([...own.matchAll(MENTION)].map((match) => Number(match[1]))),
 	];
 }
 
-/** `#` and a number, standing on its own. */
-export const MENTION = /(?<![\w/#&])#(\d+)\b/g;
+/** `#` and a number, standing on its own, not escaped as `\#`. */
+export const MENTION = /(?<![\w/#&\\])#(\d+)\b/g;
+
+/**
+ * A `#N` named as the task of another project, by its slug among `others`
+ * just before it, as agents write it: `webappwiz #404`, `webappwiz task #404`,
+ * `webappwiz#404` or `#webappwiz #404`, the slug in any case. Group 1 is the
+ * slug as written, group 2 the number; null when there are no others.
+ */
+export function elsewhereMention(others: readonly string[]): RegExp | null {
+	if (others.length === 0) {
+		return null;
+	}
+	// The longest first, so `app-2` is read whole rather than as `app`.
+	const slugs = [...others]
+		.sort((one, other) => other.length - one.length)
+		.map((slug) => slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+		.join("|");
+	return new RegExp(
+		`(?<![\\w/#&])#?(${slugs})(?:[ \\t]+task)?[ \\t]*#(\\d+)\\b`,
+		"gi",
+	);
+}
 
 /**
  * Why `task` waits on the person, its blockers removed without merging,

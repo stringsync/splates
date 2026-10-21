@@ -44,6 +44,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	task = taskIn(location.hash);
 	/** The lane the board was opened on, by id, or null. */
 	lane = laneIn(location.hash);
+	/** The todo `#todos/<N>` asks the board to open, or null. */
+	todo = todoIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
 	/** The rule the Auto pick page is set on, by its place from 0, or null. */
@@ -82,6 +84,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.open = conversation;
 		this.task = null;
 		this.lane = null;
+		this.todo = null;
 		this.cred = null;
 		this.rule = null;
 		this.evals = NO_EVALS;
@@ -149,6 +152,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.open = openIn(location.hash);
 		this.task = taskIn(location.hash);
 		this.lane = laneIn(location.hash);
+		this.todo = todoIn(location.hash);
 		this.cred = credIn(location.hash);
 		this.rule = ruleIn(location.hash);
 		this.evals = evalsIn(location.hash);
@@ -239,7 +243,7 @@ function pageIn(hash: string): Page {
 		return "tasks";
 	}
 
-	if (laneIn(hash) !== null) {
+	if (laneIn(hash) !== null || todoIn(hash) !== null) {
 		return "todos";
 	}
 	if (hash === "#stats") {
@@ -300,6 +304,20 @@ function laneIn(hash: string): number | null {
 /** The address of the board opened on lane `id`. */
 export function laneAddress(id: number): string {
 	return `#lanes/${id}`;
+}
+
+/** The todo `#todos/<N>` opens on the board, or null. */
+function todoIn(hash: string): number | null {
+	const [, todo] = hash.match(/^#todos\/(\d+)$/) ?? [];
+	return todo === undefined ? null : Number(todo);
+}
+
+/**
+ * The address of the board with todo `id` open, as a link from another
+ * project's page opens it.
+ */
+export function todoAddress(id: number): string {
+	return `#todos/${id}`;
 }
 
 /** The cred `#creds/<name>` sets the Creds page on, or null. */

@@ -31,6 +31,9 @@ import { useCopyToClipboard } from "#web/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#web/lib/utils.ts";
 import { GROUP } from "#web/lightbox.tsx";
 import {
+	ElsewhereMention,
+	elsewhereIn,
+	linkElsewhere,
 	linkMentions,
 	linkTasks,
 	Mention,
@@ -112,18 +115,22 @@ function MarkdownTextImpl({
 					remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
 					// Each `#N` a link to that todo, which `a` draws as a mention, and
 					// each system, path and task the page names one `a` draws as its
-					// chip.
+					// chip. Another project's task, `webappwiz #404`, is linked
+					// before its `#webappwiz` could be read as the project alone.
 					preprocess={(text: string) =>
 						linkMentions(
 							linkNamed(
-								linkTasks(
-									typed
-										? typed(text)
-										: linkNotes(
-												text,
-												named.notes ?? [],
-												named.notesRoot ?? named.tree,
-											),
+								linkElsewhere(
+									linkTasks(
+										typed
+											? typed(text)
+											: linkNotes(
+													text,
+													named.notes ?? [],
+													named.notesRoot ?? named.tree,
+												),
+									),
+									named.projects,
 								),
 								named,
 							),
@@ -290,6 +297,10 @@ const defaultComponents = memoizeMarkdownComponents({
 		const mention = mentionIn(props.href);
 		if (mention !== null) {
 			return <Mention id={mention} />;
+		}
+		const elsewhere = elsewhereIn(props.href);
+		if (elsewhere !== null) {
+			return <ElsewhereMention {...elsewhere} />;
 		}
 		const named = namedIn(props.href);
 		if (named !== null) {

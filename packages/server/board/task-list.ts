@@ -89,13 +89,15 @@ export async function taskList(
 export interface TaskShowOptions {
 	/** Print the task as JSON instead of prose. */
 	json?: boolean;
+	/** The other projects' slugs, whose tasks a `webappwiz #4` names, not this one's. */
+	others?: readonly string[];
 }
 
 /** One task in full: what `task list` shows of it, its files, and its detail. */
 export async function taskShow(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	{ json = false }: TaskShowOptions = {},
+	{ json = false, others = [] }: TaskShowOptions = {},
 ): Promise<void> {
 	const task = await tasks.find(id);
 	if (json) {
@@ -161,7 +163,7 @@ export async function taskShow(
 	// A mention of a task that has gone reads as if it were still there, so
 	// each is said to be open or gone: ids never come back, and a gone one has
 	// merged or been removed.
-	const mentions = mentioned(`${task.subject}\n${task.text}`).filter(
+	const mentions = mentioned(`${task.subject}\n${task.text}`, others).filter(
 		(id) => id !== task.id,
 	);
 	for (const id of mentions) {

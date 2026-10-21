@@ -1,7 +1,12 @@
 import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "webappwiz/disposable";
-import { holdHome, PageAddress, ruleAddress } from "./page-address";
+import {
+	holdHome,
+	PageAddress,
+	ruleAddress,
+	todoAddress,
+} from "./page-address";
 
 /** Waits for the browser to move through its history, as a swipe does. */
 function traverse(step: () => void): Promise<void> {
@@ -58,6 +63,15 @@ describe("PageAddress", () => {
 
 		expect(history.length).toBe(length);
 		expect(location.hash).toBe("#conversations/c1");
+	});
+
+	it("reads a todo another project's page links to, which a move to the board clears", () => {
+		history.replaceState(null, "", todoAddress(404));
+		const arrived = new PageAddress();
+
+		expect([arrived.page, arrived.todo]).toEqual(["todos", 404]);
+		arrived.go("todos", null, "replace");
+		expect([arrived.todo, location.hash]).toEqual([null, ""]);
 	});
 
 	it("sets the Creds page on one cred and leaves it for the page", () => {
