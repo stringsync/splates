@@ -327,6 +327,39 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads a run evals permission with its probes and baseline", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: run evals splates: the decision probes",
+				"",
+				"Checks the new wording.",
+				"",
+				"- `decisions/local-choice` the local one",
+				"- `decisions/ask-first`",
+				"",
+				"Baseline: `main`",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "permission",
+				permission: {
+					action: "run-evals",
+					lane: null,
+					tasks: [],
+					title: "the decision probes",
+					body: "Checks the new wording.",
+					evals: {
+						skill: "splates",
+						probes: ["decisions/local-choice", "decisions/ask-first"],
+						baseline: "main",
+					},
+				},
+			},
+		]);
+	});
+
 	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

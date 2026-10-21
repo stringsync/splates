@@ -17,6 +17,7 @@ import { dropLane, queueLane, queueTodo } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
+import { EvalsCard } from "./evals-card";
 import { useExpectSnapshot } from "./expecting";
 import { QueueWork } from "./queue-work";
 import { stageOf } from "./todo-queue";
@@ -44,11 +45,14 @@ export function PermissionCard({
 }: {
 	proposal: PermissionProposal;
 }): JSX.Element {
-	return proposal.action === "remove-lane" ? (
-		<RemoveLaneCard proposal={proposal} />
-	) : (
-		<QueueCard proposal={proposal} />
-	);
+	switch (proposal.action) {
+		case "remove-lane":
+			return <RemoveLaneCard proposal={proposal} />;
+		case "run-evals":
+			return <EvalsCard proposal={proposal} />;
+		case "queue":
+			return <QueueCard proposal={proposal} />;
+	}
 }
 
 /** Removing a lane with its tasks, which are kept to restore. */

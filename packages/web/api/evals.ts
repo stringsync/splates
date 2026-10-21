@@ -3,6 +3,9 @@ import type {
 	EvalBatch,
 	EvalDetail,
 	EvalGrid,
+	EvalLaunch,
+	EvalPlan,
+	EvalProbe,
 } from "@stringsync/splates-server/evals/browser";
 import { ApiError, sendJson } from "./request";
 
@@ -55,4 +58,57 @@ export async function saveEvalAgents(
 	return (await sendJson("/api/evals/agents", "PUT", {
 		agents,
 	})) as EvalAgentsView;
+}
+
+/** What a run of `probes` on `agents` would reserve, from the runner's free plan. */
+export async function evalPlan(run: EvalRunAsk): Promise<EvalPlan> {
+	return (await sendJson("/api/evals/plan", "POST", run)) as EvalPlan;
+}
+
+/** Every probe the harness registers. */
+export async function evalProbes(): Promise<EvalProbe[]> {
+	const response = await fetch("/api/evals/probes");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/probes: ${response.status}`);
+	}
+	return (await response.json()) as EvalProbe[];
+}
+
+/** Starts the paid run the person asked for, the card `key` naming it. */
+export async function startEvalRun(
+	key: string,
+	run: EvalRunAsk,
+): Promise<EvalLaunch> {
+	return (await sendJson("/api/evals/launch", "POST", {
+		...run,
+		key,
+	})) as EvalLaunch;
+}
+
+/** The run of card `key`; null when this server has none for it. */
+export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
+	const response = await fetch(
+		`/api/evals/launch?key=${encodeURIComponent(key)}`,
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/launch: ${response.status}`);
+	}
+	return (await response.json()) as EvalLaunch | null;
+}
+
+/** Stops the run of card `key`. */
+export async function stopEvalRun(key: string): Promise<void> {
+	await sendJson(
+		`/api/evals/launch?key=${encodeURIComponent(key)}`,
+		"DELETE",
+		{},
+	);
+}
+
+/** What a run is asked with: the probes, the agents and what the skill is judged against. */
+export interface EvalRunAsk {
+	skill: string;
+	probes: string[];
+	agents: EvalAgentsView["agents"];
+	baseline: string | null;
 }

@@ -91,6 +91,24 @@ the user to queue):
 <A line on what the tasks add up to.>
 ```
 
+Evals cost the user tokens, so only they start them. To ask for a run
+(splates repository only, where `splates dev eval list` names the probes),
+end your reply with the run card: the probes you picked, one `` - `id` `` item
+each, and optionally the revision the skill's change is judged against. The
+page shows it with the saved eval agents and the reservation, and its Run
+button is the user's; never run `splates dev eval fast` yourself.
+
+```markdown
+## 🔐 Permission: run evals splates: the decision probes
+
+Checks the new wording of the ask-first rule.
+
+- `decisions/local-choice`
+- `decisions/ask-first`
+
+Baseline: `main`
+```
+
 ## In every conversation
 
 These ways hold in every conversation in a splates repository, with a task

@@ -16,11 +16,17 @@ export {
 	saveCred,
 } from "./creds";
 export {
+	type EvalRunAsk,
 	evalAgents,
 	evalBatch,
 	evalBatches,
+	evalLaunch,
+	evalPlan,
+	evalProbes,
 	evalRun,
 	saveEvalAgents,
+	startEvalRun,
+	stopEvalRun,
 } from "./evals";
 export {
 	addLane,

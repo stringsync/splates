@@ -16,6 +16,7 @@
 @source "./eval-agents-view.tsx";
 @source "./eval-debug.tsx";
 @source "./eval-status.tsx";
+@source "./evals-card.tsx";
 @source "./conversation-checkpoint.tsx";
 @source "./splash.tsx";
 @source "./migration-failed.tsx";

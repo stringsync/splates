@@ -1,11 +1,16 @@
 // scry-ignore-file compact-files: the dev server and its route table, each body handed to its own module
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
-import { EvalAgentsRoutes, EvalRoutes } from "../evals";
+import {
+	EvalAgentsRoutes,
+	EvalLaunches,
+	EvalLaunchRoutes,
+	EvalRoutes,
+} from "../evals";
 import { fail } from "../exit";
 import { Roster, splatesHome } from "../models";
 import { RESUME } from "../plans";
@@ -355,13 +360,23 @@ export async function dev(
 	const picker = new Picker(deps);
 
 	const ended = new DevOutcomes(deps);
-	const evals = new EvalRoutes({
-		ps,
-		checkout:
-			(await sourceCommit(ps)) === null
-				? null
-				: dirname(dirname(dirname(import.meta.dirname))),
-	});
+	const evalsCheckout =
+		(await sourceCommit(ps)) === null
+			? null
+			: dirname(dirname(dirname(import.meta.dirname)));
+	const evals = new EvalRoutes({ ps, checkout: evalsCheckout });
+	const evalLaunches =
+		evalsCheckout === null
+			? null
+			: new EvalLaunches({
+					ps,
+					checkout: evalsCheckout,
+					directory: join(splatesHome(ps), "probe-evals"),
+				});
+	if (evalLaunches !== null) {
+		disposer.defer(async () => evalLaunches.dispose());
+	}
+	const evalLaunchRoutes = new EvalLaunchRoutes(evalLaunches);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({
@@ -598,6 +613,13 @@ export async function dev(
 					},
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
+					"/api/evals/probes": guarded(evalLaunchRoutes.probes),
+					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
+					"/api/evals/launch": {
+						GET: guarded(evalLaunchRoutes.read),
+						POST: guarded(evalLaunchRoutes.start),
+						DELETE: guarded(evalLaunchRoutes.stop),
+					},
 					"/api/identity": guarded(async (request) =>
 						Response.json({
 							email: (await gate.identity(request))?.email ?? null,

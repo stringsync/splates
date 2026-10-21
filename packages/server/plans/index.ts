@@ -1,5 +1,6 @@
 export type {
 	Ending,
+	EvalAsk,
 	PermissionProposal,
 	Proposal,
 	Review,

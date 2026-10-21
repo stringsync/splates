@@ -172,8 +172,8 @@ export interface TodoProposal {
  * titles read as the queue ones.
  */
 export interface PermissionProposal {
-	/** What it asks: queue work, or remove a lane with its tasks. */
-	action: "queue" | "remove-lane";
+	/** What it asks: queue work, remove a lane with its tasks, or run evals. */
+	action: "queue" | "remove-lane" | "run-evals";
 	/** The lane it acts on whole; null for tasks named one by one. */
 	lane: number | null;
 	/** The tasks named one by one; none for a lane. */
@@ -182,6 +182,20 @@ export interface PermissionProposal {
 	title: string | null;
 	/** What it comes to, as markdown. */
 	body: string;
+	/** For `run-evals`: what to run, from the card's probe list. */
+	evals?: EvalAsk;
+}
+
+/**
+ * The evals a `## 🔐 Permission: run evals <skill>: <what it checks>` card
+ * asks to run: the probes it picked, one `` - `probe-id` `` item each, and
+ * optionally the revision the skill's change is judged against, as a
+ * `` Baseline: `rev` `` line.
+ */
+export interface EvalAsk {
+	skill: string;
+	probes: string[];
+	baseline: string | null;
 }
 
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
@@ -198,6 +212,11 @@ const ENDED =
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+const EVALS_PERMISSION =
+	/^## 🔐 Permission: run evals (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+/** A run-evals card's probe: a list item that is one code span, then maybe a note. */
+const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
+const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const PERMISSION =
 	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
@@ -240,8 +259,10 @@ function keptAt(
 	const workingTask = WORKING_TASK.exec(line);
 	const proposed = PROPOSAL.exec(line);
 	const permission = PERMISSION.exec(line);
+	const evals = EVALS_PERMISSION.exec(line);
 	if (
 		permission === null &&
+		evals === null &&
 		merged === null &&
 		ended === null &&
 		workingTask === null &&
@@ -257,6 +278,37 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
+	if (evals !== null) {
+		const probes: string[] = [];
+		let baseline: string | null = null;
+		const prose = body.split("\n").filter((each) => {
+			const probe = EVAL_PROBE.exec(each);
+			if (probe !== null) {
+				probes.push(probe[1] as string);
+				return false;
+			}
+			const base = EVAL_BASELINE.exec(each);
+			if (base !== null) {
+				baseline = base[1] as string;
+				return false;
+			}
+			return true;
+		});
+		return {
+			stretch: {
+				type: "permission",
+				permission: {
+					action: "run-evals",
+					lane: null,
+					tasks: [],
+					title: evals[2] || null,
+					body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
+					evals: { skill: evals[1] as string, probes, baseline },
+				},
+			},
+			end,
+		};
+	}
 	if (permission !== null) {
 		const lane = permission[2] ?? permission[3] ?? permission[5];
 		return {
