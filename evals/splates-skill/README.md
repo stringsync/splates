@@ -33,8 +33,15 @@ their assertions uncovered, after a subagent, a Glob or Grep (files it does not
 name), a pipe, redirect or substitution, a call that never returned, or a
 command that can read or write files unseen (`cat`, `sed`, ...). Commands
 joined by `&&` or `;` are separate events without exit codes, and processes a
-command starts are never observed. The lifecycle run above is not yet repeated
-with them.
+command starts are never observed.
+
+The same nine probes, repeated with them the same day at parallel one: 18-75s and
+64k-209k reported tokens each, USD 1.55 in all. Each run holds 2-15 events, yet
+none is complete, so every event assertion stays uncovered, `Workflow/read-scope`
+among them, and none passed or failed on events; the state assertions passed as
+before. Each run had a Bash line with a pipe, redirect, substitution or `;`
+chain, most the `(splates ... || bunx @stringsync/splates ...)` fallback the
+agents wrote on their own, and three also ran `cat`, `echo` or `ls`.
 
 ```sh
 splates dev eval plan --baseline BASE_COMMIT
