@@ -6,7 +6,8 @@ import {
 	MessagePrimitive,
 	useAuiState,
 } from "@assistant-ui/react";
-import { type FC, useContext } from "react";
+import { type FC, useContext, useEffect, useRef, useState } from "react";
+import { SystemTimer } from "webappwiz/time";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	Reasoning,
@@ -27,7 +28,7 @@ import {
 	ToolGroupTrigger,
 } from "#web/components/assistant-ui/elements/tool-group.aui.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
-import type { Work } from "#web/work.ts";
+import { SAID, type Work } from "#web/work.ts";
 
 const reasoningDuration = (timing: ThreadGroupPart["timing"]) =>
 	timing?.completedAt === undefined
@@ -162,13 +163,40 @@ export const AssistantMessage: FC = () => {
 	);
 };
 /**
- * The shimmering Working label under a busy reply, there while its text streams
- * too, except under streaming reasoning, in a turn whose row of what the
- * agent is doing still says Working above the reply, or under the Queued row
- * of what waits for the turn: the turn itself says it works. Never after the
+ * Whether `tail`, the text ending a reply, changed within `SAID`, so it is
+ * still streaming: false again once it holds still that long.
+ */
+function useStreaming(tail: string | null): boolean {
+	const [streaming, setStreaming] = useState(false);
+	const seen = useRef(tail);
+	useEffect(() => {
+		if (tail === null || tail === seen.current) {
+			seen.current = tail;
+			return;
+		}
+		seen.current = tail;
+		setStreaming(true);
+		const timer = new SystemTimer().setTimeout(() => setStreaming(false), SAID);
+		return () => timer.dispose();
+	}, [tail]);
+	return streaming && tail !== null;
+}
+
+/**
+ * The shimmering Working label under a busy reply, hidden while its text
+ * streams and back once it pauses. Also hidden under streaming reasoning, in
+ * a turn whose row of what the agent is doing still says Working above the
+ * reply, or under the Queued row of what waits for the turn: the turn itself
+ * says it works. Never after the
  * line saying the person stopped the turn, even before the status catches up.
  */
 export const WorkingIndicator: FC = () => {
+	// The text at the end of the reply, which moving means it is streaming.
+	const tail = useAuiState((s) => {
+		const last = s.message.parts.at(-1);
+		return last?.type === "text" ? last.text : null;
+	});
+	const streaming = useStreaming(tail);
 	const labelled = useAuiState((s) => {
 		const last = s.message.parts.at(-1);
 		return (
@@ -184,7 +212,7 @@ export const WorkingIndicator: FC = () => {
 			)
 		);
 	});
-	if (labelled) {
+	if (labelled || streaming) {
 		return null;
 	}
 	// Laid out as the work row's line: its spacing, its size, and its words
