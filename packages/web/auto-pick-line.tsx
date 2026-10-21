@@ -1,4 +1,5 @@
 import type { Event, Lifted } from "@stringsync/splates-server/records";
+import { InfoIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { AutoAgentMark } from "./auto-brand";
 import { Button } from "./components/ui/button";
@@ -16,7 +17,7 @@ type AutoEvent = Extract<Event, { action: "auto"; reason: null }>;
  * Auto pick's line in a conversation, led by its mark, split with the picked agent's: what it picked, or
  * moved up to, then the likeliest kind and depth, or why the judge found
  * none, which open a popover of everything it found, and for a move up, an
- * Undo.
+ * Undo. On a phone those findings fold into an icon, so the pick has the room.
  */
 export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 	const params = paramsOf(event);
@@ -27,10 +28,12 @@ export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 			: lifted.switched
 				? "Auto switched to"
 				: "Auto moved up to";
-	const short = params.signals
-		.slice(0, 2)
-		.flatMap((each) => each.answers.slice(0, 1).map((best) => best.label))
-		.join(" · ");
+	const short =
+		params.signals
+			.slice(0, 2)
+			.flatMap((each) => each.answers.slice(0, 1).map((best) => best.label))
+			.join(" · ") ||
+		(params.notes[0] ?? "no judge to ask");
 	const undo = useUndo(event, lifted);
 	return (
 		<div
@@ -47,8 +50,12 @@ export function AutoPickLine({ event }: { event: AutoEvent }): JSX.Element {
 					</span>
 					<span aria-hidden>·</span>
 					<Popover>
-						<PopoverTrigger className="shrink-0 cursor-pointer rounded px-1 underline decoration-dotted underline-offset-2 hover:text-foreground">
-							{short === "" ? (params.notes[0] ?? "no judge to ask") : short}
+						<PopoverTrigger
+							aria-label={short}
+							className="shrink-0 cursor-pointer rounded px-1 underline decoration-dotted underline-offset-2 hover:text-foreground"
+						>
+							<InfoIcon aria-hidden className="size-3.5 sm:hidden" />
+							<span className="max-sm:hidden">{short}</span>
 						</PopoverTrigger>
 						<PopoverContent className="w-80 text-xs">
 							<Findings params={params} lifted={lifted} />
