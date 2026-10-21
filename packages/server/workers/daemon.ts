@@ -194,7 +194,7 @@ export class WorkerDaemon implements AsyncResource {
 			if (this.stopped) {
 				break;
 			}
-			await this.sleep(wait);
+			await this.sleep(jittered(wait, this.opts.random ?? Math.random));
 			wait = Duration.min(wait.multiply(2), this.backoff.max);
 		}
 		return { stopped: true };
@@ -343,6 +343,14 @@ export type WorkerEnded =
 	| { refused: string; update?: string }
 	| { update: string };
 
+/**
+ * Somewhere in the latter half of `wait`, so workers a coordinator's restart
+ * dropped together do not all redial at the same moment.
+ */
+export function jittered(wait: Duration, random: () => number): Duration {
+	return Duration.ms(Math.round(wait.ms * (0.5 + random() / 2)));
+}
+
 /** Who a `WorkerDaemon` is and what it runs on. */
 export interface WorkerDaemonOptions {
 	/** Stays the same across restarts, so the coordinator resumes its session. */
@@ -353,6 +361,8 @@ export interface WorkerDaemonOptions {
 	log: Logger;
 	/** The shortest and longest wait between dials. */
 	backoff?: { min: Duration; max: Duration };
+	/** Spreads each wait between dials, as `Math.random` by default. */
+	random?: () => number;
 	/**
 	 * How long the coordinator's session may stay lost before every channel
 	 * it held ends; ten minutes by default.

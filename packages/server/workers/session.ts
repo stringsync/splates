@@ -846,7 +846,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		}
 		const quiet = this.clock.now().subtract(connection.heard);
 		if (quiet.isGreaterThan(this.timeout)) {
-			this.lose(`nothing heard for ${quiet.secs}s`);
+			this.lose(
+				connection.live
+					? `nothing heard for ${quiet.secs}s`
+					: `no welcome to the hello within ${quiet.secs}s`,
+			);
 			return;
 		}
 		if (connection.live) {

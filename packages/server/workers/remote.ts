@@ -1,5 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import type { Launch, ProcessHandle } from "../agents";
 import type { GitResult } from "../git";
@@ -29,6 +30,27 @@ type Call = CallRequest extends infer Each
 		? Omit<Each, "id">
 		: never
 	: never;
+
+/** How long each kind of call may go unanswered before it is given up on. */
+export type CallBounds = Record<Call["method"], Duration>;
+
+/**
+ * Long enough for a slow worker's honest answer, a clone of a big
+ * repository included, and short enough that a link gone silent, or a call
+ * hung on the worker, frees whatever waits on it.
+ */
+export const CALL_BOUNDS: CallBounds = {
+	git: Duration.mins(5),
+	checkout: Duration.mins(15),
+	removeCheckout: Duration.mins(2),
+	read: Duration.mins(1),
+	exists: Duration.mins(1),
+	processes: Duration.mins(1),
+	listening: Duration.mins(1),
+	servers: Duration.mins(1),
+	keys: Duration.mins(1),
+	wake: Duration.mins(1),
+};
 
 /**
  * How a worker joined: over this machine's socket, by its own say-so, or
@@ -61,6 +83,7 @@ export class RemoteWorker implements WorkerMachine {
 		readonly session: WorkerSession,
 		/** How its last connection arrived. */
 		public kind: WorkerKind = "registered",
+		private readonly bounds: CallBounds = CALL_BOUNDS,
 	) {}
 
 	get connected(): boolean {
@@ -243,7 +266,29 @@ export class RemoteWorker implements WorkerMachine {
 	private call(request: Call): Promise<unknown> {
 		const id = this.nextCall++;
 		const answered = Promise.withResolvers<unknown>();
-		this.pending.set(id, answered);
+		const within = this.bounds[request.method];
+		// The session outlives a drop, so this bounds the wait, not the connection.
+		const timeout = this.session.timer.setTimeout(() => {
+			if (!this.pending.delete(id)) {
+				return;
+			}
+			this.parts.delete(id);
+			answered.reject(
+				new Error(
+					`worker ${this.id} did not answer the ${request.method} call within ${within.secs}s${this.connected ? "" : ", its link down"}`,
+				),
+			);
+		}, within);
+		this.pending.set(id, {
+			resolve: (result) => {
+				timeout.dispose();
+				answered.resolve(result);
+			},
+			reject: (error) => {
+				timeout.dispose();
+				answered.reject(error);
+			},
+		});
 		this.channel().send({ ...request, id });
 		return answered.promise;
 	}

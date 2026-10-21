@@ -1,3 +1,4 @@
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import type { AppSource, InstallationToken, TokenMinter } from "../merge";
 import type { RelaySend, StateProject } from "./repo-state";
@@ -5,6 +6,8 @@ import type { RelaySend, StateProject } from "./repo-state";
 /** What `RelayApp` reaches the coordinator through; the global `fetch` by default. */
 export interface RelayAppOptions {
 	fetch?: RelaySend;
+	/** How long the coordinator has to mint a token. */
+	within?: Duration;
 }
 
 /** A token this close to expiring is asked for again. */
@@ -21,6 +24,7 @@ const Answer = z.object({
  */
 export class RelayApp implements AppSource {
 	private readonly fetch: RelaySend;
+	private readonly within: Duration;
 	/** The last token minted, or null once the coordinator said it keeps no App. */
 	private held: Promise<InstallationToken | null> | undefined;
 
@@ -30,6 +34,7 @@ export class RelayApp implements AppSource {
 		opts: RelayAppOptions = {},
 	) {
 		this.fetch = opts.fetch ?? fetch;
+		this.within = opts.within ?? Duration.secs(30);
 	}
 
 	async app(): Promise<TokenMinter | null> {
@@ -59,10 +64,18 @@ export class RelayApp implements AppSource {
 	}
 
 	private async mint(): Promise<InstallationToken | null> {
+		const signal = AbortSignal.timeout(this.within.ms);
 		const response = await this.fetch(`${this.url}/api/token`, {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: this.url },
 			body: JSON.stringify({ project: this.project }),
+			signal,
+		}).catch((error: unknown) => {
+			throw signal.aborted
+				? new Error(
+						`the coordinator minted no token within ${this.within.secs}s`,
+					)
+				: error;
 		});
 		if (!response.ok) {
 			const said = await response.text().catch(() => "");

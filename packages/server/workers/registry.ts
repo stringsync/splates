@@ -15,7 +15,12 @@ import { RELAY, relayParams, type WorkerChannel } from "./channel";
 import { WORKER_CAPABILITIES } from "./daemon";
 import { WorkerPortHost } from "./port-host";
 import { RelayScopes } from "./relay-scopes";
-import { RemoteWorker, type WorkerKind } from "./remote";
+import {
+	CALL_BOUNDS,
+	type CallBounds,
+	RemoteWorker,
+	type WorkerKind,
+} from "./remote";
 import { WorkerSession, type WorkerSessionOptions } from "./session";
 import type { WorkerSocket } from "./socket";
 import { KEYS } from "./task-keys";
@@ -41,6 +46,8 @@ export interface WorkerRegistryEvents extends Record<string, unknown> {
 export interface WorkerRegistryOptions {
 	/** How long a new connection has to say hello. */
 	helloWithin?: Duration;
+	/** How long each kind of call to a worker may go unanswered. */
+	calls?: Partial<CallBounds>;
 	session?: Omit<
 		WorkerSessionOptions,
 		"timer" | "clock" | "wall" | "capabilities"
@@ -108,7 +115,13 @@ export class WorkerRegistry
 		if (known !== undefined) {
 			return known;
 		}
-		const worker = new RemoteWorker(id, {}, this.session(), kind);
+		const worker = new RemoteWorker(
+			id,
+			{},
+			this.session(),
+			kind,
+			this.bounds(),
+		);
 		this.byId.set(id, worker);
 		return worker;
 	}
@@ -172,7 +185,9 @@ export class WorkerRegistry
 			return;
 		}
 		this.refusals.delete(said.id);
-		const worker = known ?? new RemoteWorker(said.id, said.info, session, kind);
+		const worker =
+			known ??
+			new RemoteWorker(said.id, said.info, session, kind, this.bounds());
 		worker.info = said.info;
 		// One splates made dials as any other, and stays what it was made as.
 		worker.kind = worker.kind === "provisioned" ? worker.kind : kind;
@@ -216,6 +231,10 @@ export class WorkerRegistry
 	 */
 	relayTo(port: number): void {
 		this.relayPort = port;
+	}
+
+	private bounds(): CallBounds {
+		return { ...CALL_BOUNDS, ...this.opts.calls };
 	}
 
 	private session(): WorkerSession {

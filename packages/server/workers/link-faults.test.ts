@@ -25,6 +25,9 @@ import { WebSocketWorkerSocket } from "./websocket-socket";
 
 setDefaultTimeout(20_000);
 
+/** More than the link carries in one frame. */
+const BIG = 20 * 1024 * 1024;
+
 // The link's pace, scaled down from heartbeat 10s and timeout 30s so a
 // stall past the timeout takes a second.
 const PACE = {
@@ -63,7 +66,10 @@ describe("the worker link through a faulty network", () => {
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "splates-link-"));
-		registry = new WorkerRegistry(new MemoryLogger(), { session: PACE });
+		registry = new WorkerRegistry(new MemoryLogger(), {
+			session: PACE,
+			calls: { exists: Duration.ms(800) },
+		});
 		joins = 0;
 		registry.events.on("joined", () => joins++);
 		server = serve(0);
@@ -148,6 +154,7 @@ describe("the worker link through a faulty network", () => {
 		expect(joins).toBeGreaterThan(1);
 	});
 
+	// scry-ignore simple-test-setup: it alone writes to the agent, around the cut
 	it("keeps an agent's output when the coordinator's frame is cut in half", async () => {
 		const child = worker.start(["cat"], dir);
 		const received = printed(child);
@@ -190,6 +197,24 @@ describe("the worker link through a faulty network", () => {
 		expect(worker.connected).toBe(true);
 	});
 
+	it("gives up on a call the link went silent under", async () => {
+		proxy.blackhole();
+		proxy.stall();
+
+		await expect(worker.exists(dir)).rejects.toThrow(
+			"worker box did not answer the exists call within 0.8s, its link down",
+		);
+	});
+
+	it("answers a call once a short silence passes", async () => {
+		proxy.stall();
+		const answered = worker.exists(dir);
+		await sleep(Duration.ms(200));
+		proxy.resume();
+
+		expect(await answered).toBe(true);
+	});
+
 	// scry-ignore simple-test-setup: it alone restarts the server, which is what it tests
 	it("keeps its process through a server restart, and reattaches to it", async () => {
 		const child = worker.start(["/bin/sh", "-c", COUNT(40)], dir);
@@ -218,64 +243,60 @@ describe("the worker link through a faulty network", () => {
 		void received;
 	});
 
-	describe("with more than the link carries in one frame", () => {
-		const BIG = 20 * 1024 * 1024;
+	it("carries 20 MB of an agent's output", async () => {
+		const child = worker.start(
+			["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' x`],
+			dir,
+		);
 
-		it("carries 20 MB of an agent's output", async () => {
-			const child = worker.start(
-				["/bin/sh", "-c", `head -c ${BIG} /dev/zero | tr '\\0' x`],
-				dir,
-			);
+		expect((await printed(child)).length).toBe(BIG);
+		expect(joins).toBe(1);
+	});
 
-			expect((await printed(child)).length).toBe(BIG);
-			expect(joins).toBe(1);
-		});
+	it("reads a 20 MB file whole", async () => {
+		const path = join(dir, "big");
+		await Bun.write(path, "y".repeat(BIG));
 
-		it("reads a 20 MB file whole", async () => {
-			const path = join(dir, "big");
-			await Bun.write(path, "y".repeat(BIG));
+		const { size, bytes } = await worker.read(path, 0);
+		const tail = await worker.read(path, BIG - 5);
 
-			const { size, bytes } = await worker.read(path, 0);
-			const tail = await worker.read(path, BIG - 5);
+		expect(size).toBe(BIG);
+		expect(bytes.byteLength).toBe(BIG);
+		expect(tail.bytes.byteLength).toBe(5);
+		expect(joins).toBe(1);
+	});
 
-			expect(size).toBe(BIG);
-			expect(bytes.byteLength).toBe(BIG);
-			expect(tail.bytes.byteLength).toBe(5);
-			expect(joins).toBe(1);
-		});
+	it("answers a git call with 20 MB of output", async () => {
+		const git = (...args: string[]) => worker.git(dir, args);
+		await git("init", "-q");
+		await Bun.write(join(dir, "big"), "z".repeat(BIG));
+		await git("add", "big");
+		await git(
+			"-c",
+			"user.name=t",
+			"-c",
+			"user.email=t@t",
+			"commit",
+			"-qm",
+			"big",
+		);
 
-		it("answers a git call with 20 MB of output", async () => {
-			const git = (...args: string[]) => worker.git(dir, args);
-			await git("init", "-q");
-			await Bun.write(join(dir, "big"), "z".repeat(BIG));
-			await git("add", "big");
-			await git(
-				"-c",
-				"user.name=t",
-				"-c",
-				"user.email=t@t",
-				"commit",
-				"-qm",
-				"big",
-			);
+		const shown = await git("show", "HEAD:big");
 
-			const shown = await git("show", "HEAD:big");
+		expect(shown.stdout.length).toBe(BIG);
+		expect(joins).toBe(1);
+	});
 
-			expect(shown.stdout.length).toBe(BIG);
-			expect(joins).toBe(1);
-		});
+	it("refuses a frame over the limit at send, leaving the link up", async () => {
+		const calls = worker.session.open("noise");
 
-		it("refuses a frame over the limit at send, leaving the link up", async () => {
-			const calls = worker.session.open("noise");
+		expect(() =>
+			calls.send({ big: "q".repeat(WorkerProtocol.maxFrameBytes) }),
+		).toThrow(FrameTooLarge);
+		expect(joins).toBe(1);
+	});
 
-			expect(() =>
-				calls.send({ big: "q".repeat(WorkerProtocol.maxFrameBytes) }),
-			).toThrow(FrameTooLarge);
-			expect(joins).toBe(1);
-		});
-
-		it("takes the payload the protocol says on the server", () => {
-			expect(CONNECTIONS.maxPayloadLength).toBe(WorkerProtocol.maxPayloadBytes);
-		});
+	it("takes the payload the protocol says on the server", () => {
+		expect(CONNECTIONS.maxPayloadLength).toBe(WorkerProtocol.maxPayloadBytes);
 	});
 });

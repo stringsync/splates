@@ -516,7 +516,7 @@ export async function openRepository(
 		trunk:
 			relay === null
 				? new CoordinatorLanding({ git, fs, config, lease: mergeLease })
-				: new RelayLanding(relay.url, relay.project, relay.send),
+				: new RelayLanding(relay.url, relay.project, { fetch: relay.send }),
 		shell: new Shell({ ps }),
 		journal: new Journal(storage, config.logCapacity, { ps }),
 		tasks: new Tasks(store),

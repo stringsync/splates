@@ -146,7 +146,7 @@ describe("WorkerSession handshake", () => {
 
 		expect(await connecting).toEqual({
 			ok: false,
-			reason: "nothing heard for 31s",
+			reason: "no welcome to the hello within 31s",
 			refused: false,
 		});
 	});
