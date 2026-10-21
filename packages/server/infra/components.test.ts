@@ -1,42 +1,9 @@
 import { expect, test } from "bun:test";
-import * as pulumi from "@pulumi/pulumi";
+import { mockPulumi } from "./testing";
 
-interface Made {
-	type: string;
-	name: string;
-	inputs: Record<string, unknown>;
-}
-
-const made: Made[] = [];
-
-pulumi.runtime.setMocks({
-	newResource: (args) => {
-		made.push({ type: args.type, name: args.name, inputs: args.inputs });
-		const state =
-			args.type === "awsx:ec2:Vpc"
-				? { ...args.inputs, vpcId: "vpc-1", publicSubnetIds: ["subnet-1"] }
-				: args.type === "aws:ec2/keyPair:KeyPair"
-					? { ...args.inputs, keyName: args.name }
-					: args.inputs;
-		return { id: `${args.name}-id`, state };
-	},
-	call: (args) =>
-		args.token === "aws:ec2/getAmi:getAmi" ? { id: "ami-1" } : args.inputs,
-});
+const ofType = mockPulumi();
 
 const { CoordinatorBox, DeployKeys, Tunnel } = await import("./index");
-
-/** Resources register as the engine gets to them, so wait for the first of a type. */
-async function ofType(type: string): Promise<Made[]> {
-	for (let tries = 0; tries < 100; tries++) {
-		const found = made.filter((resource) => resource.type === type);
-		if (found.length > 0) {
-			return found;
-		}
-		await new Promise((resolve) => setTimeout(resolve, 20));
-	}
-	return [];
-}
 
 test("the box is one hardened instance with its creds as secure parameters", async () => {
 	const box = new CoordinatorBox("t", {
@@ -83,7 +50,9 @@ test("a tunnel makes its DNS record, an Access application and a service token",
 		zoneId: "zone",
 	});
 	await tunnel.token.apply(() => {});
-	expect(await tunnel.tunnelId.promise()).toBe("t-tunnel-id");
+	expect(
+		await new Promise<string>((resolve) => tunnel.tunnelId.apply(resolve)),
+	).toBe("t-tunnel-id");
 	expect(await ofType("cloudflare:index/dnsRecord:DnsRecord")).toHaveLength(1);
 	expect(
 		await ofType(
