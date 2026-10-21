@@ -1,13 +1,12 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { Action, Event, Lifted } from "@stringsync/splates-server/records";
+import type { Action, Event } from "@stringsync/splates-server/records";
 import { isEscalation } from "@stringsync/splates-server/records/browser";
-import { type JSX, useState } from "react";
+import type { JSX } from "react";
 import { AddedLine } from "./added-line";
-import { chooseSetting } from "./conversation-api";
+import { AutoPickLine } from "./auto-pick-line";
 import { type Start, useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
-import { Refusal, useRefusal } from "./refusal";
 import {
 	type Named,
 	SplatesEvent,
@@ -210,54 +209,6 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 	};
 }
 
-/**
- * The line of an Auto pick that moved the conversation up, with an Undo
- * that sets it back on what it moved off: said done at once, and refused
- * after should the server not take it.
- */
-function LiftedLine({
-	conversation,
-	lifted,
-	view,
-}: {
-	conversation: string;
-	lifted: Lifted;
-	view: SplatesEventView;
-}): JSX.Element {
-	const [undone, setUndone] = useState(false);
-	const { refusal, attempt } = useRefusal();
-	const undo = (): void => {
-		setUndone(true);
-		void attempt(
-			Promise.all(
-				Object.entries(lifted.undo).map(([id, value]) =>
-					chooseSetting(conversation, id, value),
-				),
-			).then(() => {}),
-			"Not undone",
-		).then((landed) => {
-			if (!landed) {
-				setUndone(false);
-			}
-		});
-	};
-	return (
-		<div>
-			<SplatesEvent
-				event={{
-					...view,
-					act: {
-						label: "Undo",
-						run: undo,
-						done: undone ? `Back on ${lifted.from}` : null,
-					},
-				}}
-			/>
-			<Refusal refusal={refusal} className="text-center" />
-		</div>
-	);
-}
-
 /** The line a command on todos draws, none when it was refused. */
 function todoLine(
 	verb: string,
@@ -314,19 +265,8 @@ function EventLine({
 	if (event.action === "task add" && event.reason === null) {
 		return <AddedLine view={view} id={event.number} />;
 	}
-	if (
-		event.action === "auto" &&
-		event.reason === null &&
-		event.lifted &&
-		event.conversation !== null
-	) {
-		return (
-			<LiftedLine
-				conversation={event.conversation}
-				lifted={event.lifted}
-				view={view}
-			/>
-		);
+	if (event.action === "auto" && event.reason === null) {
+		return <AutoPickLine event={event} />;
 	}
 	const start = startOf(event);
 	return start === null ? (

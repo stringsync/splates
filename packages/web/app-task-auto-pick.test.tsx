@@ -151,17 +151,20 @@ describe("App's Auto pick", () => {
 		return await waitFor(() => view.getByRole("note", { name: "splates" }));
 	};
 
-	it("logs the pick in the conversation, what the judge found after it and every reason on hover", async () => {
+	it("logs the pick in the conversation, led by its mark, with what the judge found in a popover", async () => {
 		const line = await lineFor(
 			["Bugfix 90%", "Shallow 80%"],
 			"judged: Bugfix 90%, Shallow 80%",
 		);
 		expect(line.textContent).toBe(
-			"Auto picked Haiku, low effort: Bugfix 90%, Shallow 80%",
+			"Auto picked Haiku, low effort·Bugfix · Shallow",
 		);
-		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
-			"judged: Bugfix 90%, Shallow 80%\nrule 2: Bugfix, Shallow",
-		);
+		expect(line.querySelector("svg")).not.toBeNull();
+
+		const found = await findings(line, "Bugfix · Shallow");
+		expect(found.textContent).toContain("KindBugfix90%");
+		expect(found.textContent).toContain("DepthShallow80%");
+		expect(found.textContent).toContain("Rule 2: Bugfix, Shallow");
 	});
 
 	it("says when it moved the conversation up, and undoes the move at once", async () => {
@@ -181,11 +184,9 @@ describe("App's Auto pick", () => {
 		const line = await waitFor(() =>
 			view.getByRole("note", { name: "splates" }),
 		);
-		expect(line.textContent).toBe(
-			"Auto moved up to Big: Open 90%, Deep 80%Undo",
-		);
-		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
-			"from Haiku, low effort\njudged: Open 90%, Deep 80%",
+		expect(line.textContent).toBe("Auto moved up to Big·Open · DeepUndo");
+		expect((await findings(line, "Open · Deep")).textContent).toContain(
+			"From Haiku, low effort",
 		);
 
 		await act(async () =>
@@ -201,10 +202,18 @@ describe("App's Auto pick", () => {
 	it("says why the judge found nothing when it did not answer", async () => {
 		const line = await lineFor(null, "the judge took over 5s");
 		expect(line.textContent).toBe(
-			"Auto picked Haiku, low effort: the judge took over 5s",
+			"Auto picked Haiku, low effort·the judge took over 5s",
 		);
 	});
 });
+
+/** The popover of what the judge found, opened from `line` by its `trigger`. */
+async function findings(line: HTMLElement, trigger: string) {
+	await act(async () =>
+		fireEvent.click(within(line).getByRole("button", { name: trigger })),
+	);
+	return await waitFor(() => within(document.body).getByRole("dialog"));
+}
 
 /** Auto pick's decision for the conversation, the judge having found `signs`. */
 function picked(signs: string[] | null, judged: string): Event {
