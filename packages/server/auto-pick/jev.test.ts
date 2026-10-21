@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { Spend } from "../spend";
+import { MemoryStorage } from "../storage/testing";
 import { Jev } from "./jev";
 import { serve } from "./testing";
 
@@ -23,6 +25,39 @@ describe("Jev", () => {
 			model: "jev-latest",
 			...JUDGMENT,
 		});
+	});
+
+	it("records each call's input tokens at Jev's price, output free", async () => {
+		const spend = new Spend(new MemoryStorage());
+		const server = serve({
+			answers: { lookup: 0.8 },
+			usage: { input_tokens: 2_000_000, output_tokens: 500 },
+		});
+		const verdict = await new Jev("key", {
+			fetch: server.fetch,
+			spend,
+			now: () => new Date("2026-10-21T10:00:00.000Z"),
+		}).judge(JUDGMENT);
+		expect(verdict.usage).toEqual({ input: 2_000_000, output: 500 });
+		const [entry, ...rest] = await spend.entries();
+		expect(rest).toEqual([]);
+		expect(entry).toEqual({
+			at: "2026-10-21T10:00:00.000Z",
+			provider: "typesafe",
+			service: "jev-latest",
+			kind: "billed",
+			dollars: expect.closeTo(0.084),
+			project: null,
+			task: null,
+			conversation: null,
+		});
+	});
+
+	it("records nothing for a reply that says no usage", async () => {
+		const spend = new Spend(new MemoryStorage());
+		const server = serve({ answers: { lookup: 0.8 } });
+		await new Jev("key", { fetch: server.fetch, spend }).judge(JUDGMENT);
+		expect(await spend.entries()).toEqual([]);
 	});
 
 	it("says what went wrong without the URL", async () => {

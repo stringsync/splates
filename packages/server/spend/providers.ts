@@ -31,6 +31,11 @@ export interface Provider {
 	 * on splates counting its own use.
 	 */
 	untracked?: string;
+	/**
+	 * Set for a provider splates counts itself as it uses it, with nothing to
+	 * pull: what to say on its row.
+	 */
+	counted?: string;
 	pull?(sources: Sources, token: string): Promise<Charge[]>;
 }
 
@@ -47,7 +52,7 @@ export const PROVIDERS: readonly Provider[] = [
 	{
 		id: "typesafe",
 		cred: null,
-		untracked:
-			"splates will price each of its Jev calls from the tokens TypeSafe reports",
+		counted:
+			"Priced from the tokens each of splates's own Jev calls uses; other apps on the same key are not counted",
 	},
 ];

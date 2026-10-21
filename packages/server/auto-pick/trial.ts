@@ -2,7 +2,7 @@ import type { Conversations } from "../conversations";
 import type { Project } from "../server/shared";
 import { type Classification, classify } from "./classify";
 import { type AutoPickDecision, decide, decideWithout } from "./decide";
-import { judgeFrom } from "./judge";
+import { projectJudge } from "./judge";
 import { classificationKey } from "./key";
 import { type AutoPickTarget, contextOf, recordOf, wordsOf } from "./start";
 import type { Judge } from "./system-one";
@@ -28,7 +28,7 @@ export async function tryAutoPick({
 	project,
 	conversations,
 	target,
-	judge = () => judgeFrom(project.creds.credentials),
+	judge = () => projectJudge(project),
 	now = () => new Date(),
 }: {
 	project: Project;

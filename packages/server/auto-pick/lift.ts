@@ -15,7 +15,7 @@ import {
 	headline,
 } from "./decide";
 import { askedBack, wordsToJudge } from "./follow-up";
-import { judgeFrom } from "./judge";
+import { projectJudge } from "./judge";
 import { autoPicked } from "./judged";
 import { classificationKey } from "./key";
 import { higher, pickOf } from "./rank";
@@ -36,7 +36,7 @@ export function lifting(
 	project: Project,
 	conversations: Conversations,
 	{
-		judge = () => judgeFrom(project.creds.credentials),
+		judge = () => projectJudge(project),
 		now = () => new Date(),
 	}: {
 		/** The judge to ask; the one the project's creds give by default. */

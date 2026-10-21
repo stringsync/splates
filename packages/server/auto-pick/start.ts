@@ -20,7 +20,7 @@ import {
 	decide,
 	decideWithout,
 } from "./decide";
-import { JUDGE_CREDS, judgeFrom } from "./judge";
+import { JUDGE_CREDS, projectJudge } from "./judge";
 import { autoPicked, cachedFor, decideFor } from "./judged";
 import { classificationKey } from "./key";
 import type { AutoPicked } from "./record";
@@ -72,7 +72,7 @@ export async function startAutoPick({
 	conversations,
 	target,
 	start,
-	judge = () => judgeFrom(project.creds.credentials),
+	judge = () => projectJudge(project),
 	now = () => new Date(),
 }: {
 	project: Project;

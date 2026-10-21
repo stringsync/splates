@@ -133,7 +133,7 @@ test("pulling billing converts, dedupes, and reports what it cannot reach", asyn
 		["openai", "ok"],
 		["cloudflare", "unreachable"],
 		["aws", "untracked"],
-		["typesafe", "untracked"],
+		["typesafe", "counted"],
 	]);
 	expect(statuses[1]?.message).toBe("api.cloudflare.com answered 500");
 	await pullBilling(spend, options);
@@ -203,4 +203,23 @@ test("a report converts to the display currency at each day's rate, and says whe
 	});
 	expect(down.currency).toBe("USD");
 	expect(down.rateError).not.toBeNull();
+});
+
+test("before any pull, the sources show TypeSafe counted and AWS not yet", async () => {
+	const { BillingRoutes } = await import("./routes");
+	const storage = new MemoryStorage();
+	const routes = new BillingRoutes(
+		storage,
+		new Spend(storage),
+		async () => undefined,
+	);
+	const view = (await (await routes.read()).json()) as {
+		providers: { provider: string; state: string }[];
+	};
+	expect(view.providers.map((each) => [each.provider, each.state])).toEqual([
+		["openai", "ok"],
+		["cloudflare", "ok"],
+		["aws", "untracked"],
+		["typesafe", "counted"],
+	]);
 });

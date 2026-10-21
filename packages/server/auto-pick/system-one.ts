@@ -35,17 +35,9 @@ export interface Noul {
 /** What a judge answered: the probability of yes, by question id. */
 export interface Verdict {
 	answers: Map<string, number>;
+	/** The tokens the reply said it used; unsaid when it said none, as Clef may not. */
+	usage?: { input: number; output: number };
 }
-
-const REPLY = z.object({
-	answers: z.record(
-		z.string(),
-		z.union([
-			z.number(),
-			z.object({ noul: z.number() }).transform((answer) => answer.noul),
-		]),
-	),
-});
 
 /**
  * One request to a URL that speaks the System One API, tried once: a caller
@@ -82,6 +74,7 @@ export async function askSystemOne(
 	if (!reply.success) {
 		throw new Error(`${name} answered with no answers in it`);
 	}
+	const { usage } = reply.data;
 	return {
 		answers: new Map(
 			Object.entries(reply.data.answers).map(([id, probability]) => [
@@ -89,6 +82,9 @@ export async function askSystemOne(
 				Math.min(1, Math.max(0, probability)),
 			]),
 		),
+		...(usage === undefined
+			? {}
+			: { usage: { input: usage.input_tokens, output: usage.output_tokens } }),
 	};
 }
 
@@ -105,3 +101,17 @@ export interface EndpointOptions {
 	/** Sends the request; the global `fetch` when not given. */
 	fetch?: typeof fetch;
 }
+
+const REPLY = z.object({
+	answers: z.record(
+		z.string(),
+		z.union([
+			z.number(),
+			z.object({ noul: z.number() }).transform((answer) => answer.noul),
+		]),
+	),
+	usage: z
+		.object({ input_tokens: z.number(), output_tokens: z.number() })
+		.optional()
+		.catch(undefined),
+});

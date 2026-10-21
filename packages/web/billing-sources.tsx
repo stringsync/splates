@@ -67,6 +67,11 @@ const STATES: Record<
 		dot: "bg-destructive",
 		text: "text-destructive",
 	},
+	counted: {
+		label: "Counted as used",
+		dot: "bg-success",
+		text: "text-success",
+	},
 	untracked: {
 		label: "Not tracked yet",
 		dot: "bg-muted-foreground",

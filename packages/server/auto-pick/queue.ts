@@ -5,7 +5,7 @@ import type { QueuePicked, QueuePicker } from "../queue";
 import type { Project } from "../server/shared";
 import type { AttachmentInfo } from "./classify";
 import { type DecideContext, decide, decideWithout } from "./decide";
-import { judgeFrom } from "./judge";
+import { projectJudge } from "./judge";
 import { autoPicked, cachedFor, decideFor } from "./judged";
 import { classificationKey } from "./key";
 import { announce, contextOf, settle, wordsOf } from "./start";
@@ -37,7 +37,7 @@ export class QueueAutoPick implements QueuePicker {
 		project: Project,
 		conversations: Conversations,
 		{
-			judge = () => judgeFrom(project.creds.credentials),
+			judge = () => projectJudge(project),
 			now = () => new Date(),
 		}: {
 			/** The judge to ask; the one the project's creds give by default. */

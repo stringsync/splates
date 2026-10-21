@@ -26,10 +26,18 @@ describe("App's billing sources", () => {
 					cred: "CLOUDFLARE_API_TOKEN",
 				},
 				{
-					provider: "typesafe",
+					provider: "aws",
 					state: "untracked",
 					message:
-						"splates will price each of its Jev calls from the tokens TypeSafe reports",
+						"splates will pull this from Cost Explorer with the AWS credentials it already finds",
+					added: 0,
+					cred: null,
+				},
+				{
+					provider: "typesafe",
+					state: "counted",
+					message:
+						"Priced from the tokens each of splates's own Jev calls uses; other apps on the same key are not counted",
 					added: 0,
 					cred: null,
 				},
@@ -75,8 +83,14 @@ describe("App's billing sources", () => {
 				.getAttribute("href"),
 		).toBe("#creds/CLOUDFLARE_API_TOKEN");
 		// Said in full, never cut to fit a column.
-		expect(view.getByText(/from the tokens TypeSafe reports$/)).toBeTruthy();
+		expect(
+			view.getByText(/with the AWS credentials it already finds$/),
+		).toBeTruthy();
 		expect(view.getByText("Not tracked yet")).toBeTruthy();
+		expect(view.getByText("Counted as used")).toBeTruthy();
+		expect(
+			view.getByText(/other apps on the same key are not counted$/),
+		).toBeTruthy();
 		await waitFor(() => view.getByText(/rate of each day/));
 		expect(view.getByText(/2026-10-20/)).toBeTruthy();
 		expect(view.getAllByText("€3").length).toBeGreaterThan(0);

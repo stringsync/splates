@@ -11,8 +11,11 @@ import type { SpendEntry } from "./totals";
 /** How a provider's row on the Billing page reads after a pull. */
 export interface ProviderStatus {
 	provider: string;
-	/** `ok` pulled, `missing` has no cred, `unreachable` failed, `untracked` not counted yet. */
-	state: "ok" | "missing" | "unreachable" | "untracked";
+	/**
+	 * `ok` pulled, `missing` has no cred, `unreachable` failed, `untracked`
+	 * not counted yet, `counted` counted by splates as it is used.
+	 */
+	state: "ok" | "missing" | "unreachable" | "untracked" | "counted";
 	/** What to tell the user; empty for `ok`. */
 	message: string;
 	/** How many new charges the pull added. */
@@ -63,13 +66,13 @@ export async function pullBilling(
 			message: string,
 			added = 0,
 		): ProviderStatus => ({ provider: provider.id, state, message, added });
-		if (provider.pull === undefined || provider.cred === null) {
-			statuses.push(
-				status(
-					"untracked",
-					provider.untracked ?? "splates does not count it yet",
-				),
-			);
+		const unpulled = unpulledStatus(provider);
+		if (
+			unpulled !== null ||
+			provider.pull === undefined ||
+			provider.cred === null
+		) {
+			statuses.push(unpulled ?? status("untracked", ""));
 			continue;
 		}
 		const token = await opts.cred(provider.cred);
@@ -119,4 +122,24 @@ export async function pullBilling(
 		}
 	}
 	return statuses;
+}
+
+/** How the row of a provider splates never pulls reads; null for one it does. */
+export function unpulledStatus(provider: Provider): ProviderStatus | null {
+	const status = (state: ProviderStatus["state"], message: string) => ({
+		provider: provider.id,
+		state,
+		message,
+		added: 0,
+	});
+	if (provider.counted !== undefined) {
+		return status("counted", provider.counted);
+	}
+	if (provider.pull === undefined || provider.cred === null) {
+		return status(
+			"untracked",
+			provider.untracked ?? "splates does not count it yet",
+		);
+	}
+	return null;
 }

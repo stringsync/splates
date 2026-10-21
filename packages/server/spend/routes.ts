@@ -2,7 +2,7 @@ import { z } from "zod";
 import { fail } from "../exit";
 import { body } from "../server/shared";
 import type { Storage } from "../storage";
-import { type ProviderStatus, pullBilling } from "./billing";
+import { type ProviderStatus, pullBilling, unpulledStatus } from "./billing";
 import { PROVIDERS } from "./providers";
 import { Rates } from "./rates";
 import { type SpendReport, spendReport } from "./report";
@@ -52,12 +52,13 @@ export class BillingRoutes {
 			currencies: CURRENCIES,
 			pulledAt: this.#pulled?.at ?? null,
 			providers: PROVIDERS.map((provider) => ({
-				...(statuses.find((each) => each.provider === provider.id) ?? {
-					provider: provider.id,
-					state: "ok" as const,
-					message: "",
-					added: 0,
-				}),
+				...(statuses.find((each) => each.provider === provider.id) ??
+					unpulledStatus(provider) ?? {
+						provider: provider.id,
+						state: "ok" as const,
+						message: "",
+						added: 0,
+					}),
 				cred: provider.cred,
 			})),
 		};
