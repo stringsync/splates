@@ -1,9 +1,15 @@
 import { age } from "@stringsync/splates-server/age";
 import type { ConversationState } from "@stringsync/splates-server/conversations";
 import { type Needing, needs } from "@stringsync/splates-server/plans/browser";
+import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import type { Details, Snapshot } from "@stringsync/splates-server/tasks";
 import { ChevronRightIcon } from "lucide-react";
-import { type CSSProperties, type JSX, useContext } from "react";
+import {
+	type CSSProperties,
+	type JSX,
+	type ReactNode,
+	useContext,
+} from "react";
 import { Duration } from "webappwiz/time";
 import {
 	Collapsible,
@@ -28,16 +34,17 @@ import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QueueMark } from "./slot-queue";
 import { Task } from "./task-dialog";
 import { TaskIcon } from "./task-icon";
-import { TaskQueue } from "./task-queue";
+import { UpNext } from "./task-queue";
 import { TasksCard } from "./tasks-card";
 import { TopBar } from "./top-bar";
 
 /**
- * Every project's tasks, a line each, grouped by project: its name and the
- * marks of the conversations on it, in a card of their own. Where the task
+ * The queue, one card of all it holds: under Working, every project's
+ * tasks at work, a line each, grouped by project, with the marks of the
+ * conversations on them; under Up next, what waits to start. Where a task
  * stands in splates (its status, its plan) waits behind a tap; another
  * project's opens on that project's page, where everything in its dialog is
- * that project's. The queue's card and Finished's follow.
+ * that project's. Finished's card follows.
  */
 export function Tasks({
 	project,
@@ -56,35 +63,36 @@ export function Tasks({
 	const { tasks } = project;
 	const opened = tasks.find((task) => task.task === open) ?? null;
 	const groups = useGroups(project);
-	const none =
+	const working =
 		groups === null
-			? tasks.length === 0
-			: groups.every((group) => group.tasks.length === 0);
-	useNow(!none, Duration.mins(1));
+			? tasks.length
+			: groups.reduce((sum, group) => sum + group.tasks.length, 0);
+	const waiting = queueOrder(project.todos);
+	useNow(working + waiting.length > 0, Duration.mins(1));
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-4">
 			<TopBar title="Tasks" />
-			<TasksCard
-				label="in progress"
-				title="In progress"
-				count={
-					groups === null
-						? tasks.length
-						: groups.reduce((sum, group) => sum + group.tasks.length, 0)
-				}
-			>
-				{groups === null ? (
-					tasks.length === 0 ? (
-						<NoTasks />
+			<TasksCard label="queue" title="Queue" count={working + waiting.length}>
+				<QueuePart title="Working" count={working}>
+					{groups === null ? (
+						tasks.length === 0 ? (
+							<NoTasks />
+						) : (
+							<TaskRows
+								label="task list"
+								rows={nested(tasks)}
+								onOpen={onOpen}
+							/>
+						)
 					) : (
-						<TaskRows label="task list" rows={nested(tasks)} onOpen={onOpen} />
-					)
-				) : (
-					<ProjectGroups groups={groups} onOpen={onOpen} />
-				)}
+						<ProjectGroups groups={groups} onOpen={onOpen} />
+					)}
+				</QueuePart>
+				<QueuePart title="Up next" count={waiting.length}>
+					<UpNext todos={project.todos} onOpen={onOpenTodo} />
+				</QueuePart>
 			</TasksCard>
-			<TaskQueue todos={project.todos} onOpen={onOpenTodo} />
 			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
 			<Dialog
 				open={opened !== null}
@@ -96,6 +104,27 @@ export function Tasks({
 			>
 				{opened && <Task task={opened} />}
 			</Dialog>
+		</section>
+	);
+}
+
+/** A part of the queue's card, headed by its title and how many it holds. */
+function QueuePart({
+	title,
+	count,
+	children,
+}: {
+	title: string;
+	count: number;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<section aria-label={title} className="flex flex-col py-1">
+			<h3 className="flex items-center gap-1.5 py-1 font-medium text-muted-foreground text-xs">
+				{title}
+				<span className="tabular-nums">{count}</span>
+			</h3>
+			{children}
 		</section>
 	);
 }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	details,
 	fireEvent,
 	Testing,
 	todo,
@@ -52,41 +53,36 @@ describe("Tasks page's queue", () => {
 		expect(view.queryByText("Nothing queued")).toBeNull();
 	});
 
-	it("keeps a task an agent took in view, with where it came from", async () => {
+	it("holds the tasks at work and what waits next in one card", async () => {
+		const view = await testing.openTasks({
+			tasks: [details({ task: "at-work" })],
+			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
+		});
+
+		const queue = view.getByRole("region", { name: "queue" });
+		const working = within(queue).getByRole("region", { name: "Working" });
+		expect(within(working).getByText("at-work")).toBeTruthy();
+		const next = within(queue).getByRole("region", { name: "Up next" });
+		expect(within(next).getByText("first")).toBeTruthy();
+		expect(view.queryByRole("region", { name: "in progress" })).toBeNull();
+	});
+
+	it("says how long each queued task has waited", async () => {
 		const view = await testing.openTasks({
 			todos: [
 				todo({
-					id: 4,
-					subject: "running",
+					id: 3,
+					subject: "first",
 					stage: "queued",
-					takenBy: "someone",
-					from: "other-task",
-				}),
-				todo({ id: 5, subject: "lane run", takenBy: "x", lane: 2 }),
-				todo({
-					id: 6,
-					subject: "by lane",
-					takenBy: "y",
-					queuedBy: { by: "lane", lane: 3 },
-				}),
-				todo({
-					id: 7,
-					subject: "by person",
-					takenBy: "z",
-					queuedBy: { by: "person" },
+					queuedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
 				}),
 			],
 		});
 
-		const running = within(view.getByRole("list", { name: "running tasks" }))
+		const rows = within(view.getByRole("list", { name: "queued tasks" }))
 			.getAllByRole("listitem")
 			.map((row) => row.textContent);
-		expect(running).toEqual([
-			"runningfrom other-task#4",
-			"lane runlane 2#5",
-			"by lanequeued by lane 3#6",
-			"by personqueued by you#7",
-		]);
+		expect(rows).toEqual(["1firstWaiting: 2h#3"]);
 	});
 
 	it("opens a queued task's card on the board", async () => {

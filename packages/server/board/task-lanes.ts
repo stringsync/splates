@@ -278,6 +278,7 @@ export class TaskLanes {
 									...state,
 									stage: "queued",
 									queuedBy: { by: "lane", lane: record.id },
+									queuedAt: new Date().toISOString(),
 								})
 							).state,
 						);

@@ -73,6 +73,7 @@ export async function queueAdd(
 				...state,
 				stage: "queued",
 				queuedBy: { by: "person" },
+				queuedAt: new Date().toISOString(),
 			})),
 		);
 	}

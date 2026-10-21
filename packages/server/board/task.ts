@@ -296,6 +296,8 @@ export interface TaskRecord {
 	autoPick?: AutoPicked;
 	/** Who queued it, kept while it is queued or running; absent for one never queued. */
 	queuedBy?: QueuedBy;
+	/** When it was last queued, kept while it is queued or running; absent for one never queued. */
+	queuedAt?: string;
 }
 
 /** Who put a task in the queue: the person, or a lane the person queued whole. */
@@ -308,7 +310,7 @@ export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 export function unqueued<T extends TaskRecord>(
 	state: T,
 ): T & { stage: "ready" | "backlog" } {
-	const { queuedBy: _, ...rest } = state;
+	const { queuedBy: _, queuedAt: __, ...rest } = state;
 	return { ...rest, stage: state.groomed ? "ready" : "backlog" } as T & {
 		stage: "ready" | "backlog";
 	};
