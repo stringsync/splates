@@ -242,6 +242,7 @@ describe("CoordinatorMove", () => {
 
 		expect(refused).toContain(`${HOST} does not reach splates server`);
 		expect(refused).toContain("last 302");
+		expect(ps.withdrawn).toEqual([JSON.stringify({ token: "join-token" })]);
 		expect(ps.scripts.at(-1)).toContain("systemctl disable --now");
 		expect(await fs.exists(`${ROOT}/.git/splates/format`)).toBe(true);
 		expect(await moveRecord(fs, HOME)).toBeNull();
@@ -255,6 +256,7 @@ describe("CoordinatorMove", () => {
 			.catch((error: Error) => error.message);
 
 		expect(refused).toContain("could not mint");
+		expect(ps.withdrawn).toEqual([]);
 		expect(refused).toContain("start `splates server` on this machine again");
 		expect(ps.scripts.at(-1)).toContain("systemctl disable --now");
 		expect(await fs.exists(`${ROOT}/.git/splates/format`)).toBe(true);
@@ -351,6 +353,8 @@ class SshPs extends FakePs {
 	active = false;
 	starts = true;
 	invites = true;
+	/** What each withdrawal of an invite was sent. */
+	readonly withdrawn: string[] = [];
 	/** The service token each invite carries, when Access stands in front. */
 	access: { clientId: string; clientSecret: string } | null = null;
 
@@ -376,6 +380,10 @@ class SshPs extends FakePs {
 		}
 		if (script.includes("is-active")) {
 			return ok(this.active ? "active\n" : "inactive\n");
+		}
+		if (script.includes("-X DELETE")) {
+			this.withdrawn.push(stdin);
+			return ok();
 		}
 		if (script.includes("/api/workers/invite")) {
 			if (!this.invites) {

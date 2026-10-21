@@ -119,4 +119,18 @@ describe("WorkerRecords", () => {
 		expect(await records.sweep()).toEqual(["st-1"]);
 		expect(await records.sweep()).toEqual([]);
 	});
+
+	it("withdraws a join token unspent, answering its service token once", async () => {
+		const records = WorkerRecords.memory();
+		const { token } = await records.invite({
+			id: "st-1",
+			clientId: "c",
+			clientSecret: "s",
+		});
+
+		expect(await records.withdraw(token)).toBe("st-1");
+		expect(await records.withdraw(token)).toBeNull();
+		expect(await records.join(token, "box")).toBeNull();
+		expect(await records.sweep()).toEqual([]);
+	});
 });

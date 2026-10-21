@@ -6,8 +6,8 @@ import { systemPs } from "../config";
 import type { Connection } from "../server/shared";
 import { RUNNING, refuse } from "../server/shared";
 import type { WorkerMachines } from "../tasks";
-import { API_TOKEN } from "../tunnel";
-import type { ServiceToken, WorkerAccess } from "./access";
+import type { WorkerAccess } from "./access";
+import { WorkerInvites } from "./invites";
 import { KeyDelivery } from "./key-delivery";
 import { WorkerKeyRoutes } from "./key-routes";
 import type { WorkerKeys } from "./keys";
@@ -86,7 +86,8 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly waking: WorkerWaking;
 	private readonly wakes: WakeRelay;
 	private listener: UnixWorkerListener | null = null;
-	private readonly access: WorkerAccess | null;
+	/** Join tokens, and the service tokens minted for them. */
+	private readonly invites: WorkerInvites;
 	/** Whether a worker may join: not while what the last run let go of is being taken back. */
 	private ready = true;
 
@@ -103,7 +104,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		}: DevWorkersOptions = {},
 	) {
 		this.records = records;
-		this.access = access;
+		this.invites = new WorkerInvites(records, access, log);
 		this.keys = keys;
 		this.keyRoutes = new WorkerKeyRoutes(this);
 		// Acked by hand: an agent's frame is acked once its log holds it, so
@@ -310,25 +311,12 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 			rollout: this.rollout.standing(),
 		} satisfies WorkerPool);
 
-	/**
-	 * `POST /api/workers/invite`: a join token, single use, for `splates
-	 * worker run --join`, carrying a service token of the worker's own when
-	 * Cloudflare Access stands in front, so it can reach the join itself.
-	 */
-	readonly invite = async (): Promise<Response> => {
-		await this.revoke(await this.records.sweep());
-		let access: ServiceToken | null = null;
-		try {
-			access = (await this.access?.mint()) ?? null;
-		} catch (error) {
-			return refuse(
-				502,
-				"cloudflare",
-				`could not mint the worker a Cloudflare Access service token: ${error instanceof Error ? error.message : String(error)}. When the API token lacks Access: Service Tokens · Edit, \`splates creds request ${API_TOKEN} --device --replace\` asks for a new one`,
-			);
-		}
-		return Response.json(await this.records.invite(access));
-	};
+	/** `POST /api/workers/invite`, as `WorkerInvites.invite`. */
+	readonly invite = (): Promise<Response> => this.invites.invite();
+
+	/** `DELETE /api/workers/invite`, as `WorkerInvites.withdraw`. */
+	readonly withdraw = (request: Request): Promise<Response> =>
+		this.invites.withdraw(request);
 
 	/**
 	 * `POST /api/workers/join`: spends a join token, answering the key the
@@ -365,7 +353,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		);
 		this.log.info(`worker ${id} joined`);
 		if (was !== null && was !== this.records.of(id)?.access) {
-			await this.revoke([was]);
+			await this.invites.revoke([was]);
 		}
 		return Response.json({ id, key });
 	};
@@ -535,24 +523,7 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		this.slots.scheduler.release(id);
 		this.log.info(`worker ${id} removed`);
 		if (was?.access) {
-			await this.revoke([was.access]);
-		}
-	}
-
-	/**
-	 * Revokes each service token in `ids`, logging rather than failing when
-	 * Cloudflare will not, since the worker's key is revoked already and
-	 * Access alone lets no one in.
-	 */
-	private async revoke(ids: string[]): Promise<void> {
-		for (const id of ids) {
-			try {
-				await this.access?.revoke(id);
-			} catch (error) {
-				this.log.error(
-					`could not revoke service token ${id}: ${error instanceof Error ? error.message : String(error)}; revoke it in Zero Trust → Access → Service Auth`,
-				);
-			}
+			await this.invites.revoke([was.access]);
 		}
 	}
 
@@ -616,6 +587,9 @@ export class DevWorkers implements AsyncResource, WorkerMachines {
 		}
 		if (what === "invite" && request.method === "POST") {
 			return guard(this.invite)(request);
+		}
+		if (what === "invite" && request.method === "DELETE") {
+			return guard(this.withdraw)(request);
 		}
 		if (what === "provision" && request.method === "POST") {
 			return guard(this.provision)(request);

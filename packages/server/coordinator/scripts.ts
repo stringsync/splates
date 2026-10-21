@@ -224,3 +224,12 @@ export function inviteScript(): string {
 	const url = `http://localhost:${BOX_PORT}`;
 	return `curl -fsS -X POST -H 'origin: ${url}' ${url}/api/workers/invite\n`;
 }
+
+/**
+ * Withdraws the join token on stdin from the box's server on its loopback,
+ * revoking the service token minted for it.
+ */
+export function withdrawScript(): string {
+	const url = `http://localhost:${BOX_PORT}`;
+	return `curl -fsS -X DELETE -H 'origin: ${url}' -H 'content-type: application/json' --data-binary @- ${url}/api/workers/invite\n`;
+}

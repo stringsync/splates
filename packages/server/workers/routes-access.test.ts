@@ -46,6 +46,22 @@ describe("DevWorkers behind Cloudflare Access", () => {
 		expect([...access.live.keys()]).toEqual(["st-2"]);
 	});
 
+	it("revokes the service token of an invite withdrawn unspent", async () => {
+		const { token } = await (await workers.invite()).json();
+
+		const answer = await workers.manage(
+			new Request("http://127.0.0.1/api/workers/invite", {
+				method: "DELETE",
+				body: JSON.stringify({ token }),
+			}),
+			(handle) => handle,
+		);
+
+		expect(await answer.json()).toEqual({ revoked: "st-1" });
+		expect(access.revoked).toEqual(["st-1"]);
+		expect((await join(workers, token, "box")).status).toBe(401);
+	});
+
 	it("refuses an invite when Cloudflare will not mint a token, saying how to fix the API token", async () => {
 		access.failing = new Error("POST answered 403: Authentication error");
 

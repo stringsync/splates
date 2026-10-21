@@ -21,6 +21,7 @@ import {
 	restartScript,
 	startScript,
 	upgradeScript,
+	withdrawScript,
 } from "./scripts";
 import { BoxShell } from "./ssh";
 import { MOVED_HOME, stage } from "./stage";
@@ -87,7 +88,7 @@ export class CoordinatorMove {
 				}
 			}
 		}
-		let token: string;
+		let token: string | undefined;
 		try {
 			await this.carry(shell, repos, projects);
 			log.info(`starting splates server on the box`);
@@ -97,6 +98,9 @@ export class CoordinatorMove {
 			token = await this.invite(shell);
 			await this.served(host, token);
 		} catch (error) {
+			if (token !== undefined) {
+				await this.withdraw(shell, token);
+			}
 			await shell
 				.run("systemctl disable --now splates-coordinator || true\n")
 				.catch(() => {});
@@ -141,6 +145,21 @@ export class CoordinatorMove {
 	/** A join token from the box's server. */
 	private async invite(shell: BoxShell): Promise<string> {
 		return Invited.parse(JSON.parse(await shell.run(inviteScript()))).token;
+	}
+
+	/**
+	 * Withdraws `token` from the box's server, revoking the service token
+	 * minted for it: the next move's records replace the box's, so its
+	 * server would never revoke it.
+	 */
+	private async withdraw(shell: BoxShell, token: string): Promise<void> {
+		try {
+			await shell.run(withdrawScript(), JSON.stringify({ token }));
+		} catch (error) {
+			this.opts.log.error(
+				`could not withdraw the worker's invite from the box: ${error instanceof Error ? error.message : String(error)}; revoke its service token in Zero Trust → Access → Service Auth`,
+			);
+		}
 	}
 
 	private async keep(record: MoveRecord): Promise<void> {

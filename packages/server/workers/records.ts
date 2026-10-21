@@ -128,6 +128,24 @@ export class WorkerRecords {
 	}
 
 	/**
+	 * Forgets `token` unspent, so no worker joins with it, answering the id
+	 * of the service token minted for it, to revoke; null for a token
+	 * unknown or spent, or one minted with none.
+	 */
+	async withdraw(token: string): Promise<string | null> {
+		const hash = sha256(token);
+		const join = this.kept.joins.find((each) => same(each.hash, hash));
+		if (join === undefined) {
+			return null;
+		}
+		await this.change((kept) => ({
+			...kept,
+			joins: kept.joins.filter((each) => !same(each.hash, hash)),
+		}));
+		return join.access;
+	}
+
+	/**
 	 * Spends `token` to let worker `id` join, answering the key it connects
 	 * with from now on, or null for a token unknown, spent or run out. A
 	 * worker joining again under its id gets a new key, which revokes the
