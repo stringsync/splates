@@ -3,6 +3,7 @@ import { fail } from "../exit";
 import type { Project } from "../server/shared";
 import { type ListedNote, Notes } from "./notes";
 import { NoteRemoval, NoteSave, NoteSaves } from "./saves";
+import { ROUTING } from "./tiers";
 import { NoteUses } from "./uses";
 
 /** Read the project's landed notes from its main checkout, and land the page's changes to them. */
@@ -21,17 +22,51 @@ export class NotesRoutes {
 		const { service, fs, storage } = this.project;
 		const root = service.git.root;
 		const counts = await new NoteUses(storage).counts();
+		const { recommended, followed } = await this.#judged();
 		const listed: ListedNote[] = (
 			await new Notes(fs).list(root, service.config)
 		).map((note) => ({
 			...note,
 			uses: counts.get(relative(root, note.path)) ?? 0,
+			recommended: recommended.get(relative(root, note.path)) ?? 0,
+			followed: followed.get(relative(root, note.path)) ?? 0,
 		}));
 		// Array.sort is stable, so notes read equally often keep filename order.
 		return Response.json(
 			listed.sort((first, second) => second.uses - first.uses),
 		);
 	};
+
+	/**
+	 * Per note, the messages it was attached to as a pointer (never in a
+	 * holdout) and the turns whose judge found it applied.
+	 */
+	async #judged(): Promise<{
+		recommended: Map<string, number>;
+		followed: Map<string, number>;
+	}> {
+		const recommended = new Map<string, number>();
+		const followed = new Map<string, number>();
+		const bump = (counts: Map<string, number>, path: string) =>
+			counts.set(path, (counts.get(path) ?? 0) + 1);
+		const events = await this.project.journal.recent().catch(() => []);
+		for (const event of events) {
+			if (event.action === "notes attached" && !event.holdout) {
+				for (const note of event.notes ?? []) {
+					if (note.tier !== null) {
+						bump(recommended, note.path);
+					}
+				}
+			} else if (
+				event.action === "note applied" &&
+				event.path !== undefined &&
+				(event.probability ?? 0) >= ROUTING.optional.at
+			) {
+				bump(followed, event.path);
+			}
+		}
+		return { recommended, followed };
+	}
 
 	readonly readNote = async (request: Request): Promise<Response> => {
 		const { service, fs } = this.project;

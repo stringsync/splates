@@ -15,6 +15,8 @@ const NOTE = {
 	path: "/repo/notes/exports.md",
 	description: "Why named exports",
 	uses: 3,
+	recommended: 5,
+	followed: 2,
 	text: "---\ndescription: Why named exports\n---\n# Exports\n\nUse **named exports**.",
 	body: "# Exports\n\nUse **named exports**.",
 	blob: "abc123",
@@ -40,6 +42,9 @@ describe("notes page", () => {
 
 	it("lists each note with how many conversations read it, then opens one as markdown and returns to the index", async () => {
 		expect(await page.findByText("Read in 3 conversations")).toBeTruthy();
+		expect(page.getAllByText("Recommended 5 times, followed 2")).toHaveLength(
+			2,
+		);
 		expect(page.getByText("Never read")).toBeTruthy();
 		fireEvent.click(
 			await page.findByRole("button", { name: /Why named exports/ }),

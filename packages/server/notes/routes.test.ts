@@ -20,7 +20,13 @@ describe("notes page routes", () => {
 		await serving(deps, async (_snapshot, port) => {
 			const list = await fetch(`http://127.0.0.1:${port}/api/notes`);
 			expect(await list.json()).toEqual([
-				{ path, description: "A convention", uses: 0 },
+				{
+					path,
+					description: "A convention",
+					uses: 0,
+					recommended: 0,
+					followed: 0,
+				},
 			]);
 			const read = await fetch(
 				`http://127.0.0.1:${port}/api/notes/read?${new URLSearchParams({ path })}`,

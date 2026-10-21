@@ -212,6 +212,9 @@ export function NotesPage({
 										? "Never read"
 										: `Read in ${note.uses} ${note.uses === 1 ? "conversation" : "conversations"}`}
 								</span>
+								<span className="text-muted-foreground text-xs">
+									{`Recommended ${note.recommended} ${note.recommended === 1 ? "time" : "times"}, followed ${note.followed}`}
+								</span>
 							</button>
 						</li>
 					))}
