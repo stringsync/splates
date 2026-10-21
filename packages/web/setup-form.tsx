@@ -1,6 +1,7 @@
 import type {
 	AreaProgress,
 	FieldProgress,
+	StepProgress,
 } from "@stringsync/splates-server/setup";
 import {
 	BotIcon,
@@ -151,6 +152,8 @@ export function StepForm({
 	why,
 	at,
 	of,
+	steps,
+	onGo,
 	next,
 	onNext,
 	onAgent,
@@ -164,6 +167,10 @@ export function StepForm({
 	/** This page's place in the journey, from 1. */
 	at: number;
 	of: number;
+	/** Every step of the journey, listed above the page so none is out of sight. */
+	steps?: readonly StepProgress[];
+	/** Goes back to the step at this index, from 0. */
+	onGo?: (index: number) => void;
 	next: NextState;
 	/** Presses Next, with the form its fields are read from. */
 	onNext: (form: HTMLFormElement) => void;
@@ -177,7 +184,7 @@ export function StepForm({
 }): JSX.Element {
 	const working = next.kind === "working";
 	return (
-		<div className="mx-auto flex w-full max-w-lg flex-col gap-6">
+		<div className="flex w-full flex-col gap-6">
 			<div className="flex items-center justify-between gap-4">
 				<Button
 					variant="link"
@@ -199,6 +206,9 @@ export function StepForm({
 					</Button>
 				)}
 			</div>
+			{steps !== undefined && steps.length > 1 && (
+				<StepList steps={steps} at={at - 1} working={working} onGo={onGo} />
+			)}
 			<form
 				aria-label={title}
 				className="flex flex-col gap-8"
@@ -223,9 +233,13 @@ export function StepForm({
 						{next.problem}
 					</p>
 				)}
-				{next.kind === "working" && next.doing !== undefined && (
-					<p role="status" className="text-muted-foreground text-sm">
-						{next.doing}
+				{next.kind === "working" && (
+					<p
+						role="status"
+						className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
+					>
+						<Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
+						{next.doing ?? "Working on it…"}
 					</p>
 				)}
 				<footer className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-6">
@@ -263,6 +277,67 @@ export function StepForm({
 				</footer>
 			</form>
 		</div>
+	);
+}
+
+/**
+ * Every step of the journey in order, the page's among them marked, and the
+ * ones before it done or not, so a journey opened partway shows what came first.
+ */
+function StepList({
+	steps,
+	at,
+	working,
+	onGo,
+}: {
+	steps: readonly StepProgress[];
+	/** The page shown, from 0. */
+	at: number;
+	working: boolean;
+	onGo?: (index: number) => void;
+}): JSX.Element {
+	return (
+		<ol aria-label="steps" className="flex flex-col gap-1 text-sm">
+			{steps.map((step, index) => {
+				const here = index === at;
+				const done = step.status === "done";
+				const row = (
+					<>
+						<span
+							className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+								done
+									? "border-success text-success"
+									: here
+										? "border-foreground bg-foreground text-background"
+										: "text-muted-foreground"
+							}`}
+							aria-hidden
+						>
+							{done ? <CheckIcon className="size-3" /> : index + 1}
+						</span>
+						<span className={here ? "font-medium" : "text-muted-foreground"}>
+							{step.title}
+						</span>
+					</>
+				);
+				return (
+					<li key={step.id} aria-current={here ? "step" : undefined}>
+						{onGo !== undefined && !here && index < at ? (
+							<button
+								type="button"
+								disabled={working}
+								className="flex cursor-pointer items-center gap-2 text-left hover:underline disabled:cursor-default"
+								onClick={() => onGo(index)}
+							>
+								{row}
+							</button>
+						) : (
+							<span className="flex items-center gap-2">{row}</span>
+						)}
+					</li>
+				);
+			})}
+		</ol>
 	);
 }
 
@@ -318,7 +393,7 @@ export function JourneyDone({
 	children?: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="mx-auto flex w-full max-w-lg flex-col gap-6">
+		<div className="flex w-full flex-col gap-6">
 			<h2 className="flex items-center gap-3 font-medium text-2xl">
 				<CheckIcon className="size-6 text-success" aria-hidden />
 				{title} is set up

@@ -2,7 +2,9 @@ import type { TaskRecord } from "@stringsync/splates-server/board";
 import { setupReference } from "@stringsync/splates-server/plans/browser";
 import type { AreaProgress } from "@stringsync/splates-server/setup";
 import { useReactive } from "@webappwiz/react";
+import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useEffect, useState } from "react";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./auto-pick-rules";
 import {
 	agentFor,
@@ -53,6 +55,7 @@ export function SetupPage({
 	return (
 		<section aria-label="setup" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Setup" />
+			{progress === null && <SetupLoading />}
 			{progress !== null &&
 				(area ? (
 					<Journey
@@ -81,6 +84,20 @@ export function SetupPage({
 				}}
 			/>
 		</section>
+	);
+}
+
+/** Shown while setup is read, which takes a few seconds the first time. */
+function SetupLoading(): JSX.Element {
+	return (
+		<div role="status" className="flex flex-col gap-3">
+			<p className="flex items-center gap-2 text-muted-foreground text-sm">
+				<Loader2Icon className="size-4 animate-spin" aria-hidden /> Reading your
+				setup…
+			</p>
+			<Skeleton className="h-16 w-full" />
+			<Skeleton className="h-16 w-full" />
+		</div>
 	);
 }
 
@@ -177,6 +194,8 @@ function Journey({
 					}
 					at={at + 1}
 					of={journey.steps.length}
+					steps={journey.steps}
+					onGo={(index) => journey.goToIndex(index)}
 					next={next}
 					// Read before the fields lock, since a disabled field sends nothing.
 					onNext={(form) => void journey.press(new FormData(form))}

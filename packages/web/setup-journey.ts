@@ -112,6 +112,13 @@ export class SetupJourney implements Eventful<SetupJourneyEvents> {
 		this.dispatcher.dispatch("settled", fresh);
 	}
 
+	/** Moves to the step at `index`, from 0, as back to one passed. */
+	goToIndex(index: number): void {
+		this.set(Math.min(Math.max(index, 0), this.area.steps.length - 1), {
+			kind: "ready",
+		});
+	}
+
 	/** Moves to the step `id` names, as to repair an earlier one. */
 	goTo(id: string): void {
 		const found = this.area.steps.findIndex((step) => step.id === id);
