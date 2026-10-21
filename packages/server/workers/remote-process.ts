@@ -25,17 +25,20 @@ export class RemoteProcess implements AgentProcess {
 	readonly input: WritableStream<Uint8Array>;
 	readonly output: ReadableStream<AgentFrame>;
 	readonly exited: Promise<number>;
-	readonly handle: ProcessHandle;
 	private _pid: number | null = null;
 	private tail = "";
+
+	/** What takes it back after a coordinator restart. */
+	get handle(): ProcessHandle {
+		return { worker: this.worker, channel: this.channel.id };
+	}
 
 	constructor(
 		private readonly channel: WorkerChannel,
 		session: WorkerSession,
-		worker: string,
+		private readonly worker: string,
 		{ resumed = false }: { resumed?: boolean } = {},
 	) {
-		this.handle = { worker, channel: channel.id };
 		const exit = Promise.withResolvers<number>();
 		this.exited = exit.promise;
 		let stdout: ReadableStreamDefaultController<AgentFrame> | undefined;

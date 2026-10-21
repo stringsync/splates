@@ -79,6 +79,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	/** Channels taken back from the session this one resumes, until the first handshake says the other end holds them. */
 	private readonly taken = new Set<number>();
 	/**
+	 * Channels opened before that handshake, which says what ids the other
+	 * end still holds, so each takes its id then, past them all.
+	 */
+	private readonly provisional = new Set<WorkerChannel>();
+	/**
 	 * What was sent on a taken channel before that handshake, which says
 	 * where its seqs carry on from: numbered and sent then.
 	 */
@@ -134,7 +139,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.nextChannel = role === "worker" ? 1 : 2;
 		this.link = {
 			send: (channel, frame) =>
-				this.taken.has(channel)
+				this.taken.has(channel) || this.isProvisional(channel)
 					? this.defer({ ...frame, channel })
 					: this.sendOnChannel({
 							...frame,
@@ -233,6 +238,13 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.nextChannel += 2;
 		const channel = new WorkerChannel(id, kind, params, this.link);
 		this.channels.set(id, channel);
+		// The other end may still hold this id from the session this one
+		// resumes, and would read what is sent on it as that channel's.
+		if (this.resumed && this.peer === null) {
+			this.provisional.add(channel);
+			this.defer({ type: "open", channel: id, kind, params });
+			return channel;
+		}
 		this.sendOnChannel({
 			type: "open",
 			channel: id,
@@ -257,12 +269,18 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		held: number | null,
 	): WorkerChannel {
 		this.assertOpen();
-		if (this.channels.has(id)) {
+		const there = this.channels.get(id);
+		if (there !== undefined && !this.provisional.has(there)) {
 			throw new Error(`channel ${id} is open already`);
 		}
 		const channel = new WorkerChannel(id, kind, params, this.link);
 		this.channels.set(id, channel);
 		this.taken.add(id);
+		this.openPast(id);
+		if (there !== undefined) {
+			this.renumber(there, this.nextChannel);
+			this.nextChannel += 2;
+		}
 		if (held === null) {
 			this.unplaced.add(id);
 		} else {
@@ -342,6 +360,56 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	 * not hold, as after the worker too started again, ends here.
 	 */
 	private takeBack(held: Held): void {
+		// Out of the way of what the other end holds until it is known.
+		const opened = [...this.provisional].map((channel) => {
+			const frames = this.deferred.get(channel.id) ?? [];
+			this.deferred.delete(channel.id);
+			this.channels.delete(channel.id);
+			return { channel, frames };
+		});
+		this.provisional.clear();
+		this.takeBackHeld(held);
+		for (const { channel, frames } of opened) {
+			const id = this.nextChannel;
+			this.nextChannel += 2;
+			channel.renumber(id);
+			this.channels.set(id, channel);
+			for (const frame of frames) {
+				this.sendOnChannel({ ...frame, channel: id, seq: this.nextSeq(id) });
+			}
+		}
+	}
+
+	/** Whether `id` is a channel opened before the first handshake, its id yet to be settled. */
+	private isProvisional(id: number): boolean {
+		return (
+			this.provisional.size > 0 &&
+			[...this.provisional].some((channel) => channel.id === id)
+		);
+	}
+
+	/** Moves `channel`, opened before the first handshake, to `id`, with what it deferred. */
+	private renumber(channel: WorkerChannel, id: number): void {
+		const frames = this.deferred.get(channel.id);
+		this.deferred.delete(channel.id);
+		if (this.channels.get(channel.id) === channel) {
+			this.channels.delete(channel.id);
+		}
+		channel.renumber(id);
+		this.channels.set(id, channel);
+		if (frames !== undefined) {
+			this.deferred.set(id, frames);
+		}
+	}
+
+	/** Opens new channels past `id`, one of this end's numbering. */
+	private openPast(id: number): void {
+		if (id % 2 === this.nextChannel % 2 && id >= this.nextChannel) {
+			this.nextChannel = id + 2;
+		}
+	}
+
+	private takeBackHeld(held: Held): void {
 		const holds = new Set(held.map(([channel]) => channel));
 		for (const id of this.taken) {
 			const channel = this.channels.get(id);
@@ -364,9 +432,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			for (const frame of deferred.get(channel) ?? []) {
 				this.sendOnChannel({ ...frame, seq: this.nextSeq(channel) });
 			}
-			if (channel % 2 === this.nextChannel % 2 && channel >= this.nextChannel) {
-				this.nextChannel = channel + 2;
-			}
+			this.openPast(channel);
 			if (!this.channels.has(channel)) {
 				const unclaimed = new WorkerChannel(
 					channel,
@@ -687,6 +753,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			this.received,
 			this.unplaced,
 			this.taken,
+			this.provisional,
 			this.deferred,
 			this.held,
 			this.pendingAcks,

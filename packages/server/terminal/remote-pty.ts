@@ -20,18 +20,20 @@ const Said = z.discriminatedUnion("type", [
 export class RemotePty implements AsyncResource, Eventful<PtyEvents> {
 	private readonly dispatcher = new Dispatcher<PtyEvents>();
 	readonly events = this.dispatcher.events;
-	/** What takes it back after a coordinator restart. */
-	readonly handle: ProcessHandle;
 	private _pid: number | null = null;
 	private exited = false;
 
+	/** What takes it back after a coordinator restart. */
+	get handle(): ProcessHandle {
+		return { worker: this.worker, channel: this.channel.id };
+	}
+
 	constructor(
 		private readonly channel: WorkerChannel,
-		worker: string,
+		private readonly worker: string,
 		/** Given for a shell taken back, whose `describe` waits for the worker to join. */
 		private readonly resumedOn: WorkerSession | null = null,
 	) {
-		this.handle = { worker, channel: channel.id };
 		// What a shell says goes to the page as it comes, so it is held once heard.
 		channel.events.on("data", ({ bytes, seq }) => {
 			channel.ack(seq);

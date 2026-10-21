@@ -14,6 +14,8 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 	let pair: WorkerSocketPair;
 	/** The channels the worker was opened, in order. */
 	let opened: WorkerChannel[];
+	/** What reached the worker, as each channel's id and its text, in order. */
+	let reached: [number, string][];
 	/** A pty open before the restart, as channel 2; the worker's end is `opened[0]`. */
 	let shell: WorkerChannel;
 
@@ -29,7 +31,13 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 			clock,
 		});
 		opened = [];
-		worker.events.on("channel", (channel) => opened.push(channel));
+		reached = [];
+		worker.events.on("channel", (channel) => {
+			opened.push(channel);
+			channel.events.on("data", ({ bytes }) =>
+				reached.push([channel.id, new TextDecoder().decode(bytes)]),
+			);
+		});
 		await link(worker, coordinator, pair);
 		shell = coordinator.open("pty");
 		await Bun.sleep(0);
@@ -108,6 +116,52 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 		expect(opened.map(({ id, closed }) => [id, closed])).toEqual([
 			[2, false],
 			[4, false],
+		]);
+	});
+
+	it("opens a channel before the worker rejoins on an id past the one it takes back", async () => {
+		const next = restarted();
+		const taken = next.resume(2, "pty", null, null);
+		const heard: string[] = [];
+		taken.events.on("data", ({ bytes }) =>
+			heard.push(new TextDecoder().decode(bytes)),
+		);
+		const claude = next.open("process", { argv: ["claude"] });
+		claude.write(bytes("initialize"));
+		await relink(next);
+		taken.write(bytes("pwd\n"));
+		opened[0]?.write(bytes("~\n"));
+		await Bun.sleep(0);
+
+		expect(claude.id).toBe(6);
+		expect(reached).toEqual([
+			[6, "initialize"],
+			[2, "pwd\n"],
+		]);
+		expect(heard).toEqual(["~\n"]);
+	});
+
+	it("opens a channel before the worker rejoins on an id past every one the worker holds", async () => {
+		coordinator.open("process", { argv: ["claude"] });
+		await Bun.sleep(0);
+
+		// This run takes back the shell on 2, not the agent on 4, and starts
+		// another agent before the worker's handshake says it holds 4.
+		const next = restarted();
+		next.resume(2, "pty", null, null);
+		const codex = next.open("process", { argv: ["codex"] });
+		codex.write(bytes("initialize"));
+		await relink(next);
+		await Bun.sleep(0);
+
+		expect(codex.id).toBe(6);
+		expect(reached).toEqual([[6, "initialize"]]);
+		expect(
+			opened.map(({ id, params, closed }) => [id, params, closed]),
+		).toEqual([
+			[2, null, false],
+			[4, { argv: ["claude"] }, true],
+			[6, { argv: ["codex"] }, false],
 		]);
 	});
 

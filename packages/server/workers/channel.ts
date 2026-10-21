@@ -39,13 +39,29 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 	readonly events = this.dispatcher.events;
 	private sentClose = false;
 	private heardClose = false;
+	private _id: number;
 
 	constructor(
-		readonly id: number,
+		id: number,
 		readonly kind: string,
 		readonly params: Json,
 		private readonly link: WorkerChannelLink,
-	) {}
+	) {
+		this._id = id;
+	}
+
+	/**
+	 * What both ends know it by. One opened before a resumed session's
+	 * handshake takes its last id then (`renumber`).
+	 */
+	get id(): number {
+		return this._id;
+	}
+
+	/** Gives it `id` in place of the one it was opened on; the session calls it, before it sent anything. */
+	renumber(id: number): void {
+		this._id = id;
+	}
 
 	get closed(): boolean {
 		return this.sentClose || this.heardClose;
