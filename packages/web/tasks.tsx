@@ -119,8 +119,11 @@ function QueuePart({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<section aria-label={title} className="flex flex-col py-1">
-			<h3 className="flex items-center gap-1.5 py-1 font-medium text-muted-foreground text-xs">
+		<section
+			aria-label={title}
+			className="flex flex-col border-t py-3 first:border-t-0 first:pt-1"
+		>
+			<h3 className="flex items-center gap-1.5 pb-2 font-semibold text-foreground text-sm">
 				{title}
 				<span className="tabular-nums">{count}</span>
 			</h3>
