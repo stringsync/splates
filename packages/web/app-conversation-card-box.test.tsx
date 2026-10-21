@@ -187,7 +187,7 @@ describe("App's card answer boxes", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
-	it("finishes a card's take on Send and sends its words", async () => {
+	it("finishes a card's take on Send and sends its words as dictated", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
@@ -210,6 +210,7 @@ describe("App's card answer boxes", () => {
 					method: "POST",
 					body: {
 						text: "> **What looks off at 390px?**\n\nsomething more",
+						dictated: "true",
 					},
 				},
 			]),

@@ -15,6 +15,7 @@ import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip
 import { cn } from "#web/lib/utils.ts";
 import { BoxDictation } from "./box-dictation";
 import { BoxEditor, type BoxEditorProps } from "./box-editor";
+import { ReplyContext } from "./card-reply";
 import { BoxMic } from "./dictate-button";
 import { COMPOSER, type Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
@@ -63,6 +64,13 @@ function DictatedBox({
 		[dictation, by],
 	);
 	const taking = useReactive(box, (each) => each.taking, ["changed"]);
+	// The reply carries it to the agent, as the composer's does.
+	const dictated = useContext(ReplyContext)?.dictated;
+	useEffect(() => {
+		if (taking) {
+			dictated?.();
+		}
+	}, [taking, dictated]);
 	return <Box {...props} box={box} taking={taking} />;
 }
 

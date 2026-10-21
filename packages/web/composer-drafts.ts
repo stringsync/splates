@@ -199,15 +199,25 @@ export function filesOf(message: AppendMessage): File[] {
 export function useReply(
 	id: string,
 	drafts: Drafts,
-	send: ((text: string, files: File[]) => Promise<void>) | null,
+	send:
+		| ((text: string, files: File[], dictated?: boolean) => Promise<void>)
+		| null,
 ): Reply {
+	// Whether a take went into a card's box since the last send.
+	const dictated = useRef(false);
 	return useMemo(
 		() => ({
 			send:
 				send === null
 					? null
-					: (said: string, files: readonly File[] = []) =>
-							send(said, [...files]),
+					: (said: string, files: readonly File[] = []) => {
+							const was = dictated.current && said !== "";
+							dictated.current = false;
+							return send(said, [...files], was);
+						},
+			dictated: () => {
+				dictated.current = true;
+			},
 			drafts: {
 				read: (name: string) => drafts.read(`${id}:${name}`),
 				write: (name: string, kept: string) =>

@@ -22,6 +22,12 @@ export interface Reply {
 	 */
 	send: ((text: string, files?: readonly File[]) => Promise<void>) | null;
 	/**
+	 * Notes that words in one of the cards' boxes were dictated, so the next
+	 * `send` tells the agent, as the composer's does; any take into a box
+	 * counts, edited after or not, until a send.
+	 */
+	dictated?: () => void;
+	/**
 	 * Where a card keeps what is written in it and not sent, under a name of
 	 * its own in the conversation, so leaving and coming back loses nothing.
 	 */
