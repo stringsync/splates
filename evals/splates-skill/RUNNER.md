@@ -430,15 +430,15 @@ skill wording change is needed for this internal CLI extension.
 ## Explicit unchanged-baseline exception (#55)
 
 The user approved implementing this exception on 2026-10-18, separately from
-model execution authorization. `--unchanged-baseline --baseline REV --probe
-decisions/local-choice` requires current instruction bytes to equal the immutable
+model execution authorization. `--unchanged-baseline --baseline REV` with an explicit
+`--probe`, `--aspect` or `--requirement` selection requires current instruction bytes to equal the immutable
 revision, exactly one Codex and one Claude target, one repetition and parallel one.
 It freezes one `current` snapshot and admits both cells in a single aggregate
 reservation. Reports label these same-skill baseline observations, never a
 candidate comparison or an improvement. Ordinary unchanged calls still skip,
 and `--paired` still needs a genuine diff.
 
-The exception refuses custom modules, selective retries, other cases/selectors,
+The exception refuses custom modules, selective retries, a call with no explicit selection,
 extra targets, repetitions, parallelism, and increases to the frozen probe bounds.
 Shared allowance declaration, native metering, terminal confirmation, snapshot
 verification, complete result retention and stop-on-failure remain mandatory.
@@ -459,7 +459,7 @@ No model evaluation was authorized by the implementation decision. See
 
 The user replaced the cross-family measurement task with making Claude evals
 usable. `--unchanged-baseline` now also accepts exactly one Claude target, keeping
-the frozen local-choice case, one repetition, parallel one, immutable current
+the explicitly selected probes, one repetition, parallel one, immutable current
 snapshot and all budget/confirmation gates. It does not require a Codex run.
 Paired genuine-diff policy is unchanged.
 

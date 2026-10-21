@@ -55,7 +55,7 @@ login or credential copying is needed. Currently verified with Claude Code
 2.1.296; other versions stop before a model prompt because the native Keychain
 selector is version-specific. Reads and network are not restricted by this boundary.
 
-A single-Claude baseline can use the unchanged skill without a manufactured edit:
+A single-Claude baseline can use the unchanged skill without a manufactured edit, for any explicit `--probe`, `--aspect` or `--requirement` selection:
 
 ```sh
 splates dev eval plan --unchanged-baseline --baseline HEAD \

@@ -24,10 +24,8 @@ it("plans exactly two same-skill cells without creating results or reserving", a
 });
 
 it("plans one Claude baseline without requiring a Codex target", async () => {
-	const index = args.indexOf("codex:fixture");
-	const selected = [...args.slice(0, index - 1), ...args.slice(index + 1)];
 	const log = new MemoryLogger();
-	await fastCli(selected, log);
+	await fastCli(claudeOnly, log);
 	const output = log.entries.map((entry) => entry.message).join("\n");
 	expect(output).toContain(
 		"Unchanged baseline (no candidate comparison): 1 cells",
@@ -54,8 +52,6 @@ it.each(
 		["--paired"],
 		["--failed"],
 		["--module", "not-loaded.ts"],
-		["--probe", "decisions/answer"],
-		["--aspect", "decisions"],
 		["--kind", "cli"],
 		["--reps", "2"],
 		["--parallel", "2"],
@@ -76,6 +72,22 @@ it.each(
 	},
 );
 
+it("plans an explicitly selected probe", async () => {
+	const log = new MemoryLogger();
+	await fastCli([...unselected, "--probe", "decisions/answer"], log);
+	expect(log.entries.map((entry) => entry.message).join("\n")).toContain(
+		"Unchanged baseline (no candidate comparison): 1 cells",
+	);
+});
+
+it("plans an explicitly selected aspect", async () => {
+	const log = new MemoryLogger();
+	await fastCli([...unselected, "--aspect", "decisions"], log);
+	expect(log.entries.map((entry) => entry.message).join("\n")).toContain(
+		"Unchanged baseline (no candidate comparison): 7 cells",
+	);
+});
+
 it("requires one target from each family", async () => {
 	await expect(
 		fastCli(
@@ -85,7 +97,7 @@ it("requires one target from each family", async () => {
 	).rejects.toThrow("both Codex and Claude");
 });
 
-it("requires explicit local-choice selection", async () => {
+it("requires an explicit probe selection", async () => {
 	await expect(
 		fastCli(
 			args.filter(
@@ -93,7 +105,7 @@ it("requires explicit local-choice selection", async () => {
 			),
 			new MemoryLogger(),
 		),
-	).rejects.toThrow("requires only --probe");
+	).rejects.toThrow("requires an explicit --probe");
 });
 
 it("rejects a real diff instead of using the exception to select a candidate", async () => {
@@ -141,6 +153,8 @@ const exec = promisify(execFile);
 let directory: string;
 let skill: string;
 let args: string[];
+let claudeOnly: string[];
+let unselected: string[];
 beforeEach(async () => {
 	directory = await mkdtemp(join(tmpdir(), "unchanged-baseline-"));
 	skill = join(directory, "skills/splates");
@@ -175,6 +189,11 @@ beforeEach(async () => {
 		"--target",
 		"claude:fixture",
 	];
+	const index = args.indexOf("codex:fixture");
+	claudeOnly = [...args.slice(0, index - 1), ...args.slice(index + 1)];
+	unselected = claudeOnly.filter(
+		(arg) => !["--probe", "decisions/local-choice"].includes(arg),
+	);
 });
 afterEach(async () => {
 	await rm(directory, { recursive: true, force: true });

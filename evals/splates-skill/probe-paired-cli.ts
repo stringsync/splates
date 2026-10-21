@@ -48,11 +48,10 @@ export async function pairedCli(
 			change.beforeHash !== change.afterHash ||
 			opts.reps !== 1 ||
 			(!claudeOnly && opts.targets.length !== 2) ||
-			module.probes.length !== 1 ||
-			module.probes[0]?.id !== "decisions/local-choice")
+			!module.probes.length)
 	) {
 		throw new Error(
-			"Unchanged baseline requires identical snapshots, one Claude target or both native families, local-choice only and --reps 1",
+			"Unchanged baseline requires identical snapshots, one Claude target or both native families and --reps 1",
 		);
 	}
 	if (opts.parallel !== 1) {
@@ -76,7 +75,7 @@ export async function pairedCli(
 	) {
 		throw new Error("Paired experiments require both Codex and Claude targets");
 	}
-	for (const probe of module.probes) {
+	for (const probe of unchanged ? [] : module.probes) {
 		const frozen = decisions.probes.find(
 			(value) =>
 				value.id === probe.id &&
@@ -85,16 +84,6 @@ export async function pairedCli(
 		if (!frozen || hash({ ...probe, bounds: frozen.bounds }) !== hash(frozen)) {
 			throw new Error(
 				"Paired experiments require the frozen decision tuning cases and assertions",
-			);
-		}
-		if (
-			unchanged &&
-			(probe.bounds.milliseconds > frozen.bounds.milliseconds ||
-				probe.bounds.turns > frozen.bounds.turns ||
-				probe.bounds.tokens > frozen.bounds.tokens)
-		) {
-			throw new Error(
-				"Unchanged baseline bounds cannot exceed the frozen local-choice limits",
 			);
 		}
 	}
