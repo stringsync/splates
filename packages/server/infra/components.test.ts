@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { mockPulumi } from "./testing";
 
+process.env.PULUMI_CONFIG = JSON.stringify({ "github:token": "tok" });
+
 const ofType = mockPulumi();
 
 const { CoordinatorBox, DeployKeys, Tunnel } = await import("./index");
@@ -77,4 +79,22 @@ test("each project gets a deploy key with write access and its parameter", async
 		"github:index/repositoryDeployKey:RepositoryDeployKey",
 	);
 	expect(key?.inputs).toMatchObject({ repository: "app", readOnly: false });
+});
+
+test("projects under two owners each get a deploy key on their owner's provider", async () => {
+	new DeployKeys("two", {
+		projects: [
+			{ slug: "a", repository: "one/a" },
+			{ slug: "b", repository: "two/b" },
+			{ slug: "c", repository: "one/c" },
+		],
+	});
+	// Resources register as the engine gets to them, after the first provider of the earlier test is found.
+	await new Promise((resolve) => setTimeout(resolve, 200));
+	const providers = await ofType("pulumi:providers:github");
+	expect(providers.map((provider) => provider.inputs.owner).sort()).toEqual([
+		"me",
+		"one",
+		"two",
+	]);
 });

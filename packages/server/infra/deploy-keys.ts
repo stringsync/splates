@@ -37,13 +37,27 @@ export class DeployKeys extends pulumi.ComponentResource {
 		super("splates:infra:DeployKeys", name, {}, opts);
 		const child = { parent: this };
 		this.parameters = {};
+		// The resource takes a repository name alone, so each owner gets its own provider.
+		const token = new pulumi.Config("github").requireSecret("token");
+		const providers = new Map<string, github.Provider>();
 		for (const { slug, repository } of args.projects) {
 			const key = new tls.PrivateKey(
 				`${name}-${slug}-key`,
 				{ algorithm: "ED25519" },
 				child,
 			);
-			const repo = repository.slice(repository.indexOf("/") + 1);
+			const slash = repository.indexOf("/");
+			const owner = repository.slice(0, slash);
+			const repo = repository.slice(slash + 1);
+			let provider = providers.get(owner);
+			if (!provider) {
+				provider = new github.Provider(
+					`${name}-${owner}`,
+					{ owner, token },
+					child,
+				);
+				providers.set(owner, provider);
+			}
 			new github.RepositoryDeployKey(
 				`${name}-${slug}`,
 				{
@@ -52,7 +66,7 @@ export class DeployKeys extends pulumi.ComponentResource {
 					key: key.publicKeyOpenssh,
 					readOnly: false,
 				},
-				child,
+				{ ...child, provider },
 			);
 			const parameter = deployKeyParameter(slug);
 			new aws.ssm.Parameter(
