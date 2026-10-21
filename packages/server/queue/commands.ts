@@ -69,7 +69,11 @@ export async function queueAdd(
 	const queued: Task[] = [];
 	for (const task of found) {
 		queued.push(
-			await tasks.revise(task.id, (state) => ({ ...state, stage: "queued" })),
+			await tasks.revise(task.id, (state) => ({
+				...state,
+				stage: "queued",
+				queuedBy: { by: "person" },
+			})),
 		);
 	}
 	// Queued again by hand, a queued lane counts it in once more.

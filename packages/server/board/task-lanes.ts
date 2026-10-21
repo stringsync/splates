@@ -260,7 +260,13 @@ export class TaskLanes {
 						!(record.skip ?? []).includes(state.id)
 					) {
 						queued.push(
-							(await this.tasks.save({ ...state, stage: "queued" })).state,
+							(
+								await this.tasks.save({
+									...state,
+									stage: "queued",
+									queuedBy: { by: "lane", lane: record.id },
+								})
+							).state,
 						);
 						spent.set(record.id, (spent.get(record.id) ?? 0) + 1);
 					}

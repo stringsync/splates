@@ -63,13 +63,30 @@ describe("Tasks page's queue", () => {
 					from: "other-task",
 				}),
 				todo({ id: 5, subject: "lane run", takenBy: "x", lane: 2 }),
+				todo({
+					id: 6,
+					subject: "by lane",
+					takenBy: "y",
+					queuedBy: { by: "lane", lane: 3 },
+				}),
+				todo({
+					id: 7,
+					subject: "by person",
+					takenBy: "z",
+					queuedBy: { by: "person" },
+				}),
 			],
 		});
 
 		const running = within(view.getByRole("list", { name: "running tasks" }))
 			.getAllByRole("listitem")
 			.map((row) => row.textContent);
-		expect(running).toEqual(["runningfrom other-task#4", "lane runlane 2#5"]);
+		expect(running).toEqual([
+			"runningfrom other-task#4",
+			"lane runlane 2#5",
+			"by lanequeued by lane 3#6",
+			"by personqueued by you#7",
+		]);
 	});
 
 	it("opens a queued task's card on the board", async () => {

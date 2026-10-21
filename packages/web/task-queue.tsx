@@ -103,8 +103,14 @@ export function TaskQueue({
 	);
 }
 
-/** Where a running task came from: the task it came up in, its lane, or by hand. */
+/** Where a running task came from: who queued it, else the task it came up in, its lane, or by hand. */
 function startedBy(todo: TaskRecord): string {
+	if (todo.queuedBy?.by === "lane") {
+		return `queued by lane ${todo.queuedBy.lane}`;
+	}
+	if (todo.queuedBy?.by === "person") {
+		return "queued by you";
+	}
 	if (todo.from !== null) {
 		return `from ${todo.from}`;
 	}

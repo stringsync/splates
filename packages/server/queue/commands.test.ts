@@ -21,6 +21,7 @@ describe("queue commands", () => {
 			"queued",
 		]);
 		// Naming a model is no grooming, and leaves a queued task queued.
+		expect((await deps.tasks.find(1)).state.queuedBy).toEqual({ by: "person" });
 		await taskUpdate(deps, 1, { assignee: { agent: "claude" } });
 		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
 
@@ -29,6 +30,7 @@ describe("queue commands", () => {
 			"backlog",
 			"ready",
 		]);
+		expect((await deps.tasks.find(1)).state.queuedBy).toBeUndefined();
 		await expect(queueRemove(deps, [2])).toBail("not_found");
 	});
 

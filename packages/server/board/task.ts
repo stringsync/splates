@@ -294,7 +294,12 @@ export interface TaskRecord {
 	blockersLost?: GoneBlocker[];
 	/** Its last Auto pick, with what the judge said of its words; absent for none. */
 	autoPick?: AutoPicked;
+	/** Who queued it, kept while it is queued or running; absent for one never queued. */
+	queuedBy?: QueuedBy;
 }
+
+/** Who put a task in the queue: the person, or a lane the person queued whole. */
+export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 
 /**
  * `state` taken out of the queue: back in ready when it was groomed, else
@@ -303,7 +308,10 @@ export interface TaskRecord {
 export function unqueued<T extends TaskRecord>(
 	state: T,
 ): T & { stage: "ready" | "backlog" } {
-	return { ...state, stage: state.groomed ? "ready" : "backlog" };
+	const { queuedBy: _, ...rest } = state;
+	return { ...rest, stage: state.groomed ? "ready" : "backlog" } as T & {
+		stage: "ready" | "backlog";
+	};
 }
 
 /**
