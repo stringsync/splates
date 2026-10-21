@@ -352,8 +352,8 @@ export function QuestionCards({
 					</ol>
 				)}
 				{!paging && (live ? answer === null : more !== "") && (
-					// Below the questions, lined up with their answers, as one more
-					// thing to say: barred while it has the focus, as each question is.
+					// Below the questions, as one more, numbered and asked like them:
+					// barred while it has the focus, as each question is.
 					<div
 						data-more
 						className={cn(
@@ -362,14 +362,20 @@ export function QuestionCards({
 								"transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
 						)}
 					>
-						<span aria-hidden className="size-5 shrink-0" />
-						<div className="min-w-0 flex-1">
+						<span
+							aria-hidden
+							className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums"
+						>
+							{questions.length + 1}
+						</span>
+						<div className="flex min-w-0 flex-1 flex-col gap-3">
+							<p className="font-medium text-sm leading-snug">Anything else?</p>
 							{live ? (
 								<CardBox
 									data-stop="more"
 									aria-label="Anything else"
 									value={written.more}
-									placeholder="Anything else?"
+									placeholder="Your answer (optional)"
 									onValue={(more) => write({ ...written, more })}
 									files={files?.of(MORE) ?? null}
 									onKeyDown={(event) => {
