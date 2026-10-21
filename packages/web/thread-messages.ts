@@ -265,6 +265,7 @@ export function useThreadMessages(
 	const visible = useMemo(() => messages.slice(start), [messages, start]);
 	return {
 		running,
+		going,
 		writing,
 		queued,
 		messages: visible,
@@ -281,6 +282,8 @@ export interface ThreadMessages {
 	loadEarlier: () => Promise<void>;
 	/** Whether the agent is at work, or a message is on its way to it. */
 	running: boolean;
+	/** Whether a message just sent holds the reply's place before the server says the agent works. */
+	going: boolean;
 	/** Whether the last message is still being written. */
 	writing: boolean;
 	/** What waits for the turn's end, shown in the thread after it. */

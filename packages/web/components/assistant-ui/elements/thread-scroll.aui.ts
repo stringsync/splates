@@ -200,13 +200,14 @@ export function useFollowWork(
 }
 /**
  * The person's message that opens the turn assistant-ui anchors to the top:
- * the one before the last, a reply, while it runs. None for a bare line, as a
+ * the one before the last, a reply, while it runs or, sent a moment
+ * ago, before the server says it does. None for a bare line, as a
  * checkpoint is, which carries on the turn it comes in.
  */
-const anchoredTurn = (s: AssistantState) => {
+const anchoredTurn = (s: AssistantState, going: boolean) => {
 	const { messages, isRunning } = s.thread;
 	const anchor = messages.at(-2);
-	return isRunning &&
+	return (isRunning || going) &&
 		anchor?.role === "user" &&
 		!carriesOn(anchor) &&
 		messages.at(-1)?.role === "assistant"
@@ -222,16 +223,16 @@ export const UNCLAMPED = { tallerThan: `${Number.MAX_SAFE_INTEGER}px` };
 /** The spacer assistant-ui keeps below a turn anchored to the top. */
 const RESERVE = "[data-aui-top-anchor-reserve]";
 /**
- * Anchors a new turn to the top of `viewport` in the commit that adds it, as
- * assistant-ui would a frame or two later: its spacer moved below the reply
- * and sized to let the person's message reach the top, and the scroll there.
- * Left to assistant-ui, every frame in between paints the message somewhere
- * else first. Its own pass then finds nothing left to do.
+ * Puts a new turn's message at the top of `viewport` in the commit that adds
+ * it, with room below for the reply to fill, from the moment `going` says it
+ * was sent rather than a frame or two later, or when the server says the
+ * agent works, so the message never paints at the bottom first.
  */
 export function useAnchorAtOnce(
 	viewport: RefObject<HTMLDivElement | null>,
+	going: boolean,
 ): void {
-	const id = useAuiState(anchoredTurn);
+	const id = useAuiState((s) => anchoredTurn(s, going));
 	useLayoutEffect(() => {
 		const scroller = viewport.current;
 		const anchor = scroller?.querySelector<HTMLElement>(
@@ -268,6 +269,12 @@ export function useAnchorAtOnce(
 		}
 		// Its spacer comes empty, the stand-in already making the room: the
 		// stand-in hands it the room before the frame paints.
+		// Sent before the server says the agent works, assistant-ui's spacer
+		// may be a while coming: the stand-in shrinks as the reply fills in.
+		const filling = new ResizeObserver(() =>
+			makeRoom(scroller, reserve, scrollTop),
+		);
+		filling.observe(target);
 		let frame = 0;
 		const handOver = () => {
 			const theirs = scroller.querySelector<HTMLElement>(RESERVE);
@@ -275,12 +282,14 @@ export function useAnchorAtOnce(
 				frame = requestAnimationFrame(handOver);
 				return;
 			}
+			filling.disconnect();
 			theirs.style.height = reserve.style.height;
 			reserve.remove();
 		};
 		frame = requestAnimationFrame(handOver);
 		return () => {
 			cancelAnimationFrame(frame);
+			filling.disconnect();
 			reserve.remove();
 		};
 	}, [id, viewport]);

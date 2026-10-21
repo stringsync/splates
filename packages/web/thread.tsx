@@ -159,7 +159,7 @@ function Conversation({
 	);
 	const choose = useChooseSetting(id, refused);
 	const thread = useThreadMessages(conversation, feed);
-	const { queued, openAt, asking } = thread;
+	const { queued, openAt, asking, going } = thread;
 	const {
 		runtime,
 		stopping,
@@ -338,6 +338,7 @@ function Conversation({
 																		openAt={openAt}
 																		autoFocus={!asking || typed}
 																		stopping={stopping}
+																		going={going}
 																		mentions={mentions ?? undefined}
 																		references={references}
 																		commands={commands ?? undefined}

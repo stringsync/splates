@@ -51,6 +51,7 @@ export const Thread: FC<ThreadProps> = ({
 	below,
 	controls,
 	stopping,
+	going = false,
 	mentions,
 	references,
 	commands,
@@ -82,6 +83,7 @@ export const Thread: FC<ThreadProps> = ({
 					autoFocus={autoFocus}
 					openAt={openAt}
 					docked={docked}
+					going={going}
 				/>
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
@@ -92,7 +94,8 @@ const ThreadRoot: FC<{
 	autoFocus: boolean;
 	openAt: string | undefined;
 	docked: boolean;
-}> = ({ isEmpty, autoFocus, openAt, docked }) => {
+	going: boolean;
+}> = ({ isEmpty, autoFocus, openAt, docked, going }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -125,7 +128,7 @@ const ThreadRoot: FC<{
 		};
 	}, []);
 	useOpenAt(viewport, openAt);
-	useAnchorAtOnce(viewport);
+	useAnchorAtOnce(viewport, going);
 	useFollowWork(viewport);
 	useHoldPlace(viewport);
 	const footer = useRef<HTMLDivElement>(null);
