@@ -58,5 +58,13 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			default: false,
 			description: "run the package's and the eval harness's tests together",
 		})
+		.option("linux", z.boolean(), {
+			default: false,
+			description:
+				"run them on Linux, in a Docker container built from the checkout, as the box and the workers run; needs Docker",
+		})
+		.rest("files", z.string(), {
+			description: "run only the test files whose path has one of these",
+		})
 		.action((opts, { log, ps }) => test({ ...opts, log, ps }));
 }

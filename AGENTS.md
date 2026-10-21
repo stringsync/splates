@@ -6,7 +6,10 @@ After making code changes:
 - `splates dev fix` typecheck, format, and check the project, scry included.
 - `splates dev test` test the package. It takes a heavy-job slot itself, so
   it needs no `splates heavy`. `splates dev test --evals` tests the eval
-  harness, for changes under `evals/`.
+  harness, for changes under `evals/`. `splates dev test --linux` runs the
+  suite on Linux in a Docker container built from the checkout, as the box
+  and the workers run; run it before touching processes, sockets, files or
+  git, which is where macOS and Linux differ.
 
 `splates dev` holds only this repository's own commands. Run webappwiz's,
 which its skills call `wiz` (`wiz scry`, `wiz skills`), as

@@ -15,6 +15,14 @@ export interface TestOptions {
 	/** Run the package's and the eval harness's tests together. */
 	all?: boolean;
 	/**
+	 * Run the tests on Linux, in a Docker container built from the checkout
+	 * (`docker/test.Dockerfile`), as the coordinator's box and the workers
+	 * run them.
+	 */
+	linux?: boolean;
+	/** Run only the test files whose path has one of these, as `bun test` filters. */
+	files?: string[];
+	/**
 	 * Test files run at once; half the cores when left out, fewer (down to half
 	 * of that) when the machine's other heavy jobs hold some of its cores.
 	 */
@@ -38,6 +46,9 @@ export interface TestOptions {
 // ones, and 140s at 8 workers beside two other runs: 3 minutes left a gate on
 // a busier machine too little headroom.
 export const TEST_DEADLINE = Duration.mins(6);
+
+/** The image `--linux` builds from the checkout and runs the tests in. */
+export const LINUX_IMAGE = "splates-test";
 
 export async function test(opts: TestOptions): Promise<void> {
 	const ps = opts.ps ?? new NodePs();
@@ -67,8 +78,9 @@ export async function test(opts: TestOptions): Promise<void> {
 	// a `preMerge` hook, it runs in the slot the merge already holds
 	const heavy = opts.heavy ?? heavyJobsOfMachine({ fs: new NodeFs(), ps, log });
 	// `splates merge` names where its gate wants a JUnit report, to queue a
-	// task for each slow test; bun keeps printing its own output beside it
-	const report = ps.env("SPLATES_TEST_REPORT");
+	// task for each slow test; bun keeps printing its own output beside it.
+	// Not on Linux, where the path would be the container's.
+	const report = opts.linux ? undefined : ps.env("SPLATES_TEST_REPORT");
 	await using slot = await heavy.take({ what: "splates dev test" });
 	// a worker is a core claimed: when other heavy jobs hold the machine's
 	// cores the run waits (five minutes at most) for half its workers, rather
@@ -83,26 +95,51 @@ export async function test(opts: TestOptions): Promise<void> {
 		min: opts.workers === undefined ? Math.max(1, Math.floor(want / 2)) : want,
 	});
 	const workers = claim.cores;
+	const bunTest = [
+		"bun",
+		"test",
+		"--pass-with-no-tests",
+		`--parallel=${workers}`,
+		"--timeout",
+		"30000",
+		...filter,
+		...(report ? ["--reporter=junit", `--reporter-outfile=${report}`] : []),
+		...(opts.files ?? []),
+	];
+	// The image is built in the slot, since an install is a heavy job, but
+	// ahead of the deadline: the first build pulls the base image and
+	// installs every dependency, minutes that are not the tests'.
+	if (opts.linux) {
+		const build = await ps.spawn(
+			[
+				"docker",
+				"build",
+				"-f",
+				"docker/test.Dockerfile",
+				"-t",
+				LINUX_IMAGE,
+				".",
+			],
+			{ cwd: ROOT, env: slot.env },
+		);
+		if (build.exitCode !== 0) {
+			throw new Error(
+				"Building the Linux test image failed: is Docker running?",
+			);
+		}
+	}
 	// bun's per-test timeout cannot stop a test spinning in a synchronous
 	// loop, and such a run held its slot for ten hours while every add, merge
 	// and conversation on the machine queued behind it. Ending bun's runner
-	// ends its workers too.
+	// ends its workers too; `docker run` passes the signal on to the
+	// container's bun, and `--init` reaps what the tests spawn under it.
 	const deadline = opts.deadline ?? TEST_DEADLINE;
 	const signal = AbortSignal.timeout(deadline.ms);
+	const argv = opts.linux
+		? ["docker", "run", "--rm", "--init", LINUX_IMAGE, ...bunTest]
+		: bunTest;
 	const { exitCode } = await ps
-		.spawn(
-			[
-				"bun",
-				"test",
-				"--pass-with-no-tests",
-				`--parallel=${workers}`,
-				"--timeout",
-				"30000",
-				...filter,
-				...(report ? ["--reporter=junit", `--reporter-outfile=${report}`] : []),
-			],
-			{ cwd: ROOT, env: slot.env, signal },
-		)
+		.spawn(argv, { cwd: ROOT, env: slot.env, signal })
 		.catch((error: unknown) => {
 			if (signal.aborted) {
 				throw new Error(
