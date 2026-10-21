@@ -12,6 +12,10 @@ const arm: Arm = {
 	redone: 1,
 	used: 2,
 	tokens: 3000,
+	turned: 2,
+	turns: 9,
+	said: 10,
+	corrected: 2,
 	checksPassed: 9,
 	checksApplied: 10,
 };
@@ -32,6 +36,8 @@ describe("NoteSection", () => {
 			attached: 2,
 			p50: 900,
 			p95: 2100,
+			spend: { routing: 0.0024, routed: 8, weighing: 0.0006, weighed: 4 },
+			context: { conversations: 2, tokens: 3000, share: 0.05 },
 			notes: [
 				{
 					path: "notes/x.md",
@@ -53,6 +59,18 @@ describe("NoteSection", () => {
 		expect(section.textContent).toContain("1,500 of 2");
 		expect(section.textContent).toContain("Pointed at on 25% of 8 messages");
 		expect(section.textContent).toContain("900ms at the median");
+		expect(
+			page.getByRole("row", { name: /Turns per merged task/ }).textContent,
+		).toContain("4.5 of 2");
+		expect(
+			page.getByRole("row", { name: /Messages correcting/ }).textContent,
+		).toContain("20% of 10");
+		expect(section.textContent).toContain(
+			"The judge cost $0.003: $0.0024 routing 8 messages ($0.0003 each), $0.0006 weighing 4 notes read.",
+		);
+		expect(section.textContent).toContain(
+			"Notes read took 5% of the context, about 1,500 tokens a conversation, over 2.",
+		);
 		const row = page.getByRole("row", { name: /notes\/x.md/ });
 		expect(row.textContent).toContain("50% of 2");
 		expect(row.textContent).toContain("75% of 4");

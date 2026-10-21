@@ -25,10 +25,19 @@ a journal event for the Stats page: before a message reaches the agent,
 (`notes attached`), and after each turn that read a note, `weighing`
 (`notes/applied.ts`) asks whether the turn's actions applied it (`note
 applied`, with the tier its pointer had or `unprompted`). With no judge
-neither runs.
+neither runs. Routing's request also asks whether the message corrects the
+agent, given its last reply (`corrects`), for the correction rate. Both keep
+what Jev said the request cost (`dollars`, split over the notes weighed), and
+ask the judge with `purpose: "notes"`, so the ledger names their spend
+`jev-latest notes`, a row of its own on Billing beside Auto pick's
+`jev-latest`. `note read` keeps the note's `bytes` and the conversation's
+`context` tokens as it was read.
 
 The Stats page's Notes section (`stats/notes.ts`, served per project at
 `/api/stats/notes`) reads those events from the project's journal beside the
 machine's outcomes and adherence: conversations with pointers against the
 holdout, a conversation's arm being what its first `notes attached` said, and
-per note the reads after its pointers, applied rate and unprompted reads.
+per note the reads after its pointers, applied rate and unprompted reads,
+then corrections and turns per merged task (`Outcome.turns`) by arm, the
+judge's spend, and the notes' share of context at about 4 bytes a token. The
+later facts are optional, so events from before them still read.

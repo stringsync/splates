@@ -35,7 +35,7 @@ describe("NoteReads", () => {
 	/** Waits out the lookups `hear` started. */
 	const settled = () => new Promise((done) => setTimeout(done, 50));
 
-	it("writes a note read as its tool call comes, once per call, and none for what came before", async () => {
+	it("writes a note read as its tool call comes, once per call, with its size and the context then, and none for what came before", async () => {
 		const state = conversation({
 			id: "one",
 			task: "fix",
@@ -46,6 +46,7 @@ describe("NoteReads", () => {
 				),
 			],
 		});
+		state.usage.context = { used: 1200, size: 200_000 };
 		reads.follow(state);
 		const reading = tool({
 			id: "t2",
@@ -73,6 +74,8 @@ describe("NoteReads", () => {
 					.digest("hex"),
 				tool: "t2",
 				subagent: false,
+				bytes: "---\ndescription: a\n---\nbody".length,
+				context: 1200,
 			}),
 		]);
 		expect(await uses.counts()).toEqual(new Map([["notes/a.md", 1]]));

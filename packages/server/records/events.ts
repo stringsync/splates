@@ -244,6 +244,10 @@ export interface Facts {
 		tool: string;
 		/** Whether a subagent read it, into its own context rather than the conversation's. */
 		subagent: boolean;
+		/** The note's size in bytes as the agent read it; null when it was gone by then. Absent from older events. */
+		bytes?: number | null;
+		/** The tokens the conversation's context held as the note was read; null when its agent said none. Absent from older events. */
+		context?: number | null;
 	};
 	/**
 	 * What the judge made of each project note for a message the person
@@ -257,6 +261,14 @@ export interface Facts {
 		holdout: boolean;
 		/** How long the judge took, in milliseconds. */
 		ms: number;
+		/**
+		 * The judge's probability that the message corrects the agent: says
+		 * its work or reply was wrong or not what was asked. Absent from
+		 * older events.
+		 */
+		corrects?: number;
+		/** What the judgment cost; null when the judge said no price. Absent from older events. */
+		dollars?: number | null;
 	};
 	/**
 	 * What the judge made, after a turn, of whether the agent applied a note
@@ -314,6 +326,12 @@ export interface NoteApplied {
 	 * `unprompted` when the agent read it with none attached.
 	 */
 	tier: NonNullable<JudgedNote["tier"]> | "unprompted";
+	/**
+	 * This note's share of what the turn's judgment cost, split evenly over
+	 * the notes it weighed; null when the judge said no price. Absent from
+	 * older events.
+	 */
+	dollars?: number | null;
 }
 
 /** What an Auto pick that moved a conversation up moved it off. */
@@ -394,9 +412,9 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
-	"note read": ["path", "hash", "tool", "subagent"],
-	"notes attached": ["notes", "holdout", "ms"],
-	"note applied": ["path", "probability", "tier"],
+	"note read": ["path", "hash", "tool", "subagent", "bytes", "context"],
+	"notes attached": ["notes", "holdout", "ms", "corrects", "dollars"],
+	"note applied": ["path", "probability", "tier", "dollars"],
 	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 
@@ -449,6 +467,13 @@ function asTask(event: Event): Event {
 	} as unknown as Event;
 }
 
+/** The facts of note events that came after their first, which older events lack. */
+const LATER_NOTE_FACTS: Partial<Record<Action, readonly string[]>> = {
+	"note read": ["bytes", "context"],
+	"notes attached": ["corrects", "dollars"],
+	"note applied": ["dollars"],
+};
+
 /**
  * Whether `event` carries every fact its action records now. One that went
  * through before its action recorded them all does not, and nor does one
@@ -470,7 +495,8 @@ export function isCurrent(event: Event): boolean {
 					"capacityWaitMs",
 					"retests",
 				].includes(fact)) ||
-			(event.action === "auto" && fact === "lifted"),
+			(event.action === "auto" && fact === "lifted") ||
+			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,
 	);
 }
 

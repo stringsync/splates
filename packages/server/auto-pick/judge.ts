@@ -48,6 +48,7 @@ export async function projectJudge(
 			project: await slug(),
 			task: who.task ?? null,
 			conversation: who.conversation ?? null,
+			...(who.purpose === undefined ? {} : { purpose: who.purpose }),
 		},
 	});
 }

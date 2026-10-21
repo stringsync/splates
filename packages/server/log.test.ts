@@ -214,6 +214,36 @@ describe("log", () => {
 		]);
 	});
 
+	it("reads a note event from before its later facts were kept", async () => {
+		const old = (action: string, facts: object) =>
+			`${JSON.stringify({
+				id: action,
+				at: "2026-10-21T10:00:00.000Z",
+				action,
+				task: null,
+				reason: null,
+				conversation: "c1",
+				...facts,
+			})}\n`;
+		await deps.fs.append(
+			join(deps.splatesDir, "log.jsonl"),
+			old("note read", {
+				path: "n.md",
+				hash: null,
+				tool: "t",
+				subagent: false,
+			}) +
+				old("notes attached", { notes: [], holdout: false, ms: 5 }) +
+				old("note applied", { path: "n.md", probability: 1, tier: "now" }),
+		);
+
+		expect((await deps.journal.tail(10)).map((event) => event.action)).toEqual([
+			"note read",
+			"notes attached",
+			"note applied",
+		]);
+	});
+
 	it("reads a todo's event from before todos became tasks as its task's", async () => {
 		const old = (action: string, facts: object) =>
 			`${JSON.stringify({

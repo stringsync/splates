@@ -37,6 +37,8 @@ export interface Verdict {
 	answers: Map<string, number>;
 	/** The tokens the reply said it used; unsaid when it said none, as Clef may not. */
 	usage?: { input: number; output: number };
+	/** What the judgment cost, when the judge knows its price, as Jev does. */
+	dollars?: number;
 }
 
 /**

@@ -20,6 +20,8 @@ import { pointersOf, ROUTING, tiers } from "./tiers";
 const MESSAGE_CHARS = 4000;
 const GOAL_CHARS = 2000;
 const BODY_CHARS = 2000;
+/** How much of the end of the agent's last reply the judge reads, to tell a correction. */
+const REPLY_CHARS = 1500;
 
 /** How many of the latest judgments the logged p50 and p95 are over. */
 const SAMPLES = 100;
@@ -63,7 +65,11 @@ export function routing(
 		if (listed.length === 0) {
 			return null;
 		}
-		const asker = await judge({ task: state.task, conversation: state.id });
+		const asker = await judge({
+			task: state.task,
+			conversation: state.id,
+			purpose: "notes",
+		});
 		if (asker === null) {
 			return null;
 		}
@@ -98,6 +104,7 @@ export function routing(
 						state: {
 							message: words.slice(0, MESSAGE_CHARS),
 							goal: goal.slice(0, GOAL_CHARS) || null,
+							reply: replyOf(state).slice(-REPLY_CHARS) || null,
 							notes: Object.fromEntries(
 								notes.map((note, index) => [
 									`n${index}`,
@@ -109,9 +116,12 @@ export function routing(
 								]),
 							),
 						},
-						questions: Object.fromEntries(
-							notes.map((_, index) => [`n${index}`, question(`n${index}`)]),
-						),
+						questions: {
+							...Object.fromEntries(
+								notes.map((_, index) => [`n${index}`, question(`n${index}`)]),
+							),
+							[CORRECTS]: CORRECTION,
+						},
 					},
 					{ signal },
 				),
@@ -140,16 +150,42 @@ export function routing(
 				};
 			}),
 		);
+		const corrects = verdict.answers.get(CORRECTS);
 		await project.journal
 			.in(state.id)
 			.record("notes attached", state.task, async () => {}, {
 				notes: tiered.map(({ description: _, ...note }) => note),
 				holdout,
 				ms,
+				...(corrects === undefined ? {} : { corrects }),
+				dollars: verdict.dollars ?? null,
 			})
 			.catch((error: unknown) => project.log.error(String(error)));
 		return holdout ? null : pointersOf(tiered);
 	};
+}
+
+/** The id of the question whether the message corrects the agent, for the Stats page's correction rate. */
+const CORRECTS = "corrects";
+
+const CORRECTION = {
+	type: "noul" as const,
+	instructions:
+		"Does `message` correct the agent: say that its work or its `reply` was wrong, or not what was asked, and ask it to redo or undo something?",
+	criteria: {
+		true: "The person points out a mistake, a misunderstanding or something the agent should not have done, or repeats an instruction it did not follow.",
+		false:
+			"The message asks for something new, answers a question, approves, or adds detail the agent could not have known.",
+	},
+};
+
+/** What the agent said in its last turn, in its own words; "" before it has said anything. */
+function replyOf(state: ConversationState): string {
+	const last = state.messages.findLast((message) => message.role === "agent");
+	return (last?.parts ?? [])
+		.flatMap((part) => (part.type === "text" ? [part.text] : []))
+		.join("")
+		.trim();
 }
 
 /** The question asked of the note at `notes.<id>`. */

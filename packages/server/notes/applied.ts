@@ -55,7 +55,11 @@ export function weighing(
 		if (read.length === 0) {
 			return;
 		}
-		const asker = await judge({ task: state.task, conversation: state.id });
+		const asker = await judge({
+			task: state.task,
+			conversation: state.id,
+			purpose: "notes",
+		});
 		if (asker === null) {
 			return;
 		}
@@ -124,6 +128,10 @@ export function weighing(
 					path: note.path,
 					probability: verdict.answers.get(`n${index}`) ?? 0,
 					tier: pointed.get(note.path) ?? "unprompted",
+					dollars:
+						verdict.dollars === undefined
+							? null
+							: verdict.dollars / notes.length,
 				})
 				.catch((error: unknown) => project.log.error(String(error)));
 		}

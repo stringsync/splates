@@ -27,7 +27,7 @@ describe("Jev", () => {
 		});
 	});
 
-	it("records each call's input tokens at Jev's price, output free", async () => {
+	it("records each call's input tokens at Jev's price, output free, and says the price", async () => {
 		const spend = new Spend(new MemoryStorage());
 		const server = serve({
 			answers: { lookup: 0.8 },
@@ -39,6 +39,7 @@ describe("Jev", () => {
 			now: () => new Date("2026-10-21T10:00:00.000Z"),
 		}).judge(JUDGMENT);
 		expect(verdict.usage).toEqual({ input: 2_000_000, output: 500 });
+		expect(verdict.dollars).toBeCloseTo(0.084);
 		const [entry, ...rest] = await spend.entries();
 		expect(rest).toEqual([]);
 		expect(entry).toEqual({
@@ -69,11 +70,35 @@ describe("Jev", () => {
 		]);
 	});
 
+	it("names a call made for something beyond Auto pick after its model, for Billing to show apart", async () => {
+		const spend = new Spend(new MemoryStorage());
+		const server = serve({
+			answers: { lookup: 0.8 },
+			usage: { input_tokens: 1000, output_tokens: 5 },
+		});
+		await new Jev("key", {
+			fetch: server.fetch,
+			spend,
+			attribution: {
+				project: "splates",
+				task: null,
+				conversation: "c1",
+				purpose: "notes",
+			},
+		}).judge(JUDGMENT);
+		expect(await spend.entries()).toMatchObject([
+			{ service: "jev-latest notes" },
+		]);
+	});
+
 	it("records nothing for a reply that says no usage", async () => {
 		const spend = new Spend(new MemoryStorage());
 		const server = serve({ answers: { lookup: 0.8 } });
-		await new Jev("key", { fetch: server.fetch, spend }).judge(JUDGMENT);
+		const verdict = await new Jev("key", { fetch: server.fetch, spend }).judge(
+			JUDGMENT,
+		);
 		expect(await spend.entries()).toEqual([]);
+		expect(verdict.dollars).toBeUndefined();
 	});
 
 	it("says what went wrong without the URL", async () => {

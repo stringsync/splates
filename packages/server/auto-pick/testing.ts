@@ -14,10 +14,17 @@ export function serve(body: unknown, status = 200) {
 export class FakeJudge implements Judge {
 	readonly asked: Judgment[] = [];
 
-	constructor(private readonly answers: Record<string, number> = {}) {}
+	constructor(
+		private readonly answers: Record<string, number> = {},
+		/** What it says each judgment cost; it says no price when not given. */
+		private readonly dollars?: number,
+	) {}
 
 	async judge(judgment: Judgment): Promise<Verdict> {
 		this.asked.push(judgment);
-		return { answers: new Map(Object.entries(this.answers)) };
+		return {
+			answers: new Map(Object.entries(this.answers)),
+			...(this.dollars === undefined ? {} : { dollars: this.dollars }),
+		};
 	}
 }

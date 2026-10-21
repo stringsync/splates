@@ -587,7 +587,11 @@ export class WorktreeService {
 				log === null ? {} : await promptsFrom(log, state.createdAt, endedAt),
 			...(worked === null
 				? {}
-				: { usage: worked.usage, workedMs: worked.workedMs }),
+				: {
+						usage: worked.usage,
+						workedMs: worked.workedMs,
+						turns: worked.turns,
+					}),
 			...(workerSpend === null
 				? {}
 				: {

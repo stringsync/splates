@@ -39,6 +39,8 @@ export interface TaskLog {
 	usage: TaskUsage | undefined;
 	/** Each agent turn's span, start to last move, summed. */
 	workedMs: number;
+	/** The agent turns that ran in it, the one it ended in among them. */
+	turns: number;
 	/** When the person stopped the agent's turn, each time. */
 	stopped: string[];
 	/** When a lost connection cut the agent's turn short, each time. */
@@ -268,6 +270,7 @@ function summed(
 	const result: TaskLog = {
 		usage: used(state, before, pricing),
 		workedMs: 0,
+		turns: 0,
 		stopped: [],
 		interrupted: [],
 		failedCommands: {},
@@ -288,6 +291,7 @@ function summed(
 			continue;
 		}
 		if (message.until !== null && message.until > since) {
+			result.turns += 1;
 			result.workedMs += Math.max(
 				0,
 				Date.parse(message.until) -

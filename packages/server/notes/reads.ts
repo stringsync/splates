@@ -110,27 +110,31 @@ export class NoteReads {
 		);
 		for (const note of notes) {
 			const path = relative(root, note.path);
+			const text = await this.text(resolve(cwd ?? root, path), note.path);
 			await journal
 				.in(state.id)
 				.record("note read", state.task, async () => {}, {
 					path,
-					hash: await this.hash(resolve(cwd ?? root, path), note.path),
+					hash:
+						text === null
+							? null
+							: createHash("sha256").update(text).digest("hex"),
 					tool: tool.id,
 					subagent: tool.parent !== null,
+					bytes: text === null ? null : Buffer.byteLength(text),
+					context: state.usage.context?.used ?? null,
 				});
 			await uses.add(state.id, path);
 		}
 		return notes.length > 0;
 	}
 
-	/** The content of the note the agent read, in its own tree when it has the note. */
-	private async hash(read: string, listed: string): Promise<string | null> {
+	/** The content of the note the agent read, in its own tree when it has the note; null when gone. */
+	private async text(read: string, listed: string): Promise<string | null> {
 		const { fs } = this.deps;
 		for (const path of [read, listed]) {
 			if (await fs.exists(path)) {
-				return createHash("sha256")
-					.update(await fs.read(path))
-					.digest("hex");
+				return fs.read(path);
 			}
 		}
 		return null;

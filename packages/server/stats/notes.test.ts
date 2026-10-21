@@ -83,11 +83,61 @@ describe("noteStats", () => {
 		]);
 	});
 
+	it("reads corrections by arm, the judge's spend, the notes' share of context and turns per merged task", () => {
+		const stats = noteStats(
+			[
+				attached("a", false, [], { corrects: 0.9, dollars: 0.002 }),
+				attached("a", false, [], { corrects: 0.1, dollars: 0.002 }),
+				// From before corrections and spend were kept.
+				attached("a", false, []),
+				attached("b", true, [], { corrects: 0.7, dollars: null }),
+				read("a", "notes/x.md", { bytes: 4000, context: 10_000 }),
+				read("a", "notes/y.md", { bytes: 4000, context: 20_000 }),
+				// A subagent's read is in its own context.
+				read("a", "notes/z.md", {
+					bytes: 8000,
+					context: 30_000,
+					subagent: true,
+				}),
+				applied("a", "notes/x.md", 0.9, { dollars: 0.001 }),
+				applied("b", "notes/x.md", 0.9, { dollars: 0.001 }),
+			],
+			[
+				ended({ conversation: "a", turns: 3 }),
+				ended({ conversation: "a", turns: 6 }),
+				// From before turns were kept.
+				ended({ conversation: "a" }),
+			],
+			[],
+			"/repo",
+		);
+
+		expect(stats.pointed).toMatchObject({
+			said: 2,
+			corrected: 1,
+			turned: 2,
+			turns: 9,
+		});
+		expect(stats.holdout).toMatchObject({ said: 1, corrected: 1 });
+		expect(stats.spend).toEqual({
+			routing: 0.004,
+			routed: 2,
+			weighing: 0.002,
+			weighed: 2,
+		});
+		expect(stats.context).toEqual({
+			conversations: 1,
+			tokens: 2000,
+			share: 0.1,
+		});
+	});
+
 	it("shows nothing when the router judged no message", () => {
 		const stats = noteStats([], [], [], "/repo");
 
 		expect(stats.pointed.conversations).toBe(0);
 		expect(stats.p50).toBeNull();
+		expect(stats.context.share).toBeNull();
 		expect(stats.notes).toEqual([]);
 	});
 });
@@ -107,8 +157,10 @@ function attached(
 	conversation: string,
 	holdout: boolean,
 	notes: { path: string; tier: "now" | "optional" }[],
+	more: object = {},
 ): Event {
 	return event(conversation, {
+		...more,
 		action: "notes attached",
 		holdout,
 		ms: 10,
@@ -121,13 +173,14 @@ function attached(
 	});
 }
 
-function read(conversation: string, path: string): Event {
+function read(conversation: string, path: string, more: object = {}): Event {
 	return event(conversation, {
 		action: "note read",
 		path,
 		hash: "h",
 		tool: "t",
 		subagent: false,
+		...more,
 	});
 }
 
@@ -135,12 +188,14 @@ function applied(
 	conversation: string,
 	path: string,
 	probability: number,
+	more: object = {},
 ): Event {
 	return event(conversation, {
 		action: "note applied",
 		path,
 		probability,
 		tier: "now",
+		...more,
 	});
 }
 

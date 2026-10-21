@@ -22,6 +22,12 @@ export interface Attribution {
 	project: string | null;
 	task: string | null;
 	conversation: string | null;
+	/**
+	 * What the judgment was for, beyond Auto pick, which the ledger's service
+	 * names after the model, as `jev-latest notes`, so the Billing page shows
+	 * it apart; none for Auto pick's own.
+	 */
+	purpose?: string;
 }
 
 export interface JevOptions extends EndpointOptions {
@@ -49,21 +55,28 @@ export class Jev implements Judge {
 			{ model: MODEL, ...judgment },
 			{ ...opts, fetch: this.opts.fetch },
 		);
-		if (this.opts.spend !== undefined && verdict.usage !== undefined) {
+		if (verdict.usage === undefined) {
+			return verdict;
+		}
+		const dollars = (verdict.usage.input * JEV_INPUT_PRICE) / 1_000_000;
+		if (this.opts.spend !== undefined) {
 			// A ledger that cannot be written never costs the judgment.
 			await this.opts.spend
 				.record({
 					at: (this.opts.now?.() ?? new Date()).toISOString(),
 					provider: "typesafe",
-					service: MODEL,
+					service:
+						this.opts.attribution?.purpose === undefined
+							? MODEL
+							: `${MODEL} ${this.opts.attribution.purpose}`,
 					kind: "billed",
-					dollars: (verdict.usage.input * JEV_INPUT_PRICE) / 1_000_000,
+					dollars,
 					project: this.opts.attribution?.project ?? null,
 					task: this.opts.attribution?.task ?? null,
 					conversation: this.opts.attribution?.conversation ?? null,
 				})
 				.catch(() => {});
 		}
-		return verdict;
+		return { ...verdict, dollars };
 	}
 }

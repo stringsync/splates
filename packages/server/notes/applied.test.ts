@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { AGENT, FakeAgent, say } from "../agents/testing";
-import type { Judge } from "../auto-pick";
+import type { Attribution, Judge } from "../auto-pick";
 import { FakeJudge } from "../auto-pick/testing";
 import { type ConversationState, Conversations } from "../conversations";
 import { until } from "../conversations/testing";
@@ -18,10 +18,13 @@ describe("weighing", () => {
 		state.messages.push({ ...message("agent", ...parts), at: second(10) });
 	};
 	const weigh = () =>
-		weighing(deps, { judge: async () => judge })(
-			{ state, cwd: deps.root },
-			second(5),
-		);
+		weighing(deps, {
+			judge: async (who) => {
+				asked.push(who);
+				return judge;
+			},
+		})({ state, cwd: deps.root }, second(5));
+	let asked: Partial<Attribution>[] = [];
 	const applied = async () =>
 		(await deps.journal.tail(50)).filter(
 			(each): each is Extract<Event, { action: "note applied" }> =>
@@ -30,7 +33,8 @@ describe("weighing", () => {
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		judge = new FakeJudge({ n0: 0.85, n1: 0.1 });
+		judge = new FakeJudge({ n0: 0.85, n1: 0.1 }, 0.002);
+		asked = [];
 		state = conversation({ id: "one", task: "fix" });
 		await deps.fs.mkdir(`${deps.root}/notes`);
 		await deps.fs.write(
@@ -45,7 +49,7 @@ describe("weighing", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("asks whether each note read in the turn was applied, and records each with the tier its pointer had", async () => {
+	it("asks whether each note read in the turn was applied, and records each with the tier its pointer had and its share of the cost", async () => {
 		await deps.journal
 			.in("one")
 			.record("notes attached", "fix", async () => {}, {
@@ -106,12 +110,17 @@ describe("weighing", () => {
 				path: "notes/bundles.md",
 				probability: 0.85,
 				tier: "now",
+				dollars: 0.001,
 			}),
 			expect.objectContaining({
 				path: "notes/tests.md",
 				probability: 0.1,
 				tier: "unprompted",
+				dollars: 0.001,
 			}),
+		]);
+		expect(asked).toEqual([
+			{ task: "fix", conversation: "one", purpose: "notes" },
 		]);
 	});
 

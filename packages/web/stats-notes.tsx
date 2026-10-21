@@ -47,6 +47,9 @@ export function NoteSection({ notes }: { notes: NoteStats }): JSX.Element {
 					: `; the judge took ${notes.p50}ms at the median, ${notes.p95}ms at p95`}
 				.
 			</p>
+			<p className="text-muted-foreground text-xs">
+				{judgeSpend(notes.spend)} {contextRead(notes.context)}
+			</p>
 			{notes.notes.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No note has been pointed at or read yet.
@@ -90,6 +93,39 @@ export function NoteSection({ notes }: { notes: NoteStats }): JSX.Element {
 	);
 }
 
+/** What the judge cost, routing and weighing apart, with the judgments that said a price. */
+function judgeSpend(spend: NoteStats["spend"]): string {
+	if (spend.routed === 0 && spend.weighed === 0) {
+		return "No judgment of notes has said what it cost yet.";
+	}
+	const routing =
+		spend.routed === 0
+			? ""
+			: `${money(spend.routing)} routing ${spend.routed} message${spend.routed === 1 ? "" : "s"} (${money(spend.routing / spend.routed)} each)`;
+	const weighing =
+		spend.weighed === 0
+			? ""
+			: `${money(spend.weighing)} weighing ${spend.weighed} note${spend.weighed === 1 ? "" : "s"} read`;
+	return `The judge cost ${money(spend.routing + spend.weighing)}: ${[routing, weighing].filter((each) => each !== "").join(", ")}.`;
+}
+
+/** What the notes read took of their conversations' context. */
+function contextRead(context: NoteStats["context"]): string {
+	return context.share === null
+		? "No note read has said its conversation's context yet."
+		: `Notes read took ${percent(context.share)} of the context, about ${Math.round(context.tokens / context.conversations).toLocaleString()} tokens a conversation, over ${context.conversations}.`;
+}
+
+/**
+ * Dollars small enough for a judge: to the cent from a dollar up, else to
+ * two significant figures, since one judgment costs a fraction of a cent.
+ */
+function money(amount: number): string {
+	return amount >= 1 || amount === 0
+		? `$${amount.toFixed(2)}`
+		: `$${Number(amount.toPrecision(2))}`;
+}
+
 /** `part` of `whole`, as a share with the count beside it, so a small sample reads as one. */
 function share(part: number, whole: number): string {
 	return whole === 0 ? NONE : `${percent(part / whole)} of ${whole}`;
@@ -112,6 +148,17 @@ const FIGURES: { head: string; cell: (arm: Arm) => string }[] = [
 			arm.used === 0
 				? NONE
 				: `${Math.round(arm.tokens / arm.used).toLocaleString()} of ${arm.used}`,
+	},
+	{
+		head: "Turns per merged task",
+		cell: (arm) =>
+			arm.turned === 0
+				? NONE
+				: `${(arm.turns / arm.turned).toFixed(1)} of ${arm.turned}`,
+	},
+	{
+		head: "Messages correcting the agent",
+		cell: (arm) => share(arm.corrected, arm.said),
 	},
 	{
 		head: "Removed to redo",

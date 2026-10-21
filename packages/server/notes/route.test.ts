@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
-import { AGENT, FakeAgent } from "../agents/testing";
+import { AGENT, FakeAgent, say as saying } from "../agents/testing";
 import type { Judge } from "../auto-pick";
 import { FakeJudge } from "../auto-pick/testing";
 import { type Conversation, Conversations } from "../conversations";
@@ -103,6 +103,36 @@ describe("routing", () => {
 			}),
 		]);
 		expect(conversation.state.notesHoldout).toBe(false);
+	});
+
+	it("asks whether the message corrects the agent, given its last reply, and records it with what the judgment cost", async () => {
+		judge = new FakeJudge({ n0: 0.1, n1: 0.1, corrects: 0.8 }, 0.002);
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({ sessionId, update: saying("Renamed it.") });
+			return "end_turn";
+		};
+		const conversation = await start();
+		await say(conversation, "Rename the export");
+		await say(conversation, "No, the other one");
+
+		const second = (judge as FakeJudge).asked[1];
+		expect(second?.state).toMatchObject({
+			message: "No, the other one",
+			reply: "Renamed it.",
+		});
+		expect(second?.questions.corrects?.type).toBe("noul");
+		expect((judge as FakeJudge).asked[0]?.state).toMatchObject({
+			reply: null,
+		});
+		expect(
+			(await attached()).map(({ corrects, dollars }) => ({
+				corrects,
+				dollars,
+			})),
+		).toEqual([
+			{ corrects: 0.8, dollars: 0.002 },
+			{ corrects: 0.8, dollars: 0.002 },
+		]);
 	});
 
 	it("attaches nothing to a held-out conversation, but records what it would have", async () => {

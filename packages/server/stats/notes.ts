@@ -37,6 +37,12 @@ export function noteStats(
 	const pointedAt = new Set<string>();
 	let messages = 0;
 	let attached = 0;
+	// Whether the person corrected the agent, by arm: messages judged and those judged corrections.
+	const said = { pointed: 0, holdout: 0 };
+	const corrected = { pointed: 0, holdout: 0 };
+	const spend = { routing: 0, routed: 0, weighing: 0, weighed: 0 };
+	// The note bytes each conversation's own agent read, and its context as it last read one.
+	const reading = new Map<string, { bytes: number; context: number | null }>();
 	for (const event of events) {
 		if (event.reason !== null || event.conversation === null) {
 			continue;
@@ -46,7 +52,18 @@ export function noteStats(
 			if (!arms.has(conversation)) {
 				arms.set(conversation, event.holdout ? "holdout" : "pointed");
 			}
-			if (arms.get(conversation) === "holdout") {
+			const which = arms.get(conversation) ?? "pointed";
+			if (event.corrects !== undefined) {
+				said[which] += 1;
+				if (event.corrects >= CORRECTS) {
+					corrected[which] += 1;
+				}
+			}
+			if (event.dollars !== undefined && event.dollars !== null) {
+				spend.routing += event.dollars;
+				spend.routed += 1;
+			}
+			if (which === "holdout") {
 				continue;
 			}
 			messages += 1;
@@ -77,6 +94,16 @@ export function noteStats(
 			event.action === "note read" &&
 			arms.get(conversation) === "pointed"
 		) {
+			if (
+				!event.subagent &&
+				event.bytes !== undefined &&
+				event.bytes !== null
+			) {
+				const sum = reading.get(conversation) ?? { bytes: 0, context: null };
+				sum.bytes += event.bytes;
+				sum.context = event.context ?? null;
+				reading.set(conversation, sum);
+			}
 			const entry = row(event.path);
 			const open = waiting.get(conversation);
 			const tier = open?.get(event.path);
@@ -91,10 +118,14 @@ export function noteStats(
 				entry.unprompted += 1;
 				pointedAt.add(`${conversation}\n${event.path}`);
 			}
-		} else if (
-			event.action === "note applied" &&
-			arms.get(conversation) === "pointed"
-		) {
+		} else if (event.action === "note applied") {
+			if (event.dollars !== undefined && event.dollars !== null) {
+				spend.weighing += event.dollars;
+				spend.weighed += 1;
+			}
+			if (arms.get(conversation) !== "pointed") {
+				continue;
+			}
 			const entry = row(event.path);
 			entry.judged += 1;
 			if (event.probability >= APPLIED) {
@@ -116,6 +147,7 @@ export function noteStats(
 		const merged = ended.filter((each) => each.ended === "merged");
 		const removed = ended.filter((each) => each.ended === "removed");
 		const used = merged.filter((each) => each.usage !== undefined);
+		const turned = merged.filter((each) => each.turns !== undefined);
 		const checks = judged
 			.filter((each) => own.has(each.conversation))
 			.flatMap((each) => Object.values(each.scores));
@@ -135,6 +167,10 @@ export function noteStats(
 					sum + (each.usage?.input ?? 0) + (each.usage?.output ?? 0),
 				0,
 			),
+			turned: turned.length,
+			turns: turned.reduce((sum, each) => sum + (each.turns ?? 0), 0),
+			said: said[which],
+			corrected: corrected[which],
 			checksPassed: passed,
 			checksApplied:
 				passed + checks.reduce((sum, each) => sum + each.failed, 0),
@@ -154,6 +190,8 @@ export function noteStats(
 		attached,
 		p50: at(0.5),
 		p95: at(0.95),
+		spend,
+		context: contextShare(reading),
 		notes: [...rows.values()].sort(
 			(one, other) =>
 				other.now + other.optional - (one.now + one.optional) ||
@@ -164,6 +202,39 @@ export function noteStats(
 
 /** The probability at which a judged note counts as applied, the router's own bar for worth. */
 export const APPLIED = 0.5;
+
+/** The probability at which a judged message counts as correcting the agent. */
+export const CORRECTS = 0.5;
+
+/** The bytes of English text a token holds, about, to set note bodies against context tokens. */
+const BYTES_PER_TOKEN = 4;
+
+/**
+ * What the notes read took of their conversations' context: the bytes each
+ * conversation's own agent read, as tokens, against the context it held as
+ * it read the last of them, pooled over the conversations whose agent said
+ * its context.
+ */
+function contextShare(
+	reading: Map<string, { bytes: number; context: number | null }>,
+): NoteStats["context"] {
+	let tokens = 0;
+	let held = 0;
+	let conversations = 0;
+	for (const { bytes, context } of reading.values()) {
+		if (context === null || context === 0) {
+			continue;
+		}
+		tokens += bytes / BYTES_PER_TOKEN;
+		held += context;
+		conversations += 1;
+	}
+	return {
+		conversations,
+		tokens: Math.round(tokens),
+		share: held === 0 ? null : Math.min(1, tokens / held),
+	};
+}
 
 /** How tasks went in conversations of one arm, summed. */
 export interface Arm {
@@ -179,6 +250,12 @@ export interface Arm {
 	/** Of `merged`, those whose usage was kept, and their tokens in and out. */
 	used: number;
 	tokens: number;
+	/** Of `merged`, those whose turns were kept, and their agent turns. */
+	turned: number;
+	turns: number;
+	/** Messages the judge weighed as a correction or not, and those it counted corrections. */
+	said: number;
+	corrected: number;
 	/** Skill checks over the arm's conversations, applied places passed and failed. */
 	checksPassed: number;
 	checksApplied: number;
@@ -212,6 +289,19 @@ export interface NoteStats {
 	/** How long the judge took per message, in milliseconds; null before any. */
 	p50: number | null;
 	p95: number | null;
+	/**
+	 * What the judge cost in dollars, both arms', routing messages and
+	 * weighing the notes read in turns, with the messages and notes whose
+	 * judgment said a price.
+	 */
+	spend: { routing: number; routed: number; weighing: number; weighed: number };
+	/**
+	 * What the notes read took of context in conversations with pointers:
+	 * their bodies' tokens, about, and their share of the context held as
+	 * the last was read, over the conversations whose agent said its context;
+	 * null share before any.
+	 */
+	context: { conversations: number; tokens: number; share: number | null };
 	/** Every note that was pointed at or read, the most pointed first. */
 	notes: NoteRow[];
 }

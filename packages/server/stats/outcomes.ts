@@ -283,6 +283,8 @@ export interface Outcome {
 	usage?: TaskUsage;
 	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */
 	workedMs?: number;
+	/** How many agent turns it took, the one it ended in among them. Absent as `usage` is, and from older lines. */
+	turns?: number;
 	/**
 	 * What made workers cost it until it ended, its slots' share of each
 	 * worker's hours. Absent when it held no slot on one, and from older lines.

@@ -269,7 +269,7 @@ describe.concurrent("outcomes", () => {
 	});
 
 	// scry-ignore simple-test-setup: each test opens its own repo with `await using`, as every test here does, since they run concurrently
-	it("reads the task's own usage, working time and findings off its conversation", async () => {
+	it("reads the task's own usage, working time, turns and findings off its conversation", async () => {
 		await using deps = await Testing.open();
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		const worktree = await committed(deps, "one\n");
@@ -306,6 +306,8 @@ describe.concurrent("outcomes", () => {
 			cost: { amount: 1.5, currency: "USD" },
 		});
 		expect(outcome?.workedMs).toBe(40);
+		// The turn before the task began is another's.
+		expect(outcome?.turns).toBe(1);
 		expect(outcome?.findings).toEqual([
 			{ kind: "stopped", at: at(5) },
 			{ kind: "repeated_failure", command: "bun test", times: 3 },
