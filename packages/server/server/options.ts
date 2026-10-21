@@ -136,6 +136,8 @@ export interface DevOptions {
 	 * cannot restart `splates server`.
 	 */
 	exit?: ((code: number) => void) | null;
+	/** How long a restart or shutdown waits on checkpoints and on stopping before going on without them; five minutes for none. */
+	deadlineMs?: number;
 	/** Where the page's machine stats come from; this machine's OS for none. */
 	sensors?: MachineSensors | null;
 	/** Whose test runs and installs the page shows; this machine's for none. */

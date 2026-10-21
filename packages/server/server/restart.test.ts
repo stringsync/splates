@@ -107,6 +107,26 @@ describe("dev restart", () => {
 		expect(said).toEqual([CHECKPOINT, RESUME]);
 	});
 
+	it("shuts down anyway once the deadline passes on an agent that never answers its checkpoint", async () => {
+		await server.disposeAsync();
+		server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: converse,
+			exit: (code) => exits.push(code),
+			deadlineMs: 200,
+		});
+		agent.turn = () => new Promise(() => {});
+		await atWork(agent, await start());
+
+		await json(server.port, "/api/checkpoint", "POST", {
+			projects: ["repo"],
+			after: "shutdown",
+		});
+
+		await eventually(() => exits.length !== 0, 5);
+		expect(exits).toEqual([0]);
+	});
+
 	it("restarts onto the newest splates when the checkpoint asks to update, as `splates update` does", async () => {
 		const response = await json(server.port, "/api/checkpoint", "POST", {
 			projects: ["repo"],

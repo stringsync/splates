@@ -52,7 +52,11 @@ export interface RestartsOptions {
 	open: (root: string) => Promise<Project>;
 	/** Every `splates server` on this machine the page can switch to. */
 	servers: () => Promise<ServerChoice[]>;
+	/** How long a restart or shutdown waits on checkpoints, and again on stopping, before going on without them; the default is five minutes. */
+	deadlineMs?: number;
 }
+
+const DEADLINE_MS = 5 * 60 * 1000;
 
 /**
  * How `splates server` restarts: the checkpoint a restart waits on, the restart
@@ -453,7 +457,13 @@ export class Restarts {
 	): void {
 		const { log, server } = this.home;
 		this.restarting = { resume: reopens, shutdown };
-		void Promise.all(asked).then(async () => {
+		const deadline = this.opts.deadlineMs ?? DEADLINE_MS;
+		void within(deadline, Promise.all(asked)).then(async (answered) => {
+			if (!answered) {
+				log.error(
+					`splates server went on without every checkpoint after ${Math.round(deadline / 1000)}s`,
+				);
+			}
 			if (this.restarting === null || this.disposed) {
 				return;
 			}
@@ -468,7 +478,9 @@ export class Restarts {
 			if (!(await leaving)) {
 				return;
 			}
-			await server.disposeAsync();
+			if (!(await within(deadline, server.disposeAsync()))) {
+				log.error("splates server did not stop in time: exiting anyway");
+			}
 			const { release } = this.versions;
 			this.opts.exit?.(
 				shutdown ? 0 : release === null && !this.updating ? RESTART : UPDATE,
@@ -508,7 +520,10 @@ export class Restarts {
 		);
 		// A shutdown ends the worker too: its agents stop, as ever.
 		if (!shutdown) {
-			await this.home.handOver();
+			const deadline = this.opts.deadlineMs ?? DEADLINE_MS;
+			if (!(await within(deadline, this.home.handOver()))) {
+				log.error("splates server did not hand over in time: going on");
+			}
 		}
 		return !this.disposed;
 	}
@@ -575,4 +590,23 @@ export class Restarts {
 /** What `restart.json` says: the projects to open. */
 function rootsOf(parsed: { roots?: unknown }): string[] {
 	return Array.isArray(parsed.roots) ? parsed.roots.map(String) : [];
+}
+
+/** Settles when `work` does, or after `ms`, saying whether it had by then. */
+async function within(ms: number, work: Promise<unknown>): Promise<boolean> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const late = new Promise<false>((resolve) => {
+		timer = setTimeout(() => resolve(false), ms);
+	});
+	try {
+		return await Promise.race([
+			work.then(
+				() => true,
+				() => true,
+			),
+			late,
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
 }

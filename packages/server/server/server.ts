@@ -93,6 +93,7 @@ export async function dev(
 		slot = null,
 		servers = async () => [],
 		exit = null,
+		deadlineMs,
 		sensors = null,
 		heavy = null,
 		workerSocket = null,
@@ -339,7 +340,7 @@ export async function dev(
 			},
 		},
 		versions,
-		{ exit, open, servers },
+		{ exit, open, servers, deadlineMs },
 	);
 	const {
 		listProjects,
