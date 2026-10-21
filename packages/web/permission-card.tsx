@@ -4,11 +4,11 @@ import type { PermissionProposal } from "@stringsync/splates-server/plans";
 import { queueOrder } from "@stringsync/splates-server/queue/browser";
 import {
 	ClockIcon,
-	InboxIcon,
 	ListPlusIcon,
 	type LucideIcon,
 	PlayIcon,
 	Trash2Icon,
+	TriangleAlertIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -136,7 +136,7 @@ function QueueCard({
 	return (
 		<ActionCard
 			label={`queue ${name}`}
-			Icon={InboxIcon}
+			Icon={TriangleAlertIcon}
 			title={work.queued ? `Queued ${what}` : `Add ${what} to the queue`}
 			body={proposal.body}
 			action={{
@@ -154,9 +154,10 @@ function QueueCard({
 			done={work.queued}
 			gone={work.gone ? "No longer on the board" : null}
 			note={whole ? "Each task joins once nothing blocks it." : undefined}
+			tone="warning"
 		>
 			{todos.length > 0 && (
-				<Panel heading="Your queue">
+				<Panel>
 					{running > 0 && <Line Icon={PlayIcon}>{running} running</Line>}
 					{hidden > 0 && (
 						<Line Icon={ClockIcon}>{hidden} more queued ahead</Line>
@@ -216,24 +217,29 @@ function QueueItem({
 			todo={todo}
 			Icon={ListPlusIcon}
 			status={blocker === undefined ? "joins" : `after #${blocker}`}
-			tone="info"
+			tone="warning"
 		/>
 	);
 }
 
-/** The work a card acts on, inset under its heading. */
+/**
+ * The work a card acts on, its rows running the card's width under its body,
+ * a heading over them when there is one.
+ */
 function Panel({
 	heading,
 	children,
 }: {
-	heading: string;
+	heading?: string;
 	children?: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="mx-4 mb-3.5 overflow-hidden rounded-lg border text-sm [header+&]:mt-3.5 @max-md:mx-3">
-			<div className="bg-muted/40 px-3 py-1.5 font-medium text-muted-foreground text-xs">
-				{heading}
-			</div>
+		<div className="border-t text-sm">
+			{heading !== undefined && (
+				<p className="px-4 pt-2.5 pb-1 text-muted-foreground text-xs @max-md:px-3">
+					{heading}
+				</p>
+			)}
 			<ul>{children}</ul>
 		</div>
 	);
@@ -248,7 +254,7 @@ function Line({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<li className="flex items-center gap-2 border-t px-3 py-1.5 text-muted-foreground text-xs">
+		<li className="flex items-center gap-2 border-t px-4 py-1.5 text-muted-foreground text-xs first:border-t-0 @max-md:px-3">
 			<Icon className="size-3.5" />
 			{children}
 		</li>
@@ -257,13 +263,13 @@ function Line({
 
 const ROW_TONES = {
 	quiet: { row: "text-muted-foreground", icon: "", status: "" },
-	info: {
-		row: "border-dashed border-info/30 bg-info/[0.06]",
-		icon: "text-info",
-		status: "font-medium text-info",
+	warning: {
+		row: "border-warning/30 bg-warning/[0.06]",
+		icon: "text-warning",
+		status: "font-medium text-warning",
 	},
 	destructive: {
-		row: "border-dashed border-destructive/30 bg-destructive/[0.05]",
+		row: "border-destructive/30 bg-destructive/[0.05]",
 		icon: "text-destructive",
 		status: "text-destructive",
 	},
@@ -284,7 +290,12 @@ function Row({
 	const board = useContext(Board);
 	const { row, icon, status: toned } = ROW_TONES[tone];
 	return (
-		<li className={cn("flex items-center gap-2 border-t px-3 py-1.5", row)}>
+		<li
+			className={cn(
+				"flex items-center gap-2 border-t px-4 py-1.5 first:border-t-0 @max-md:px-3",
+				row,
+			)}
+		>
 			<Icon className={cn("size-3.5 shrink-0", icon)} />
 			<span className="text-muted-foreground text-xs tabular-nums">
 				#{todo.id}
